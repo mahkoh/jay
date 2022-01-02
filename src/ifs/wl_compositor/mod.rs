@@ -1,0 +1,111 @@
+mod types;
+
+use crate::globals::{Global, GlobalName};
+use crate::ifs::wl_surface::WlSurface;
+use crate::objects::{Interface, Object, ObjectId};
+use crate::utils::buffd::WlParser;
+use crate::wl_client::WlClientData;
+use std::rc::Rc;
+pub use types::*;
+use crate::ifs::wl_region::WlRegion;
+
+const CREATE_SURFACE: u32 = 0;
+const CREATE_REGION: u32 = 1;
+
+pub struct WlCompositorGlobal {
+    name: GlobalName,
+}
+
+pub struct WlCompositorObj {
+    global: Rc<WlCompositorGlobal>,
+    id: ObjectId,
+    client: Rc<WlClientData>,
+    version: u32,
+}
+
+impl WlCompositorGlobal {
+    pub fn new(name: GlobalName) -> Self {
+        Self { name }
+    }
+
+    async fn bind_(
+        self: Rc<Self>,
+        id: ObjectId,
+        client: &Rc<WlClientData>,
+        version: u32,
+    ) -> Result<(), WlCompositorError> {
+        let obj = Rc::new(WlCompositorObj {
+            global: self,
+            id,
+            client: client.clone(),
+            version,
+        });
+        client.attach_client_object(obj)?;
+        Ok(())
+    }
+}
+
+impl WlCompositorObj {
+    async fn create_surface(&self, parser: WlParser<'_, '_>) -> Result<(), CreateSurfaceError> {
+        let surface: CreateSurface = self.client.parse(self, parser)?;
+        let surface = Rc::new(WlSurface::new(surface.id, &self.client));
+        self.client.attach_client_object(surface)?;
+        Ok(())
+    }
+
+    async fn create_region(&self, parser: WlParser<'_, '_>) -> Result<(), CreateRegionError> {
+        let region: CreateRegion = self.client.parse(self, parser)?;
+        let region = Rc::new(WlRegion::new(region.id, &self.client));
+        self.client.attach_client_object(region)?;
+        Ok(())
+    }
+
+    async fn handle_request_(
+        &self,
+        request: u32,
+        parser: WlParser<'_, '_>,
+    ) -> Result<(), WlCompositorError> {
+        match request {
+            CREATE_SURFACE => self.create_surface(parser).await?,
+            CREATE_REGION => self.create_region(parser).await?,
+            _ => unreachable!(),
+        }
+        Ok(())
+    }
+}
+
+bind!(WlCompositorGlobal);
+
+impl Global for WlCompositorGlobal {
+    fn name(&self) -> GlobalName {
+        self.name
+    }
+
+    fn interface(&self) -> Interface {
+        Interface::WlCompositor
+    }
+
+    fn version(&self) -> u32 {
+        4
+    }
+
+    fn pre_remove(&self) {
+        unreachable!()
+    }
+}
+
+handle_request!(WlCompositorObj);
+
+impl Object for WlCompositorObj {
+    fn id(&self) -> ObjectId {
+        self.id
+    }
+
+    fn interface(&self) -> Interface {
+        Interface::WlCompositor
+    }
+
+    fn num_requests(&self) -> u32 {
+        CREATE_REGION + 1
+    }
+}
