@@ -1,10 +1,13 @@
 mod types;
+pub mod wl_subsurface;
 
 use crate::client::{Client, RequestParser};
+use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
-use crate::utils::buffd::{WlParser, WlParserError};
-use std::cell::Cell;
+use crate::utils::buffd::{MsgParser, MsgParserError};
+use ahash::AHashMap;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 pub use types::*;
 
@@ -26,10 +29,19 @@ const INVALID_SCALE: u32 = 0;
 const INVALID_TRANSFORM: u32 = 1;
 const INVALID_SIZE: u32 = 2;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum SurfaceType {
+    None,
+    Subsurface,
+}
+
 pub struct WlSurface {
     id: ObjectId,
     client: Rc<Client>,
+    ty: Cell<SurfaceType>,
     pending: PendingState,
+    children: RefCell<Option<Box<ParentData>>>,
+    subsurface_data: RefCell<Option<Box<SubsurfaceData>>>,
 }
 
 #[derive(Default)]
@@ -38,45 +50,82 @@ struct PendingState {
     input_region: Cell<Option<Region>>,
 }
 
+struct SubsurfaceData {
+    subsurface: Rc<WlSubsurface>,
+    parent: Rc<WlSurface>,
+    sync_requested: bool,
+    sync_ancestor: bool,
+    pending: bool,
+}
+
+#[derive(Default)]
+struct ParentData {
+    subsurfaces: AHashMap<ObjectId, Rc<WlSurface>>,
+    pending_subsurfaces: AHashMap<ObjectId, Rc<WlSurface>>,
+}
+
 impl WlSurface {
     pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
+            ty: Cell::new(SurfaceType::None),
             pending: Default::default(),
+            children: Default::default(),
+            subsurface_data: Default::default(),
+        }
+    }
+
+    pub fn break_loops(&self) {
+        *self.children.borrow_mut() = None;
+        *self.subsurface_data.borrow_mut() = None;
+    }
+
+    pub fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
+        let mut root = self.clone();
+        loop {
+            let tmp = root;
+            let data = tmp.subsurface_data.borrow();
+            match data.as_ref() {
+                Some(d) => root = d.parent.clone(),
+                None => {
+                    drop(data);
+                    return tmp;
+                }
+            }
         }
     }
 
     fn parse<'a, T: RequestParser<'a>>(
         &self,
-        parser: WlParser<'_, 'a>,
-    ) -> Result<T, WlParserError> {
+        parser: MsgParser<'_, 'a>,
+    ) -> Result<T, MsgParserError> {
         self.client.parse(self, parser)
     }
 
-    async fn destroy(&self, parser: WlParser<'_, '_>) -> Result<(), DestroyError> {
+    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let destroy: Destroy = self.parse(parser)?;
         Ok(())
     }
 
-    async fn attach(&self, parser: WlParser<'_, '_>) -> Result<(), AttachError> {
+    async fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
         let attach: Attach = self.parse(parser)?;
         Ok(())
     }
 
-    async fn damage(&self, parser: WlParser<'_, '_>) -> Result<(), DamageError> {
+    async fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
         let damage: Damage = self.parse(parser)?;
         Ok(())
     }
 
-    async fn frame(&self, parser: WlParser<'_, '_>) -> Result<(), FrameError> {
+    async fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
         let frame: Frame = self.parse(parser)?;
         Ok(())
     }
 
     async fn set_opaque_region(
         &self,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), SetOpaqueRegionError> {
         let region: SetOpaqueRegion = self.parse(parser)?;
         let region = self.client.get_region(region.region)?;
@@ -84,32 +133,32 @@ impl WlSurface {
         Ok(())
     }
 
-    async fn set_input_region(&self, parser: WlParser<'_, '_>) -> Result<(), SetInputRegionError> {
+    async fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
         let region: SetInputRegion = self.parse(parser)?;
         let region = self.client.get_region(region.region)?;
         self.pending.input_region.set(Some(region.region()));
         Ok(())
     }
 
-    async fn commit(&self, parser: WlParser<'_, '_>) -> Result<(), CommitError> {
+    async fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
         let commit: Commit = self.parse(parser)?;
         Ok(())
     }
 
     async fn set_buffer_transform(
         &self,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), SetBufferTransformError> {
         let transform: SetBufferTransform = self.parse(parser)?;
         Ok(())
     }
 
-    async fn set_buffer_scale(&self, parser: WlParser<'_, '_>) -> Result<(), SetBufferScaleError> {
+    async fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), SetBufferScaleError> {
         let scale: SetBufferScale = self.parse(parser)?;
         Ok(())
     }
 
-    async fn damage_buffer(&self, parser: WlParser<'_, '_>) -> Result<(), DamageBufferError> {
+    async fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
         let damage: DamageBuffer = self.parse(parser)?;
         Ok(())
     }
@@ -117,7 +166,7 @@ impl WlSurface {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), WlSurfaceError> {
         match request {
             DESTROY => self.destroy(parser).await?,

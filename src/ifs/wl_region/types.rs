@@ -1,5 +1,5 @@
 use crate::client::{ClientError, RequestParser};
-use crate::utils::buffd::{WlParser, WlParserError};
+use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
@@ -16,34 +16,34 @@ pub enum WlRegionError {
 #[derive(Debug, Error)]
 pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ParseFailed, WlParserError);
+efrom!(DestroyError, ParseFailed, MsgParserError);
 efrom!(DestroyError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AddError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error("width and/or height are negative")]
     NegativeExtents,
 }
-efrom!(AddError, ParseFailed, WlParserError);
+efrom!(AddError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum SubtractError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error("width and/or height are negative")]
     NegativeExtents,
 }
-efrom!(SubtractError, ParseFailed, WlParserError);
+efrom!(SubtractError, ParseFailed, MsgParserError);
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {
-    fn parse(_parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)
     }
 }
@@ -60,7 +60,7 @@ pub(super) struct Add {
     pub height: i32,
 }
 impl RequestParser<'_> for Add {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             x: parser.int()?,
             y: parser.int()?,
@@ -86,7 +86,7 @@ pub(super) struct Subtract {
     pub height: i32,
 }
 impl RequestParser<'_> for Subtract {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             x: parser.int()?,
             y: parser.int()?,

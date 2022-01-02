@@ -1,6 +1,6 @@
 use crate::client::{Client, ClientError, WlEvent};
 use crate::object::ObjectId;
-use crate::utils::buffd::{BufFdIn, BufFdOut, WlFormatter, WlParser};
+use crate::utils::buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser};
 use crate::utils::oneshot::OneshotRx;
 use crate::utils::vec_ext::VecExt;
 use anyhow::anyhow;
@@ -69,7 +69,7 @@ async fn receive(data: Rc<Client>) {
                 data_buf.set_len(len);
             }
             // log::trace!("{:x?}", data_buf);
-            let parser = WlParser::new(&mut buf, &data_buf[..]);
+            let parser = MsgParser::new(&mut buf, &data_buf[..]);
             if let Err(e) = obj.handle_request(request, parser).await {
                 return Err(ClientError::RequestError(Box::new(e)));
             }
@@ -112,16 +112,9 @@ async fn send(data: Rc<Client>) {
                     }
                     WlEvent::Event(e) => {
                         if log::log_enabled!(log::Level::Trace) {
-                            let obj = e.obj();
-                            log::trace!(
-                                "Client {} <= {}@{}.{:?}",
-                                data.id,
-                                obj.interface().name(),
-                                obj.id(),
-                                e
-                            );
+                            data.log_event(&*e);
                         }
-                        e.format(&mut WlFormatter::new(&mut buf));
+                        e.format(&mut MsgFormatter::new(&mut buf));
                         if buf.needs_flush() {
                             buf.flush().await?;
                             flush_requested = false;

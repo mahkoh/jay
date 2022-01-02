@@ -4,13 +4,13 @@ use std::mem;
 use std::mem::MaybeUninit;
 use uapi::OwnedFd;
 
-pub struct WlFormatter<'a> {
+pub struct MsgFormatter<'a> {
     buf: &'a mut BufFdOut,
     pos: usize,
     fds: Vec<OwnedFd>,
 }
 
-impl<'a> WlFormatter<'a> {
+impl<'a> MsgFormatter<'a> {
     pub fn new(buf: &'a mut BufFdOut) -> Self {
         Self {
             pos: buf.out_pos,
@@ -59,7 +59,7 @@ impl<'a> WlFormatter<'a> {
     }
 }
 
-impl<'a> Drop for WlFormatter<'a> {
+impl<'a> Drop for MsgFormatter<'a> {
     fn drop(&mut self) {
         assert!(self.buf.out_pos - self.pos >= 8);
         assert_eq!(self.pos % 4, 0);

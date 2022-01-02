@@ -4,7 +4,7 @@ use crate::client::{AddObj, Client};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::WlShmPool;
 use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
 
@@ -52,7 +52,7 @@ impl WlShmGlobal {
 }
 
 impl WlShmObj {
-    async fn create_pool(&self, parser: WlParser<'_, '_>) -> Result<(), CreatePoolError> {
+    async fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), CreatePoolError> {
         let create: CreatePool = self.client.parse(self, parser)?;
         if create.size < 0 {
             return Err(CreatePoolError::NegativeSize);
@@ -70,7 +70,7 @@ impl WlShmObj {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), WlShmError> {
         match request {
             CREATE_POOL => self.create_pool(parser).await?,

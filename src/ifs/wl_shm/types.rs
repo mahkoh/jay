@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_shm::{Format, WlShmObj, FORMAT};
 use crate::ifs::wl_shm_pool::WlShmPoolError;
 use crate::object::{Object, ObjectId};
-use crate::utils::buffd::{WlFormatter, WlParser, WlParserError};
+use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -20,7 +20,7 @@ efrom!(WlShmError, ClientError, ClientError);
 #[derive(Debug, Error)]
 pub enum CreatePoolError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<WlParserError>),
+    ParseError(#[source] Box<MsgParserError>),
     #[error("The passed size is negative")]
     NegativeSize,
     #[error(transparent)]
@@ -28,7 +28,7 @@ pub enum CreatePoolError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(CreatePoolError, ParseError, WlParserError);
+efrom!(CreatePoolError, ParseError, MsgParserError);
 efrom!(CreatePoolError, WlShmPoolError, WlShmPoolError);
 efrom!(CreatePoolError, ClientError, ClientError);
 
@@ -38,7 +38,7 @@ pub(super) struct CreatePool {
     pub size: i32,
 }
 impl RequestParser<'_> for CreatePool {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             id: parser.object()?,
             fd: parser.fd()?,
@@ -63,7 +63,7 @@ pub(super) struct FormatE {
     pub format: Format,
 }
 impl EventFormatter for FormatE {
-    fn format(self: Box<Self>, fmt: &mut WlFormatter<'_>) {
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
         fmt.header(self.obj.id, FORMAT).uint(self.format.uint());
     }
     fn obj(&self) -> &dyn Object {

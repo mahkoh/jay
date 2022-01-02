@@ -2,7 +2,7 @@ use crate::client::{EventFormatter, RequestParser};
 use crate::globals::{Global, GlobalError, GlobalName};
 use crate::ifs::wl_registry::{WlRegistry, GLOBAL, GLOBAL_REMOVE};
 use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::{WlFormatter, WlParser, WlParserError};
+use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -18,7 +18,7 @@ efrom!(WlRegistryError, BindError, BindError);
 #[derive(Debug, Error)]
 pub enum BindError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<WlParserError>),
+    ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     GlobalError(Box<GlobalError>),
     #[error("Tried to bind to global {} of type {} using interface {}", .0.name, .0.interface.name(), .0.actual)]
@@ -42,7 +42,7 @@ pub struct VersionError {
     pub actual: u32,
 }
 
-efrom!(BindError, ParseError, WlParserError);
+efrom!(BindError, ParseError, MsgParserError);
 efrom!(BindError, GlobalError, GlobalError);
 
 pub(super) struct GlobalE {
@@ -50,7 +50,7 @@ pub(super) struct GlobalE {
     pub global: Rc<dyn Global>,
 }
 impl EventFormatter for GlobalE {
-    fn format(self: Box<Self>, fmt: &mut WlFormatter<'_>) {
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
         fmt.header(self.obj.id, GLOBAL)
             .uint(self.global.name().raw())
             .string(self.global.interface().name())
@@ -77,7 +77,7 @@ pub(super) struct GlobalRemove {
     pub name: GlobalName,
 }
 impl EventFormatter for GlobalRemove {
-    fn format(self: Box<Self>, fmt: &mut WlFormatter<'_>) {
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
         fmt.header(self.obj.id, GLOBAL_REMOVE).uint(self.name.raw());
     }
     fn obj(&self) -> &dyn Object {
@@ -97,7 +97,7 @@ pub(super) struct Bind<'a> {
     pub version: u32,
 }
 impl<'a> RequestParser<'a> for Bind<'a> {
-    fn parse(parser: &mut WlParser<'_, 'a>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
             name: parser.global()?,
             interface: parser.string()?,

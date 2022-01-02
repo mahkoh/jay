@@ -3,7 +3,7 @@ mod types;
 use crate::client::{AddObj, Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
 
@@ -42,7 +42,7 @@ impl XdgWmBaseObj {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), ClientError> {
         unreachable!();
     }

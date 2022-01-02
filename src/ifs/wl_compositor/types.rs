@@ -1,6 +1,6 @@
 use crate::client::{ClientError, RequestParser};
 use crate::object::ObjectId;
-use crate::utils::buffd::{WlParser, WlParserError};
+use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
@@ -21,30 +21,30 @@ efrom!(WlCompositorError, CreateRegionError, CreateRegionError);
 #[derive(Debug, Error)]
 pub enum CreateSurfaceError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 
-efrom!(CreateSurfaceError, ParseFailed, WlParserError);
+efrom!(CreateSurfaceError, ParseFailed, MsgParserError);
 efrom!(CreateSurfaceError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreateRegionError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 
-efrom!(CreateRegionError, ParseFailed, WlParserError);
+efrom!(CreateRegionError, ParseFailed, MsgParserError);
 efrom!(CreateRegionError, ClientError, ClientError);
 
 pub(super) struct CreateSurface {
     pub id: ObjectId,
 }
 impl RequestParser<'_> for CreateSurface {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             id: parser.object()?,
         })
@@ -60,7 +60,7 @@ pub(super) struct CreateRegion {
     pub id: ObjectId,
 }
 impl RequestParser<'_> for CreateRegion {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             id: parser.object()?,
         })

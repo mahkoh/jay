@@ -7,21 +7,22 @@ use crate::ifs::wl_region::{WlRegion, WlRegionError};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryError};
 use crate::ifs::wl_shm::{WlShmError, WlShmObj};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
-use crate::ifs::wl_subcompositor::WlSubcompositorObj;
+use crate::ifs::wl_subcompositor::{WlSubcompositorError, WlSubcompositorObj};
+use crate::ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceError};
 use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
-use crate::utils::buffd::{BufFdError, WlFormatter, WlParser, WlParserError};
-use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::buffd::{BufFdError, MsgFormatter, MsgParser, MsgParserError};
 use crate::utils::numcell::NumCell;
 use crate::utils::oneshot::{oneshot, OneshotTx};
 use crate::utils::queue::AsyncQueue;
 use ahash::AHashMap;
 use anyhow::anyhow;
-use std::cell::{Cell, RefMut};
+use std::cell::{Cell, RefCell, RefMut};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
+use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
@@ -51,8 +52,10 @@ pub enum ClientError {
     ClientDoesNotExist(ClientId),
     #[error("There is no region with id {0}")]
     RegionDoesNotExist(ObjectId),
+    #[error("There is no surface with id {0}")]
+    SurfaceDoesNotExist(ObjectId),
     #[error("Cannot parse the message")]
-    ParserError(#[source] Box<WlParserError>),
+    ParserError(#[source] Box<MsgParserError>),
     #[error("Server tried to allocate more than 0x1_00_00_00 ids")]
     TooManyIds,
     #[error("The server object id is out of bounds")]
@@ -79,11 +82,15 @@ pub enum ClientError {
     WlShmPoolError(#[source] Box<WlShmPoolError>),
     #[error("An error occurred in a `wl_region`")]
     WlRegionError(#[source] Box<WlRegionError>),
+    #[error("An error occurred in a `wl_subsurface`")]
+    WlSubsurfaceError(#[source] Box<WlSubsurfaceError>),
+    #[error("An error occurred in a `wl_subcompositor`")]
+    WlSubcompositorError(#[source] Box<WlSubcompositorError>),
     #[error("Object {0} is not a display")]
     NotADisplay(ObjectId),
 }
 
-efrom!(ClientError, ParserError, WlParserError);
+efrom!(ClientError, ParserError, MsgParserError);
 efrom!(ClientError, WlDisplayError, WlDisplayError);
 efrom!(ClientError, WlRegistryError, WlRegistryError);
 efrom!(ClientError, WlSurfaceError, WlSurfaceError);
@@ -91,6 +98,8 @@ efrom!(ClientError, WlCompositorError, WlCompositorError);
 efrom!(ClientError, WlShmError, WlShmError);
 efrom!(ClientError, WlShmPoolError, WlShmPoolError);
 efrom!(ClientError, WlRegionError, WlRegionError);
+efrom!(ClientError, WlSubsurfaceError, WlSubsurfaceError);
+efrom!(ClientError, WlSubcompositorError, WlSubcompositorError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -112,16 +121,16 @@ impl Display for ClientId {
 
 pub struct Clients {
     next_client_id: NumCell<u64>,
-    clients: CopyHashMap<ClientId, Rc<ClientHolder>>,
-    shutdown_clients: CopyHashMap<ClientId, Rc<ClientHolder>>,
+    clients: RefCell<AHashMap<ClientId, ClientHolder>>,
+    shutdown_clients: RefCell<AHashMap<ClientId, ClientHolder>>,
 }
 
 impl Clients {
     pub fn new() -> Self {
         Self {
             next_client_id: NumCell::new(1),
-            clients: CopyHashMap::new(),
-            shutdown_clients: CopyHashMap::new(),
+            clients: Default::default(),
+            shutdown_clients: Default::default(),
         }
     }
 
@@ -130,7 +139,8 @@ impl Clients {
     }
 
     pub fn get(&self, id: ClientId) -> Result<Rc<Client>, ClientError> {
-        match self.clients.get(&id) {
+        let clients = self.clients.borrow();
+        match clients.get(&id) {
             Some(c) => Ok(c.data.clone()),
             _ => Err(ClientError::ClientDoesNotExist(id)),
         }
@@ -155,29 +165,29 @@ impl Clients {
         data.objects
             .add_client_object(Rc::new(WlDisplay::new(&data)))
             .expect("");
-        let client = Rc::new(ClientHolder {
+        let client = ClientHolder {
             _handler: global.eng.spawn(tasks::client(data.clone(), recv)),
             data,
-        });
-        self.clients.set(client.data.id, client.clone());
+        };
+        self.clients.borrow_mut().insert(client.data.id, client);
         log::info!("Client {} connected", id);
         Ok(())
     }
 
     pub fn kill(&self, client: ClientId) {
         log::info!("Removing client {}", client.0);
-        if self.clients.remove(&client).is_none() {
-            self.shutdown_clients.remove(&client);
+        if self.clients.borrow_mut().remove(&client).is_none() {
+            self.shutdown_clients.borrow_mut().remove(&client);
         }
     }
 
     pub fn shutdown(&self, client_id: ClientId) {
-        if let Some(client) = self.clients.remove(&client_id) {
+        if let Some(client) = self.clients.borrow_mut().remove(&client_id) {
             log::info!("Shutting down client {}", client.data.id.0);
             client.data.shutdown.replace(None).unwrap().send(());
             client.data.events.push(WlEvent::Shutdown);
             client.data.shutdown_sent.set(true);
-            self.shutdown_clients.set(client_id, client);
+            self.shutdown_clients.borrow_mut().insert(client_id, client);
         }
     }
 
@@ -185,10 +195,17 @@ impl Clients {
     where
         B: FnMut(&Rc<Client>),
     {
-        let clients = self.clients.lock();
+        let clients = self.clients.borrow();
         for client in clients.values() {
             f(&client.data);
         }
+    }
+}
+
+impl Drop for Clients {
+    fn drop(&mut self) {
+        let _clients1 = mem::take(&mut *self.clients.borrow_mut());
+        let _clients2 = mem::take(&mut *self.shutdown_clients.borrow_mut());
     }
 }
 
@@ -204,14 +221,14 @@ impl Drop for ClientHolder {
 }
 
 pub trait EventFormatter: Debug {
-    fn format(self: Box<Self>, fmt: &mut WlFormatter<'_>);
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>);
     fn obj(&self) -> &dyn Object;
 }
 
 pub type DynEventFormatter = Box<dyn EventFormatter>;
 
 pub trait RequestParser<'a>: Debug + Sized {
-    fn parse(parser: &mut WlParser<'_, 'a>) -> Result<Self, WlParserError>;
+    fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
 }
 
 enum WlEvent {
@@ -261,8 +278,8 @@ impl Client {
     pub fn parse<'a, R: RequestParser<'a>>(
         &self,
         obj: &impl Object,
-        mut parser: WlParser<'_, 'a>,
-    ) -> Result<R, WlParserError> {
+        mut parser: MsgParser<'_, 'a>,
+    ) -> Result<R, MsgParserError> {
         let res = R::parse(&mut parser)?;
         parser.eof()?;
         log::trace!(
@@ -313,6 +330,13 @@ impl Client {
         }
     }
 
+    pub fn get_surface(&self, id: ObjectId) -> Result<Rc<WlSurface>, ClientError> {
+        match self.objects.surfaces.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::SurfaceDoesNotExist(id)),
+        }
+    }
+
     fn simple_add_obj<T: Object>(&self, obj: &Rc<T>, client: bool) -> Result<(), ClientError> {
         if client {
             self.objects.add_client_object(obj.clone())
@@ -331,6 +355,17 @@ impl Client {
 
     pub fn lock_registries(&self) -> RefMut<AHashMap<ObjectId, Rc<WlRegistry>>> {
         self.objects.registries()
+    }
+
+    pub fn log_event(&self, event: &dyn EventFormatter) {
+        let obj = event.obj();
+        log::trace!(
+            "Client {} <= {}@{}.{:?}",
+            self.id,
+            obj.interface().name(),
+            obj.id(),
+            event,
+        );
     }
 }
 
@@ -371,6 +406,7 @@ simple_add_obj!(WlRegistry);
 simple_add_obj!(WlShmObj);
 simple_add_obj!(WlShmPool);
 simple_add_obj!(WlSubcompositorObj);
+simple_add_obj!(WlSubsurface);
 simple_add_obj!(XdgWmBaseObj);
 
 macro_rules! dedicated_add_obj {

@@ -3,7 +3,7 @@ mod types;
 use crate::client::{AddObj, Client};
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
@@ -31,13 +31,13 @@ impl WlRegion {
         self.rect.borrow().clone()
     }
 
-    async fn destroy(&self, parser: WlParser<'_, '_>) -> Result<(), DestroyError> {
+    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _destroy: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self).await?;
         Ok(())
     }
 
-    async fn add(&self, parser: WlParser<'_, '_>) -> Result<(), AddError> {
+    async fn add(&self, parser: MsgParser<'_, '_>) -> Result<(), AddError> {
         let add: Add = self.client.parse(self, parser)?;
         if add.width < 0 || add.height < 0 {
             return Err(AddError::NegativeExtents);
@@ -47,7 +47,7 @@ impl WlRegion {
         Ok(())
     }
 
-    async fn subtract(&self, parser: WlParser<'_, '_>) -> Result<(), SubtractError> {
+    async fn subtract(&self, parser: MsgParser<'_, '_>) -> Result<(), SubtractError> {
         let subtract: Subtract = self.client.parse(self, parser)?;
         if subtract.width < 0 || subtract.height < 0 {
             return Err(SubtractError::NegativeExtents);
@@ -65,7 +65,7 @@ impl WlRegion {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), WlRegionError> {
         match request {
             DESTROY => self.destroy(parser).await?,

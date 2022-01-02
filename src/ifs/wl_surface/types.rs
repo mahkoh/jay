@@ -1,6 +1,6 @@
 use crate::client::{ClientError, RequestParser};
 use crate::object::ObjectId;
-use crate::utils::buffd::{WlParser, WlParserError};
+use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
@@ -45,82 +45,82 @@ efrom!(WlSurfaceError, DamageBufferError, DamageBufferError);
 #[derive(Debug, Error)]
 pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(DestroyError, ParseFailed, WlParserError);
+efrom!(DestroyError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum AttachError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(AttachError, ParseFailed, WlParserError);
+efrom!(AttachError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum DamageError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(DamageError, ParseFailed, WlParserError);
+efrom!(DamageError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum FrameError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(FrameError, ParseFailed, WlParserError);
+efrom!(FrameError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum SetOpaqueRegionError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(SetOpaqueRegionError, ParseFailed, WlParserError);
+efrom!(SetOpaqueRegionError, ParseFailed, MsgParserError);
 efrom!(SetOpaqueRegionError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetInputRegionError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(SetInputRegionError, ParseFailed, WlParserError);
+efrom!(SetInputRegionError, ParseFailed, MsgParserError);
 efrom!(SetInputRegionError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CommitError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(CommitError, ParseFailed, WlParserError);
+efrom!(CommitError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum SetBufferTransformError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(SetBufferTransformError, ParseFailed, WlParserError);
+efrom!(SetBufferTransformError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum SetBufferScaleError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(SetBufferScaleError, ParseFailed, WlParserError);
+efrom!(SetBufferScaleError, ParseFailed, MsgParserError);
 
 #[derive(Debug, Error)]
 pub enum DamageBufferError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
 }
-efrom!(DamageBufferError, ParseFailed, WlParserError);
+efrom!(DamageBufferError, ParseFailed, MsgParserError);
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {
-    fn parse(_parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)
     }
 }
@@ -136,7 +136,7 @@ pub(super) struct Attach {
     pub y: i32,
 }
 impl RequestParser<'_> for Attach {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             buffer: parser.object()?,
             x: parser.int()?,
@@ -161,7 +161,7 @@ pub(super) struct Damage {
     pub height: i32,
 }
 impl RequestParser<'_> for Damage {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             x: parser.int()?,
             y: parser.int()?,
@@ -184,7 +184,7 @@ pub(super) struct Frame {
     pub callback: ObjectId,
 }
 impl RequestParser<'_> for Frame {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             callback: parser.object()?,
         })
@@ -200,7 +200,7 @@ pub(super) struct SetOpaqueRegion {
     pub region: ObjectId,
 }
 impl RequestParser<'_> for SetOpaqueRegion {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             region: parser.object()?,
         })
@@ -216,7 +216,7 @@ pub(super) struct SetInputRegion {
     pub region: ObjectId,
 }
 impl RequestParser<'_> for SetInputRegion {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             region: parser.object()?,
         })
@@ -230,7 +230,7 @@ impl Debug for SetInputRegion {
 
 pub(super) struct Commit;
 impl RequestParser<'_> for Commit {
-    fn parse(_parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)
     }
 }
@@ -244,7 +244,7 @@ pub(super) struct SetBufferTransform {
     pub transform: i32,
 }
 impl RequestParser<'_> for SetBufferTransform {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             transform: parser.int()?,
         })
@@ -260,7 +260,7 @@ pub(super) struct SetBufferScale {
     pub scale: i32,
 }
 impl RequestParser<'_> for SetBufferScale {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             scale: parser.int()?,
         })
@@ -279,7 +279,7 @@ pub(super) struct DamageBuffer {
     pub height: i32,
 }
 impl RequestParser<'_> for DamageBuffer {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             x: parser.int()?,
             y: parser.int()?,

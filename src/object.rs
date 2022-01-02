@@ -1,6 +1,6 @@
 use crate::client::ClientError;
 use crate::ifs::wl_display::WlDisplay;
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
@@ -29,9 +29,9 @@ impl Display for ObjectId {
 
 pub trait ObjectHandleRequest {
     fn handle_request<'a>(
-        &'a self,
+        self: Rc<Self>,
         request: u32,
-        parser: WlParser<'a, 'a>,
+        parser: MsgParser<'a, 'a>,
     ) -> Pin<Box<dyn Future<Output = Result<(), ClientError>> + 'a>>;
 }
 
@@ -55,6 +55,7 @@ pub enum Interface {
     WlSubcompositor,
     XdgWmBase,
     WlSurface,
+    WlSubsurface,
     WlRegion,
 }
 
@@ -69,6 +70,7 @@ impl Interface {
             Interface::WlSubcompositor => "wl_subcompositor",
             Interface::XdgWmBase => "xdg_wm_base",
             Interface::WlSurface => "wl_surface",
+            Interface::WlSubsurface => "wl_subsurface",
             Interface::WlShmPool => "wl_shm_pool",
             Interface::WlRegion => "wl_region",
         }

@@ -5,7 +5,7 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Debug, Error)]
-pub enum WlParserError {
+pub enum MsgParserError {
     #[error("The message ended unexpectedly")]
     UnexpectedEof,
     #[error("The message contained a non-utf8 string")]
@@ -18,13 +18,13 @@ pub enum WlParserError {
     TrailingData,
 }
 
-pub struct WlParser<'a, 'b> {
+pub struct MsgParser<'a, 'b> {
     buf: &'a mut BufFdIn,
     pos: usize,
     data: &'b [u8],
 }
 
-impl<'a, 'b> WlParser<'a, 'b> {
+impl<'a, 'b> MsgParser<'a, 'b> {
     pub fn new(buf: &'a mut BufFdIn, data: &'b [u32]) -> Self {
         Self {
             buf,
@@ -33,61 +33,61 @@ impl<'a, 'b> WlParser<'a, 'b> {
         }
     }
 
-    pub fn int(&mut self) -> Result<i32, WlParserError> {
+    pub fn int(&mut self) -> Result<i32, MsgParserError> {
         if self.data.len() - self.pos < 4 {
-            return Err(WlParserError::UnexpectedEof);
+            return Err(MsgParserError::UnexpectedEof);
         }
         let res = unsafe { *(self.data.as_ptr().add(self.pos) as *const i32) };
         self.pos += 4;
         Ok(res)
     }
 
-    pub fn uint(&mut self) -> Result<u32, WlParserError> {
+    pub fn uint(&mut self) -> Result<u32, MsgParserError> {
         self.int().map(|i| i as u32)
     }
 
-    pub fn object(&mut self) -> Result<ObjectId, WlParserError> {
+    pub fn object(&mut self) -> Result<ObjectId, MsgParserError> {
         self.int().map(|i| ObjectId::from_raw(i as u32))
     }
 
-    pub fn global(&mut self) -> Result<GlobalName, WlParserError> {
+    pub fn global(&mut self) -> Result<GlobalName, MsgParserError> {
         self.int().map(|i| GlobalName::from_raw(i as u32))
     }
 
-    pub fn fixed(&mut self) -> Result<f64, WlParserError> {
+    pub fn fixed(&mut self) -> Result<f64, MsgParserError> {
         self.int().map(|i| i as f64 / 256.0)
     }
 
-    pub fn string(&mut self) -> Result<&'b str, WlParserError> {
+    pub fn string(&mut self) -> Result<&'b str, MsgParserError> {
         let len = self.uint()? as usize;
         if len == 0 {
-            return Err(WlParserError::EmptyString);
+            return Err(MsgParserError::EmptyString);
         }
         let cap = (len + 3) & !3;
         if cap > self.data.len() - self.pos {
-            return Err(WlParserError::UnexpectedEof);
+            return Err(MsgParserError::UnexpectedEof);
         }
         let s = &self.data[self.pos..self.pos + len - 1];
         let s = match std::str::from_utf8(s) {
             Ok(s) => s,
-            _ => return Err(WlParserError::NonUtf8),
+            _ => return Err(MsgParserError::NonUtf8),
         };
         self.pos += cap;
         Ok(s)
     }
 
-    pub fn fd(&mut self) -> Result<OwnedFd, WlParserError> {
+    pub fn fd(&mut self) -> Result<OwnedFd, MsgParserError> {
         match self.buf.get_fd() {
             Ok(fd) => Ok(fd),
-            _ => Err(WlParserError::MissingFd),
+            _ => Err(MsgParserError::MissingFd),
         }
     }
 
-    pub fn eof(&self) -> Result<(), WlParserError> {
+    pub fn eof(&self) -> Result<(), MsgParserError> {
         if self.pos == self.data.len() {
             Ok(())
         } else {
-            Err(WlParserError::TrailingData)
+            Err(MsgParserError::TrailingData)
         }
     }
 }

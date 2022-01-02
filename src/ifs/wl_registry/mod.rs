@@ -3,7 +3,7 @@ mod types;
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
 
@@ -39,7 +39,7 @@ impl WlRegistry {
         })
     }
 
-    async fn bind(&self, parser: WlParser<'_, '_>) -> Result<(), BindError> {
+    async fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), BindError> {
         let bind: Bind = self.client.parse(self, parser)?;
         let global = self.client.state.globals.get(bind.name)?;
         if global.interface().name() != bind.interface {
@@ -64,7 +64,7 @@ impl WlRegistry {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), WlRegistryError> {
         match request {
             BIND => self.bind(parser).await?,

@@ -1,14 +1,14 @@
 use crate::async_engine::AsyncError;
 pub use buf_in::BufFdIn;
 pub use buf_out::BufFdOut;
+pub use formatter::MsgFormatter;
+pub use parser::{MsgParser, MsgParserError};
 use thiserror::Error;
-pub use wl_formatter::WlFormatter;
-pub use wl_parser::{WlParser, WlParserError};
 
 mod buf_in;
 mod buf_out;
-mod wl_formatter;
-mod wl_parser;
+mod formatter;
+mod parser;
 
 #[derive(Debug, Error)]
 pub enum BufFdError {

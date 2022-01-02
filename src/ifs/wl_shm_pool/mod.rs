@@ -3,7 +3,7 @@ mod types;
 use crate::client::{AddObj, Client};
 use crate::clientmem::ClientMem;
 use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
@@ -35,18 +35,18 @@ impl WlShmPool {
         })
     }
 
-    async fn create_buffer(&self, parser: WlParser<'_, '_>) -> Result<(), CreateBufferError> {
+    async fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
         let create: CreateBuffer = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn destroy(&self, parser: WlParser<'_, '_>) -> Result<(), DestroyError> {
+    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _destroy: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self).await?;
         Ok(())
     }
 
-    async fn resize(&self, parser: WlParser<'_, '_>) -> Result<(), ResizeError> {
+    async fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
         let resize: Resize = self.client.parse(self, parser)?;
         let mut mem = self.mem.borrow_mut();
         if resize.size < 0 {
@@ -62,7 +62,7 @@ impl WlShmPool {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), WlShmPoolError> {
         match request {
             CREATE_BUFFER => self.create_buffer(parser).await?,

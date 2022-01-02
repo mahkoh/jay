@@ -32,7 +32,14 @@ impl Objects {
     }
 
     pub fn destroy(&self) {
+        {
+            let mut surfaces = self.surfaces.lock();
+            for surface in surfaces.values_mut() {
+                surface.break_loops();
+            }
+        }
         self.registry.clear();
+        self.regions.clear();
         self.registries.clear();
         self.surfaces.clear();
     }

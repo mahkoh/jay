@@ -1,7 +1,7 @@
 use crate::client::{ClientError, RequestParser};
 use crate::clientmem::ClientMemError;
 use crate::object::ObjectId;
-use crate::utils::buffd::{WlParser, WlParserError};
+use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
@@ -24,27 +24,27 @@ efrom!(WlShmPoolError, ClientMemError, ClientMemError);
 #[derive(Debug, Error)]
 pub enum CreateBufferError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<WlParserError>),
+    ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(CreateBufferError, ParseError, WlParserError);
+efrom!(CreateBufferError, ParseError, MsgParserError);
 efrom!(CreateBufferError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<WlParserError>),
+    ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ParseError, WlParserError);
+efrom!(DestroyError, ParseError, MsgParserError);
 efrom!(DestroyError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ResizeError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<WlParserError>),
+    ParseError(#[source] Box<MsgParserError>),
     #[error("Tried to shrink the pool")]
     CannotShrink,
     #[error("Requested size is negative")]
@@ -52,7 +52,7 @@ pub enum ResizeError {
     #[error(transparent)]
     ClientMemError(Box<ClientMemError>),
 }
-efrom!(ResizeError, ParseError, WlParserError);
+efrom!(ResizeError, ParseError, MsgParserError);
 efrom!(ResizeError, ClientMemError, ClientMemError);
 
 pub(super) struct CreateBuffer {
@@ -64,7 +64,7 @@ pub(super) struct CreateBuffer {
     pub format: u32,
 }
 impl RequestParser<'_> for CreateBuffer {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             id: parser.object()?,
             offset: parser.int()?,
@@ -87,7 +87,7 @@ impl Debug for CreateBuffer {
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {
-    fn parse(_parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)
     }
 }
@@ -101,7 +101,7 @@ pub(super) struct Resize {
     pub size: i32,
 }
 impl RequestParser<'_> for Resize {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             size: parser.int()?,
         })

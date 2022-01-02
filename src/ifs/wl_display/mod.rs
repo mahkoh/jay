@@ -4,7 +4,7 @@ use crate::client::{AddObj, Client, ClientError, DynEventFormatter};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
 
@@ -33,7 +33,7 @@ impl WlDisplay {
     async fn handle_request_(
         &self,
         request: u32,
-        parser: WlParser<'_, '_>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), WlDisplayError> {
         match request {
             SYNC => self.sync(parser).await?,
@@ -43,7 +43,7 @@ impl WlDisplay {
         Ok(())
     }
 
-    async fn sync(&self, parser: WlParser<'_, '_>) -> Result<(), SyncError> {
+    async fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
         let cb = Rc::new(WlCallback::new(sync.callback));
         self.client.add_client_obj(&cb)?;
@@ -52,7 +52,7 @@ impl WlDisplay {
         Ok(())
     }
 
-    async fn get_registry(&self, parser: WlParser<'_, '_>) -> Result<(), GetRegistryError> {
+    async fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), GetRegistryError> {
         let gr: GetRegistry = self.client.parse(self, parser)?;
         let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
         self.client.add_client_obj(&registry)?;

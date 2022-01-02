@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::globals::GlobalError;
 use crate::ifs::wl_display::{WlDisplay, DELETE_ID, ERROR};
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
-use crate::utils::buffd::{WlFormatter, WlParser, WlParserError};
+use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -21,33 +21,33 @@ efrom!(WlDisplayError, SyncError, SyncError);
 #[derive(Debug, Error)]
 pub enum GetRegistryError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("An error occurred while processing globals")]
     GlobalError(#[source] Box<GlobalError>),
 }
 
-efrom!(GetRegistryError, ParseFailed, WlParserError);
+efrom!(GetRegistryError, ParseFailed, MsgParserError);
 efrom!(GetRegistryError, GlobalError, GlobalError);
 efrom!(GetRegistryError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SyncError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<WlParserError>),
+    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 
-efrom!(SyncError, ParseFailed, WlParserError);
+efrom!(SyncError, ParseFailed, MsgParserError);
 efrom!(SyncError, ClientError, ClientError);
 
 pub(super) struct GetRegistry {
     pub registry: ObjectId,
 }
 impl RequestParser<'_> for GetRegistry {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             registry: parser.object()?,
         })
@@ -63,7 +63,7 @@ pub(super) struct Sync {
     pub callback: ObjectId,
 }
 impl RequestParser<'_> for Sync {
-    fn parse(parser: &mut WlParser<'_, '_>) -> Result<Self, WlParserError> {
+    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self {
             callback: parser.object()?,
         })
@@ -80,7 +80,7 @@ pub(super) struct DeleteId {
     pub id: ObjectId,
 }
 impl EventFormatter for DeleteId {
-    fn format(self: Box<Self>, fmt: &mut WlFormatter<'_>) {
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
         fmt.header(WL_DISPLAY_ID, DELETE_ID).object(self.id);
     }
     fn obj(&self) -> &dyn Object {
@@ -100,7 +100,7 @@ pub(super) struct Error {
     pub message: String,
 }
 impl EventFormatter for Error {
-    fn format(self: Box<Self>, fmt: &mut WlFormatter<'_>) {
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
         fmt.header(WL_DISPLAY_ID, ERROR)
             .object(self.object_id)
             .uint(self.code)

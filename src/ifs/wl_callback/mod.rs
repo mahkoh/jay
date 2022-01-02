@@ -2,7 +2,7 @@ mod types;
 
 use crate::client::{ClientError, DynEventFormatter};
 use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::WlParser;
+use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 use types::*;
 
@@ -24,7 +24,7 @@ impl WlCallback {
     async fn handle_request_(
         &self,
         _request: u32,
-        _parser: WlParser<'_, '_>,
+        _parser: MsgParser<'_, '_>,
     ) -> Result<(), ClientError> {
         unreachable!();
     }

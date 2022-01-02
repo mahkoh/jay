@@ -12,9 +12,9 @@ macro_rules! handle_request {
     ($oname:ty) => {
         impl crate::object::ObjectHandleRequest for $oname {
             fn handle_request<'a>(
-                &'a self,
+                self: std::rc::Rc<Self>,
                 request: u32,
-                parser: crate::utils::buffd::WlParser<'a, 'a>,
+                parser: crate::utils::buffd::MsgParser<'a, 'a>,
             ) -> std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<(), crate::client::ClientError>> + 'a>,
             > {
