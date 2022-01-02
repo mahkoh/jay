@@ -1,5 +1,5 @@
 use crate::globals::GlobalName;
-use crate::objects::ObjectId;
+use crate::object::ObjectId;
 use crate::utils::buffd::BufFdIn;
 use thiserror::Error;
 use uapi::OwnedFd;

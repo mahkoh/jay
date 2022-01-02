@@ -1,16 +1,14 @@
+use crate::client::{ClientError, RequestParser};
 use crate::clientmem::ClientMemError;
-use crate::objects::{ObjectError, ObjectId};
+use crate::object::ObjectId;
 use crate::utils::buffd::{WlParser, WlParserError};
-use crate::wl_client::{RequestParser, WlClientError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WlShmPoolError {
     #[error(transparent)]
-    ObjectError(Box<ObjectError>),
-    #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
     #[error("Could not process a `create_buffer` request")]
     CreateBufferError(#[from] CreateBufferError),
     #[error("Could not process a `destroy` request")]
@@ -20,8 +18,7 @@ pub enum WlShmPoolError {
     #[error(transparent)]
     ClientMemError(Box<ClientMemError>),
 }
-efrom!(WlShmPoolError, ObjectError, ObjectError);
-efrom!(WlShmPoolError, ClientError, WlClientError);
+efrom!(WlShmPoolError, ClientError, ClientError);
 efrom!(WlShmPoolError, ClientMemError, ClientMemError);
 
 #[derive(Debug, Error)]
@@ -29,20 +26,20 @@ pub enum CreateBufferError {
     #[error("Parsing failed")]
     ParseError(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ObjectError(Box<ObjectError>),
+    ClientError(Box<ClientError>),
 }
 efrom!(CreateBufferError, ParseError, WlParserError);
-efrom!(CreateBufferError, ObjectError, ObjectError);
+efrom!(CreateBufferError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
     #[error("Parsing failed")]
     ParseError(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ObjectError(Box<ObjectError>),
+    ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseError, WlParserError);
-efrom!(DestroyError, ObjectError, ObjectError);
+efrom!(DestroyError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ResizeError {

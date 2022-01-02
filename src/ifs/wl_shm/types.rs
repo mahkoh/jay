@@ -1,8 +1,8 @@
+use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_shm::{Format, WlShmObj, FORMAT};
 use crate::ifs::wl_shm_pool::WlShmPoolError;
-use crate::objects::{Object, ObjectError, ObjectId};
+use crate::object::{Object, ObjectId};
 use crate::utils::buffd::{WlFormatter, WlParser, WlParserError};
-use crate::wl_client::{EventFormatter, RequestParser, WlClientError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -11,14 +11,11 @@ use uapi::OwnedFd;
 #[derive(Debug, Error)]
 pub enum WlShmError {
     #[error(transparent)]
-    ObjectError(Box<ObjectError>),
-    #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
     #[error("Could not process a `create_pool` request")]
     CreatePoolError(#[from] CreatePoolError),
 }
-efrom!(WlShmError, ObjectError, ObjectError);
-efrom!(WlShmError, ClientError, WlClientError);
+efrom!(WlShmError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreatePoolError {
@@ -29,11 +26,11 @@ pub enum CreatePoolError {
     #[error(transparent)]
     WlShmPoolError(Box<WlShmPoolError>),
     #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
 }
 efrom!(CreatePoolError, ParseError, WlParserError);
 efrom!(CreatePoolError, WlShmPoolError, WlShmPoolError);
-efrom!(CreatePoolError, ClientError, WlClientError);
+efrom!(CreatePoolError, ClientError, ClientError);
 
 pub(super) struct CreatePool {
     pub id: ObjectId,

@@ -1,6 +1,6 @@
+use crate::client::ClientError;
 use crate::event_loop::{EventLoopDispatcher, EventLoopError, EventLoopId};
 use crate::state::State;
-use crate::wl_client::WlClientError;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
@@ -20,7 +20,7 @@ pub enum AcceptorError {
     #[error("Could not accept new connections")]
     AcceptFailed(#[source] std::io::Error),
     #[error("Could not spawn an event handler for a new connection")]
-    SpawnFailed(#[source] WlClientError),
+    SpawnFailed(#[source] ClientError),
     #[error("Could not bind the socket to an address")]
     BindFailed(#[source] std::io::Error),
     #[error("All wayland addresses in the range 0..1000 are already in use")]

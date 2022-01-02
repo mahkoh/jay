@@ -10,13 +10,13 @@ macro_rules! efrom {
 
 macro_rules! handle_request {
     ($oname:ty) => {
-        impl crate::objects::ObjectHandleRequest for $oname {
+        impl crate::object::ObjectHandleRequest for $oname {
             fn handle_request<'a>(
                 &'a self,
                 request: u32,
                 parser: crate::utils::buffd::WlParser<'a, 'a>,
             ) -> std::pin::Pin<
-                Box<dyn std::future::Future<Output = Result<(), crate::objects::ObjectError>> + 'a>,
+                Box<dyn std::future::Future<Output = Result<(), crate::client::ClientError>> + 'a>,
             > {
                 Box::pin(async move {
                     self.handle_request_(request, parser).await?;
@@ -32,8 +32,8 @@ macro_rules! bind {
         impl crate::globals::GlobalBind for $oname {
             fn bind<'a>(
                 self: std::rc::Rc<Self>,
-                client: &'a std::rc::Rc<crate::wl_client::WlClientData>,
-                id: crate::objects::ObjectId,
+                client: &'a std::rc::Rc<crate::client::Client>,
+                id: crate::object::ObjectId,
                 version: u32,
             ) -> std::pin::Pin<
                 Box<dyn std::future::Future<Output = Result<(), crate::globals::GlobalError>> + 'a>,

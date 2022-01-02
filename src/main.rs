@@ -1,4 +1,7 @@
+#![feature(generic_associated_types, type_alias_impl_trait)]
+
 use crate::acceptor::AcceptorError;
+use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
 use crate::globals::Globals;
@@ -9,7 +12,6 @@ use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
 use crate::sighand::SighandError;
 use crate::state::State;
 use crate::utils::numcell::NumCell;
-use crate::wl_client::WlClients;
 use anyhow::anyhow;
 use log::LevelFilter;
 use std::rc::Rc;
@@ -19,18 +21,18 @@ use thiserror::Error;
 mod macros;
 mod acceptor;
 mod async_engine;
+mod client;
 mod clientmem;
 mod event_loop;
 mod globals;
 mod ifs;
-mod objects;
+mod object;
 mod pixman;
 mod sighand;
 mod state;
 mod time;
 mod utils;
 mod wheel;
-mod wl_client;
 
 fn main() {
     env_logger::builder()
@@ -68,7 +70,7 @@ fn main_() -> Result<(), MainError> {
     let state = Rc::new(State {
         eng: engine,
         el: el.to_ref(),
-        clients: WlClients::new(),
+        clients: Clients::new(),
         next_name: NumCell::new(1),
         globals,
     });

@@ -1,13 +1,13 @@
 mod types;
 
+use crate::client::{AddObj, Client};
 use crate::globals::{Global, GlobalName};
+use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
-use crate::objects::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::WlParser;
-use crate::wl_client::WlClientData;
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_region::WlRegion;
 
 const CREATE_SURFACE: u32 = 0;
 const CREATE_REGION: u32 = 1;
@@ -19,7 +19,7 @@ pub struct WlCompositorGlobal {
 pub struct WlCompositorObj {
     global: Rc<WlCompositorGlobal>,
     id: ObjectId,
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
     version: u32,
 }
 
@@ -31,7 +31,7 @@ impl WlCompositorGlobal {
     async fn bind_(
         self: Rc<Self>,
         id: ObjectId,
-        client: &Rc<WlClientData>,
+        client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlCompositorError> {
         let obj = Rc::new(WlCompositorObj {
@@ -40,7 +40,7 @@ impl WlCompositorGlobal {
             client: client.clone(),
             version,
         });
-        client.attach_client_object(obj)?;
+        client.add_client_obj(&obj)?;
         Ok(())
     }
 }
@@ -49,14 +49,14 @@ impl WlCompositorObj {
     async fn create_surface(&self, parser: WlParser<'_, '_>) -> Result<(), CreateSurfaceError> {
         let surface: CreateSurface = self.client.parse(self, parser)?;
         let surface = Rc::new(WlSurface::new(surface.id, &self.client));
-        self.client.attach_client_object(surface)?;
+        self.client.add_client_obj(&surface)?;
         Ok(())
     }
 
     async fn create_region(&self, parser: WlParser<'_, '_>) -> Result<(), CreateRegionError> {
         let region: CreateRegion = self.client.parse(self, parser)?;
         let region = Rc::new(WlRegion::new(region.id, &self.client));
-        self.client.attach_client_object(region)?;
+        self.client.add_client_obj(&region)?;
         Ok(())
     }
 

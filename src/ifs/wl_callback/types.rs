@@ -1,7 +1,7 @@
+use crate::client::EventFormatter;
 use crate::ifs::wl_callback::{WlCallback, DONE};
-use crate::objects::Object;
+use crate::object::Object;
 use crate::utils::buffd::WlFormatter;
-use crate::wl_client::EventFormatter;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 

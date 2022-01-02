@@ -1,23 +1,20 @@
-use crate::objects::{ObjectError, ObjectId};
+use crate::client::{ClientError, RequestParser};
+use crate::object::ObjectId;
 use crate::utils::buffd::{WlParser, WlParserError};
-use crate::wl_client::{RequestParser, WlClientError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WlCompositorError {
     #[error(transparent)]
-    ObjectError(Box<ObjectError>),
-    #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
     #[error("Could not process `create_surface` request")]
     CreateSurfaceError(#[source] Box<CreateSurfaceError>),
     #[error("Could not process `create_region` request")]
     CreateRegionError(#[source] Box<CreateRegionError>),
 }
 
-efrom!(WlCompositorError, ObjectError, ObjectError);
-efrom!(WlCompositorError, ClientError, WlClientError);
+efrom!(WlCompositorError, ClientError, ClientError);
 efrom!(WlCompositorError, CreateSurfaceError, CreateSurfaceError);
 efrom!(WlCompositorError, CreateRegionError, CreateRegionError);
 
@@ -26,22 +23,22 @@ pub enum CreateSurfaceError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
 }
 
 efrom!(CreateSurfaceError, ParseFailed, WlParserError);
-efrom!(CreateSurfaceError, ClientError, WlClientError);
+efrom!(CreateSurfaceError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreateRegionError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
 }
 
 efrom!(CreateRegionError, ParseFailed, WlParserError);
-efrom!(CreateRegionError, ClientError, WlClientError);
+efrom!(CreateRegionError, ClientError, ClientError);
 
 pub(super) struct CreateSurface {
     pub id: ObjectId,

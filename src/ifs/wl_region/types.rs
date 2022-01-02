@@ -1,6 +1,5 @@
-use crate::objects::{ObjectError, ObjectId};
+use crate::client::{ClientError, RequestParser};
 use crate::utils::buffd::{WlParser, WlParserError};
-use crate::wl_client::RequestParser;
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
@@ -19,10 +18,10 @@ pub enum DestroyError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ObjectError(Box<ObjectError>),
+    ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, WlParserError);
-efrom!(DestroyError, ObjectError, ObjectError);
+efrom!(DestroyError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AddError {

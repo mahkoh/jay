@@ -1,12 +1,12 @@
 mod types;
 
-use std::cell::Cell;
-use crate::objects::{Interface, Object, ObjectError, ObjectId};
+use crate::client::{Client, RequestParser};
+use crate::object::{Interface, Object, ObjectId};
+use crate::pixman::Region;
 use crate::utils::buffd::{WlParser, WlParserError};
-use crate::wl_client::{RequestParser, WlClientData};
+use std::cell::Cell;
 use std::rc::Rc;
 pub use types::*;
-use crate::pixman::Region;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -28,7 +28,7 @@ const INVALID_SIZE: u32 = 2;
 
 pub struct WlSurface {
     id: ObjectId,
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
     pending: PendingState,
 }
 
@@ -39,7 +39,7 @@ struct PendingState {
 }
 
 impl WlSurface {
-    pub fn new(id: ObjectId, client: &Rc<WlClientData>) -> Self {
+    pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -149,14 +149,5 @@ impl Object for WlSurface {
 
     fn num_requests(&self) -> u32 {
         DAMAGE_BUFFER + 1
-    }
-
-    fn pre_release(&self) -> Result<(), ObjectError> {
-        self.client.objects.surfaces.remove(&self.id);
-        Ok(())
-    }
-
-    fn post_attach(self: Rc<Self>) {
-        self.client.objects.surfaces.set(self.id, self.clone());
     }
 }

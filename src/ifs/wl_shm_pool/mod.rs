@@ -1,9 +1,9 @@
 mod types;
 
+use crate::client::{AddObj, Client};
 use crate::clientmem::ClientMem;
-use crate::objects::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::WlParser;
-use crate::wl_client::WlClientData;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
@@ -15,7 +15,7 @@ const RESIZE: u32 = 2;
 
 pub struct WlShmPool {
     id: ObjectId,
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
     fd: OwnedFd,
     mem: RefCell<Rc<ClientMem>>,
 }
@@ -23,7 +23,7 @@ pub struct WlShmPool {
 impl WlShmPool {
     pub fn new(
         id: ObjectId,
-        client: &Rc<WlClientData>,
+        client: &Rc<Client>,
         fd: OwnedFd,
         len: usize,
     ) -> Result<Self, WlShmPoolError> {
@@ -42,10 +42,7 @@ impl WlShmPool {
 
     async fn destroy(&self, parser: WlParser<'_, '_>) -> Result<(), DestroyError> {
         let _destroy: Destroy = self.client.parse(self, parser)?;
-        self.client
-            .objects
-            .remove_obj(&self.client, self.id)
-            .await?;
+        self.client.remove_obj(self).await?;
         Ok(())
     }
 

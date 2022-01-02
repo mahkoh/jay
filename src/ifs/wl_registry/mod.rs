@@ -1,9 +1,9 @@
 mod types;
 
+use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
-use crate::objects::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::WlParser;
-use crate::wl_client::{DynEventFormatter, WlClientData};
 use std::rc::Rc;
 pub use types::*;
 
@@ -14,11 +14,11 @@ const GLOBAL_REMOVE: u32 = 1;
 
 pub struct WlRegistry {
     id: ObjectId,
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
 }
 
 impl WlRegistry {
-    pub fn new(id: ObjectId, client: &Rc<WlClientData>) -> Self {
+    pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),

@@ -1,13 +1,12 @@
 mod types;
 
-use crate::objects::{Interface, Object, ObjectError, ObjectId};
+use crate::client::{AddObj, Client};
+use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
-use crate::utils::buffd::{WlParser, WlParserError};
-use crate::wl_client::{RequestParser, WlClientData};
+use crate::utils::buffd::WlParser;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_display::WlDisplay;
 
 const DESTROY: u32 = 0;
 const ADD: u32 = 1;
@@ -15,12 +14,12 @@ const SUBTRACT: u32 = 2;
 
 pub struct WlRegion {
     id: ObjectId,
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
     rect: RefCell<Region>,
 }
 
 impl WlRegion {
-    pub fn new(id: ObjectId, client: &Rc<WlClientData>) -> Self {
+    pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -34,7 +33,7 @@ impl WlRegion {
 
     async fn destroy(&self, parser: WlParser<'_, '_>) -> Result<(), DestroyError> {
         let _destroy: Destroy = self.client.parse(self, parser)?;
-        self.client.objects.remove_obj(&self.client, self.id).await?;
+        self.client.remove_obj(self).await?;
         Ok(())
     }
 
@@ -91,14 +90,5 @@ impl Object for WlRegion {
 
     fn num_requests(&self) -> u32 {
         SUBTRACT + 1
-    }
-
-    fn post_attach(self: Rc<Self>) {
-        self.client.objects.regions.set(self.id, self.clone());
-    }
-
-    fn pre_release(&self) -> Result<(), ObjectError> {
-        self.client.objects.regions.remove(&self.id);
-        Ok(())
     }
 }

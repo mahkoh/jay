@@ -1,4 +1,4 @@
-use crate::objects::ObjectId;
+use crate::object::ObjectId;
 use crate::utils::buffd::buf_out::{BufFdOut, MsgFds};
 use std::mem;
 use std::mem::MaybeUninit;

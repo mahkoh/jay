@@ -1,11 +1,11 @@
+use crate::client::{Client, ClientError, DynEventFormatter};
 use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_shm::WlShmError;
 use crate::ifs::wl_subcompositor::WlSubcompositorError;
 use crate::ifs::xdg_wm_base::XdgWmBaseError;
-use crate::objects::{Interface, ObjectId};
+use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::wl_client::{DynEventFormatter, WlClientData, WlClientError};
 use crate::{NumCell, State};
 use ahash::AHashSet;
 use std::fmt::{Display, Formatter};
@@ -19,7 +19,7 @@ pub enum GlobalError {
     #[error("The requested global {0} does not exist")]
     GlobalDoesNotExist(GlobalName),
     #[error("An error occurred while trying to send all globals via a new registry")]
-    SendAllError(#[source] Box<WlClientError>),
+    SendAllError(#[source] Box<ClientError>),
     #[error("An error occurred in a wl_compositor")]
     WlCompositorError(#[source] Box<WlCompositorError>),
     #[error("An error occurred in a wl_shm")]
@@ -57,7 +57,7 @@ impl Display for GlobalName {
 pub trait GlobalBind {
     fn bind<'a>(
         self: Rc<Self>,
-        client: &'a Rc<WlClientData>,
+        client: &'a Rc<Client>,
         id: ObjectId,
         version: u32,
     ) -> Pin<Box<dyn Future<Output = Result<(), GlobalError>> + 'a>>;
@@ -121,7 +121,7 @@ impl Globals {
 
     pub async fn notify_all(
         &self,
-        client: &WlClientData,
+        client: &Client,
         registry: &Rc<WlRegistry>,
     ) -> Result<(), GlobalError> {
         let globals = self.registry.lock();
@@ -136,7 +136,7 @@ impl Globals {
     async fn broadcast<F: Fn(&Rc<WlRegistry>) -> DynEventFormatter>(&self, state: &State, f: F) {
         let mut clients_to_check = AHashSet::new();
         state.clients.broadcast(|c| {
-            let registries = c.objects.registries();
+            let registries = c.lock_registries();
             for registry in registries.values() {
                 if c.event_locked(f(registry)) {
                     clients_to_check.insert(c.id);

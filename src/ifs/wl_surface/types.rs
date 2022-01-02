@@ -1,6 +1,6 @@
-use crate::objects::ObjectId;
+use crate::client::{ClientError, RequestParser};
+use crate::object::ObjectId;
 use crate::utils::buffd::{WlParser, WlParserError};
-use crate::wl_client::{RequestParser, WlClientError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
@@ -75,20 +75,20 @@ pub enum SetOpaqueRegionError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
 }
 efrom!(SetOpaqueRegionError, ParseFailed, WlParserError);
-efrom!(SetOpaqueRegionError, ClientError, WlClientError);
+efrom!(SetOpaqueRegionError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetInputRegionError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
     #[error(transparent)]
-    ClientError(Box<WlClientError>),
+    ClientError(Box<ClientError>),
 }
 efrom!(SetInputRegionError, ParseFailed, WlParserError);
-efrom!(SetInputRegionError, ClientError, WlClientError);
+efrom!(SetInputRegionError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CommitError {

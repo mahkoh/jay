@@ -1,9 +1,9 @@
 mod types;
 
+use crate::client::{AddObj, Client, ClientError};
 use crate::globals::{Global, GlobalName};
-use crate::objects::{Interface, Object, ObjectError, ObjectId};
+use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::WlParser;
-use crate::wl_client::WlClientData;
 use std::rc::Rc;
 pub use types::*;
 
@@ -24,11 +24,11 @@ impl WlSubcompositorGlobal {
     async fn bind_(
         self: Rc<Self>,
         id: ObjectId,
-        client: &WlClientData,
+        client: &Client,
         _version: u32,
     ) -> Result<(), WlSubcompositorError> {
         let obj = Rc::new(WlSubcompositorObj { global: self, id });
-        client.attach_client_object(obj)?;
+        client.add_client_obj(&obj)?;
         Ok(())
     }
 }
@@ -38,7 +38,7 @@ impl WlSubcompositorObj {
         &self,
         request: u32,
         parser: WlParser<'_, '_>,
-    ) -> Result<(), ObjectError> {
+    ) -> Result<(), ClientError> {
         unreachable!();
     }
 }

@@ -1,8 +1,8 @@
+use crate::client::{EventFormatter, RequestParser};
 use crate::globals::{Global, GlobalError, GlobalName};
 use crate::ifs::wl_registry::{WlRegistry, GLOBAL, GLOBAL_REMOVE};
-use crate::objects::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::{WlFormatter, WlParser, WlParserError};
-use crate::wl_client::{EventFormatter, RequestParser};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;

@@ -1,10 +1,10 @@
 mod types;
 
+use crate::client::{AddObj, Client};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::WlShmPool;
-use crate::objects::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::WlParser;
-use crate::wl_client::WlClientData;
 use std::rc::Rc;
 pub use types::*;
 
@@ -19,7 +19,7 @@ pub struct WlShmGlobal {
 pub struct WlShmObj {
     global: Rc<WlShmGlobal>,
     id: ObjectId,
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
 }
 
 impl WlShmGlobal {
@@ -30,7 +30,7 @@ impl WlShmGlobal {
     async fn bind_(
         self: Rc<Self>,
         id: ObjectId,
-        client: &Rc<WlClientData>,
+        client: &Rc<Client>,
         _version: u32,
     ) -> Result<(), WlShmError> {
         let obj = Rc::new(WlShmObj {
@@ -38,7 +38,7 @@ impl WlShmGlobal {
             id,
             client: client.clone(),
         });
-        client.attach_client_object(obj.clone())?;
+        client.add_client_obj(&obj)?;
         for &format in Format::formats() {
             client
                 .event(Box::new(FormatE {
@@ -63,7 +63,7 @@ impl WlShmObj {
             create.fd,
             create.size as usize,
         )?);
-        self.client.attach_client_object(pool)?;
+        self.client.add_client_obj(&pool)?;
         Ok(())
     }
 

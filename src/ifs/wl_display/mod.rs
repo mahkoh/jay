@@ -1,10 +1,10 @@
 mod types;
 
+use crate::client::{AddObj, Client, ClientError, DynEventFormatter};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
-use crate::objects::{Interface, Object, ObjectError, ObjectId, WL_DISPLAY_ID};
+use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::WlParser;
-use crate::wl_client::{DynEventFormatter, WlClientData};
 use std::rc::Rc;
 pub use types::*;
 
@@ -20,11 +20,11 @@ const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {
-    client: Rc<WlClientData>,
+    client: Rc<Client>,
 }
 
 impl WlDisplay {
-    pub fn new(client: &Rc<WlClientData>) -> Self {
+    pub fn new(client: &Rc<Client>) -> Self {
         Self {
             client: client.clone(),
         }
@@ -46,19 +46,16 @@ impl WlDisplay {
     async fn sync(&self, parser: WlParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
         let cb = Rc::new(WlCallback::new(sync.callback));
-        self.client.attach_client_object(cb.clone())?;
+        self.client.add_client_obj(&cb)?;
         self.client.event(cb.done()).await?;
-        self.client
-            .objects
-            .remove_obj(&self.client, cb.id())
-            .await?;
+        self.client.remove_obj(&*cb).await?;
         Ok(())
     }
 
     async fn get_registry(&self, parser: WlParser<'_, '_>) -> Result<(), GetRegistryError> {
         let gr: GetRegistry = self.client.parse(self, parser)?;
         let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
-        self.client.attach_client_object(registry.clone())?;
+        self.client.add_client_obj(&registry)?;
         self.client
             .state
             .globals
@@ -124,7 +121,7 @@ impl Object for WlDisplay {
         GET_REGISTRY + 1
     }
 
-    fn into_display(self: Rc<Self>) -> Result<Rc<WlDisplay>, ObjectError> {
+    fn into_display(self: Rc<Self>) -> Result<Rc<WlDisplay>, ClientError> {
         Ok(self)
     }
 }

@@ -1,8 +1,8 @@
+use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::globals::GlobalError;
 use crate::ifs::wl_display::{WlDisplay, DELETE_ID, ERROR};
-use crate::objects::{Object, ObjectError, ObjectId, WL_DISPLAY_ID};
+use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::{WlFormatter, WlParser, WlParserError};
-use crate::wl_client::{EventFormatter, RequestParser, WlClientError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -22,32 +22,26 @@ efrom!(WlDisplayError, SyncError, SyncError);
 pub enum GetRegistryError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
-    #[error("An object error occurred")]
-    ObjectError(#[source] Box<ObjectError>),
-    #[error("An object error occurred")]
-    ClientError(#[source] Box<WlClientError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
     #[error("An error occurred while processing globals")]
     GlobalError(#[source] Box<GlobalError>),
 }
 
 efrom!(GetRegistryError, ParseFailed, WlParserError);
-efrom!(GetRegistryError, ObjectError, ObjectError);
 efrom!(GetRegistryError, GlobalError, GlobalError);
-efrom!(GetRegistryError, ClientError, WlClientError);
+efrom!(GetRegistryError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SyncError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<WlParserError>),
-    #[error("An object error occurred")]
-    ObjectError(#[source] Box<ObjectError>),
-    #[error("A client error occurred")]
-    ClientError(#[source] Box<WlClientError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
 }
 
 efrom!(SyncError, ParseFailed, WlParserError);
-efrom!(SyncError, ObjectError, ObjectError);
-efrom!(SyncError, ClientError, WlClientError);
+efrom!(SyncError, ClientError, ClientError);
 
 pub(super) struct GetRegistry {
     pub registry: ObjectId,
