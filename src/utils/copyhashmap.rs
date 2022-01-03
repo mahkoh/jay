@@ -1,6 +1,7 @@
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::hash::Hash;
+use std::mem;
 
 pub struct CopyHashMap<K, V> {
     map: RefCell<AHashMap<K, V>>,
@@ -40,6 +41,10 @@ impl<K: Eq + Hash, V: Clone> CopyHashMap<K, V> {
     }
 
     pub fn clear(&self) {
-        self.map.borrow_mut().clear();
+        mem::take(&mut *self.map.borrow_mut());
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.map.borrow().is_empty()
     }
 }

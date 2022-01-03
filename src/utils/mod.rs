@@ -1,7 +1,9 @@
 pub mod buffd;
 pub mod copyhashmap;
+pub mod linkedlist;
 pub mod lock;
 pub mod numcell;
 pub mod oneshot;
+pub mod ptr_ext;
 pub mod queue;
 pub mod vec_ext;

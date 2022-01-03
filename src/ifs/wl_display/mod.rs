@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client, ClientError, DynEventFormatter};
+use crate::client::{AddObj, Client, DynEventFormatter};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
@@ -64,7 +64,7 @@ impl WlDisplay {
         Ok(())
     }
 
-    fn error(
+    pub fn error(
         self: &Rc<Self>,
         object_id: ObjectId,
         code: u32,
@@ -119,9 +119,5 @@ impl Object for WlDisplay {
 
     fn num_requests(&self) -> u32 {
         GET_REGISTRY + 1
-    }
-
-    fn into_display(self: Rc<Self>) -> Result<Rc<WlDisplay>, ClientError> {
-        Ok(self)
     }
 }

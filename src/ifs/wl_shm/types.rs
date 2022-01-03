@@ -1,5 +1,6 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_shm::{Format, WlShmObj, FORMAT};
+use crate::format::Format;
+use crate::ifs::wl_shm::{WlShmObj, FORMAT};
 use crate::ifs::wl_shm_pool::WlShmPoolError;
 use crate::object::{Object, ObjectId};
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
@@ -60,11 +61,11 @@ impl Debug for CreatePool {
 
 pub(super) struct FormatE {
     pub obj: Rc<WlShmObj>,
-    pub format: Format,
+    pub format: &'static Format,
 }
 impl EventFormatter for FormatE {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, FORMAT).uint(self.format.uint());
+        fmt.header(self.obj.id, FORMAT).uint(self.format.id);
     }
     fn obj(&self) -> &dyn Object {
         &*self.obj
@@ -72,6 +73,10 @@ impl EventFormatter for FormatE {
 }
 impl Debug for FormatE {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "format(format: {:?})", self.format)
+        write!(
+            f,
+            "format(format: \"{}\" (0x{:x}))",
+            self.format.name, self.format.id
+        )
     }
 }

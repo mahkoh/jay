@@ -91,7 +91,7 @@ impl Acceptor {
         if let Err(e) = uapi::listen(fd.raw(), 4096) {
             return Err(AcceptorError::ListenFailed(e.into()));
         }
-        let id = global.el.id()?;
+        let id = global.el.id();
         let acc = Rc::new(Acceptor {
             _unlinker: unlinker,
             id,

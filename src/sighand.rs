@@ -1,4 +1,4 @@
-use crate::event_loop::{EventLoopDispatcher, EventLoopId, EventLoopRef};
+use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopId};
 use crate::EventLoopError;
 use std::error::Error;
 use std::rc::Rc;
@@ -19,7 +19,7 @@ pub enum SighandError {
     EventLoopError(#[from] EventLoopError),
 }
 
-pub fn install(el: &EventLoopRef) -> Result<(), SighandError> {
+pub fn install(el: &Rc<EventLoop>) -> Result<(), SighandError> {
     let mut set: c::sigset_t = uapi::pod_zeroed();
     uapi::sigaddset(&mut set, c::SIGINT).unwrap();
     if let Err(e) = uapi::pthread_sigmask(c::SIG_BLOCK, Some(&set), None) {
@@ -29,7 +29,7 @@ pub fn install(el: &EventLoopRef) -> Result<(), SighandError> {
         Ok(fd) => fd,
         Err(e) => return Err(SighandError::CreateFailed(e.into())),
     };
-    let id = el.id()?;
+    let id = el.id();
     let sh = Rc::new(Sighand {
         fd,
         id,
@@ -42,7 +42,7 @@ pub fn install(el: &EventLoopRef) -> Result<(), SighandError> {
 struct Sighand {
     fd: OwnedFd,
     id: EventLoopId,
-    el: EventLoopRef,
+    el: Rc<EventLoop>,
 }
 
 impl EventLoopDispatcher for Sighand {

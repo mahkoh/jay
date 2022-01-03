@@ -46,8 +46,11 @@ efrom!(WlSurfaceError, DamageBufferError, DamageBufferError);
 pub enum DestroyError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
+efrom!(DestroyError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AttachError {

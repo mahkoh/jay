@@ -9,8 +9,12 @@ use crate::ifs::wl_shm::{WlShmError, WlShmObj};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
 use crate::ifs::wl_subcompositor::{WlSubcompositorError, WlSubcompositorObj};
 use crate::ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError};
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupError;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelError;
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceError};
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
+use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerError};
+use crate::ifs::xdg_wm_base::{XdgWmBaseError, XdgWmBaseObj};
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
 use crate::utils::buffd::{BufFdError, MsgFormatter, MsgParser, MsgParserError};
@@ -86,6 +90,16 @@ pub enum ClientError {
     WlSubsurfaceError(#[source] Box<WlSubsurfaceError>),
     #[error("An error occurred in a `wl_subcompositor`")]
     WlSubcompositorError(#[source] Box<WlSubcompositorError>),
+    #[error("An error occurred in a `xdg_surface`")]
+    XdgSurfaceError(#[source] Box<XdgSurfaceError>),
+    #[error("An error occurred in a `xdg_positioner`")]
+    XdgPositionerError(#[source] Box<XdgPositionerError>),
+    #[error("An error occurred in a `xdg_popup`")]
+    XdgPopupError(#[source] Box<XdgPopupError>),
+    #[error("An error occurred in a `xdg_toplevel`")]
+    XdgToplevelError(#[source] Box<XdgToplevelError>),
+    #[error("An error occurred in a `xdg_wm_base`")]
+    XdgWmBaseError(#[source] Box<XdgWmBaseError>),
     #[error("Object {0} is not a display")]
     NotADisplay(ObjectId),
 }
@@ -100,6 +114,11 @@ efrom!(ClientError, WlShmPoolError, WlShmPoolError);
 efrom!(ClientError, WlRegionError, WlRegionError);
 efrom!(ClientError, WlSubsurfaceError, WlSubsurfaceError);
 efrom!(ClientError, WlSubcompositorError, WlSubcompositorError);
+efrom!(ClientError, XdgSurfaceError, XdgSurfaceError);
+efrom!(ClientError, XdgPositionerError, XdgPositionerError);
+efrom!(ClientError, XdgWmBaseError, XdgWmBaseError);
+efrom!(ClientError, XdgToplevelError, XdgToplevelError);
+efrom!(ClientError, XdgPopupError, XdgPopupError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -162,9 +181,9 @@ impl Clients {
             shutdown: Cell::new(Some(send)),
             shutdown_sent: Cell::new(false),
         });
-        data.objects
-            .add_client_object(Rc::new(WlDisplay::new(&data)))
-            .expect("");
+        let display = Rc::new(WlDisplay::new(&data));
+        *data.objects.display.borrow_mut() = Some(display.clone());
+        data.objects.add_client_object(display).expect("");
         let client = ClientHolder {
             _handler: global.eng.spawn(tasks::client(data.clone(), recv)),
             data,
@@ -272,7 +291,10 @@ impl Client {
     }
 
     pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {
-        Ok(self.objects.get_obj(WL_DISPLAY_ID)?.into_display()?)
+        match self.objects.display.borrow_mut().clone() {
+            Some(d) => Ok(d),
+            _ => Err(ClientError::NotADisplay(WL_DISPLAY_ID)),
+        }
     }
 
     pub fn parse<'a, R: RequestParser<'a>>(
@@ -290,6 +312,14 @@ impl Client {
             res
         );
         Ok(res)
+    }
+
+    pub fn protocol_error(&self, obj: &dyn Object, code: u32, message: String) {
+        if let Ok(d) = self.display() {
+            self.fatal_event(d.error(obj.id(), code, message));
+        } else {
+            self.state.clients.shutdown(self.id);
+        }
     }
 
     pub fn fatal_event(&self, event: Box<dyn EventFormatter>) {
@@ -407,7 +437,8 @@ simple_add_obj!(WlShmObj);
 simple_add_obj!(WlShmPool);
 simple_add_obj!(WlSubcompositorObj);
 simple_add_obj!(WlSubsurface);
-simple_add_obj!(XdgWmBaseObj);
+simple_add_obj!(XdgPositioner);
+simple_add_obj!(XdgSurface);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {
@@ -429,3 +460,4 @@ macro_rules! dedicated_add_obj {
 
 dedicated_add_obj!(WlRegion, regions);
 dedicated_add_obj!(WlSurface, surfaces);
+dedicated_add_obj!(XdgWmBaseObj, xdg_wm_bases);

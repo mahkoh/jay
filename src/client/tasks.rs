@@ -114,7 +114,10 @@ async fn send(data: Rc<Client>) {
                         if log::log_enabled!(log::Level::Trace) {
                             data.log_event(&*e);
                         }
-                        e.format(&mut MsgFormatter::new(&mut buf));
+                        let mut fds = vec![];
+                        let mut fmt = MsgFormatter::new(&mut buf, &mut fds);
+                        e.format(&mut fmt);
+                        fmt.write_len();
                         if buf.needs_flush() {
                             buf.flush().await?;
                             flush_requested = false;

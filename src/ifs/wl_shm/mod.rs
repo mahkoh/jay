@@ -39,7 +39,7 @@ impl WlShmGlobal {
             client: client.clone(),
         });
         client.add_client_obj(&obj)?;
-        for &format in Format::formats() {
+        for &format in client.state.formats.values() {
             client
                 .event(Box::new(FormatE {
                     obj: obj.clone(),
@@ -77,25 +77,6 @@ impl WlShmObj {
             _ => unreachable!(),
         }
         Ok(())
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Format {
-    Argb8888,
-    Xrgb8888,
-}
-
-impl Format {
-    fn uint(self) -> u32 {
-        match self {
-            Format::Argb8888 => 0,
-            Format::Xrgb8888 => 1,
-        }
-    }
-
-    fn formats() -> &'static [Format] {
-        &[Format::Argb8888, Format::Xrgb8888]
     }
 }
 

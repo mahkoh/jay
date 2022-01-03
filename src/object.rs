@@ -1,5 +1,4 @@
 use crate::client::ClientError;
-use crate::ifs::wl_display::WlDisplay;
 use crate::utils::buffd::MsgParser;
 use std::fmt::{Display, Formatter};
 use std::future::Future;
@@ -39,9 +38,6 @@ pub trait Object: ObjectHandleRequest + 'static {
     fn id(&self) -> ObjectId;
     fn interface(&self) -> Interface;
     fn num_requests(&self) -> u32;
-    fn into_display(self: Rc<Self>) -> Result<Rc<WlDisplay>, ClientError> {
-        Err(ClientError::NotADisplay(self.id()))
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -54,8 +50,12 @@ pub enum Interface {
     WlShmPool,
     WlSubcompositor,
     XdgWmBase,
+    XdgPositioner,
     WlSurface,
     WlSubsurface,
+    XdgSurface,
+    XdgPopup,
+    XdgToplevel,
     WlRegion,
 }
 
@@ -73,6 +73,10 @@ impl Interface {
             Interface::WlSubsurface => "wl_subsurface",
             Interface::WlShmPool => "wl_shm_pool",
             Interface::WlRegion => "wl_region",
+            Interface::XdgSurface => "xdg_surface",
+            Interface::XdgPositioner => "xdg_positioner",
+            Interface::XdgPopup => "xdg_popup",
+            Interface::XdgToplevel => "xdg_toplevel",
         }
     }
 }

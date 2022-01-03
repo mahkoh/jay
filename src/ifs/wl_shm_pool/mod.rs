@@ -36,26 +36,26 @@ impl WlShmPool {
     }
 
     async fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
-        let create: CreateBuffer = self.client.parse(self, parser)?;
+        let req: CreateBuffer = self.client.parse(self, parser)?;
         Ok(())
     }
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
-        let _destroy: Destroy = self.client.parse(self, parser)?;
+        let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self).await?;
         Ok(())
     }
 
     async fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
-        let resize: Resize = self.client.parse(self, parser)?;
+        let req: Resize = self.client.parse(self, parser)?;
         let mut mem = self.mem.borrow_mut();
-        if resize.size < 0 {
+        if req.size < 0 {
             return Err(ResizeError::NegativeSize);
         }
-        if (resize.size as usize) < mem.len() {
+        if (req.size as usize) < mem.len() {
             return Err(ResizeError::CannotShrink);
         }
-        *mem = Rc::new(ClientMem::new(self.fd.raw(), resize.size as usize)?);
+        *mem = Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?);
         Ok(())
     }
 

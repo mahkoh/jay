@@ -1,5 +1,5 @@
-use crate::client::{RequestParser};
-use crate::ifs::wl_surface::SurfaceType;
+use crate::client::{ClientError, RequestParser};
+use crate::ifs::wl_surface::SurfaceRole;
 use crate::object::ObjectId;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -20,21 +20,26 @@ pub enum WlSubsurfaceError {
     #[error("Could not process `set_desync` request")]
     SetDesync(#[from] SetDesyncError),
     #[error("Surface {0} cannot be assigned the role `Subsurface` because it already has the role `{1:?}`")]
-    IncompatibleType(ObjectId, SurfaceType),
+    IncompatibleType(ObjectId, SurfaceRole),
     #[error("Surface {0} already has an attached `wl_subsurface`")]
     AlreadyAttached(ObjectId),
     #[error("Surface {0} cannot be made its own parent")]
     OwnParent(ObjectId),
     #[error("Surface {0} cannot be made a subsurface of {1} because it's an ancestor of {1}")]
     Ancestor(ObjectId, ObjectId),
+    #[error("Subsurfaces cannot be nested deeper than 100 levels")]
+    MaxDepthExceeded,
 }
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
+efrom!(DestroyError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetPositionError {
@@ -47,13 +52,25 @@ efrom!(SetPositionError, ParseFailed, MsgParserError);
 pub enum PlaceAboveError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    PlacementError(#[from] PlacementError),
 }
 efrom!(PlaceAboveError, ParseFailed, MsgParserError);
+
+#[derive(Debug, Error)]
+pub enum PlacementError {
+    #[error("Cannot place {0} above/below itself")]
+    AboveSelf(ObjectId),
+    #[error("{0} is not a sibling of {1}")]
+    NotASibling(ObjectId, ObjectId),
+}
 
 #[derive(Debug, Error)]
 pub enum PlaceBelowError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    PlacementError(#[from] PlacementError),
 }
 efrom!(PlaceBelowError, ParseFailed, MsgParserError);
 

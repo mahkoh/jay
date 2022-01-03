@@ -7,4 +7,5 @@ pub mod wl_shm;
 pub mod wl_shm_pool;
 pub mod wl_subcompositor;
 pub mod wl_surface;
+pub mod xdg_positioner;
 pub mod xdg_wm_base;

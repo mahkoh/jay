@@ -1,8 +1,8 @@
 pub use crate::async_engine::yield_::Yield;
-use crate::event_loop::{EventLoopError, EventLoopRef};
+use crate::event_loop::{EventLoop, EventLoopError};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
-use crate::wheel::{WheelError, WheelRef};
+use crate::wheel::{Wheel, WheelError};
 pub use fd::AsyncFd;
 use fd::AsyncFdData;
 use queue::{DispatchQueue, Dispatcher};
@@ -24,21 +24,21 @@ pub enum AsyncError {
 }
 
 pub struct AsyncEngine {
-    wheel: WheelRef,
-    el: EventLoopRef,
+    wheel: Rc<Wheel>,
+    el: Rc<EventLoop>,
     queue: Rc<DispatchQueue>,
     fds: CopyHashMap<i32, Rc<AsyncFdData>>,
 }
 
 impl AsyncEngine {
-    pub fn new(el: &EventLoopRef, wheel: &WheelRef) -> Result<Self, AsyncError> {
+    pub fn install(el: &Rc<EventLoop>, wheel: &Rc<Wheel>) -> Result<Rc<Self>, AsyncError> {
         let queue = Dispatcher::install(el)?;
-        Ok(Self {
+        Ok(Rc::new(Self {
             wheel: wheel.clone(),
             el: el.clone(),
             queue,
             fds: CopyHashMap::new(),
-        })
+        }))
     }
 
     pub fn timeout(&self, ms: u64) -> Result<Timeout, AsyncError> {
@@ -46,7 +46,7 @@ impl AsyncEngine {
             expired: Cell::new(false),
             waker: RefCell::new(None),
         });
-        let id = self.wheel.id()?;
+        let id = self.wheel.id();
         self.wheel.timeout(id, ms, data.clone())?;
         Ok(Timeout {
             id,
@@ -64,7 +64,7 @@ impl AsyncEngine {
             afd.ref_count.fetch_add(1);
             afd
         } else {
-            let id = self.el.id()?;
+            let id = self.el.id();
             let afd = Rc::new(AsyncFdData {
                 ref_count: NumCell::new(1),
                 fd: fd.clone(),
@@ -120,7 +120,7 @@ mod yield_ {
 }
 
 mod timeout {
-    use crate::wheel::{WheelDispatcher, WheelId, WheelRef};
+    use crate::wheel::{Wheel, WheelDispatcher, WheelId};
     use std::cell::{Cell, RefCell};
     use std::error::Error;
     use std::future::Future;
@@ -145,7 +145,7 @@ mod timeout {
 
     pub struct Timeout {
         pub(super) id: WheelId,
-        pub(super) wheel: WheelRef,
+        pub(super) wheel: Rc<Wheel>,
         pub(super) data: Rc<TimeoutData>,
     }
 
@@ -402,7 +402,7 @@ mod task {
 mod queue {
     use crate::async_engine::task::Runnable;
     use crate::async_engine::AsyncError;
-    use crate::event_loop::{EventLoopDispatcher, EventLoopId, EventLoopRef};
+    use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopId};
     use crate::utils::numcell::NumCell;
     use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
@@ -416,8 +416,8 @@ mod queue {
     }
 
     impl Dispatcher {
-        pub fn install(el: &EventLoopRef) -> Result<Rc<DispatchQueue>, AsyncError> {
-            let id = el.id()?;
+        pub fn install(el: &Rc<EventLoop>) -> Result<Rc<DispatchQueue>, AsyncError> {
+            let id = el.id();
             let queue = Rc::new(DispatchQueue {
                 id,
                 el: el.clone(),
@@ -462,7 +462,7 @@ mod queue {
     pub(super) struct DispatchQueue {
         dispatch_scheduled: Cell<bool>,
         id: EventLoopId,
-        el: EventLoopRef,
+        el: Rc<EventLoop>,
         queue: RefCell<VecDeque<Runnable>>,
         iteration: NumCell<u64>,
     }
@@ -484,7 +484,7 @@ mod queue {
 
 mod fd {
     use crate::async_engine::{AsyncEngine, AsyncError};
-    use crate::event_loop::{EventLoopDispatcher, EventLoopError, EventLoopId, EventLoopRef};
+    use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId};
     use crate::utils::numcell::NumCell;
     use std::cell::{Cell, RefCell};
     use std::error::Error;
@@ -500,7 +500,7 @@ mod fd {
         pub(super) ref_count: NumCell<u64>,
         pub(super) fd: Rc<OwnedFd>,
         pub(super) id: EventLoopId,
-        pub(super) el: EventLoopRef,
+        pub(super) el: Rc<EventLoop>,
         pub(super) write_registered: Cell<bool>,
         pub(super) read_registered: Cell<bool>,
         pub(super) readers: Queue,

@@ -55,9 +55,9 @@ impl WlSubcompositorObj {
         let req: GetSubsurface = self.client.parse(self, parser)?;
         let surface = self.client.get_surface(req.surface)?;
         let parent = self.client.get_surface(req.parent)?;
-        let subsurface = Rc::new(WlSubsurface::new(req.id, &surface));
+        let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent));
         self.client.add_client_obj(&subsurface)?;
-        subsurface.install(&parent)?;
+        subsurface.install()?;
         Ok(())
     }
 

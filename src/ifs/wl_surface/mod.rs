@@ -1,15 +1,18 @@
 mod types;
 pub mod wl_subsurface;
+pub mod xdg_surface;
 
-use crate::client::{Client, RequestParser};
+use crate::client::{AddObj, Client, RequestParser};
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
 use crate::utils::buffd::{MsgParser, MsgParserError};
+use crate::utils::linkedlist::{LinkedList, Node};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 pub use types::*;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -30,18 +33,41 @@ const INVALID_TRANSFORM: u32 = 1;
 const INVALID_SIZE: u32 = 2;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum SurfaceType {
+pub enum SurfaceRole {
     None,
     Subsurface,
+    XdgSurface,
+}
+
+impl SurfaceRole {
+    fn name(self) -> &'static str {
+        match self {
+            SurfaceRole::None => "none",
+            SurfaceRole::Subsurface => "subsurface",
+            SurfaceRole::XdgSurface => "xdg_surface",
+        }
+    }
 }
 
 pub struct WlSurface {
     id: ObjectId,
     client: Rc<Client>,
-    ty: Cell<SurfaceType>,
+    role: Cell<SurfaceRole>,
     pending: PendingState,
     children: RefCell<Option<Box<ParentData>>>,
-    subsurface_data: RefCell<Option<Box<SubsurfaceData>>>,
+    role_data: RefCell<RoleData>,
+}
+
+enum RoleData {
+    None,
+    Subsurface(Box<SubsurfaceData>),
+    XdgSurface(Box<XdgSurfaceData>),
+}
+
+impl RoleData {
+    fn is_some(&self) -> bool {
+        !matches!(self, RoleData::None)
+    }
 }
 
 #[derive(Default)]
@@ -50,18 +76,52 @@ struct PendingState {
     input_region: Cell<Option<Region>>,
 }
 
+struct XdgSurfaceData {
+    xdg_surface: Rc<XdgSurface>,
+    role: XdgSurfaceRole,
+}
+
+enum XdgSurfaceRole {
+    None,
+    Popup(XdgPopupData),
+    Toplevel(XdgToplevelData),
+}
+
+struct XdgPopupData {
+
+}
+
+struct XdgToplevelData {
+
+}
+
 struct SubsurfaceData {
     subsurface: Rc<WlSubsurface>,
-    parent: Rc<WlSurface>,
+    x: i32,
+    y: i32,
     sync_requested: bool,
     sync_ancestor: bool,
-    pending: bool,
+    node: Node<StackElement>,
+    depth: u32,
+    pending: PendingSubsurfaceData,
+}
+
+#[derive(Default)]
+struct PendingSubsurfaceData {
+    node: Option<Node<StackElement>>,
+    position: Option<(i32, i32)>,
 }
 
 #[derive(Default)]
 struct ParentData {
     subsurfaces: AHashMap<ObjectId, Rc<WlSurface>>,
-    pending_subsurfaces: AHashMap<ObjectId, Rc<WlSurface>>,
+    below: LinkedList<StackElement>,
+    above: LinkedList<StackElement>,
+}
+
+struct StackElement {
+    pending: Cell<bool>,
+    surface: Rc<WlSurface>,
 }
 
 impl WlSurface {
@@ -69,26 +129,26 @@ impl WlSurface {
         Self {
             id,
             client: client.clone(),
-            ty: Cell::new(SurfaceType::None),
+            role: Cell::new(SurfaceRole::None),
             pending: Default::default(),
             children: Default::default(),
-            subsurface_data: Default::default(),
+            role_data: RefCell::new(RoleData::None),
         }
     }
 
     pub fn break_loops(&self) {
         *self.children.borrow_mut() = None;
-        *self.subsurface_data.borrow_mut() = None;
+        *self.role_data.borrow_mut() = RoleData::None;
     }
 
     pub fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
         let mut root = self.clone();
         loop {
             let tmp = root;
-            let data = tmp.subsurface_data.borrow();
-            match data.as_ref() {
-                Some(d) => root = d.parent.clone(),
-                None => {
+            let data = tmp.role_data.borrow();
+            match &*data {
+                RoleData::Subsurface(d) => root = d.subsurface.parent.clone(),
+                _ => {
                     drop(data);
                     return tmp;
                 }
@@ -104,22 +164,25 @@ impl WlSurface {
     }
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
-        let destroy: Destroy = self.parse(parser)?;
+        let _req: Destroy = self.parse(parser)?;
+        *self.children.borrow_mut() = None;
+        *self.role_data.borrow_mut() = RoleData::None;
+        self.client.remove_obj(self).await?;
         Ok(())
     }
 
     async fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
-        let attach: Attach = self.parse(parser)?;
+        let req: Attach = self.parse(parser)?;
         Ok(())
     }
 
     async fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
-        let damage: Damage = self.parse(parser)?;
+        let req: Damage = self.parse(parser)?;
         Ok(())
     }
 
     async fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
-        let frame: Frame = self.parse(parser)?;
+        let req: Frame = self.parse(parser)?;
         Ok(())
     }
 
@@ -134,14 +197,14 @@ impl WlSurface {
     }
 
     async fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
-        let region: SetInputRegion = self.parse(parser)?;
-        let region = self.client.get_region(region.region)?;
+        let req: SetInputRegion = self.parse(parser)?;
+        let region = self.client.get_region(req.region)?;
         self.pending.input_region.set(Some(region.region()));
         Ok(())
     }
 
     async fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
-        let commit: Commit = self.parse(parser)?;
+        let req: Commit = self.parse(parser)?;
         Ok(())
     }
 
@@ -149,17 +212,17 @@ impl WlSurface {
         &self,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), SetBufferTransformError> {
-        let transform: SetBufferTransform = self.parse(parser)?;
+        let req: SetBufferTransform = self.parse(parser)?;
         Ok(())
     }
 
     async fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), SetBufferScaleError> {
-        let scale: SetBufferScale = self.parse(parser)?;
+        let req: SetBufferScale = self.parse(parser)?;
         Ok(())
     }
 
     async fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
-        let damage: DamageBuffer = self.parse(parser)?;
+        let req: DamageBuffer = self.parse(parser)?;
         Ok(())
     }
 

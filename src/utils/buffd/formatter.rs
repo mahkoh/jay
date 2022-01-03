@@ -1,21 +1,21 @@
 use crate::object::ObjectId;
 use crate::utils::buffd::buf_out::{BufFdOut, MsgFds};
 use std::mem;
-use std::mem::MaybeUninit;
+use std::mem::{MaybeUninit};
 use uapi::OwnedFd;
 
 pub struct MsgFormatter<'a> {
     buf: &'a mut BufFdOut,
     pos: usize,
-    fds: Vec<OwnedFd>,
+    fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> MsgFormatter<'a> {
-    pub fn new(buf: &'a mut BufFdOut) -> Self {
+    pub fn new(buf: &'a mut BufFdOut, fds: &'a mut Vec<OwnedFd>) -> Self {
         Self {
             pos: buf.out_pos,
             buf,
-            fds: vec![],
+            fds,
         }
     }
 
@@ -57,10 +57,29 @@ impl<'a> MsgFormatter<'a> {
     pub fn header(&mut self, obj: ObjectId, event: u32) -> &mut Self {
         self.object(obj).uint(event)
     }
-}
 
-impl<'a> Drop for MsgFormatter<'a> {
-    fn drop(&mut self) {
+    pub fn array<F: FnOnce(&mut MsgFormatter<'_>)>(&mut self, f: F) -> &mut Self {
+        let pos = self.buf.out_pos;
+        self.uint(0);
+        let len = {
+            let mut fmt = MsgFormatter {
+                buf: self.buf,
+                pos,
+                fds: self.fds,
+            };
+            f(&mut fmt);
+            let len = self.buf.out_pos - pos + 4;
+            let none = [MaybeUninit::new(0); 4];
+            self.buf.write(&none[..self.buf.out_pos.wrapping_neg() & 3]);
+            len as u32
+        };
+        unsafe {
+            (*self.buf.out_buf)[pos..pos + 4].copy_from_slice(uapi::as_maybe_uninit_bytes(&len));
+        }
+        self
+    }
+
+    pub fn write_len(self) {
         assert!(self.buf.out_pos - self.pos >= 8);
         assert_eq!(self.pos % 4, 0);
         unsafe {
@@ -71,7 +90,7 @@ impl<'a> Drop for MsgFormatter<'a> {
         if self.fds.len() > 0 {
             self.buf.fds.push_back(MsgFds {
                 pos: self.pos,
-                fds: mem::take(&mut self.fds),
+                fds: mem::take(self.fds),
             })
         }
     }

@@ -1,6 +1,7 @@
 #![feature(generic_associated_types, type_alias_impl_trait)]
 
 use crate::acceptor::AcceptorError;
+use crate::async_engine::AsyncError;
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
@@ -12,10 +13,15 @@ use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
 use crate::sighand::SighandError;
 use crate::state::State;
 use crate::utils::numcell::NumCell;
+use crate::wheel::WheelError;
+use acceptor::Acceptor;
 use anyhow::anyhow;
+use async_engine::AsyncEngine;
+use event_loop::EventLoop;
 use log::LevelFilter;
 use std::rc::Rc;
 use thiserror::Error;
+use wheel::Wheel;
 
 #[macro_use]
 mod macros;
@@ -24,6 +30,7 @@ mod async_engine;
 mod client;
 mod clientmem;
 mod event_loop;
+mod format;
 mod globals;
 mod ifs;
 mod object;
@@ -54,14 +61,18 @@ enum MainError {
     SighandError(#[from] SighandError),
     #[error("The clientmem subsystem caused an error")]
     ClientmemError(#[from] ClientMemError),
+    #[error("The timer subsystem caused an error")]
+    WheelError(#[from] WheelError),
+    #[error("The async subsystem caused an error")]
+    AsyncError(#[from] AsyncError),
 }
 
 fn main_() -> Result<(), MainError> {
     clientmem::init()?;
-    let el = event_loop::EventLoop::new().unwrap();
-    sighand::install(&el.to_ref())?;
-    let wheel = wheel::WheelRef::new(&el.to_ref()).unwrap();
-    let engine = Rc::new(async_engine::AsyncEngine::new(&el.to_ref(), &wheel).unwrap());
+    let el = EventLoop::new()?;
+    sighand::install(&el)?;
+    let wheel = Wheel::install(&el)?;
+    let engine = AsyncEngine::install(&el, &wheel)?;
     let globals = Globals::new();
     globals.insert_no_broadcast(Rc::new(WlCompositorGlobal::new(globals.name())));
     globals.insert_no_broadcast(Rc::new(WlShmGlobal::new(globals.name())));
@@ -69,12 +80,13 @@ fn main_() -> Result<(), MainError> {
     globals.insert_no_broadcast(Rc::new(XdgWmBaseGlobal::new(globals.name())));
     let state = Rc::new(State {
         eng: engine,
-        el: el.to_ref(),
+        el: el.clone(),
         clients: Clients::new(),
         next_name: NumCell::new(1),
         globals,
+        formats: format::formats(),
     });
-    acceptor::Acceptor::install(&state)?;
+    Acceptor::install(&state)?;
     el.run()?;
     Ok(())
 }

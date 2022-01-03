@@ -2,7 +2,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
 
@@ -39,53 +39,53 @@ struct Entry {
     dispatcher: Rc<dyn EventLoopDispatcher>,
 }
 
-struct EventLoopData {
+pub struct EventLoop {
+    destroyed: Cell<bool>,
     epoll: OwnedFd,
-    run: Cell<bool>,
     next_id: NumCell<u64>,
     entries: CopyHashMap<u64, Entry>,
     scheduled: RefCell<VecDeque<u64>>,
 }
 
-pub struct EventLoop {
-    data: Rc<EventLoopData>,
-}
-
-#[derive(Clone)]
-pub struct EventLoopRef {
-    data: Weak<EventLoopData>,
-}
-
-impl EventLoopData {
-    fn new() -> Result<Self, EventLoopError> {
+impl EventLoop {
+    pub fn new() -> Result<Rc<Self>, EventLoopError> {
         let epoll = match uapi::epoll_create1(c::EPOLL_CLOEXEC) {
             Ok(e) => e,
             Err(e) => return Err(EventLoopError::CreateFailed(e.into())),
         };
-        Ok(Self {
+        Ok(Rc::new(Self {
+            destroyed: Cell::new(false),
             epoll,
-            run: Cell::new(true),
             next_id: NumCell::new(1),
             entries: CopyHashMap::new(),
             scheduled: RefCell::new(Default::default()),
-        })
+        }))
     }
 
-    fn id(&self) -> EventLoopId {
+    fn check_destroyed(&self) -> Result<(), EventLoopError> {
+        if self.destroyed.get() {
+            return Err(EventLoopError::Destroyed);
+        }
+        Ok(())
+    }
+
+    pub fn id(&self) -> EventLoopId {
         EventLoopId(self.next_id.fetch_add(1))
     }
 
-    fn stop(&self) {
-        self.run.set(false);
+    pub fn stop(&self) {
+        self.destroyed.set(true);
+        self.entries.clear();
     }
 
-    fn insert(
+    pub fn insert(
         &self,
         id: EventLoopId,
         fd: Option<i32>,
         events: i32,
         dispatcher: Rc<dyn EventLoopDispatcher>,
     ) -> Result<(), EventLoopError> {
+        self.check_destroyed()?;
         let id = id.0;
         if let Some(fd) = fd {
             let event = c::epoll_event {
@@ -100,7 +100,8 @@ impl EventLoopData {
         Ok(())
     }
 
-    fn modify(&self, id: EventLoopId, events: i32) -> Result<(), EventLoopError> {
+    pub fn modify(&self, id: EventLoopId, events: i32) -> Result<(), EventLoopError> {
+        self.check_destroyed()?;
         let id = id.0;
         let entry = match self.entries.get(&id) {
             Some(e) => e,
@@ -118,7 +119,8 @@ impl EventLoopData {
         Ok(())
     }
 
-    fn remove(&self, id: EventLoopId) -> Result<(), EventLoopError> {
+    pub fn remove(&self, id: EventLoopId) -> Result<(), EventLoopError> {
+        self.check_destroyed()?;
         let id = id.0;
         let entry = match self.entries.remove(&id) {
             Some(e) => e,
@@ -132,15 +134,24 @@ impl EventLoopData {
         Ok(())
     }
 
-    fn schedule(&self, id: EventLoopId) {
+    pub fn schedule(&self, id: EventLoopId) -> Result<(), EventLoopError> {
+        self.check_destroyed()?;
         self.scheduled.borrow_mut().push_back(id.0);
+        Ok(())
     }
 
-    fn run(&self) -> Result<(), EventLoopError> {
+    pub fn run(&self) -> Result<(), EventLoopError> {
+        let res = self.run_();
+        self.stop();
+        res
+    }
+
+    fn run_(&self) -> Result<(), EventLoopError> {
+        self.check_destroyed()?;
         let mut buf = [c::epoll_event { events: 0, u64: 0 }; 16];
-        while self.run.get() {
+        while !self.destroyed.get() {
             while let Some(id) = self.scheduled.borrow_mut().pop_front() {
-                if !self.run.get() {
+                if self.destroyed.get() {
                     break;
                 }
                 if let Some(entry) = self.entries.get(&id) {
@@ -155,7 +166,7 @@ impl EventLoopData {
                 Err(e) => return Err(EventLoopError::WaitFailed(e.into())),
             };
             for event in &buf[..num] {
-                if !self.run.get() {
+                if self.destroyed.get() {
                     break;
                 }
                 let id = event.u64;
@@ -175,72 +186,5 @@ impl EventLoopData {
             }
         }
         Ok(())
-    }
-}
-
-impl EventLoop {
-    pub fn new() -> Result<Self, EventLoopError> {
-        Ok(Self {
-            data: Rc::new(EventLoopData::new()?),
-        })
-    }
-
-    pub fn to_ref(&self) -> EventLoopRef {
-        EventLoopRef {
-            data: Rc::downgrade(&self.data),
-        }
-    }
-
-    pub fn run(&self) -> Result<(), EventLoopError> {
-        self.data.run()
-    }
-}
-
-impl EventLoopRef {
-    pub fn id(&self) -> Result<EventLoopId, EventLoopError> {
-        match self.data.upgrade() {
-            Some(d) => Ok(d.id()),
-            None => Err(EventLoopError::Destroyed),
-        }
-    }
-
-    pub fn stop(&self) {
-        if let Some(d) = self.data.upgrade() {
-            d.stop();
-        }
-    }
-
-    pub fn insert(
-        &self,
-        id: EventLoopId,
-        fd: Option<i32>,
-        events: i32,
-        dispatcher: Rc<dyn EventLoopDispatcher>,
-    ) -> Result<(), EventLoopError> {
-        match self.data.upgrade() {
-            Some(d) => d.insert(id, fd, events, dispatcher),
-            None => Err(EventLoopError::Destroyed),
-        }
-    }
-
-    pub fn modify(&self, id: EventLoopId, events: i32) -> Result<(), EventLoopError> {
-        match self.data.upgrade() {
-            Some(d) => d.modify(id, events),
-            None => Err(EventLoopError::Destroyed),
-        }
-    }
-
-    pub fn remove(&self, id: EventLoopId) -> Result<(), EventLoopError> {
-        match self.data.upgrade() {
-            Some(d) => d.remove(id),
-            None => Err(EventLoopError::Destroyed),
-        }
-    }
-
-    pub fn schedule(&self, id: EventLoopId) -> Result<(), EventLoopError> {
-        match self.data.upgrade() {
-            Some(d) => Ok(d.schedule(id)),
-            None => Err(EventLoopError::Destroyed),
-        }
     }
 }
