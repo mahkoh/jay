@@ -1,6 +1,6 @@
 use crate::client::{ClientError, RequestParser};
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurfaceError;
-use crate::object::ObjectId;
+use crate::ifs::wl_surface::wl_subsurface::{WlSubsurfaceError, WlSubsurfaceId};
+use crate::ifs::wl_surface::WlSurfaceId;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
@@ -52,9 +52,9 @@ impl Debug for Destroy {
 }
 
 pub(super) struct GetSubsurface {
-    pub id: ObjectId,
-    pub surface: ObjectId,
-    pub parent: ObjectId,
+    pub id: WlSubsurfaceId,
+    pub surface: WlSurfaceId,
+    pub parent: WlSurfaceId,
 }
 impl RequestParser<'_> for GetSubsurface {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {

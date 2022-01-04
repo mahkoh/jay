@@ -4,15 +4,18 @@ pub mod xdg_surface;
 
 use crate::client::{AddObj, Client, RequestParser};
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
 use crate::utils::buffd::{MsgParser, MsgParserError};
+use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, Node};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -32,6 +35,8 @@ const INVALID_SCALE: u32 = 0;
 const INVALID_TRANSFORM: u32 = 1;
 const INVALID_SIZE: u32 = 2;
 
+id!(WlSurfaceId);
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SurfaceRole {
     None,
@@ -50,7 +55,7 @@ impl SurfaceRole {
 }
 
 pub struct WlSurface {
-    id: ObjectId,
+    id: WlSurfaceId,
     client: Rc<Client>,
     role: Cell<SurfaceRole>,
     pending: PendingState,
@@ -78,21 +83,44 @@ struct PendingState {
 
 struct XdgSurfaceData {
     xdg_surface: Rc<XdgSurface>,
+    committed: bool,
     role: XdgSurfaceRole,
+    role_data: XdgSurfaceRoleData,
+    popups: CopyHashMap<WlSurfaceId, Rc<XdgPopup>>,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum XdgSurfaceRole {
+    None,
+    Popup,
+    Toplevel,
+}
+
+impl XdgSurfaceRole {
+    fn is_compatible(self, role: XdgSurfaceRole) -> bool {
+        self == XdgSurfaceRole::None || self == role
+    }
+}
+
+enum XdgSurfaceRoleData {
     None,
     Popup(XdgPopupData),
     Toplevel(XdgToplevelData),
 }
 
-struct XdgPopupData {
+impl XdgSurfaceRoleData {
+    fn is_some(&self) -> bool {
+        !matches!(self, XdgSurfaceRoleData::None)
+    }
+}
 
+struct XdgPopupData {
+    popup: Rc<XdgPopup>,
+    parent: Option<Rc<XdgSurface>>,
 }
 
 struct XdgToplevelData {
-
+    toplevel: Rc<XdgToplevel>,
 }
 
 struct SubsurfaceData {
@@ -114,7 +142,7 @@ struct PendingSubsurfaceData {
 
 #[derive(Default)]
 struct ParentData {
-    subsurfaces: AHashMap<ObjectId, Rc<WlSurface>>,
+    subsurfaces: AHashMap<WlSurfaceId, Rc<WlSurface>>,
     below: LinkedList<StackElement>,
     above: LinkedList<StackElement>,
 }
@@ -125,7 +153,7 @@ struct StackElement {
 }
 
 impl WlSurface {
-    pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlSurfaceId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -134,11 +162,6 @@ impl WlSurface {
             children: Default::default(),
             role_data: RefCell::new(RoleData::None),
         }
-    }
-
-    pub fn break_loops(&self) {
-        *self.children.borrow_mut() = None;
-        *self.role_data.borrow_mut() = RoleData::None;
     }
 
     pub fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
@@ -165,8 +188,47 @@ impl WlSurface {
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.parse(parser)?;
-        *self.children.borrow_mut() = None;
-        *self.role_data.borrow_mut() = RoleData::None;
+        {
+            let mut children = self.children.borrow_mut();
+            if let Some(children) = &mut *children {
+                for surface in children.subsurfaces.values() {
+                    *surface.role_data.borrow_mut() = RoleData::None;
+                }
+            }
+            *children = None;
+        }
+        {
+            let mut data = self.role_data.borrow_mut();
+            match &mut *data {
+                RoleData::None => {}
+                RoleData::Subsurface(ss) => {
+                    let mut children = ss.subsurface.parent.children.borrow_mut();
+                    if let Some(children) = &mut *children {
+                        children.subsurfaces.remove(&self.id);
+                    }
+                }
+                RoleData::XdgSurface(xdg) => {
+                    let children = xdg.popups.lock();
+                    for child in children.values() {
+                        let mut rd = child.surface.surface.role_data.borrow_mut();
+                        if let RoleData::XdgSurface(xdg) = &mut *rd {
+                            if let XdgSurfaceRoleData::Popup(p) = &mut xdg.role_data {
+                                p.parent = None;
+                            }
+                        }
+                    }
+                    if let XdgSurfaceRoleData::Popup(p) = &mut xdg.role_data {
+                        if let Some(p) = &p.parent {
+                            let mut rd = p.surface.role_data.borrow_mut();
+                            if let RoleData::XdgSurface(xdg) = &mut *rd {
+                                xdg.popups.remove(&self.id);
+                            }
+                        }
+                    }
+                }
+            }
+            *data = RoleData::None;
+        }
         self.client.remove_obj(self).await?;
         Ok(())
     }
@@ -252,7 +314,7 @@ handle_request!(WlSurface);
 
 impl Object for WlSurface {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {
@@ -261,5 +323,10 @@ impl Object for WlSurface {
 
     fn num_requests(&self) -> u32 {
         DAMAGE_BUFFER + 1
+    }
+
+    fn break_loops(&self) {
+        *self.children.borrow_mut() = None;
+        *self.role_data.borrow_mut() = RoleData::None;
     }
 }

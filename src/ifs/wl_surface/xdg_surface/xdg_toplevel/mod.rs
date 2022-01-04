@@ -1,6 +1,7 @@
 mod types;
 
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::{RoleData, XdgSurfaceRoleData};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use num_derive::FromPrimitive;
@@ -47,14 +48,16 @@ const STATE_TILED_RIGHT: u32 = 6;
 const STATE_TILED_TOP: u32 = 7;
 const STATE_TILED_BOTTOM: u32 = 8;
 
+id!(XdgToplevelId);
+
 pub struct XdgToplevel {
-    id: ObjectId,
+    id: XdgToplevelId,
     surface: Rc<XdgSurface>,
     version: u32,
 }
 
 impl XdgToplevel {
-    pub fn new(id: ObjectId, surface: &Rc<XdgSurface>, version: u32) -> Self {
+    pub fn new(id: XdgToplevelId, surface: &Rc<XdgSurface>, version: u32) -> Self {
         Self {
             id,
             surface: surface.clone(),
@@ -64,6 +67,12 @@ impl XdgToplevel {
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.surface.surface.client.parse(self, parser)?;
+        {
+            let mut rd = self.surface.surface.role_data.borrow_mut();
+            if let RoleData::XdgSurface(rd) = &mut *rd {
+                rd.role_data = XdgSurfaceRoleData::None;
+            }
+        }
         Ok(())
     }
 
@@ -165,7 +174,7 @@ handle_request!(XdgToplevel);
 
 impl Object for XdgToplevel {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

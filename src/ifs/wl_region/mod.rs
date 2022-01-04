@@ -12,14 +12,16 @@ const DESTROY: u32 = 0;
 const ADD: u32 = 1;
 const SUBTRACT: u32 = 2;
 
+id!(WlRegionId);
+
 pub struct WlRegion {
-    id: ObjectId,
+    id: WlRegionId,
     client: Rc<Client>,
     rect: RefCell<Region>,
 }
 
 impl WlRegion {
-    pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlRegionId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -81,7 +83,7 @@ handle_request!(WlRegion);
 
 impl Object for WlRegion {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

@@ -1,7 +1,9 @@
 mod types;
 
 use crate::client::AddObj;
-use crate::ifs::wl_surface::{RoleData, StackElement, SubsurfaceData, SurfaceRole, WlSurface};
+use crate::ifs::wl_surface::{
+    RoleData, StackElement, SubsurfaceData, SurfaceRole, WlSurface, WlSurfaceId,
+};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::cell::Cell;
@@ -19,8 +21,10 @@ const BAD_SURFACE: u32 = 0;
 
 const MAX_SUBSURFACE_DEPTH: u32 = 100;
 
+id!(WlSubsurfaceId);
+
 pub struct WlSubsurface {
-    id: ObjectId,
+    id: WlSubsurfaceId,
     surface: Rc<WlSurface>,
     pub(super) parent: Rc<WlSurface>,
 }
@@ -67,7 +71,7 @@ fn update_children_attach(
 }
 
 impl WlSubsurface {
-    pub fn new(id: ObjectId, surface: &Rc<WlSurface>, parent: &Rc<WlSurface>) -> Self {
+    pub fn new(id: WlSubsurfaceId, surface: &Rc<WlSurface>, parent: &Rc<WlSurface>) -> Self {
         Self {
             id,
             surface: surface.clone(),
@@ -150,7 +154,7 @@ impl WlSubsurface {
         Ok(())
     }
 
-    fn place(&self, sibling: ObjectId, above: bool) -> Result<(), PlacementError> {
+    fn place(&self, sibling: WlSurfaceId, above: bool) -> Result<(), PlacementError> {
         if sibling == self.surface.id {
             return Err(PlacementError::AboveSelf(sibling));
         }
@@ -247,7 +251,7 @@ handle_request!(WlSubsurface);
 
 impl Object for WlSubsurface {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

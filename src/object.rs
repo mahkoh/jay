@@ -11,6 +11,8 @@ pub const WL_DISPLAY_ID: ObjectId = ObjectId(1);
 pub struct ObjectId(u32);
 
 impl ObjectId {
+    pub const NONE: Self = ObjectId(0);
+
     pub fn from_raw(raw: u32) -> Self {
         Self(raw)
     }
@@ -38,6 +40,7 @@ pub trait Object: ObjectHandleRequest + 'static {
     fn id(&self) -> ObjectId;
     fn interface(&self) -> Interface;
     fn num_requests(&self) -> u32;
+    fn break_loops(&self) {}
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -57,6 +60,7 @@ pub enum Interface {
     XdgPopup,
     XdgToplevel,
     WlRegion,
+    WlBuffer,
 }
 
 impl Interface {
@@ -77,6 +81,7 @@ impl Interface {
             Interface::XdgPositioner => "xdg_positioner",
             Interface::XdgPopup => "xdg_popup",
             Interface::XdgToplevel => "xdg_toplevel",
+            Interface::WlBuffer => "wl_buffer",
         }
     }
 }

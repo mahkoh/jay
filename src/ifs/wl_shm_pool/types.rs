@@ -1,6 +1,6 @@
 use crate::client::{ClientError, RequestParser};
 use crate::clientmem::ClientMemError;
-use crate::object::ObjectId;
+use crate::ifs::wl_buffer::{WlBufferError, WlBufferId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
@@ -27,9 +27,16 @@ pub enum CreateBufferError {
     ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Format {0} is not supported")]
+    InvalidFormat(u32),
+    #[error("All parameters in a create_buffer request must be non-negative")]
+    NegativeParameters,
+    #[error(transparent)]
+    WlBufferError(Box<WlBufferError>),
 }
 efrom!(CreateBufferError, ParseError, MsgParserError);
 efrom!(CreateBufferError, ClientError, ClientError);
+efrom!(CreateBufferError, WlBufferError, WlBufferError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -56,7 +63,7 @@ efrom!(ResizeError, ParseError, MsgParserError);
 efrom!(ResizeError, ClientMemError, ClientMemError);
 
 pub(super) struct CreateBuffer {
-    pub id: ObjectId,
+    pub id: WlBufferId,
     pub offset: i32,
     pub width: i32,
     pub height: i32,

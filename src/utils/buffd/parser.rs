@@ -46,8 +46,11 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| i as u32)
     }
 
-    pub fn object(&mut self) -> Result<ObjectId, MsgParserError> {
-        self.int().map(|i| ObjectId::from_raw(i as u32))
+    pub fn object<T>(&mut self) -> Result<T, MsgParserError>
+    where
+        ObjectId: Into<T>,
+    {
+        self.int().map(|i| ObjectId::from_raw(i as u32).into())
     }
 
     pub fn global(&mut self) -> Result<GlobalName, MsgParserError> {

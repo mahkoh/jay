@@ -1,6 +1,8 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::globals::GlobalError;
+use crate::ifs::wl_callback::WlCallbackId;
 use crate::ifs::wl_display::{WlDisplay, DELETE_ID, ERROR};
+use crate::ifs::wl_registry::WlRegistryId;
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -44,7 +46,7 @@ efrom!(SyncError, ParseFailed, MsgParserError);
 efrom!(SyncError, ClientError, ClientError);
 
 pub(super) struct GetRegistry {
-    pub registry: ObjectId,
+    pub registry: WlRegistryId,
 }
 impl RequestParser<'_> for GetRegistry {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -60,7 +62,7 @@ impl Debug for GetRegistry {
 }
 
 pub(super) struct Sync {
-    pub callback: ObjectId,
+    pub callback: WlCallbackId,
 }
 impl RequestParser<'_> for Sync {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {

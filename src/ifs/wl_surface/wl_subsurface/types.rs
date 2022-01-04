@@ -1,6 +1,5 @@
 use crate::client::{ClientError, RequestParser};
-use crate::ifs::wl_surface::SurfaceRole;
-use crate::object::ObjectId;
+use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
@@ -20,13 +19,13 @@ pub enum WlSubsurfaceError {
     #[error("Could not process `set_desync` request")]
     SetDesync(#[from] SetDesyncError),
     #[error("Surface {0} cannot be assigned the role `Subsurface` because it already has the role `{1:?}`")]
-    IncompatibleType(ObjectId, SurfaceRole),
+    IncompatibleType(WlSurfaceId, SurfaceRole),
     #[error("Surface {0} already has an attached `wl_subsurface`")]
-    AlreadyAttached(ObjectId),
+    AlreadyAttached(WlSurfaceId),
     #[error("Surface {0} cannot be made its own parent")]
-    OwnParent(ObjectId),
+    OwnParent(WlSurfaceId),
     #[error("Surface {0} cannot be made a subsurface of {1} because it's an ancestor of {1}")]
-    Ancestor(ObjectId, ObjectId),
+    Ancestor(WlSurfaceId, WlSurfaceId),
     #[error("Subsurfaces cannot be nested deeper than 100 levels")]
     MaxDepthExceeded,
 }
@@ -60,9 +59,9 @@ efrom!(PlaceAboveError, ParseFailed, MsgParserError);
 #[derive(Debug, Error)]
 pub enum PlacementError {
     #[error("Cannot place {0} above/below itself")]
-    AboveSelf(ObjectId),
+    AboveSelf(WlSurfaceId),
     #[error("{0} is not a sibling of {1}")]
-    NotASibling(ObjectId, ObjectId),
+    NotASibling(WlSurfaceId, WlSurfaceId),
 }
 
 #[derive(Debug, Error)]
@@ -88,7 +87,7 @@ pub enum SetDesyncError {
 }
 efrom!(SetDesyncError, ParseFailed, MsgParserError);
 
-pub(in crate::ifs) struct Destroy;
+pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {
     fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)
@@ -100,7 +99,7 @@ impl Debug for Destroy {
     }
 }
 
-pub(in crate::ifs) struct SetPosition {
+pub(super) struct SetPosition {
     pub x: i32,
     pub y: i32,
 }
@@ -118,8 +117,8 @@ impl Debug for SetPosition {
     }
 }
 
-pub(in crate::ifs) struct PlaceAbove {
-    pub sibling: ObjectId,
+pub(super) struct PlaceAbove {
+    pub sibling: WlSurfaceId,
 }
 impl RequestParser<'_> for PlaceAbove {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -134,8 +133,8 @@ impl Debug for PlaceAbove {
     }
 }
 
-pub(in crate::ifs) struct PlaceBelow {
-    pub sibling: ObjectId,
+pub(super) struct PlaceBelow {
+    pub sibling: WlSurfaceId,
 }
 impl RequestParser<'_> for PlaceBelow {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -150,7 +149,7 @@ impl Debug for PlaceBelow {
     }
 }
 
-pub(in crate::ifs) struct SetSync;
+pub(super) struct SetSync;
 impl RequestParser<'_> for SetSync {
     fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)
@@ -162,7 +161,7 @@ impl Debug for SetSync {
     }
 }
 
-pub(in crate::ifs) struct SetDesync;
+pub(super) struct SetDesync;
 impl RequestParser<'_> for SetDesync {
     fn parse(_parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
         Ok(Self)

@@ -39,9 +39,55 @@ macro_rules! bind {
                 Box<dyn std::future::Future<Output = Result<(), crate::globals::GlobalError>> + 'a>,
             > {
                 Box::pin(async move {
-                    self.bind_(id, client, version).await?;
+                    self.bind_(id.into(), client, version).await?;
                     Ok(())
                 })
+            }
+        }
+    };
+}
+
+macro_rules! id {
+    ($name:ident) => {
+        #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+        pub struct $name(u32);
+
+        #[allow(dead_code)]
+        impl $name {
+            pub const NONE: Self = $name(0);
+
+            pub fn from_raw(raw: u32) -> Self {
+                Self(raw)
+            }
+
+            pub fn raw(self) -> u32 {
+                self.0
+            }
+
+            pub fn is_some(self) -> bool {
+                self.0 != 0
+            }
+
+            pub fn is_none(self) -> bool {
+                self.0 == 0
+            }
+        }
+
+        impl From<crate::object::ObjectId> for $name {
+            fn from(f: crate::object::ObjectId) -> Self {
+                Self(f.raw())
+            }
+        }
+
+        impl From<$name> for crate::object::ObjectId {
+            fn from(f: $name) -> Self {
+                crate::object::ObjectId::from_raw(f.0)
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
             }
         }
     };

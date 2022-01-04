@@ -2,6 +2,7 @@ mod types;
 
 use crate::client::{AddObj, Client};
 use crate::clientmem::ClientMem;
+use crate::ifs::wl_buffer::WlBuffer;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::cell::RefCell;
@@ -13,8 +14,10 @@ const CREATE_BUFFER: u32 = 0;
 const DESTROY: u32 = 1;
 const RESIZE: u32 = 2;
 
+id!(WlShmPoolId);
+
 pub struct WlShmPool {
-    id: ObjectId,
+    id: WlShmPoolId,
     client: Rc<Client>,
     fd: OwnedFd,
     mem: RefCell<Rc<ClientMem>>,
@@ -22,7 +25,7 @@ pub struct WlShmPool {
 
 impl WlShmPool {
     pub fn new(
-        id: ObjectId,
+        id: WlShmPoolId,
         client: &Rc<Client>,
         fd: OwnedFd,
         len: usize,
@@ -37,6 +40,25 @@ impl WlShmPool {
 
     async fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
         let req: CreateBuffer = self.client.parse(self, parser)?;
+        let format = match self.client.state.formats.get(&req.format) {
+            Some(f) => *f,
+            _ => return Err(CreateBufferError::InvalidFormat(req.format)),
+        };
+        if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
+            return Err(CreateBufferError::NegativeParameters);
+        }
+        let mem = self.mem.borrow();
+        let buffer = Rc::new(WlBuffer::new(
+            req.id,
+            &self.client,
+            req.offset as usize,
+            req.width as u32,
+            req.height as u32,
+            req.stride as u32,
+            format,
+            &mem,
+        )?);
+        self.client.add_client_obj(&buffer)?;
         Ok(())
     }
 
@@ -78,7 +100,7 @@ handle_request!(WlShmPool);
 
 impl Object for WlShmPool {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

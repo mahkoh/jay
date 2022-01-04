@@ -2,13 +2,18 @@ mod types;
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use crate::ifs::wl_surface::{RoleData, SurfaceRole, WlSurface, XdgSurfaceData};
+use crate::client::AddObj;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::{
+    RoleData, SurfaceRole, WlSurface, XdgPopupData, XdgSurfaceData, XdgSurfaceRole,
+    XdgSurfaceRoleData, XdgToplevelData,
+};
+use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-use crate::client::AddObj;
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 
 const DESTROY: u32 = 0;
 const GET_TOPLEVEL: u32 = 1;
@@ -22,15 +27,22 @@ const NOT_CONSTRUCTED: u32 = 1;
 const ALREADY_CONSTRUCTED: u32 = 2;
 const UNCONFIGURED_BUFFER: u32 = 3;
 
+id!(XdgSurfaceId);
+
 pub struct XdgSurface {
-    id: ObjectId,
+    id: XdgSurfaceId,
     wm_base: Rc<XdgWmBaseObj>,
-    surface: Rc<WlSurface>,
+    pub(super) surface: Rc<WlSurface>,
     version: u32,
 }
 
 impl XdgSurface {
-    pub fn new(wm_base: &Rc<XdgWmBaseObj>, id: ObjectId, surface: &Rc<WlSurface>, version: u32) -> Self {
+    pub fn new(
+        wm_base: &Rc<XdgWmBaseObj>,
+        id: XdgSurfaceId,
+        surface: &Rc<WlSurface>,
+        version: u32,
+    ) -> Self {
         Self {
             id,
             wm_base: wm_base.clone(),
@@ -50,25 +62,101 @@ impl XdgSurface {
         }
         *data = RoleData::XdgSurface(Box::new(XdgSurfaceData {
             xdg_surface: self.clone(),
+            committed: false,
+            role: XdgSurfaceRole::None,
+            role_data: XdgSurfaceRoleData::None,
+            popups: Default::default(),
         }));
         Ok(())
     }
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
-        *self.surface.role_data.borrow_mut() = RoleData::None;
+        {
+            let mut data = self.surface.role_data.borrow_mut();
+            if let RoleData::XdgSurface(rd) = &*data {
+                if rd.role_data.is_some() {
+                    return Err(DestroyError::RoleNotYetDestroyed(self.id));
+                }
+                let children = rd.popups.lock();
+                for child in children.values() {
+                    let mut data = child.surface.surface.role_data.borrow_mut();
+                    if let RoleData::XdgSurface(xdg) = &mut *data {
+                        if let XdgSurfaceRoleData::Popup(p) = &mut xdg.role_data {
+                            p.parent = None;
+                        }
+                    }
+                }
+            }
+            *data = RoleData::None;
+        }
         self.wm_base.surfaces.remove(&self.id);
         self.surface.client.remove_obj(self).await?;
         Ok(())
     }
 
-    async fn get_toplevel(&self, parser: MsgParser<'_, '_>) -> Result<(), GetToplevelError> {
-        let _req: GetToplevel = self.surface.client.parse(self, parser)?;
+    async fn get_toplevel(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), GetToplevelError> {
+        let req: GetToplevel = self.surface.client.parse(&**self, parser)?;
+        let mut data = self.surface.role_data.borrow_mut();
+        if let RoleData::XdgSurface(data) = &mut *data {
+            if !data.role.is_compatible(XdgSurfaceRole::Toplevel) {
+                return Err(GetToplevelError::IncompatibleRole);
+            }
+            if data.role_data.is_some() {
+                self.surface.client.protocol_error(
+                    &**self,
+                    ALREADY_CONSTRUCTED,
+                    format!(
+                        "wl_surface {} already has an assigned xdg_toplevel",
+                        self.surface.id
+                    ),
+                );
+                return Err(GetToplevelError::AlreadyConstructed);
+            }
+            data.role = XdgSurfaceRole::Toplevel;
+            let toplevel = Rc::new(XdgToplevel::new(req.id, self, self.version));
+            self.surface.client.add_client_obj(&toplevel)?;
+            data.role_data = XdgSurfaceRoleData::Toplevel(XdgToplevelData { toplevel });
+        }
         Ok(())
     }
 
-    async fn get_popup(&self, parser: MsgParser<'_, '_>) -> Result<(), GetPopupError> {
-        let _req: GetPopup = self.surface.client.parse(self, parser)?;
+    async fn get_popup(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPopupError> {
+        let req: GetPopup = self.surface.client.parse(&**self, parser)?;
+        let mut data = self.surface.role_data.borrow_mut();
+        if let RoleData::XdgSurface(data) = &mut *data {
+            let mut parent = None;
+            if req.parent.is_some() {
+                parent = Some(self.surface.client.get_xdg_surface(req.parent)?);
+            }
+            if !data.role.is_compatible(XdgSurfaceRole::Popup) {
+                return Err(GetPopupError::IncompatibleRole);
+            }
+            if data.role_data.is_some() {
+                self.surface.client.protocol_error(
+                    &**self,
+                    ALREADY_CONSTRUCTED,
+                    format!(
+                        "wl_surface {} already has an assigned xdg_popup",
+                        self.surface.id
+                    ),
+                );
+                return Err(GetPopupError::AlreadyConstructed);
+            }
+            data.role = XdgSurfaceRole::Popup;
+            let popup = Rc::new(XdgPopup::new(req.id, self, self.version));
+            self.surface.client.add_client_obj(&popup)?;
+            if let Some(parent) = &parent {
+                let mut data = parent.surface.role_data.borrow_mut();
+                if let RoleData::XdgSurface(xdg) = &mut *data {
+                    xdg.popups.set(self.surface.id, popup.clone());
+                }
+            }
+            data.role_data = XdgSurfaceRoleData::Popup(XdgPopupData { popup, parent });
+        }
         Ok(())
     }
 
@@ -86,7 +174,7 @@ impl XdgSurface {
     }
 
     async fn handle_request_(
-        &self,
+        self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), XdgSurfaceError> {
@@ -106,7 +194,7 @@ handle_request!(XdgSurface);
 
 impl Object for XdgSurface {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

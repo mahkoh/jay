@@ -3,16 +3,16 @@ use crate::client::objects::Objects;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_compositor::{WlCompositorError, WlCompositorObj};
 use crate::ifs::wl_display::{WlDisplay, WlDisplayError};
-use crate::ifs::wl_region::{WlRegion, WlRegionError};
-use crate::ifs::wl_registry::{WlRegistry, WlRegistryError};
+use crate::ifs::wl_region::{WlRegion, WlRegionError, WlRegionId};
+use crate::ifs::wl_registry::{WlRegistry, WlRegistryError, WlRegistryId};
 use crate::ifs::wl_shm::{WlShmError, WlShmObj};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
 use crate::ifs::wl_subcompositor::{WlSubcompositorError, WlSubcompositorObj};
 use crate::ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError};
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupError;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelError;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError};
-use crate::ifs::wl_surface::{WlSurface, WlSurfaceError};
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelError};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceId};
+use crate::ifs::wl_surface::{WlSurface, WlSurfaceError, WlSurfaceId};
 use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerError};
 use crate::ifs::xdg_wm_base::{XdgWmBaseError, XdgWmBaseObj};
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
@@ -30,6 +30,7 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
+use crate::ifs::wl_buffer::{WlBuffer, WlBufferError};
 
 mod objects;
 mod tasks;
@@ -54,10 +55,12 @@ pub enum ClientError {
     OutBufferOverflow,
     #[error("The requested client {0} does not exist")]
     ClientDoesNotExist(ClientId),
-    #[error("There is no region with id {0}")]
-    RegionDoesNotExist(ObjectId),
-    #[error("There is no surface with id {0}")]
-    SurfaceDoesNotExist(ObjectId),
+    #[error("There is no wl_region with id {0}")]
+    RegionDoesNotExist(WlRegionId),
+    #[error("There is no wl_surface with id {0}")]
+    SurfaceDoesNotExist(WlSurfaceId),
+    #[error("There is no xdg_surface with id {0}")]
+    XdgSurfaceDoesNotExist(XdgSurfaceId),
     #[error("Cannot parse the message")]
     ParserError(#[source] Box<MsgParserError>),
     #[error("Server tried to allocate more than 0x1_00_00_00 ids")]
@@ -100,6 +103,8 @@ pub enum ClientError {
     XdgToplevelError(#[source] Box<XdgToplevelError>),
     #[error("An error occurred in a `xdg_wm_base`")]
     XdgWmBaseError(#[source] Box<XdgWmBaseError>),
+    #[error("An error occurred in a `wl_buffer`")]
+    WlBufferError(#[source] Box<WlBufferError>),
     #[error("Object {0} is not a display")]
     NotADisplay(ObjectId),
 }
@@ -119,6 +124,7 @@ efrom!(ClientError, XdgPositionerError, XdgPositionerError);
 efrom!(ClientError, XdgWmBaseError, XdgWmBaseError);
 efrom!(ClientError, XdgToplevelError, XdgToplevelError);
 efrom!(ClientError, XdgPopupError, XdgPopupError);
+efrom!(ClientError, WlBufferError, WlBufferError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -353,17 +359,24 @@ impl Client {
         Ok(())
     }
 
-    pub fn get_region(&self, id: ObjectId) -> Result<Rc<WlRegion>, ClientError> {
+    pub fn get_region(&self, id: WlRegionId) -> Result<Rc<WlRegion>, ClientError> {
         match self.objects.regions.get(&id) {
             Some(r) => Ok(r),
             _ => Err(ClientError::RegionDoesNotExist(id)),
         }
     }
 
-    pub fn get_surface(&self, id: ObjectId) -> Result<Rc<WlSurface>, ClientError> {
+    pub fn get_surface(&self, id: WlSurfaceId) -> Result<Rc<WlSurface>, ClientError> {
         match self.objects.surfaces.get(&id) {
             Some(r) => Ok(r),
             _ => Err(ClientError::SurfaceDoesNotExist(id)),
+        }
+    }
+
+    pub fn get_xdg_surface(&self, id: XdgSurfaceId) -> Result<Rc<XdgSurface>, ClientError> {
+        match self.objects.xdg_surfaces.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::XdgSurfaceDoesNotExist(id)),
         }
     }
 
@@ -383,7 +396,7 @@ impl Client {
         self.objects.remove_obj(self, id)
     }
 
-    pub fn lock_registries(&self) -> RefMut<AHashMap<ObjectId, Rc<WlRegistry>>> {
+    pub fn lock_registries(&self) -> RefMut<AHashMap<WlRegistryId, Rc<WlRegistry>>> {
         self.objects.registries()
     }
 
@@ -438,7 +451,9 @@ simple_add_obj!(WlShmPool);
 simple_add_obj!(WlSubcompositorObj);
 simple_add_obj!(WlSubsurface);
 simple_add_obj!(XdgPositioner);
-simple_add_obj!(XdgSurface);
+simple_add_obj!(XdgToplevel);
+simple_add_obj!(XdgPopup);
+simple_add_obj!(WlBuffer);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {
@@ -447,11 +462,11 @@ macro_rules! dedicated_add_obj {
 
             fn add_obj(&self, obj: &Rc<$ty>, client: bool) -> Result<(), ClientError> {
                 self.simple_add_obj(obj, client)?;
-                self.objects.$field.set(obj.id(), obj.clone());
+                self.objects.$field.set(obj.id().into(), obj.clone());
                 Ok(())
             }
             fn remove_obj<'a>(&'a self, obj: &'a $ty) -> Self::RemoveObj<'a> {
-                self.objects.$field.remove(&obj.id());
+                self.objects.$field.remove(&obj.id().into());
                 self.simple_remove_obj(obj.id())
             }
         }
@@ -461,3 +476,4 @@ macro_rules! dedicated_add_obj {
 dedicated_add_obj!(WlRegion, regions);
 dedicated_add_obj!(WlSurface, surfaces);
 dedicated_add_obj!(XdgWmBaseObj, xdg_wm_bases);
+dedicated_add_obj!(XdgSurface, xdg_surfaces);

@@ -2,7 +2,7 @@ mod types;
 
 use crate::client::{AddObj, Client};
 use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositioner;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
@@ -24,16 +24,18 @@ const INVALID_POPUP_PARENT: u32 = 3;
 const INVALID_SURFACE_STATE: u32 = 4;
 const INVALID_POSITIONER: u32 = 5;
 
+id!(XdgWmBaseId);
+
 pub struct XdgWmBaseGlobal {
     name: GlobalName,
 }
 
 pub struct XdgWmBaseObj {
     global: Rc<XdgWmBaseGlobal>,
-    id: ObjectId,
+    id: XdgWmBaseId,
     client: Rc<Client>,
     version: u32,
-    pub(super) surfaces: CopyHashMap<ObjectId, Rc<XdgSurface>>,
+    pub(super) surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
 }
 
 impl XdgWmBaseGlobal {
@@ -43,7 +45,7 @@ impl XdgWmBaseGlobal {
 
     async fn bind_(
         self: Rc<Self>,
-        id: ObjectId,
+        id: XdgWmBaseId,
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), XdgWmBaseError> {
@@ -60,10 +62,6 @@ impl XdgWmBaseGlobal {
 }
 
 impl XdgWmBaseObj {
-    pub fn break_loops(&self) {
-        self.surfaces.clear();
-    }
-
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         if !self.surfaces.is_empty() {
@@ -91,7 +89,10 @@ impl XdgWmBaseObj {
         Ok(())
     }
 
-    async fn get_xdg_surface(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetXdgSurfaceError> {
+    async fn get_xdg_surface(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), GetXdgSurfaceError> {
         let req: GetXdgSurface = self.client.parse(&**self, parser)?;
         let surface = self.client.get_surface(req.surface)?;
         let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface, 3));
@@ -146,7 +147,7 @@ handle_request!(XdgWmBaseObj);
 
 impl Object for XdgWmBaseObj {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {
@@ -155,5 +156,9 @@ impl Object for XdgWmBaseObj {
 
     fn num_requests(&self) -> u32 {
         PONG + 1
+    }
+
+    fn break_loops(&self) {
+        self.surfaces.clear();
     }
 }

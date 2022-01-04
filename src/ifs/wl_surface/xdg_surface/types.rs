@@ -1,11 +1,14 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, CONFIGURE};
-use crate::object::{Object, ObjectId};
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupId;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelId;
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, CONFIGURE};
+use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
+use crate::ifs::xdg_positioner::XdgPositionerId;
+use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_surface::SurfaceRole;
 
 #[derive(Debug, Error)]
 pub enum XdgSurfaceError {
@@ -20,9 +23,9 @@ pub enum XdgSurfaceError {
     #[error("Could not process `ack_configure` request")]
     AckConfigureError(#[from] AckConfigureError),
     #[error("Surface {0} cannot be turned into a xdg_surface because it already has the role {}", .1.name())]
-    IncompatibleRole(ObjectId, SurfaceRole),
+    IncompatibleRole(WlSurfaceId, SurfaceRole),
     #[error("Surface {0} cannot be turned into a xdg_surface because it already has an attached xdg_surface")]
-    AlreadyAttached(ObjectId),
+    AlreadyAttached(WlSurfaceId),
 }
 
 #[derive(Debug, Error)]
@@ -31,6 +34,8 @@ pub enum DestroyError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Cannot destroy xdg_surface {0} because it's associated xdg_toplevel/popup is not yet destroyed")]
+    RoleNotYetDestroyed(XdgSurfaceId),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
 efrom!(DestroyError, ClientError, ClientError);
@@ -41,6 +46,10 @@ pub enum GetToplevelError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("The surface already has a different role")]
+    IncompatibleRole,
+    #[error("The surface already has an assigned xdg_toplevel")]
+    AlreadyConstructed,
 }
 efrom!(GetToplevelError, ParseFailed, MsgParserError);
 efrom!(GetToplevelError, ClientError, ClientError);
@@ -51,6 +60,10 @@ pub enum GetPopupError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("The surface already has a different role")]
+    IncompatibleRole,
+    #[error("The surface already has an assigned xdg_popup")]
+    AlreadyConstructed,
 }
 efrom!(GetPopupError, ParseFailed, MsgParserError);
 efrom!(GetPopupError, ClientError, ClientError);
@@ -88,7 +101,7 @@ impl Debug for Destroy {
 }
 
 pub(super) struct GetToplevel {
-    pub id: ObjectId,
+    pub id: XdgToplevelId,
 }
 impl RequestParser<'_> for GetToplevel {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -104,9 +117,9 @@ impl Debug for GetToplevel {
 }
 
 pub(super) struct GetPopup {
-    pub id: ObjectId,
-    pub parent: ObjectId,
-    pub positioner: ObjectId,
+    pub id: XdgPopupId,
+    pub parent: XdgSurfaceId,
+    pub positioner: XdgPositionerId,
 }
 impl RequestParser<'_> for GetPopup {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {

@@ -1,8 +1,8 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::format::Format;
 use crate::ifs::wl_shm::{WlShmObj, FORMAT};
-use crate::ifs::wl_shm_pool::WlShmPoolError;
-use crate::object::{Object, ObjectId};
+use crate::ifs::wl_shm_pool::{WlShmPoolError, WlShmPoolId};
+use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -34,7 +34,7 @@ efrom!(CreatePoolError, WlShmPoolError, WlShmPoolError);
 efrom!(CreatePoolError, ClientError, ClientError);
 
 pub(super) struct CreatePool {
-    pub id: ObjectId,
+    pub id: WlShmPoolId,
     pub fd: OwnedFd,
     pub size: i32,
 }

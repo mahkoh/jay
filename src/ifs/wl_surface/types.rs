@@ -1,5 +1,6 @@
 use crate::client::{ClientError, RequestParser};
-use crate::object::ObjectId;
+use crate::ifs::wl_callback::WlCallbackId;
+use crate::ifs::wl_region::WlRegionId;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
@@ -134,7 +135,7 @@ impl Debug for Destroy {
 }
 
 pub(super) struct Attach {
-    pub buffer: ObjectId,
+    pub buffer: crate::ifs::wl_buffer::WlBufferId,
     pub x: i32,
     pub y: i32,
 }
@@ -184,7 +185,7 @@ impl Debug for Damage {
 }
 
 pub(super) struct Frame {
-    pub callback: ObjectId,
+    pub callback: WlCallbackId,
 }
 impl RequestParser<'_> for Frame {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -200,7 +201,7 @@ impl Debug for Frame {
 }
 
 pub(super) struct SetOpaqueRegion {
-    pub region: ObjectId,
+    pub region: WlRegionId,
 }
 impl RequestParser<'_> for SetOpaqueRegion {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -216,7 +217,7 @@ impl Debug for SetOpaqueRegion {
 }
 
 pub(super) struct SetInputRegion {
-    pub region: ObjectId,
+    pub region: WlRegionId,
 }
 impl RequestParser<'_> for SetInputRegion {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {

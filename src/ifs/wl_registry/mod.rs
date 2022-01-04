@@ -12,13 +12,15 @@ const BIND: u32 = 0;
 const GLOBAL: u32 = 0;
 const GLOBAL_REMOVE: u32 = 1;
 
+id!(WlRegistryId);
+
 pub struct WlRegistry {
-    id: ObjectId,
+    id: WlRegistryId,
     client: Rc<Client>,
 }
 
 impl WlRegistry {
-    pub fn new(id: ObjectId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlRegistryId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -78,7 +80,7 @@ handle_request!(WlRegistry);
 
 impl Object for WlRegistry {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

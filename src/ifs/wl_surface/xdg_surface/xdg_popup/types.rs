@@ -1,8 +1,10 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
+use crate::ifs::wl_seat::WlSeatId;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{
     XdgPopup, CONFIGURE, POPUP_DONE, REPOSITIONED,
 };
-use crate::object::{Object, ObjectId};
+use crate::ifs::xdg_positioner::XdgPositionerId;
+use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -61,7 +63,7 @@ impl Debug for Destroy {
 }
 
 pub(super) struct Grab {
-    pub seat: ObjectId,
+    pub seat: WlSeatId,
     pub serial: u32,
 }
 impl RequestParser<'_> for Grab {
@@ -79,7 +81,7 @@ impl Debug for Grab {
 }
 
 pub(super) struct Reposition {
-    pub positioner: ObjectId,
+    pub positioner: XdgPositionerId,
     pub token: u32,
 }
 impl RequestParser<'_> for Reposition {

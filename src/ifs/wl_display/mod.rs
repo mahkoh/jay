@@ -45,7 +45,7 @@ impl WlDisplay {
 
     async fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
-        let cb = Rc::new(WlCallback::new(sync.callback));
+        let cb = Rc::new(WlCallback::new(sync.callback.into()));
         self.client.add_client_obj(&cb)?;
         self.client.event(cb.done()).await?;
         self.client.remove_obj(&*cb).await?;

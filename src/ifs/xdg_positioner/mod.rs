@@ -74,8 +74,10 @@ bitflags! {
     }
 }
 
+id!(XdgPositionerId);
+
 pub struct XdgPositioner {
-    id: ObjectId,
+    id: XdgPositionerId,
     client: Rc<Client>,
     version: u32,
     position: RefCell<XdgPositioned>,
@@ -101,7 +103,7 @@ pub struct XdgPositioned {
 }
 
 impl XdgPositioner {
-    pub fn new(id: ObjectId, client: &Rc<Client>, version: u32) -> Self {
+    pub fn new(id: XdgPositionerId, client: &Rc<Client>, version: u32) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -256,7 +258,7 @@ handle_request!(XdgPositioner);
 
 impl Object for XdgPositioner {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

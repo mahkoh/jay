@@ -12,13 +12,15 @@ pub use types::*;
 const CREATE_SURFACE: u32 = 0;
 const CREATE_REGION: u32 = 1;
 
+id!(WlCompositorId);
+
 pub struct WlCompositorGlobal {
     name: GlobalName,
 }
 
 pub struct WlCompositorObj {
     global: Rc<WlCompositorGlobal>,
-    id: ObjectId,
+    id: WlCompositorId,
     client: Rc<Client>,
     version: u32,
 }
@@ -30,7 +32,7 @@ impl WlCompositorGlobal {
 
     async fn bind_(
         self: Rc<Self>,
-        id: ObjectId,
+        id: WlCompositorId,
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlCompositorError> {
@@ -98,7 +100,7 @@ handle_request!(WlCompositorObj);
 
 impl Object for WlCompositorObj {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

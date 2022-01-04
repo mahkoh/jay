@@ -4,6 +4,7 @@ use ahash::AHashMap;
 pub struct Format {
     pub id: u32,
     pub name: &'static str,
+    pub bpp: u32,
 }
 
 pub fn formats() -> AHashMap<u32, &'static Format> {
@@ -22,10 +23,12 @@ static FORMATS: &[Format] = &[
     Format {
         id: 0,
         name: "argb8888",
+        bpp: 4,
     },
     Format {
         id: 1,
         name: "xrgb8888",
+        bpp: 4,
     },
     // Format {
     //     id: fourcc_code('C', '8', ' ', ' '),

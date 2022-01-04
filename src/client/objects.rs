@@ -1,23 +1,25 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_region::WlRegion;
-use crate::ifs::wl_registry::WlRegistry;
-use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_region::{WlRegion, WlRegionId};
+use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
+use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
+use crate::ifs::xdg_wm_base::{XdgWmBaseId, XdgWmBaseObj};
 use crate::object::{Object, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 
 pub struct Objects {
     pub display: RefCell<Option<Rc<WlDisplay>>>,
     registry: CopyHashMap<ObjectId, Rc<dyn Object>>,
-    registries: CopyHashMap<ObjectId, Rc<WlRegistry>>,
-    pub surfaces: CopyHashMap<ObjectId, Rc<WlSurface>>,
-    pub regions: CopyHashMap<ObjectId, Rc<WlRegion>>,
-    pub xdg_wm_bases: CopyHashMap<ObjectId, Rc<XdgWmBaseObj>>,
+    registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
+    pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
+    pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
+    pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
+    pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBaseObj>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -31,6 +33,7 @@ impl Objects {
             registry: Default::default(),
             registries: Default::default(),
             surfaces: Default::default(),
+            xdg_surfaces: Default::default(),
             regions: Default::default(),
             xdg_wm_bases: Default::default(),
             ids: RefCell::new(vec![]),
@@ -39,25 +42,24 @@ impl Objects {
 
     pub fn destroy(&self) {
         {
-            let mut surfaces = self.surfaces.lock();
-            for surface in surfaces.values_mut() {
-                surface.break_loops();
+            let mut registry = self.registry.lock();
+            for obj in registry.values_mut() {
+                obj.break_loops();
             }
-        }
-        {
-            let mut xdg_wm_bases = self.xdg_wm_bases.lock();
-            for xdg_wm_base in xdg_wm_bases.values_mut() {
-                xdg_wm_base.break_loops();
-            }
+            registry.clear();
         }
         *self.display.borrow_mut() = None;
-        self.registry.clear();
         self.regions.clear();
         self.registries.clear();
         self.surfaces.clear();
+        self.xdg_wm_bases.clear();
+        self.xdg_surfaces.clear();
     }
 
-    fn id(&self, client_data: &Client) -> Result<ObjectId, ClientError> {
+    fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>
+    where
+        ObjectId: Into<T>,
+    {
         const MAX_ID_OFFSET: u32 = u32::MAX - MIN_SERVER_ID;
         let offset = self.id_offset();
         if offset > MAX_ID_OFFSET {
@@ -68,7 +70,7 @@ impl Objects {
             );
             return Err(ClientError::TooManyIds);
         }
-        Ok(ObjectId::from_raw(MIN_SERVER_ID + offset))
+        Ok(ObjectId::from_raw(MIN_SERVER_ID + offset).into())
     }
 
     pub fn get_obj(&self, id: ObjectId) -> Result<Rc<dyn Object>, ClientError> {
@@ -123,7 +125,7 @@ impl Objects {
         Ok(())
     }
 
-    pub fn registries(&self) -> RefMut<AHashMap<ObjectId, Rc<WlRegistry>>> {
+    pub fn registries(&self) -> RefMut<AHashMap<WlRegistryId, Rc<WlRegistry>>> {
         self.registries.lock()
     }
 

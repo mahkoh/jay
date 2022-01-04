@@ -1,7 +1,8 @@
 use super::CONFIGURE;
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, CLOSE};
-use crate::object::{Object, ObjectId};
+use crate::ifs::wl_seat::WlSeatId;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId, CLOSE};
+use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -192,11 +193,13 @@ impl Debug for Destroy {
 }
 
 pub(super) struct SetParent {
-    pub parent: ObjectId,
+    pub parent: XdgToplevelId,
 }
 impl RequestParser<'_> for SetParent {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self { parent: parser.object()? })
+        Ok(Self {
+            parent: parser.object()?,
+        })
     }
 }
 impl Debug for SetParent {
@@ -210,7 +213,9 @@ pub(super) struct SetTitle<'a> {
 }
 impl<'a> RequestParser<'a> for SetTitle<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
-        Ok(Self { title: parser.string()? })
+        Ok(Self {
+            title: parser.string()?,
+        })
     }
 }
 impl<'a> Debug for SetTitle<'a> {
@@ -224,7 +229,9 @@ pub(super) struct SetAppId<'a> {
 }
 impl<'a> RequestParser<'a> for SetAppId<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
-        Ok(Self { app_id: parser.string()? })
+        Ok(Self {
+            app_id: parser.string()?,
+        })
     }
 }
 impl<'a> Debug for SetAppId<'a> {
@@ -234,7 +241,7 @@ impl<'a> Debug for SetAppId<'a> {
 }
 
 pub(super) struct ShowWindowMenu {
-    pub seat: ObjectId,
+    pub seat: WlSeatId,
     pub serial: u32,
     pub x: i32,
     pub y: i32,
@@ -251,17 +258,24 @@ impl RequestParser<'_> for ShowWindowMenu {
 }
 impl Debug for ShowWindowMenu {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "show_window_menu(seat: {}, serial: {}, x: {}, y: {})", self.seat, self.serial, self.x, self.y)
+        write!(
+            f,
+            "show_window_menu(seat: {}, serial: {}, x: {}, y: {})",
+            self.seat, self.serial, self.x, self.y
+        )
     }
 }
 
 pub(super) struct Move {
-    pub seat: ObjectId,
+    pub seat: WlSeatId,
     pub serial: u32,
 }
 impl RequestParser<'_> for Move {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self { seat: parser.object()?, serial: parser.uint()? })
+        Ok(Self {
+            seat: parser.object()?,
+            serial: parser.uint()?,
+        })
     }
 }
 impl Debug for Move {
@@ -271,7 +285,7 @@ impl Debug for Move {
 }
 
 pub(super) struct Resize {
-    pub seat: ObjectId,
+    pub seat: WlSeatId,
     pub serial: u32,
     pub edges: u32,
 }
@@ -286,7 +300,11 @@ impl RequestParser<'_> for Resize {
 }
 impl Debug for Resize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "resize(seat: {}, serial: {}, edges: {})", self.seat, self.serial, self.edges)
+        write!(
+            f,
+            "resize(seat: {}, serial: {}, edges: {})",
+            self.seat, self.serial, self.edges
+        )
     }
 }
 
@@ -296,12 +314,19 @@ pub(super) struct SetMaxSize {
 }
 impl RequestParser<'_> for SetMaxSize {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self { width: parser.int()?, height: parser.int()? })
+        Ok(Self {
+            width: parser.int()?,
+            height: parser.int()?,
+        })
     }
 }
 impl Debug for SetMaxSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "set_max_size(width: {}, height: {})", self.width, self.height)
+        write!(
+            f,
+            "set_max_size(width: {}, height: {})",
+            self.width, self.height
+        )
     }
 }
 
@@ -311,12 +336,19 @@ pub(super) struct SetMinSize {
 }
 impl RequestParser<'_> for SetMinSize {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self { width: parser.int()?, height: parser.int()? })
+        Ok(Self {
+            width: parser.int()?,
+            height: parser.int()?,
+        })
     }
 }
 impl Debug for SetMinSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "set_min_size(width: {}, height: {})", self.width, self.height)
+        write!(
+            f,
+            "set_min_size(width: {}, height: {})",
+            self.width, self.height
+        )
     }
 }
 
@@ -345,11 +377,13 @@ impl Debug for UnsetMaximized {
 }
 
 pub(super) struct SetFullscreen {
-    pub output: ObjectId,
+    pub output: crate::ifs::wl_output::WlOutputId,
 }
 impl RequestParser<'_> for SetFullscreen {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self { output: parser.object()? })
+        Ok(Self {
+            output: parser.object()?,
+        })
     }
 }
 impl Debug for SetFullscreen {

@@ -1,5 +1,6 @@
 use crate::client::{ClientError, RequestParser};
-use crate::object::ObjectId;
+use crate::ifs::wl_region::WlRegionId;
+use crate::ifs::wl_surface::WlSurfaceId;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
@@ -41,7 +42,7 @@ efrom!(CreateRegionError, ParseFailed, MsgParserError);
 efrom!(CreateRegionError, ClientError, ClientError);
 
 pub(super) struct CreateSurface {
-    pub id: ObjectId,
+    pub id: WlSurfaceId,
 }
 impl RequestParser<'_> for CreateSurface {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -57,7 +58,7 @@ impl Debug for CreateSurface {
 }
 
 pub(super) struct CreateRegion {
-    pub id: ObjectId,
+    pub id: WlRegionId,
 }
 impl RequestParser<'_> for CreateRegion {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {

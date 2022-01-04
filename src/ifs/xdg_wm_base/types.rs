@@ -1,11 +1,13 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurfaceError, XdgSurfaceId};
+use crate::ifs::wl_surface::WlSurfaceId;
+use crate::ifs::xdg_positioner::XdgPositionerId;
 use crate::ifs::xdg_wm_base::{XdgWmBaseObj, PING};
-use crate::object::{Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 
 #[derive(Debug, Error)]
 pub enum XdgWmBaseError {
@@ -77,7 +79,7 @@ impl Debug for Destroy {
 }
 
 pub(super) struct CreatePositioner {
-    pub id: ObjectId,
+    pub id: XdgPositionerId,
 }
 impl RequestParser<'_> for CreatePositioner {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
@@ -93,8 +95,8 @@ impl Debug for CreatePositioner {
 }
 
 pub(super) struct GetXdgSurface {
-    pub id: ObjectId,
-    pub surface: ObjectId,
+    pub id: XdgSurfaceId,
+    pub surface: WlSurfaceId,
 }
 impl RequestParser<'_> for GetXdgSurface {
     fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {

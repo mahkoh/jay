@@ -1,6 +1,7 @@
 mod types;
 
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::{RoleData, XdgSurfaceRoleData};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
@@ -16,14 +17,16 @@ const REPOSITIONED: u32 = 2;
 
 const INVALID_GRAB: u32 = 1;
 
+id!(XdgPopupId);
+
 pub struct XdgPopup {
-    id: ObjectId,
-    surface: Rc<XdgSurface>,
+    id: XdgPopupId,
+    pub(in super::super) surface: Rc<XdgSurface>,
     version: u32,
 }
 
 impl XdgPopup {
-    pub fn new(id: ObjectId, surface: &Rc<XdgSurface>, version: u32) -> Self {
+    pub fn new(id: XdgPopupId, surface: &Rc<XdgSurface>, version: u32) -> Self {
         Self {
             id,
             surface: surface.clone(),
@@ -33,6 +36,20 @@ impl XdgPopup {
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.surface.surface.client.parse(self, parser)?;
+        {
+            let mut rd = self.surface.surface.role_data.borrow_mut();
+            if let RoleData::XdgSurface(xdg) = &mut *rd {
+                if let XdgSurfaceRoleData::Popup(p) = &xdg.role_data {
+                    if let Some(p) = &p.parent {
+                        let mut rd = p.surface.role_data.borrow_mut();
+                        if let RoleData::XdgSurface(xdg) = &mut *rd {
+                            xdg.popups.remove(&self.surface.surface.id);
+                        }
+                    }
+                }
+                xdg.role_data = XdgSurfaceRoleData::None;
+            }
+        }
         Ok(())
     }
 
@@ -65,7 +82,7 @@ handle_request!(XdgPopup);
 
 impl Object for XdgPopup {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

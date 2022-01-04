@@ -8,12 +8,14 @@ use types::*;
 
 const DONE: u32 = 0;
 
+id!(WlCallbackId);
+
 pub struct WlCallback {
-    id: ObjectId,
+    id: WlCallbackId,
 }
 
 impl WlCallback {
-    pub fn new(id: ObjectId) -> Self {
+    pub fn new(id: WlCallbackId) -> Self {
         Self { id }
     }
 
@@ -34,7 +36,7 @@ handle_request!(WlCallback);
 
 impl Object for WlCallback {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

@@ -13,13 +13,15 @@ const GET_SUBSURFACE: u32 = 1;
 
 const BAD_SURFACE: u32 = 0;
 
+id!(WlSubcompositorId);
+
 pub struct WlSubcompositorGlobal {
     name: GlobalName,
 }
 
 pub struct WlSubcompositorObj {
     global: Rc<WlSubcompositorGlobal>,
-    id: ObjectId,
+    id: WlSubcompositorId,
     client: Rc<Client>,
 }
 
@@ -30,7 +32,7 @@ impl WlSubcompositorGlobal {
 
     async fn bind_(
         self: Rc<Self>,
-        id: ObjectId,
+        id: WlSubcompositorId,
         client: &Rc<Client>,
         _version: u32,
     ) -> Result<(), WlSubcompositorError> {
@@ -99,7 +101,7 @@ handle_request!(WlSubcompositorObj);
 
 impl Object for WlSubcompositorObj {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

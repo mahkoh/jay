@@ -12,13 +12,15 @@ const CREATE_POOL: u32 = 0;
 
 const FORMAT: u32 = 0;
 
+id!(WlShmId);
+
 pub struct WlShmGlobal {
     name: GlobalName,
 }
 
 pub struct WlShmObj {
     global: Rc<WlShmGlobal>,
-    id: ObjectId,
+    id: WlShmId,
     client: Rc<Client>,
 }
 
@@ -29,7 +31,7 @@ impl WlShmGlobal {
 
     async fn bind_(
         self: Rc<Self>,
-        id: ObjectId,
+        id: WlShmId,
         client: &Rc<Client>,
         _version: u32,
     ) -> Result<(), WlShmError> {
@@ -104,7 +106,7 @@ handle_request!(WlShmObj);
 
 impl Object for WlShmObj {
     fn id(&self) -> ObjectId {
-        self.id
+        self.id.into()
     }
 
     fn interface(&self) -> Interface {

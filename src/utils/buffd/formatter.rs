@@ -1,7 +1,7 @@
 use crate::object::ObjectId;
 use crate::utils::buffd::buf_out::{BufFdOut, MsgFds};
 use std::mem;
-use std::mem::{MaybeUninit};
+use std::mem::MaybeUninit;
 use uapi::OwnedFd;
 
 pub struct MsgFormatter<'a> {
@@ -50,11 +50,11 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
-    pub fn object(&mut self, obj: ObjectId) -> &mut Self {
-        self.uint(obj.raw())
+    pub fn object<T: Into<ObjectId>>(&mut self, obj: T) -> &mut Self {
+        self.uint(obj.into().raw())
     }
 
-    pub fn header(&mut self, obj: ObjectId, event: u32) -> &mut Self {
+    pub fn header<T: Into<ObjectId>>(&mut self, obj: T, event: u32) -> &mut Self {
         self.object(obj).uint(event)
     }
 
