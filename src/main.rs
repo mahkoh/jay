@@ -1,7 +1,13 @@
-#![feature(generic_associated_types, type_alias_impl_trait)]
+#![feature(
+    generic_associated_types,
+    type_alias_impl_trait,
+    never_type,
+    c_variadic
+)]
 
 use crate::acceptor::AcceptorError;
 use crate::async_engine::AsyncError;
+use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
@@ -12,7 +18,9 @@ use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
 use crate::sighand::SighandError;
 use crate::state::State;
+use crate::tree::{DisplayNode, NodeIds};
 use crate::utils::numcell::NumCell;
+use crate::utils::queue::AsyncQueue;
 use crate::wheel::WheelError;
 use acceptor::Acceptor;
 use anyhow::anyhow;
@@ -27,6 +35,8 @@ use wheel::Wheel;
 mod macros;
 mod acceptor;
 mod async_engine;
+mod backend;
+mod backends;
 mod client;
 mod clientmem;
 mod event_loop;
@@ -35,11 +45,16 @@ mod globals;
 mod ifs;
 mod object;
 mod pixman;
+mod servermem;
 mod sighand;
 mod state;
+mod tasks;
 mod time;
+mod tree;
 mod utils;
 mod wheel;
+mod xkbcommon;
+mod fixed;
 
 fn main() {
     env_logger::builder()
@@ -65,6 +80,8 @@ enum MainError {
     WheelError(#[from] WheelError),
     #[error("The async subsystem caused an error")]
     AsyncError(#[from] AsyncError),
+    #[error("The xorg backend caused an error")]
+    XorgBackendError(#[from] XorgBackendError),
 }
 
 fn main_() -> Result<(), MainError> {
@@ -78,15 +95,26 @@ fn main_() -> Result<(), MainError> {
     globals.insert_no_broadcast(Rc::new(WlShmGlobal::new(globals.name())));
     globals.insert_no_broadcast(Rc::new(WlSubcompositorGlobal::new(globals.name())));
     globals.insert_no_broadcast(Rc::new(XdgWmBaseGlobal::new(globals.name())));
+    let node_ids = NodeIds::default();
     let state = Rc::new(State {
-        eng: engine,
+        eng: engine.clone(),
         el: el.clone(),
+        wheel,
         clients: Clients::new(),
         next_name: NumCell::new(1),
         globals,
         formats: format::formats(),
+        output_ids: Default::default(),
+        root: Rc::new(DisplayNode::new(node_ids.next())),
+        node_ids,
+        backend_events: AsyncQueue::new(),
+        output_handlers: Default::default(),
+        seat_ids: Default::default(),
+        seat_handlers: Default::default(),
     });
+    let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     Acceptor::install(&state)?;
+    let _backend = XorgBackend::new(&state)?;
     el.run()?;
     Ok(())
 }

@@ -142,6 +142,7 @@ impl WlSubsurface {
             }
         }
         self.surface.client.remove_obj(self).await?;
+        self.parent.calculate_extents();
         Ok(())
     }
 

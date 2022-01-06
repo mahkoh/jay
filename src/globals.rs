@@ -1,6 +1,8 @@
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError, DynEventFormatter, WlEvent};
 use crate::ifs::wl_compositor::WlCompositorError;
+use crate::ifs::wl_output::WlOutputError;
 use crate::ifs::wl_registry::WlRegistry;
+use crate::ifs::wl_seat::WlSeatError;
 use crate::ifs::wl_shm::WlShmError;
 use crate::ifs::wl_subcompositor::WlSubcompositorError;
 use crate::ifs::xdg_wm_base::XdgWmBaseError;
@@ -28,12 +30,18 @@ pub enum GlobalError {
     WlSubcompositorError(#[source] Box<WlSubcompositorError>),
     #[error("An error occurred in a xdg_wm_base")]
     XdgWmBaseError(#[source] Box<XdgWmBaseError>),
+    #[error("An error occurred in a wl_output")]
+    WlOutputError(#[source] Box<WlOutputError>),
+    #[error("An error occurred in a wl_seat")]
+    WlSeatError(#[source] Box<WlSeatError>),
 }
 
 efrom!(GlobalError, WlCompositorError, WlCompositorError);
 efrom!(GlobalError, WlShmError, WlShmError);
 efrom!(GlobalError, WlSubcompositorError, WlSubcompositorError);
 efrom!(GlobalError, XdgWmBaseError, XdgWmBaseError);
+efrom!(GlobalError, WlOutputError, WlOutputError);
+efrom!(GlobalError, WlSeatError, WlSeatError);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);
@@ -68,6 +76,7 @@ pub trait Global: GlobalBind {
     fn interface(&self) -> Interface;
     fn version(&self) -> u32;
     fn pre_remove(&self);
+    fn break_loops(&self) {}
 }
 
 pub struct Globals {
@@ -141,6 +150,9 @@ impl Globals {
                 if c.event_locked(f(registry)) {
                     clients_to_check.insert(c.id);
                 }
+            }
+            if c.event2_locked(WlEvent::Flush) {
+                clients_to_check.insert(c.id);
             }
         });
         for client in clients_to_check.drain() {

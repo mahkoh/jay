@@ -1,3 +1,4 @@
+pub mod asyncevent;
 pub mod buffd;
 pub mod copyhashmap;
 pub mod linkedlist;

@@ -1,10 +1,11 @@
-use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError};
+use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId};
 use crate::time::{Time, TimeError};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
 use std::cell::{Cell, RefCell};
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::error::Error;
 use std::rc::Rc;
 use std::time::Duration;
 use thiserror::Error;
@@ -33,10 +34,10 @@ pub trait WheelDispatcher {
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 struct WheelEntry {
     expiration: Time,
-    id: u64,
+    id: WheelId,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct WheelId(u64);
 
 pub struct Wheel {
@@ -45,8 +46,11 @@ pub struct Wheel {
     next_id: NumCell<u64>,
     start: Time,
     current_expiration: Cell<Option<Time>>,
-    dispatchers: CopyHashMap<u64, Rc<dyn WheelDispatcher>>,
+    dispatchers: CopyHashMap<WheelId, Rc<dyn WheelDispatcher>>,
+    periodic_dispatchers: CopyHashMap<WheelId, Rc<PeriodicDispatcher>>,
     expirations: RefCell<BinaryHeap<Reverse<WheelEntry>>>,
+    id: EventLoopId,
+    el: Rc<EventLoop>,
 }
 
 impl Wheel {
@@ -63,7 +67,10 @@ impl Wheel {
             start: Time::now()?,
             current_expiration: Cell::new(None),
             dispatchers: CopyHashMap::new(),
+            periodic_dispatchers: Default::default(),
             expirations: RefCell::new(Default::default()),
+            id,
+            el: el.clone(),
         });
         let wrapper = Rc::new(WheelWrapper {
             wheel: wheel.clone(),
@@ -106,17 +113,56 @@ impl Wheel {
             }
             self.current_expiration.set(Some(expiration));
         }
-        self.expirations.borrow_mut().push(Reverse(WheelEntry {
-            expiration,
-            id: id.0,
-        }));
-        self.dispatchers.set(id.0, dispatcher);
+        self.expirations
+            .borrow_mut()
+            .push(Reverse(WheelEntry { expiration, id }));
+        self.dispatchers.set(id, dispatcher);
+        Ok(())
+    }
+
+    pub fn periodic(
+        &self,
+        id: WheelId,
+        us: u64,
+        dispatcher: Rc<dyn WheelDispatcher>,
+    ) -> Result<(), WheelError> {
+        self.check_destroyed()?;
+        let fd = match uapi::timerfd_create(c::CLOCK_MONOTONIC, c::TFD_CLOEXEC | c::TFD_NONBLOCK) {
+            Ok(fd) => fd,
+            Err(e) => return Err(WheelError::CreateFailed(e.into())),
+        };
+        let tv_sec = (us / 1_000_000) as _;
+        let tv_nsec = (us % 1_000_000 * 1_000) as _;
+        let res = uapi::timerfd_settime(
+            fd.raw(),
+            0,
+            &c::itimerspec {
+                it_interval: c::timespec { tv_sec, tv_nsec },
+                it_value: c::timespec { tv_sec, tv_nsec },
+            },
+        );
+        if let Err(e) = res {
+            return Err(WheelError::SetFailed(e.into()));
+        }
+        let el_id = self.el.id();
+        let pd = Rc::new(PeriodicDispatcher {
+            fd: fd,
+            id: el_id,
+            el: self.el.clone(),
+            dispatcher,
+        });
+        self.el
+            .insert(el_id, Some(pd.fd.raw()), c::EPOLLIN, pd.clone())?;
+        self.periodic_dispatchers.set(id, pd);
         Ok(())
     }
 
     pub fn remove(&self, id: WheelId) {
         // log::trace!("removing {:?} from wheel", id);
-        self.dispatchers.remove(&id.0);
+        self.dispatchers.remove(&id);
+        if let Some(d) = self.periodic_dispatchers.remove(&id) {
+            let _ = self.el.remove(d.id);
+        }
     }
 }
 
@@ -125,7 +171,10 @@ struct WheelWrapper {
 }
 
 impl EventLoopDispatcher for WheelWrapper {
-    fn dispatch(&self, events: i32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    fn dispatch(
+        self: Rc<Self>,
+        events: i32,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(WheelError::ErrorEvent));
         }
@@ -179,5 +228,30 @@ impl Drop for WheelWrapper {
     fn drop(&mut self) {
         self.wheel.destroyed.set(true);
         self.wheel.dispatchers.clear();
+        let _ = self.wheel.el.remove(self.wheel.id);
+    }
+}
+
+struct PeriodicDispatcher {
+    fd: OwnedFd,
+    id: EventLoopId,
+    el: Rc<EventLoop>,
+    dispatcher: Rc<dyn WheelDispatcher>,
+}
+
+impl EventLoopDispatcher for PeriodicDispatcher {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
+            return Err(Box::new(WheelError::ErrorEvent));
+        }
+        let mut n = 0u64;
+        while uapi::read(self.fd.raw(), &mut n).is_ok() {}
+        self.dispatcher.clone().dispatch()
+    }
+}
+
+impl Drop for PeriodicDispatcher {
+    fn drop(&mut self) {
+        let _ = self.el.remove(self.id);
     }
 }

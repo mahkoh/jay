@@ -1,15 +1,15 @@
 use crate::globals::GlobalName;
 use crate::object::ObjectId;
 use crate::utils::buffd::BufFdIn;
+use bstr::{BStr, ByteSlice};
 use thiserror::Error;
 use uapi::OwnedFd;
+use crate::fixed::Fixed;
 
 #[derive(Debug, Error)]
 pub enum MsgParserError {
     #[error("The message ended unexpectedly")]
     UnexpectedEof,
-    #[error("The message contained a non-utf8 string")]
-    NonUtf8,
     #[error("The message contained a string of size 0")]
     EmptyString,
     #[error("Message is missing a required file descriptor")]
@@ -57,11 +57,11 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| GlobalName::from_raw(i as u32))
     }
 
-    pub fn fixed(&mut self) -> Result<f64, MsgParserError> {
-        self.int().map(|i| i as f64 / 256.0)
+    pub fn fixed(&mut self) -> Result<Fixed, MsgParserError> {
+        self.int().map(|i| Fixed(i))
     }
 
-    pub fn string(&mut self) -> Result<&'b str, MsgParserError> {
+    pub fn string(&mut self) -> Result<&'b BStr, MsgParserError> {
         let len = self.uint()? as usize;
         if len == 0 {
             return Err(MsgParserError::EmptyString);
@@ -71,10 +71,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
             return Err(MsgParserError::UnexpectedEof);
         }
         let s = &self.data[self.pos..self.pos + len - 1];
-        let s = match std::str::from_utf8(s) {
-            Ok(s) => s,
-            _ => return Err(MsgParserError::NonUtf8),
-        };
+        let s = s.as_bstr();
         self.pos += cap;
         Ok(s)
     }

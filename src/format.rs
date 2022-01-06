@@ -1,3 +1,4 @@
+use crate::pixman;
 use ahash::AHashMap;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -5,6 +6,7 @@ pub struct Format {
     pub id: u32,
     pub name: &'static str,
     pub bpp: u32,
+    pub pixman: pixman::Format,
 }
 
 pub fn formats() -> AHashMap<u32, &'static Format> {
@@ -24,11 +26,13 @@ static FORMATS: &[Format] = &[
         id: 0,
         name: "argb8888",
         bpp: 4,
+        pixman: pixman::A8R8G8B8,
     },
     Format {
         id: 1,
         name: "xrgb8888",
         bpp: 4,
+        pixman: pixman::X8R8G8B8,
     },
     // Format {
     //     id: fourcc_code('C', '8', ' ', ' '),

@@ -48,6 +48,7 @@ pub enum Interface {
     WlDisplay,
     WlCallback,
     WlCompositor,
+    WlOutput,
     WlRegistry,
     WlShm,
     WlShmPool,
@@ -61,6 +62,7 @@ pub enum Interface {
     XdgToplevel,
     WlRegion,
     WlBuffer,
+    WlSeat,
 }
 
 impl Interface {
@@ -82,6 +84,8 @@ impl Interface {
             Interface::XdgPopup => "xdg_popup",
             Interface::XdgToplevel => "xdg_toplevel",
             Interface::WlBuffer => "wl_buffer",
+            Interface::WlOutput => "wl_output",
+            Interface::WlSeat => "wl_seat",
         }
     }
 }

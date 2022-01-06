@@ -22,6 +22,7 @@ pub enum SighandError {
 pub fn install(el: &Rc<EventLoop>) -> Result<(), SighandError> {
     let mut set: c::sigset_t = uapi::pod_zeroed();
     uapi::sigaddset(&mut set, c::SIGINT).unwrap();
+    uapi::sigaddset(&mut set, c::SIGTERM).unwrap();
     if let Err(e) = uapi::pthread_sigmask(c::SIG_BLOCK, Some(&set), None) {
         return Err(SighandError::BlockFailed(e.into()));
     }
@@ -46,7 +47,7 @@ struct Sighand {
 }
 
 impl EventLoopDispatcher for Sighand {
-    fn dispatch(&self, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(SighandError::ErrorEvent));
         }
@@ -59,10 +60,8 @@ impl EventLoopDispatcher for Sighand {
                 }
             }
             log::info!("Received signal {}", sigfd.ssi_signo);
-            if sigfd.ssi_signo == c::SIGINT as _ {
-                log::info!("Exiting");
-                self.el.stop();
-            }
+            log::info!("Exiting");
+            self.el.stop();
         }
         Ok(())
     }

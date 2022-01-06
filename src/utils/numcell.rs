@@ -11,6 +11,10 @@ impl<T> NumCell<T> {
         Self { t: Cell::new(t) }
     }
 
+    pub fn replace(&self, n: T) -> T {
+        self.t.replace(n)
+    }
+
     pub fn load(&self) -> T
     where
         T: Copy,

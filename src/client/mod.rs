@@ -1,10 +1,13 @@
 use crate::async_engine::{AsyncError, AsyncFd, SpawnedFuture};
 use crate::client::objects::Objects;
+use crate::ifs::wl_buffer::{WlBuffer, WlBufferError, WlBufferId};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_compositor::{WlCompositorError, WlCompositorObj};
 use crate::ifs::wl_display::{WlDisplay, WlDisplayError};
+use crate::ifs::wl_output::{WlOutputError, WlOutputObj};
 use crate::ifs::wl_region::{WlRegion, WlRegionError, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryError, WlRegistryId};
+use crate::ifs::wl_seat::{WlSeatError, WlSeatObj};
 use crate::ifs::wl_shm::{WlShmError, WlShmObj};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
 use crate::ifs::wl_subcompositor::{WlSubcompositorError, WlSubcompositorObj};
@@ -30,7 +33,6 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ifs::wl_buffer::{WlBuffer, WlBufferError};
 
 mod objects;
 mod tasks;
@@ -57,6 +59,8 @@ pub enum ClientError {
     ClientDoesNotExist(ClientId),
     #[error("There is no wl_region with id {0}")]
     RegionDoesNotExist(WlRegionId),
+    #[error("There is no wl_buffer with id {0}")]
+    BufferDoesNotExist(WlBufferId),
     #[error("There is no wl_surface with id {0}")]
     SurfaceDoesNotExist(WlSurfaceId),
     #[error("There is no xdg_surface with id {0}")]
@@ -105,6 +109,10 @@ pub enum ClientError {
     XdgWmBaseError(#[source] Box<XdgWmBaseError>),
     #[error("An error occurred in a `wl_buffer`")]
     WlBufferError(#[source] Box<WlBufferError>),
+    #[error("An error occurred in a `wl_output`")]
+    WlOutputError(#[source] Box<WlOutputError>),
+    #[error("An error occurred in a `wl_seat`")]
+    WlSeatError(#[source] Box<WlSeatError>),
     #[error("Object {0} is not a display")]
     NotADisplay(ObjectId),
 }
@@ -125,6 +133,8 @@ efrom!(ClientError, XdgWmBaseError, XdgWmBaseError);
 efrom!(ClientError, XdgToplevelError, XdgToplevelError);
 efrom!(ClientError, XdgPopupError, XdgPopupError);
 efrom!(ClientError, WlBufferError, WlBufferError);
+efrom!(ClientError, WlOutputError, WlOutputError);
+efrom!(ClientError, WlSeatError, WlSeatError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -146,7 +156,7 @@ impl Display for ClientId {
 
 pub struct Clients {
     next_client_id: NumCell<u64>,
-    clients: RefCell<AHashMap<ClientId, ClientHolder>>,
+    pub clients: RefCell<AHashMap<ClientId, ClientHolder>>,
     shutdown_clients: RefCell<AHashMap<ClientId, ClientHolder>>,
 }
 
@@ -186,6 +196,7 @@ impl Clients {
             events: AsyncQueue::new(),
             shutdown: Cell::new(Some(send)),
             shutdown_sent: Cell::new(false),
+            dispatch_frame_requests: AsyncQueue::new(),
         });
         let display = Rc::new(WlDisplay::new(&data));
         *data.objects.display.borrow_mut() = Some(display.clone());
@@ -234,14 +245,16 @@ impl Drop for Clients {
     }
 }
 
-struct ClientHolder {
-    data: Rc<Client>,
+pub struct ClientHolder {
+    pub data: Rc<Client>,
     _handler: SpawnedFuture<()>,
 }
 
 impl Drop for ClientHolder {
     fn drop(&mut self) {
         self.data.objects.destroy();
+        self.data.events.clear();
+        self.data.dispatch_frame_requests.clear();
     }
 }
 
@@ -256,7 +269,7 @@ pub trait RequestParser<'a>: Debug + Sized {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
 }
 
-enum WlEvent {
+pub enum WlEvent {
     Flush,
     Shutdown,
     Event(Box<dyn EventFormatter>),
@@ -266,10 +279,11 @@ pub struct Client {
     pub id: ClientId,
     pub state: Rc<State>,
     socket: AsyncFd,
-    objects: Objects,
+    pub objects: Objects,
     events: AsyncQueue<WlEvent>,
     shutdown: Cell<Option<OneshotTx<()>>>,
     shutdown_sent: Cell<bool>,
+    pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
 }
 
 const MAX_PENDING_EVENTS: usize = 100;
@@ -342,9 +356,18 @@ impl Client {
         self.event2(WlEvent::Event(event)).await
     }
 
+    pub async fn flush(&self) -> Result<(), ClientError> {
+        self.event2(WlEvent::Flush).await
+    }
+
     async fn event2(&self, event: WlEvent) -> Result<(), ClientError> {
         self.events.push(event);
         self.check_queue_size().await
+    }
+
+    pub fn event2_locked(&self, event: WlEvent) -> bool {
+        self.events.push(event);
+        self.events.size() > MAX_PENDING_EVENTS
     }
 
     pub async fn check_queue_size(&self) -> Result<(), ClientError> {
@@ -357,6 +380,13 @@ impl Client {
             }
         }
         Ok(())
+    }
+
+    pub fn get_buffer(&self, id: WlBufferId) -> Result<Rc<WlBuffer>, ClientError> {
+        match self.objects.buffers.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::BufferDoesNotExist(id)),
+        }
     }
 
     pub fn get_region(&self, id: WlRegionId) -> Result<Rc<WlRegion>, ClientError> {
@@ -453,7 +483,8 @@ simple_add_obj!(WlSubsurface);
 simple_add_obj!(XdgPositioner);
 simple_add_obj!(XdgToplevel);
 simple_add_obj!(XdgPopup);
-simple_add_obj!(WlBuffer);
+simple_add_obj!(WlOutputObj);
+simple_add_obj!(WlSeatObj);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {
@@ -477,3 +508,4 @@ dedicated_add_obj!(WlRegion, regions);
 dedicated_add_obj!(WlSurface, surfaces);
 dedicated_add_obj!(XdgWmBaseObj, xdg_wm_bases);
 dedicated_add_obj!(XdgSurface, xdg_surfaces);
+dedicated_add_obj!(WlBuffer, buffers);

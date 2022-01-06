@@ -1,10 +1,11 @@
+use crate::client::{ClientError, EventFormatter, RequestParser};
+use crate::ifs::wl_buffer::{WlBuffer, RELEASE};
+use crate::object::Object;
+use crate::pixman::PixmanError;
+use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_buffer::{RELEASE, WlBuffer};
-use crate::object::Object;
-use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 
 #[derive(Debug, Error)]
 pub enum WlBufferError {
@@ -14,7 +15,10 @@ pub enum WlBufferError {
     StrideTooSmall,
     #[error("Could not handle a `destroy` request")]
     DestroyError(#[from] DestroyError),
+    #[error("Pixman returned an error")]
+    PixmanError(#[source] Box<PixmanError>),
 }
+efrom!(WlBufferError, PixmanError, PixmanError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {

@@ -52,7 +52,7 @@ id!(XdgToplevelId);
 
 pub struct XdgToplevel {
     id: XdgToplevelId,
-    surface: Rc<XdgSurface>,
+    pub surface: Rc<XdgSurface>,
     version: u32,
 }
 

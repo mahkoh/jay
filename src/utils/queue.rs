@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::future::Future;
+use std::mem;
 use std::pin::Pin;
 use std::task::{Context, Poll, Waker};
 
@@ -34,6 +35,10 @@ impl<T> AsyncQueue<T> {
 
     pub fn size(&self) -> usize {
         self.data.borrow().len()
+    }
+
+    pub fn clear(&self) {
+        mem::take(&mut *self.data.borrow_mut());
     }
 }
 

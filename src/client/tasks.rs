@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, WlEvent};
+use crate::client::{AddObj, Client, ClientError, WlEvent};
 use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser};
 use crate::utils::oneshot::OneshotRx;
@@ -10,12 +10,15 @@ use std::rc::Rc;
 
 pub async fn client(data: Rc<Client>, shutdown: OneshotRx<()>) {
     let mut recv = data.state.eng.spawn(receive(data.clone())).fuse();
+    let mut dispatch_fr = data.state.eng.spawn(dispatch_fr(data.clone())).fuse();
     let _send = data.state.eng.spawn(send(data.clone()));
     select! {
         _ = recv => { },
+        _ = dispatch_fr => { },
         _ = shutdown.fuse() => { },
     }
     drop(recv);
+    drop(dispatch_fr);
     if !data.shutdown_sent.get() {
         data.events.push(WlEvent::Shutdown);
     }
@@ -25,10 +28,34 @@ pub async fn client(data: Rc<Client>, shutdown: OneshotRx<()>) {
             log::error!("Could not shut down client {} within 5 seconds", data.id.0);
         }
         Err(e) => {
-            log::error!("Could not create a timeout: {:#}", e);
+            log::error!("Could not create a timeout: {:#}", anyhow!(e));
         }
     }
     data.state.clients.kill(data.id);
+}
+
+async fn dispatch_fr(data: Rc<Client>) {
+    loop {
+        let mut fr = data.dispatch_frame_requests.pop().await;
+        loop {
+            if let Err(e) = data.event(fr.done()).await {
+                log::error!("Could not dispatch frame event: {:#}", anyhow!(e));
+                return;
+            }
+            if let Err(e) = data.remove_obj(&*fr).await {
+                log::error!("Could not remove frame object: {:#}", anyhow!(e));
+                return;
+            }
+            fr = match data.dispatch_frame_requests.try_pop() {
+                Some(f) => f,
+                _ => break,
+            };
+        }
+        if let Err(e) = data.event2(WlEvent::Flush).await {
+            log::error!("Could not dispatch frame event: {:#}", anyhow!(e));
+            return;
+        }
+    }
 }
 
 async fn receive(data: Rc<Client>) {

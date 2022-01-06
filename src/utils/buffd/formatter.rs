@@ -3,6 +3,7 @@ use crate::utils::buffd::buf_out::{BufFdOut, MsgFds};
 use std::mem;
 use std::mem::MaybeUninit;
 use uapi::OwnedFd;
+use crate::fixed::Fixed;
 
 pub struct MsgFormatter<'a> {
     buf: &'a mut BufFdOut,
@@ -29,17 +30,17 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
-    pub fn fixed(&mut self, fixed: f64) -> &mut Self {
-        let int = (fixed * 256.0) as i32;
-        self.buf.write(uapi::as_maybe_uninit_bytes(&int));
+    pub fn fixed(&mut self, fixed: Fixed) -> &mut Self {
+        self.buf.write(uapi::as_maybe_uninit_bytes(&fixed));
         self
     }
 
-    pub fn string(&mut self, s: &str) -> &mut Self {
+    pub fn string<S: AsRef<[u8]> + ?Sized>(&mut self, s: &S) -> &mut Self {
+        let s = s.as_ref();
         let len = s.len() + 1;
         let cap = (len + 3) & !3;
         self.uint(len as u32);
-        self.buf.write(uapi::as_maybe_uninit_bytes(s.as_bytes()));
+        self.buf.write(uapi::as_maybe_uninit_bytes(s));
         let none = [MaybeUninit::new(0); 4];
         self.buf.write(&none[..cap - len + 1]);
         self

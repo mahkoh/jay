@@ -3,6 +3,7 @@ use crate::globals::{Global, GlobalError, GlobalName};
 use crate::ifs::wl_registry::{WlRegistry, GLOBAL, GLOBAL_REMOVE};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
+use bstr::BStr;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -93,7 +94,7 @@ impl Debug for GlobalRemove {
 pub(super) struct Bind<'a> {
     pub name: GlobalName,
     pub id: ObjectId,
-    pub interface: &'a str,
+    pub interface: &'a BStr,
     pub version: u32,
 }
 impl<'a> RequestParser<'a> for Bind<'a> {

@@ -435,7 +435,7 @@ mod queue {
     }
 
     impl EventLoopDispatcher for Dispatcher {
-        fn dispatch(&self, _events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fn dispatch(self: Rc<Self>, _events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
             loop {
                 self.queue.iteration.fetch_add(1);
                 let mut stash = self.stash.borrow_mut();
@@ -549,7 +549,7 @@ mod fd {
     }
 
     impl EventLoopDispatcher for AsyncFdData {
-        fn dispatch(&self, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
             if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
                 self.erroneous.set(true);
                 if let Err(e) = self.el.remove(self.id) {

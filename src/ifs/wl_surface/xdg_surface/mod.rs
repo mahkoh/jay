@@ -2,7 +2,7 @@ mod types;
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use crate::client::AddObj;
+use crate::client::{AddObj, DynEventFormatter};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
@@ -12,6 +12,7 @@ use crate::ifs::wl_surface::{
 use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
+use std::ops::DerefMut;
 use std::rc::Rc;
 pub use types::*;
 
@@ -32,7 +33,7 @@ id!(XdgSurfaceId);
 pub struct XdgSurface {
     id: XdgSurfaceId,
     wm_base: Rc<XdgWmBaseObj>,
-    pub(super) surface: Rc<WlSurface>,
+    pub surface: Rc<WlSurface>,
     version: u32,
 }
 
@@ -51,6 +52,13 @@ impl XdgSurface {
         }
     }
 
+    pub fn configure(self: &Rc<Self>, serial: u32) -> DynEventFormatter {
+        Box::new(Configure {
+            obj: self.clone(),
+            serial,
+        })
+    }
+
     pub fn install(self: &Rc<Self>) -> Result<(), XdgSurfaceError> {
         let old_role = self.surface.role.get();
         if !matches!(old_role, SurfaceRole::None | SurfaceRole::XdgSurface) {
@@ -62,7 +70,8 @@ impl XdgSurface {
         }
         *data = RoleData::XdgSurface(Box::new(XdgSurfaceData {
             xdg_surface: self.clone(),
-            committed: false,
+            requested_serial: 0,
+            acked_serial: None,
             role: XdgSurfaceRole::None,
             role_data: XdgSurfaceRoleData::None,
             popups: Default::default(),
@@ -119,7 +128,10 @@ impl XdgSurface {
             data.role = XdgSurfaceRole::Toplevel;
             let toplevel = Rc::new(XdgToplevel::new(req.id, self, self.version));
             self.surface.client.add_client_obj(&toplevel)?;
-            data.role_data = XdgSurfaceRoleData::Toplevel(XdgToplevelData { toplevel });
+            data.role_data = XdgSurfaceRoleData::Toplevel(XdgToplevelData {
+                toplevel,
+                node: None,
+            });
         }
         Ok(())
     }
@@ -169,7 +181,13 @@ impl XdgSurface {
     }
 
     async fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), AckConfigureError> {
-        let _req: AckConfigure = self.surface.client.parse(self, parser)?;
+        let req: AckConfigure = self.surface.client.parse(self, parser)?;
+        let mut rd = self.surface.role_data.borrow_mut();
+        if let RoleData::XdgSurface(xdg) = rd.deref_mut() {
+            if xdg.requested_serial == req.serial {
+                xdg.acked_serial = Some(xdg.requested_serial);
+            }
+        }
         Ok(())
     }
 

@@ -1,5 +1,7 @@
+use crate::pixman::PixmanMemory;
 use std::cell::{Cell, UnsafeCell};
 use std::mem::MaybeUninit;
+use std::rc::Rc;
 use std::sync::atomic::{compiler_fence, Ordering};
 use std::{mem, ptr};
 use thiserror::Error;
@@ -19,7 +21,13 @@ pub enum ClientMemError {
 pub struct ClientMem {
     failed: Cell<bool>,
     sigbus_impossible: bool,
-    data: *mut [Cell<u8>],
+    data: *const [Cell<u8>],
+}
+
+#[derive(Clone)]
+pub struct ClientMemOffset {
+    mem: Rc<ClientMem>,
+    data: *const [Cell<u8>],
 }
 
 impl ClientMem {
@@ -53,31 +61,41 @@ impl ClientMem {
         })
     }
 
+    pub fn len(&self) -> usize {
+        unsafe { (*self.data).len() }
+    }
+
+    pub fn offset(self: &Rc<Self>, offset: usize) -> ClientMemOffset {
+        let mem = unsafe { &*self.data };
+        ClientMemOffset {
+            mem: self.clone(),
+            data: &mem[offset..],
+        }
+    }
+}
+
+impl ClientMemOffset {
     pub fn access<T, F: FnOnce(&[Cell<u8>]) -> T>(&self, f: F) -> Result<T, ClientMemError> {
         unsafe {
-            if self.sigbus_impossible {
-                return Ok(f(&mut *self.data));
+            if self.mem.sigbus_impossible {
+                return Ok(f(&*self.data));
             }
             MEM.with(|m| {
                 let mref = MemRef {
-                    mem: self,
+                    mem: &*self.mem,
                     outer: *m.get(),
                 };
                 *m.get() = &mref;
                 compiler_fence(Ordering::SeqCst);
-                let res = f(&mut *self.data);
+                let res = f(&*self.data);
                 *m.get() = mref.outer;
                 compiler_fence(Ordering::SeqCst);
-                match self.failed.get() {
+                match self.mem.failed.get() {
                     true => Err(ClientMemError::Sigbus),
                     _ => Ok(res),
                 }
             })
         }
-    }
-
-    pub fn len(&self) -> usize {
-        unsafe { (*self.data).len() }
     }
 }
 
@@ -145,5 +163,16 @@ pub fn init() -> Result<(), ClientMemError> {
             Ok(_) => Ok(()),
             Err(e) => Err(ClientMemError::SigactionFailed(e.into())),
         }
+    }
+}
+
+unsafe impl PixmanMemory for ClientMemOffset {
+    type E = ClientMemError;
+
+    fn access<T, F>(&self, f: F) -> Result<T, Self::E>
+    where
+        F: FnOnce(&[Cell<u8>]) -> T,
+    {
+        ClientMemOffset::access(self, f)
     }
 }

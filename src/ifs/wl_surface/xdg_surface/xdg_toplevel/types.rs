@@ -4,6 +4,7 @@ use crate::ifs::wl_seat::WlSeatId;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId, CLOSE};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
+use bstr::BStr;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -209,7 +210,7 @@ impl Debug for SetParent {
 }
 
 pub(super) struct SetTitle<'a> {
-    pub title: &'a str,
+    pub title: &'a BStr,
 }
 impl<'a> RequestParser<'a> for SetTitle<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
@@ -225,7 +226,7 @@ impl<'a> Debug for SetTitle<'a> {
 }
 
 pub(super) struct SetAppId<'a> {
-    pub app_id: &'a str,
+    pub app_id: &'a BStr,
 }
 impl<'a> RequestParser<'a> for SetAppId<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {

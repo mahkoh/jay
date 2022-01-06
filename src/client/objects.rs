@@ -1,4 +1,5 @@
 use crate::client::{Client, ClientError};
+use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_region::{WlRegion, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
@@ -19,6 +20,7 @@ pub struct Objects {
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
+    pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBaseObj>>,
     ids: RefCell<Vec<usize>>,
 }
@@ -35,6 +37,7 @@ impl Objects {
             surfaces: Default::default(),
             xdg_surfaces: Default::default(),
             regions: Default::default(),
+            buffers: Default::default(),
             xdg_wm_bases: Default::default(),
             ids: RefCell::new(vec![]),
         }
@@ -54,6 +57,7 @@ impl Objects {
         self.surfaces.clear();
         self.xdg_wm_bases.clear();
         self.xdg_surfaces.clear();
+        self.buffers.clear();
     }
 
     fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>
@@ -106,9 +110,10 @@ impl Objects {
     }
 
     pub async fn remove_obj(&self, client_data: &Client, id: ObjectId) -> Result<(), ClientError> {
-        if self.registry.remove(&id).is_none() {
-            return Err(ClientError::UnknownId);
-        }
+        let _obj = match self.registry.remove(&id) {
+            Some(o) => o,
+            _ => return Err(ClientError::UnknownId),
+        };
         if id.raw() >= MIN_SERVER_ID {
             let offset = (id.raw() - MIN_SERVER_ID) as usize;
             let pos = offset / SEG_SIZE;

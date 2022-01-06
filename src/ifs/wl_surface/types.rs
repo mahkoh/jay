@@ -57,8 +57,11 @@ efrom!(DestroyError, ClientError, ClientError);
 pub enum AttachError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
 }
 efrom!(AttachError, ParseFailed, MsgParserError);
+efrom!(AttachError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DamageError {
@@ -71,8 +74,11 @@ efrom!(DamageError, ParseFailed, MsgParserError);
 pub enum FrameError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
 }
 efrom!(FrameError, ParseFailed, MsgParserError);
+efrom!(FrameError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetOpaqueRegionError {
@@ -98,8 +104,11 @@ efrom!(SetInputRegionError, ClientError, ClientError);
 pub enum CommitError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
 }
 efrom!(CommitError, ParseFailed, MsgParserError);
+efrom!(CommitError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetBufferTransformError {
