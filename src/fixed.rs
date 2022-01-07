@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(transparent)]
@@ -31,5 +31,11 @@ impl From<Fixed> for i32 {
 impl Debug for Fixed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&f64::from(*self), f)
+    }
+}
+
+impl Display for Fixed {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&f64::from(*self), f)
     }
 }

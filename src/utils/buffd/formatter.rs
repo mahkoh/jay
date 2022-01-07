@@ -1,18 +1,19 @@
+use crate::fixed::Fixed;
 use crate::object::ObjectId;
 use crate::utils::buffd::buf_out::{BufFdOut, MsgFds};
 use std::mem;
 use std::mem::MaybeUninit;
+use std::rc::Rc;
 use uapi::OwnedFd;
-use crate::fixed::Fixed;
 
 pub struct MsgFormatter<'a> {
     buf: &'a mut BufFdOut,
     pos: usize,
-    fds: &'a mut Vec<OwnedFd>,
+    fds: &'a mut Vec<Rc<OwnedFd>>,
 }
 
 impl<'a> MsgFormatter<'a> {
-    pub fn new(buf: &'a mut BufFdOut, fds: &'a mut Vec<OwnedFd>) -> Self {
+    pub fn new(buf: &'a mut BufFdOut, fds: &'a mut Vec<Rc<OwnedFd>>) -> Self {
         Self {
             pos: buf.out_pos,
             buf,
@@ -46,7 +47,7 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
-    pub fn fd(&mut self, fd: OwnedFd) -> &mut Self {
+    pub fn fd(&mut self, fd: Rc<OwnedFd>) -> &mut Self {
         self.fds.push(fd);
         self
     }

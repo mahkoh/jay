@@ -1,10 +1,10 @@
+use crate::fixed::Fixed;
 use crate::globals::GlobalName;
 use crate::object::ObjectId;
 use crate::utils::buffd::BufFdIn;
 use bstr::{BStr, ByteSlice};
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::fixed::Fixed;
 
 #[derive(Debug, Error)]
 pub enum MsgParserError {

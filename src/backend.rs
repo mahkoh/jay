@@ -1,5 +1,6 @@
-use std::rc::Rc;
 use crate::fixed::Fixed;
+use std::rc::Rc;
+use crate::xkbcommon::XkbKeymapStr;
 
 linear_ids!(OutputIds, OutputId);
 linear_ids!(SeatIds, SeatId);
@@ -27,4 +28,7 @@ pub enum BackendEvent {
 #[derive(Debug)]
 pub enum SeatEvent {
     Motion(OutputId, Fixed, Fixed),
+    Key(u32),
+    Keymap(XkbKeymapStr),
+    Modifiers(u32, u32, u32, u32)
 }

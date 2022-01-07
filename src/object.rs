@@ -52,6 +52,9 @@ pub enum Interface {
     WlRegistry,
     WlShm,
     WlShmPool,
+    WlTouch,
+    WlPointer,
+    WlKeyboard,
     WlSubcompositor,
     XdgWmBase,
     XdgPositioner,
@@ -86,6 +89,9 @@ impl Interface {
             Interface::WlBuffer => "wl_buffer",
             Interface::WlOutput => "wl_output",
             Interface::WlSeat => "wl_seat",
+            Interface::WlTouch => "wl_touch",
+            Interface::WlPointer => "wl_pointer",
+            Interface::WlKeyboard => "wl_keyboard",
         }
     }
 }

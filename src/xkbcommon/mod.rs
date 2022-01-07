@@ -53,8 +53,10 @@ extern "C" {
         keymap: *mut xkb_keymap,
         format: xkb_keymap_format,
     ) -> *mut c::c_char;
+    fn xkb_keymap_ref(keymap: *mut xkb_keymap) -> *mut xkb_keymap;
     fn xkb_keymap_unref(keymap: *mut xkb_keymap);
     fn xkb_state_unref(state: *mut xkb_state);
+    fn xkb_state_get_keymap(state: *mut xkb_state) -> *mut xkb_keymap;
 }
 
 pub struct XkbContext {
@@ -127,6 +129,18 @@ impl Drop for XkbKeymapStr {
 
 pub struct XkbState {
     state: *mut xkb_state,
+}
+
+impl XkbState {
+    pub fn keymap(&self) -> XkbKeymap {
+        unsafe {
+            let res = xkb_state_get_keymap(self.state);
+            xkb_keymap_ref(res);
+            XkbKeymap {
+                keymap: res,
+            }
+        }
+    }
 }
 
 impl Drop for XkbState {

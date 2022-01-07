@@ -3,6 +3,7 @@ use crate::utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE};
 use futures::{select, FutureExt};
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
+use std::rc::Rc;
 use std::slice;
 use uapi::{c, Errno, OwnedFd};
 
@@ -10,7 +11,7 @@ pub(super) const OUT_BUF_SIZE: usize = 2 * BUF_SIZE;
 
 pub(super) struct MsgFds {
     pub(super) pos: usize,
-    pub(super) fds: Vec<OwnedFd>,
+    pub(super) fds: Vec<Rc<OwnedFd>>,
 }
 
 pub struct BufFdOut {
@@ -20,6 +21,7 @@ pub struct BufFdOut {
     pub(super) out_buf: *mut [MaybeUninit<u8>; OUT_BUF_SIZE],
 
     pub(super) fds: VecDeque<MsgFds>,
+    fd_ids: Vec<i32>,
     cmsg_buf: Box<[MaybeUninit<u8>; CMSG_BUF_SIZE]>,
 }
 
@@ -30,6 +32,7 @@ impl BufFdOut {
             out_pos: 0,
             out_buf: Box::into_raw(Box::new([MaybeUninit::<u32>::uninit(); OUT_BUF_SIZE / 4])) as _,
             fds: Default::default(),
+            fd_ids: vec![],
             cmsg_buf: Box::new([MaybeUninit::uninit(); CMSG_BUF_SIZE]),
         }
     }
@@ -75,13 +78,15 @@ impl BufFdOut {
                 let mut f = self.fds.front().map(|f| f.pos);
                 if f == Some(*pos) {
                     let fds = self.fds.pop_front().unwrap();
+                    self.fd_ids.clear();
+                    self.fd_ids.extend(fds.fds.iter().map(|f| f.raw()));
                     let hdr = c::cmsghdr {
                         cmsg_len: 0,
                         cmsg_level: c::SOL_SOCKET,
                         cmsg_type: c::SCM_RIGHTS,
                     };
                     let mut cmsg_buf = &mut self.cmsg_buf[..];
-                    cmsg_len = uapi::cmsg_write(&mut cmsg_buf, hdr, &fds.fds[..]).unwrap();
+                    cmsg_len = uapi::cmsg_write(&mut cmsg_buf, hdr, &self.fd_ids[..]).unwrap();
                     fds_opt = Some(fds);
                     f = self.fds.front().map(|f| f.pos)
                 }

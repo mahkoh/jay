@@ -40,6 +40,7 @@ mod backends;
 mod client;
 mod clientmem;
 mod event_loop;
+mod fixed;
 mod format;
 mod globals;
 mod ifs;
@@ -54,7 +55,6 @@ mod tree;
 mod utils;
 mod wheel;
 mod xkbcommon;
-mod fixed;
 
 fn main() {
     env_logger::builder()

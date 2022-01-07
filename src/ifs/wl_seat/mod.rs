@@ -1,17 +1,35 @@
 mod types;
+pub mod wl_keyboard;
+pub mod wl_pointer;
+pub mod wl_touch;
 
 use crate::backend::{Seat, SeatEvent};
-use crate::client::{AddObj, Client, ClientId};
+use crate::client::{AddObj, Client, ClientId, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
 use std::rc::Rc;
 pub use types::*;
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::ifs::wl_seat::wl_touch::WlTouch;
 
 id!(WlSeatId);
 
-const RELEASE: u32 = 0;
+const GET_POINTER: u32 = 0;
+const GET_KEYBOARD: u32 = 1;
+const GET_TOUCH: u32 = 2;
+const RELEASE: u32 = 3;
+
+const CAPABILITIES: u32 = 0;
+const NAME: u32 = 1;
+
+const POINTER: u32 = 1;
+const KEYBOARD: u32 = 2;
+const TOUCH: u32 = 4;
+
+const MISSING_CAPABILITY: u32 = 0;
 
 pub struct WlSeatGlobal {
     name: GlobalName,
@@ -44,6 +62,7 @@ impl WlSeatGlobal {
             client: client.clone(),
         });
         client.add_client_obj(&obj)?;
+        client.event(obj.capabilities()).await?;
         self.bindings.set((client.id, id), obj.clone());
         Ok(())
     }
@@ -80,6 +99,34 @@ pub struct WlSeatObj {
 }
 
 impl WlSeatObj {
+    fn capabilities(self: &Rc<Self>) -> DynEventFormatter {
+        Box::new(Capabilities {
+            obj: self.clone(),
+            capabilities: POINTER | KEYBOARD,
+        })
+    }
+
+    async fn get_pointer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPointerError> {
+        let req: GetPointer = self.client.parse(&**self, parser)?;
+        let p = Rc::new(WlPointer::new(req.id, self));
+        self.client.add_client_obj(&p)?;
+        Ok(())
+    }
+
+    async fn get_keyboard(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetKeyboardError> {
+        let req: GetKeyboard = self.client.parse(&**self, parser)?;
+        let p = Rc::new(WlKeyboard::new(req.id, self));
+        self.client.add_client_obj(&p)?;
+        Ok(())
+    }
+
+    async fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetTouchError> {
+        let req: GetTouch = self.client.parse(&**self, parser)?;
+        let p = Rc::new(WlTouch::new(req.id, self));
+        self.client.add_client_obj(&p)?;
+        Ok(())
+    }
+
     async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
         self.global.bindings.remove(&(self.client.id, self.id));
@@ -88,11 +135,14 @@ impl WlSeatObj {
     }
 
     async fn handle_request_(
-        &self,
+        self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlSeatError> {
         match request {
+            GET_POINTER => self.get_pointer(parser).await?,
+            GET_KEYBOARD => self.get_keyboard(parser).await?,
+            GET_TOUCH => self.get_touch(parser).await?,
             RELEASE => self.release(parser).await?,
             _ => unreachable!(),
         }

@@ -32,7 +32,10 @@ use std::future::Future;
 use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::OwnedFd;
+use uapi::{c, OwnedFd};
+use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError};
+use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerError};
+use crate::ifs::wl_seat::wl_touch::{WlTouch, WlTouchError};
 
 mod objects;
 mod tasks;
@@ -113,6 +116,12 @@ pub enum ClientError {
     WlOutputError(#[source] Box<WlOutputError>),
     #[error("An error occurred in a `wl_seat`")]
     WlSeatError(#[source] Box<WlSeatError>),
+    #[error("An error occurred in a `wl_pointer`")]
+    WlPointerError(#[source] Box<WlPointerError>),
+    #[error("An error occurred in a `wl_keyboard`")]
+    WlKeyboardError(#[source] Box<WlKeyboardError>),
+    #[error("An error occurred in a `wl_touch`")]
+    WlTouchError(#[source] Box<WlTouchError>),
     #[error("Object {0} is not a display")]
     NotADisplay(ObjectId),
 }
@@ -135,6 +144,9 @@ efrom!(ClientError, XdgPopupError, XdgPopupError);
 efrom!(ClientError, WlBufferError, WlBufferError);
 efrom!(ClientError, WlOutputError, WlOutputError);
 efrom!(ClientError, WlSeatError, WlSeatError);
+efrom!(ClientError, WlTouchError, WlTouchError);
+efrom!(ClientError, WlPointerError, WlPointerError);
+efrom!(ClientError, WlKeyboardError, WlKeyboardError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -187,6 +199,23 @@ impl Clients {
         global: &Rc<State>,
         socket: OwnedFd,
     ) -> Result<(), ClientError> {
+        let (uid, pid) = unsafe {
+            let mut cred = c::ucred {
+                pid: 0,
+                uid: 0,
+                gid: 0,
+            };
+            match uapi::getsockopt(socket.raw(), c::SOL_SOCKET, c::SO_PEERCRED, &mut cred) {
+                Ok(_) => (cred.uid, cred.pid),
+                Err(e) => {
+                    log::error!(
+                        "Cannot determine peer credentials of new connection: {:?}",
+                        std::io::Error::from(e)
+                    );
+                    return Ok(());
+                }
+            }
+        };
         let (send, recv) = oneshot();
         let data = Rc::new(Client {
             id,
@@ -205,8 +234,14 @@ impl Clients {
             _handler: global.eng.spawn(tasks::client(data.clone(), recv)),
             data,
         };
+        log::info!(
+            "Client {} connected, pid: {}, uid: {}, fd: {}",
+            id,
+            pid,
+            uid,
+            client.data.socket.raw()
+        );
         self.clients.borrow_mut().insert(client.data.id, client);
-        log::info!("Client {} connected", id);
         Ok(())
     }
 
@@ -485,6 +520,9 @@ simple_add_obj!(XdgToplevel);
 simple_add_obj!(XdgPopup);
 simple_add_obj!(WlOutputObj);
 simple_add_obj!(WlSeatObj);
+simple_add_obj!(WlKeyboard);
+simple_add_obj!(WlPointer);
+simple_add_obj!(WlTouch);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {

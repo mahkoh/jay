@@ -1,5 +1,6 @@
 use crate::backend::{BackendEvent, Output, OutputId, Seat, SeatEvent, SeatId};
 use crate::event_loop::{EventLoopDispatcher, EventLoopId};
+use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_surface::WlSurface;
 use crate::pixman::{Image, PixmanError};
@@ -24,7 +25,6 @@ use uapi::c;
 use xcb_dl::{ffi, Xcb, XcbShm, XcbXinput, XcbXkb};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
-use crate::fixed::Fixed;
 
 #[derive(Debug, Error)]
 pub enum XorgBackendError {
@@ -71,6 +71,7 @@ struct XcbCon {
     input: Box<XcbXinput>,
     input_opcode: u8,
     xkb: Box<XcbXkb>,
+    xkb_event: u8,
     c: *mut ffi::xcb_connection_t,
     errors: XcbErrorParser,
 }
@@ -92,6 +93,7 @@ impl XcbCon {
                 input,
                 input_opcode: 0,
                 xkb,
+                xkb_event: 0,
                 c,
                 errors,
             };
@@ -124,6 +126,12 @@ impl XcbCon {
                 &mut err,
             );
             con.errors.check(&con.xcb, res, err)?;
+
+            let xkb_ex = con
+                .xcb
+                .xcb_get_extension_data(con.c, con.xkb.xcb_xkb_id());
+            assert!(xkb_ex.is_not_null());
+            con.xkb_event = xkb_ex.deref().first_event;
 
             Ok(con)
         }
@@ -348,6 +356,21 @@ impl XorgBackend {
         Ok(())
     }
 
+    fn create_state(&self, device_id: ffi::xcb_input_device_id_t) -> Result<XkbState, XorgBackendError> {
+        unsafe {
+            let keymap = self.xkbcommonx11.keymap_from_device(
+                &self.xkbcommon,
+                self.con.c,
+                device_id as _,
+                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+            )?;
+            let state =
+                self.xkbcommonx11
+                    .state_from_device(&keymap, self.con.c, device_id as _)?;
+            Ok(state)
+        }
+    }
+
     fn handle_input_device(self: &Rc<Self>, info: &ffi::xcb_input_xi_device_info_t) {
         if info.type_ != ffi::XCB_INPUT_DEVICE_TYPE_MASTER_KEYBOARD as _ {
             return;
@@ -379,19 +402,7 @@ impl XorgBackend {
                     e
                 );
             }
-            let res: Result<_, XkbCommonError> = (|| {
-                let keymap = self.xkbcommonx11.keymap_from_device(
-                    &self.xkbcommon,
-                    con.c,
-                    info.deviceid as _,
-                    XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-                )?;
-                let state =
-                    self.xkbcommonx11
-                        .state_from_device(&keymap, con.c, info.deviceid as _)?;
-                Ok(state)
-            })();
-            let state = match res {
+            let state = match self.create_state(info.deviceid) {
                 Ok(c) => c,
                 Err(e) => {
                     log::error!(
@@ -412,6 +423,7 @@ impl XorgBackend {
                 events: RefCell::new(Default::default()),
                 state,
             });
+            seat.send_new_state();
             self.seats.set(info.deviceid, seat.clone());
             self.mouse_seats.set(info.attachment, seat.clone());
             self.state
@@ -443,6 +455,30 @@ impl XorgBackend {
             ffi::XCB_CONFIGURE_NOTIFY => self.handle_configure(event)?,
             ffi::XCB_DESTROY_NOTIFY => self.handle_destroy(event)?,
             ffi::XCB_GE_GENERIC => self.handle_generic(event)?,
+            _ if event_type == self.con.xkb_event => self.handle_xkb(event)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_xkb(
+        self: &Rc<Self>,
+        event: &ffi::xcb_generic_event_t,
+    ) -> Result<(), XorgBackendError> {
+        let event = unsafe { &*(event as *const _ as *const ffi::xcb_xkb_map_notify_event_t) };
+        let seat = match self.seats.get(&(event.device_id as _)) {
+            Some(s) => s,
+            _ => return Ok(()),
+        };
+        match event.xkb_type {
+            ffi::XCB_XKB_MAP_NOTIFY | ffi::XCB_XKB_NEW_KEYBOARD_NOTIFY => {
+
+            }
+            ffi::XCB_XKB_STATE_NOTIFY => {
+                let event = unsafe {
+                    (event as *const _ as *const ffi::xcb_xkb_state_notify_event_t).deref()
+                };
+            }
             _ => {}
         }
         Ok(())
@@ -465,8 +501,21 @@ impl XorgBackend {
     ) -> Result<(), XorgBackendError> {
         match event.event_type {
             ffi::XCB_INPUT_MOTION => self.handle_input_motion(event)?,
+            ffi::XCB_INPUT_KEY_PRESS => self.handle_input_key_press(event)?,
             ffi::XCB_INPUT_HIERARCHY => self.handle_input_hierarchy(event)?,
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_input_key_press(
+        self: &Rc<Self>,
+        event: &ffi::xcb_ge_generic_event_t,
+    ) -> Result<(), XorgBackendError> {
+        let event =
+            unsafe { (event as *const _ as *const ffi::xcb_input_key_press_event_t).deref() };
+        if let Some(seat) = self.seats.get(&event.deviceid) {
+            seat.event(SeatEvent::Key(event.detail - 8));
         }
         Ok(())
     }
@@ -748,6 +797,7 @@ struct XorgSeat {
     removed: Cell<bool>,
     cb: RefCell<Option<Rc<dyn Fn()>>>,
     events: RefCell<VecDeque<SeatEvent>>,
+    last_modifiers: Cell<(u32, u32, u32, u32)>,
     state: XkbState,
 }
 
@@ -780,8 +830,4 @@ impl Seat for XorgSeat {
     fn on_change(&self, cb: Rc<dyn Fn()>) {
         *self.cb.borrow_mut() = Some(cb);
     }
-}
-
-fn fp1616_to_f64(i: ffi::xcb_input_fp1616_t) -> f64 {
-    i as f64 / (1 << 16) as f64
 }
