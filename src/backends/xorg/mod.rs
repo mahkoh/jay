@@ -374,7 +374,7 @@ impl XorgBackend {
             let seat = Rc::new(XorgSeat {
                 id: self.state.seat_ids.next(),
                 backend: self.clone(),
-                kb: info.deviceid,
+                _kb: info.deviceid,
                 mouse: info.attachment,
                 removed: Cell::new(false),
                 cb: RefCell::new(None),
@@ -481,7 +481,7 @@ impl XorgBackend {
                     1 => BTN_LEFT,
                     2 => BTN_MIDDLE,
                     3 => BTN_RIGHT,
-                    n => n + BTN_SIDE - 8,
+                    n => BTN_SIDE + n - 8,
                 };
                 seat.event(SeatEvent::Button(button, state));
             }
@@ -516,7 +516,9 @@ impl XorgBackend {
         };
         for info in infos {
             if info.flags & ffi::XCB_INPUT_HIERARCHY_MASK_MASTER_ADDED != 0 {
-                self.query_devices(info.deviceid);
+                if let Err(e) = self.query_devices(info.deviceid) {
+                    log::error!("Could not query device {}: {:#}", info.deviceid, e);
+                }
             } else if info.flags & ffi::XCB_INPUT_HIERARCHY_MASK_MASTER_REMOVED != 0 {
                 self.mouse_seats.remove(&info.attachment);
                 if let Some(seat) = self.seats.remove(&info.deviceid) {
@@ -654,7 +656,7 @@ impl XorgBackend {
             node_extents.x - surface_extents.x1,
             node_extents.y - surface_extents.y1,
         );
-        image.fill_insert_border(
+        let _ = image.fill_insert_border(
             255,
             0,
             0,
@@ -700,7 +702,15 @@ impl XorgBackend {
     }
 
     fn render_buffer(&self, image: &Image<Rc<ServerMem>>, buffer: &Rc<WlBuffer>, x: i32, y: i32) {
-        image.add_image(&buffer.image, x, y);
+        if let Err(e) = image.add_image(&buffer.image, x, y) {
+            let client = &buffer.client;
+            log::error!("Could not access client {} memory: {:#}", client.id, e);
+            if let Ok(d) = client.display() {
+                client.fatal_event(d.implementation_error(format!("Could not access memory: {:#}", e)));
+            } else {
+                self.state.clients.kill(client.id);
+            }
+        }
     }
 
     fn render(&self) -> Result<(), XorgBackendError> {
@@ -711,7 +721,7 @@ impl XorgBackend {
                 Some(i) => i,
                 None => continue,
             };
-            image.fill(0, 0, 0, 255);
+            let _ = image.fill(0, 0, 0, 255);
             let node = match self.state.root.outputs.get(&output.id) {
                 Some(n) => n,
                 _ => continue,
@@ -808,7 +818,7 @@ impl Output for XorgOutput {
 struct XorgSeat {
     id: SeatId,
     backend: Rc<XorgBackend>,
-    kb: ffi::xcb_input_device_id_t,
+    _kb: ffi::xcb_input_device_id_t,
     mouse: ffi::xcb_input_device_id_t,
     removed: Cell<bool>,
     cb: RefCell<Option<Rc<dyn Fn()>>>,

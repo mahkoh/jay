@@ -1,4 +1,4 @@
-#![allow(non_camel_case_types)]
+#![allow(non_camel_case_types, improper_ctypes)]
 
 mod consts;
 
@@ -11,21 +11,11 @@ use std::ops::Deref;
 use std::ptr;
 
 use crate::utils::ptr_ext::PtrExt;
-use libloading::Library;
 use thiserror::Error;
 use uapi::c;
-use xcb_dl::ffi::xcb_connection_t;
 
 #[derive(Debug, Error)]
 pub enum XkbCommonError {
-    #[error("xkbcommon-x11 could not be loaded")]
-    LoadXkbCommonX11(#[source] libloading::Error),
-    #[error("One of the xkbcommon-x11 symbols could not be loaded")]
-    LoadXkbCommonX11Sym(#[source] libloading::Error),
-    #[error("Could not create keymap from X11 device")]
-    CreateKeymapFromDevice,
-    #[error("Could not create state from X11 device")]
-    CreateStateFromDevice,
     #[error("Could not create an xkbcommon context")]
     CreateContext,
     #[error("Could not create keymap from names")]
@@ -81,10 +71,8 @@ extern "C" {
         keymap: *mut xkb_keymap,
         format: xkb_keymap_format,
     ) -> *mut c::c_char;
-    fn xkb_keymap_ref(keymap: *mut xkb_keymap) -> *mut xkb_keymap;
     fn xkb_keymap_unref(keymap: *mut xkb_keymap);
     fn xkb_state_unref(state: *mut xkb_state);
-    fn xkb_state_get_keymap(state: *mut xkb_state) -> *mut xkb_keymap;
 }
 
 pub struct XkbContext {
@@ -170,105 +158,10 @@ pub struct XkbState {
     state: *mut xkb_state,
 }
 
-impl XkbState {
-    pub fn keymap(&self) -> XkbKeymap {
-        unsafe {
-            let res = xkb_state_get_keymap(self.state);
-            xkb_keymap_ref(res);
-            XkbKeymap { keymap: res }
-        }
-    }
-}
-
 impl Drop for XkbState {
     fn drop(&mut self) {
         unsafe {
             xkb_state_unref(self.state);
-        }
-    }
-}
-
-pub struct XkbCommonX11 {
-    library: Library,
-    fns: XkbCommonX11Fns,
-}
-
-struct XkbCommonX11Fns {
-    xkb_x11_keymap_new_from_device: unsafe fn(
-        context: *mut xkb_context,
-        c: *mut xcb_connection_t,
-        device_id: i32,
-        flags: xkb_x11_setup_xkb_extension_flags,
-    ) -> *mut xkb_keymap,
-    xkb_x11_state_new_from_device: unsafe fn(
-        keymap: *mut xkb_keymap,
-        c: *mut xcb_connection_t,
-        device_id: i32,
-    ) -> *mut xkb_state,
-}
-
-impl XkbCommonX11 {
-    pub fn load() -> Result<Self, XkbCommonError> {
-        let library = unsafe {
-            match Library::new("libxkbcommon-x11.so") {
-                Ok(l) => l,
-                Err(e) => return Err(XkbCommonError::LoadXkbCommonX11(e)),
-            }
-        };
-        let fns = match get_xkbcommon_x11_fns(&library) {
-            Ok(f) => f,
-            Err(e) => return Err(XkbCommonError::LoadXkbCommonX11Sym(e)),
-        };
-        Ok(Self { library, fns })
-    }
-
-    pub unsafe fn keymap_from_device(
-        &self,
-        context: &XkbContext,
-        c: *mut xcb_connection_t,
-        device_id: i32,
-        flags: XkbX11SetupXkbExtensionFlags,
-    ) -> Result<XkbKeymap, XkbCommonError> {
-        let res = (self.fns.xkb_x11_keymap_new_from_device)(
-            context.context,
-            c,
-            device_id,
-            flags.raw() as _,
-        );
-        if res.is_null() {
-            return Err(XkbCommonError::CreateKeymapFromDevice);
-        }
-        Ok(XkbKeymap { keymap: res })
-    }
-
-    pub unsafe fn state_from_device(
-        &self,
-        keymap: &XkbKeymap,
-        c: *mut xcb_connection_t,
-        device_id: i32,
-    ) -> Result<XkbState, XkbCommonError> {
-        let res = (self.fns.xkb_x11_state_new_from_device)(keymap.keymap, c, device_id);
-        if res.is_null() {
-            return Err(XkbCommonError::CreateStateFromDevice);
-        }
-        Ok(XkbState { state: res })
-    }
-}
-
-fn get_xkbcommon_x11_fns(lib: &Library) -> Result<XkbCommonX11Fns, libloading::Error> {
-    macro_rules! syms {
-        ($($sym:ident,)*) => {
-            Ok(XkbCommonX11Fns {
-                $(
-                    $sym: std::mem::transmute(lib.get::<usize>(concat!(stringify!($sym), "\0").as_bytes())?.into_raw().into_raw()),
-                )*
-            })
-        }
-    }
-    unsafe {
-        syms! {
-            xkb_x11_keymap_new_from_device,
-            xkb_x11_state_new_from_device,
         }
     }
 }

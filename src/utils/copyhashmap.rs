@@ -28,14 +28,6 @@ impl<K: Eq + Hash, V: Clone> CopyHashMap<K, V> {
         self.map.borrow_mut().get(k).cloned()
     }
 
-    pub fn get_or_insert_default(&self, k: K) -> V
-    where
-        V: Default,
-    {
-        let mut map = self.map.borrow_mut();
-        map.entry(k).or_insert_with(|| Default::default()).clone()
-    }
-
     pub fn remove(&self, k: &K) -> Option<V> {
         self.map.borrow_mut().remove(k)
     }

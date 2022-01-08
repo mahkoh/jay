@@ -19,10 +19,9 @@ pub struct WlCompositorGlobal {
 }
 
 pub struct WlCompositorObj {
-    global: Rc<WlCompositorGlobal>,
     id: WlCompositorId,
     client: Rc<Client>,
-    version: u32,
+    _version: u32,
 }
 
 impl WlCompositorGlobal {
@@ -37,10 +36,9 @@ impl WlCompositorGlobal {
         version: u32,
     ) -> Result<(), WlCompositorError> {
         let obj = Rc::new(WlCompositorObj {
-            global: self,
             id,
             client: client.clone(),
-            version,
+            _version: version,
         });
         client.add_client_obj(&obj)?;
         Ok(())
@@ -93,10 +91,6 @@ impl Global for WlCompositorGlobal {
 
     fn version(&self) -> u32 {
         4
-    }
-
-    fn pre_remove(&self) {
-        unreachable!()
     }
 }
 

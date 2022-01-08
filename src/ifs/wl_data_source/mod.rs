@@ -17,8 +17,8 @@ const DND_DROP_PERFORMED: u32 = 4;
 const DND_FINISHED: u32 = 5;
 const ACTION: u32 = 5;
 
-const INVALID_ACTION_MASK: u32 = 0;
-const INVALID_SOURCE: u32 = 1;
+#[allow(dead_code)] const INVALID_ACTION_MASK: u32 = 0;
+#[allow(dead_code)] const INVALID_SOURCE: u32 = 1;
 
 id!(WlDataSourceId);
 

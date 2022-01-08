@@ -24,17 +24,16 @@ const ACK_CONFIGURE: u32 = 4;
 
 const CONFIGURE: u32 = 0;
 
-const NOT_CONSTRUCTED: u32 = 1;
+#[allow(dead_code)] const NOT_CONSTRUCTED: u32 = 1;
 const ALREADY_CONSTRUCTED: u32 = 2;
-const UNCONFIGURED_BUFFER: u32 = 3;
+#[allow(dead_code)] const UNCONFIGURED_BUFFER: u32 = 3;
 
 id!(XdgSurfaceId);
 
 pub struct XdgSurface {
     id: XdgSurfaceId,
-    wm_base: Rc<XdgWmBaseObj>,
+    base: Rc<XdgWmBaseObj>,
     pub surface: Rc<WlSurface>,
-    version: u32,
 }
 
 impl XdgSurface {
@@ -42,13 +41,11 @@ impl XdgSurface {
         wm_base: &Rc<XdgWmBaseObj>,
         id: XdgSurfaceId,
         surface: &Rc<WlSurface>,
-        version: u32,
     ) -> Self {
         Self {
             id,
-            wm_base: wm_base.clone(),
+            base: wm_base.clone(),
             surface: surface.clone(),
-            version,
         }
     }
 
@@ -64,6 +61,7 @@ impl XdgSurface {
         if !matches!(old_role, SurfaceRole::None | SurfaceRole::XdgSurface) {
             return Err(XdgSurfaceError::IncompatibleRole(self.surface.id, old_role));
         }
+        self.surface.role.set(SurfaceRole::XdgSurface);
         let mut data = self.surface.role_data.borrow_mut();
         if data.is_some() {
             return Err(XdgSurfaceError::AlreadyAttached(self.surface.id));
@@ -101,7 +99,7 @@ impl XdgSurface {
             }
             *data = RoleData::None;
         }
-        self.wm_base.surfaces.remove(&self.id);
+        self.base.surfaces.remove(&self.id);
         self.surface.client.remove_obj(self).await?;
         Ok(())
     }
@@ -128,7 +126,7 @@ impl XdgSurface {
                 return Err(GetToplevelError::AlreadyConstructed);
             }
             data.role = XdgSurfaceRole::Toplevel;
-            let toplevel = Rc::new(XdgToplevel::new(req.id, self, self.version));
+            let toplevel = Rc::new(XdgToplevel::new(req.id, self));
             self.surface.client.add_client_obj(&toplevel)?;
             data.role_data = XdgSurfaceRoleData::Toplevel(XdgToplevelData {
                 toplevel,
@@ -161,7 +159,7 @@ impl XdgSurface {
                 return Err(GetPopupError::AlreadyConstructed);
             }
             data.role = XdgSurfaceRole::Popup;
-            let popup = Rc::new(XdgPopup::new(req.id, self, self.version));
+            let popup = Rc::new(XdgPopup::new(req.id, self));
             self.surface.client.add_client_obj(&popup)?;
             if let Some(parent) = &parent {
                 let mut data = parent.surface.role_data.borrow_mut();
@@ -169,7 +167,7 @@ impl XdgSurface {
                     xdg.popups.set(self.surface.id, popup.clone());
                 }
             }
-            data.role_data = XdgSurfaceRoleData::Popup(XdgPopupData { popup, parent });
+            data.role_data = XdgSurfaceRoleData::Popup(XdgPopupData { _popup: popup, parent });
         }
         Ok(())
     }

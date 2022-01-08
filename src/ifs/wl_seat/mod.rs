@@ -36,14 +36,14 @@ const NAME: u32 = 1;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
-const TOUCH: u32 = 4;
+#[allow(dead_code)] const TOUCH: u32 = 4;
 
-const MISSING_CAPABILITY: u32 = 0;
+#[allow(dead_code)] const MISSING_CAPABILITY: u32 = 0;
 
 pub struct WlSeatGlobal {
     name: GlobalName,
     state: Rc<State>,
-    seat: Rc<dyn Seat>,
+    _seat: Rc<dyn Seat>,
     move_: Cell<bool>,
     move_start_pos: Cell<(Fixed, Fixed)>,
     extents_start_pos: Cell<(i32, i32)>,
@@ -75,7 +75,7 @@ impl WlSeatGlobal {
         Self {
             name,
             state: state.clone(),
-            seat: seat.clone(),
+            _seat: seat.clone(),
             move_: Cell::new(false),
             move_start_pos: Cell::new((Fixed(0), Fixed(0))),
             extents_start_pos: Cell::new((0, 0)),
@@ -217,7 +217,7 @@ impl WlSeatGlobal {
         }
     }
 
-    async fn key_event(&self, key: u32, state: KeyState) {}
+    async fn key_event(&self, _key: u32, _state: KeyState) {}
 
     async fn bind_(
         self: Rc<Self>,
@@ -231,6 +231,7 @@ impl WlSeatGlobal {
             client: client.clone(),
             pointers: Default::default(),
             keyboards: Default::default(),
+            version,
         });
         client.add_client_obj(&obj)?;
         client.event(obj.capabilities()).await?;
@@ -261,11 +262,7 @@ impl Global for WlSeatGlobal {
     }
 
     fn version(&self) -> u32 {
-        3
-    }
-
-    fn pre_remove(&self) {
-        //
+        7
     }
 
     fn break_loops(&self) {
@@ -279,6 +276,7 @@ pub struct WlSeatObj {
     client: Rc<Client>,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
+    version: u32,
 }
 
 impl WlSeatObj {
@@ -369,7 +367,11 @@ impl Object for WlSeatObj {
     }
 
     fn num_requests(&self) -> u32 {
-        RELEASE + 1
+        if self.version < 5 {
+            GET_TOUCH + 1
+        } else {
+            RELEASE + 1
+        }
     }
 
     fn break_loops(&self) {

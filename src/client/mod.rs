@@ -217,7 +217,7 @@ impl Clients {
         global: &Rc<State>,
         socket: OwnedFd,
     ) -> Result<(), ClientError> {
-        let (uid, pid) = unsafe {
+        let (uid, pid) = {
             let mut cred = c::ucred {
                 pid: 0,
                 uid: 0,

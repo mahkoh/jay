@@ -19,12 +19,12 @@ id!(WlBufferId);
 
 pub struct WlBuffer {
     id: WlBufferId,
-    client: Rc<Client>,
-    offset: usize,
+    pub client: Rc<Client>,
+    _offset: usize,
     pub width: u32,
     pub height: u32,
-    stride: u32,
-    format: &'static Format,
+    _stride: u32,
+    _format: &'static Format,
     pub image: Rc<pixman::Image<ClientMemOffset>>,
     pub(super) surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
 }
@@ -54,11 +54,11 @@ impl WlBuffer {
         Ok(Self {
             id,
             client: client.clone(),
-            offset,
+            _offset: offset,
             width,
             height,
-            stride,
-            format,
+            _stride: stride,
+            _format: format,
             image: Rc::new(image),
             surfaces: Default::default(),
         })

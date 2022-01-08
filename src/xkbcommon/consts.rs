@@ -1,14 +1,6 @@
 #![allow(dead_code)]
 
 cenum! {
-    XkbX11SetupXkbExtensionFlags, XKB_X11_SETUP_XKB_EXTENSION_FLAGS;
-
-    XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS = 0,
-}
-
-bitor!(XkbX11SetupXkbExtensionFlags);
-
-cenum! {
     XkbLogLevel, XKB_LOG_LEVEL;
 
     XKB_LOG_LEVEL_CRITICAL = 10,

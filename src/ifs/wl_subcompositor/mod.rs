@@ -11,7 +11,7 @@ pub use types::*;
 const DESTROY: u32 = 0;
 const GET_SUBSURFACE: u32 = 1;
 
-const BAD_SURFACE: u32 = 0;
+#[allow(dead_code)] const BAD_SURFACE: u32 = 0;
 
 id!(WlSubcompositorId);
 
@@ -20,7 +20,6 @@ pub struct WlSubcompositorGlobal {
 }
 
 pub struct WlSubcompositorObj {
-    global: Rc<WlSubcompositorGlobal>,
     id: WlSubcompositorId,
     client: Rc<Client>,
 }
@@ -37,7 +36,6 @@ impl WlSubcompositorGlobal {
         _version: u32,
     ) -> Result<(), WlSubcompositorError> {
         let obj = Rc::new(WlSubcompositorObj {
-            global: self,
             id,
             client: client.clone(),
         });
@@ -94,10 +92,6 @@ impl Global for WlSubcompositorGlobal {
 
     fn version(&self) -> u32 {
         1
-    }
-
-    fn pre_remove(&self) {
-        unreachable!()
     }
 }
 

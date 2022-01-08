@@ -9,13 +9,13 @@ pub use types::*;
 
 const RELEASE: u32 = 0;
 
-const DOWN: u32 = 0;
-const UP: u32 = 1;
-const MOTION: u32 = 2;
-const FRAME: u32 = 3;
-const CANCEL: u32 = 4;
-const SHAPE: u32 = 5;
-const ORIENTATION: u32 = 6;
+#[allow(dead_code)] const DOWN: u32 = 0;
+#[allow(dead_code)] const UP: u32 = 1;
+#[allow(dead_code)] const MOTION: u32 = 2;
+#[allow(dead_code)] const FRAME: u32 = 3;
+#[allow(dead_code)] const CANCEL: u32 = 4;
+#[allow(dead_code)] const SHAPE: u32 = 5;
+#[allow(dead_code)] const ORIENTATION: u32 = 6;
 
 id!(WlTouchId);
 

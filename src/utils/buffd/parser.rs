@@ -57,6 +57,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| GlobalName::from_raw(i as u32))
     }
 
+    #[allow(dead_code)]
     pub fn fixed(&mut self) -> Result<Fixed, MsgParserError> {
         self.int().map(|i| Fixed(i))
     }

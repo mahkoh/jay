@@ -2,7 +2,6 @@ pub mod asyncevent;
 pub mod buffd;
 pub mod copyhashmap;
 pub mod linkedlist;
-pub mod lock;
 pub mod numcell;
 pub mod oneshot;
 pub mod ptr_ext;

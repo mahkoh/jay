@@ -19,7 +19,7 @@ pub struct WlShmGlobal {
 }
 
 pub struct WlShmObj {
-    global: Rc<WlShmGlobal>,
+    _global: Rc<WlShmGlobal>,
     id: WlShmId,
     client: Rc<Client>,
 }
@@ -36,7 +36,7 @@ impl WlShmGlobal {
         _version: u32,
     ) -> Result<(), WlShmError> {
         let obj = Rc::new(WlShmObj {
-            global: self,
+            _global: self,
             id,
             client: client.clone(),
         });
@@ -99,10 +99,6 @@ impl Global for WlShmGlobal {
 
     fn version(&self) -> u32 {
         1
-    }
-
-    fn pre_remove(&self) {
-        unreachable!()
     }
 }
 

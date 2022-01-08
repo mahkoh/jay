@@ -99,7 +99,7 @@ impl OutputHandler {
             ae.triggered().await;
         }
         self.state.outputs.remove(&self.output.id());
-        self.state.globals.remove(&self.state, name).await;
+        let _ = self.state.globals.remove(&self.state, name).await;
         self.state
             .output_handlers
             .borrow_mut()
@@ -131,7 +131,7 @@ impl SeatHandler {
             }
             ae.triggered().await;
         }
-        self.state.globals.remove(&self.state, name).await;
+        let _ = self.state.globals.remove(&self.state, name).await;
         self.state
             .seat_handlers
             .borrow_mut()

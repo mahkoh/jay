@@ -1,5 +1,4 @@
 use crate::backend::{Output, OutputId};
-use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, Node as LinkedNode};
@@ -45,12 +44,6 @@ pub enum NodeKind {
     Output(Rc<OutputNode>),
     Toplevel(Rc<ToplevelNode>),
     Container(Rc<ContainerNode>),
-}
-
-impl NodeKind {
-    pub async fn leave(&self, seat: &WlSeatGlobal) {}
-
-    pub async fn enter(&self, seat: &WlSeatGlobal) {}
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -195,6 +188,7 @@ impl Node for ToplevelNode {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerSplit {
     Horizontal,

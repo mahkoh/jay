@@ -17,6 +17,7 @@ pub fn formats() -> AHashMap<u32, &'static Format> {
     map
 }
 
+#[allow(dead_code)]
 const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
     (a as u32) | ((b as u32) << 8) | ((c as u32) << 16) | ((d as u32) << 24)
 }

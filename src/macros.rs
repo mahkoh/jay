@@ -117,6 +117,7 @@ macro_rules! linear_ids {
         pub struct $id(u32);
 
         impl $id {
+            #[allow(dead_code)]
             pub fn raw(&self) -> u32 {
                 self.0
             }

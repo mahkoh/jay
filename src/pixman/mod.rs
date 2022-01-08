@@ -350,6 +350,7 @@ where
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn memory(&self) -> &T {
         &self.memory
     }

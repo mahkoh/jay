@@ -17,12 +17,12 @@ const PONG: u32 = 3;
 
 const PING: u32 = 0;
 
-const ROLE: u32 = 0;
+#[allow(dead_code)] const ROLE: u32 = 0;
 const DEFUNCT_SURFACES: u32 = 1;
-const NOT_THE_TOPMOST_POPUP: u32 = 2;
-const INVALID_POPUP_PARENT: u32 = 3;
-const INVALID_SURFACE_STATE: u32 = 4;
-const INVALID_POSITIONER: u32 = 5;
+#[allow(dead_code)] const NOT_THE_TOPMOST_POPUP: u32 = 2;
+#[allow(dead_code)] const INVALID_POPUP_PARENT: u32 = 3;
+#[allow(dead_code)] const INVALID_SURFACE_STATE: u32 = 4;
+#[allow(dead_code)] const INVALID_POSITIONER: u32 = 5;
 
 id!(XdgWmBaseId);
 
@@ -31,10 +31,9 @@ pub struct XdgWmBaseGlobal {
 }
 
 pub struct XdgWmBaseObj {
-    global: Rc<XdgWmBaseGlobal>,
     id: XdgWmBaseId,
     client: Rc<Client>,
-    version: u32,
+    pub version: u32,
     pub(super) surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
 }
 
@@ -50,7 +49,6 @@ impl XdgWmBaseGlobal {
         version: u32,
     ) -> Result<(), XdgWmBaseError> {
         let obj = Rc::new(XdgWmBaseObj {
-            global: self,
             id,
             client: client.clone(),
             version,
@@ -80,11 +78,11 @@ impl XdgWmBaseObj {
     }
 
     async fn create_positioner(
-        &self,
+        self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), CreatePositionerError> {
-        let req: CreatePositioner = self.client.parse(self, parser)?;
-        let pos = Rc::new(XdgPositioner::new(req.id, &self.client, 3));
+        let req: CreatePositioner = self.client.parse(&**self, parser)?;
+        let pos = Rc::new(XdgPositioner::new(self, req.id, &self.client));
         self.client.add_client_obj(&pos)?;
         Ok(())
     }
@@ -95,7 +93,7 @@ impl XdgWmBaseObj {
     ) -> Result<(), GetXdgSurfaceError> {
         let req: GetXdgSurface = self.client.parse(&**self, parser)?;
         let surface = self.client.get_surface(req.surface)?;
-        let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface, 3));
+        let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface));
         self.client.add_client_obj(&xdg_surface)?;
         xdg_surface.install()?;
         self.surfaces.set(req.id, xdg_surface);
@@ -140,10 +138,6 @@ impl Global for XdgWmBaseGlobal {
 
     fn version(&self) -> u32 {
         3
-    }
-
-    fn pre_remove(&self) {
-        unreachable!()
     }
 }
 

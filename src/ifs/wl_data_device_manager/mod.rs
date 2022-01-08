@@ -12,10 +12,10 @@ use crate::ifs::wl_data_source::WlDataSource;
 const CREATE_DATA_SOURCE: u32 = 0;
 const GET_DATA_DEVICE: u32 = 1;
 
-const DND_NONE: u32 = 0;
-const DND_COPY: u32 = 1;
-const DND_MOVE: u32 = 2;
-const DND_ASK: u32 = 4;
+#[allow(dead_code)] const DND_NONE: u32 = 0;
+#[allow(dead_code)] const DND_COPY: u32 = 1;
+#[allow(dead_code)] const DND_MOVE: u32 = 2;
+#[allow(dead_code)] const DND_ASK: u32 = 4;
 
 id!(WlDataDeviceManagerId);
 
@@ -97,10 +97,6 @@ impl Global for WlDataDeviceManagerGlobal {
 
     fn version(&self) -> u32 {
         3
-    }
-
-    fn pre_remove(&self) {
-        unreachable!()
     }
 }
 

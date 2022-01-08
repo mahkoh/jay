@@ -18,11 +18,11 @@ const KEY: u32 = 3;
 const MODIFIERS: u32 = 4;
 const REPEAT_INFO: u32 = 5;
 
-const NO_KEYMAP: u32 = 0;
+#[allow(dead_code)] const NO_KEYMAP: u32 = 0;
 pub(super) const XKB_V1: u32 = 1;
 
-const RELEASED: u32 = 0;
-const PRESSED: u32 = 1;
+#[allow(dead_code)] const RELEASED: u32 = 0;
+#[allow(dead_code)] const PRESSED: u32 = 1;
 
 id!(WlKeyboardId);
 
@@ -48,6 +48,7 @@ impl WlKeyboard {
         })
     }
 
+    #[allow(dead_code)]
     pub fn enter(
         self: &Rc<Self>,
         serial: u32,
@@ -62,6 +63,7 @@ impl WlKeyboard {
         })
     }
 
+    #[allow(dead_code)]
     pub fn leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) -> DynEventFormatter {
         Box::new(Leave {
             obj: self.clone(),
@@ -70,6 +72,7 @@ impl WlKeyboard {
         })
     }
 
+    #[allow(dead_code)]
     pub fn key(self: &Rc<Self>, serial: u32, time: u32, key: u32, state: u32) -> DynEventFormatter {
         Box::new(Key {
             obj: self.clone(),
@@ -80,6 +83,7 @@ impl WlKeyboard {
         })
     }
 
+    #[allow(dead_code)]
     pub fn modifiers(
         self: &Rc<Self>,
         serial: u32,
@@ -98,6 +102,7 @@ impl WlKeyboard {
         })
     }
 
+    #[allow(dead_code)]
     pub fn repeat_info(self: &Rc<Self>, rate: i32, delay: i32) -> DynEventFormatter {
         Box::new(RepeatInfo {
             obj: self.clone(),

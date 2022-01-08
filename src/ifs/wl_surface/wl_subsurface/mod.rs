@@ -17,7 +17,7 @@ const PLACE_BELOW: u32 = 3;
 const SET_SYNC: u32 = 4;
 const SET_DESYNC: u32 = 5;
 
-const BAD_SURFACE: u32 = 0;
+#[allow(dead_code)] const BAD_SURFACE: u32 = 0;
 
 const MAX_SUBSURFACE_DEPTH: u32 = 100;
 
@@ -29,7 +29,7 @@ pub struct WlSubsurface {
     pub(super) parent: Rc<WlSurface>,
 }
 
-fn update_children_sync(surface: &Rc<WlSurface>, sync: bool) -> Result<(), WlSubsurfaceError> {
+fn update_children_sync(surface: &Rc<WlSurface>, sync: bool) {
     let children = surface.children.borrow();
     if let Some(children) = &*children {
         for child in children.subsurfaces.values() {
@@ -44,7 +44,6 @@ fn update_children_sync(surface: &Rc<WlSurface>, sync: bool) -> Result<(), WlSub
             }
         }
     }
-    Ok(())
 }
 
 fn update_children_attach(
@@ -63,7 +62,7 @@ fn update_children_attach(
                 }
                 data.sync_ancestor = sync;
                 let sync = data.sync_ancestor || data.sync_requested;
-                update_children_attach(child, sync, depth + 1);
+                update_children_attach(child, sync, depth + 1)?;
             }
         }
     }

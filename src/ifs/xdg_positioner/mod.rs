@@ -9,6 +9,7 @@ use num_traits::FromPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
+use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 
 const DESTROY: u32 = 0;
 const SET_SIZE: u32 = 1;
@@ -78,8 +79,8 @@ id!(XdgPositionerId);
 
 pub struct XdgPositioner {
     id: XdgPositionerId,
+    base: Rc<XdgWmBaseObj>,
     client: Rc<Client>,
-    version: u32,
     position: RefCell<XdgPositioned>,
 }
 
@@ -103,15 +104,16 @@ pub struct XdgPositioned {
 }
 
 impl XdgPositioner {
-    pub fn new(id: XdgPositionerId, client: &Rc<Client>, version: u32) -> Self {
+    pub fn new(base: &Rc<XdgWmBaseObj>, id: XdgPositionerId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
-            version,
+            base: base.clone(),
             position: RefCell::new(Default::default()),
         }
     }
 
+    #[allow(dead_code)]
     pub fn clone(&self) -> Box<XdgPositioned> {
         Box::new(*self.position.borrow())
     }
@@ -266,6 +268,10 @@ impl Object for XdgPositioner {
     }
 
     fn num_requests(&self) -> u32 {
-        SET_PARENT_CONFIGURE + 1
+        if self.base.version < 3 {
+            SET_OFFSET + 1
+        } else {
+            SET_PARENT_CONFIGURE + 1
+        }
     }
 }

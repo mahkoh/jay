@@ -63,11 +63,6 @@ fn main() -> anyhow::Result<()> {
     write_ty(&mut f, pixman::OPS, "PixmanOp")?;
 
     let mut f = open("xkbcommon_tys.rs")?;
-    write_ty(
-        &mut f,
-        xkbcommon::XKB_X11_SETUP_XKB_EXTENSION_FLAGS,
-        "xkb_x11_setup_xkb_extension_flags",
-    )?;
     write_ty(&mut f, xkbcommon::XKB_LOG_LEVEL, "xkb_log_level")?;
     write_ty(&mut f, xkbcommon::XKB_CONTEXT_FLAGS, "xkb_context_flags")?;
     write_ty(

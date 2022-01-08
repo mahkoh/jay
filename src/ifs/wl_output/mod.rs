@@ -22,23 +22,23 @@ const DONE: u32 = 2;
 const SCALE: u32 = 3;
 
 const SP_UNKNOWN: i32 = 0;
-const SP_NONE: i32 = 1;
-const SP_HORIZONTAL_RGB: i32 = 2;
-const SP_HORIZONTAL_BGR: i32 = 3;
-const SP_VERTICAL_RGB: i32 = 4;
-const SP_VERTICAL_BGR: i32 = 5;
+#[allow(dead_code)] const SP_NONE: i32 = 1;
+#[allow(dead_code)] const SP_HORIZONTAL_RGB: i32 = 2;
+#[allow(dead_code)] const SP_HORIZONTAL_BGR: i32 = 3;
+#[allow(dead_code)] const SP_VERTICAL_RGB: i32 = 4;
+#[allow(dead_code)] const SP_VERTICAL_BGR: i32 = 5;
 
 const TF_NORMAL: i32 = 0;
-const TF_90: i32 = 1;
-const TF_180: i32 = 2;
-const TF_270: i32 = 3;
-const TF_FLIPPED: i32 = 4;
-const TF_FLIPPED_90: i32 = 5;
-const TF_FLIPPED_180: i32 = 6;
-const TF_FLIPPED_270: i32 = 7;
+#[allow(dead_code)] const TF_90: i32 = 1;
+#[allow(dead_code)] const TF_180: i32 = 2;
+#[allow(dead_code)] const TF_270: i32 = 3;
+#[allow(dead_code)] const TF_FLIPPED: i32 = 4;
+#[allow(dead_code)] const TF_FLIPPED_90: i32 = 5;
+#[allow(dead_code)] const TF_FLIPPED_180: i32 = 6;
+#[allow(dead_code)] const TF_FLIPPED_270: i32 = 7;
 
 const MODE_CURRENT: u32 = 1;
-const MODE_PREFERRED: u32 = 2;
+#[allow(dead_code)] const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {
     name: GlobalName,
@@ -109,13 +109,18 @@ impl WlOutputGlobal {
             global: self.clone(),
             id,
             client: client.clone(),
+            version,
         });
         client.add_client_obj(&obj)?;
         self.bindings.set((client.id, id), obj.clone());
         client.event(obj.geometry()).await?;
         client.event(obj.mode()).await?;
-        client.event(obj.scale()).await?;
-        client.event(obj.done()).await?;
+        if obj.send_scale() {
+            client.event(obj.scale()).await?;
+        }
+        if obj.send_done() {
+            client.event(obj.done()).await?;
+        }
         Ok(())
     }
 }
@@ -139,10 +144,6 @@ impl Global for WlOutputGlobal {
         3
     }
 
-    fn pre_remove(&self) {
-        //
-    }
-
     fn break_loops(&self) {
         self.bindings.clear();
     }
@@ -152,9 +153,18 @@ pub struct WlOutputObj {
     global: Rc<WlOutputGlobal>,
     id: WlOutputId,
     client: Rc<Client>,
+    version: u32,
 }
 
 impl WlOutputObj {
+    fn send_done(&self) -> bool {
+        self.version >= 2
+    }
+
+    fn send_scale(&self) -> bool {
+        self.version >= 2
+    }
+
     fn geometry(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Geometry {
             obj: self.clone(),
@@ -222,7 +232,11 @@ impl Object for WlOutputObj {
     }
 
     fn num_requests(&self) -> u32 {
-        RELEASE + 1
+        if self.version < 3 {
+            0
+        } else {
+            RELEASE + 1
+        }
     }
 
     fn break_loops(&self) {

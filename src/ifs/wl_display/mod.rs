@@ -16,7 +16,7 @@ const DELETE_ID: u32 = 1;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
-const NO_MEMORY: u32 = 2;
+#[allow(dead_code)] const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {

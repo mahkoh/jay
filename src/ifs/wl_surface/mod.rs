@@ -33,12 +33,12 @@ const SET_BUFFER_TRANSFORM: u32 = 7;
 const SET_BUFFER_SCALE: u32 = 8;
 const DAMAGE_BUFFER: u32 = 9;
 
-const ENTER: u32 = 0;
-const LEAVE: u32 = 1;
+#[allow(dead_code)] const ENTER: u32 = 0;
+#[allow(dead_code)] const LEAVE: u32 = 1;
 
-const INVALID_SCALE: u32 = 0;
-const INVALID_TRANSFORM: u32 = 1;
-const INVALID_SIZE: u32 = 2;
+#[allow(dead_code)] const INVALID_SCALE: u32 = 0;
+#[allow(dead_code)] const INVALID_TRANSFORM: u32 = 1;
+#[allow(dead_code)] const INVALID_SIZE: u32 = 2;
 
 id!(WlSurfaceId);
 
@@ -143,7 +143,7 @@ impl XdgSurfaceRoleData {
 }
 
 struct XdgPopupData {
-    popup: Rc<XdgPopup>,
+    _popup: Rc<XdgPopup>,
     parent: Option<Rc<XdgSurface>>,
 }
 
@@ -229,7 +229,7 @@ impl WlSurface {
                 for surface in children.subsurfaces.values() {
                     let rd = surface.role_data.borrow();
                     if let RoleData::Subsurface(ss) = &*rd {
-                        let mut ss_extents = surface.extents.get();
+                        let ss_extents = surface.extents.get();
                         extents.x1 = extents.x1.min(ss_extents.x1 + ss.x);
                         extents.y1 = extents.y1.min(ss_extents.y1 + ss.y);
                         extents.x2 = extents.x2.max(ss_extents.x2 + ss.x);
@@ -247,10 +247,6 @@ impl WlSurface {
             }
         };
         parent.calculate_extents();
-    }
-
-    pub fn is_subsurface(&self) -> bool {
-        self.role.get() == SurfaceRole::Subsurface
     }
 
     pub fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
@@ -381,7 +377,7 @@ impl WlSurface {
     }
 
     async fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
-        let req: Damage = self.parse(parser)?;
+        let _req: Damage = self.parse(parser)?;
         Ok(())
     }
 
@@ -518,17 +514,17 @@ impl WlSurface {
         &self,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), SetBufferTransformError> {
-        let req: SetBufferTransform = self.parse(parser)?;
+        let _req: SetBufferTransform = self.parse(parser)?;
         Ok(())
     }
 
     async fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), SetBufferScaleError> {
-        let req: SetBufferScale = self.parse(parser)?;
+        let _req: SetBufferScale = self.parse(parser)?;
         Ok(())
     }
 
     async fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
-        let req: DamageBuffer = self.parse(parser)?;
+        let _req: DamageBuffer = self.parse(parser)?;
         Ok(())
     }
 

@@ -22,7 +22,7 @@ const AXIS_SOURCE: u32 = 6;
 const AXIS_STOP: u32 = 7;
 const AXIS_DISCRETE: u32 = 8;
 
-const ROLE: u32 = 0;
+#[allow(dead_code)] const ROLE: u32 = 0;
 
 pub(super) const RELEASED: u32 = 0;
 pub(super) const PRESSED: u32 = 1;
@@ -30,10 +30,10 @@ pub(super) const PRESSED: u32 = 1;
 pub(super) const VERTICAL_SCROLL: u32 = 0;
 pub(super) const HORIZONTAL_SCROLL: u32 = 1;
 
-const WHEEL: u32 = 0;
-const FINGER: u32 = 1;
-const CONTINUOUS: u32 = 2;
-const WHEEL_TILT: u32 = 3;
+#[allow(dead_code)] const WHEEL: u32 = 0;
+#[allow(dead_code)] const FINGER: u32 = 1;
+#[allow(dead_code)] const CONTINUOUS: u32 = 2;
+#[allow(dead_code)] const WHEEL_TILT: u32 = 3;
 
 id!(WlPointerId);
 
@@ -108,10 +108,12 @@ impl WlPointer {
         })
     }
 
+    #[allow(dead_code)]
     pub fn frame(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Frame { obj: self.clone() })
     }
 
+    #[allow(dead_code)]
     pub fn axis_source(self: &Rc<Self>, axis_source: u32) -> DynEventFormatter {
         Box::new(AxisSource {
             obj: self.clone(),
@@ -119,6 +121,7 @@ impl WlPointer {
         })
     }
 
+    #[allow(dead_code)]
     pub fn axis_stop(self: &Rc<Self>, time: u32, axis: u32) -> DynEventFormatter {
         Box::new(AxisStop {
             obj: self.clone(),
@@ -127,6 +130,7 @@ impl WlPointer {
         })
     }
 
+    #[allow(dead_code)]
     pub fn axis_discrete(self: &Rc<Self>, axis: u32, discrete: i32) -> DynEventFormatter {
         Box::new(AxisDiscrete {
             obj: self.clone(),

@@ -82,7 +82,6 @@ pub trait Global: GlobalBind {
     fn singleton(&self) -> bool;
     fn interface(&self) -> Interface;
     fn version(&self) -> u32;
-    fn pre_remove(&self);
     fn break_loops(&self) {}
 }
 
@@ -127,8 +126,7 @@ impl Globals {
     }
 
     pub async fn remove(&self, state: &State, name: GlobalName) -> Result<(), GlobalError> {
-        let global = self.take(name, true)?;
-        global.pre_remove();
+        let _global = self.take(name, true)?;
         self.broadcast(state, |r| r.global_remove(name)).await;
         Ok(())
     }
@@ -187,6 +185,7 @@ impl Globals {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_output(&self, output: GlobalName) -> Result<Rc<WlOutputGlobal>, GlobalError> {
         match self.outputs.get(&output) {
             Some(o) => Ok(o),

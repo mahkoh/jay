@@ -63,6 +63,7 @@ impl Objects {
         self.buffers.clear();
     }
 
+    #[allow(dead_code)]
     fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>
     where
         ObjectId: Into<T>,

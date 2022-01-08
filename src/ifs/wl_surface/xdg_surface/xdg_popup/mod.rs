@@ -15,22 +15,20 @@ const CONFIGURE: u32 = 0;
 const POPUP_DONE: u32 = 1;
 const REPOSITIONED: u32 = 2;
 
-const INVALID_GRAB: u32 = 1;
+#[allow(dead_code)] const INVALID_GRAB: u32 = 1;
 
 id!(XdgPopupId);
 
 pub struct XdgPopup {
     id: XdgPopupId,
     pub(in super::super) surface: Rc<XdgSurface>,
-    version: u32,
 }
 
 impl XdgPopup {
-    pub fn new(id: XdgPopupId, surface: &Rc<XdgSurface>, version: u32) -> Self {
+    pub fn new(id: XdgPopupId, surface: &Rc<XdgSurface>) -> Self {
         Self {
             id,
             surface: surface.clone(),
-            version,
         }
     }
 
