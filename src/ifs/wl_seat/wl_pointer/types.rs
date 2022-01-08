@@ -184,7 +184,7 @@ impl Debug for Button {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "button(serial: {}, time: {}, button: {}, state: {})",
+            "button(serial: {}, time: {}, button: 0x{:x}, state: {})",
             self.serial, self.time, self.button, self.state
         )
     }

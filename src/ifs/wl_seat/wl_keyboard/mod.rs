@@ -19,7 +19,7 @@ const MODIFIERS: u32 = 4;
 const REPEAT_INFO: u32 = 5;
 
 const NO_KEYMAP: u32 = 0;
-const XKB_V1: u32 = 1;
+pub(super) const XKB_V1: u32 = 1;
 
 const RELEASED: u32 = 0;
 const PRESSED: u32 = 1;
@@ -108,6 +108,7 @@ impl WlKeyboard {
 
     async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
+        self.seat.keyboards.remove(&self.id);
         self.seat.client.remove_obj(self).await?;
         Ok(())
     }

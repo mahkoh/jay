@@ -231,13 +231,22 @@ where
     }
 
     pub fn fill(&self, r: u8, g: u8, b: u8, a: u8) -> Result<(), PixmanError> {
+        self.fill_rect(r, g, b, a, 0, 0, self.width as _, self.height as _)
+    }
+
+    pub fn fill_rect(
+        &self,
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+    ) -> Result<(), PixmanError> {
         self.memory.access(|_| {
-            let bx = Box32 {
-                x1: 0,
-                y1: 0,
-                x2: self.width as _,
-                y2: self.height as _,
-            };
+            let bx = Box32 { x1, y1, x2, y2 };
             let color = Color {
                 red: (r as u16) << 8,
                 green: (g as u16) << 8,
@@ -246,6 +255,70 @@ where
             };
             unsafe {
                 pixman_image_fill_boxes(OP_SRC.raw() as PixmanOp, self.data, &color, 1, &bx);
+            }
+        })?;
+        Ok(())
+    }
+
+    pub fn fill_insert_border(
+        &self,
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32,
+        width: i32,
+    ) -> Result<(), PixmanError> {
+        self.memory.access(|_| {
+            let mut bx = [
+                Box32 {
+                    x1,
+                    y1,
+                    x2,
+                    y2: y1 + width,
+                },
+                Box32 {
+                    x1: x2 - width,
+                    y1,
+                    x2,
+                    y2,
+                },
+                Box32 {
+                    x1,
+                    y1,
+                    x2: x1 + width,
+                    y2,
+                },
+                Box32 {
+                    x1,
+                    y1: y2 - width,
+                    x2,
+                    y2,
+                },
+            ];
+            for bx in &mut bx {
+                bx.x1 = bx.x1.max(0).min(self.width as i32);
+                bx.x2 = bx.x2.max(0).min(self.width as i32);
+                bx.y1 = bx.y1.max(0).min(self.height as i32);
+                bx.y2 = bx.y2.max(0).min(self.height as i32);
+            }
+            let color = Color {
+                red: (r as u16) << 8,
+                green: (g as u16) << 8,
+                blue: (b as u16) << 8,
+                alpha: (a as u16) << 8,
+            };
+            unsafe {
+                pixman_image_fill_boxes(
+                    OP_SRC.raw() as PixmanOp,
+                    self.data,
+                    &color,
+                    bx.len() as _,
+                    bx.as_ptr(),
+                );
             }
         })?;
         Ok(())

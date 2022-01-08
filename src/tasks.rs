@@ -83,7 +83,8 @@ impl OutputHandler {
         self.state.root.outputs.set(self.output.id(), on.clone());
         let name = self.state.globals.name();
         let global = Rc::new(WlOutputGlobal::new(name, &self.output));
-        self.state.globals.insert(&self.state, global.clone()).await;
+        self.state.add_global(&global).await;
+        self.state.outputs.set(self.output.id(), global.clone());
         loop {
             if self.output.removed() {
                 break;
@@ -97,6 +98,7 @@ impl OutputHandler {
             global.update_properties().await;
             ae.triggered().await;
         }
+        self.state.outputs.remove(&self.output.id());
         self.state.globals.remove(&self.state, name).await;
         self.state
             .output_handlers
@@ -118,8 +120,8 @@ impl SeatHandler {
             self.seat.on_change(Rc::new(move || ae.trigger()));
         }
         let name = self.state.globals.name();
-        let global = Rc::new(WlSeatGlobal::new(name, &self.seat));
-        self.state.globals.insert(&self.state, global.clone()).await;
+        let global = Rc::new(WlSeatGlobal::new(name, &self.state, &self.seat));
+        self.state.add_global(&global).await;
         loop {
             if self.seat.removed() {
                 break;

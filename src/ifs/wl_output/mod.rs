@@ -43,6 +43,8 @@ const MODE_PREFERRED: u32 = 2;
 pub struct WlOutputGlobal {
     name: GlobalName,
     output: Rc<dyn Output>,
+    pub x: Cell<i32>,
+    pub y: Cell<i32>,
     width: Cell<u32>,
     height: Cell<u32>,
     bindings: CopyHashMap<(ClientId, WlOutputId), Rc<WlOutputObj>>,
@@ -53,6 +55,8 @@ impl WlOutputGlobal {
         Self {
             name,
             output: output.clone(),
+            x: Cell::new(0),
+            y: Cell::new(0),
             width: Cell::new(output.width()),
             height: Cell::new(output.height()),
             bindings: Default::default(),
@@ -121,6 +125,10 @@ bind!(WlOutputGlobal);
 impl Global for WlOutputGlobal {
     fn name(&self) -> GlobalName {
         self.name
+    }
+
+    fn singleton(&self) -> bool {
+        false
     }
 
     fn interface(&self) -> Interface {

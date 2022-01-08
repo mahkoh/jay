@@ -7,7 +7,10 @@ use crate::ifs::wl_display::{WlDisplay, WlDisplayError};
 use crate::ifs::wl_output::{WlOutputError, WlOutputObj};
 use crate::ifs::wl_region::{WlRegion, WlRegionError, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryError, WlRegistryId};
-use crate::ifs::wl_seat::{WlSeatError, WlSeatObj};
+use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError};
+use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerError};
+use crate::ifs::wl_seat::wl_touch::{WlTouch, WlTouchError};
+use crate::ifs::wl_seat::{WlSeatError, WlSeatId, WlSeatObj};
 use crate::ifs::wl_shm::{WlShmError, WlShmObj};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
 use crate::ifs::wl_subcompositor::{WlSubcompositorError, WlSubcompositorObj};
@@ -33,9 +36,10 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError};
-use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerError};
-use crate::ifs::wl_seat::wl_touch::{WlTouch, WlTouchError};
+use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceError};
+use crate::ifs::wl_data_device_manager::{WlDataDeviceManagerError, WlDataDeviceManagerObj};
+use crate::ifs::wl_data_offer::{WlDataOffer, WlDataOfferError};
+use crate::ifs::wl_data_source::{WlDataSourceError, WlDataSource};
 
 mod objects;
 mod tasks;
@@ -68,6 +72,8 @@ pub enum ClientError {
     SurfaceDoesNotExist(WlSurfaceId),
     #[error("There is no xdg_surface with id {0}")]
     XdgSurfaceDoesNotExist(XdgSurfaceId),
+    #[error("There is no wl_seat with id {0}")]
+    WlSeatDoesNotExist(WlSeatId),
     #[error("Cannot parse the message")]
     ParserError(#[source] Box<MsgParserError>),
     #[error("Server tried to allocate more than 0x1_00_00_00 ids")]
@@ -124,6 +130,14 @@ pub enum ClientError {
     WlTouchError(#[source] Box<WlTouchError>),
     #[error("Object {0} is not a display")]
     NotADisplay(ObjectId),
+    #[error("An error occurred in a `wl_data_device`")]
+    WlDataDeviceError(#[source] Box<WlDataDeviceError>),
+    #[error("An error occurred in a `wl_data_device_manager`")]
+    WlDataDeviceManagerError(#[source] Box<WlDataDeviceManagerError>),
+    #[error("An error occurred in a `wl_data_offer`")]
+    WlDataOfferError(#[source] Box<WlDataOfferError>),
+    #[error("An error occurred in a `wl_data_source`")]
+    WlDataSourceError(#[source] Box<WlDataSourceError>),
 }
 
 efrom!(ClientError, ParserError, MsgParserError);
@@ -147,6 +161,10 @@ efrom!(ClientError, WlSeatError, WlSeatError);
 efrom!(ClientError, WlTouchError, WlTouchError);
 efrom!(ClientError, WlPointerError, WlPointerError);
 efrom!(ClientError, WlKeyboardError, WlKeyboardError);
+efrom!(ClientError, WlDataDeviceManagerError, WlDataDeviceManagerError);
+efrom!(ClientError, WlDataDeviceError, WlDataDeviceError);
+efrom!(ClientError, WlDataSourceError, WlDataSourceError);
+efrom!(ClientError, WlDataOfferError, WlDataOfferError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -445,6 +463,13 @@ impl Client {
         }
     }
 
+    pub fn get_wl_seat(&self, id: WlSeatId) -> Result<Rc<WlSeatObj>, ClientError> {
+        match self.objects.seats.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::WlSeatDoesNotExist(id)),
+        }
+    }
+
     fn simple_add_obj<T: Object>(&self, obj: &Rc<T>, client: bool) -> Result<(), ClientError> {
         if client {
             self.objects.add_client_object(obj.clone())
@@ -519,10 +544,13 @@ simple_add_obj!(XdgPositioner);
 simple_add_obj!(XdgToplevel);
 simple_add_obj!(XdgPopup);
 simple_add_obj!(WlOutputObj);
-simple_add_obj!(WlSeatObj);
 simple_add_obj!(WlKeyboard);
 simple_add_obj!(WlPointer);
 simple_add_obj!(WlTouch);
+simple_add_obj!(WlDataDeviceManagerObj);
+simple_add_obj!(WlDataDevice);
+simple_add_obj!(WlDataOffer);
+simple_add_obj!(WlDataSource);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {
@@ -547,3 +575,4 @@ dedicated_add_obj!(WlSurface, surfaces);
 dedicated_add_obj!(XdgWmBaseObj, xdg_wm_bases);
 dedicated_add_obj!(XdgSurface, xdg_surfaces);
 dedicated_add_obj!(WlBuffer, buffers);
+dedicated_add_obj!(WlSeatObj, seats);

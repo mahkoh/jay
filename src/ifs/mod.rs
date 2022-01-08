@@ -1,6 +1,9 @@
 pub mod wl_buffer;
 pub mod wl_callback;
 pub mod wl_compositor;
+pub mod wl_data_device;
+pub mod wl_data_device_manager;
+pub mod wl_data_source;
 pub mod wl_display;
 pub mod wl_output;
 pub mod wl_region;
@@ -12,3 +15,4 @@ pub mod wl_subcompositor;
 pub mod wl_surface;
 pub mod xdg_positioner;
 pub mod xdg_wm_base;
+pub mod wl_data_offer;

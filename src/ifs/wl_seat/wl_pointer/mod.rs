@@ -24,11 +24,11 @@ const AXIS_DISCRETE: u32 = 8;
 
 const ROLE: u32 = 0;
 
-const RELEASED: u32 = 0;
-const PRESSED: u32 = 1;
+pub(super) const RELEASED: u32 = 0;
+pub(super) const PRESSED: u32 = 1;
 
-const VERTICAL_SCROLL: u32 = 0;
-const HORIZONTAL_SCROLL: u32 = 1;
+pub(super) const VERTICAL_SCROLL: u32 = 0;
+pub(super) const HORIZONTAL_SCROLL: u32 = 1;
 
 const WHEEL: u32 = 0;
 const FINGER: u32 = 1;
@@ -136,13 +136,13 @@ impl WlPointer {
     }
 
     async fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
-        let _req: Release = self.seat.client.parse(self, parser)?;
-        self.seat.client.remove_obj(self).await?;
+        let _req: SetCursor = self.seat.client.parse(self, parser)?;
         Ok(())
     }
 
     async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
+        self.seat.pointers.remove(&self.id);
         self.seat.client.remove_obj(self).await?;
         Ok(())
     }
@@ -153,6 +153,7 @@ impl WlPointer {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlPointerError> {
         match request {
+            SET_CURSOR => self.set_cursor(parser).await?,
             RELEASE => self.release(parser).await?,
             _ => unreachable!(),
         }

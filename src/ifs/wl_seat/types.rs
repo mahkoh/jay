@@ -1,4 +1,6 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboardId;
+use crate::ifs::wl_seat::wl_pointer::WlPointerId;
 use crate::ifs::wl_seat::wl_touch::WlTouchId;
 use crate::ifs::wl_seat::{WlSeatObj, CAPABILITIES, NAME};
 use crate::object::Object;
@@ -6,8 +8,6 @@ use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_seat::wl_keyboard::WlKeyboardId;
-use crate::ifs::wl_seat::wl_pointer::WlPointerId;
 
 #[derive(Debug, Error)]
 pub enum WlSeatError {

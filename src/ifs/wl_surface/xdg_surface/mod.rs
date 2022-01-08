@@ -6,7 +6,7 @@ use crate::client::{AddObj, DynEventFormatter};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
-    RoleData, SurfaceRole, WlSurface, XdgPopupData, XdgSurfaceData, XdgSurfaceRole,
+    RoleData, SurfaceExtents, SurfaceRole, WlSurface, XdgPopupData, XdgSurfaceData, XdgSurfaceRole,
     XdgSurfaceRoleData, XdgToplevelData,
 };
 use crate::ifs::xdg_wm_base::XdgWmBaseObj;
@@ -73,8 +73,10 @@ impl XdgSurface {
             requested_serial: 0,
             acked_serial: None,
             role: XdgSurfaceRole::None,
+            extents: None,
             role_data: XdgSurfaceRoleData::None,
             popups: Default::default(),
+            pending: Default::default(),
         }));
         Ok(())
     }
@@ -176,7 +178,20 @@ impl XdgSurface {
         &self,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), SetWindowGeometryError> {
-        let _req: SetWindowGeometry = self.surface.client.parse(self, parser)?;
+        let req: SetWindowGeometry = self.surface.client.parse(self, parser)?;
+        if req.height <= 0 || req.width <= 0 {
+            return Err(SetWindowGeometryError::NonPositiveWidthHeight);
+        }
+        let mut rd = self.surface.role_data.borrow_mut();
+        if let RoleData::XdgSurface(xdg) = rd.deref_mut() {
+            let extents = SurfaceExtents {
+                x1: req.x,
+                y1: req.y,
+                x2: req.x + req.width,
+                y2: req.y + req.height,
+            };
+            xdg.pending.extents.set(Some(extents));
+        }
         Ok(())
     }
 

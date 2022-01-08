@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj};
+use crate::client::AddObj;
 use crate::ifs::wl_seat::WlSeatObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;

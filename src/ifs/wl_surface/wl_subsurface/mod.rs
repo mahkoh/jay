@@ -112,7 +112,7 @@ impl WlSubsurface {
             let data = data.get_or_insert_with(|| Default::default());
             data.subsurfaces
                 .insert(self.surface.id, self.surface.clone());
-            data.above.prepend(StackElement {
+            data.above.add_first(StackElement {
                 pending: Cell::new(true),
                 surface: self.surface.clone(),
             })
@@ -168,8 +168,8 @@ impl WlSubsurface {
             };
             if sibling == self.parent.id {
                 let node = match above {
-                    true => pdata.above.prepend(element),
-                    _ => pdata.below.append(element),
+                    true => pdata.above.add_first(element),
+                    _ => pdata.below.add_last(element),
                 };
                 data.pending.node = Some(node);
             } else {

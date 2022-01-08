@@ -28,6 +28,8 @@ pub enum XkbCommonError {
     CreateStateFromDevice,
     #[error("Could not create an xkbcommon context")]
     CreateContext,
+    #[error("Could not create keymap from names")]
+    KeymapFromNames,
     #[error("Could not convert the keymap to a string")]
     AsStr,
 }
@@ -35,6 +37,27 @@ pub enum XkbCommonError {
 struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
+
+#[repr(C)]
+struct xkb_rule_names {
+    rules: *const c::c_char,
+    model: *const c::c_char,
+    layout: *const c::c_char,
+    variant: *const c::c_char,
+    options: *const c::c_char,
+}
+
+impl Default for xkb_rule_names {
+    fn default() -> Self {
+        Self {
+            rules: ptr::null(),
+            model: ptr::null(),
+            layout: ptr::null(),
+            variant: ptr::null(),
+            options: ptr::null(),
+        }
+    }
+}
 
 #[link(name = "xkbcommon")]
 extern "C" {
@@ -49,6 +72,11 @@ extern "C" {
             args: VaList,
         ),
     );
+    fn xkb_keymap_new_from_names(
+        context: *mut xkb_context,
+        name: *const xkb_rule_names,
+        flags: xkb_keymap_compile_flags,
+    ) -> *mut xkb_keymap;
     fn xkb_keymap_get_as_string(
         keymap: *mut xkb_keymap,
         format: xkb_keymap_format,
@@ -73,6 +101,17 @@ impl XkbContext {
             xkb_context_set_log_fn(res, xkbcommon_logger);
         }
         Ok(Self { context: res })
+    }
+
+    pub fn default_keymap(&self) -> Result<XkbKeymap, XkbCommonError> {
+        unsafe {
+            let names = Default::default();
+            let keymap = xkb_keymap_new_from_names(self.context, &names, 0);
+            if keymap.is_null() {
+                return Err(XkbCommonError::KeymapFromNames);
+            }
+            Ok(XkbKeymap { keymap })
+        }
     }
 }
 
@@ -136,9 +175,7 @@ impl XkbState {
         unsafe {
             let res = xkb_state_get_keymap(self.state);
             xkb_keymap_ref(res);
-            XkbKeymap {
-                keymap: res,
-            }
+            XkbKeymap { keymap: res }
         }
     }
 }

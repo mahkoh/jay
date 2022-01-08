@@ -60,13 +60,14 @@ impl SurfaceRole {
 }
 
 pub struct WlSurface {
-    id: WlSurfaceId,
+    pub id: WlSurfaceId,
     pub client: Rc<Client>,
     role: Cell<SurfaceRole>,
     pending: PendingState,
     input_region: Cell<Option<Region>>,
     opaque_region: Cell<Option<Region>>,
     pub extents: Cell<SurfaceExtents>,
+    pub effective_extents: Cell<SurfaceExtents>,
     pub buffer: RefCell<Option<Rc<WlBuffer>>>,
     pub children: RefCell<Option<Box<ParentData>>>,
     role_data: RefCell<RoleData>,
@@ -105,8 +106,15 @@ struct XdgSurfaceData {
     requested_serial: u32,
     acked_serial: Option<u32>,
     role: XdgSurfaceRole,
+    extents: Option<SurfaceExtents>,
     role_data: XdgSurfaceRoleData,
     popups: CopyHashMap<WlSurfaceId, Rc<XdgPopup>>,
+    pending: PendingXdgSurfaceData,
+}
+
+#[derive(Default)]
+struct PendingXdgSurfaceData {
+    extents: Cell<Option<SurfaceExtents>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -193,6 +201,7 @@ impl WlSurface {
             input_region: Cell::new(None),
             opaque_region: Cell::new(None),
             extents: Default::default(),
+            effective_extents: Default::default(),
             buffer: RefCell::new(None),
             children: Default::default(),
             role_data: RefCell::new(RoleData::None),
@@ -350,7 +359,7 @@ impl WlSurface {
                                     surface: td.toplevel.clone(),
                                 });
                                 td.node = Some(ToplevelNodeHolder { node: node.clone() });
-                                let link = output.floating.append(node.clone());
+                                let link = output.floating.add_last(node.clone());
                                 node.common
                                     .floating_outputs
                                     .borrow_mut()
@@ -402,6 +411,8 @@ impl WlSurface {
     }
 
     fn do_commit(&self) {
+        let mut xdg_extents = None;
+        let mut td_node = None;
         {
             let mut rd = self.role_data.borrow_mut();
             match &mut *rd {
@@ -416,7 +427,15 @@ impl WlSurface {
                         ss.y = y;
                     }
                 }
-                RoleData::XdgSurface(xdg) => {}
+                RoleData::XdgSurface(xdg) => {
+                    if let Some(extents) = xdg.pending.extents.take() {
+                        xdg.extents = Some(extents);
+                    }
+                    xdg_extents = xdg.extents;
+                    if let XdgSurfaceRoleData::Toplevel(tl) = &xdg.role_data {
+                        td_node = tl.node.as_ref().map(|n| n.node.clone());
+                    }
+                }
             }
         }
         {
@@ -444,6 +463,28 @@ impl WlSurface {
         if !committed_any_children {
             self.calculate_extents();
         }
+        let mut effective_extents = self.extents.get();
+        if let Some(extents) = xdg_extents {
+            effective_extents.x1 = effective_extents.x1.max(extents.x1);
+            effective_extents.y1 = effective_extents.y1.max(extents.y1);
+            effective_extents.x2 = effective_extents.x2.min(extents.x2);
+            effective_extents.y2 = effective_extents.y2.min(extents.y2);
+            if effective_extents.x1 > effective_extents.x2 {
+                effective_extents.x1 = 0;
+                effective_extents.x2 = 0;
+            }
+            if effective_extents.y1 > effective_extents.y2 {
+                effective_extents.y1 = 0;
+                effective_extents.y2 = 0;
+            }
+        }
+        if let Some(node) = td_node {
+            let mut td_extents = node.common.extents.get();
+            td_extents.width = (effective_extents.x2 - effective_extents.x1) as u32;
+            td_extents.height = (effective_extents.y2 - effective_extents.y1) as u32;
+            node.common.extents.set(td_extents);
+        }
+        self.effective_extents.set(effective_extents);
     }
 
     async fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {

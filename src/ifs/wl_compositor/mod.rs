@@ -83,6 +83,10 @@ impl Global for WlCompositorGlobal {
         self.name
     }
 
+    fn singleton(&self) -> bool {
+        true
+    }
+
     fn interface(&self) -> Interface {
         Interface::WlCompositor
     }

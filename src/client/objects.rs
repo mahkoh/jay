@@ -3,6 +3,7 @@ use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_region::{WlRegion, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
+use crate::ifs::wl_seat::{WlSeatId, WlSeatObj};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::ifs::xdg_wm_base::{XdgWmBaseId, XdgWmBaseObj};
@@ -22,6 +23,7 @@ pub struct Objects {
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBaseObj>>,
+    pub seats: CopyHashMap<WlSeatId, Rc<WlSeatObj>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -39,6 +41,7 @@ impl Objects {
             regions: Default::default(),
             buffers: Default::default(),
             xdg_wm_bases: Default::default(),
+            seats: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }

@@ -1,4 +1,6 @@
-use crate::backend::{BackendEvent, Output, OutputId, Seat, SeatEvent, SeatId};
+use crate::backend::{
+    BackendEvent, KeyState, Output, OutputId, ScrollAxis, Seat, SeatEvent, SeatId,
+};
 use crate::event_loop::{EventLoopDispatcher, EventLoopId};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
@@ -9,9 +11,6 @@ use crate::tree::{Node, NodeKind, ToplevelNode};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::ptr_ext::PtrExt;
 use crate::wheel::{WheelDispatcher, WheelId};
-use crate::xkbcommon::{
-    XkbCommonError, XkbCommonX11, XkbContext, XkbState, XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-};
 use crate::{pixman, EventLoopError, State, WheelError};
 use isnt::std_1::primitive::IsntConstPtrExt;
 use std::cell::{Cell, RefCell};
@@ -56,14 +55,11 @@ pub enum XorgBackendError {
     MapWindow(#[source] XcbError),
     #[error("Could not query device")]
     QueryDevice(#[source] XcbError),
-    #[error("xkbcommon error")]
-    XkbCommon(#[from] Box<XkbCommonError>),
 }
 efrom!(XorgBackendError, EventLoopError, EventLoopError);
 efrom!(XorgBackendError, ServerMemError, ServerMemError);
 efrom!(XorgBackendError, PixmanError, PixmanError);
 efrom!(XorgBackendError, WheelError, WheelError);
-efrom!(XorgBackendError, XkbCommon, XkbCommonError);
 
 struct XcbCon {
     xcb: Box<Xcb>,
@@ -71,7 +67,6 @@ struct XcbCon {
     input: Box<XcbXinput>,
     input_opcode: u8,
     xkb: Box<XcbXkb>,
-    xkb_event: u8,
     c: *mut ffi::xcb_connection_t,
     errors: XcbErrorParser,
 }
@@ -93,7 +88,6 @@ impl XcbCon {
                 input,
                 input_opcode: 0,
                 xkb,
-                xkb_event: 0,
                 c,
                 errors,
             };
@@ -126,12 +120,6 @@ impl XcbCon {
                 &mut err,
             );
             con.errors.check(&con.xcb, res, err)?;
-
-            let xkb_ex = con
-                .xcb
-                .xcb_get_extension_data(con.c, con.xkb.xcb_xkb_id());
-            assert!(xkb_ex.is_not_null());
-            con.xkb_event = xkb_ex.deref().first_event;
 
             Ok(con)
         }
@@ -172,8 +160,6 @@ pub struct XorgBackend {
     wheel_id: WheelId,
     state: Rc<State>,
     con: XcbCon,
-    xkbcommon: XkbContext,
-    xkbcommonx11: XkbCommonX11,
     outputs: CopyHashMap<ffi::xcb_window_t, Rc<XorgOutput>>,
     seats: CopyHashMap<ffi::xcb_input_device_id_t, Rc<XorgSeat>>,
     mouse_seats: CopyHashMap<ffi::xcb_input_device_id_t, Rc<XorgSeat>>,
@@ -193,8 +179,6 @@ impl XorgBackend {
                 wheel_id,
                 state: state.clone(),
                 con,
-                xkbcommon: XkbContext::new()?,
-                xkbcommonx11: XkbCommonX11::load()?,
                 outputs: Default::default(),
                 seats: Default::default(),
                 mouse_seats: Default::default(),
@@ -356,21 +340,6 @@ impl XorgBackend {
         Ok(())
     }
 
-    fn create_state(&self, device_id: ffi::xcb_input_device_id_t) -> Result<XkbState, XorgBackendError> {
-        unsafe {
-            let keymap = self.xkbcommonx11.keymap_from_device(
-                &self.xkbcommon,
-                self.con.c,
-                device_id as _,
-                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
-            )?;
-            let state =
-                self.xkbcommonx11
-                    .state_from_device(&keymap, self.con.c, device_id as _)?;
-            Ok(state)
-        }
-    }
-
     fn handle_input_device(self: &Rc<Self>, info: &ffi::xcb_input_xi_device_info_t) {
         if info.type_ != ffi::XCB_INPUT_DEVICE_TYPE_MASTER_KEYBOARD as _ {
             return;
@@ -402,17 +371,6 @@ impl XorgBackend {
                     e
                 );
             }
-            let state = match self.create_state(info.deviceid) {
-                Ok(c) => c,
-                Err(e) => {
-                    log::error!(
-                        "Could not create an xkb context for device {}: {:#}",
-                        info.deviceid,
-                        e
-                    );
-                    return;
-                }
-            };
             let seat = Rc::new(XorgSeat {
                 id: self.state.seat_ids.next(),
                 backend: self.clone(),
@@ -421,9 +379,10 @@ impl XorgBackend {
                 removed: Cell::new(false),
                 cb: RefCell::new(None),
                 events: RefCell::new(Default::default()),
-                state,
+                button_map: Default::default(),
+                last_position: Cell::new((0, 0)),
             });
-            seat.send_new_state();
+            seat.update_button_map();
             self.seats.set(info.deviceid, seat.clone());
             self.mouse_seats.set(info.attachment, seat.clone());
             self.state
@@ -455,30 +414,6 @@ impl XorgBackend {
             ffi::XCB_CONFIGURE_NOTIFY => self.handle_configure(event)?,
             ffi::XCB_DESTROY_NOTIFY => self.handle_destroy(event)?,
             ffi::XCB_GE_GENERIC => self.handle_generic(event)?,
-            _ if event_type == self.con.xkb_event => self.handle_xkb(event)?,
-            _ => {}
-        }
-        Ok(())
-    }
-
-    fn handle_xkb(
-        self: &Rc<Self>,
-        event: &ffi::xcb_generic_event_t,
-    ) -> Result<(), XorgBackendError> {
-        let event = unsafe { &*(event as *const _ as *const ffi::xcb_xkb_map_notify_event_t) };
-        let seat = match self.seats.get(&(event.device_id as _)) {
-            Some(s) => s,
-            _ => return Ok(()),
-        };
-        match event.xkb_type {
-            ffi::XCB_XKB_MAP_NOTIFY | ffi::XCB_XKB_NEW_KEYBOARD_NOTIFY => {
-
-            }
-            ffi::XCB_XKB_STATE_NOTIFY => {
-                let event = unsafe {
-                    (event as *const _ as *const ffi::xcb_xkb_state_notify_event_t).deref()
-                };
-            }
             _ => {}
         }
         Ok(())
@@ -501,9 +436,55 @@ impl XorgBackend {
     ) -> Result<(), XorgBackendError> {
         match event.event_type {
             ffi::XCB_INPUT_MOTION => self.handle_input_motion(event)?,
-            ffi::XCB_INPUT_KEY_PRESS => self.handle_input_key_press(event)?,
+            ffi::XCB_INPUT_ENTER => self.handle_input_enter(event)?,
+            ffi::XCB_INPUT_BUTTON_PRESS => {
+                self.handle_input_button_press(event, KeyState::Pressed)?
+            }
+            ffi::XCB_INPUT_BUTTON_RELEASE => {
+                self.handle_input_button_press(event, KeyState::Released)?
+            }
+            ffi::XCB_INPUT_KEY_PRESS => self.handle_input_key_press(event, KeyState::Pressed)?,
+            ffi::XCB_INPUT_KEY_RELEASE => self.handle_input_key_press(event, KeyState::Released)?,
             ffi::XCB_INPUT_HIERARCHY => self.handle_input_hierarchy(event)?,
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_input_button_press(
+        self: &Rc<Self>,
+        event: &ffi::xcb_ge_generic_event_t,
+        state: KeyState,
+    ) -> Result<(), XorgBackendError> {
+        let event =
+            unsafe { (event as *const _ as *const ffi::xcb_input_button_press_event_t).deref() };
+        if let Some(seat) = self.mouse_seats.get(&event.deviceid) {
+            let button = seat.button_map.get(&event.detail).unwrap_or(event.detail);
+            if matches!(button, 4..=7) {
+                if state == KeyState::Pressed {
+                    let (axis, val) = match button {
+                        4 => (ScrollAxis::Vertical, -15),
+                        5 => (ScrollAxis::Vertical, 15),
+                        6 => (ScrollAxis::Horizontal, -15),
+                        7 => (ScrollAxis::Horizontal, 15),
+                        _ => unreachable!(),
+                    };
+                    seat.event(SeatEvent::Scroll(val, axis));
+                }
+            } else {
+                const BTN_LEFT: u32 = 0x110;
+                const BTN_RIGHT: u32 = 0x111;
+                const BTN_MIDDLE: u32 = 0x112;
+                const BTN_SIDE: u32 = 0x113;
+                let button = match button {
+                    0 => return Ok(()),
+                    1 => BTN_LEFT,
+                    2 => BTN_MIDDLE,
+                    3 => BTN_RIGHT,
+                    n => n + BTN_SIDE - 8,
+                };
+                seat.event(SeatEvent::Button(button, state));
+            }
         }
         Ok(())
     }
@@ -511,11 +492,12 @@ impl XorgBackend {
     fn handle_input_key_press(
         self: &Rc<Self>,
         event: &ffi::xcb_ge_generic_event_t,
+        state: KeyState,
     ) -> Result<(), XorgBackendError> {
         let event =
             unsafe { (event as *const _ as *const ffi::xcb_input_key_press_event_t).deref() };
         if let Some(seat) = self.seats.get(&event.deviceid) {
-            seat.event(SeatEvent::Key(event.detail - 8));
+            seat.event(SeatEvent::Key(event.detail - 8, state));
         }
         Ok(())
     }
@@ -546,24 +528,41 @@ impl XorgBackend {
         Ok(())
     }
 
+    fn handle_input_enter(
+        &self,
+        event: &ffi::xcb_ge_generic_event_t,
+    ) -> Result<(), XorgBackendError> {
+        let event = unsafe { (event as *const _ as *const ffi::xcb_input_enter_event_t).deref() };
+        if let (Some(win), Some(seat)) = (
+            self.outputs.get(&event.event),
+            self.mouse_seats.get(&event.deviceid),
+        ) {
+            seat.last_position.set((event.event_x, event.event_y));
+            seat.event(SeatEvent::OutputPosition(
+                win.id,
+                Fixed::from_1616(event.event_x),
+                Fixed::from_1616(event.event_y),
+            ));
+        }
+        Ok(())
+    }
+
     fn handle_input_motion(
         &self,
         event: &ffi::xcb_ge_generic_event_t,
     ) -> Result<(), XorgBackendError> {
         let event = unsafe { (event as *const _ as *const ffi::xcb_input_motion_event_t).deref() };
-        let win = match self.outputs.get(&event.event) {
-            Some(w) => w,
-            _ => return Ok(()),
-        };
         let seat = match self.mouse_seats.get(&event.deviceid) {
             Some(s) => s,
             _ => return Ok(()),
         };
-        seat.event(SeatEvent::Motion(
-            win.id,
-            Fixed::from_1616(event.event_x),
-            Fixed::from_1616(event.event_y),
-        ));
+        let pos = (event.event_x, event.event_y);
+        let last_pos = seat.last_position.replace(pos);
+        if pos != last_pos {
+            let dx = Fixed::from_1616(pos.0 - last_pos.0);
+            let dy = Fixed::from_1616(pos.1 - last_pos.1);
+            seat.event(SeatEvent::Motion(dx, dy));
+        }
         Ok(())
     }
 
@@ -647,8 +646,25 @@ impl XorgBackend {
 
     fn render_toplevel(&self, image: &Image<Rc<ServerMem>>, tl: &Rc<ToplevelNode>) {
         let surface = &tl.surface.surface.surface;
-        let extents = surface.extents.get();
-        self.render_surface(image, surface, -extents.x1, -extents.y1);
+        let node_extents = tl.common.extents.get();
+        let surface_extents = tl.surface.surface.surface.effective_extents.get();
+        self.render_surface(
+            image,
+            surface,
+            node_extents.x - surface_extents.x1,
+            node_extents.y - surface_extents.y1,
+        );
+        image.fill_insert_border(
+            255,
+            0,
+            0,
+            255,
+            node_extents.x,
+            node_extents.y,
+            node_extents.x + node_extents.width as i32,
+            node_extents.y + node_extents.height as i32,
+            2,
+        );
     }
 
     fn render_surface(
@@ -797,8 +813,8 @@ struct XorgSeat {
     removed: Cell<bool>,
     cb: RefCell<Option<Rc<dyn Fn()>>>,
     events: RefCell<VecDeque<SeatEvent>>,
-    last_modifiers: Cell<(u32, u32, u32, u32)>,
-    state: XkbState,
+    button_map: CopyHashMap<u32, u32>,
+    last_position: Cell<(ffi::xcb_input_fp1616_t, ffi::xcb_input_fp1616_t)>,
 }
 
 impl XorgSeat {
@@ -811,6 +827,38 @@ impl XorgSeat {
     fn event(&self, event: SeatEvent) {
         self.events.borrow_mut().push_back(event);
         self.changed();
+    }
+
+    fn update_button_map(&self) {
+        self.button_map.clear();
+        unsafe {
+            let con = &self.backend.con;
+            let mut err = ptr::null_mut();
+            let reply = con.input.xcb_input_get_device_button_mapping_reply(
+                con.c,
+                con.input
+                    .xcb_input_get_device_button_mapping(con.c, self.mouse as _),
+                &mut err,
+            );
+            let reply = match con.check(reply, err) {
+                Ok(r) => r,
+                Err(e) => {
+                    log::error!(
+                        "Could not get Xinput button map of device {}: {:#}",
+                        self.mouse,
+                        e
+                    );
+                    return;
+                }
+            };
+            let map = std::slice::from_raw_parts(
+                con.input.xcb_input_get_device_button_mapping_map(&*reply),
+                reply.map_size as _,
+            );
+            for (i, map) in map.iter().copied().enumerate().rev() {
+                self.button_map.set(map as u32, i as u32 + 1);
+            }
+        }
     }
 }
 

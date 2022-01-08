@@ -74,6 +74,8 @@ pub enum SetWindowGeometryError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Tried no set a non-positive width/height")]
+    NonPositiveWidthHeight,
 }
 efrom!(SetWindowGeometryError, ParseFailed, MsgParserError);
 efrom!(SetWindowGeometryError, ClientError, ClientError);

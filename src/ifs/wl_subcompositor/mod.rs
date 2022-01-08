@@ -84,6 +84,10 @@ impl Global for WlSubcompositorGlobal {
         self.name
     }
 
+    fn singleton(&self) -> bool {
+        true
+    }
+
     fn interface(&self) -> Interface {
         Interface::WlSubcompositor
     }

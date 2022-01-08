@@ -34,11 +34,11 @@ impl<T> LinkedList<T> {
         }
     }
 
-    pub fn prepend(&self, t: T) -> Node<T> {
+    pub fn add_last(&self, t: T) -> Node<T> {
         self.root.prepend(t)
     }
 
-    pub fn append(&self, t: T) -> Node<T> {
+    pub fn add_first(&self, t: T) -> Node<T> {
         self.root.append(t)
     }
 
@@ -50,6 +50,18 @@ impl<T> LinkedList<T> {
             LinkedListIter {
                 root: self.root.data,
                 next: root.next.get(),
+            }
+        }
+    }
+
+    pub fn rev_iter(&self) -> RevLinkedListIter<T> {
+        unsafe {
+            let root = self.root.data.as_ref();
+            root.rc.fetch_add(1);
+            root.prev.get().as_ref().rc.fetch_add(1);
+            RevLinkedListIter {
+                root: self.root.data,
+                next: root.prev.get(),
             }
         }
     }
@@ -77,6 +89,36 @@ impl<T> Iterator for LinkedListIter<T> {
 }
 
 impl<T> Drop for LinkedListIter<T> {
+    fn drop(&mut self) {
+        unsafe {
+            dec_ref_count(self.root, 1);
+            dec_ref_count(self.next, 1);
+        }
+    }
+}
+
+pub struct RevLinkedListIter<T> {
+    root: NonNull<NodeData<T>>,
+    next: NonNull<NodeData<T>>,
+}
+
+impl<T> Iterator for RevLinkedListIter<T> {
+    type Item = NodeRef<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.root == self.next {
+            return None;
+        }
+        unsafe {
+            let old_next = self.next;
+            self.next = old_next.as_ref().prev.get();
+            self.next.as_ref().rc.fetch_add(1);
+            Some(NodeRef { data: old_next })
+        }
+    }
+}
+
+impl<T> Drop for RevLinkedListIter<T> {
     fn drop(&mut self) {
         unsafe {
             dec_ref_count(self.root, 1);

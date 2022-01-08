@@ -3,8 +3,10 @@ use crate::backend::{BackendEvent, OutputId, OutputIds, SeatId, SeatIds};
 use crate::client::Clients;
 use crate::event_loop::EventLoop;
 use crate::format::Format;
-use crate::globals::Globals;
+use crate::globals::{AddGlobal, Globals};
+use crate::ifs::wl_output::WlOutputGlobal;
 use crate::tree::{DisplayNode, NodeIds};
+use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::Wheel;
@@ -27,4 +29,14 @@ pub struct State {
     pub backend_events: AsyncQueue<BackendEvent>,
     pub output_handlers: RefCell<AHashMap<OutputId, SpawnedFuture<()>>>,
     pub seat_handlers: RefCell<AHashMap<SeatId, SpawnedFuture<()>>>,
+    pub outputs: CopyHashMap<OutputId, Rc<WlOutputGlobal>>,
+}
+
+impl State {
+    pub async fn add_global<T>(&self, global: &Rc<T>)
+    where
+        Globals: AddGlobal<T>,
+    {
+        self.globals.add_global(self, global).await
+    }
 }

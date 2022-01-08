@@ -76,7 +76,7 @@ impl Sub<Time> for Time {
     fn sub(self, rhs: Time) -> Self::Output {
         let sec = self.0.tv_sec - rhs.0.tv_sec;
         let nsec = self.0.tv_nsec - rhs.0.tv_nsec;
-        Duration::from_nanos(sec as u64 * 1_000_000_000 + nsec as u64)
+        Duration::from_nanos((sec as i64 * 1_000_000_000 + nsec as i64) as u64)
     }
 }
 

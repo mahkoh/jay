@@ -5,6 +5,7 @@ use crate::ifs::wl_surface::{RoleData, XdgSurfaceRoleData};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use num_derive::FromPrimitive;
+use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
 
@@ -97,7 +98,16 @@ impl XdgToplevel {
     }
 
     async fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), MoveError> {
-        let _req: Move = self.surface.surface.client.parse(self, parser)?;
+        let req: Move = self.surface.surface.client.parse(self, parser)?;
+        let rd = self.surface.surface.role_data.borrow();
+        if let RoleData::XdgSurface(xdg) = rd.deref() {
+            if let XdgSurfaceRoleData::Toplevel(tl) = &xdg.role_data {
+                if let Some(node) = tl.node.as_ref() {
+                    let seat = self.surface.surface.client.get_wl_seat(req.seat)?;
+                    seat.move_(&node.node);
+                }
+            }
+        }
         Ok(())
     }
 

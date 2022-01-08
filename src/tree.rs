@@ -1,4 +1,5 @@
 use crate::backend::{Output, OutputId};
+use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, Node as LinkedNode};
@@ -36,6 +37,7 @@ macro_rules! base {
 pub trait Node: NodeBase {
     fn into_kind(self: Rc<Self>) -> NodeKind;
     fn clear(&self);
+    fn find_node_at(self: Rc<Self>, x: i32, y: i32) -> (Rc<dyn Node>, i32, i32);
 }
 
 pub enum NodeKind {
@@ -45,12 +47,35 @@ pub enum NodeKind {
     Container(Rc<ContainerNode>),
 }
 
+impl NodeKind {
+    pub async fn leave(&self, seat: &WlSeatGlobal) {}
+
+    pub async fn enter(&self, seat: &WlSeatGlobal) {}
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub struct NodeExtents {
     pub x: i32,
     pub y: i32,
     pub width: u32,
     pub height: u32,
+}
+
+impl NodeExtents {
+    pub fn contains(&self, x: i32, y: i32) -> bool {
+        self.x <= x
+            && self.y <= y
+            && (x - self.x) as u32 <= self.width
+            && (y - self.y) as u32 <= self.height
+    }
+
+    pub fn translate(&self, x: i32, y: i32) -> Option<(i32, i32)> {
+        if self.contains(x, y) {
+            Some((x - self.x, y - self.y))
+        } else {
+            None
+        }
+    }
 }
 
 pub struct NodeCommon {
@@ -100,6 +125,18 @@ impl Node for DisplayNode {
         }
         outputs.clear();
     }
+
+    fn find_node_at(self: Rc<Self>, x: i32, y: i32) -> (Rc<dyn Node>, i32, i32) {
+        {
+            let outputs = self.outputs.lock();
+            for output in outputs.values() {
+                if let Some((x, y)) = output.common.extents.get().translate(x, y) {
+                    return output.clone().find_node_at(x, y);
+                }
+            }
+        }
+        (self, x, y)
+    }
 }
 
 pub struct OutputNode {
@@ -125,6 +162,16 @@ impl Node for OutputNode {
             child.clear();
         }
     }
+
+    fn find_node_at(self: Rc<Self>, x: i32, y: i32) -> (Rc<dyn Node>, i32, i32) {
+        for f in self.floating.rev_iter() {
+            let e = f.extents();
+            if let Some((x, y)) = e.translate(x, y) {
+                return f.clone().find_node_at(x, y);
+            }
+        }
+        (self, x, y)
+    }
 }
 
 pub struct ToplevelNode {
@@ -141,6 +188,10 @@ impl Node for ToplevelNode {
 
     fn clear(&self) {
         self.common.clear();
+    }
+
+    fn find_node_at(self: Rc<Self>, x: i32, y: i32) -> (Rc<dyn Node>, i32, i32) {
+        (self, x, y)
     }
 }
 
@@ -167,5 +218,10 @@ impl Node for ContainerNode {
         for child in self.children.iter() {
             child.clear();
         }
+    }
+
+    fn find_node_at(self: Rc<Self>, x: i32, y: i32) -> (Rc<dyn Node>, i32, i32) {
+        (self, x, y)
+        // todo
     }
 }

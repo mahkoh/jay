@@ -56,6 +56,10 @@ pub enum Interface {
     WlPointer,
     WlKeyboard,
     WlSubcompositor,
+    WlDataDeviceManager,
+    WlDataDevice,
+    WlDataSource,
+    WlDataOffer,
     XdgWmBase,
     XdgPositioner,
     WlSurface,
@@ -92,6 +96,10 @@ impl Interface {
             Interface::WlTouch => "wl_touch",
             Interface::WlPointer => "wl_pointer",
             Interface::WlKeyboard => "wl_keyboard",
+            Interface::WlDataDeviceManager => "wl_data_device_manager",
+            Interface::WlDataDevice => "wl_data_device",
+            Interface::WlDataSource => "wl_data_source",
+            Interface::WlDataOffer => "wl_data_offer",
         }
     }
 }

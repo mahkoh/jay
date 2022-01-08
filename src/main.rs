@@ -11,7 +11,7 @@ use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
-use crate::globals::Globals;
+use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
@@ -30,6 +30,7 @@ use log::LevelFilter;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
+use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
 
 #[macro_use]
 mod macros;
@@ -91,10 +92,11 @@ fn main_() -> Result<(), MainError> {
     let wheel = Wheel::install(&el)?;
     let engine = AsyncEngine::install(&el, &wheel)?;
     let globals = Globals::new();
-    globals.insert_no_broadcast(Rc::new(WlCompositorGlobal::new(globals.name())));
-    globals.insert_no_broadcast(Rc::new(WlShmGlobal::new(globals.name())));
-    globals.insert_no_broadcast(Rc::new(WlSubcompositorGlobal::new(globals.name())));
-    globals.insert_no_broadcast(Rc::new(XdgWmBaseGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(WlCompositorGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(WlShmGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(WlSubcompositorGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(XdgWmBaseGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(WlDataDeviceManagerGlobal::new(globals.name())));
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         eng: engine.clone(),
@@ -111,6 +113,7 @@ fn main_() -> Result<(), MainError> {
         output_handlers: Default::default(),
         seat_ids: Default::default(),
         seat_handlers: Default::default(),
+        outputs: Default::default(),
     });
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     Acceptor::install(&state)?;

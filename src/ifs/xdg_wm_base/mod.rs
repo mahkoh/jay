@@ -130,6 +130,10 @@ impl Global for XdgWmBaseGlobal {
         self.name
     }
 
+    fn singleton(&self) -> bool {
+        true
+    }
+
     fn interface(&self) -> Interface {
         Interface::XdgWmBase
     }
