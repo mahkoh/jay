@@ -17,12 +17,17 @@ const PONG: u32 = 3;
 
 const PING: u32 = 0;
 
-#[allow(dead_code)] const ROLE: u32 = 0;
+#[allow(dead_code)]
+const ROLE: u32 = 0;
 const DEFUNCT_SURFACES: u32 = 1;
-#[allow(dead_code)] const NOT_THE_TOPMOST_POPUP: u32 = 2;
-#[allow(dead_code)] const INVALID_POPUP_PARENT: u32 = 3;
-#[allow(dead_code)] const INVALID_SURFACE_STATE: u32 = 4;
-#[allow(dead_code)] const INVALID_POSITIONER: u32 = 5;
+#[allow(dead_code)]
+const NOT_THE_TOPMOST_POPUP: u32 = 2;
+#[allow(dead_code)]
+const INVALID_POPUP_PARENT: u32 = 3;
+#[allow(dead_code)]
+const INVALID_SURFACE_STATE: u32 = 4;
+#[allow(dead_code)]
+const INVALID_POSITIONER: u32 = 5;
 
 id!(XdgWmBaseId);
 

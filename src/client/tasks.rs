@@ -3,7 +3,7 @@ use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser};
 use crate::utils::oneshot::OneshotRx;
 use crate::utils::vec_ext::VecExt;
-use anyhow::anyhow;
+use crate::ErrorFmt;
 use futures::{select, FutureExt};
 use std::mem;
 use std::rc::Rc;
@@ -28,7 +28,7 @@ pub async fn client(data: Rc<Client>, shutdown: OneshotRx<()>) {
             log::error!("Could not shut down client {} within 5 seconds", data.id.0);
         }
         Err(e) => {
-            log::error!("Could not create a timeout: {:#}", anyhow!(e));
+            log::error!("Could not create a timeout: {}", ErrorFmt(e));
         }
     }
     data.state.clients.kill(data.id);
@@ -39,11 +39,11 @@ async fn dispatch_fr(data: Rc<Client>) {
         let mut fr = data.dispatch_frame_requests.pop().await;
         loop {
             if let Err(e) = data.event(fr.done()).await {
-                log::error!("Could not dispatch frame event: {:#}", anyhow!(e));
+                log::error!("Could not dispatch frame event: {}", ErrorFmt(e));
                 return;
             }
             if let Err(e) = data.remove_obj(&*fr).await {
-                log::error!("Could not remove frame object: {:#}", anyhow!(e));
+                log::error!("Could not remove frame object: {}", ErrorFmt(e));
                 return;
             }
             fr = match data.dispatch_frame_requests.try_pop() {
@@ -52,7 +52,7 @@ async fn dispatch_fr(data: Rc<Client>) {
             };
         }
         if let Err(e) = data.event2(WlEvent::Flush).await {
-            log::error!("Could not dispatch frame event: {:#}", anyhow!(e));
+            log::error!("Could not dispatch frame event: {}", ErrorFmt(e));
             return;
         }
     }
@@ -109,14 +109,14 @@ async fn receive(data: Rc<Client>) {
             log::info!("Client {} terminated the connection", data.id.0);
             data.state.clients.kill(data.id);
         } else {
-            let e = anyhow!(e);
+            let e = ErrorFmt(e);
             log::error!(
-                "An error occurred while trying to handle a message from client {}: {:#}",
+                "An error occurred while trying to handle a message from client {}: {}",
                 data.id.0,
                 e
             );
             if !data.shutdown_sent.get() {
-                data.fatal_event(display.implementation_error(format!("{:#}", e)));
+                data.fatal_event(display.implementation_error(e.to_string()));
             }
         }
     }

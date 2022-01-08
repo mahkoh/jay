@@ -1,6 +1,7 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::{WlDataDevice, DATA_OFFER, DROP, ENTER, LEAVE, MOTION, SELECTION};
+use crate::ifs::wl_data_offer::WlDataOfferId;
 use crate::ifs::wl_data_source::WlDataSourceId;
 use crate::ifs::wl_surface::WlSurfaceId;
 use crate::object::Object;
@@ -8,7 +9,6 @@ use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_data_offer::WlDataOfferId;
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceError {

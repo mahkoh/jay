@@ -1,9 +1,9 @@
 use crate::pixman::PixmanMemory;
 use std::cell::{Cell, UnsafeCell};
 use std::mem::MaybeUninit;
+use std::ptr;
 use std::rc::Rc;
 use std::sync::atomic::{compiler_fence, Ordering};
-use std::{mem, ptr};
 use thiserror::Error;
 use uapi::c;
 use uapi::c::raise;
@@ -156,7 +156,7 @@ pub fn init() -> Result<(), ClientMemError> {
     unsafe {
         let mut action: c::sigaction = MaybeUninit::zeroed().assume_init();
         action.sa_sigaction =
-            mem::transmute(sigbus as unsafe extern "C" fn(i32, &c::siginfo_t, *mut c::c_void));
+            sigbus as unsafe extern "C" fn(i32, &c::siginfo_t, *mut c::c_void) as _;
         action.sa_flags = c::SA_NODEFER | c::SA_SIGINFO;
         let res = c::sigaction(c::SIGBUS, &action, ptr::null_mut());
         match uapi::map_err!(res) {

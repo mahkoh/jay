@@ -1,4 +1,5 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
+use crate::ifs::wl_data_offer::{WlDataOffer, ACTION, OFFER, SOURCE_ACTIONS};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use bstr::{BStr, BString};
@@ -6,7 +7,6 @@ use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ifs::wl_data_offer::{ACTION, OFFER, SOURCE_ACTIONS, WlDataOffer};
 
 #[derive(Debug, Error)]
 pub enum WlDataOfferError {
@@ -89,7 +89,11 @@ impl<'a> RequestParser<'a> for Accept<'a> {
 }
 impl Debug for Accept<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "accept(serial: {}, mime_type: {:?})", self.serial, self.mime_type)
+        write!(
+            f,
+            "accept(serial: {}, mime_type: {:?})",
+            self.serial, self.mime_type
+        )
     }
 }
 
@@ -107,7 +111,12 @@ impl<'a> RequestParser<'a> for Receive<'a> {
 }
 impl Debug for Receive<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "receive(mime_type: {:?}, fd: {})", self.mime_type, self.fd.raw())
+        write!(
+            f,
+            "receive(mime_type: {:?}, fd: {})",
+            self.mime_type,
+            self.fd.raw()
+        )
     }
 }
 
@@ -149,7 +158,11 @@ impl<'a> RequestParser<'a> for SetActions {
 }
 impl Debug for SetActions {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "set_actions(dnd_actions: {}, preferred_action: {})", self.dnd_actions, self.preferred_action)
+        write!(
+            f,
+            "set_actions(dnd_actions: {}, preferred_action: {})",
+            self.dnd_actions, self.preferred_action
+        )
     }
 }
 
@@ -186,11 +199,7 @@ impl EventFormatter for SourceActions {
 }
 impl Debug for SourceActions {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "source_actions(source_actions: {})",
-            self.source_actions,
-        )
+        write!(f, "source_actions(source_actions: {})", self.source_actions,)
     }
 }
 
@@ -200,8 +209,7 @@ pub(super) struct Action {
 }
 impl EventFormatter for Action {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, ACTION)
-            .uint(self.dnd_action);
+        fmt.header(self.obj.id, ACTION).uint(self.dnd_action);
     }
     fn obj(&self) -> &dyn Object {
         &*self.obj
@@ -209,10 +217,6 @@ impl EventFormatter for Action {
 }
 impl Debug for Action {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "action(dnd_action: {})",
-            self.dnd_action,
-        )
+        write!(f, "action(dnd_action: {})", self.dnd_action,)
     }
 }

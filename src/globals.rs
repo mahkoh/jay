@@ -1,5 +1,6 @@
 use crate::client::{Client, ClientError, DynEventFormatter, WlEvent};
 use crate::ifs::wl_compositor::WlCompositorError;
+use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
 use crate::ifs::wl_output::{WlOutputError, WlOutputGlobal};
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_seat::{WlSeatError, WlSeatGlobal};
@@ -8,14 +9,16 @@ use crate::ifs::wl_subcompositor::WlSubcompositorError;
 use crate::ifs::xdg_wm_base::XdgWmBaseError;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::{NumCell, State, WlCompositorGlobal, WlDataDeviceManagerGlobal, WlShmGlobal, WlSubcompositorGlobal, XdgWmBaseGlobal};
+use crate::{
+    NumCell, State, WlCompositorGlobal, WlDataDeviceManagerGlobal, WlShmGlobal,
+    WlSubcompositorGlobal, XdgWmBaseGlobal,
+};
 use ahash::AHashSet;
 use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
 
 #[derive(Debug, Error)]
 pub enum GlobalError {
@@ -47,7 +50,11 @@ efrom!(GlobalError, WlSubcompositorError, WlSubcompositorError);
 efrom!(GlobalError, XdgWmBaseError, XdgWmBaseError);
 efrom!(GlobalError, WlOutputError, WlOutputError);
 efrom!(GlobalError, WlSeatError, WlSeatError);
-efrom!(GlobalError, WlDataDeviceManagerError, WlDataDeviceManagerError);
+efrom!(
+    GlobalError,
+    WlDataDeviceManagerError,
+    WlDataDeviceManagerError
+);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);

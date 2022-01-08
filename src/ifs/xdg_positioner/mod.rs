@@ -1,6 +1,7 @@
 mod types;
 
 use crate::client::{AddObj, Client};
+use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use bitflags::bitflags;
@@ -9,7 +10,6 @@ use num_traits::FromPrimitive;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 
 const DESTROY: u32 = 0;
 const SET_SIZE: u32 = 1;

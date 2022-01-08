@@ -30,6 +30,7 @@ pub struct WlBuffer {
 }
 
 impl WlBuffer {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: WlBufferId,
         client: &Rc<Client>,

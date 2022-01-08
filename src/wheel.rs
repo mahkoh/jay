@@ -146,7 +146,7 @@ impl Wheel {
         }
         let el_id = self.el.id();
         let pd = Rc::new(PeriodicDispatcher {
-            fd: fd,
+            fd,
             id: el_id,
             el: self.el.clone(),
             dispatcher,

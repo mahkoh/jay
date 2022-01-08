@@ -24,9 +24,11 @@ const ACK_CONFIGURE: u32 = 4;
 
 const CONFIGURE: u32 = 0;
 
-#[allow(dead_code)] const NOT_CONSTRUCTED: u32 = 1;
+#[allow(dead_code)]
+const NOT_CONSTRUCTED: u32 = 1;
 const ALREADY_CONSTRUCTED: u32 = 2;
-#[allow(dead_code)] const UNCONFIGURED_BUFFER: u32 = 3;
+#[allow(dead_code)]
+const UNCONFIGURED_BUFFER: u32 = 3;
 
 id!(XdgSurfaceId);
 
@@ -37,11 +39,7 @@ pub struct XdgSurface {
 }
 
 impl XdgSurface {
-    pub fn new(
-        wm_base: &Rc<XdgWmBaseObj>,
-        id: XdgSurfaceId,
-        surface: &Rc<WlSurface>,
-    ) -> Self {
+    pub fn new(wm_base: &Rc<XdgWmBaseObj>, id: XdgSurfaceId, surface: &Rc<WlSurface>) -> Self {
         Self {
             id,
             base: wm_base.clone(),
@@ -167,7 +165,10 @@ impl XdgSurface {
                     xdg.popups.set(self.surface.id, popup.clone());
                 }
             }
-            data.role_data = XdgSurfaceRoleData::Popup(XdgPopupData { _popup: popup, parent });
+            data.role_data = XdgSurfaceRoleData::Popup(XdgPopupData {
+                _popup: popup,
+                parent,
+            });
         }
         Ok(())
     }

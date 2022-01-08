@@ -234,6 +234,7 @@ where
         self.fill_rect(r, g, b, a, 0, 0, self.width as _, self.height as _)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn fill_rect(
         &self,
         r: u8,
@@ -260,6 +261,7 @@ where
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn fill_insert_border(
         &self,
         r: u8,

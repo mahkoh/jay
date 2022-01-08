@@ -59,7 +59,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
 
     #[allow(dead_code)]
     pub fn fixed(&mut self) -> Result<Fixed, MsgParserError> {
-        self.int().map(|i| Fixed(i))
+        self.int().map(Fixed)
     }
 
     pub fn string(&mut self) -> Result<&'b BStr, MsgParserError> {

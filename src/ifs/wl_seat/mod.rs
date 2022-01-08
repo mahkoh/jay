@@ -36,9 +36,11 @@ const NAME: u32 = 1;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
-#[allow(dead_code)] const TOUCH: u32 = 4;
+#[allow(dead_code)]
+const TOUCH: u32 = 4;
 
-#[allow(dead_code)] const MISSING_CAPABILITY: u32 = 0;
+#[allow(dead_code)]
+const MISSING_CAPABILITY: u32 = 0;
 
 pub struct WlSeatGlobal {
     name: GlobalName,
@@ -178,10 +180,10 @@ impl WlSeatGlobal {
             x += Fixed::from_int(ee.x1);
             y += Fixed::from_int(ee.y1);
             if enter {
-                self.tl_pointer_event(&tl, |p| p.enter(0, tl.surface.surface.surface.id, x, y))
+                self.tl_pointer_event(tl, |p| p.enter(0, tl.surface.surface.surface.id, x, y))
                     .await;
             }
-            self.tl_pointer_event(&tl, |p| p.motion(0, x, y)).await;
+            self.tl_pointer_event(tl, |p| p.motion(0, x, y)).await;
         }
     }
 
@@ -237,9 +239,7 @@ impl WlSeatGlobal {
         client.event(obj.capabilities()).await?;
         {
             let mut bindings = self.bindings.borrow_mut();
-            let bindings = bindings
-                .entry(client.id)
-                .or_insert_with(|| Default::default());
+            let bindings = bindings.entry(client.id).or_insert_with(Default::default);
             bindings.insert(id, obj.clone());
         }
         Ok(())

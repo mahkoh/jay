@@ -33,12 +33,17 @@ const SET_BUFFER_TRANSFORM: u32 = 7;
 const SET_BUFFER_SCALE: u32 = 8;
 const DAMAGE_BUFFER: u32 = 9;
 
-#[allow(dead_code)] const ENTER: u32 = 0;
-#[allow(dead_code)] const LEAVE: u32 = 1;
+#[allow(dead_code)]
+const ENTER: u32 = 0;
+#[allow(dead_code)]
+const LEAVE: u32 = 1;
 
-#[allow(dead_code)] const INVALID_SCALE: u32 = 0;
-#[allow(dead_code)] const INVALID_TRANSFORM: u32 = 1;
-#[allow(dead_code)] const INVALID_SIZE: u32 = 2;
+#[allow(dead_code)]
+const INVALID_SCALE: u32 = 0;
+#[allow(dead_code)]
+const INVALID_TRANSFORM: u32 = 1;
+#[allow(dead_code)]
+const INVALID_SIZE: u32 = 2;
 
 id!(WlSurfaceId);
 

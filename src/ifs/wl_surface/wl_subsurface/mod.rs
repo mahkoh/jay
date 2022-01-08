@@ -17,7 +17,8 @@ const PLACE_BELOW: u32 = 3;
 const SET_SYNC: u32 = 4;
 const SET_DESYNC: u32 = 5;
 
-#[allow(dead_code)] const BAD_SURFACE: u32 = 0;
+#[allow(dead_code)]
+const BAD_SURFACE: u32 = 0;
 
 const MAX_SUBSURFACE_DEPTH: u32 = 100;
 
@@ -108,7 +109,7 @@ impl WlSubsurface {
         }
         let node = {
             let mut data = self.parent.children.borrow_mut();
-            let data = data.get_or_insert_with(|| Default::default());
+            let data = data.get_or_insert_with(Default::default);
             data.subsurfaces
                 .insert(self.surface.id, self.surface.clone());
             data.above.add_first(StackElement {

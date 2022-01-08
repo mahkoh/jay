@@ -40,14 +40,22 @@ pub enum ResizeEdge {
     BottomRight = 10,
 }
 
-#[allow(dead_code)] const STATE_MAXIMIZED: u32 = 1;
-#[allow(dead_code)] const STATE_FULLSCREEN: u32 = 2;
-#[allow(dead_code)] const STATE_RESIZING: u32 = 3;
-#[allow(dead_code)] const STATE_ACTIVATED: u32 = 4;
-#[allow(dead_code)] const STATE_TILED_LEFT: u32 = 5;
-#[allow(dead_code)] const STATE_TILED_RIGHT: u32 = 6;
-#[allow(dead_code)] const STATE_TILED_TOP: u32 = 7;
-#[allow(dead_code)] const STATE_TILED_BOTTOM: u32 = 8;
+#[allow(dead_code)]
+const STATE_MAXIMIZED: u32 = 1;
+#[allow(dead_code)]
+const STATE_FULLSCREEN: u32 = 2;
+#[allow(dead_code)]
+const STATE_RESIZING: u32 = 3;
+#[allow(dead_code)]
+const STATE_ACTIVATED: u32 = 4;
+#[allow(dead_code)]
+const STATE_TILED_LEFT: u32 = 5;
+#[allow(dead_code)]
+const STATE_TILED_RIGHT: u32 = 6;
+#[allow(dead_code)]
+const STATE_TILED_TOP: u32 = 7;
+#[allow(dead_code)]
+const STATE_TILED_BOTTOM: u32 = 8;
 
 id!(XdgToplevelId);
 

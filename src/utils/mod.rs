@@ -1,6 +1,7 @@
 pub mod asyncevent;
 pub mod buffd;
 pub mod copyhashmap;
+pub mod errorfmt;
 pub mod linkedlist;
 pub mod numcell;
 pub mod oneshot;

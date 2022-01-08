@@ -4,6 +4,13 @@
     never_type,
     c_variadic
 )]
+#![allow(
+    clippy::len_zero,
+    clippy::needless_lifetimes,
+    clippy::enum_variant_names,
+    clippy::useless_format,
+    clippy::redundant_clone
+)]
 
 use crate::acceptor::AcceptorError;
 use crate::async_engine::AsyncError;
@@ -13,24 +20,24 @@ use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
 use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_compositor::WlCompositorGlobal;
+use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
 use crate::sighand::SighandError;
 use crate::state::State;
 use crate::tree::{DisplayNode, NodeIds};
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::wheel::WheelError;
 use acceptor::Acceptor;
-use anyhow::anyhow;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
 use log::LevelFilter;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
 
 #[macro_use]
 mod macros;
@@ -62,7 +69,7 @@ fn main() {
         .filter_level(LevelFilter::Trace)
         .init();
     if let Err(e) = main_() {
-        log::error!("A fatal error occurred: {:#}", anyhow!(e));
+        log::error!("A fatal error occurred: {}", ErrorFmt(e));
         std::process::exit(1);
     }
 }

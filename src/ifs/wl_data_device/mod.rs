@@ -17,7 +17,8 @@ const MOTION: u32 = 4;
 const DROP: u32 = 5;
 const SELECTION: u32 = 5;
 
-#[allow(dead_code)] const ROLE: u32 = 0;
+#[allow(dead_code)]
+const ROLE: u32 = 0;
 
 id!(WlDataDeviceId);
 

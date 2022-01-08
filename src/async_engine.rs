@@ -214,7 +214,7 @@ mod task {
                 Poll::Pending
             } else if task.state & EMPTIED == 0 {
                 task.state |= EMPTIED;
-                Poll::Ready(ptr::read(&mut *task.data.result))
+                Poll::Ready(ptr::read(&*task.data.result))
             } else {
                 panic!("Future polled after it has already been emptied");
             }
@@ -292,7 +292,7 @@ mod task {
             }
             let f = Box::into_raw(f);
             SpawnedFuture {
-                vtable: &SpawnedFutureVTableProxy::<T, F>::VTABLE,
+                vtable: SpawnedFutureVTableProxy::<T, F>::VTABLE,
                 data: f as _,
             }
         }
@@ -365,7 +365,7 @@ mod task {
         unsafe fn run(&mut self) {
             if self.state & CANCELLED == 0 {
                 self.inc_ref_count();
-                let raw_waker = RawWaker::new(self as *const _ as _, &Self::VTABLE);
+                let raw_waker = RawWaker::new(self as *const _ as _, Self::VTABLE);
                 let waker = Waker::from_raw(raw_waker);
 
                 let mut ctx = Context::from_waker(&waker);

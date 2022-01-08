@@ -706,7 +706,9 @@ impl XorgBackend {
             let client = &buffer.client;
             log::error!("Could not access client {} memory: {:#}", client.id, e);
             if let Ok(d) = client.display() {
-                client.fatal_event(d.implementation_error(format!("Could not access memory: {:#}", e)));
+                client.fatal_event(
+                    d.implementation_error(format!("Could not access memory: {:#}", e)),
+                );
             } else {
                 self.state.clients.kill(client.id);
             }

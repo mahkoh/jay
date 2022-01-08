@@ -2,20 +2,24 @@ mod types;
 
 use crate::client::{AddObj, Client};
 use crate::globals::{Global, GlobalName};
+use crate::ifs::wl_data_device::WlDataDevice;
+use crate::ifs::wl_data_source::WlDataSource;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_source::WlDataSource;
 
 const CREATE_DATA_SOURCE: u32 = 0;
 const GET_DATA_DEVICE: u32 = 1;
 
-#[allow(dead_code)] const DND_NONE: u32 = 0;
-#[allow(dead_code)] const DND_COPY: u32 = 1;
-#[allow(dead_code)] const DND_MOVE: u32 = 2;
-#[allow(dead_code)] const DND_ASK: u32 = 4;
+#[allow(dead_code)]
+const DND_NONE: u32 = 0;
+#[allow(dead_code)]
+const DND_COPY: u32 = 1;
+#[allow(dead_code)]
+const DND_MOVE: u32 = 2;
+#[allow(dead_code)]
+const DND_ASK: u32 = 4;
 
 id!(WlDataDeviceManagerId);
 

@@ -16,10 +16,14 @@ const OFFER: u32 = 0;
 const SOURCE_ACTIONS: u32 = 1;
 const ACTION: u32 = 2;
 
-#[allow(dead_code)] const INVALID_FINISH: u32 = 0;
-#[allow(dead_code)] const INVALID_ACTION_MASK: u32 = 1;
-#[allow(dead_code)] const INVALID_ACTION: u32 = 2;
-#[allow(dead_code)] const INVALID_OFFER: u32 = 3;
+#[allow(dead_code)]
+const INVALID_FINISH: u32 = 0;
+#[allow(dead_code)]
+const INVALID_ACTION_MASK: u32 = 1;
+#[allow(dead_code)]
+const INVALID_ACTION: u32 = 2;
+#[allow(dead_code)]
+const INVALID_OFFER: u32 = 3;
 
 id!(WlDataOfferId);
 

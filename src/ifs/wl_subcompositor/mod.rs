@@ -11,7 +11,8 @@ pub use types::*;
 const DESTROY: u32 = 0;
 const GET_SUBSURFACE: u32 = 1;
 
-#[allow(dead_code)] const BAD_SURFACE: u32 = 0;
+#[allow(dead_code)]
+const BAD_SURFACE: u32 = 0;
 
 id!(WlSubcompositorId);
 

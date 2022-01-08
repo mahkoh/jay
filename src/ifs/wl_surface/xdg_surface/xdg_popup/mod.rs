@@ -15,7 +15,8 @@ const CONFIGURE: u32 = 0;
 const POPUP_DONE: u32 = 1;
 const REPOSITIONED: u32 = 2;
 
-#[allow(dead_code)] const INVALID_GRAB: u32 = 1;
+#[allow(dead_code)]
+const INVALID_GRAB: u32 = 1;
 
 id!(XdgPopupId);
 

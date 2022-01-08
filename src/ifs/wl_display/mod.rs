@@ -16,7 +16,8 @@ const DELETE_ID: u32 = 1;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
-#[allow(dead_code)] const NO_MEMORY: u32 = 2;
+#[allow(dead_code)]
+const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {
@@ -45,7 +46,7 @@ impl WlDisplay {
 
     async fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
-        let cb = Rc::new(WlCallback::new(sync.callback.into()));
+        let cb = Rc::new(WlCallback::new(sync.callback));
         self.client.add_client_obj(&cb)?;
         self.client.event(cb.done()).await?;
         self.client.remove_obj(&*cb).await?;

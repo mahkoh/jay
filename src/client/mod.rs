@@ -3,6 +3,10 @@ use crate::client::objects::Objects;
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferError, WlBufferId};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_compositor::{WlCompositorError, WlCompositorObj};
+use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceError};
+use crate::ifs::wl_data_device_manager::{WlDataDeviceManagerError, WlDataDeviceManagerObj};
+use crate::ifs::wl_data_offer::{WlDataOffer, WlDataOfferError};
+use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceError};
 use crate::ifs::wl_display::{WlDisplay, WlDisplayError};
 use crate::ifs::wl_output::{WlOutputError, WlOutputObj};
 use crate::ifs::wl_region::{WlRegion, WlRegionError, WlRegionId};
@@ -27,8 +31,8 @@ use crate::utils::buffd::{BufFdError, MsgFormatter, MsgParser, MsgParserError};
 use crate::utils::numcell::NumCell;
 use crate::utils::oneshot::{oneshot, OneshotTx};
 use crate::utils::queue::AsyncQueue;
+use crate::ErrorFmt;
 use ahash::AHashMap;
-use anyhow::anyhow;
 use std::cell::{Cell, RefCell, RefMut};
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
@@ -36,10 +40,6 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceError};
-use crate::ifs::wl_data_device_manager::{WlDataDeviceManagerError, WlDataDeviceManagerObj};
-use crate::ifs::wl_data_offer::{WlDataOffer, WlDataOfferError};
-use crate::ifs::wl_data_source::{WlDataSourceError, WlDataSource};
 
 mod objects;
 mod tasks;
@@ -161,17 +161,18 @@ efrom!(ClientError, WlSeatError, WlSeatError);
 efrom!(ClientError, WlTouchError, WlTouchError);
 efrom!(ClientError, WlPointerError, WlPointerError);
 efrom!(ClientError, WlKeyboardError, WlKeyboardError);
-efrom!(ClientError, WlDataDeviceManagerError, WlDataDeviceManagerError);
+efrom!(
+    ClientError,
+    WlDataDeviceManagerError,
+    WlDataDeviceManagerError
+);
 efrom!(ClientError, WlDataDeviceError, WlDataDeviceError);
 efrom!(ClientError, WlDataSourceError, WlDataSourceError);
 efrom!(ClientError, WlDataOfferError, WlDataOfferError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
-        match self {
-            ClientError::Io(BufFdError::Closed) => true,
-            _ => false,
-        }
+        matches!(self, ClientError::Io(BufFdError::Closed))
     }
 }
 
@@ -354,9 +355,9 @@ impl Client {
             Ok(d) => self.fatal_event(d.invalid_request(obj, request)),
             Err(e) => {
                 log::error!(
-                    "Could not retrieve display of client {}: {:#}",
+                    "Could not retrieve display of client {}: {}",
                     self.id,
-                    anyhow!(e)
+                    ErrorFmt(e),
                 );
                 self.state.clients.kill(self.id);
             }

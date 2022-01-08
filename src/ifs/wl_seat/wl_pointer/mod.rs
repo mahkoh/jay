@@ -22,7 +22,8 @@ const AXIS_SOURCE: u32 = 6;
 const AXIS_STOP: u32 = 7;
 const AXIS_DISCRETE: u32 = 8;
 
-#[allow(dead_code)] const ROLE: u32 = 0;
+#[allow(dead_code)]
+const ROLE: u32 = 0;
 
 pub(super) const RELEASED: u32 = 0;
 pub(super) const PRESSED: u32 = 1;
@@ -30,10 +31,14 @@ pub(super) const PRESSED: u32 = 1;
 pub(super) const VERTICAL_SCROLL: u32 = 0;
 pub(super) const HORIZONTAL_SCROLL: u32 = 1;
 
-#[allow(dead_code)] const WHEEL: u32 = 0;
-#[allow(dead_code)] const FINGER: u32 = 1;
-#[allow(dead_code)] const CONTINUOUS: u32 = 2;
-#[allow(dead_code)] const WHEEL_TILT: u32 = 3;
+#[allow(dead_code)]
+const WHEEL: u32 = 0;
+#[allow(dead_code)]
+const FINGER: u32 = 1;
+#[allow(dead_code)]
+const CONTINUOUS: u32 = 2;
+#[allow(dead_code)]
+const WHEEL_TILT: u32 = 3;
 
 id!(WlPointerId);
 

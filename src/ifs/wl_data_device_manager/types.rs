@@ -1,10 +1,10 @@
 use crate::client::{ClientError, RequestParser};
+use crate::ifs::wl_data_device::WlDataDeviceId;
 use crate::ifs::wl_data_source::WlDataSourceId;
 use crate::ifs::wl_seat::WlSeatId;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
-use crate::ifs::wl_data_device::WlDataDeviceId;
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceManagerError {

@@ -33,7 +33,7 @@ fn get_target() -> repc::Target {
     repc::TARGET_MAP
         .iter()
         .cloned()
-        .find(|t| t.0 == &rustc_target)
+        .find(|t| t.0 == rustc_target)
         .unwrap()
         .1
 }
