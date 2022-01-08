@@ -171,6 +171,9 @@ mod timeout {
 
 mod task {
     use crate::async_engine::queue::DispatchQueue;
+    use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
+    use crate::NumCell;
+    use std::cell::{Cell, UnsafeCell};
     use std::future::Future;
     use std::mem::ManuallyDrop;
     use std::pin::Pin;
@@ -208,25 +211,27 @@ mod task {
         };
 
         unsafe fn poll(data: *mut u8, ctx: &mut Context<'_>) -> Poll<T> {
-            let task = &mut *(data as *mut Task<T, F>);
-            if task.state & COMPLETED == 0 {
-                task.waker = Some(ctx.waker().clone());
+            let task = (data as *const Task<T, F>).deref();
+            if &task.state & COMPLETED == 0 {
+                task.waker.set(Some(ctx.waker().clone()));
                 Poll::Pending
-            } else if task.state & EMPTIED == 0 {
-                task.state |= EMPTIED;
-                Poll::Ready(ptr::read(&*task.data.result))
+            } else if &task.state & EMPTIED == 0 {
+                task.state.or_assign(EMPTIED);
+                Poll::Ready(ptr::read(&*task.data.get().deref().result))
             } else {
                 panic!("Future polled after it has already been emptied");
             }
         }
 
         unsafe fn drop(data: *mut u8) {
-            let task = &mut *(data as *mut Task<T, F>);
-            task.state |= CANCELLED;
-            if task.state & RUNNING == 0 {
-                task.drop_data();
+            {
+                let task = (data as *const Task<T, F>).deref();
+                task.state.or_assign(CANCELLED);
+                if &task.state & RUNNING == 0 {
+                    task.drop_data();
+                }
             }
-            task.dec_ref_count();
+            Task::<T, F>::dec_ref_count(data as _);
         }
     }
 
@@ -240,23 +245,23 @@ mod task {
         future: ManuallyDrop<F>,
     }
 
-    const RUNNING: usize = 1;
-    const RUN_AGAIN: usize = 2;
-    const COMPLETED: usize = 4;
-    const EMPTIED: usize = 8;
-    const CANCELLED: usize = 16;
+    const RUNNING: u32 = 1;
+    const RUN_AGAIN: u32 = 2;
+    const COMPLETED: u32 = 4;
+    const EMPTIED: u32 = 8;
+    const CANCELLED: u32 = 16;
 
     struct Task<T, F: Future<Output = T>> {
-        ref_count: u64,
-        state: usize,
-        data: TaskData<T, F>,
-        waker: Option<Waker>,
+        ref_count: NumCell<u64>,
+        state: NumCell<u32>,
+        data: UnsafeCell<TaskData<T, F>>,
+        waker: Cell<Option<Waker>>,
         queue: Rc<DispatchQueue>,
     }
 
     pub(super) struct Runnable {
-        data: *mut u8,
-        run: unsafe fn(data: *mut u8, run: bool),
+        data: *const u8,
+        run: unsafe fn(data: *const u8, run: bool),
     }
 
     impl Runnable {
@@ -278,13 +283,13 @@ mod task {
 
     impl DispatchQueue {
         pub(super) fn spawn<T, F: Future<Output = T>>(self: &Rc<Self>, f: F) -> SpawnedFuture<T> {
-            let mut f = Box::new(Task {
-                ref_count: 1,
-                state: 0,
-                data: TaskData {
+            let f = Box::new(Task {
+                ref_count: NumCell::new(1),
+                state: NumCell::new(0),
+                data: UnsafeCell::new(TaskData {
                     future: ManuallyDrop::new(f),
-                },
-                waker: None,
+                }),
+                waker: Cell::new(None),
                 queue: self.clone(),
             });
             unsafe {
@@ -306,23 +311,22 @@ mod task {
             Self::waker_drop,
         );
 
-        unsafe fn run_proxy(data: *mut u8, run: bool) {
-            let task = &mut *(data as *mut Self);
+        unsafe fn run_proxy(data: *const u8, run: bool) {
+            let task = data as *const Self;
             if run {
-                task.run();
+                task.deref().run();
             }
-            task.dec_ref_count();
+            Self::dec_ref_count(task);
         }
 
-        unsafe fn dec_ref_count(&mut self) {
-            self.ref_count -= 1;
-            if self.ref_count == 0 {
-                Box::from_raw(self);
+        unsafe fn dec_ref_count(slf: *const Self) {
+            if slf.deref().ref_count.fetch_sub(1) == 1 {
+                Box::from_raw(slf as *mut Self);
             }
         }
 
-        unsafe fn inc_ref_count(&mut self) {
-            self.ref_count += 1;
+        unsafe fn inc_ref_count(&self) {
+            self.ref_count.fetch_add(1);
         }
 
         unsafe fn waker_clone(data: *const ()) -> RawWaker {
@@ -337,63 +341,62 @@ mod task {
         }
 
         unsafe fn waker_wake_by_ref(data: *const ()) {
-            let task = &mut *(data as *mut Self);
-            task.schedule_run();
+            (data as *const Self).deref().schedule_run();
         }
 
         unsafe fn waker_drop(data: *const ()) {
-            let task = &mut *(data as *mut Self);
-            task.dec_ref_count();
+            Self::dec_ref_count(data as _)
         }
 
-        unsafe fn schedule_run(&mut self) {
-            if self.state & (COMPLETED | CANCELLED) == 0 {
-                if self.state & RUNNING == 0 {
-                    self.state |= RUNNING;
+        unsafe fn schedule_run(&self) {
+            if &self.state & (COMPLETED | CANCELLED) == 0 {
+                if &self.state & RUNNING == 0 {
+                    self.state.or_assign(RUNNING);
                     self.inc_ref_count();
-                    let data = self as *mut _ as _;
+                    let data = self as *const _ as _;
                     self.queue.push(Runnable {
                         data,
                         run: Self::run_proxy,
                     });
                 } else {
-                    self.state |= RUN_AGAIN;
+                    self.state.or_assign(RUN_AGAIN);
                 }
             }
         }
 
-        unsafe fn run(&mut self) {
-            if self.state & CANCELLED == 0 {
+        unsafe fn run(&self) {
+            if &self.state & CANCELLED == 0 {
+                let data = self.data.get().deref_mut();
                 self.inc_ref_count();
                 let raw_waker = RawWaker::new(self as *const _ as _, Self::VTABLE);
                 let waker = Waker::from_raw(raw_waker);
 
                 let mut ctx = Context::from_waker(&waker);
-                if let Poll::Ready(d) = Pin::new_unchecked(&mut *self.data.future).poll(&mut ctx) {
-                    ManuallyDrop::drop(&mut self.data.future);
-                    ptr::write(&mut self.data.result, ManuallyDrop::new(d));
-                    self.state |= COMPLETED;
+                if let Poll::Ready(d) = Pin::new_unchecked(&mut *data.future).poll(&mut ctx) {
+                    ManuallyDrop::drop(&mut data.future);
+                    ptr::write(&mut data.result, ManuallyDrop::new(d));
+                    self.state.or_assign(COMPLETED);
                     if let Some(waker) = self.waker.take() {
                         waker.wake();
                     }
                 }
             }
 
-            self.state &= !RUNNING;
+            self.state.and_assign(!RUNNING);
 
-            if self.state & CANCELLED != 0 {
+            if &self.state & CANCELLED != 0 {
                 self.drop_data();
-            } else if self.state & RUN_AGAIN != 0 {
-                self.state &= !RUN_AGAIN;
+            } else if &self.state & RUN_AGAIN != 0 {
+                self.state.and_assign(!RUN_AGAIN);
                 self.schedule_run()
             }
         }
 
-        unsafe fn drop_data(&mut self) {
-            if self.state & COMPLETED == 0 {
-                ManuallyDrop::drop(&mut self.data.future);
-            } else if self.state & EMPTIED == 0 {
-                ManuallyDrop::drop(&mut self.data.result);
+        unsafe fn drop_data(&self) {
+            if &self.state & COMPLETED == 0 {
+                ManuallyDrop::drop(&mut self.data.get().deref_mut().future);
+            } else if &self.state & EMPTIED == 0 {
+                ManuallyDrop::drop(&mut self.data.get().deref_mut().result);
             }
         }
     }
