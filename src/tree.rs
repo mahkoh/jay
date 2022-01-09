@@ -6,6 +6,7 @@ use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
+use crate::utils::clonecell::CloneCell;
 
 linear_ids!(NodeIds, NodeId);
 
@@ -135,7 +136,7 @@ impl Node for DisplayNode {
 pub struct OutputNode {
     pub common: NodeCommon,
     pub backend: Rc<dyn Output>,
-    pub child: RefCell<Option<Rc<dyn Node>>>,
+    pub child: CloneCell<Option<Rc<dyn Node>>>,
     pub floating: LinkedList<Rc<dyn Node>>,
 }
 
@@ -151,7 +152,7 @@ impl Node for OutputNode {
         for floating in self.floating.iter() {
             floating.clear();
         }
-        if let Some(child) = self.child.borrow_mut().take() {
+        if let Some(child) = self.child.take() {
             child.clear();
         }
     }

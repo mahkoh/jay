@@ -70,7 +70,7 @@ impl<'a> MsgFormatter<'a> {
                 fds: self.fds,
             };
             f(&mut fmt);
-            let len = self.buf.out_pos - pos + 4;
+            let len = self.buf.out_pos - pos - 4;
             let none = [MaybeUninit::new(0); 4];
             self.buf.write(&none[..self.buf.out_pos.wrapping_neg() & 3]);
             len as u32

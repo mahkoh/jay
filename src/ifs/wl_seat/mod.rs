@@ -16,13 +16,14 @@ use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::xkbcommon::XkbContext;
 use crate::State;
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use bstr::ByteSlice;
 use std::cell::{Cell, RefCell};
 use std::io::Write;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
+use crate::utils::clonecell::CloneCell;
 
 id!(WlSeatId);
 
@@ -42,6 +43,8 @@ const TOUCH: u32 = 4;
 #[allow(dead_code)]
 const MISSING_CAPABILITY: u32 = 0;
 
+const BTN_LEFT: u32 = 0x110;
+
 pub struct WlSeatGlobal {
     name: GlobalName,
     state: Rc<State>,
@@ -50,7 +53,9 @@ pub struct WlSeatGlobal {
     move_start_pos: Cell<(Fixed, Fixed)>,
     extents_start_pos: Cell<(i32, i32)>,
     pos: Cell<(Fixed, Fixed)>,
-    cursor_node: RefCell<Rc<dyn Node>>,
+    cursor_node: CloneCell<Rc<dyn Node>>,
+    keyboard_node: CloneCell<Rc<dyn Node>>,
+    pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeatObj>>>>,
     layout: Rc<OwnedFd>,
     layout_size: u32,
@@ -82,7 +87,9 @@ impl WlSeatGlobal {
             move_start_pos: Cell::new((Fixed(0), Fixed(0))),
             extents_start_pos: Cell::new((0, 0)),
             pos: Cell::new((Fixed(0), Fixed(0))),
-            cursor_node: RefCell::new(state.root.clone()),
+            cursor_node: CloneCell::new(state.root.clone()),
+            keyboard_node: CloneCell::new(state.root.clone()),
+            pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
             layout,
             layout_size,
@@ -90,7 +97,7 @@ impl WlSeatGlobal {
     }
 
     pub fn move_(&self, node: &Rc<ToplevelNode>) {
-        let cursor = self.cursor_node.borrow().clone();
+        let cursor = self.cursor_node.get();
         if cursor.id() == node.id() {
             self.move_.set(true);
             self.move_start_pos.set(self.pos.get());
@@ -119,19 +126,40 @@ impl WlSeatGlobal {
         self.handle_new_position(x, y).await;
     }
 
-    fn for_each_pointer<C>(&self, client: ClientId, mut f: C)
+    fn for_each_seat<C>(&self, client: ClientId, mut f: C)
     where
-        C: FnMut(&Rc<WlPointer>),
+        C: FnMut(&Rc<WlSeatObj>),
     {
         let bindings = self.bindings.borrow();
         if let Some(hm) = bindings.get(&client) {
             for seat in hm.values() {
-                let pointers = seat.pointers.lock();
-                for pointer in pointers.values() {
-                    f(pointer);
-                }
+                f(seat);
             }
         }
+    }
+
+    fn for_each_pointer<C>(&self, client: ClientId, mut f: C)
+    where
+        C: FnMut(&Rc<WlPointer>),
+    {
+        self.for_each_seat(client, |seat| {
+            let pointers = seat.pointers.lock();
+            for pointer in pointers.values() {
+                f(pointer);
+            }
+        })
+    }
+
+    fn for_each_kb<C>(&self, client: ClientId, mut f: C)
+    where
+        C: FnMut(&Rc<WlKeyboard>),
+    {
+        self.for_each_seat(client, |seat| {
+            let keyboards = seat.keyboards.lock();
+            for keyboard in keyboards.values() {
+                f(keyboard);
+            }
+        })
     }
 
     async fn tl_pointer_event<F>(&self, tl: &ToplevelNode, mut f: F)
@@ -145,9 +173,20 @@ impl WlSeatGlobal {
         let _ = client.flush().await;
     }
 
+    async fn tl_kb_event<F>(&self, tl: &ToplevelNode, mut f: F)
+    where
+        F: FnMut(&Rc<WlKeyboard>) -> DynEventFormatter,
+    {
+        let client = &tl.surface.surface.surface.client;
+        self.for_each_kb(client.id, |p| {
+            client.event_locked(f(p));
+        });
+        let _ = client.flush().await;
+    }
+
     async fn handle_new_position(&self, x: Fixed, y: Fixed) {
         self.pos.set((x, y));
-        let cur_node = self.cursor_node.borrow().clone();
+        let cur_node = self.cursor_node.get();
         if self.move_.get() {
             if let NodeKind::Toplevel(tn) = cur_node.into_kind() {
                 let (move_start_x, move_start_y) = self.move_start_pos.get();
@@ -172,7 +211,7 @@ impl WlSeatGlobal {
                     .await;
             }
             enter = true;
-            *self.cursor_node.borrow_mut() = node_dyn;
+            self.cursor_node.set(node_dyn);
         }
         if let NodeKind::Toplevel(tl) = &node {
             let ee = tl.surface.surface.surface.effective_extents.get();
@@ -196,19 +235,41 @@ impl WlSeatGlobal {
         if state == KeyState::Released {
             self.move_.set(false);
         }
-        let node = self.cursor_node.borrow().clone().into_kind();
-        if let NodeKind::Toplevel(node) = node {
+        let node = self.cursor_node.get();
+        let mut enter = false;
+        if button == BTN_LEFT {
+            let kb_node = self.keyboard_node.get();
+            if kb_node.id() != node.id() {
+                enter = true;
+                if let NodeKind::Toplevel(tl) = kb_node.clone().into_kind() {
+                    self.tl_kb_event(&tl, |k| k.leave(0, tl.surface.surface.surface.id))
+                        .await;
+                }
+                self.keyboard_node.set(node.clone());
+            }
+        }
+        if let NodeKind::Toplevel(node) = node.into_kind() {
             let state = match state {
                 KeyState::Released => wl_pointer::RELEASED,
                 KeyState::Pressed => wl_pointer::PRESSED,
             };
             self.tl_pointer_event(&node, |p| p.button(0, 0, button, state))
                 .await;
+            if enter {
+                self.tl_kb_event(&node, |k| {
+                    k.enter(
+                        0,
+                        node.surface.surface.surface.id,
+                        self.pressed_keys.borrow().iter().cloned().collect(),
+                    )
+                })
+                .await;
+            }
         }
     }
 
     async fn scroll_event(&self, delta: i32, axis: ScrollAxis) {
-        let node = self.cursor_node.borrow().clone().into_kind();
+        let node = self.cursor_node.get().into_kind();
         if let NodeKind::Toplevel(node) = node {
             let axis = match axis {
                 ScrollAxis::Horizontal => wl_pointer::HORIZONTAL_SCROLL,
@@ -219,7 +280,31 @@ impl WlSeatGlobal {
         }
     }
 
-    async fn key_event(&self, _key: u32, _state: KeyState) {}
+    async fn key_event(&self, key: u32, state: KeyState) {
+        let state = {
+            let mut pk = self.pressed_keys.borrow_mut();
+            match state {
+                KeyState::Released => {
+                    if !pk.remove(&key) {
+                        return;
+                    }
+                    log::info!("release");
+                    wl_keyboard::RELEASED
+                }
+                KeyState::Pressed => {
+                    if !pk.insert(key) {
+                        return;
+                    }
+                    log::info!("press");
+                    wl_keyboard::PRESSED
+                }
+            }
+        };
+        let node = self.keyboard_node.get().into_kind();
+        if let NodeKind::Toplevel(node) = node {
+            self.tl_kb_event(&node, |k| k.key(0, 0, key, state)).await;
+        }
+    }
 
     async fn bind_(
         self: Rc<Self>,
@@ -311,11 +396,7 @@ impl WlSeatObj {
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
         self.client
-            .event(p.keymap(
-                wl_keyboard::XKB_V1,
-                p.keymap_fd()?,
-                self.global.layout_size,
-            ))
+            .event(p.keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size))
             .await?;
         Ok(())
     }

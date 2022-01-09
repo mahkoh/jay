@@ -24,6 +24,7 @@ use uapi::c;
 use xcb_dl::{ffi, Xcb, XcbShm, XcbXinput, XcbXkb};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
+use crate::utils::clonecell::CloneCell;
 
 #[derive(Debug, Error)]
 pub enum XorgBackendError {
@@ -246,7 +247,7 @@ impl XorgBackend {
                 width: Cell::new(0),
                 height: Cell::new(0),
                 image: RefCell::new(None),
-                cb: RefCell::new(None),
+                cb: CloneCell::new(None),
             });
             {
                 let class = "i4\0i4\0";
@@ -378,7 +379,7 @@ impl XorgBackend {
                 _kb: info.deviceid,
                 mouse: info.attachment,
                 removed: Cell::new(false),
-                cb: RefCell::new(None),
+                cb: CloneCell::new(None),
                 events: RefCell::new(Default::default()),
                 button_map: Default::default(),
                 last_position: Cell::new((0, 0)),
@@ -685,9 +686,8 @@ impl XorgBackend {
                 }
             }
         }
-        let buffer = surface.buffer.borrow();
-        if let Some(buffer) = &*buffer {
-            self.render_buffer(image, buffer, x, y);
+        if let Some(buffer) = surface.buffer.get() {
+            self.render_buffer(image, &buffer, x, y);
             let mut fr = surface.frame_requests.borrow_mut();
             for cb in fr.drain(..) {
                 surface.client.dispatch_frame_requests.push(cb);
@@ -776,7 +776,7 @@ struct XorgOutput {
     width: Cell<u32>,
     height: Cell<u32>,
     image: RefCell<Option<Image<Rc<ServerMem>>>>,
-    cb: RefCell<Option<Rc<dyn Fn()>>>,
+    cb: CloneCell<Option<Rc<dyn Fn()>>>,
 }
 
 impl Drop for XorgOutput {
@@ -790,7 +790,7 @@ impl Drop for XorgOutput {
 
 impl XorgOutput {
     fn changed(&self) {
-        if let Some(cb) = self.cb.borrow().clone() {
+        if let Some(cb) = self.cb.get() {
             cb();
         }
     }
@@ -814,7 +814,7 @@ impl Output for XorgOutput {
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
-        *self.cb.borrow_mut() = Some(cb);
+        self.cb.set(Some(cb));
     }
 }
 
@@ -824,7 +824,7 @@ struct XorgSeat {
     _kb: ffi::xcb_input_device_id_t,
     mouse: ffi::xcb_input_device_id_t,
     removed: Cell<bool>,
-    cb: RefCell<Option<Rc<dyn Fn()>>>,
+    cb: CloneCell<Option<Rc<dyn Fn()>>>,
     events: RefCell<VecDeque<SeatEvent>>,
     button_map: CopyHashMap<u32, u32>,
     last_position: Cell<(ffi::xcb_input_fp1616_t, ffi::xcb_input_fp1616_t)>,
@@ -832,7 +832,7 @@ struct XorgSeat {
 
 impl XorgSeat {
     fn changed(&self) {
-        if let Some(cb) = self.cb.borrow().clone() {
+        if let Some(cb) = self.cb.get() {
             cb();
         }
     }
@@ -889,6 +889,6 @@ impl Seat for XorgSeat {
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
-        *self.cb.borrow_mut() = Some(cb);
+        self.cb.set(Some(cb));
     }
 }

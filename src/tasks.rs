@@ -6,6 +6,7 @@ use crate::utils::asyncevent::AsyncEvent;
 use crate::State;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use crate::utils::clonecell::CloneCell;
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };
@@ -77,7 +78,7 @@ impl OutputHandler {
                 floating_outputs: RefCell::new(Default::default()),
             },
             backend: self.output.clone(),
-            child: RefCell::new(None),
+            child: CloneCell::new(None),
             floating: Default::default(),
         });
         self.state.root.outputs.set(self.output.id(), on.clone());

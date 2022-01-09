@@ -70,7 +70,7 @@ impl WlBuffer {
         {
             let surfaces = self.surfaces.lock();
             for surface in surfaces.values() {
-                *surface.buffer.borrow_mut() = None;
+                surface.buffer.set(None);
             }
         }
         self.client.remove_obj(self).await?;

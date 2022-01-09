@@ -13,9 +13,10 @@ use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
+use crate::utils::clonecell::CloneCell;
 
 pub struct Objects {
-    pub display: RefCell<Option<Rc<WlDisplay>>>,
+    pub display: CloneCell<Option<Rc<WlDisplay>>>,
     registry: CopyHashMap<ObjectId, Rc<dyn Object>>,
     registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
@@ -33,7 +34,7 @@ const SEG_SIZE: usize = 8 * mem::size_of::<usize>();
 impl Objects {
     pub fn new() -> Self {
         Self {
-            display: RefCell::new(None),
+            display: CloneCell::new(None),
             registry: Default::default(),
             registries: Default::default(),
             surfaces: Default::default(),
@@ -54,7 +55,7 @@ impl Objects {
             }
             registry.clear();
         }
-        *self.display.borrow_mut() = None;
+        self.display.set(None);
         self.regions.clear();
         self.registries.clear();
         self.surfaces.clear();

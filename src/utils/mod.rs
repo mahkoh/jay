@@ -8,3 +8,4 @@ pub mod oneshot;
 pub mod ptr_ext;
 pub mod queue;
 pub mod vec_ext;
+pub mod clonecell;

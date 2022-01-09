@@ -49,6 +49,8 @@ pub enum DestroyError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Cannot destroy a `wl_surface` before its role object")]
+    ReloObjectStillExists,
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
 efrom!(DestroyError, ClientError, ClientError);

@@ -22,10 +22,8 @@ const REPEAT_INFO: u32 = 5;
 const NO_KEYMAP: u32 = 0;
 pub(super) const XKB_V1: u32 = 1;
 
-#[allow(dead_code)]
-const RELEASED: u32 = 0;
-#[allow(dead_code)]
-const PRESSED: u32 = 1;
+pub(super) const RELEASED: u32 = 0;
+pub(super) const PRESSED: u32 = 1;
 
 id!(WlKeyboardId);
 
@@ -65,7 +63,7 @@ impl WlKeyboard {
                 rem as usize,
             );
             match res {
-                Ok(_) | Err(Errno(c::EINTR)) => { },
+                Ok(_) | Err(Errno(c::EINTR)) => {}
                 Err(e) => return Err(WlKeyboardError::KeymapCopy(e.into())),
             }
         }

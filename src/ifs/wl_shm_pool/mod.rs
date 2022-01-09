@@ -5,10 +5,10 @@ use crate::clientmem::ClientMem;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
-use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
 use uapi::OwnedFd;
+use crate::utils::clonecell::CloneCell;
 
 const CREATE_BUFFER: u32 = 0;
 const DESTROY: u32 = 1;
@@ -20,7 +20,7 @@ pub struct WlShmPool {
     id: WlShmPoolId,
     client: Rc<Client>,
     fd: OwnedFd,
-    mem: RefCell<Rc<ClientMem>>,
+    mem: CloneCell<Rc<ClientMem>>,
 }
 
 impl WlShmPool {
@@ -33,7 +33,7 @@ impl WlShmPool {
         Ok(Self {
             id,
             client: client.clone(),
-            mem: RefCell::new(Rc::new(ClientMem::new(fd.raw(), len)?)),
+            mem: CloneCell::new(Rc::new(ClientMem::new(fd.raw(), len)?)),
             fd,
         })
     }
@@ -47,7 +47,6 @@ impl WlShmPool {
         if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
             return Err(CreateBufferError::NegativeParameters);
         }
-        let mem = self.mem.borrow();
         let buffer = Rc::new(WlBuffer::new(
             req.id,
             &self.client,
@@ -56,7 +55,7 @@ impl WlShmPool {
             req.height as u32,
             req.stride as u32,
             format,
-            &mem,
+            &self.mem.get(),
         )?);
         self.client.add_client_obj(&buffer)?;
         Ok(())
@@ -70,14 +69,13 @@ impl WlShmPool {
 
     async fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
         let req: Resize = self.client.parse(self, parser)?;
-        let mut mem = self.mem.borrow_mut();
         if req.size < 0 {
             return Err(ResizeError::NegativeSize);
         }
-        if (req.size as usize) < mem.len() {
+        if (req.size as usize) < self.mem.get().len() {
             return Err(ResizeError::CannotShrink);
         }
-        *mem = Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?);
+        self.mem.set(Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?));
         Ok(())
     }
 

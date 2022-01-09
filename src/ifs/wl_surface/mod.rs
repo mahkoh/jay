@@ -21,6 +21,7 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
+use crate::utils::clonecell::CloneCell;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -73,7 +74,7 @@ pub struct WlSurface {
     opaque_region: Cell<Option<Region>>,
     pub extents: Cell<SurfaceExtents>,
     pub effective_extents: Cell<SurfaceExtents>,
-    pub buffer: RefCell<Option<Rc<WlBuffer>>>,
+    pub buffer: CloneCell<Option<Rc<WlBuffer>>>,
     pub children: RefCell<Option<Box<ParentData>>>,
     role_data: RefCell<RoleData>,
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
@@ -207,7 +208,7 @@ impl WlSurface {
             opaque_region: Cell::new(None),
             extents: Default::default(),
             effective_extents: Default::default(),
-            buffer: RefCell::new(None),
+            buffer: CloneCell::new(None),
             children: Default::default(),
             role_data: RefCell::new(RoleData::None),
             frame_requests: RefCell::new(vec![]),
@@ -225,7 +226,7 @@ impl WlSurface {
     fn calculate_extents(&self) {
         {
             let mut extents = SurfaceExtents::default();
-            if let Some(b) = self.buffer.borrow().deref() {
+            if let Some(b) = self.buffer.get() {
                 extents.x2 = b.width as i32;
                 extents.y2 = b.height as i32;
             }
@@ -278,6 +279,9 @@ impl WlSurface {
 
     async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.parse(parser)?;
+        if self.role_data.borrow().is_some() {
+            return Err(DestroyError::ReloObjectStillExists);
+        }
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -287,48 +291,11 @@ impl WlSurface {
             }
             *children = None;
         }
-        let mut ss_parent = None;
         {
-            let mut data = self.role_data.borrow_mut();
-            match &mut *data {
-                RoleData::None => {}
-                RoleData::Subsurface(ss) => {
-                    ss_parent = Some(ss.subsurface.parent.clone());
-                    let mut children = ss.subsurface.parent.children.borrow_mut();
-                    if let Some(children) = &mut *children {
-                        children.subsurfaces.remove(&self.id);
-                    }
-                }
-                RoleData::XdgSurface(xdg) => {
-                    let children = xdg.popups.lock();
-                    for child in children.values() {
-                        let mut rd = child.surface.surface.role_data.borrow_mut();
-                        if let RoleData::XdgSurface(xdg) = &mut *rd {
-                            if let XdgSurfaceRoleData::Popup(p) = &mut xdg.role_data {
-                                p.parent = None;
-                            }
-                        }
-                    }
-                    if let XdgSurfaceRoleData::Popup(p) = &mut xdg.role_data {
-                        if let Some(p) = &p.parent {
-                            let mut rd = p.surface.role_data.borrow_mut();
-                            if let RoleData::XdgSurface(xdg) = &mut *rd {
-                                xdg.popups.remove(&self.id);
-                            }
-                        }
-                    }
-                }
-            }
-            *data = RoleData::None;
-        }
-        {
-            let buffer = self.buffer.borrow();
-            if let Some(buffer) = &*buffer {
+            let buffer = self.buffer.get();
+            if let Some(buffer) = &buffer {
                 buffer.surfaces.remove(&self.id);
             }
-        }
-        if let Some(parent) = ss_parent {
-            parent.calculate_extents();
         }
         self.client.remove_obj(self).await?;
         Ok(())
@@ -337,14 +304,13 @@ impl WlSurface {
     async fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
         let req: Attach = self.parse(parser)?;
         {
-            let mut buffer = self.buffer.borrow_mut();
-            if let Some(buffer) = buffer.take() {
+            if let Some(buffer) = self.buffer.take() {
                 self.client.event(buffer.release()).await?;
                 buffer.surfaces.remove(&self.id);
             }
             let mut rd = self.role_data.borrow_mut();
             if req.buffer.is_some() {
-                *buffer = Some(self.client.get_buffer(req.buffer)?);
+                self.buffer.set(Some(self.client.get_buffer(req.buffer)?));
                 if let RoleData::XdgSurface(xdg) = &mut *rd {
                     if let XdgSurfaceRoleData::Toplevel(td) = &mut xdg.role_data {
                         if td.node.is_none() {
@@ -370,7 +336,7 @@ impl WlSurface {
                     }
                 }
             } else {
-                *buffer = None;
+                self.buffer.set(None);
                 if let RoleData::XdgSurface(xdg) = &mut *rd {
                     if let XdgSurfaceRoleData::Toplevel(td) = &mut xdg.role_data {
                         td.node = None;
@@ -574,6 +540,6 @@ impl Object for WlSurface {
         *self.children.borrow_mut() = None;
         *self.role_data.borrow_mut() = RoleData::None;
         mem::take(self.frame_requests.borrow_mut().deref_mut());
-        *self.buffer.borrow_mut() = None;
+        self.buffer.set(None);
     }
 }

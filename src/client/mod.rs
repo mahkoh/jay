@@ -247,7 +247,7 @@ impl Clients {
             dispatch_frame_requests: AsyncQueue::new(),
         });
         let display = Rc::new(WlDisplay::new(&data));
-        *data.objects.display.borrow_mut() = Some(display.clone());
+        data.objects.display.set(Some(display.clone()));
         data.objects.add_client_object(display).expect("");
         let client = ClientHolder {
             _handler: global.eng.spawn(tasks::client(data.clone(), recv)),
@@ -365,7 +365,7 @@ impl Client {
     }
 
     pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {
-        match self.objects.display.borrow_mut().clone() {
+        match self.objects.display.get() {
             Some(d) => Ok(d),
             _ => Err(ClientError::NotADisplay(WL_DISPLAY_ID)),
         }
