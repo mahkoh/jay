@@ -13,8 +13,9 @@ use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::object::{Interface, Object, ObjectId};
 use crate::tree::{Node, NodeBase, NodeKind, ToplevelNode};
 use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::xkbcommon::XkbContext;
+use crate::xkbcommon::{ModifierState, XkbContext, XkbState, XKB_KEY_DOWN, XKB_KEY_UP};
 use crate::State;
 use ahash::{AHashMap, AHashSet};
 use bstr::ByteSlice;
@@ -23,7 +24,6 @@ use std::io::Write;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
-use crate::utils::clonecell::CloneCell;
 
 id!(WlSeatId);
 
@@ -57,15 +57,17 @@ pub struct WlSeatGlobal {
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeatObj>>>>,
+    kb_state: RefCell<XkbState>,
     layout: Rc<OwnedFd>,
     layout_size: u32,
 }
 
 impl WlSeatGlobal {
     pub fn new(name: GlobalName, state: &Rc<State>, seat: &Rc<dyn Seat>) -> Self {
-        let (layout, layout_size) = {
+        let (kb_state, layout, layout_size) = {
             let ctx = XkbContext::new().unwrap();
             let keymap = ctx.default_keymap().unwrap();
+            let state = keymap.state().unwrap();
             let string = keymap.as_str().unwrap();
             let mut memfd =
                 uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).unwrap();
@@ -77,7 +79,7 @@ impl WlSeatGlobal {
                 c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
             )
             .unwrap();
-            (Rc::new(memfd), (string.len() + 1) as _)
+            (state, Rc::new(memfd), (string.len() + 1) as _)
         };
         Self {
             name,
@@ -91,6 +93,7 @@ impl WlSeatGlobal {
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
+            kb_state: RefCell::new(kb_state),
             layout,
             layout_size,
         }
@@ -244,6 +247,16 @@ impl WlSeatGlobal {
                 if let NodeKind::Toplevel(tl) = kb_node.clone().into_kind() {
                     self.tl_kb_event(&tl, |k| k.leave(0, tl.surface.surface.surface.id))
                         .await;
+                    let ModifierState {
+                        mods_depressed,
+                        mods_latched,
+                        mods_locked,
+                        group,
+                    } = self.kb_state.borrow().mods();
+                    self.tl_kb_event(&tl, |k| {
+                        k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
+                    })
+                    .await;
                 }
                 self.keyboard_node.set(node.clone());
             }
@@ -281,28 +294,39 @@ impl WlSeatGlobal {
     }
 
     async fn key_event(&self, key: u32, state: KeyState) {
-        let state = {
+        let (state, xkb_dir) = {
             let mut pk = self.pressed_keys.borrow_mut();
             match state {
                 KeyState::Released => {
                     if !pk.remove(&key) {
                         return;
                     }
-                    log::info!("release");
-                    wl_keyboard::RELEASED
+                    (wl_keyboard::RELEASED, XKB_KEY_UP)
                 }
                 KeyState::Pressed => {
                     if !pk.insert(key) {
                         return;
                     }
-                    log::info!("press");
-                    wl_keyboard::PRESSED
+                    (wl_keyboard::PRESSED, XKB_KEY_DOWN)
                 }
             }
         };
+        let mods = self.kb_state.borrow_mut().update(key, xkb_dir);
         let node = self.keyboard_node.get().into_kind();
         if let NodeKind::Toplevel(node) = node {
             self.tl_kb_event(&node, |k| k.key(0, 0, key, state)).await;
+            if let Some(mods) = mods {
+                self.tl_kb_event(&node, |k| {
+                    k.modifiers(
+                        0,
+                        mods.mods_depressed,
+                        mods.mods_latched,
+                        mods.mods_locked,
+                        mods.group,
+                    )
+                })
+                .await;
+            }
         }
     }
 

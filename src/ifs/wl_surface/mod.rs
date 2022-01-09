@@ -13,6 +13,7 @@ use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
 use crate::tree::{NodeBase, NodeCommon, ToplevelNode};
 use crate::utils::buffd::{MsgParser, MsgParserError};
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, Node as LinkNode};
 use ahash::AHashMap;
@@ -21,7 +22,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
-use crate::utils::clonecell::CloneCell;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;

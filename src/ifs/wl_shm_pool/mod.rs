@@ -5,10 +5,10 @@ use crate::clientmem::ClientMem;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
 use std::rc::Rc;
 pub use types::*;
 use uapi::OwnedFd;
-use crate::utils::clonecell::CloneCell;
 
 const CREATE_BUFFER: u32 = 0;
 const DESTROY: u32 = 1;
@@ -75,7 +75,8 @@ impl WlShmPool {
         if (req.size as usize) < self.mem.get().len() {
             return Err(ResizeError::CannotShrink);
         }
-        self.mem.set(Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?));
+        self.mem
+            .set(Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?));
         Ok(())
     }
 

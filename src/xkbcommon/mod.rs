@@ -18,6 +18,8 @@ use uapi::c;
 pub enum XkbCommonError {
     #[error("Could not create an xkbcommon context")]
     CreateContext,
+    #[error("Could not create an xkbcommon state")]
+    CreateState,
     #[error("Could not create keymap from names")]
     KeymapFromNames,
     #[error("Could not convert the keymap to a string")]
@@ -73,6 +75,14 @@ extern "C" {
     ) -> *mut c::c_char;
     fn xkb_keymap_unref(keymap: *mut xkb_keymap);
     fn xkb_state_unref(state: *mut xkb_state);
+    fn xkb_state_new(keymap: *mut xkb_keymap) -> *mut xkb_state;
+    fn xkb_state_update_key(
+        state: *mut xkb_state,
+        key: u32,
+        direction: xkb_key_direction,
+    ) -> xkb_state_component;
+    fn xkb_state_serialize_mods(state: *mut xkb_state, components: xkb_state_component) -> u32;
+    fn xkb_state_serialize_layout(state: *mut xkb_state, components: xkb_state_component) -> u32;
 }
 
 pub struct XkbContext {
@@ -126,6 +136,22 @@ impl XkbKeymap {
             s: unsafe { CStr::from_ptr(res).to_bytes().as_bstr() },
         })
     }
+
+    pub fn state(&self) -> Result<XkbState, XkbCommonError> {
+        let res = unsafe { xkb_state_new(self.keymap) };
+        if res.is_null() {
+            return Err(XkbCommonError::CreateState);
+        }
+        Ok(XkbState {
+            state: res,
+            mods: ModifierState {
+                mods_depressed: 0,
+                mods_latched: 0,
+                mods_locked: 0,
+                group: 0,
+            },
+        })
+    }
 }
 
 impl Drop for XkbKeymap {
@@ -154,8 +180,42 @@ impl Drop for XkbKeymapStr {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct ModifierState {
+    pub mods_depressed: u32,
+    pub mods_latched: u32,
+    pub mods_locked: u32,
+    pub group: u32,
+}
+
 pub struct XkbState {
     state: *mut xkb_state,
+    mods: ModifierState,
+}
+
+impl XkbState {
+    pub fn mods(&self) -> ModifierState {
+        self.mods
+    }
+
+    pub fn update(&mut self, key: u32, direction: XkbKeyDirection) -> Option<ModifierState> {
+        unsafe {
+            let changes = xkb_state_update_key(self.state, key + 8, direction.raw() as _);
+            if changes != 0 {
+                self.mods.mods_depressed =
+                    xkb_state_serialize_mods(self.state, XKB_STATE_MODS_DEPRESSED.raw() as _);
+                self.mods.mods_latched =
+                    xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LATCHED.raw() as _);
+                self.mods.mods_locked =
+                    xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LOCKED.raw() as _);
+                self.mods.group =
+                    xkb_state_serialize_layout(self.state, XKB_STATE_LAYOUT_EFFECTIVE.raw() as _);
+                Some(self.mods)
+            } else {
+                None
+            }
+        }
+    }
 }
 
 impl Drop for XkbState {

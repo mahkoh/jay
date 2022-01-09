@@ -8,6 +8,7 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::pixman::{Image, PixmanError};
 use crate::servermem::{ServerMem, ServerMemError};
 use crate::tree::{Node, NodeKind, ToplevelNode};
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::ptr_ext::PtrExt;
 use crate::wheel::{WheelDispatcher, WheelId};
@@ -24,7 +25,6 @@ use uapi::c;
 use xcb_dl::{ffi, Xcb, XcbShm, XcbXinput, XcbXkb};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
-use crate::utils::clonecell::CloneCell;
 
 #[derive(Debug, Error)]
 pub enum XorgBackendError {

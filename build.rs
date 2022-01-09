@@ -71,6 +71,12 @@ fn main() -> anyhow::Result<()> {
         "xkb_keymap_compile_flags",
     )?;
     write_ty(&mut f, xkbcommon::XKB_KEYMAP_FORMAT, "xkb_keymap_format")?;
+    write_ty(
+        &mut f,
+        xkbcommon::XKB_STATE_COMPONENT,
+        "xkb_state_component",
+    )?;
+    write_ty(&mut f, xkbcommon::XKB_KEY_DIRECTION, "xkb_key_direction")?;
 
     println!("cargo:rerun-if-changed=build.rs");
     Ok(())

@@ -159,5 +159,15 @@ macro_rules! bitor {
                 Self(self.0 | rhs.0)
             }
         }
+
+        impl $name {
+            pub fn contains(self, rhs: Self) -> bool {
+                self.0 & rhs.0 == rhs.0
+            }
+
+            pub fn is_some(self) -> bool {
+                self.0 != 0
+            }
+        }
     };
 }

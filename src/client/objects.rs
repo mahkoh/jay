@@ -8,12 +8,12 @@ use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::ifs::xdg_wm_base::{XdgWmBaseId, XdgWmBaseObj};
 use crate::object::{Object, ObjectId};
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
-use crate::utils::clonecell::CloneCell;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

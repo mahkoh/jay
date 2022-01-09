@@ -1,5 +1,6 @@
 pub mod asyncevent;
 pub mod buffd;
+pub mod clonecell;
 pub mod copyhashmap;
 pub mod errorfmt;
 pub mod linkedlist;
@@ -8,4 +9,3 @@ pub mod oneshot;
 pub mod ptr_ext;
 pub mod queue;
 pub mod vec_ext;
-pub mod clonecell;

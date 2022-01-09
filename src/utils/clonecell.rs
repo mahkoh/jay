@@ -1,7 +1,7 @@
+use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use std::cell::UnsafeCell;
 use std::mem;
 use std::rc::Rc;
-use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 
 pub struct CloneCell<T: UnsafeCellCloneSafe> {
     data: UnsafeCell<T>,
@@ -16,9 +16,7 @@ impl<T: UnsafeCellCloneSafe> CloneCell<T> {
 
     #[inline(always)]
     pub fn get(&self) -> T {
-        unsafe {
-            self.data.get().deref().clone()
-        }
+        unsafe { self.data.get().deref().clone() }
     }
 
     #[inline(always)]
@@ -29,10 +27,11 @@ impl<T: UnsafeCellCloneSafe> CloneCell<T> {
     }
 
     #[inline(always)]
-    pub fn take(&self) -> T where T: Default {
-        unsafe {
-            mem::take(self.data.get().deref_mut())
-        }
+    pub fn take(&self) -> T
+    where
+        T: Default,
+    {
+        unsafe { mem::take(self.data.get().deref_mut()) }
     }
 }
 
@@ -42,8 +41,8 @@ impl<T: Default + UnsafeCellCloneSafe> Default for CloneCell<T> {
     }
 }
 
-pub unsafe trait UnsafeCellCloneSafe: Clone { }
+pub unsafe trait UnsafeCellCloneSafe: Clone {}
 
-unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> { }
+unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> {}
 
-unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> { }
+unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> {}

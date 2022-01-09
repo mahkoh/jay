@@ -1,12 +1,12 @@
 use crate::backend::{Output, OutputId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, Node as LinkedNode};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
-use crate::utils::clonecell::CloneCell;
 
 linear_ids!(NodeIds, NodeId);
 

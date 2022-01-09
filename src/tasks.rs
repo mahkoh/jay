@@ -3,10 +3,10 @@ use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::tree::{NodeCommon, NodeExtents, OutputNode};
 use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::clonecell::CloneCell;
 use crate::State;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use crate::utils::clonecell::CloneCell;
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };
