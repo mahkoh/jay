@@ -226,6 +226,7 @@ impl WlSeatGlobal {
                     .await;
             }
             self.tl_pointer_event(tl, |p| p.motion(0, x, y)).await;
+            self.tl_pointer_event(tl, |p| p.frame()).await;
         }
     }
 
@@ -247,16 +248,6 @@ impl WlSeatGlobal {
                 if let NodeKind::Toplevel(tl) = kb_node.clone().into_kind() {
                     self.tl_kb_event(&tl, |k| k.leave(0, tl.surface.surface.surface.id))
                         .await;
-                    let ModifierState {
-                        mods_depressed,
-                        mods_latched,
-                        mods_locked,
-                        group,
-                    } = self.kb_state.borrow().mods();
-                    self.tl_kb_event(&tl, |k| {
-                        k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
-                    })
-                    .await;
                 }
                 self.keyboard_node.set(node.clone());
             }
@@ -277,6 +268,16 @@ impl WlSeatGlobal {
                     )
                 })
                 .await;
+                let ModifierState {
+                    mods_depressed,
+                    mods_latched,
+                    mods_locked,
+                    group,
+                } = self.kb_state.borrow().mods();
+                self.tl_kb_event(&node, |k| {
+                    k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
+                })
+                    .await;
             }
         }
     }
@@ -289,6 +290,8 @@ impl WlSeatGlobal {
                 ScrollAxis::Vertical => wl_pointer::VERTICAL_SCROLL,
             };
             self.tl_pointer_event(&node, |p| p.axis(0, axis, Fixed::from_int(delta)))
+                .await;
+            self.tl_pointer_event(&node, |p| p.frame())
                 .await;
         }
     }
@@ -421,6 +424,9 @@ impl WlSeatObj {
         self.keyboards.set(req.id, p.clone());
         self.client
             .event(p.keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size))
+            .await?;
+        self.client
+            .event(p.repeat_info(25, 250))
             .await?;
         Ok(())
     }

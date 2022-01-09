@@ -757,6 +757,7 @@ impl EventLoopDispatcher for XorgBackend {
 impl WheelDispatcher for XorgBackend {
     fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.render()?;
+        self.handle_events()?;
         Ok(())
     }
 }
