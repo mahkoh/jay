@@ -198,6 +198,7 @@ impl XorgBackend {
             }
 
             state.wheel.periodic(wheel_id, 16_667, slf.clone())?;
+            // state.wheel.periodic(wheel_id, 1000_000, slf.clone())?;
             state.el.insert(slf.id, Some(fd), c::EPOLLIN, slf.clone())?;
 
             slf.add_output()?;

@@ -17,6 +17,10 @@ pub enum WlKeyboardError {
     ClientError(Box<ClientError>),
     #[error("Could not process a `release` request")]
     ReleaseError(#[from] ReleaseError),
+    #[error("Could not create a keymap memfd")]
+    KeymapMemfd(#[source] std::io::Error),
+    #[error("Could not copy the keymap")]
+    KeymapCopy(#[source] std::io::Error),
 }
 efrom!(WlKeyboardError, ClientError, ClientError);
 

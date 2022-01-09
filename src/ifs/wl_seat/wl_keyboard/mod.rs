@@ -7,7 +7,7 @@ use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-use uapi::OwnedFd;
+use uapi::{c, Errno, OwnedFd};
 
 const RELEASE: u32 = 0;
 
@@ -40,6 +40,36 @@ impl WlKeyboard {
             id,
             seat: seat.clone(),
         }
+    }
+
+    pub fn needs_dedicated_keymap_fd(&self) -> bool {
+        self.seat.version < 7
+    }
+
+    pub fn keymap_fd(&self) -> Result<Rc<OwnedFd>, WlKeyboardError> {
+        if !self.needs_dedicated_keymap_fd() {
+            return Ok(self.seat.global.layout.clone());
+        }
+        let fd = match uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC) {
+            Ok(fd) => fd,
+            Err(e) => return Err(WlKeyboardError::KeymapMemfd(e.into())),
+        };
+        let target = self.seat.global.layout_size as c::off_t;
+        let mut pos = 0;
+        while pos < target {
+            let rem = target - pos;
+            let res = uapi::sendfile(
+                fd.raw(),
+                self.seat.global.layout.raw(),
+                Some(&mut pos),
+                rem as usize,
+            );
+            match res {
+                Ok(_) | Err(Errno(c::EINTR)) => { },
+                Err(e) => return Err(WlKeyboardError::KeymapCopy(e.into())),
+            }
+        }
+        Ok(Rc::new(fd))
     }
 
     pub fn keymap(self: &Rc<Self>, format: u32, fd: Rc<OwnedFd>, size: u32) -> DynEventFormatter {

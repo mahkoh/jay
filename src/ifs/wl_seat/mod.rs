@@ -313,7 +313,7 @@ impl WlSeatObj {
         self.client
             .event(p.keymap(
                 wl_keyboard::XKB_V1,
-                self.global.layout.clone(),
+                p.keymap_fd()?,
                 self.global.layout_size,
             ))
             .await?;

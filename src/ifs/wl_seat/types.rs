@@ -1,5 +1,5 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_seat::wl_keyboard::WlKeyboardId;
+use crate::ifs::wl_seat::wl_keyboard::{WlKeyboardError, WlKeyboardId};
 use crate::ifs::wl_seat::wl_pointer::WlPointerId;
 use crate::ifs::wl_seat::wl_touch::WlTouchId;
 use crate::ifs::wl_seat::{WlSeatObj, CAPABILITIES, NAME};
@@ -40,9 +40,12 @@ pub enum GetKeyboardError {
     ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    WlKeyboardError(Box<WlKeyboardError>),
 }
 efrom!(GetKeyboardError, ClientError, ClientError);
 efrom!(GetKeyboardError, ParseError, MsgParserError);
+efrom!(GetKeyboardError, WlKeyboardError, WlKeyboardError);
 
 #[derive(Debug, Error)]
 pub enum GetTouchError {
