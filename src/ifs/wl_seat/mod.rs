@@ -4,23 +4,27 @@ pub mod wl_pointer;
 pub mod wl_touch;
 
 use crate::backend::{KeyState, OutputId, ScrollAxis, Seat, SeatEvent};
-use crate::client::{AddObj, Client, ClientId, DynEventFormatter};
+use crate::client::{Client, ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId};
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
+use crate::ifs::wl_surface::WlSurface;
 use crate::object::{Interface, Object, ObjectId};
-use crate::tree::{Node, NodeBase, NodeKind, ToplevelNode};
+use crate::tree::{FloatNode, Node};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::xkbcommon::{ModifierState, XkbContext, XkbState, XKB_KEY_DOWN, XKB_KEY_UP};
+use crate::utils::linkedlist::{LinkedList, LinkedNode};
+use crate::xkbcommon::{ModifierState, XkbContext, XkbState};
 use crate::State;
 use ahash::{AHashMap, AHashSet};
 use bstr::ByteSlice;
 use std::cell::{Cell, RefCell};
 use std::io::Write;
+use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
@@ -43,6 +47,7 @@ const TOUCH: u32 = 4;
 #[allow(dead_code)]
 const MISSING_CAPABILITY: u32 = 0;
 
+#[allow(dead_code)]
 const BTN_LEFT: u32 = 0x110;
 
 pub struct WlSeatGlobal {
@@ -53,7 +58,9 @@ pub struct WlSeatGlobal {
     move_start_pos: Cell<(Fixed, Fixed)>,
     extents_start_pos: Cell<(i32, i32)>,
     pos: Cell<(Fixed, Fixed)>,
-    cursor_node: CloneCell<Rc<dyn Node>>,
+    pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
+    toplevel_focus_history: LinkedList<Rc<XdgToplevel>>,
+    toplevel_focus_stash: RefCell<AHashMap<XdgToplevelId, LinkedNode<Rc<XdgToplevel>>>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeatObj>>>>,
@@ -89,7 +96,9 @@ impl WlSeatGlobal {
             move_start_pos: Cell::new((Fixed(0), Fixed(0))),
             extents_start_pos: Cell::new((0, 0)),
             pos: Cell::new((Fixed(0), Fixed(0))),
-            cursor_node: CloneCell::new(state.root.clone()),
+            pointer_stack: RefCell::new(vec![]),
+            toplevel_focus_history: Default::default(),
+            toplevel_focus_stash: RefCell::new(Default::default()),
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
@@ -99,34 +108,87 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn move_(&self, node: &Rc<ToplevelNode>) {
-        let cursor = self.cursor_node.get();
-        if cursor.id() == node.id() {
-            self.move_.set(true);
-            self.move_start_pos.set(self.pos.get());
-            let ex = node.common.extents.get();
-            self.extents_start_pos.set((ex.x, ex.y));
+    pub fn last_tiled_keyboard_toplevel(&self) -> Option<Rc<XdgToplevel>> {
+        for tl in self.toplevel_focus_history.rev_iter() {
+            if !tl.parent_is_float() {
+                return Some(tl.deref().clone());
+            }
         }
+        None
     }
 
-    pub async fn event(&self, event: SeatEvent) {
+    pub fn move_(&self, node: &Rc<FloatNode>) {
+        self.move_.set(true);
+        self.move_start_pos.set(self.pos.get());
+        let ex = node.position.get();
+        self.extents_start_pos.set((ex.x1(), ex.y1()));
+    }
+
+    pub fn event(&self, event: SeatEvent) {
         match event {
-            SeatEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y).await,
-            SeatEvent::Motion(dx, dy) => self.motion_event(dx, dy).await,
-            SeatEvent::Button(b, s) => self.button_event(b, s).await,
-            SeatEvent::Scroll(d, a) => self.scroll_event(d, a).await,
-            SeatEvent::Key(k, s) => self.key_event(k, s).await,
+            SeatEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
+            SeatEvent::Motion(dx, dy) => self.motion_event(dx, dy),
+            SeatEvent::Button(b, s) => self.button_event(b, s),
+            SeatEvent::Scroll(d, a) => self.scroll_event(d, a),
+            SeatEvent::Key(k, s) => self.key_event(k, s),
         }
     }
 
-    async fn output_position_event(&self, output: OutputId, mut x: Fixed, mut y: Fixed) {
+    pub fn button_surface(&self, surface: &Rc<WlSurface>, button: u32, state: KeyState) {
+        let state = match state {
+            KeyState::Released => wl_pointer::RELEASED,
+            KeyState::Pressed => wl_pointer::PRESSED,
+        };
+        self.surface_pointer_event(surface, |p| p.button(0, 0, button, state));
+    }
+
+    pub fn focus_surface(&self, surface: &Rc<WlSurface>) {
+        let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
+        self.surface_kb_event(&surface, |k| {
+            k.enter(0, surface.id, pressed_keys.clone())
+        });
+        let ModifierState {
+            mods_depressed,
+            mods_latched,
+            mods_locked,
+            group,
+        } = self.kb_state.borrow().mods();
+        self.surface_kb_event(surface, |k| {
+            k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
+        });
+    }
+
+    pub fn unfocus_surface(&self, surface: &Rc<WlSurface>) {
+        self.surface_kb_event(surface, |k| {
+            k.leave(0, surface.id)
+        })
+    }
+
+    fn focus_toplevel(&self, toplevel: &Rc<XdgToplevel>) {
+        let node = self.toplevel_focus_history.add_last(toplevel.clone());
+        self.toplevel_focus_stash
+            .borrow_mut()
+            .insert(toplevel.id, node);
+        self.keyboard_node.get().unfocus(self);
+        let focus_surface;
+        if let Some(ss) = toplevel.focus_subsurface.get() {
+            focus_surface = ss.surface.clone();
+            self.keyboard_node.set(ss);
+        } else {
+            focus_surface = toplevel.xdg.surface.clone();
+            self.keyboard_node.set(focus_surface.clone());
+        }
+        self.focus_surface(&focus_surface);
+    }
+
+    fn output_position_event(&self, output: OutputId, mut x: Fixed, mut y: Fixed) {
         let output = match self.state.outputs.get(&output) {
             Some(o) => o,
             _ => return,
         };
         x += Fixed::from_int(output.x.get());
         y += Fixed::from_int(output.y.get());
-        self.handle_new_position(x, y).await;
+        self.set_new_position(x, y);
     }
 
     fn for_each_seat<C>(&self, client: ClientId, mut f: C)
@@ -165,175 +227,197 @@ impl WlSeatGlobal {
         })
     }
 
-    async fn tl_pointer_event<F>(&self, tl: &ToplevelNode, mut f: F)
+    fn surface_pointer_event<F>(&self, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlPointer>) -> DynEventFormatter,
     {
-        let client = &tl.surface.surface.surface.client;
+        let client = &surface.client;
         self.for_each_pointer(client.id, |p| {
-            client.event_locked(f(p));
+            client.event(f(p));
         });
-        let _ = client.flush().await;
+        client.flush();
     }
 
-    async fn tl_kb_event<F>(&self, tl: &ToplevelNode, mut f: F)
+    fn surface_kb_event<F>(&self, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlKeyboard>) -> DynEventFormatter,
     {
-        let client = &tl.surface.surface.surface.client;
+        let client = &surface.client;
         self.for_each_kb(client.id, |p| {
-            client.event_locked(f(p));
+            client.event(f(p));
         });
-        let _ = client.flush().await;
+        client.flush();
     }
 
-    async fn handle_new_position(&self, x: Fixed, y: Fixed) {
+    fn set_new_position(&self, x: Fixed, y: Fixed) {
         self.pos.set((x, y));
-        let cur_node = self.cursor_node.get();
-        if self.move_.get() {
-            if let NodeKind::Toplevel(tn) = cur_node.into_kind() {
-                let (move_start_x, move_start_y) = self.move_start_pos.get();
-                let (move_start_ex, move_start_ey) = self.extents_start_pos.get();
-                let mut ex = tn.common.extents.get();
-                ex.x = (x - move_start_x).round_down() + move_start_ex;
-                ex.y = (y - move_start_y).round_down() + move_start_ey;
-                tn.common.extents.set(ex);
-            }
-            return;
-        }
-        let x_int = x.round_down();
-        let y_int = y.round_down();
-        let (node_dyn, x_int, y_int) = self.state.root.clone().find_node_at(x_int, y_int);
-        let mut x = x.apply_fract(x_int);
-        let mut y = x.apply_fract(y_int);
-        let node = node_dyn.clone().into_kind();
-        let mut enter = false;
-        if node_dyn.id() != cur_node.id() {
-            if let NodeKind::Toplevel(tl) = cur_node.into_kind() {
-                self.tl_pointer_event(&tl, |p| p.leave(0, tl.surface.surface.surface.id))
-                    .await;
-            }
-            enter = true;
-            self.cursor_node.set(node_dyn);
-        }
-        if let NodeKind::Toplevel(tl) = &node {
-            let ee = tl.surface.surface.surface.effective_extents.get();
-            // log::trace!("{} {}", Fixed::from_int(ee.x1), Fixed::from_int(ee.y1));
-            x += Fixed::from_int(ee.x1);
-            y += Fixed::from_int(ee.y1);
-            if enter {
-                self.tl_pointer_event(tl, |p| p.enter(0, tl.surface.surface.surface.id, x, y))
-                    .await;
-            }
-            self.tl_pointer_event(tl, |p| p.motion(0, x, y)).await;
-            self.tl_pointer_event(tl, |p| p.frame()).await;
-        }
+        self.handle_new_position(true);
     }
 
-    async fn motion_event(&self, dx: Fixed, dy: Fixed) {
+    pub fn tree_changed(&self) {
+        log::info!("tree changed");
+        self.handle_new_position(false);
+    }
+
+    pub fn handle_new_position(&self, changed: bool) {
         let (x, y) = self.pos.get();
-        self.handle_new_position(x + dx, y + dy).await;
+        let mut stack = self.pointer_stack.borrow_mut();
+        // if self.move_.get() {
+        //     for node in stack.iter().rev() {
+        //         if let NodeKind::Toplevel(tn) = node.clone().into_kind() {
+        //             let (move_start_x, move_start_y) = self.move_start_pos.get();
+        //             let (move_start_ex, move_start_ey) = self.extents_start_pos.get();
+        //             let mut ex = tn.common.extents.get();
+        //             ex.x = (x - move_start_x).round_down() + move_start_ex;
+        //             ex.y = (y - move_start_y).round_down() + move_start_ey;
+        //             tn.common.extents.set(ex);
+        //         }
+        //     }
+        //     return;
+        // }
+        let mut x_int = x.round_down();
+        let mut y_int = y.round_down();
+        let mut node = Some(self.state.root.clone() as Rc<dyn Node>);
+        let divergence = 'outer: loop {
+            for i in 0..stack.len() {
+                match node.take() {
+                    None => break 'outer i,
+                    Some(n) if n.id() != stack[i].id() => {
+                        node = Some(n);
+                        break 'outer i;
+                    }
+                    Some(n) => {
+                        if let Some(found) = n.find_child_at(x_int.into(), y_int.into()) {
+                            node = Some(found.node);
+                            x_int = found.x.into();
+                            y_int = found.y.into();
+                        }
+                    }
+                }
+            }
+            break stack.len();
+        };
+        if divergence == stack.len() && node.is_none() {
+            if changed {
+                if let Some(node) = stack.last() {
+                    node.motion(self, x.apply_fract(x_int), y.apply_fract(y_int));
+                }
+            }
+        } else {
+            for node in stack.drain(divergence..).rev() {
+                node.leave(self);
+            }
+            while let Some(n) = node.take() {
+                n.clone()
+                    .enter(self, x.apply_fract(x_int), y.apply_fract(y_int));
+                if let Some(found) = n.find_child_at(x_int.into(), y_int.into()) {
+                    node = Some(found.node);
+                    x_int = found.x.into();
+                    y_int = found.y.into();
+                }
+                stack.push(n);
+            }
+        }
     }
 
-    async fn button_event(&self, button: u32, state: KeyState) {
+    pub fn leave_surface(&self, n: &WlSurface) {
+        self.surface_pointer_event(n, |p| p.leave(0, n.id));
+    }
+
+    pub fn enter_toplevel(&self, n: &Rc<XdgToplevel>) {
+        self.focus_toplevel(n);
+    }
+
+    pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
+        self.surface_pointer_event(n, |p| p.enter(0, n.id, x, y));
+    }
+
+    pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
+        self.surface_pointer_event(n, |p| p.motion(0, x, y));
+        self.surface_pointer_event(n, |p| p.frame());
+    }
+
+    fn motion_event(&self, dx: Fixed, dy: Fixed) {
+        let (x, y) = self.pos.get();
+        self.set_new_position(x + dx, y + dy);
+    }
+
+    fn button_event(&self, button: u32, state: KeyState) {
         if state == KeyState::Released {
             self.move_.set(false);
         }
-        let node = self.cursor_node.get();
+        let node = match self.pointer_stack.borrow().last().cloned() {
+            Some(v) => v,
+            _ => return,
+        };
         let mut enter = false;
-        if button == BTN_LEFT {
+        {
             let kb_node = self.keyboard_node.get();
             if kb_node.id() != node.id() {
                 enter = true;
-                if let NodeKind::Toplevel(tl) = kb_node.clone().into_kind() {
-                    self.tl_kb_event(&tl, |k| k.leave(0, tl.surface.surface.surface.id))
-                        .await;
-                }
+                kb_node.unfocus(self);
                 self.keyboard_node.set(node.clone());
             }
         }
-        if let NodeKind::Toplevel(node) = node.into_kind() {
-            let state = match state {
-                KeyState::Released => wl_pointer::RELEASED,
-                KeyState::Pressed => wl_pointer::PRESSED,
-            };
-            self.tl_pointer_event(&node, |p| p.button(0, 0, button, state))
-                .await;
-            if enter {
-                self.tl_kb_event(&node, |k| {
-                    k.enter(
-                        0,
-                        node.surface.surface.surface.id,
-                        self.pressed_keys.borrow().iter().cloned().collect(),
-                    )
-                })
-                .await;
-                let ModifierState {
-                    mods_depressed,
-                    mods_latched,
-                    mods_locked,
-                    group,
-                } = self.kb_state.borrow().mods();
-                self.tl_kb_event(&node, |k| {
-                    k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
-                })
-                    .await;
-            }
+        node.clone().button(self, button, state);
+        if enter {
+            node.focus(self);
         }
     }
 
-    async fn scroll_event(&self, delta: i32, axis: ScrollAxis) {
-        let node = self.cursor_node.get().into_kind();
-        if let NodeKind::Toplevel(node) = node {
-            let axis = match axis {
-                ScrollAxis::Horizontal => wl_pointer::HORIZONTAL_SCROLL,
-                ScrollAxis::Vertical => wl_pointer::VERTICAL_SCROLL,
-            };
-            self.tl_pointer_event(&node, |p| p.axis(0, axis, Fixed::from_int(delta)))
-                .await;
-            self.tl_pointer_event(&node, |p| p.frame())
-                .await;
-        }
-    }
-
-    async fn key_event(&self, key: u32, state: KeyState) {
-        let (state, xkb_dir) = {
-            let mut pk = self.pressed_keys.borrow_mut();
-            match state {
-                KeyState::Released => {
-                    if !pk.remove(&key) {
-                        return;
-                    }
-                    (wl_keyboard::RELEASED, XKB_KEY_UP)
-                }
-                KeyState::Pressed => {
-                    if !pk.insert(key) {
-                        return;
-                    }
-                    (wl_keyboard::PRESSED, XKB_KEY_DOWN)
-                }
-            }
+    pub fn scroll_surface(&self, surface: &WlSurface, delta: i32, axis: ScrollAxis) {
+        let axis = match axis {
+            ScrollAxis::Horizontal => wl_pointer::HORIZONTAL_SCROLL,
+            ScrollAxis::Vertical => wl_pointer::VERTICAL_SCROLL,
         };
-        let mods = self.kb_state.borrow_mut().update(key, xkb_dir);
-        let node = self.keyboard_node.get().into_kind();
-        if let NodeKind::Toplevel(node) = node {
-            self.tl_kb_event(&node, |k| k.key(0, 0, key, state)).await;
-            if let Some(mods) = mods {
-                self.tl_kb_event(&node, |k| {
-                    k.modifiers(
-                        0,
-                        mods.mods_depressed,
-                        mods.mods_latched,
-                        mods.mods_locked,
-                        mods.group,
-                    )
-                })
-                .await;
-            }
+        self.surface_pointer_event(surface, |p| p.axis(0, axis, Fixed::from_int(delta)));
+        self.surface_pointer_event(surface, |p| p.frame());
+    }
+
+    fn scroll_event(&self, delta: i32, axis: ScrollAxis) {
+        if let Some(node) = self.pointer_stack.borrow().last().cloned() {
+            node.scroll(self, delta, axis);
         }
     }
 
-    async fn bind_(
+    fn key_event(&self, _key: u32, _state: KeyState) {
+        // let (state, xkb_dir) = {
+        //     let mut pk = self.pressed_keys.borrow_mut();
+        //     match state {
+        //         KeyState::Released => {
+        //             if !pk.remove(&key) {
+        //                 return;
+        //             }
+        //             (wl_keyboard::RELEASED, XKB_KEY_UP)
+        //         }
+        //         KeyState::Pressed => {
+        //             if !pk.insert(key) {
+        //                 return;
+        //             }
+        //             (wl_keyboard::PRESSED, XKB_KEY_DOWN)
+        //         }
+        //     }
+        // };
+        // let mods = self.kb_state.borrow_mut().update(key, xkb_dir);
+        // let node = self.keyboard_node.get().into_kind();
+        // if let NodeKind::Toplevel(node) = node {
+        //     self.tl_kb_event(&node, |k| k.key(0, 0, key, state)).await;
+        //     if let Some(mods) = mods {
+        //         self.tl_kb_event(&node, |k| {
+        //             k.modifiers(
+        //                 0,
+        //                 mods.mods_depressed,
+        //                 mods.mods_latched,
+        //                 mods.mods_locked,
+        //                 mods.group,
+        //             )
+        //         })
+        //         .await;
+        //     }
+        // }
+    }
+
+    fn bind_(
         self: Rc<Self>,
         id: WlSeatId,
         client: &Rc<Client>,
@@ -348,7 +432,7 @@ impl WlSeatGlobal {
             version,
         });
         client.add_client_obj(&obj)?;
-        client.event(obj.capabilities()).await?;
+        client.event(obj.capabilities());
         {
             let mut bindings = self.bindings.borrow_mut();
             let bindings = bindings.entry(client.id).or_insert_with(Default::default);
@@ -399,14 +483,11 @@ impl WlSeatObj {
         })
     }
 
-    pub fn move_(&self, node: &Rc<ToplevelNode>) {
+    pub fn move_(&self, node: &Rc<FloatNode>) {
         self.global.move_(node);
     }
 
-    async fn get_pointer(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetPointerError> {
+    fn get_pointer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPointerError> {
         let req: GetPointer = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlPointer::new(req.id, self));
         self.client.add_client_obj(&p)?;
@@ -414,31 +495,25 @@ impl WlSeatObj {
         Ok(())
     }
 
-    async fn get_keyboard(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetKeyboardError> {
+    fn get_keyboard(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetKeyboardError> {
         let req: GetKeyboard = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlKeyboard::new(req.id, self));
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
         self.client
-            .event(p.keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size))
-            .await?;
-        self.client
-            .event(p.repeat_info(25, 250))
-            .await?;
+            .event(p.keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size));
+        self.client.event(p.repeat_info(25, 250));
         Ok(())
     }
 
-    async fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetTouchError> {
+    fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetTouchError> {
         let req: GetTouch = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlTouch::new(req.id, self));
         self.client.add_client_obj(&p)?;
         Ok(())
     }
 
-    async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
         {
             let mut bindings = self.global.bindings.borrow_mut();
@@ -446,20 +521,20 @@ impl WlSeatObj {
                 hm.remove(&self.id);
             }
         }
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlSeatError> {
         match request {
-            GET_POINTER => self.get_pointer(parser).await?,
-            GET_KEYBOARD => self.get_keyboard(parser).await?,
-            GET_TOUCH => self.get_touch(parser).await?,
-            RELEASE => self.release(parser).await?,
+            GET_POINTER => self.get_pointer(parser)?,
+            GET_KEYBOARD => self.get_keyboard(parser)?,
+            GET_TOUCH => self.get_touch(parser)?,
+            RELEASE => self.release(parser)?,
             _ => unreachable!(),
         }
         Ok(())

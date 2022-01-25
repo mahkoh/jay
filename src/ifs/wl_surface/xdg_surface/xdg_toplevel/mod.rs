@@ -1,10 +1,21 @@
 mod types;
 
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
-use crate::ifs::wl_surface::{RoleData, XdgSurfaceRoleData};
+use crate::client::DynEventFormatter;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceExt};
 use crate::object::{Interface, Object, ObjectId};
+use crate::rect::Rect;
+use crate::render::Renderer;
+use crate::tree::ContainerNode;
+use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
+use ahash::{AHashMap, AHashSet};
 use num_derive::FromPrimitive;
+use std::cell::{Cell, RefCell};
+use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
@@ -60,129 +71,244 @@ const STATE_TILED_BOTTOM: u32 = 8;
 id!(XdgToplevelId);
 
 pub struct XdgToplevel {
-    id: XdgToplevelId,
-    pub surface: Rc<XdgSurface>,
+    pub id: XdgToplevelId,
+    pub xdg: Rc<XdgSurface>,
+    pub node_id: ToplevelNodeId,
+    pub parent_node: CloneCell<Option<Rc<dyn Node>>>,
+    pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
+    pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
+    pub focus_subsurface: CloneCell<Option<Rc<WlSubsurface>>>,
+    states: RefCell<AHashSet<u32>>,
 }
 
 impl XdgToplevel {
     pub fn new(id: XdgToplevelId, surface: &Rc<XdgSurface>) -> Self {
+        let mut states = AHashSet::new();
+        states.insert(STATE_TILED_LEFT);
+        states.insert(STATE_TILED_RIGHT);
+        states.insert(STATE_TILED_TOP);
+        states.insert(STATE_TILED_BOTTOM);
         Self {
             id,
-            surface: surface.clone(),
+            xdg: surface.clone(),
+            node_id: surface.surface.client.state.node_ids.next(),
+            parent_node: Default::default(),
+            parent: Default::default(),
+            children: RefCell::new(Default::default()),
+            focus_subsurface: Default::default(),
+            states: RefCell::new(states),
         }
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
-        let _req: Destroy = self.surface.surface.client.parse(self, parser)?;
+    pub fn parent_is_float(&self) -> bool {
+        if let Some(parent) = self.parent_node.get() {
+            return parent.is_float();
+        }
+        false
+    }
+
+    pub fn configure(self: &Rc<Self>, width: i32, height: i32) -> DynEventFormatter {
+        Box::new(Configure {
+            obj: self.clone(),
+            width,
+            height,
+            states: self.states.borrow().iter().copied().collect(),
+        })
+    }
+
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+        let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
+        self.xdg.ext.set(None);
+        if let Some(parent) = self.parent_node.take() {
+            parent.remove_child(self);
+        }
         {
-            let mut rd = self.surface.surface.role_data.borrow_mut();
-            if let RoleData::XdgSurface(rd) = &mut *rd {
-                rd.role_data = XdgSurfaceRoleData::None;
+            let mut children = self.children.borrow_mut();
+            for (_, child) in children.drain() {
+                child.parent.set(self.parent.get());
             }
         }
         Ok(())
     }
 
-    async fn set_parent(&self, parser: MsgParser<'_, '_>) -> Result<(), SetParentError> {
-        let _req: SetParent = self.surface.surface.client.parse(self, parser)?;
+    fn set_parent(&self, parser: MsgParser<'_, '_>) -> Result<(), SetParentError> {
+        let _req: SetParent = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), SetTitleError> {
-        let _req: SetTitle = self.surface.surface.client.parse(self, parser)?;
+    fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), SetTitleError> {
+        let _req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAppIdError> {
-        let _req: SetAppId = self.surface.surface.client.parse(self, parser)?;
+    fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAppIdError> {
+        let _req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn show_window_menu(&self, parser: MsgParser<'_, '_>) -> Result<(), ShowWindowMenuError> {
-        let _req: ShowWindowMenu = self.surface.surface.client.parse(self, parser)?;
+    fn show_window_menu(&self, parser: MsgParser<'_, '_>) -> Result<(), ShowWindowMenuError> {
+        let _req: ShowWindowMenu = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), MoveError> {
-        let req: Move = self.surface.surface.client.parse(self, parser)?;
-        let rd = self.surface.surface.role_data.borrow();
-        if let RoleData::XdgSurface(xdg) = rd.deref() {
-            if let XdgSurfaceRoleData::Toplevel(tl) = &xdg.role_data {
-                if let Some(node) = tl.node.as_ref() {
-                    let seat = self.surface.surface.client.get_wl_seat(req.seat)?;
-                    seat.move_(&node.node);
-                }
+    fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), MoveError> {
+        let req: Move = self.xdg.surface.client.parse(self, parser)?;
+        let seat = self.xdg.surface.client.get_wl_seat(req.seat)?;
+        if let Some(parent) = self.parent_node.get() {
+            if let Some(float) = parent.into_float() {
+                seat.move_(&float);
             }
         }
         Ok(())
     }
 
-    async fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
-        let _req: Resize = self.surface.surface.client.parse(self, parser)?;
+    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
+        let _req: Resize = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_max_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaxSizeError> {
-        let _req: SetMaxSize = self.surface.surface.client.parse(self, parser)?;
+    fn set_max_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaxSizeError> {
+        let _req: SetMaxSize = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_min_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinSizeError> {
-        let _req: SetMinSize = self.surface.surface.client.parse(self, parser)?;
+    fn set_min_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinSizeError> {
+        let _req: SetMinSize = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaximizedError> {
-        let _req: SetMaximized = self.surface.surface.client.parse(self, parser)?;
+    fn set_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaximizedError> {
+        let _req: SetMaximized = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn unset_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), UnsetMaximizedError> {
-        let _req: UnsetMaximized = self.surface.surface.client.parse(self, parser)?;
+    fn unset_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), UnsetMaximizedError> {
+        let _req: UnsetMaximized = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), SetFullscreenError> {
-        let _req: SetFullscreen = self.surface.surface.client.parse(self, parser)?;
+    fn set_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), SetFullscreenError> {
+        let _req: SetFullscreen = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn unset_fullscreen(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), UnsetFullscreenError> {
-        let _req: UnsetFullscreen = self.surface.surface.client.parse(self, parser)?;
+    fn unset_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), UnsetFullscreenError> {
+        let _req: UnsetFullscreen = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_minimized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinimizedError> {
-        let _req: SetMinimized = self.surface.surface.client.parse(self, parser)?;
+    fn set_minimized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinimizedError> {
+        let _req: SetMinimized = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), XdgToplevelError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
-            SET_PARENT => self.set_parent(parser).await?,
-            SET_TITLE => self.set_title(parser).await?,
-            SET_APP_ID => self.set_app_id(parser).await?,
-            SHOW_WINDOW_MENU => self.show_window_menu(parser).await?,
-            MOVE => self.move_(parser).await?,
-            RESIZE => self.resize(parser).await?,
-            SET_MAX_SIZE => self.set_max_size(parser).await?,
-            SET_MIN_SIZE => self.set_min_size(parser).await?,
-            SET_MAXIMIZED => self.set_maximized(parser).await?,
-            UNSET_MAXIMIZED => self.unset_maximized(parser).await?,
-            SET_FULLSCREEN => self.set_fullscreen(parser).await?,
-            UNSET_FULLSCREEN => self.unset_fullscreen(parser).await?,
-            SET_MINIMIZED => self.set_minimized(parser).await?,
+            DESTROY => self.destroy(parser)?,
+            SET_PARENT => self.set_parent(parser)?,
+            SET_TITLE => self.set_title(parser)?,
+            SET_APP_ID => self.set_app_id(parser)?,
+            SHOW_WINDOW_MENU => self.show_window_menu(parser)?,
+            MOVE => self.move_(parser)?,
+            RESIZE => self.resize(parser)?,
+            SET_MAX_SIZE => self.set_max_size(parser)?,
+            SET_MIN_SIZE => self.set_min_size(parser)?,
+            SET_MAXIMIZED => self.set_maximized(parser)?,
+            UNSET_MAXIMIZED => self.unset_maximized(parser)?,
+            SET_FULLSCREEN => self.set_fullscreen(parser)?,
+            UNSET_FULLSCREEN => self.unset_fullscreen(parser)?,
+            SET_MINIMIZED => self.set_minimized(parser)?,
             _ => unreachable!(),
         }
         Ok(())
+    }
+
+    fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
+        let workspace = match parent.get_workspace() {
+            Some(w) => w,
+            _ => return self.map_tiled(),
+        };
+        let output = workspace.output.get();
+        let output_rect = output.position.get();
+        let position = {
+            let extents = self.xdg.extents.get().to_origin();
+            let width = extents.width();
+            let height = extents.height();
+            let mut x1 = output_rect.x1();
+            let mut y1 = output_rect.y1();
+            if width < output_rect.width() {
+                x1 += (output_rect.width() - width) as i32 / 2;
+            }
+            if height < output_rect.height() {
+                y1 += (output_rect.height() - height) as i32 / 2;
+            }
+            Rect::new_sized(x1, y1, width, height).unwrap()
+        };
+        let state = &self.xdg.surface.client.state;
+        let floater = Rc::new(FloatNode {
+            id: state.node_ids.next(),
+            visible: Cell::new(true),
+            position: Cell::new(position),
+            display: output.display.clone(),
+            display_link: Cell::new(None),
+            workspace_link: Cell::new(None),
+            workspace: CloneCell::new(workspace.clone()),
+            child: CloneCell::new(Some(self.clone())),
+        });
+        self.parent_node.set(Some(floater.clone()));
+        floater
+            .display_link
+            .set(Some(state.root.floaters.add_last(floater.clone())));
+        floater
+            .workspace_link
+            .set(Some(workspace.floaters.add_last(floater.clone())));
+    }
+
+    fn map_tiled(self: &Rc<Self>) {
+        log::info!("mapping tiled");
+        let state = &self.xdg.surface.client.state;
+        let seat = state.seat_queue.last();
+        if let Some(seat) = seat {
+            if let Some(prev) = seat.last_tiled_keyboard_toplevel() {
+                if let Some(container) = prev.parent_node.get() {
+                    if let Some(container) = container.into_container() {
+                        container.add_child_after(&*prev, self.clone());
+                        self.parent_node.set(Some(container));
+                        return;
+                    }
+                }
+            }
+        }
+        let output = {
+            let outputs = state.root.outputs.lock();
+            outputs.values().next().cloned()
+        };
+        if let Some(output) = output {
+            if let Some(workspace) = output.workspace.get() {
+                if let Some(container) = workspace.container.get() {
+                    container.append_child(self.clone());
+                    self.parent_node.set(Some(container));
+                } else {
+                    let container =
+                        Rc::new(ContainerNode::new(state, workspace.clone(), self.clone()));
+                    workspace.set_container(&container);
+                    self.parent_node.set(Some(container));
+                };
+                return;
+            }
+        }
+        todo!("map_tiled");
+    }
+
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        match self.parent_node.get() {
+            Some(node) => node.get_workspace(),
+            _ => None,
+        }
     }
 }
 
@@ -199,5 +325,102 @@ impl Object for XdgToplevel {
 
     fn num_requests(&self) -> u32 {
         SET_MINIMIZED + 1
+    }
+
+    fn break_loops(&self) {
+        if let Some(parent) = self.parent_node.take() {
+            parent.remove_child(self);
+        }
+        self.parent.set(None);
+        let _children = mem::take(&mut *self.children.borrow_mut());
+        self.focus_subsurface.set(None);
+    }
+}
+
+impl Node for XdgToplevel {
+    fn id(&self) -> NodeId {
+        self.node_id.into()
+    }
+
+    fn clear(&self) {
+        self.parent_node.set(None);
+    }
+
+    fn find_child_at(&self, mut x: i32, mut y: i32) -> Option<FoundNode> {
+        if let Some(geo) = self.xdg.geometry.get() {
+            let (xt, yt) = geo.translate_inv(x, y);
+            x = xt;
+            y = yt;
+        }
+        match self.xdg.surface.find_surface_at(x, y) {
+            Some((node, x, y)) => Some(FoundNode {
+                node: if std::ptr::eq(node.deref(), self.xdg.surface.deref()) {
+                    node
+                } else {
+                    node.ext.get().into_node().unwrap()
+                },
+                x,
+                y,
+                contained: true,
+            }),
+            _ => None,
+        }
+    }
+
+    fn render(&self, renderer: &mut dyn Renderer, x: i32, y: i32) {
+        renderer.render_toplevel(self, x, y)
+    }
+
+    fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        self.deref().get_workspace()
+    }
+
+    fn enter(self: Rc<Self>, seat: &WlSeatGlobal, _x: Fixed, _y: Fixed) {
+        seat.enter_toplevel(&self);
+    }
+
+    fn change_size(self: Rc<Self>, width: i32, height: i32) {
+        self.xdg.surface.client.event(self.configure(width, height));
+        self.xdg.send_configure();
+        self.xdg.surface.client.flush();
+    }
+}
+
+impl XdgSurfaceExt for XdgToplevel {
+    fn post_commit(self: Rc<Self>) {
+        let surface = &self.xdg.surface;
+        if let Some(parent) = self.parent_node.get() {
+            if surface.buffer.get().is_none() {
+                parent.remove_child(&*self);
+                {
+                    let new_parent = self.parent.get();
+                    let mut children = self.children.borrow_mut();
+                    for (_, child) in children.drain() {
+                        child.parent.set(new_parent.clone());
+                    }
+                }
+                surface.client.state.tree_changed();
+            }
+        } else if surface.buffer.get().is_some() {
+            if let Some(parent) = self.parent.get() {
+                self.map_child(&parent);
+            } else {
+                self.map_tiled();
+            }
+            self.extents_changed();
+            surface.client.state.tree_changed();
+        }
+    }
+
+    fn extents_changed(&self) {
+        if let Some(parent) = self.parent_node.get() {
+            let extents = self.xdg.extents.get();
+            parent.child_size_changed(self, extents.width(), extents.height());
+            self.xdg.surface.client.state.tree_changed();
+        }
+    }
+
+    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
+        Some(self)
     }
 }

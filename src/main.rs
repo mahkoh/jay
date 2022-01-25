@@ -23,6 +23,7 @@ use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
+use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
 use crate::sighand::SighandError;
 use crate::state::State;
@@ -54,6 +55,8 @@ mod globals;
 mod ifs;
 mod object;
 mod pixman;
+mod rect;
+mod render;
 mod servermem;
 mod sighand;
 mod state;
@@ -119,10 +122,14 @@ fn main_() -> Result<(), MainError> {
         backend_events: AsyncQueue::new(),
         output_handlers: Default::default(),
         seat_ids: Default::default(),
-        seat_handlers: Default::default(),
+        seats: Default::default(),
         outputs: Default::default(),
+        seat_queue: Default::default(),
+        slow_clients: AsyncQueue::new(),
+        none_surface_ext: Rc::new(NoneSurfaceExt),
     });
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
+    let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
     Acceptor::install(&state)?;
     let _backend = XorgBackend::new(&state)?;
     el.run()?;

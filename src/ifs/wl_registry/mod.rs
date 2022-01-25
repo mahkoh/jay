@@ -41,7 +41,7 @@ impl WlRegistry {
         })
     }
 
-    async fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), BindError> {
+    fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), BindError> {
         let bind: Bind = self.client.parse(self, parser)?;
         let global = self.client.state.globals.get(bind.name)?;
         if global.interface().name() != bind.interface {
@@ -59,17 +59,17 @@ impl WlRegistry {
                 actual: bind.version,
             }));
         }
-        global.bind(&self.client, bind.id, bind.version).await?;
+        global.bind(&self.client, bind.id, bind.version)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlRegistryError> {
         match request {
-            BIND => self.bind(parser).await?,
+            BIND => self.bind(parser)?,
             _ => unreachable!(),
         }
         Ok(())

@@ -23,7 +23,7 @@ impl WlCallback {
         Box::new(Done { obj: self.clone() })
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         _request: u32,
         _parser: MsgParser<'_, '_>,

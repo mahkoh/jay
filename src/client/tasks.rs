@@ -1,4 +1,4 @@
-use crate::client::{AddObj, Client, ClientError, WlEvent};
+use crate::client::{Client, ClientError, WlEvent};
 use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser};
 use crate::utils::oneshot::OneshotRx;
@@ -38,11 +38,8 @@ async fn dispatch_fr(data: Rc<Client>) {
     loop {
         let mut fr = data.dispatch_frame_requests.pop().await;
         loop {
-            if let Err(e) = data.event(fr.done()).await {
-                log::error!("Could not dispatch frame event: {}", ErrorFmt(e));
-                return;
-            }
-            if let Err(e) = data.remove_obj(&*fr).await {
+            data.event(fr.done());
+            if let Err(e) = data.remove_obj(&*fr) {
                 log::error!("Could not remove frame object: {}", ErrorFmt(e));
                 return;
             }
@@ -51,10 +48,7 @@ async fn dispatch_fr(data: Rc<Client>) {
                 _ => break,
             };
         }
-        if let Err(e) = data.event2(WlEvent::Flush).await {
-            log::error!("Could not dispatch frame event: {}", ErrorFmt(e));
-            return;
-        }
+        data.flush();
     }
 }
 
@@ -97,10 +91,10 @@ async fn receive(data: Rc<Client>) {
             }
             // log::trace!("{:x?}", data_buf);
             let parser = MsgParser::new(&mut buf, &data_buf[..]);
-            if let Err(e) = obj.handle_request(request, parser).await {
+            if let Err(e) = obj.handle_request(request, parser) {
                 return Err(ClientError::RequestError(Box::new(e)));
             }
-            data.event2(WlEvent::Flush).await?;
+            data.flush();
         }
     };
     let res: Result<(), ClientError> = recv.await;

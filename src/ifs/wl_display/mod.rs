@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client, DynEventFormatter};
+use crate::client::{Client, DynEventFormatter};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
@@ -31,37 +31,36 @@ impl WlDisplay {
         }
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlDisplayError> {
         match request {
-            SYNC => self.sync(parser).await?,
-            GET_REGISTRY => self.get_registry(parser).await?,
+            SYNC => self.sync(parser)?,
+            GET_REGISTRY => self.get_registry(parser)?,
             _ => unreachable!(),
         }
         Ok(())
     }
 
-    async fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
+    fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
         let cb = Rc::new(WlCallback::new(sync.callback));
         self.client.add_client_obj(&cb)?;
-        self.client.event(cb.done()).await?;
-        self.client.remove_obj(&*cb).await?;
+        self.client.event(cb.done());
+        self.client.remove_obj(&*cb)?;
         Ok(())
     }
 
-    async fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), GetRegistryError> {
+    fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), GetRegistryError> {
         let gr: GetRegistry = self.client.parse(self, parser)?;
         let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
         self.client.add_client_obj(&registry)?;
         self.client
             .state
             .globals
-            .notify_all(&self.client, &registry)
-            .await?;
+            .notify_all(&self.client, &registry);
         Ok(())
     }
 

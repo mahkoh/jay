@@ -1,8 +1,6 @@
 use crate::client::ClientError;
 use crate::utils::buffd::MsgParser;
 use std::fmt::{Display, Formatter};
-use std::future::Future;
-use std::pin::Pin;
 use std::rc::Rc;
 
 pub const WL_DISPLAY_ID: ObjectId = ObjectId(1);
@@ -27,11 +25,11 @@ impl Display for ObjectId {
 }
 
 pub trait ObjectHandleRequest {
-    fn handle_request<'a>(
+    fn handle_request(
         self: Rc<Self>,
         request: u32,
-        parser: MsgParser<'a, 'a>,
-    ) -> Pin<Box<dyn Future<Output = Result<(), ClientError>> + 'a>>;
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ClientError>;
 }
 
 pub trait Object: ObjectHandleRequest + 'static {

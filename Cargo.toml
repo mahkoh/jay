@@ -20,7 +20,7 @@ num-traits = "0.2.14"
 num-derive = "0.3.3"
 bitflags = "1.3.2"
 xcb-dl = "0.2.0"
-xcb-dl-util = { version = "0.2.0", features = ["xcb_shm", "xcb_xinput", "xcb_xkb"]}
+xcb-dl-util = { version = "0.2.0", features = ["xcb_shm", "xcb_xinput", "xcb_xkb", "xcb_dri3", "xcb_present"]}
 libloading = "0.7.2"
 bstr = "0.2.17"
 isnt = "0.1.0"

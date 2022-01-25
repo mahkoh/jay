@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
@@ -37,31 +37,31 @@ impl WlDataSource {
         }
     }
 
-    async fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {
+    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {
         let _req: Offer = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), SetActionsError> {
+    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), SetActionsError> {
         let _req: SetActions = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlDataSourceError> {
         match request {
-            OFFER => self.offer(parser).await?,
-            DESTROY => self.destroy(parser).await?,
-            SET_ACTIONS => self.set_actions(parser).await?,
+            OFFER => self.offer(parser)?,
+            DESTROY => self.destroy(parser)?,
+            SET_ACTIONS => self.set_actions(parser)?,
             _ => unreachable!(),
         }
         Ok(())

@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
@@ -118,13 +118,13 @@ impl XdgPositioner {
         Box::new(*self.position.borrow())
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSizeError> {
+    fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSizeError> {
         let req: SetSize = self.client.parse(self, parser)?;
         if req.width <= 0 || req.height <= 0 {
             self.client.protocol_error(
@@ -140,7 +140,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_anchor_rect(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAnchorRectError> {
+    fn set_anchor_rect(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAnchorRectError> {
         let req: SetAnchorRect = self.client.parse(self, parser)?;
         if req.width < 0 || req.height < 0 {
             self.client.protocol_error(
@@ -158,7 +158,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_anchor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAnchorError> {
+    fn set_anchor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAnchorError> {
         let req: SetAnchor = self.client.parse(self, parser)?;
         let anchor = match Anchor::from_u32(req.anchor) {
             Some(a) => a,
@@ -168,7 +168,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_gravity(&self, parser: MsgParser<'_, '_>) -> Result<(), SetGravityError> {
+    fn set_gravity(&self, parser: MsgParser<'_, '_>) -> Result<(), SetGravityError> {
         let req: SetGravity = self.client.parse(self, parser)?;
         let gravity = match Gravity::from_u32(req.gravity) {
             Some(a) => a,
@@ -178,7 +178,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_constraint_adjustment(
+    fn set_constraint_adjustment(
         &self,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), SetConstraintAdjustmentError> {
@@ -195,7 +195,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_offset(&self, parser: MsgParser<'_, '_>) -> Result<(), SetOffsetError> {
+    fn set_offset(&self, parser: MsgParser<'_, '_>) -> Result<(), SetOffsetError> {
         let req: SetOffset = self.client.parse(self, parser)?;
         let mut position = self.position.borrow_mut();
         position.off_x = req.x;
@@ -203,13 +203,13 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_reactive(&self, parser: MsgParser<'_, '_>) -> Result<(), SetReactiveError> {
+    fn set_reactive(&self, parser: MsgParser<'_, '_>) -> Result<(), SetReactiveError> {
         let _req: SetReactive = self.client.parse(self, parser)?;
         self.position.borrow_mut().reactive = true;
         Ok(())
     }
 
-    async fn set_parent_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetParentSizeError> {
+    fn set_parent_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetParentSizeError> {
         let req: SetParentSize = self.client.parse(self, parser)?;
         if req.parent_width < 0 || req.parent_height < 0 {
             self.client.protocol_error(
@@ -225,7 +225,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn set_parent_configure(
+    fn set_parent_configure(
         &self,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), SetParentConfigureError> {
@@ -234,22 +234,22 @@ impl XdgPositioner {
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), XdgPositionerError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
-            SET_SIZE => self.set_size(parser).await?,
-            SET_ANCHOR_RECT => self.set_anchor_rect(parser).await?,
-            SET_ANCHOR => self.set_anchor(parser).await?,
-            SET_GRAVITY => self.set_gravity(parser).await?,
-            SET_CONSTRAINT_ADJUSTMENT => self.set_constraint_adjustment(parser).await?,
-            SET_OFFSET => self.set_offset(parser).await?,
-            SET_REACTIVE => self.set_reactive(parser).await?,
-            SET_PARENT_SIZE => self.set_parent_size(parser).await?,
-            SET_PARENT_CONFIGURE => self.set_parent_configure(parser).await?,
+            DESTROY => self.destroy(parser)?,
+            SET_SIZE => self.set_size(parser)?,
+            SET_ANCHOR_RECT => self.set_anchor_rect(parser)?,
+            SET_ANCHOR => self.set_anchor(parser)?,
+            SET_GRAVITY => self.set_gravity(parser)?,
+            SET_CONSTRAINT_ADJUSTMENT => self.set_constraint_adjustment(parser)?,
+            SET_OFFSET => self.set_offset(parser)?,
+            SET_REACTIVE => self.set_reactive(parser)?,
+            SET_PARENT_SIZE => self.set_parent_size(parser)?,
+            SET_PARENT_CONFIGURE => self.set_parent_configure(parser)?,
             _ => unreachable!(),
         }
         Ok(())

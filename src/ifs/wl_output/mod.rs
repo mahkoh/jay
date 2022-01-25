@@ -1,12 +1,11 @@
 mod types;
 
 use crate::backend::Output;
-use crate::client::{AddObj, Client, ClientId, DynEventFormatter, WlEvent};
+use crate::client::{Client, ClientId, DynEventFormatter, WlEvent};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
-use ahash::AHashMap;
 use std::cell::Cell;
 use std::iter;
 use std::rc::Rc;
@@ -58,8 +57,8 @@ pub struct WlOutputGlobal {
     output: Rc<dyn Output>,
     pub x: Cell<i32>,
     pub y: Cell<i32>,
-    width: Cell<u32>,
-    height: Cell<u32>,
+    width: Cell<i32>,
+    height: Cell<i32>,
     bindings: CopyHashMap<(ClientId, WlOutputId), Rc<WlOutputObj>>,
 }
 
@@ -76,7 +75,7 @@ impl WlOutputGlobal {
         }
     }
 
-    pub async fn update_properties(&self) {
+    pub fn update_properties(&self) {
         let width = self.output.width();
         let height = self.output.height();
 
@@ -85,34 +84,26 @@ impl WlOutputGlobal {
         changed |= self.height.replace(height) != height;
 
         if changed {
-            let mut clients = AHashMap::new();
-            {
-                let bindings = self.bindings.lock();
-                for binding in bindings.values() {
-                    let events = [
-                        binding.geometry(),
-                        binding.mode(),
-                        binding.scale(),
-                        binding.done(),
-                    ];
-                    let events = events
-                        .into_iter()
-                        .map(|e| WlEvent::Event(e))
-                        .chain(iter::once(WlEvent::Flush));
-                    for event in events {
-                        if binding.client.event2_locked(event) {
-                            clients.insert(binding.client.id, binding.client.clone());
-                        }
-                    }
+            let bindings = self.bindings.lock();
+            for binding in bindings.values() {
+                let events = [
+                    binding.geometry(),
+                    binding.mode(),
+                    binding.scale(),
+                    binding.done(),
+                ];
+                let events = events
+                    .into_iter()
+                    .map(|e| WlEvent::Event(e))
+                    .chain(iter::once(WlEvent::Flush));
+                for event in events {
+                    binding.client.event2(event);
                 }
-            }
-            for client in clients.values() {
-                let _ = client.check_queue_size().await;
             }
         }
     }
 
-    async fn bind_(
+    fn bind_(
         self: Rc<Self>,
         id: WlOutputId,
         client: &Rc<Client>,
@@ -126,13 +117,13 @@ impl WlOutputGlobal {
         });
         client.add_client_obj(&obj)?;
         self.bindings.set((client.id, id), obj.clone());
-        client.event(obj.geometry()).await?;
-        client.event(obj.mode()).await?;
+        client.event(obj.geometry());
+        client.event(obj.mode());
         if obj.send_scale() {
-            client.event(obj.scale()).await?;
+            client.event(obj.scale());
         }
         if obj.send_done() {
-            client.event(obj.done()).await?;
+            client.event(obj.done());
         }
         Ok(())
     }
@@ -213,20 +204,20 @@ impl WlOutputObj {
         Box::new(Done { obj: self.clone() })
     }
 
-    async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
         self.global.bindings.remove(&(self.client.id, self.id));
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlOutputError> {
         match request {
-            RELEASE => self.release(parser).await?,
+            RELEASE => self.release(parser)?,
             _ => unreachable!(),
         }
         Ok(())

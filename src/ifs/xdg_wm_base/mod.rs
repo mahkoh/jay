@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositioner;
@@ -47,7 +47,7 @@ impl XdgWmBaseGlobal {
         Self { name }
     }
 
-    async fn bind_(
+    fn bind_(
         self: Rc<Self>,
         id: XdgWmBaseId,
         client: &Rc<Client>,
@@ -65,7 +65,7 @@ impl XdgWmBaseGlobal {
 }
 
 impl XdgWmBaseObj {
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         if !self.surfaces.is_empty() {
             self.client.protocol_error(
@@ -78,11 +78,11 @@ impl XdgWmBaseObj {
             );
             return Err(DestroyError::DefunctSurfaces);
         }
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn create_positioner(
+    fn create_positioner(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), CreatePositionerError> {
@@ -92,7 +92,7 @@ impl XdgWmBaseObj {
         Ok(())
     }
 
-    async fn get_xdg_surface(
+    fn get_xdg_surface(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), GetXdgSurfaceError> {
@@ -105,21 +105,21 @@ impl XdgWmBaseObj {
         Ok(())
     }
 
-    async fn pong(&self, parser: MsgParser<'_, '_>) -> Result<(), PongError> {
+    fn pong(&self, parser: MsgParser<'_, '_>) -> Result<(), PongError> {
         let _req: Pong = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), XdgWmBaseError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
-            CREATE_POSITIONER => self.create_positioner(parser).await?,
-            GET_XDG_SURFACE => self.get_xdg_surface(parser).await?,
-            PONG => self.pong(parser).await?,
+            DESTROY => self.destroy(parser)?,
+            CREATE_POSITIONER => self.create_positioner(parser)?,
+            GET_XDG_SURFACE => self.get_xdg_surface(parser)?,
+            PONG => self.pong(parser)?,
             _ => unreachable!(),
         }
         Ok(())

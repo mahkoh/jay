@@ -1,9 +1,10 @@
 mod types;
 
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
-use crate::ifs::wl_surface::{RoleData, XdgSurfaceRoleData};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceExt};
 use crate::object::{Interface, Object, ObjectId};
+use crate::tree::{Node, NodeId};
 use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
 use std::rc::Rc;
 pub use types::*;
 
@@ -18,59 +19,55 @@ const REPOSITIONED: u32 = 2;
 #[allow(dead_code)]
 const INVALID_GRAB: u32 = 1;
 
+tree_id!(PopupId);
 id!(XdgPopupId);
 
 pub struct XdgPopup {
     id: XdgPopupId,
+    node_id: PopupId,
     pub(in super::super) surface: Rc<XdgSurface>,
+    pub(super) parent: CloneCell<Option<Rc<XdgSurface>>>,
 }
 
 impl XdgPopup {
-    pub fn new(id: XdgPopupId, surface: &Rc<XdgSurface>) -> Self {
+    pub fn new(id: XdgPopupId, surface: &Rc<XdgSurface>, parent: Option<&Rc<XdgSurface>>) -> Self {
         Self {
             id,
+            node_id: surface.surface.client.state.node_ids.next(),
             surface: surface.clone(),
+            parent: CloneCell::new(parent.cloned()),
         }
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.surface.surface.client.parse(self, parser)?;
         {
-            let mut rd = self.surface.surface.role_data.borrow_mut();
-            if let RoleData::XdgSurface(xdg) = &mut *rd {
-                if let XdgSurfaceRoleData::Popup(p) = &xdg.role_data {
-                    if let Some(p) = &p.parent {
-                        let mut rd = p.surface.role_data.borrow_mut();
-                        if let RoleData::XdgSurface(xdg) = &mut *rd {
-                            xdg.popups.remove(&self.surface.surface.id);
-                        }
-                    }
-                }
-                xdg.role_data = XdgSurfaceRoleData::None;
+            if let Some(parent) = self.parent.take() {
+                parent.popups.remove(&self.id);
             }
         }
         Ok(())
     }
 
-    async fn grab(&self, parser: MsgParser<'_, '_>) -> Result<(), GrabError> {
+    fn grab(&self, parser: MsgParser<'_, '_>) -> Result<(), GrabError> {
         let _req: Grab = self.surface.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn reposition(&self, parser: MsgParser<'_, '_>) -> Result<(), RepositionError> {
+    fn reposition(&self, parser: MsgParser<'_, '_>) -> Result<(), RepositionError> {
         let _req: Reposition = self.surface.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), XdgPopupError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
-            GRAB => self.grab(parser).await?,
-            REPOSITION => self.reposition(parser).await?,
+            DESTROY => self.destroy(parser)?,
+            GRAB => self.grab(parser)?,
+            REPOSITION => self.reposition(parser)?,
             _ => unreachable!(),
         }
         Ok(())
@@ -92,3 +89,11 @@ impl Object for XdgPopup {
         REPOSITION + 1
     }
 }
+
+impl Node for XdgPopup {
+    fn id(&self) -> NodeId {
+        self.node_id.into()
+    }
+}
+
+impl XdgSurfaceExt for XdgPopup {}

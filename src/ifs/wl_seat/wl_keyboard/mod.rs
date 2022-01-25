@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, DynEventFormatter};
+use crate::client::DynEventFormatter;
 use crate::ifs::wl_seat::WlSeatObj;
 use crate::ifs::wl_surface::WlSurfaceId;
 use crate::object::{Interface, Object, ObjectId};
@@ -22,7 +22,9 @@ const REPEAT_INFO: u32 = 5;
 const NO_KEYMAP: u32 = 0;
 pub(super) const XKB_V1: u32 = 1;
 
+#[allow(dead_code)]
 pub(super) const RELEASED: u32 = 0;
+#[allow(dead_code)]
 pub(super) const PRESSED: u32 = 1;
 
 id!(WlKeyboardId);
@@ -142,20 +144,20 @@ impl WlKeyboard {
         })
     }
 
-    async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
         self.seat.keyboards.remove(&self.id);
-        self.seat.client.remove_obj(self).await?;
+        self.seat.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlKeyboardError> {
         match request {
-            RELEASE => self.release(parser).await?,
+            RELEASE => self.release(parser)?,
             _ => unreachable!(),
         }
         Ok(())

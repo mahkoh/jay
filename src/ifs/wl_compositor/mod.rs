@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
@@ -29,7 +29,7 @@ impl WlCompositorGlobal {
         Self { name }
     }
 
-    async fn bind_(
+    fn bind_(
         self: Rc<Self>,
         id: WlCompositorId,
         client: &Rc<Client>,
@@ -46,28 +46,28 @@ impl WlCompositorGlobal {
 }
 
 impl WlCompositorObj {
-    async fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSurfaceError> {
+    fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSurfaceError> {
         let surface: CreateSurface = self.client.parse(self, parser)?;
         let surface = Rc::new(WlSurface::new(surface.id, &self.client));
         self.client.add_client_obj(&surface)?;
         Ok(())
     }
 
-    async fn create_region(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateRegionError> {
+    fn create_region(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateRegionError> {
         let region: CreateRegion = self.client.parse(self, parser)?;
         let region = Rc::new(WlRegion::new(region.id, &self.client));
         self.client.add_client_obj(&region)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlCompositorError> {
         match request {
-            CREATE_SURFACE => self.create_surface(parser).await?,
-            CREATE_REGION => self.create_region(parser).await?,
+            CREATE_SURFACE => self.create_surface(parser)?,
+            CREATE_REGION => self.create_region(parser)?,
             _ => unreachable!(),
         }
         Ok(())

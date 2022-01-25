@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::WlShmPool;
 use crate::object::{Interface, Object, ObjectId};
@@ -29,7 +29,7 @@ impl WlShmGlobal {
         Self { name }
     }
 
-    async fn bind_(
+    fn bind_(
         self: Rc<Self>,
         id: WlShmId,
         client: &Rc<Client>,
@@ -42,19 +42,17 @@ impl WlShmGlobal {
         });
         client.add_client_obj(&obj)?;
         for &format in client.state.formats.values() {
-            client
-                .event(Box::new(FormatE {
-                    obj: obj.clone(),
-                    format,
-                }))
-                .await?;
+            client.event(Box::new(FormatE {
+                obj: obj.clone(),
+                format,
+            }));
         }
         Ok(())
     }
 }
 
 impl WlShmObj {
-    async fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), CreatePoolError> {
+    fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), CreatePoolError> {
         let create: CreatePool = self.client.parse(self, parser)?;
         if create.size < 0 {
             return Err(CreatePoolError::NegativeSize);
@@ -69,13 +67,9 @@ impl WlShmObj {
         Ok(())
     }
 
-    async fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlShmError> {
+    fn handle_request_(&self, request: u32, parser: MsgParser<'_, '_>) -> Result<(), WlShmError> {
         match request {
-            CREATE_POOL => self.create_pool(parser).await?,
+            CREATE_POOL => self.create_pool(parser)?,
             _ => unreachable!(),
         }
         Ok(())

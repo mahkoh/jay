@@ -3,11 +3,11 @@ use crate::backend::{
 };
 use crate::event_loop::{EventLoopDispatcher, EventLoopId};
 use crate::fixed::Fixed;
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::ifs::wl_surface::WlSurface;
 use crate::pixman::{Image, PixmanError};
+use crate::render::pixman::PixmanRenderer;
+use crate::render::Renderer;
 use crate::servermem::{ServerMem, ServerMemError};
-use crate::tree::{Node, NodeKind, ToplevelNode};
+use crate::tree::Node;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::ptr_ext::PtrExt;
@@ -22,7 +22,7 @@ use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;
-use xcb_dl::{ffi, Xcb, XcbShm, XcbXinput, XcbXkb};
+use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbShm, XcbXinput, XcbXkb};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
 
@@ -32,6 +32,8 @@ pub enum XorgBackendError {
     ErrorEvent,
     #[error("Could not select input events")]
     CannotSelectInputEvents(#[source] XcbError),
+    #[error("Could not select present events")]
+    CannotSelectPresentEvents(#[source] XcbError),
     #[error("libloading returned an error")]
     Libloading(#[from] libloading::Error),
     #[error("xcb returned an error")]
@@ -66,7 +68,10 @@ struct XcbCon {
     xcb: Box<Xcb>,
     shm: Box<XcbShm>,
     input: Box<XcbXinput>,
+    dri: Box<XcbDri3>,
+    present: Box<XcbPresent>,
     input_opcode: u8,
+    present_opcode: u8,
     xkb: Box<XcbXkb>,
     c: *mut ffi::xcb_connection_t,
     errors: XcbErrorParser,
@@ -79,6 +84,7 @@ impl XcbCon {
             let shm = Box::new(XcbShm::load_loose()?);
             let input = Box::new(XcbXinput::load_loose()?);
             let xkb = Box::new(XcbXkb::load_loose()?);
+            let dri = Box::new(XcbDri3::load_loose()?);
 
             let c = xcb.xcb_connect(ptr::null(), ptr::null_mut());
             let errors = XcbErrorParser::new(&xcb, c);
@@ -87,7 +93,9 @@ impl XcbCon {
                 xcb,
                 shm,
                 input,
+                dri,
                 input_opcode: 0,
+                present_opcode: 0,
                 xkb,
                 c,
                 errors,
@@ -114,6 +122,26 @@ impl XcbCon {
                 .xcb_get_extension_data(con.c, con.input.xcb_input_id());
             assert!(input_ex.is_not_null());
             con.input_opcode = input_ex.deref().major_opcode;
+
+            let res = con.dri.xcb_dri3_query_version_reply(
+                c,
+                con.dri.xcb_dri3_query_version(c, 1, 0),
+                &mut err,
+            );
+            con.errors.check(&con.xcb, res, err)?;
+
+            let res = con.present.xcb_present_query_version_reply(
+                c,
+                con.present.xcb_present_query_version(c, 1, 0),
+                &mut err,
+            );
+            con.errors.check(&con.xcb, res, err)?;
+
+            let present_ex = con
+                .xcb
+                .xcb_get_extension_data(con.c, con.present.xcb_present_id());
+            assert!(present_ex.is_not_null());
+            con.present_opcode = present_ex.deref().major_opcode;
 
             let res = con.xkb.xcb_xkb_use_extension_reply(
                 c,
@@ -286,7 +314,8 @@ impl XorgBackend {
                 }
             }
             {
-                let mask = ffi::XCB_INPUT_XI_EVENT_MASK_MOTION
+                let mask = 0
+                    | ffi::XCB_INPUT_XI_EVENT_MASK_MOTION
                     | ffi::XCB_INPUT_XI_EVENT_MASK_BUTTON_PRESS
                     | ffi::XCB_INPUT_XI_EVENT_MASK_BUTTON_RELEASE
                     | ffi::XCB_INPUT_XI_EVENT_MASK_KEY_PRESS
@@ -307,6 +336,20 @@ impl XorgBackend {
                 );
                 if let Err(e) = con.check_cookie(cookie) {
                     return Err(XorgBackendError::CannotSelectInputEvents(e));
+                }
+            }
+            {
+                let mask = 0
+                    | ffi::XCB_PRESENT_EVENT_MASK_IDLE_NOTIFY
+                    | ffi::XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY;
+                let cookie = con.present.xcb_present_select_input_checked(
+                    con.c,
+                    con.xcb.xcb_generate_id(con.c),
+                    window_id,
+                    mask,
+                );
+                if let Err(e) = con.check_cookie(cookie) {
+                    return Err(XorgBackendError::CannotSelectPresentEvents(e));
                 }
             }
             self.outputs.set(window_id, output.clone());
@@ -382,7 +425,6 @@ impl XorgBackend {
                 cb: CloneCell::new(None),
                 events: RefCell::new(Default::default()),
                 button_map: Default::default(),
-                last_position: Cell::new((0, 0)),
             });
             seat.update_button_map();
             self.seats.set(info.deviceid, seat.clone());
@@ -428,7 +470,36 @@ impl XorgBackend {
         let event = unsafe { (event as *const _ as *const ffi::xcb_ge_generic_event_t).deref() };
         if event.extension == self.con.input_opcode {
             self.handle_input_event(event)?;
+        } else if event.extension == self.con.present_opcode {
+            self.handle_present_event(event)?;
         }
+        Ok(())
+    }
+
+    fn handle_present_event(
+        self: &Rc<Self>,
+        event: &ffi::xcb_ge_generic_event_t,
+    ) -> Result<(), XorgBackendError> {
+        match event.event_type {
+            ffi::XCB_PRESENT_COMPLETE_NOTIFY => self.handle_present_complete(event)?,
+            ffi::XCB_PRESENT_IDLE_NOTIFY => self.handle_present_idle(event)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_present_complete(
+        self: &Rc<Self>,
+        event: &ffi::xcb_ge_generic_event_t,
+    ) -> Result<(), XorgBackendError> {
+        let event = unsafe {
+            (event as *const _ as *const ffi::xcb_present_complete_notify_event_t).deref()
+        };
+        let output = match self.outputs.get(&event.window) {
+            Some(o) => o,
+            _ => return Ok(()),
+        };
+        output.next_msc.set(event.msc + 1);
         Ok(())
     }
 
@@ -541,7 +612,6 @@ impl XorgBackend {
             self.outputs.get(&event.event),
             self.mouse_seats.get(&event.deviceid),
         ) {
-            seat.last_position.set((event.event_x, event.event_y));
             seat.event(SeatEvent::OutputPosition(
                 win.id,
                 Fixed::from_1616(event.event_x),
@@ -556,17 +626,15 @@ impl XorgBackend {
         event: &ffi::xcb_ge_generic_event_t,
     ) -> Result<(), XorgBackendError> {
         let event = unsafe { (event as *const _ as *const ffi::xcb_input_motion_event_t).deref() };
-        let seat = match self.mouse_seats.get(&event.deviceid) {
-            Some(s) => s,
+        let (win, seat) = match (self.outputs.get(&event.event), self.mouse_seats.get(&event.deviceid)) {
+            (Some(a), Some(b)) => (a, b),
             _ => return Ok(()),
         };
-        let pos = (event.event_x, event.event_y);
-        let last_pos = seat.last_position.replace(pos);
-        if pos != last_pos {
-            let dx = Fixed::from_1616(pos.0 - last_pos.0);
-            let dy = Fixed::from_1616(pos.1 - last_pos.1);
-            seat.event(SeatEvent::Motion(dx, dy));
-        }
+        seat.event(SeatEvent::OutputPosition(
+            win.id,
+            Fixed::from_1616(event.event_x),
+            Fixed::from_1616(event.event_y),
+        ));
         Ok(())
     }
 
@@ -593,8 +661,8 @@ impl XorgBackend {
         let width = event.width as u32;
         let height = event.height as u32;
         let mut changed = false;
-        changed |= output.width.replace(width) != width;
-        changed |= output.height.replace(height) != height;
+        changed |= output.width.replace(width as i32) != width as i32;
+        changed |= output.height.replace(height as i32) != height as i32;
         if changed {
             let shm = Rc::new(ServerMem::new((width * height * 4) as usize)?);
             let fd = shm.fd();
@@ -639,83 +707,6 @@ impl XorgBackend {
         Ok(())
     }
 
-    fn render_node(&self, image: &Image<Rc<ServerMem>>, node: Rc<dyn Node>) {
-        match node.into_kind() {
-            NodeKind::Display(_) => {}
-            NodeKind::Output(_) => {}
-            NodeKind::Toplevel(tl) => self.render_toplevel(image, &tl),
-            NodeKind::Container(_) => {}
-        }
-    }
-
-    fn render_toplevel(&self, image: &Image<Rc<ServerMem>>, tl: &Rc<ToplevelNode>) {
-        let surface = &tl.surface.surface.surface;
-        let node_extents = tl.common.extents.get();
-        let surface_extents = tl.surface.surface.surface.effective_extents.get();
-        self.render_surface(
-            image,
-            surface,
-            node_extents.x - surface_extents.x1,
-            node_extents.y - surface_extents.y1,
-        );
-        let _ = image.fill_insert_border(
-            255,
-            0,
-            0,
-            255,
-            node_extents.x,
-            node_extents.y,
-            node_extents.x + node_extents.width as i32,
-            node_extents.y + node_extents.height as i32,
-            2,
-        );
-    }
-
-    fn render_surface(
-        &self,
-        image: &Image<Rc<ServerMem>>,
-        surface: &Rc<WlSurface>,
-        x: i32,
-        y: i32,
-    ) {
-        let children = surface.children.borrow();
-        if let Some(children) = &*children {
-            for child in children.below.iter() {
-                if let Some((sx, sy)) = child.surface.subsurface_position() {
-                    self.render_surface(image, &child.surface, x + sx, y + sy);
-                }
-            }
-        }
-        if let Some(buffer) = surface.buffer.get() {
-            self.render_buffer(image, &buffer, x, y);
-            let mut fr = surface.frame_requests.borrow_mut();
-            for cb in fr.drain(..) {
-                surface.client.dispatch_frame_requests.push(cb);
-            }
-        }
-        if let Some(children) = &*children {
-            for child in children.above.iter() {
-                if let Some((sx, sy)) = child.surface.subsurface_position() {
-                    self.render_surface(image, &child.surface, x + sx, y + sy);
-                }
-            }
-        }
-    }
-
-    fn render_buffer(&self, image: &Image<Rc<ServerMem>>, buffer: &Rc<WlBuffer>, x: i32, y: i32) {
-        if let Err(e) = image.add_image(&buffer.image, x, y) {
-            let client = &buffer.client;
-            log::error!("Could not access client {} memory: {:#}", client.id, e);
-            if let Ok(d) = client.display() {
-                client.fatal_event(
-                    d.implementation_error(format!("Could not access memory: {:#}", e)),
-                );
-            } else {
-                self.state.clients.kill(client.id);
-            }
-        }
-    }
-
     fn render(&self) -> Result<(), XorgBackendError> {
         let outputs = self.outputs.lock();
         for output in outputs.values() {
@@ -729,8 +720,15 @@ impl XorgBackend {
                 Some(n) => n,
                 _ => continue,
             };
-            for floating in node.floating.iter() {
-                self.render_node(image, floating.clone());
+            let pos = node.position.get();
+            let mut renderer = PixmanRenderer::new(image);
+            renderer.render_output(&node);
+            for floating in self.state.root.floaters.iter() {
+                let fpos = floating.position.get();
+                if floating.visible.get() && fpos.intersects(&pos) {
+                    let (x, y) = pos.translate(fpos.x1(), fpos.x2());
+                    floating.render(&mut renderer, x, y);
+                }
             }
             unsafe {
                 let cookie =
@@ -774,10 +772,17 @@ struct XorgOutput {
     backend: Rc<XorgBackend>,
     window: ffi::xcb_window_t,
     removed: Cell<bool>,
-    width: Cell<u32>,
-    height: Cell<u32>,
+    width: Cell<i32>,
+    height: Cell<i32>,
+    next_msc: Cell<u64>,
+    next_image: Cell<usize>,
+    // images: [XorgImage; 2],
     image: RefCell<Option<Image<Rc<ServerMem>>>>,
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
+}
+
+struct XorgImage {
+
 }
 
 impl Drop for XorgOutput {
@@ -806,11 +811,11 @@ impl Output for XorgOutput {
         self.removed.get()
     }
 
-    fn width(&self) -> u32 {
+    fn width(&self) -> i32 {
         self.width.get()
     }
 
-    fn height(&self) -> u32 {
+    fn height(&self) -> i32 {
         self.height.get()
     }
 
@@ -828,7 +833,6 @@ struct XorgSeat {
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     events: RefCell<VecDeque<SeatEvent>>,
     button_map: CopyHashMap<u32, u32>,
-    last_position: Cell<(ffi::xcb_input_fp1616_t, ffi::xcb_input_fp1616_t)>,
 }
 
 impl XorgSeat {

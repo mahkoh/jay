@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupId;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelId;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, CONFIGURE};
-use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
+use crate::ifs::wl_surface::{WlSurfaceError, WlSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositionerId;
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
@@ -22,11 +22,12 @@ pub enum XdgSurfaceError {
     SetWindowGeometryError(#[from] SetWindowGeometryError),
     #[error("Could not process `ack_configure` request")]
     AckConfigureError(#[from] AckConfigureError),
-    #[error("Surface {0} cannot be turned into a xdg_surface because it already has the role {}", .1.name())]
-    IncompatibleRole(WlSurfaceId, SurfaceRole),
     #[error("Surface {0} cannot be turned into a xdg_surface because it already has an attached xdg_surface")]
     AlreadyAttached(WlSurfaceId),
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
 }
+efrom!(XdgSurfaceError, WlSurfaceError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -46,13 +47,14 @@ pub enum GetToplevelError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("The surface already has a different role")]
-    IncompatibleRole,
     #[error("The surface already has an assigned xdg_toplevel")]
     AlreadyConstructed,
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(GetToplevelError, ParseFailed, MsgParserError);
 efrom!(GetToplevelError, ClientError, ClientError);
+efrom!(GetToplevelError, WlSurfaceError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum GetPopupError {
@@ -60,13 +62,14 @@ pub enum GetPopupError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("The surface already has a different role")]
-    IncompatibleRole,
     #[error("The surface already has an assigned xdg_popup")]
     AlreadyConstructed,
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(GetPopupError, ParseFailed, MsgParserError);
 efrom!(GetPopupError, ClientError, ClientError);
+efrom!(GetPopupError, WlSurfaceError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum SetWindowGeometryError {

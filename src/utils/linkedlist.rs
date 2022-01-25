@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::ptr::NonNull;
 
 pub struct LinkedList<T> {
-    root: Node<T>,
+    root: LinkedNode<T>,
 }
 
 impl<T> Default for LinkedList<T> {
@@ -27,18 +27,37 @@ impl<T> LinkedList<T> {
             node.deref().prev.set(NonNull::new_unchecked(node));
             node.deref().next.set(NonNull::new_unchecked(node));
             Self {
-                root: Node {
+                root: LinkedNode {
                     data: NonNull::new_unchecked(node),
                 },
             }
         }
     }
 
-    pub fn add_last(&self, t: T) -> Node<T> {
+    fn endpoint(&self, ep: NonNull<NodeData<T>>) -> Option<NodeRef<T>> {
+        unsafe {
+            if ep != self.root.data {
+                ep.as_ref().rc.fetch_add(1);
+                Some(NodeRef { data: ep })
+            } else {
+                None
+            }
+        }
+    }
+
+    pub fn last(&self) -> Option<NodeRef<T>> {
+        unsafe { self.endpoint(self.root.data.as_ref().prev.get()) }
+    }
+
+    pub fn first(&self) -> Option<NodeRef<T>> {
+        unsafe { self.endpoint(self.root.data.as_ref().next.get()) }
+    }
+
+    pub fn add_last(&self, t: T) -> LinkedNode<T> {
         self.root.prepend(t)
     }
 
-    pub fn add_first(&self, t: T) -> Node<T> {
+    pub fn add_first(&self, t: T) -> LinkedNode<T> {
         self.root.append(t)
     }
 
@@ -127,11 +146,11 @@ impl<T> Drop for RevLinkedListIter<T> {
     }
 }
 
-pub struct Node<T> {
+pub struct LinkedNode<T> {
     data: NonNull<NodeData<T>>,
 }
 
-impl<T> Deref for Node<T> {
+impl<T> Deref for LinkedNode<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -159,6 +178,25 @@ impl<T> Drop for NodeRef<T> {
     }
 }
 
+impl<T> Clone for NodeRef<T> {
+    fn clone(&self) -> Self {
+        unsafe {
+            self.data.as_ref().rc.fetch_add(1);
+            Self { data: self.data }
+        }
+    }
+}
+
+impl<T> NodeRef<T> {
+    pub fn prepend(&self, t: T) -> LinkedNode<T> {
+        unsafe { prepend(self.data, t) }
+    }
+
+    pub fn append(&self, t: T) -> LinkedNode<T> {
+        unsafe { append(self.data, t) }
+    }
+}
+
 struct NodeData<T> {
     rc: NumCell<usize>,
     prev: Cell<NonNull<NodeData<T>>>,
@@ -172,7 +210,7 @@ unsafe fn dec_ref_count<T>(slf: NonNull<NodeData<T>>, n: usize) {
     }
 }
 
-impl<T> Drop for Node<T> {
+impl<T> Drop for LinkedNode<T> {
     fn drop(&mut self) {
         unsafe {
             {
@@ -185,34 +223,45 @@ impl<T> Drop for Node<T> {
     }
 }
 
-impl<T> Node<T> {
-    pub fn prepend(&self, t: T) -> Node<T> {
-        unsafe {
-            let data = self.data.as_ref();
-            let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-                rc: NumCell::new(3),
-                prev: Cell::new(data.prev.get()),
-                next: Cell::new(self.data),
-                data: MaybeUninit::new(t),
-            })));
-            data.prev.get().as_ref().next.set(node);
-            data.prev.set(node);
-            Node { data: node }
-        }
+impl<T> LinkedNode<T> {
+    pub fn prepend(&self, t: T) -> LinkedNode<T> {
+        unsafe { prepend(self.data, t) }
     }
 
-    pub fn append(&self, t: T) -> Node<T> {
+    pub fn append(&self, t: T) -> LinkedNode<T> {
+        unsafe { append(self.data, t) }
+    }
+
+    pub fn to_ref(&self) -> NodeRef<T> {
         unsafe {
-            let data = self.data.as_ref();
-            let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-                rc: NumCell::new(3),
-                prev: Cell::new(self.data),
-                next: Cell::new(data.next.get()),
-                data: MaybeUninit::new(t),
-            })));
-            data.next.get().as_ref().prev.set(node);
-            data.next.set(node);
-            Node { data: node }
+            self.data.as_ref().rc.fetch_add(1);
+            NodeRef { data: self.data }
         }
     }
+}
+
+unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
+    let dref = data.as_ref();
+    let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
+        rc: NumCell::new(3),
+        prev: Cell::new(dref.prev.get()),
+        next: Cell::new(data),
+        data: MaybeUninit::new(t),
+    })));
+    dref.prev.get().as_ref().next.set(node);
+    dref.prev.set(node);
+    LinkedNode { data: node }
+}
+
+unsafe fn append<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
+    let dref = data.as_ref();
+    let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
+        rc: NumCell::new(3),
+        prev: Cell::new(data),
+        next: Cell::new(dref.next.get()),
+        data: MaybeUninit::new(t),
+    })));
+    dref.next.get().as_ref().prev.set(node);
+    dref.next.set(node);
+    LinkedNode { data: node }
 }

@@ -1,3 +1,4 @@
+use crate::utils::linkedlist::NodeRef;
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use std::cell::UnsafeCell;
 use std::mem;
@@ -46,3 +47,5 @@ pub unsafe trait UnsafeCellCloneSafe: Clone {}
 unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> {}
 
 unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> {}
+
+unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}

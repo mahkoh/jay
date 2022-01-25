@@ -1,11 +1,12 @@
 mod types;
 
-use crate::client::{AddObj, Client, DynEventFormatter};
+use crate::client::{Client, DynEventFormatter};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman;
+use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
 use std::rc::Rc;
@@ -21,9 +22,8 @@ pub struct WlBuffer {
     id: WlBufferId,
     pub client: Rc<Client>,
     _offset: usize,
-    pub width: u32,
-    pub height: u32,
-    _stride: u32,
+    pub rect: Rect,
+    _stride: i32,
     _format: &'static Format,
     pub image: Rc<pixman::Image<ClientMemOffset>>,
     pub(super) surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
@@ -35,9 +35,9 @@ impl WlBuffer {
         id: WlBufferId,
         client: &Rc<Client>,
         offset: usize,
-        width: u32,
-        height: u32,
-        stride: u32,
+        width: i32,
+        height: i32,
+        stride: i32,
         format: &'static Format,
         mem: &Rc<ClientMem>,
     ) -> Result<Self, WlBufferError> {
@@ -51,13 +51,18 @@ impl WlBuffer {
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
         }
-        let image = pixman::Image::new(mem, format.pixman, width, height, stride)?;
+        let image = pixman::Image::new(
+            mem,
+            format.pixman,
+            width as u32,
+            height as u32,
+            stride as u32,
+        )?;
         Ok(Self {
             id,
             client: client.clone(),
             _offset: offset,
-            width,
-            height,
+            rect: Rect::new_sized(0, 0, width, height).unwrap(),
             _stride: stride,
             _format: format,
             image: Rc::new(image),
@@ -65,7 +70,7 @@ impl WlBuffer {
         })
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         {
             let surfaces = self.surfaces.lock();
@@ -73,17 +78,17 @@ impl WlBuffer {
                 surface.buffer.set(None);
             }
         }
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlBufferError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
+            DESTROY => self.destroy(parser)?,
             _ => unreachable!(),
         }
         Ok(())

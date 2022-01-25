@@ -114,7 +114,7 @@ impl Objects {
         Ok(())
     }
 
-    pub async fn remove_obj(&self, client_data: &Client, id: ObjectId) -> Result<(), ClientError> {
+    pub fn remove_obj(&self, client_data: &Rc<Client>, id: ObjectId) -> Result<(), ClientError> {
         let _obj = match self.registry.remove(&id) {
             Some(o) => o,
             _ => return Err(ClientError::UnknownId),
@@ -129,9 +129,7 @@ impl Objects {
             }
             ids[pos] |= 1 << seg_offset;
         }
-        client_data
-            .event(client_data.display()?.delete_id(id))
-            .await?;
+        client_data.event(client_data.display()?.delete_id(id));
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, DynEventFormatter, WlEvent};
+use crate::client::{Client, DynEventFormatter};
 use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
 use crate::ifs::wl_output::{WlOutputError, WlOutputGlobal};
@@ -13,10 +13,7 @@ use crate::{
     NumCell, State, WlCompositorGlobal, WlDataDeviceManagerGlobal, WlShmGlobal,
     WlSubcompositorGlobal, XdgWmBaseGlobal,
 };
-use ahash::AHashSet;
 use std::fmt::{Display, Formatter};
-use std::future::Future;
-use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -24,8 +21,6 @@ use thiserror::Error;
 pub enum GlobalError {
     #[error("The requested global {0} does not exist")]
     GlobalDoesNotExist(GlobalName),
-    #[error("An error occurred while trying to send all globals via a new registry")]
-    SendAllError(#[source] Box<ClientError>),
     #[error("An error occurred in a wl_compositor")]
     WlCompositorError(#[source] Box<WlCompositorError>),
     #[error("An error occurred in a wl_shm")]
@@ -81,7 +76,7 @@ pub trait GlobalBind {
         client: &'a Rc<Client>,
         id: ObjectId,
         version: u32,
-    ) -> Pin<Box<dyn Future<Output = Result<(), GlobalError>> + 'a>>;
+    ) -> Result<(), GlobalError>;
 }
 
 pub trait Global: GlobalBind {
@@ -123,61 +118,44 @@ impl Globals {
         self.registry.set(global.name(), global.clone());
     }
 
-    async fn insert<'a>(&'a self, state: &'a State, global: Rc<dyn Global>) {
+    fn insert(&self, state: &State, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
-        self.broadcast(state, |r| r.global(&global)).await;
+        self.broadcast(state, |r| r.global(&global));
     }
 
     pub fn get(&self, name: GlobalName) -> Result<Rc<dyn Global>, GlobalError> {
         self.take(name, false)
     }
 
-    pub async fn remove(&self, state: &State, name: GlobalName) -> Result<(), GlobalError> {
+    pub fn remove(&self, state: &State, name: GlobalName) -> Result<(), GlobalError> {
         let _global = self.take(name, true)?;
-        self.broadcast(state, |r| r.global_remove(name)).await;
+        self.broadcast(state, |r| r.global_remove(name));
         Ok(())
     }
 
-    pub async fn notify_all(
-        &self,
-        client: &Client,
-        registry: &Rc<WlRegistry>,
-    ) -> Result<(), GlobalError> {
+    pub fn notify_all(&self, client: &Rc<Client>, registry: &Rc<WlRegistry>) {
         let globals = self.registry.lock();
         macro_rules! emit {
             ($singleton:expr) => {
                 for global in globals.values() {
                     if global.singleton() == $singleton {
-                        if let Err(e) = client.event(registry.global(global)).await {
-                            return Err(GlobalError::SendAllError(Box::new(e)));
-                        }
+                        client.event(registry.global(global));
                     }
                 }
             };
         }
         emit!(true);
         emit!(false);
-        Ok(())
     }
 
-    async fn broadcast<F: Fn(&Rc<WlRegistry>) -> DynEventFormatter>(&self, state: &State, f: F) {
-        let mut clients_to_check = AHashSet::new();
+    fn broadcast<F: Fn(&Rc<WlRegistry>) -> DynEventFormatter>(&self, state: &State, f: F) {
         state.clients.broadcast(|c| {
             let registries = c.lock_registries();
             for registry in registries.values() {
-                if c.event_locked(f(registry)) {
-                    clients_to_check.insert(c.id);
-                }
+                c.event(f(registry));
             }
-            if c.event2_locked(WlEvent::Flush) {
-                clients_to_check.insert(c.id);
-            }
+            c.flush();
         });
-        for client in clients_to_check.drain() {
-            if let Ok(c) = state.clients.get(client) {
-                let _ = c.check_queue_size().await;
-            }
-        }
     }
 
     fn take(&self, name: GlobalName, remove: bool) -> Result<Rc<dyn Global>, GlobalError> {
@@ -202,27 +180,17 @@ impl Globals {
 }
 
 pub trait AddGlobal<T> {
-    type RemoveGlobal<'a>: Future<Output = Result<(), GlobalError>> + 'a;
-    type AddGlobal<'a>: Future<Output = ()> + 'a;
-
-    fn add_global<'a>(&'a self, state: &'a State, global: &'a Rc<T>) -> Self::AddGlobal<'a>;
+    fn add_global(&self, state: &State, global: &Rc<T>);
 
     fn add_global_no_broadcast(&self, global: &Rc<T>);
 
-    fn remove_global<'a>(&'a self, state: &'a State, global: &'a T) -> Self::RemoveGlobal<'a>;
+    fn remove_global(&self, state: &State, global: &T) -> Result<(), GlobalError>;
 }
 
 macro_rules! simple_add_global {
     ($ty:ty) => {
         impl AddGlobal<$ty> for Globals {
-            type RemoveGlobal<'a> = impl Future<Output = Result<(), GlobalError>> + 'a;
-            type AddGlobal<'a> = impl Future<Output = ()> + 'a;
-
-            fn add_global<'a>(
-                &'a self,
-                state: &'a State,
-                global: &'a Rc<$ty>,
-            ) -> Self::AddGlobal<'a> {
+            fn add_global(&self, state: &State, global: &Rc<$ty>) {
                 self.insert(state, global.clone())
             }
 
@@ -230,11 +198,7 @@ macro_rules! simple_add_global {
                 self.insert_no_broadcast(global.clone());
             }
 
-            fn remove_global<'a>(
-                &'a self,
-                state: &'a State,
-                global: &'a $ty,
-            ) -> Self::RemoveGlobal<'a> {
+            fn remove_global(&self, state: &State, global: &$ty) -> Result<(), GlobalError> {
                 self.remove(state, global.name())
             }
         }
@@ -251,18 +215,9 @@ simple_add_global!(WlDataDeviceManagerGlobal);
 macro_rules! dedicated_add_global {
     ($ty:ty, $field:ident) => {
         impl AddGlobal<$ty> for Globals {
-            type RemoveGlobal<'a> = impl Future<Output = Result<(), GlobalError>> + 'a;
-            type AddGlobal<'a> = impl Future<Output = ()> + 'a;
-
-            fn add_global<'a>(
-                &'a self,
-                state: &'a State,
-                global: &'a Rc<$ty>,
-            ) -> Self::AddGlobal<'a> {
-                async move {
-                    self.insert(state, global.clone()).await;
-                    self.$field.set(global.name(), global.clone());
-                }
+            fn add_global(&self, state: &State, global: &Rc<$ty>) {
+                self.insert(state, global.clone());
+                self.$field.set(global.name(), global.clone());
             }
 
             fn add_global_no_broadcast(&self, global: &Rc<$ty>) {
@@ -270,11 +225,7 @@ macro_rules! dedicated_add_global {
                 self.$field.set(global.name(), global.clone());
             }
 
-            fn remove_global<'a>(
-                &'a self,
-                state: &'a State,
-                global: &'a $ty,
-            ) -> Self::RemoveGlobal<'a> {
+            fn remove_global(&self, state: &State, global: &$ty) -> Result<(), GlobalError> {
                 self.$field.remove(&global.name());
                 self.remove(state, global.name())
             }

@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, DynEventFormatter};
+use crate::client::DynEventFormatter;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeatObj;
 use crate::ifs::wl_surface::WlSurfaceId;
@@ -144,26 +144,26 @@ impl WlPointer {
         })
     }
 
-    async fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
+    fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
         let _req: SetCursor = self.seat.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
         self.seat.pointers.remove(&self.id);
-        self.seat.client.remove_obj(self).await?;
+        self.seat.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlPointerError> {
         match request {
-            SET_CURSOR => self.set_cursor(parser).await?,
-            RELEASE => self.release(parser).await?,
+            SET_CURSOR => self.set_cursor(parser)?,
+            RELEASE => self.release(parser)?,
             _ => unreachable!(),
         }
         Ok(())

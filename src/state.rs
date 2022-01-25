@@ -1,12 +1,16 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
 use crate::backend::{BackendEvent, OutputId, OutputIds, SeatId, SeatIds};
-use crate::client::Clients;
+use crate::client::{Client, Clients};
 use crate::event_loop::EventLoop;
 use crate::format::Format;
 use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_output::WlOutputGlobal;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::tree::{DisplayNode, NodeIds};
+use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::Wheel;
@@ -28,15 +32,30 @@ pub struct State {
     pub root: Rc<DisplayNode>,
     pub backend_events: AsyncQueue<BackendEvent>,
     pub output_handlers: RefCell<AHashMap<OutputId, SpawnedFuture<()>>>,
-    pub seat_handlers: RefCell<AHashMap<SeatId, SpawnedFuture<()>>>,
+    pub seats: RefCell<AHashMap<SeatId, SeatData>>,
     pub outputs: CopyHashMap<OutputId, Rc<WlOutputGlobal>>,
+    pub seat_queue: LinkedList<Rc<WlSeatGlobal>>,
+    pub slow_clients: AsyncQueue<Rc<Client>>,
+    pub none_surface_ext: Rc<NoneSurfaceExt>,
+}
+
+pub struct SeatData {
+    pub handler: SpawnedFuture<()>,
+    pub tree_changed: Rc<AsyncEvent>,
 }
 
 impl State {
-    pub async fn add_global<T>(&self, global: &Rc<T>)
+    pub fn add_global<T>(&self, global: &Rc<T>)
     where
         Globals: AddGlobal<T>,
     {
-        self.globals.add_global(self, global).await
+        self.globals.add_global(self, global)
+    }
+
+    pub fn tree_changed(&self) {
+        let seats = self.seats.borrow();
+        for seat in seats.values() {
+            seat.tree_changed.trigger();
+        }
     }
 }

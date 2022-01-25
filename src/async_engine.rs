@@ -480,7 +480,7 @@ mod queue {
         }
 
         pub fn iteration(&self) -> u64 {
-            self.iteration.load()
+            self.iteration.get()
         }
     }
 }

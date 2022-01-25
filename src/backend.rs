@@ -7,8 +7,8 @@ linear_ids!(SeatIds, SeatId);
 pub trait Output {
     fn id(&self) -> OutputId;
     fn removed(&self) -> bool;
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
+    fn width(&self) -> i32;
+    fn height(&self) -> i32;
     fn on_change(&self, cb: Rc<dyn Fn()>);
 }
 

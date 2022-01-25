@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::object::{Interface, Object, ObjectId};
@@ -30,7 +30,7 @@ impl WlSubcompositorGlobal {
         Self { name }
     }
 
-    async fn bind_(
+    fn bind_(
         self: Rc<Self>,
         id: WlSubcompositorId,
         client: &Rc<Client>,
@@ -46,13 +46,13 @@ impl WlSubcompositorGlobal {
 }
 
 impl WlSubcompositorObj {
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn get_subsurface(&self, parser: MsgParser<'_, '_>) -> Result<(), GetSubsurfaceError> {
+    fn get_subsurface(&self, parser: MsgParser<'_, '_>) -> Result<(), GetSubsurfaceError> {
         let req: GetSubsurface = self.client.parse(self, parser)?;
         let surface = self.client.get_surface(req.surface)?;
         let parent = self.client.get_surface(req.parent)?;
@@ -62,14 +62,14 @@ impl WlSubcompositorObj {
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlSubcompositorError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
-            GET_SUBSURFACE => self.get_subsurface(parser).await?,
+            DESTROY => self.destroy(parser)?,
+            GET_SUBSURFACE => self.get_subsurface(parser)?,
             _ => unreachable!(),
         }
         Ok(())

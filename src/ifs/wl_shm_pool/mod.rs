@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::clientmem::ClientMem;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::object::{Interface, Object, ObjectId};
@@ -38,7 +38,7 @@ impl WlShmPool {
         })
     }
 
-    async fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
+    fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
         let req: CreateBuffer = self.client.parse(self, parser)?;
         let format = match self.client.state.formats.get(&req.format) {
             Some(f) => *f,
@@ -51,9 +51,9 @@ impl WlShmPool {
             req.id,
             &self.client,
             req.offset as usize,
-            req.width as u32,
-            req.height as u32,
-            req.stride as u32,
+            req.width,
+            req.height,
+            req.stride,
             format,
             &self.mem.get(),
         )?);
@@ -61,13 +61,13 @@ impl WlShmPool {
         Ok(())
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
+    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
         let req: Resize = self.client.parse(self, parser)?;
         if req.size < 0 {
             return Err(ResizeError::NegativeSize);
@@ -80,15 +80,15 @@ impl WlShmPool {
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlShmPoolError> {
         match request {
-            CREATE_BUFFER => self.create_buffer(parser).await?,
-            DESTROY => self.destroy(parser).await?,
-            RESIZE => self.resize(parser).await?,
+            CREATE_BUFFER => self.create_buffer(parser)?,
+            DESTROY => self.destroy(parser)?,
+            RESIZE => self.resize(parser)?,
             _ => unreachable!(),
         }
         Ok(())

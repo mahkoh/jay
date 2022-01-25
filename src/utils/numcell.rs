@@ -13,12 +13,17 @@ impl<T> NumCell<T> {
     }
 
     #[inline(always)]
+    pub fn set(&self, n: T) {
+        let _ = self.t.replace(n);
+    }
+
+    #[inline(always)]
     pub fn replace(&self, n: T) -> T {
         self.t.replace(n)
     }
 
     #[inline(always)]
-    pub fn load(&self) -> T
+    pub fn get(&self) -> T
     where
         T: Copy,
     {

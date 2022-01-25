@@ -2,6 +2,8 @@ mod consts;
 
 include!(concat!(env!("OUT_DIR"), "/pixman_tys.rs"));
 
+use crate::rect::Rect;
+use crate::render::Border;
 use crate::ClientMemError;
 pub use consts::*;
 use std::cell::Cell;
@@ -24,6 +26,7 @@ extern "C" {
     fn pixman_region32_copy(dst: *mut Region, src: *const Region);
     fn pixman_region32_union(dst: *mut Region, a: *const Region, b: *const Region);
     fn pixman_region32_subtract(dst: *mut Region, a: *const Region, b: *const Region);
+    fn pixman_image_set_clip_region32(image: *mut PixmanImage, region: *const Region);
     fn pixman_image_create_bits_no_clear(
         format: PixmanFormat,
         width: c::c_int,
@@ -99,7 +102,7 @@ impl Region {
         slf
     }
 
-    pub fn rect(x: i32, y: i32, width: u32, height: u32) -> Self {
+    pub fn rect(x: i32, y: i32, width: i32, height: i32) -> Self {
         let mut new = Region::new();
         unsafe {
             pixman_region32_init_rect(&mut new, x as _, y as _, width as _, height as _);
@@ -180,6 +183,7 @@ pub struct Image<T> {
     width: u32,
     height: u32,
     memory: T,
+    clip: Cell<Option<Region>>,
 }
 
 impl<T: PixmanMemory> Image<T>
@@ -227,7 +231,25 @@ where
             width,
             height,
             memory,
+            clip: Cell::new(None),
         })
+    }
+
+    pub fn with_clip<F: FnOnce()>(&self, clip: Rect, f: F) {
+        let region = Region::rect(clip.x1(), clip.y1(), clip.width(), clip.height());
+        unsafe {
+            pixman_image_set_clip_region32(self.data, &region);
+        }
+        let region = self.clip.replace(Some(region));
+        f();
+        unsafe {
+            let region = region
+                .as_ref()
+                .map(|p| p as *const _)
+                .unwrap_or(ptr::null());
+            pixman_image_set_clip_region32(self.data, region);
+        }
+        self.clip.set(region);
     }
 
     pub fn fill(&self, r: u8, g: u8, b: u8, a: u8) -> Result<(), PixmanError> {
@@ -247,7 +269,12 @@ where
         y2: i32,
     ) -> Result<(), PixmanError> {
         self.memory.access(|_| {
-            let bx = Box32 { x1, y1, x2, y2 };
+            let bx = Box32 {
+                x1: x1.max(0),
+                y1: y1.max(0),
+                x2: x2.min(self.width as i32),
+                y2: y2.min(self.height as i32),
+            };
             let color = Color {
                 red: (r as u16) << 8,
                 green: (g as u16) << 8,
@@ -262,7 +289,7 @@ where
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn fill_insert_border(
+    pub fn fill_inner_border(
         &self,
         r: u8,
         g: u8,
@@ -273,34 +300,27 @@ where
         x2: i32,
         y2: i32,
         width: i32,
+        borders: Border,
     ) -> Result<(), PixmanError> {
         self.memory.access(|_| {
             let mut bx = [
-                Box32 {
-                    x1,
-                    y1,
-                    x2,
-                    y2: y1 + width,
-                },
-                Box32 {
-                    x1: x2 - width,
-                    y1,
-                    x2,
-                    y2,
-                },
-                Box32 {
-                    x1,
-                    y1,
-                    x2: x1 + width,
-                    y2,
-                },
-                Box32 {
-                    x1,
-                    y1: y2 - width,
-                    x2,
-                    y2,
-                },
+                Box32 { x1, y1, x2, y2: y1 },
+                Box32 { x1: x2, y1, x2, y2 },
+                Box32 { x1, y1, x2: x1, y2 },
+                Box32 { x1, y1: y2, x2, y2 },
             ];
+            if borders.contains(Border::TOP) {
+                bx[0].y2 += width;
+            }
+            if borders.contains(Border::RIGHT) {
+                bx[1].x1 -= width;
+            }
+            if borders.contains(Border::LEFT) {
+                bx[2].x2 += width;
+            }
+            if borders.contains(Border::BOTTOM) {
+                bx[3].y1 -= width;
+            }
             for bx in &mut bx {
                 bx.x1 = bx.x1.max(0).min(self.width as i32);
                 bx.x2 = bx.x2.max(0).min(self.width as i32);

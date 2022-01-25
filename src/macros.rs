@@ -11,17 +11,13 @@ macro_rules! efrom {
 macro_rules! handle_request {
     ($oname:ty) => {
         impl crate::object::ObjectHandleRequest for $oname {
-            fn handle_request<'a>(
+            fn handle_request(
                 self: std::rc::Rc<Self>,
                 request: u32,
-                parser: crate::utils::buffd::MsgParser<'a, 'a>,
-            ) -> std::pin::Pin<
-                Box<dyn std::future::Future<Output = Result<(), crate::client::ClientError>> + 'a>,
-            > {
-                Box::pin(async move {
-                    self.handle_request_(request, parser).await?;
-                    Ok(())
-                })
+                parser: crate::utils::buffd::MsgParser<'_, '_>,
+            ) -> Result<(), crate::client::ClientError> {
+                self.handle_request_(request, parser)?;
+                Ok(())
             }
         }
     };
@@ -35,13 +31,9 @@ macro_rules! bind {
                 client: &'a std::rc::Rc<crate::client::Client>,
                 id: crate::object::ObjectId,
                 version: u32,
-            ) -> std::pin::Pin<
-                Box<dyn std::future::Future<Output = Result<(), crate::globals::GlobalError>> + 'a>,
-            > {
-                Box::pin(async move {
-                    self.bind_(id.into(), client, version).await?;
-                    Ok(())
-                })
+            ) -> Result<(), crate::globals::GlobalError> {
+                self.bind_(id.into(), client, version)?;
+                Ok(())
             }
         }
     };
@@ -167,6 +159,50 @@ macro_rules! bitor {
 
             pub fn is_some(self) -> bool {
                 self.0 != 0
+            }
+        }
+    };
+}
+
+macro_rules! tree_id {
+    ($id:ident) => {
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        pub struct $id(u32);
+
+        impl $id {
+            #[allow(dead_code)]
+            pub fn raw(&self) -> u32 {
+                self.0
+            }
+        }
+
+        impl std::fmt::Display for $id {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+
+        impl From<crate::tree::NodeId> for $id {
+            fn from(v: crate::tree::NodeId) -> $id {
+                $id(v.0)
+            }
+        }
+
+        impl From<$id> for crate::tree::NodeId {
+            fn from(v: $id) -> crate::tree::NodeId {
+                crate::tree::NodeId(v.0)
+            }
+        }
+
+        impl PartialEq<crate::tree::NodeId> for $id {
+            fn eq(&self, other: &crate::tree::NodeId) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        impl PartialEq<$id> for crate::tree::NodeId {
+            fn eq(&self, other: &$id) -> bool {
+                self.0 == other.0
             }
         }
     };

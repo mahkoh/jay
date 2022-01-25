@@ -1,12 +1,15 @@
 use crate::client::{ClientError, RequestParser};
 use crate::ifs::wl_callback::WlCallbackId;
 use crate::ifs::wl_region::WlRegionId;
+use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
     #[error("Could not process `destroy` request")]
     DestroyError(#[source] Box<DestroyError>),
     #[error("Could not process `attach` request")]
@@ -27,7 +30,14 @@ pub enum WlSurfaceError {
     SetBufferScaleError(#[source] Box<SetBufferScaleError>),
     #[error("Could not process `damage_buffer` request")]
     DamageBufferError(#[source] Box<DamageBufferError>),
+    #[error("Surface {} cannot be assigned the role {} because it already has the role {}", .id, .new.name(), .old.name())]
+    IncompatibleRole {
+        id: WlSurfaceId,
+        old: SurfaceRole,
+        new: SurfaceRole,
+    },
 }
+efrom!(WlSurfaceError, ClientError, ClientError);
 efrom!(WlSurfaceError, DestroyError, DestroyError);
 efrom!(WlSurfaceError, AttachError, AttachError);
 efrom!(WlSurfaceError, DamageError, DamageError);
@@ -104,11 +114,14 @@ efrom!(SetInputRegionError, ClientError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CommitError {
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
+efrom!(CommitError, WlSurfaceError, WlSurfaceError);
 efrom!(CommitError, ParseFailed, MsgParserError);
 efrom!(CommitError, ClientError, ClientError);
 

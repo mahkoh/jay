@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{AddObj, Client};
+use crate::client::Client;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
@@ -35,31 +35,31 @@ impl WlDataDevice {
         }
     }
 
-    async fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
+    fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
         let _req: StartDrag = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
+    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
         let _req: SetSelection = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    async fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlDataDeviceError> {
         match request {
-            START_DRAG => self.start_drag(parser).await?,
-            SET_SELECTION => self.set_selection(parser).await?,
-            RELEASE => self.release(parser).await?,
+            START_DRAG => self.start_drag(parser)?,
+            SET_SELECTION => self.set_selection(parser)?,
+            RELEASE => self.release(parser)?,
             _ => unreachable!(),
         }
         Ok(())

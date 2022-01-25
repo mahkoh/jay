@@ -2,26 +2,27 @@ mod types;
 pub mod wl_subsurface;
 pub mod xdg_surface;
 
-use crate::client::{AddObj, Client, RequestParser};
+use crate::client::{Client, RequestParser};
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
-use crate::tree::{NodeBase, NodeCommon, ToplevelNode};
+use crate::rect::Rect;
+use crate::tree::{Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::linkedlist::{LinkedList, Node as LinkNode};
+use crate::utils::linkedlist::LinkedList;
+use crate::NumCell;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
+use crate::backend::{KeyState, ScrollAxis};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -53,6 +54,8 @@ pub enum SurfaceRole {
     None,
     Subsurface,
     XdgSurface,
+    XdgPopup,
+    XdgToplevel,
 }
 
 impl SurfaceRole {
@@ -61,213 +64,189 @@ impl SurfaceRole {
             SurfaceRole::None => "none",
             SurfaceRole::Subsurface => "subsurface",
             SurfaceRole::XdgSurface => "xdg_surface",
+            SurfaceRole::XdgPopup => "xdg_popup",
+            SurfaceRole::XdgToplevel => "xdg_toplevel",
         }
     }
 }
 
 pub struct WlSurface {
     pub id: WlSurfaceId,
+    pub node_id: SurfaceNodeId,
     pub client: Rc<Client>,
     role: Cell<SurfaceRole>,
     pending: PendingState,
     input_region: Cell<Option<Region>>,
     opaque_region: Cell<Option<Region>>,
-    pub extents: Cell<SurfaceExtents>,
-    pub effective_extents: Cell<SurfaceExtents>,
+    pub extents: Cell<Rect>,
+    pub need_extents_update: Cell<bool>,
+    pub effective_extents: Cell<Rect>,
     pub buffer: CloneCell<Option<Rc<WlBuffer>>>,
+    pub buf_x: NumCell<i32>,
+    pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
-    role_data: RefCell<RoleData>,
+    ext: CloneCell<Rc<dyn SurfaceExt>>,
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
-pub struct SurfaceExtents {
-    pub x1: i32,
-    pub y1: i32,
-    pub x2: i32,
-    pub y2: i32,
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum CommitContext {
+    RootCommit,
+    ChildCommit,
 }
 
-enum RoleData {
-    None,
-    Subsurface(Box<SubsurfaceData>),
-    XdgSurface(Box<XdgSurfaceData>),
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum CommitAction {
+    ContinueCommit,
+    AbortCommit,
 }
 
-impl RoleData {
+trait SurfaceExt {
+    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> CommitAction {
+        let _ = ctx;
+        CommitAction::ContinueCommit
+    }
+
+    fn post_commit(&self) {
+        // nothing
+    }
+
     fn is_some(&self) -> bool {
-        !matches!(self, RoleData::None)
+        true
+    }
+
+    fn update_subsurface_parent_extents(&self) {
+        // nothing
+    }
+
+    fn subsurface_parent(&self) -> Option<Rc<WlSurface>> {
+        None
+    }
+
+    fn extents_changed(&self) {
+        // nothing
+    }
+
+    fn into_subsurface(self: Rc<Self>) -> Option<Rc<WlSubsurface>> {
+        None
+    }
+
+    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
+        None
+    }
+}
+
+pub struct NoneSurfaceExt;
+
+impl SurfaceExt for NoneSurfaceExt {
+    fn is_some(&self) -> bool {
+        false
     }
 }
 
 #[derive(Default)]
 struct PendingState {
+    buffer: Cell<Option<Option<(i32, i32, Rc<WlBuffer>)>>>,
     opaque_region: Cell<Option<Region>>,
     input_region: Cell<Option<Region>>,
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
 }
 
-struct XdgSurfaceData {
-    xdg_surface: Rc<XdgSurface>,
-    requested_serial: u32,
-    acked_serial: Option<u32>,
-    role: XdgSurfaceRole,
-    extents: Option<SurfaceExtents>,
-    role_data: XdgSurfaceRoleData,
-    popups: CopyHashMap<WlSurfaceId, Rc<XdgPopup>>,
-    pending: PendingXdgSurfaceData,
-}
-
-#[derive(Default)]
-struct PendingXdgSurfaceData {
-    extents: Cell<Option<SurfaceExtents>>,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-enum XdgSurfaceRole {
-    None,
-    Popup,
-    Toplevel,
-}
-
-impl XdgSurfaceRole {
-    fn is_compatible(self, role: XdgSurfaceRole) -> bool {
-        self == XdgSurfaceRole::None || self == role
-    }
-}
-
-enum XdgSurfaceRoleData {
-    None,
-    Popup(XdgPopupData),
-    Toplevel(XdgToplevelData),
-}
-
-impl XdgSurfaceRoleData {
-    fn is_some(&self) -> bool {
-        !matches!(self, XdgSurfaceRoleData::None)
-    }
-}
-
-struct XdgPopupData {
-    _popup: Rc<XdgPopup>,
-    parent: Option<Rc<XdgSurface>>,
-}
-
-struct XdgToplevelData {
-    toplevel: Rc<XdgToplevel>,
-    node: Option<ToplevelNodeHolder>,
-}
-
-struct ToplevelNodeHolder {
-    node: Rc<ToplevelNode>,
-}
-
-impl Drop for ToplevelNodeHolder {
-    fn drop(&mut self) {
-        mem::take(&mut *self.node.common.floating_outputs.borrow_mut());
-    }
-}
-
-struct SubsurfaceData {
-    subsurface: Rc<WlSubsurface>,
-    x: i32,
-    y: i32,
-    sync_requested: bool,
-    sync_ancestor: bool,
-    node: LinkNode<StackElement>,
-    depth: u32,
-    pending: PendingSubsurfaceData,
-}
-
-#[derive(Default)]
-struct PendingSubsurfaceData {
-    node: Option<LinkNode<StackElement>>,
-    position: Option<(i32, i32)>,
-}
-
 #[derive(Default)]
 pub struct ParentData {
-    subsurfaces: AHashMap<WlSurfaceId, Rc<WlSurface>>,
+    subsurfaces: AHashMap<WlSurfaceId, Rc<WlSubsurface>>,
     pub below: LinkedList<StackElement>,
     pub above: LinkedList<StackElement>,
 }
 
 pub struct StackElement {
-    pending: Cell<bool>,
-    pub surface: Rc<WlSurface>,
+    pub pending: Cell<bool>,
+    pub sub_surface: Rc<WlSubsurface>,
 }
 
 impl WlSurface {
     pub fn new(id: WlSurfaceId, client: &Rc<Client>) -> Self {
         Self {
             id,
+            node_id: client.state.node_ids.next(),
             client: client.clone(),
             role: Cell::new(SurfaceRole::None),
             pending: Default::default(),
             input_region: Cell::new(None),
             opaque_region: Cell::new(None),
             extents: Default::default(),
+            need_extents_update: Cell::new(false),
             effective_extents: Default::default(),
             buffer: CloneCell::new(None),
+            buf_x: Default::default(),
+            buf_y: Default::default(),
             children: Default::default(),
-            role_data: RefCell::new(RoleData::None),
+            ext: CloneCell::new(client.state.none_surface_ext.clone()),
             frame_requests: RefCell::new(vec![]),
         }
     }
 
-    pub fn subsurface_position(&self) -> Option<(i32, i32)> {
-        let rd = self.role_data.borrow();
-        match rd.deref() {
-            RoleData::Subsurface(ss) => Some((ss.x, ss.y)),
-            _ => None,
+    fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
+        use SurfaceRole::*;
+        match (self.role.get(), role) {
+            (None, _) => {}
+            (old, new) if old == new => {}
+            (XdgSurface, XdgPopup) => {}
+            (XdgSurface, XdgToplevel) => {}
+            (old, new) => {
+                return Err(WlSurfaceError::IncompatibleRole {
+                    id: self.id,
+                    old,
+                    new,
+                })
+            }
         }
+        self.role.set(role);
+        Ok(())
+    }
+
+    fn unset_ext(&self) {
+        self.ext.set(self.client.state.none_surface_ext.clone());
     }
 
     fn calculate_extents(&self) {
-        {
-            let mut extents = SurfaceExtents::default();
-            if let Some(b) = self.buffer.get() {
-                extents.x2 = b.width as i32;
-                extents.y2 = b.height as i32;
-            }
-            let children = self.children.borrow();
-            if let Some(children) = &*children {
-                for surface in children.subsurfaces.values() {
-                    let rd = surface.role_data.borrow();
-                    if let RoleData::Subsurface(ss) = &*rd {
-                        let ss_extents = surface.extents.get();
-                        extents.x1 = extents.x1.min(ss_extents.x1 + ss.x);
-                        extents.y1 = extents.y1.min(ss_extents.y1 + ss.y);
-                        extents.x2 = extents.x2.max(ss_extents.x2 + ss.x);
-                        extents.y2 = extents.y2.max(ss_extents.y2 + ss.y);
-                    }
+        let old_extents = self.extents.get();
+        let mut extents = Rect::new_empty(0, 0);
+        if let Some(b) = self.buffer.get() {
+            extents = b.rect;
+        }
+        let children = self.children.borrow();
+        if let Some(children) = &*children {
+            for ss in children.subsurfaces.values() {
+                let ce = ss.surface.extents.get();
+                if !ce.is_empty() {
+                    let cp = ss.position.get();
+                    let ce = ce.move_(cp.x1(), cp.y1());
+                    extents = if extents.is_empty() {
+                        ce
+                    } else {
+                        extents.union(ce)
+                    };
                 }
             }
-            self.extents.set(extents);
         }
-        let parent = {
-            let rd = self.role_data.borrow();
-            match &*rd {
-                RoleData::Subsurface(ss) => ss.subsurface.parent.clone(),
-                _ => return,
-            }
-        };
-        parent.calculate_extents();
+        self.extents.set(extents);
+        self.need_extents_update.set(false);
+        if old_extents != extents {
+            self.ext.get().extents_changed()
+        }
     }
 
     pub fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
         let mut root = self.clone();
         loop {
-            let tmp = root;
-            let data = tmp.role_data.borrow();
-            match &*data {
-                RoleData::Subsurface(d) => root = d.subsurface.parent.clone(),
-                _ => {
-                    drop(data);
-                    return tmp;
-                }
+            if let Some(parent) = root.ext.get().subsurface_parent() {
+                root = parent;
+                continue;
             }
+            break;
         }
+        root
     }
 
     fn parse<'a, T: RequestParser<'a>>(
@@ -277,16 +256,16 @@ impl WlSurface {
         self.client.parse(self, parser)
     }
 
-    async fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.parse(parser)?;
-        if self.role_data.borrow().is_some() {
+        if self.ext.get().is_some() {
             return Err(DestroyError::ReloObjectStillExists);
         }
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
-                for surface in children.subsurfaces.values() {
-                    *surface.role_data.borrow_mut() = RoleData::None;
+                for ss in children.subsurfaces.values() {
+                    ss.surface.unset_ext();
                 }
             }
             *children = None;
@@ -297,62 +276,27 @@ impl WlSurface {
                 buffer.surfaces.remove(&self.id);
             }
         }
-        self.client.remove_obj(self).await?;
+        self.client.remove_obj(self)?;
         Ok(())
     }
 
-    async fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
+    fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
         let req: Attach = self.parse(parser)?;
-        {
-            if let Some(buffer) = self.buffer.take() {
-                self.client.event(buffer.release()).await?;
-                buffer.surfaces.remove(&self.id);
-            }
-            let mut rd = self.role_data.borrow_mut();
-            if req.buffer.is_some() {
-                self.buffer.set(Some(self.client.get_buffer(req.buffer)?));
-                if let RoleData::XdgSurface(xdg) = &mut *rd {
-                    if let XdgSurfaceRoleData::Toplevel(td) = &mut xdg.role_data {
-                        if td.node.is_none() {
-                            let outputs = self.client.state.root.outputs.lock();
-                            if let Some(output) = outputs.values().next() {
-                                let node = Rc::new(ToplevelNode {
-                                    common: NodeCommon {
-                                        extents: Cell::new(Default::default()),
-                                        id: self.client.state.node_ids.next(),
-                                        parent: Some(output.clone()),
-                                        floating_outputs: RefCell::new(Default::default()),
-                                    },
-                                    surface: td.toplevel.clone(),
-                                });
-                                td.node = Some(ToplevelNodeHolder { node: node.clone() });
-                                let link = output.floating.add_last(node.clone());
-                                node.common
-                                    .floating_outputs
-                                    .borrow_mut()
-                                    .insert(output.id(), link);
-                            }
-                        }
-                    }
-                }
-            } else {
-                self.buffer.set(None);
-                if let RoleData::XdgSurface(xdg) = &mut *rd {
-                    if let XdgSurfaceRoleData::Toplevel(td) = &mut xdg.role_data {
-                        td.node = None;
-                    }
-                }
-            }
-        }
+        let buf = if req.buffer.is_some() {
+            Some((req.x, req.y, self.client.get_buffer(req.buffer)?))
+        } else {
+            None
+        };
+        self.pending.buffer.set(Some(buf));
         Ok(())
     }
 
-    async fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
+    fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
         let _req: Damage = self.parse(parser)?;
         Ok(())
     }
 
-    async fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
+    fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
         let req: Frame = self.parse(parser)?;
         let cb = Rc::new(WlCallback::new(req.callback));
         self.client.add_client_obj(&cb)?;
@@ -360,49 +304,57 @@ impl WlSurface {
         Ok(())
     }
 
-    async fn set_opaque_region(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), SetOpaqueRegionError> {
+    fn set_opaque_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetOpaqueRegionError> {
         let region: SetOpaqueRegion = self.parse(parser)?;
         let region = self.client.get_region(region.region)?;
         self.pending.opaque_region.set(Some(region.region()));
         Ok(())
     }
 
-    async fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
+    fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
         let req: SetInputRegion = self.parse(parser)?;
         let region = self.client.get_region(req.region)?;
         self.pending.input_region.set(Some(region.region()));
         Ok(())
     }
 
-    fn do_commit(&self) {
-        let mut xdg_extents = None;
-        let mut td_node = None;
+    fn do_commit(&self, ctx: CommitContext) {
+        let ext = self.ext.get();
+        if ext.clone().pre_commit(ctx) == CommitAction::AbortCommit {
+            return;
+        }
         {
-            let mut rd = self.role_data.borrow_mut();
-            match &mut *rd {
-                RoleData::None => {}
-                RoleData::Subsurface(ss) => {
-                    if let Some(v) = ss.pending.node.take() {
-                        v.pending.set(false);
-                        ss.node = v;
-                    }
-                    if let Some((x, y)) = ss.pending.position.take() {
-                        ss.x = x;
-                        ss.y = y;
-                    }
+            let children = self.children.borrow();
+            if let Some(children) = children.deref() {
+                for child in children.subsurfaces.values() {
+                    child.surface.do_commit(CommitContext::ChildCommit);
                 }
-                RoleData::XdgSurface(xdg) => {
-                    if let Some(extents) = xdg.pending.extents.take() {
-                        xdg.extents = Some(extents);
-                    }
-                    xdg_extents = xdg.extents;
-                    if let XdgSurfaceRoleData::Toplevel(tl) = &xdg.role_data {
-                        td_node = tl.node.as_ref().map(|n| n.node.clone());
-                    }
+            }
+        }
+        if let Some(buffer_change) = self.pending.buffer.take() {
+            let mut old_size = None;
+            let mut new_size = None;
+            log::info!("changing buffer");
+            if let Some(buffer) = self.buffer.take() {
+                log::info!("releasing buffer {}", buffer.id());
+                old_size = Some(buffer.rect);
+                self.client.event(buffer.release());
+                buffer.surfaces.remove(&self.id);
+            }
+            if let Some((dx, dy, buffer)) = buffer_change {
+                new_size = Some(buffer.rect);
+                self.buffer.set(Some(buffer));
+                self.buf_x.fetch_add(dx);
+                self.buf_y.fetch_add(dy);
+                if (dx, dy) != (0, 0) {
+                    self.need_extents_update.set(true);
                 }
+            } else {
+                self.buf_x.set(0);
+                self.buf_y.set(0);
+            }
+            if old_size != new_size {
+                self.need_extents_update.set(true);
             }
         }
         {
@@ -417,71 +369,19 @@ impl WlSurface {
                 self.opaque_region.set(Some(region));
             }
         }
-        let mut committed_any_children = false;
-        {
-            let children = self.children.borrow();
-            if let Some(children) = children.deref() {
-                for child in children.subsurfaces.values() {
-                    child.do_commit();
-                    committed_any_children = true;
-                }
-            }
-        }
-        if !committed_any_children {
+        if self.need_extents_update.get() {
             self.calculate_extents();
         }
-        let mut effective_extents = self.extents.get();
-        if let Some(extents) = xdg_extents {
-            effective_extents.x1 = effective_extents.x1.max(extents.x1);
-            effective_extents.y1 = effective_extents.y1.max(extents.y1);
-            effective_extents.x2 = effective_extents.x2.min(extents.x2);
-            effective_extents.y2 = effective_extents.y2.min(extents.y2);
-            if effective_extents.x1 > effective_extents.x2 {
-                effective_extents.x1 = 0;
-                effective_extents.x2 = 0;
-            }
-            if effective_extents.y1 > effective_extents.y2 {
-                effective_extents.y1 = 0;
-                effective_extents.y2 = 0;
-            }
-        }
-        if let Some(node) = td_node {
-            let mut td_extents = node.common.extents.get();
-            td_extents.width = (effective_extents.x2 - effective_extents.x1) as u32;
-            td_extents.height = (effective_extents.y2 - effective_extents.y1) as u32;
-            node.common.extents.set(td_extents);
-        }
-        self.effective_extents.set(effective_extents);
+        ext.post_commit();
     }
 
-    async fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
+    fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
         let _req: Commit = self.parse(parser)?;
-        {
-            let rd = self.role_data.borrow();
-            match rd.deref() {
-                RoleData::Subsurface(ss) => {
-                    if ss.sync_ancestor || ss.sync_requested {
-                        return Ok(());
-                    }
-                }
-                RoleData::XdgSurface(xdg) => {
-                    if xdg.acked_serial != Some(xdg.requested_serial) {
-                        if xdg.acked_serial.is_none() {
-                            self.client
-                                .event(xdg.xdg_surface.configure(xdg.requested_serial))
-                                .await?;
-                        }
-                        return Ok(());
-                    }
-                }
-                _ => {}
-            }
-        }
-        self.do_commit();
+        self.do_commit(CommitContext::RootCommit);
         Ok(())
     }
 
-    async fn set_buffer_transform(
+    fn set_buffer_transform(
         &self,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), SetBufferTransformError> {
@@ -489,35 +389,78 @@ impl WlSurface {
         Ok(())
     }
 
-    async fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), SetBufferScaleError> {
+    fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), SetBufferScaleError> {
         let _req: SetBufferScale = self.parse(parser)?;
         Ok(())
     }
 
-    async fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
+    fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
         let _req: DamageBuffer = self.parse(parser)?;
         Ok(())
     }
 
-    async fn handle_request_(
+    fn handle_request_(
         &self,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlSurfaceError> {
         match request {
-            DESTROY => self.destroy(parser).await?,
-            ATTACH => self.attach(parser).await?,
-            DAMAGE => self.damage(parser).await?,
-            FRAME => self.frame(parser).await?,
-            SET_OPAQUE_REGION => self.set_opaque_region(parser).await?,
-            SET_INPUT_REGION => self.set_input_region(parser).await?,
-            COMMIT => self.commit(parser).await?,
-            SET_BUFFER_TRANSFORM => self.set_buffer_transform(parser).await?,
-            SET_BUFFER_SCALE => self.set_buffer_scale(parser).await?,
-            DAMAGE_BUFFER => self.damage_buffer(parser).await?,
+            DESTROY => self.destroy(parser)?,
+            ATTACH => self.attach(parser)?,
+            DAMAGE => self.damage(parser)?,
+            FRAME => self.frame(parser)?,
+            SET_OPAQUE_REGION => self.set_opaque_region(parser)?,
+            SET_INPUT_REGION => self.set_input_region(parser)?,
+            COMMIT => self.commit(parser)?,
+            SET_BUFFER_TRANSFORM => self.set_buffer_transform(parser)?,
+            SET_BUFFER_SCALE => self.set_buffer_scale(parser)?,
+            DAMAGE_BUFFER => self.damage_buffer(parser)?,
             _ => unreachable!(),
         }
         Ok(())
+    }
+
+    fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
+        let buffer = match self.buffer.get() {
+            Some(b) => b,
+            _ => return None,
+        };
+        let children = self.children.borrow();
+        let children = match children.deref() {
+            Some(c) => c,
+            _ => {
+                return if buffer.rect.contains(x, y) {
+                    Some((self.clone(), x, y))
+                } else {
+                    None
+                };
+            }
+        };
+        let ss = |c: &LinkedList<StackElement>| {
+            for child in c.rev_iter() {
+                if child.pending.get() {
+                    continue;
+                }
+                let pos = child.sub_surface.position.get();
+                if pos.contains(x, y) {
+                    let (x, y) = pos.translate(x, y);
+                    if let Some(res) = child.sub_surface.surface.find_surface_at(x, y) {
+                        return Some(res);
+                    }
+                }
+            }
+            None
+        };
+        if let Some(res) = ss(&children.above) {
+            return Some(res);
+        }
+        if buffer.rect.contains(x, y) {
+            return Some((self.clone(), x, y));
+        }
+        if let Some(res) = ss(&children.below) {
+            return Some(res);
+        }
+        None
     }
 }
 
@@ -538,8 +481,43 @@ impl Object for WlSurface {
 
     fn break_loops(&self) {
         *self.children.borrow_mut() = None;
-        *self.role_data.borrow_mut() = RoleData::None;
+        self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
         self.buffer.set(None);
+    }
+}
+
+tree_id!(SurfaceNodeId);
+impl Node for WlSurface {
+    fn id(&self) -> NodeId {
+        self.node_id.into()
+    }
+
+    fn enter(self: Rc<Self>, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
+        seat.enter_surface(&self, x, y)
+    }
+
+    fn leave(&self, seat: &WlSeatGlobal) {
+        seat.leave_surface(self);
+    }
+
+    fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
+        seat.motion_surface(self, x, y)
+    }
+
+    fn scroll(&self, seat: &WlSeatGlobal, delta: i32, axis: ScrollAxis) {
+        seat.scroll_surface(self, delta, axis);
+    }
+
+    fn button(self: Rc<Self>, seat: &WlSeatGlobal, button: u32, state: KeyState) {
+        seat.button_surface(&self, button, state);
+    }
+
+    fn focus(self: Rc<Self>, seat: &WlSeatGlobal) {
+        seat.focus_surface(&self);
+    }
+
+    fn unfocus(self: Rc<Self>, seat: &WlSeatGlobal) {
+        seat.unfocus_surface(&self);
     }
 }

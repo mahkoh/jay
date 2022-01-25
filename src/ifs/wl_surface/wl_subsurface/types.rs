@@ -1,5 +1,5 @@
 use crate::client::{ClientError, RequestParser};
-use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
+use crate::ifs::wl_surface::{WlSurfaceError, WlSurfaceId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
@@ -18,8 +18,6 @@ pub enum WlSubsurfaceError {
     SetSync(#[from] SetSyncError),
     #[error("Could not process `set_desync` request")]
     SetDesync(#[from] SetDesyncError),
-    #[error("Surface {0} cannot be assigned the role `Subsurface` because it already has the role `{1:?}`")]
-    IncompatibleType(WlSurfaceId, SurfaceRole),
     #[error("Surface {0} already has an attached `wl_subsurface`")]
     AlreadyAttached(WlSurfaceId),
     #[error("Surface {0} cannot be made its own parent")]
@@ -28,7 +26,10 @@ pub enum WlSubsurfaceError {
     Ancestor(WlSurfaceId, WlSurfaceId),
     #[error("Subsurfaces cannot be nested deeper than 100 levels")]
     MaxDepthExceeded,
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
 }
+efrom!(WlSubsurfaceError, WlSurfaceError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
