@@ -40,7 +40,7 @@ impl EglDevice {
             }
             let mut dpy = EglDisplay {
                 exts: DisplayExt::empty(),
-                formats: AHashMap::new(),
+                formats: Rc::new(AHashMap::new()),
                 dev: *self,
                 dpy,
             };
@@ -68,7 +68,7 @@ impl EglDevice {
             if !dpy.exts.intersects(DisplayExt::KHR_SURFACELESS_CONTEXT) {
                 return Err(RenderError::SurfacelessContext);
             }
-            dpy.formats = query_formats(dpy.dpy)?;
+            dpy.formats = Rc::new(query_formats(dpy.dpy)?);
 
             Ok(Rc::new(dpy))
         }

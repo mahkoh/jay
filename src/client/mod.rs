@@ -25,6 +25,8 @@ use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfac
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceError, WlSurfaceId};
 use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerError};
 use crate::ifs::xdg_wm_base::{XdgWmBaseError, XdgWmBaseObj};
+use crate::ifs::zwp_linux_buffer_params_v1::{ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Error};
+use crate::ifs::zwp_linux_dmabuf_v1::{ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Obj};
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
 use crate::utils::buffd::{BufFdError, MsgFormatter, MsgParser, MsgParserError};
@@ -39,6 +41,7 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
+use crate::ifs::wl_drm::{WlDrmError, WlDrmObj};
 
 mod objects;
 mod tasks;
@@ -135,6 +138,12 @@ pub enum ClientError {
     WlDataOfferError(#[source] Box<WlDataOfferError>),
     #[error("An error occurred in a `wl_data_source`")]
     WlDataSourceError(#[source] Box<WlDataSourceError>),
+    #[error("An error occurred in a `zwp_linx_dmabuf_v1`")]
+    ZwpLinuxDmabufV1Error(#[source] Box<ZwpLinuxDmabufV1Error>),
+    #[error("An error occurred in a `zwp_linx_buffer_params_v1`")]
+    ZwpLinuxBufferParamsV1Error(#[source] Box<ZwpLinuxBufferParamsV1Error>),
+    #[error("An error occurred in a `wl_drm`")]
+    WlDrmError(#[source] Box<WlDrmError>),
 }
 
 efrom!(ClientError, ParserError, MsgParserError);
@@ -166,6 +175,13 @@ efrom!(
 efrom!(ClientError, WlDataDeviceError, WlDataDeviceError);
 efrom!(ClientError, WlDataSourceError, WlDataSourceError);
 efrom!(ClientError, WlDataOfferError, WlDataOfferError);
+efrom!(ClientError, ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Error);
+efrom!(
+    ClientError,
+    ZwpLinuxBufferParamsV1Error,
+    ZwpLinuxBufferParamsV1Error
+);
+efrom!(ClientError, WlDrmError, WlDrmError);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -340,7 +356,7 @@ pub struct Client {
     pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
 }
 
-const MAX_PENDING_EVENTS: usize = 100;
+const MAX_PENDING_EVENTS: usize = 10000;
 
 impl Client {
     pub fn invalid_request(&self, obj: &dyn Object, request: u32) {
@@ -362,6 +378,10 @@ impl Client {
                 self.state.clients.kill(self.id);
             }
         }
+    }
+
+    pub fn new_id<T: From<ObjectId>>(&self) -> Result<T, ClientError> {
+        self.objects.id(self)
     }
 
     pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {
@@ -538,6 +558,9 @@ simple_add_obj!(WlDataDeviceManagerObj);
 simple_add_obj!(WlDataDevice);
 simple_add_obj!(WlDataOffer);
 simple_add_obj!(WlDataSource);
+simple_add_obj!(ZwpLinuxDmabufV1Obj);
+simple_add_obj!(ZwpLinuxBufferParamsV1);
+simple_add_obj!(WlDrmObj);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {

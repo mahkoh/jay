@@ -72,6 +72,7 @@ pub enum RenderError {
     #[error("EGL display does not support `EGL_EXT_image_dma_buf_import_modifiers`")]
     DmaBufImport,
     #[error("GLES driver does not support `GL_OES_EGL_image`")]
+    #[allow(dead_code)]
     OesEglImage,
     #[error("EGL display does not support `EGL_KHR_image_base`")]
     ImageBase,
@@ -89,4 +90,6 @@ pub enum RenderError {
     UnknownDrmDevice,
     #[error("The GLES driver does not support the XRGB8888 format")]
     XRGB888,
+    #[error("The DRM device does not have a render node")]
+    NoRenderNode,
 }

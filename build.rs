@@ -144,6 +144,11 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
             "()",
             &[("target", "GLenum"), ("image", "GLeglImageOES")][..],
         ),
+        (
+            "glEGLImageTargetTexture2DOES",
+            "()",
+            &[("target", "GLenum"), ("image", "GLeglImageOES")][..],
+        ),
     ];
 
     writeln!(f, "use std::ptr;")?;

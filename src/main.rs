@@ -26,6 +26,7 @@ use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
+use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
@@ -41,6 +42,7 @@ use log::LevelFilter;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
+use crate::ifs::wl_drm::WlDrmGlobal;
 
 #[macro_use]
 mod macros;
@@ -114,6 +116,8 @@ fn main_() -> Result<(), MainError> {
     globals.add_global_no_broadcast(&Rc::new(WlSubcompositorGlobal::new(globals.name())));
     globals.add_global_no_broadcast(&Rc::new(XdgWmBaseGlobal::new(globals.name())));
     globals.add_global_no_broadcast(&Rc::new(WlDataDeviceManagerGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(ZwpLinuxDmabufV1Global::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(WlDrmGlobal::new(globals.name())));
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         eng: engine.clone(),

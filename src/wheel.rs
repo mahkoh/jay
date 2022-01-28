@@ -120,6 +120,7 @@ impl Wheel {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn periodic(
         &self,
         id: WheelId,

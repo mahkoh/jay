@@ -7,36 +7,42 @@ use crate::ifs::wl_seat::{WlSeatError, WlSeatGlobal};
 use crate::ifs::wl_shm::WlShmError;
 use crate::ifs::wl_subcompositor::WlSubcompositorError;
 use crate::ifs::xdg_wm_base::XdgWmBaseError;
+use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Error;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::{
     NumCell, State, WlCompositorGlobal, WlDataDeviceManagerGlobal, WlShmGlobal,
-    WlSubcompositorGlobal, XdgWmBaseGlobal,
+    WlSubcompositorGlobal, XdgWmBaseGlobal, ZwpLinuxDmabufV1Global,
 };
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
+use crate::ifs::wl_drm::{WlDrmError, WlDrmGlobal};
 
 #[derive(Debug, Error)]
 pub enum GlobalError {
     #[error("The requested global {0} does not exist")]
     GlobalDoesNotExist(GlobalName),
-    #[error("An error occurred in a wl_compositor")]
+    #[error("An error occurred in a `wl_compositor` global")]
     WlCompositorError(#[source] Box<WlCompositorError>),
-    #[error("An error occurred in a wl_shm")]
+    #[error("An error occurred in a `wl_shm` global")]
     WlShmError(#[source] Box<WlShmError>),
-    #[error("An error occurred in a wl_subcompositor")]
+    #[error("An error occurred in a `wl_subcompositor` global")]
     WlSubcompositorError(#[source] Box<WlSubcompositorError>),
-    #[error("An error occurred in a xdg_wm_base")]
+    #[error("An error occurred in a `xdg_wm_base` global")]
     XdgWmBaseError(#[source] Box<XdgWmBaseError>),
-    #[error("An error occurred in a wl_output")]
+    #[error("An error occurred in a `wl_output` global")]
     WlOutputError(#[source] Box<WlOutputError>),
-    #[error("An error occurred in a wl_seat")]
+    #[error("An error occurred in a `wl_seat` global")]
     WlSeatError(#[source] Box<WlSeatError>),
     #[error("The output with id {0} does not exist")]
     OutputDoesNotExist(GlobalName),
-    #[error("An error occurred in a wl_data_device_manager")]
+    #[error("An error occurred in a `wl_data_device_manager` global")]
     WlDataDeviceManagerError(#[source] Box<WlDataDeviceManagerError>),
+    #[error("An error occurred in a `zwp_linux_dmabuf_v1` global")]
+    ZwpLinuxDmabufV1Error(#[source] Box<ZwpLinuxDmabufV1Error>),
+    #[error("An error occurred in a `wl_drm` global")]
+    WlDrmError(#[source] Box<WlDrmError>),
 }
 
 efrom!(GlobalError, WlCompositorError, WlCompositorError);
@@ -45,6 +51,8 @@ efrom!(GlobalError, WlSubcompositorError, WlSubcompositorError);
 efrom!(GlobalError, XdgWmBaseError, XdgWmBaseError);
 efrom!(GlobalError, WlOutputError, WlOutputError);
 efrom!(GlobalError, WlSeatError, WlSeatError);
+efrom!(GlobalError, ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Error);
+efrom!(GlobalError, WlDrmError, WlDrmError);
 efrom!(
     GlobalError,
     WlDataDeviceManagerError,
@@ -211,6 +219,8 @@ simple_add_global!(WlShmGlobal);
 simple_add_global!(WlSubcompositorGlobal);
 simple_add_global!(XdgWmBaseGlobal);
 simple_add_global!(WlDataDeviceManagerGlobal);
+simple_add_global!(ZwpLinuxDmabufV1Global);
+simple_add_global!(WlDrmGlobal);
 
 macro_rules! dedicated_add_global {
     ($ty:ty, $field:ident) => {

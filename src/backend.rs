@@ -39,6 +39,7 @@ pub enum ScrollAxis {
 #[derive(Debug)]
 pub enum SeatEvent {
     OutputPosition(OutputId, Fixed, Fixed),
+    #[allow(dead_code)]
     Motion(Fixed, Fixed),
     Button(u32, KeyState),
     Scroll(i32, ScrollAxis),

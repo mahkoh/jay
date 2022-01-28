@@ -21,9 +21,11 @@ pub enum DrmError {
     GetDevice(#[source] std::io::Error),
 }
 
+#[allow(dead_code)]
 const DRM_NODE_PRIMARY: c::c_int = 0;
+#[allow(dead_code)]
 const DRM_NODE_CONTROL: c::c_int = 1;
-const DRM_NODE_RENDER: c::c_int = 2;
+pub const DRM_NODE_RENDER: c::c_int = 2;
 const DRM_NODE_MAX: c::c_int = 3;
 
 const DRM_BUS_PCI: c::c_int = 0;

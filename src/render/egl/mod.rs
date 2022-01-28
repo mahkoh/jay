@@ -1,4 +1,4 @@
-use crate::drm::drm::Drm;
+use crate::drm::drm::{DrmDevice};
 use crate::render::egl::device::EglDevice;
 use crate::render::egl::sys::{
     eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
@@ -63,8 +63,7 @@ pub fn init() -> Result<(), RenderError> {
     Ok(())
 }
 
-pub fn find_drm_device(drm: &Drm) -> Result<Option<EglDevice>, RenderError> {
-    let drm_dev = drm.get_device()?;
+pub fn find_drm_device(drm_dev: &DrmDevice) -> Result<Option<EglDevice>, RenderError> {
     for device in query_devices()? {
         if device.exts.contains(DeviceExt::EXT_DEVICE_DRM) {
             let device_file = device.query_string(EGL_DRM_DEVICE_FILE_EXT)?;

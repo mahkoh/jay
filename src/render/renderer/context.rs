@@ -1,5 +1,5 @@
 use crate::drm::dma::DmaBuf;
-use crate::drm::drm::Drm;
+use crate::drm::drm::{Drm, DRM_NODE_RENDER};
 use crate::format::{Format, XRGB8888};
 use crate::render::egl::context::EglContext;
 use crate::render::egl::find_drm_device;
@@ -8,15 +8,20 @@ use crate::render::gl::render_buffer::GlRenderBuffer;
 use crate::render::gl::sys::GLint;
 use crate::render::gl::texture::GlTexture;
 use crate::render::renderer::framebuffer::Framebuffer;
+use crate::render::renderer::image::Image;
 use crate::render::renderer::RENDERDOC;
 use crate::render::{RenderError, Texture};
+use ahash::AHashMap;
 use renderdoc::{RenderDoc, V100};
 use std::cell::{Cell, RefCell};
+use std::ffi::CString;
 use std::rc::Rc;
 use uapi::ustr;
 
 pub struct RenderContext {
     pub(super) ctx: Rc<EglContext>,
+
+    pub(super) render_node: Rc<CString>,
 
     pub(super) renderdoc: Option<RefCell<RenderDoc<V100>>>,
 
@@ -32,7 +37,12 @@ pub struct RenderContext {
 
 impl RenderContext {
     pub fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
-        let egl_dev = match find_drm_device(&drm)? {
+        let drm_dev = drm.get_device()?;
+        let node = match drm_dev.nodes().find(|(ty, _)| *ty == DRM_NODE_RENDER) {
+            None => return Err(RenderError::NoRenderNode),
+            Some((_, n)) => Rc::new(n.to_owned()),
+        };
+        let egl_dev = match find_drm_device(&drm_dev)? {
             Some(d) => d,
             None => return Err(RenderError::UnknownDrmDevice),
         };
@@ -41,10 +51,10 @@ impl RenderContext {
             return Err(RenderError::XRGB888);
         }
         let ctx = dpy.create_context()?;
-        ctx.with_current(|| unsafe { Self::new(&ctx) })
+        ctx.with_current(|| unsafe { Self::new(&ctx, &node) })
     }
 
-    unsafe fn new(ctx: &Rc<EglContext>) -> Result<Self, RenderError> {
+    unsafe fn new(ctx: &Rc<EglContext>, node: &Rc<CString>) -> Result<Self, RenderError> {
         let tex_prog = GlProgram::from_shaders(
             ctx,
             include_str!("../shaders/tex.vert.glsl"),
@@ -57,6 +67,8 @@ impl RenderContext {
         )?;
         Ok(Self {
             ctx: ctx.clone(),
+
+            render_node: node.clone(),
 
             tex_prog_pos: tex_prog.get_attrib_location(ustr!("pos")),
             tex_prog_texcoord: tex_prog.get_attrib_location(ustr!("texcoord")),
@@ -75,6 +87,14 @@ impl RenderContext {
         })
     }
 
+    pub fn render_node(&self) -> Rc<CString> {
+        self.render_node.clone()
+    }
+
+    pub fn formats(&self) -> Rc<AHashMap<u32, &'static Format>> {
+        self.ctx.dpy.formats.clone()
+    }
+
     pub fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
         self.ctx.with_current(|| unsafe {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
@@ -87,6 +107,16 @@ impl RenderContext {
         })
     }
 
+    pub fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Image>, RenderError> {
+        self.ctx.with_current(|| {
+            let img = self.ctx.dpy.import_dmabuf(buf)?;
+            Ok(Rc::new(Image {
+                ctx: self.clone(),
+                gl: img,
+            }))
+        })
+    }
+
     pub fn shmem_texture(
         self: &Rc<Self>,
         data: &[Cell<u8>],
@@ -95,7 +125,7 @@ impl RenderContext {
         height: i32,
         stride: i32,
     ) -> Result<Rc<Texture>, RenderError> {
-        let gl = GlTexture::import_texture(&self.ctx, data, format, width, height, stride)?;
+        let gl = GlTexture::import_shm(&self.ctx, data, format, width, height, stride)?;
         Ok(Rc::new(Texture {
             ctx: self.clone(),
             gl,

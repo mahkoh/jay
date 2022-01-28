@@ -23,11 +23,16 @@ pub enum GbmError {
 type Device = u8;
 type Bo = u8;
 
+#[allow(dead_code)]
 pub const GBM_BO_USE_SCANOUT: u32 = 1 << 0;
+#[allow(dead_code)]
 pub const GBM_BO_USE_CURSOR: u32 = 1 << 1;
 pub const GBM_BO_USE_RENDERING: u32 = 1 << 2;
+#[allow(dead_code)]
 pub const GBM_BO_USE_WRITE: u32 = 1 << 3;
+#[allow(dead_code)]
 pub const GBM_BO_USE_LINEAR: u32 = 1 << 4;
+#[allow(dead_code)]
 pub const GBM_BO_USE_PROTECTED: u32 = 1 << 5;
 
 #[link(name = "gbm")]
@@ -48,17 +53,19 @@ extern "C" {
     fn gbm_bo_get_plane_count(bo: *mut Bo) -> c::c_int;
     fn gbm_bo_get_width(bo: *mut Bo) -> u32;
     fn gbm_bo_get_height(bo: *mut Bo) -> u32;
+    #[allow(dead_code)]
     fn gbm_bo_get_stride(bo: *mut Bo) -> u32;
     fn gbm_bo_get_modifier(bo: *mut Bo) -> u64;
     fn gbm_bo_get_stride_for_plane(bo: *mut Bo, plane: c::c_int) -> u32;
     fn gbm_bo_get_fd_for_plane(bo: *mut Bo, plane: c::c_int) -> c::c_int;
     fn gbm_bo_get_offset(bo: *mut Bo, plane: c::c_int) -> u32;
     fn gbm_bo_get_format(bo: *mut Bo) -> u32;
+    #[allow(dead_code)]
     fn gbm_bo_get_bpp(bo: *mut Bo) -> u32;
 }
 
 pub struct GbmDevice {
-    drm: Drm,
+    _drm: Drm,
     dev: *mut Device,
 }
 
@@ -67,7 +74,7 @@ struct BoHolder {
 }
 
 pub struct GbmBo {
-    bo: BoHolder,
+    _bo: BoHolder,
     dma: DmaBuf,
 }
 
@@ -110,7 +117,7 @@ impl GbmDevice {
         if dev.is_null() {
             Err(GbmError::CreateDevice)
         } else {
-            Ok(Self { drm, dev })
+            Ok(Self { _drm: drm, dev })
         }
     }
 
@@ -141,7 +148,7 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
-            Ok(GbmBo { bo, dma })
+            Ok(GbmBo { _bo: bo, dma })
         }
     }
 }

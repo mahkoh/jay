@@ -334,9 +334,7 @@ impl WlSurface {
         if let Some(buffer_change) = self.pending.buffer.take() {
             let mut old_size = None;
             let mut new_size = None;
-            log::info!("changing buffer");
             if let Some(buffer) = self.buffer.take() {
-                log::info!("releasing buffer {}", buffer.id());
                 old_size = Some(buffer.rect);
                 self.client.event(buffer.release());
                 buffer.surfaces.remove(&self.id);

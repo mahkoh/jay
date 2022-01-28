@@ -387,6 +387,10 @@ impl Node for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
+    fn initial_configure(self: Rc<Self>) {
+        self.xdg.surface.client.event(self.configure(0, 0));
+    }
+
     fn post_commit(self: Rc<Self>) {
         let surface = &self.xdg.surface;
         if let Some(parent) = self.parent_node.get() {

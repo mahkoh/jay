@@ -18,6 +18,8 @@ const KEY: u32 = 3;
 const MODIFIERS: u32 = 4;
 const REPEAT_INFO: u32 = 5;
 
+pub const REPEAT_INFO_SINCE: u32 = 4;
+
 #[allow(dead_code)]
 const NO_KEYMAP: u32 = 0;
 pub(super) const XKB_V1: u32 = 1;

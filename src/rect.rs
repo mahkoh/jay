@@ -39,6 +39,7 @@ impl Rect {
         }
     }
 
+    #[allow(dead_code)]
     pub fn intersects(&self, other: &Self) -> bool {
         let x1 = self.x1.max(other.x1);
         let y1 = self.y1.max(other.y1);

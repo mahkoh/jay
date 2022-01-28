@@ -6,7 +6,7 @@ use crate::format::Format;
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
-use crate::render::Texture;
+use crate::render::{Image, Texture};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -19,14 +19,17 @@ const RELEASE: u32 = 0;
 
 id!(WlBufferId);
 
+pub enum WlBufferStorage {
+    Shm { mem: ClientMemOffset, stride: i32 },
+    Dmabuf(Rc<Image>),
+}
+
 pub struct WlBuffer {
     id: WlBufferId,
     pub client: Rc<Client>,
-    _offset: usize,
     pub rect: Rect,
-    stride: i32,
     format: &'static Format,
-    mem: ClientMemOffset,
+    storage: WlBufferStorage,
     pub texture: CloneCell<Option<Rc<Texture>>>,
     pub(super) surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     width: i32,
@@ -35,7 +38,29 @@ pub struct WlBuffer {
 
 impl WlBuffer {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new_dmabuf(
+        id: WlBufferId,
+        client: &Rc<Client>,
+        format: &'static Format,
+        img: &Rc<Image>,
+    ) -> Self {
+        let width = img.width();
+        let height = img.height();
+        Self {
+            id,
+            client: client.clone(),
+            rect: Rect::new_sized(0, 0, width, height).unwrap(),
+            format,
+            width,
+            height,
+            texture: CloneCell::new(None),
+            surfaces: Default::default(),
+            storage: WlBufferStorage::Dmabuf(img.clone()),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_shm(
         id: WlBufferId,
         client: &Rc<Client>,
         offset: usize,
@@ -58,11 +83,9 @@ impl WlBuffer {
         Ok(Self {
             id,
             client: client.clone(),
-            _offset: offset,
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
-            stride,
             format,
-            mem,
+            storage: WlBufferStorage::Shm { mem, stride },
             width,
             height,
             texture: CloneCell::new(None),
@@ -71,12 +94,21 @@ impl WlBuffer {
     }
 
     pub fn update_texture(&self) -> Result<(), WlBufferError> {
-        self.texture.set(None);
-        let ctx = self.client.state.render_ctx.get().unwrap();
-        let tex = self.mem.access(|mem| {
-            ctx.shmem_texture(mem, self.format, self.width, self.height, self.stride)
-        })??;
-        self.texture.set(Some(tex));
+        match &self.storage {
+            WlBufferStorage::Shm { mem, stride } => {
+                self.texture.set(None);
+                let ctx = self.client.state.render_ctx.get().unwrap();
+                let tex = mem.access(|mem| {
+                    ctx.shmem_texture(mem, self.format, self.width, self.height, *stride)
+                })??;
+                self.texture.set(Some(tex));
+            }
+            WlBufferStorage::Dmabuf(img) => {
+                if self.texture.get().is_none() {
+                    self.texture.set(Some(img.to_texture()?));
+                }
+            }
+        }
         Ok(())
     }
 

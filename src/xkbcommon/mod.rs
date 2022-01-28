@@ -76,12 +76,15 @@ extern "C" {
     fn xkb_keymap_unref(keymap: *mut xkb_keymap);
     fn xkb_state_unref(state: *mut xkb_state);
     fn xkb_state_new(keymap: *mut xkb_keymap) -> *mut xkb_state;
+    #[allow(dead_code)]
     fn xkb_state_update_key(
         state: *mut xkb_state,
         key: u32,
         direction: xkb_key_direction,
     ) -> xkb_state_component;
+    #[allow(dead_code)]
     fn xkb_state_serialize_mods(state: *mut xkb_state, components: xkb_state_component) -> u32;
+    #[allow(dead_code)]
     fn xkb_state_serialize_layout(state: *mut xkb_state, components: xkb_state_component) -> u32;
 }
 
@@ -198,6 +201,7 @@ impl XkbState {
         self.mods
     }
 
+    #[allow(dead_code)]
     pub fn update(&mut self, key: u32, direction: XkbKeyDirection) -> Option<ModifierState> {
         unsafe {
             let changes = xkb_state_update_key(self.state, key + 8, direction.raw() as _);

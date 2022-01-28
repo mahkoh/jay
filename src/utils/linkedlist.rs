@@ -49,6 +49,7 @@ impl<T> LinkedList<T> {
         unsafe { self.endpoint(self.root.data.as_ref().prev.get()) }
     }
 
+    #[allow(dead_code)]
     pub fn first(&self) -> Option<NodeRef<T>> {
         unsafe { self.endpoint(self.root.data.as_ref().next.get()) }
     }

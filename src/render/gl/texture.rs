@@ -1,5 +1,7 @@
 use crate::format::Format;
 use crate::render::egl::context::EglContext;
+use crate::render::egl::image::EglImage;
+use crate::render::egl::PROCS;
 use crate::render::gl::frame_buffer::GlFrameBuffer;
 use crate::render::gl::sys::{
     glBindFramebuffer, glBindTexture, glCheckFramebufferStatus, glDeleteTextures,
@@ -8,6 +10,7 @@ use crate::render::gl::sys::{
     GL_FRAMEBUFFER_COMPLETE, GL_LINEAR, GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
     GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
 };
+use crate::render::sys::GLeglImageOES;
 use crate::render::RenderError;
 use std::cell::Cell;
 use std::ptr;
@@ -15,12 +18,14 @@ use std::rc::Rc;
 
 pub struct GlTexture {
     pub(super) ctx: Rc<EglContext>,
+    pub img: Option<Rc<EglImage>>,
     pub tex: GLuint,
     pub width: i32,
     pub height: i32,
 }
 
 impl GlTexture {
+    #[allow(dead_code)]
     pub fn new(
         ctx: &Rc<EglContext>,
         format: &'static Format,
@@ -49,12 +54,14 @@ impl GlTexture {
         })?;
         Ok(Rc::new(GlTexture {
             ctx: ctx.clone(),
+            img: None,
             tex,
             width,
             height,
         }))
     }
 
+    #[allow(dead_code)]
     pub unsafe fn to_framebuffer(self: &Rc<Self>) -> Result<Rc<GlFrameBuffer>, RenderError> {
         self.ctx.with_current(|| unsafe {
             let mut fbo = 0;
@@ -84,7 +91,27 @@ impl GlTexture {
         })
     }
 
-    pub fn import_texture(
+    pub fn import_img(ctx: &Rc<EglContext>, img: &Rc<EglImage>) -> Result<GlTexture, RenderError> {
+        let tex = ctx.with_current(|| unsafe {
+            let mut tex = 0;
+            glGenTextures(1, &mut tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            PROCS.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, GLeglImageOES(img.img.0));
+            glBindTexture(GL_TEXTURE_2D, 0);
+            Ok(tex)
+        })?;
+        Ok(GlTexture {
+            ctx: ctx.clone(),
+            img: Some(img.clone()),
+            tex,
+            width: img.width,
+            height: img.height,
+        })
+    }
+
+    pub fn import_shm(
         ctx: &Rc<EglContext>,
         data: &[Cell<u8>],
         format: &'static Format,
@@ -119,6 +146,7 @@ impl GlTexture {
         })?;
         Ok(GlTexture {
             ctx: ctx.clone(),
+            img: None,
             tex,
             width,
             height,
@@ -128,11 +156,9 @@ impl GlTexture {
 
 impl Drop for GlTexture {
     fn drop(&mut self) {
-        unsafe {
-            self.ctx.with_current(|| {
-                glDeleteTextures(1, &self.tex);
-                Ok(())
-            });
-        }
+        let _ = self.ctx.with_current(|| unsafe {
+            glDeleteTextures(1, &self.tex);
+            Ok(())
+        });
     }
 }

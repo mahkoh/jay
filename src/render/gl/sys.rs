@@ -7,6 +7,7 @@ pub type GLenum = c::c_uint;
 pub type GLfloat = f32;
 pub type GLint = c::c_int;
 pub type GLsizei = c::c_int;
+#[allow(dead_code)]
 pub type GLubyte = u8;
 pub type GLuint = c::c_uint;
 
@@ -29,6 +30,7 @@ pub const GL_RENDERBUFFER: GLenum = 0x8D41;
 pub const GL_SCISSOR_TEST: GLenum = 0x0C11;
 pub const GL_TEXTURE0: GLenum = 0x84C0;
 pub const GL_TEXTURE_2D: GLenum = 0x0DE1;
+#[allow(dead_code)]
 pub const GL_TEXTURE_MAG_FILTER: GLenum = 0x2800;
 pub const GL_TEXTURE_MIN_FILTER: GLenum = 0x2801;
 pub const GL_TEXTURE_WRAP_S: GLenum = 0x2802;
@@ -54,6 +56,7 @@ extern "C" {
         renderbuffertarget: GLenum,
         renderbuffer: GLuint,
     );
+    #[allow(dead_code)]
     pub fn glFramebufferTexture2D(
         target: GLenum,
         attachment: GLenum,
@@ -64,6 +67,7 @@ extern "C" {
     pub fn glCheckFramebufferStatus(target: GLenum) -> GLenum;
     pub fn glClear(mask: GLbitfield);
     pub fn glClearColor(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat);
+    #[allow(dead_code)]
     pub fn glFlush();
 
     pub fn glGenTextures(n: GLsizei, textures: *mut GLuint);
@@ -112,6 +116,7 @@ extern "C" {
     pub fn glGetUniformLocation(prog: GLuint, name: *const GLchar) -> GLint;
     pub fn glGetAttribLocation(prog: GLuint, name: *const GLchar) -> GLint;
     pub fn glUniform1i(location: GLint, v0: GLint);
+    #[allow(dead_code)]
     pub fn glUniform1f(location: GLint, v0: GLfloat);
     pub fn glUniform4f(location: GLint, v0: GLfloat, v1: GLfloat, v2: GLfloat, v3: GLfloat);
     pub fn glVertexAttribPointer(

@@ -26,7 +26,7 @@ use std::rc::Rc;
 #[derive(Debug, Clone)]
 pub struct EglDisplay {
     pub exts: DisplayExt,
-    pub formats: AHashMap<u32, &'static Format>,
+    pub formats: Rc<AHashMap<u32, &'static Format>>,
     pub dev: EglDevice,
     pub dpy: EGLDisplay,
 }

@@ -66,6 +66,9 @@ pub enum Interface {
     WlRegion,
     WlBuffer,
     WlSeat,
+    WlDrm,
+    ZwpLinuxDmabufV1,
+    ZwpLinuxBufferParamsV1,
 }
 
 impl Interface {
@@ -96,6 +99,9 @@ impl Interface {
             Interface::WlDataDevice => "wl_data_device",
             Interface::WlDataSource => "wl_data_source",
             Interface::WlDataOffer => "wl_data_offer",
+            Interface::ZwpLinuxDmabufV1 => "zwp_linux_dmabuf_v1",
+            Interface::ZwpLinuxBufferParamsV1 => "zwp_linux_buffer_params_v1",
+            Interface::WlDrm => "wl_drm",
         }
     }
 }

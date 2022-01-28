@@ -53,6 +53,14 @@ struct PendingXdgSurfaceData {
 }
 
 trait XdgSurfaceExt {
+    fn initial_configure(self: Rc<Self>) {
+        // nothing
+    }
+
+    fn pre_commit(self: Rc<Self>) {
+        // nothing
+    }
+
     fn post_commit(self: Rc<Self>) {
         // nothing
     }
@@ -243,6 +251,9 @@ impl SurfaceExt for XdgSurface {
             let rse = self.requested_serial.get();
             if ase != Some(rse) {
                 if ase.is_none() {
+                    if let Some(ext) = self.ext.get() {
+                        ext.initial_configure();
+                    }
                     self.surface.client.event(self.configure(rse));
                 }
                 // return CommitAction::AbortCommit;

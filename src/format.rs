@@ -45,6 +45,7 @@ pub fn map_wayland_format_id(id: u32) -> u32 {
     }
 }
 
+#[allow(dead_code)]
 pub static ARGB8888: &Format = &FORMATS[0];
 pub static XRGB8888: &Format = &FORMATS[1];
 

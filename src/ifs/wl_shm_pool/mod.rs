@@ -49,7 +49,7 @@ impl WlShmPool {
         if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
             return Err(CreateBufferError::NegativeParameters);
         }
-        let buffer = Rc::new(WlBuffer::new(
+        let buffer = Rc::new(WlBuffer::new_shm(
             req.id,
             &self.client,
             req.offset as usize,

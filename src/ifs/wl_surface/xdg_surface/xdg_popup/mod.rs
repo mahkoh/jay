@@ -25,37 +25,39 @@ id!(XdgPopupId);
 pub struct XdgPopup {
     id: XdgPopupId,
     node_id: PopupId,
-    pub(in super::super) surface: Rc<XdgSurface>,
+    pub(in super::super) xdg: Rc<XdgSurface>,
     pub(super) parent: CloneCell<Option<Rc<XdgSurface>>>,
 }
 
 impl XdgPopup {
-    pub fn new(id: XdgPopupId, surface: &Rc<XdgSurface>, parent: Option<&Rc<XdgSurface>>) -> Self {
+    pub fn new(id: XdgPopupId, xdg: &Rc<XdgSurface>, parent: Option<&Rc<XdgSurface>>) -> Self {
         Self {
             id,
-            node_id: surface.surface.client.state.node_ids.next(),
-            surface: surface.clone(),
+            node_id: xdg.surface.client.state.node_ids.next(),
+            xdg: xdg.clone(),
             parent: CloneCell::new(parent.cloned()),
         }
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
-        let _req: Destroy = self.surface.surface.client.parse(self, parser)?;
+        let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
         {
             if let Some(parent) = self.parent.take() {
                 parent.popups.remove(&self.id);
             }
         }
+        self.xdg.ext.set(None);
+        self.xdg.surface.client.remove_obj(self)?;
         Ok(())
     }
 
     fn grab(&self, parser: MsgParser<'_, '_>) -> Result<(), GrabError> {
-        let _req: Grab = self.surface.surface.client.parse(self, parser)?;
+        let _req: Grab = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
     fn reposition(&self, parser: MsgParser<'_, '_>) -> Result<(), RepositionError> {
-        let _req: Reposition = self.surface.surface.client.parse(self, parser)?;
+        let _req: Reposition = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 

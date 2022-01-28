@@ -7,7 +7,7 @@ use crate::backend::{KeyState, OutputId, ScrollAxis, Seat, SeatEvent};
 use crate::client::{Client, ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId};
+use crate::ifs::wl_seat::wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardId};
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
@@ -502,7 +502,9 @@ impl WlSeatObj {
         self.keyboards.set(req.id, p.clone());
         self.client
             .event(p.keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size));
-        self.client.event(p.repeat_info(25, 250));
+        if self.version >= REPEAT_INFO_SINCE {
+            self.client.event(p.repeat_info(25, 250));
+        }
         Ok(())
     }
 
