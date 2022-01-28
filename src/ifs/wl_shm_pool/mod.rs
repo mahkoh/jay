@@ -2,6 +2,7 @@ mod types;
 
 use crate::client::Client;
 use crate::clientmem::ClientMem;
+use crate::format::{formats, map_wayland_format_id};
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
@@ -40,7 +41,8 @@ impl WlShmPool {
 
     fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
         let req: CreateBuffer = self.client.parse(self, parser)?;
-        let format = match self.client.state.formats.get(&req.format) {
+        let drm_format = map_wayland_format_id(req.format);
+        let format = match formats().get(&drm_format) {
             Some(f) => *f,
             _ => return Err(CreateBufferError::InvalidFormat(req.format)),
         };

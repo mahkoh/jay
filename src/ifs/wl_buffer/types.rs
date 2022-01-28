@@ -1,8 +1,10 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
+use crate::gles2::GlesError;
 use crate::ifs::wl_buffer::{WlBuffer, RELEASE};
 use crate::object::Object;
 use crate::pixman::PixmanError;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
+use crate::ClientMemError;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -17,8 +19,14 @@ pub enum WlBufferError {
     DestroyError(#[from] DestroyError),
     #[error("Pixman returned an error")]
     PixmanError(#[source] Box<PixmanError>),
+    #[error("Could not access the client memory")]
+    ClientMemError(#[source] Box<ClientMemError>),
+    #[error("GLES could not import the client image")]
+    GlesError(#[source] Box<GlesError>),
 }
 efrom!(WlBufferError, PixmanError, PixmanError);
+efrom!(WlBufferError, ClientMemError, ClientMemError);
+efrom!(WlBufferError, GlesError, GlesError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {

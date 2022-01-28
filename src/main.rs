@@ -2,7 +2,8 @@
     generic_associated_types,
     type_alias_impl_trait,
     never_type,
-    c_variadic
+    c_variadic,
+    thread_local
 )]
 #![allow(
     clippy::len_zero,
@@ -18,6 +19,7 @@ use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
+use crate::gles2::egl;
 use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
@@ -48,9 +50,11 @@ mod backend;
 mod backends;
 mod client;
 mod clientmem;
+mod drm;
 mod event_loop;
 mod fixed;
 mod format;
+mod gles2;
 mod globals;
 mod ifs;
 mod object;
@@ -96,6 +100,8 @@ enum MainError {
 }
 
 fn main_() -> Result<(), MainError> {
+    egl::init();
+
     clientmem::init()?;
     let el = EventLoop::new()?;
     sighand::install(&el)?;
@@ -111,11 +117,11 @@ fn main_() -> Result<(), MainError> {
     let state = Rc::new(State {
         eng: engine.clone(),
         el: el.clone(),
+        egl: Default::default(),
         wheel,
         clients: Clients::new(),
         next_name: NumCell::new(1),
         globals,
-        formats: format::formats(),
         output_ids: Default::default(),
         root: Rc::new(DisplayNode::new(node_ids.next())),
         node_ids,

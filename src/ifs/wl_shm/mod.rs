@@ -1,6 +1,7 @@
 mod types;
 
 use crate::client::Client;
+use crate::format::FORMATS;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::WlShmPool;
 use crate::object::{Interface, Object, ObjectId};
@@ -41,7 +42,7 @@ impl WlShmGlobal {
             client: client.clone(),
         });
         client.add_client_obj(&obj)?;
-        for &format in client.state.formats.values() {
+        for format in FORMATS {
             client.event(Box::new(FormatE {
                 obj: obj.clone(),
                 format,

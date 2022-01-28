@@ -1,9 +1,18 @@
 use crate::backend::{
     BackendEvent, KeyState, Output, OutputId, ScrollAxis, Seat, SeatEvent, SeatId,
 };
+use crate::drm::drm::{Drm, DrmError};
+use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
+use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
+use crate::egl::{EglContext, EglImage};
 use crate::event_loop::{EventLoopDispatcher, EventLoopId};
 use crate::fixed::Fixed;
+use crate::format::XRGB8888;
+use crate::gles2::gl::{GlFrameBuffer, GlRenderBuffer, GlTexture};
+use crate::gles2::sys::{glBindFramebuffer, glFlush, glViewport, GL_FRAMEBUFFER};
+use crate::gles2::GlesError;
 use crate::pixman::{Image, PixmanError};
+use crate::render::gles::{GlesRenderer, RENDERDOC};
 use crate::render::pixman::PixmanRenderer;
 use crate::render::Renderer;
 use crate::servermem::{ServerMem, ServerMemError};
@@ -12,8 +21,10 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::ptr_ext::PtrExt;
 use crate::wheel::{WheelDispatcher, WheelId};
-use crate::{pixman, EventLoopError, State, WheelError};
+use crate::{gles2, pixman, EventLoopError, NumCell, State, WheelError};
+use gles2::egl;
 use isnt::std_1::primitive::IsntConstPtrExt;
+use rand::Rng;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::error::Error;
@@ -21,7 +32,7 @@ use std::ops::Deref;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::c;
+use uapi::{c, OwnedFd};
 use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbShm, XcbXinput, XcbXkb};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
@@ -30,6 +41,20 @@ use xcb_dl_util::xcb_box::XcbBox;
 pub enum XorgBackendError {
     #[error("The xcb connection is in an error state")]
     ErrorEvent,
+    #[error("The drm subsystem returned an error")]
+    DrmError(#[from] DrmError),
+    #[error("The gbm subsystem returned an error")]
+    GbmError(#[from] GbmError),
+    #[error("Could not find an EGL device that matches the display's DRM device")]
+    MissingEglDevice,
+    #[error("Could not import a dma-buf")]
+    ImportBuffer(#[source] XcbError),
+    #[error("The EGL device does not support the XRGB8888 format")]
+    XRGB8888,
+    #[error("Could not create an EGL context")]
+    CreateEgl(#[source] Box<Self>),
+    #[error(transparent)]
+    EglError(#[from] GlesError),
     #[error("Could not select input events")]
     CannotSelectInputEvents(#[source] XcbError),
     #[error("Could not select present events")]
@@ -73,6 +98,7 @@ struct XcbCon {
     input_opcode: u8,
     present_opcode: u8,
     xkb: Box<XcbXkb>,
+    screen: ffi::xcb_screen_t,
     c: *mut ffi::xcb_connection_t,
     errors: XcbErrorParser,
 }
@@ -85,15 +111,18 @@ impl XcbCon {
             let input = Box::new(XcbXinput::load_loose()?);
             let xkb = Box::new(XcbXkb::load_loose()?);
             let dri = Box::new(XcbDri3::load_loose()?);
+            let present = Box::new(XcbPresent::load_loose()?);
 
             let c = xcb.xcb_connect(ptr::null(), ptr::null_mut());
             let errors = XcbErrorParser::new(&xcb, c);
 
             let mut con = Self {
+                screen: *xcb.xcb_setup_roots_iterator(xcb.xcb_get_setup(c)).data,
                 xcb,
                 shm,
                 input,
                 dri,
+                present,
                 input_opcode: 0,
                 present_opcode: 0,
                 xkb,
@@ -192,12 +221,54 @@ pub struct XorgBackend {
     outputs: CopyHashMap<ffi::xcb_window_t, Rc<XorgOutput>>,
     seats: CopyHashMap<ffi::xcb_input_device_id_t, Rc<XorgSeat>>,
     mouse_seats: CopyHashMap<ffi::xcb_input_device_id_t, Rc<XorgSeat>>,
+    ctx: Rc<EglContext>,
+    renderer: GlesRenderer,
+    gbm: GbmDevice,
+    r: Cell<f32>,
+    g: Cell<f32>,
+    b: Cell<f32>,
+}
+
+fn get_drm(con: &XcbCon) -> Result<Drm, XorgBackendError> {
+    unsafe {
+        let mut err = ptr::null_mut();
+        let res = con.dri.xcb_dri3_open_reply(
+            con.c,
+            con.dri.xcb_dri3_open(con.c, con.screen.root, 0),
+            &mut err,
+        );
+        let mut res = con.check(res, err)?;
+        assert!(res.nfd == 1);
+        let fd = *con.dri.xcb_dri3_open_reply_fds(con.c, &mut *res);
+        let fd = OwnedFd::new(fd);
+        Ok(Drm::new(fd.raw(), true)?)
+    }
 }
 
 impl XorgBackend {
     pub fn new(state: &Rc<State>) -> Result<Rc<Self>, XorgBackendError> {
         unsafe {
             let con = XcbCon::new()?;
+
+            let drm = get_drm(&con)?;
+            let res = (|| {
+                let egl_dev = match egl::find_drm_device(&drm)? {
+                    Some(d) => d,
+                    None => return Err(XorgBackendError::MissingEglDevice),
+                };
+                let dpy = egl_dev.create_display()?;
+                if !dpy.formats.contains_key(&XRGB8888.drm) {
+                    return Err(XorgBackendError::XRGB8888);
+                }
+                let ctx = dpy.create_context()?;
+                Ok(ctx)
+            })();
+            let ctx = match res {
+                Ok(r) => r,
+                Err(e) => return Err(XorgBackendError::CreateEgl(Box::new(e))),
+            };
+            let renderer = ctx.with_current(|| GlesRenderer::new(&ctx))?;
+            let gbm = GbmDevice::new(&drm)?;
 
             let fd = con.xcb.xcb_get_file_descriptor(con.c);
 
@@ -211,6 +282,12 @@ impl XorgBackend {
                 outputs: Default::default(),
                 seats: Default::default(),
                 mouse_seats: Default::default(),
+                ctx: ctx.clone(),
+                renderer,
+                gbm,
+                r: Cell::new(0.0),
+                g: Cell::new(0.0),
+                b: Cell::new(0.0),
             });
 
             {
@@ -226,7 +303,7 @@ impl XorgBackend {
                 }
             }
 
-            state.wheel.periodic(wheel_id, 16_667, slf.clone())?;
+            // state.wheel.periodic(wheel_id, 16_667, slf.clone())?;
             // state.wheel.periodic(wheel_id, 1000_000, slf.clone())?;
             state.el.insert(slf.id, Some(fd), c::EPOLLIN, slf.clone())?;
 
@@ -234,8 +311,67 @@ impl XorgBackend {
             slf.query_devices(ffi::XCB_INPUT_DEVICE_ALL_MASTER as _)?;
             slf.handle_events()?;
 
+            state.egl.set(Some(ctx.clone()));
+
             Ok(slf)
         }
+    }
+
+    fn create_images(
+        &self,
+        window: ffi::xcb_window_t,
+        width: i32,
+        height: i32,
+    ) -> Result<[XorgImage; 2], XorgBackendError> {
+        let format = ModifiedFormat {
+            format: XRGB8888,
+            modifier: INVALID_MODIFIER,
+        };
+        let mut images = [None, None];
+        for i in 0..2 {
+            let bo = self
+                .gbm
+                .create_bo(width, height, &format, GBM_BO_USE_RENDERING)?;
+            let dma = bo.dma();
+            assert!(dma.planes.len() == 1);
+            let plane = dma.planes.first().unwrap();
+            let size = plane.stride * dma.height as u32;
+            let fd = uapi::fcntl_dupfd_cloexec(plane.fd.raw(), 0).unwrap();
+            let fb = if RENDERDOC {
+                unsafe { GlTexture::new(&self.ctx, XRGB8888, width, height)?.to_framebuffer()? }
+            } else {
+                let egl_img = self.ctx.dpy.import_dmabuf(dma)?;
+                let rb = GlRenderBuffer::from_image(&egl_img, &self.ctx)?;
+                rb.create_framebuffer()?
+            };
+            let pixmap = unsafe {
+                let pixmap = self.con.xcb.xcb_generate_id(self.con.c);
+                let cookie = self.con.dri.xcb_dri3_pixmap_from_buffer_checked(
+                    self.con.c,
+                    pixmap,
+                    window,
+                    size,
+                    dma.width as _,
+                    dma.height as _,
+                    plane.stride as _,
+                    24,
+                    32,
+                    fd.unwrap(),
+                );
+                if let Err(e) = self.con.check_cookie(cookie) {
+                    return Err(XorgBackendError::ImportBuffer(e));
+                }
+                pixmap
+            };
+            images[i] = Some(XorgImage {
+                pixmap: Cell::new(pixmap),
+                fb: CloneCell::new(fb),
+                idle: Cell::new(true),
+                render_on_idle: Cell::new(false),
+                last_serial: Cell::new(0),
+            });
+        }
+        Ok([images[0].take().unwrap(), images[1].take().unwrap()])
     }
 
     fn add_output(self: &Rc<Self>) -> Result<(), XorgBackendError> {
@@ -247,6 +383,8 @@ impl XorgBackend {
                 .data
                 .deref();
             let window_id = con.xcb.xcb_generate_id(con.c);
+            const WIDTH: i32 = 800;
+            const HEIGHT: i32 = 600;
             {
                 let cookie = con.xcb.xcb_create_window_checked(
                     con.c,
@@ -255,8 +393,8 @@ impl XorgBackend {
                     screen.root,
                     0,
                     0,
-                    800,
-                    600,
+                    WIDTH as _,
+                    HEIGHT as _,
                     0,
                     ffi::XCB_WINDOW_CLASS_INPUT_OUTPUT as _,
                     0,
@@ -267,6 +405,7 @@ impl XorgBackend {
                     return Err(XorgBackendError::CreateWindow(e));
                 }
             }
+            let images = self.create_images(window_id, WIDTH, HEIGHT).unwrap();
             let output = Rc::new(XorgOutput {
                 id: self.state.output_ids.next(),
                 backend: self.clone(),
@@ -274,8 +413,12 @@ impl XorgBackend {
                 removed: Cell::new(false),
                 width: Cell::new(0),
                 height: Cell::new(0),
+                serial: Default::default(),
+                next_msc: Cell::new(0),
+                next_image: Default::default(),
                 image: RefCell::new(None),
                 cb: CloneCell::new(None),
+                images,
             });
             {
                 let class = "i4\0i4\0";
@@ -356,6 +499,7 @@ impl XorgBackend {
             self.state
                 .backend_events
                 .push(BackendEvent::NewOutput(output.clone()));
+            self.present(&output);
         }
         Ok(())
     }
@@ -495,12 +639,102 @@ impl XorgBackend {
         let event = unsafe {
             (event as *const _ as *const ffi::xcb_present_complete_notify_event_t).deref()
         };
-        let output = match self.outputs.get(&event.window) {
+        let window = event.window;
+        let output = match self.outputs.get(&window) {
             Some(o) => o,
             _ => return Ok(()),
         };
         output.next_msc.set(event.msc + 1);
+        let image = &output.images[output.next_image.get() % output.images.len()];
+        if image.idle.get() {
+            self.present(&output);
+        } else {
+            image.render_on_idle.set(true);
+        }
         Ok(())
+    }
+
+    fn handle_present_idle(
+        self: &Rc<Self>,
+        event: &ffi::xcb_ge_generic_event_t,
+    ) -> Result<(), XorgBackendError> {
+        let event =
+            unsafe { (event as *const _ as *const ffi::xcb_present_idle_notify_event_t).deref() };
+        let output = match self.outputs.get(&event.window) {
+            Some(o) => o,
+            _ => return Ok(()),
+        };
+        for image in &output.images {
+            if image.last_serial.get() == event.serial {
+                image.idle.set(true);
+                if image.render_on_idle.replace(false) {
+                    self.present(&output);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn present(&self, output: &Rc<XorgOutput>) {
+        // {
+        //     let clients = self.state.clients.clients.borrow();
+        //     for client in clients.values() {
+        //         let s = client.data.objects.surfaces.lock();
+        //         for s in s.values() {
+        //             let mut fr = s.frame_requests.borrow_mut();
+        //             for cb in fr.drain(..) {
+        //                 s.client.dispatch_frame_requests.push(cb);
+        //             }
+        //         }
+        //     }
+        //     return;
+        // }
+
+        let image = &output.images[output.next_image.fetch_add(1) % output.images.len()];
+        let serial = output.serial.fetch_add(1);
+
+        if let Some(node) = self.state.root.outputs.get(&output.id) {
+            let fb = image.fb.get();
+            let mut renderer = self.renderer.render_fb(&fb);
+            self.ctx
+                .with_current(|| unsafe {
+                    fb.bind();
+                    glViewport(0, 0, fb.width, fb.height);
+                    // fb.clear(0.0, 0.0, 0.0, 1.0);
+                    renderer.render_output(&node);
+                    glFlush();
+                    Ok(())
+                })
+                .unwrap();
+        }
+
+        unsafe {
+            let cookie = self.con.present.xcb_present_pixmap_checked(
+                self.con.c,
+                output.window,
+                image.pixmap.get(),
+                serial,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                output.next_msc.get(),
+                1,
+                0,
+                0,
+                ptr::null(),
+            );
+            if let Err(e) = self.con.check_cookie(cookie) {
+                log::error!("Could not present image: {:?}", e);
+                return;
+            }
+        }
+        image.idle.set(false);
+        image.last_serial.set(serial);
     }
 
     fn handle_input_event(
@@ -567,6 +801,12 @@ impl XorgBackend {
         event: &ffi::xcb_ge_generic_event_t,
         state: KeyState,
     ) -> Result<(), XorgBackendError> {
+        if state == KeyState::Pressed {
+            let mut rng = rand::thread_rng();
+            self.r.set(rng.gen_range(0.0..1.0));
+            self.g.set(rng.gen_range(0.0..1.0));
+            self.b.set(rng.gen_range(0.0..1.0));
+        }
         let event =
             unsafe { (event as *const _ as *const ffi::xcb_input_key_press_event_t).deref() };
         if let Some(seat) = self.seats.get(&event.deviceid) {
@@ -626,7 +866,10 @@ impl XorgBackend {
         event: &ffi::xcb_ge_generic_event_t,
     ) -> Result<(), XorgBackendError> {
         let event = unsafe { (event as *const _ as *const ffi::xcb_input_motion_event_t).deref() };
-        let (win, seat) = match (self.outputs.get(&event.event), self.mouse_seats.get(&event.deviceid)) {
+        let (win, seat) = match (
+            self.outputs.get(&event.event),
+            self.mouse_seats.get(&event.deviceid),
+        ) {
             (Some(a), Some(b)) => (a, b),
             _ => return Ok(()),
         };
@@ -639,6 +882,7 @@ impl XorgBackend {
     }
 
     fn handle_destroy(&self, event: &ffi::xcb_generic_event_t) -> Result<(), XorgBackendError> {
+        self.state.el.stop();
         let event =
             unsafe { (event as *const _ as *const ffi::xcb_destroy_notify_event_t).deref() };
         let output = match self.outputs.remove(&event.event) {
@@ -658,56 +902,67 @@ impl XorgBackend {
             Some(o) => o,
             _ => return Ok(()),
         };
-        let width = event.width as u32;
-        let height = event.height as u32;
+        let width = event.width as i32;
+        let height = event.height as i32;
         let mut changed = false;
-        changed |= output.width.replace(width as i32) != width as i32;
-        changed |= output.height.replace(height as i32) != height as i32;
+        changed |= output.width.replace(width) != width;
+        changed |= output.height.replace(height) != height;
         if changed {
-            let shm = Rc::new(ServerMem::new((width * height * 4) as usize)?);
-            let fd = shm.fd();
-            let image = Image::new(shm, pixman::X8R8G8B8, width, height, width * 4)?;
-            *output.image.borrow_mut() = Some(image);
             unsafe {
-                let fd = match uapi::fcntl_dupfd_cloexec(fd, 0) {
-                    Ok(fd) => fd,
-                    Err(e) => return Err(XorgBackendError::DupfdFailed(e.into())),
-                };
-                let shmseg = self.con.xcb.xcb_generate_id(self.con.c);
-                let cookie =
-                    self.con
-                        .shm
-                        .xcb_shm_attach_fd_checked(self.con.c, shmseg, fd.unwrap(), 0);
-                self.con.check_cookie(cookie)?;
-                let pixmap = self.con.xcb.xcb_generate_id(self.con.c);
-                let cookie = self.con.shm.xcb_shm_create_pixmap(
-                    self.con.c,
-                    pixmap,
-                    output.window,
-                    width as _,
-                    height as _,
-                    24,
-                    shmseg,
-                    0,
-                );
-                self.con.check_cookie(cookie)?;
-                let cookie = self.con.xcb.xcb_change_window_attributes_checked(
-                    self.con.c,
-                    output.window,
-                    ffi::XCB_CW_BACK_PIXMAP,
-                    &pixmap as *const _ as _,
-                );
-                self.con.check_cookie(cookie)?;
-                self.con.xcb.xcb_free_pixmap(self.con.c, pixmap);
-                self.con.shm.xcb_shm_detach(self.con.c, shmseg);
+                let images = self.create_images(output.window, width, height).unwrap();
+                for (new, old) in images.iter().zip(output.images.iter()) {
+                    unsafe {
+                        self.con.xcb.xcb_free_pixmap(self.con.c, old.pixmap.get());
+                    }
+                    old.fb.set(new.fb.get());
+                    old.pixmap.set(new.pixmap.get());
+                }
             }
+            // let shm = Rc::new(ServerMem::new((width * height * 4) as usize)?);
+            // let fd = shm.fd();
+            // let image = Image::new(shm, pixman::X8R8G8B8, width, height, width * 4)?;
+            // *output.image.borrow_mut() = Some(image);
+            // unsafe {
+            //     let fd = match uapi::fcntl_dupfd_cloexec(fd, 0) {
+            //         Ok(fd) => fd,
+            //         Err(e) => return Err(XorgBackendError::DupfdFailed(e.into())),
+            //     };
+            //     let shmseg = self.con.xcb.xcb_generate_id(self.con.c);
+            //     let cookie =
+            //         self.con
+            //             .shm
+            //             .xcb_shm_attach_fd_checked(self.con.c, shmseg, fd.unwrap(), 0);
+            //     self.con.check_cookie(cookie)?;
+            //     let pixmap = self.con.xcb.xcb_generate_id(self.con.c);
+            //     let cookie = self.con.shm.xcb_shm_create_pixmap(
+            //         self.con.c,
+            //         pixmap,
+            //         output.window,
+            //         width as _,
+            //         height as _,
+            //         24,
+            //         shmseg,
+            //         0,
+            //     );
+            //     self.con.check_cookie(cookie)?;
+            //     let cookie = self.con.xcb.xcb_change_window_attributes_checked(
+            //         self.con.c,
+            //         output.window,
+            //         ffi::XCB_CW_BACK_PIXMAP,
+            //         &pixmap as *const _ as _,
+            //     );
+            //     self.con.check_cookie(cookie)?;
+            //     self.con.xcb.xcb_free_pixmap(self.con.c, pixmap);
+            //     self.con.shm.xcb_shm_detach(self.con.c, shmseg);
+            // }
             output.changed();
-            self.render()?;
+            // self.render()?;
         }
         Ok(())
     }
 
     fn render(&self) -> Result<(), XorgBackendError> {
+        return Ok(());
         let outputs = self.outputs.lock();
         for output in outputs.values() {
             let image = output.image.borrow();
@@ -774,15 +1029,20 @@ struct XorgOutput {
     removed: Cell<bool>,
     width: Cell<i32>,
     height: Cell<i32>,
+    serial: NumCell<u32>,
     next_msc: Cell<u64>,
-    next_image: Cell<usize>,
-    // images: [XorgImage; 2],
+    next_image: NumCell<usize>,
+    images: [XorgImage; 2],
     image: RefCell<Option<Image<Rc<ServerMem>>>>,
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
 }
 
 struct XorgImage {
-
+    pixmap: Cell<ffi::xcb_pixmap_t>,
+    fb: CloneCell<Rc<GlFrameBuffer>>,
+    idle: Cell<bool>,
+    render_on_idle: Cell<bool>,
+    last_serial: Cell<u32>,
 }
 
 impl Drop for XorgOutput {

@@ -8,7 +8,7 @@ use crate::client::{Client, ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId};
-use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId};
+use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
 use crate::ifs::wl_surface::WlSurface;
@@ -139,12 +139,12 @@ impl WlSeatGlobal {
             KeyState::Released => wl_pointer::RELEASED,
             KeyState::Pressed => wl_pointer::PRESSED,
         };
-        self.surface_pointer_event(surface, |p| p.button(0, 0, button, state));
+        self.surface_pointer_event(0, surface, |p| p.button(0, 0, button, state));
     }
 
     pub fn focus_surface(&self, surface: &Rc<WlSurface>) {
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
-        self.surface_kb_event(&surface, |k| {
+        self.surface_kb_event(0, &surface, |k| {
             k.enter(0, surface.id, pressed_keys.clone())
         });
         let ModifierState {
@@ -153,15 +153,13 @@ impl WlSeatGlobal {
             mods_locked,
             group,
         } = self.kb_state.borrow().mods();
-        self.surface_kb_event(surface, |k| {
+        self.surface_kb_event(0, surface, |k| {
             k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
         });
     }
 
     pub fn unfocus_surface(&self, surface: &Rc<WlSurface>) {
-        self.surface_kb_event(surface, |k| {
-            k.leave(0, surface.id)
-        })
+        self.surface_kb_event(0, surface, |k| k.leave(0, surface.id))
     }
 
     fn focus_toplevel(&self, toplevel: &Rc<XdgToplevel>) {
@@ -191,23 +189,25 @@ impl WlSeatGlobal {
         self.set_new_position(x, y);
     }
 
-    fn for_each_seat<C>(&self, client: ClientId, mut f: C)
+    fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlSeatObj>),
     {
         let bindings = self.bindings.borrow();
         if let Some(hm) = bindings.get(&client) {
             for seat in hm.values() {
-                f(seat);
+                if seat.version >= ver {
+                    f(seat);
+                }
             }
         }
     }
 
-    fn for_each_pointer<C>(&self, client: ClientId, mut f: C)
+    fn for_each_pointer<C>(&self, ver: u32, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlPointer>),
     {
-        self.for_each_seat(client, |seat| {
+        self.for_each_seat(ver, client, |seat| {
             let pointers = seat.pointers.lock();
             for pointer in pointers.values() {
                 f(pointer);
@@ -215,11 +215,11 @@ impl WlSeatGlobal {
         })
     }
 
-    fn for_each_kb<C>(&self, client: ClientId, mut f: C)
+    fn for_each_kb<C>(&self, ver: u32, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlKeyboard>),
     {
-        self.for_each_seat(client, |seat| {
+        self.for_each_seat(ver, client, |seat| {
             let keyboards = seat.keyboards.lock();
             for keyboard in keyboards.values() {
                 f(keyboard);
@@ -227,23 +227,23 @@ impl WlSeatGlobal {
         })
     }
 
-    fn surface_pointer_event<F>(&self, surface: &WlSurface, mut f: F)
+    fn surface_pointer_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlPointer>) -> DynEventFormatter,
     {
         let client = &surface.client;
-        self.for_each_pointer(client.id, |p| {
+        self.for_each_pointer(ver, client.id, |p| {
             client.event(f(p));
         });
         client.flush();
     }
 
-    fn surface_kb_event<F>(&self, surface: &WlSurface, mut f: F)
+    fn surface_kb_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlKeyboard>) -> DynEventFormatter,
     {
         let client = &surface.client;
-        self.for_each_kb(client.id, |p| {
+        self.for_each_kb(ver, client.id, |p| {
             client.event(f(p));
         });
         client.flush();
@@ -321,7 +321,7 @@ impl WlSeatGlobal {
     }
 
     pub fn leave_surface(&self, n: &WlSurface) {
-        self.surface_pointer_event(n, |p| p.leave(0, n.id));
+        self.surface_pointer_event(0, n, |p| p.leave(0, n.id));
     }
 
     pub fn enter_toplevel(&self, n: &Rc<XdgToplevel>) {
@@ -329,12 +329,12 @@ impl WlSeatGlobal {
     }
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        self.surface_pointer_event(n, |p| p.enter(0, n.id, x, y));
+        self.surface_pointer_event(0, n, |p| p.enter(0, n.id, x, y));
     }
 
     pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        self.surface_pointer_event(n, |p| p.motion(0, x, y));
-        self.surface_pointer_event(n, |p| p.frame());
+        self.surface_pointer_event(0, n, |p| p.motion(0, x, y));
+        self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, n, |p| p.frame());
     }
 
     fn motion_event(&self, dx: Fixed, dy: Fixed) {
@@ -370,8 +370,8 @@ impl WlSeatGlobal {
             ScrollAxis::Horizontal => wl_pointer::HORIZONTAL_SCROLL,
             ScrollAxis::Vertical => wl_pointer::VERTICAL_SCROLL,
         };
-        self.surface_pointer_event(surface, |p| p.axis(0, axis, Fixed::from_int(delta)));
-        self.surface_pointer_event(surface, |p| p.frame());
+        self.surface_pointer_event(0, surface, |p| p.axis(0, axis, Fixed::from_int(delta)));
+        self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, surface, |p| p.frame());
     }
 
     fn scroll_event(&self, delta: i32, axis: ScrollAxis) {

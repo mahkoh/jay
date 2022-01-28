@@ -1,20 +1,29 @@
+use crate::gles2::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE};
 use crate::pixman;
 use ahash::AHashMap;
+use once_cell::sync::Lazy;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Format {
-    pub id: u32,
     pub name: &'static str,
     pub bpp: u32,
-    pub pixman: pixman::Format,
+    pub pixman: Option<pixman::Format>,
+    pub gl_format: GLint,
+    pub gl_type: GLint,
+    pub drm: u32,
+    pub wl_id: Option<u32>,
 }
 
-pub fn formats() -> AHashMap<u32, &'static Format> {
+static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
     let mut map = AHashMap::new();
     for format in FORMATS {
-        assert!(map.insert(format.id, format).is_none());
+        assert!(map.insert(format.drm, format).is_none());
     }
     map
+});
+
+pub fn formats() -> &'static AHashMap<u32, &'static Format> {
+    &*FORMATS_MAP
 }
 
 #[allow(dead_code)]
@@ -22,18 +31,41 @@ const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
     (a as u32) | ((b as u32) << 8) | ((c as u32) << 16) | ((d as u32) << 24)
 }
 
-static FORMATS: &[Format] = &[
+const ARGB8888_ID: u32 = 0;
+const ARGB8888_DRM: u32 = fourcc_code('A', 'R', '2', '4');
+
+const XRGB8888_ID: u32 = 1;
+const XRGB8888_DRM: u32 = fourcc_code('X', 'R', '2', '4');
+
+pub fn map_wayland_format_id(id: u32) -> u32 {
+    match id {
+        ARGB8888_ID => ARGB8888_DRM,
+        XRGB8888_ID => XRGB8888_DRM,
+        _ => id,
+    }
+}
+
+pub static ARGB8888: &Format = &FORMATS[0];
+pub static XRGB8888: &Format = &FORMATS[1];
+
+pub static FORMATS: &[Format] = &[
     Format {
-        id: 0,
         name: "argb8888",
         bpp: 4,
-        pixman: pixman::A8R8G8B8,
+        pixman: Some(pixman::A8R8G8B8),
+        gl_format: GL_BGRA_EXT,
+        gl_type: GL_UNSIGNED_BYTE,
+        drm: ARGB8888_DRM,
+        wl_id: Some(ARGB8888_ID),
     },
     Format {
-        id: 1,
         name: "xrgb8888",
         bpp: 4,
-        pixman: pixman::X8R8G8B8,
+        pixman: Some(pixman::X8R8G8B8),
+        gl_format: GL_BGRA_EXT,
+        gl_type: GL_UNSIGNED_BYTE,
+        drm: XRGB8888_DRM,
+        wl_id: Some(XRGB8888_ID),
     },
     // Format {
     //     id: fourcc_code('C', '8', ' ', ' '),

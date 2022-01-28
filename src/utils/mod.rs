@@ -1,7 +1,9 @@
 pub mod asyncevent;
+pub mod bitflags;
 pub mod buffd;
 pub mod clonecell;
 pub mod copyhashmap;
+pub mod debug_fn;
 pub mod errorfmt;
 pub mod linkedlist;
 pub mod numcell;

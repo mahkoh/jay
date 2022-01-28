@@ -1,5 +1,8 @@
 mod types;
 
+use crate::backend::{KeyState, ScrollAxis};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::{
     CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceId,
 };
@@ -13,9 +16,6 @@ use std::cell::{Cell, RefCell};
 use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
-use crate::backend::{KeyState, ScrollAxis};
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeatGlobal;
 
 const DESTROY: u32 = 0;
 const SET_POSITION: u32 = 1;

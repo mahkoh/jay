@@ -40,6 +40,8 @@ const CONTINUOUS: u32 = 2;
 #[allow(dead_code)]
 const WHEEL_TILT: u32 = 3;
 
+pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
+
 id!(WlPointerId);
 
 pub struct WlPointer {

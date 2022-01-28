@@ -65,7 +65,8 @@ pub(super) struct FormatE {
 }
 impl EventFormatter for FormatE {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, FORMAT).uint(self.format.id);
+        fmt.header(self.obj.id, FORMAT)
+            .uint(self.format.wl_id.unwrap_or(self.format.drm));
     }
     fn obj(&self) -> &dyn Object {
         &*self.obj
@@ -76,7 +77,8 @@ impl Debug for FormatE {
         write!(
             f,
             "format(format: \"{}\" (0x{:x}))",
-            self.format.name, self.format.id
+            self.format.name,
+            self.format.wl_id.unwrap_or(self.format.drm),
         )
     }
 }

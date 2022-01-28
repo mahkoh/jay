@@ -4,6 +4,7 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::tree::ContainerNode;
 use crate::tree::{FloatNode, OutputNode, WorkspaceNode};
 
+pub mod gles;
 pub mod pixman;
 
 bitflags::bitflags! {

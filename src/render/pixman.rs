@@ -75,9 +75,7 @@ impl Renderer for PixmanRenderer<'_> {
             }
             self.image.with_clip(container.mono_body.get(), || {
                 let content = container.mono_content.get();
-                child
-                    .node
-                    .render(self, x + content.x1(), y + content.y1());
+                child.node.render(self, x + content.x1(), y + content.y1());
             });
         } else {
             let split = container.split.get();
@@ -131,8 +129,30 @@ impl Renderer for PixmanRenderer<'_> {
                 self.image.with_clip(body, || {
                     let content = child.content.get();
                     child.node.render(self, x + content.x1(), y + content.y1());
-                    self.image.fill_inner_border(0, 0, 255, 255, x + body.x1(), y + body.y1(), x + body.x1() + body.width(), y + body.y1() + body.height(), 2, Border::all());
-                    self.image.fill_inner_border(255, 0, 0, 255, x + content.x1(), y + content.y1(), x + content.x1() + content.width(), y + content.y1() + content.height(), 2, Border::all());
+                    self.image.fill_inner_border(
+                        0,
+                        0,
+                        255,
+                        255,
+                        x + body.x1(),
+                        y + body.y1(),
+                        x + body.x1() + body.width(),
+                        y + body.y1() + body.height(),
+                        2,
+                        Border::all(),
+                    );
+                    self.image.fill_inner_border(
+                        255,
+                        0,
+                        0,
+                        255,
+                        x + content.x1(),
+                        y + content.y1(),
+                        x + content.x1() + content.width(),
+                        y + content.y1() + content.height(),
+                        2,
+                        Border::all(),
+                    );
                 });
             }
         }
@@ -154,8 +174,8 @@ impl Renderer for PixmanRenderer<'_> {
             Some(b) => b,
             _ => {
                 log::warn!("surface has no buffer attached");
-                return
-            },
+                return;
+            }
         };
         if let Some(children) = children.deref() {
             macro_rules! render {

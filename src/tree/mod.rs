@@ -238,7 +238,8 @@ impl Node for OutputNode {
     }
 
     fn change_size(self: Rc<Self>, width: i32, height: i32) {
-        self.position.set(Rect::new_sized(0, 0, width, height).unwrap());
+        self.position
+            .set(Rect::new_sized(0, 0, width, height).unwrap());
         if let Some(c) = self.workspace.get() {
             c.change_size(width, height);
         }
@@ -294,6 +295,7 @@ impl Node for FloatNode {
 
     fn child_size_changed(&self, _child: &dyn Node, width: i32, height: i32) {
         let pos = self.position.get();
-        self.position.set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
+        self.position
+            .set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
     }
 }

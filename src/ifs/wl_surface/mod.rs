@@ -2,9 +2,13 @@ mod types;
 pub mod wl_subsurface;
 pub mod xdg_surface;
 
+use crate::backend::{KeyState, ScrollAxis};
 use crate::client::{Client, RequestParser};
+use crate::fixed::Fixed;
+use crate::gles2::gl::GlTexture;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
+use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
@@ -20,9 +24,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
-use crate::backend::{KeyState, ScrollAxis};
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeatGlobal;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -342,6 +343,7 @@ impl WlSurface {
                 buffer.surfaces.remove(&self.id);
             }
             if let Some((dx, dy, buffer)) = buffer_change {
+                let _ = buffer.update_texture();
                 new_size = Some(buffer.rect);
                 self.buffer.set(Some(buffer));
                 self.buf_x.fetch_add(dx);

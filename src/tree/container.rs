@@ -113,7 +113,11 @@ impl ContainerNode {
     }
 
     pub fn add_child_after(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn Node>) {
-        let node = self.child_nodes.borrow().get(&prev.id()).map(|n| n.to_ref());
+        let node = self
+            .child_nodes
+            .borrow()
+            .get(&prev.id())
+            .map(|n| n.to_ref());
         if let Some(node) = node {
             self.add_child_after_(&node, new);
             return;
@@ -185,7 +189,9 @@ impl ContainerNode {
             body_size = body_size.min(remaining_content_size);
             remaining_content_size -= body_size;
             let (x1, y1, width, height) = match split {
-                ContainerSplit::Horizontal => (pos, CONTAINER_TITLE_HEIGHT, body_size, other_content_size),
+                ContainerSplit::Horizontal => {
+                    (pos, CONTAINER_TITLE_HEIGHT, body_size, other_content_size)
+                }
                 _ => (0, pos, other_content_size, body_size),
             };
             let body = Rect::new_sized(x1, y1, width, height).unwrap();
@@ -209,7 +215,13 @@ impl ContainerNode {
                 let (x1, y1, width, height, size) = match split {
                     ContainerSplit::Horizontal => {
                         let width = body.width() + add;
-                        (pos, CONTAINER_TITLE_HEIGHT, width, other_content_size, width)
+                        (
+                            pos,
+                            CONTAINER_TITLE_HEIGHT,
+                            width,
+                            other_content_size,
+                            width,
+                        )
                     }
                     _ => {
                         let height = body.height() + add;

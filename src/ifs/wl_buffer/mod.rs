@@ -3,11 +3,13 @@ mod types;
 use crate::client::{Client, DynEventFormatter};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
+use crate::gles2::gl::GlTexture;
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use std::rc::Rc;
 pub use types::*;
@@ -23,10 +25,14 @@ pub struct WlBuffer {
     pub client: Rc<Client>,
     _offset: usize,
     pub rect: Rect,
-    _stride: i32,
-    _format: &'static Format,
+    stride: i32,
+    format: &'static Format,
     pub image: Rc<pixman::Image<ClientMemOffset>>,
+    mem: ClientMemOffset,
+    pub texture: CloneCell<Option<Rc<GlTexture>>>,
     pub(super) surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
+    width: i32,
+    height: i32,
 }
 
 impl WlBuffer {
@@ -52,8 +58,8 @@ impl WlBuffer {
             return Err(WlBufferError::StrideTooSmall);
         }
         let image = pixman::Image::new(
-            mem,
-            format.pixman,
+            mem.clone(),
+            format.pixman.unwrap(),
             width as u32,
             height as u32,
             stride as u32,
@@ -63,11 +69,25 @@ impl WlBuffer {
             client: client.clone(),
             _offset: offset,
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
-            _stride: stride,
-            _format: format,
+            stride,
+            format,
             image: Rc::new(image),
+            mem,
+            width,
+            height,
+            texture: CloneCell::new(None),
             surfaces: Default::default(),
         })
+    }
+
+    pub fn update_texture(&self) -> Result<(), WlBufferError> {
+        self.texture.set(None);
+        let ctx = self.client.state.egl.get().unwrap();
+        let tex = self.mem.access(|mem| {
+            GlTexture::import_texture(&ctx, mem, self.format, self.width, self.height, self.stride)
+        })??;
+        self.texture.set(Some(tex));
+        Ok(())
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
