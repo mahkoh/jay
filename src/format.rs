@@ -1,5 +1,5 @@
-use crate::gles2::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE};
 use crate::pixman;
+use crate::render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE};
 use ahash::AHashMap;
 use once_cell::sync::Lazy;
 

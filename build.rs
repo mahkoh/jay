@@ -147,7 +147,8 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
     ];
 
     writeln!(f, "use std::ptr;")?;
-    writeln!(f, "use super::sys::*;")?;
+    writeln!(f, "use super::gl::sys::*;")?;
+    writeln!(f, "use super::egl::sys::*;")?;
     writeln!(f)?;
     writeln!(f, "#[derive(Copy, Clone, Debug)]")?;
     writeln!(f, "pub struct ExtProc {{")?;
@@ -155,6 +156,9 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
         writeln!(f, "    {}: *mut u8,", name)?;
     }
     writeln!(f, "}}")?;
+    writeln!(f)?;
+    writeln!(f, "unsafe impl Sync for ExtProc {{ }}")?;
+    writeln!(f, "unsafe impl Send for ExtProc {{ }}")?;
     writeln!(f)?;
     writeln!(f, "impl ExtProc {{")?;
     writeln!(f, "    pub fn load() -> Self {{")?;

@@ -11,8 +11,6 @@ use uapi::{c, Errno, OwnedFd, Ustring};
 
 #[derive(Debug, Error)]
 pub enum DrmError {
-    #[error("Could not create a lease")]
-    CreateLeaseError(#[source] std::io::Error),
     #[error("Could not reopen a node")]
     ReopenNode(#[source] std::io::Error),
     #[error("Could not retrieve the render node name")]

@@ -1,12 +1,12 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
 use crate::backend::{BackendEvent, OutputId, OutputIds, SeatId, SeatIds};
 use crate::client::{Client, Clients};
-use crate::egl::EglContext;
 use crate::event_loop::EventLoop;
 use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
+use crate::render::RenderContext;
 use crate::tree::{DisplayNode, NodeIds};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
@@ -22,7 +22,7 @@ use std::rc::Rc;
 pub struct State {
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
-    pub egl: CloneCell<Option<Rc<EglContext>>>,
+    pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
     pub next_name: NumCell<u32>,

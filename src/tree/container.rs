@@ -1,5 +1,5 @@
 use crate::rect::Rect;
-use crate::render::{Border, Renderer};
+use crate::render::Renderer;
 use crate::tree::{FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
@@ -39,7 +39,6 @@ pub struct ContainerNode {
     pub height: Cell<i32>,
     pub content_width: Cell<i32>,
     pub content_height: Cell<i32>,
-    pub borders: Cell<Border>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
@@ -59,11 +58,13 @@ impl ContainerChild {
         let body = self.body.get();
         let width = content.width();
         let height = content.height();
-        let x1 = body.x1() + (body.width() - width) / 2;
-        let y1 = body.y1() + (body.height() - height) / 2;
+        // let x1 = body.x1() + (body.width() - width) / 2;
+        // let y1 = body.y1() + (body.height() - height) / 2;
+        let x1 = body.x1();
+        let y1 = body.y1();
         content = Rect::new_sized(x1, y1, width, height).unwrap();
-        log::debug!("body: {:?}", body);
-        log::debug!("content: {:?}", content);
+        // log::debug!("body: {:?}", body);
+        // log::debug!("content: {:?}", content);
         self.content.set(content);
     }
 }
@@ -93,7 +94,6 @@ impl ContainerNode {
             height: Cell::new(0),
             content_width: Cell::new(0),
             content_height: Cell::new(0),
-            borders: Cell::new(Border::NONE),
             num_children: NumCell::new(1),
             children,
             child_nodes: RefCell::new(child_nodes),
@@ -145,20 +145,8 @@ impl ContainerNode {
                 }),
             );
         }
-        match self.split.get() {
-            ContainerSplit::Horizontal => {
-                let new_content_size = self.content_width.get().saturating_sub(CONTAINER_BORDER);
-                self.content_width.set(new_content_size);
-            }
-            ContainerSplit::Vertical => {
-                let new_content_size = self
-                    .content_height
-                    .get()
-                    .saturating_sub(CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT);
-                self.content_height.set(new_content_size);
-            }
-        }
         let num_children = self.num_children.fetch_add(1) + 1;
+        self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
         let mut sum_factors = 0.0;
         for child in self.children.iter() {
@@ -198,7 +186,7 @@ impl ContainerNode {
             child.body.set(body);
             pos += body_size + CONTAINER_BORDER;
             if split == ContainerSplit::Vertical {
-                pos += body_size + CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT;
+                pos += CONTAINER_TITLE_HEIGHT;
             }
         }
         if remaining_content_size > 0 {
@@ -240,6 +228,29 @@ impl ContainerNode {
             let body = child.body.get();
             child.node.clone().change_size(body.width(), body.height());
             child.position_content();
+        }
+    }
+
+    fn update_content_size(&self) {
+        let nc = self.num_children.get();
+        match self.split.get() {
+            ContainerSplit::Horizontal => {
+                let new_content_size = self
+                    .width
+                    .get()
+                    .saturating_sub((nc - 1) as i32 * CONTAINER_BORDER);
+                self.content_width.set(new_content_size);
+                self.content_height
+                    .set(self.height.get().saturating_sub(CONTAINER_TITLE_HEIGHT));
+            }
+            ContainerSplit::Vertical => {
+                let new_content_size = self.height.get().saturating_sub(
+                    CONTAINER_TITLE_HEIGHT
+                        + (nc - 1) as i32 * (CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT),
+                );
+                self.content_height.set(new_content_size);
+                self.content_width.set(self.width.get());
+            }
         }
     }
 }
@@ -295,6 +306,7 @@ impl Node for ContainerNode {
             self.parent.get().remove_child(self);
             return;
         }
+        self.update_content_size();
         let rem = 1.0 - node.factor.get();
         let mut sum = 0.0;
         if rem <= 0.0 {
@@ -323,7 +335,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn render(&self, renderer: &mut dyn Renderer, x: i32, y: i32) {
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_container(self, x, y);
     }
 
@@ -338,22 +350,7 @@ impl Node for ContainerNode {
     fn change_size(self: Rc<Self>, width: i32, height: i32) {
         self.width.set(width);
         self.height.set(height);
-        let num_children = self.num_children.get();
-        match self.split.get() {
-            ContainerSplit::Horizontal => {
-                self.content_width
-                    .set(width.saturating_sub((num_children - 1) as i32 * CONTAINER_BORDER));
-                self.content_height
-                    .set(height.saturating_sub(CONTAINER_TITLE_HEIGHT));
-            }
-            ContainerSplit::Vertical => {
-                self.content_width.set(width);
-                self.content_height.set(height.saturating_sub(
-                    (num_children - 1) as i32 * CONTAINER_BORDER
-                        + num_children as i32 * CONTAINER_TITLE_HEIGHT,
-                ));
-            }
-        }
+        self.update_content_size();
         self.apply_factors(1.0);
     }
 }

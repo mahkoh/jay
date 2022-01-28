@@ -1,7 +1,5 @@
-use crate::pixman::PixmanMemory;
 use std::cell::Cell;
 use std::ptr;
-use std::rc::Rc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use thiserror::Error;
@@ -78,16 +76,5 @@ impl Drop for ServerMem {
         unsafe {
             c::munmap(self.mem as *const _ as _, (*self.mem).len());
         }
-    }
-}
-
-unsafe impl PixmanMemory for Rc<ServerMem> {
-    type E = !;
-
-    fn access<T, F>(&self, f: F) -> Result<T, Self::E>
-    where
-        F: FnOnce(&[Cell<u8>]) -> T,
-    {
-        Ok(ServerMem::access(self, f))
     }
 }

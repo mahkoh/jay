@@ -47,8 +47,8 @@ impl Node for WorkspaceNode {
         }
     }
 
-    fn render(&self, renderer: &mut dyn Renderer, _x: i32, _y: i32) {
-        renderer.render_workspace(self);
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_workspace(self, x, y);
     }
 
     fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {

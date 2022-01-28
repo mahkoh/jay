@@ -3,11 +3,10 @@ mod types;
 use crate::client::{Client, DynEventFormatter};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
-use crate::gles2::gl::GlTexture;
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::object::{Interface, Object, ObjectId};
-use crate::pixman;
 use crate::rect::Rect;
+use crate::render::Texture;
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -27,9 +26,8 @@ pub struct WlBuffer {
     pub rect: Rect,
     stride: i32,
     format: &'static Format,
-    pub image: Rc<pixman::Image<ClientMemOffset>>,
     mem: ClientMemOffset,
-    pub texture: CloneCell<Option<Rc<GlTexture>>>,
+    pub texture: CloneCell<Option<Rc<Texture>>>,
     pub(super) surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     width: i32,
     height: i32,
@@ -57,13 +55,6 @@ impl WlBuffer {
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
         }
-        let image = pixman::Image::new(
-            mem.clone(),
-            format.pixman.unwrap(),
-            width as u32,
-            height as u32,
-            stride as u32,
-        )?;
         Ok(Self {
             id,
             client: client.clone(),
@@ -71,7 +62,6 @@ impl WlBuffer {
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
             stride,
             format,
-            image: Rc::new(image),
             mem,
             width,
             height,
@@ -82,9 +72,9 @@ impl WlBuffer {
 
     pub fn update_texture(&self) -> Result<(), WlBufferError> {
         self.texture.set(None);
-        let ctx = self.client.state.egl.get().unwrap();
+        let ctx = self.client.state.render_ctx.get().unwrap();
         let tex = self.mem.access(|mem| {
-            GlTexture::import_texture(&ctx, mem, self.format, self.width, self.height, self.stride)
+            ctx.shmem_texture(mem, self.format, self.width, self.height, self.stride)
         })??;
         self.texture.set(Some(tex));
         Ok(())

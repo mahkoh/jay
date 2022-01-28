@@ -19,7 +19,6 @@ use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
-use crate::gles2::egl;
 use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
@@ -27,6 +26,7 @@ use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
+use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
 use crate::tree::{DisplayNode, NodeIds};
@@ -54,7 +54,6 @@ mod drm;
 mod event_loop;
 mod fixed;
 mod format;
-mod gles2;
 mod globals;
 mod ifs;
 mod object;
@@ -97,10 +96,12 @@ enum MainError {
     AsyncError(#[from] AsyncError),
     #[error("The xorg backend caused an error")]
     XorgBackendError(#[from] XorgBackendError),
+    #[error("The render backend caused an error")]
+    RenderError(#[from] RenderError),
 }
 
 fn main_() -> Result<(), MainError> {
-    egl::init();
+    render::init()?;
 
     clientmem::init()?;
     let el = EventLoop::new()?;
@@ -117,7 +118,7 @@ fn main_() -> Result<(), MainError> {
     let state = Rc::new(State {
         eng: engine.clone(),
         el: el.clone(),
-        egl: Default::default(),
+        render_ctx: Default::default(),
         wheel,
         clients: Clients::new(),
         next_name: NumCell::new(1),

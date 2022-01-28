@@ -5,7 +5,6 @@ pub mod xdg_surface;
 use crate::backend::{KeyState, ScrollAxis};
 use crate::client::{Client, RequestParser};
 use crate::fixed::Fixed;
-use crate::gles2::gl::GlTexture;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_seat::WlSeatGlobal;

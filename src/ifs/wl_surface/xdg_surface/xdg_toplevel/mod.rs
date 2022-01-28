@@ -367,7 +367,7 @@ impl Node for XdgToplevel {
         }
     }
 
-    fn render(&self, renderer: &mut dyn Renderer, x: i32, y: i32) {
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_toplevel(self, x, y)
     }
 

@@ -1,0 +1,72 @@
+use crate::render::egl::context::EglContext;
+use crate::render::egl::image::EglImage;
+use crate::render::egl::PROCS;
+use crate::render::gl::frame_buffer::GlFrameBuffer;
+use crate::render::gl::sys::{
+    glBindFramebuffer, glBindRenderbuffer, glCheckFramebufferStatus, glDeleteRenderbuffers,
+    glFramebufferRenderbuffer, glGenFramebuffers, glGenRenderbuffers, GLeglImageOES, GLuint,
+    GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER, GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+};
+use crate::render::RenderError;
+use std::rc::Rc;
+
+pub struct GlRenderBuffer {
+    pub img: Rc<EglImage>,
+    pub ctx: Rc<EglContext>,
+    rbo: GLuint,
+}
+
+impl GlRenderBuffer {
+    pub unsafe fn from_image(
+        img: &Rc<EglImage>,
+        ctx: &Rc<EglContext>,
+    ) -> Result<Rc<GlRenderBuffer>, RenderError> {
+        let mut rbo = 0;
+        glGenRenderbuffers(1, &mut rbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+        PROCS.glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, GLeglImageOES(img.img.0));
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        Ok(Rc::new(GlRenderBuffer {
+            img: img.clone(),
+            ctx: ctx.clone(),
+            rbo,
+        }))
+    }
+
+    pub unsafe fn create_framebuffer(self: &Rc<Self>) -> Result<GlFrameBuffer, RenderError> {
+        let mut fbo = 0;
+        glGenFramebuffers(1, &mut fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER,
+            GL_COLOR_ATTACHMENT0,
+            GL_RENDERBUFFER,
+            self.rbo,
+        );
+        let status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        let fb = GlFrameBuffer {
+            _rb: Some(self.clone()),
+            _tex: None,
+            ctx: self.ctx.clone(),
+            fbo,
+            width: self.img.width,
+            height: self.img.height,
+        };
+        if status != GL_FRAMEBUFFER_COMPLETE {
+            return Err(RenderError::CreateFramebuffer);
+        }
+        Ok(fb)
+    }
+}
+
+impl Drop for GlRenderBuffer {
+    fn drop(&mut self) {
+        let _ = self.ctx.with_current(|| {
+            unsafe {
+                glDeleteRenderbuffers(1, &self.rbo);
+            }
+            Ok(())
+        });
+    }
+}

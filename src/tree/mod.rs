@@ -107,7 +107,7 @@ pub trait Node {
         let _ = y;
     }
 
-    fn render(&self, renderer: &mut dyn Renderer, x: i32, y: i32) {
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         let _ = renderer;
         let _ = x;
         let _ = y;
@@ -229,8 +229,8 @@ impl Node for OutputNode {
         }
     }
 
-    fn render(&self, renderer: &mut dyn Renderer, _x: i32, _y: i32) {
-        renderer.render_output(self);
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_output(self, x, y);
     }
 
     fn remove_child(&self, _child: &dyn Node) {
@@ -277,7 +277,7 @@ impl Node for FloatNode {
         self.workspace_link.set(None);
     }
 
-    fn render(&self, renderer: &mut dyn Renderer, x: i32, y: i32) {
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_floating(self, x, y)
     }
 

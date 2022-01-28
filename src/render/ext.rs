@@ -1,7 +1,6 @@
-use crate::gles2::egl::PROCS;
-use crate::gles2::sys::{
-    eglQueryString, glGetString, EGLDeviceEXT, EGLDisplay, EGL_EXTENSIONS, GL_EXTENSIONS,
-};
+use crate::render::egl::sys::{eglQueryString, EGLDeviceEXT, EGLDisplay, EGL_EXTENSIONS};
+use crate::render::egl::PROCS;
+use crate::render::gl::sys::{glGetString, GL_EXTENSIONS};
 use ahash::AHashSet;
 use bstr::ByteSlice;
 use std::ffi::CStr;

@@ -1,4 +1,3 @@
-use crate::pixman::PixmanMemory;
 use std::cell::{Cell, UnsafeCell};
 use std::mem::MaybeUninit;
 use std::ptr;
@@ -163,16 +162,5 @@ pub fn init() -> Result<(), ClientMemError> {
             Ok(_) => Ok(()),
             Err(e) => Err(ClientMemError::SigactionFailed(e.into())),
         }
-    }
-}
-
-unsafe impl PixmanMemory for ClientMemOffset {
-    type E = ClientMemError;
-
-    fn access<T, F>(&self, f: F) -> Result<T, Self::E>
-    where
-        F: FnOnce(&[Cell<u8>]) -> T,
-    {
-        ClientMemOffset::access(self, f)
     }
 }
