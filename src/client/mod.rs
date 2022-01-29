@@ -30,7 +30,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelError};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceId};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceError, WlSurfaceId};
-use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerError};
+use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerError, XdgPositionerId};
 use crate::ifs::xdg_wm_base::{XdgWmBaseError, XdgWmBaseObj};
 use crate::ifs::zwp_linux_buffer_params_v1::{ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Error};
 use crate::ifs::zwp_linux_dmabuf_v1::{ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Obj};
@@ -78,6 +78,8 @@ pub enum ClientError {
     SurfaceDoesNotExist(WlSurfaceId),
     #[error("There is no xdg_surface with id {0}")]
     XdgSurfaceDoesNotExist(XdgSurfaceId),
+    #[error("There is no xdg_positioner with id {0}")]
+    XdgPositionerDoesNotExist(XdgPositionerId),
     #[error("There is no wl_seat with id {0}")]
     WlSeatDoesNotExist(WlSeatId),
     #[error("Cannot parse the message")]
@@ -498,6 +500,16 @@ impl Client {
         }
     }
 
+    pub fn get_xdg_positioner(
+        &self,
+        id: XdgPositionerId,
+    ) -> Result<Rc<XdgPositioner>, ClientError> {
+        match self.objects.xdg_positioners.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::XdgPositionerDoesNotExist(id)),
+        }
+    }
+
     pub fn get_wl_seat(&self, id: WlSeatId) -> Result<Rc<WlSeatObj>, ClientError> {
         match self.objects.seats.get(&id) {
             Some(r) => Ok(r),
@@ -567,7 +579,6 @@ simple_add_obj!(WlShmObj);
 simple_add_obj!(WlShmPool);
 simple_add_obj!(WlSubcompositorObj);
 simple_add_obj!(WlSubsurface);
-simple_add_obj!(XdgPositioner);
 simple_add_obj!(XdgToplevel);
 simple_add_obj!(XdgPopup);
 simple_add_obj!(WlOutputObj);
@@ -603,3 +614,4 @@ dedicated_add_obj!(XdgWmBaseObj, xdg_wm_bases);
 dedicated_add_obj!(XdgSurface, xdg_surfaces);
 dedicated_add_obj!(WlBuffer, buffers);
 dedicated_add_obj!(WlSeatObj, seats);
+dedicated_add_obj!(XdgPositioner, xdg_positioners);

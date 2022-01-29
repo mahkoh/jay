@@ -35,6 +35,8 @@ pub struct ContainerNode {
     pub mono_child: CloneCell<Option<NodeRef<ContainerChild>>>,
     pub mono_body: Cell<Rect>,
     pub mono_content: Cell<Rect>,
+    pub abs_x1: Cell<i32>,
+    pub abs_y1: Cell<i32>,
     pub width: Cell<i32>,
     pub height: Cell<i32>,
     pub content_width: Cell<i32>,
@@ -90,6 +92,8 @@ impl ContainerNode {
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
             mono_content: Cell::new(Default::default()),
+            abs_x1: Cell::new(0),
+            abs_y1: Cell::new(0),
             width: Cell::new(0),
             height: Cell::new(0),
             content_width: Cell::new(0),
@@ -225,8 +229,8 @@ impl ContainerNode {
             }
         }
         for child in self.children.iter() {
-            let body = child.body.get();
-            child.node.clone().change_size(body.width(), body.height());
+            let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+            child.node.clone().change_extents(&body);
             child.position_content();
         }
     }
@@ -347,10 +351,20 @@ impl Node for ContainerNode {
         self.parent.get().get_workspace()
     }
 
-    fn change_size(self: Rc<Self>, width: i32, height: i32) {
-        self.width.set(width);
-        self.height.set(height);
-        self.update_content_size();
-        self.apply_factors(1.0);
+    fn change_extents(self: Rc<Self>, rect: &Rect) {
+        self.abs_x1.set(rect.x1());
+        self.abs_y1.set(rect.y1());
+        let mut size_changed = false;
+        size_changed |= self.width.replace(rect.width()) != rect.width();
+        size_changed |= self.height.replace(rect.height()) != rect.height();
+        if size_changed {
+            self.update_content_size();
+            self.apply_factors(1.0);
+        } else {
+            for child in self.children.iter() {
+                let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+                child.node.clone().change_extents(&body);
+            }
+        }
     }
 }

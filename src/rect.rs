@@ -60,6 +60,10 @@ impl Rect {
         self.x1 <= x && self.y1 <= y && self.x2 > x && self.y2 > y
     }
 
+    pub fn contains_rect(&self, rect: &Self) -> bool {
+        self.x1 <= rect.x1 && self.y1 <= rect.x1 && rect.x2 <= self.x2 && rect.y2 <= self.y2
+    }
+
     pub fn is_empty(&self) -> bool {
         self.x1 == self.x2 || self.y1 == self.y2
     }

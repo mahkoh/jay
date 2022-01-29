@@ -28,6 +28,8 @@ use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 
 id!(WlSeatId);
 
@@ -167,13 +169,17 @@ impl WlSeatGlobal {
         self.toplevel_focus_stash
             .borrow_mut()
             .insert(toplevel.id, node);
+        self.focus_xdg_surface(&toplevel.xdg);
+    }
+
+    fn focus_xdg_surface(&self, xdg: &Rc<XdgSurface>) {
         self.keyboard_node.get().unfocus(self);
         let focus_surface;
-        if let Some(ss) = toplevel.focus_subsurface.get() {
+        if let Some(ss) = xdg.focus_subsurface.get() {
             focus_surface = ss.surface.clone();
             self.keyboard_node.set(ss);
         } else {
-            focus_surface = toplevel.xdg.surface.clone();
+            focus_surface = xdg.surface.clone();
             self.keyboard_node.set(focus_surface.clone());
         }
         self.focus_surface(&focus_surface);
@@ -326,6 +332,10 @@ impl WlSeatGlobal {
 
     pub fn enter_toplevel(&self, n: &Rc<XdgToplevel>) {
         self.focus_toplevel(n);
+    }
+
+    pub fn enter_popup(&self, n: &Rc<XdgPopup>) {
+        self.focus_xdg_surface(&n.xdg);
     }
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {

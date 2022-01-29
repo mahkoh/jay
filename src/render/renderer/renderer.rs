@@ -1,5 +1,4 @@
 use crate::ifs::wl_buffer::WlBuffer;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::gl::frame_buffer::{with_scissor, GlFrameBuffer};
@@ -10,13 +9,11 @@ use crate::render::gl::sys::{
     GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
 };
 use crate::render::renderer::context::RenderContext;
-use crate::tree::{
-    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
-    CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT,
-};
+use crate::tree::{ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode, CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT, StackedNode};
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 
 const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
 const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);
@@ -45,6 +42,18 @@ impl Renderer<'_> {
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
         if let Some(node) = workspace.container.get() {
             self.render_container(&node, x, y)
+        }
+        for stacked in workspace.stacked.iter() {
+            match &*stacked {
+                StackedNode::Float(f) => {
+                    let pos = f.position.get();
+                    self.render_floating(f, pos.x1(), pos.y1());
+                }
+                StackedNode::Popup(p) => {
+                    let pos = p.xdg.absolute_desired_extents.get();
+                    self.render_xdg_surface(&p.xdg, pos.x1(), pos.y1());
+                }
+            }
         }
     }
 
@@ -167,9 +176,9 @@ impl Renderer<'_> {
         }
     }
 
-    pub fn render_toplevel(&mut self, tl: &XdgToplevel, mut x: i32, mut y: i32) {
-        let surface = &tl.xdg.surface;
-        if let Some(geo) = tl.xdg.geometry() {
+    pub fn render_xdg_surface(&mut self, xdg: &XdgSurface, mut x: i32, mut y: i32) {
+        let surface = &xdg.surface;
+        if let Some(geo) = xdg.geometry() {
             let (xt, yt) = geo.translate(x, y);
             x = xt;
             y = yt;

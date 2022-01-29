@@ -3,12 +3,11 @@ mod types;
 use crate::client::DynEventFormatter;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceExt};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::ContainerNode;
+use crate::tree::{ContainerNode, StackedNode};
 use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
@@ -77,7 +76,6 @@ pub struct XdgToplevel {
     pub parent_node: CloneCell<Option<Rc<dyn Node>>>,
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
-    pub focus_subsurface: CloneCell<Option<Rc<WlSubsurface>>>,
     states: RefCell<AHashSet<u32>>,
 }
 
@@ -95,7 +93,6 @@ impl XdgToplevel {
             parent_node: Default::default(),
             parent: Default::default(),
             children: RefCell::new(Default::default()),
-            focus_subsurface: Default::default(),
             states: RefCell::new(states),
         }
     }
@@ -262,10 +259,10 @@ impl XdgToplevel {
         self.parent_node.set(Some(floater.clone()));
         floater
             .display_link
-            .set(Some(state.root.floaters.add_last(floater.clone())));
+            .set(Some(state.root.stacked.add_last(StackedNode::Float(floater.clone()))));
         floater
             .workspace_link
-            .set(Some(workspace.floaters.add_last(floater.clone())));
+            .set(Some(workspace.stacked.add_last(StackedNode::Float(floater.clone()))));
     }
 
     fn map_tiled(self: &Rc<Self>) {
@@ -333,7 +330,6 @@ impl Object for XdgToplevel {
         }
         self.parent.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
-        self.focus_subsurface.set(None);
     }
 }
 
@@ -346,29 +342,12 @@ impl Node for XdgToplevel {
         self.parent_node.set(None);
     }
 
-    fn find_child_at(&self, mut x: i32, mut y: i32) -> Option<FoundNode> {
-        if let Some(geo) = self.xdg.geometry.get() {
-            let (xt, yt) = geo.translate_inv(x, y);
-            x = xt;
-            y = yt;
-        }
-        match self.xdg.surface.find_surface_at(x, y) {
-            Some((node, x, y)) => Some(FoundNode {
-                node: if std::ptr::eq(node.deref(), self.xdg.surface.deref()) {
-                    node
-                } else {
-                    node.ext.get().into_node().unwrap()
-                },
-                x,
-                y,
-                contained: true,
-            }),
-            _ => None,
-        }
+    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
+        self.xdg.find_child_at(x, y)
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_toplevel(self, x, y)
+        renderer.render_xdg_surface(&self.xdg, x, y)
     }
 
     fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
@@ -379,16 +358,23 @@ impl Node for XdgToplevel {
         seat.enter_toplevel(&self);
     }
 
-    fn change_size(self: Rc<Self>, width: i32, height: i32) {
-        self.xdg.surface.client.event(self.configure(width, height));
-        self.xdg.send_configure();
-        self.xdg.surface.client.flush();
+    fn change_extents(self: Rc<Self>, rect: &Rect) {
+        let de = self.xdg.absolute_desired_extents.replace(*rect);
+        if de.width() != rect.width() || de.height() != rect.height() {
+            self.xdg.surface.client.event(self.configure(rect.width(), rect.height()));
+            self.xdg.send_configure();
+            self.xdg.surface.client.flush();
+        }
+        if de.x1() != rect.x1() || de.y1() != rect.y1() {
+            self.xdg.update_popup_positions();
+        }
     }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
-    fn initial_configure(self: Rc<Self>) {
+    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         self.xdg.surface.client.event(self.configure(0, 0));
+        Ok(())
     }
 
     fn post_commit(self: Rc<Self>) {

@@ -102,9 +102,9 @@ enum CommitAction {
 }
 
 trait SurfaceExt {
-    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> CommitAction {
+    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
         let _ = ctx;
-        CommitAction::ContinueCommit
+        Ok(CommitAction::ContinueCommit)
     }
 
     fn post_commit(&self) {
@@ -147,8 +147,8 @@ impl SurfaceExt for NoneSurfaceExt {
 #[derive(Default)]
 struct PendingState {
     buffer: Cell<Option<Option<(i32, i32, Rc<WlBuffer>)>>>,
-    opaque_region: Cell<Option<Region>>,
-    input_region: Cell<Option<Region>>,
+    opaque_region: Cell<Option<Option<Region>>>,
+    input_region: Cell<Option<Option<Region>>>,
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
 }
 
@@ -306,28 +306,36 @@ impl WlSurface {
 
     fn set_opaque_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetOpaqueRegionError> {
         let region: SetOpaqueRegion = self.parse(parser)?;
-        let region = self.client.get_region(region.region)?;
-        self.pending.opaque_region.set(Some(region.region()));
+        let region = if region.region.is_some() {
+            Some(self.client.get_region(region.region)?.region())
+        } else {
+            None
+        };
+        self.pending.opaque_region.set(Some(region));
         Ok(())
     }
 
     fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
         let req: SetInputRegion = self.parse(parser)?;
-        let region = self.client.get_region(req.region)?;
-        self.pending.input_region.set(Some(region.region()));
+        let region = if req.region.is_some() {
+            Some(self.client.get_region(req.region)?.region())
+        } else {
+            None
+        };
+        self.pending.input_region.set(Some(region));
         Ok(())
     }
 
-    fn do_commit(&self, ctx: CommitContext) {
+    fn do_commit(&self, ctx: CommitContext) -> Result<(), WlSurfaceError> {
         let ext = self.ext.get();
-        if ext.clone().pre_commit(ctx) == CommitAction::AbortCommit {
-            return;
+        if ext.clone().pre_commit(ctx)? == CommitAction::AbortCommit {
+            return Ok(());
         }
         {
             let children = self.children.borrow();
             if let Some(children) = children.deref() {
                 for child in children.subsurfaces.values() {
-                    child.surface.do_commit(CommitContext::ChildCommit);
+                    child.surface.do_commit(CommitContext::ChildCommit)?;
                 }
             }
         }
@@ -362,21 +370,22 @@ impl WlSurface {
         }
         {
             if let Some(region) = self.pending.input_region.take() {
-                self.input_region.set(Some(region));
+                self.input_region.set(region);
             }
             if let Some(region) = self.pending.opaque_region.take() {
-                self.opaque_region.set(Some(region));
+                self.opaque_region.set(region);
             }
         }
         if self.need_extents_update.get() {
             self.calculate_extents();
         }
         ext.post_commit();
+        Ok(())
     }
 
     fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
         let _req: Commit = self.parse(parser)?;
-        self.do_commit(CommitContext::RootCommit);
+        self.do_commit(CommitContext::RootCommit)?;
         Ok(())
     }
 

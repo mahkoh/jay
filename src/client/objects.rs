@@ -6,6 +6,7 @@ use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
 use crate::ifs::wl_seat::{WlSeatId, WlSeatObj};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
+use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerId};
 use crate::ifs::xdg_wm_base::{XdgWmBaseId, XdgWmBaseObj};
 use crate::object::{Object, ObjectId};
 use crate::utils::clonecell::CloneCell;
@@ -21,6 +22,7 @@ pub struct Objects {
     registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
+    pub xdg_positioners: CopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBaseObj>>,
@@ -39,6 +41,7 @@ impl Objects {
             registries: Default::default(),
             surfaces: Default::default(),
             xdg_surfaces: Default::default(),
+            xdg_positioners: Default::default(),
             regions: Default::default(),
             buffers: Default::default(),
             xdg_wm_bases: Default::default(),

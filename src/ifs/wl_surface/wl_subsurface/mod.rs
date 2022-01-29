@@ -3,9 +3,7 @@ mod types;
 use crate::backend::{KeyState, ScrollAxis};
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::ifs::wl_surface::{
-    CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceId,
-};
+use crate::ifs::wl_surface::{CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError, WlSurfaceId};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
 use crate::tree::{Node, NodeId};
@@ -279,12 +277,12 @@ impl Object for WlSubsurface {
 }
 
 impl SurfaceExt for WlSubsurface {
-    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> CommitAction {
+    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
         if ctx == CommitContext::RootCommit && self.sync() {
             log::info!("Aborting commit due to sync");
-            return CommitAction::AbortCommit;
+            return Ok(CommitAction::AbortCommit);
         }
-        CommitAction::ContinueCommit
+        Ok(CommitAction::ContinueCommit)
     }
 
     fn post_commit(&self) {

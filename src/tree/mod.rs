@@ -12,6 +12,7 @@ use std::cell::{Cell, RefCell};
 use std::fmt::Display;
 use std::rc::Rc;
 pub use workspace::*;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 
 mod container;
 mod workspace;
@@ -129,9 +130,8 @@ pub trait Node {
         None
     }
 
-    fn change_size(self: Rc<Self>, width: i32, height: i32) {
-        let _ = width;
-        let _ = height;
+    fn change_extents(self: Rc<Self>, rect: &Rect) {
+        let _ = rect;
     }
 }
 
@@ -144,10 +144,15 @@ pub struct FoundNode {
 
 tree_id!(ToplevelNodeId);
 
+pub enum StackedNode {
+    Float(Rc<FloatNode>),
+    Popup(Rc<XdgPopup>),
+}
+
 pub struct DisplayNode {
     pub id: NodeId,
     pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
-    pub floaters: LinkedList<Rc<FloatNode>>,
+    pub stacked: LinkedList<StackedNode>,
 }
 
 impl DisplayNode {
@@ -155,7 +160,7 @@ impl DisplayNode {
         Self {
             id,
             outputs: Default::default(),
-            floaters: Default::default(),
+            stacked: Default::default(),
         }
     }
 }
@@ -171,8 +176,11 @@ impl Node for DisplayNode {
             output.clear();
         }
         outputs.clear();
-        for floater in self.floaters.iter() {
-            floater.clear();
+        for floater in self.stacked.iter() {
+            match &*floater {
+                StackedNode::Float(f) => f.clear(),
+                StackedNode::Popup(p) => p.clear(),
+            }
         }
     }
 
@@ -237,11 +245,10 @@ impl Node for OutputNode {
         self.workspace.set(None);
     }
 
-    fn change_size(self: Rc<Self>, width: i32, height: i32) {
-        self.position
-            .set(Rect::new_sized(0, 0, width, height).unwrap());
+    fn change_extents(self: Rc<Self>, rect: &Rect) {
+        self.position.set(*rect);
         if let Some(c) = self.workspace.get() {
-            c.change_size(width, height);
+            c.change_extents(rect);
         }
     }
 }
@@ -252,8 +259,8 @@ pub struct FloatNode {
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub display: Rc<DisplayNode>,
-    pub display_link: Cell<Option<LinkedNode<Rc<FloatNode>>>>,
-    pub workspace_link: Cell<Option<LinkedNode<Rc<FloatNode>>>>,
+    pub display_link: Cell<Option<LinkedNode<StackedNode>>>,
+    pub workspace_link: Cell<Option<LinkedNode<StackedNode>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub child: CloneCell<Option<Rc<dyn Node>>>,
 }
@@ -297,5 +304,11 @@ impl Node for FloatNode {
         let pos = self.position.get();
         self.position
             .set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
+    }
+
+    fn change_extents(self: Rc<Self>, rect: &Rect) {
+        if let Some(child) = self.child.get() {
+            child.change_extents(rect);
+        }
     }
 }

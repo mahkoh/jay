@@ -6,6 +6,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::State;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use crate::rect::Rect;
 
 pub struct OutputHandler {
     pub state: Rc<State>,
@@ -31,7 +32,7 @@ impl OutputHandler {
             id: self.state.node_ids.next(),
             output: CloneCell::new(on.clone()),
             container: Default::default(),
-            floaters: Default::default(),
+            stacked: Default::default(),
         });
         on.workspace.set(Some(workspace));
         self.state.root.outputs.set(self.output.id(), on.clone());
@@ -50,7 +51,7 @@ impl OutputHandler {
             if new_width != width || new_height != height {
                 width = new_width;
                 height = new_height;
-                on.clone().change_size(width, height);
+                on.clone().change_extents(&Rect::new_sized(0, 0, new_width, new_height).unwrap());
             }
             global.update_properties();
             ae.triggered().await;

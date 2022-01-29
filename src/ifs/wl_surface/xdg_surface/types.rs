@@ -1,5 +1,5 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupId;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopupError, XdgPopupId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelId;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, CONFIGURE};
 use crate::ifs::wl_surface::{WlSurfaceError, WlSurfaceId};
@@ -26,6 +26,8 @@ pub enum XdgSurfaceError {
     AlreadyAttached(WlSurfaceId),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
+    #[error(transparent)]
+    XdgPopupError(#[from] XdgPopupError),
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 
@@ -37,6 +39,8 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
     #[error("Cannot destroy xdg_surface {0} because it's associated xdg_toplevel/popup is not yet destroyed")]
     RoleNotYetDestroyed(XdgSurfaceId),
+    #[error("The surface still has popups attached")]
+    PopupsNotYetDestroyed,
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
 efrom!(DestroyError, ClientError);
@@ -66,9 +70,12 @@ pub enum GetPopupError {
     AlreadyConstructed,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
+    #[error(transparent)]
+    XdgPopupError(Box<XdgPopupError>),
 }
 efrom!(GetPopupError, ParseFailed, MsgParserError);
 efrom!(GetPopupError, ClientError);
+efrom!(GetPopupError, XdgPopupError);
 efrom!(GetPopupError, WlSurfaceError);
 
 #[derive(Debug, Error)]

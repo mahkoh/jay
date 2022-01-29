@@ -18,6 +18,10 @@ pub enum XdgPopupError {
     GrabError(#[from] GrabError),
     #[error("Could not process `reposition` request")]
     RepositionError(#[from] RepositionError),
+    #[error("The `xdg_positioner` is incomplete")]
+    Incomplete,
+    #[error("The anchor rectangle of the `xdg_positioner` extends outside the parent")]
+    AnchorRectOutside,
 }
 
 #[derive(Debug, Error)]
@@ -46,9 +50,12 @@ pub enum RepositionError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    XdgPopupError(Box<XdgPopupError>),
 }
 efrom!(RepositionError, ParseFailed, MsgParserError);
 efrom!(RepositionError, ClientError);
+efrom!(RepositionError, XdgPopupError);
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {

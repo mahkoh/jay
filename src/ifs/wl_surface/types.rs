@@ -5,11 +5,14 @@ use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    XdgSurfaceError(Box<XdgSurfaceError>),
     #[error("Could not process `destroy` request")]
     DestroyError(#[source] Box<DestroyError>),
     #[error("Could not process `attach` request")]
@@ -38,6 +41,7 @@ pub enum WlSurfaceError {
     },
 }
 efrom!(WlSurfaceError, ClientError);
+efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, DestroyError);
 efrom!(WlSurfaceError, AttachError);
 efrom!(WlSurfaceError, DamageError);

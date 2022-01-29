@@ -5,18 +5,20 @@ pub mod xdg_toplevel;
 use crate::client::DynEventFormatter;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::{CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface};
+use crate::ifs::wl_surface::{CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
 use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
-use crate::tree::Node;
+use crate::tree::{FoundNode, Node};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::NumCell;
 use std::cell::Cell;
+use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
+use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 
 const DESTROY: u32 = 0;
 const GET_TOPLEVEL: u32 = 1;
@@ -42,9 +44,11 @@ pub struct XdgSurface {
     acked_serial: Cell<Option<u32>>,
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
+    pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
     pending: PendingXdgSurfaceData,
+    pub focus_subsurface: CloneCell<Option<Rc<WlSubsurface>>>,
 }
 
 #[derive(Default)]
@@ -53,12 +57,8 @@ struct PendingXdgSurfaceData {
 }
 
 trait XdgSurfaceExt {
-    fn initial_configure(self: Rc<Self>) {
-        // nothing
-    }
-
-    fn pre_commit(self: Rc<Self>) {
-        // nothing
+    fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
+        Ok(())
     }
 
     fn post_commit(self: Rc<Self>) {
@@ -84,9 +84,11 @@ impl XdgSurface {
             acked_serial: Cell::new(None),
             geometry: Cell::new(None),
             extents: Cell::new(Default::default()),
+            absolute_desired_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popups: Default::default(),
             pending: Default::default(),
+            focus_subsurface: Default::default()
         }
     }
 
@@ -122,8 +124,8 @@ impl XdgSurface {
         }
         {
             let children = self.popups.lock();
-            for child in children.values() {
-                child.parent.set(None);
+            if !children.is_empty() {
+                return Err(DestroyError::PopupsNotYetDestroyed);
             }
         }
         self.surface.unset_ext();
@@ -159,6 +161,7 @@ impl XdgSurface {
         if req.parent.is_some() {
             parent = Some(self.surface.client.get_xdg_surface(req.parent)?);
         }
+        let positioner = self.surface.client.get_xdg_positioner(req.positioner)?;
         if self.ext.get().is_some() {
             self.surface.client.protocol_error(
                 &**self,
@@ -170,7 +173,7 @@ impl XdgSurface {
             );
             return Err(GetPopupError::AlreadyConstructed);
         }
-        let popup = Rc::new(XdgPopup::new(req.id, self, parent.as_ref()));
+        let popup = Rc::new(XdgPopup::new(req.id, self, parent.as_ref(), &positioner)?);
         self.surface.client.add_client_obj(&popup)?;
         if let Some(parent) = &parent {
             parent.popups.set(req.id, popup.clone());
@@ -226,6 +229,35 @@ impl XdgSurface {
             }
         }
     }
+
+    fn find_child_at(&self, mut x: i32, mut y: i32) -> Option<FoundNode> {
+        if let Some(geo) = self.geometry.get() {
+            let (xt, yt) = geo.translate_inv(x, y);
+            x = xt;
+            y = yt;
+        }
+        match self.surface.find_surface_at(x, y) {
+            Some((node, x, y)) => Some(FoundNode {
+                node: if std::ptr::eq(node.deref(), self.surface.deref()) {
+                    node
+                } else {
+                    node.ext.get().into_node().unwrap()
+                },
+                x,
+                y,
+                contained: true,
+            }),
+            _ => None,
+        }
+    }
+
+    fn update_popup_positions(&self) {
+        let popups = self.popups.lock();
+        for popup in popups.values() {
+            popup.update_absolute_position();
+            popup.xdg.update_popup_positions();
+        }
+    }
 }
 
 handle_request!(XdgSurface);
@@ -242,17 +274,21 @@ impl Object for XdgSurface {
     fn num_requests(&self) -> u32 {
         ACK_CONFIGURE + 1
     }
+
+    fn break_loops(&self) {
+        self.focus_subsurface.set(None);
+    }
 }
 
 impl SurfaceExt for XdgSurface {
-    fn pre_commit(self: Rc<Self>, _ctx: CommitContext) -> CommitAction {
+    fn pre_commit(self: Rc<Self>, _ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
         {
             let ase = self.acked_serial.get();
             let rse = self.requested_serial.get();
             if ase != Some(rse) {
                 if ase.is_none() {
                     if let Some(ext) = self.ext.get() {
-                        ext.initial_configure();
+                        ext.initial_configure()?;
                     }
                     self.surface.client.event(self.configure(rse));
                 }
@@ -263,7 +299,7 @@ impl SurfaceExt for XdgSurface {
             self.geometry.set(Some(geometry));
             self.update_extents();
         }
-        CommitAction::ContinueCommit
+        Ok(CommitAction::ContinueCommit)
     }
 
     fn post_commit(&self) {
