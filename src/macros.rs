@@ -1,4 +1,7 @@
 macro_rules! efrom {
+    ($ename:ty, $vname:ident) => {
+        efrom!($ename, $vname, $vname);
+    };
     ($ename:ty, $vname:ident, $sname:ty) => {
         impl From<$sname> for $ename {
             fn from(e: $sname) -> Self {

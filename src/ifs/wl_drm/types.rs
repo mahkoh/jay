@@ -1,12 +1,12 @@
-use std::ffi::CString;
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_buffer::WlBufferId;
+use crate::ifs::wl_drm::{WlDrmObj, AUTHENTICATED, CAPABILITIES, DEVICE, FORMAT};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
+use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_drm::{AUTHENTICATED, CAPABILITIES, DEVICE, FORMAT, WlDrmObj};
 
 #[derive(Debug, Error)]
 pub enum WlDrmError {
@@ -19,7 +19,7 @@ pub enum WlDrmError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(WlDrmError, ClientError, ClientError);
+efrom!(WlDrmError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AuthenticateError {
@@ -162,8 +162,7 @@ pub(super) struct Format {
 }
 impl EventFormatter for Format {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, FORMAT)
-            .uint(self.format);
+        fmt.header(self.obj.id, FORMAT).uint(self.format);
     }
     fn obj(&self) -> &dyn Object {
         &*self.obj
@@ -171,11 +170,7 @@ impl EventFormatter for Format {
 }
 impl Debug for Format {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "format(format: {})",
-            self.format,
-        )
+        write!(f, "format(format: {})", self.format,)
     }
 }
 
@@ -192,10 +187,7 @@ impl EventFormatter for Authenticated {
 }
 impl Debug for Authenticated {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "authenticated()",
-        )
+        write!(f, "authenticated()",)
     }
 }
 
@@ -205,8 +197,7 @@ pub(super) struct Capabilities {
 }
 impl EventFormatter for Capabilities {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, CAPABILITIES)
-            .uint(self.value);
+        fmt.header(self.obj.id, CAPABILITIES).uint(self.value);
     }
     fn obj(&self) -> &dyn Object {
         &*self.obj
@@ -214,10 +205,6 @@ impl EventFormatter for Capabilities {
 }
 impl Debug for Capabilities {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "capabilities(value: {})",
-            self.value,
-        )
+        write!(f, "capabilities(value: {})", self.value,)
     }
 }

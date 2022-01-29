@@ -1,4 +1,4 @@
-use crate::drm::drm::{DrmDevice};
+use crate::drm::drm::DrmDevice;
 use crate::render::egl::device::EglDevice;
 use crate::render::egl::sys::{
     eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,

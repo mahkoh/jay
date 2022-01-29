@@ -16,7 +16,7 @@ pub enum WlShmError {
     #[error("Could not process a `create_pool` request")]
     CreatePoolError(#[from] CreatePoolError),
 }
-efrom!(WlShmError, ClientError, ClientError);
+efrom!(WlShmError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreatePoolError {
@@ -30,8 +30,8 @@ pub enum CreatePoolError {
     ClientError(Box<ClientError>),
 }
 efrom!(CreatePoolError, ParseError, MsgParserError);
-efrom!(CreatePoolError, WlShmPoolError, WlShmPoolError);
-efrom!(CreatePoolError, ClientError, ClientError);
+efrom!(CreatePoolError, WlShmPoolError);
+efrom!(CreatePoolError, ClientError);
 
 pub(super) struct CreatePool {
     pub id: WlShmPoolId,

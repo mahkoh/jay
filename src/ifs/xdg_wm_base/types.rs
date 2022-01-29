@@ -22,7 +22,7 @@ pub enum XdgWmBaseError {
     #[error("Could not process a `pong` request")]
     PongError(#[from] PongError),
 }
-efrom!(XdgWmBaseError, ClientError, ClientError);
+efrom!(XdgWmBaseError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -34,7 +34,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseError, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreatePositionerError {
@@ -44,7 +44,7 @@ pub enum CreatePositionerError {
     ClientError(Box<ClientError>),
 }
 efrom!(CreatePositionerError, ParseError, MsgParserError);
-efrom!(CreatePositionerError, ClientError, ClientError);
+efrom!(CreatePositionerError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum GetXdgSurfaceError {
@@ -56,8 +56,8 @@ pub enum GetXdgSurfaceError {
     XdgSurfaceError(Box<XdgSurfaceError>),
 }
 efrom!(GetXdgSurfaceError, ParseError, MsgParserError);
-efrom!(GetXdgSurfaceError, ClientError, ClientError);
-efrom!(GetXdgSurfaceError, XdgSurfaceError, XdgSurfaceError);
+efrom!(GetXdgSurfaceError, ClientError);
+efrom!(GetXdgSurfaceError, XdgSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum PongError {

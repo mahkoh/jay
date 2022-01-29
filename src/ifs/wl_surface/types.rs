@@ -37,21 +37,21 @@ pub enum WlSurfaceError {
         new: SurfaceRole,
     },
 }
-efrom!(WlSurfaceError, ClientError, ClientError);
-efrom!(WlSurfaceError, DestroyError, DestroyError);
-efrom!(WlSurfaceError, AttachError, AttachError);
-efrom!(WlSurfaceError, DamageError, DamageError);
-efrom!(WlSurfaceError, FrameError, FrameError);
-efrom!(WlSurfaceError, SetOpaqueRegionError, SetOpaqueRegionError);
-efrom!(WlSurfaceError, SetInputRegionError, SetInputRegionError);
-efrom!(WlSurfaceError, CommitError, CommitError);
+efrom!(WlSurfaceError, ClientError);
+efrom!(WlSurfaceError, DestroyError);
+efrom!(WlSurfaceError, AttachError);
+efrom!(WlSurfaceError, DamageError);
+efrom!(WlSurfaceError, FrameError);
+efrom!(WlSurfaceError, SetOpaqueRegionError);
+efrom!(WlSurfaceError, SetInputRegionError);
+efrom!(WlSurfaceError, CommitError);
 efrom!(
     WlSurfaceError,
     SetBufferTransformError,
     SetBufferTransformError
 );
-efrom!(WlSurfaceError, SetBufferScaleError, SetBufferScaleError);
-efrom!(WlSurfaceError, DamageBufferError, DamageBufferError);
+efrom!(WlSurfaceError, SetBufferScaleError);
+efrom!(WlSurfaceError, DamageBufferError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -63,7 +63,7 @@ pub enum DestroyError {
     ReloObjectStillExists,
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AttachError {
@@ -73,7 +73,7 @@ pub enum AttachError {
     ClientError(Box<ClientError>),
 }
 efrom!(AttachError, ParseFailed, MsgParserError);
-efrom!(AttachError, ClientError, ClientError);
+efrom!(AttachError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DamageError {
@@ -90,7 +90,7 @@ pub enum FrameError {
     ClientError(Box<ClientError>),
 }
 efrom!(FrameError, ParseFailed, MsgParserError);
-efrom!(FrameError, ClientError, ClientError);
+efrom!(FrameError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetOpaqueRegionError {
@@ -100,7 +100,7 @@ pub enum SetOpaqueRegionError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetOpaqueRegionError, ParseFailed, MsgParserError);
-efrom!(SetOpaqueRegionError, ClientError, ClientError);
+efrom!(SetOpaqueRegionError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetInputRegionError {
@@ -110,7 +110,7 @@ pub enum SetInputRegionError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetInputRegionError, ParseFailed, MsgParserError);
-efrom!(SetInputRegionError, ClientError, ClientError);
+efrom!(SetInputRegionError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CommitError {
@@ -121,9 +121,9 @@ pub enum CommitError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(CommitError, WlSurfaceError, WlSurfaceError);
+efrom!(CommitError, WlSurfaceError);
 efrom!(CommitError, ParseFailed, MsgParserError);
-efrom!(CommitError, ClientError, ClientError);
+efrom!(CommitError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetBufferTransformError {

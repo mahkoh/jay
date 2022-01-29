@@ -21,7 +21,7 @@ pub enum WlDataDeviceError {
     #[error("Could not process `release` request")]
     ReleaseError(#[from] ReleaseError),
 }
-efrom!(WlDataDeviceError, ClientError, ClientError);
+efrom!(WlDataDeviceError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum StartDragError {
@@ -31,7 +31,7 @@ pub enum StartDragError {
     ClientError(Box<ClientError>),
 }
 efrom!(StartDragError, ParseFailed, MsgParserError);
-efrom!(StartDragError, ClientError, ClientError);
+efrom!(StartDragError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetSelectionError {
@@ -41,7 +41,7 @@ pub enum SetSelectionError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetSelectionError, ParseFailed, MsgParserError);
-efrom!(SetSelectionError, ClientError, ClientError);
+efrom!(SetSelectionError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {
@@ -51,7 +51,7 @@ pub enum ReleaseError {
     ClientError(Box<ClientError>),
 }
 efrom!(ReleaseError, ParseFailed, MsgParserError);
-efrom!(ReleaseError, ClientError, ClientError);
+efrom!(ReleaseError, ClientError);
 
 pub(super) struct StartDrag {
     pub source: WlDataSourceId,

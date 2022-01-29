@@ -22,7 +22,7 @@ pub enum ZwpLinuxBufferParamsV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ZwpLinuxBufferParamsV1Error, ClientError, ClientError);
+efrom!(ZwpLinuxBufferParamsV1Error, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -31,7 +31,7 @@ pub enum DestroyError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 efrom!(DestroyError, ParseError, MsgParserError);
 
 #[derive(Debug, Error)]
@@ -47,7 +47,7 @@ pub enum AddError {
     #[error("The plane {0} was already set")]
     AlreadySet(u32),
 }
-efrom!(AddError, ClientError, ClientError);
+efrom!(AddError, ClientError);
 efrom!(AddError, ParseError, MsgParserError);
 
 #[derive(Debug, Error)]
@@ -63,7 +63,7 @@ pub enum DoCreateError {
     #[error("Could not import the buffer")]
     ImportError(#[from] RenderError),
 }
-efrom!(DoCreateError, ClientError, ClientError);
+efrom!(DoCreateError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreateError {

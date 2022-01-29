@@ -1,6 +1,10 @@
 use crate::client::{Client, DynEventFormatter};
+use crate::ifs::org_kde_kwin_server_decoration_manager::{
+    OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerGlobal,
+};
 use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
+use crate::ifs::wl_drm::{WlDrmError, WlDrmGlobal};
 use crate::ifs::wl_output::{WlOutputError, WlOutputGlobal};
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_seat::{WlSeatError, WlSeatGlobal};
@@ -17,7 +21,6 @@ use crate::{
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_drm::{WlDrmError, WlDrmGlobal};
 
 #[derive(Debug, Error)]
 pub enum GlobalError {
@@ -43,21 +46,20 @@ pub enum GlobalError {
     ZwpLinuxDmabufV1Error(#[source] Box<ZwpLinuxDmabufV1Error>),
     #[error("An error occurred in a `wl_drm` global")]
     WlDrmError(#[source] Box<WlDrmError>),
+    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager` global")]
+    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
 }
 
-efrom!(GlobalError, WlCompositorError, WlCompositorError);
-efrom!(GlobalError, WlShmError, WlShmError);
-efrom!(GlobalError, WlSubcompositorError, WlSubcompositorError);
-efrom!(GlobalError, XdgWmBaseError, XdgWmBaseError);
-efrom!(GlobalError, WlOutputError, WlOutputError);
-efrom!(GlobalError, WlSeatError, WlSeatError);
-efrom!(GlobalError, ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Error);
-efrom!(GlobalError, WlDrmError, WlDrmError);
-efrom!(
-    GlobalError,
-    WlDataDeviceManagerError,
-    WlDataDeviceManagerError
-);
+efrom!(GlobalError, WlCompositorError);
+efrom!(GlobalError, WlShmError);
+efrom!(GlobalError, WlSubcompositorError);
+efrom!(GlobalError, XdgWmBaseError);
+efrom!(GlobalError, WlOutputError);
+efrom!(GlobalError, WlSeatError);
+efrom!(GlobalError, ZwpLinuxDmabufV1Error);
+efrom!(GlobalError, WlDrmError);
+efrom!(GlobalError, WlDataDeviceManagerError);
+efrom!(GlobalError, OrgKdeKwinServerDecorationManagerError);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);
@@ -221,6 +223,7 @@ simple_add_global!(XdgWmBaseGlobal);
 simple_add_global!(WlDataDeviceManagerGlobal);
 simple_add_global!(ZwpLinuxDmabufV1Global);
 simple_add_global!(WlDrmGlobal);
+simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
 
 macro_rules! dedicated_add_global {
     ($ty:ty, $field:ident) => {

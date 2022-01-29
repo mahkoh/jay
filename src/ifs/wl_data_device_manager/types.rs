@@ -15,7 +15,7 @@ pub enum WlDataDeviceManagerError {
     #[error("Could not process `get_data_device` request")]
     GetDataDeviceError(#[from] GetDataDeviceError),
 }
-efrom!(WlDataDeviceManagerError, ClientError, ClientError);
+efrom!(WlDataDeviceManagerError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreateDataSourceError {
@@ -25,7 +25,7 @@ pub enum CreateDataSourceError {
     ClientError(Box<ClientError>),
 }
 efrom!(CreateDataSourceError, ParseFailed, MsgParserError);
-efrom!(CreateDataSourceError, ClientError, ClientError);
+efrom!(CreateDataSourceError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum GetDataDeviceError {
@@ -35,7 +35,7 @@ pub enum GetDataDeviceError {
     ClientError(Box<ClientError>),
 }
 efrom!(GetDataDeviceError, ParseFailed, MsgParserError);
-efrom!(GetDataDeviceError, ClientError, ClientError);
+efrom!(GetDataDeviceError, ClientError);
 
 pub(super) struct CreateDataSource {
     pub id: WlDataSourceId,

@@ -20,7 +20,7 @@ pub enum WlPointerError {
     #[error("Could not process a `release` request")]
     ReleaseError(#[from] ReleaseError),
 }
-efrom!(WlPointerError, ClientError, ClientError);
+efrom!(WlPointerError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetCursorError {
@@ -30,7 +30,7 @@ pub enum SetCursorError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetCursorError, ParseError, MsgParserError);
-efrom!(SetCursorError, ClientError, ClientError);
+efrom!(SetCursorError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {

@@ -15,9 +15,9 @@ pub enum WlCompositorError {
     CreateRegionError(#[source] Box<CreateRegionError>),
 }
 
-efrom!(WlCompositorError, ClientError, ClientError);
-efrom!(WlCompositorError, CreateSurfaceError, CreateSurfaceError);
-efrom!(WlCompositorError, CreateRegionError, CreateRegionError);
+efrom!(WlCompositorError, ClientError);
+efrom!(WlCompositorError, CreateSurfaceError);
+efrom!(WlCompositorError, CreateRegionError);
 
 #[derive(Debug, Error)]
 pub enum CreateSurfaceError {
@@ -28,7 +28,7 @@ pub enum CreateSurfaceError {
 }
 
 efrom!(CreateSurfaceError, ParseFailed, MsgParserError);
-efrom!(CreateSurfaceError, ClientError, ClientError);
+efrom!(CreateSurfaceError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum CreateRegionError {

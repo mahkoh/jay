@@ -49,7 +49,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetParentError {
@@ -59,7 +59,7 @@ pub enum SetParentError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetParentError, ParseFailed, MsgParserError);
-efrom!(SetParentError, ClientError, ClientError);
+efrom!(SetParentError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetTitleError {
@@ -69,7 +69,7 @@ pub enum SetTitleError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetTitleError, ParseFailed, MsgParserError);
-efrom!(SetTitleError, ClientError, ClientError);
+efrom!(SetTitleError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetAppIdError {
@@ -79,7 +79,7 @@ pub enum SetAppIdError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetAppIdError, ParseFailed, MsgParserError);
-efrom!(SetAppIdError, ClientError, ClientError);
+efrom!(SetAppIdError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ShowWindowMenuError {
@@ -89,7 +89,7 @@ pub enum ShowWindowMenuError {
     ClientError(Box<ClientError>),
 }
 efrom!(ShowWindowMenuError, ParseFailed, MsgParserError);
-efrom!(ShowWindowMenuError, ClientError, ClientError);
+efrom!(ShowWindowMenuError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum MoveError {
@@ -99,7 +99,7 @@ pub enum MoveError {
     ClientError(Box<ClientError>),
 }
 efrom!(MoveError, ParseFailed, MsgParserError);
-efrom!(MoveError, ClientError, ClientError);
+efrom!(MoveError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ResizeError {
@@ -109,7 +109,7 @@ pub enum ResizeError {
     ClientError(Box<ClientError>),
 }
 efrom!(ResizeError, ParseFailed, MsgParserError);
-efrom!(ResizeError, ClientError, ClientError);
+efrom!(ResizeError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetMaxSizeError {
@@ -119,7 +119,7 @@ pub enum SetMaxSizeError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetMaxSizeError, ParseFailed, MsgParserError);
-efrom!(SetMaxSizeError, ClientError, ClientError);
+efrom!(SetMaxSizeError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetMinSizeError {
@@ -129,7 +129,7 @@ pub enum SetMinSizeError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetMinSizeError, ParseFailed, MsgParserError);
-efrom!(SetMinSizeError, ClientError, ClientError);
+efrom!(SetMinSizeError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetMaximizedError {
@@ -139,7 +139,7 @@ pub enum SetMaximizedError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetMaximizedError, ParseFailed, MsgParserError);
-efrom!(SetMaximizedError, ClientError, ClientError);
+efrom!(SetMaximizedError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum UnsetMaximizedError {
@@ -149,7 +149,7 @@ pub enum UnsetMaximizedError {
     ClientError(Box<ClientError>),
 }
 efrom!(UnsetMaximizedError, ParseFailed, MsgParserError);
-efrom!(UnsetMaximizedError, ClientError, ClientError);
+efrom!(UnsetMaximizedError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetFullscreenError {
@@ -159,7 +159,7 @@ pub enum SetFullscreenError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetFullscreenError, ParseFailed, MsgParserError);
-efrom!(SetFullscreenError, ClientError, ClientError);
+efrom!(SetFullscreenError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum UnsetFullscreenError {

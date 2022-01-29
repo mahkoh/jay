@@ -12,13 +12,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum WlDisplayError {
     #[error("Could not process a get_registry request")]
-    GetRegistry(#[source] Box<GetRegistryError>),
+    GetRegistryError(#[source] Box<GetRegistryError>),
     #[error("A client error occurred")]
     SyncError(#[source] Box<SyncError>),
 }
 
-efrom!(WlDisplayError, GetRegistry, GetRegistryError);
-efrom!(WlDisplayError, SyncError, SyncError);
+efrom!(WlDisplayError, GetRegistryError);
+efrom!(WlDisplayError, SyncError);
 
 #[derive(Debug, Error)]
 pub enum GetRegistryError {
@@ -31,8 +31,8 @@ pub enum GetRegistryError {
 }
 
 efrom!(GetRegistryError, ParseFailed, MsgParserError);
-efrom!(GetRegistryError, GlobalError, GlobalError);
-efrom!(GetRegistryError, ClientError, ClientError);
+efrom!(GetRegistryError, GlobalError);
+efrom!(GetRegistryError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SyncError {
@@ -43,7 +43,7 @@ pub enum SyncError {
 }
 
 efrom!(SyncError, ParseFailed, MsgParserError);
-efrom!(SyncError, ClientError, ClientError);
+efrom!(SyncError, ClientError);
 
 pub(super) struct GetRegistry {
     pub registry: WlRegistryId,

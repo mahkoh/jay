@@ -23,7 +23,7 @@ use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbShm, XcbXinput, XcbXkb};
+use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbXinput, XcbXkb};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
 
@@ -66,9 +66,9 @@ pub enum XorgBackendError {
     #[error("Could not query device")]
     QueryDevice(#[source] XcbError),
 }
-efrom!(XorgBackendError, EventLoopError, EventLoopError);
-efrom!(XorgBackendError, ServerMemError, ServerMemError);
-efrom!(XorgBackendError, WheelError, WheelError);
+efrom!(XorgBackendError, EventLoopError);
+efrom!(XorgBackendError, ServerMemError);
+efrom!(XorgBackendError, WheelError);
 
 struct XcbCon {
     xcb: Box<Xcb>,

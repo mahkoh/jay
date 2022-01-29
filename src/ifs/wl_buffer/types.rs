@@ -21,7 +21,7 @@ pub enum WlBufferError {
     #[error("GLES could not import the client image")]
     GlesError(#[source] Box<RenderError>),
 }
-efrom!(WlBufferError, ClientMemError, ClientMemError);
+efrom!(WlBufferError, ClientMemError);
 efrom!(WlBufferError, GlesError, RenderError);
 
 #[derive(Debug, Error)]
@@ -32,7 +32,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {

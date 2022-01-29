@@ -16,7 +16,7 @@ pub enum ZwpLinuxDmabufV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ZwpLinuxDmabufV1Error, ClientError, ClientError);
+efrom!(ZwpLinuxDmabufV1Error, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -25,7 +25,7 @@ pub enum DestroyError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 efrom!(DestroyError, ParseError, MsgParserError);
 
 #[derive(Debug, Error)]
@@ -35,7 +35,7 @@ pub enum CreateParamsError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(CreateParamsError, ClientError, ClientError);
+efrom!(CreateParamsError, ClientError);
 efrom!(CreateParamsError, ParseError, MsgParserError);
 
 pub(super) struct Destroy;

@@ -14,7 +14,7 @@ pub enum WlSubcompositorError {
     #[error("Could not process `get_subsurface` request")]
     GetSubsurfaceError(#[from] GetSubsurfaceError),
 }
-efrom!(WlSubcompositorError, ClientError, ClientError);
+efrom!(WlSubcompositorError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -24,7 +24,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum GetSubsurfaceError {
@@ -36,7 +36,7 @@ pub enum GetSubsurfaceError {
     SubsurfaceError(Box<WlSubsurfaceError>),
 }
 efrom!(GetSubsurfaceError, ParseFailed, MsgParserError);
-efrom!(GetSubsurfaceError, ClientError, ClientError);
+efrom!(GetSubsurfaceError, ClientError);
 efrom!(GetSubsurfaceError, SubsurfaceError, WlSubsurfaceError);
 
 pub(super) struct Destroy;

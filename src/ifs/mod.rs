@@ -1,3 +1,5 @@
+pub mod org_kde_kwin_server_decoration;
+pub mod org_kde_kwin_server_decoration_manager;
 pub mod wl_buffer;
 pub mod wl_callback;
 pub mod wl_compositor;

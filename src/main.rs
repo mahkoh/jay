@@ -20,8 +20,10 @@ use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
 use crate::globals::{AddGlobal, Globals};
+use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
+use crate::ifs::wl_drm::WlDrmGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
@@ -42,7 +44,6 @@ use log::LevelFilter;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
-use crate::ifs::wl_drm::WlDrmGlobal;
 
 #[macro_use]
 mod macros;
@@ -118,6 +119,9 @@ fn main_() -> Result<(), MainError> {
     globals.add_global_no_broadcast(&Rc::new(WlDataDeviceManagerGlobal::new(globals.name())));
     globals.add_global_no_broadcast(&Rc::new(ZwpLinuxDmabufV1Global::new(globals.name())));
     globals.add_global_no_broadcast(&Rc::new(WlDrmGlobal::new(globals.name())));
+    globals.add_global_no_broadcast(&Rc::new(OrgKdeKwinServerDecorationManagerGlobal::new(
+        globals.name(),
+    )));
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         eng: engine.clone(),

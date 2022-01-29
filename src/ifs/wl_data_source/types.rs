@@ -21,7 +21,7 @@ pub enum WlDataSourceError {
     #[error("Could not process `set_actions` request")]
     SetActionsError(#[from] SetActionsError),
 }
-efrom!(WlDataSourceError, ClientError, ClientError);
+efrom!(WlDataSourceError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum OfferError {
@@ -31,7 +31,7 @@ pub enum OfferError {
     ClientError(Box<ClientError>),
 }
 efrom!(OfferError, ParseFailed, MsgParserError);
-efrom!(OfferError, ClientError, ClientError);
+efrom!(OfferError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -41,7 +41,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetActionsError {
@@ -51,7 +51,7 @@ pub enum SetActionsError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetActionsError, ParseFailed, MsgParserError);
-efrom!(SetActionsError, ClientError, ClientError);
+efrom!(SetActionsError, ClientError);
 
 pub(super) struct Offer<'a> {
     pub mime_type: &'a BStr,

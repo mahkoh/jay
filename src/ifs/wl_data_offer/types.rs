@@ -23,7 +23,7 @@ pub enum WlDataOfferError {
     #[error("Could not process `set_actions` request")]
     SetActionsError(#[from] SetActionsError),
 }
-efrom!(WlDataOfferError, ClientError, ClientError);
+efrom!(WlDataOfferError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AcceptError {
@@ -33,7 +33,7 @@ pub enum AcceptError {
     ClientError(Box<ClientError>),
 }
 efrom!(AcceptError, ParseFailed, MsgParserError);
-efrom!(AcceptError, ClientError, ClientError);
+efrom!(AcceptError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ReceiveError {
@@ -43,7 +43,7 @@ pub enum ReceiveError {
     ClientError(Box<ClientError>),
 }
 efrom!(ReceiveError, ParseFailed, MsgParserError);
-efrom!(ReceiveError, ClientError, ClientError);
+efrom!(ReceiveError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -53,7 +53,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum FinishError {
@@ -63,7 +63,7 @@ pub enum FinishError {
     ClientError(Box<ClientError>),
 }
 efrom!(FinishError, ParseFailed, MsgParserError);
-efrom!(FinishError, ClientError, ClientError);
+efrom!(FinishError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetActionsError {
@@ -73,7 +73,7 @@ pub enum SetActionsError {
     ClientError(Box<ClientError>),
 }
 efrom!(SetActionsError, ParseFailed, MsgParserError);
-efrom!(SetActionsError, ClientError, ClientError);
+efrom!(SetActionsError, ClientError);
 
 pub(super) struct Accept<'a> {
     pub serial: u32,

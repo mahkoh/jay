@@ -10,7 +10,7 @@ pub enum WlTouchError {
     #[error("Could not process a `release` request")]
     ReleaseError(#[from] ReleaseError),
 }
-efrom!(WlTouchError, ClientError, ClientError);
+efrom!(WlTouchError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {
@@ -20,7 +20,7 @@ pub enum ReleaseError {
     ClientError(Box<ClientError>),
 }
 efrom!(ReleaseError, ParseError, MsgParserError);
-efrom!(ReleaseError, ClientError, ClientError);
+efrom!(ReleaseError, ClientError);
 
 pub(super) struct Release;
 impl RequestParser<'_> for Release {

@@ -13,7 +13,7 @@ pub enum WlOutputError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(WlOutputError, ClientError, ClientError);
+efrom!(WlOutputError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {
@@ -22,7 +22,7 @@ pub enum ReleaseError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ReleaseError, ClientError, ClientError);
+efrom!(ReleaseError, ClientError);
 efrom!(ReleaseError, ParseError, MsgParserError);
 
 pub(super) struct Release;

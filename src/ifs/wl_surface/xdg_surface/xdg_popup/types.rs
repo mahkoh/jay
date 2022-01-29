@@ -28,7 +28,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum GrabError {
@@ -38,7 +38,7 @@ pub enum GrabError {
     ClientError(Box<ClientError>),
 }
 efrom!(GrabError, ParseFailed, MsgParserError);
-efrom!(GrabError, ClientError, ClientError);
+efrom!(GrabError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum RepositionError {
@@ -48,7 +48,7 @@ pub enum RepositionError {
     ClientError(Box<ClientError>),
 }
 efrom!(RepositionError, ParseFailed, MsgParserError);
-efrom!(RepositionError, ClientError, ClientError);
+efrom!(RepositionError, ClientError);
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {

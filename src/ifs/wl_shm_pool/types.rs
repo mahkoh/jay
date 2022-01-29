@@ -18,8 +18,8 @@ pub enum WlShmPoolError {
     #[error(transparent)]
     ClientMemError(Box<ClientMemError>),
 }
-efrom!(WlShmPoolError, ClientError, ClientError);
-efrom!(WlShmPoolError, ClientMemError, ClientMemError);
+efrom!(WlShmPoolError, ClientError);
+efrom!(WlShmPoolError, ClientMemError);
 
 #[derive(Debug, Error)]
 pub enum CreateBufferError {
@@ -35,8 +35,8 @@ pub enum CreateBufferError {
     WlBufferError(Box<WlBufferError>),
 }
 efrom!(CreateBufferError, ParseError, MsgParserError);
-efrom!(CreateBufferError, ClientError, ClientError);
-efrom!(CreateBufferError, WlBufferError, WlBufferError);
+efrom!(CreateBufferError, ClientError);
+efrom!(CreateBufferError, WlBufferError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -46,7 +46,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseError, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum ResizeError {
@@ -60,7 +60,7 @@ pub enum ResizeError {
     ClientMemError(Box<ClientMemError>),
 }
 efrom!(ResizeError, ParseError, MsgParserError);
-efrom!(ResizeError, ClientMemError, ClientMemError);
+efrom!(ResizeError, ClientMemError);
 
 pub(super) struct CreateBuffer {
     pub id: WlBufferId,

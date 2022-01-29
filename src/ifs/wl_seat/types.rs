@@ -22,7 +22,7 @@ pub enum WlSeatError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(WlSeatError, ClientError, ClientError);
+efrom!(WlSeatError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum GetPointerError {
@@ -31,7 +31,7 @@ pub enum GetPointerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(GetPointerError, ClientError, ClientError);
+efrom!(GetPointerError, ClientError);
 efrom!(GetPointerError, ParseError, MsgParserError);
 
 #[derive(Debug, Error)]
@@ -43,7 +43,7 @@ pub enum GetKeyboardError {
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
 }
-efrom!(GetKeyboardError, ClientError, ClientError);
+efrom!(GetKeyboardError, ClientError);
 efrom!(GetKeyboardError, ParseError, MsgParserError);
 efrom!(GetKeyboardError, WlKeyboardError, WlKeyboardError);
 

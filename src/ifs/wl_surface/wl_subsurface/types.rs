@@ -29,7 +29,7 @@ pub enum WlSubsurfaceError {
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(WlSubsurfaceError, WlSurfaceError, WlSurfaceError);
+efrom!(WlSubsurfaceError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -39,7 +39,7 @@ pub enum DestroyError {
     ClientError(Box<ClientError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum SetPositionError {

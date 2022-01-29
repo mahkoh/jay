@@ -69,6 +69,8 @@ pub enum Interface {
     WlDrm,
     ZwpLinuxDmabufV1,
     ZwpLinuxBufferParamsV1,
+    OrgKdeKwinServerDecorationManager,
+    OrgKdeKwinServerDecoration,
 }
 
 impl Interface {
@@ -102,6 +104,10 @@ impl Interface {
             Interface::ZwpLinuxDmabufV1 => "zwp_linux_dmabuf_v1",
             Interface::ZwpLinuxBufferParamsV1 => "zwp_linux_buffer_params_v1",
             Interface::WlDrm => "wl_drm",
+            Interface::OrgKdeKwinServerDecorationManager => {
+                "org_kde_kwin_server_decoration_manager"
+            }
+            Interface::OrgKdeKwinServerDecoration => "org_kde_kwin_server_decoration",
         }
     }
 }

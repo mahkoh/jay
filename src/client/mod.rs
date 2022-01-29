@@ -1,5 +1,11 @@
 use crate::async_engine::{AsyncError, AsyncFd, SpawnedFuture};
 use crate::client::objects::Objects;
+use crate::ifs::org_kde_kwin_server_decoration::{
+    OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError,
+};
+use crate::ifs::org_kde_kwin_server_decoration_manager::{
+    OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerObj,
+};
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferError, WlBufferId};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_compositor::{WlCompositorError, WlCompositorObj};
@@ -8,6 +14,7 @@ use crate::ifs::wl_data_device_manager::{WlDataDeviceManagerError, WlDataDeviceM
 use crate::ifs::wl_data_offer::{WlDataOffer, WlDataOfferError};
 use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceError};
 use crate::ifs::wl_display::{WlDisplay, WlDisplayError};
+use crate::ifs::wl_drm::{WlDrmError, WlDrmObj};
 use crate::ifs::wl_output::{WlOutputError, WlOutputObj};
 use crate::ifs::wl_region::{WlRegion, WlRegionError, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryError, WlRegistryId};
@@ -41,7 +48,6 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::ifs::wl_drm::{WlDrmError, WlDrmObj};
 
 mod objects;
 mod tasks;
@@ -144,44 +150,58 @@ pub enum ClientError {
     ZwpLinuxBufferParamsV1Error(#[source] Box<ZwpLinuxBufferParamsV1Error>),
     #[error("An error occurred in a `wl_drm`")]
     WlDrmError(#[source] Box<WlDrmError>),
+    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager`")]
+    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
+    #[error("An error occurred in a `org_kde_kwin_server_decoration`")]
+    OrgKdeKwinServerDecorationError(#[source] Box<OrgKdeKwinServerDecorationError>),
 }
 
 efrom!(ClientError, ParserError, MsgParserError);
-efrom!(ClientError, WlDisplayError, WlDisplayError);
-efrom!(ClientError, WlRegistryError, WlRegistryError);
-efrom!(ClientError, WlSurfaceError, WlSurfaceError);
-efrom!(ClientError, WlCompositorError, WlCompositorError);
-efrom!(ClientError, WlShmError, WlShmError);
-efrom!(ClientError, WlShmPoolError, WlShmPoolError);
-efrom!(ClientError, WlRegionError, WlRegionError);
-efrom!(ClientError, WlSubsurfaceError, WlSubsurfaceError);
-efrom!(ClientError, WlSubcompositorError, WlSubcompositorError);
-efrom!(ClientError, XdgSurfaceError, XdgSurfaceError);
-efrom!(ClientError, XdgPositionerError, XdgPositionerError);
-efrom!(ClientError, XdgWmBaseError, XdgWmBaseError);
-efrom!(ClientError, XdgToplevelError, XdgToplevelError);
-efrom!(ClientError, XdgPopupError, XdgPopupError);
-efrom!(ClientError, WlBufferError, WlBufferError);
-efrom!(ClientError, WlOutputError, WlOutputError);
-efrom!(ClientError, WlSeatError, WlSeatError);
-efrom!(ClientError, WlTouchError, WlTouchError);
-efrom!(ClientError, WlPointerError, WlPointerError);
-efrom!(ClientError, WlKeyboardError, WlKeyboardError);
+efrom!(ClientError, WlDisplayError);
+efrom!(ClientError, WlRegistryError);
+efrom!(ClientError, WlSurfaceError);
+efrom!(ClientError, WlCompositorError);
+efrom!(ClientError, WlShmError);
+efrom!(ClientError, WlShmPoolError);
+efrom!(ClientError, WlRegionError);
+efrom!(ClientError, WlSubsurfaceError);
+efrom!(ClientError, WlSubcompositorError);
+efrom!(ClientError, XdgSurfaceError);
+efrom!(ClientError, XdgPositionerError);
+efrom!(ClientError, XdgWmBaseError);
+efrom!(ClientError, XdgToplevelError);
+efrom!(ClientError, XdgPopupError);
+efrom!(ClientError, WlBufferError);
+efrom!(ClientError, WlOutputError);
+efrom!(ClientError, WlSeatError);
+efrom!(ClientError, WlTouchError);
+efrom!(ClientError, WlPointerError);
+efrom!(ClientError, WlKeyboardError);
 efrom!(
     ClientError,
     WlDataDeviceManagerError,
     WlDataDeviceManagerError
 );
-efrom!(ClientError, WlDataDeviceError, WlDataDeviceError);
-efrom!(ClientError, WlDataSourceError, WlDataSourceError);
-efrom!(ClientError, WlDataOfferError, WlDataOfferError);
-efrom!(ClientError, ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Error);
+efrom!(ClientError, WlDataDeviceError);
+efrom!(ClientError, WlDataSourceError);
+efrom!(ClientError, WlDataOfferError);
+efrom!(ClientError, ZwpLinuxDmabufV1Error);
 efrom!(
     ClientError,
     ZwpLinuxBufferParamsV1Error,
     ZwpLinuxBufferParamsV1Error
 );
 efrom!(ClientError, WlDrmError, WlDrmError);
+efrom!(
+    ClientError,
+    OrgKdeKwinServerDecorationManagerError,
+    OrgKdeKwinServerDecorationManagerError
+);
+efrom!(
+    ClientError,
+    OrgKdeKwinServerDecorationError,
+    OrgKdeKwinServerDecorationError
+);
 
 impl ClientError {
     fn peer_closed(&self) -> bool {
@@ -561,6 +581,8 @@ simple_add_obj!(WlDataSource);
 simple_add_obj!(ZwpLinuxDmabufV1Obj);
 simple_add_obj!(ZwpLinuxBufferParamsV1);
 simple_add_obj!(WlDrmObj);
+simple_add_obj!(OrgKdeKwinServerDecorationManagerObj);
+simple_add_obj!(OrgKdeKwinServerDecoration);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {

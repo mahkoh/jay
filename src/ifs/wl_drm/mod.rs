@@ -1,8 +1,8 @@
-use std::ffi::CString;
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
+use std::ffi::CString;
 use std::rc::Rc;
 pub use types::*;
 
@@ -85,9 +85,7 @@ impl WlDrmObj {
     }
 
     fn authenticated(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Authenticated {
-            obj: self.clone(),
-        })
+        Box::new(Authenticated { obj: self.clone() })
     }
 
     fn capabilities(self: &Rc<Self>, value: u32) -> DynEventFormatter {
@@ -108,7 +106,10 @@ impl WlDrmObj {
         Err(CreateBufferError::Unsupported)
     }
 
-    fn create_planar_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CreatePlanarBufferError> {
+    fn create_planar_buffer(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), CreatePlanarBufferError> {
         let _req: CreatePlanarBuffer = self.client.parse(&**self, parser)?;
         Err(CreatePlanarBufferError::Unsupported)
     }

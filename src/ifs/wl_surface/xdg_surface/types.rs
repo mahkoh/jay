@@ -27,7 +27,7 @@ pub enum XdgSurfaceError {
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(XdgSurfaceError, WlSurfaceError, WlSurfaceError);
+efrom!(XdgSurfaceError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {
@@ -39,7 +39,7 @@ pub enum DestroyError {
     RoleNotYetDestroyed(XdgSurfaceId),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError, ClientError);
+efrom!(DestroyError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum GetToplevelError {
@@ -53,8 +53,8 @@ pub enum GetToplevelError {
     WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(GetToplevelError, ParseFailed, MsgParserError);
-efrom!(GetToplevelError, ClientError, ClientError);
-efrom!(GetToplevelError, WlSurfaceError, WlSurfaceError);
+efrom!(GetToplevelError, ClientError);
+efrom!(GetToplevelError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum GetPopupError {
@@ -68,8 +68,8 @@ pub enum GetPopupError {
     WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(GetPopupError, ParseFailed, MsgParserError);
-efrom!(GetPopupError, ClientError, ClientError);
-efrom!(GetPopupError, WlSurfaceError, WlSurfaceError);
+efrom!(GetPopupError, ClientError);
+efrom!(GetPopupError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum SetWindowGeometryError {
@@ -81,7 +81,7 @@ pub enum SetWindowGeometryError {
     NonPositiveWidthHeight,
 }
 efrom!(SetWindowGeometryError, ParseFailed, MsgParserError);
-efrom!(SetWindowGeometryError, ClientError, ClientError);
+efrom!(SetWindowGeometryError, ClientError);
 
 #[derive(Debug, Error)]
 pub enum AckConfigureError {
@@ -91,7 +91,7 @@ pub enum AckConfigureError {
     ClientError(Box<ClientError>),
 }
 efrom!(AckConfigureError, ParseFailed, MsgParserError);
-efrom!(AckConfigureError, ClientError, ClientError);
+efrom!(AckConfigureError, ClientError);
 
 pub(super) struct Destroy;
 impl RequestParser<'_> for Destroy {

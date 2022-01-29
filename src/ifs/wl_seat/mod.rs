@@ -7,7 +7,7 @@ use crate::backend::{KeyState, OutputId, ScrollAxis, Seat, SeatEvent};
 use crate::client::{Client, ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_seat::wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardId};
+use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};

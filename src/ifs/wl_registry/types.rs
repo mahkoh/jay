@@ -14,7 +14,7 @@ pub enum WlRegistryError {
     BindError(#[source] Box<BindError>),
 }
 
-efrom!(WlRegistryError, BindError, BindError);
+efrom!(WlRegistryError, BindError);
 
 #[derive(Debug, Error)]
 pub enum BindError {
@@ -44,7 +44,7 @@ pub struct VersionError {
 }
 
 efrom!(BindError, ParseError, MsgParserError);
-efrom!(BindError, GlobalError, GlobalError);
+efrom!(BindError, GlobalError);
 
 pub(super) struct GlobalE {
     pub obj: Rc<WlRegistry>,
