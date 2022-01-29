@@ -72,7 +72,6 @@ efrom!(XorgBackendError, WheelError, WheelError);
 
 struct XcbCon {
     xcb: Box<Xcb>,
-    shm: Box<XcbShm>,
     input: Box<XcbXinput>,
     dri: Box<XcbDri3>,
     present: Box<XcbPresent>,
@@ -88,7 +87,6 @@ impl XcbCon {
     fn new() -> Result<Self, XorgBackendError> {
         unsafe {
             let xcb = Box::new(Xcb::load_loose()?);
-            let shm = Box::new(XcbShm::load_loose()?);
             let input = Box::new(XcbXinput::load_loose()?);
             let xkb = Box::new(XcbXkb::load_loose()?);
             let dri = Box::new(XcbDri3::load_loose()?);
@@ -100,7 +98,6 @@ impl XcbCon {
             let mut con = Self {
                 screen: *xcb.xcb_setup_roots_iterator(xcb.xcb_get_setup(c)).data,
                 xcb,
-                shm,
                 input,
                 dri,
                 present,
@@ -114,11 +111,6 @@ impl XcbCon {
             con.errors.check_connection(&con.xcb)?;
 
             let mut err = ptr::null_mut();
-
-            let res =
-                con.shm
-                    .xcb_shm_query_version_reply(c, con.shm.xcb_shm_query_version(c), &mut err);
-            con.errors.check(&con.xcb, res, err)?;
 
             let res = con.input.xcb_input_xi_query_version_reply(
                 c,

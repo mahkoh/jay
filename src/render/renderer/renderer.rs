@@ -198,9 +198,9 @@ impl Renderer<'_> {
                     }
                 };
             }
-            render!(&children.above);
-            self.render_buffer(&buffer, x, y);
             render!(&children.below);
+            self.render_buffer(&buffer, x, y);
+            render!(&children.above);
         } else {
             self.render_buffer(&buffer, x, y);
         }
