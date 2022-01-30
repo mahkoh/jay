@@ -21,6 +21,7 @@ pub enum XdgPopupError {
     #[error("The `xdg_positioner` is incomplete")]
     Incomplete,
     #[error("The anchor rectangle of the `xdg_positioner` extends outside the parent")]
+    #[allow(dead_code)]
     AnchorRectOutside,
 }
 

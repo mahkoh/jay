@@ -45,6 +45,6 @@ impl<K: Eq + Hash, V: Clone> CopyHashMap<K, V> {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.map.borrow().is_empty()
+        self.map.borrow_mut().is_empty()
     }
 }

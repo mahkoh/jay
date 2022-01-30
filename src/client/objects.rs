@@ -15,6 +15,8 @@ use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
+use crate::tree::Node;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
@@ -22,6 +24,7 @@ pub struct Objects {
     registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
+    pub xdg_toplevel: CopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
     pub xdg_positioners: CopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
@@ -41,6 +44,7 @@ impl Objects {
             registries: Default::default(),
             surfaces: Default::default(),
             xdg_surfaces: Default::default(),
+            xdg_toplevel: Default::default(),
             xdg_positioners: Default::default(),
             regions: Default::default(),
             buffers: Default::default(),
@@ -51,6 +55,13 @@ impl Objects {
     }
 
     pub fn destroy(&self) {
+        {
+            let mut toplevel = self.xdg_toplevel.lock();
+            for obj in toplevel.values_mut() {
+                obj.destroy_node(true);
+            }
+            toplevel.clear();
+        }
         {
             let mut registry = self.registry.lock();
             for obj in registry.values_mut() {

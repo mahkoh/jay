@@ -16,7 +16,7 @@ use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::Wheel;
 use ahash::AHashMap;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 pub struct State {
@@ -38,6 +38,7 @@ pub struct State {
     pub seat_queue: LinkedList<Rc<WlSeatGlobal>>,
     pub slow_clients: AsyncQueue<Rc<Client>>,
     pub none_surface_ext: Rc<NoneSurfaceExt>,
+    pub tree_changed_sent: Cell<bool>,
 }
 
 pub struct SeatData {
@@ -54,6 +55,9 @@ impl State {
     }
 
     pub fn tree_changed(&self) {
+        if self.tree_changed_sent.replace(true) {
+            return;
+        }
         let seats = self.seats.borrow();
         for seat in seats.values() {
             seat.tree_changed.trigger();

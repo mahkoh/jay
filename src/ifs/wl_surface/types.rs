@@ -1,11 +1,11 @@
 use crate::client::{ClientError, RequestParser};
 use crate::ifs::wl_callback::WlCallbackId;
 use crate::ifs::wl_region::WlRegionId;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use thiserror::Error;
-use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {

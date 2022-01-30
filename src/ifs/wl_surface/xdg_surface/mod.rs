@@ -5,20 +5,23 @@ pub mod xdg_toplevel;
 use crate::client::DynEventFormatter;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::{CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
+use crate::ifs::wl_surface::{
+    CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+};
 use crate::ifs::xdg_wm_base::XdgWmBaseObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
-use crate::tree::{FoundNode, Node};
+use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::NumCell;
 use std::cell::Cell;
-use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::backend::SeatId;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::utils::smallmap::SmallMap;
 
 const DESTROY: u32 = 0;
 const GET_TOPLEVEL: u32 = 1;
@@ -34,11 +37,29 @@ const ALREADY_CONSTRUCTED: u32 = 2;
 #[allow(dead_code)]
 const UNCONFIGURED_BUFFER: u32 = 3;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum XdgSurfaceRole {
+    None,
+    XdgPopup,
+    XdgToplevel,
+}
+
+impl XdgSurfaceRole {
+    fn name(self) -> &'static str {
+        match self {
+            XdgSurfaceRole::None => "none",
+            XdgSurfaceRole::XdgPopup => "xdg_popup",
+            XdgSurfaceRole::XdgToplevel => "xdg_toplevel",
+        }
+    }
+}
+
 id!(XdgSurfaceId);
 
 pub struct XdgSurface {
     id: XdgSurfaceId,
     base: Rc<XdgWmBaseObj>,
+    role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
     requested_serial: NumCell<u32>,
     acked_serial: Cell<Option<u32>>,
@@ -48,7 +69,9 @@ pub struct XdgSurface {
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
     pending: PendingXdgSurfaceData,
-    pub focus_subsurface: CloneCell<Option<Rc<WlSubsurface>>>,
+    pub(super) focus_surface: SmallMap<SeatId, Rc<WlSurface>, 1>,
+    seat_state: NodeSeatState,
+    pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
 }
 
 #[derive(Default)]
@@ -79,6 +102,7 @@ impl XdgSurface {
         Self {
             id,
             base: wm_base.clone(),
+            role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
             requested_serial: NumCell::new(0),
             acked_serial: Cell::new(None),
@@ -88,7 +112,47 @@ impl XdgSurface {
             ext: Default::default(),
             popups: Default::default(),
             pending: Default::default(),
-            focus_subsurface: Default::default()
+            focus_surface: Default::default(),
+            seat_state: Default::default(),
+            workspace: Default::default(),
+        }
+    }
+
+    fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
+        self.workspace.set(Some(ws.clone()));
+        let pu = self.popups.lock();
+        for pu in pu.values() {
+            pu.xdg.set_workspace(ws);
+        }
+    }
+
+    fn set_role(&self, role: XdgSurfaceRole) -> Result<(), XdgSurfaceError> {
+        use XdgSurfaceRole::*;
+        match (self.role.get(), role) {
+            (None, _) => {}
+            (old, new) if old == new => {}
+            (old, new) => {
+                return Err(XdgSurfaceError::IncompatibleRole {
+                    id: self.id,
+                    old,
+                    new,
+                })
+            }
+        }
+        self.role.set(role);
+        Ok(())
+    }
+
+    pub fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface> {
+        self.focus_surface.get(&seat.id()).unwrap_or_else(|| self.surface.clone())
+    }
+
+    fn destroy_node(&self) {
+        self.workspace.set(None);
+        self.surface.destroy_node(false);
+        let popups = self.popups.lock();
+        for popup in popups.values() {
+            popup.destroy_node(true);
         }
     }
 
@@ -114,6 +178,7 @@ impl XdgSurface {
             return Err(XdgSurfaceError::AlreadyAttached(self.surface.id));
         }
         self.surface.ext.set(self.clone());
+        self.surface.set_xdg_surface(Some(self.clone()));
         Ok(())
     }
 
@@ -128,6 +193,7 @@ impl XdgSurface {
                 return Err(DestroyError::PopupsNotYetDestroyed);
             }
         }
+        self.surface.set_xdg_surface(None);
         self.surface.unset_ext();
         self.base.surfaces.remove(&self.id);
         self.surface.client.remove_obj(self)?;
@@ -136,7 +202,7 @@ impl XdgSurface {
 
     fn get_toplevel(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetToplevelError> {
         let req: GetToplevel = self.surface.client.parse(&**self, parser)?;
-        self.surface.set_role(SurfaceRole::XdgToplevel)?;
+        self.set_role(XdgSurfaceRole::XdgToplevel)?;
         if self.ext.get().is_some() {
             self.surface.client.protocol_error(
                 &**self,
@@ -156,7 +222,7 @@ impl XdgSurface {
 
     fn get_popup(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPopupError> {
         let req: GetPopup = self.surface.client.parse(&**self, parser)?;
-        self.surface.set_role(SurfaceRole::XdgPopup)?;
+        self.set_role(XdgSurfaceRole::XdgPopup)?;
         let mut parent = None;
         if req.parent.is_some() {
             parent = Some(self.surface.client.get_xdg_surface(req.parent)?);
@@ -230,24 +296,22 @@ impl XdgSurface {
         }
     }
 
-    fn find_child_at(&self, mut x: i32, mut y: i32) -> Option<FoundNode> {
+    fn find_tree_at(&self, mut x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         if let Some(geo) = self.geometry.get() {
             let (xt, yt) = geo.translate_inv(x, y);
             x = xt;
             y = yt;
         }
         match self.surface.find_surface_at(x, y) {
-            Some((node, x, y)) => Some(FoundNode {
-                node: if std::ptr::eq(node.deref(), self.surface.deref()) {
-                    node
-                } else {
-                    node.ext.get().into_node().unwrap()
-                },
-                x,
-                y,
-                contained: true,
-            }),
-            _ => None,
+            Some((node, x, y)) => {
+                tree.push(FoundNode {
+                        node,
+                        x,
+                        y,
+                });
+                FindTreeResult::AcceptsInput
+            },
+            _ => FindTreeResult::Other
         }
     }
 
@@ -276,7 +340,7 @@ impl Object for XdgSurface {
     }
 
     fn break_loops(&self) {
-        self.focus_subsurface.set(None);
+        self.focus_surface.take();
     }
 }
 
@@ -310,12 +374,5 @@ impl SurfaceExt for XdgSurface {
 
     fn extents_changed(&self) {
         self.update_extents();
-    }
-
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
-        match self.ext.get() {
-            Some(e) => e.into_node(),
-            _ => None,
-        }
     }
 }

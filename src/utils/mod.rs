@@ -10,4 +10,5 @@ pub mod numcell;
 pub mod oneshot;
 pub mod ptr_ext;
 pub mod queue;
+pub mod smallmap;
 pub mod vec_ext;

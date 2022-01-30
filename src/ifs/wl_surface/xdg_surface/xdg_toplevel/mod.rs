@@ -2,12 +2,12 @@ mod types;
 
 use crate::client::DynEventFormatter;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{ContainerNode, StackedNode};
+use crate::tree::{ContainerNode, FindTreeResult};
 use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
@@ -15,9 +15,11 @@ use ahash::{AHashMap, AHashSet};
 use num_derive::FromPrimitive;
 use std::cell::{Cell, RefCell};
 use std::mem;
-use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
+use crate::backend::SeatId;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::smallmap::SmallMap;
 
 const DESTROY: u32 = 0;
 const SET_PARENT: u32 = 1;
@@ -77,6 +79,7 @@ pub struct XdgToplevel {
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
     states: RefCell<AHashSet<u32>>,
+    pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<XdgToplevel>>, 1>,
 }
 
 impl XdgToplevel {
@@ -94,6 +97,7 @@ impl XdgToplevel {
             parent: Default::default(),
             children: RefCell::new(Default::default()),
             states: RefCell::new(states),
+            toplevel_history: Default::default(),
         }
     }
 
@@ -115,6 +119,7 @@ impl XdgToplevel {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
+        self.destroy_node(true);
         self.xdg.ext.set(None);
         if let Some(parent) = self.parent_node.take() {
             parent.remove_child(self);
@@ -225,10 +230,11 @@ impl XdgToplevel {
     }
 
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
-        let workspace = match parent.get_workspace() {
+        let workspace = match parent.xdg.workspace.get() {
             Some(w) => w,
             _ => return self.map_tiled(),
         };
+        self.xdg.set_workspace(&workspace);
         let output = workspace.output.get();
         let output_rect = output.position.get();
         let position = {
@@ -255,14 +261,20 @@ impl XdgToplevel {
             workspace_link: Cell::new(None),
             workspace: CloneCell::new(workspace.clone()),
             child: CloneCell::new(Some(self.clone())),
+            seat_state: Default::default(),
         });
         self.parent_node.set(Some(floater.clone()));
-        floater
-            .display_link
-            .set(Some(state.root.stacked.add_last(StackedNode::Float(floater.clone()))));
-        floater
-            .workspace_link
-            .set(Some(workspace.stacked.add_last(StackedNode::Float(floater.clone()))));
+        floater.display_link.set(Some(
+            state
+                .root
+                .stacked
+                .add_last(floater.clone()),
+        ));
+        floater.workspace_link.set(Some(
+            workspace
+                .stacked
+                .add_last(floater.clone()),
+        ));
     }
 
     fn map_tiled(self: &Rc<Self>) {
@@ -291,7 +303,7 @@ impl XdgToplevel {
                     self.parent_node.set(Some(container));
                 } else {
                     let container =
-                        Rc::new(ContainerNode::new(state, workspace.clone(), self.clone()));
+                        Rc::new(ContainerNode::new(state, &workspace, workspace.clone(), self.clone()));
                     workspace.set_container(&container);
                     self.parent_node.set(Some(container));
                 };
@@ -299,13 +311,6 @@ impl XdgToplevel {
             }
         }
         todo!("map_tiled");
-    }
-
-    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        match self.parent_node.get() {
-            Some(node) => node.get_workspace(),
-            _ => None,
-        }
     }
 }
 
@@ -325,6 +330,7 @@ impl Object for XdgToplevel {
     }
 
     fn break_loops(&self) {
+        self.destroy_node(true);
         if let Some(parent) = self.parent_node.take() {
             parent.remove_child(self);
         }
@@ -338,36 +344,50 @@ impl Node for XdgToplevel {
         self.node_id.into()
     }
 
-    fn clear(&self) {
-        self.parent_node.set(None);
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.xdg.seat_state
     }
 
-    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
-        self.xdg.find_child_at(x, y)
+    fn destroy_node(&self, detach: bool) {
+        if let Some(parent) = self.parent_node.take() {
+            if detach {
+                parent.remove_child(self);
+            }
+        }
+        self.toplevel_history.take();
+        self.xdg.destroy_node();
+        self.xdg.seat_state.destroy_node(self)
+    }
+
+    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        self.xdg.find_tree_at(x, y, tree)
+    }
+
+    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+        seat.enter_toplevel(&self);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_xdg_surface(&self.xdg, x, y)
     }
 
-    fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
-        self.deref().get_workspace()
-    }
-
-    fn enter(self: Rc<Self>, seat: &WlSeatGlobal, _x: Fixed, _y: Fixed) {
-        seat.enter_toplevel(&self);
-    }
-
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         let de = self.xdg.absolute_desired_extents.replace(*rect);
         if de.width() != rect.width() || de.height() != rect.height() {
-            self.xdg.surface.client.event(self.configure(rect.width(), rect.height()));
+            self.xdg
+                .surface
+                .client
+                .event(self.configure(rect.width(), rect.height()));
             self.xdg.send_configure();
             self.xdg.surface.client.flush();
         }
         if de.x1() != rect.x1() || de.y1() != rect.y1() {
             self.xdg.update_popup_positions();
         }
+    }
+
+    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        self.xdg.set_workspace(ws);
     }
 }
 

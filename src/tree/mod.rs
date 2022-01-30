@@ -1,6 +1,6 @@
 use crate::backend::{KeyState, Output, OutputId, ScrollAxis};
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::utils::clonecell::CloneCell;
@@ -10,9 +10,9 @@ use crate::NumCell;
 pub use container::*;
 use std::cell::{Cell, RefCell};
 use std::fmt::Display;
+use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 
 mod container;
 mod workspace;
@@ -51,14 +51,23 @@ impl Display for NodeId {
     }
 }
 
+pub enum FindTreeResult {
+    AcceptsInput,
+    Other,
+}
+
+pub trait AbsoluteNode: Node {
+    fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
+
+    fn absolute_position(&self) -> Rect;
+}
+
 pub trait Node {
     fn id(&self) -> NodeId;
+    fn seat_state(&self) -> &NodeSeatState;
+    fn destroy_node(&self, detach: bool);
 
-    fn clear(&self) {
-        // nothing
-    }
-
-    fn button(self: Rc<Self>, seat: &WlSeatGlobal, button: u32, state: KeyState) {
+    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
         let _ = seat;
         let _ = button;
         let _ = state;
@@ -70,18 +79,19 @@ pub trait Node {
         let _ = axis;
     }
 
-    fn focus(self: Rc<Self>, seat: &WlSeatGlobal) {
+    fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
 
-    fn unfocus(self: Rc<Self>, seat: &WlSeatGlobal) {
+    fn unfocus(&self, seat: &WlSeatGlobal) {
         let _ = seat;
     }
 
-    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
+    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         let _ = x;
         let _ = y;
-        None
+        let _ = tree;
+        FindTreeResult::Other
     }
 
     fn remove_child(&self, child: &dyn Node) {
@@ -96,7 +106,7 @@ pub trait Node {
         let _ = seat;
     }
 
-    fn enter(self: Rc<Self>, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
+    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         let _ = seat;
         let _ = x;
         let _ = y;
@@ -126,12 +136,12 @@ pub trait Node {
         false
     }
 
-    fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
-        None
-    }
-
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         let _ = rect;
+    }
+
+    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        let _ = ws;
     }
 }
 
@@ -139,20 +149,15 @@ pub struct FoundNode {
     pub node: Rc<dyn Node>,
     pub x: i32,
     pub y: i32,
-    pub contained: bool,
 }
 
 tree_id!(ToplevelNodeId);
 
-pub enum StackedNode {
-    Float(Rc<FloatNode>),
-    Popup(Rc<XdgPopup>),
-}
-
 pub struct DisplayNode {
     pub id: NodeId,
     pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
-    pub stacked: LinkedList<StackedNode>,
+    pub stacked: LinkedList<Rc<dyn AbsoluteNode>>,
+    pub seat_state: NodeSeatState,
 }
 
 impl DisplayNode {
@@ -161,6 +166,7 @@ impl DisplayNode {
             id,
             outputs: Default::default(),
             stacked: Default::default(),
+            seat_state: Default::default(),
         }
     }
 }
@@ -170,35 +176,57 @@ impl Node for DisplayNode {
         self.id
     }
 
-    fn clear(&self) {
-        let mut outputs = self.outputs.lock();
-        for output in outputs.values() {
-            output.clear();
-        }
-        outputs.clear();
-        for floater in self.stacked.iter() {
-            match &*floater {
-                StackedNode::Float(f) => f.clear(),
-                StackedNode::Popup(p) => p.clear(),
-            }
-        }
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.seat_state
     }
 
-    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
+    fn destroy_node(&self, _detach: bool) {
+        let mut outputs = self.outputs.lock();
+        for output in outputs.values() {
+            output.destroy_node(false);
+        }
+        outputs.clear();
+        for stacked in self.stacked.iter() {
+            stacked.destroy_node(false);
+        }
+        self.seat_state.destroy_node(self);
+    }
+
+    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        for stacked in self.stacked.iter() {
+            let ext = stacked.absolute_position();
+            if !ext.contains(x, y) {
+                continue;
+            }
+            let (x, y) = ext.translate(x, y);
+            let idx = tree.len();
+            tree.push(FoundNode {
+                node: stacked.deref().clone().into_node(),
+                x,
+                y,
+            });
+            match stacked.find_tree_at(x, y, tree) {
+                FindTreeResult::AcceptsInput => return FindTreeResult::AcceptsInput,
+                FindTreeResult::Other => {
+                    tree.drain(idx..);
+                }
+            }
+        }
         let outputs = self.outputs.lock();
         for output in outputs.values() {
             let pos = output.position.get();
             if pos.contains(x, y) {
                 let (x, y) = pos.translate(x, y);
-                return Some(FoundNode {
+                tree.push(FoundNode {
                     node: output.clone(),
                     x,
                     y,
-                    contained: true,
                 });
+                output.find_tree_at(x, y, tree);
+                break;
             }
         }
-        None
+        FindTreeResult::AcceptsInput
     }
 }
 
@@ -210,6 +238,7 @@ pub struct OutputNode {
     pub backend: Rc<dyn Output>,
     pub workspaces: RefCell<Vec<Rc<WorkspaceNode>>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    pub seat_state: NodeSeatState,
 }
 
 impl Node for OutputNode {
@@ -217,32 +246,39 @@ impl Node for OutputNode {
         self.id.into()
     }
 
-    fn clear(&self) {
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.seat_state
+    }
+
+    fn destroy_node(&self, detach: bool) {
+        if detach {
+            self.display.remove_child(self);
+        }
         let mut workspaces = self.workspaces.borrow_mut();
         for workspace in workspaces.drain(..) {
-            workspace.clear();
+            workspace.destroy_node(false);
         }
+        self.seat_state.destroy_node(self);
     }
 
-    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
+    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         if let Some(ws) = self.workspace.get() {
-            Some(FoundNode {
-                node: ws,
+            tree.push(FoundNode {
+                node: ws.clone(),
                 x,
                 y,
-                contained: true,
-            })
-        } else {
-            None
+            });
+            ws.find_tree_at(x, y, tree);
         }
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_output(self, x, y);
+        FindTreeResult::AcceptsInput
     }
 
     fn remove_child(&self, _child: &dyn Node) {
         self.workspace.set(None);
+    }
+
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_output(self, x, y);
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {
@@ -259,10 +295,21 @@ pub struct FloatNode {
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub display: Rc<DisplayNode>,
-    pub display_link: Cell<Option<LinkedNode<StackedNode>>>,
-    pub workspace_link: Cell<Option<LinkedNode<StackedNode>>>,
+    pub display_link: Cell<Option<LinkedNode<Rc<dyn AbsoluteNode>>>>,
+    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn AbsoluteNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub child: CloneCell<Option<Rc<dyn Node>>>,
+    pub seat_state: NodeSeatState,
+}
+
+impl AbsoluteNode for FloatNode {
+    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
+        self
+    }
+
+    fn absolute_position(&self) -> Rect {
+        self.position.get()
+    }
 }
 
 impl Node for FloatNode {
@@ -270,18 +317,42 @@ impl Node for FloatNode {
         self.id.into()
     }
 
-    fn clear(&self) {
-        self.child.set(None);
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.seat_state
     }
 
-    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
-        self.child.get().and_then(|c| c.find_child_at(x, y))
+    fn destroy_node(&self, _detach: bool) {
+        let _v = self.display_link.take();
+        let _v = self.workspace_link.take();
+        if let Some(child) = self.child.get() {
+            child.destroy_node(false);
+        }
+        self.seat_state.destroy_node(self);
+    }
+
+    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        let child = match self.child.get() {
+            Some(c) => c,
+            _ => return FindTreeResult::Other,
+        };
+        tree.push(FoundNode {
+            node: child.clone(),
+            x,
+            y,
+        });
+        child.find_tree_at(x, y, tree)
     }
 
     fn remove_child(&self, _child: &dyn Node) {
         self.child.set(None);
         self.display_link.set(None);
         self.workspace_link.set(None);
+    }
+
+    fn child_size_changed(&self, _child: &dyn Node, width: i32, height: i32) {
+        let pos = self.position.get();
+        self.position
+            .set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
@@ -296,19 +367,17 @@ impl Node for FloatNode {
         true
     }
 
-    fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
-        Some(self.workspace.get())
-    }
-
-    fn child_size_changed(&self, _child: &dyn Node, width: i32, height: i32) {
-        let pos = self.position.get();
-        self.position
-            .set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
-    }
-
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         if let Some(child) = self.child.get() {
             child.change_extents(rect);
         }
+    }
+
+    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        if let Some(c) = self.child.get() {
+            c.set_workspace(ws);
+        }
+        self.workspace_link.set(Some(ws.stacked.add_last(self.clone())));
+        self.workspace.set(ws.clone());
     }
 }

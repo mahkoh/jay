@@ -27,8 +27,8 @@ impl Framebuffer {
                 glClear(GL_COLOR_BUFFER_BIT);
             }
             let mut renderer = Renderer {
-                renderer: &self.ctx,
-                image: &self.gl,
+                ctx: &self.ctx,
+                fb: &self.gl,
             };
             node.render(&mut renderer, 0, 0);
             if let Some(rd) = &self.ctx.renderdoc {

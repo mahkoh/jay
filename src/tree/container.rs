@@ -1,12 +1,13 @@
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{NumCell, State};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use crate::ifs::wl_seat::{NodeSeatState};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -44,6 +45,8 @@ pub struct ContainerNode {
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
+    seat_state: NodeSeatState,
+    workspace: CloneCell<Rc<WorkspaceNode>>,
 }
 
 pub struct ContainerChild {
@@ -72,7 +75,8 @@ impl ContainerChild {
 }
 
 impl ContainerNode {
-    pub fn new(state: &State, parent: Rc<dyn Node>, child: Rc<dyn Node>) -> Self {
+    pub fn new(state: &State, workspace: &Rc<WorkspaceNode>, parent: Rc<dyn Node>, child: Rc<dyn Node>) -> Self {
+        child.clone().set_workspace(workspace);
         let children = LinkedList::new();
         let mut child_nodes = AHashMap::new();
         child_nodes.insert(
@@ -101,6 +105,8 @@ impl ContainerNode {
             num_children: NumCell::new(1),
             children,
             child_nodes: RefCell::new(child_nodes),
+            seat_state: Default::default(),
+            workspace: CloneCell::new(workspace.clone()),
         }
     }
 
@@ -149,6 +155,7 @@ impl ContainerNode {
                 }),
             );
         }
+        new.clone().set_workspace(&self.workspace.get());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -264,40 +271,46 @@ impl Node for ContainerNode {
         self.id.into()
     }
 
-    fn clear(&self) {
-        let mut cn = self.child_nodes.borrow_mut();
-        for (_, n) in cn.drain() {
-            n.node.clear();
-        }
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.seat_state
     }
 
-    fn find_child_at(&self, x: i32, y: i32) -> Option<FoundNode> {
+    fn destroy_node(&self, detach: bool) {
+        if detach {
+            self.parent.get().remove_child(self);
+        }
+        let mut cn = self.child_nodes.borrow_mut();
+        for (_, n) in cn.drain() {
+            n.node.destroy_node(false);
+        }
+        self.seat_state.destroy_node(self);
+    }
+
+    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        let mut recurse = |content: Rect, child: NodeRef<ContainerChild>| {
+            if content.contains(x, y) {
+                let (x, y) = content.translate(x, y);
+                tree.push(
+                    FoundNode {
+                        node: child.node.clone(),
+                        x,
+                        y,
+                    }
+                );
+                child.node.find_tree_at(x, y, tree);
+            }
+        };
         if let Some(child) = self.mono_child.get() {
-            if self.mono_body.get().contains(x, y) {
-                let content = self.mono_content.get();
-                let (x, y) = content.translate(x, y);
-                return Some(FoundNode {
-                    node: child.node.clone(),
-                    x,
-                    y,
-                    contained: content.contains(x, y),
-                });
-            }
-            return None;
-        }
-        for child in self.children.iter() {
-            if child.body.get().contains(x, y) {
-                let content = child.content.get();
-                let (x, y) = content.translate(x, y);
-                return Some(FoundNode {
-                    node: child.node.clone(),
-                    x,
-                    y,
-                    contained: content.contains(x, y),
-                });
+            recurse(self.mono_content.get(), child);
+        } else {
+            for child in self.children.iter() {
+                if child.body.get().contains(x, y) {
+                    recurse(child.content.get(), child);
+                    break;
+                }
             }
         }
-        None
+        FindTreeResult::AcceptsInput
     }
 
     fn remove_child(&self, child: &dyn Node) {
@@ -347,10 +360,6 @@ impl Node for ContainerNode {
         Some(self)
     }
 
-    fn get_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
-        self.parent.get().get_workspace()
-    }
-
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
@@ -366,5 +375,12 @@ impl Node for ContainerNode {
                 child.node.clone().change_extents(&body);
             }
         }
+    }
+
+    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        for child in self.children.iter() {
+            child.node.clone().set_workspace(ws);
+        }
+        self.workspace.set(ws.clone());
     }
 }

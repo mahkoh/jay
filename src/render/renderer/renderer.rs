@@ -1,4 +1,5 @@
 use crate::ifs::wl_buffer::WlBuffer;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::gl::frame_buffer::{with_scissor, GlFrameBuffer};
@@ -9,11 +10,13 @@ use crate::render::gl::sys::{
     GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
 };
 use crate::render::renderer::context::RenderContext;
-use crate::tree::{ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode, CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT, StackedNode};
+use crate::tree::{
+    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode,
+    WorkspaceNode, CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT,
+};
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 
 const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
 const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);
@@ -28,8 +31,8 @@ fn focus_color(focus: ContainerFocus) -> (f32, f32, f32) {
 }
 
 pub struct Renderer<'a> {
-    pub(super) renderer: &'a RenderContext,
-    pub(super) image: &'a GlFrameBuffer,
+    pub(super) ctx: &'a RenderContext,
+    pub(super) fb: &'a GlFrameBuffer,
 }
 
 impl Renderer<'_> {
@@ -44,25 +47,17 @@ impl Renderer<'_> {
             self.render_container(&node, x, y)
         }
         for stacked in workspace.stacked.iter() {
-            match &*stacked {
-                StackedNode::Float(f) => {
-                    let pos = f.position.get();
-                    self.render_floating(f, pos.x1(), pos.y1());
-                }
-                StackedNode::Popup(p) => {
-                    let pos = p.xdg.absolute_desired_extents.get();
-                    self.render_xdg_surface(&p.xdg, pos.x1(), pos.y1());
-                }
-            }
+            let pos = stacked.absolute_position();
+            stacked.render(self, pos.x1(), pos.y1());
         }
     }
 
     fn x_to_f(&self, x: i32) -> f32 {
-        2.0 * (x as f32 / self.image.width as f32) - 1.0
+        2.0 * (x as f32 / self.fb.width as f32) - 1.0
     }
 
     fn y_to_f(&self, y: i32) -> f32 {
-        2.0 * (y as f32 / self.image.height as f32) - 1.0
+        2.0 * (y as f32 / self.fb.height as f32) - 1.0
     }
 
     fn fill_boxes(&self, boxes: &[Rect], r: f32, g: f32, b: f32, a: f32) {
@@ -84,19 +79,19 @@ impl Renderer<'_> {
             ]);
         }
         unsafe {
-            glUseProgram(self.renderer.fill_prog.prog);
-            glUniform4f(self.renderer.fill_prog_color, r, g, b, a);
+            glUseProgram(self.ctx.fill_prog.prog);
+            glUniform4f(self.ctx.fill_prog_color, r, g, b, a);
             glVertexAttribPointer(
-                self.renderer.fill_prog_pos as _,
+                self.ctx.fill_prog_pos as _,
                 2,
                 GL_FLOAT,
                 GL_FALSE,
                 0,
                 pos.as_ptr() as _,
             );
-            glEnableVertexAttribArray(self.renderer.fill_prog_pos as _);
+            glEnableVertexAttribArray(self.ctx.fill_prog_pos as _);
             glDrawArrays(GL_TRIANGLES, 0, (boxes.len() * 6) as _);
-            glDisableVertexAttribArray(self.renderer.fill_prog_pos as _);
+            glDisableVertexAttribArray(self.ctx.fill_prog_pos as _);
         }
     }
 
@@ -224,21 +219,21 @@ impl Renderer<'_> {
             Some(t) => t,
             _ => return,
         };
-        assert!(Rc::ptr_eq(&self.renderer.ctx, &texture.ctx.ctx));
+        assert!(Rc::ptr_eq(&self.ctx.ctx, &texture.ctx.ctx));
         unsafe {
             glActiveTexture(GL_TEXTURE0);
 
             glBindTexture(GL_TEXTURE_2D, texture.gl.tex);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-            glUseProgram(self.renderer.tex_prog.prog);
+            glUseProgram(self.ctx.tex_prog.prog);
 
-            glUniform1i(self.renderer.tex_prog_tex, 0);
+            glUniform1i(self.ctx.tex_prog_tex, 0);
 
             let texcoord: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
 
-            let f_width = self.image.width as f32;
-            let f_height = self.image.height as f32;
+            let f_width = self.fb.width as f32;
+            let f_height = self.fb.height as f32;
 
             let x1 = 2.0 * (x as f32 / f_width) - 1.0;
             let y1 = 2.0 * (y as f32 / f_height) - 1.0;
@@ -253,7 +248,7 @@ impl Renderer<'_> {
             ];
 
             glVertexAttribPointer(
-                self.renderer.tex_prog_texcoord as _,
+                self.ctx.tex_prog_texcoord as _,
                 2,
                 GL_FLOAT,
                 GL_FALSE,
@@ -261,7 +256,7 @@ impl Renderer<'_> {
                 texcoord.as_ptr() as _,
             );
             glVertexAttribPointer(
-                self.renderer.tex_prog_pos as _,
+                self.ctx.tex_prog_pos as _,
                 2,
                 GL_FLOAT,
                 GL_FALSE,
@@ -269,13 +264,13 @@ impl Renderer<'_> {
                 pos.as_ptr() as _,
             );
 
-            glEnableVertexAttribArray(self.renderer.tex_prog_texcoord as _);
-            glEnableVertexAttribArray(self.renderer.tex_prog_pos as _);
+            glEnableVertexAttribArray(self.ctx.tex_prog_texcoord as _);
+            glEnableVertexAttribArray(self.ctx.tex_prog_pos as _);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glDisableVertexAttribArray(self.renderer.tex_prog_texcoord as _);
-            glDisableVertexAttribArray(self.renderer.tex_prog_pos as _);
+            glDisableVertexAttribArray(self.ctx.tex_prog_texcoord as _);
+            glDisableVertexAttribArray(self.ctx.tex_prog_pos as _);
 
             glBindTexture(GL_TEXTURE_2D, 0);
         }

@@ -1,7 +1,7 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopupError, XdgPopupId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelId;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, CONFIGURE};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, CONFIGURE, XdgSurfaceRole};
 use crate::ifs::wl_surface::{WlSurfaceError, WlSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositionerId;
 use crate::object::Object;
@@ -28,6 +28,12 @@ pub enum XdgSurfaceError {
     WlSurfaceError(Box<WlSurfaceError>),
     #[error(transparent)]
     XdgPopupError(#[from] XdgPopupError),
+    #[error("Surface {} cannot be assigned the role {} because it already has the role {}", .id, .new.name(), .old.name())]
+    IncompatibleRole {
+        id: XdgSurfaceId,
+        old: XdgSurfaceRole,
+        new: XdgSurfaceRole,
+    },
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 
@@ -55,10 +61,13 @@ pub enum GetToplevelError {
     AlreadyConstructed,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
+    #[error(transparent)]
+    XdgSurfaceError(Box<XdgSurfaceError>),
 }
 efrom!(GetToplevelError, ParseFailed, MsgParserError);
 efrom!(GetToplevelError, ClientError);
 efrom!(GetToplevelError, WlSurfaceError);
+efrom!(GetToplevelError, XdgSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum GetPopupError {
@@ -72,11 +81,14 @@ pub enum GetPopupError {
     WlSurfaceError(Box<WlSurfaceError>),
     #[error(transparent)]
     XdgPopupError(Box<XdgPopupError>),
+    #[error(transparent)]
+    XdgSurfaceError(Box<XdgSurfaceError>),
 }
 efrom!(GetPopupError, ParseFailed, MsgParserError);
 efrom!(GetPopupError, ClientError);
 efrom!(GetPopupError, XdgPopupError);
 efrom!(GetPopupError, WlSurfaceError);
+efrom!(GetPopupError, XdgSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum SetWindowGeometryError {

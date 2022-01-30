@@ -1,12 +1,12 @@
 use crate::backend::Output;
 use crate::ifs::wl_output::WlOutputGlobal;
+use crate::rect::Rect;
 use crate::tree::{Node, OutputNode, WorkspaceNode};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
 use crate::State;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use crate::rect::Rect;
 
 pub struct OutputHandler {
     pub state: Rc<State>,
@@ -27,12 +27,14 @@ impl OutputHandler {
             workspaces: RefCell::new(vec![]),
             position: Cell::new(Default::default()),
             workspace: CloneCell::new(None),
+            seat_state: Default::default(),
         });
         let workspace = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
             output: CloneCell::new(on.clone()),
             container: Default::default(),
             stacked: Default::default(),
+            seat_state: Default::default(),
         });
         on.workspace.set(Some(workspace));
         self.state.root.outputs.set(self.output.id(), on.clone());
@@ -51,7 +53,8 @@ impl OutputHandler {
             if new_width != width || new_height != height {
                 width = new_width;
                 height = new_height;
-                on.clone().change_extents(&Rect::new_sized(0, 0, new_width, new_height).unwrap());
+                on.clone()
+                    .change_extents(&Rect::new_sized(0, 0, new_width, new_height).unwrap());
             }
             global.update_properties();
             ae.triggered().await;

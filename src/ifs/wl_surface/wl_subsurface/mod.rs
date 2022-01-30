@@ -1,12 +1,11 @@
 mod types;
 
-use crate::backend::{KeyState, ScrollAxis};
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::ifs::wl_surface::{CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError, WlSurfaceId};
+use crate::ifs::wl_surface::{
+    CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+    WlSurfaceId,
+};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
-use crate::tree::{Node, NodeId};
 use crate::utils::buffd::MsgParser;
 use crate::utils::linkedlist::LinkedNode;
 use crate::NumCell;
@@ -27,12 +26,10 @@ const BAD_SURFACE: u32 = 0;
 
 const MAX_SUBSURFACE_DEPTH: u32 = 100;
 
-tree_id!(SubsurfaceNodeId);
 id!(WlSubsurfaceId);
 
 pub struct WlSubsurface {
     id: WlSubsurfaceId,
-    node_id: SubsurfaceNodeId,
     pub surface: Rc<WlSurface>,
     pub(super) parent: Rc<WlSurface>,
     pub position: Cell<Rect>,
@@ -87,7 +84,6 @@ impl WlSubsurface {
     pub fn new(id: WlSubsurfaceId, surface: &Rc<WlSurface>, parent: &Rc<WlSurface>) -> Self {
         Self {
             id,
-            node_id: surface.client.state.node_ids.next(),
             surface: surface.clone(),
             parent: parent.clone(),
             position: Cell::new(Default::default()),
@@ -311,43 +307,5 @@ impl SurfaceExt for WlSubsurface {
 
     fn into_subsurface(self: Rc<Self>) -> Option<Rc<WlSubsurface>> {
         Some(self)
-    }
-
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
-        Some(self)
-    }
-}
-
-impl Node for WlSubsurface {
-    fn id(&self) -> NodeId {
-        self.node_id.into()
-    }
-
-    fn enter(self: Rc<Self>, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
-        seat.enter_surface(&self.surface, x, y)
-    }
-
-    fn leave(&self, seat: &WlSeatGlobal) {
-        seat.leave_surface(&self.surface);
-    }
-
-    fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
-        seat.motion_surface(&self.surface, x, y)
-    }
-
-    fn button(self: Rc<Self>, seat: &WlSeatGlobal, button: u32, state: KeyState) {
-        seat.button_surface(&self.surface, button, state);
-    }
-
-    fn scroll(&self, seat: &WlSeatGlobal, delta: i32, axis: ScrollAxis) {
-        seat.scroll_surface(&self.surface, delta, axis);
-    }
-
-    fn focus(self: Rc<Self>, seat: &WlSeatGlobal) {
-        seat.focus_surface(&self.surface);
-    }
-
-    fn unfocus(self: Rc<Self>, seat: &WlSeatGlobal) {
-        seat.unfocus_surface(&self.surface)
     }
 }

@@ -7,7 +7,7 @@ use crate::client::{Client, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
@@ -23,6 +23,7 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -54,8 +55,6 @@ pub enum SurfaceRole {
     None,
     Subsurface,
     XdgSurface,
-    XdgPopup,
-    XdgToplevel,
 }
 
 impl SurfaceRole {
@@ -64,8 +63,6 @@ impl SurfaceRole {
             SurfaceRole::None => "none",
             SurfaceRole::Subsurface => "subsurface",
             SurfaceRole::XdgSurface => "xdg_surface",
-            SurfaceRole::XdgPopup => "xdg_popup",
-            SurfaceRole::XdgToplevel => "xdg_toplevel",
         }
     }
 }
@@ -87,6 +84,8 @@ pub struct WlSurface {
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
+    seat_state: NodeSeatState,
+    xdg: CloneCell<Option<Rc<XdgSurface>>>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -128,10 +127,6 @@ trait SurfaceExt {
     }
 
     fn into_subsurface(self: Rc<Self>) -> Option<Rc<WlSubsurface>> {
-        None
-    }
-
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
         None
     }
 }
@@ -183,7 +178,19 @@ impl WlSurface {
             children: Default::default(),
             ext: CloneCell::new(client.state.none_surface_ext.clone()),
             frame_requests: RefCell::new(vec![]),
+            seat_state: Default::default(),
+            xdg: Default::default(),
         }
+    }
+
+    fn set_xdg_surface(&self, xdg: Option<Rc<XdgSurface>>) {
+        let ch = self.children.borrow();
+        if let Some(ch) = &*ch {
+            for ss in ch.subsurfaces.values() {
+                ss.surface.set_xdg_surface(xdg.clone());
+            }
+        }
+        self.xdg.set(xdg);
     }
 
     fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
@@ -191,8 +198,6 @@ impl WlSurface {
         match (self.role.get(), role) {
             (None, _) => {}
             (old, new) if old == new => {}
-            (XdgSurface, XdgPopup) => {}
-            (XdgSurface, XdgToplevel) => {}
             (old, new) => {
                 return Err(WlSurfaceError::IncompatibleRole {
                     id: self.id,
@@ -258,6 +263,7 @@ impl WlSurface {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.parse(parser)?;
+        self.destroy_node(true);
         if self.ext.get().is_some() {
             return Err(DestroyError::ReloObjectStillExists);
         }
@@ -488,10 +494,12 @@ impl Object for WlSurface {
     }
 
     fn break_loops(&self) {
+        self.destroy_node(true);
         *self.children.borrow_mut() = None;
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
         self.buffer.set(None);
+        self.xdg.set(None);
     }
 }
 
@@ -501,31 +509,58 @@ impl Node for WlSurface {
         self.node_id.into()
     }
 
-    fn enter(self: Rc<Self>, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
-        seat.enter_surface(&self, x, y)
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.seat_state
     }
 
-    fn leave(&self, seat: &WlSeatGlobal) {
-        seat.leave_surface(self);
+    fn destroy_node(&self, _detach: bool) {
+        let children = self.children.borrow();
+        if let Some(ch) = children.deref() {
+            for ss in ch.subsurfaces.values() {
+                ss.surface.destroy_node(false);
+            }
+        }
+        if let Some(xdg) = self.xdg.get() {
+            let mut remove = vec![];
+            for (seat, s) in &xdg.focus_surface {
+                if s.id == self.id {
+                    remove.push(seat);
+                }
+            }
+            for seat in remove {
+                xdg.focus_surface.remove(&seat);
+            }
+        }
+        self.seat_state.destroy_node(self);
     }
 
-    fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
-        seat.motion_surface(self, x, y)
+    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+        seat.button_surface(&self, button, state);
     }
 
     fn scroll(&self, seat: &WlSeatGlobal, delta: i32, axis: ScrollAxis) {
         seat.scroll_surface(self, delta, axis);
     }
 
-    fn button(self: Rc<Self>, seat: &WlSeatGlobal, button: u32, state: KeyState) {
-        seat.button_surface(&self, button, state);
+    fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        if let Some(xdg) = self.xdg.get() {
+            xdg.focus_surface.insert(seat.id(), self);
+        }
     }
 
-    fn focus(self: Rc<Self>, seat: &WlSeatGlobal) {
-        seat.focus_surface(&self);
+    fn unfocus(&self, seat: &WlSeatGlobal) {
+        seat.unfocus_surface(self);
     }
 
-    fn unfocus(self: Rc<Self>, seat: &WlSeatGlobal) {
-        seat.unfocus_surface(&self);
+    fn leave(&self, seat: &WlSeatGlobal) {
+        seat.leave_surface(self);
+    }
+
+    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        seat.enter_surface(&self, x, y)
+    }
+
+    fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
+        seat.motion_surface(self, x, y)
     }
 }

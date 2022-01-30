@@ -13,6 +13,7 @@
     clippy::redundant_clone
 )]
 
+use std::cell::Cell;
 use crate::acceptor::AcceptorError;
 use crate::async_engine::AsyncError;
 use crate::backends::xorg::{XorgBackend, XorgBackendError};
@@ -142,6 +143,7 @@ fn main_() -> Result<(), MainError> {
         seat_queue: Default::default(),
         slow_clients: AsyncQueue::new(),
         none_surface_ext: Rc::new(NoneSurfaceExt),
+        tree_changed_sent: Cell::new(false),
     });
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));

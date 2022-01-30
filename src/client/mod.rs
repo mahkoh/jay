@@ -352,6 +352,9 @@ impl Drop for ClientHolder {
 pub trait EventFormatter: Debug {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>);
     fn obj(&self) -> &dyn Object;
+    fn should_log(&self) -> bool {
+        true
+    }
 }
 
 pub type DynEventFormatter = Box<dyn EventFormatter>;
@@ -522,6 +525,9 @@ impl Client {
     }
 
     pub fn log_event(&self, event: &dyn EventFormatter) {
+        if !event.should_log() {
+            return;
+        }
         let obj = event.obj();
         log::trace!(
             "Client {} <= {}@{}.{:?}",
@@ -579,7 +585,6 @@ simple_add_obj!(WlShmObj);
 simple_add_obj!(WlShmPool);
 simple_add_obj!(WlSubcompositorObj);
 simple_add_obj!(WlSubsurface);
-simple_add_obj!(XdgToplevel);
 simple_add_obj!(XdgPopup);
 simple_add_obj!(WlOutputObj);
 simple_add_obj!(WlKeyboard);
@@ -615,3 +620,4 @@ dedicated_add_obj!(XdgSurface, xdg_surfaces);
 dedicated_add_obj!(WlBuffer, buffers);
 dedicated_add_obj!(WlSeatObj, seats);
 dedicated_add_obj!(XdgPositioner, xdg_positioners);
+dedicated_add_obj!(XdgToplevel, xdg_toplevel);

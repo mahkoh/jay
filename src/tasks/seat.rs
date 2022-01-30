@@ -22,7 +22,7 @@ impl SeatHandler {
         let _tree_changed = self
             .state
             .eng
-            .spawn(tree_changed(global.clone(), self.tree_changed.clone()));
+            .spawn(tree_changed(self.state.clone(), global.clone(), self.tree_changed.clone()));
         let mut _node = self.state.seat_queue.add_last(global.clone());
         self.state.add_global(&global);
         loop {
@@ -44,9 +44,10 @@ impl SeatHandler {
     }
 }
 
-async fn tree_changed(global: Rc<WlSeatGlobal>, tree_changed: Rc<AsyncEvent>) {
+async fn tree_changed(state: Rc<State>, global: Rc<WlSeatGlobal>, tree_changed: Rc<AsyncEvent>) {
     loop {
         tree_changed.triggered().await;
+        state.tree_changed_sent.set(false);
         global.tree_changed();
     }
 }
