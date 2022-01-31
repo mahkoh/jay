@@ -1,9 +1,10 @@
 mod types;
 pub mod wl_subsurface;
 pub mod xdg_surface;
+pub mod cursor;
 
-use crate::backend::{KeyState, ScrollAxis};
-use crate::client::{Client, RequestParser};
+use crate::backend::{KeyState, ScrollAxis, SeatId};
+use crate::client::{Client, ClientId, DynEventFormatter, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
@@ -23,7 +24,12 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_output::WlOutputId;
+use crate::ifs::wl_surface::cursor::CursorSurface;
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceRole};
+use crate::render::Renderer;
+use crate::utils::smallmap::SmallMap;
+use crate::xkbcommon::ModifierState;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -55,6 +61,7 @@ pub enum SurfaceRole {
     None,
     Subsurface,
     XdgSurface,
+    Cursor,
 }
 
 impl SurfaceRole {
@@ -63,6 +70,7 @@ impl SurfaceRole {
             SurfaceRole::None => "none",
             SurfaceRole::Subsurface => "subsurface",
             SurfaceRole::XdgSurface => "xdg_surface",
+            SurfaceRole::Cursor => "cursor",
         }
     }
 }
@@ -86,6 +94,7 @@ pub struct WlSurface {
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
     seat_state: NodeSeatState,
     xdg: CloneCell<Option<Rc<XdgSurface>>>,
+    cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -180,7 +189,36 @@ impl WlSurface {
             frame_requests: RefCell::new(vec![]),
             seat_state: Default::default(),
             xdg: Default::default(),
+            cursors: Default::default(),
         }
+    }
+
+    pub fn is_cursor(&self) -> bool {
+        self.role.get() == SurfaceRole::Cursor
+    }
+
+    pub fn get_cursor(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) -> Result<Rc<CursorSurface>, WlSurfaceError> {
+        if let Some(cursor) = self.cursors.get(&seat.id()) {
+            return Ok(cursor);
+        }
+        self.set_role(SurfaceRole::Cursor)?;
+        let cursor = Rc::new(CursorSurface::new(seat, self));
+        self.cursors.insert(seat.id(), cursor.clone());
+        Ok(cursor)
+    }
+
+    pub fn belongs_to_toplevel(&self) -> bool {
+        if let Some(xdg) = self.xdg.get() {
+            return xdg.role() == XdgSurfaceRole::XdgToplevel;
+        }
+        false
+    }
+
+    fn enter_event(self: &Rc<Self>, output: WlOutputId) -> DynEventFormatter {
+        Box::new(Enter {
+            obj: self.clone(),
+            output,
+        })
     }
 
     fn set_xdg_surface(&self, xdg: Option<Rc<XdgSurface>>) {
@@ -188,6 +226,11 @@ impl WlSurface {
         if let Some(ch) = &*ch {
             for ss in ch.subsurfaces.values() {
                 ss.surface.set_xdg_surface(xdg.clone());
+            }
+        }
+        if self.seat_state.is_active() {
+            if let Some(xdg) = &xdg {
+                xdg.surface_active_changed(true);
             }
         }
         self.xdg.set(xdg);
@@ -261,8 +304,15 @@ impl WlSurface {
         self.client.parse(self, parser)
     }
 
+    fn unset_cursors(&self) {
+        while let Some((_, cursor)) = self.cursors.pop() {
+            cursor.handle_surface_destroy();
+        }
+    }
+
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.parse(parser)?;
+        self.unset_cursors();
         self.destroy_node(true);
         if self.ext.get().is_some() {
             return Err(DestroyError::ReloObjectStillExists);
@@ -276,17 +326,11 @@ impl WlSurface {
             }
             *children = None;
         }
-        {
-            let buffer = self.buffer.get();
-            if let Some(buffer) = &buffer {
-                buffer.surfaces.remove(&self.id);
-            }
-        }
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
+    fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
         let req: Attach = self.parse(parser)?;
         let buf = if req.buffer.is_some() {
             Some((req.x, req.y, self.client.get_buffer(req.buffer)?))
@@ -332,7 +376,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn do_commit(&self, ctx: CommitContext) -> Result<(), WlSurfaceError> {
+    fn do_commit(self: &Rc<Self>, ctx: CommitContext) -> Result<(), WlSurfaceError> {
         let ext = self.ext.get();
         if ext.clone().pre_commit(ctx)? == CommitAction::AbortCommit {
             return Ok(());
@@ -350,8 +394,9 @@ impl WlSurface {
             let mut new_size = None;
             if let Some(buffer) = self.buffer.take() {
                 old_size = Some(buffer.rect);
-                self.client.event(buffer.release());
-                buffer.surfaces.remove(&self.id);
+                if !buffer.destroyed() {
+                    self.client.event(buffer.release());
+                }
             }
             if let Some((dx, dy, buffer)) = buffer_change {
                 let _ = buffer.update_texture();
@@ -361,13 +406,22 @@ impl WlSurface {
                 self.buf_y.fetch_add(dy);
                 if (dx, dy) != (0, 0) {
                     self.need_extents_update.set(true);
+                    for (_, cursor) in &self.cursors {
+                        cursor.dec_hotspot(dx, dy);
+                    }
                 }
             } else {
                 self.buf_x.set(0);
                 self.buf_y.set(0);
+                for (_, cursor) in &self.cursors {
+                    cursor.set_hotspot(0, 0);
+                }
             }
             if old_size != new_size {
                 self.need_extents_update.set(true);
+            }
+            for (_, cursor) in &self.cursors {
+                cursor.handle_buffer_change();
             }
         }
         {
@@ -389,7 +443,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
+    fn commit(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
         let _req: Commit = self.parse(parser)?;
         self.do_commit(CommitContext::RootCommit)?;
         Ok(())
@@ -414,7 +468,7 @@ impl WlSurface {
     }
 
     fn handle_request_(
-        &self,
+        self: &Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlSurfaceError> {
@@ -494,6 +548,7 @@ impl Object for WlSurface {
     }
 
     fn break_loops(&self) {
+        self.unset_cursors();
         self.destroy_node(true);
         *self.children.borrow_mut() = None;
         self.unset_ext();
@@ -530,8 +585,21 @@ impl Node for WlSurface {
             for seat in remove {
                 xdg.focus_surface.remove(&seat);
             }
+            if self.seat_state.is_active() {
+                xdg.surface_active_changed(false);
+            }
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn active_changed(&self, active: bool) {
+        if let Some(xdg) = self.xdg.get() {
+            xdg.surface_active_changed(active);
+        }
+    }
+
+    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32, mods: Option<ModifierState>) {
+        seat.key_surface(self, key, state, mods);
     }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
@@ -562,5 +630,13 @@ impl Node for WlSurface {
 
     fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
         seat.motion_surface(self, x, y)
+    }
+
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_surface(self, x, y);
+    }
+
+    fn client_id(&self) -> Option<ClientId> {
+        Some(self.client.id)
     }
 }

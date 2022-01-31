@@ -19,15 +19,18 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList};
 use crate::xkbcommon::{XkbContext, XkbState};
-use crate::State;
+use crate::{NumCell, State};
 use ahash::{AHashMap, AHashSet};
 use bstr::ByteSlice;
 use std::cell::{Cell, RefCell};
+use std::collections::hash_map::Entry;
 use std::io::Write;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
 pub use handling::NodeSeatState;
+use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceId};
+use crate::ifs::wl_surface::cursor::CursorSurface;
 
 id!(WlSeatId);
 
@@ -54,6 +57,7 @@ pub struct WlSeatGlobal {
     name: GlobalName,
     state: Rc<State>,
     seat: Rc<dyn Seat>,
+    seat_name: Rc<String>,
     move_: Cell<bool>,
     move_start_pos: Cell<(Fixed, Fixed)>,
     extents_start_pos: Cell<(i32, i32)>,
@@ -64,9 +68,12 @@ pub struct WlSeatGlobal {
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeatObj>>>>,
+    data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,
     kb_state: RefCell<XkbState>,
     layout: Rc<OwnedFd>,
     layout_size: u32,
+    cursor: CloneCell<Option<Rc<CursorSurface>>>,
+    serial: NumCell<u32>,
 }
 
 impl WlSeatGlobal {
@@ -92,6 +99,7 @@ impl WlSeatGlobal {
             name,
             state: state.clone(),
             seat: seat.clone(),
+            seat_name: Rc::new(format!("seat-{}", seat.id())),
             move_: Cell::new(false),
             move_start_pos: Cell::new((Fixed(0), Fixed(0))),
             extents_start_pos: Cell::new((0, 0)),
@@ -102,10 +110,29 @@ impl WlSeatGlobal {
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
+            data_devices: RefCell::new(Default::default()),
             kb_state: RefCell::new(kb_state),
             layout,
             layout_size,
+            cursor: Default::default(),
+            serial: Default::default(),
         }
+    }
+
+    pub fn set_cursor(&self, cursor: Option<Rc<CursorSurface>>) {
+        if let Some(old) = self.cursor.get() {
+            if let Some(new) = cursor.as_ref() {
+                if Rc::ptr_eq(&old, new) {
+                    return;
+                }
+            }
+            old.handle_unset();
+        }
+        self.cursor.set(cursor);
+    }
+
+    pub fn get_cursor(&self) -> Option<Rc<CursorSurface>> {
+        self.cursor.get()
     }
 
     pub fn id(&self) -> SeatId {
@@ -128,6 +155,7 @@ impl WlSeatGlobal {
         });
         client.add_client_obj(&obj)?;
         client.event(obj.capabilities());
+        client.event(obj.name(&self.seat_name));
         {
             let mut bindings = self.bindings.borrow_mut();
             let bindings = bindings.entry(client.id).or_insert_with(Default::default);
@@ -162,7 +190,7 @@ impl Global for WlSeatGlobal {
 }
 
 pub struct WlSeatObj {
-    global: Rc<WlSeatGlobal>,
+    pub global: Rc<WlSeatGlobal>,
     id: WlSeatId,
     client: Rc<Client>,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
@@ -176,6 +204,32 @@ impl WlSeatObj {
             obj: self.clone(),
             capabilities: POINTER | KEYBOARD,
         })
+    }
+
+    fn name(self: &Rc<Self>, name: &Rc<String>) -> DynEventFormatter {
+        Box::new(Name {
+            obj: self.clone(),
+            name: name.clone(),
+        })
+    }
+
+    pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
+        let mut dd = self.global.data_devices.borrow_mut();
+        dd.entry(self.client.id).or_default().insert(device.id, device.clone());
+    }
+
+    pub fn remove_data_device(&self, device: &WlDataDevice) {
+        let mut dd = self.global.data_devices.borrow_mut();
+        if let Entry::Occupied(mut e) = dd.entry(self.client.id) {
+            e.get_mut().remove(&device.id);
+            if e.get().is_empty() {
+                e.remove();
+            }
+        }
+    }
+
+    pub fn client(&self) -> &Rc<Client> {
+        &self.client
     }
 
     pub fn move_(&self, node: &Rc<FloatNode>) {

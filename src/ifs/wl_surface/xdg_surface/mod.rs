@@ -95,6 +95,10 @@ trait XdgSurfaceExt {
     fn extents_changed(&self) {
         // nothing
     }
+
+    fn surface_active_changed(self: Rc<Self>, active: bool) {
+        let _ = active;
+    }
 }
 
 impl XdgSurface {
@@ -116,6 +120,16 @@ impl XdgSurface {
             seat_state: Default::default(),
             workspace: Default::default(),
         }
+    }
+
+    pub fn surface_active_changed(&self, active: bool) {
+        if let Some(ext) = self.ext.get() {
+            ext.surface_active_changed(active);
+        }
+    }
+
+    pub fn role(&self) -> XdgSurfaceRole {
+        self.role.get()
     }
 
     fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -311,7 +325,9 @@ impl XdgSurface {
                 });
                 FindTreeResult::AcceptsInput
             },
-            _ => FindTreeResult::Other
+            _ => {
+                FindTreeResult::Other
+            }
         }
     }
 

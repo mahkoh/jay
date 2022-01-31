@@ -17,6 +17,7 @@ use crate::tree::{
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
+use crate::render::sys::{GL_BLEND, glDisable, glEnable};
 
 const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
 const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);
@@ -47,7 +48,7 @@ impl Renderer<'_> {
             self.render_container(&node, x, y)
         }
         for stacked in workspace.stacked.iter() {
-            let pos = stacked.absolute_position();
+            let (pos, _) = stacked.absolute_position();
             stacked.render(self, pos.x1(), pos.y1());
         }
     }
@@ -186,7 +187,9 @@ impl Renderer<'_> {
         let buffer = match surface.buffer.get() {
             Some(b) => b,
             _ => {
-                log::warn!("surface has no buffer attached");
+                if !surface.is_cursor() {
+                    log::warn!("surface has no buffer attached");
+                }
                 return;
             }
         };
@@ -226,9 +229,20 @@ impl Renderer<'_> {
             glBindTexture(GL_TEXTURE_2D, texture.gl.tex);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-            glUseProgram(self.ctx.tex_prog.prog);
+            let prog = match buffer.format.has_alpha {
+                true => {
+                    glEnable(GL_BLEND);
+                    &self.ctx.tex_alpha_prog
+                },
+                false => {
+                    glDisable(GL_BLEND);
+                    &self.ctx.tex_prog
+                },
+            };
 
-            glUniform1i(self.ctx.tex_prog_tex, 0);
+            glUseProgram(prog.prog.prog);
+
+            glUniform1i(prog.tex, 0);
 
             let texcoord: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
 
@@ -248,7 +262,7 @@ impl Renderer<'_> {
             ];
 
             glVertexAttribPointer(
-                self.ctx.tex_prog_texcoord as _,
+                prog.texcoord as _,
                 2,
                 GL_FLOAT,
                 GL_FALSE,
@@ -256,7 +270,7 @@ impl Renderer<'_> {
                 texcoord.as_ptr() as _,
             );
             glVertexAttribPointer(
-                self.ctx.tex_prog_pos as _,
+                prog.pos as _,
                 2,
                 GL_FLOAT,
                 GL_FALSE,
@@ -264,13 +278,13 @@ impl Renderer<'_> {
                 pos.as_ptr() as _,
             );
 
-            glEnableVertexAttribArray(self.ctx.tex_prog_texcoord as _);
-            glEnableVertexAttribArray(self.ctx.tex_prog_pos as _);
+            glEnableVertexAttribArray(prog.texcoord as _);
+            glEnableVertexAttribArray(prog.pos as _);
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-            glDisableVertexAttribArray(self.ctx.tex_prog_texcoord as _);
-            glDisableVertexAttribArray(self.ctx.tex_prog_pos as _);
+            glDisableVertexAttribArray(prog.texcoord as _);
+            glDisableVertexAttribArray(prog.pos as _);
 
             glBindTexture(GL_TEXTURE_2D, 0);
         }

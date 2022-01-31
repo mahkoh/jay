@@ -19,11 +19,12 @@ use rand::Rng;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::error::Error;
-use std::ptr;
+use std::{ptr, slice};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbXinput, XcbXkb};
+use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbRender, XcbXinput, XcbXkb};
+use xcb_dl_util::cursor::{XcbCursorContext, XcbCursorImage};
 use xcb_dl_util::error::{XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
 
@@ -75,6 +76,7 @@ struct XcbCon {
     input: Box<XcbXinput>,
     dri: Box<XcbDri3>,
     present: Box<XcbPresent>,
+    render: Box<XcbRender>,
     input_opcode: u8,
     present_opcode: u8,
     xkb: Box<XcbXkb>,
@@ -91,6 +93,7 @@ impl XcbCon {
             let xkb = Box::new(XcbXkb::load_loose()?);
             let dri = Box::new(XcbDri3::load_loose()?);
             let present = Box::new(XcbPresent::load_loose()?);
+            let render = Box::new(XcbRender::load_loose()?);
 
             let c = xcb.xcb_connect(ptr::null(), ptr::null_mut());
             let errors = XcbErrorParser::new(&xcb, c);
@@ -101,6 +104,7 @@ impl XcbCon {
                 input,
                 dri,
                 present,
+                render,
                 input_opcode: 0,
                 present_opcode: 0,
                 xkb,
@@ -135,6 +139,13 @@ impl XcbCon {
             let res = con.present.xcb_present_query_version_reply(
                 c,
                 con.present.xcb_present_query_version(c, 1, 0),
+                &mut err,
+            );
+            con.errors.check(&con.xcb, res, err)?;
+
+            let res = con.render.xcb_render_query_version_reply(
+                c,
+                con.render.xcb_render_query_version(c, 0, 8),
                 &mut err,
             );
             con.errors.check(&con.xcb, res, err)?;
@@ -196,6 +207,7 @@ pub struct XorgBackend {
     mouse_seats: CopyHashMap<ffi::xcb_input_device_id_t, Rc<XorgSeat>>,
     ctx: Rc<RenderContext>,
     gbm: GbmDevice,
+    cursor: ffi::xcb_cursor_t,
     r: Cell<f32>,
     g: Cell<f32>,
     b: Cell<f32>,
@@ -233,6 +245,28 @@ impl XorgBackend {
 
             let wheel_id = state.wheel.id();
 
+            let cursor = {
+                let ctx = XcbCursorContext::new(&con.xcb, &con.render, con.c);
+                let image = XcbCursorImage {
+                    width: 1,
+                    height: 1,
+                    xhot: 0,
+                    yhot: 0,
+                    delay: 0,
+                    pixels: vec![0],
+                    ..Default::default()
+                };
+                let cursor =
+                    ctx.create_cursor(&con.xcb, &con.render, slice::from_ref(&image));
+                match cursor {
+                    Ok(c) => c,
+                    Err(e) => {
+                        log::error!("Could not create empty cursor: {}", e);
+                        0
+                    }
+                }
+            };
+
             let slf = Rc::new(Self {
                 id: state.el.id(),
                 wheel_id,
@@ -243,6 +277,7 @@ impl XorgBackend {
                 mouse_seats: Default::default(),
                 ctx: ctx.clone(),
                 gbm,
+                cursor,
                 r: Cell::new(0.0),
                 g: Cell::new(0.0),
                 b: Cell::new(0.0),
@@ -394,11 +429,12 @@ impl XorgBackend {
                 let event_mask = ffi::XCB_EVENT_MASK_EXPOSURE
                     | ffi::XCB_EVENT_MASK_STRUCTURE_NOTIFY
                     | ffi::XCB_EVENT_MASK_VISIBILITY_CHANGE;
+                let args = [event_mask, self.cursor];
                 let cookie = con.xcb.xcb_change_window_attributes_checked(
                     con.c,
                     window_id,
-                    ffi::XCB_CW_EVENT_MASK,
-                    &event_mask as *const _ as _,
+                    ffi::XCB_CW_EVENT_MASK | ffi::XCB_CW_CURSOR,
+                    args.as_ptr() as _,
                 );
                 if let Err(e) = con.check_cookie(cookie) {
                     return Err(XorgBackendError::WindowEvents(e));
@@ -649,7 +685,7 @@ impl XorgBackend {
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
             let fb = image.fb.get();
-            fb.render(&*node);
+            fb.render(&*node, &self.state, Some(node.position.get()));
         }
 
         unsafe {
@@ -710,7 +746,8 @@ impl XorgBackend {
         let event =
             unsafe { (event as *const _ as *const ffi::xcb_input_button_press_event_t).deref() };
         if let Some(seat) = self.mouse_seats.get(&event.deviceid) {
-            let button = seat.button_map.get(&event.detail).unwrap_or(event.detail);
+            let button = event.detail;
+            // let button = seat.button_map.get(&event.detail).unwrap_or(event.detail);
             if matches!(button, 4..=7) {
                 if state == KeyState::Pressed {
                     let (axis, val) = match button {

@@ -76,7 +76,8 @@ mod xkbcommon;
 
 fn main() {
     env_logger::builder()
-        .filter_level(LevelFilter::Trace)
+        .filter_level(LevelFilter::Inf)
+        // .filter_level(LevelFilter::Trace)
         .init();
     if let Err(e) = main_() {
         log::error!("A fatal error occurred: {}", ErrorFmt(e));

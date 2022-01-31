@@ -30,6 +30,7 @@ pub struct WlDataDeviceManagerGlobal {
 pub struct WlDataDeviceManagerObj {
     id: WlDataDeviceManagerId,
     client: Rc<Client>,
+    pub version: u32,
 }
 
 impl WlDataDeviceManagerGlobal {
@@ -41,11 +42,12 @@ impl WlDataDeviceManagerGlobal {
         self: Rc<Self>,
         id: WlDataDeviceManagerId,
         client: &Rc<Client>,
-        _version: u32,
+        version: u32,
     ) -> Result<(), WlDataDeviceManagerError> {
         let obj = Rc::new(WlDataDeviceManagerObj {
             id,
             client: client.clone(),
+            version
         });
         client.add_client_obj(&obj)?;
         Ok(())
@@ -60,10 +62,12 @@ impl WlDataDeviceManagerObj {
         Ok(())
     }
 
-    fn get_data_device(&self, parser: MsgParser<'_, '_>) -> Result<(), GetDataDeviceError> {
-        let req: GetDataDevice = self.client.parse(self, parser)?;
-        let res = Rc::new(WlDataDevice::new(req.id, &self.client));
-        self.client.add_client_obj(&res)?;
+    fn get_data_device(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetDataDeviceError> {
+        let req: GetDataDevice = self.client.parse(&**self, parser)?;
+        let seat = self.client.get_wl_seat(req.seat)?;
+        let dev = Rc::new(WlDataDevice::new(req.id, self, &seat));
+        seat.add_data_device(&dev);
+        self.client.add_client_obj(&dev)?;
         Ok(())
     }
 

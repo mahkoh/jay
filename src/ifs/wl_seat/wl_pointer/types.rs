@@ -3,7 +3,7 @@ use crate::fixed::Fixed;
 use crate::ifs::wl_seat::wl_pointer::{
     WlPointer, AXIS, AXIS_DISCRETE, AXIS_SOURCE, AXIS_STOP, BUTTON, ENTER, FRAME, LEAVE, MOTION,
 };
-use crate::ifs::wl_surface::WlSurfaceId;
+use crate::ifs::wl_surface::{WlSurfaceError, WlSurfaceId};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -28,9 +28,12 @@ pub enum SetCursorError {
     ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(SetCursorError, ParseError, MsgParserError);
 efrom!(SetCursorError, ClientError);
+efrom!(SetCursorError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {
@@ -150,6 +153,9 @@ impl EventFormatter for Motion {
     fn obj(&self) -> &dyn Object {
         self.obj.deref()
     }
+    fn should_log(&self) -> bool {
+        false
+    }
 }
 impl Debug for Motion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -226,6 +232,9 @@ impl EventFormatter for Frame {
     }
     fn obj(&self) -> &dyn Object {
         self.obj.deref()
+    }
+    fn should_log(&self) -> bool {
+        false
     }
 }
 impl Debug for Frame {

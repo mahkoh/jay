@@ -1,4 +1,4 @@
-use crate::backend::{KeyState, Output, OutputId, ScrollAxis};
+use crate::backend::{KeyState, OutputId, ScrollAxis};
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
@@ -13,6 +13,9 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
+use crate::client::ClientId;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::xkbcommon::ModifierState;
 
 mod container;
 mod workspace;
@@ -59,13 +62,24 @@ pub enum FindTreeResult {
 pub trait AbsoluteNode: Node {
     fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
 
-    fn absolute_position(&self) -> Rect;
+    fn absolute_position(&self) -> (Rect, bool);
 }
 
 pub trait Node {
     fn id(&self) -> NodeId;
     fn seat_state(&self) -> &NodeSeatState;
     fn destroy_node(&self, detach: bool);
+
+    fn active_changed(&self, active: bool) {
+        let _ = active;
+    }
+
+    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32, mods: Option<ModifierState>) {
+        let _ = seat;
+        let _ = key;
+        let _ = state;
+        let _ = mods;
+    }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
         let _ = seat;
@@ -143,6 +157,10 @@ pub trait Node {
     fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         let _ = ws;
     }
+
+    fn client_id(&self) -> Option<ClientId> {
+        None
+    }
 }
 
 pub struct FoundNode {
@@ -193,9 +211,10 @@ impl Node for DisplayNode {
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        for stacked in self.stacked.iter() {
-            let ext = stacked.absolute_position();
-            if !ext.contains(x, y) {
+        for stacked in self.stacked.rev_iter() {
+            let (ext, constrain) = stacked.absolute_position();
+            if constrain && !ext.contains(x, y) {
+                // TODO: make constrain always true
                 continue;
             }
             let (x, y) = ext.translate(x, y);
@@ -206,7 +225,9 @@ impl Node for DisplayNode {
                 y,
             });
             match stacked.find_tree_at(x, y, tree) {
-                FindTreeResult::AcceptsInput => return FindTreeResult::AcceptsInput,
+                FindTreeResult::AcceptsInput => {
+                    return FindTreeResult::AcceptsInput;
+                },
                 FindTreeResult::Other => {
                     tree.drain(idx..);
                 }
@@ -235,7 +256,7 @@ pub struct OutputNode {
     pub display: Rc<DisplayNode>,
     pub id: OutputNodeId,
     pub position: Cell<Rect>,
-    pub backend: Rc<dyn Output>,
+    pub global: Rc<WlOutputGlobal>,
     pub workspaces: RefCell<Vec<Rc<WorkspaceNode>>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
@@ -307,8 +328,8 @@ impl AbsoluteNode for FloatNode {
         self
     }
 
-    fn absolute_position(&self) -> Rect {
-        self.position.get()
+    fn absolute_position(&self) -> (Rect, bool) {
+        (self.position.get(), true)
     }
 }
 

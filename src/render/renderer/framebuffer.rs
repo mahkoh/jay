@@ -7,6 +7,9 @@ use crate::render::renderer::renderer::Renderer;
 use crate::tree::Node;
 use std::ptr;
 use std::rc::Rc;
+use crate::rect::Rect;
+use crate::render::sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA, glBlendFunc};
+use crate::State;
 
 pub struct Framebuffer {
     pub(super) ctx: Rc<RenderContext>,
@@ -14,7 +17,7 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
-    pub fn render(&self, node: &dyn Node) {
+    pub fn render(&self, node: &dyn Node, state: &State, cursor_rect: Option<Rect>) {
         let _ = self.ctx.ctx.with_current(|| {
             if let Some(rd) = &self.ctx.renderdoc {
                 rd.borrow_mut()
@@ -25,12 +28,25 @@ impl Framebuffer {
                 glViewport(0, 0, self.gl.width, self.gl.height);
                 glClearColor(0.0, 0.0, 0.0, 1.0);
                 glClear(GL_COLOR_BUFFER_BIT);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
             let mut renderer = Renderer {
                 ctx: &self.ctx,
                 fb: &self.gl,
             };
             node.render(&mut renderer, 0, 0);
+            if let Some(rect) = cursor_rect {
+                let seats = state.globals.lock_seats();
+                for seat in seats.values() {
+                    if let Some(cursor) = seat.get_cursor() {
+                        let extents = cursor.extents();
+                        if extents.intersects(&rect) {
+                            let (x, y) = rect.translate(extents.x1(), extents.y1());
+                            renderer.render_surface(cursor.surface(), x, y);
+                        }
+                    }
+                }
+            }
             if let Some(rd) = &self.ctx.renderdoc {
                 rd.borrow_mut().end_frame_capture(ptr::null(), ptr::null());
             }

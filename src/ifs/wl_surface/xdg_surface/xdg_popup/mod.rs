@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::DynEventFormatter;
+use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
@@ -199,8 +199,8 @@ impl AbsoluteNode for XdgPopup {
         self
     }
 
-    fn absolute_position(&self) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+    fn absolute_position(&self) -> (Rect, bool) {
+        (self.xdg.absolute_desired_extents.get(), false)
     }
 }
 
@@ -234,6 +234,10 @@ impl Node for XdgPopup {
 
     fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         self.xdg.set_workspace(ws);
+    }
+
+    fn client_id(&self) -> Option<ClientId> {
+        Some(self.xdg.surface.client.id)
     }
 }
 

@@ -148,11 +148,11 @@ impl Debug for Capabilities {
 
 pub(super) struct Name {
     pub obj: Rc<WlSeatObj>,
-    pub name: String,
+    pub name: Rc<String>,
 }
 impl EventFormatter for Name {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, NAME).string(&self.name);
+        fmt.header(self.obj.id, NAME).string(self.name.as_bytes());
     }
     fn obj(&self) -> &dyn Object {
         &*self.obj

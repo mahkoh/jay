@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::DynEventFormatter;
+use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
@@ -17,7 +17,8 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 pub use types::*;
-use crate::backend::SeatId;
+use crate::backend::{SeatId};
+use crate::NumCell;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::smallmap::SmallMap;
 
@@ -80,6 +81,7 @@ pub struct XdgToplevel {
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
     states: RefCell<AHashSet<u32>>,
     pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<XdgToplevel>>, 1>,
+    active_surfaces: NumCell<u32>,
 }
 
 impl XdgToplevel {
@@ -98,6 +100,22 @@ impl XdgToplevel {
             children: RefCell::new(Default::default()),
             states: RefCell::new(states),
             toplevel_history: Default::default(),
+            active_surfaces: Default::default(),
+        }
+    }
+
+    pub fn set_active(self: &Rc<Self>, active: bool) {
+        let changed = {
+            let mut states = self.states.borrow_mut();
+            match active {
+                true => states.insert(STATE_ACTIVATED),
+                false => states.remove(&STATE_ACTIVATED),
+            }
+        };
+        if changed {
+            let rect = self.xdg.absolute_desired_extents.get();
+            self.xdg.surface.client.event(self.configure(rect.width(), rect.height()));
+            self.xdg.send_configure();
         }
     }
 
@@ -278,7 +296,6 @@ impl XdgToplevel {
     }
 
     fn map_tiled(self: &Rc<Self>) {
-        log::info!("mapping tiled");
         let state = &self.xdg.surface.client.state;
         let seat = state.seat_queue.last();
         if let Some(seat) = seat {
@@ -389,6 +406,10 @@ impl Node for XdgToplevel {
     fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         self.xdg.set_workspace(ws);
     }
+
+    fn client_id(&self) -> Option<ClientId> {
+        Some(self.xdg.surface.client.id)
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
@@ -418,8 +439,27 @@ impl XdgSurfaceExt for XdgToplevel {
                 self.map_tiled();
             }
             self.extents_changed();
+            if let Some(workspace) = self.xdg.workspace.get() {
+                let output = workspace.output.get();
+                let bindings = output.global.bindings.borrow_mut();
+                for binding in bindings.get(&self.xdg.surface.client.id) {
+                    for binding in binding.values() {
+                        self.xdg.surface.client.event(self.xdg.surface.enter_event(binding.id));
+                    }
+                }
+            }
+            {
+                let seats = surface.client.state.globals.lock_seats();
+                for seat in seats.values() {
+                    seat.focus_toplevel(&self);
+                }
+            }
             surface.client.state.tree_changed();
         }
+    }
+
+    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
+        Some(self)
     }
 
     fn extents_changed(&self) {
@@ -430,7 +470,15 @@ impl XdgSurfaceExt for XdgToplevel {
         }
     }
 
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
-        Some(self)
+    fn surface_active_changed(self: Rc<Self>, active: bool) {
+        if active {
+            if self.active_surfaces.fetch_add(1) == 0 {
+                self.set_active(true);
+            }
+        } else {
+            if self.active_surfaces.fetch_sub(1) == 1 {
+                self.set_active(false);
+            }
+        }
     }
 }

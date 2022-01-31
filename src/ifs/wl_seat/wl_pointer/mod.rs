@@ -147,7 +147,25 @@ impl WlPointer {
     }
 
     fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
-        let _req: SetCursor = self.seat.client.parse(self, parser)?;
+        let req: SetCursor = self.seat.client.parse(self, parser)?;
+        let mut cursor_opt = None;
+        if req.surface.is_some() {
+            let surface = self.seat.client.get_surface(req.surface)?;
+            let cursor = surface.get_cursor(&self.seat.global)?;
+            cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
+            cursor_opt = Some(cursor);
+        }
+        let pointer_node = match self.seat.global.pointer_stack.borrow().last().cloned() {
+            Some(n) => n,
+            _ => {
+                // cannot happen
+                return Ok(());
+            },
+        };
+        if pointer_node.client_id() != Some(self.seat.client.id) {
+            return Ok(());
+        }
+        self.seat.global.set_cursor(cursor_opt);
         Ok(())
     }
 

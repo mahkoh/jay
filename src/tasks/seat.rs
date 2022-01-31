@@ -39,6 +39,7 @@ impl SeatHandler {
             }
             ae.triggered().await;
         }
+        global.set_cursor(None);
         let _ = self.state.globals.remove(&self.state, name);
         self.state.seats.borrow_mut().remove(&self.seat.id());
     }

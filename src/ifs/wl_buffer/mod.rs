@@ -1,15 +1,14 @@
 mod types;
 
+use std::cell::Cell;
 use crate::client::{Client, DynEventFormatter};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
-use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
 use crate::render::{Image, Texture};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
 use std::rc::Rc;
 pub use types::*;
 
@@ -25,18 +24,22 @@ pub enum WlBufferStorage {
 }
 
 pub struct WlBuffer {
-    id: WlBufferId,
+    pub id: WlBufferId,
+    destroyed: Cell<bool>,
     pub client: Rc<Client>,
     pub rect: Rect,
-    format: &'static Format,
+    pub format: &'static Format,
     storage: WlBufferStorage,
     pub texture: CloneCell<Option<Rc<Texture>>>,
-    pub(super) surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     width: i32,
     height: i32,
 }
 
 impl WlBuffer {
+    pub fn destroyed(&self) -> bool {
+        self.destroyed.get()
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new_dmabuf(
         id: WlBufferId,
@@ -48,13 +51,13 @@ impl WlBuffer {
         let height = img.height();
         Self {
             id,
+            destroyed: Cell::new(false),
             client: client.clone(),
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
             format,
             width,
             height,
             texture: CloneCell::new(None),
-            surfaces: Default::default(),
             storage: WlBufferStorage::Dmabuf(img.clone()),
         }
     }
@@ -82,6 +85,7 @@ impl WlBuffer {
         }
         Ok(Self {
             id,
+            destroyed: Cell::new(false),
             client: client.clone(),
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
             format,
@@ -89,7 +93,6 @@ impl WlBuffer {
             width,
             height,
             texture: CloneCell::new(None),
-            surfaces: Default::default(),
         })
     }
 
@@ -114,13 +117,8 @@ impl WlBuffer {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        {
-            let surfaces = self.surfaces.lock();
-            for surface in surfaces.values() {
-                surface.buffer.set(None);
-            }
-        }
         self.client.remove_obj(self)?;
+        self.destroyed.set(true);
         Ok(())
     }
 
@@ -154,9 +152,5 @@ impl Object for WlBuffer {
 
     fn num_requests(&self) -> u32 {
         DESTROY + 1
-    }
-
-    fn break_loops(&self) {
-        self.surfaces.clear();
     }
 }

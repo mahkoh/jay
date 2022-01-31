@@ -28,4 +28,4 @@ pub enum BufFdError {
 
 const BUF_SIZE: usize = 4096;
 const CMSG_BUF_SIZE: usize = 4096;
-const MAX_IN_FD: usize = 4;
+const MAX_IN_FD: usize = 32;

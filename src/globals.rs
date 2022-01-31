@@ -1,3 +1,4 @@
+use std::cell::{RefMut};
 use crate::client::{Client, DynEventFormatter};
 use crate::ifs::org_kde_kwin_server_decoration_manager::{
     OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerGlobal,
@@ -20,6 +21,7 @@ use crate::{
 };
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use ahash::AHashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -101,6 +103,7 @@ pub struct Globals {
     next_name: NumCell<u32>,
     registry: CopyHashMap<GlobalName, Rc<dyn Global>>,
     outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
+    seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
 impl Globals {
@@ -109,6 +112,7 @@ impl Globals {
             next_name: NumCell::new(1),
             registry: CopyHashMap::new(),
             outputs: Default::default(),
+            seats: Default::default(),
         }
     }
 
@@ -141,6 +145,10 @@ impl Globals {
         let _global = self.take(name, true)?;
         self.broadcast(state, |r| r.global_remove(name));
         Ok(())
+    }
+
+    pub fn lock_seats(&self) -> RefMut<AHashMap<GlobalName, Rc<WlSeatGlobal>>> {
+        self.seats.lock()
     }
 
     pub fn notify_all(&self, client: &Rc<Client>, registry: &Rc<WlRegistry>) {
@@ -215,7 +223,6 @@ macro_rules! simple_add_global {
     };
 }
 
-simple_add_global!(WlSeatGlobal);
 simple_add_global!(WlCompositorGlobal);
 simple_add_global!(WlShmGlobal);
 simple_add_global!(WlSubcompositorGlobal);
@@ -247,3 +254,4 @@ macro_rules! dedicated_add_global {
 }
 
 dedicated_add_global!(WlOutputGlobal, outputs);
+dedicated_add_global!(WlSeatGlobal, seats);

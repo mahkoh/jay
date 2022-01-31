@@ -18,6 +18,24 @@ use std::ffi::CString;
 use std::rc::Rc;
 use uapi::ustr;
 
+pub(super) struct TexProg {
+    pub(super) prog: GlProgram,
+    pub(super) pos: GLint,
+    pub(super) texcoord: GLint,
+    pub(super) tex: GLint,
+}
+
+impl TexProg {
+    unsafe fn from(prog: GlProgram) -> Self {
+        Self {
+            pos: prog.get_attrib_location(ustr!("pos")),
+            texcoord: prog.get_attrib_location(ustr!("texcoord")),
+            tex: prog.get_uniform_location(ustr!("tex")),
+            prog,
+        }
+    }
+}
+
 pub struct RenderContext {
     pub(super) ctx: Rc<EglContext>,
 
@@ -25,10 +43,8 @@ pub struct RenderContext {
 
     pub(super) renderdoc: Option<RefCell<RenderDoc<V100>>>,
 
-    pub(super) tex_prog: GlProgram,
-    pub(super) tex_prog_pos: GLint,
-    pub(super) tex_prog_texcoord: GLint,
-    pub(super) tex_prog_tex: GLint,
+    pub(super) tex_prog: TexProg,
+    pub(super) tex_alpha_prog: TexProg,
 
     pub(super) fill_prog: GlProgram,
     pub(super) fill_prog_pos: GLint,
@@ -60,6 +76,11 @@ impl RenderContext {
             include_str!("../shaders/tex.vert.glsl"),
             include_str!("../shaders/tex.frag.glsl"),
         )?;
+        let tex_alpha_prog = GlProgram::from_shaders(
+            ctx,
+            include_str!("../shaders/tex.vert.glsl"),
+            include_str!("../shaders/tex-alpha.frag.glsl"),
+        )?;
         let fill_prog = GlProgram::from_shaders(
             ctx,
             include_str!("../shaders/fill.vert.glsl"),
@@ -70,10 +91,8 @@ impl RenderContext {
 
             render_node: node.clone(),
 
-            tex_prog_pos: tex_prog.get_attrib_location(ustr!("pos")),
-            tex_prog_texcoord: tex_prog.get_attrib_location(ustr!("texcoord")),
-            tex_prog_tex: tex_prog.get_uniform_location(ustr!("tex")),
-            tex_prog,
+            tex_prog: TexProg::from(tex_prog),
+            tex_alpha_prog: TexProg::from(tex_alpha_prog),
 
             fill_prog_pos: fill_prog.get_attrib_location(ustr!("pos")),
             fill_prog_color: fill_prog.get_uniform_location(ustr!("color")),

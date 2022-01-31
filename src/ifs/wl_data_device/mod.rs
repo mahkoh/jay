@@ -1,10 +1,13 @@
 mod types;
 
-use crate::client::Client;
+use crate::client::{Client, DynEventFormatter};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
+use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
+use crate::ifs::wl_data_offer::WlDataOfferId;
+use crate::ifs::wl_seat::WlSeatObj;
 
 const START_DRAG: u32 = 0;
 const SET_SELECTION: u32 = 1;
@@ -23,16 +26,27 @@ const ROLE: u32 = 0;
 id!(WlDataDeviceId);
 
 pub struct WlDataDevice {
-    id: WlDataDeviceId,
+    pub id: WlDataDeviceId,
+    pub manager: Rc<WlDataDeviceManagerObj>,
     client: Rc<Client>,
+    seat: Rc<WlSeatObj>,
 }
 
 impl WlDataDevice {
-    pub fn new(id: WlDataDeviceId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlDataDeviceId, manager: &Rc<WlDataDeviceManagerObj>, seat: &Rc<WlSeatObj>) -> Self {
         Self {
             id,
-            client: client.clone(),
+            manager: manager.clone(),
+            client: seat.client().clone(),
+            seat: seat.clone(),
         }
+    }
+
+    pub fn selection(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
+        Box::new(Selection {
+            obj: self.clone(),
+            id,
+        })
     }
 
     fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
@@ -47,6 +61,7 @@ impl WlDataDevice {
 
     fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
+        self.seat.remove_data_device(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -79,5 +94,9 @@ impl Object for WlDataDevice {
 
     fn num_requests(&self) -> u32 {
         RELEASE + 1
+    }
+
+    fn break_loops(&self) {
+        self.seat.remove_data_device(self);
     }
 }

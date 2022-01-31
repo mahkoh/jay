@@ -21,9 +21,9 @@ impl<T: UnsafeCellCloneSafe> CloneCell<T> {
     }
 
     #[inline(always)]
-    pub fn set(&self, t: T) {
+    pub fn set(&self, t: T) -> T {
         unsafe {
-            let _ = mem::replace(self.data.get().deref_mut(), t);
+            mem::replace(self.data.get().deref_mut(), t)
         }
     }
 

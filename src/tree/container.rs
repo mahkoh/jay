@@ -343,7 +343,6 @@ impl Node for ContainerNode {
     }
 
     fn child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
-        log::info!("child size changed {}x{}", width, height);
         let cn = self.child_nodes.borrow();
         if let Some(node) = cn.get(&child.id()) {
             let rect = Rect::new(0, 0, width, height).unwrap();

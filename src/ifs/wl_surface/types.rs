@@ -1,11 +1,15 @@
-use crate::client::{ClientError, RequestParser};
+use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_callback::WlCallbackId;
 use crate::ifs::wl_region::WlRegionId;
 use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
-use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceId};
-use crate::utils::buffd::{MsgParser, MsgParserError};
+use crate::ifs::wl_surface::{ENTER, SurfaceRole, WlSurface, WlSurfaceId};
+use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
+use std::rc::Rc;
 use thiserror::Error;
+use crate::ifs::wl_output::WlOutputId;
+use crate::object::Object;
 
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {
@@ -327,5 +331,23 @@ impl Debug for DamageBuffer {
             "damage_buffer(x: {}, y: {}, width: {}, height: {})",
             self.x, self.y, self.width, self.height
         )
+    }
+}
+
+pub(super) struct Enter {
+    pub obj: Rc<WlSurface>,
+    pub output: WlOutputId,
+}
+impl EventFormatter for Enter {
+    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
+        fmt.header(self.obj.id, ENTER).object(self.output);
+    }
+    fn obj(&self) -> &dyn Object {
+        self.obj.deref()
+    }
+}
+impl Debug for Enter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "enter(output: {})", self.output)
     }
 }

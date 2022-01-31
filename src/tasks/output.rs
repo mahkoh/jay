@@ -20,14 +20,16 @@ impl OutputHandler {
             let ae = ae.clone();
             self.output.on_change(Rc::new(move || ae.trigger()));
         }
+        let name = self.state.globals.name();
+        let global = Rc::new(WlOutputGlobal::new(name, &self.output));
         let on = Rc::new(OutputNode {
             display: self.state.root.clone(),
             id: self.state.node_ids.next(),
-            backend: self.output.clone(),
             workspaces: RefCell::new(vec![]),
             position: Cell::new(Default::default()),
             workspace: CloneCell::new(None),
             seat_state: Default::default(),
+            global: global.clone(),
         });
         let workspace = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
@@ -38,8 +40,6 @@ impl OutputHandler {
         });
         on.workspace.set(Some(workspace));
         self.state.root.outputs.set(self.output.id(), on.clone());
-        let name = self.state.globals.name();
-        let global = Rc::new(WlOutputGlobal::new(name, &self.output));
         self.state.add_global(&global);
         self.state.outputs.set(self.output.id(), global.clone());
         let mut width = 0;

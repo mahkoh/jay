@@ -3,7 +3,9 @@ use std::rc::Rc;
 use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{wl_pointer, WlSeatGlobal, WlSeatObj};
+use crate::ifs::wl_data_device::WlDataDevice;
+use crate::ifs::wl_data_offer::WlDataOfferId;
+use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, WlSeatGlobal, WlSeatObj};
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{POINTER_FRAME_SINCE_VERSION, WlPointer};
 use crate::ifs::wl_surface::WlSurface;
@@ -12,7 +14,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
-use crate::xkbcommon::ModifierState;
+use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -29,12 +31,18 @@ impl NodeSeatState {
         self.pointer_foci.remove(&seat.seat.id());
     }
 
-    fn focus(&self, seat: &Rc<WlSeatGlobal>) {
+    fn focus(&self, seat: &Rc<WlSeatGlobal>) -> bool {
         self.kb_foci.insert(seat.seat.id(), seat.clone());
+        self.kb_foci.len() == 1
     }
 
-    fn unfocus(&self, seat: &WlSeatGlobal) {
+    fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
         self.kb_foci.remove(&seat.seat.id());
+        self.kb_foci.len() == 0
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.kb_foci.len() > 0
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
@@ -98,41 +106,27 @@ impl WlSeatGlobal {
         }
     }
 
-    fn key_event(&self, _key: u32, _state: KeyState) {
-        // let (state, xkb_dir) = {
-        //     let mut pk = self.pressed_keys.borrow_mut();
-        //     match state {
-        //         KeyState::Released => {
-        //             if !pk.remove(&key) {
-        //                 return;
-        //             }
-        //             (wl_keyboard::RELEASED, XKB_KEY_UP)
-        //         }
-        //         KeyState::Pressed => {
-        //             if !pk.insert(key) {
-        //                 return;
-        //             }
-        //             (wl_keyboard::PRESSED, XKB_KEY_DOWN)
-        //         }
-        //     }
-        // };
-        // let mods = self.kb_state.borrow_mut().update(key, xkb_dir);
-        // let node = self.keyboard_node.get().into_kind();
-        // if let NodeKind::Toplevel(node) = node {
-        //     self.tl_kb_event(&node, |k| k.key(0, 0, key, state)).await;
-        //     if let Some(mods) = mods {
-        //         self.tl_kb_event(&node, |k| {
-        //             k.modifiers(
-        //                 0,
-        //                 mods.mods_depressed,
-        //                 mods.mods_latched,
-        //                 mods.mods_locked,
-        //                 mods.group,
-        //             )
-        //         })
-        //         .await;
-        //     }
-        // }
+    fn key_event(&self, key: u32, state: KeyState) {
+        let (state, xkb_dir) = {
+            let mut pk = self.pressed_keys.borrow_mut();
+            match state {
+                KeyState::Released => {
+                    if !pk.remove(&key) {
+                        return;
+                    }
+                    (wl_keyboard::RELEASED, XKB_KEY_UP)
+                }
+                KeyState::Pressed => {
+                    if !pk.insert(key) {
+                        return;
+                    }
+                    (wl_keyboard::PRESSED, XKB_KEY_DOWN)
+                }
+            }
+        };
+        let mods = self.kb_state.borrow_mut().update(key, xkb_dir);
+        let node = self.keyboard_node.get();
+        node.key(self, key, state, mods);
     }
 }
 
@@ -157,6 +151,12 @@ impl WlSeatGlobal {
         self.extents_start_pos.set((ex.x1(), ex.y1()));
     }
 
+    pub fn focus_toplevel(self: &Rc<Self>, n: &Rc<XdgToplevel>) {
+        let node = self.toplevel_focus_history.add_last(n.clone());
+        n.toplevel_history.insert(self.id(), node);
+        self.focus_xdg_surface(&n.xdg);
+    }
+
     fn focus_xdg_surface(self: &Rc<Self>, xdg: &Rc<XdgSurface>) {
         self.focus_surface(&xdg.focus_surface(self));
     }
@@ -167,16 +167,20 @@ impl WlSeatGlobal {
             return;
         }
         old.unfocus(self);
-        old.seat_state().unfocus(self);
+        if old.seat_state().unfocus(self) {
+            old.active_changed(false);
+        }
 
-        surface.seat_state().focus(self);
+        if surface.seat_state().focus(self) {
+            surface.active_changed(true);
+        }
         surface.clone().focus(self);
         self.keyboard_node.set(surface.clone());
 
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
-        log::info!("enter");
+        let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, &surface, |k| {
-            k.enter(0, surface.id, pressed_keys.clone())
+            k.enter(serial, surface.id, pressed_keys.clone())
         });
         let ModifierState {
             mods_depressed,
@@ -184,9 +188,12 @@ impl WlSeatGlobal {
             mods_locked,
             group,
         } = self.kb_state.borrow().mods();
+        let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, &surface, |k| {
-            k.modifiers(0, mods_depressed, mods_latched, mods_locked, group)
+            k.modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
+
+        self.surface_data_device_event(0, &surface, |dd| dd.selection(WlDataOfferId::NONE));
     }
 
     fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
@@ -227,6 +234,20 @@ impl WlSeatGlobal {
         })
     }
 
+    fn for_each_data_device<C>(&self, ver: u32, client: ClientId, mut f: C)
+        where
+            C: FnMut(&Rc<WlDataDevice>),
+    {
+        let dd = self.data_devices.borrow_mut();
+        if let Some(dd) = dd.get(&client) {
+            for dd in dd.values() {
+                if dd.manager.version >= ver {
+                    f(dd);
+                }
+            }
+        }
+    }
+
     fn surface_pointer_frame(&self, surface: &WlSurface) {
         self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, surface, |p| p.frame());
     }
@@ -253,6 +274,17 @@ impl WlSeatGlobal {
         client.flush();
     }
 
+    fn surface_data_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
+        where
+            F: FnMut(&Rc<WlDataDevice>) -> DynEventFormatter,
+    {
+        let client = &surface.client;
+        self.for_each_data_device(ver, client.id, |p| {
+            client.event(f(p));
+        });
+        client.flush();
+    }
+
     fn set_new_position(self: &Rc<Self>, x: Fixed, y: Fixed) {
         self.pos.set((x, y));
         self.handle_new_position(true);
@@ -264,6 +296,11 @@ impl WlSeatGlobal {
 
     fn handle_new_position(self: &Rc<Self>, changed: bool) {
         let (x, y) = self.pos.get();
+        if changed {
+            if let Some(cursor) = self.cursor.get() {
+                cursor.set_position(x.round_down(), y.round_down());
+            }
+        }
         let mut found_tree = self.found_tree.borrow_mut();
         let mut stack = self.pointer_stack.borrow_mut();
         // if self.move_.get() {
@@ -322,9 +359,10 @@ impl WlSeatGlobal {
             KeyState::Released => (wl_pointer::RELEASED, false),
             KeyState::Pressed => (wl_pointer::PRESSED, true),
         };
-        self.surface_pointer_event(0, surface, |p| p.button(0, 0, button, state));
+        let serial = self.serial.fetch_add(1);
+        self.surface_pointer_event(0, surface, |p| p.button(serial, 0, button, state));
         self.surface_pointer_frame(surface);
-        if pressed {
+        if pressed && surface.belongs_to_toplevel() {
             self.focus_surface(surface);
         }
     }
@@ -353,17 +391,16 @@ impl WlSeatGlobal {
 // Enter callbacks
 impl WlSeatGlobal {
     pub fn enter_toplevel(self: &Rc<Self>, n: &Rc<XdgToplevel>) {
-        let node = self.toplevel_focus_history.add_last(n.clone());
-        n.toplevel_history.insert(self.id(), node);
-        self.focus_xdg_surface(&n.xdg);
+        self.focus_toplevel(n);
     }
 
     pub fn enter_popup(self: &Rc<Self>, n: &Rc<XdgPopup>) {
-        self.focus_xdg_surface(&n.xdg);
+        // self.focus_xdg_surface(&n.xdg);
     }
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        self.surface_pointer_event(0, n, |p| p.enter(0, n.id, x, y));
+        let serial = self.serial.fetch_add(1);
+        self.surface_pointer_event(0, n, |p| p.enter(serial, n.id, x, y));
         self.surface_pointer_frame(n);
     }
 }
@@ -371,7 +408,8 @@ impl WlSeatGlobal {
 // Leave callbacks
 impl WlSeatGlobal {
     pub fn leave_surface(&self, n: &WlSurface) {
-        self.surface_pointer_event(0, n, |p| p.leave(0, n.id));
+        let serial = self.serial.fetch_add(1);
+        self.surface_pointer_event(0, n, |p| p.leave(serial, n.id));
         self.surface_pointer_frame(n);
     }
 }
@@ -380,5 +418,25 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
         self.surface_kb_event(0, surface, |k| k.leave(0, surface.id))
+    }
+}
+
+// Key callbacks
+impl WlSeatGlobal {
+    pub fn key_surface(&self, surface: &WlSurface, key: u32, state: u32, mods: Option<ModifierState>) {
+        let serial = self.serial.fetch_add(1);
+        self.surface_kb_event(0, surface, |k| k.key(serial, 0, key, state));
+        let serial = self.serial.fetch_add(1);
+        if let Some(mods) = mods {
+            self.surface_kb_event(0, surface, |k| {
+                k.modifiers(
+                    serial,
+                    mods.mods_depressed,
+                    mods.mods_latched,
+                    mods.mods_locked,
+                    mods.group,
+                )
+            });
+        }
     }
 }

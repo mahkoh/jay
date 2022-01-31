@@ -23,6 +23,12 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        unsafe {
+            self.m.get().deref().len()
+        }
+    }
+
     pub fn insert(&self, k: K, v: V) -> Option<V> {
         unsafe {
             let m = self.m.get().deref_mut();

@@ -5,10 +5,11 @@ use crate::client::{Client, ClientId, DynEventFormatter, WlEvent};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
-use crate::utils::copyhashmap::CopyHashMap;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::hash_map::Entry;
 use std::iter;
 use std::rc::Rc;
+use ahash::AHashMap;
 pub use types::*;
 
 id!(WlOutputId);
@@ -59,7 +60,7 @@ pub struct WlOutputGlobal {
     pub y: Cell<i32>,
     width: Cell<i32>,
     height: Cell<i32>,
-    bindings: CopyHashMap<(ClientId, WlOutputId), Rc<WlOutputObj>>,
+    pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutputObj>>>>,
 }
 
 impl WlOutputGlobal {
@@ -84,20 +85,22 @@ impl WlOutputGlobal {
         changed |= self.height.replace(height) != height;
 
         if changed {
-            let bindings = self.bindings.lock();
+            let bindings = self.bindings.borrow_mut();
             for binding in bindings.values() {
-                let events = [
-                    binding.geometry(),
-                    binding.mode(),
-                    binding.scale(),
-                    binding.done(),
-                ];
-                let events = events
-                    .into_iter()
-                    .map(|e| WlEvent::Event(e))
-                    .chain(iter::once(WlEvent::Flush));
-                for event in events {
-                    binding.client.event2(event);
+                for binding in binding.values() {
+                    let events = [
+                        binding.geometry(),
+                        binding.mode(),
+                        binding.scale(),
+                        binding.done(),
+                    ];
+                    let events = events
+                        .into_iter()
+                        .map(|e| WlEvent::Event(e))
+                        .chain(iter::once(WlEvent::Flush));
+                    for event in events {
+                        binding.client.event2(event);
+                    }
                 }
             }
         }
@@ -116,7 +119,7 @@ impl WlOutputGlobal {
             version,
         });
         client.add_client_obj(&obj)?;
-        self.bindings.set((client.id, id), obj.clone());
+        self.bindings.borrow_mut().entry(client.id).or_default().insert(id, obj.clone());
         client.event(obj.geometry());
         client.event(obj.mode());
         if obj.send_scale() {
@@ -149,13 +152,13 @@ impl Global for WlOutputGlobal {
     }
 
     fn break_loops(&self) {
-        self.bindings.clear();
+        self.bindings.borrow_mut().clear();
     }
 }
 
 pub struct WlOutputObj {
     global: Rc<WlOutputGlobal>,
-    id: WlOutputId,
+    pub id: WlOutputId,
     client: Rc<Client>,
     version: u32,
 }
@@ -177,8 +180,8 @@ impl WlOutputObj {
             physical_width: self.global.width.get() as _,
             physical_height: self.global.height.get() as _,
             subpixel: SP_UNKNOWN,
-            make: String::new(),
-            model: String::new(),
+            make: "i4".to_string(),
+            model: "i4".to_string(),
             transform: TF_NORMAL,
         })
     }
@@ -204,9 +207,18 @@ impl WlOutputObj {
         Box::new(Done { obj: self.clone() })
     }
 
+    fn remove_binding(&self) {
+        if let Entry::Occupied(mut e) = self.global.bindings.borrow_mut().entry(self.client.id) {
+            e.get_mut().remove(&self.id);
+            if e.get().is_empty() {
+                e.remove();
+            }
+        }
+    }
+
     fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
-        self.global.bindings.remove(&(self.client.id, self.id));
+        self.remove_binding();
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -244,6 +256,6 @@ impl Object for WlOutputObj {
     }
 
     fn break_loops(&self) {
-        self.global.bindings.remove(&(self.client.id, self.id));
+        self.remove_binding();
     }
 }
