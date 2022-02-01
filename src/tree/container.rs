@@ -1,4 +1,4 @@
-use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -8,6 +8,7 @@ use crate::{NumCell, State};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use crate::cursor::KnownCursor;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -352,6 +353,10 @@ impl Node for ContainerNode {
             node.content.set(rect);
             node.position_content();
         }
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

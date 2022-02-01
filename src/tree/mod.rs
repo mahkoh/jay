@@ -16,6 +16,7 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
+use crate::cursor::KnownCursor;
 
 mod container;
 mod workspace;
@@ -124,6 +125,10 @@ pub trait Node {
         let _ = seat;
         let _ = x;
         let _ = y;
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
     }
 
     fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
@@ -249,6 +254,10 @@ impl Node for DisplayNode {
         }
         FindTreeResult::AcceptsInput
     }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
+    }
 }
 
 tree_id!(OutputNodeId);
@@ -296,6 +305,10 @@ impl Node for OutputNode {
 
     fn remove_child(&self, _child: &dyn Node) {
         self.workspace.set(None);
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
@@ -374,6 +387,10 @@ impl Node for FloatNode {
         let pos = self.position.get();
         self.position
             .set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

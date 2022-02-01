@@ -18,6 +18,8 @@ use crate::tree::{
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
+use crate::format::Format;
+use crate::render::Texture;
 
 const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
 const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);
@@ -218,10 +220,12 @@ impl Renderer<'_> {
     }
 
     pub fn render_buffer(&mut self, buffer: &WlBuffer, x: i32, y: i32) {
-        let texture = match buffer.texture.get() {
-            Some(t) => t,
-            _ => return,
-        };
+        if let Some(tex) = buffer.texture.get() {
+            self.render_texture(&tex, x, y, buffer.format);
+        }
+    }
+
+    pub fn render_texture(&mut self, texture: &Texture, x: i32, y: i32, format: &Format) {
         assert!(Rc::ptr_eq(&self.ctx.ctx, &texture.ctx.ctx));
         unsafe {
             glActiveTexture(GL_TEXTURE0);
@@ -229,7 +233,7 @@ impl Renderer<'_> {
             glBindTexture(GL_TEXTURE_2D, texture.gl.tex);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
-            let prog = match buffer.format.has_alpha {
+            let prog = match format.has_alpha {
                 true => {
                     glEnable(GL_BLEND);
                     &self.ctx.tex_alpha_prog

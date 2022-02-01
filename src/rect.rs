@@ -1,9 +1,46 @@
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+use std::fmt::{Debug, Formatter};
+
+#[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub struct Rect {
     x1: i32,
     y1: i32,
     x2: i32,
     y2: i32,
+}
+
+impl Debug for Rect {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Rect")
+            .field("x1", &self.x1)
+            .field("y1", &self.y1)
+            .field("x2", &self.x2)
+            .field("y2", &self.y2)
+            .field("width", &(self.x2 - self.x1))
+            .field("height", &(self.y2 - self.y1))
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+pub struct RectOverflow {
+    pub left: i32,
+    pub right: i32,
+    pub top: i32,
+    pub bottom: i32,
+}
+
+impl RectOverflow {
+    pub fn is_contained(&self) -> bool {
+        self.left <= 0 && self.right <= 0 && self.top <= 0 && self.bottom <= 0
+    }
+
+    pub fn x_overflow(&self) -> bool {
+        self.left > 0 || self.right > 0
+    }
+
+    pub fn y_overflow(&self) -> bool {
+        self.top > 0 || self.bottom > 0
+    }
 }
 
 impl Rect {
@@ -62,6 +99,15 @@ impl Rect {
 
     pub fn contains_rect(&self, rect: &Self) -> bool {
         self.x1 <= rect.x1 && self.y1 <= rect.x1 && rect.x2 <= self.x2 && rect.y2 <= self.y2
+    }
+
+    pub fn get_overflow(&self, child: &Self) -> RectOverflow {
+        RectOverflow {
+            left: self.x1 - child.x1,
+            right: child.x2 - self.x2,
+            top: self.y1 - child.y1,
+            bottom: child.y2 - self.y2,
+        }
     }
 
     pub fn is_empty(&self) -> bool {

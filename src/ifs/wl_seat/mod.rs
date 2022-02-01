@@ -12,7 +12,6 @@ use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceId};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
-use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::object::{Interface, Object, ObjectId};
 use crate::tree::{FloatNode, FoundNode, Node};
@@ -31,6 +30,7 @@ use std::io::Write;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
+use crate::cursor::{Cursor, KnownCursor};
 
 id!(WlSeatId);
 
@@ -74,7 +74,7 @@ pub struct WlSeatGlobal {
     kb_state: RefCell<XkbState>,
     layout: Rc<OwnedFd>,
     layout_size: u32,
-    cursor: CloneCell<Option<Rc<CursorSurface>>>,
+    cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     serial: NumCell<u32>,
 }
 
@@ -121,7 +121,21 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn set_cursor(&self, cursor: Option<Rc<CursorSurface>>) {
+    pub fn set_known_cursor(&self, cursor: KnownCursor) {
+        let cursors = match self.state.cursors.get() {
+            Some(c) => c,
+            None => {
+                self.set_cursor(None);
+                return;
+            }
+        };
+        let tpl = match cursor {
+            KnownCursor::Default => &cursors.default,
+        };
+        self.set_cursor(Some(tpl.instantiate()));
+    }
+
+    pub fn set_cursor(&self, cursor: Option<Rc<dyn Cursor>>) {
         if let Some(old) = self.cursor.get() {
             if let Some(new) = cursor.as_ref() {
                 if Rc::ptr_eq(&old, new) {
@@ -130,10 +144,15 @@ impl WlSeatGlobal {
             }
             old.handle_unset();
         }
+        if let Some(cursor) = cursor.as_ref() {
+            log::info!("setting new cursor");
+            let (x, y) = self.pos.get();
+            cursor.set_position(x.round_down(), y.round_down());
+        }
         self.cursor.set(cursor);
     }
 
-    pub fn get_cursor(&self) -> Option<Rc<CursorSurface>> {
+    pub fn get_cursor(&self) -> Option<Rc<dyn Cursor>> {
         self.cursor.get()
     }
 

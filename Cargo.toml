@@ -29,6 +29,7 @@ rand = "0.8.4"
 renderdoc = "0.10.1"
 smallvec = { version = "1.8.0", features = ["const_generics", "const_new", "union"] }
 backtrace = "0.3.64"
+byteorder = "1.4.3"
 
 [build-dependencies]
 repc = "0.1.1"

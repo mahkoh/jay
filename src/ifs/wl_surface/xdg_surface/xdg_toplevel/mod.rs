@@ -21,6 +21,7 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 pub use types::*;
+use crate::cursor::KnownCursor;
 
 const DESTROY: u32 = 0;
 const SET_PARENT: u32 = 1;
@@ -393,6 +394,10 @@ impl Node for XdgToplevel {
 
     fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.enter_toplevel(&self);
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

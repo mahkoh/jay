@@ -14,15 +14,17 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
-use crate::Wheel;
+use crate::{ErrorFmt, Wheel};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use crate::cursor::ServerCursors;
 
 pub struct State {
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
     pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
+    pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
     pub next_name: NumCell<u32>,
@@ -47,6 +49,18 @@ pub struct SeatData {
 }
 
 impl State {
+    pub fn set_render_ctx(&self, ctx: &Rc<RenderContext>) {
+        let cursors = match ServerCursors::load(ctx) {
+            Ok(c) => Some(Rc::new(c)),
+            Err(e) => {
+                log::error!("Could not load the cursors: {}", ErrorFmt(e));
+                None
+            }
+        };
+        self.cursors.set(cursors);
+        self.render_ctx.set(Some(ctx.clone()));
+    }
+
     pub fn add_global<T>(&self, global: &Rc<T>)
     where
         Globals: AddGlobal<T>,

@@ -39,10 +39,11 @@ impl Framebuffer {
                 let seats = state.globals.lock_seats();
                 for seat in seats.values() {
                     if let Some(cursor) = seat.get_cursor() {
+                        cursor.tick();
                         let extents = cursor.extents();
                         if extents.intersects(&rect) {
                             let (x, y) = rect.translate(extents.x1(), extents.y1());
-                            renderer.render_surface(cursor.surface(), x, y);
+                            cursor.render(&mut renderer, x, y);
                         }
                     }
                 }

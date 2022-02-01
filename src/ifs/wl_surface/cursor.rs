@@ -1,8 +1,10 @@
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
+use crate::render::Renderer;
 use std::cell::Cell;
 use std::rc::Rc;
+use crate::cursor::Cursor;
 
 pub struct CursorSurface {
     seat: Rc<WlSeatGlobal>,
@@ -38,15 +40,6 @@ impl CursorSurface {
         );
     }
 
-    pub fn set_position(&self, x: i32, y: i32) {
-        self.pos.set((x, y));
-        self.update_extents();
-    }
-
-    pub fn handle_unset(&self) {
-        self.surface.cursors.remove(&self.seat.id());
-    }
-
     pub fn handle_surface_destroy(&self) {
         self.seat.set_cursor(None);
     }
@@ -71,12 +64,23 @@ impl CursorSurface {
         self.hotspot.set((hot_x - hotspot_dx, hot_y - hotspot_dy));
         self.update_extents();
     }
+}
 
-    pub fn surface(&self) -> &Rc<WlSurface> {
-        &self.surface
+impl Cursor for CursorSurface {
+    fn set_position(&self, x: i32, y: i32) {
+        self.pos.set((x, y));
+        self.update_extents();
     }
 
-    pub fn extents(&self) -> Rect {
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_surface(&self.surface, x, y);
+    }
+
+    fn extents(&self) -> Rect {
         self.extents.get()
+    }
+
+    fn handle_unset(&self) {
+        self.surface.cursors.remove(&self.seat.id());
     }
 }

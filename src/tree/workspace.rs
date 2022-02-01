@@ -1,4 +1,4 @@
-use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::container::ContainerNode;
@@ -6,6 +6,7 @@ use crate::tree::{AbsoluteNode, FindTreeResult, FoundNode, Node, NodeId, OutputN
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
 use std::rc::Rc;
+use crate::cursor::KnownCursor;
 
 tree_id!(WorkspaceNodeId);
 
@@ -59,6 +60,10 @@ impl Node for WorkspaceNode {
 
     fn remove_child(&self, _child: &dyn Node) {
         self.container.set(None);
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

@@ -350,6 +350,9 @@ impl WlSeatGlobal {
                     .enter(self, x.apply_fract(new.x), y.apply_fract(new.y));
                 stack.push(new.node);
             }
+            if let Some(node) = stack.last() {
+                node.pointer_target(self);
+            }
         }
         found_tree.clear();
     }
@@ -397,7 +400,7 @@ impl WlSeatGlobal {
         self.focus_toplevel(n);
     }
 
-    pub fn enter_popup(self: &Rc<Self>, n: &Rc<XdgPopup>) {
+    pub fn enter_popup(self: &Rc<Self>, _n: &Rc<XdgPopup>) {
         // self.focus_xdg_surface(&n.xdg);
     }
 

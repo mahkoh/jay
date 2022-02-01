@@ -303,7 +303,7 @@ impl XorgBackend {
             slf.query_devices(ffi::XCB_INPUT_DEVICE_ALL_MASTER as _)?;
             slf.handle_events()?;
 
-            state.render_ctx.set(Some(ctx.clone()));
+            state.set_render_ctx(&ctx);
 
             Ok(slf)
         }

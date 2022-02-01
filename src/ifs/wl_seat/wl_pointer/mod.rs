@@ -8,6 +8,7 @@ use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
+use crate::cursor::Cursor;
 
 const SET_CURSOR: u32 = 0;
 const RELEASE: u32 = 1;
@@ -153,7 +154,7 @@ impl WlPointer {
             let surface = self.seat.client.get_surface(req.surface)?;
             let cursor = surface.get_cursor(&self.seat.global)?;
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
-            cursor_opt = Some(cursor);
+            cursor_opt = Some(cursor as Rc<dyn Cursor>);
         }
         let pointer_node = match self.seat.global.pointer_stack.borrow().last().cloned() {
             Some(n) => n,

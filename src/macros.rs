@@ -24,6 +24,31 @@ macro_rules! handle_request {
             }
         }
     };
+    ($oname:ty, $ename:ty; $($code:ident => $f:ident,)*) => {
+        impl crate::object::ObjectHandleRequest for $oname {
+            fn handle_request(
+                self: std::rc::Rc<Self>,
+                request: u32,
+                parser: crate::utils::buffd::MsgParser<'_, '_>,
+            ) -> Result<(), crate::client::ClientError> {
+                fn handle_request(
+                    slf: std::rc::Rc<$oname>,
+                    request: u32,
+                    parser: crate::utils::buffd::MsgParser<'_, '_>,
+                ) -> Result<(), $ename> {
+                    match request {
+                        $(
+                            $code => slf.$f(parser)?,
+                        )*
+                        _ => unreachable!(),
+                    }
+                    Ok(())
+                }
+                handle_request(self, request, parser)?;
+                Ok(())
+            }
+        }
+    };
 }
 
 macro_rules! bind {

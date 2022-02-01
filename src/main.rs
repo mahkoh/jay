@@ -53,6 +53,7 @@ mod backend;
 mod backends;
 mod client;
 mod clientmem;
+mod cursor;
 mod drm;
 mod event_loop;
 mod fixed;
@@ -116,6 +117,7 @@ fn main_() -> Result<(), MainError> {
         eng: engine.clone(),
         el: el.clone(),
         render_ctx: Default::default(),
+        cursors: Default::default(),
         wheel,
         clients: Clients::new(),
         next_name: NumCell::new(1),

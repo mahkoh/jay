@@ -206,6 +206,7 @@ impl WlSurface {
         }
         self.set_role(SurfaceRole::Cursor)?;
         let cursor = Rc::new(CursorSurface::new(seat, self));
+        cursor.handle_buffer_change();
         self.cursors.insert(seat.id(), cursor.clone());
         Ok(cursor)
     }
