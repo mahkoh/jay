@@ -1,8 +1,8 @@
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::WlSurface;
+use crate::rect::Rect;
 use std::cell::Cell;
 use std::rc::Rc;
-use crate::ifs::wl_seat::{WlSeatGlobal};
-use crate::ifs::wl_surface::{WlSurface};
-use crate::rect::Rect;
 
 pub struct CursorSurface {
     seat: Rc<WlSeatGlobal>,
@@ -19,7 +19,7 @@ impl CursorSurface {
             surface: surface.clone(),
             hotspot: Cell::new((0, 0)),
             pos: Cell::new((0, 0)),
-            extents: Cell::new(Default::default())
+            extents: Cell::new(Default::default()),
         }
     }
 
@@ -27,7 +27,15 @@ impl CursorSurface {
         let (pos_x, pos_y) = self.pos.get();
         let extents = self.extents.get();
         let (hot_x, hot_y) = self.hotspot.get();
-        self.extents.set(Rect::new_sized(pos_x - hot_x, pos_y - hot_y, extents.width(), extents.height()).unwrap());
+        self.extents.set(
+            Rect::new_sized(
+                pos_x - hot_x,
+                pos_y - hot_y,
+                extents.width(),
+                extents.height(),
+            )
+            .unwrap(),
+        );
     }
 
     pub fn set_position(&self, x: i32, y: i32) {
@@ -48,7 +56,8 @@ impl CursorSurface {
             Some(b) => (b.rect.width(), b.rect.height()),
             _ => (0, 0),
         };
-        self.extents.set(Rect::new_sized(0, 0, width, height).unwrap());
+        self.extents
+            .set(Rect::new_sized(0, 0, width, height).unwrap());
         self.update_extents();
     }
 

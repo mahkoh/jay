@@ -1,20 +1,20 @@
-use std::ops::Deref;
-use std::rc::Rc;
 use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_data_offer::WlDataOfferId;
-use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, WlSeatGlobal, WlSeatObj};
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
-use crate::ifs::wl_seat::wl_pointer::{POINTER_FRAME_SINCE_VERSION, WlPointer};
-use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
+use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, WlSeatGlobal, WlSeatObj};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
+use std::ops::Deref;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -197,8 +197,8 @@ impl WlSeatGlobal {
     }
 
     fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
-        where
-            C: FnMut(&Rc<WlSeatObj>),
+    where
+        C: FnMut(&Rc<WlSeatObj>),
     {
         let bindings = self.bindings.borrow();
         if let Some(hm) = bindings.get(&client) {
@@ -211,8 +211,8 @@ impl WlSeatGlobal {
     }
 
     fn for_each_pointer<C>(&self, ver: u32, client: ClientId, mut f: C)
-        where
-            C: FnMut(&Rc<WlPointer>),
+    where
+        C: FnMut(&Rc<WlPointer>),
     {
         self.for_each_seat(ver, client, |seat| {
             let pointers = seat.pointers.lock();
@@ -223,8 +223,8 @@ impl WlSeatGlobal {
     }
 
     fn for_each_kb<C>(&self, ver: u32, client: ClientId, mut f: C)
-        where
-            C: FnMut(&Rc<WlKeyboard>),
+    where
+        C: FnMut(&Rc<WlKeyboard>),
     {
         self.for_each_seat(ver, client, |seat| {
             let keyboards = seat.keyboards.lock();
@@ -235,8 +235,8 @@ impl WlSeatGlobal {
     }
 
     fn for_each_data_device<C>(&self, ver: u32, client: ClientId, mut f: C)
-        where
-            C: FnMut(&Rc<WlDataDevice>),
+    where
+        C: FnMut(&Rc<WlDataDevice>),
     {
         let dd = self.data_devices.borrow_mut();
         if let Some(dd) = dd.get(&client) {
@@ -253,8 +253,8 @@ impl WlSeatGlobal {
     }
 
     fn surface_pointer_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-        where
-            F: FnMut(&Rc<WlPointer>) -> DynEventFormatter,
+    where
+        F: FnMut(&Rc<WlPointer>) -> DynEventFormatter,
     {
         let client = &surface.client;
         self.for_each_pointer(ver, client.id, |p| {
@@ -264,8 +264,8 @@ impl WlSeatGlobal {
     }
 
     fn surface_kb_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-        where
-            F: FnMut(&Rc<WlKeyboard>) -> DynEventFormatter,
+    where
+        F: FnMut(&Rc<WlKeyboard>) -> DynEventFormatter,
     {
         let client = &surface.client;
         self.for_each_kb(ver, client.id, |p| {
@@ -275,8 +275,8 @@ impl WlSeatGlobal {
     }
 
     fn surface_data_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-        where
-            F: FnMut(&Rc<WlDataDevice>) -> DynEventFormatter,
+    where
+        F: FnMut(&Rc<WlDataDevice>) -> DynEventFormatter,
     {
         let client = &surface.client;
         self.for_each_data_device(ver, client.id, |p| {
@@ -334,7 +334,8 @@ impl WlSeatGlobal {
         if (stack.len(), found_tree.len()) == (divergence, divergence) {
             if changed {
                 if let Some(node) = found_tree.last() {
-                    node.node.motion(self, x.apply_fract(node.x), y.apply_fract(node.y));
+                    node.node
+                        .motion(self, x.apply_fract(node.x), y.apply_fract(node.y));
                 }
             }
         } else {
@@ -344,7 +345,9 @@ impl WlSeatGlobal {
             }
             for new in found_tree.drain(divergence..) {
                 new.node.seat_state().enter(self);
-                new.node.clone().enter(self, x.apply_fract(new.x), y.apply_fract(new.y));
+                new.node
+                    .clone()
+                    .enter(self, x.apply_fract(new.x), y.apply_fract(new.y));
                 stack.push(new.node);
             }
         }
@@ -423,7 +426,13 @@ impl WlSeatGlobal {
 
 // Key callbacks
 impl WlSeatGlobal {
-    pub fn key_surface(&self, surface: &WlSurface, key: u32, state: u32, mods: Option<ModifierState>) {
+    pub fn key_surface(
+        &self,
+        surface: &WlSurface,
+        key: u32,
+        state: u32,
+        mods: Option<ModifierState>,
+    ) {
         let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, surface, |k| k.key(serial, 0, key, state));
         let serial = self.serial.fetch_add(1);

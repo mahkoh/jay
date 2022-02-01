@@ -1,13 +1,13 @@
 mod types;
 
 use crate::client::{Client, DynEventFormatter};
+use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
+use crate::ifs::wl_data_offer::WlDataOfferId;
+use crate::ifs::wl_seat::WlSeatObj;
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
-use crate::ifs::wl_data_offer::WlDataOfferId;
-use crate::ifs::wl_seat::WlSeatObj;
 
 const START_DRAG: u32 = 0;
 const SET_SELECTION: u32 = 1;
@@ -33,7 +33,11 @@ pub struct WlDataDevice {
 }
 
 impl WlDataDevice {
-    pub fn new(id: WlDataDeviceId, manager: &Rc<WlDataDeviceManagerObj>, seat: &Rc<WlSeatObj>) -> Self {
+    pub fn new(
+        id: WlDataDeviceId,
+        manager: &Rc<WlDataDeviceManagerObj>,
+        seat: &Rc<WlSeatObj>,
+    ) -> Self {
         Self {
             id,
             manager: manager.clone(),

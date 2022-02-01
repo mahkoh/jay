@@ -1,6 +1,5 @@
 mod types;
 
-use std::cell::Cell;
 use crate::client::{Client, DynEventFormatter};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
@@ -9,6 +8,7 @@ use crate::rect::Rect;
 use crate::render::{Image, Texture};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
+use std::cell::Cell;
 use std::rc::Rc;
 pub use types::*;
 

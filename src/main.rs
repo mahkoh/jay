@@ -13,23 +13,21 @@
     clippy::redundant_clone
 )]
 
-use std::cell::Cell;
 use crate::acceptor::AcceptorError;
 use crate::async_engine::AsyncError;
 use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
-use crate::globals::{AddGlobal, Globals};
-use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
+use crate::globals::Globals;
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
-use crate::ifs::wl_drm::WlDrmGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
 use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global;
+use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
@@ -42,6 +40,7 @@ use acceptor::Acceptor;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
 use log::LevelFilter;
+use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
@@ -76,8 +75,8 @@ mod xkbcommon;
 
 fn main() {
     env_logger::builder()
-        .filter_level(LevelFilter::Inf)
-        // .filter_level(LevelFilter::Trace)
+        .filter_level(LevelFilter::Info)
+        .filter_level(LevelFilter::Trace)
         .init();
     if let Err(e) = main_() {
         log::error!("A fatal error occurred: {}", ErrorFmt(e));
@@ -107,23 +106,11 @@ enum MainError {
 
 fn main_() -> Result<(), MainError> {
     render::init()?;
-
     clientmem::init()?;
     let el = EventLoop::new()?;
     sighand::install(&el)?;
     let wheel = Wheel::install(&el)?;
     let engine = AsyncEngine::install(&el, &wheel)?;
-    let globals = Globals::new();
-    globals.add_global_no_broadcast(&Rc::new(WlCompositorGlobal::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(WlShmGlobal::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(WlSubcompositorGlobal::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(XdgWmBaseGlobal::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(WlDataDeviceManagerGlobal::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(ZwpLinuxDmabufV1Global::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(WlDrmGlobal::new(globals.name())));
-    globals.add_global_no_broadcast(&Rc::new(OrgKdeKwinServerDecorationManagerGlobal::new(
-        globals.name(),
-    )));
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         eng: engine.clone(),
@@ -132,7 +119,7 @@ fn main_() -> Result<(), MainError> {
         wheel,
         clients: Clients::new(),
         next_name: NumCell::new(1),
-        globals,
+        globals: Globals::new(),
         output_ids: Default::default(),
         root: Rc::new(DisplayNode::new(node_ids.next())),
         node_ids,

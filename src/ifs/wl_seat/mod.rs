@@ -1,36 +1,36 @@
+mod handling;
 mod types;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
-mod handling;
 
 use crate::backend::{Seat, SeatId};
 use crate::client::{Client, ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
+use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceId};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel};
+use crate::ifs::wl_surface::cursor::CursorSurface;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::object::{Interface, Object, ObjectId};
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::linkedlist::{LinkedList};
+use crate::utils::linkedlist::LinkedList;
 use crate::xkbcommon::{XkbContext, XkbState};
 use crate::{NumCell, State};
 use ahash::{AHashMap, AHashSet};
 use bstr::ByteSlice;
+pub use handling::NodeSeatState;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::io::Write;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
-pub use handling::NodeSeatState;
-use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceId};
-use crate::ifs::wl_surface::cursor::CursorSurface;
 
 id!(WlSeatId);
 
@@ -52,6 +52,8 @@ const MISSING_CAPABILITY: u32 = 0;
 
 #[allow(dead_code)]
 const BTN_LEFT: u32 = 0x110;
+
+pub const SEAT_NAME_SINCE: u32 = 2;
 
 pub struct WlSeatGlobal {
     name: GlobalName,
@@ -92,7 +94,7 @@ impl WlSeatGlobal {
                 memfd.raw(),
                 c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
             )
-                .unwrap();
+            .unwrap();
             (state, Rc::new(memfd), (string.len() + 1) as _)
         };
         Self {
@@ -155,7 +157,9 @@ impl WlSeatGlobal {
         });
         client.add_client_obj(&obj)?;
         client.event(obj.capabilities());
-        client.event(obj.name(&self.seat_name));
+        if version >= SEAT_NAME_SINCE {
+            client.event(obj.name(&self.seat_name));
+        }
         {
             let mut bindings = self.bindings.borrow_mut();
             let bindings = bindings.entry(client.id).or_insert_with(Default::default);
@@ -215,7 +219,9 @@ impl WlSeatObj {
 
     pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
         let mut dd = self.global.data_devices.borrow_mut();
-        dd.entry(self.client.id).or_default().insert(device.id, device.clone());
+        dd.entry(self.client.id)
+            .or_default()
+            .insert(device.id, device.clone());
     }
 
     pub fn remove_data_device(&self, device: &WlDataDevice) {

@@ -19,10 +19,11 @@ impl SeatHandler {
         }
         let name = self.state.globals.name();
         let global = Rc::new(WlSeatGlobal::new(name, &self.state, &self.seat));
-        let _tree_changed = self
-            .state
-            .eng
-            .spawn(tree_changed(self.state.clone(), global.clone(), self.tree_changed.clone()));
+        let _tree_changed = self.state.eng.spawn(tree_changed(
+            self.state.clone(),
+            global.clone(),
+            self.tree_changed.clone(),
+        ));
         let mut _node = self.state.seat_queue.add_last(global.clone());
         self.state.add_global(&global);
         loop {

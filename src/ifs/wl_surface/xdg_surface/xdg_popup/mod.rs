@@ -268,7 +268,7 @@ impl XdgSurfaceExt for XdgPopup {
             _ => {
                 log::info!("no ws");
                 return;
-            },
+            }
         };
         let surface = &self.xdg.surface;
         let state = &surface.client.state;
@@ -276,12 +276,7 @@ impl XdgSurfaceExt for XdgPopup {
             if wl.is_none() {
                 self.xdg.set_workspace(&ws);
                 *wl = Some(ws.stacked.add_last(self.clone()));
-                *dl = Some(
-                    state
-                        .root
-                        .stacked
-                        .add_last(self.clone()),
-                );
+                *dl = Some(state.root.stacked.add_last(self.clone()));
                 state.tree_changed();
             }
         } else {

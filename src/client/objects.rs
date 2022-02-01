@@ -4,19 +4,19 @@ use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_region::{WlRegion, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
 use crate::ifs::wl_seat::{WlSeatId, WlSeatObj};
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerId};
 use crate::ifs::xdg_wm_base::{XdgWmBaseId, XdgWmBaseObj};
 use crate::object::{Object, ObjectId};
+use crate::tree::Node;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
-use crate::tree::Node;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

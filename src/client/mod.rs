@@ -1,215 +1,53 @@
-use crate::async_engine::{AsyncError, AsyncFd, SpawnedFuture};
+use crate::async_engine::{AsyncFd, SpawnedFuture};
 use crate::client::objects::Objects;
-use crate::ifs::org_kde_kwin_server_decoration::{
-    OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError,
-};
-use crate::ifs::org_kde_kwin_server_decoration_manager::{
-    OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerObj,
-};
-use crate::ifs::wl_buffer::{WlBuffer, WlBufferError, WlBufferId};
+use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
 use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_compositor::{WlCompositorError, WlCompositorObj};
-use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceError};
-use crate::ifs::wl_data_device_manager::{WlDataDeviceManagerError, WlDataDeviceManagerObj};
-use crate::ifs::wl_data_offer::{WlDataOffer, WlDataOfferError};
-use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceError};
-use crate::ifs::wl_display::{WlDisplay, WlDisplayError};
-use crate::ifs::wl_drm::{WlDrmError, WlDrmObj};
-use crate::ifs::wl_output::{WlOutputError, WlOutputObj};
-use crate::ifs::wl_region::{WlRegion, WlRegionError, WlRegionId};
-use crate::ifs::wl_registry::{WlRegistry, WlRegistryError, WlRegistryId};
-use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError};
-use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerError};
-use crate::ifs::wl_seat::wl_touch::{WlTouch, WlTouchError};
-use crate::ifs::wl_seat::{WlSeatError, WlSeatId, WlSeatObj};
-use crate::ifs::wl_shm::{WlShmError, WlShmObj};
-use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
-use crate::ifs::wl_subcompositor::{WlSubcompositorError, WlSubcompositorObj};
-use crate::ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError};
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelError};
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceId};
-use crate::ifs::wl_surface::{WlSurface, WlSurfaceError, WlSurfaceId};
-use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerError, XdgPositionerId};
-use crate::ifs::xdg_wm_base::{XdgWmBaseError, XdgWmBaseObj};
-use crate::ifs::zwp_linux_buffer_params_v1::{ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Error};
-use crate::ifs::zwp_linux_dmabuf_v1::{ZwpLinuxDmabufV1Error, ZwpLinuxDmabufV1Obj};
+use crate::ifs::wl_compositor::WlCompositorObj;
+use crate::ifs::wl_data_device::WlDataDevice;
+use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
+use crate::ifs::wl_data_offer::WlDataOffer;
+use crate::ifs::wl_data_source::WlDataSource;
+use crate::ifs::wl_display::WlDisplay;
+use crate::ifs::wl_drm::WlDrmObj;
+use crate::ifs::wl_output::WlOutputObj;
+use crate::ifs::wl_region::{WlRegion, WlRegionId};
+use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::ifs::wl_seat::wl_touch::WlTouch;
+use crate::ifs::wl_seat::{WlSeatId, WlSeatObj};
+use crate::ifs::wl_shm::WlShmObj;
+use crate::ifs::wl_shm_pool::WlShmPool;
+use crate::ifs::wl_subcompositor::WlSubcompositorObj;
+use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
+use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
+use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerId};
+use crate::ifs::xdg_wm_base::XdgWmBaseObj;
+use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
+use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Obj;
+use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Obj;
+use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
-use crate::utils::buffd::{BufFdError, MsgFormatter, MsgParser, MsgParserError};
+use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use crate::utils::numcell::NumCell;
 use crate::utils::oneshot::{oneshot, OneshotTx};
 use crate::utils::queue::AsyncQueue;
 use crate::ErrorFmt;
 use ahash::AHashMap;
+pub use error::ClientError;
 use std::cell::{Cell, RefCell, RefMut};
 use std::fmt::{Debug, Display, Formatter};
 use std::mem;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::{c, OwnedFd};
 
+mod error;
 mod objects;
 mod tasks;
-
-#[derive(Debug, Error)]
-pub enum ClientError {
-    #[error("An error occurred in the async engine")]
-    Async(#[from] AsyncError),
-    #[error("An error occurred reading from/writing to the client")]
-    Io(#[from] BufFdError),
-    #[error("An error occurred while processing a request")]
-    RequestError(#[source] Box<ClientError>),
-    #[error("Client tried to invoke a non-existent method")]
-    InvalidMethod,
-    #[error("Client tried to access non-existent object {0}")]
-    InvalidObject(ObjectId),
-    #[error("The message size is < 8")]
-    MessageSizeTooSmall,
-    #[error("The size of the message is not a multiple of 4")]
-    UnalignedMessage,
-    #[error("The requested client {0} does not exist")]
-    ClientDoesNotExist(ClientId),
-    #[error("There is no wl_region with id {0}")]
-    RegionDoesNotExist(WlRegionId),
-    #[error("There is no wl_buffer with id {0}")]
-    BufferDoesNotExist(WlBufferId),
-    #[error("There is no wl_surface with id {0}")]
-    SurfaceDoesNotExist(WlSurfaceId),
-    #[error("There is no xdg_surface with id {0}")]
-    XdgSurfaceDoesNotExist(XdgSurfaceId),
-    #[error("There is no xdg_positioner with id {0}")]
-    XdgPositionerDoesNotExist(XdgPositionerId),
-    #[error("There is no wl_seat with id {0}")]
-    WlSeatDoesNotExist(WlSeatId),
-    #[error("Cannot parse the message")]
-    ParserError(#[source] Box<MsgParserError>),
-    #[error("Server tried to allocate more than 0x1_00_00_00 ids")]
-    TooManyIds,
-    #[error("The server object id is out of bounds")]
-    ServerIdOutOfBounds,
-    #[error("The object id is unknown")]
-    UnknownId,
-    #[error("The id is already in use")]
-    IdAlreadyInUse,
-    #[error("The client object id is out of bounds")]
-    ClientIdOutOfBounds,
-    #[error("An error occurred in a `wl_display`")]
-    WlDisplayError(#[source] Box<WlDisplayError>),
-    #[error("An error occurred in a `wl_registry`")]
-    WlRegistryError(#[source] Box<WlRegistryError>),
-    #[error("Could not add object {0} to the client")]
-    AddObjectError(ObjectId, #[source] Box<ClientError>),
-    #[error("An error occurred in a `wl_surface`")]
-    WlSurfaceError(#[source] Box<WlSurfaceError>),
-    #[error("An error occurred in a `wl_compositor`")]
-    WlCompositorError(#[source] Box<WlCompositorError>),
-    #[error("An error occurred in a `wl_shm`")]
-    WlShmError(#[source] Box<WlShmError>),
-    #[error("An error occurred in a `wl_shm_pool`")]
-    WlShmPoolError(#[source] Box<WlShmPoolError>),
-    #[error("An error occurred in a `wl_region`")]
-    WlRegionError(#[source] Box<WlRegionError>),
-    #[error("An error occurred in a `wl_subsurface`")]
-    WlSubsurfaceError(#[source] Box<WlSubsurfaceError>),
-    #[error("An error occurred in a `wl_subcompositor`")]
-    WlSubcompositorError(#[source] Box<WlSubcompositorError>),
-    #[error("An error occurred in a `xdg_surface`")]
-    XdgSurfaceError(#[source] Box<XdgSurfaceError>),
-    #[error("An error occurred in a `xdg_positioner`")]
-    XdgPositionerError(#[source] Box<XdgPositionerError>),
-    #[error("An error occurred in a `xdg_popup`")]
-    XdgPopupError(#[source] Box<XdgPopupError>),
-    #[error("An error occurred in a `xdg_toplevel`")]
-    XdgToplevelError(#[source] Box<XdgToplevelError>),
-    #[error("An error occurred in a `xdg_wm_base`")]
-    XdgWmBaseError(#[source] Box<XdgWmBaseError>),
-    #[error("An error occurred in a `wl_buffer`")]
-    WlBufferError(#[source] Box<WlBufferError>),
-    #[error("An error occurred in a `wl_output`")]
-    WlOutputError(#[source] Box<WlOutputError>),
-    #[error("An error occurred in a `wl_seat`")]
-    WlSeatError(#[source] Box<WlSeatError>),
-    #[error("An error occurred in a `wl_pointer`")]
-    WlPointerError(#[source] Box<WlPointerError>),
-    #[error("An error occurred in a `wl_keyboard`")]
-    WlKeyboardError(#[source] Box<WlKeyboardError>),
-    #[error("An error occurred in a `wl_touch`")]
-    WlTouchError(#[source] Box<WlTouchError>),
-    #[error("Object {0} is not a display")]
-    NotADisplay(ObjectId),
-    #[error("An error occurred in a `wl_data_device`")]
-    WlDataDeviceError(#[source] Box<WlDataDeviceError>),
-    #[error("An error occurred in a `wl_data_device_manager`")]
-    WlDataDeviceManagerError(#[source] Box<WlDataDeviceManagerError>),
-    #[error("An error occurred in a `wl_data_offer`")]
-    WlDataOfferError(#[source] Box<WlDataOfferError>),
-    #[error("An error occurred in a `wl_data_source`")]
-    WlDataSourceError(#[source] Box<WlDataSourceError>),
-    #[error("An error occurred in a `zwp_linx_dmabuf_v1`")]
-    ZwpLinuxDmabufV1Error(#[source] Box<ZwpLinuxDmabufV1Error>),
-    #[error("An error occurred in a `zwp_linx_buffer_params_v1`")]
-    ZwpLinuxBufferParamsV1Error(#[source] Box<ZwpLinuxBufferParamsV1Error>),
-    #[error("An error occurred in a `wl_drm`")]
-    WlDrmError(#[source] Box<WlDrmError>),
-    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager`")]
-    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
-    #[error("An error occurred in a `org_kde_kwin_server_decoration`")]
-    OrgKdeKwinServerDecorationError(#[source] Box<OrgKdeKwinServerDecorationError>),
-}
-
-efrom!(ClientError, ParserError, MsgParserError);
-efrom!(ClientError, WlDisplayError);
-efrom!(ClientError, WlRegistryError);
-efrom!(ClientError, WlSurfaceError);
-efrom!(ClientError, WlCompositorError);
-efrom!(ClientError, WlShmError);
-efrom!(ClientError, WlShmPoolError);
-efrom!(ClientError, WlRegionError);
-efrom!(ClientError, WlSubsurfaceError);
-efrom!(ClientError, WlSubcompositorError);
-efrom!(ClientError, XdgSurfaceError);
-efrom!(ClientError, XdgPositionerError);
-efrom!(ClientError, XdgWmBaseError);
-efrom!(ClientError, XdgToplevelError);
-efrom!(ClientError, XdgPopupError);
-efrom!(ClientError, WlBufferError);
-efrom!(ClientError, WlOutputError);
-efrom!(ClientError, WlSeatError);
-efrom!(ClientError, WlTouchError);
-efrom!(ClientError, WlPointerError);
-efrom!(ClientError, WlKeyboardError);
-efrom!(
-    ClientError,
-    WlDataDeviceManagerError,
-    WlDataDeviceManagerError
-);
-efrom!(ClientError, WlDataDeviceError);
-efrom!(ClientError, WlDataSourceError);
-efrom!(ClientError, WlDataOfferError);
-efrom!(ClientError, ZwpLinuxDmabufV1Error);
-efrom!(
-    ClientError,
-    ZwpLinuxBufferParamsV1Error,
-    ZwpLinuxBufferParamsV1Error
-);
-efrom!(ClientError, WlDrmError, WlDrmError);
-efrom!(
-    ClientError,
-    OrgKdeKwinServerDecorationManagerError,
-    OrgKdeKwinServerDecorationManagerError
-);
-efrom!(
-    ClientError,
-    OrgKdeKwinServerDecorationError,
-    OrgKdeKwinServerDecorationError
-);
-
-impl ClientError {
-    fn peer_closed(&self) -> bool {
-        matches!(self, ClientError::Io(BufFdError::Closed))
-    }
-}
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ClientId(u64);
@@ -503,6 +341,13 @@ impl Client {
         }
     }
 
+    pub fn get_xdg_toplevel(&self, id: XdgToplevelId) -> Result<Rc<XdgToplevel>, ClientError> {
+        match self.objects.xdg_toplevel.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::XdgToplevelDoesNotExist(id)),
+        }
+    }
+
     pub fn get_xdg_positioner(
         &self,
         id: XdgPositionerId,
@@ -597,8 +442,8 @@ simple_add_obj!(WlDataSource);
 simple_add_obj!(ZwpLinuxDmabufV1Obj);
 simple_add_obj!(ZwpLinuxBufferParamsV1);
 simple_add_obj!(WlDrmObj);
-simple_add_obj!(OrgKdeKwinServerDecorationManagerObj);
-simple_add_obj!(OrgKdeKwinServerDecoration);
+simple_add_obj!(ZxdgToplevelDecorationV1);
+simple_add_obj!(ZxdgDecorationManagerV1Obj);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {

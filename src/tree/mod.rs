@@ -1,11 +1,14 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis};
+use crate::client::ClientId;
 use crate::fixed::Fixed;
+use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, LinkedNode};
+use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 pub use container::*;
 use std::cell::{Cell, RefCell};
@@ -13,9 +16,6 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
-use crate::client::ClientId;
-use crate::ifs::wl_output::WlOutputGlobal;
-use crate::xkbcommon::ModifierState;
 
 mod container;
 mod workspace;
@@ -227,7 +227,7 @@ impl Node for DisplayNode {
             match stacked.find_tree_at(x, y, tree) {
                 FindTreeResult::AcceptsInput => {
                     return FindTreeResult::AcceptsInput;
-                },
+                }
                 FindTreeResult::Other => {
                     tree.drain(idx..);
                 }
@@ -398,7 +398,8 @@ impl Node for FloatNode {
         if let Some(c) = self.child.get() {
             c.set_workspace(ws);
         }
-        self.workspace_link.set(Some(ws.stacked.add_last(self.clone())));
+        self.workspace_link
+            .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
     }
 }

@@ -1,15 +1,15 @@
+use crate::rect::Rect;
 use crate::render::gl::frame_buffer::GlFrameBuffer;
 use crate::render::gl::sys::{
     glBindFramebuffer, glClear, glClearColor, glViewport, GL_COLOR_BUFFER_BIT, GL_FRAMEBUFFER,
 };
 use crate::render::renderer::context::RenderContext;
 use crate::render::renderer::renderer::Renderer;
+use crate::render::sys::{glBlendFunc, GL_ONE, GL_ONE_MINUS_SRC_ALPHA};
 use crate::tree::Node;
+use crate::State;
 use std::ptr;
 use std::rc::Rc;
-use crate::rect::Rect;
-use crate::render::sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA, glBlendFunc};
-use crate::State;
 
 pub struct Framebuffer {
     pub(super) ctx: Rc<RenderContext>,

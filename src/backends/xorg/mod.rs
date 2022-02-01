@@ -19,8 +19,8 @@ use rand::Rng;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::error::Error;
-use std::{ptr, slice};
 use std::rc::Rc;
+use std::{ptr, slice};
 use thiserror::Error;
 use uapi::{c, OwnedFd};
 use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbRender, XcbXinput, XcbXkb};
@@ -256,8 +256,7 @@ impl XorgBackend {
                     pixels: vec![0],
                     ..Default::default()
                 };
-                let cursor =
-                    ctx.create_cursor(&con.xcb, &con.render, slice::from_ref(&image));
+                let cursor = ctx.create_cursor(&con.xcb, &con.render, slice::from_ref(&image));
                 match cursor {
                     Ok(c) => c,
                     Err(e) => {

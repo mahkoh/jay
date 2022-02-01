@@ -1,5 +1,6 @@
 mod types;
 
+use crate::backend::SeatId;
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
@@ -11,16 +12,15 @@ use crate::tree::{ContainerNode, FindTreeResult};
 use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::smallmap::SmallMap;
+use crate::NumCell;
 use ahash::{AHashMap, AHashSet};
 use num_derive::FromPrimitive;
 use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 pub use types::*;
-use crate::backend::{SeatId};
-use crate::NumCell;
-use crate::utils::linkedlist::LinkedNode;
-use crate::utils::smallmap::SmallMap;
 
 const DESTROY: u32 = 0;
 const SET_PARENT: u32 = 1;
@@ -72,6 +72,13 @@ const STATE_TILED_BOTTOM: u32 = 8;
 
 id!(XdgToplevelId);
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum Decoration {
+    #[allow(dead_code)]
+    Client,
+    Server,
+}
+
 pub struct XdgToplevel {
     pub id: XdgToplevelId,
     pub xdg: Rc<XdgSurface>,
@@ -82,6 +89,7 @@ pub struct XdgToplevel {
     states: RefCell<AHashSet<u32>>,
     pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<XdgToplevel>>, 1>,
     active_surfaces: NumCell<u32>,
+    pub decoration: Cell<Decoration>,
 }
 
 impl XdgToplevel {
@@ -101,6 +109,7 @@ impl XdgToplevel {
             states: RefCell::new(states),
             toplevel_history: Default::default(),
             active_surfaces: Default::default(),
+            decoration: Cell::new(Decoration::Server),
         }
     }
 
@@ -114,7 +123,10 @@ impl XdgToplevel {
         };
         if changed {
             let rect = self.xdg.absolute_desired_extents.get();
-            self.xdg.surface.client.event(self.configure(rect.width(), rect.height()));
+            self.xdg
+                .surface
+                .client
+                .event(self.configure(rect.width(), rect.height()));
             self.xdg.send_configure();
         }
     }
@@ -282,17 +294,12 @@ impl XdgToplevel {
             seat_state: Default::default(),
         });
         self.parent_node.set(Some(floater.clone()));
-        floater.display_link.set(Some(
-            state
-                .root
-                .stacked
-                .add_last(floater.clone()),
-        ));
-        floater.workspace_link.set(Some(
-            workspace
-                .stacked
-                .add_last(floater.clone()),
-        ));
+        floater
+            .display_link
+            .set(Some(state.root.stacked.add_last(floater.clone())));
+        floater
+            .workspace_link
+            .set(Some(workspace.stacked.add_last(floater.clone())));
     }
 
     fn map_tiled(self: &Rc<Self>) {
@@ -319,8 +326,12 @@ impl XdgToplevel {
                     container.append_child(self.clone());
                     self.parent_node.set(Some(container));
                 } else {
-                    let container =
-                        Rc::new(ContainerNode::new(state, &workspace, workspace.clone(), self.clone()));
+                    let container = Rc::new(ContainerNode::new(
+                        state,
+                        &workspace,
+                        workspace.clone(),
+                        self.clone(),
+                    ));
                     workspace.set_container(&container);
                     self.parent_node.set(Some(container));
                 };
@@ -444,7 +455,10 @@ impl XdgSurfaceExt for XdgToplevel {
                 let bindings = output.global.bindings.borrow_mut();
                 for binding in bindings.get(&self.xdg.surface.client.id) {
                     for binding in binding.values() {
-                        self.xdg.surface.client.event(self.xdg.surface.enter_event(binding.id));
+                        self.xdg
+                            .surface
+                            .client
+                            .event(self.xdg.surface.enter_event(binding.id));
                     }
                 }
             }

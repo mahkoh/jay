@@ -10,14 +10,14 @@ use crate::render::gl::sys::{
     GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
 };
 use crate::render::renderer::context::RenderContext;
+use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::tree::{
-    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode,
-    WorkspaceNode, CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT,
+    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
+    CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT,
 };
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
-use crate::render::sys::{GL_BLEND, glDisable, glEnable};
 
 const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
 const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);
@@ -233,11 +233,11 @@ impl Renderer<'_> {
                 true => {
                     glEnable(GL_BLEND);
                     &self.ctx.tex_alpha_prog
-                },
+                }
                 false => {
                     glDisable(GL_BLEND);
                     &self.ctx.tex_prog
-                },
+                }
             };
 
             glUseProgram(prog.prog.prog);
@@ -269,14 +269,7 @@ impl Renderer<'_> {
                 0,
                 texcoord.as_ptr() as _,
             );
-            glVertexAttribPointer(
-                prog.pos as _,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
-                0,
-                pos.as_ptr() as _,
-            );
+            glVertexAttribPointer(prog.pos as _, 2, GL_FLOAT, GL_FALSE, 0, pos.as_ptr() as _);
 
             glEnableVertexAttribArray(prog.texcoord as _);
             glEnableVertexAttribArray(prog.pos as _);

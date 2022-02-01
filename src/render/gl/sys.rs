@@ -40,9 +40,9 @@ pub const GL_TRIANGLES: GLenum = 0x0004;
 pub const GL_UNPACK_ROW_LENGTH_EXT: GLenum = 0x0CF2;
 pub const GL_UNSIGNED_BYTE: GLint = 0x1401;
 pub const GL_VERTEX_SHADER: GLenum = 0x8B31;
-pub const GL_BLEND                         : GLenum = 0x0BE2;
-pub const GL_ONE                            : GLenum = 1;
-pub const GL_ONE_MINUS_SRC_ALPHA            : GLenum = 0x0303;
+pub const GL_BLEND: GLenum = 0x0BE2;
+pub const GL_ONE: GLenum = 1;
+pub const GL_ONE_MINUS_SRC_ALPHA: GLenum = 0x0303;
 
 #[link(name = "GLESv2")]
 extern "C" {
@@ -69,7 +69,7 @@ extern "C" {
     );
     pub fn glCheckFramebufferStatus(target: GLenum) -> GLenum;
     pub fn glClear(mask: GLbitfield);
-    pub fn glBlendFunc (sfactor: GLenum, dfactor: GLenum);
+    pub fn glBlendFunc(sfactor: GLenum, dfactor: GLenum);
     pub fn glClearColor(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat);
     #[allow(dead_code)]
     pub fn glFlush();

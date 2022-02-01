@@ -1,5 +1,3 @@
-pub mod org_kde_kwin_server_decoration;
-pub mod org_kde_kwin_server_decoration_manager;
 pub mod wl_buffer;
 pub mod wl_callback;
 pub mod wl_compositor;
@@ -21,3 +19,5 @@ pub mod xdg_positioner;
 pub mod xdg_wm_base;
 pub mod zwp_linux_buffer_params_v1;
 pub mod zwp_linux_dmabuf_v1;
+pub mod zxdg_decoration_manager_v1;
+pub mod zxdg_toplevel_decoration_v1;

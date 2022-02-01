@@ -1,15 +1,15 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_callback::WlCallbackId;
+use crate::ifs::wl_output::WlOutputId;
 use crate::ifs::wl_region::WlRegionId;
 use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
-use crate::ifs::wl_surface::{ENTER, SurfaceRole, WlSurface, WlSurfaceId};
+use crate::ifs::wl_surface::{SurfaceRole, WlSurface, WlSurfaceId, ENTER};
+use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_output::WlOutputId;
-use crate::object::Object;
 
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {

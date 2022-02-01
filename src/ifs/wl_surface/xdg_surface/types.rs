@@ -1,7 +1,7 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopupError, XdgPopupId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelId;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, CONFIGURE, XdgSurfaceRole};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId, XdgSurfaceRole, CONFIGURE};
 use crate::ifs::wl_surface::{WlSurfaceError, WlSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositionerId;
 use crate::object::Object;

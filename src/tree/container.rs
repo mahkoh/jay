@@ -1,3 +1,4 @@
+use crate::ifs::wl_seat::NodeSeatState;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -7,7 +8,6 @@ use crate::{NumCell, State};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use crate::ifs::wl_seat::{NodeSeatState};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -75,7 +75,12 @@ impl ContainerChild {
 }
 
 impl ContainerNode {
-    pub fn new(state: &State, workspace: &Rc<WorkspaceNode>, parent: Rc<dyn Node>, child: Rc<dyn Node>) -> Self {
+    pub fn new(
+        state: &State,
+        workspace: &Rc<WorkspaceNode>,
+        parent: Rc<dyn Node>,
+        child: Rc<dyn Node>,
+    ) -> Self {
         child.clone().set_workspace(workspace);
         let children = LinkedList::new();
         let mut child_nodes = AHashMap::new();
@@ -290,13 +295,11 @@ impl Node for ContainerNode {
         let mut recurse = |content: Rect, child: NodeRef<ContainerChild>| {
             if content.contains(x, y) {
                 let (x, y) = content.translate(x, y);
-                tree.push(
-                    FoundNode {
-                        node: child.node.clone(),
-                        x,
-                        y,
-                    }
-                );
+                tree.push(FoundNode {
+                    node: child.node.clone(),
+                    x,
+                    y,
+                });
                 child.node.find_tree_at(x, y, tree);
             }
         };

@@ -2,7 +2,9 @@ mod types;
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
+use crate::backend::SeatId;
 use crate::client::DynEventFormatter;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
@@ -15,13 +17,11 @@ use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::smallmap::SmallMap;
 use crate::NumCell;
 use std::cell::Cell;
 use std::rc::Rc;
 pub use types::*;
-use crate::backend::SeatId;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
-use crate::utils::smallmap::SmallMap;
 
 const DESTROY: u32 = 0;
 const GET_TOPLEVEL: u32 = 1;
@@ -158,7 +158,9 @@ impl XdgSurface {
     }
 
     pub fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface> {
-        self.focus_surface.get(&seat.id()).unwrap_or_else(|| self.surface.clone())
+        self.focus_surface
+            .get(&seat.id())
+            .unwrap_or_else(|| self.surface.clone())
     }
 
     fn destroy_node(&self) {
@@ -318,16 +320,10 @@ impl XdgSurface {
         }
         match self.surface.find_surface_at(x, y) {
             Some((node, x, y)) => {
-                tree.push(FoundNode {
-                        node,
-                        x,
-                        y,
-                });
+                tree.push(FoundNode { node, x, y });
                 FindTreeResult::AcceptsInput
-            },
-            _ => {
-                FindTreeResult::Other
             }
+            _ => FindTreeResult::Other,
         }
     }
 

@@ -160,7 +160,7 @@ impl WlPointer {
             _ => {
                 // cannot happen
                 return Ok(());
-            },
+            }
         };
         if pointer_node.client_id() != Some(self.seat.client.id) {
             return Ok(());

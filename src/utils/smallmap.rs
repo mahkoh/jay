@@ -11,7 +11,7 @@ pub struct SmallMap<K, V, const N: usize> {
 impl<K, V, const N: usize> Default for SmallMap<K, V, N> {
     fn default() -> Self {
         Self {
-            m: Default::default()
+            m: Default::default(),
         }
     }
 }
@@ -24,9 +24,7 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
     }
 
     pub fn len(&self) -> usize {
-        unsafe {
-            self.m.get().deref().len()
-        }
+        unsafe { self.m.get().deref().len() }
     }
 
     pub fn insert(&self, k: K, v: V) -> Option<V> {
@@ -55,15 +53,11 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
     }
 
     pub fn take(&self) -> SmallVec<[(K, V); N]> {
-        unsafe {
-            mem::take(self.m.get().deref_mut())
-        }
+        unsafe { mem::take(self.m.get().deref_mut()) }
     }
 
     pub fn pop(&self) -> Option<(K, V)> {
-        unsafe {
-            self.m.get().deref_mut().pop()
-        }
+        unsafe { self.m.get().deref_mut().pop() }
     }
 }
 
@@ -86,10 +80,7 @@ impl<'a, K: Copy, V: UnsafeCellCloneSafe, const N: usize> IntoIterator for &'a S
     type IntoIter = SmallMapIter<'a, K, V, N>;
 
     fn into_iter(self) -> Self::IntoIter {
-        SmallMapIter {
-            pos: 0,
-            map: self,
-        }
+        SmallMapIter { pos: 0, map: self }
     }
 }
 

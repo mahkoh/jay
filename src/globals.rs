@@ -1,8 +1,4 @@
-use std::cell::{RefMut};
 use crate::client::{Client, DynEventFormatter};
-use crate::ifs::org_kde_kwin_server_decoration_manager::{
-    OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerGlobal,
-};
 use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
 use crate::ifs::wl_drm::{WlDrmError, WlDrmGlobal};
@@ -13,15 +9,17 @@ use crate::ifs::wl_shm::WlShmError;
 use crate::ifs::wl_subcompositor::WlSubcompositorError;
 use crate::ifs::xdg_wm_base::XdgWmBaseError;
 use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Error;
+use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::{
     NumCell, State, WlCompositorGlobal, WlDataDeviceManagerGlobal, WlShmGlobal,
-    WlSubcompositorGlobal, XdgWmBaseGlobal, ZwpLinuxDmabufV1Global,
+    WlSubcompositorGlobal, XdgWmBaseGlobal, ZwpLinuxDmabufV1Global, ZxdgDecorationManagerV1Global,
 };
+use ahash::AHashMap;
+use std::cell::RefMut;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
-use ahash::AHashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -48,8 +46,8 @@ pub enum GlobalError {
     ZwpLinuxDmabufV1Error(#[source] Box<ZwpLinuxDmabufV1Error>),
     #[error("An error occurred in a `wl_drm` global")]
     WlDrmError(#[source] Box<WlDrmError>),
-    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager` global")]
-    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
+    #[error("An error occurred in a `zxdg_decoration_manager_v1` global")]
+    ZxdgDecorationManagerV1Error(#[source] Box<ZxdgDecorationManagerV1Error>),
 }
 
 efrom!(GlobalError, WlCompositorError);
@@ -61,7 +59,7 @@ efrom!(GlobalError, WlSeatError);
 efrom!(GlobalError, ZwpLinuxDmabufV1Error);
 efrom!(GlobalError, WlDrmError);
 efrom!(GlobalError, WlDataDeviceManagerError);
-efrom!(GlobalError, OrgKdeKwinServerDecorationManagerError);
+efrom!(GlobalError, ZxdgDecorationManagerV1Error);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);
@@ -108,12 +106,26 @@ pub struct Globals {
 
 impl Globals {
     pub fn new() -> Self {
-        Self {
+        let slf = Self {
             next_name: NumCell::new(1),
             registry: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
+        };
+        macro_rules! add_singleton {
+            ($name:ident) => {
+                slf.add_global_no_broadcast(&Rc::new($name::new(slf.name())));
+            };
         }
+        add_singleton!(WlCompositorGlobal);
+        add_singleton!(WlShmGlobal);
+        add_singleton!(WlSubcompositorGlobal);
+        add_singleton!(XdgWmBaseGlobal);
+        add_singleton!(WlDataDeviceManagerGlobal);
+        add_singleton!(ZwpLinuxDmabufV1Global);
+        add_singleton!(WlDrmGlobal);
+        add_singleton!(ZxdgDecorationManagerV1Global);
+        slf
     }
 
     pub fn name(&self) -> GlobalName {
@@ -230,7 +242,7 @@ simple_add_global!(XdgWmBaseGlobal);
 simple_add_global!(WlDataDeviceManagerGlobal);
 simple_add_global!(ZwpLinuxDmabufV1Global);
 simple_add_global!(WlDrmGlobal);
-simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
+simple_add_global!(ZxdgDecorationManagerV1Global);
 
 macro_rules! dedicated_add_global {
     ($ty:ty, $field:ident) => {

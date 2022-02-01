@@ -47,7 +47,7 @@ impl WlDataDeviceManagerGlobal {
         let obj = Rc::new(WlDataDeviceManagerObj {
             id,
             client: client.clone(),
-            version
+            version,
         });
         client.add_client_obj(&obj)?;
         Ok(())
@@ -62,7 +62,10 @@ impl WlDataDeviceManagerObj {
         Ok(())
     }
 
-    fn get_data_device(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetDataDeviceError> {
+    fn get_data_device(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), GetDataDeviceError> {
         let req: GetDataDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.get_wl_seat(req.seat)?;
         let dev = Rc::new(WlDataDevice::new(req.id, self, &seat));

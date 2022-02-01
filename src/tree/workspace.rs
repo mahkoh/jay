@@ -1,3 +1,4 @@
+use crate::ifs::wl_seat::NodeSeatState;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::container::ContainerNode;
@@ -5,7 +6,6 @@ use crate::tree::{AbsoluteNode, FindTreeResult, FoundNode, Node, NodeId, OutputN
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
 use std::rc::Rc;
-use crate::ifs::wl_seat::NodeSeatState;
 
 tree_id!(WorkspaceNodeId);
 

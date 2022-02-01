@@ -5,11 +5,11 @@ use crate::client::{Client, ClientId, DynEventFormatter, WlEvent};
 use crate::globals::{Global, GlobalName};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
+use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::iter;
 use std::rc::Rc;
-use ahash::AHashMap;
 pub use types::*;
 
 id!(WlOutputId);
@@ -119,7 +119,11 @@ impl WlOutputGlobal {
             version,
         });
         client.add_client_obj(&obj)?;
-        self.bindings.borrow_mut().entry(client.id).or_default().insert(id, obj.clone());
+        self.bindings
+            .borrow_mut()
+            .entry(client.id)
+            .or_default()
+            .insert(id, obj.clone());
         client.event(obj.geometry());
         client.event(obj.mode());
         if obj.send_scale() {

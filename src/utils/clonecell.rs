@@ -22,9 +22,7 @@ impl<T: UnsafeCellCloneSafe> CloneCell<T> {
 
     #[inline(always)]
     pub fn set(&self, t: T) -> T {
-        unsafe {
-            mem::replace(self.data.get().deref_mut(), t)
-        }
+        unsafe { mem::replace(self.data.get().deref_mut(), t) }
     }
 
     #[inline(always)]

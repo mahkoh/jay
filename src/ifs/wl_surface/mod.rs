@@ -1,22 +1,28 @@
+pub mod cursor;
 mod types;
 pub mod wl_subsurface;
 pub mod xdg_surface;
-pub mod cursor;
 
 use crate::backend::{KeyState, ScrollAxis, SeatId};
 use crate::client::{Client, ClientId, DynEventFormatter, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
+use crate::ifs::wl_output::WlOutputId;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceRole};
 use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
 use crate::rect::Rect;
+use crate::render::Renderer;
 use crate::tree::{Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
+use crate::utils::smallmap::SmallMap;
+use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
@@ -24,12 +30,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 pub use types::*;
-use crate::ifs::wl_output::WlOutputId;
-use crate::ifs::wl_surface::cursor::CursorSurface;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceRole};
-use crate::render::Renderer;
-use crate::utils::smallmap::SmallMap;
-use crate::xkbcommon::ModifierState;
 
 const DESTROY: u32 = 0;
 const ATTACH: u32 = 1;
@@ -197,7 +197,10 @@ impl WlSurface {
         self.role.get() == SurfaceRole::Cursor
     }
 
-    pub fn get_cursor(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) -> Result<Rc<CursorSurface>, WlSurfaceError> {
+    pub fn get_cursor(
+        self: &Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+    ) -> Result<Rc<CursorSurface>, WlSurfaceError> {
         if let Some(cursor) = self.cursors.get(&seat.id()) {
             return Ok(cursor);
         }
