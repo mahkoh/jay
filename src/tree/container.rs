@@ -27,7 +27,7 @@ pub enum ContainerFocus {
 tree_id!(ContainerNodeId);
 
 pub const CONTAINER_TITLE_HEIGHT: i32 = 18;
-pub const CONTAINER_BORDER: i32 = 2;
+pub const CONTAINER_BORDER: i32 = 4;
 
 pub struct ContainerNode {
     pub id: ContainerNodeId,
