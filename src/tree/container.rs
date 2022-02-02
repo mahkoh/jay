@@ -7,8 +7,11 @@ use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{NumCell, State};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
+use std::mem;
 use std::rc::Rc;
+use crate::backend::SeatId;
 use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -48,6 +51,7 @@ pub struct ContainerNode {
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
     seat_state: NodeSeatState,
     workspace: CloneCell<Rc<WorkspaceNode>>,
+    seats: RefCell<AHashMap<SeatId, SeatState>>,
 }
 
 pub struct ContainerChild {
@@ -56,6 +60,13 @@ pub struct ContainerChild {
     pub content: Cell<Rect>,
     factor: Cell<f64>,
     pub focus: Cell<ContainerFocus>,
+}
+
+struct SeatState {
+    cursor: KnownCursor,
+    target: bool,
+    x: i32,
+    y: i32,
 }
 
 impl ContainerChild {
@@ -98,7 +109,7 @@ impl ContainerNode {
         Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent),
-            split: Cell::new(ContainerSplit::Horizontal),
+            split: Cell::new(ContainerSplit::Vertical),
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
             mono_content: Cell::new(Default::default()),
@@ -113,6 +124,7 @@ impl ContainerNode {
             child_nodes: RefCell::new(child_nodes),
             seat_state: Default::default(),
             workspace: CloneCell::new(workspace.clone()),
+            seats: RefCell::new(Default::default()),
         }
     }
 
@@ -197,7 +209,7 @@ impl ContainerNode {
                 ContainerSplit::Horizontal => {
                     (pos, CONTAINER_TITLE_HEIGHT, body_size, other_content_size)
                 }
-                _ => (0, pos, other_content_size, body_size),
+                _ => (0, pos + CONTAINER_TITLE_HEIGHT, other_content_size, body_size),
             };
             let body = Rect::new_sized(x1, y1, width, height).unwrap();
             child.body.set(body);
@@ -267,6 +279,44 @@ impl ContainerNode {
                 );
                 self.content_height.set(new_content_size);
                 self.content_width.set(self.width.get());
+            }
+        }
+    }
+
+    fn pointer_move(&self, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
+        let mut seats = self.seats.borrow_mut();
+        let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
+            cursor: KnownCursor::Default,
+            target: false,
+            x,
+            y,
+        });
+        seat_state.x = x;
+        seat_state.y = y;
+        let new_cursor = if self.mono_child.get().is_some() {
+            KnownCursor::Default
+        } else if self.split.get() == ContainerSplit::Horizontal {
+            if y < CONTAINER_TITLE_HEIGHT {
+                KnownCursor::Default
+            } else {
+                KnownCursor::ResizeLeftRight
+            }
+        } else {
+            let mut cursor = KnownCursor::Default;
+            for child in self.children.iter() {
+                let body = child.body.get();
+                if body.y1() > y {
+                    if body.y1() - y > CONTAINER_TITLE_HEIGHT {
+                        cursor = KnownCursor::ResizeTopBottom
+                    }
+                    break;
+                }
+            }
+            cursor
+        };
+        if new_cursor != mem::replace(&mut seat_state.cursor, new_cursor) {
+            if seat_state.target {
+                seat.set_known_cursor(new_cursor);
             }
         }
     }
@@ -355,8 +405,27 @@ impl Node for ContainerNode {
         }
     }
 
+    fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
+        let mut seats = self.seats.borrow_mut();
+        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+            seat_state.target = false;
+        }
+    }
+
     fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
+        let mut seats = self.seats.borrow_mut();
+        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+            seat_state.target = true;
+            seat.set_known_cursor(seat_state.cursor);
+        }
+    }
+
+    fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
+    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

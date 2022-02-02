@@ -131,6 +131,8 @@ impl WlSeatGlobal {
         };
         let tpl = match cursor {
             KnownCursor::Default => &cursors.default,
+            KnownCursor::ResizeLeftRight => &cursors.resize_left_right,
+            KnownCursor::ResizeTopBottom => &cursors.resize_top_bottom,
         };
         self.set_cursor(Some(tpl.instantiate()));
     }
@@ -145,7 +147,6 @@ impl WlSeatGlobal {
             old.handle_unset();
         }
         if let Some(cursor) = cursor.as_ref() {
-            log::info!("setting new cursor");
             let (x, y) = self.pos.get();
             cursor.set_position(x.round_down(), y.round_down());
         }

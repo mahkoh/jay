@@ -51,6 +51,8 @@ pub struct ServerCursors {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum KnownCursor {
     Default,
+    ResizeLeftRight,
+    ResizeTopBottom,
 }
 
 impl ServerCursors {
@@ -61,8 +63,8 @@ impl ServerCursors {
             ServerCursorTemplate::load(name, None, 16, &paths, ctx)
         };
         Ok(Self {
-            // default: load("left_ptr")?,
-            default: load("left_ptr_watch")?,
+            default: load("left_ptr")?,
+            // default: load("left_ptr_watch")?,
             resize_right: load("right_side")?,
             resize_left: load("left_side")?,
             resize_top: load("top_side")?,

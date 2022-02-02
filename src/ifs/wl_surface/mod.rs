@@ -632,7 +632,7 @@ impl Node for WlSurface {
         seat.enter_surface(&self, x, y)
     }
 
-    fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
+    fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.motion_surface(self, x, y)
     }
 

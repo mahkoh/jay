@@ -147,10 +147,10 @@ impl Renderer<'_> {
                         .unwrap()
                     } else {
                         Rect::new_sized(
-                            x + body.x1(),
+                            x,
                             y + body.y2(),
                             container.width.get(),
-                            CONTAINER_BORDER,
+                            CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT,
                         )
                         .unwrap()
                     };

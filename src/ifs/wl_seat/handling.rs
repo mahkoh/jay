@@ -339,16 +339,27 @@ impl WlSeatGlobal {
                 }
             }
         } else {
+            if let Some(last) = stack.last() {
+                last.pointer_untarget(self);
+            }
             for old in stack.drain(divergence..).rev() {
                 old.leave(self);
                 old.seat_state().leave(self);
             }
-            for new in found_tree.drain(divergence..) {
-                new.node.seat_state().enter(self);
-                new.node
-                    .clone()
-                    .enter(self, x.apply_fract(new.x), y.apply_fract(new.y));
-                stack.push(new.node);
+            if found_tree.len() == divergence {
+                if let Some(node) = found_tree.last() {
+                    node.node
+                        .clone()
+                        .motion(self, x.apply_fract(node.x), y.apply_fract(node.y));
+                }
+            } else {
+                for new in found_tree.drain(divergence..) {
+                    new.node.seat_state().enter(self);
+                    new.node
+                        .clone()
+                        .enter(self, x.apply_fract(new.x), y.apply_fract(new.y));
+                    stack.push(new.node);
+                }
             }
             if let Some(node) = stack.last() {
                 node.pointer_target(self);

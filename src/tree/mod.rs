@@ -127,11 +127,15 @@ pub trait Node {
         let _ = y;
     }
 
+    fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
+    }
+
     fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
 
-    fn motion(&self, seat: &WlSeatGlobal, x: Fixed, y: Fixed) {
+    fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         let _ = seat;
         let _ = x;
         let _ = y;
