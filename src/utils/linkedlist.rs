@@ -196,6 +196,29 @@ impl<T> NodeRef<T> {
     pub fn append(&self, t: T) -> LinkedNode<T> {
         unsafe { append(self.data, t) }
     }
+
+    pub fn prev(&self) -> NodeRef<T> {
+        unsafe {
+            let data = self.data.as_ref();
+            let other = data.prev.get();
+            other.as_ref().rc.fetch_add(1);
+            NodeRef {
+                data: other,
+            }
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn next(&self) -> NodeRef<T> {
+        unsafe {
+            let data = self.data.as_ref();
+            let other = data.next.get();
+            other.as_ref().rc.fetch_add(1);
+            NodeRef {
+                data: other,
+            }
+        }
+    }
 }
 
 struct NodeData<T> {

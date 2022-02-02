@@ -294,12 +294,27 @@ impl WlSeatGlobal {
         self.handle_new_position(false);
     }
 
-    fn handle_new_position(self: &Rc<Self>, changed: bool) {
+    fn handle_new_position(self: &Rc<Self>, pos_changed: bool) {
         let (x, y) = self.pos.get();
-        if changed {
+        if pos_changed {
             if let Some(cursor) = self.cursor.get() {
                 cursor.set_position(x.round_down(), y.round_down());
             }
+        }
+        'handle_grab: {
+            let grab_node = {
+                let grabber = self.grabber.borrow_mut();
+                match grabber.as_ref() {
+                    Some(n) => n.node.clone(),
+                    None => break 'handle_grab,
+                }
+            };
+            if pos_changed {
+                let pos = grab_node.absolute_position();
+                let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
+                grab_node.motion(self, x.apply_fract(x_int), y.apply_fract(y_int));
+            }
+            return;
         }
         let mut found_tree = self.found_tree.borrow_mut();
         let mut stack = self.pointer_stack.borrow_mut();
@@ -332,7 +347,7 @@ impl WlSeatGlobal {
             }
         }
         if (stack.len(), found_tree.len()) == (divergence, divergence) {
-            if changed {
+            if pos_changed {
                 if let Some(node) = found_tree.last() {
                     node.node
                         .motion(self, x.apply_fract(node.x), y.apply_fract(node.y));

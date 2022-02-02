@@ -1,9 +1,7 @@
 #![feature(
-    generic_associated_types,
-    type_alias_impl_trait,
-    never_type,
     c_variadic,
-    thread_local
+    thread_local,
+    label_break_value,
 )]
 #![allow(
     clippy::len_zero,

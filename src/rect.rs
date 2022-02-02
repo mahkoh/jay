@@ -97,6 +97,7 @@ impl Rect {
         self.x1 <= x && self.y1 <= y && self.x2 > x && self.y2 > y
     }
 
+    #[allow(dead_code)]
     pub fn contains_rect(&self, rect: &Self) -> bool {
         self.x1 <= rect.x1 && self.y1 <= rect.x1 && rect.x2 <= self.x2 && rect.y2 <= self.y2
     }

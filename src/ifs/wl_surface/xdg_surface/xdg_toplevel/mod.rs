@@ -1,6 +1,6 @@
 mod types;
 
-use crate::backend::SeatId;
+use crate::backend::{SeatId};
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
@@ -388,6 +388,10 @@ impl Node for XdgToplevel {
         self.xdg.seat_state.destroy_node(self)
     }
 
+    fn absolute_position(&self) -> Rect {
+        self.xdg.absolute_desired_extents.get()
+    }
+
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         self.xdg.find_tree_at(x, y, tree)
     }
@@ -405,12 +409,14 @@ impl Node for XdgToplevel {
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {
+        let nw = rect.width();
+        let nh = rect.height();
         let de = self.xdg.absolute_desired_extents.replace(*rect);
-        if de.width() != rect.width() || de.height() != rect.height() {
+        if de.width() != nw || de.height() != nh {
             self.xdg
                 .surface
                 .client
-                .event(self.configure(rect.width(), rect.height()));
+                .event(self.configure(nw.max(1), nh.max(1)));
             self.xdg.send_configure();
             self.xdg.surface.client.flush();
         }

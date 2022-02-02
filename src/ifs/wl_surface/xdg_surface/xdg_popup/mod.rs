@@ -8,7 +8,7 @@ use crate::ifs::xdg_positioner::{XdgPositioned, XdgPositioner, CA};
 use crate::object::{Interface, Object, ObjectId};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{AbsoluteNode, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedNode;
@@ -37,8 +37,8 @@ pub struct XdgPopup {
     pub xdg: Rc<XdgSurface>,
     pub(super) parent: CloneCell<Option<Rc<XdgSurface>>>,
     relative_position: Cell<Rect>,
-    display_link: RefCell<Option<LinkedNode<Rc<dyn AbsoluteNode>>>>,
-    workspace_link: RefCell<Option<LinkedNode<Rc<dyn AbsoluteNode>>>>,
+    display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
+    workspace_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
     pos: RefCell<XdgPositioned>,
 }
 
@@ -268,16 +268,6 @@ impl Object for XdgPopup {
     }
 }
 
-impl AbsoluteNode for XdgPopup {
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
-    }
-
-    fn absolute_position(&self) -> (Rect, bool) {
-        (self.xdg.absolute_desired_extents.get(), false)
-    }
-}
-
 impl Node for XdgPopup {
     fn id(&self) -> NodeId {
         self.node_id.into()
@@ -292,6 +282,14 @@ impl Node for XdgPopup {
         let _v = self.workspace_link.borrow_mut().take();
         self.xdg.destroy_node();
         self.xdg.seat_state.destroy_node(self);
+    }
+
+    fn absolute_position(&self) -> Rect {
+        self.xdg.absolute_desired_extents.get()
+    }
+
+    fn absolute_position_constrains_input(&self) -> bool {
+        false
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {

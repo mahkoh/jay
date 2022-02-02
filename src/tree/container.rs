@@ -1,4 +1,4 @@
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{BTN_LEFT, NodeSeatState, PointerGrab, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -8,8 +8,9 @@ use crate::{NumCell, State};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::mem;
+use std::ops::DerefMut;
 use std::rc::Rc;
-use crate::backend::SeatId;
+use crate::backend::{KeyState, SeatId};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 
@@ -67,6 +68,7 @@ struct SeatState {
     target: bool,
     x: i32,
     y: i32,
+    op: Option<SeatOp>,
 }
 
 impl ContainerChild {
@@ -109,7 +111,7 @@ impl ContainerNode {
         Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent),
-            split: Cell::new(ContainerSplit::Vertical),
+            split: Cell::new(ContainerSplit::Horizontal),
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
             mono_content: Cell::new(Default::default()),
@@ -290,9 +292,40 @@ impl ContainerNode {
             target: false,
             x,
             y,
+            op: None,
         });
         seat_state.x = x;
         seat_state.y = y;
+        if let Some(op) = &seat_state.op {
+            match op.kind {
+                SeatOpKind::Move => {
+                    // todo
+                }
+                SeatOpKind::Resize { dist_left, dist_right } => {
+                    let prev = op.child.prev();
+                    let prev_body = prev.body.get();
+                    let child_body = op.child.body.get();
+                    match self.split.get() {
+                        ContainerSplit::Horizontal => {
+                            let cw = self.content_width.get();
+                            if prev_body.x1() + dist_left > x || x + dist_right > child_body.x2() {
+                                return;
+                            }
+                            let prev_factor = (x - prev_body.x1() - dist_left) as f64 / cw as f64;
+                            let child_factor = (child_body.x2() - x - dist_right) as f64 / cw as f64;
+                            let sum_factors = 1.0 - prev.factor.get() - op.child.factor.get() + prev_factor + child_factor;
+                            prev.factor.set(prev_factor);
+                            op.child.factor.set(child_factor);
+                            self.apply_factors(sum_factors);
+                        }
+                        ContainerSplit::Vertical => {
+                            // todo
+                        }
+                    }
+                }
+            }
+            return;
+        }
         let new_cursor = if self.mono_child.get().is_some() {
             KnownCursor::Default
         } else if self.split.get() == ContainerSplit::Horizontal {
@@ -322,6 +355,21 @@ impl ContainerNode {
     }
 }
 
+struct SeatOp {
+    _grab: PointerGrab,
+    child: NodeRef<ContainerChild>,
+    kind: SeatOpKind,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum SeatOpKind {
+    Move,
+    Resize {
+        dist_left: i32,
+        dist_right: i32,
+    }
+}
+
 impl Node for ContainerNode {
     fn id(&self) -> NodeId {
         self.id.into()
@@ -335,11 +383,95 @@ impl Node for ContainerNode {
         if detach {
             self.parent.get().remove_child(self);
         }
+        mem::take(self.seats.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
         for (_, n) in cn.drain() {
             n.node.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn absolute_position(&self) -> Rect {
+        Rect::new_sized(self.abs_x1.get(), self.abs_y1.get(), self.width.get(), self.height.get()).unwrap()
+    }
+
+    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+        if button != BTN_LEFT {
+            return;
+        }
+        let mut seat_datas = self.seats.borrow_mut();
+        let seat_data = match seat_datas.get_mut(&seat.id()) {
+            Some(s) => s,
+            _ => return,
+        };
+        if seat_data.op.is_none() {
+            if state != KeyState::Pressed {
+                return;
+            }
+            let (kind, child) = 'res: {
+                if self.mono_child.get().is_some() {
+                    let width_per_child = self.width.get() / self.num_children.get() as i32;
+                    let mut width_per_child_rem = self.width.get() % self.num_children.get() as i32;
+                    let mut pos = 0;
+                    for child in self.children.iter() {
+                        pos += width_per_child;
+                        if width_per_child_rem > 0 {
+                            pos += 1;
+                            width_per_child_rem -= 1;
+                        }
+                        if pos > seat_data.x {
+                            break 'res (SeatOpKind::Move, child);
+                        }
+                    }
+                } else if self.split.get() == ContainerSplit::Horizontal {
+                    for child in self.children.iter() {
+                        let body = child.body.get();
+                        if seat_data.x < body.x2() {
+                            let op = if seat_data.x < body.x1() {
+                                SeatOpKind::Resize {
+                                    dist_left: seat_data.x - child.prev().body.get().x2(),
+                                    dist_right: body.x1() - seat_data.x,
+                                }
+                            } else {
+                                SeatOpKind::Move
+                            };
+                            break 'res (op, child);
+                        }
+                    }
+                } else {
+                    for child in self.children.iter() {
+                        let body = child.body.get();
+                        if seat_data.x < body.y1() {
+                            let op = if seat_data.x < body.y1() - CONTAINER_TITLE_HEIGHT {
+                                SeatOpKind::Resize {
+                                    dist_left: seat_data.y - child.prev().body.get().y2(),
+                                    dist_right: body.y1() - seat_data.x,
+                                }
+                            } else {
+                                SeatOpKind::Move
+                            };
+                            break 'res (op, child);
+                        }
+                    }
+                };
+                return;
+            };
+            let grab = match seat.grab_pointer(self.clone()) {
+                None => return,
+                Some(g) => g,
+            };
+            seat_data.op = Some(SeatOp {
+                _grab: grab,
+                child,
+                kind,
+            })
+        } else if state == KeyState::Released {
+            let op = seat_data.op.take().unwrap();
+            drop(seat_datas);
+            if op.kind == SeatOpKind::Move {
+                // todo
+            }
+        }
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -405,6 +537,10 @@ impl Node for ContainerNode {
         }
     }
 
+    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
     fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
@@ -421,10 +557,6 @@ impl Node for ContainerNode {
     }
 
     fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
-    }
-
-    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 

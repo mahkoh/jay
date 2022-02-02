@@ -60,16 +60,18 @@ pub enum FindTreeResult {
     Other,
 }
 
-pub trait AbsoluteNode: Node {
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
-
-    fn absolute_position(&self) -> (Rect, bool);
-}
-
 pub trait Node {
     fn id(&self) -> NodeId;
     fn seat_state(&self) -> &NodeSeatState;
     fn destroy_node(&self, detach: bool);
+
+    fn absolute_position(&self) -> Rect {
+        Rect::new_empty(0, 0)
+    }
+
+    fn absolute_position_constrains_input(&self) -> bool {
+        true
+    }
 
     fn active_changed(&self, active: bool) {
         let _ = active;
@@ -183,7 +185,7 @@ tree_id!(ToplevelNodeId);
 pub struct DisplayNode {
     pub id: NodeId,
     pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
-    pub stacked: LinkedList<Rc<dyn AbsoluteNode>>,
+    pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
 }
 
@@ -221,15 +223,15 @@ impl Node for DisplayNode {
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         for stacked in self.stacked.rev_iter() {
-            let (ext, constrain) = stacked.absolute_position();
-            if constrain && !ext.contains(x, y) {
+            let ext = stacked.absolute_position();
+            if stacked.absolute_position_constrains_input() && !ext.contains(x, y) {
                 // TODO: make constrain always true
                 continue;
             }
             let (x, y) = ext.translate(x, y);
             let idx = tree.len();
             tree.push(FoundNode {
-                node: stacked.deref().clone().into_node(),
+                node: stacked.deref().clone(),
                 x,
                 y,
             });
@@ -295,6 +297,10 @@ impl Node for OutputNode {
         self.seat_state.destroy_node(self);
     }
 
+    fn absolute_position(&self) -> Rect {
+        self.position.get()
+    }
+
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         if let Some(ws) = self.workspace.get() {
             tree.push(FoundNode {
@@ -333,21 +339,11 @@ pub struct FloatNode {
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub display: Rc<DisplayNode>,
-    pub display_link: Cell<Option<LinkedNode<Rc<dyn AbsoluteNode>>>>,
-    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn AbsoluteNode>>>>,
+    pub display_link: Cell<Option<LinkedNode<Rc<dyn Node>>>>,
+    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn Node>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub child: CloneCell<Option<Rc<dyn Node>>>,
     pub seat_state: NodeSeatState,
-}
-
-impl AbsoluteNode for FloatNode {
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
-    }
-
-    fn absolute_position(&self) -> (Rect, bool) {
-        (self.position.get(), true)
-    }
 }
 
 impl Node for FloatNode {
@@ -366,6 +362,10 @@ impl Node for FloatNode {
             child.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn absolute_position(&self) -> Rect {
+        self.position.get()
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {

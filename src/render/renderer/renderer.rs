@@ -50,7 +50,7 @@ impl Renderer<'_> {
             self.render_container(&node, x, y)
         }
         for stacked in workspace.stacked.iter() {
-            let (pos, _) = stacked.absolute_position();
+            let pos = stacked.absolute_position();
             stacked.render(self, pos.x1(), pos.y1());
         }
     }

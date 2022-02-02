@@ -2,7 +2,7 @@ use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::container::ContainerNode;
-use crate::tree::{AbsoluteNode, FindTreeResult, FoundNode, Node, NodeId, OutputNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
 use std::rc::Rc;
@@ -14,7 +14,7 @@ pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub output: CloneCell<Rc<OutputNode>>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
-    pub stacked: LinkedList<Rc<dyn AbsoluteNode>>,
+    pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
 }
 
@@ -44,6 +44,10 @@ impl Node for WorkspaceNode {
             container.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn absolute_position(&self) -> Rect {
+        self.output.get().position.get()
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {

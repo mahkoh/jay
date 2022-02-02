@@ -50,10 +50,24 @@ const TOUCH: u32 = 4;
 #[allow(dead_code)]
 const MISSING_CAPABILITY: u32 = 0;
 
-#[allow(dead_code)]
-const BTN_LEFT: u32 = 0x110;
+pub const BTN_LEFT: u32 = 0x110;
 
 pub const SEAT_NAME_SINCE: u32 = 2;
+
+pub struct PointerGrab {
+    seat: Rc<WlSeatGlobal>,
+}
+
+pub struct PointerGrabber {
+    node: Rc<dyn Node>,
+}
+
+impl Drop for PointerGrab {
+    fn drop(&mut self) {
+        *self.seat.grabber.borrow_mut() = None;
+        self.seat.tree_changed();
+    }
+}
 
 pub struct WlSeatGlobal {
     name: GlobalName,
@@ -76,6 +90,7 @@ pub struct WlSeatGlobal {
     layout_size: u32,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     serial: NumCell<u32>,
+    grabber: RefCell<Option<PointerGrabber>>,
 }
 
 impl WlSeatGlobal {
@@ -118,7 +133,21 @@ impl WlSeatGlobal {
             layout_size,
             cursor: Default::default(),
             serial: Default::default(),
+            grabber: RefCell::new(None),
         }
+    }
+
+    pub fn grab_pointer(self: &Rc<Self>, node: Rc<dyn Node>) -> Option<PointerGrab> {
+        let mut grabber = self.grabber.borrow_mut();
+        if grabber.is_some() {
+            return None;
+        }
+        *grabber = Some(PointerGrabber {
+            node,
+        });
+        Some(PointerGrab {
+            seat: self.clone(),
+        })
     }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
