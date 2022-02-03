@@ -1,6 +1,7 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
 use crate::backend::{BackendEvent, OutputId, OutputIds, SeatId, SeatIds};
 use crate::client::{Client, Clients};
+use crate::cursor::ServerCursors;
 use crate::event_loop::EventLoop;
 use crate::globals::{AddGlobal, Globals};
 use crate::ifs::wl_output::WlOutputGlobal;
@@ -18,7 +19,6 @@ use crate::{ErrorFmt, Wheel};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use crate::cursor::ServerCursors;
 
 pub struct State {
     pub eng: Rc<AsyncEngine>,

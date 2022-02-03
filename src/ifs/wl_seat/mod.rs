@@ -6,6 +6,7 @@ pub mod wl_touch;
 
 use crate::backend::{Seat, SeatId};
 use crate::client::{Client, ClientId, DynEventFormatter};
+use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceId};
@@ -30,7 +31,6 @@ use std::io::Write;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
-use crate::cursor::{Cursor, KnownCursor};
 
 id!(WlSeatId);
 
@@ -142,12 +142,8 @@ impl WlSeatGlobal {
         if grabber.is_some() {
             return None;
         }
-        *grabber = Some(PointerGrabber {
-            node,
-        });
-        Some(PointerGrab {
-            seat: self.clone(),
-        })
+        *grabber = Some(PointerGrabber { node });
+        Some(PointerGrab { seat: self.clone() })
     }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {

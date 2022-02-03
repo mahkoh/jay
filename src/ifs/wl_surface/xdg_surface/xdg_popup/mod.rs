@@ -1,6 +1,7 @@
 mod types;
 
 use crate::client::{ClientId, DynEventFormatter};
+use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
@@ -15,7 +16,6 @@ use crate::utils::linkedlist::LinkedNode;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 pub use types::*;
-use crate::cursor::KnownCursor;
 
 const DESTROY: u32 = 0;
 const GRAB: u32 = 1;

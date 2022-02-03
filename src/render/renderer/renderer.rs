@@ -1,3 +1,4 @@
+use crate::format::Format;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
@@ -11,6 +12,7 @@ use crate::render::gl::sys::{
 };
 use crate::render::renderer::context::RenderContext;
 use crate::render::sys::{glDisable, glEnable, GL_BLEND};
+use crate::render::Texture;
 use crate::tree::{
     ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
     CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT,
@@ -18,8 +20,6 @@ use crate::tree::{
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
-use crate::format::Format;
-use crate::render::Texture;
 
 const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
 const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);

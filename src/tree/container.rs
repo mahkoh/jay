@@ -1,4 +1,7 @@
-use crate::ifs::wl_seat::{BTN_LEFT, NodeSeatState, PointerGrab, WlSeatGlobal};
+use crate::backend::{KeyState, SeatId};
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::{NodeSeatState, PointerGrab, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -10,9 +13,6 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
-use crate::backend::{KeyState, SeatId};
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -211,7 +211,12 @@ impl ContainerNode {
                 ContainerSplit::Horizontal => {
                     (pos, CONTAINER_TITLE_HEIGHT, body_size, other_content_size)
                 }
-                _ => (0, pos + CONTAINER_TITLE_HEIGHT, other_content_size, body_size),
+                _ => (
+                    0,
+                    pos + CONTAINER_TITLE_HEIGHT,
+                    other_content_size,
+                    body_size,
+                ),
             };
             let body = Rect::new_sized(x1, y1, width, height).unwrap();
             child.body.set(body);
@@ -301,27 +306,41 @@ impl ContainerNode {
                 SeatOpKind::Move => {
                     // todo
                 }
-                SeatOpKind::Resize { dist_left, dist_right } => {
+                SeatOpKind::Resize {
+                    dist_left,
+                    dist_right,
+                } => {
                     let prev = op.child.prev();
                     let prev_body = prev.body.get();
                     let child_body = op.child.body.get();
-                    match self.split.get() {
+                    let (prev_factor, child_factor) = match self.split.get() {
                         ContainerSplit::Horizontal => {
                             let cw = self.content_width.get();
                             if prev_body.x1() + dist_left > x || x + dist_right > child_body.x2() {
                                 return;
                             }
                             let prev_factor = (x - prev_body.x1() - dist_left) as f64 / cw as f64;
-                            let child_factor = (child_body.x2() - x - dist_right) as f64 / cw as f64;
-                            let sum_factors = 1.0 - prev.factor.get() - op.child.factor.get() + prev_factor + child_factor;
-                            prev.factor.set(prev_factor);
-                            op.child.factor.set(child_factor);
-                            self.apply_factors(sum_factors);
+                            let child_factor =
+                                (child_body.x2() - x - dist_right) as f64 / cw as f64;
+                            (prev_factor, child_factor)
                         }
                         ContainerSplit::Vertical => {
-                            // todo
+                            let ch = self.content_height.get();
+                            if prev_body.y1() + dist_left > y || y + dist_right > child_body.y2() {
+                                return;
+                            }
+                            let prev_factor = (y - prev_body.y1() - dist_left) as f64 / ch as f64;
+                            let child_factor =
+                                (child_body.y2() - y - dist_right) as f64 / ch as f64;
+                            (prev_factor, child_factor)
                         }
-                    }
+                    };
+                    let sum_factors = 1.0 - prev.factor.get() - op.child.factor.get()
+                        + prev_factor
+                        + child_factor;
+                    prev.factor.set(prev_factor);
+                    op.child.factor.set(child_factor);
+                    self.apply_factors(sum_factors);
                 }
             }
             return;
@@ -364,10 +383,7 @@ struct SeatOp {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum SeatOpKind {
     Move,
-    Resize {
-        dist_left: i32,
-        dist_right: i32,
-    }
+    Resize { dist_left: i32, dist_right: i32 },
 }
 
 impl Node for ContainerNode {
@@ -392,7 +408,13 @@ impl Node for ContainerNode {
     }
 
     fn absolute_position(&self) -> Rect {
-        Rect::new_sized(self.abs_x1.get(), self.abs_y1.get(), self.width.get(), self.height.get()).unwrap()
+        Rect::new_sized(
+            self.abs_x1.get(),
+            self.abs_y1.get(),
+            self.width.get(),
+            self.height.get(),
+        )
+        .unwrap()
     }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
@@ -441,11 +463,11 @@ impl Node for ContainerNode {
                 } else {
                     for child in self.children.iter() {
                         let body = child.body.get();
-                        if seat_data.x < body.y1() {
-                            let op = if seat_data.x < body.y1() - CONTAINER_TITLE_HEIGHT {
+                        if seat_data.y < body.y1() {
+                            let op = if seat_data.y < body.y1() - CONTAINER_TITLE_HEIGHT {
                                 SeatOpKind::Resize {
                                     dist_left: seat_data.y - child.prev().body.get().y2(),
-                                    dist_right: body.y1() - seat_data.x,
+                                    dist_right: body.y1() - seat_data.y,
                                 }
                             } else {
                                 SeatOpKind::Move
@@ -456,6 +478,7 @@ impl Node for ContainerNode {
                 };
                 return;
             };
+            log::info!("op = {:?}", kind);
             let grab = match seat.grab_pointer(self.clone()) {
                 None => return,
                 Some(g) => g,

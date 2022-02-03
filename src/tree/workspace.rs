@@ -1,3 +1,4 @@
+use crate::cursor::KnownCursor;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
@@ -6,7 +7,6 @@ use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
 use std::rc::Rc;
-use crate::cursor::KnownCursor;
 
 tree_id!(WorkspaceNodeId);
 

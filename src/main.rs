@@ -1,8 +1,4 @@
-#![feature(
-    c_variadic,
-    thread_local,
-    label_break_value,
-)]
+#![feature(c_variadic, thread_local, label_break_value)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,
@@ -49,6 +45,7 @@ mod acceptor;
 mod async_engine;
 mod backend;
 mod backends;
+mod bugs;
 mod client;
 mod clientmem;
 mod cursor;

@@ -1,10 +1,10 @@
+use crate::cursor::Cursor;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use std::cell::Cell;
 use std::rc::Rc;
-use crate::cursor::Cursor;
 
 pub struct CursorSurface {
     seat: Rc<WlSeatGlobal>,

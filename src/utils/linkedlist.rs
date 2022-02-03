@@ -202,9 +202,7 @@ impl<T> NodeRef<T> {
             let data = self.data.as_ref();
             let other = data.prev.get();
             other.as_ref().rc.fetch_add(1);
-            NodeRef {
-                data: other,
-            }
+            NodeRef { data: other }
         }
     }
 
@@ -214,9 +212,7 @@ impl<T> NodeRef<T> {
             let data = self.data.as_ref();
             let other = data.next.get();
             other.as_ref().rc.fetch_add(1);
-            NodeRef {
-                data: other,
-            }
+            NodeRef { data: other }
         }
     }
 }

@@ -1,3 +1,4 @@
+use crate::format::ARGB8888;
 use crate::rect::Rect;
 use crate::render::{RenderContext, Renderer, Texture};
 use crate::{ErrorFmt, NumCell, RenderError};
@@ -10,12 +11,11 @@ use std::convert::TryInto;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
+use std::mem::MaybeUninit;
 use std::rc::Rc;
 use std::{env, io, slice, str};
-use std::mem::MaybeUninit;
 use thiserror::Error;
 use uapi::c;
-use crate::format::ARGB8888;
 
 const XCURSOR_MAGIC: u32 = 0x72756358;
 const XCURSOR_IMAGE_TYPE: u32 = 0xfffd0002;
@@ -30,8 +30,8 @@ pub trait Cursor {
     fn set_position(&self, x: i32, y: i32);
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32);
     fn extents(&self) -> Rect;
-    fn handle_unset(&self) { }
-    fn tick(&self) { }
+    fn handle_unset(&self) {}
+    fn tick(&self) {}
 }
 
 pub struct ServerCursors {
@@ -59,9 +59,7 @@ impl ServerCursors {
     pub fn load(ctx: &Rc<RenderContext>) -> Result<Self, CursorError> {
         let paths = find_cursor_paths();
         log::debug!("Trying to load cursors from paths {:?}", paths);
-        let load = |name: &str| {
-            ServerCursorTemplate::load(name, None, 16, &paths, ctx)
-        };
+        let load = |name: &str| ServerCursorTemplate::load(name, None, 16, &paths, ctx);
         Ok(Self {
             default: load("left_ptr")?,
             // default: load("left_ptr_watch")?,
@@ -100,14 +98,24 @@ impl ServerCursorTemplate {
             Ok(c) => {
                 if c.len() == 1 {
                     let c = &c[0];
-                    let cursor = CursorImage::from_bytes(ctx, &c.pixels, 0, c.width, c.height, c.xhot, c.yhot)?;
+                    let cursor = CursorImage::from_bytes(
+                        ctx, &c.pixels, 0, c.width, c.height, c.xhot, c.yhot,
+                    )?;
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
                     })
                 } else {
-                    let mut images = vec!();
+                    let mut images = vec![];
                     for c in c {
-                        let img = CursorImage::from_bytes(ctx, &c.pixels, c.delay as _, c.width, c.height, c.xhot, c.yhot)?;
+                        let img = CursorImage::from_bytes(
+                            ctx,
+                            &c.pixels,
+                            c.delay as _,
+                            c.width,
+                            c.height,
+                            c.xhot,
+                            c.yhot,
+                        )?;
                         images.push(img);
                     }
                     Ok(ServerCursorTemplate {
@@ -128,14 +136,12 @@ impl ServerCursorTemplate {
 
     pub fn instantiate(&self) -> Rc<dyn Cursor> {
         match &self.var {
-            ServerCursorTemplateVariant::Static(s) => {
-                Rc::new(StaticCursor {
-                    x: Cell::new(0),
-                    y: Cell::new(0),
-                    extents: Cell::new(s.extents),
-                    image: s.clone(),
-                })
-            },
+            ServerCursorTemplateVariant::Static(s) => Rc::new(StaticCursor {
+                x: Cell::new(0),
+                y: Cell::new(0),
+                extents: Cell::new(s.extents),
+                image: s.clone(),
+            }),
             ServerCursorTemplateVariant::Animated(a) => {
                 let mut start = c::timespec {
                     tv_sec: 0,
@@ -165,7 +171,15 @@ struct CursorImage {
 }
 
 impl CursorImage {
-    fn from_bytes(ctx: &Rc<RenderContext>, data: &[Cell<u8>], delay_ms: u64, width: i32, height: i32, xhot: i32, yhot: i32) -> Result<Self, CursorError> {
+    fn from_bytes(
+        ctx: &Rc<RenderContext>,
+        data: &[Cell<u8>],
+        delay_ms: u64,
+        width: i32,
+        height: i32,
+        xhot: i32,
+        yhot: i32,
+    ) -> Result<Self, CursorError> {
         Ok(Self {
             extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
             xhot,
@@ -467,7 +481,10 @@ fn parser_cursor_file<R: BufRead + Seek>(
         unsafe {
             image.pixels.reserve_exact(num_bytes as usize);
             image.pixels.set_len(num_bytes as usize);
-            r.read_exact(slice::from_raw_parts_mut(image.pixels.as_mut_ptr() as _, num_bytes))?;
+            r.read_exact(slice::from_raw_parts_mut(
+                image.pixels.as_mut_ptr() as _,
+                num_bytes,
+            ))?;
         }
         images.push(image);
     }

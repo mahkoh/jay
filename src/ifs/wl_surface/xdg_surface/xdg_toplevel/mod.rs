@@ -1,7 +1,9 @@
 mod types;
 
-use crate::backend::{SeatId};
+use crate::backend::SeatId;
+use crate::bugs::Bugs;
 use crate::client::{ClientId, DynEventFormatter};
+use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
@@ -14,14 +16,14 @@ use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::smallmap::SmallMap;
-use crate::NumCell;
+use crate::{bugs, NumCell};
 use ahash::{AHashMap, AHashSet};
+use bstr::ByteSlice;
 use num_derive::FromPrimitive;
 use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 pub use types::*;
-use crate::cursor::KnownCursor;
 
 const DESTROY: u32 = 0;
 const SET_PARENT: u32 = 1;
@@ -91,6 +93,11 @@ pub struct XdgToplevel {
     pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<XdgToplevel>>, 1>,
     active_surfaces: NumCell<u32>,
     pub decoration: Cell<Decoration>,
+    bugs: Cell<&'static Bugs>,
+    min_width: Cell<Option<i32>>,
+    min_height: Cell<Option<i32>>,
+    max_width: Cell<Option<i32>>,
+    max_height: Cell<Option<i32>>,
 }
 
 impl XdgToplevel {
@@ -111,6 +118,11 @@ impl XdgToplevel {
             toplevel_history: Default::default(),
             active_surfaces: Default::default(),
             decoration: Cell::new(Decoration::Server),
+            bugs: Cell::new(&bugs::NONE),
+            min_width: Cell::new(None),
+            min_height: Cell::new(None),
+            max_width: Cell::new(None),
+            max_height: Cell::new(None),
         }
     }
 
@@ -127,7 +139,7 @@ impl XdgToplevel {
             self.xdg
                 .surface
                 .client
-                .event(self.configure(rect.width(), rect.height()));
+                .event(self.configure_checked(rect.width(), rect.height()));
             self.xdg.send_configure();
         }
     }
@@ -139,7 +151,27 @@ impl XdgToplevel {
         false
     }
 
-    pub fn configure(self: &Rc<Self>, width: i32, height: i32) -> DynEventFormatter {
+    fn configure_checked(self: &Rc<Self>, mut width: i32, mut height: i32) -> DynEventFormatter {
+        width = width.max(1);
+        height = height.max(1);
+        if self.bugs.get().respect_min_max_size {
+            if let Some(min) = self.min_width.get() {
+                width = width.max(min);
+            }
+            if let Some(min) = self.min_height.get() {
+                height = height.max(min);
+            }
+            if let Some(max) = self.max_width.get() {
+                width = width.min(max);
+            }
+            if let Some(max) = self.max_height.get() {
+                height = height.min(max);
+            }
+        }
+        self.configure(width, height)
+    }
+
+    fn configure(self: &Rc<Self>, width: i32, height: i32) -> DynEventFormatter {
         Box::new(Configure {
             obj: self.clone(),
             width,
@@ -175,7 +207,10 @@ impl XdgToplevel {
     }
 
     fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAppIdError> {
-        let _req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
+        let req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
+        if let Ok(s) = req.app_id.to_str() {
+            self.bugs.set(bugs::get(s));
+        }
         Ok(())
     }
 
@@ -201,12 +236,38 @@ impl XdgToplevel {
     }
 
     fn set_max_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaxSizeError> {
-        let _req: SetMaxSize = self.xdg.surface.client.parse(self, parser)?;
+        let req: SetMaxSize = self.xdg.surface.client.parse(self, parser)?;
+        if req.height < 0 || req.width < 0 {
+            return Err(SetMaxSizeError::NonNegative);
+        }
+        self.max_width.set(if req.width == 0 {
+            None
+        } else {
+            Some(req.width)
+        });
+        self.max_height.set(if req.height == 0 {
+            None
+        } else {
+            Some(req.height)
+        });
         Ok(())
     }
 
     fn set_min_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinSizeError> {
-        let _req: SetMinSize = self.xdg.surface.client.parse(self, parser)?;
+        let req: SetMinSize = self.xdg.surface.client.parse(self, parser)?;
+        if req.height < 0 || req.width < 0 {
+            return Err(SetMinSizeError::NonNegative);
+        }
+        self.min_width.set(if req.width == 0 {
+            None
+        } else {
+            Some(req.width)
+        });
+        self.min_height.set(if req.height == 0 {
+            None
+        } else {
+            Some(req.height)
+        });
         Ok(())
     }
 
@@ -416,7 +477,7 @@ impl Node for XdgToplevel {
             self.xdg
                 .surface
                 .client
-                .event(self.configure(nw.max(1), nh.max(1)));
+                .event(self.configure_checked(nw, nh));
             self.xdg.send_configure();
             self.xdg.surface.client.flush();
         }

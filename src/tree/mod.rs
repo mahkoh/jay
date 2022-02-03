@@ -1,5 +1,6 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis};
 use crate::client::ClientId;
+use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
@@ -16,7 +17,6 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
-use crate::cursor::KnownCursor;
 
 mod container;
 mod workspace;

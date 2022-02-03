@@ -117,6 +117,8 @@ pub enum SetMaxSizeError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("width/height must be non-negative")]
+    NonNegative,
 }
 efrom!(SetMaxSizeError, ParseFailed, MsgParserError);
 efrom!(SetMaxSizeError, ClientError);
@@ -127,6 +129,8 @@ pub enum SetMinSizeError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("width/height must be non-negative")]
+    NonNegative,
 }
 efrom!(SetMinSizeError, ParseFailed, MsgParserError);
 efrom!(SetMinSizeError, ClientError);

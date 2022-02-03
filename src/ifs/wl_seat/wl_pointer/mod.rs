@@ -1,6 +1,7 @@
 mod types;
 
 use crate::client::DynEventFormatter;
+use crate::cursor::Cursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeatObj;
 use crate::ifs::wl_surface::WlSurfaceId;
@@ -8,7 +9,6 @@ use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-use crate::cursor::Cursor;
 
 const SET_CURSOR: u32 = 0;
 const RELEASE: u32 = 1;
