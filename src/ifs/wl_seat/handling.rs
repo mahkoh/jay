@@ -5,7 +5,9 @@ use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_data_offer::WlDataOfferId;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
-use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, WlSeatGlobal, WlSeatObj};
+use crate::ifs::wl_seat::{
+    wl_keyboard, wl_pointer, PointerGrab, PointerGrabber, WlSeatGlobal, WlSeatObj,
+};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
@@ -13,13 +15,14 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 #[derive(Default)]
 pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    grabs: SmallMap<SeatId, PointerGrab, 1>,
 }
 
 impl NodeSeatState {
@@ -41,11 +44,25 @@ impl NodeSeatState {
         self.kb_foci.len() == 0
     }
 
+    fn add_pointer_grab(&self, seat: &Rc<WlSeatGlobal>) {
+        self.grabs
+            .insert(seat.id(), PointerGrab { seat: seat.clone() });
+    }
+
+    fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
+        self.grabs.remove(&seat.id());
+    }
+
+    // pub fn remove_pointer_grabs(&self) {
+    //     self.grabs.clear();
+    // }
+
     pub fn is_active(&self) -> bool {
         self.kb_foci.len() > 0
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
+        self.grabs.clear();
         let node_id = node.id();
         while let Some((_, seat)) = self.pointer_foci.pop() {
             let mut ps = seat.pointer_stack.borrow_mut();
@@ -92,18 +109,49 @@ impl WlSeatGlobal {
     }
 
     fn button_event(self: &Rc<Self>, button: u32, state: KeyState) {
-        if state == KeyState::Released {
-            self.move_.set(false);
+        let mut release_grab = false;
+        let mut grabber = self.grabber.borrow_mut();
+        let node = if let Some(pg) = grabber.deref_mut() {
+            if state == KeyState::Released {
+                pg.buttons.remove(&button);
+                if pg.buttons.is_empty() {
+                    release_grab = true;
+                }
+            } else {
+                pg.buttons.insert(button, ());
+            }
+            pg.node.clone()
+        } else if state == KeyState::Pressed {
+            match self.pointer_node() {
+                Some(n) => {
+                    *grabber = Some(PointerGrabber {
+                        node: n.clone(),
+                        buttons: SmallMap::new_with(button, ()),
+                    });
+                    n.seat_state().add_pointer_grab(self);
+                    n
+                }
+                _ => return,
+            }
+        } else {
+            return;
+        };
+        drop(grabber);
+        if release_grab {
+            node.seat_state().remove_pointer_grab(self);
         }
-        if let Some(node) = self.pointer_node() {
-            node.button(self, button, state);
-        }
+        node.button(self, button, state);
     }
 
     fn scroll_event(&self, delta: i32, axis: ScrollAxis) {
-        if let Some(node) = self.pointer_node() {
-            node.scroll(self, delta, axis);
-        }
+        let node = match self.grabber.borrow_mut().as_ref().map(|g| g.node.clone()) {
+            Some(n) => n,
+            _ => match self.pointer_node() {
+                Some(n) => n,
+                _ => return,
+            },
+        };
+        node.scroll(self, delta, axis);
     }
 
     fn key_event(&self, key: u32, state: KeyState) {

@@ -197,7 +197,12 @@ impl XdgToplevel {
     }
 
     fn set_parent(&self, parser: MsgParser<'_, '_>) -> Result<(), SetParentError> {
-        let _req: SetParent = self.xdg.surface.client.parse(self, parser)?;
+        let req: SetParent = self.xdg.surface.client.parse(self, parser)?;
+        let mut parent = None;
+        if req.parent.is_some() {
+            parent = Some(self.xdg.surface.client.get_xdg_toplevel(req.parent)?);
+        }
+        self.parent.set(parent);
         Ok(())
     }
 
@@ -329,6 +334,7 @@ impl XdgToplevel {
         self.xdg.set_workspace(&workspace);
         let output = workspace.output.get();
         let output_rect = output.position.get();
+        log::info!("or = {:?}", output_rect);
         let position = {
             let extents = self.xdg.extents.get().to_origin();
             let width = extents.width();
@@ -343,6 +349,7 @@ impl XdgToplevel {
             }
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
+        log::info!("pos = {:?}", position);
         let state = &self.xdg.surface.client.state;
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
@@ -365,6 +372,7 @@ impl XdgToplevel {
     }
 
     fn map_tiled(self: &Rc<Self>) {
+        log::info!("map tiled");
         let state = &self.xdg.surface.client.state;
         let seat = state.seat_queue.last();
         if let Some(seat) = seat {
@@ -472,7 +480,7 @@ impl Node for XdgToplevel {
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         let nw = rect.width();
         let nh = rect.height();
-        let de = self.xdg.absolute_desired_extents.replace(*rect);
+        let de = self.xdg.absolute_desired_extents.get();
         if de.width() != nw || de.height() != nh {
             self.xdg
                 .surface
@@ -481,9 +489,7 @@ impl Node for XdgToplevel {
             self.xdg.send_configure();
             self.xdg.surface.client.flush();
         }
-        if de.x1() != rect.x1() || de.y1() != rect.y1() {
-            self.xdg.update_popup_positions();
-        }
+        self.xdg.set_absolute_desired_extents(rect);
     }
 
     fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {

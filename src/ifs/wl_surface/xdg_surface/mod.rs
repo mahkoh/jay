@@ -122,6 +122,19 @@ impl XdgSurface {
         }
     }
 
+    fn set_absolute_desired_extents(&self, ext: &Rect) {
+        let prev = self.absolute_desired_extents.replace(*ext);
+        if ext.x1() != prev.x1() || ext.y1() != prev.y1() {
+            let (mut x1, mut y1) = (ext.x1(), ext.y1());
+            if let Some(geo) = self.geometry.get() {
+                x1 -= geo.x1();
+                y1 -= geo.y1();
+            }
+            self.surface.set_absolute_position(x1, y1);
+            self.update_popup_positions();
+        }
+    }
+
     pub fn surface_active_changed(&self, active: bool) {
         if let Some(ext) = self.ext.get() {
             ext.surface_active_changed(active);
@@ -331,7 +344,6 @@ impl XdgSurface {
         let popups = self.popups.lock();
         for popup in popups.values() {
             popup.update_absolute_position();
-            popup.xdg.update_popup_positions();
         }
     }
 }

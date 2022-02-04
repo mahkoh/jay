@@ -71,6 +71,8 @@ pub enum Interface {
     ZwpLinuxBufferParamsV1,
     ZxdgDecorationManagerV1,
     ZxdgToplevelDecorationV1,
+    OrgKdeKwinServerDecorationManager,
+    OrgKdeKwinServerDecoration,
 }
 
 impl Interface {
@@ -106,6 +108,10 @@ impl Interface {
             Interface::WlDrm => "wl_drm",
             Interface::ZxdgDecorationManagerV1 => "zxdg_decoration_manager_v1",
             Interface::ZxdgToplevelDecorationV1 => "zxdg_toplevel_decoration_v1",
+            Interface::OrgKdeKwinServerDecorationManager => {
+                "org_kde_kwin_server_decoration_manager"
+            }
+            Interface::OrgKdeKwinServerDecoration => "org_kde_kwin_server_decoration",
         }
     }
 }

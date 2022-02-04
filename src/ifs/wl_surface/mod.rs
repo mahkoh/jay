@@ -84,8 +84,8 @@ pub struct WlSurface {
     input_region: Cell<Option<Region>>,
     opaque_region: Cell<Option<Region>>,
     pub extents: Cell<Rect>,
+    pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
-    pub effective_extents: Cell<Rect>,
     pub buffer: CloneCell<Option<Rc<WlBuffer>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
@@ -179,8 +179,8 @@ impl WlSurface {
             input_region: Cell::new(None),
             opaque_region: Cell::new(None),
             extents: Default::default(),
+            buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Cell::new(false),
-            effective_extents: Default::default(),
             buffer: CloneCell::new(None),
             buf_x: Default::default(),
             buf_y: Default::default(),
@@ -190,6 +190,18 @@ impl WlSurface {
             seat_state: Default::default(),
             xdg: Default::default(),
             cursors: Default::default(),
+        }
+    }
+
+    fn set_absolute_position(&self, x1: i32, y1: i32) {
+        self.buffer_abs_pos
+            .set(self.buffer_abs_pos.get().at_point(x1, y1));
+        if let Some(children) = self.children.borrow_mut().deref_mut() {
+            for ss in children.subsurfaces.values() {
+                let pos = ss.position.get();
+                ss.surface
+                    .set_absolute_position(x1 + pos.x1(), y1 + pos.y1());
+            }
         }
     }
 
@@ -405,6 +417,12 @@ impl WlSurface {
             if let Some((dx, dy, buffer)) = buffer_change {
                 let _ = buffer.update_texture();
                 new_size = Some(buffer.rect);
+                self.buffer_abs_pos.set(
+                    self.buffer_abs_pos
+                        .get()
+                        .with_size(buffer.rect.width(), buffer.rect.height())
+                        .unwrap(),
+                );
                 self.buffer.set(Some(buffer));
                 self.buf_x.fetch_add(dx);
                 self.buf_y.fetch_add(dy);
@@ -594,6 +612,10 @@ impl Node for WlSurface {
             }
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn absolute_position(&self) -> Rect {
+        self.buffer_abs_pos.get()
     }
 
     fn active_changed(&self, active: bool) {

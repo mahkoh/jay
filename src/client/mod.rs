@@ -1,5 +1,7 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
 use crate::client::objects::Objects;
+use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
+use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerObj;
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_compositor::WlCompositorObj;
@@ -444,6 +446,8 @@ simple_add_obj!(ZwpLinuxBufferParamsV1);
 simple_add_obj!(WlDrmObj);
 simple_add_obj!(ZxdgToplevelDecorationV1);
 simple_add_obj!(ZxdgDecorationManagerV1Obj);
+simple_add_obj!(OrgKdeKwinServerDecorationManagerObj);
+simple_add_obj!(OrgKdeKwinServerDecoration);
 
 macro_rules! dedicated_add_obj {
     ($ty:ty, $field:ident) => {

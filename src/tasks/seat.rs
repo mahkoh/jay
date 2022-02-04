@@ -18,7 +18,12 @@ impl SeatHandler {
             self.seat.on_change(Rc::new(move || ae.trigger()));
         }
         let name = self.state.globals.name();
-        let global = Rc::new(WlSeatGlobal::new(name, &self.state, &self.seat));
+        let global = Rc::new(WlSeatGlobal::new(
+            name,
+            &self.state,
+            &self.seat,
+            &self.tree_changed,
+        ));
         let _tree_changed = self.state.eng.spawn(tree_changed(
             self.state.clone(),
             global.clone(),

@@ -16,10 +16,12 @@ use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::object::{Interface, Object, ObjectId};
 use crate::tree::{FloatNode, FoundNode, Node};
+use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
+use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{XkbContext, XkbState};
 use crate::{NumCell, State};
 use ahash::{AHashMap, AHashSet};
@@ -54,18 +56,19 @@ pub const BTN_LEFT: u32 = 0x110;
 
 pub const SEAT_NAME_SINCE: u32 = 2;
 
-pub struct PointerGrab {
+struct PointerGrab {
     seat: Rc<WlSeatGlobal>,
 }
 
-pub struct PointerGrabber {
+struct PointerGrabber {
     node: Rc<dyn Node>,
+    buttons: SmallMap<u32, (), 1>,
 }
 
 impl Drop for PointerGrab {
     fn drop(&mut self) {
         *self.seat.grabber.borrow_mut() = None;
-        self.seat.tree_changed();
+        self.seat.tree_changed.trigger();
     }
 }
 
@@ -91,10 +94,16 @@ pub struct WlSeatGlobal {
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     serial: NumCell<u32>,
     grabber: RefCell<Option<PointerGrabber>>,
+    tree_changed: Rc<AsyncEvent>,
 }
 
 impl WlSeatGlobal {
-    pub fn new(name: GlobalName, state: &Rc<State>, seat: &Rc<dyn Seat>) -> Self {
+    pub fn new(
+        name: GlobalName,
+        state: &Rc<State>,
+        seat: &Rc<dyn Seat>,
+        tree_changed: &Rc<AsyncEvent>,
+    ) -> Self {
         let (kb_state, layout, layout_size) = {
             let ctx = XkbContext::new().unwrap();
             let keymap = ctx.default_keymap().unwrap();
@@ -134,17 +143,21 @@ impl WlSeatGlobal {
             cursor: Default::default(),
             serial: Default::default(),
             grabber: RefCell::new(None),
+            tree_changed: tree_changed.clone(),
         }
     }
 
-    pub fn grab_pointer(self: &Rc<Self>, node: Rc<dyn Node>) -> Option<PointerGrab> {
-        let mut grabber = self.grabber.borrow_mut();
-        if grabber.is_some() {
-            return None;
-        }
-        *grabber = Some(PointerGrabber { node });
-        Some(PointerGrab { seat: self.clone() })
-    }
+    // pub fn grab_pointer(self: &Rc<Self>, node: Rc<dyn Node>) -> Option<PointerGrab> {
+    //     let mut grabber = self.grabber.borrow_mut();
+    //     if grabber.is_some() {
+    //         return None;
+    //     }
+    //     *grabber = Some(PointerGrabber {
+    //         node,
+    //         buttons: Default::default(),
+    //     });
+    //     Some(PointerGrab { seat: self.clone() })
+    // }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
         let cursors = match self.state.cursors.get() {

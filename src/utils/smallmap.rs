@@ -17,6 +17,14 @@ impl<K, V, const N: usize> Default for SmallMap<K, V, N> {
 }
 
 impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
+    pub fn new_with(k: K, v: V) -> Self {
+        let mut sv = SmallVec::new();
+        sv.push((k, v));
+        Self {
+            m: UnsafeCell::new(sv),
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             m: UnsafeCell::new(SmallVec::new_const()),
@@ -40,6 +48,10 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        unsafe { self.m.get().deref_mut().is_empty() }
+    }
+
     pub fn remove(&self, k: &K) -> Option<V> {
         unsafe {
             let m = self.m.get().deref_mut();
@@ -49,6 +61,12 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
                 }
             }
             None
+        }
+    }
+
+    pub fn clear(&self) {
+        unsafe {
+            let _v = mem::replace(self.m.get().deref_mut(), SmallVec::new());
         }
     }
 

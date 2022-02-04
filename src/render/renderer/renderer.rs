@@ -288,6 +288,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
+        log::info!("rendering at {}x{}", x, y);
         if let Some(child) = floating.child.get() {
             child.render(self, x, y)
         }

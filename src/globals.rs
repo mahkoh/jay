@@ -1,4 +1,7 @@
 use crate::client::{Client, DynEventFormatter};
+use crate::ifs::org_kde_kwin_server_decoration_manager::{
+    OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerGlobal,
+};
 use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
 use crate::ifs::wl_drm::{WlDrmError, WlDrmGlobal};
@@ -48,6 +51,8 @@ pub enum GlobalError {
     WlDrmError(#[source] Box<WlDrmError>),
     #[error("An error occurred in a `zxdg_decoration_manager_v1` global")]
     ZxdgDecorationManagerV1Error(#[source] Box<ZxdgDecorationManagerV1Error>),
+    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager` global")]
+    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
 }
 
 efrom!(GlobalError, WlCompositorError);
@@ -60,6 +65,7 @@ efrom!(GlobalError, ZwpLinuxDmabufV1Error);
 efrom!(GlobalError, WlDrmError);
 efrom!(GlobalError, WlDataDeviceManagerError);
 efrom!(GlobalError, ZxdgDecorationManagerV1Error);
+efrom!(GlobalError, OrgKdeKwinServerDecorationManagerError);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);
@@ -125,6 +131,7 @@ impl Globals {
         add_singleton!(ZwpLinuxDmabufV1Global);
         add_singleton!(WlDrmGlobal);
         add_singleton!(ZxdgDecorationManagerV1Global);
+        add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
         slf
     }
 
@@ -243,6 +250,7 @@ simple_add_global!(WlDataDeviceManagerGlobal);
 simple_add_global!(ZwpLinuxDmabufV1Global);
 simple_add_global!(WlDrmGlobal);
 simple_add_global!(ZxdgDecorationManagerV1Global);
+simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
 
 macro_rules! dedicated_add_global {
     ($ty:ty, $field:ident) => {

@@ -390,7 +390,7 @@ impl Node for FloatNode {
     fn child_size_changed(&self, _child: &dyn Node, width: i32, height: i32) {
         let pos = self.position.get();
         self.position
-            .set(Rect::new_sized(pos.x1(), pos.x2(), width, height).unwrap());
+            .set(Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap());
     }
 
     fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {

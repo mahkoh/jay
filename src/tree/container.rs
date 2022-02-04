@@ -1,7 +1,7 @@
 use crate::backend::{KeyState, SeatId};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, PointerGrab, WlSeatGlobal, BTN_LEFT};
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -190,6 +190,14 @@ impl ContainerNode {
             sum_factors += factor;
         }
         self.apply_factors(sum_factors);
+        self.cancel_seat_ops();
+    }
+
+    fn cancel_seat_ops(&self) {
+        let mut seats = self.seats.borrow_mut();
+        for seat in seats.values_mut() {
+            seat.op = None;
+        }
     }
 
     fn apply_factors(&self, sum_factors: f64) {
@@ -375,7 +383,6 @@ impl ContainerNode {
 }
 
 struct SeatOp {
-    _grab: PointerGrab,
     child: NodeRef<ContainerChild>,
     kind: SeatOpKind,
 }
@@ -479,15 +486,7 @@ impl Node for ContainerNode {
                 return;
             };
             log::info!("op = {:?}", kind);
-            let grab = match seat.grab_pointer(self.clone()) {
-                None => return,
-                Some(g) => g,
-            };
-            seat_data.op = Some(SeatOp {
-                _grab: grab,
-                child,
-                kind,
-            })
+            seat_data.op = Some(SeatOp { child, kind })
         } else if state == KeyState::Released {
             let op = seat_data.op.take().unwrap();
             drop(seat_datas);
@@ -549,6 +548,7 @@ impl Node for ContainerNode {
             }
         }
         self.apply_factors(sum);
+        self.cancel_seat_ops();
     }
 
     fn child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
@@ -600,6 +600,7 @@ impl Node for ContainerNode {
         if size_changed {
             self.update_content_size();
             self.apply_factors(1.0);
+            self.cancel_seat_ops();
         } else {
             for child in self.children.iter() {
                 let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());

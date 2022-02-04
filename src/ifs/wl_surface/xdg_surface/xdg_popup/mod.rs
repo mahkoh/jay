@@ -173,7 +173,7 @@ impl XdgPopup {
             }
         }
         self.relative_position.set(rel_pos);
-        self.xdg.absolute_desired_extents.set(abs_pos);
+        self.xdg.set_absolute_desired_extents(&abs_pos);
         Ok(())
     }
 
@@ -182,8 +182,7 @@ impl XdgPopup {
             let rel = self.relative_position.get();
             let parent = parent.absolute_desired_extents.get();
             self.xdg
-                .absolute_desired_extents
-                .set(rel.move_(parent.x1(), parent.y1()));
+                .set_absolute_desired_extents(&rel.move_(parent.x1(), parent.y1()));
         }
     }
 

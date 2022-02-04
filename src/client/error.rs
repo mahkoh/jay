@@ -1,4 +1,6 @@
 use crate::client::ClientId;
+use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecorationError;
+use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerError;
 use crate::ifs::wl_buffer::{WlBufferError, WlBufferId};
 use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_data_device::WlDataDeviceError;
@@ -139,6 +141,10 @@ pub enum ClientError {
     ZxdgDecorationManagerV1Error(#[source] Box<ZxdgDecorationManagerV1Error>),
     #[error("An error occurred in a `zxdg_toplevel_decoration_v1`")]
     ZxdgToplevelDecorationV1Error(#[source] Box<ZxdgToplevelDecorationV1Error>),
+    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager`")]
+    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
+    #[error("An error occurred in a `org_kde_kwin_server_decoration`")]
+    OrgKdeKwinServerDecorationError(#[source] Box<OrgKdeKwinServerDecorationError>),
 }
 
 efrom!(ClientError, ParserError, MsgParserError);
@@ -171,6 +177,8 @@ efrom!(ClientError, ZwpLinuxBufferParamsV1Error);
 efrom!(ClientError, WlDrmError);
 efrom!(ClientError, ZxdgDecorationManagerV1Error);
 efrom!(ClientError, ZxdgToplevelDecorationV1Error);
+efrom!(ClientError, OrgKdeKwinServerDecorationManagerError);
+efrom!(ClientError, OrgKdeKwinServerDecorationError);
 
 impl ClientError {
     pub fn peer_closed(&self) -> bool {

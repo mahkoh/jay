@@ -1,6 +1,18 @@
 use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
+pub struct Point {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Point {
+    pub fn translate(&self, x: i32, y: i32) -> (i32, i32) {
+        (x - self.x, y - self.y)
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub struct Rect {
     x1: i32,
     y1: i32,
@@ -50,6 +62,13 @@ impl Rect {
             y1: y,
             x2: x,
             y2: y,
+        }
+    }
+
+    pub fn to_point(&self) -> Point {
+        Point {
+            x: self.x1,
+            y: self.y1,
         }
     }
 
@@ -131,6 +150,19 @@ impl Rect {
             x2: self.x2.saturating_add(dx),
             y2: self.y2.saturating_add(dy),
         }
+    }
+
+    pub fn at_point(&self, x1: i32, y1: i32) -> Self {
+        Self {
+            x1,
+            y1,
+            x2: x1 + self.x2 - self.x1,
+            y2: y1 + self.y2 - self.y1,
+        }
+    }
+
+    pub fn with_size(&self, width: i32, height: i32) -> Option<Self> {
+        Self::new_sized(self.x1, self.y1, width, height)
     }
 
     pub fn translate(&self, x: i32, y: i32) -> (i32, i32) {
