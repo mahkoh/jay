@@ -137,7 +137,7 @@ impl ZwpLinuxBufferParamsV1 {
         Ok(buffer_id)
     }
 
-    fn create(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CreateError> {
+    fn create(self: &Rc<Self>, parser: MsgParser) -> Result<(), CreateError> {
         let req: Create = self.parent.client.parse(&**self, parser)?;
         if self.used.replace(true) {
             return Err(CreateError::AlreadyUsed);
@@ -154,7 +154,7 @@ impl ZwpLinuxBufferParamsV1 {
         Ok(())
     }
 
-    fn create_immed(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CreateImmedError> {
+    fn create_immed(self: &Rc<Self>, parser: MsgParser) -> Result<(), CreateImmedError> {
         let req: CreateImmed = self.parent.client.parse(&**self, parser)?;
         if self.used.replace(true) {
             return Err(CreateImmedError::AlreadyUsed);

@@ -18,6 +18,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1Id;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -253,6 +254,16 @@ impl WlSeatGlobal {
                     sel.create_offer(&surface.client);
                 }
             }
+            match self.primary_selection.get() {
+                None => {
+                    self.surface_primary_selection_device_event(0, &surface, |dd| {
+                        dd.selection(ZwpPrimarySelectionOfferV1Id::NONE)
+                    });
+                }
+                Some(sel) => {
+                    sel.create_offer(&surface.client);
+                }
+            }
         }
     }
 
@@ -354,6 +365,17 @@ impl WlSeatGlobal {
     {
         let client = &surface.client;
         self.for_each_data_device(ver, client.id, |p| {
+            client.event(f(p));
+        });
+        client.flush();
+    }
+
+    fn surface_primary_selection_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
+        where
+            F: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>) -> DynEventFormatter,
+    {
+        let client = &surface.client;
+        self.for_each_primary_selection_device(ver, client.id, |p| {
             client.event(f(p));
         });
         client.flush();
