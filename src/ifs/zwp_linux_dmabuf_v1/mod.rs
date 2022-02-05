@@ -2,7 +2,7 @@ use crate::client::{Client, DynEventFormatter};
 use crate::drm::INVALID_MODIFIER;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -32,7 +32,7 @@ impl ZwpLinuxDmabufV1Global {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), ZwpLinuxDmabufV1Error> {
-        let obj = Rc::new(ZwpLinuxDmabufV1Obj {
+        let obj = Rc::new(ZwpLinuxDmabufV1 {
             id,
             client: client.clone(),
             _version: version,
@@ -73,13 +73,15 @@ impl Global for ZwpLinuxDmabufV1Global {
     }
 }
 
-pub struct ZwpLinuxDmabufV1Obj {
+simple_add_global!(ZwpLinuxDmabufV1Global);
+
+pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
     _version: u32,
 }
 
-impl ZwpLinuxDmabufV1Obj {
+impl ZwpLinuxDmabufV1 {
     fn format(self: &Rc<Self>, format: u32) -> DynEventFormatter {
         Box::new(Format {
             obj: self.clone(),
@@ -107,33 +109,19 @@ impl ZwpLinuxDmabufV1Obj {
         self.client.add_client_obj(&params)?;
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            CREATE_PARAMS => self.create_params(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(ZwpLinuxDmabufV1Obj);
+object_base! {
+    ZwpLinuxDmabufV1, ZwpLinuxDmabufV1Error;
 
-impl Object for ZwpLinuxDmabufV1Obj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+    DESTROY => destroy,
+    CREATE_PARAMS => create_params,
+}
 
-    fn interface(&self) -> Interface {
-        Interface::ZwpLinuxDmabufV1
-    }
-
+impl Object for ZwpLinuxDmabufV1 {
     fn num_requests(&self) -> u32 {
         CREATE_PARAMS + 1
     }
 }
+
+simple_add_obj!(ZwpLinuxDmabufV1);

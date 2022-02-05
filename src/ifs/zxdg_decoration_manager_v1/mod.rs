@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -27,7 +27,7 @@ impl ZxdgDecorationManagerV1Global {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), ZxdgDecorationManagerV1Error> {
-        let obj = Rc::new(ZxdgDecorationManagerV1Obj {
+        let obj = Rc::new(ZxdgDecorationManagerV1 {
             id,
             client: client.clone(),
             _version: version,
@@ -57,13 +57,15 @@ impl Global for ZxdgDecorationManagerV1Global {
     }
 }
 
-pub struct ZxdgDecorationManagerV1Obj {
+simple_add_global!(ZxdgDecorationManagerV1Global);
+
+pub struct ZxdgDecorationManagerV1 {
     id: ZxdgDecorationManagerV1Id,
     client: Rc<Client>,
     _version: u32,
 }
 
-impl ZxdgDecorationManagerV1Obj {
+impl ZxdgDecorationManagerV1 {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
@@ -75,39 +77,25 @@ impl ZxdgDecorationManagerV1Obj {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), GetToplevelDecorationError> {
         let req: GetToplevelDecoration = self.client.parse(self, parser)?;
-        let tl = self.client.get_xdg_toplevel(req.toplevel)?;
+        let tl = self.client.lookup(req.toplevel)?;
         let obj = Rc::new(ZxdgToplevelDecorationV1::new(req.id, &self.client, &tl));
         self.client.add_client_obj(&obj)?;
         obj.send_configure();
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZxdgDecorationManagerV1Error> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            GET_TOPLEVEL_DECORATION => self.get_toplevel_decoration(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(ZxdgDecorationManagerV1Obj);
+object_base! {
+    ZxdgDecorationManagerV1, ZxdgDecorationManagerV1Error;
 
-impl Object for ZxdgDecorationManagerV1Obj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+    DESTROY => destroy,
+    GET_TOPLEVEL_DECORATION => get_toplevel_decoration,
+}
 
-    fn interface(&self) -> Interface {
-        Interface::ZxdgDecorationManagerV1
-    }
-
+impl Object for ZxdgDecorationManagerV1 {
     fn num_requests(&self) -> u32 {
         GET_TOPLEVEL_DECORATION + 1
     }
 }
+
+simple_add_obj!(ZxdgDecorationManagerV1);

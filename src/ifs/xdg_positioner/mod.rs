@@ -1,8 +1,8 @@
 mod types;
 
 use crate::client::Client;
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
-use crate::object::{Interface, Object, ObjectId};
+use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::object::Object;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
 use bitflags::bitflags;
@@ -78,7 +78,7 @@ id!(XdgPositionerId);
 
 pub struct XdgPositioner {
     id: XdgPositionerId,
-    base: Rc<XdgWmBaseObj>,
+    base: Rc<XdgWmBase>,
     client: Rc<Client>,
     position: RefCell<XdgPositioned>,
 }
@@ -152,7 +152,7 @@ impl XdgPositioned {
 }
 
 impl XdgPositioner {
-    pub fn new(base: &Rc<XdgWmBaseObj>, id: XdgPositionerId, client: &Rc<Client>) -> Self {
+    pub fn new(base: &Rc<XdgWmBase>, id: XdgPositionerId, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
@@ -277,40 +277,24 @@ impl XdgPositioner {
         self.position.borrow_mut().parent_serial = req.serial;
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgPositionerError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            SET_SIZE => self.set_size(parser)?,
-            SET_ANCHOR_RECT => self.set_anchor_rect(parser)?,
-            SET_ANCHOR => self.set_anchor(parser)?,
-            SET_GRAVITY => self.set_gravity(parser)?,
-            SET_CONSTRAINT_ADJUSTMENT => self.set_constraint_adjustment(parser)?,
-            SET_OFFSET => self.set_offset(parser)?,
-            SET_REACTIVE => self.set_reactive(parser)?,
-            SET_PARENT_SIZE => self.set_parent_size(parser)?,
-            SET_PARENT_CONFIGURE => self.set_parent_configure(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(XdgPositioner);
+object_base! {
+    XdgPositioner, XdgPositionerError;
+
+    DESTROY => destroy,
+    SET_SIZE => set_size,
+    SET_ANCHOR_RECT => set_anchor_rect,
+    SET_ANCHOR => set_anchor,
+    SET_GRAVITY => set_gravity,
+    SET_CONSTRAINT_ADJUSTMENT => set_constraint_adjustment,
+    SET_OFFSET => set_offset,
+    SET_REACTIVE => set_reactive,
+    SET_PARENT_SIZE => set_parent_size,
+    SET_PARENT_CONFIGURE => set_parent_configure,
+}
 
 impl Object for XdgPositioner {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::XdgPositioner
-    }
-
     fn num_requests(&self) -> u32 {
         if self.base.version < 3 {
             SET_OFFSET + 1
@@ -319,3 +303,5 @@ impl Object for XdgPositioner {
         }
     }
 }
+
+dedicated_add_obj!(XdgPositioner, XdgPositionerId, xdg_positioners);

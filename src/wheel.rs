@@ -28,7 +28,7 @@ pub enum WheelError {
 }
 
 pub trait WheelDispatcher {
-    fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -172,10 +172,7 @@ struct WheelWrapper {
 }
 
 impl EventLoopDispatcher for WheelWrapper {
-    fn dispatch(
-        self: Rc<Self>,
-        events: i32,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn std::error::Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(WheelError::ErrorEvent));
         }
@@ -241,7 +238,7 @@ struct PeriodicDispatcher {
 }
 
 impl EventLoopDispatcher for PeriodicDispatcher {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(WheelError::ErrorEvent));
         }

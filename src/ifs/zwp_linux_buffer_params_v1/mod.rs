@@ -2,8 +2,8 @@ use crate::client::DynEventFormatter;
 use crate::drm::dma::{DmaBuf, DmaBufPlane};
 use crate::drm::INVALID_MODIFIER;
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
-use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Obj;
-use crate::object::{Interface, Object, ObjectId};
+use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1;
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::ErrorFmt;
 use ahash::AHashMap;
@@ -34,13 +34,13 @@ const MAX_PLANE: u32 = 3;
 
 pub struct ZwpLinuxBufferParamsV1 {
     id: ZwpLinuxBufferParamsV1Id,
-    parent: Rc<ZwpLinuxDmabufV1Obj>,
+    parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<AHashMap<u32, Add>>,
     used: Cell<bool>,
 }
 
 impl ZwpLinuxBufferParamsV1 {
-    pub fn new(id: ZwpLinuxBufferParamsV1Id, parent: &Rc<ZwpLinuxDmabufV1Obj>) -> Self {
+    pub fn new(id: ZwpLinuxBufferParamsV1Id, parent: &Rc<ZwpLinuxDmabufV1>) -> Self {
         Self {
             id,
             parent: parent.clone(),
@@ -168,35 +168,21 @@ impl ZwpLinuxBufferParamsV1 {
         )?;
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpLinuxBufferParamsV1Error> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            ADD => self.add(parser)?,
-            CREATE => self.create(parser)?,
-            CREATE_IMMED => self.create_immed(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(ZwpLinuxBufferParamsV1);
+object_base! {
+    ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Error;
+
+    DESTROY => destroy,
+    ADD => add,
+    CREATE => create,
+    CREATE_IMMED => create_immed,
+}
 
 impl Object for ZwpLinuxBufferParamsV1 {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::ZwpLinuxBufferParamsV1
-    }
-
     fn num_requests(&self) -> u32 {
         CREATE_IMMED + 1
     }
 }
+
+simple_add_obj!(ZwpLinuxBufferParamsV1);

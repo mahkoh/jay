@@ -1,7 +1,7 @@
 mod types;
 
-use crate::ifs::wl_seat::WlSeatObj;
-use crate::object::{Interface, Object, ObjectId};
+use crate::ifs::wl_seat::WlSeat;
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -27,11 +27,11 @@ id!(WlTouchId);
 
 pub struct WlTouch {
     id: WlTouchId,
-    seat: Rc<WlSeatObj>,
+    seat: Rc<WlSeat>,
 }
 
 impl WlTouch {
-    pub fn new(id: WlTouchId, seat: &Rc<WlSeatObj>) -> Self {
+    pub fn new(id: WlTouchId, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
             seat: seat.clone(),
@@ -43,28 +43,18 @@ impl WlTouch {
         self.seat.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn handle_request_(&self, request: u32, parser: MsgParser<'_, '_>) -> Result<(), WlTouchError> {
-        match request {
-            RELEASE => self.release(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlTouch);
+object_base! {
+    WlTouch, WlTouchError;
+
+    RELEASE => release,
+}
 
 impl Object for WlTouch {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlTouch
-    }
-
     fn num_requests(&self) -> u32 {
         RELEASE + 1
     }
 }
+
+simple_add_obj!(WlTouch);

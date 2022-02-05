@@ -1,6 +1,6 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::format::Format;
-use crate::ifs::wl_shm::{WlShmObj, FORMAT};
+use crate::ifs::wl_shm::{WlShm, FORMAT};
 use crate::ifs::wl_shm_pool::{WlShmPoolError, WlShmPoolId};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
@@ -60,7 +60,7 @@ impl Debug for CreatePool {
 }
 
 pub(super) struct FormatE {
-    pub obj: Rc<WlShmObj>,
+    pub obj: Rc<WlShm>,
     pub format: &'static Format,
 }
 impl EventFormatter for FormatE {

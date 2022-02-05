@@ -4,7 +4,7 @@ use crate::ifs::wl_surface::{
     CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
     WlSurfaceId,
 };
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
 use crate::utils::linkedlist::LinkedNode;
@@ -237,40 +237,26 @@ impl WlSubsurface {
         self.update_sync(false);
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlSubsurfaceError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            SET_POSITION => self.set_position(parser)?,
-            PLACE_ABOVE => self.place_above(parser)?,
-            PLACE_BELOW => self.place_below(parser)?,
-            SET_SYNC => self.set_sync(parser)?,
-            SET_DESYNC => self.set_desync(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlSubsurface);
+object_base! {
+    WlSubsurface, WlSubsurfaceError;
+
+    DESTROY => destroy,
+    SET_POSITION => set_position,
+    PLACE_ABOVE => place_above,
+    PLACE_BELOW => place_below,
+    SET_SYNC => set_sync,
+    SET_DESYNC => set_desync,
+}
 
 impl Object for WlSubsurface {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlSubsurface
-    }
-
     fn num_requests(&self) -> u32 {
         SET_DESYNC + 1
     }
 }
+
+simple_add_obj!(WlSubsurface);
 
 impl SurfaceExt for WlSubsurface {
     fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {

@@ -1,8 +1,7 @@
 mod types;
 
-use crate::client::{ClientError, DynEventFormatter};
-use crate::object::{Interface, Object, ObjectId};
-use crate::utils::buffd::MsgParser;
+use crate::client::DynEventFormatter;
+use crate::object::Object;
 use std::rc::Rc;
 use types::*;
 
@@ -22,28 +21,16 @@ impl WlCallback {
     pub fn done(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Done { obj: self.clone() })
     }
-
-    fn handle_request_(
-        &self,
-        _request: u32,
-        _parser: MsgParser<'_, '_>,
-    ) -> Result<(), ClientError> {
-        unreachable!();
-    }
 }
 
-handle_request!(WlCallback);
+object_base! {
+    WlCallback, WlCallbackError;
+}
 
 impl Object for WlCallback {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlCallback
-    }
-
     fn num_requests(&self) -> u32 {
         0
     }
 }
+
+simple_add_obj!(WlCallback);

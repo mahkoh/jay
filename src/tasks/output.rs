@@ -60,7 +60,7 @@ impl OutputHandler {
             ae.triggered().await;
         }
         self.state.outputs.remove(&self.output.id());
-        let _ = self.state.globals.remove(&self.state, name);
+        let _ = self.state.remove_global(&*global);
         self.state
             .output_handlers
             .borrow_mut()

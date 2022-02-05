@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::clientmem::ClientMem;
 use crate::format::{formats, map_wayland_format_id};
 use crate::ifs::wl_buffer::WlBuffer;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use std::rc::Rc;
@@ -81,34 +81,20 @@ impl WlShmPool {
             .set(Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?));
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlShmPoolError> {
-        match request {
-            CREATE_BUFFER => self.create_buffer(parser)?,
-            DESTROY => self.destroy(parser)?,
-            RESIZE => self.resize(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlShmPool);
+object_base! {
+    WlShmPool, WlShmPoolError;
+
+    CREATE_BUFFER => create_buffer,
+    DESTROY => destroy,
+    RESIZE => resize,
+}
 
 impl Object for WlShmPool {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlShmPool
-    }
-
     fn num_requests(&self) -> u32 {
         RESIZE + 1
     }
 }
+
+simple_add_obj!(WlShmPool);

@@ -13,7 +13,7 @@ pub enum EventLoopError {
     #[error("epoll_wait failed: {0}")]
     WaitFailed(std::io::Error),
     #[error("A dispatcher returned a fatal error: {0}")]
-    DispatcherError(Box<dyn std::error::Error + Send + Sync>),
+    DispatcherError(Box<dyn std::error::Error>),
     #[error("Could not insert an fd to wait on: {0}")]
     InsertFailed(std::io::Error),
     #[error("Could not modify an fd to wait on: {0}")]
@@ -30,10 +30,7 @@ pub enum EventLoopError {
 pub struct EventLoopId(u64);
 
 pub trait EventLoopDispatcher {
-    fn dispatch(
-        self: Rc<Self>,
-        events: i32,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 #[derive(Clone)]

@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboardError, WlKeyboardId};
 use crate::ifs::wl_seat::wl_pointer::WlPointerId;
 use crate::ifs::wl_seat::wl_touch::WlTouchId;
-use crate::ifs::wl_seat::{WlSeatObj, CAPABILITIES, NAME};
+use crate::ifs::wl_seat::{WlSeat, CAPABILITIES, NAME};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -128,7 +128,7 @@ impl Debug for Release {
 }
 
 pub(super) struct Capabilities {
-    pub obj: Rc<WlSeatObj>,
+    pub obj: Rc<WlSeat>,
     pub capabilities: u32,
 }
 impl EventFormatter for Capabilities {
@@ -147,7 +147,7 @@ impl Debug for Capabilities {
 }
 
 pub(super) struct Name {
-    pub obj: Rc<WlSeatObj>,
+    pub obj: Rc<WlSeat>,
     pub name: Rc<String>,
 }
 impl EventFormatter for Name {

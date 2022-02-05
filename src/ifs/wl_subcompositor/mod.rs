@@ -3,7 +3,7 @@ mod types;
 use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -20,7 +20,7 @@ pub struct WlSubcompositorGlobal {
     name: GlobalName,
 }
 
-pub struct WlSubcompositorObj {
+pub struct WlSubcompositor {
     id: WlSubcompositorId,
     client: Rc<Client>,
 }
@@ -36,7 +36,7 @@ impl WlSubcompositorGlobal {
         client: &Rc<Client>,
         _version: u32,
     ) -> Result<(), WlSubcompositorError> {
-        let obj = Rc::new(WlSubcompositorObj {
+        let obj = Rc::new(WlSubcompositor {
             id,
             client: client.clone(),
         });
@@ -45,7 +45,7 @@ impl WlSubcompositorGlobal {
     }
 }
 
-impl WlSubcompositorObj {
+impl WlSubcompositor {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
@@ -54,24 +54,11 @@ impl WlSubcompositorObj {
 
     fn get_subsurface(&self, parser: MsgParser<'_, '_>) -> Result<(), GetSubsurfaceError> {
         let req: GetSubsurface = self.client.parse(self, parser)?;
-        let surface = self.client.get_surface(req.surface)?;
-        let parent = self.client.get_surface(req.parent)?;
+        let surface = self.client.lookup(req.surface)?;
+        let parent = self.client.lookup(req.parent)?;
         let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent));
         self.client.add_client_obj(&subsurface)?;
         subsurface.install()?;
-        Ok(())
-    }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlSubcompositorError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            GET_SUBSURFACE => self.get_subsurface(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 }
@@ -96,18 +83,19 @@ impl Global for WlSubcompositorGlobal {
     }
 }
 
-handle_request!(WlSubcompositorObj);
+simple_add_global!(WlSubcompositorGlobal);
 
-impl Object for WlSubcompositorObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+object_base! {
+    WlSubcompositor, WlSubcompositorError;
 
-    fn interface(&self) -> Interface {
-        Interface::WlSubcompositor
-    }
+    DESTROY => destroy,
+    GET_SUBSURFACE => get_subsurface,
+}
 
+impl Object for WlSubcompositor {
     fn num_requests(&self) -> u32 {
         GET_SUBSURFACE + 1
     }
 }
+
+simple_add_obj!(WlSubcompositor);

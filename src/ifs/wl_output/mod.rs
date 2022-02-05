@@ -3,7 +3,7 @@ mod types;
 use crate::backend::Output;
 use crate::client::{Client, ClientId, DynEventFormatter, WlEvent};
 use crate::globals::{Global, GlobalName};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
@@ -60,7 +60,7 @@ pub struct WlOutputGlobal {
     pub y: Cell<i32>,
     width: Cell<i32>,
     height: Cell<i32>,
-    pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutputObj>>>>,
+    pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
 }
 
 impl WlOutputGlobal {
@@ -112,7 +112,7 @@ impl WlOutputGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlOutputError> {
-        let obj = Rc::new(WlOutputObj {
+        let obj = Rc::new(WlOutput {
             global: self.clone(),
             id,
             client: client.clone(),
@@ -160,14 +160,16 @@ impl Global for WlOutputGlobal {
     }
 }
 
-pub struct WlOutputObj {
+dedicated_add_global!(WlOutputGlobal, outputs);
+
+pub struct WlOutput {
     global: Rc<WlOutputGlobal>,
     pub id: WlOutputId,
     client: Rc<Client>,
     version: u32,
 }
 
-impl WlOutputObj {
+impl WlOutput {
     fn send_done(&self) -> bool {
         self.version >= 2
     }
@@ -226,31 +228,15 @@ impl WlOutputObj {
         self.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlOutputError> {
-        match request {
-            RELEASE => self.release(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlOutputObj);
+object_base! {
+    WlOutput, WlOutputError;
 
-impl Object for WlOutputObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+    RELEASE => release,
+}
 
-    fn interface(&self) -> Interface {
-        Interface::WlOutput
-    }
-
+impl Object for WlOutput {
     fn num_requests(&self) -> u32 {
         if self.version < 3 {
             0
@@ -263,3 +249,5 @@ impl Object for WlOutputObj {
         self.remove_binding();
     }
 }
+
+simple_add_obj!(WlOutput);

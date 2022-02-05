@@ -13,13 +13,11 @@ use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceRole};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::pixman::Region;
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{
-    Node, NodeId,
-};
+use crate::tree::{Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
@@ -351,7 +349,7 @@ impl WlSurface {
     fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
         let req: Attach = self.parse(parser)?;
         let buf = if req.buffer.is_some() {
-            Some((req.x, req.y, self.client.get_buffer(req.buffer)?))
+            Some((req.x, req.y, self.client.lookup(req.buffer)?))
         } else {
             None
         };
@@ -375,7 +373,7 @@ impl WlSurface {
     fn set_opaque_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetOpaqueRegionError> {
         let region: SetOpaqueRegion = self.parse(parser)?;
         let region = if region.region.is_some() {
-            Some(self.client.get_region(region.region)?.region())
+            Some(self.client.lookup(region.region)?.region())
         } else {
             None
         };
@@ -386,7 +384,7 @@ impl WlSurface {
     fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
         let req: SetInputRegion = self.parse(parser)?;
         let region = if req.region.is_some() {
-            Some(self.client.get_region(req.region)?.region())
+            Some(self.client.lookup(req.region)?.region())
         } else {
             None
         };
@@ -491,27 +489,6 @@ impl WlSurface {
         Ok(())
     }
 
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlSurfaceError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            ATTACH => self.attach(parser)?,
-            DAMAGE => self.damage(parser)?,
-            FRAME => self.frame(parser)?,
-            SET_OPAQUE_REGION => self.set_opaque_region(parser)?,
-            SET_INPUT_REGION => self.set_input_region(parser)?,
-            COMMIT => self.commit(parser)?,
-            SET_BUFFER_TRANSFORM => self.set_buffer_transform(parser)?,
-            SET_BUFFER_SCALE => self.set_buffer_scale(parser)?,
-            DAMAGE_BUFFER => self.damage_buffer(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
-
     fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
         let buffer = match self.buffer.get() {
             Some(b) => b,
@@ -556,17 +533,22 @@ impl WlSurface {
     }
 }
 
-handle_request!(WlSurface);
+object_base! {
+    WlSurface, WlSurfaceError;
+
+    DESTROY => destroy,
+    ATTACH => attach,
+    DAMAGE => damage,
+    FRAME => frame,
+    SET_OPAQUE_REGION => set_opaque_region,
+    SET_INPUT_REGION => set_input_region,
+    COMMIT => commit,
+    SET_BUFFER_TRANSFORM => set_buffer_transform,
+    SET_BUFFER_SCALE => set_buffer_scale,
+    DAMAGE_BUFFER => damage_buffer,
+}
 
 impl Object for WlSurface {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlSurface
-    }
-
     fn num_requests(&self) -> u32 {
         DAMAGE_BUFFER + 1
     }
@@ -581,6 +563,8 @@ impl Object for WlSurface {
         self.xdg.set(None);
     }
 }
+
+dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
 impl Node for WlSurface {

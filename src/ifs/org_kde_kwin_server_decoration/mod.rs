@@ -1,5 +1,5 @@
 use crate::client::{Client, DynEventFormatter};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -61,33 +61,19 @@ impl OrgKdeKwinServerDecoration {
         self.client.event(self.mode(mode));
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), OrgKdeKwinServerDecorationError> {
-        match request {
-            RELEASE => self.release(parser)?,
-            REQUEST_MODE => self.request_mode(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(OrgKdeKwinServerDecoration);
+object_base! {
+    OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError;
+
+    RELEASE => release,
+    REQUEST_MODE => request_mode,
+}
 
 impl Object for OrgKdeKwinServerDecoration {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::OrgKdeKwinServerDecoration
-    }
-
     fn num_requests(&self) -> u32 {
         REQUEST_MODE + 1
     }
 }
+
+simple_add_obj!(OrgKdeKwinServerDecoration);

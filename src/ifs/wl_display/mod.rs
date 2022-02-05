@@ -3,7 +3,7 @@ mod types;
 use crate::client::{Client, DynEventFormatter};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
-use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
+use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -21,27 +21,16 @@ const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {
+    id: ObjectId,
     client: Rc<Client>,
 }
 
 impl WlDisplay {
     pub fn new(client: &Rc<Client>) -> Self {
         Self {
+            id: WL_DISPLAY_ID,
             client: client.clone(),
         }
-    }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDisplayError> {
-        match request {
-            SYNC => self.sync(parser)?,
-            GET_REGISTRY => self.get_registry(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
     }
 
     fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
@@ -106,17 +95,14 @@ impl WlDisplay {
     }
 }
 
-handle_request!(WlDisplay);
+object_base! {
+    WlDisplay, WlDisplayError;
+
+    SYNC => sync,
+    GET_REGISTRY => get_registry,
+}
 
 impl Object for WlDisplay {
-    fn id(&self) -> ObjectId {
-        WL_DISPLAY_ID
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlDisplay
-    }
-
     fn num_requests(&self) -> u32 {
         GET_REGISTRY + 1
     }

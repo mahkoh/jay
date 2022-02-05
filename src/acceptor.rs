@@ -104,10 +104,7 @@ impl Acceptor {
 }
 
 impl EventLoopDispatcher for Acceptor {
-    fn dispatch(
-        self: Rc<Self>,
-        events: i32,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn std::error::Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(AcceptorError::ErrorEvent));
         }

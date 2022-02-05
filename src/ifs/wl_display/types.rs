@@ -1,5 +1,5 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::globals::GlobalError;
+use crate::globals::GlobalsError;
 use crate::ifs::wl_callback::WlCallbackId;
 use crate::ifs::wl_display::{WlDisplay, DELETE_ID, ERROR};
 use crate::ifs::wl_registry::WlRegistryId;
@@ -27,11 +27,11 @@ pub enum GetRegistryError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("An error occurred while processing globals")]
-    GlobalError(#[source] Box<GlobalError>),
+    GlobalsError(#[source] Box<GlobalsError>),
 }
 
 efrom!(GetRegistryError, ParseFailed, MsgParserError);
-efrom!(GetRegistryError, GlobalError);
+efrom!(GetRegistryError, GlobalsError);
 efrom!(GetRegistryError, ClientError);
 
 #[derive(Debug, Error)]

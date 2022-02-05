@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::format::FORMATS;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::WlShmPool;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -19,7 +19,7 @@ pub struct WlShmGlobal {
     name: GlobalName,
 }
 
-pub struct WlShmObj {
+pub struct WlShm {
     _global: Rc<WlShmGlobal>,
     id: WlShmId,
     client: Rc<Client>,
@@ -36,7 +36,7 @@ impl WlShmGlobal {
         client: &Rc<Client>,
         _version: u32,
     ) -> Result<(), WlShmError> {
-        let obj = Rc::new(WlShmObj {
+        let obj = Rc::new(WlShm {
             _global: self,
             id,
             client: client.clone(),
@@ -52,7 +52,7 @@ impl WlShmGlobal {
     }
 }
 
-impl WlShmObj {
+impl WlShm {
     fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), CreatePoolError> {
         let create: CreatePool = self.client.parse(self, parser)?;
         if create.size < 0 {
@@ -65,14 +65,6 @@ impl WlShmObj {
             create.size as usize,
         )?);
         self.client.add_client_obj(&pool)?;
-        Ok(())
-    }
-
-    fn handle_request_(&self, request: u32, parser: MsgParser<'_, '_>) -> Result<(), WlShmError> {
-        match request {
-            CREATE_POOL => self.create_pool(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 }
@@ -97,18 +89,18 @@ impl Global for WlShmGlobal {
     }
 }
 
-handle_request!(WlShmObj);
+simple_add_global!(WlShmGlobal);
 
-impl Object for WlShmObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+object_base! {
+    WlShm, WlShmError;
 
-    fn interface(&self) -> Interface {
-        Interface::WlShm
-    }
+    CREATE_POOL => create_pool,
+}
 
+impl Object for WlShm {
     fn num_requests(&self) -> u32 {
         CREATE_POOL + 1
     }
 }
+
+simple_add_obj!(WlShm);

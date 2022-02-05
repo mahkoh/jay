@@ -1,9 +1,9 @@
 mod types;
 
 use crate::client::DynEventFormatter;
-use crate::ifs::wl_seat::WlSeatObj;
+use crate::ifs::wl_seat::WlSeat;
 use crate::ifs::wl_surface::WlSurfaceId;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -33,11 +33,11 @@ id!(WlKeyboardId);
 
 pub struct WlKeyboard {
     id: WlKeyboardId,
-    seat: Rc<WlSeatObj>,
+    seat: Rc<WlSeat>,
 }
 
 impl WlKeyboard {
-    pub fn new(id: WlKeyboardId, seat: &Rc<WlSeatObj>) -> Self {
+    pub fn new(id: WlKeyboardId, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
             seat: seat.clone(),
@@ -152,32 +152,18 @@ impl WlKeyboard {
         self.seat.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlKeyboardError> {
-        match request {
-            RELEASE => self.release(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlKeyboard);
+object_base! {
+    WlKeyboard, WlKeyboardError;
+
+    RELEASE => release,
+}
 
 impl Object for WlKeyboard {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlKeyboard
-    }
-
     fn num_requests(&self) -> u32 {
         RELEASE + 1
     }
 }
+
+simple_add_obj!(WlKeyboard);

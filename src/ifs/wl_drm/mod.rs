@@ -1,6 +1,6 @@
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::ffi::CString;
 use std::rc::Rc;
@@ -36,7 +36,7 @@ impl WlDrmGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlDrmError> {
-        let obj = Rc::new(WlDrmObj {
+        let obj = Rc::new(WlDrm {
             id,
             client: client.clone(),
             _version: version,
@@ -70,13 +70,15 @@ impl Global for WlDrmGlobal {
     }
 }
 
-pub struct WlDrmObj {
+simple_add_global!(WlDrmGlobal);
+
+pub struct WlDrm {
     id: WlDrmId,
     pub client: Rc<Client>,
     _version: u32,
 }
 
-impl WlDrmObj {
+impl WlDrm {
     fn device(self: &Rc<Self>, device: &Rc<CString>) -> DynEventFormatter {
         Box::new(Device {
             obj: self.clone(),
@@ -113,34 +115,20 @@ impl WlDrmObj {
         let _req: CreatePlanarBuffer = self.client.parse(&**self, parser)?;
         Err(CreatePlanarBufferError::Unsupported)
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDrmError> {
-        match request {
-            AUTHENTICATE => self.authenticate(parser)?,
-            CREATE_BUFFER => self.create_buffer(parser)?,
-            CREATE_PLANAR_BUFFER => self.create_planar_buffer(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlDrmObj);
+object_base! {
+    WlDrm, WlDrmError;
 
-impl Object for WlDrmObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+    AUTHENTICATE => authenticate,
+    CREATE_BUFFER => create_buffer,
+    CREATE_PLANAR_BUFFER => create_planar_buffer,
+}
 
-    fn interface(&self) -> Interface {
-        Interface::WlDrm
-    }
-
+impl Object for WlDrm {
     fn num_requests(&self) -> u32 {
         CREATE_PLANAR_BUFFER + 1
     }
 }
+
+simple_add_obj!(WlDrm);

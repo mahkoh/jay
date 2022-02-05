@@ -4,7 +4,7 @@ use crate::ifs::wl_data_source::{
 };
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
-use bstr::{BString};
+use bstr::BString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;

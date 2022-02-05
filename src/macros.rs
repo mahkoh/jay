@@ -11,21 +11,14 @@ macro_rules! efrom {
     };
 }
 
-macro_rules! handle_request {
-    ($oname:ty) => {
-        impl crate::object::ObjectHandleRequest for $oname {
-            fn handle_request(
-                self: std::rc::Rc<Self>,
-                request: u32,
-                parser: crate::utils::buffd::MsgParser<'_, '_>,
-            ) -> Result<(), crate::client::ClientError> {
-                self.handle_request_(request, parser)?;
-                Ok(())
+macro_rules! object_base {
+    ($oname:ident, $ename:ty; $($code:ident => $f:ident,)*) => {
+        impl crate::object::ObjectBase for $oname {
+            fn id(&self) -> crate::object::ObjectId {
+                self.id.into()
             }
-        }
-    };
-    ($oname:ty, $ename:ty; $($code:ident => $f:ident,)*) => {
-        impl crate::object::ObjectHandleRequest for $oname {
+
+            #[allow(unused_variables, unreachable_code)]
             fn handle_request(
                 self: std::rc::Rc<Self>,
                 request: u32,
@@ -44,8 +37,23 @@ macro_rules! handle_request {
                     }
                     Ok(())
                 }
-                handle_request(self, request, parser)?;
+                if let Err(e) = handle_request(self, request, parser) {
+                    return Err(crate::client::ClientError::ObjectError(e.into()));
+                }
                 Ok(())
+            }
+
+            fn interface(&self) -> crate::object::Interface {
+                crate::object::Interface::$oname
+            }
+        }
+
+        impl From<$ename> for crate::client::ObjectError {
+            fn from(v: $ename) -> Self {
+                Self {
+                    interface: crate::object::Interface::$oname,
+                    error: Box::new(v),
+                }
             }
         }
     };
@@ -59,7 +67,7 @@ macro_rules! bind {
                 client: &'a std::rc::Rc<crate::client::Client>,
                 id: crate::object::ObjectId,
                 version: u32,
-            ) -> Result<(), crate::globals::GlobalError> {
+            ) -> Result<(), crate::globals::GlobalsError> {
                 self.bind_(id.into(), client, version)?;
                 Ok(())
             }
@@ -231,6 +239,53 @@ macro_rules! tree_id {
         impl PartialEq<$id> for crate::tree::NodeId {
             fn eq(&self, other: &$id) -> bool {
                 self.0 == other.0
+            }
+        }
+    };
+}
+
+macro_rules! dedicated_add_obj {
+    ($oname:ident, $idname:ident, $field:ident) => {
+        impl crate::client::WaylandObject for $oname {
+            fn add(self: Rc<Self>, client: &crate::client::Client) {
+                client.objects.$field.set(self.id.into(), self);
+            }
+            fn remove(&self, client: &crate::client::Client) {
+                client.objects.$field.remove(&self.id.into());
+            }
+        }
+
+        impl crate::client::WaylandObjectLookup for $idname {
+            type Object = $oname;
+            const INTERFACE: crate::object::Interface = crate::object::Interface::$oname;
+
+            fn lookup(client: &crate::client::Client, id: Self) -> Option<Rc<$oname>> {
+                client.objects.$field.get(&id)
+            }
+        }
+    };
+}
+
+macro_rules! simple_add_obj {
+    ($ty:ty) => {
+        impl crate::client::WaylandObject for $ty {}
+    };
+}
+
+macro_rules! simple_add_global {
+    ($ty:ty) => {
+        impl crate::globals::WaylandGlobal for $ty {}
+    };
+}
+
+macro_rules! dedicated_add_global {
+    ($oname:ident, $field:ident) => {
+        impl crate::globals::WaylandGlobal for $oname {
+            fn add(self: Rc<Self>, globals: &crate::globals::Globals) {
+                globals.$field.set(self.name(), self);
+            }
+            fn remove(&self, globals: &crate::globals::Globals) {
+                globals.$field.remove(&self.name());
             }
         }
     };

@@ -7,7 +7,7 @@ use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{ContainerNode, FindTreeResult};
@@ -200,7 +200,7 @@ impl XdgToplevel {
         let req: SetParent = self.xdg.surface.client.parse(self, parser)?;
         let mut parent = None;
         if req.parent.is_some() {
-            parent = Some(self.xdg.surface.client.get_xdg_toplevel(req.parent)?);
+            parent = Some(self.xdg.surface.client.lookup(req.parent)?);
         }
         self.parent.set(parent);
         Ok(())
@@ -226,7 +226,7 @@ impl XdgToplevel {
 
     fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), MoveError> {
         let req: Move = self.xdg.surface.client.parse(self, parser)?;
-        let seat = self.xdg.surface.client.get_wl_seat(req.seat)?;
+        let seat = self.xdg.surface.client.lookup(req.seat)?;
         if let Some(parent) = self.parent_node.get() {
             if let Some(float) = parent.into_float() {
                 seat.move_(&float);
@@ -298,31 +298,6 @@ impl XdgToplevel {
 
     fn set_minimized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinimizedError> {
         let _req: SetMinimized = self.xdg.surface.client.parse(self, parser)?;
-        Ok(())
-    }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgToplevelError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            SET_PARENT => self.set_parent(parser)?,
-            SET_TITLE => self.set_title(parser)?,
-            SET_APP_ID => self.set_app_id(parser)?,
-            SHOW_WINDOW_MENU => self.show_window_menu(parser)?,
-            MOVE => self.move_(parser)?,
-            RESIZE => self.resize(parser)?,
-            SET_MAX_SIZE => self.set_max_size(parser)?,
-            SET_MIN_SIZE => self.set_min_size(parser)?,
-            SET_MAXIMIZED => self.set_maximized(parser)?,
-            UNSET_MAXIMIZED => self.unset_maximized(parser)?,
-            SET_FULLSCREEN => self.set_fullscreen(parser)?,
-            UNSET_FULLSCREEN => self.unset_fullscreen(parser)?,
-            SET_MINIMIZED => self.set_minimized(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 
@@ -412,17 +387,26 @@ impl XdgToplevel {
     }
 }
 
-handle_request!(XdgToplevel);
+object_base! {
+    XdgToplevel, XdgToplevelError;
+
+    DESTROY => destroy,
+    SET_PARENT => set_parent,
+    SET_TITLE => set_title,
+    SET_APP_ID => set_app_id,
+    SHOW_WINDOW_MENU => show_window_menu,
+    MOVE => move_,
+    RESIZE => resize,
+    SET_MAX_SIZE => set_max_size,
+    SET_MIN_SIZE => set_min_size,
+    SET_MAXIMIZED => set_maximized,
+    UNSET_MAXIMIZED => unset_maximized,
+    SET_FULLSCREEN => set_fullscreen,
+    UNSET_FULLSCREEN => unset_fullscreen,
+    SET_MINIMIZED => set_minimized,
+}
 
 impl Object for XdgToplevel {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::XdgToplevel
-    }
-
     fn num_requests(&self) -> u32 {
         SET_MINIMIZED + 1
     }
@@ -436,6 +420,8 @@ impl Object for XdgToplevel {
         let _children = mem::take(&mut *self.children.borrow_mut());
     }
 }
+
+dedicated_add_obj!(XdgToplevel, XdgToplevelId, xdg_toplevel);
 
 impl Node for XdgToplevel {
     fn id(&self) -> NodeId {

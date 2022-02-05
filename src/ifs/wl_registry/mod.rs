@@ -2,7 +2,7 @@ mod types;
 
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -62,32 +62,18 @@ impl WlRegistry {
         global.bind(&self.client, bind.id, bind.version)?;
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlRegistryError> {
-        match request {
-            BIND => self.bind(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlRegistry);
+object_base! {
+    WlRegistry, WlRegistryError;
+
+    BIND => bind,
+}
 
 impl Object for WlRegistry {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlRegistry
-    }
-
     fn num_requests(&self) -> u32 {
         BIND + 1
     }
 }
+
+simple_add_obj!(WlRegistry);

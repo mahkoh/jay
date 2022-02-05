@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -18,7 +18,7 @@ pub struct WlCompositorGlobal {
     name: GlobalName,
 }
 
-pub struct WlCompositorObj {
+pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
     _version: u32,
@@ -35,7 +35,7 @@ impl WlCompositorGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlCompositorError> {
-        let obj = Rc::new(WlCompositorObj {
+        let obj = Rc::new(WlCompositor {
             id,
             client: client.clone(),
             _version: version,
@@ -45,7 +45,7 @@ impl WlCompositorGlobal {
     }
 }
 
-impl WlCompositorObj {
+impl WlCompositor {
     fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSurfaceError> {
         let surface: CreateSurface = self.client.parse(self, parser)?;
         let surface = Rc::new(WlSurface::new(surface.id, &self.client));
@@ -57,19 +57,6 @@ impl WlCompositorObj {
         let region: CreateRegion = self.client.parse(self, parser)?;
         let region = Rc::new(WlRegion::new(region.id, &self.client));
         self.client.add_client_obj(&region)?;
-        Ok(())
-    }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlCompositorError> {
-        match request {
-            CREATE_SURFACE => self.create_surface(parser)?,
-            CREATE_REGION => self.create_region(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 }
@@ -94,18 +81,19 @@ impl Global for WlCompositorGlobal {
     }
 }
 
-handle_request!(WlCompositorObj);
+simple_add_global!(WlCompositorGlobal);
 
-impl Object for WlCompositorObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+object_base! {
+    WlCompositor, WlCompositorError;
 
-    fn interface(&self) -> Interface {
-        Interface::WlCompositor
-    }
+    CREATE_SURFACE => create_surface,
+    CREATE_REGION => create_region,
+}
 
+impl Object for WlCompositor {
     fn num_requests(&self) -> u32 {
         CREATE_REGION + 1
     }
 }
+
+simple_add_obj!(WlCompositor);

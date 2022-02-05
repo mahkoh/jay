@@ -1,11 +1,11 @@
 mod types;
 
 use crate::client::{Client, DynEventFormatter};
-use crate::ifs::wl_data_offer::{DataOfferRole, WlDataOffer};
 use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
-use crate::utils::clonecell::{CloneCell, UnsafeCellCloneSafe};
+use crate::utils::clonecell::CloneCell;
 use ahash::AHashSet;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -14,66 +14,41 @@ use uapi::OwnedFd;
 
 const OFFER: u32 = 0;
 const DESTROY: u32 = 1;
-const SET_ACTIONS: u32 = 2;
 
-const TARGET: u32 = 0;
-const SEND: u32 = 1;
-const CANCELLED: u32 = 2;
-const DND_DROP_PERFORMED: u32 = 4;
-const DND_FINISHED: u32 = 5;
-const ACTION: u32 = 5;
+const SEND: u32 = 0;
+const CANCELLED: u32 = 1;
 
-#[allow(dead_code)]
-const INVALID_ACTION_MASK: u32 = 0;
-#[allow(dead_code)]
-const INVALID_SOURCE: u32 = 1;
+id!(ZwpPrimarySelectionSourceV1Id);
 
-id!(WlDataSourceId);
-
-#[derive(Clone)]
-struct Attachment {
-    seat: Rc<WlSeatGlobal>,
-    role: DataOfferRole,
-}
-
-unsafe impl UnsafeCellCloneSafe for Attachment {}
-
-pub struct WlDataSource {
-    pub id: WlDataSourceId,
+pub struct ZwpPrimarySelectionSourceV1 {
+    pub id: ZwpPrimarySelectionSourceV1Id,
     pub client: Rc<Client>,
     pub mime_types: RefCell<AHashSet<String>>,
-    attachment: CloneCell<Option<Attachment>>,
-    offer: CloneCell<Option<Rc<WlDataOffer>>>,
+    seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
+    offer: CloneCell<Option<Rc<ZwpPrimarySelectionOfferV1>>>,
 }
 
-impl WlDataSource {
-    pub fn new(id: WlDataSourceId, client: &Rc<Client>) -> Self {
+impl ZwpPrimarySelectionSourceV1 {
+    pub fn new(id: ZwpPrimarySelectionSourceV1Id, client: &Rc<Client>) -> Self {
         Self {
             id,
             client: client.clone(),
             mime_types: RefCell::new(Default::default()),
-            attachment: Default::default(),
+            seat: Default::default(),
             offer: Default::default(),
         }
     }
 
-    pub fn attach(
-        &self,
-        seat: &Rc<WlSeatGlobal>,
-        role: DataOfferRole,
-    ) -> Result<(), WlDataSourceError> {
-        if self.attachment.get().is_some() {
-            return Err(WlDataSourceError::AlreadyAttached);
+    pub fn attach(&self, seat: &Rc<WlSeatGlobal>) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
+        if self.seat.get().is_some() {
+            return Err(ZwpPrimarySelectionSourceV1Error::AlreadyAttached);
         }
-        self.attachment.set(Some(Attachment {
-            seat: seat.clone(),
-            role,
-        }));
+        self.seat.set(Some(seat.clone()));
         Ok(())
     }
 
     pub fn detach(self: &Rc<Self>) {
-        self.attachment.set(None);
+        self.seat.set(None);
         if let Some(offer) = self.offer.set(None) {
             offer.source.set(None);
         }
@@ -82,21 +57,21 @@ impl WlDataSource {
     }
 
     pub fn create_offer(self: &Rc<Self>, client: &Rc<Client>) {
-        let attachment = match self.attachment.get() {
+        let seat = match self.seat.get() {
             Some(a) => a,
             _ => {
                 log::error!("Trying to create an offer from a unattached data source");
                 return;
             }
         };
-        let offer = WlDataOffer::create(client, attachment.role, self, &attachment.seat);
+        let offer = ZwpPrimarySelectionOfferV1::create(client, self, &seat);
         let old = self.offer.set(offer);
         if let Some(offer) = old {
             offer.source.set(None);
         }
     }
 
-    pub fn destroy_offer(&self) {
+    pub fn clear_offer(&self) {
         self.offer.take();
     }
 
@@ -130,12 +105,8 @@ impl WlDataSource {
         if let Some(offer) = self.offer.take() {
             offer.source.set(None);
         }
-        if let Some(attachment) = self.attachment.get() {
-            match attachment.role {
-                DataOfferRole::Selection => {
-                    let _ = attachment.seat.set_selection(None);
-                }
-            }
+        if let Some(seat) = self.seat.get() {
+            let _ = seat.set_primary_selection(None);
         }
     }
 
@@ -145,24 +116,18 @@ impl WlDataSource {
         self.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), SetActionsError> {
-        let _req: SetActions = self.client.parse(self, parser)?;
-        Ok(())
-    }
 }
 
 object_base! {
-    WlDataSource, WlDataSourceError;
+    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error;
 
     OFFER => offer,
     DESTROY => destroy,
-    SET_ACTIONS => set_actions,
 }
 
-impl Object for WlDataSource {
+impl Object for ZwpPrimarySelectionSourceV1 {
     fn num_requests(&self) -> u32 {
-        SET_ACTIONS + 1
+        DESTROY + 1
     }
 
     fn break_loops(&self) {
@@ -170,4 +135,8 @@ impl Object for WlDataSource {
     }
 }
 
-dedicated_add_obj!(WlDataSource, WlDataSourceId, wl_data_source);
+dedicated_add_obj!(
+    ZwpPrimarySelectionSourceV1,
+    ZwpPrimarySelectionSourceV1Id,
+    zwp_primary_selection_source
+);

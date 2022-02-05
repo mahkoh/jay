@@ -243,3 +243,9 @@ impl Debug for Selection {
         write!(f, "selection(id: {})", self.id)
     }
 }
+//
+// msgs! {
+//     WlDataDevice::Selection = 5 {
+//         id: id(WlDataOffer),
+//     }
+// }

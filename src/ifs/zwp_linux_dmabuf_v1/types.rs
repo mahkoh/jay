@@ -1,6 +1,6 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1Id;
-use crate::ifs::zwp_linux_dmabuf_v1::{ZwpLinuxDmabufV1Obj, FORMAT, MODIFIER};
+use crate::ifs::zwp_linux_dmabuf_v1::{ZwpLinuxDmabufV1, FORMAT, MODIFIER};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -67,7 +67,7 @@ impl Debug for CreateParams {
 }
 
 pub(super) struct Format {
-    pub obj: Rc<ZwpLinuxDmabufV1Obj>,
+    pub obj: Rc<ZwpLinuxDmabufV1>,
     pub format: u32,
 }
 impl EventFormatter for Format {
@@ -85,7 +85,7 @@ impl Debug for Format {
 }
 
 pub(super) struct Modifier {
-    pub obj: Rc<ZwpLinuxDmabufV1Obj>,
+    pub obj: Rc<ZwpLinuxDmabufV1>,
     pub format: u32,
     pub modifier: u64,
 }

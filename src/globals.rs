@@ -12,6 +12,9 @@ use crate::ifs::wl_shm::WlShmError;
 use crate::ifs::wl_subcompositor::WlSubcompositorError;
 use crate::ifs::xdg_wm_base::XdgWmBaseError;
 use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Error;
+use crate::ifs::zwp_primary_selection_device_manager_v1::{
+    ZwpPrimarySelectionDeviceManagerV1Error, ZwpPrimarySelectionDeviceManagerV1Global,
+};
 use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
@@ -26,7 +29,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum GlobalError {
+pub enum GlobalsError {
     #[error("The requested global {0} does not exist")]
     GlobalDoesNotExist(GlobalName),
     #[error("An error occurred in a `wl_compositor` global")]
@@ -53,19 +56,22 @@ pub enum GlobalError {
     ZxdgDecorationManagerV1Error(#[source] Box<ZxdgDecorationManagerV1Error>),
     #[error("An error occurred in a `org_kde_kwin_server_decoration_manager` global")]
     OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
+    #[error("An error occurred in a `zwp_primary_selection_device_manager_v1` global")]
+    ZwpPrimarySelectionDeviceManagerV1Error(#[source] Box<ZwpPrimarySelectionDeviceManagerV1Error>),
 }
 
-efrom!(GlobalError, WlCompositorError);
-efrom!(GlobalError, WlShmError);
-efrom!(GlobalError, WlSubcompositorError);
-efrom!(GlobalError, XdgWmBaseError);
-efrom!(GlobalError, WlOutputError);
-efrom!(GlobalError, WlSeatError);
-efrom!(GlobalError, ZwpLinuxDmabufV1Error);
-efrom!(GlobalError, WlDrmError);
-efrom!(GlobalError, WlDataDeviceManagerError);
-efrom!(GlobalError, ZxdgDecorationManagerV1Error);
-efrom!(GlobalError, OrgKdeKwinServerDecorationManagerError);
+efrom!(GlobalsError, WlCompositorError);
+efrom!(GlobalsError, WlShmError);
+efrom!(GlobalsError, WlSubcompositorError);
+efrom!(GlobalsError, XdgWmBaseError);
+efrom!(GlobalsError, WlOutputError);
+efrom!(GlobalsError, WlSeatError);
+efrom!(GlobalsError, ZwpLinuxDmabufV1Error);
+efrom!(GlobalsError, WlDrmError);
+efrom!(GlobalsError, WlDataDeviceManagerError);
+efrom!(GlobalsError, ZxdgDecorationManagerV1Error);
+efrom!(GlobalsError, OrgKdeKwinServerDecorationManagerError);
+efrom!(GlobalsError, ZwpPrimarySelectionDeviceManagerV1Error);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);
@@ -92,7 +98,7 @@ pub trait GlobalBind {
         client: &'a Rc<Client>,
         id: ObjectId,
         version: u32,
-    ) -> Result<(), GlobalError>;
+    ) -> Result<(), GlobalsError>;
 }
 
 pub trait Global: GlobalBind {
@@ -106,8 +112,8 @@ pub trait Global: GlobalBind {
 pub struct Globals {
     next_name: NumCell<u32>,
     registry: CopyHashMap<GlobalName, Rc<dyn Global>>,
-    outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
-    seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
+    pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
+    pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
 impl Globals {
@@ -132,6 +138,7 @@ impl Globals {
         add_singleton!(WlDrmGlobal);
         add_singleton!(ZxdgDecorationManagerV1Global);
         add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
+        add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
         slf
     }
 
@@ -156,13 +163,14 @@ impl Globals {
         self.broadcast(state, |r| r.global(&global));
     }
 
-    pub fn get(&self, name: GlobalName) -> Result<Rc<dyn Global>, GlobalError> {
+    pub fn get(&self, name: GlobalName) -> Result<Rc<dyn Global>, GlobalsError> {
         self.take(name, false)
     }
 
-    pub fn remove(&self, state: &State, name: GlobalName) -> Result<(), GlobalError> {
-        let _global = self.take(name, true)?;
-        self.broadcast(state, |r| r.global_remove(name));
+    pub fn remove<T: WaylandGlobal>(&self, state: &State, global: &T) -> Result<(), GlobalsError> {
+        let _global = self.take(global.name(), true)?;
+        global.remove(self);
+        self.broadcast(state, |r| r.global_remove(global.name()));
         Ok(())
     }
 
@@ -195,7 +203,7 @@ impl Globals {
         });
     }
 
-    fn take(&self, name: GlobalName, remove: bool) -> Result<Rc<dyn Global>, GlobalError> {
+    fn take(&self, name: GlobalName, remove: bool) -> Result<Rc<dyn Global>, GlobalsError> {
         let res = if remove {
             self.registry.remove(&name)
         } else {
@@ -203,75 +211,34 @@ impl Globals {
         };
         match res {
             Some(g) => Ok(g),
-            None => Err(GlobalError::GlobalDoesNotExist(name)),
+            None => Err(GlobalsError::GlobalDoesNotExist(name)),
         }
     }
 
     #[allow(dead_code)]
-    pub fn get_output(&self, output: GlobalName) -> Result<Rc<WlOutputGlobal>, GlobalError> {
+    pub fn get_output(&self, output: GlobalName) -> Result<Rc<WlOutputGlobal>, GlobalsError> {
         match self.outputs.get(&output) {
             Some(o) => Ok(o),
-            _ => Err(GlobalError::OutputDoesNotExist(output)),
+            _ => Err(GlobalsError::OutputDoesNotExist(output)),
         }
+    }
+
+    pub fn add_global<T: WaylandGlobal>(&self, state: &State, global: &Rc<T>) {
+        global.clone().add(self);
+        self.insert(state, global.clone())
+    }
+
+    pub fn add_global_no_broadcast<T: WaylandGlobal>(&self, global: &Rc<T>) {
+        global.clone().add(self);
+        self.insert_no_broadcast(global.clone());
     }
 }
 
-pub trait AddGlobal<T> {
-    fn add_global(&self, state: &State, global: &Rc<T>);
-
-    fn add_global_no_broadcast(&self, global: &Rc<T>);
-
-    fn remove_global(&self, state: &State, global: &T) -> Result<(), GlobalError>;
+pub trait WaylandGlobal: Global + 'static {
+    fn add(self: Rc<Self>, globals: &Globals) {
+        let _ = globals;
+    }
+    fn remove(&self, globals: &Globals) {
+        let _ = globals;
+    }
 }
-
-macro_rules! simple_add_global {
-    ($ty:ty) => {
-        impl AddGlobal<$ty> for Globals {
-            fn add_global(&self, state: &State, global: &Rc<$ty>) {
-                self.insert(state, global.clone())
-            }
-
-            fn add_global_no_broadcast(&self, global: &Rc<$ty>) {
-                self.insert_no_broadcast(global.clone());
-            }
-
-            fn remove_global(&self, state: &State, global: &$ty) -> Result<(), GlobalError> {
-                self.remove(state, global.name())
-            }
-        }
-    };
-}
-
-simple_add_global!(WlCompositorGlobal);
-simple_add_global!(WlShmGlobal);
-simple_add_global!(WlSubcompositorGlobal);
-simple_add_global!(XdgWmBaseGlobal);
-simple_add_global!(WlDataDeviceManagerGlobal);
-simple_add_global!(ZwpLinuxDmabufV1Global);
-simple_add_global!(WlDrmGlobal);
-simple_add_global!(ZxdgDecorationManagerV1Global);
-simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
-
-macro_rules! dedicated_add_global {
-    ($ty:ty, $field:ident) => {
-        impl AddGlobal<$ty> for Globals {
-            fn add_global(&self, state: &State, global: &Rc<$ty>) {
-                self.insert(state, global.clone());
-                self.$field.set(global.name(), global.clone());
-            }
-
-            fn add_global_no_broadcast(&self, global: &Rc<$ty>) {
-                self.insert_no_broadcast(global.clone());
-                self.$field.set(global.name(), global.clone());
-            }
-
-            fn remove_global(&self, state: &State, global: &$ty) -> Result<(), GlobalError> {
-                self.$field.remove(&global.name());
-                self.remove(state, global.name())
-            }
-        }
-    };
-}
-
-dedicated_add_global!(WlOutputGlobal, outputs);
-dedicated_add_global!(WlSeatGlobal, seats);

@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurfaceError, XdgSurfaceId};
 use crate::ifs::wl_surface::WlSurfaceId;
 use crate::ifs::xdg_positioner::XdgPositionerId;
-use crate::ifs::xdg_wm_base::{XdgWmBaseObj, PING};
+use crate::ifs::xdg_wm_base::{XdgWmBase, PING};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -133,7 +133,7 @@ impl Debug for Pong {
 }
 
 pub(super) struct Ping {
-    pub obj: Rc<XdgWmBaseObj>,
+    pub obj: Rc<XdgWmBase>,
     pub serial: u32,
 }
 impl EventFormatter for Ping {

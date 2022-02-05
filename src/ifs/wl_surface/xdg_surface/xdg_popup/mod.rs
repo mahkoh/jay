@@ -6,7 +6,7 @@ use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::ifs::xdg_positioner::{XdgPositioned, XdgPositioner, CA};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -208,12 +208,7 @@ impl XdgPopup {
 
     fn reposition(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), RepositionError> {
         let req: Reposition = self.xdg.surface.client.parse(&**self, parser)?;
-        *self.pos.borrow_mut() = self
-            .xdg
-            .surface
-            .client
-            .get_xdg_positioner(req.positioner)?
-            .value();
+        *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
             self.update_position(&parent)?;
             let rel = self.relative_position.get();
@@ -234,7 +229,7 @@ impl XdgPopup {
     }
 }
 
-handle_request! {
+object_base! {
     XdgPopup, XdgPopupError;
 
     DESTROY => destroy,
@@ -243,14 +238,6 @@ handle_request! {
 }
 
 impl Object for XdgPopup {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::XdgPopup
-    }
-
     fn num_requests(&self) -> u32 {
         let last_req = match self.xdg.base.version {
             0..=2 => GRAB,
@@ -266,6 +253,8 @@ impl Object for XdgPopup {
         *self.workspace_link.borrow_mut() = None;
     }
 }
+
+simple_add_obj!(XdgPopup);
 
 impl Node for XdgPopup {
     fn id(&self) -> NodeId {

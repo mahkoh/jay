@@ -134,7 +134,7 @@ mod timeout {
     }
 
     impl WheelDispatcher for TimeoutData {
-        fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn Error>> {
             self.expired.set(true);
             if let Some(w) = self.waker.borrow_mut().take() {
                 w.wake();
@@ -438,7 +438,7 @@ mod queue {
     }
 
     impl EventLoopDispatcher for Dispatcher {
-        fn dispatch(self: Rc<Self>, _events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fn dispatch(self: Rc<Self>, _events: i32) -> Result<(), Box<dyn Error>> {
             loop {
                 self.queue.iteration.fetch_add(1);
                 let mut stash = self.stash.borrow_mut();
@@ -552,7 +552,7 @@ mod fd {
     }
 
     impl EventLoopDispatcher for AsyncFdData {
-        fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error>> {
             if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
                 self.erroneous.set(true);
                 if let Err(e) = self.el.remove(self.id) {

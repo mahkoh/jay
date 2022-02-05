@@ -10,8 +10,8 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
     CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
 };
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
-use crate::object::{Interface, Object, ObjectId};
+use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::object::Object;
 use crate::rect::Rect;
 use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
@@ -58,7 +58,7 @@ id!(XdgSurfaceId);
 
 pub struct XdgSurface {
     id: XdgSurfaceId,
-    base: Rc<XdgWmBaseObj>,
+    base: Rc<XdgWmBase>,
     role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
     requested_serial: NumCell<u32>,
@@ -102,7 +102,7 @@ trait XdgSurfaceExt {
 }
 
 impl XdgSurface {
-    pub fn new(wm_base: &Rc<XdgWmBaseObj>, id: XdgSurfaceId, surface: &Rc<WlSurface>) -> Self {
+    pub fn new(wm_base: &Rc<XdgWmBase>, id: XdgSurfaceId, surface: &Rc<WlSurface>) -> Self {
         Self {
             id,
             base: wm_base.clone(),
@@ -254,9 +254,9 @@ impl XdgSurface {
         self.set_role(XdgSurfaceRole::XdgPopup)?;
         let mut parent = None;
         if req.parent.is_some() {
-            parent = Some(self.surface.client.get_xdg_surface(req.parent)?);
+            parent = Some(self.surface.client.lookup(req.parent)?);
         }
-        let positioner = self.surface.client.get_xdg_positioner(req.positioner)?;
+        let positioner = self.surface.client.lookup(req.positioner)?;
         if self.ext.get().is_some() {
             self.surface.client.protocol_error(
                 &**self,
@@ -291,22 +291,6 @@ impl XdgSurface {
         let req: AckConfigure = self.surface.client.parse(self, parser)?;
         if self.requested_serial.get() == req.serial {
             self.acked_serial.set(Some(req.serial));
-        }
-        Ok(())
-    }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgSurfaceError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            GET_TOPLEVEL => self.get_toplevel(parser)?,
-            GET_POPUP => self.get_popup(parser)?,
-            SET_WINDOW_GEOMETRY => self.set_window_geometry(parser)?,
-            ACK_CONFIGURE => self.ack_configure(parser)?,
-            _ => unreachable!(),
         }
         Ok(())
     }
@@ -348,17 +332,17 @@ impl XdgSurface {
     }
 }
 
-handle_request!(XdgSurface);
+object_base! {
+    XdgSurface, XdgSurfaceError;
+
+    DESTROY => destroy,
+    GET_TOPLEVEL => get_toplevel,
+    GET_POPUP => get_popup,
+    SET_WINDOW_GEOMETRY => set_window_geometry,
+    ACK_CONFIGURE => ack_configure,
+}
 
 impl Object for XdgSurface {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::XdgSurface
-    }
-
     fn num_requests(&self) -> u32 {
         ACK_CONFIGURE + 1
     }
@@ -367,6 +351,8 @@ impl Object for XdgSurface {
         self.focus_surface.take();
     }
 }
+
+dedicated_add_obj!(XdgSurface, XdgSurfaceId, xdg_surfaces);
 
 impl SurfaceExt for XdgSurface {
     fn pre_commit(self: Rc<Self>, _ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {

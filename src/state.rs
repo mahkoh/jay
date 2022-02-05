@@ -3,7 +3,7 @@ use crate::backend::{BackendEvent, OutputId, OutputIds, SeatId, SeatIds};
 use crate::client::{Client, Clients};
 use crate::cursor::ServerCursors;
 use crate::event_loop::EventLoop;
-use crate::globals::{AddGlobal, Globals};
+use crate::globals::{GlobalsError, Globals, WaylandGlobal};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
@@ -61,11 +61,12 @@ impl State {
         self.render_ctx.set(Some(ctx.clone()));
     }
 
-    pub fn add_global<T>(&self, global: &Rc<T>)
-    where
-        Globals: AddGlobal<T>,
-    {
+    pub fn add_global<T: WaylandGlobal>(&self, global: &Rc<T>) {
         self.globals.add_global(self, global)
+    }
+
+    pub fn remove_global<T: WaylandGlobal>(&self, global: &T) -> Result<(), GlobalsError> {
+        self.globals.remove(self, global)
     }
 
     pub fn tree_changed(&self) {

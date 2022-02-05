@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_data_offer::{WlDataOffer, ACTION, OFFER, SOURCE_ACTIONS};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
-use bstr::{BStr};
+use bstr::BStr;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -180,7 +180,7 @@ impl EventFormatter for Offer {
 }
 impl Debug for Offer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "target(mime_type: {:?})", self.mime_type)
+        write!(f, "offer(mime_type: {:?})", self.mime_type)
     }
 }
 

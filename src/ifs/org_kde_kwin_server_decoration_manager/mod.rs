@@ -1,7 +1,7 @@
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -34,7 +34,7 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), OrgKdeKwinServerDecorationManagerError> {
-        let obj = Rc::new(OrgKdeKwinServerDecorationManagerObj {
+        let obj = Rc::new(OrgKdeKwinServerDecorationManager {
             id,
             client: client.clone(),
             _version: version,
@@ -65,13 +65,15 @@ impl Global for OrgKdeKwinServerDecorationManagerGlobal {
     }
 }
 
-pub struct OrgKdeKwinServerDecorationManagerObj {
+simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
+
+pub struct OrgKdeKwinServerDecorationManager {
     id: OrgKdeKwinServerDecorationManagerGlobalId,
     client: Rc<Client>,
     _version: u32,
 }
 
-impl OrgKdeKwinServerDecorationManagerObj {
+impl OrgKdeKwinServerDecorationManager {
     fn default_mode(self: &Rc<Self>, mode: u32) -> DynEventFormatter {
         Box::new(DefaultMode {
             obj: self.clone(),
@@ -81,39 +83,24 @@ impl OrgKdeKwinServerDecorationManagerObj {
 
     fn create(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateError> {
         let req: Create = self.client.parse(self, parser)?;
-        let _ = self.client.get_surface(req.surface)?;
+        let _ = self.client.lookup(req.surface)?;
         let obj = Rc::new(OrgKdeKwinServerDecoration::new(req.id, &self.client));
         self.client.add_client_obj(&obj)?;
         self.client.event(obj.mode(SERVER));
-        log::info!("ayo");
-        Ok(())
-    }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), OrgKdeKwinServerDecorationManagerError> {
-        match request {
-            CREATE => self.create(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 }
 
-handle_request!(OrgKdeKwinServerDecorationManagerObj);
+object_base! {
+    OrgKdeKwinServerDecorationManager, OrgKdeKwinServerDecorationManagerError;
 
-impl Object for OrgKdeKwinServerDecorationManagerObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+    CREATE => create,
+}
 
-    fn interface(&self) -> Interface {
-        Interface::OrgKdeKwinServerDecorationManager
-    }
-
+impl Object for OrgKdeKwinServerDecorationManager {
     fn num_requests(&self) -> u32 {
         CREATE + 1
     }
 }
+
+simple_add_obj!(OrgKdeKwinServerDecorationManager);

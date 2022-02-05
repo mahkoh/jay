@@ -47,7 +47,7 @@ struct Sighand {
 }
 
 impl EventLoopDispatcher for Sighand {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(SighandError::ErrorEvent));
         }

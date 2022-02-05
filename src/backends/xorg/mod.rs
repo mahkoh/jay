@@ -902,7 +902,7 @@ impl XorgBackend {
 }
 
 impl EventLoopDispatcher for XorgBackend {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(XorgBackendError::ErrorEvent));
         }
@@ -912,7 +912,7 @@ impl EventLoopDispatcher for XorgBackend {
 }
 
 impl WheelDispatcher for XorgBackend {
-    fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn dispatch(self: Rc<Self>) -> Result<(), Box<dyn Error>> {
         Ok(())
     }
 }

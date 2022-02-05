@@ -1,7 +1,7 @@
 mod types;
 
 use crate::client::Client;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::pixman::Region;
 use crate::utils::buffd::MsgParser;
 use std::cell::RefCell;
@@ -63,34 +63,20 @@ impl WlRegion {
         ));
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlRegionError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            ADD => self.add(parser)?,
-            SUBTRACT => self.subtract(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlRegion);
+object_base! {
+    WlRegion, WlRegionError;
+
+    DESTROY => destroy,
+    ADD => add,
+    SUBTRACT => subtract,
+}
 
 impl Object for WlRegion {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlRegion
-    }
-
     fn num_requests(&self) -> u32 {
         SUBTRACT + 1
     }
 }
+
+dedicated_add_obj!(WlRegion, WlRegionId, regions);

@@ -1,10 +1,10 @@
 mod types;
 
-use crate::client::{DynEventFormatter};
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
+use crate::client::DynEventFormatter;
+use crate::ifs::wl_data_device_manager::WlDataDeviceManager;
 use crate::ifs::wl_data_offer::WlDataOfferId;
-use crate::ifs::wl_seat::{WlSeatObj};
-use crate::object::{Interface, Object, ObjectId};
+use crate::ifs::wl_seat::WlSeat;
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -27,16 +27,12 @@ id!(WlDataDeviceId);
 
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
-    pub manager: Rc<WlDataDeviceManagerObj>,
-    seat: Rc<WlSeatObj>,
+    pub manager: Rc<WlDataDeviceManager>,
+    seat: Rc<WlSeat>,
 }
 
 impl WlDataDevice {
-    pub fn new(
-        id: WlDataDeviceId,
-        manager: &Rc<WlDataDeviceManagerObj>,
-        seat: &Rc<WlSeatObj>,
-    ) -> Self {
+    pub fn new(id: WlDataDeviceId, manager: &Rc<WlDataDeviceManager>, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
             manager: manager.clone(),
@@ -68,7 +64,7 @@ impl WlDataDevice {
         let src = if req.source.is_none() {
             None
         } else {
-            Some(self.manager.client.get_wl_data_source(req.source)?)
+            Some(self.manager.client.lookup(req.source)?)
         };
         self.seat.global.set_selection(src)?;
         Ok(())
@@ -80,33 +76,17 @@ impl WlDataDevice {
         self.manager.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDataDeviceError> {
-        match request {
-            START_DRAG => self.start_drag(parser)?,
-            SET_SELECTION => self.set_selection(parser)?,
-            RELEASE => self.release(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlDataDevice);
+object_base! {
+    WlDataDevice, WlDataDeviceError;
+
+    START_DRAG => start_drag,
+    SET_SELECTION => set_selection,
+    RELEASE => release,
+}
 
 impl Object for WlDataDevice {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlDataDevice
-    }
-
     fn num_requests(&self) -> u32 {
         RELEASE + 1
     }
@@ -115,3 +95,5 @@ impl Object for WlDataDevice {
         self.seat.remove_data_device(self);
     }
 }
+
+simple_add_obj!(WlDataDevice);

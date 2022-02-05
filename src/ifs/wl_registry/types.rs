@@ -1,5 +1,5 @@
 use crate::client::{EventFormatter, RequestParser};
-use crate::globals::{Global, GlobalError, GlobalName};
+use crate::globals::{Global, GlobalsError, GlobalName};
 use crate::ifs::wl_registry::{WlRegistry, GLOBAL, GLOBAL_REMOVE};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
@@ -21,7 +21,7 @@ pub enum BindError {
     #[error("Parsing failed")]
     ParseError(#[source] Box<MsgParserError>),
     #[error(transparent)]
-    GlobalError(Box<GlobalError>),
+    GlobalsError(Box<GlobalsError>),
     #[error("Tried to bind to global {} of type {} using interface {}", .0.name, .0.interface.name(), .0.actual)]
     InvalidInterface(InterfaceError),
     #[error("Tried to bind to global {} of type {} and version {} using version {}", .0.name, .0.interface.name(), .0.version, .0.actual)]
@@ -44,7 +44,7 @@ pub struct VersionError {
 }
 
 efrom!(BindError, ParseError, MsgParserError);
-efrom!(BindError, GlobalError);
+efrom!(BindError, GlobalsError);
 
 pub(super) struct GlobalE {
     pub obj: Rc<WlRegistry>,

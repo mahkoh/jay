@@ -2,7 +2,7 @@ mod types;
 
 use crate::client::{Client, DynEventFormatter};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel};
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -70,34 +70,20 @@ impl ZxdgToplevelDecorationV1 {
         self.send_configure();
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZxdgToplevelDecorationV1Error> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            SET_MODE => self.set_mode(parser)?,
-            UNSET_MODE => self.unset_mode(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(ZxdgToplevelDecorationV1);
+object_base! {
+    ZxdgToplevelDecorationV1, ZxdgToplevelDecorationV1Error;
+
+    DESTROY => destroy,
+    SET_MODE => set_mode,
+    UNSET_MODE => unset_mode,
+}
 
 impl Object for ZxdgToplevelDecorationV1 {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::ZxdgToplevelDecorationV1
-    }
-
     fn num_requests(&self) -> u32 {
         UNSET_MODE + 1
     }
 }
+
+simple_add_obj!(ZxdgToplevelDecorationV1);

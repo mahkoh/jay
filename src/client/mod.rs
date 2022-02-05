@@ -1,38 +1,10 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
+use crate::client::error::LookupError;
 use crate::client::objects::Objects;
-use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
-use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerObj;
-use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
 use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_compositor::WlCompositorObj;
-use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
-use crate::ifs::wl_data_offer::WlDataOffer;
-use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceId};
 use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_drm::WlDrmObj;
-use crate::ifs::wl_output::WlOutputObj;
-use crate::ifs::wl_region::{WlRegion, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
-use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
-use crate::ifs::wl_seat::wl_pointer::WlPointer;
-use crate::ifs::wl_seat::wl_touch::WlTouch;
-use crate::ifs::wl_seat::{WlSeatId, WlSeatObj};
-use crate::ifs::wl_shm::WlShmObj;
-use crate::ifs::wl_shm_pool::WlShmPool;
-use crate::ifs::wl_subcompositor::WlSubcompositorObj;
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
-use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
-use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerId};
-use crate::ifs::xdg_wm_base::XdgWmBaseObj;
-use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
-use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Obj;
-use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Obj;
-use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
-use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
+use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use crate::utils::numcell::NumCell;
@@ -40,7 +12,7 @@ use crate::utils::oneshot::{oneshot, OneshotTx};
 use crate::utils::queue::AsyncQueue;
 use crate::ErrorFmt;
 use ahash::AHashMap;
-pub use error::ClientError;
+pub use error::{ClientError, ObjectError};
 use std::cell::{Cell, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
@@ -332,65 +304,6 @@ impl Client {
         self.checking_queue_size.set(false);
     }
 
-    pub fn get_buffer(&self, id: WlBufferId) -> Result<Rc<WlBuffer>, ClientError> {
-        match self.objects.buffers.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::BufferDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_region(&self, id: WlRegionId) -> Result<Rc<WlRegion>, ClientError> {
-        match self.objects.regions.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::RegionDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_surface(&self, id: WlSurfaceId) -> Result<Rc<WlSurface>, ClientError> {
-        match self.objects.surfaces.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::SurfaceDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_xdg_surface(&self, id: XdgSurfaceId) -> Result<Rc<XdgSurface>, ClientError> {
-        match self.objects.xdg_surfaces.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::XdgSurfaceDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_wl_data_source(&self, id: WlDataSourceId) -> Result<Rc<WlDataSource>, ClientError> {
-        match self.objects.wl_data_source.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::WlDataSourceDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_xdg_toplevel(&self, id: XdgToplevelId) -> Result<Rc<XdgToplevel>, ClientError> {
-        match self.objects.xdg_toplevel.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::XdgToplevelDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_xdg_positioner(
-        &self,
-        id: XdgPositionerId,
-    ) -> Result<Rc<XdgPositioner>, ClientError> {
-        match self.objects.xdg_positioners.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::XdgPositionerDoesNotExist(id)),
-        }
-    }
-
-    pub fn get_wl_seat(&self, id: WlSeatId) -> Result<Rc<WlSeatObj>, ClientError> {
-        match self.objects.seats.get(&id) {
-            Some(r) => Ok(r),
-            _ => Err(ClientError::WlSeatDoesNotExist(id)),
-        }
-    }
-
     pub fn lock_registries(&self) -> RefMut<AHashMap<WlRegistryId, Rc<WlRegistry>>> {
         self.objects.registries()
     }
@@ -432,6 +345,18 @@ impl Client {
         obj.remove(self);
         self.objects.remove_obj(self, obj.id())
     }
+
+    pub fn lookup<Id: WaylandObjectLookup>(&self, id: Id) -> Result<Rc<Id::Object>, ClientError> {
+        match Id::lookup(self, id) {
+            Some(t) => Ok(t),
+            _ => {
+                return Err(ClientError::LookupError(LookupError {
+                    interface: Id::INTERFACE,
+                    id: id.into(),
+                }))
+            }
+        }
+    }
 }
 
 pub trait WaylandObject: Object {
@@ -443,54 +368,9 @@ pub trait WaylandObject: Object {
     }
 }
 
-macro_rules! simple_add_obj {
-    ($ty:ty) => {
-        impl WaylandObject for $ty {}
-    };
+pub trait WaylandObjectLookup: Copy + Into<ObjectId> {
+    type Object;
+    const INTERFACE: Interface;
+
+    fn lookup(client: &Client, id: Self) -> Option<Rc<Self::Object>>;
 }
-
-simple_add_obj!(WlCompositorObj);
-simple_add_obj!(WlCallback);
-simple_add_obj!(WlRegistry);
-simple_add_obj!(WlShmObj);
-simple_add_obj!(WlShmPool);
-simple_add_obj!(WlSubcompositorObj);
-simple_add_obj!(WlSubsurface);
-simple_add_obj!(XdgPopup);
-simple_add_obj!(WlOutputObj);
-simple_add_obj!(WlKeyboard);
-simple_add_obj!(WlPointer);
-simple_add_obj!(WlTouch);
-simple_add_obj!(WlDataDeviceManagerObj);
-simple_add_obj!(WlDataDevice);
-simple_add_obj!(WlDataOffer);
-simple_add_obj!(ZwpLinuxDmabufV1Obj);
-simple_add_obj!(ZwpLinuxBufferParamsV1);
-simple_add_obj!(WlDrmObj);
-simple_add_obj!(ZxdgToplevelDecorationV1);
-simple_add_obj!(ZxdgDecorationManagerV1Obj);
-simple_add_obj!(OrgKdeKwinServerDecorationManagerObj);
-simple_add_obj!(OrgKdeKwinServerDecoration);
-
-macro_rules! dedicated_add_obj {
-    ($ty:ty, $field:ident) => {
-        impl WaylandObject for $ty {
-            fn add(self: Rc<Self>, client: &Client) {
-                client.objects.$field.set(self.id().into(), self);
-            }
-            fn remove(&self, client: &Client) {
-                client.objects.$field.remove(&self.id().into());
-            }
-        }
-    };
-}
-
-dedicated_add_obj!(WlRegion, regions);
-dedicated_add_obj!(WlSurface, surfaces);
-dedicated_add_obj!(XdgWmBaseObj, xdg_wm_bases);
-dedicated_add_obj!(XdgSurface, xdg_surfaces);
-dedicated_add_obj!(WlBuffer, buffers);
-dedicated_add_obj!(WlSeatObj, seats);
-dedicated_add_obj!(XdgPositioner, xdg_positioners);
-dedicated_add_obj!(XdgToplevel, xdg_toplevel);
-dedicated_add_obj!(WlDataSource, wl_data_source);

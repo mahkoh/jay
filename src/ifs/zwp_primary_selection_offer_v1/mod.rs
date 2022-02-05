@@ -1,8 +1,8 @@
 mod types;
 
 use crate::client::{Client, DynEventFormatter};
-use crate::ifs::wl_data_source::WlDataSource;
 use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
@@ -10,44 +10,23 @@ use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
 
-const ACCEPT: u32 = 0;
-const RECEIVE: u32 = 1;
-const DESTROY: u32 = 2;
-const FINISH: u32 = 3;
-const SET_ACTIONS: u32 = 4;
+const RECEIVE: u32 = 0;
+const DESTROY: u32 = 1;
 
 const OFFER: u32 = 0;
-const SOURCE_ACTIONS: u32 = 1;
-const ACTION: u32 = 2;
 
-#[allow(dead_code)]
-const INVALID_FINISH: u32 = 0;
-#[allow(dead_code)]
-const INVALID_ACTION_MASK: u32 = 1;
-#[allow(dead_code)]
-const INVALID_ACTION: u32 = 2;
-#[allow(dead_code)]
-const INVALID_OFFER: u32 = 3;
+id!(ZwpPrimarySelectionOfferV1Id);
 
-id!(WlDataOfferId);
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DataOfferRole {
-    Selection,
-}
-
-pub struct WlDataOffer {
-    pub id: WlDataOfferId,
+pub struct ZwpPrimarySelectionOfferV1 {
+    pub id: ZwpPrimarySelectionOfferV1Id,
     pub client: Rc<Client>,
-    pub role: DataOfferRole,
-    pub source: CloneCell<Option<Rc<WlDataSource>>>,
+    pub source: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
 }
 
-impl WlDataOffer {
+impl ZwpPrimarySelectionOfferV1 {
     pub fn create(
         client: &Rc<Client>,
-        role: DataOfferRole,
-        src: &Rc<WlDataSource>,
+        src: &Rc<ZwpPrimarySelectionSourceV1>,
         seat: &Rc<WlSeatGlobal>,
     ) -> Option<Rc<Self>> {
         let id = match client.new_id() {
@@ -60,19 +39,15 @@ impl WlDataOffer {
         let slf = Rc::new(Self {
             id,
             client: client.clone(),
-            role,
             source: CloneCell::new(Some(src.clone())),
         });
         let mt = src.mime_types.borrow_mut();
-        seat.for_each_data_device(0, client.id, |device| {
+        seat.for_each_primary_selection_device(0, client.id, |device| {
             client.event(device.data_offer(slf.id));
             for mt in mt.deref() {
                 client.event(slf.offer(mt));
             }
-            let ev = match role {
-                DataOfferRole::Selection => device.selection(id),
-            };
-            client.event(ev);
+            client.event(device.selection(id));
         });
         client.add_server_obj(&slf);
         Some(slf)
@@ -83,11 +58,6 @@ impl WlDataOffer {
             obj: self.clone(),
             mime_type: mime_type.to_string(),
         })
-    }
-
-    fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), AcceptError> {
-        let _req: Accept = self.client.parse(self, parser)?;
-        Ok(())
     }
 
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
@@ -101,7 +71,7 @@ impl WlDataOffer {
 
     fn disconnect(&self) {
         if let Some(src) = self.source.set(None) {
-            src.destroy_offer();
+            src.clear_offer();
         }
     }
 
@@ -111,31 +81,18 @@ impl WlDataOffer {
         self.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn finish(&self, parser: MsgParser<'_, '_>) -> Result<(), FinishError> {
-        let _req: Finish = self.client.parse(self, parser)?;
-        Ok(())
-    }
-
-    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), SetActionsError> {
-        let _req: SetActions = self.client.parse(self, parser)?;
-        Ok(())
-    }
 }
 
 object_base! {
-    WlDataOffer, WlDataOfferError;
+    ZwpPrimarySelectionOfferV1, ZwpPrimarySelectionOfferV1Error;
 
-    ACCEPT => accept,
     RECEIVE => receive,
     DESTROY => destroy,
-    FINISH => finish,
-    SET_ACTIONS => set_actions,
 }
 
-impl Object for WlDataOffer {
+impl Object for ZwpPrimarySelectionOfferV1 {
     fn num_requests(&self) -> u32 {
-        SET_ACTIONS + 1
+        DESTROY + 1
     }
 
     fn break_loops(&self) {
@@ -143,4 +100,4 @@ impl Object for WlDataOffer {
     }
 }
 
-simple_add_obj!(WlDataOffer);
+simple_add_obj!(ZwpPrimarySelectionOfferV1);

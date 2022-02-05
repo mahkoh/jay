@@ -1,7 +1,7 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecorationId;
 use crate::ifs::org_kde_kwin_server_decoration_manager::{
-    OrgKdeKwinServerDecorationManagerObj, DEFAULT_MODE,
+    OrgKdeKwinServerDecorationManager, DEFAULT_MODE,
 };
 use crate::ifs::wl_surface::WlSurfaceId;
 use crate::object::Object;
@@ -52,7 +52,7 @@ impl Debug for Create {
 }
 
 pub(super) struct DefaultMode {
-    pub obj: Rc<OrgKdeKwinServerDecorationManagerObj>,
+    pub obj: Rc<OrgKdeKwinServerDecorationManager>,
     pub mode: u32,
 }
 impl EventFormatter for DefaultMode {

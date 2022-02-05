@@ -16,7 +16,14 @@ use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId, REPEAT_INFO_SIN
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::object::{Interface, Object, ObjectId};
+use crate::ifs::zwp_primary_selection_device_v1::{
+    ZwpPrimarySelectionDeviceV1, ZwpPrimarySelectionDeviceV1Id,
+};
+use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1Id;
+use crate::ifs::zwp_primary_selection_source_v1::{
+    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error,
+};
+use crate::object::{Interface, Object};
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
@@ -88,8 +95,14 @@ pub struct WlSeatGlobal {
     toplevel_focus_history: LinkedList<Rc<XdgToplevel>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
-    bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeatObj>>>>,
+    bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
     data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,
+    primary_selection_devices: RefCell<
+        AHashMap<
+            ClientId,
+            AHashMap<ZwpPrimarySelectionDeviceV1Id, Rc<ZwpPrimarySelectionDeviceV1>>,
+        >,
+    >,
     kb_state: RefCell<XkbState>,
     layout: Rc<OwnedFd>,
     layout_size: u32,
@@ -98,6 +111,7 @@ pub struct WlSeatGlobal {
     grabber: RefCell<Option<PointerGrabber>>,
     tree_changed: Rc<AsyncEvent>,
     selection: CloneCell<Option<Rc<WlDataSource>>>,
+    primary_selection: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
 }
 
 impl WlSeatGlobal {
@@ -140,6 +154,7 @@ impl WlSeatGlobal {
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
             data_devices: RefCell::new(Default::default()),
+            primary_selection_devices: RefCell::new(Default::default()),
             kb_state: RefCell::new(kb_state),
             layout,
             layout_size,
@@ -148,10 +163,14 @@ impl WlSeatGlobal {
             grabber: RefCell::new(None),
             tree_changed: tree_changed.clone(),
             selection: Default::default(),
+            primary_selection: Default::default(),
         }
     }
 
-    pub fn set_selection(self: &Rc<Self>, selection: Option<Rc<WlDataSource>>) -> Result<(), WlDataSourceError> {
+    pub fn set_selection(
+        self: &Rc<Self>,
+        selection: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlDataSourceError> {
         if let Some(new) = &selection {
             new.attach(self, DataOfferRole::Selection)?;
         }
@@ -169,6 +188,33 @@ impl WlSeatGlobal {
                     });
                 }
             }
+            client.flush();
+        }
+        Ok(())
+    }
+
+    pub fn set_primary_selection(
+        self: &Rc<Self>,
+        selection: Option<Rc<ZwpPrimarySelectionSourceV1>>,
+    ) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
+        if let Some(new) = &selection {
+            new.attach(self)?;
+        }
+        if let Some(old) = self.primary_selection.set(selection.clone()) {
+            old.detach();
+        }
+        if let Some(client) = self.keyboard_node.get().client() {
+            match selection {
+                Some(sel) => {
+                    sel.create_offer(&client);
+                }
+                _ => {
+                    self.for_each_primary_selection_device(0, client.id, |device| {
+                        client.event(device.selection(ZwpPrimarySelectionOfferV1Id::NONE));
+                    });
+                }
+            }
+            client.flush();
         }
         Ok(())
     }
@@ -219,7 +265,7 @@ impl WlSeatGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlSeatError> {
-        let obj = Rc::new(WlSeatObj {
+        let obj = Rc::new(WlSeat {
             global: self.clone(),
             id,
             client: client.clone(),
@@ -265,7 +311,9 @@ impl Global for WlSeatGlobal {
     }
 }
 
-pub struct WlSeatObj {
+dedicated_add_global!(WlSeatGlobal, seats);
+
+pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,
     id: WlSeatId,
     client: Rc<Client>,
@@ -274,7 +322,7 @@ pub struct WlSeatObj {
     version: u32,
 }
 
-impl WlSeatObj {
+impl WlSeat {
     fn capabilities(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Capabilities {
             obj: self.clone(),
@@ -298,6 +346,23 @@ impl WlSeatObj {
 
     pub fn remove_data_device(&self, device: &WlDataDevice) {
         let mut dd = self.global.data_devices.borrow_mut();
+        if let Entry::Occupied(mut e) = dd.entry(self.client.id) {
+            e.get_mut().remove(&device.id);
+            if e.get().is_empty() {
+                e.remove();
+            }
+        }
+    }
+
+    pub fn add_primary_selection_device(&self, device: &Rc<ZwpPrimarySelectionDeviceV1>) {
+        let mut dd = self.global.primary_selection_devices.borrow_mut();
+        dd.entry(self.client.id)
+            .or_default()
+            .insert(device.id, device.clone());
+    }
+
+    pub fn remove_primary_selection_device(&self, device: &ZwpPrimarySelectionDeviceV1) {
+        let mut dd = self.global.primary_selection_devices.borrow_mut();
         if let Entry::Occupied(mut e) = dd.entry(self.client.id) {
             e.get_mut().remove(&device.id);
             if e.get().is_empty() {
@@ -349,34 +414,18 @@ impl WlSeatObj {
         self.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlSeatError> {
-        match request {
-            GET_POINTER => self.get_pointer(parser)?,
-            GET_KEYBOARD => self.get_keyboard(parser)?,
-            GET_TOUCH => self.get_touch(parser)?,
-            RELEASE => self.release(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlSeatObj);
+object_base! {
+    WlSeat, WlSeatError;
 
-impl Object for WlSeatObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+    GET_POINTER => get_pointer,
+    GET_KEYBOARD => get_keyboard,
+    GET_TOUCH => get_touch,
+    RELEASE => release,
+}
 
-    fn interface(&self) -> Interface {
-        Interface::WlSeat
-    }
-
+impl Object for WlSeat {
     fn num_requests(&self) -> u32 {
         if self.version < 5 {
             GET_TOUCH + 1
@@ -396,3 +445,5 @@ impl Object for WlSeatObj {
         self.keyboards.clear();
     }
 }
+
+dedicated_add_obj!(WlSeat, WlSeatId, seats);

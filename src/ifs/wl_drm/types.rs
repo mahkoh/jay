@@ -1,6 +1,6 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_buffer::WlBufferId;
-use crate::ifs::wl_drm::{WlDrmObj, AUTHENTICATED, CAPABILITIES, DEVICE, FORMAT};
+use crate::ifs::wl_drm::{WlDrm, AUTHENTICATED, CAPABILITIES, DEVICE, FORMAT};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::ffi::CString;
@@ -139,7 +139,7 @@ impl Debug for CreatePlanarBuffer {
 }
 
 pub(super) struct Device {
-    pub obj: Rc<WlDrmObj>,
+    pub obj: Rc<WlDrm>,
     pub name: Rc<CString>,
 }
 impl EventFormatter for Device {
@@ -157,7 +157,7 @@ impl Debug for Device {
 }
 
 pub(super) struct Format {
-    pub obj: Rc<WlDrmObj>,
+    pub obj: Rc<WlDrm>,
     pub format: u32,
 }
 impl EventFormatter for Format {
@@ -175,7 +175,7 @@ impl Debug for Format {
 }
 
 pub(super) struct Authenticated {
-    pub obj: Rc<WlDrmObj>,
+    pub obj: Rc<WlDrm>,
 }
 impl EventFormatter for Authenticated {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
@@ -192,7 +192,7 @@ impl Debug for Authenticated {
 }
 
 pub(super) struct Capabilities {
-    pub obj: Rc<WlDrmObj>,
+    pub obj: Rc<WlDrm>,
     pub value: u32,
 }
 impl EventFormatter for Capabilities {

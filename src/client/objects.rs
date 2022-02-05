@@ -4,12 +4,15 @@ use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceId};
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_region::{WlRegion, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
-use crate::ifs::wl_seat::{WlSeatId, WlSeatObj};
+use crate::ifs::wl_seat::{WlSeat, WlSeatId};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
 use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerId};
-use crate::ifs::xdg_wm_base::{XdgWmBaseId, XdgWmBaseObj};
+use crate::ifs::xdg_wm_base::{XdgWmBase, XdgWmBaseId};
+use crate::ifs::zwp_primary_selection_source_v1::{
+    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Id,
+};
 use crate::object::{Object, ObjectId};
 use crate::tree::Node;
 use crate::utils::clonecell::CloneCell;
@@ -27,11 +30,13 @@ pub struct Objects {
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
     pub xdg_toplevel: CopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
     pub wl_data_source: CopyHashMap<WlDataSourceId, Rc<WlDataSource>>,
+    pub zwp_primary_selection_source:
+        CopyHashMap<ZwpPrimarySelectionSourceV1Id, Rc<ZwpPrimarySelectionSourceV1>>,
     pub xdg_positioners: CopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
-    pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBaseObj>>,
-    pub seats: CopyHashMap<WlSeatId, Rc<WlSeatObj>>,
+    pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
+    pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -48,6 +53,7 @@ impl Objects {
             xdg_surfaces: Default::default(),
             xdg_toplevel: Default::default(),
             wl_data_source: Default::default(),
+            zwp_primary_selection_source: Default::default(),
             xdg_positioners: Default::default(),
             regions: Default::default(),
             buffers: Default::default(),
@@ -73,12 +79,16 @@ impl Objects {
             registry.clear();
         }
         self.display.set(None);
-        self.regions.clear();
         self.registries.clear();
         self.surfaces.clear();
-        self.xdg_wm_bases.clear();
         self.xdg_surfaces.clear();
+        self.wl_data_source.clear();
+        self.zwp_primary_selection_source.clear();
+        self.xdg_positioners.clear();
+        self.regions.clear();
         self.buffers.clear();
+        self.xdg_wm_bases.clear();
+        self.seats.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

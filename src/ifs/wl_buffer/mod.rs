@@ -3,7 +3,7 @@ mod types;
 use crate::client::{Client, DynEventFormatter};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::{Image, Texture};
 use crate::utils::buffd::MsgParser;
@@ -122,35 +122,21 @@ impl WlBuffer {
         Ok(())
     }
 
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlBufferError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
-
     pub fn release(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Release { obj: self.clone() })
     }
 }
 
-handle_request!(WlBuffer);
+object_base! {
+    WlBuffer, WlBufferError;
+
+    DESTROY => destroy,
+}
 
 impl Object for WlBuffer {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlBuffer
-    }
-
     fn num_requests(&self) -> u32 {
         DESTROY + 1
     }
 }
+
+dedicated_add_obj!(WlBuffer, WlBufferId, buffers);

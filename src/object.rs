@@ -24,17 +24,17 @@ impl Display for ObjectId {
     }
 }
 
-pub trait ObjectHandleRequest {
+pub trait ObjectBase {
+    fn id(&self) -> ObjectId;
     fn handle_request(
         self: Rc<Self>,
         request: u32,
         parser: MsgParser<'_, '_>,
     ) -> Result<(), ClientError>;
+    fn interface(&self) -> Interface;
 }
 
-pub trait Object: ObjectHandleRequest + 'static {
-    fn id(&self) -> ObjectId;
-    fn interface(&self) -> Interface;
+pub trait Object: ObjectBase + 'static {
     fn num_requests(&self) -> u32;
     fn break_loops(&self) {}
 }
@@ -73,6 +73,10 @@ pub enum Interface {
     ZxdgToplevelDecorationV1,
     OrgKdeKwinServerDecorationManager,
     OrgKdeKwinServerDecoration,
+    ZwpPrimarySelectionDeviceManagerV1,
+    ZwpPrimarySelectionDeviceV1,
+    ZwpPrimarySelectionSourceV1,
+    ZwpPrimarySelectionOfferV1,
 }
 
 impl Interface {
@@ -112,6 +116,12 @@ impl Interface {
                 "org_kde_kwin_server_decoration_manager"
             }
             Interface::OrgKdeKwinServerDecoration => "org_kde_kwin_server_decoration",
+            Interface::ZwpPrimarySelectionDeviceManagerV1 => {
+                "zwp_primary_selection_device_manager_v1"
+            }
+            Interface::ZwpPrimarySelectionDeviceV1 => "zwp_primary_selection_device_v1",
+            Interface::ZwpPrimarySelectionSourceV1 => "zwp_primary_selection_source_v1",
+            Interface::ZwpPrimarySelectionOfferV1 => "zwp_primary_selection_offer_v1",
         }
     }
 }

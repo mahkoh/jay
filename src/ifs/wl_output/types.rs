@@ -1,5 +1,5 @@
 use crate::client::{ClientError, EventFormatter, RequestParser};
-use crate::ifs::wl_output::{WlOutputObj, DONE, GEOMETRY, MODE, SCALE};
+use crate::ifs::wl_output::{WlOutput, DONE, GEOMETRY, MODE, SCALE};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
 use std::fmt::{Debug, Formatter};
@@ -38,7 +38,7 @@ impl Debug for Release {
 }
 
 pub(super) struct Geometry {
-    pub obj: Rc<WlOutputObj>,
+    pub obj: Rc<WlOutput>,
     pub x: i32,
     pub y: i32,
     pub physical_width: i32,
@@ -72,7 +72,7 @@ impl Debug for Geometry {
 }
 
 pub(super) struct Mode {
-    pub obj: Rc<WlOutputObj>,
+    pub obj: Rc<WlOutput>,
     pub flags: u32,
     pub width: i32,
     pub height: i32,
@@ -101,7 +101,7 @@ impl Debug for Mode {
 }
 
 pub(super) struct Done {
-    pub obj: Rc<WlOutputObj>,
+    pub obj: Rc<WlOutput>,
 }
 impl EventFormatter for Done {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
@@ -118,7 +118,7 @@ impl Debug for Done {
 }
 
 pub(super) struct Scale {
-    pub obj: Rc<WlOutputObj>,
+    pub obj: Rc<WlOutput>,
     pub factor: i32,
 }
 impl EventFormatter for Scale {

@@ -2,16 +2,17 @@ use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_offer::{WlDataOfferId};
+use crate::ifs::wl_data_offer::WlDataOfferId;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::{
-    wl_keyboard, wl_pointer, PointerGrab, PointerGrabber, WlSeatGlobal, WlSeatObj,
+    wl_keyboard, wl_pointer, PointerGrab, PointerGrabber, WlSeat, WlSeatGlobal,
 };
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
@@ -257,7 +258,7 @@ impl WlSeatGlobal {
 
     fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
     where
-        C: FnMut(&Rc<WlSeatObj>),
+        C: FnMut(&Rc<WlSeat>),
     {
         let bindings = self.bindings.borrow();
         if let Some(hm) = bindings.get(&client) {
@@ -298,6 +299,20 @@ impl WlSeatGlobal {
         C: FnMut(&Rc<WlDataDevice>),
     {
         let dd = self.data_devices.borrow_mut();
+        if let Some(dd) = dd.get(&client) {
+            for dd in dd.values() {
+                if dd.manager.version >= ver {
+                    f(dd);
+                }
+            }
+        }
+    }
+
+    pub fn for_each_primary_selection_device<C>(&self, ver: u32, client: ClientId, mut f: C)
+    where
+        C: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>),
+    {
+        let dd = self.primary_selection_devices.borrow_mut();
         if let Some(dd) = dd.get(&client) {
             for dd in dd.values() {
                 if dd.manager.version >= ver {

@@ -10,7 +10,6 @@
 - Float moving
 - Highlighting active
 - dnd
-- clipboard
 - primary selection
 - presentation time
 - viewporter
@@ -19,3 +18,4 @@
 # done
 
 - Container resizing
+- clipboard

@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositioner;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
 use std::rc::Rc;
@@ -35,7 +35,7 @@ pub struct XdgWmBaseGlobal {
     name: GlobalName,
 }
 
-pub struct XdgWmBaseObj {
+pub struct XdgWmBase {
     id: XdgWmBaseId,
     client: Rc<Client>,
     pub version: u32,
@@ -53,7 +53,7 @@ impl XdgWmBaseGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), XdgWmBaseError> {
-        let obj = Rc::new(XdgWmBaseObj {
+        let obj = Rc::new(XdgWmBase {
             id,
             client: client.clone(),
             version,
@@ -64,7 +64,7 @@ impl XdgWmBaseGlobal {
     }
 }
 
-impl XdgWmBaseObj {
+impl XdgWmBase {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         if !self.surfaces.is_empty() {
@@ -97,7 +97,7 @@ impl XdgWmBaseObj {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), GetXdgSurfaceError> {
         let req: GetXdgSurface = self.client.parse(&**self, parser)?;
-        let surface = self.client.get_surface(req.surface)?;
+        let surface = self.client.lookup(req.surface)?;
         let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface));
         self.client.add_client_obj(&xdg_surface)?;
         xdg_surface.install()?;
@@ -107,21 +107,6 @@ impl XdgWmBaseObj {
 
     fn pong(&self, parser: MsgParser<'_, '_>) -> Result<(), PongError> {
         let _req: Pong = self.client.parse(self, parser)?;
-        Ok(())
-    }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgWmBaseError> {
-        match request {
-            DESTROY => self.destroy(parser)?,
-            CREATE_POSITIONER => self.create_positioner(parser)?,
-            GET_XDG_SURFACE => self.get_xdg_surface(parser)?,
-            PONG => self.pong(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 }
@@ -146,17 +131,20 @@ impl Global for XdgWmBaseGlobal {
     }
 }
 
-handle_request!(XdgWmBaseObj);
+simple_add_global!(XdgWmBaseGlobal);
 
-impl Object for XdgWmBaseObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+object_base! {
+    XdgWmBase, XdgWmBaseError;
 
-    fn interface(&self) -> Interface {
-        Interface::XdgWmBase
-    }
+    DESTROY => destroy,
+    CREATE_POSITIONER => create_positioner,
+    GET_XDG_SURFACE => get_xdg_surface,
+    PONG => pong,
+}
 
+dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
+
+impl Object for XdgWmBase {
     fn num_requests(&self) -> u32 {
         PONG + 1
     }

@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_data_source::WlDataSource;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -27,7 +27,7 @@ pub struct WlDataDeviceManagerGlobal {
     name: GlobalName,
 }
 
-pub struct WlDataDeviceManagerObj {
+pub struct WlDataDeviceManager {
     pub id: WlDataDeviceManagerId,
     pub client: Rc<Client>,
     pub version: u32,
@@ -44,7 +44,7 @@ impl WlDataDeviceManagerGlobal {
         client: &Rc<Client>,
         version: u32,
     ) -> Result<(), WlDataDeviceManagerError> {
-        let obj = Rc::new(WlDataDeviceManagerObj {
+        let obj = Rc::new(WlDataDeviceManager {
             id,
             client: client.clone(),
             version,
@@ -54,7 +54,7 @@ impl WlDataDeviceManagerGlobal {
     }
 }
 
-impl WlDataDeviceManagerObj {
+impl WlDataDeviceManager {
     fn create_data_source(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateDataSourceError> {
         let req: CreateDataSource = self.client.parse(self, parser)?;
         let res = Rc::new(WlDataSource::new(req.id, &self.client));
@@ -67,23 +67,10 @@ impl WlDataDeviceManagerObj {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), GetDataDeviceError> {
         let req: GetDataDevice = self.client.parse(&**self, parser)?;
-        let seat = self.client.get_wl_seat(req.seat)?;
+        let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(WlDataDevice::new(req.id, self, &seat));
         seat.add_data_device(&dev);
         self.client.add_client_obj(&dev)?;
-        Ok(())
-    }
-
-    fn handle_request_(
-        self: &Rc<Self>,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDataDeviceManagerError> {
-        match request {
-            CREATE_DATA_SOURCE => self.create_data_source(parser)?,
-            GET_DATA_DEVICE => self.get_data_device(parser)?,
-            _ => unreachable!(),
-        }
         Ok(())
     }
 }
@@ -108,18 +95,19 @@ impl Global for WlDataDeviceManagerGlobal {
     }
 }
 
-handle_request!(WlDataDeviceManagerObj);
+simple_add_global!(WlDataDeviceManagerGlobal);
 
-impl Object for WlDataDeviceManagerObj {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
+object_base! {
+    WlDataDeviceManager, WlDataDeviceManagerError;
 
-    fn interface(&self) -> Interface {
-        Interface::WlDataDeviceManager
-    }
+    CREATE_DATA_SOURCE => create_data_source,
+    GET_DATA_DEVICE => get_data_device,
+}
 
+impl Object for WlDataDeviceManager {
     fn num_requests(&self) -> u32 {
         GET_DATA_DEVICE + 1
     }
 }
+
+simple_add_obj!(WlDataDeviceManager);

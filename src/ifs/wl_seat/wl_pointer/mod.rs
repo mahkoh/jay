@@ -3,9 +3,9 @@ mod types;
 use crate::client::DynEventFormatter;
 use crate::cursor::Cursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeatObj;
+use crate::ifs::wl_seat::WlSeat;
 use crate::ifs::wl_surface::WlSurfaceId;
-use crate::object::{Interface, Object, ObjectId};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -47,11 +47,11 @@ id!(WlPointerId);
 
 pub struct WlPointer {
     id: WlPointerId,
-    seat: Rc<WlSeatObj>,
+    seat: Rc<WlSeat>,
 }
 
 impl WlPointer {
-    pub fn new(id: WlPointerId, seat: &Rc<WlSeatObj>) -> Self {
+    pub fn new(id: WlPointerId, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
             seat: seat.clone(),
@@ -151,7 +151,7 @@ impl WlPointer {
         let req: SetCursor = self.seat.client.parse(self, parser)?;
         let mut cursor_opt = None;
         if req.surface.is_some() {
-            let surface = self.seat.client.get_surface(req.surface)?;
+            let surface = self.seat.client.lookup(req.surface)?;
             let cursor = surface.get_cursor(&self.seat.global)?;
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
             cursor_opt = Some(cursor as Rc<dyn Cursor>);
@@ -176,33 +176,19 @@ impl WlPointer {
         self.seat.client.remove_obj(self)?;
         Ok(())
     }
-
-    fn handle_request_(
-        &self,
-        request: u32,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlPointerError> {
-        match request {
-            SET_CURSOR => self.set_cursor(parser)?,
-            RELEASE => self.release(parser)?,
-            _ => unreachable!(),
-        }
-        Ok(())
-    }
 }
 
-handle_request!(WlPointer);
+object_base! {
+    WlPointer, WlPointerError;
+
+    SET_CURSOR => set_cursor,
+    RELEASE => release,
+}
 
 impl Object for WlPointer {
-    fn id(&self) -> ObjectId {
-        self.id.into()
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlPointer
-    }
-
     fn num_requests(&self) -> u32 {
         RELEASE + 1
     }
 }
+
+simple_add_obj!(WlPointer);
