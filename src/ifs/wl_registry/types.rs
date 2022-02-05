@@ -1,5 +1,5 @@
 use crate::client::{EventFormatter, RequestParser};
-use crate::globals::{Global, GlobalsError, GlobalName};
+use crate::globals::{Global, GlobalName, GlobalsError};
 use crate::ifs::wl_registry::{WlRegistry, GLOBAL, GLOBAL_REMOVE};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};

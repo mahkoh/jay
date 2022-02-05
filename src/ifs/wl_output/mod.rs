@@ -3,7 +3,7 @@ mod types;
 use crate::backend::Output;
 use crate::client::{Client, ClientId, DynEventFormatter, WlEvent};
 use crate::globals::{Global, GlobalName};
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
@@ -136,19 +136,11 @@ impl WlOutputGlobal {
     }
 }
 
-bind!(WlOutputGlobal);
+global_base!(WlOutputGlobal, WlOutput, WlOutputError);
 
 impl Global for WlOutputGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         false
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlOutput
     }
 
     fn version(&self) -> u32 {

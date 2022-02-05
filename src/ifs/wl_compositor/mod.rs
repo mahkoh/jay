@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -61,19 +61,11 @@ impl WlCompositor {
     }
 }
 
-bind!(WlCompositorGlobal);
+global_base!(WlCompositorGlobal, WlCompositor, WlCompositorError);
 
 impl Global for WlCompositorGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlCompositor
     }
 
     fn version(&self) -> u32 {

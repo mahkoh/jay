@@ -2,7 +2,7 @@ use crate::client::{Client, DynEventFormatter};
 use crate::drm::INVALID_MODIFIER;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -53,19 +53,15 @@ impl ZwpLinuxDmabufV1Global {
 
 const MODIFIERS_SINCE_VERSION: u32 = 3;
 
-bind!(ZwpLinuxDmabufV1Global);
+global_base!(
+    ZwpLinuxDmabufV1Global,
+    ZwpLinuxDmabufV1,
+    ZwpLinuxDmabufV1Error
+);
 
 impl Global for ZwpLinuxDmabufV1Global {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::ZwpLinuxDmabufV1
     }
 
     fn version(&self) -> u32 {

@@ -23,7 +23,7 @@ use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1Id;
 use crate::ifs::zwp_primary_selection_source_v1::{
     ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error,
 };
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
@@ -287,19 +287,11 @@ impl WlSeatGlobal {
     }
 }
 
-bind!(WlSeatGlobal);
+global_base!(WlSeatGlobal, WlSeat, WlSeatError);
 
 impl Global for WlSeatGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         false
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlSeat
     }
 
     fn version(&self) -> u32 {

@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::format::FORMATS;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::WlShmPool;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -69,19 +69,11 @@ impl WlShm {
     }
 }
 
-bind!(WlShmGlobal);
+global_base!(WlShmGlobal, WlShm, WlShmError);
 
 impl Global for WlShmGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlShm
     }
 
     fn version(&self) -> u32 {

@@ -59,17 +59,36 @@ macro_rules! object_base {
     };
 }
 
-macro_rules! bind {
-    ($oname:ty) => {
-        impl crate::globals::GlobalBind for $oname {
+macro_rules! global_base {
+    ($oname:ty, $ifname:ident, $ename:ty) => {
+        impl crate::globals::GlobalBase for $oname {
+            fn name(&self) -> crate::globals::GlobalName {
+                self.name
+            }
+
             fn bind<'a>(
                 self: std::rc::Rc<Self>,
                 client: &'a std::rc::Rc<crate::client::Client>,
                 id: crate::object::ObjectId,
                 version: u32,
             ) -> Result<(), crate::globals::GlobalsError> {
-                self.bind_(id.into(), client, version)?;
+                if let Err(e) = self.bind_(id.into(), client, version) {
+                    return Err(crate::globals::GlobalsError::GlobalError(e.into()));
+                }
                 Ok(())
+            }
+
+            fn interface(&self) -> crate::object::Interface {
+                crate::object::Interface::$ifname
+            }
+        }
+
+        impl From<$ename> for crate::globals::GlobalError {
+            fn from(e: $ename) -> Self {
+                Self {
+                    interface: crate::object::Interface::$ifname,
+                    error: Box::new(e),
+                }
             }
         }
     };
@@ -282,10 +301,10 @@ macro_rules! dedicated_add_global {
     ($oname:ident, $field:ident) => {
         impl crate::globals::WaylandGlobal for $oname {
             fn add(self: Rc<Self>, globals: &crate::globals::Globals) {
-                globals.$field.set(self.name(), self);
+                globals.$field.set(self.name, self);
             }
             fn remove(&self, globals: &crate::globals::Globals) {
-                globals.$field.remove(&self.name());
+                globals.$field.remove(&self.name);
             }
         }
     };

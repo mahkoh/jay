@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
 use crate::ifs::xdg_positioner::XdgPositioner;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
 use std::rc::Rc;
@@ -111,19 +111,11 @@ impl XdgWmBase {
     }
 }
 
-bind!(XdgWmBaseGlobal);
+global_base!(XdgWmBaseGlobal, XdgWmBase, XdgWmBaseError);
 
 impl Global for XdgWmBaseGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::XdgWmBase
     }
 
     fn version(&self) -> u32 {

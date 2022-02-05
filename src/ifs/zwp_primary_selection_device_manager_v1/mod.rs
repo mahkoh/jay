@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -70,19 +70,15 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
     }
 }
 
-bind!(ZwpPrimarySelectionDeviceManagerV1Global);
+global_base!(
+    ZwpPrimarySelectionDeviceManagerV1Global,
+    ZwpPrimarySelectionDeviceManagerV1,
+    ZwpPrimarySelectionDeviceManagerV1Error
+);
 
 impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::ZwpPrimarySelectionDeviceManagerV1
     }
 
     fn version(&self) -> u32 {

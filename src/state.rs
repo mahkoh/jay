@@ -3,7 +3,7 @@ use crate::backend::{BackendEvent, OutputId, OutputIds, SeatId, SeatIds};
 use crate::client::{Client, Clients};
 use crate::cursor::ServerCursors;
 use crate::event_loop::EventLoop;
-use crate::globals::{GlobalsError, Globals, WaylandGlobal};
+use crate::globals::{Globals, GlobalsError, WaylandGlobal};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;

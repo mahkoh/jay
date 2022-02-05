@@ -4,7 +4,7 @@ use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_data_source::WlDataSource;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -75,19 +75,15 @@ impl WlDataDeviceManager {
     }
 }
 
-bind!(WlDataDeviceManagerGlobal);
+global_base!(
+    WlDataDeviceManagerGlobal,
+    WlDataDeviceManager,
+    WlDataDeviceManagerError
+);
 
 impl Global for WlDataDeviceManagerGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlDataDeviceManager
     }
 
     fn version(&self) -> u32 {

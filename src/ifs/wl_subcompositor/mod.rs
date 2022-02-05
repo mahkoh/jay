@@ -3,7 +3,7 @@ mod types;
 use crate::client::Client;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -63,19 +63,11 @@ impl WlSubcompositor {
     }
 }
 
-bind!(WlSubcompositorGlobal);
+global_base!(WlSubcompositorGlobal, WlSubcompositor, WlSubcompositorError);
 
 impl Global for WlSubcompositorGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlSubcompositor
     }
 
     fn version(&self) -> u32 {

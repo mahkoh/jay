@@ -1,21 +1,10 @@
 use crate::client::{Client, DynEventFormatter};
-use crate::ifs::org_kde_kwin_server_decoration_manager::{
-    OrgKdeKwinServerDecorationManagerError, OrgKdeKwinServerDecorationManagerGlobal,
-};
-use crate::ifs::wl_compositor::WlCompositorError;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
-use crate::ifs::wl_drm::{WlDrmError, WlDrmGlobal};
-use crate::ifs::wl_output::{WlOutputError, WlOutputGlobal};
+use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
+use crate::ifs::wl_drm::WlDrmGlobal;
+use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_registry::WlRegistry;
-use crate::ifs::wl_seat::{WlSeatError, WlSeatGlobal};
-use crate::ifs::wl_shm::WlShmError;
-use crate::ifs::wl_subcompositor::WlSubcompositorError;
-use crate::ifs::xdg_wm_base::XdgWmBaseError;
-use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Error;
-use crate::ifs::zwp_primary_selection_device_manager_v1::{
-    ZwpPrimarySelectionDeviceManagerV1Error, ZwpPrimarySelectionDeviceManagerV1Global,
-};
-use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::{
@@ -24,6 +13,7 @@ use crate::{
 };
 use ahash::AHashMap;
 use std::cell::RefMut;
+use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -32,46 +22,19 @@ use thiserror::Error;
 pub enum GlobalsError {
     #[error("The requested global {0} does not exist")]
     GlobalDoesNotExist(GlobalName),
-    #[error("An error occurred in a `wl_compositor` global")]
-    WlCompositorError(#[source] Box<WlCompositorError>),
-    #[error("An error occurred in a `wl_shm` global")]
-    WlShmError(#[source] Box<WlShmError>),
-    #[error("An error occurred in a `wl_subcompositor` global")]
-    WlSubcompositorError(#[source] Box<WlSubcompositorError>),
-    #[error("An error occurred in a `xdg_wm_base` global")]
-    XdgWmBaseError(#[source] Box<XdgWmBaseError>),
-    #[error("An error occurred in a `wl_output` global")]
-    WlOutputError(#[source] Box<WlOutputError>),
-    #[error("An error occurred in a `wl_seat` global")]
-    WlSeatError(#[source] Box<WlSeatError>),
     #[error("The output with id {0} does not exist")]
     OutputDoesNotExist(GlobalName),
-    #[error("An error occurred in a `wl_data_device_manager` global")]
-    WlDataDeviceManagerError(#[source] Box<WlDataDeviceManagerError>),
-    #[error("An error occurred in a `zwp_linux_dmabuf_v1` global")]
-    ZwpLinuxDmabufV1Error(#[source] Box<ZwpLinuxDmabufV1Error>),
-    #[error("An error occurred in a `wl_drm` global")]
-    WlDrmError(#[source] Box<WlDrmError>),
-    #[error("An error occurred in a `zxdg_decoration_manager_v1` global")]
-    ZxdgDecorationManagerV1Error(#[source] Box<ZxdgDecorationManagerV1Error>),
-    #[error("An error occurred in a `org_kde_kwin_server_decoration_manager` global")]
-    OrgKdeKwinServerDecorationManagerError(#[source] Box<OrgKdeKwinServerDecorationManagerError>),
-    #[error("An error occurred in a `zwp_primary_selection_device_manager_v1` global")]
-    ZwpPrimarySelectionDeviceManagerV1Error(#[source] Box<ZwpPrimarySelectionDeviceManagerV1Error>),
+    #[error(transparent)]
+    GlobalError(GlobalError),
 }
 
-efrom!(GlobalsError, WlCompositorError);
-efrom!(GlobalsError, WlShmError);
-efrom!(GlobalsError, WlSubcompositorError);
-efrom!(GlobalsError, XdgWmBaseError);
-efrom!(GlobalsError, WlOutputError);
-efrom!(GlobalsError, WlSeatError);
-efrom!(GlobalsError, ZwpLinuxDmabufV1Error);
-efrom!(GlobalsError, WlDrmError);
-efrom!(GlobalsError, WlDataDeviceManagerError);
-efrom!(GlobalsError, ZxdgDecorationManagerV1Error);
-efrom!(GlobalsError, OrgKdeKwinServerDecorationManagerError);
-efrom!(GlobalsError, ZwpPrimarySelectionDeviceManagerV1Error);
+#[derive(Debug, Error)]
+#[error("An error occurred in a `{}` global", .interface.name())]
+pub struct GlobalError {
+    pub interface: Interface,
+    #[source]
+    pub error: Box<dyn Error>,
+}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GlobalName(u32);
@@ -92,19 +55,19 @@ impl Display for GlobalName {
     }
 }
 
-pub trait GlobalBind {
+pub trait GlobalBase {
+    fn name(&self) -> GlobalName;
     fn bind<'a>(
         self: Rc<Self>,
         client: &'a Rc<Client>,
         id: ObjectId,
         version: u32,
     ) -> Result<(), GlobalsError>;
+    fn interface(&self) -> Interface;
 }
 
-pub trait Global: GlobalBind {
-    fn name(&self) -> GlobalName;
+pub trait Global: GlobalBase {
     fn singleton(&self) -> bool;
-    fn interface(&self) -> Interface;
     fn version(&self) -> u32;
     fn break_loops(&self) {}
 }

@@ -1,7 +1,7 @@
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
@@ -45,19 +45,15 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
     }
 }
 
-bind!(OrgKdeKwinServerDecorationManagerGlobal);
+global_base!(
+    OrgKdeKwinServerDecorationManagerGlobal,
+    OrgKdeKwinServerDecorationManager,
+    OrgKdeKwinServerDecorationManagerError
+);
 
 impl Global for OrgKdeKwinServerDecorationManagerGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::OrgKdeKwinServerDecorationManager
     }
 
     fn version(&self) -> u32 {

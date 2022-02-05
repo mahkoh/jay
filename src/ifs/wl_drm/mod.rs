@@ -1,6 +1,6 @@
 use crate::client::{Client, DynEventFormatter};
 use crate::globals::{Global, GlobalName};
-use crate::object::{Interface, Object};
+use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::ffi::CString;
 use std::rc::Rc;
@@ -50,19 +50,11 @@ impl WlDrmGlobal {
     }
 }
 
-bind!(WlDrmGlobal);
+global_base!(WlDrmGlobal, WlDrm, WlDrmError);
 
 impl Global for WlDrmGlobal {
-    fn name(&self) -> GlobalName {
-        self.name
-    }
-
     fn singleton(&self) -> bool {
         true
-    }
-
-    fn interface(&self) -> Interface {
-        Interface::WlDrm
     }
 
     fn version(&self) -> u32 {
