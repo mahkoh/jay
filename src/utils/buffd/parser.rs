@@ -16,6 +16,8 @@ pub enum MsgParserError {
     MissingFd,
     #[error("There is trailing data after the message")]
     TrailingData,
+    #[error("String is not UTF-8")]
+    NonUtf8,
 }
 
 pub struct MsgParser<'a, 'b> {
@@ -62,7 +64,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(Fixed)
     }
 
-    pub fn string(&mut self) -> Result<&'b BStr, MsgParserError> {
+    pub fn bstr(&mut self) -> Result<&'b BStr, MsgParserError> {
         let len = self.uint()? as usize;
         if len == 0 {
             return Err(MsgParserError::EmptyString);
@@ -75,6 +77,13 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         let s = s.as_bstr();
         self.pos += cap;
         Ok(s)
+    }
+
+    pub fn str(&mut self) -> Result<&'b str, MsgParserError> {
+        match self.bstr()?.to_str() {
+            Ok(s) => Ok(s),
+            _ => Err(MsgParserError::NonUtf8),
+        }
     }
 
     pub fn fd(&mut self) -> Result<OwnedFd, MsgParserError> {

@@ -4,7 +4,7 @@ use crate::ifs::wl_data_source::{
 };
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
-use bstr::{BStr, BString};
+use bstr::{BString};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -20,6 +20,8 @@ pub enum WlDataSourceError {
     DestroyError(#[from] DestroyError),
     #[error("Could not process `set_actions` request")]
     SetActionsError(#[from] SetActionsError),
+    #[error("The data source is already attached")]
+    AlreadyAttached,
 }
 efrom!(WlDataSourceError, ClientError);
 
@@ -54,12 +56,12 @@ efrom!(SetActionsError, ParseFailed, MsgParserError);
 efrom!(SetActionsError, ClientError);
 
 pub(super) struct Offer<'a> {
-    pub mime_type: &'a BStr,
+    pub mime_type: &'a str,
 }
 impl<'a> RequestParser<'a> for Offer<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
-            mime_type: parser.string()?,
+            mime_type: parser.str()?,
         })
     }
 }
@@ -117,7 +119,7 @@ impl Debug for Target {
 
 pub(super) struct Send {
     pub obj: Rc<WlDataSource>,
-    pub mime_type: BString,
+    pub mime_type: String,
     pub fd: Rc<OwnedFd>,
 }
 impl EventFormatter for Send {

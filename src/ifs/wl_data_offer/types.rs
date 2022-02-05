@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::ifs::wl_data_offer::{WlDataOffer, ACTION, OFFER, SOURCE_ACTIONS};
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
-use bstr::{BStr, BString};
+use bstr::{BStr};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
@@ -83,7 +83,7 @@ impl<'a> RequestParser<'a> for Accept<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
             serial: parser.uint()?,
-            mime_type: parser.string()?,
+            mime_type: parser.bstr()?,
         })
     }
 }
@@ -98,13 +98,13 @@ impl Debug for Accept<'_> {
 }
 
 pub(super) struct Receive<'a> {
-    pub mime_type: &'a BStr,
+    pub mime_type: &'a str,
     pub fd: OwnedFd,
 }
 impl<'a> RequestParser<'a> for Receive<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
-            mime_type: parser.string()?,
+            mime_type: parser.str()?,
             fd: parser.fd()?,
         })
     }
@@ -168,7 +168,7 @@ impl Debug for SetActions {
 
 pub(super) struct Offer {
     pub obj: Rc<WlDataOffer>,
-    pub mime_type: BString,
+    pub mime_type: String,
 }
 impl EventFormatter for Offer {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {

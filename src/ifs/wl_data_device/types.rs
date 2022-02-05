@@ -2,7 +2,7 @@ use crate::client::{ClientError, EventFormatter, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::{WlDataDevice, DATA_OFFER, DROP, ENTER, LEAVE, MOTION, SELECTION};
 use crate::ifs::wl_data_offer::WlDataOfferId;
-use crate::ifs::wl_data_source::WlDataSourceId;
+use crate::ifs::wl_data_source::{WlDataSourceError, WlDataSourceId};
 use crate::ifs::wl_surface::WlSurfaceId;
 use crate::object::Object;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
@@ -39,9 +39,12 @@ pub enum SetSelectionError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    WlDataSourceError(Box<WlDataSourceError>),
 }
 efrom!(SetSelectionError, ParseFailed, MsgParserError);
 efrom!(SetSelectionError, ClientError);
+efrom!(SetSelectionError, WlDataSourceError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {

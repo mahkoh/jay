@@ -101,7 +101,7 @@ impl<'a> RequestParser<'a> for Bind<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
             name: parser.global()?,
-            interface: parser.string()?,
+            interface: parser.bstr()?,
             version: parser.uint()?,
             id: parser.object()?,
         })

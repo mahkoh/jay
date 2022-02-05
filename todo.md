@@ -1,4 +1,5 @@
-- Container resizing
+# todo
+
 - Container moving (mouse)
 - Container moving (kb)
 - Float toggle
@@ -14,3 +15,7 @@
 - presentation time
 - viewporter
 - session lock
+
+# done
+
+- Container resizing

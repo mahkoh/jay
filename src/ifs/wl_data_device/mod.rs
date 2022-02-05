@@ -1,9 +1,9 @@
 mod types;
 
-use crate::client::{Client, DynEventFormatter};
+use crate::client::{DynEventFormatter};
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
 use crate::ifs::wl_data_offer::WlDataOfferId;
-use crate::ifs::wl_seat::WlSeatObj;
+use crate::ifs::wl_seat::{WlSeatObj};
 use crate::object::{Interface, Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
@@ -28,7 +28,6 @@ id!(WlDataDeviceId);
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
     pub manager: Rc<WlDataDeviceManagerObj>,
-    client: Rc<Client>,
     seat: Rc<WlSeatObj>,
 }
 
@@ -41,9 +40,15 @@ impl WlDataDevice {
         Self {
             id,
             manager: manager.clone(),
-            client: seat.client().clone(),
             seat: seat.clone(),
         }
+    }
+
+    pub fn data_offer(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
+        Box::new(DataOffer {
+            obj: self.clone(),
+            id,
+        })
     }
 
     pub fn selection(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
@@ -54,19 +59,25 @@ impl WlDataDevice {
     }
 
     fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
-        let _req: StartDrag = self.client.parse(self, parser)?;
+        let _req: StartDrag = self.manager.client.parse(self, parser)?;
         Ok(())
     }
 
     fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
-        let _req: SetSelection = self.client.parse(self, parser)?;
+        let req: SetSelection = self.manager.client.parse(self, parser)?;
+        let src = if req.source.is_none() {
+            None
+        } else {
+            Some(self.manager.client.get_wl_data_source(req.source)?)
+        };
+        self.seat.global.set_selection(src)?;
         Ok(())
     }
 
     fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
-        let _req: Release = self.client.parse(self, parser)?;
+        let _req: Release = self.manager.client.parse(self, parser)?;
         self.seat.remove_data_device(self);
-        self.client.remove_obj(self)?;
+        self.manager.client.remove_obj(self)?;
         Ok(())
     }
 

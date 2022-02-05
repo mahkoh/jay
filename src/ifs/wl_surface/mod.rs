@@ -4,7 +4,7 @@ pub mod wl_subsurface;
 pub mod xdg_surface;
 
 use crate::backend::{KeyState, ScrollAxis, SeatId};
-use crate::client::{Client, ClientId, DynEventFormatter, RequestParser};
+use crate::client::{Client, DynEventFormatter, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
@@ -17,7 +17,9 @@ use crate::object::{Interface, Object, ObjectId};
 use crate::pixman::Region;
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{Node, NodeId};
+use crate::tree::{
+    Node, NodeId,
+};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
@@ -662,7 +664,7 @@ impl Node for WlSurface {
         renderer.render_surface(self, x, y);
     }
 
-    fn client_id(&self) -> Option<ClientId> {
-        Some(self.client.id)
+    fn client(&self) -> Option<Rc<Client>> {
+        Some(self.client.clone())
     }
 }

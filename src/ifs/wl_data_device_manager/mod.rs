@@ -28,8 +28,8 @@ pub struct WlDataDeviceManagerGlobal {
 }
 
 pub struct WlDataDeviceManagerObj {
-    id: WlDataDeviceManagerId,
-    client: Rc<Client>,
+    pub id: WlDataDeviceManagerId,
+    pub client: Rc<Client>,
     pub version: u32,
 }
 

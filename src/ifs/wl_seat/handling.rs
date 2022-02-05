@@ -2,7 +2,7 @@ use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_offer::WlDataOfferId;
+use crate::ifs::wl_data_offer::{WlDataOfferId};
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::{
@@ -241,7 +241,18 @@ impl WlSeatGlobal {
             k.modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
 
-        self.surface_data_device_event(0, &surface, |dd| dd.selection(WlDataOfferId::NONE));
+        if old.client_id() != Some(surface.client.id) {
+            match self.selection.get() {
+                None => {
+                    self.surface_data_device_event(0, &surface, |dd| {
+                        dd.selection(WlDataOfferId::NONE)
+                    });
+                }
+                Some(sel) => {
+                    sel.create_offer(&surface.client);
+                }
+            }
+        }
     }
 
     fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
@@ -282,7 +293,7 @@ impl WlSeatGlobal {
         })
     }
 
-    fn for_each_data_device<C>(&self, ver: u32, client: ClientId, mut f: C)
+    pub fn for_each_data_device<C>(&self, ver: u32, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlDataDevice>),
     {

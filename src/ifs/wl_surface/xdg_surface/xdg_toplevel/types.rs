@@ -219,7 +219,7 @@ pub(super) struct SetTitle<'a> {
 impl<'a> RequestParser<'a> for SetTitle<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
-            title: parser.string()?,
+            title: parser.bstr()?,
         })
     }
 }
@@ -235,7 +235,7 @@ pub(super) struct SetAppId<'a> {
 impl<'a> RequestParser<'a> for SetAppId<'a> {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
         Ok(Self {
-            app_id: parser.string()?,
+            app_id: parser.bstr()?,
         })
     }
 }

@@ -1,5 +1,5 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis};
-use crate::client::ClientId;
+use crate::client::{Client, ClientId};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_output::WlOutputGlobal;
@@ -169,8 +169,12 @@ pub trait Node {
         let _ = ws;
     }
 
-    fn client_id(&self) -> Option<ClientId> {
+    fn client(&self) -> Option<Rc<Client>> {
         None
+    }
+
+    fn client_id(&self) -> Option<ClientId> {
+        self.client().map(|c| c.id)
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
+use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceId};
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_region::{WlRegion, WlRegionId};
 use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
@@ -25,6 +26,7 @@ pub struct Objects {
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
     pub xdg_toplevel: CopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
+    pub wl_data_source: CopyHashMap<WlDataSourceId, Rc<WlDataSource>>,
     pub xdg_positioners: CopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
@@ -45,6 +47,7 @@ impl Objects {
             surfaces: Default::default(),
             xdg_surfaces: Default::default(),
             xdg_toplevel: Default::default(),
+            wl_data_source: Default::default(),
             xdg_positioners: Default::default(),
             regions: Default::default(),
             buffers: Default::default(),
@@ -141,8 +144,9 @@ impl Objects {
                 return Err(ClientError::ServerIdOutOfBounds);
             }
             ids[pos] |= 1 << seg_offset;
+        } else {
+            client_data.event(client_data.display()?.delete_id(id));
         }
-        client_data.event(client_data.display()?.delete_id(id));
         Ok(())
     }
 

@@ -8,7 +8,7 @@ use crate::ifs::wl_compositor::WlCompositorObj;
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerObj;
 use crate::ifs::wl_data_offer::WlDataOffer;
-use crate::ifs::wl_data_source::WlDataSource;
+use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceId};
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_drm::WlDrmObj;
 use crate::ifs::wl_output::WlOutputObj;
@@ -42,6 +42,7 @@ use crate::ErrorFmt;
 use ahash::AHashMap;
 pub use error::ClientError;
 use std::cell::{Cell, RefCell, RefMut};
+use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::mem;
 use std::rc::Rc;
@@ -273,6 +274,22 @@ impl Client {
         Ok(res)
     }
 
+    pub fn error(&self, message: impl Error) {
+        let msg = ErrorFmt(message).to_string();
+        log::error!("Client {}: A fatal error occurred: {}", self.id.0, msg,);
+        match self.display() {
+            Ok(d) => self.fatal_event(d.implementation_error(msg)),
+            Err(e) => {
+                log::error!(
+                    "Could not retrieve display of client {}: {}",
+                    self.id,
+                    ErrorFmt(e),
+                );
+                self.state.clients.kill(self.id);
+            }
+        }
+    }
+
     pub fn protocol_error(&self, obj: &dyn Object, code: u32, message: String) {
         if let Ok(d) = self.display() {
             self.fatal_event(d.error(obj.id(), code, message));
@@ -340,6 +357,13 @@ impl Client {
         match self.objects.xdg_surfaces.get(&id) {
             Some(r) => Ok(r),
             _ => Err(ClientError::XdgSurfaceDoesNotExist(id)),
+        }
+    }
+
+    pub fn get_wl_data_source(&self, id: WlDataSourceId) -> Result<Rc<WlDataSource>, ClientError> {
+        match self.objects.wl_data_source.get(&id) {
+            Some(r) => Ok(r),
+            _ => Err(ClientError::WlDataSourceDoesNotExist(id)),
         }
     }
 
@@ -440,7 +464,6 @@ simple_add_obj!(WlTouch);
 simple_add_obj!(WlDataDeviceManagerObj);
 simple_add_obj!(WlDataDevice);
 simple_add_obj!(WlDataOffer);
-simple_add_obj!(WlDataSource);
 simple_add_obj!(ZwpLinuxDmabufV1Obj);
 simple_add_obj!(ZwpLinuxBufferParamsV1);
 simple_add_obj!(WlDrmObj);
@@ -470,3 +493,4 @@ dedicated_add_obj!(WlBuffer, buffers);
 dedicated_add_obj!(WlSeatObj, seats);
 dedicated_add_obj!(XdgPositioner, xdg_positioners);
 dedicated_add_obj!(XdgToplevel, xdg_toplevel);
+dedicated_add_obj!(WlDataSource, wl_data_source);

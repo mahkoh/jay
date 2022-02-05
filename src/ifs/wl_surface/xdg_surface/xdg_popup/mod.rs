@@ -1,6 +1,6 @@
 mod types;
 
-use crate::client::{ClientId, DynEventFormatter};
+use crate::client::{Client, DynEventFormatter};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
@@ -311,8 +311,8 @@ impl Node for XdgPopup {
         self.xdg.set_workspace(ws);
     }
 
-    fn client_id(&self) -> Option<ClientId> {
-        Some(self.xdg.surface.client.id)
+    fn client(&self) -> Option<Rc<Client>> {
+        Some(self.xdg.surface.client.clone())
     }
 }
 

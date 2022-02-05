@@ -6,7 +6,7 @@ use crate::ifs::wl_compositor::WlCompositorError;
 use crate::ifs::wl_data_device::WlDataDeviceError;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManagerError;
 use crate::ifs::wl_data_offer::WlDataOfferError;
-use crate::ifs::wl_data_source::WlDataSourceError;
+use crate::ifs::wl_data_source::{WlDataSourceError, WlDataSourceId};
 use crate::ifs::wl_display::WlDisplayError;
 use crate::ifs::wl_drm::WlDrmError;
 use crate::ifs::wl_output::WlOutputError;
@@ -61,6 +61,8 @@ pub enum ClientError {
     SurfaceDoesNotExist(WlSurfaceId),
     #[error("There is no xdg_surface with id {0}")]
     XdgSurfaceDoesNotExist(XdgSurfaceId),
+    #[error("There is no wl_data_source with id {0}")]
+    WlDataSourceDoesNotExist(WlDataSourceId),
     #[error("There is no xdg_toplevel with id {0}")]
     XdgToplevelDoesNotExist(XdgToplevelId),
     #[error("There is no xdg_positioner with id {0}")]

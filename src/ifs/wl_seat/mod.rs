@@ -10,6 +10,8 @@ use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_data_device::{WlDataDevice, WlDataDeviceId};
+use crate::ifs::wl_data_offer::{DataOfferRole, WlDataOfferId};
+use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceError};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardId, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, WlPointerId};
 use crate::ifs::wl_seat::wl_touch::WlTouch;
@@ -95,6 +97,7 @@ pub struct WlSeatGlobal {
     serial: NumCell<u32>,
     grabber: RefCell<Option<PointerGrabber>>,
     tree_changed: Rc<AsyncEvent>,
+    selection: CloneCell<Option<Rc<WlDataSource>>>,
 }
 
 impl WlSeatGlobal {
@@ -144,20 +147,31 @@ impl WlSeatGlobal {
             serial: Default::default(),
             grabber: RefCell::new(None),
             tree_changed: tree_changed.clone(),
+            selection: Default::default(),
         }
     }
 
-    // pub fn grab_pointer(self: &Rc<Self>, node: Rc<dyn Node>) -> Option<PointerGrab> {
-    //     let mut grabber = self.grabber.borrow_mut();
-    //     if grabber.is_some() {
-    //         return None;
-    //     }
-    //     *grabber = Some(PointerGrabber {
-    //         node,
-    //         buttons: Default::default(),
-    //     });
-    //     Some(PointerGrab { seat: self.clone() })
-    // }
+    pub fn set_selection(self: &Rc<Self>, selection: Option<Rc<WlDataSource>>) -> Result<(), WlDataSourceError> {
+        if let Some(new) = &selection {
+            new.attach(self, DataOfferRole::Selection)?;
+        }
+        if let Some(old) = self.selection.set(selection.clone()) {
+            old.detach();
+        }
+        if let Some(client) = self.keyboard_node.get().client() {
+            match selection {
+                Some(sel) => {
+                    sel.create_offer(&client);
+                }
+                _ => {
+                    self.for_each_data_device(0, client.id, |device| {
+                        client.event(device.selection(WlDataOfferId::NONE));
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
         let cursors = match self.state.cursors.get() {
@@ -290,10 +304,6 @@ impl WlSeatObj {
                 e.remove();
             }
         }
-    }
-
-    pub fn client(&self) -> &Rc<Client> {
-        &self.client
     }
 
     pub fn move_(&self, node: &Rc<FloatNode>) {
