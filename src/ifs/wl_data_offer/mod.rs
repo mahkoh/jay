@@ -9,16 +9,7 @@ use crate::utils::clonecell::CloneCell;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
-
-const ACCEPT: u32 = 0;
-const RECEIVE: u32 = 1;
-const DESTROY: u32 = 2;
-const FINISH: u32 = 3;
-const SET_ACTIONS: u32 = 4;
-
-const OFFER: u32 = 0;
-const SOURCE_ACTIONS: u32 = 1;
-const ACTION: u32 = 2;
+use crate::wire::wl_data_offer::*;
 
 #[allow(dead_code)]
 const INVALID_FINISH: u32 = 0;
@@ -28,8 +19,6 @@ const INVALID_ACTION_MASK: u32 = 1;
 const INVALID_ACTION: u32 = 2;
 #[allow(dead_code)]
 const INVALID_OFFER: u32 = 3;
-
-id!(WlDataOfferId);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DataOfferRole {
@@ -79,19 +68,19 @@ impl WlDataOffer {
     }
 
     pub fn offer(self: &Rc<Self>, mime_type: &str) -> DynEventFormatter {
-        Box::new(Offer {
-            obj: self.clone(),
+        Box::new(OfferOut {
+            self_id: self.id,
             mime_type: mime_type.to_string(),
         })
     }
 
     fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), AcceptError> {
-        let _req: Accept = self.client.parse(self, parser)?;
+        let _req: AcceptIn = self.client.parse(self, parser)?;
         Ok(())
     }
 
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
-        let req: Receive = self.client.parse(self, parser)?;
+        let req: ReceiveIn = self.client.parse(self, parser)?;
         if let Some(src) = self.source.get() {
             src.client.event(src.send(req.mime_type, req.fd));
             src.client.flush();

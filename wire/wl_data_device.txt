@@ -1,0 +1,49 @@
+# requests
+
+msg start_drag = 0 {
+    source: id(wl_data_source),
+    origin: id(wl_surface),
+    icon: id(wl_surface),
+    serial: u32,
+}
+
+msg set_selection = 1 {
+    source: id(wl_data_source),
+    serial: u32,
+}
+
+msg release = 2 {
+
+}
+
+# events
+
+msg data_offer = 0 {
+    id: id(wl_data_offer),
+}
+
+msg enter = 1 {
+    serial: u32,
+    surface: id(wl_surface),
+    x: fixed,
+    y: fixed,
+    id: id(wl_data_offer),
+}
+
+msg leave = 2 {
+
+}
+
+msg motion = 3 {
+    time: u32,
+    x: fixed,
+    y: fixed,
+}
+
+msg drop = 4 {
+
+}
+
+msg selection = 5 {
+    id: id(wl_data_offer),
+}

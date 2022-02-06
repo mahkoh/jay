@@ -9,19 +9,7 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-
-const SET_CURSOR: u32 = 0;
-const RELEASE: u32 = 1;
-
-const ENTER: u32 = 0;
-const LEAVE: u32 = 1;
-const MOTION: u32 = 2;
-const BUTTON: u32 = 3;
-const AXIS: u32 = 4;
-const FRAME: u32 = 5;
-const AXIS_SOURCE: u32 = 6;
-const AXIS_STOP: u32 = 7;
-const AXIS_DISCRETE: u32 = 8;
+use crate::wire::wl_pointer::*;
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
@@ -42,8 +30,6 @@ const CONTINUOUS: u32 = 2;
 const WHEEL_TILT: u32 = 3;
 
 pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
-
-id!(WlPointerId);
 
 pub struct WlPointer {
     id: WlPointerId,
@@ -66,7 +52,7 @@ impl WlPointer {
         y: Fixed,
     ) -> DynEventFormatter {
         Box::new(Enter {
-            obj: self.clone(),
+            self_id: self.id,
             serial,
             surface,
             surface_x: x,
@@ -76,7 +62,7 @@ impl WlPointer {
 
     pub fn leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) -> DynEventFormatter {
         Box::new(Leave {
-            obj: self.clone(),
+            self_id: self.id,
             serial,
             surface,
         })
@@ -84,7 +70,7 @@ impl WlPointer {
 
     pub fn motion(self: &Rc<Self>, time: u32, x: Fixed, y: Fixed) -> DynEventFormatter {
         Box::new(Motion {
-            obj: self.clone(),
+            self_id: self.id,
             time,
             surface_x: x,
             surface_y: y,
@@ -99,7 +85,7 @@ impl WlPointer {
         state: u32,
     ) -> DynEventFormatter {
         Box::new(Button {
-            obj: self.clone(),
+            self_id: self.id,
             serial,
             time,
             button,
@@ -109,7 +95,7 @@ impl WlPointer {
 
     pub fn axis(self: &Rc<Self>, time: u32, axis: u32, value: Fixed) -> DynEventFormatter {
         Box::new(Axis {
-            obj: self.clone(),
+            self_id: self.id,
             time,
             axis,
             value,
@@ -118,13 +104,13 @@ impl WlPointer {
 
     #[allow(dead_code)]
     pub fn frame(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Frame { obj: self.clone() })
+        Box::new(Frame { self_id: self.id })
     }
 
     #[allow(dead_code)]
     pub fn axis_source(self: &Rc<Self>, axis_source: u32) -> DynEventFormatter {
         Box::new(AxisSource {
-            obj: self.clone(),
+            self_id: self.id,
             axis_source,
         })
     }
@@ -132,7 +118,7 @@ impl WlPointer {
     #[allow(dead_code)]
     pub fn axis_stop(self: &Rc<Self>, time: u32, axis: u32) -> DynEventFormatter {
         Box::new(AxisStop {
-            obj: self.clone(),
+            self_id: self.id,
             time,
             axis,
         })
@@ -141,7 +127,7 @@ impl WlPointer {
     #[allow(dead_code)]
     pub fn axis_discrete(self: &Rc<Self>, axis: u32, discrete: i32) -> DynEventFormatter {
         Box::new(AxisDiscrete {
-            obj: self.clone(),
+            self_id: self.id,
             axis,
             discrete,
         })

@@ -40,35 +40,3 @@ pub enum CreateRegionError {
 
 efrom!(CreateRegionError, ParseFailed, MsgParserError);
 efrom!(CreateRegionError, ClientError, ClientError);
-
-pub(super) struct CreateSurface {
-    pub id: WlSurfaceId,
-}
-impl RequestParser<'_> for CreateSurface {
-    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self {
-            id: parser.object()?,
-        })
-    }
-}
-impl Debug for CreateSurface {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "create_surface(id: {})", self.id)
-    }
-}
-
-pub(super) struct CreateRegion {
-    pub id: WlRegionId,
-}
-impl RequestParser<'_> for CreateRegion {
-    fn parse(parser: &mut MsgParser<'_, '_>) -> Result<Self, MsgParserError> {
-        Ok(Self {
-            id: parser.object()?,
-        })
-    }
-}
-impl Debug for CreateRegion {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "create_region(id: {})", self.id)
-    }
-}

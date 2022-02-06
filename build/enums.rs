@@ -1,33 +1,19 @@
+use std::env;
 use repc::layout::{Type, TypeVariant};
 use std::fmt::Write as FmtWrite;
-use std::fs::{File, OpenOptions};
-use std::io::BufWriter;
 use std::io::Write;
-use std::path::PathBuf;
-use std::{env, io};
+use crate::open;
 
 #[allow(unused_macros)]
 #[macro_use]
-#[path = "src/macros.rs"]
+#[path = "../src/macros.rs"]
 mod macros;
 
-#[path = "src/pixman/consts.rs"]
+#[path = "../src/pixman/consts.rs"]
 mod pixman;
 
-#[path = "src/xkbcommon/consts.rs"]
+#[path = "../src/xkbcommon/consts.rs"]
 mod xkbcommon;
-
-fn open(s: &str) -> io::Result<BufWriter<File>> {
-    let mut path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    path.push(s);
-    Ok(BufWriter::new(
-        OpenOptions::new()
-            .create(true)
-            .write(true)
-            .truncate(true)
-            .open(path)?,
-    ))
-}
 
 fn get_target() -> repc::Target {
     let rustc_target = env::var("TARGET").unwrap();
@@ -206,7 +192,7 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
+pub fn main() -> anyhow::Result<()> {
     let mut f = open("pixman_tys.rs")?;
     write_ty(&mut f, pixman::FORMATS, "PixmanFormat")?;
     write_ty(&mut f, pixman::OPS, "PixmanOp")?;
@@ -230,6 +216,5 @@ fn main() -> anyhow::Result<()> {
     let mut f = open("egl_procs.rs")?;
     write_egl_procs(&mut f)?;
 
-    println!("cargo:rerun-if-changed=build.rs");
     Ok(())
 }

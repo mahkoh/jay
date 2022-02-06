@@ -2,6 +2,7 @@
 name = "i4"
 version = "0.1.0"
 edition = "2021"
+build = "build/build.rs"
 
 [profile.release]
 panic = "abort"
@@ -34,3 +35,7 @@ byteorder = "1.4.3"
 [build-dependencies]
 repc = "0.1.1"
 anyhow = "1.0.52"
+bstr = "0.2.17"
+
+[profile.dev.build-override]
+opt-level = 3

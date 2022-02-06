@@ -7,12 +7,7 @@ use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-
-const SYNC: u32 = 0;
-const GET_REGISTRY: u32 = 1;
-
-const ERROR: u32 = 0;
-const DELETE_ID: u32 = 1;
+use crate::wire::wl_display::*;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
@@ -21,7 +16,7 @@ const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {
-    id: ObjectId,
+    id: WlDisplayId,
     client: Rc<Client>,
 }
 
@@ -53,15 +48,15 @@ impl WlDisplay {
         Ok(())
     }
 
-    pub fn error(
+    pub fn error<O: Into<ObjectId>>(
         self: &Rc<Self>,
-        object_id: ObjectId,
+        object_id: O,
         code: u32,
         message: String,
     ) -> DynEventFormatter {
-        Box::new(Error {
-            obj: self.clone(),
-            object_id,
+        Box::new(ErrorOut {
+            self_id: self.id,
+            object_id: object_id.into(),
             code,
             message,
         })
@@ -89,8 +84,8 @@ impl WlDisplay {
 
     pub fn delete_id(self: &Rc<Self>, id: ObjectId) -> DynEventFormatter {
         Box::new(DeleteId {
-            obj: self.clone(),
-            id,
+            self_id: self.id,
+            id: id.raw(),
         })
     }
 }

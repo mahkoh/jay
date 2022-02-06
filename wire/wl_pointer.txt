@@ -1,0 +1,63 @@
+# requests
+
+msg set_cursor = 0 {
+    serial: u32,
+    surface: id(wl_surface),
+    hotspot_x: i32,
+    hotspot_y: i32,
+}
+
+msg release = 1 {
+
+}
+
+# events
+
+msg enter = 0 {
+    serial: u32,
+    surface: id(wl_surface),
+    surface_x: fixed,
+    surface_y: fixed,
+}
+
+msg leave = 1 {
+    serial: u32,
+    surface: id(wl_surface),
+}
+
+msg motion = 2 {
+    time: u32,
+    surface_x: fixed,
+    surface_y: fixed,
+}
+
+msg button = 3 {
+    serial: u32,
+    time: u32,
+    button: u32,
+    state: u32,
+}
+
+msg axis = 4 {
+    time: u32,
+    axis: u32,
+    value: fixed,
+}
+
+msg frame = 5 {
+
+}
+
+msg axis_source = 6 {
+    axis_source: u32,
+}
+
+msg axis_stop = 7 {
+    time: u32,
+    axis: u32,
+}
+
+msg axis_discrete = 8 {
+    axis: u32,
+    discrete: i32,
+}

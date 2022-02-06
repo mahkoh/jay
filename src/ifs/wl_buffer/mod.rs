@@ -10,13 +10,8 @@ use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use std::cell::Cell;
 use std::rc::Rc;
+use crate::wire::wl_buffer::*;
 pub use types::*;
-
-const DESTROY: u32 = 0;
-
-const RELEASE: u32 = 0;
-
-id!(WlBufferId);
 
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },
@@ -122,8 +117,8 @@ impl WlBuffer {
         Ok(())
     }
 
-    pub fn release(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Release { obj: self.clone() })
+    pub fn release(&self) -> DynEventFormatter {
+        Box::new(Release { self_id: self.id })
     }
 }
 

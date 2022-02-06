@@ -6,13 +6,7 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-
-const BIND: u32 = 0;
-
-const GLOBAL: u32 = 0;
-const GLOBAL_REMOVE: u32 = 1;
-
-id!(WlRegistryId);
+use crate::wire::wl_registry::*;
 
 pub struct WlRegistry {
     id: WlRegistryId,
@@ -28,16 +22,18 @@ impl WlRegistry {
     }
 
     pub fn global(self: &Rc<Self>, global: &Rc<dyn Global>) -> DynEventFormatter {
-        Box::new(GlobalE {
-            obj: self.clone(),
-            global: global.clone(),
+        Box::new(GlobalOut {
+            self_id: self.id,
+            name: global.name().raw(),
+            interface: global.interface().name().to_string(),
+            version: global.version(),
         })
     }
 
     pub fn global_remove(self: &Rc<Self>, name: GlobalName) -> DynEventFormatter {
         Box::new(GlobalRemove {
-            obj: self.clone(),
-            name,
+            self_id: self.id,
+            name: name.raw(),
         })
     }
 

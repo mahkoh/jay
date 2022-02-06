@@ -4,21 +4,15 @@ use crate::utils::buffd::MsgParser;
 use std::cell::Cell;
 use std::rc::Rc;
 pub use types::*;
+use crate::wire::org_kde_kwin_server_decoration::*;
 
 mod types;
-
-const RELEASE: u32 = 0;
-const REQUEST_MODE: u32 = 1;
-
-const MODE: u32 = 0;
 
 #[allow(dead_code)]
 const NONE: u32 = 0;
 #[allow(dead_code)]
 const CLIENT: u32 = 1;
 const SERVER: u32 = 2;
-
-id!(OrgKdeKwinServerDecorationId);
 
 pub struct OrgKdeKwinServerDecoration {
     id: OrgKdeKwinServerDecorationId,
@@ -37,7 +31,7 @@ impl OrgKdeKwinServerDecoration {
 
     pub fn mode(self: &Rc<Self>, mode: u32) -> DynEventFormatter {
         Box::new(Mode {
-            obj: self.clone(),
+            self_id: self.id,
             mode,
         })
     }

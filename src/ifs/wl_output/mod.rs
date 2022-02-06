@@ -11,15 +11,7 @@ use std::collections::hash_map::Entry;
 use std::iter;
 use std::rc::Rc;
 pub use types::*;
-
-id!(WlOutputId);
-
-const RELEASE: u32 = 0;
-
-const GEOMETRY: u32 = 0;
-const MODE: u32 = 1;
-const DONE: u32 = 2;
-const SCALE: u32 = 3;
+use crate::wire::wl_output::*;
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]
@@ -186,7 +178,7 @@ impl WlOutput {
 
     fn mode(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Mode {
-            obj: self.clone(),
+            self_id: self.id,
             flags: MODE_CURRENT,
             width: self.global.width.get() as _,
             height: self.global.height.get() as _,
@@ -196,13 +188,13 @@ impl WlOutput {
 
     fn scale(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Scale {
-            obj: self.clone(),
+            self_id: self.id,
             factor: 1,
         })
     }
 
     fn done(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Done { obj: self.clone() })
+        Box::new(Done { self_id: self.id })
     }
 
     fn remove_binding(&self) {

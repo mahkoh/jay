@@ -13,12 +13,12 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1Id;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1Id;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -371,8 +371,8 @@ impl WlSeatGlobal {
     }
 
     fn surface_primary_selection_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-        where
-            F: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>) -> DynEventFormatter,
+    where
+        F: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>) -> DynEventFormatter,
     {
         let client = &surface.client;
         self.for_each_primary_selection_device(ver, client.id, |p| {

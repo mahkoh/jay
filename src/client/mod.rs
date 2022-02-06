@@ -164,10 +164,8 @@ impl Drop for ClientHolder {
 
 pub trait EventFormatter: Debug {
     fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>);
-    fn obj(&self) -> &dyn Object;
-    fn should_log(&self) -> bool {
-        true
-    }
+    fn id(&self) -> ObjectId;
+    fn interface(&self) -> Interface;
 }
 
 pub type DynEventFormatter = Box<dyn EventFormatter>;

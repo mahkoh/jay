@@ -11,24 +11,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
 use uapi::OwnedFd;
-
-const OFFER: u32 = 0;
-const DESTROY: u32 = 1;
-const SET_ACTIONS: u32 = 2;
-
-const TARGET: u32 = 0;
-const SEND: u32 = 1;
-const CANCELLED: u32 = 2;
-const DND_DROP_PERFORMED: u32 = 4;
-const DND_FINISHED: u32 = 5;
-const ACTION: u32 = 5;
+use crate::wire::wl_data_source::*;
 
 #[allow(dead_code)]
 const INVALID_ACTION_MASK: u32 = 0;
 #[allow(dead_code)]
 const INVALID_SOURCE: u32 = 1;
-
-id!(WlDataSourceId);
 
 #[derive(Clone)]
 struct Attachment {
@@ -101,19 +89,19 @@ impl WlDataSource {
     }
 
     pub fn cancelled(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Cancelled { obj: self.clone() })
+        Box::new(Cancelled { self_id: self.id })
     }
 
-    pub fn send(self: &Rc<Self>, mime_type: &str, fd: OwnedFd) -> DynEventFormatter {
-        Box::new(Send {
-            obj: self.clone(),
+    pub fn send(&self, mime_type: &str, fd: Rc<OwnedFd>) -> DynEventFormatter {
+        Box::new(SendOut {
+            self_id: self.id,
             mime_type: mime_type.to_string(),
-            fd: Rc::new(fd),
+            fd,
         })
     }
 
     fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {
-        let req: Offer = self.client.parse(self, parser)?;
+        let req: OfferIn = self.client.parse(self, parser)?;
         if self
             .mime_types
             .borrow_mut()

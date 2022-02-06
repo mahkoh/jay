@@ -2,8 +2,9 @@ use crate::client::ClientError;
 use crate::utils::buffd::MsgParser;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use crate::wire::WlDisplayId;
 
-pub const WL_DISPLAY_ID: ObjectId = ObjectId(1);
+pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId(1);
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ObjectId(u32);

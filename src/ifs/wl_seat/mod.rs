@@ -39,19 +39,11 @@ pub use handling::NodeSeatState;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::io::Write;
+use std::ops::Deref;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, OwnedFd};
-
-id!(WlSeatId);
-
-const GET_POINTER: u32 = 0;
-const GET_KEYBOARD: u32 = 1;
-const GET_TOUCH: u32 = 2;
-const RELEASE: u32 = 3;
-
-const CAPABILITIES: u32 = 0;
-const NAME: u32 = 1;
+use crate::wire::wl_seat::*;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -317,15 +309,15 @@ pub struct WlSeat {
 impl WlSeat {
     fn capabilities(self: &Rc<Self>) -> DynEventFormatter {
         Box::new(Capabilities {
-            obj: self.clone(),
+            self_id: self.id,
             capabilities: POINTER | KEYBOARD,
         })
     }
 
     fn name(self: &Rc<Self>, name: &Rc<String>) -> DynEventFormatter {
-        Box::new(Name {
-            obj: self.clone(),
-            name: name.clone(),
+        Box::new(NameOut {
+            self_id: self.id,
+            name: name.deref().clone(),
         })
     }
 

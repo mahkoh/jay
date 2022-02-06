@@ -27,6 +27,8 @@ pub enum BindError {
     #[error("Tried to bind to global {} of type {} and version {} using version {}", .0.name, .0.interface.name(), .0.version, .0.actual)]
     InvalidVersion(VersionError),
 }
+efrom!(BindError, ParseError, MsgParserError);
+efrom!(BindError, GlobalsError);
 
 #[derive(Debug)]
 pub struct InterfaceError {
@@ -43,76 +45,3 @@ pub struct VersionError {
     pub actual: u32,
 }
 
-efrom!(BindError, ParseError, MsgParserError);
-efrom!(BindError, GlobalsError);
-
-pub(super) struct GlobalE {
-    pub obj: Rc<WlRegistry>,
-    pub global: Rc<dyn Global>,
-}
-impl EventFormatter for GlobalE {
-    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, GLOBAL)
-            .uint(self.global.name().raw())
-            .string(self.global.interface().name())
-            .uint(self.global.version());
-    }
-    fn obj(&self) -> &dyn Object {
-        &*self.obj
-    }
-}
-impl Debug for GlobalE {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "global(name: {}, interface: {:?}, version: {})",
-            self.global.name(),
-            self.global.interface().name(),
-            self.global.version()
-        )
-    }
-}
-
-pub(super) struct GlobalRemove {
-    pub obj: Rc<WlRegistry>,
-    pub name: GlobalName,
-}
-impl EventFormatter for GlobalRemove {
-    fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {
-        fmt.header(self.obj.id, GLOBAL_REMOVE).uint(self.name.raw());
-    }
-    fn obj(&self) -> &dyn Object {
-        &*self.obj
-    }
-}
-impl Debug for GlobalRemove {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "global_remove(name: {})", self.name)
-    }
-}
-
-pub(super) struct Bind<'a> {
-    pub name: GlobalName,
-    pub id: ObjectId,
-    pub interface: &'a BStr,
-    pub version: u32,
-}
-impl<'a> RequestParser<'a> for Bind<'a> {
-    fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {
-        Ok(Self {
-            name: parser.global()?,
-            interface: parser.bstr()?,
-            version: parser.uint()?,
-            id: parser.object()?,
-        })
-    }
-}
-impl Debug for Bind<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "bind(name: {}, interface: {:?}, version: {}, id: {})",
-            self.name, self.interface, self.version, self.id
-        )
-    }
-}

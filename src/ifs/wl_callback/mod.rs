@@ -4,10 +4,7 @@ use crate::client::DynEventFormatter;
 use crate::object::Object;
 use std::rc::Rc;
 use types::*;
-
-const DONE: u32 = 0;
-
-id!(WlCallbackId);
+use crate::wire::wl_callback::*;
 
 pub struct WlCallback {
     id: WlCallbackId,
@@ -19,7 +16,7 @@ impl WlCallback {
     }
 
     pub fn done(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Done { obj: self.clone() })
+        Box::new(Done { self_id: self.id, callback_data: 0 })
     }
 }
 

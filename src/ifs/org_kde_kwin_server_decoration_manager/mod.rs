@@ -5,20 +5,15 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
+use crate::wire::org_kde_kwin_server_decoration_manager::*;
 
 mod types;
-
-const CREATE: u32 = 0;
-
-const DEFAULT_MODE: u32 = 0;
 
 #[allow(dead_code)]
 const NONE: u32 = 0;
 #[allow(dead_code)]
 const CLIENT: u32 = 1;
 const SERVER: u32 = 2;
-
-id!(OrgKdeKwinServerDecorationManagerGlobalId);
 
 pub struct OrgKdeKwinServerDecorationManagerGlobal {
     name: GlobalName,
@@ -72,7 +67,7 @@ pub struct OrgKdeKwinServerDecorationManager {
 impl OrgKdeKwinServerDecorationManager {
     fn default_mode(self: &Rc<Self>, mode: u32) -> DynEventFormatter {
         Box::new(DefaultMode {
-            obj: self.clone(),
+            self_id: self.id,
             mode,
         })
     }

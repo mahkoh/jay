@@ -1,0 +1,41 @@
+# requests
+
+msg release = 0 {
+
+}
+
+# events
+
+msg geometry = 0 {
+    x               : i32,
+    y               : i32,
+    physical_width  : i32,
+    physical_height : i32,
+    subpixel        : i32,
+    make            : str,
+    model           : str,
+    transform       : i32,
+}
+
+msg mode = 1 {
+    flags    : u32,
+    width    : i32,
+    height   : i32,
+    refresh  : i32,
+}
+
+msg done = 2 {
+
+}
+
+msg scale = 3 {
+    factor: i32,
+}
+
+msg name = 4 {
+    name: str,
+}
+
+msg description = 5 {
+    description: str,
+}

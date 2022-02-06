@@ -1,0 +1,19 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg add = 1 {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+msg subtract = 2 {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}

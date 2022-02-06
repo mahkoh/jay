@@ -8,9 +8,7 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-
-const CREATE_DATA_SOURCE: u32 = 0;
-const GET_DATA_DEVICE: u32 = 1;
+use crate::wire::wl_data_device_manager::*;
 
 #[allow(dead_code)]
 const DND_NONE: u32 = 0;
@@ -20,8 +18,6 @@ const DND_COPY: u32 = 1;
 const DND_MOVE: u32 = 2;
 #[allow(dead_code)]
 const DND_ASK: u32 = 4;
-
-id!(WlDataDeviceManagerId);
 
 pub struct WlDataDeviceManagerGlobal {
     name: GlobalName,

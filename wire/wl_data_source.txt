@@ -1,0 +1,40 @@
+# requests
+
+msg offer = 0 {
+    mime_type: str,
+}
+
+msg destroy = 1 {
+
+}
+
+msg set_actions = 2 {
+    dnd_actions: u32,
+}
+
+# events
+
+msg target = 0 {
+    mime_type: str,
+}
+
+msg send = 1 {
+    mime_type: str,
+    fd: fd,
+}
+
+msg cancelled = 2 {
+
+}
+
+msg dnd_drop_performed = 3 {
+
+}
+
+msg dnd_finished = 4 {
+
+}
+
+msg action = 5 {
+    dnd_action: u32,
+}

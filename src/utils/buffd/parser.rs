@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use crate::fixed::Fixed;
 use crate::globals::GlobalName;
 use crate::object::ObjectId;
@@ -65,18 +66,11 @@ impl<'a, 'b> MsgParser<'a, 'b> {
     }
 
     pub fn bstr(&mut self) -> Result<&'b BStr, MsgParserError> {
-        let len = self.uint()? as usize;
-        if len == 0 {
+        let s = self.array()?;
+        if s.len() == 0 {
             return Err(MsgParserError::EmptyString);
         }
-        let cap = (len + 3) & !3;
-        if cap > self.data.len() - self.pos {
-            return Err(MsgParserError::UnexpectedEof);
-        }
-        let s = &self.data[self.pos..self.pos + len - 1];
-        let s = s.as_bstr();
-        self.pos += cap;
-        Ok(s)
+        Ok(s[..s.len()-1].as_bstr())
     }
 
     pub fn str(&mut self) -> Result<&'b str, MsgParserError> {
@@ -86,9 +80,9 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         }
     }
 
-    pub fn fd(&mut self) -> Result<OwnedFd, MsgParserError> {
+    pub fn fd(&mut self) -> Result<Rc<OwnedFd>, MsgParserError> {
         match self.buf.get_fd() {
-            Ok(fd) => Ok(fd),
+            Ok(fd) => Ok(Rc::new(fd)),
             _ => Err(MsgParserError::MissingFd),
         }
     }
@@ -99,5 +93,16 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         } else {
             Err(MsgParserError::TrailingData)
         }
+    }
+
+    pub fn array(&mut self) -> Result<&'b [u8], MsgParserError> {
+        let len = self.uint()? as usize;
+        let cap = (len + 3) & !3;
+        if cap > self.data.len() - self.pos {
+            return Err(MsgParserError::UnexpectedEof);
+        }
+        let pos = self.pos;
+        self.pos += cap;
+        Ok(&self.data[pos..pos + len])
     }
 }

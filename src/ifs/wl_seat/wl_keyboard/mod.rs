@@ -8,15 +8,7 @@ use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
 use uapi::{c, Errno, OwnedFd};
-
-const RELEASE: u32 = 0;
-
-const KEYMAP: u32 = 0;
-const ENTER: u32 = 1;
-const LEAVE: u32 = 2;
-const KEY: u32 = 3;
-const MODIFIERS: u32 = 4;
-const REPEAT_INFO: u32 = 5;
+use crate::wire::wl_keyboard::*;
 
 pub const REPEAT_INFO_SINCE: u32 = 4;
 
@@ -24,12 +16,8 @@ pub const REPEAT_INFO_SINCE: u32 = 4;
 const NO_KEYMAP: u32 = 0;
 pub(super) const XKB_V1: u32 = 1;
 
-#[allow(dead_code)]
 pub(super) const RELEASED: u32 = 0;
-#[allow(dead_code)]
 pub(super) const PRESSED: u32 = 1;
-
-id!(WlKeyboardId);
 
 pub struct WlKeyboard {
     id: WlKeyboardId,
@@ -76,41 +64,38 @@ impl WlKeyboard {
 
     pub fn keymap(self: &Rc<Self>, format: u32, fd: Rc<OwnedFd>, size: u32) -> DynEventFormatter {
         Box::new(Keymap {
-            obj: self.clone(),
+            self_id: self.id,
             format,
             fd,
             size,
         })
     }
 
-    #[allow(dead_code)]
     pub fn enter(
         self: &Rc<Self>,
         serial: u32,
         surface: WlSurfaceId,
         keys: Vec<u32>,
     ) -> DynEventFormatter {
-        Box::new(Enter {
-            obj: self.clone(),
+        Box::new(EnterOut {
+            self_id: self.id,
             serial,
             surface,
             keys,
         })
     }
 
-    #[allow(dead_code)]
     pub fn leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) -> DynEventFormatter {
         Box::new(Leave {
-            obj: self.clone(),
+            self_id: self.id,
             serial,
             surface,
         })
     }
 
-    #[allow(dead_code)]
     pub fn key(self: &Rc<Self>, serial: u32, time: u32, key: u32, state: u32) -> DynEventFormatter {
         Box::new(Key {
-            obj: self.clone(),
+            self_id: self.id,
             serial,
             time,
             key,
@@ -118,7 +103,6 @@ impl WlKeyboard {
         })
     }
 
-    #[allow(dead_code)]
     pub fn modifiers(
         self: &Rc<Self>,
         serial: u32,
@@ -128,7 +112,7 @@ impl WlKeyboard {
         group: u32,
     ) -> DynEventFormatter {
         Box::new(Modifiers {
-            obj: self.clone(),
+            self_id: self.id,
             serial,
             mods_depressed,
             mods_latched,
@@ -137,10 +121,9 @@ impl WlKeyboard {
         })
     }
 
-    #[allow(dead_code)]
     pub fn repeat_info(self: &Rc<Self>, rate: i32, delay: i32) -> DynEventFormatter {
         Box::new(RepeatInfo {
-            obj: self.clone(),
+            self_id: self.id,
             rate,
             delay,
         })

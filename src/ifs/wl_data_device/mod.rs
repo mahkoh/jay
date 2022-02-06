@@ -8,22 +8,10 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::rc::Rc;
 pub use types::*;
-
-const START_DRAG: u32 = 0;
-const SET_SELECTION: u32 = 1;
-const RELEASE: u32 = 2;
-
-const DATA_OFFER: u32 = 0;
-const ENTER: u32 = 1;
-const LEAVE: u32 = 2;
-const MOTION: u32 = 4;
-const DROP: u32 = 5;
-const SELECTION: u32 = 5;
+use crate::wire::wl_data_device::*;
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
-
-id!(WlDataDeviceId);
 
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
@@ -42,14 +30,14 @@ impl WlDataDevice {
 
     pub fn data_offer(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
         Box::new(DataOffer {
-            obj: self.clone(),
+            self_id: self.id,
             id,
         })
     }
 
     pub fn selection(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
         Box::new(Selection {
-            obj: self.clone(),
+            self_id: self.id,
             id,
         })
     }

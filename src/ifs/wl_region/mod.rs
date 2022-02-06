@@ -7,12 +7,7 @@ use crate::utils::buffd::MsgParser;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub use types::*;
-
-const DESTROY: u32 = 0;
-const ADD: u32 = 1;
-const SUBTRACT: u32 = 2;
-
-id!(WlRegionId);
+use crate::wire::wl_region::*;
 
 pub struct WlRegion {
     id: WlRegionId,

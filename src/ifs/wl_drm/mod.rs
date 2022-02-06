@@ -4,20 +4,11 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::ffi::CString;
 use std::rc::Rc;
+use bstr::ByteSlice;
 pub use types::*;
+use crate::wire::wl_drm::*;
 
 mod types;
-
-id!(WlDrmId);
-
-const AUTHENTICATE: u32 = 0;
-const CREATE_BUFFER: u32 = 1;
-const CREATE_PLANAR_BUFFER: u32 = 2;
-
-const DEVICE: u32 = 0;
-const FORMAT: u32 = 1;
-const AUTHENTICATED: u32 = 2;
-const CAPABILITIES: u32 = 3;
 
 const PRIME: u32 = 1;
 
@@ -72,19 +63,19 @@ pub struct WlDrm {
 
 impl WlDrm {
     fn device(self: &Rc<Self>, device: &Rc<CString>) -> DynEventFormatter {
-        Box::new(Device {
-            obj: self.clone(),
-            name: device.clone(),
+        Box::new(DeviceOut {
+            self_id: self.id,
+            name: device.as_bytes().as_bstr().to_owned(),
         })
     }
 
     fn authenticated(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Authenticated { obj: self.clone() })
+        Box::new(Authenticated { self_id: self.id })
     }
 
     fn capabilities(self: &Rc<Self>, value: u32) -> DynEventFormatter {
         Box::new(Capabilities {
-            obj: self.clone(),
+            self_id: self.id,
             value,
         })
     }

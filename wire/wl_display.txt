@@ -1,0 +1,21 @@
+# requests
+
+msg sync = 0 {
+    callback: id(wl_callback),
+}
+
+msg get_registry = 1 {
+    registry: id(wl_registry),
+}
+
+# events
+
+msg error = 0 {
+    object_id: id(object),
+    code: u32,
+    message: str,
+}
+
+msg delete_id = 1 {
+    id: u32,
+}
