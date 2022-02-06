@@ -47,10 +47,6 @@ impl OutBuffer {
     pub fn is_full(&self) -> bool {
         self.write_pos > BUF_SIZE
     }
-
-    pub fn len(&self) -> usize {
-        self.write_pos
-    }
 }
 
 const LIMIT_PENDING: usize = 10;

@@ -35,7 +35,6 @@ pub use handling::NodeSeatState;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::io::Write;
-use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
@@ -312,10 +311,10 @@ impl WlSeat {
         })
     }
 
-    fn send_name(self: &Rc<Self>, name: &Rc<String>) {
-        self.client.event(NameOut {
+    fn send_name(self: &Rc<Self>, name: &str) {
+        self.client.event(Name {
             self_id: self.id,
-            name: name.deref().clone(),
+            name,
         })
     }
 

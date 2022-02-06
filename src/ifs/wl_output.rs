@@ -150,15 +150,15 @@ pub const SEND_SCALE_SINCE: u32 = 2;
 
 impl WlOutput {
     fn send_geometry(&self) {
-        let event = GeometryOut {
+        let event = Geometry {
             self_id: self.id,
             x: 0,
             y: 0,
             physical_width: self.global.width.get() as _,
             physical_height: self.global.height.get() as _,
             subpixel: SP_UNKNOWN,
-            make: "i4".to_string(),
-            model: "i4".to_string(),
+            make: "i4",
+            model: "i4",
             transform: TF_NORMAL,
         };
         self.client.event(event);

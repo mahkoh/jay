@@ -150,11 +150,12 @@ impl XdgToplevel {
     }
 
     fn send_configure(&self, width: i32, height: i32) {
-        self.xdg.surface.client.event(ConfigureOut {
+        let states: Vec<_> = self.states.borrow().iter().copied().collect();
+        self.xdg.surface.client.event(Configure {
             self_id: self.id,
             width,
             height,
-            states: self.states.borrow().iter().copied().collect(),
+            states: &states,
         })
     }
 
@@ -185,12 +186,12 @@ impl XdgToplevel {
     }
 
     fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), SetTitleError> {
-        let _req: SetTitleIn = self.xdg.surface.client.parse(self, parser)?;
+        let _req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
     fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAppIdError> {
-        let req: SetAppIdIn = self.xdg.surface.client.parse(self, parser)?;
+        let req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
         self.bugs.set(bugs::get(req.app_id));
         Ok(())
     }

@@ -54,9 +54,9 @@ impl WlDisplay {
         &self,
         object_id: O,
         code: u32,
-        message: String,
+        message: &str,
     ) {
-        self.client.event(ErrorOut {
+        self.client.event(Error {
             self_id: self.id,
             object_id: object_id.into(),
             code,
@@ -72,16 +72,16 @@ impl WlDisplay {
             obj.interface().name(),
             request
         );
-        self.send_error(id, INVALID_METHOD, msg)
+        self.send_error(id, INVALID_METHOD, &msg)
     }
 
     pub fn send_invalid_object(self: &Rc<Self>, id: ObjectId) {
         let msg = format!("Object {} does not exist", id,);
-        self.send_error(id, INVALID_OBJECT, msg)
+        self.send_error(id, INVALID_OBJECT, &msg)
     }
 
     pub fn send_implementation_error(self: &Rc<Self>, msg: String) {
-        self.send_error(WL_DISPLAY_ID, IMPLEMENTATION, msg)
+        self.send_error(WL_DISPLAY_ID, IMPLEMENTATION, &msg)
     }
 
     pub fn send_delete_id(self: &Rc<Self>, id: ObjectId) {

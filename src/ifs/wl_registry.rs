@@ -23,10 +23,10 @@ impl WlRegistry {
     }
 
     pub fn send_global(self: &Rc<Self>, global: &Rc<dyn Global>) {
-        self.client.event(GlobalOut {
+        self.client.event(crate::wire::wl_registry::Global {
             self_id: self.id,
             name: global.name().raw(),
-            interface: global.interface().name().to_string(),
+            interface: global.interface().name(),
             version: global.version(),
         })
     }
@@ -39,7 +39,7 @@ impl WlRegistry {
     }
 
     fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), BindError> {
-        let bind: BindIn = self.client.parse(self, parser)?;
+        let bind: Bind = self.client.parse(self, parser)?;
         let global = self.client.state.globals.get(GlobalName::from_raw(bind.name))?;
         if global.interface().name() != bind.interface {
             return Err(BindError::InvalidInterface(InterfaceError {

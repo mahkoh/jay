@@ -64,9 +64,9 @@ pub struct WlDrm {
 
 impl WlDrm {
     fn send_device(self: &Rc<Self>, device: &Rc<CString>) {
-        self.client.event(DeviceOut {
+        self.client.event(Device {
             self_id: self.id,
-            name: device.as_bytes().as_bstr().to_owned(),
+            name: device.as_bytes().as_bstr(),
         })
     }
 

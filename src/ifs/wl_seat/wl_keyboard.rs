@@ -75,9 +75,9 @@ impl WlKeyboard {
         self: &Rc<Self>,
         serial: u32,
         surface: WlSurfaceId,
-        keys: Vec<u32>,
+        keys: &[u32],
     ) {
-        self.seat.client.event(EnterOut {
+        self.seat.client.event(Enter {
             self_id: self.id,
             serial,
             surface,

@@ -258,7 +258,7 @@ impl Client {
         }
     }
 
-    pub fn protocol_error(&self, obj: &dyn Object, code: u32, message: String) {
+    pub fn protocol_error(&self, obj: &dyn Object, code: u32, message: &str) {
         if let Ok(d) = self.display() {
             d.send_error(obj.id(), code, message);
         }

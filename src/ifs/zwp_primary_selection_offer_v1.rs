@@ -56,14 +56,14 @@ impl ZwpPrimarySelectionOfferV1 {
     }
 
     pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
-        self.client.event(OfferOut {
+        self.client.event(Offer {
             self_id: self.id,
-            mime_type: mime_type.to_string(),
+            mime_type,
         })
     }
 
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
-        let req: ReceiveIn = self.client.parse(self, parser)?;
+        let req: Receive = self.client.parse(self, parser)?;
         if let Some(src) = self.source.get() {
             src.send_send(req.mime_type, req.fd);
             src.client.flush();

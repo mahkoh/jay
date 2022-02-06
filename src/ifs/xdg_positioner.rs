@@ -166,7 +166,7 @@ impl XdgPositioner {
             self.client.protocol_error(
                 self,
                 INVALID_INPUT,
-                format!("Cannot set a non-positive size"),
+                &format!("Cannot set a non-positive size"),
             );
             return Err(SetSizeError::NonPositiveSize);
         }
@@ -182,7 +182,7 @@ impl XdgPositioner {
             self.client.protocol_error(
                 self,
                 INVALID_INPUT,
-                format!("Cannot set an anchor rect with negative size"),
+                &format!("Cannot set an anchor rect with negative size"),
             );
             return Err(SetAnchorRectError::NegativeAnchorRect);
         }
@@ -248,7 +248,7 @@ impl XdgPositioner {
             self.client.protocol_error(
                 self,
                 INVALID_INPUT,
-                format!("Cannot set a negative parent size"),
+                &format!("Cannot set a negative parent size"),
             );
             return Err(SetParentSizeError::NegativeParentSize);
         }

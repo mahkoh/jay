@@ -229,7 +229,7 @@ impl WlSeatGlobal {
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
         let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, &surface, |k| {
-            k.send_enter(serial, surface.id, pressed_keys.clone())
+            k.send_enter(serial, surface.id, &pressed_keys)
         });
         let ModifierState {
             mods_depressed,

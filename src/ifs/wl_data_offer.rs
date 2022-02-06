@@ -76,19 +76,19 @@ impl WlDataOffer {
     }
 
     pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
-        self.client.event(OfferOut {
+        self.client.event(Offer {
             self_id: self.id,
-            mime_type: mime_type.to_string(),
+            mime_type,
         })
     }
 
     fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), AcceptError> {
-        let _req: AcceptIn = self.client.parse(self, parser)?;
+        let _req: Accept = self.client.parse(self, parser)?;
         Ok(())
     }
 
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
-        let req: ReceiveIn = self.client.parse(self, parser)?;
+        let req: Receive = self.client.parse(self, parser)?;
         if let Some(src) = self.source.get() {
             src.send_send(req.mime_type, req.fd);
             src.client.flush();

@@ -491,61 +491,41 @@ fn to_camel(s: &BStr) -> BString {
     res.into()
 }
 
-fn write_type<W: Write>(f: &mut W, ty: &Type, role: TypeRole) -> Result<()> {
+fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
     match ty {
         Type::Id(id) => write!(f, "{}Id", id)?,
         Type::U32 => write!(f, "u32")?,
         Type::I32 => write!(f, "i32")?,
-        Type::Str if role == TypeRole::In => write!(f, "&'a str")?,
-        Type::Str => write!(f, "String")?,
-        Type::BStr if role == TypeRole::In => write!(f, "&'a BStr")?,
-        Type::BStr => write!(f, "BString")?,
+        Type::Str => write!(f, "&'a str")?,
+        Type::BStr => write!(f, "&'a BStr")?,
         Type::Fixed => write!(f, "Fixed")?,
         Type::Fd => write!(f, "Rc<OwnedFd>")?,
-        Type::Array(n) if role == TypeRole::In => {
+        Type::Array(n) => {
             write!(f, "&'a [")?;
-            write_type(f, n, role)?;
+            write_type(f, n)?;
             write!(f, "]")?;
         },
-        Type::Array(n) => {
-            write!(f, "Vec<")?;
-            write_type(f, n, role)?;
-            write!(f, ">")?;
-        }
         Type::Pod(p) => f.write_all(p.as_bytes())?,
     }
     Ok(())
 }
 
-fn write_field<W: Write>(f: &mut W, field: &Field, role: TypeRole) -> Result<()> {
+fn write_field<W: Write>(f: &mut W, field: &Field) -> Result<()> {
     write!(f, "        pub {}: ", field.name)?;
-    write_type(f, &field.ty.val, role)?;
+    write_type(f, &field.ty.val)?;
     writeln!(f, ",")?;
     Ok(())
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum TypeRole {
-    Unified,
-    In,
-    Out,
-}
-
-fn write_message_type<W: Write>(f: &mut W, obj: &BStr, message: &Message, role: TypeRole) -> Result<()> {
-    let suffix = match role {
-        TypeRole::Unified => "",
-        TypeRole::In => "In",
-        TypeRole::Out => "Out",
-    };
-    let needs_lifetime = role == TypeRole::In;
+fn write_message_type<W: Write>(f: &mut W, obj: &BStr, message: &Message, needs_lifetime: bool) -> Result<()> {
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
-    writeln!(f, "    pub struct {}{}{} {{", message.camel_name, suffix, lifetime)?;
+    writeln!(f, "    pub struct {}{} {{", message.camel_name, lifetime)?;
     writeln!(f, "        pub self_id: {}Id,", obj)?;
     for field in &message.fields {
-        write_field(f, &field.val, role)?;
+        write_field(f, &field.val)?;
     }
     writeln!(f, "    }}")?;
-    writeln!(f, "    impl{} std::fmt::Debug for {}{}{} {{", lifetime, message.camel_name, suffix, lifetime)?;
+    writeln!(f, "    impl{} std::fmt::Debug for {}{} {{", lifetime, message.camel_name, lifetime)?;
     writeln!(f, "        fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{")?;
     write!(f, r#"            write!(fmt, "{}("#, message.name)?;
     for (i, field) in message.fields.iter().enumerate() {
@@ -577,19 +557,14 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     let uppercase = uppercase.as_bstr();
     writeln!(f)?;
     writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id.val)?;
-    if has_reference_type {
-        write_message_type(f, obj, message, TypeRole::In)?;
-        write_message_type(f, obj, message, TypeRole::Out)?;
-    } else {
-        write_message_type(f, obj, message, TypeRole::Unified)?;
-    }
+    write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>"} else {""};
     let parser = if message.fields.len() > 0 {
         "parser"
     } else {
         "_parser"
     };
-    writeln!(f, "    impl<'a> RequestParser<'a> for {}{}{} {{", message.camel_name, if has_reference_type { "In" } else { "" }, lifetime)?;
+    writeln!(f, "    impl<'a> RequestParser<'a> for {}{} {{", message.camel_name, lifetime)?;
     writeln!(f, "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{", parser)?;
     writeln!(f, "            Ok(Self {{")?;
     writeln!(f, "                self_id: {}Id::NONE,", obj)?;
@@ -610,7 +585,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f, "            }})")?;
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
-    writeln!(f, "    impl EventFormatter for {}{} {{", message.camel_name, if has_reference_type { "Out" } else { "" })?;
+    writeln!(f, "    impl{} EventFormatter for {}{} {{", lifetime, message.camel_name, lifetime)?;
     writeln!(f, "        fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
     writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
     fn write_fmt_expr<W: Write>(f: &mut W, prefix: &str, ty: &Type, access: &str) -> Result<()> {
@@ -625,8 +600,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
             Type::Pod(..) => "binary",
         };
         let rf = match ty {
-            Type::Str | Type::BStr | Type::Pod(..) => "&",
-            Type::Array(..) => "&*",
+            Type::Pod(..) => "&",
             _ => "",
         };
         writeln!(f, "            {}fmt.{}({}{});", prefix, p, rf, access)?;
@@ -673,7 +647,7 @@ pub fn main() -> Result<()> {
     let mut f = open("wire.rs")?;
     writeln!(f, "use std::rc::Rc;")?;
     writeln!(f, "use uapi::OwnedFd;")?;
-    writeln!(f, "use bstr::{{BStr, BString}};")?;
+    writeln!(f, "use bstr::BStr;")?;
     writeln!(f, "use crate::fixed::Fixed;")?;
     writeln!(f, "use crate::client::{{EventFormatter, RequestParser}};")?;
     writeln!(f, "use crate::object::ObjectId;")?;

@@ -228,7 +228,7 @@ impl XdgSurface {
             self.surface.client.protocol_error(
                 &**self,
                 ALREADY_CONSTRUCTED,
-                format!(
+                &format!(
                     "wl_surface {} already has an assigned xdg_toplevel",
                     self.surface.id
                 ),
@@ -253,7 +253,7 @@ impl XdgSurface {
             self.surface.client.protocol_error(
                 &**self,
                 ALREADY_CONSTRUCTED,
-                format!(
+                &format!(
                     "wl_surface {} already has an assigned xdg_popup",
                     self.surface.id
                 ),

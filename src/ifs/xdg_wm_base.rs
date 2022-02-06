@@ -64,7 +64,7 @@ impl XdgWmBase {
             self.client.protocol_error(
                 self,
                 DEFUNCT_SURFACES,
-                format!(
+                &format!(
                     "Cannot destroy xdg_wm_base object {} before destroying its surfaces",
                     self.id
                 ),

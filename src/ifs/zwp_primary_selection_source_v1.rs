@@ -73,15 +73,15 @@ impl ZwpPrimarySelectionSourceV1 {
     }
 
     pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
-        self.client.event(SendOut {
+        self.client.event(Send {
             self_id: self.id,
-            mime_type: mime_type.to_string(),
+            mime_type,
             fd,
         })
     }
 
     fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {
-        let req: OfferIn = self.client.parse(self, parser)?;
+        let req: Offer = self.client.parse(self, parser)?;
         if self
             .mime_types
             .borrow_mut()
