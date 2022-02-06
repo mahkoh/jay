@@ -1,5 +1,5 @@
 
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::ifs::wl_data_offer::{DataOfferRole, WlDataOffer};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::object::Object;
@@ -66,7 +66,7 @@ impl WlDataSource {
         if let Some(offer) = self.offer.set(None) {
             offer.source.set(None);
         }
-        self.client.event(self.cancelled());
+        self.send_cancelled();
         self.client.flush();
     }
 
@@ -89,12 +89,12 @@ impl WlDataSource {
         self.offer.take();
     }
 
-    pub fn cancelled(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Cancelled { self_id: self.id })
+    pub fn send_cancelled(self: &Rc<Self>) {
+        self.client.event(Cancelled { self_id: self.id })
     }
 
-    pub fn send(&self, mime_type: &str, fd: Rc<OwnedFd>) -> DynEventFormatter {
-        Box::new(SendOut {
+    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+        self.client.event(SendOut {
             self_id: self.id,
             mime_type: mime_type.to_string(),
             fd,
@@ -109,7 +109,7 @@ impl WlDataSource {
             .insert(req.mime_type.to_string())
         {
             if let Some(offer) = self.offer.get() {
-                offer.client.event(offer.offer(req.mime_type));
+                offer.send_offer(req.mime_type);
             }
         }
         Ok(())

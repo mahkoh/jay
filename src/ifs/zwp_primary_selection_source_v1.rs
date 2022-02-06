@@ -1,5 +1,5 @@
 
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
 use crate::object::Object;
@@ -45,7 +45,7 @@ impl ZwpPrimarySelectionSourceV1 {
         if let Some(offer) = self.offer.set(None) {
             offer.source.set(None);
         }
-        self.client.event(self.cancelled());
+        self.send_cancelled();
         self.client.flush();
     }
 
@@ -68,12 +68,12 @@ impl ZwpPrimarySelectionSourceV1 {
         self.offer.take();
     }
 
-    pub fn cancelled(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Cancelled { self_id: self.id })
+    pub fn send_cancelled(&self) {
+        self.client.event(Cancelled { self_id: self.id })
     }
 
-    pub fn send(self: &Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) -> DynEventFormatter {
-        Box::new(SendOut {
+    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+        self.client.event(SendOut {
             self_id: self.id,
             mime_type: mime_type.to_string(),
             fd,
@@ -88,7 +88,7 @@ impl ZwpPrimarySelectionSourceV1 {
             .insert(req.mime_type.to_string())
         {
             if let Some(offer) = self.offer.get() {
-                offer.client.event(offer.offer(req.mime_type));
+                offer.send_offer(req.mime_type);
             }
         }
         Ok(())

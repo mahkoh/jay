@@ -1,5 +1,5 @@
 
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel};
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
@@ -30,20 +30,20 @@ impl ZxdgToplevelDecorationV1 {
         }
     }
 
-    fn configure(self: &Rc<Self>, mode: u32) -> DynEventFormatter {
-        Box::new(Configure {
+    fn send_configure(&self, mode: u32) {
+        self.client.event(Configure {
             self_id: self.id,
             mode,
         })
     }
 
-    pub fn send_configure(self: &Rc<Self>) {
+    pub fn do_send_configure(&self) {
         let mode = match self.toplevel.decoration.get() {
             Decoration::Client => CLIENT_SIDE,
             Decoration::Server => SERVER_SIDE,
         };
-        self.client.event(self.configure(mode));
-        self.toplevel.xdg.send_configure();
+        self.send_configure(mode);
+        self.toplevel.xdg.do_send_configure();
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
@@ -54,13 +54,13 @@ impl ZxdgToplevelDecorationV1 {
 
     fn set_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), SetModeError> {
         let _req: SetMode = self.client.parse(&**self, parser)?;
-        self.send_configure();
+        self.do_send_configure();
         Ok(())
     }
 
     fn unset_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), UnsetModeError> {
         let _req: UnsetMode = self.client.parse(&**self, parser)?;
-        self.send_configure();
+        self.do_send_configure();
         Ok(())
     }
 }

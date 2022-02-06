@@ -156,7 +156,7 @@ impl Objects {
             }
             ids[pos] |= 1 << seg_offset;
         } else {
-            client_data.event(client_data.display()?.delete_id(id));
+            client_data.display()?.send_delete_id(id);
         }
         Ok(())
     }

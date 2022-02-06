@@ -33,10 +33,6 @@ impl<T> AsyncQueue<T> {
         AsyncQueuePop { queue: self }
     }
 
-    pub fn size(&self) -> usize {
-        self.data.borrow().len()
-    }
-
     pub fn clear(&self) {
         mem::take(&mut *self.data.borrow_mut());
     }

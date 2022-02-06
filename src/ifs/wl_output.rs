@@ -1,13 +1,12 @@
 
 use crate::backend::Output;
-use crate::client::{Client, ClientError, ClientId, DynEventFormatter, WlEvent};
+use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
-use std::iter;
 use std::rc::Rc;
 use thiserror::Error;
 use crate::wire::wl_output::*;
@@ -81,19 +80,11 @@ impl WlOutputGlobal {
             let bindings = self.bindings.borrow_mut();
             for binding in bindings.values() {
                 for binding in binding.values() {
-                    let events = [
-                        binding.geometry(),
-                        binding.mode(),
-                        binding.scale(),
-                        binding.done(),
-                    ];
-                    let events = events
-                        .into_iter()
-                        .map(|e| WlEvent::Event(e))
-                        .chain(iter::once(WlEvent::Flush));
-                    for event in events {
-                        binding.client.event2(event);
-                    }
+                    binding.send_geometry();
+                    binding.send_mode();
+                    binding.send_scale();
+                    binding.send_done();
+                    binding.client.flush();
                 }
             }
         }
@@ -117,13 +108,13 @@ impl WlOutputGlobal {
             .entry(client.id)
             .or_default()
             .insert(id, obj.clone());
-        client.event(obj.geometry());
-        client.event(obj.mode());
-        if obj.send_scale() {
-            client.event(obj.scale());
+        obj.send_geometry();
+        obj.send_mode();
+        if obj.version >= SEND_SCALE_SINCE {
+            obj.send_scale();
         }
-        if obj.send_done() {
-            client.event(obj.done());
+        if obj.version >= SEND_DONE_SINCE {
+            obj.send_done();
         }
         Ok(())
     }
@@ -154,17 +145,12 @@ pub struct WlOutput {
     version: u32,
 }
 
+pub const SEND_DONE_SINCE: u32 = 2;
+pub const SEND_SCALE_SINCE: u32 = 2;
+
 impl WlOutput {
-    fn send_done(&self) -> bool {
-        self.version >= 2
-    }
-
-    fn send_scale(&self) -> bool {
-        self.version >= 2
-    }
-
-    fn geometry(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(GeometryOut {
+    fn send_geometry(&self) {
+        let event = GeometryOut {
             self_id: self.id,
             x: 0,
             y: 0,
@@ -174,28 +160,32 @@ impl WlOutput {
             make: "i4".to_string(),
             model: "i4".to_string(),
             transform: TF_NORMAL,
-        })
+        };
+        self.client.event(event);
     }
 
-    fn mode(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Mode {
+    fn send_mode(&self) {
+        let event = Mode {
             self_id: self.id,
             flags: MODE_CURRENT,
             width: self.global.width.get() as _,
             height: self.global.height.get() as _,
             refresh: 60_000_000,
-        })
+        };
+        self.client.event(event);
     }
 
-    fn scale(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Scale {
+    fn send_scale(self: &Rc<Self>) {
+        let event = Scale {
             self_id: self.id,
             factor: 1,
-        })
+        };
+        self.client.event(event);
     }
 
-    fn done(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Done { self_id: self.id })
+    fn send_done(&self) {
+        let event = Done { self_id: self.id };
+        self.client.event(event);
     }
 
     fn remove_binding(&self) {

@@ -1,5 +1,5 @@
 
-use crate::client::{ClientError, DynEventFormatter};
+use crate::client::{ClientError};
 use crate::cursor::Cursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
@@ -45,14 +45,14 @@ impl WlPointer {
         }
     }
 
-    pub fn enter(
-        self: &Rc<Self>,
+    pub fn send_enter(
+        &self,
         serial: u32,
         surface: WlSurfaceId,
         x: Fixed,
         y: Fixed,
-    ) -> DynEventFormatter {
-        Box::new(Enter {
+    ) {
+        self.seat.client.event(Enter {
             self_id: self.id,
             serial,
             surface,
@@ -61,16 +61,16 @@ impl WlPointer {
         })
     }
 
-    pub fn leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) -> DynEventFormatter {
-        Box::new(Leave {
+    pub fn send_leave(&self, serial: u32, surface: WlSurfaceId) {
+        self.seat.client.event(Leave {
             self_id: self.id,
             serial,
             surface,
         })
     }
 
-    pub fn motion(self: &Rc<Self>, time: u32, x: Fixed, y: Fixed) -> DynEventFormatter {
-        Box::new(Motion {
+    pub fn send_motion(&self, time: u32, x: Fixed, y: Fixed) {
+        self.seat.client.event(Motion {
             self_id: self.id,
             time,
             surface_x: x,
@@ -78,14 +78,14 @@ impl WlPointer {
         })
     }
 
-    pub fn button(
-        self: &Rc<Self>,
+    pub fn send_button(
+        &self,
         serial: u32,
         time: u32,
         button: u32,
         state: u32,
-    ) -> DynEventFormatter {
-        Box::new(Button {
+    ) {
+        self.seat.client.event(Button {
             self_id: self.id,
             serial,
             time,
@@ -94,8 +94,8 @@ impl WlPointer {
         })
     }
 
-    pub fn axis(self: &Rc<Self>, time: u32, axis: u32, value: Fixed) -> DynEventFormatter {
-        Box::new(Axis {
+    pub fn send_axis(&self, time: u32, axis: u32, value: Fixed) {
+        self.seat.client.event(Axis {
             self_id: self.id,
             time,
             axis,
@@ -104,21 +104,21 @@ impl WlPointer {
     }
 
     #[allow(dead_code)]
-    pub fn frame(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Frame { self_id: self.id })
+    pub fn send_frame(&self) {
+        self.seat.client.event(Frame { self_id: self.id })
     }
 
     #[allow(dead_code)]
-    pub fn axis_source(self: &Rc<Self>, axis_source: u32) -> DynEventFormatter {
-        Box::new(AxisSource {
+    pub fn send_axis_source(&self, axis_source: u32) {
+        self.seat.client.event(AxisSource {
             self_id: self.id,
             axis_source,
         })
     }
 
     #[allow(dead_code)]
-    pub fn axis_stop(self: &Rc<Self>, time: u32, axis: u32) -> DynEventFormatter {
-        Box::new(AxisStop {
+    pub fn send_axis_stop(&self, time: u32, axis: u32) {
+        self.seat.client.event(AxisStop {
             self_id: self.id,
             time,
             axis,
@@ -126,8 +126,8 @@ impl WlPointer {
     }
 
     #[allow(dead_code)]
-    pub fn axis_discrete(self: &Rc<Self>, axis: u32, discrete: i32) -> DynEventFormatter {
-        Box::new(AxisDiscrete {
+    pub fn send_axis_discrete(&self, axis: u32, discrete: i32) {
+        self.seat.client.event(AxisDiscrete {
             self_id: self.id,
             axis,
             discrete,

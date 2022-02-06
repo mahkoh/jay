@@ -1,6 +1,7 @@
-use crate::client::{Client, ClientError, WlEvent};
+use std::collections::VecDeque;
+use crate::client::{Client, ClientError};
 use crate::object::ObjectId;
-use crate::utils::buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser};
+use crate::utils::buffd::{BufFdIn, BufFdOut, MsgParser};
 use crate::utils::oneshot::OneshotRx;
 use crate::utils::vec_ext::VecExt;
 use crate::ErrorFmt;
@@ -19,9 +20,7 @@ pub async fn client(data: Rc<Client>, shutdown: OneshotRx<()>) {
     }
     drop(recv);
     drop(dispatch_fr);
-    if !data.shutdown_sent.get() {
-        data.events.push(WlEvent::Shutdown);
-    }
+    data.flush_request.trigger();
     match data.state.eng.timeout(5000) {
         Ok(timeout) => {
             timeout.await;
@@ -38,7 +37,7 @@ async fn dispatch_fr(data: Rc<Client>) {
     loop {
         let mut fr = data.dispatch_frame_requests.pop().await;
         loop {
-            data.event(fr.done());
+            fr.send_done();
             if let Err(e) = data.remove_obj(&*fr) {
                 log::error!("Could not remove frame object: {}", ErrorFmt(e));
                 return;
@@ -66,7 +65,8 @@ async fn receive(data: Rc<Client>) {
             let obj = match data.objects.get_obj(obj_id) {
                 Ok(obj) => obj,
                 _ => {
-                    data.fatal_event(display.invalid_object(obj_id));
+                    display.send_invalid_object(obj_id);
+                    data.state.clients.shutdown(data.id);
                     return Err(ClientError::InvalidObject(obj_id));
                 }
             };
@@ -109,49 +109,27 @@ async fn receive(data: Rc<Client>) {
                 data.id.0,
                 e
             );
-            if !data.shutdown_sent.get() {
-                data.fatal_event(display.implementation_error(e.to_string()));
-            }
+            display.send_implementation_error(e.to_string());
+            data.state.clients.shutdown(data.id);
         }
     }
 }
 
 async fn send(data: Rc<Client>) {
     let send = async {
-        let mut buf = BufFdOut::new(data.socket.clone());
-        let mut flush_requested = false;
+        let mut out = BufFdOut::new(data.socket.clone());
+        let mut buffers = VecDeque::new();
         loop {
-            let mut event = data.events.pop().await;
-            loop {
-                match event {
-                    WlEvent::Flush => {
-                        flush_requested = true;
-                    }
-                    WlEvent::Shutdown => {
-                        buf.flush().await?;
-                        return Ok(());
-                    }
-                    WlEvent::Event(e) => {
-                        if log::log_enabled!(log::Level::Trace) {
-                            data.log_event(&*e);
-                        }
-                        let mut fds = vec![];
-                        let mut fmt = MsgFormatter::new(&mut buf, &mut fds);
-                        e.format(&mut fmt);
-                        fmt.write_len();
-                        if buf.needs_flush() {
-                            buf.flush().await?;
-                            flush_requested = false;
-                        }
-                    }
-                }
-                event = match data.events.try_pop() {
-                    Some(e) => e,
-                    _ => break,
-                };
+            data.flush_request.triggered().await;
+            {
+                let mut swapchain = data.swapchain.borrow_mut();
+                swapchain.commit();
+                mem::swap(&mut swapchain.pending, &mut buffers);
             }
-            if mem::take(&mut flush_requested) {
-                buf.flush().await?;
+            let mut timeout = None;
+            while let Some(mut cur) = buffers.pop_front() {
+                out.flush(&mut cur, &mut timeout).await?;
+                data.swapchain.borrow_mut().free.push(cur);
             }
         }
     };

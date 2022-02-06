@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::drm::INVALID_MODIFIER;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
@@ -35,9 +35,9 @@ impl ZwpLinuxDmabufV1Global {
         if let Some(ctx) = client.state.render_ctx.get() {
             let formats = ctx.formats();
             for format in formats.values() {
-                client.event(obj.format(format.drm));
+                obj.send_format(format.drm);
                 if version >= MODIFIERS_SINCE_VERSION {
-                    client.event(obj.modifier(format.drm, INVALID_MODIFIER));
+                    obj.send_modifier(format.drm, INVALID_MODIFIER);
                 }
             }
         }
@@ -72,15 +72,15 @@ pub struct ZwpLinuxDmabufV1 {
 }
 
 impl ZwpLinuxDmabufV1 {
-    fn format(self: &Rc<Self>, format: u32) -> DynEventFormatter {
-        Box::new(Format {
+    fn send_format(&self, format: u32) {
+        self.client.event(Format {
             self_id: self.id,
             format,
         })
     }
 
-    fn modifier(self: &Rc<Self>, format: u32, modifier: u64) -> DynEventFormatter {
-        Box::new(Modifier {
+    fn send_modifier(&self, format: u32, modifier: u64) {
+        self.client.event(Modifier {
             self_id: self.id,
             format,
             modifier_hi: (modifier >> 32) as _,

@@ -1,5 +1,5 @@
 
-use crate::client::{ClientError, DynEventFormatter};
+use crate::client::{ClientError};
 use crate::ifs::wl_seat::WlSeat;
 use crate::ifs::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
 use crate::object::Object;
@@ -29,15 +29,15 @@ impl ZwpPrimarySelectionDeviceV1 {
         }
     }
 
-    pub fn data_offer(self: &Rc<Self>, offer: ZwpPrimarySelectionOfferV1Id) -> DynEventFormatter {
-        Box::new(DataOffer {
+    pub fn send_data_offer(&self, offer: ZwpPrimarySelectionOfferV1Id) {
+        self.manager.client.event(DataOffer {
             self_id: self.id,
             offer,
         })
     }
 
-    pub fn selection(self: &Rc<Self>, id: ZwpPrimarySelectionOfferV1Id) -> DynEventFormatter {
-        Box::new(Selection {
+    pub fn send_selection(&self, id: ZwpPrimarySelectionOfferV1Id) {
+        self.manager.client.event(Selection {
             self_id: self.id,
             id,
         })

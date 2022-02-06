@@ -1,5 +1,5 @@
 
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
@@ -32,9 +32,9 @@ impl WlDisplay {
 
     fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
-        let cb = Rc::new(WlCallback::new(sync.callback));
+        let cb = Rc::new(WlCallback::new(sync.callback, &self.client));
         self.client.add_client_obj(&cb)?;
-        self.client.event(cb.done());
+        cb.send_done();
         self.client.remove_obj(&*cb)?;
         Ok(())
     }
@@ -46,17 +46,17 @@ impl WlDisplay {
         self.client
             .state
             .globals
-            .notify_all(&self.client, &registry);
+            .notify_all(&registry);
         Ok(())
     }
 
-    pub fn error<O: Into<ObjectId>>(
-        self: &Rc<Self>,
+    pub fn send_error<O: Into<ObjectId>>(
+        &self,
         object_id: O,
         code: u32,
         message: String,
-    ) -> DynEventFormatter {
-        Box::new(ErrorOut {
+    ) {
+        self.client.event(ErrorOut {
             self_id: self.id,
             object_id: object_id.into(),
             code,
@@ -64,7 +64,7 @@ impl WlDisplay {
         })
     }
 
-    pub fn invalid_request(self: &Rc<Self>, obj: &dyn Object, request: u32) -> DynEventFormatter {
+    pub fn send_invalid_request(self: &Rc<Self>, obj: &dyn Object, request: u32) {
         let id = obj.id();
         let msg = format!(
             "Object {} of type {} has no method {}",
@@ -72,20 +72,20 @@ impl WlDisplay {
             obj.interface().name(),
             request
         );
-        self.error(id, INVALID_METHOD, msg)
+        self.send_error(id, INVALID_METHOD, msg)
     }
 
-    pub fn invalid_object(self: &Rc<Self>, id: ObjectId) -> DynEventFormatter {
+    pub fn send_invalid_object(self: &Rc<Self>, id: ObjectId) {
         let msg = format!("Object {} does not exist", id,);
-        self.error(id, INVALID_OBJECT, msg)
+        self.send_error(id, INVALID_OBJECT, msg)
     }
 
-    pub fn implementation_error(self: &Rc<Self>, msg: String) -> DynEventFormatter {
-        self.error(WL_DISPLAY_ID, IMPLEMENTATION, msg)
+    pub fn send_implementation_error(self: &Rc<Self>, msg: String) {
+        self.send_error(WL_DISPLAY_ID, IMPLEMENTATION, msg)
     }
 
-    pub fn delete_id(self: &Rc<Self>, id: ObjectId) -> DynEventFormatter {
-        Box::new(DeleteId {
+    pub fn send_delete_id(self: &Rc<Self>, id: ObjectId) {
+        self.client.event(DeleteId {
             self_id: self.id,
             id: id.raw(),
         })

@@ -2,7 +2,7 @@ pub mod xdg_popup;
 pub mod xdg_toplevel;
 
 use crate::backend::SeatId;
-use crate::client::{ClientError, DynEventFormatter};
+use crate::client::{ClientError};
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
@@ -181,13 +181,13 @@ impl XdgSurface {
         self.geometry.get()
     }
 
-    pub fn send_configure(self: &Rc<Self>) {
+    pub fn do_send_configure(&self) {
         let serial = self.requested_serial.fetch_add(1) + 1;
-        self.surface.client.event(self.configure(serial));
+        self.send_configure(serial);
     }
 
-    pub fn configure(self: &Rc<Self>, serial: u32) -> DynEventFormatter {
-        Box::new(Configure {
+    pub fn send_configure(&self, serial: u32) {
+        self.surface.client.event(Configure {
             self_id: self.id,
             serial,
         })
@@ -356,7 +356,7 @@ impl SurfaceExt for XdgSurface {
                     if let Some(ext) = self.ext.get() {
                         ext.initial_configure()?;
                     }
-                    self.surface.client.event(self.configure(rse));
+                    self.send_configure(rse);
                 }
                 // return CommitAction::AbortCommit;
             }

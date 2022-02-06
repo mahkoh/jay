@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
 use crate::object::Object;
@@ -118,8 +118,8 @@ impl WlBuffer {
         Ok(())
     }
 
-    pub fn release(&self) -> DynEventFormatter {
-        Box::new(Release { self_id: self.id })
+    pub fn send_release(&self) {
+        self.client.event(Release { self_id: self.id })
     }
 }
 

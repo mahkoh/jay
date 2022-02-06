@@ -1,5 +1,5 @@
-
-use crate::client::{Client, ClientError, DynEventFormatter};
+use std::mem;
+use crate::client::{Client, ClientError};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::object::Object;
@@ -36,19 +36,27 @@ impl ZwpPrimarySelectionOfferV1 {
             source: CloneCell::new(Some(src.clone())),
         });
         let mt = src.mime_types.borrow_mut();
+        let mut sent_offer = false;
         seat.for_each_primary_selection_device(0, client.id, |device| {
-            client.event(device.data_offer(slf.id));
-            for mt in mt.deref() {
-                client.event(slf.offer(mt));
+            if !mem::replace(&mut sent_offer, true) {
+                device.send_data_offer(slf.id);
             }
-            client.event(device.selection(id));
+            for mt in mt.deref() {
+                slf.send_offer(mt);
+            }
+            device.send_selection(id);
         });
         client.add_server_obj(&slf);
-        Some(slf)
+        if !sent_offer {
+            let _ = client.remove_obj(&*slf);
+            None
+        } else {
+            Some(slf)
+        }
     }
 
-    pub fn offer(self: &Rc<Self>, mime_type: &str) -> DynEventFormatter {
-        Box::new(OfferOut {
+    pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
+        self.client.event(OfferOut {
             self_id: self.id,
             mime_type: mime_type.to_string(),
         })
@@ -57,7 +65,7 @@ impl ZwpPrimarySelectionOfferV1 {
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
         let req: ReceiveIn = self.client.parse(self, parser)?;
         if let Some(src) = self.source.get() {
-            src.client.event(src.send(req.mime_type, req.fd));
+            src.send_send(req.mime_type, req.fd);
             src.client.flush();
         }
         Ok(())

@@ -72,7 +72,7 @@ impl ZxdgDecorationManagerV1 {
         let tl = self.client.lookup(req.toplevel)?;
         let obj = Rc::new(ZxdgToplevelDecorationV1::new(req.id, &self.client, &tl));
         self.client.add_client_obj(&obj)?;
-        obj.send_configure();
+        obj.do_send_configure();
         Ok(())
     }
 }

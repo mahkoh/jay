@@ -1,4 +1,4 @@
-use crate::client::{ClientError, DynEventFormatter};
+use crate::client::{ClientError};
 use crate::drm::dma::{DmaBuf, DmaBufPlane};
 use crate::drm::INVALID_MODIFIER;
 use crate::ifs::wl_buffer::{WlBuffer};
@@ -25,8 +25,8 @@ const BOTTOM_FIRST: u32 = 4;
 const MAX_PLANE: u32 = 3;
 
 pub struct ZwpLinuxBufferParamsV1 {
-    id: ZwpLinuxBufferParamsV1Id,
-    parent: Rc<ZwpLinuxDmabufV1>,
+    pub id: ZwpLinuxBufferParamsV1Id,
+    pub parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<AHashMap<u32, Add>>,
     used: Cell<bool>,
 }
@@ -41,15 +41,15 @@ impl ZwpLinuxBufferParamsV1 {
         }
     }
 
-    fn created(self: &Rc<Self>, buffer_id: WlBufferId) -> DynEventFormatter {
-        Box::new(Created {
+    fn send_created(&self, buffer_id: WlBufferId) {
+        self.parent.client.event(Created {
             self_id: self.id,
             buffer: buffer_id,
         })
     }
 
-    fn failed(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Failed { self_id: self.id })
+    fn send_failed(&self) {
+        self.parent.client.event(Failed { self_id: self.id })
     }
 
     fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
@@ -136,11 +136,11 @@ impl ZwpLinuxBufferParamsV1 {
         }
         match self.do_create(None, req.width, req.height, req.format, req.flags) {
             Ok(id) => {
-                self.parent.client.event(self.created(id));
+                self.send_created(id);
             }
             Err(e) => {
                 log::debug!("Could not create a dmabuf buffer: {}", ErrorFmt(e));
-                self.parent.client.event(self.failed());
+                self.send_failed();
             }
         }
         Ok(())

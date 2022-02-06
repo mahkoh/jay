@@ -611,7 +611,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
     writeln!(f, "    impl EventFormatter for {}{} {{", message.camel_name, if has_reference_type { "Out" } else { "" })?;
-    writeln!(f, "        fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {{")?;
+    writeln!(f, "        fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
     writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
     fn write_fmt_expr<W: Write>(f: &mut W, prefix: &str, ty: &Type, access: &str) -> Result<()> {
         let p = match ty {

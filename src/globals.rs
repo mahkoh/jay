@@ -1,4 +1,4 @@
-use crate::client::{Client, DynEventFormatter};
+use crate::client::{Client};
 use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
 use crate::ifs::wl_drm::WlDrmGlobal;
 use crate::ifs::wl_output::WlOutputGlobal;
@@ -123,7 +123,7 @@ impl Globals {
 
     fn insert(&self, state: &State, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
-        self.broadcast(state, |r| r.global(&global));
+        self.broadcast(state, |r| r.send_global(&global));
     }
 
     pub fn get(&self, name: GlobalName) -> Result<Rc<dyn Global>, GlobalsError> {
@@ -133,7 +133,7 @@ impl Globals {
     pub fn remove<T: WaylandGlobal>(&self, state: &State, global: &T) -> Result<(), GlobalsError> {
         let _global = self.take(global.name(), true)?;
         global.remove(self);
-        self.broadcast(state, |r| r.global_remove(global.name()));
+        self.broadcast(state, |r| r.send_global_remove(global.name()));
         Ok(())
     }
 
@@ -141,13 +141,13 @@ impl Globals {
         self.seats.lock()
     }
 
-    pub fn notify_all(&self, client: &Rc<Client>, registry: &Rc<WlRegistry>) {
+    pub fn notify_all(&self, registry: &Rc<WlRegistry>) {
         let globals = self.registry.lock();
         macro_rules! emit {
             ($singleton:expr) => {
                 for global in globals.values() {
                     if global.singleton() == $singleton {
-                        client.event(registry.global(global));
+                        registry.send_global(global);
                     }
                 }
             };
@@ -156,11 +156,11 @@ impl Globals {
         emit!(false);
     }
 
-    fn broadcast<F: Fn(&Rc<WlRegistry>) -> DynEventFormatter>(&self, state: &State, f: F) {
+    fn broadcast<F: Fn(&Rc<WlRegistry>)>(&self, state: &State, f: F) {
         state.clients.broadcast(|c| {
             let registries = c.lock_registries();
             for registry in registries.values() {
-                c.event(f(registry));
+                f(registry);
             }
             c.flush();
         });

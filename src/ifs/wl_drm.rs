@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
@@ -35,8 +35,8 @@ impl WlDrmGlobal {
         });
         client.add_client_obj(&obj)?;
         if let Some(rc) = client.state.render_ctx.get() {
-            client.event(obj.device(&rc.render_node()));
-            client.event(obj.capabilities(PRIME));
+            obj.send_device(&rc.render_node());
+            obj.send_capabilities(PRIME);
         }
         Ok(())
     }
@@ -63,19 +63,19 @@ pub struct WlDrm {
 }
 
 impl WlDrm {
-    fn device(self: &Rc<Self>, device: &Rc<CString>) -> DynEventFormatter {
-        Box::new(DeviceOut {
+    fn send_device(self: &Rc<Self>, device: &Rc<CString>) {
+        self.client.event(DeviceOut {
             self_id: self.id,
             name: device.as_bytes().as_bstr().to_owned(),
         })
     }
 
-    fn authenticated(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Authenticated { self_id: self.id })
+    fn send_authenticated(self: &Rc<Self>) {
+        self.client.event(Authenticated { self_id: self.id })
     }
 
-    fn capabilities(self: &Rc<Self>, value: u32) -> DynEventFormatter {
-        Box::new(Capabilities {
+    fn send_capabilities(self: &Rc<Self>, value: u32) {
+        self.client.event(Capabilities {
             self_id: self.id,
             value,
         })
@@ -83,7 +83,7 @@ impl WlDrm {
 
     fn authenticate(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AuthenticateError> {
         let _req: Authenticate = self.client.parse(&**self, parser)?;
-        self.client.event(self.authenticated());
+        self.send_authenticated();
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
 use crate::object::Object;
@@ -35,7 +35,7 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
             _version: version,
         });
         client.add_client_obj(&obj)?;
-        client.event(obj.default_mode(SERVER));
+        obj.send_default_mode(SERVER);
         Ok(())
     }
 }
@@ -65,8 +65,8 @@ pub struct OrgKdeKwinServerDecorationManager {
 }
 
 impl OrgKdeKwinServerDecorationManager {
-    fn default_mode(self: &Rc<Self>, mode: u32) -> DynEventFormatter {
-        Box::new(DefaultMode {
+    fn send_default_mode(self: &Rc<Self>, mode: u32) {
+        self.client.event(DefaultMode {
             self_id: self.id,
             mode,
         })
@@ -77,7 +77,7 @@ impl OrgKdeKwinServerDecorationManager {
         let _ = self.client.lookup(req.surface)?;
         let obj = Rc::new(OrgKdeKwinServerDecoration::new(req.id, &self.client));
         self.client.add_client_obj(&obj)?;
-        self.client.event(obj.mode(SERVER));
+        obj.send_mode(SERVER);
         Ok(())
     }
 }

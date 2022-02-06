@@ -1,5 +1,5 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
-use crate::client::{ClientId, DynEventFormatter};
+use crate::client::{ClientId};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
@@ -229,7 +229,7 @@ impl WlSeatGlobal {
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
         let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, &surface, |k| {
-            k.enter(serial, surface.id, pressed_keys.clone())
+            k.send_enter(serial, surface.id, pressed_keys.clone())
         });
         let ModifierState {
             mods_depressed,
@@ -239,14 +239,14 @@ impl WlSeatGlobal {
         } = self.kb_state.borrow().mods();
         let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, &surface, |k| {
-            k.modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
+            k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
 
         if old.client_id() != Some(surface.client.id) {
             match self.selection.get() {
                 None => {
                     self.surface_data_device_event(0, &surface, |dd| {
-                        dd.selection(WlDataOfferId::NONE)
+                        dd.send_selection(WlDataOfferId::NONE)
                     });
                 }
                 Some(sel) => {
@@ -256,7 +256,7 @@ impl WlSeatGlobal {
             match self.primary_selection.get() {
                 None => {
                     self.surface_primary_selection_device_event(0, &surface, |dd| {
-                        dd.selection(ZwpPrimarySelectionOfferV1Id::NONE)
+                        dd.send_selection(ZwpPrimarySelectionOfferV1Id::NONE)
                     });
                 }
                 Some(sel) => {
@@ -333,49 +333,49 @@ impl WlSeatGlobal {
     }
 
     fn surface_pointer_frame(&self, surface: &WlSurface) {
-        self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, surface, |p| p.frame());
+        self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, surface, |p| p.send_frame());
     }
 
     fn surface_pointer_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
     where
-        F: FnMut(&Rc<WlPointer>) -> DynEventFormatter,
+        F: FnMut(&Rc<WlPointer>),
     {
         let client = &surface.client;
         self.for_each_pointer(ver, client.id, |p| {
-            client.event(f(p));
+            f(p);
         });
         client.flush();
     }
 
     fn surface_kb_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
     where
-        F: FnMut(&Rc<WlKeyboard>) -> DynEventFormatter,
+        F: FnMut(&Rc<WlKeyboard>),
     {
         let client = &surface.client;
         self.for_each_kb(ver, client.id, |p| {
-            client.event(f(p));
+            f(p);
         });
         client.flush();
     }
 
     fn surface_data_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
     where
-        F: FnMut(&Rc<WlDataDevice>) -> DynEventFormatter,
+        F: FnMut(&Rc<WlDataDevice>),
     {
         let client = &surface.client;
         self.for_each_data_device(ver, client.id, |p| {
-            client.event(f(p));
+            f(p);
         });
         client.flush();
     }
 
     fn surface_primary_selection_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
     where
-        F: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>) -> DynEventFormatter,
+        F: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>),
     {
         let client = &surface.client;
         self.for_each_primary_selection_device(ver, client.id, |p| {
-            client.event(f(p));
+            f(p);
         });
         client.flush();
     }
@@ -487,7 +487,7 @@ impl WlSeatGlobal {
             KeyState::Pressed => (wl_pointer::PRESSED, true),
         };
         let serial = self.serial.fetch_add(1);
-        self.surface_pointer_event(0, surface, |p| p.button(serial, 0, button, state));
+        self.surface_pointer_event(0, surface, |p| p.send_button(serial, 0, button, state));
         self.surface_pointer_frame(surface);
         if pressed && surface.belongs_to_toplevel() {
             self.focus_surface(surface);
@@ -502,7 +502,7 @@ impl WlSeatGlobal {
             ScrollAxis::Horizontal => wl_pointer::HORIZONTAL_SCROLL,
             ScrollAxis::Vertical => wl_pointer::VERTICAL_SCROLL,
         };
-        self.surface_pointer_event(0, surface, |p| p.axis(0, axis, Fixed::from_int(delta)));
+        self.surface_pointer_event(0, surface, |p| p.send_axis(0, axis, Fixed::from_int(delta)));
         self.surface_pointer_frame(surface);
     }
 }
@@ -510,7 +510,7 @@ impl WlSeatGlobal {
 // Motion callbacks
 impl WlSeatGlobal {
     pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        self.surface_pointer_event(0, n, |p| p.motion(0, x, y));
+        self.surface_pointer_event(0, n, |p| p.send_motion(0, x, y));
         self.surface_pointer_frame(n);
     }
 }
@@ -527,7 +527,7 @@ impl WlSeatGlobal {
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
         let serial = self.serial.fetch_add(1);
-        self.surface_pointer_event(0, n, |p| p.enter(serial, n.id, x, y));
+        self.surface_pointer_event(0, n, |p| p.send_enter(serial, n.id, x, y));
         self.surface_pointer_frame(n);
     }
 }
@@ -536,7 +536,7 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn leave_surface(&self, n: &WlSurface) {
         let serial = self.serial.fetch_add(1);
-        self.surface_pointer_event(0, n, |p| p.leave(serial, n.id));
+        self.surface_pointer_event(0, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
     }
 }
@@ -544,7 +544,7 @@ impl WlSeatGlobal {
 // Unfocus callbacks
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
-        self.surface_kb_event(0, surface, |k| k.leave(0, surface.id))
+        self.surface_kb_event(0, surface, |k| k.send_leave(0, surface.id))
     }
 }
 
@@ -558,11 +558,11 @@ impl WlSeatGlobal {
         mods: Option<ModifierState>,
     ) {
         let serial = self.serial.fetch_add(1);
-        self.surface_kb_event(0, surface, |k| k.key(serial, 0, key, state));
+        self.surface_kb_event(0, surface, |k| k.send_key(serial, 0, key, state));
         let serial = self.serial.fetch_add(1);
         if let Some(mods) = mods {
             self.surface_kb_event(0, surface, |k| {
-                k.modifiers(
+                k.send_modifiers(
                     serial,
                     mods.mods_depressed,
                     mods.mods_latched,

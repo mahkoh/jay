@@ -1,7 +1,7 @@
 
 use crate::backend::SeatId;
 use crate::bugs::Bugs;
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
@@ -117,11 +117,8 @@ impl XdgToplevel {
         };
         if changed {
             let rect = self.xdg.absolute_desired_extents.get();
-            self.xdg
-                .surface
-                .client
-                .event(self.configure_checked(rect.width(), rect.height()));
-            self.xdg.send_configure();
+            self.send_configure_checked(rect.width(), rect.height());
+            self.xdg.do_send_configure();
         }
     }
 
@@ -132,7 +129,7 @@ impl XdgToplevel {
         false
     }
 
-    fn configure_checked(self: &Rc<Self>, mut width: i32, mut height: i32) -> DynEventFormatter {
+    fn send_configure_checked(&self, mut width: i32, mut height: i32) {
         width = width.max(1);
         height = height.max(1);
         if self.bugs.get().respect_min_max_size {
@@ -149,11 +146,11 @@ impl XdgToplevel {
                 height = height.min(max);
             }
         }
-        self.configure(width, height)
+        self.send_configure(width, height)
     }
 
-    fn configure(self: &Rc<Self>, width: i32, height: i32) -> DynEventFormatter {
-        Box::new(ConfigureOut {
+    fn send_configure(&self, width: i32, height: i32) {
+        self.xdg.surface.client.event(ConfigureOut {
             self_id: self.id,
             width,
             height,
@@ -447,11 +444,8 @@ impl Node for XdgToplevel {
         let nh = rect.height();
         let de = self.xdg.absolute_desired_extents.get();
         if de.width() != nw || de.height() != nh {
-            self.xdg
-                .surface
-                .client
-                .event(self.configure_checked(nw, nh));
-            self.xdg.send_configure();
+            self.send_configure_checked(nw, nh);
+            self.xdg.do_send_configure();
             self.xdg.surface.client.flush();
         }
         self.xdg.set_absolute_desired_extents(rect);
@@ -468,7 +462,7 @@ impl Node for XdgToplevel {
 
 impl XdgSurfaceExt for XdgToplevel {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
-        self.xdg.surface.client.event(self.configure(0, 0));
+        self.send_configure(0, 0);
         Ok(())
     }
 
@@ -498,10 +492,7 @@ impl XdgSurfaceExt for XdgToplevel {
                 let bindings = output.global.bindings.borrow_mut();
                 for binding in bindings.get(&self.xdg.surface.client.id) {
                     for binding in binding.values() {
-                        self.xdg
-                            .surface
-                            .client
-                            .event(self.xdg.surface.enter_event(binding.id));
+                        self.xdg.surface.send_enter(binding.id);
                     }
                 }
             }

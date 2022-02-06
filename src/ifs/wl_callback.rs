@@ -1,4 +1,4 @@
-use crate::client::DynEventFormatter;
+use crate::client::{Client};
 use crate::object::Object;
 use std::rc::Rc;
 use thiserror::Error;
@@ -6,16 +6,17 @@ use crate::wire::wl_callback::*;
 use crate::wire::WlCallbackId;
 
 pub struct WlCallback {
+    client: Rc<Client>,
     id: WlCallbackId,
 }
 
 impl WlCallback {
-    pub fn new(id: WlCallbackId) -> Self {
-        Self { id }
+    pub fn new(id: WlCallbackId, client: &Rc<Client>) -> Self {
+        Self { client: client.clone(), id }
     }
 
-    pub fn done(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Done { self_id: self.id, callback_data: 0 })
+    pub fn send_done(&self) {
+        self.client.event(Done { self_id: self.id, callback_data: 0 });
     }
 }
 

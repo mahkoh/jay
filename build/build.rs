@@ -24,6 +24,6 @@ fn main() -> anyhow::Result<()> {
 
     enums::main()?;
 
-    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build/build.rs");
     Ok(())
 }

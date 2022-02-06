@@ -1,5 +1,5 @@
 
-use crate::client::{ClientError, DynEventFormatter};
+use crate::client::{ClientError};
 use crate::ifs::wl_seat::WlSeat;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
@@ -62,8 +62,8 @@ impl WlKeyboard {
         Ok(Rc::new(fd))
     }
 
-    pub fn keymap(self: &Rc<Self>, format: u32, fd: Rc<OwnedFd>, size: u32) -> DynEventFormatter {
-        Box::new(Keymap {
+    pub fn send_keymap(self: &Rc<Self>, format: u32, fd: Rc<OwnedFd>, size: u32) {
+        self.seat.client.event(Keymap {
             self_id: self.id,
             format,
             fd,
@@ -71,13 +71,13 @@ impl WlKeyboard {
         })
     }
 
-    pub fn enter(
+    pub fn send_enter(
         self: &Rc<Self>,
         serial: u32,
         surface: WlSurfaceId,
         keys: Vec<u32>,
-    ) -> DynEventFormatter {
-        Box::new(EnterOut {
+    ) {
+        self.seat.client.event(EnterOut {
             self_id: self.id,
             serial,
             surface,
@@ -85,16 +85,16 @@ impl WlKeyboard {
         })
     }
 
-    pub fn leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) -> DynEventFormatter {
-        Box::new(Leave {
+    pub fn send_leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) {
+        self.seat.client.event(Leave {
             self_id: self.id,
             serial,
             surface,
         })
     }
 
-    pub fn key(self: &Rc<Self>, serial: u32, time: u32, key: u32, state: u32) -> DynEventFormatter {
-        Box::new(Key {
+    pub fn send_key(self: &Rc<Self>, serial: u32, time: u32, key: u32, state: u32) {
+        self.seat.client.event(Key {
             self_id: self.id,
             serial,
             time,
@@ -103,15 +103,15 @@ impl WlKeyboard {
         })
     }
 
-    pub fn modifiers(
+    pub fn send_modifiers(
         self: &Rc<Self>,
         serial: u32,
         mods_depressed: u32,
         mods_latched: u32,
         mods_locked: u32,
         group: u32,
-    ) -> DynEventFormatter {
-        Box::new(Modifiers {
+    ) {
+        self.seat.client.event(Modifiers {
             self_id: self.id,
             serial,
             mods_depressed,
@@ -121,8 +121,8 @@ impl WlKeyboard {
         })
     }
 
-    pub fn repeat_info(self: &Rc<Self>, rate: i32, delay: i32) -> DynEventFormatter {
-        Box::new(RepeatInfo {
+    pub fn send_repeat_info(self: &Rc<Self>, rate: i32, delay: i32) {
+        self.seat.client.event(RepeatInfo {
             self_id: self.id,
             rate,
             delay,

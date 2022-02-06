@@ -4,7 +4,7 @@ pub mod wl_pointer;
 pub mod wl_touch;
 
 use crate::backend::{Seat, SeatId};
-use crate::client::{Client, ClientError, ClientId, DynEventFormatter};
+use crate::client::{Client, ClientError, ClientId};
 use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
@@ -174,7 +174,7 @@ impl WlSeatGlobal {
                 }
                 _ => {
                     self.for_each_data_device(0, client.id, |device| {
-                        client.event(device.selection(WlDataOfferId::NONE));
+                        device.send_selection(WlDataOfferId::NONE);
                     });
                 }
             }
@@ -200,7 +200,7 @@ impl WlSeatGlobal {
                 }
                 _ => {
                     self.for_each_primary_selection_device(0, client.id, |device| {
-                        client.event(device.selection(ZwpPrimarySelectionOfferV1Id::NONE));
+                        device.send_selection(ZwpPrimarySelectionOfferV1Id::NONE);
                     });
                 }
             }
@@ -264,9 +264,9 @@ impl WlSeatGlobal {
             version,
         });
         client.add_client_obj(&obj)?;
-        client.event(obj.capabilities());
+        obj.send_capabilities();
         if version >= SEAT_NAME_SINCE {
-            client.event(obj.name(&self.seat_name));
+            obj.send_name(&self.seat_name);
         }
         {
             let mut bindings = self.bindings.borrow_mut();
@@ -297,23 +297,23 @@ dedicated_add_global!(WlSeatGlobal, seats);
 
 pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,
-    id: WlSeatId,
-    client: Rc<Client>,
+    pub id: WlSeatId,
+    pub client: Rc<Client>,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
     version: u32,
 }
 
 impl WlSeat {
-    fn capabilities(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(Capabilities {
+    fn send_capabilities(self: &Rc<Self>) {
+        self.client.event(Capabilities {
             self_id: self.id,
             capabilities: POINTER | KEYBOARD,
         })
     }
 
-    fn name(self: &Rc<Self>, name: &Rc<String>) -> DynEventFormatter {
-        Box::new(NameOut {
+    fn send_name(self: &Rc<Self>, name: &Rc<String>) {
+        self.client.event(NameOut {
             self_id: self.id,
             name: name.deref().clone(),
         })
@@ -370,10 +370,9 @@ impl WlSeat {
         let p = Rc::new(WlKeyboard::new(req.id, self));
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
-        self.client
-            .event(p.keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size));
+        p.send_keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size);
         if self.version >= REPEAT_INFO_SINCE {
-            self.client.event(p.repeat_info(25, 250));
+            p.send_repeat_info(25, 250);
         }
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use std::cell::Cell;
@@ -29,8 +29,8 @@ impl OrgKdeKwinServerDecoration {
         }
     }
 
-    pub fn mode(self: &Rc<Self>, mode: u32) -> DynEventFormatter {
-        Box::new(Mode {
+    pub fn send_mode(self: &Rc<Self>, mode: u32) {
+        self.client.event(Mode {
             self_id: self.id,
             mode,
         })
@@ -52,7 +52,7 @@ impl OrgKdeKwinServerDecoration {
         } else {
             SERVER
         };
-        self.client.event(self.mode(mode));
+        self.send_mode(mode);
         Ok(())
     }
 }

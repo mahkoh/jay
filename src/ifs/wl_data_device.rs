@@ -1,4 +1,4 @@
-use crate::client::{ClientError, DynEventFormatter};
+use crate::client::{ClientError};
 use crate::ifs::wl_data_device_manager::WlDataDeviceManager;
 use crate::ifs::wl_seat::WlSeat;
 use crate::object::Object;
@@ -28,15 +28,15 @@ impl WlDataDevice {
         }
     }
 
-    pub fn data_offer(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
-        Box::new(DataOffer {
+    pub fn send_data_offer(&self, id: WlDataOfferId) {
+        self.manager.client.event(DataOffer {
             self_id: self.id,
             id,
         })
     }
 
-    pub fn selection(self: &Rc<Self>, id: WlDataOfferId) -> DynEventFormatter {
-        Box::new(Selection {
+    pub fn send_selection(&self, id: WlDataOfferId) {
+        self.manager.client.event(Selection {
             self_id: self.id,
             id,
         })

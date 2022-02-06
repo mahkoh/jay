@@ -1,5 +1,5 @@
 
-use crate::client::{Client, DynEventFormatter};
+use crate::client::{Client};
 use crate::globals::{Global, GlobalName, GlobalsError};
 use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
@@ -22,8 +22,8 @@ impl WlRegistry {
         }
     }
 
-    pub fn global(self: &Rc<Self>, global: &Rc<dyn Global>) -> DynEventFormatter {
-        Box::new(GlobalOut {
+    pub fn send_global(self: &Rc<Self>, global: &Rc<dyn Global>) {
+        self.client.event(GlobalOut {
             self_id: self.id,
             name: global.name().raw(),
             interface: global.interface().name().to_string(),
@@ -31,8 +31,8 @@ impl WlRegistry {
         })
     }
 
-    pub fn global_remove(self: &Rc<Self>, name: GlobalName) -> DynEventFormatter {
-        Box::new(GlobalRemove {
+    pub fn send_global_remove(self: &Rc<Self>, name: GlobalName) {
+        self.client.event(GlobalRemove {
             self_id: self.id,
             name: name.raw(),
         })

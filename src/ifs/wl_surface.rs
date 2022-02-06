@@ -3,7 +3,7 @@ pub mod wl_subsurface;
 pub mod xdg_surface;
 
 use crate::backend::{KeyState, ScrollAxis, SeatId};
-use crate::client::{Client, ClientError, DynEventFormatter, RequestParser};
+use crate::client::{Client, ClientError, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
@@ -212,8 +212,8 @@ impl WlSurface {
         false
     }
 
-    fn enter_event(self: &Rc<Self>, output: WlOutputId) -> DynEventFormatter {
-        Box::new(Enter {
+    fn send_enter(&self, output: WlOutputId) {
+        self.client.event(Enter {
             self_id: self.id,
             output,
         })
@@ -346,7 +346,7 @@ impl WlSurface {
 
     fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
         let req: Frame = self.parse(parser)?;
-        let cb = Rc::new(WlCallback::new(req.callback));
+        let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         self.client.add_client_obj(&cb)?;
         self.pending.frame_request.borrow_mut().push(cb);
         Ok(())
@@ -393,7 +393,7 @@ impl WlSurface {
             if let Some(buffer) = self.buffer.take() {
                 old_size = Some(buffer.rect);
                 if !buffer.destroyed() {
-                    self.client.event(buffer.release());
+                    buffer.send_release();
                 }
             }
             if let Some((dx, dy, buffer)) = buffer_change {

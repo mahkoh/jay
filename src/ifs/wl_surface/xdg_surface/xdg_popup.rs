@@ -1,5 +1,5 @@
 
-use crate::client::{Client, ClientError, DynEventFormatter};
+use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
@@ -58,8 +58,8 @@ impl XdgPopup {
         })
     }
 
-    fn configure(self: &Rc<Self>, x: i32, y: i32, width: i32, height: i32) -> DynEventFormatter {
-        Box::new(Configure {
+    fn send_configure(&self, x: i32, y: i32, width: i32, height: i32) {
+        self.xdg.surface.client.event(Configure {
             self_id: self.id,
             x,
             y,
@@ -68,15 +68,15 @@ impl XdgPopup {
         })
     }
 
-    fn repositioned(self: &Rc<Self>, token: u32) -> DynEventFormatter {
-        Box::new(Repositioned {
+    fn send_repositioned(&self, token: u32) {
+        self.xdg.surface.client.event(Repositioned {
             self_id: self.id,
             token,
         })
     }
 
-    fn popup_done(self: &Rc<Self>) -> DynEventFormatter {
-        Box::new(PopupDone { self_id: self.id })
+    fn send_popup_done(&self) {
+        self.xdg.surface.client.event(PopupDone { self_id: self.id })
     }
 
     fn update_position(&self, parent: &XdgSurface) -> Result<(), XdgPopupError> {
@@ -205,14 +205,14 @@ impl XdgPopup {
         if let Some(parent) = self.parent.get() {
             self.update_position(&parent)?;
             let rel = self.relative_position.get();
-            self.xdg.surface.client.event(self.repositioned(req.token));
-            self.xdg.surface.client.event(self.configure(
+            self.send_repositioned(req.token);
+            self.send_configure(
                 rel.x1(),
                 rel.y1(),
                 rel.width(),
                 rel.height(),
-            ));
-            self.xdg.send_configure();
+            );
+            self.xdg.do_send_configure();
         }
         Ok(())
     }
@@ -303,12 +303,12 @@ impl XdgSurfaceExt for XdgPopup {
         if let Some(parent) = self.parent.get() {
             self.update_position(&parent)?;
             let rel = self.relative_position.get();
-            self.xdg.surface.client.event(self.configure(
+            self.send_configure(
                 rel.x1(),
                 rel.y1(),
                 rel.width(),
                 rel.height(),
-            ));
+            );
         }
         Ok(())
     }
@@ -335,7 +335,7 @@ impl XdgSurfaceExt for XdgPopup {
         } else {
             if wl.take().is_some() {
                 self.destroy_node(true);
-                surface.client.event(self.popup_done());
+                self.send_popup_done();
             }
         }
     }
