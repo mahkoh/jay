@@ -1,14 +1,13 @@
-
-use crate::client::{ClientError};
+use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeat;
 use crate::ifs::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
+use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1Error;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
-use std::rc::Rc;
-use thiserror::Error;
-use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1Error;
 use crate::wire::zwp_primary_selection_device_v1::*;
 use crate::wire::{ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id};
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpPrimarySelectionDeviceV1 {
     pub id: ZwpPrimarySelectionDeviceV1Id,

@@ -1,15 +1,14 @@
-
 use crate::client::{Client, ClientError};
+use crate::globals::GlobalsError;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_display::*;
+use crate::wire::WlDisplayId;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::globals::GlobalsError;
-use crate::wire::wl_display::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlDisplayId;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
@@ -43,19 +42,11 @@ impl WlDisplay {
         let gr: GetRegistry = self.client.parse(self, parser)?;
         let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
         self.client.add_client_obj(&registry)?;
-        self.client
-            .state
-            .globals
-            .notify_all(&registry);
+        self.client.state.globals.notify_all(&registry);
         Ok(())
     }
 
-    pub fn send_error<O: Into<ObjectId>>(
-        &self,
-        object_id: O,
-        code: u32,
-        message: &str,
-    ) {
+    pub fn send_error<O: Into<ObjectId>>(&self, object_id: O, code: u32, message: &str) {
         self.client.event(Error {
             self_id: self.id,
             object_id: object_id.into(),

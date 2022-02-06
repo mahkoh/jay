@@ -1,16 +1,15 @@
-
 use crate::client::{Client, ClientError};
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::xdg_positioner::*;
+use crate::wire::XdgPositionerId;
 use bitflags::bitflags;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::xdg_positioner::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::XdgPositionerId;
 
 const INVALID_INPUT: u32 = 0;
 

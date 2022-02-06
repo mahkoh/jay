@@ -1,14 +1,14 @@
-use crate::client::{ClientError};
+use crate::client::ClientError;
 use crate::ifs::wl_data_device_manager::WlDataDeviceManager;
+use crate::ifs::wl_data_source::WlDataSourceError;
 use crate::ifs::wl_seat::WlSeat;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_data_device::*;
+use crate::wire::{WlDataDeviceId, WlDataOfferId};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_data_source::WlDataSourceError;
-use crate::wire::wl_data_device::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::{WlDataDeviceId, WlDataOfferId};
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;

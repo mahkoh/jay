@@ -1,4 +1,4 @@
-use crate::client::{Client};
+use crate::client::Client;
 use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
 use crate::ifs::wl_drm::WlDrmGlobal;
 use crate::ifs::wl_output::WlOutputGlobal;

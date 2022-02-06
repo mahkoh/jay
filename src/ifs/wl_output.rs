@@ -1,17 +1,16 @@
-
 use crate::backend::Output;
 use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_output::*;
+use crate::wire::WlOutputId;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_output::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlOutputId;
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]

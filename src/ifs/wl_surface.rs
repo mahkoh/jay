@@ -20,6 +20,8 @@ use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::smallmap::SmallMap;
+use crate::wire::wl_surface::*;
+use crate::wire::{WlOutputId, WlSurfaceId};
 use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 use ahash::AHashMap;
@@ -28,8 +30,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_surface::*;
-use crate::wire::{WlOutputId, WlSurfaceId};
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;

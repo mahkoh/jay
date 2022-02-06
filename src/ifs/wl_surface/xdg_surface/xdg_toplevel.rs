@@ -1,4 +1,3 @@
-
 use crate::backend::SeatId;
 use crate::bugs::Bugs;
 use crate::client::{Client, ClientError};
@@ -12,9 +11,12 @@ use crate::render::Renderer;
 use crate::tree::{ContainerNode, FindTreeResult};
 use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::smallmap::SmallMap;
+use crate::wire::xdg_toplevel::*;
+use crate::wire::XdgToplevelId;
 use crate::{bugs, NumCell};
 use ahash::{AHashMap, AHashSet};
 use num_derive::FromPrimitive;
@@ -22,9 +24,6 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::xdg_toplevel::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::XdgToplevelId;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {

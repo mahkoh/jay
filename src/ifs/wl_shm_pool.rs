@@ -1,18 +1,17 @@
-
 use crate::client::{Client, ClientError};
 use crate::clientmem::ClientMem;
 use crate::format::{formats, map_wayland_format_id};
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferError};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
+use crate::wire::wl_shm_pool::*;
+use crate::wire::WlShmPoolId;
+use crate::ClientMemError;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ClientMemError;
-use crate::wire::wl_shm_pool::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlShmPoolId;
 
 pub struct WlShmPool {
     id: WlShmPoolId,

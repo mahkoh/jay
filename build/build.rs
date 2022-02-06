@@ -1,7 +1,7 @@
 use std::fs::{File, OpenOptions};
-use std::{env, io};
 use std::io::BufWriter;
 use std::path::PathBuf;
+use std::{env, io};
 
 mod enums;
 mod wire;
@@ -17,7 +17,6 @@ fn open(s: &str) -> io::Result<BufWriter<File>> {
             .open(path)?,
     ))
 }
-
 
 fn main() -> anyhow::Result<()> {
     wire::main()?;

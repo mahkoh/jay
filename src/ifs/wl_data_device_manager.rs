@@ -1,15 +1,14 @@
-
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_data_source::WlDataSource;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_data_device_manager::*;
+use crate::wire::WlDataDeviceManagerId;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_data_device_manager::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlDataDeviceManagerId;
 
 #[allow(dead_code)]
 const DND_NONE: u32 = 0;

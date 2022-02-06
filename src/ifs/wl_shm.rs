@@ -1,15 +1,14 @@
-
 use crate::client::{Client, ClientError};
 use crate::format::FORMATS;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_shm::*;
+use crate::wire::WlShmId;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_shm::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlShmId;
 
 pub struct WlShmGlobal {
     name: GlobalName,

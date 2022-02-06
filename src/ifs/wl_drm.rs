@@ -2,14 +2,13 @@ use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_drm::*;
+use crate::wire::WlDrmId;
+use bstr::ByteSlice;
 use std::ffi::CString;
 use std::rc::Rc;
-use bstr::ByteSlice;
 use thiserror::Error;
-use crate::wire::wl_drm::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlDrmId;
-
 
 const PRIME: u32 = 1;
 

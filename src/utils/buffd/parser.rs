@@ -1,10 +1,10 @@
-use std::{mem, ptr};
-use std::rc::Rc;
 use crate::fixed::Fixed;
 use crate::globals::GlobalName;
 use crate::object::ObjectId;
 use crate::utils::buffd::BufFdIn;
 use bstr::{BStr, ByteSlice};
+use std::rc::Rc;
+use std::{mem, ptr};
 use thiserror::Error;
 use uapi::{OwnedFd, Pod};
 
@@ -76,7 +76,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         if s.len() == 0 {
             return Err(MsgParserError::EmptyString);
         }
-        Ok(s[..s.len()-1].as_bstr())
+        Ok(s[..s.len() - 1].as_bstr())
     }
 
     pub fn str(&mut self) -> Result<&'b str, MsgParserError> {
@@ -120,9 +120,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         if array.len() > mem::size_of::<T>() {
             return Err(MsgParserError::BinaryArrayTooLarge);
         }
-        unsafe {
-            Ok(ptr::read_unaligned(array.as_ptr() as _))
-        }
+        unsafe { Ok(ptr::read_unaligned(array.as_ptr() as _)) }
     }
 
     pub fn binary_array<T: Pod>(&mut self) -> Result<&'b [T], MsgParserError> {
@@ -137,7 +135,10 @@ impl<'a, 'b> MsgParser<'a, 'b> {
             return Err(MsgParserError::BinaryArraySize);
         }
         unsafe {
-            Ok(std::slice::from_raw_parts(array.as_ptr() as _, array.len() / mem::size_of::<T>()))
+            Ok(std::slice::from_raw_parts(
+                array.as_ptr() as _,
+                array.len() / mem::size_of::<T>(),
+            ))
         }
     }
 }

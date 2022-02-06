@@ -1,14 +1,13 @@
-
 use crate::client::{Client, ClientError};
 use crate::object::Object;
 use crate::pixman::Region;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_region::*;
+use crate::wire::WlRegionId;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_region::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlRegionId;
 
 pub struct WlRegion {
     id: WlRegionId,

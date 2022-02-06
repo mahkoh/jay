@@ -1,9 +1,9 @@
-use std::fs::DirEntry;
-use std::os::unix::ffi::OsStrExt;
+use crate::open;
 use anyhow::{bail, Context, Result};
 use bstr::{BStr, BString, ByteSlice};
-use crate::open;
+use std::fs::DirEntry;
 use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum TreeDelim {
@@ -283,7 +283,7 @@ impl<'a> Parser<'a> {
                 pos: 0,
                 tokens: body,
             };
-            let mut fields = vec!();
+            let mut fields = vec![];
             while !parser.eof() {
                 fields.push(parser.parse_field()?);
             }
@@ -292,9 +292,12 @@ impl<'a> Parser<'a> {
                 val: Message {
                     name: name.to_owned(),
                     camel_name: to_camel(name),
-                    id: Lined { line: num_line, val, },
+                    id: Lined {
+                        line: num_line,
+                        val,
+                    },
                     fields,
-                }
+                },
             })
         })();
         res.with_context(|| format!("While parsing message starting at line {}", line))
@@ -313,7 +316,7 @@ impl<'a> Parser<'a> {
                 val: Field {
                     name: name.to_owned(),
                     ty,
-                }
+                },
             })
         })();
         res.with_context(|| format!("While parsing field starting at line {}", line))
@@ -325,7 +328,11 @@ impl<'a> Parser<'a> {
         self.pos += 1;
         match &token.kind {
             TokenKind::Ident(id) => Ok((token.line, *id)),
-            k => bail!("In line {}: Expected identifier, found {}", token.line, k.name()),
+            k => bail!(
+                "In line {}: Expected identifier, found {}",
+                token.line,
+                k.name()
+            ),
         }
     }
 
@@ -335,7 +342,11 @@ impl<'a> Parser<'a> {
         self.pos += 1;
         match &token.kind {
             TokenKind::Num(n) => Ok((token.line, *n)),
-            k => bail!("In line {}: Expected number, found {}", token.line, k.name()),
+            k => bail!(
+                "In line {}: Expected number, found {}",
+                token.line,
+                k.name()
+            ),
         }
     }
 
@@ -345,7 +356,12 @@ impl<'a> Parser<'a> {
         self.pos += 1;
         match &token.kind {
             TokenKind::Symbol(s) if *s == symbol => Ok(()),
-            k => bail!("In line {}: Expected {}, found {}", token.line, symbol.name(), k.name()),
+            k => bail!(
+                "In line {}: Expected {}, found {}",
+                token.line,
+                symbol.name(),
+                k.name()
+            ),
         }
     }
 
@@ -354,9 +370,7 @@ impl<'a> Parser<'a> {
         let token = &self.tokens[self.pos];
         self.pos += 1;
         match &token.kind {
-            TokenKind::Tree { delim, body } => {
-                Ok((token.line, *delim, body))
-            }
+            TokenKind::Tree { delim, body } => Ok((token.line, *delim, body)),
             k => bail!("In line {}: Expected tree, found {}", token.line, k.name()),
         }
     }
@@ -366,7 +380,12 @@ impl<'a> Parser<'a> {
         if delim == exp_delim {
             Ok((line, tokens))
         } else {
-            bail!("In line {}: Expected {:?}-delimited tree, found {:?}-delimited tree", line, exp_delim, delim.opening())
+            bail!(
+                "In line {}: Expected {:?}-delimited tree, found {:?}-delimited tree",
+                line,
+                exp_delim,
+                delim.opening()
+            )
         }
     }
 
@@ -407,7 +426,7 @@ impl<'a> Parser<'a> {
                     format!("While parsing pod element type starting in line {}", line)
                 })?;
                 Type::Pod(ty.val)
-            },
+            }
             b"u32" => Type::U32,
             b"i32" => Type::I32,
             b"str" => Type::Str,
@@ -455,13 +474,10 @@ impl<'a> Parser<'a> {
                     format!("While parsing identifier starting in line {}", line)
                 })?;
                 Type::Id(to_camel(ident))
-            },
+            }
             _ => bail!("Unknown type {}", ty),
         };
-        Ok(Lined {
-            line,
-            val: ty,
-        })
+        Ok(Lined { line, val: ty })
     }
 }
 
@@ -476,7 +492,7 @@ fn parse_messages(s: &[u8]) -> Result<Vec<Lined<Message>>> {
 
 fn to_camel(s: &BStr) -> BString {
     let mut last_was_underscore = true;
-    let mut res = vec!();
+    let mut res = vec![];
     for mut b in s.as_bytes().iter().copied() {
         if b == b'_' {
             last_was_underscore = true;
@@ -504,7 +520,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
             write!(f, "&'a [")?;
             write_type(f, n)?;
             write!(f, "]")?;
-        },
+        }
         Type::Pod(p) => f.write_all(p.as_bytes())?,
     }
     Ok(())
@@ -517,7 +533,12 @@ fn write_field<W: Write>(f: &mut W, field: &Field) -> Result<()> {
     Ok(())
 }
 
-fn write_message_type<W: Write>(f: &mut W, obj: &BStr, message: &Message, needs_lifetime: bool) -> Result<()> {
+fn write_message_type<W: Write>(
+    f: &mut W,
+    obj: &BStr,
+    message: &Message,
+    needs_lifetime: bool,
+) -> Result<()> {
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
     writeln!(f, "    pub struct {}{} {{", message.camel_name, lifetime)?;
     writeln!(f, "        pub self_id: {}Id,", obj)?;
@@ -525,8 +546,15 @@ fn write_message_type<W: Write>(f: &mut W, obj: &BStr, message: &Message, needs_
         write_field(f, &field.val)?;
     }
     writeln!(f, "    }}")?;
-    writeln!(f, "    impl{} std::fmt::Debug for {}{} {{", lifetime, message.camel_name, lifetime)?;
-    writeln!(f, "        fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{")?;
+    writeln!(
+        f,
+        "    impl{} std::fmt::Debug for {}{} {{",
+        lifetime, message.camel_name, lifetime
+    )?;
+    writeln!(
+        f,
+        "        fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{"
+    )?;
     write!(f, r#"            write!(fmt, "{}("#, message.name)?;
     for (i, field) in message.fields.iter().enumerate() {
         if i > 0 {
@@ -558,14 +586,22 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f)?;
     writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id.val)?;
     write_message_type(f, obj, message, has_reference_type)?;
-    let lifetime = if has_reference_type { "<'a>"} else {""};
+    let lifetime = if has_reference_type { "<'a>" } else { "" };
     let parser = if message.fields.len() > 0 {
         "parser"
     } else {
         "_parser"
     };
-    writeln!(f, "    impl<'a> RequestParser<'a> for {}{} {{", message.camel_name, lifetime)?;
-    writeln!(f, "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{", parser)?;
+    writeln!(
+        f,
+        "    impl<'a> RequestParser<'a> for {}{} {{",
+        message.camel_name, lifetime
+    )?;
+    writeln!(
+        f,
+        "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
+        parser
+    )?;
     writeln!(f, "            Ok(Self {{")?;
     writeln!(f, "                self_id: {}Id::NONE,", obj)?;
     for field in &message.fields {
@@ -585,7 +621,11 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f, "            }})")?;
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
-    writeln!(f, "    impl{} EventFormatter for {}{} {{", lifetime, message.camel_name, lifetime)?;
+    writeln!(
+        f,
+        "    impl{} EventFormatter for {}{} {{",
+        lifetime, message.camel_name, lifetime
+    )?;
     writeln!(f, "        fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
     writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
     fn write_fmt_expr<W: Write>(f: &mut W, prefix: &str, ty: &Type, access: &str) -> Result<()> {
@@ -607,13 +647,21 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
         Ok(())
     }
     for field in &message.fields {
-        write_fmt_expr(f, "", &field.val.ty.val, &format!("self.{}", field.val.name))?;
+        write_fmt_expr(
+            f,
+            "",
+            &field.val.ty.val,
+            &format!("self.{}", field.val.name),
+        )?;
     }
     writeln!(f, "        }}")?;
     writeln!(f, "        fn id(&self) -> ObjectId {{")?;
     writeln!(f, "            self.self_id.into()")?;
     writeln!(f, "        }}")?;
-    writeln!(f, "        fn interface(&self) -> crate::object::Interface {{")?;
+    writeln!(
+        f,
+        "        fn interface(&self) -> crate::object::Interface {{"
+    )?;
     writeln!(f, "            crate::object::Interface::{}", obj)?;
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
@@ -651,15 +699,19 @@ pub fn main() -> Result<()> {
     writeln!(f, "use crate::fixed::Fixed;")?;
     writeln!(f, "use crate::client::{{EventFormatter, RequestParser}};")?;
     writeln!(f, "use crate::object::ObjectId;")?;
-    writeln!(f, "use crate::utils::buffd::{{MsgFormatter, MsgParser, MsgParserError}};")?;
+    writeln!(
+        f,
+        "use crate::utils::buffd::{{MsgFormatter, MsgParser, MsgParserError}};"
+    )?;
     println!("cargo:rerun-if-changed=wire");
-    let mut files = vec!();
+    let mut files = vec![];
     for file in std::fs::read_dir("wire")? {
         files.push(file?);
     }
     files.sort_by_key(|f| f.file_name());
     for file in files {
-        write_file(&mut f, &file).with_context(|| format!("While processing {}", file.path().display()))?;
+        write_file(&mut f, &file)
+            .with_context(|| format!("While processing {}", file.path().display()))?;
     }
     Ok(())
 }

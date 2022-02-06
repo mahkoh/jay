@@ -73,7 +73,8 @@ impl<'a> MsgFormatter<'a> {
             f(&mut fmt);
             let len = self.buf.write_pos - pos - 4;
             let none = [MaybeUninit::new(0); 4];
-            self.buf.write(&none[..self.buf.write_pos.wrapping_neg() & 3]);
+            self.buf
+                .write(&none[..self.buf.write_pos.wrapping_neg() & 3]);
             len as u32
         };
         unsafe {
@@ -86,7 +87,8 @@ impl<'a> MsgFormatter<'a> {
         self.uint(mem::size_of_val(t) as u32);
         self.buf.write(uapi::as_maybe_uninit_bytes(t));
         let none = [MaybeUninit::new(0); 4];
-        self.buf.write(&none[..self.buf.write_pos.wrapping_neg() & 3]);
+        self.buf
+            .write(&none[..self.buf.write_pos.wrapping_neg() & 3]);
         self
     }
 

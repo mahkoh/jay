@@ -1,9 +1,9 @@
-use crate::client::{Client};
+use crate::client::Client;
 use crate::object::Object;
-use std::rc::Rc;
-use thiserror::Error;
 use crate::wire::wl_callback::*;
 use crate::wire::WlCallbackId;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WlCallback {
     client: Rc<Client>,
@@ -12,11 +12,17 @@ pub struct WlCallback {
 
 impl WlCallback {
     pub fn new(id: WlCallbackId, client: &Rc<Client>) -> Self {
-        Self { client: client.clone(), id }
+        Self {
+            client: client.clone(),
+            id,
+        }
     }
 
     pub fn send_done(&self) {
-        self.client.event(Done { self_id: self.id, callback_data: 0 });
+        self.client.event(Done {
+            self_id: self.id,
+            callback_data: 0,
+        });
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
-use crate::client::{ClientId};
+use crate::client::ClientId;
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
@@ -14,10 +14,10 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
+use crate::wire::{WlDataOfferId, ZwpPrimarySelectionOfferV1Id};
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::wire::{WlDataOfferId, ZwpPrimarySelectionOfferV1Id};
 
 #[derive(Default)]
 pub struct NodeSeatState {

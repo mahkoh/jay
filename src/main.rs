@@ -67,8 +67,8 @@ mod time;
 mod tree;
 mod utils;
 mod wheel;
-mod xkbcommon;
 mod wire;
+mod xkbcommon;
 
 fn main() {
     env_logger::builder()

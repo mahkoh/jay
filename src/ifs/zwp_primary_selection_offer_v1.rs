@@ -1,15 +1,15 @@
-use std::mem;
 use crate::client::{Client, ClientError};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
+use crate::wire::zwp_primary_selection_offer_v1::*;
+use crate::wire::ZwpPrimarySelectionOfferV1Id;
+use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::zwp_primary_selection_offer_v1::*;
-use crate::wire::ZwpPrimarySelectionOfferV1Id;
 
 pub struct ZwpPrimarySelectionOfferV1 {
     pub id: ZwpPrimarySelectionOfferV1Id,

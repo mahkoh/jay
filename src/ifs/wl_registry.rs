@@ -1,13 +1,12 @@
-
-use crate::client::{Client};
+use crate::client::Client;
 use crate::globals::{Global, GlobalName, GlobalsError};
 use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_registry::*;
+use crate::wire::WlRegistryId;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_registry::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlRegistryId;
 
 pub struct WlRegistry {
     id: WlRegistryId,
@@ -40,7 +39,11 @@ impl WlRegistry {
 
     fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), BindError> {
         let bind: Bind = self.client.parse(self, parser)?;
-        let global = self.client.state.globals.get(GlobalName::from_raw(bind.name))?;
+        let global = self
+            .client
+            .state
+            .globals
+            .get(GlobalName::from_raw(bind.name))?;
         if global.interface().name() != bind.interface {
             return Err(BindError::InvalidInterface(InterfaceError {
                 name: global.name(),
@@ -111,4 +114,3 @@ pub struct VersionError {
     pub version: u32,
     pub actual: u32,
 }
-

@@ -3,13 +3,15 @@ use crate::client::error::LookupError;
 use crate::client::objects::Objects;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_registry::{WlRegistry};
+use crate::ifs::wl_registry::WlRegistry;
 use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain};
 use crate::utils::numcell::NumCell;
 use crate::utils::oneshot::{oneshot, OneshotTx};
 use crate::utils::queue::AsyncQueue;
+use crate::wire::WlRegistryId;
 use crate::ErrorFmt;
 use ahash::AHashMap;
 pub use error::{ClientError, ObjectError};
@@ -19,8 +21,6 @@ use std::fmt::{Debug, Display, Formatter};
 use std::mem;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
-use crate::utils::asyncevent::AsyncEvent;
-use crate::wire::WlRegistryId;
 
 mod error;
 mod objects;
@@ -199,7 +199,7 @@ impl Client {
             Ok(d) => {
                 d.send_invalid_request(obj, request);
                 self.state.clients.shutdown(self.id);
-            },
+            }
             Err(e) => {
                 log::error!(
                     "Could not retrieve display of client {}: {}",
@@ -246,7 +246,7 @@ impl Client {
             Ok(d) => {
                 d.send_implementation_error(msg);
                 self.state.clients.shutdown(self.id);
-            },
+            }
             Err(e) => {
                 log::error!(
                     "Could not retrieve display of client {}: {}",

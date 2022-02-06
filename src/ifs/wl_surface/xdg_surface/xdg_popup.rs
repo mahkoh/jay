@@ -1,4 +1,3 @@
-
 use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
@@ -10,14 +9,14 @@ use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedNode;
+use crate::wire::xdg_popup::*;
+use crate::wire::XdgPopupId;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::xdg_popup::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::XdgPopupId;
 
 #[allow(dead_code)]
 const INVALID_GRAB: u32 = 1;
@@ -76,7 +75,10 @@ impl XdgPopup {
     }
 
     fn send_popup_done(&self) {
-        self.xdg.surface.client.event(PopupDone { self_id: self.id })
+        self.xdg
+            .surface
+            .client
+            .event(PopupDone { self_id: self.id })
     }
 
     fn update_position(&self, parent: &XdgSurface) -> Result<(), XdgPopupError> {
@@ -206,12 +208,7 @@ impl XdgPopup {
             self.update_position(&parent)?;
             let rel = self.relative_position.get();
             self.send_repositioned(req.token);
-            self.send_configure(
-                rel.x1(),
-                rel.y1(),
-                rel.width(),
-                rel.height(),
-            );
+            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
             self.xdg.do_send_configure();
         }
         Ok(())
@@ -303,12 +300,7 @@ impl XdgSurfaceExt for XdgPopup {
         if let Some(parent) = self.parent.get() {
             self.update_position(&parent)?;
             let rel = self.relative_position.get();
-            self.send_configure(
-                rel.x1(),
-                rel.y1(),
-                rel.width(),
-                rel.height(),
-            );
+            self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
         Ok(())
     }

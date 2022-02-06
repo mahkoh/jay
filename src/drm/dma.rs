@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use crate::format::Format;
+use std::rc::Rc;
 use uapi::OwnedFd;
 
 pub struct DmaBufPlane {

@@ -1,18 +1,17 @@
-
 use crate::client::{Client, ClientError};
 use crate::ifs::wl_data_offer::{DataOfferRole, WlDataOffer};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::{CloneCell, UnsafeCellCloneSafe};
+use crate::wire::wl_data_source::*;
+use crate::wire::WlDataSourceId;
 use ahash::AHashSet;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::wire::wl_data_source::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlDataSourceId;
 
 #[allow(dead_code)]
 const INVALID_ACTION_MASK: u32 = 0;

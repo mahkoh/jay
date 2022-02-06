@@ -1,4 +1,4 @@
-
+use crate::client::ClientError;
 use crate::ifs::wl_surface::{
     CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
     WlSurfaceId,
@@ -6,16 +6,15 @@ use crate::ifs::wl_surface::{
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::linkedlist::LinkedNode;
+use crate::wire::wl_subsurface::*;
+use crate::wire::WlSubsurfaceId;
 use crate::NumCell;
 use std::cell::{Cell, RefCell};
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::client::ClientError;
-use crate::wire::wl_subsurface::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlSubsurfaceId;
 
 #[allow(dead_code)]
 const BAD_SURFACE: u32 = 0;

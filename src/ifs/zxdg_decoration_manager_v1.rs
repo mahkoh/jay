@@ -3,11 +3,10 @@ use crate::globals::{Global, GlobalName};
 use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
-use std::rc::Rc;
-use thiserror::Error;
 use crate::wire::zxdg_decoration_manager_v1::*;
 use crate::wire::ZxdgDecorationManagerV1Id;
-
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZxdgDecorationManagerV1Global {
     name: GlobalName,

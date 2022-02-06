@@ -1,14 +1,13 @@
-
-use crate::client::{ClientError};
+use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeat;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_keyboard::*;
+use crate::wire::{WlKeyboardId, WlSurfaceId};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
-use crate::wire::wl_keyboard::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::{WlKeyboardId, WlSurfaceId};
 
 pub const REPEAT_INFO_SINCE: u32 = 4;
 
@@ -71,12 +70,7 @@ impl WlKeyboard {
         })
     }
 
-    pub fn send_enter(
-        self: &Rc<Self>,
-        serial: u32,
-        surface: WlSurfaceId,
-        keys: &[u32],
-    ) {
+    pub fn send_enter(self: &Rc<Self>, serial: u32, surface: WlSurfaceId, keys: &[u32]) {
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,

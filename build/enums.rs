@@ -1,8 +1,8 @@
-use std::env;
+use crate::open;
 use repc::layout::{Type, TypeVariant};
+use std::env;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
-use crate::open;
 
 #[allow(unused_macros)]
 #[macro_use]

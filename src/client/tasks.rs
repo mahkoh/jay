@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use crate::client::{Client, ClientError};
 use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgParser};
@@ -6,6 +5,7 @@ use crate::utils::oneshot::OneshotRx;
 use crate::utils::vec_ext::VecExt;
 use crate::ErrorFmt;
 use futures::{select, FutureExt};
+use std::collections::VecDeque;
 use std::mem;
 use std::rc::Rc;
 

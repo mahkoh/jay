@@ -1,16 +1,16 @@
-use std::mem;
 use crate::client::{Client, ClientError};
 use crate::ifs::wl_data_source::WlDataSource;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
+use crate::wire::wl_data_offer::*;
+use crate::wire::WlDataOfferId;
+use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_data_offer::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlDataOfferId;
 
 #[allow(dead_code)]
 const INVALID_FINISH: u32 = 0;

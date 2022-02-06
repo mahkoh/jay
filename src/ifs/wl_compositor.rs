@@ -4,11 +4,11 @@ use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_compositor::*;
+use crate::wire::WlCompositorId;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::wire::wl_compositor::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::WlCompositorId;
 
 pub struct WlCompositorGlobal {
     name: GlobalName,

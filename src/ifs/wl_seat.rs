@@ -8,25 +8,31 @@ use crate::client::{Client, ClientError, ClientId};
 use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_data_device::{WlDataDevice};
-use crate::ifs::wl_data_offer::{DataOfferRole};
+use crate::ifs::wl_data_device::WlDataDevice;
+use crate::ifs::wl_data_offer::DataOfferRole;
 use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceError};
-use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, REPEAT_INFO_SINCE, WlKeyboardError};
-use crate::ifs::wl_seat::wl_pointer::{WlPointer};
+use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::zwp_primary_selection_device_v1::{
-    ZwpPrimarySelectionDeviceV1,
+use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::zwp_primary_selection_source_v1::{
+    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error,
 };
-use crate::ifs::zwp_primary_selection_source_v1::{ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error};
 use crate::object::Object;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::smallmap::SmallMap;
+use crate::wire::wl_seat::*;
+use crate::wire::{
+    WlDataDeviceId, WlDataOfferId, WlKeyboardId, WlPointerId, WlSeatId,
+    ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id,
+};
 use crate::xkbcommon::{XkbContext, XkbState};
 use crate::{NumCell, State};
 use ahash::{AHashMap, AHashSet};
@@ -38,9 +44,6 @@ use std::io::Write;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::wire::wl_seat::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::{WlDataDeviceId, WlDataOfferId, WlKeyboardId, WlPointerId, WlSeatId, ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id};
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;

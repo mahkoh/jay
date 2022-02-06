@@ -1,16 +1,15 @@
-
-use crate::client::{ClientError};
+use crate::client::ClientError;
 use crate::cursor::Cursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
+use crate::ifs::wl_surface::WlSurfaceError;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::wl_pointer::*;
+use crate::wire::{WlPointerId, WlSurfaceId};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_surface::WlSurfaceError;
-use crate::wire::wl_pointer::*;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::{WlPointerId, WlSurfaceId};
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
@@ -45,13 +44,7 @@ impl WlPointer {
         }
     }
 
-    pub fn send_enter(
-        &self,
-        serial: u32,
-        surface: WlSurfaceId,
-        x: Fixed,
-        y: Fixed,
-    ) {
+    pub fn send_enter(&self, serial: u32, surface: WlSurfaceId, x: Fixed, y: Fixed) {
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,
@@ -78,13 +71,7 @@ impl WlPointer {
         })
     }
 
-    pub fn send_button(
-        &self,
-        serial: u32,
-        time: u32,
-        button: u32,
-        state: u32,
-    ) {
+    pub fn send_button(&self, serial: u32, time: u32, button: u32, state: u32) {
         self.seat.client.event(Button {
             self_id: self.id,
             serial,

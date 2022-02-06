@@ -1,11 +1,11 @@
 use crate::async_engine::{AsyncFd, Timeout};
 use crate::utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE};
+use futures::future::Fuse;
 use futures::{select, FutureExt};
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use std::{mem, slice};
-use futures::future::Fuse;
 use uapi::{c, Errno, OwnedFd};
 
 pub(super) const OUT_BUF_SIZE: usize = 2 * BUF_SIZE;
@@ -90,7 +90,11 @@ impl BufFdOut {
         }
     }
 
-    pub async fn flush(&mut self, buf: &mut OutBuffer, timeout: &mut Option<Fuse<Timeout>>) -> Result<(), BufFdError> {
+    pub async fn flush(
+        &mut self,
+        buf: &mut OutBuffer,
+        timeout: &mut Option<Fuse<Timeout>>,
+    ) -> Result<(), BufFdError> {
         while buf.read_pos < buf.write_pos {
             if self.flush_sync(buf)? {
                 self.fd.writable().await?;
