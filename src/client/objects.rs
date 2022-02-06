@@ -1,17 +1,17 @@
 use crate::client::{Client, ClientError};
-use crate::ifs::wl_buffer::{WlBuffer, WlBufferId};
-use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceId};
+use crate::ifs::wl_buffer::{WlBuffer};
+use crate::ifs::wl_data_source::{WlDataSource};
 use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_region::{WlRegion, WlRegionId};
-use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
-use crate::ifs::wl_seat::{WlSeat, WlSeatId};
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel, XdgToplevelId};
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceId};
-use crate::ifs::wl_surface::{WlSurface, WlSurfaceId};
-use crate::ifs::xdg_positioner::{XdgPositioner, XdgPositionerId};
-use crate::ifs::xdg_wm_base::{XdgWmBase, XdgWmBaseId};
+use crate::ifs::wl_region::{WlRegion};
+use crate::ifs::wl_registry::{WlRegistry};
+use crate::ifs::wl_seat::{WlSeat};
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{XdgToplevel};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurface};
+use crate::ifs::wl_surface::{WlSurface};
+use crate::ifs::xdg_positioner::{XdgPositioner};
+use crate::ifs::xdg_wm_base::{XdgWmBase};
 use crate::ifs::zwp_primary_selection_source_v1::{
-    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Id,
+    ZwpPrimarySelectionSourceV1,
 };
 use crate::object::{Object, ObjectId};
 use crate::tree::Node;
@@ -21,6 +21,7 @@ use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
+use crate::wire::{WlBufferId, WlDataSourceId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id};
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

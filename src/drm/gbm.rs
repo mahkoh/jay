@@ -3,6 +3,7 @@ use crate::drm::drm::{Drm, DrmError};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::format::formats;
 use std::ptr;
+use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
 
@@ -102,7 +103,7 @@ unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
                 planes.push(DmaBufPlane {
                     offset,
                     stride,
-                    fd: OwnedFd::new(fd),
+                    fd: Rc::new(OwnedFd::new(fd)),
                 })
             }
             planes

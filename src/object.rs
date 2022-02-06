@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use crate::wire::WlDisplayId;
 
-pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId(1);
+pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ObjectId(u32);
@@ -69,6 +69,7 @@ pub enum Interface {
     WlSeat,
     WlDrm,
     ZwpLinuxDmabufV1,
+    ZwpLinuxDmabufFeedbackV1,
     ZwpLinuxBufferParamsV1,
     ZxdgDecorationManagerV1,
     ZxdgToplevelDecorationV1,
@@ -109,6 +110,7 @@ impl Interface {
             Interface::WlDataSource => "wl_data_source",
             Interface::WlDataOffer => "wl_data_offer",
             Interface::ZwpLinuxDmabufV1 => "zwp_linux_dmabuf_v1",
+            Interface::ZwpLinuxDmabufFeedbackV1 => "zwp_linux_dmabuf_feedback_v1",
             Interface::ZwpLinuxBufferParamsV1 => "zwp_linux_buffer_params_v1",
             Interface::WlDrm => "wl_drm",
             Interface::ZxdgDecorationManagerV1 => "zxdg_decoration_manager_v1",

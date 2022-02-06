@@ -2,9 +2,9 @@
 
 msg bind = 0 {
     name: u32,
-    id: id(object),
     interface: str,
     version: u32,
+    id: id(object),
 }
 
 # events

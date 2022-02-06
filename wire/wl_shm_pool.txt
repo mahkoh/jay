@@ -1,0 +1,18 @@
+# requests
+
+msg create_buffer = 0 {
+    id: id(wl_buffer),
+    offset: i32,
+    width: i32,
+    height: i32,
+    stride: i32,
+    format: u32,
+}
+
+msg destroy = 1 {
+
+}
+
+msg resize = 2 {
+    size: i32,
+}

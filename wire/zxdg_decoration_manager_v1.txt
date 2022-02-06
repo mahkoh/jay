@@ -1,0 +1,8 @@
+# requests
+
+msg destroy = 0 { }
+
+msg get_toplevel_decoration = 1 {
+    id: id(zxdg_toplevel_decoration_v1),
+    toplevel: id(xdg_toplevel),
+}

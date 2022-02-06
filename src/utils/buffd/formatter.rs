@@ -60,6 +60,7 @@ impl<'a> MsgFormatter<'a> {
         self.object(obj).uint(event)
     }
 
+    #[allow(dead_code)]
     pub fn array<F: FnOnce(&mut MsgFormatter<'_>)>(&mut self, f: F) -> &mut Self {
         let pos = self.buf.out_pos;
         self.uint(0);
@@ -78,6 +79,14 @@ impl<'a> MsgFormatter<'a> {
         unsafe {
             (*self.buf.out_buf)[pos..pos + 4].copy_from_slice(uapi::as_maybe_uninit_bytes(&len));
         }
+        self
+    }
+
+    pub fn binary<T: ?Sized>(&mut self, t: &T) -> &mut Self {
+        self.uint(mem::size_of_val(t) as u32);
+        self.buf.write(uapi::as_maybe_uninit_bytes(t));
+        let none = [MaybeUninit::new(0); 4];
+        self.buf.write(&none[..self.buf.out_pos.wrapping_neg() & 3]);
         self
     }
 

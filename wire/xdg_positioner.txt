@@ -1,0 +1,45 @@
+# requests
+
+msg destroy = 0 { }
+
+msg set_size = 1 {
+    width: i32,
+    height: i32,
+}
+
+msg set_anchor_rect = 2 {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+msg set_anchor = 3 {
+    anchor: u32,
+}
+
+msg set_gravity = 4 {
+    gravity: u32,
+}
+
+msg set_constraint_adjustment = 5 {
+    constraint_adjustment: u32,
+}
+
+msg set_offset = 6 {
+    x: i32,
+    y: i32,
+}
+
+msg set_reactive = 7 {
+
+}
+
+msg set_parent_size = 8 {
+    parent_width: i32,
+    parent_height: i32,
+}
+
+msg set_parent_configure = 9 {
+    serial: u32,
+}

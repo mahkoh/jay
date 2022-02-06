@@ -1,0 +1,48 @@
+# requests
+
+msg release = 0 {
+
+}
+
+# events
+
+msg down = 0 {
+    serial: u32,
+    time: u32,
+    surface: id(wl_surface),
+    id: i32,
+    x: fixed,
+    y: fixed,
+}
+
+msg up = 1 {
+    serial: u32,
+    time: u32,
+    id: i32,
+}
+
+msg motion = 2 {
+    time: u32,
+    id: u32,
+    x: fixed,
+    y: fixed,
+}
+
+msg frame = 3 {
+
+}
+
+msg cancel = 4 {
+
+}
+
+msg shape = 5 {
+    id: i32,
+    major: fixed,
+    minor: fixed,
+}
+
+msg orientation = 6 {
+    id: i32,
+    orientation: fixed,
+}

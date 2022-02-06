@@ -3,7 +3,7 @@ use crate::client::error::LookupError;
 use crate::client::objects::Objects;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_registry::{WlRegistry, WlRegistryId};
+use crate::ifs::wl_registry::{WlRegistry};
 use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError};
@@ -19,6 +19,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::mem;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
+use crate::wire::WlRegistryId;
 
 mod error;
 mod objects;
@@ -307,15 +308,11 @@ impl Client {
     }
 
     pub fn log_event(&self, event: &dyn EventFormatter) {
-        if !event.should_log() {
-            return;
-        }
-        let obj = event.obj();
         log::trace!(
             "Client {} <= {}@{}.{:?}",
             self.id,
-            obj.interface().name(),
-            obj.id(),
+            event.interface().name(),
+            event.id(),
             event,
         );
     }

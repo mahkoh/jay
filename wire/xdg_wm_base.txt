@@ -1,0 +1,22 @@
+# requests
+
+msg destroy = 0 { }
+
+msg create_positioner = 1 {
+    id: id(xdg_positioner),
+}
+
+msg get_xdg_surface = 2 {
+    id: id(xdg_surface),
+    surface: id(wl_surface),
+}
+
+msg pong = 3 {
+    serial: u32,
+}
+
+# events
+
+msg ping = 0 {
+    serial: u32,
+}

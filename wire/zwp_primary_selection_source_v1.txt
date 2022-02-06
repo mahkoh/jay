@@ -1,0 +1,18 @@
+# requests
+
+msg offer = 0 {
+    mime_type: str,
+}
+
+msg destroy = 1 { }
+
+# events
+
+msg send = 0 {
+    mime_type: str,
+    fd: fd,
+}
+
+msg cancelled = 1 {
+
+}

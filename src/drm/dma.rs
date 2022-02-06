@@ -1,10 +1,11 @@
+use std::rc::Rc;
 use crate::format::Format;
 use uapi::OwnedFd;
 
 pub struct DmaBufPlane {
     pub offset: u32,
     pub stride: u32,
-    pub fd: OwnedFd,
+    pub fd: Rc<OwnedFd>,
 }
 
 pub struct DmaBuf {

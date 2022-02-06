@@ -2,7 +2,6 @@ use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
 use crate::client::{ClientId, DynEventFormatter};
 use crate::fixed::Fixed;
 use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_offer::WlDataOfferId;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::{
@@ -13,12 +12,12 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1Id;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::wire::{WlDataOfferId, ZwpPrimarySelectionOfferV1Id};
 
 #[derive(Default)]
 pub struct NodeSeatState {

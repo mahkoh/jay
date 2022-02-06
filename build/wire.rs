@@ -217,6 +217,7 @@ enum Type {
     Fixed,
     Fd,
     Array(Box<Type>),
+    Pod(BString),
 }
 
 #[derive(Debug)]
@@ -369,10 +370,44 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_rust_path(&mut self) -> Result<Lined<BString>> {
+        let mut path = Vec::new();
+        let mut line = None;
+        loop {
+            self.not_eof()?;
+            let (l, id) = self.expect_ident()?;
+            if line.is_none() {
+                line = Some(l);
+            }
+            path.extend_from_slice(id.as_bytes());
+            if self.eof() {
+                break;
+            }
+            self.expect_symbol(Symbol::Colon)?;
+            self.expect_symbol(Symbol::Colon)?;
+            path.extend_from_slice(b"::");
+        }
+        Ok(Lined {
+            line: line.unwrap(),
+            val: path.into(),
+        })
+    }
+
     fn parse_type(&mut self) -> Result<Lined<Type>> {
         self.not_eof()?;
         let (line, ty) = self.expect_ident()?;
         let ty = match ty.as_bytes() {
+            b"pod" => {
+                let (line, body) = self.expect_tree(TreeDelim::Paren)?;
+                let mut parser = Parser {
+                    pos: 0,
+                    tokens: body,
+                };
+                let ty = parser.parse_rust_path().with_context(|| {
+                    format!("While parsing pod element type starting in line {}", line)
+                })?;
+                Type::Pod(ty.val)
+            },
             b"u32" => Type::U32,
             b"i32" => Type::I32,
             b"str" => Type::Str,
@@ -393,8 +428,9 @@ impl<'a> Parser<'a> {
                         Type::U32 => {}
                         Type::I32 => {}
                         Type::Fixed => {}
+                        Type::Pod(..) => {}
                         _ => {
-                            bail!("Only numerical types can be array elements");
+                            bail!("Only numerical and pod types can be array elements");
                         }
                     }
                     Ok(ty)
@@ -476,6 +512,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type, role: TypeRole) -> Result<()> {
             write_type(f, n, role)?;
             write!(f, ">")?;
         }
+        Type::Pod(p) => f.write_all(p.as_bytes())?,
     }
     Ok(())
 }
@@ -547,21 +584,16 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
         write_message_type(f, obj, message, TypeRole::Unified)?;
     }
     let lifetime = if has_reference_type { "<'a>"} else {""};
+    let parser = if message.fields.len() > 0 {
+        "parser"
+    } else {
+        "_parser"
+    };
     writeln!(f, "    impl<'a> RequestParser<'a> for {}{}{} {{", message.camel_name, if has_reference_type { "In" } else { "" }, lifetime)?;
-    writeln!(f, "        fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{")?;
+    writeln!(f, "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{", parser)?;
     writeln!(f, "            Ok(Self {{")?;
     writeln!(f, "                self_id: {}Id::NONE,", obj)?;
     for field in &message.fields {
-        write!(f, "                {}: ", field.val.name)?;
-        if let Type::Array(_) = &field.val.ty.val {
-            writeln!(f, "{{")?;
-            writeln!(f, "                    let array = parser.array()?;")?;
-            writeln!(f, "                    unsafe {{")?;
-            writeln!(f, "                        std::slice::from_raw_parts(array.as_ptr() as _, array.len() / 4)")?;
-            writeln!(f, "                    }}")?;
-            writeln!(f, "                }},")?;
-            continue;
-        }
         let p = match &field.val.ty.val {
             Type::Id(_) => "object",
             Type::U32 => "uint",
@@ -570,9 +602,10 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
             Type::Fixed => "fixed",
             Type::Fd => "fd",
             Type::BStr => "bstr",
-            Type::Array(_) => unreachable!(),
+            Type::Array(_) => "binary_array",
+            Type::Pod(_) => "binary",
         };
-        writeln!(f, "parser.{}()?,", p)?;
+        writeln!(f, "                {}: parser.{}()?,", field.val.name, p)?;
     }
     writeln!(f, "            }})")?;
     writeln!(f, "        }}")?;
@@ -581,15 +614,6 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f, "        fn format(self: Box<Self>, fmt: &mut MsgFormatter<'_>) {{")?;
     writeln!(f, "            fmt.header(self.self_id, {});", uppercase)?;
     fn write_fmt_expr<W: Write>(f: &mut W, prefix: &str, ty: &Type, access: &str) -> Result<()> {
-        if let Type::Array(n) = &ty {
-            let new_prefix = format!("        {}", prefix);
-            writeln!(f, "            {}fmt.array(|fmt| {{", prefix)?;
-            writeln!(f, "            {}    for el in {}.iter() {{", prefix, access)?;
-            write_fmt_expr(f, &new_prefix, n, "*el")?;
-            writeln!(f, "            {}    }}", prefix)?;
-            writeln!(f, "            {}}});", prefix)?;
-            return Ok(());
-        }
         let p = match ty {
             Type::Id(_) => "object",
             Type::U32 => "uint",
@@ -597,10 +621,12 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
             Type::Str | Type::BStr => "string",
             Type::Fixed => "fixed",
             Type::Fd => "fd",
-            Type::Array(..) => unreachable!(),
+            Type::Array(..) => "binary",
+            Type::Pod(..) => "binary",
         };
         let rf = match ty {
-            Type::Str | Type::BStr => "&",
+            Type::Str | Type::BStr | Type::Pod(..) => "&",
+            Type::Array(..) => "&*",
             _ => "",
         };
         writeln!(f, "            {}fmt.{}({}{});", prefix, p, rf, access)?;
@@ -635,7 +661,7 @@ fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     }
     writeln!(f)?;
     writeln!(f, "pub mod {} {{", obj_name)?;
-    writeln!(f, "    pub use super::*;")?;
+    writeln!(f, "    use super::*;")?;
     for message in &messages {
         write_message(f, camel_obj_name.as_bstr(), &message.val)?;
     }

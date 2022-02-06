@@ -103,7 +103,7 @@ macro_rules! id {
         impl $name {
             pub const NONE: Self = $name(0);
 
-            pub fn from_raw(raw: u32) -> Self {
+            pub const fn from_raw(raw: u32) -> Self {
                 Self(raw)
             }
 

@@ -1,0 +1,18 @@
+# requests
+
+msg set_selection = 0 {
+    source: id(zwp_primary_selection_source_v1),
+    serial: u32,
+}
+
+msg destroy       = 1 { }
+
+# events
+
+msg data_offer    = 0 {
+    offer: id(zwp_primary_selection_offer_v1),
+}
+
+msg selection     = 1 {
+    id: id(zwp_primary_selection_offer_v1),
+}

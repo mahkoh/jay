@@ -1,3 +1,4 @@
+use std::{mem, ptr};
 use std::rc::Rc;
 use crate::fixed::Fixed;
 use crate::globals::GlobalName;
@@ -5,12 +6,16 @@ use crate::object::ObjectId;
 use crate::utils::buffd::BufFdIn;
 use bstr::{BStr, ByteSlice};
 use thiserror::Error;
-use uapi::OwnedFd;
+use uapi::{OwnedFd, Pod};
 
 #[derive(Debug, Error)]
 pub enum MsgParserError {
     #[error("The message ended unexpectedly")]
     UnexpectedEof,
+    #[error("The binary array contains more than the required number of bytes")]
+    BinaryArrayTooLarge,
+    #[error("The size of the binary array is not a multiple of the element size")]
+    BinaryArraySize,
     #[error("The message contained a string of size 0")]
     EmptyString,
     #[error("Message is missing a required file descriptor")]
@@ -56,6 +61,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| ObjectId::from_raw(i as u32).into())
     }
 
+    #[allow(dead_code)]
     pub fn global(&mut self) -> Result<GlobalName, MsgParserError> {
         self.int().map(|i| GlobalName::from_raw(i as u32))
     }
@@ -104,5 +110,34 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         let pos = self.pos;
         self.pos += cap;
         Ok(&self.data[pos..pos + len])
+    }
+
+    pub fn binary<T: Pod>(&mut self) -> Result<T, MsgParserError> {
+        let array = self.array()?;
+        if array.len() < mem::size_of::<T>() {
+            return Err(MsgParserError::UnexpectedEof);
+        }
+        if array.len() > mem::size_of::<T>() {
+            return Err(MsgParserError::BinaryArrayTooLarge);
+        }
+        unsafe {
+            Ok(ptr::read_unaligned(array.as_ptr() as _))
+        }
+    }
+
+    pub fn binary_array<T: Pod>(&mut self) -> Result<&'b [T], MsgParserError> {
+        if std::mem::align_of::<T>() > 4 {
+            panic!("Alignment of binary array element is too large");
+        };
+        if std::mem::size_of::<T>() == 0 {
+            panic!("Size of binary array element is 0");
+        };
+        let array = self.array()?;
+        if array.len() % mem::size_of::<T>() != 0 {
+            return Err(MsgParserError::BinaryArraySize);
+        }
+        unsafe {
+            Ok(std::slice::from_raw_parts(array.as_ptr() as _, array.len() / mem::size_of::<T>()))
+        }
     }
 }

@@ -4,6 +4,7 @@ use crate::utils::buffd::{BufFdError, MsgParserError};
 use crate::AsyncError;
 use std::error::Error;
 use thiserror::Error;
+use crate::wire::WlDisplayId;
 
 #[derive(Debug, Error)]
 pub enum ClientError {
@@ -36,7 +37,7 @@ pub enum ClientError {
     #[error("The client object id is out of bounds")]
     ClientIdOutOfBounds,
     #[error("Object {0} is not a display")]
-    NotADisplay(ObjectId),
+    NotADisplay(WlDisplayId),
     #[error(transparent)]
     ObjectError(ObjectError),
     #[error(transparent)]
