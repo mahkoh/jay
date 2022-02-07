@@ -8,18 +8,11 @@ use crate::client::{Client, ClientError, ClientId};
 use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_offer::DataOfferRole;
-use crate::ifs::wl_data_source::{WlDataSource, WlDataSourceError};
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::WlPointer;
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::zwp_primary_selection_source_v1::{
-    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error,
-};
-use crate::object::Object;
+use crate::object::{Object, ObjectId};
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
@@ -30,8 +23,8 @@ use crate::utils::linkedlist::LinkedList;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::wl_seat::*;
 use crate::wire::{
-    WlDataDeviceId, WlDataOfferId, WlKeyboardId, WlPointerId, WlSeatId,
-    ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id,
+    WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
+    ZwpPrimarySelectionDeviceV1Id,
 };
 use crate::xkbcommon::{XkbContext, XkbState};
 use crate::{NumCell, State};
@@ -44,6 +37,12 @@ use std::io::Write;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
+use crate::ifs::ipc;
+use crate::ifs::ipc::IpcError;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -159,56 +158,49 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn set_selection(
+    fn set_selection_<T: ipc::Vtable>(
         self: &Rc<Self>,
-        selection: Option<Rc<WlDataSource>>,
-    ) -> Result<(), WlDataSourceError> {
-        if let Some(new) = &selection {
-            new.attach(self, DataOfferRole::Selection)?;
+        field: &CloneCell<Option<Rc<T::Source>>>,
+        src: Option<Rc<T::Source>>,
+    ) -> Result<(), WlSeatError> {
+        if let Some(new) = &src {
+            ipc::attach_source::<T>(new, self, ipc::Role::Selection)?;
         }
-        if let Some(old) = self.selection.set(selection.clone()) {
-            old.detach();
+        if let Some(old) = field.set(src.clone()) {
+            ipc::detach_source::<T>(&old);
         }
         if let Some(client) = self.keyboard_node.get().client() {
-            match selection {
-                Some(sel) => {
-                    sel.create_offer(&client);
-                }
-                _ => {
-                    self.for_each_data_device(0, client.id, |device| {
-                        device.send_selection(WlDataOfferId::NONE);
-                    });
-                }
+            match src {
+                Some(src) => ipc::offer_source_to::<T>(&src, &client),
+                _ => T::for_each_device(self, client.id, |device| {
+                    T::send_selection(device, ObjectId::NONE.into());
+                }),
             }
             client.flush();
         }
         Ok(())
     }
 
+    pub fn unset_selection(self: &Rc<Self>) {
+        let _ = self.set_selection(None);
+    }
+
+    pub fn set_selection(
+        self: &Rc<Self>,
+        selection: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError> {
+        self.set_selection_::<WlDataDevice>(&self.selection, selection)
+    }
+
+    pub fn unset_primary_selection(self: &Rc<Self>) {
+        let _ = self.set_primary_selection(None);
+    }
+
     pub fn set_primary_selection(
         self: &Rc<Self>,
         selection: Option<Rc<ZwpPrimarySelectionSourceV1>>,
-    ) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
-        if let Some(new) = &selection {
-            new.attach(self)?;
-        }
-        if let Some(old) = self.primary_selection.set(selection.clone()) {
-            old.detach();
-        }
-        if let Some(client) = self.keyboard_node.get().client() {
-            match selection {
-                Some(sel) => {
-                    sel.create_offer(&client);
-                }
-                _ => {
-                    self.for_each_primary_selection_device(0, client.id, |device| {
-                        device.send_selection(ZwpPrimarySelectionOfferV1Id::NONE);
-                    });
-                }
-            }
-            client.flush();
-        }
-        Ok(())
+    ) -> Result<(), WlSeatError> {
+        self.set_selection_::<ZwpPrimarySelectionDeviceV1>(&self.primary_selection, selection)
     }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
@@ -443,6 +435,8 @@ pub enum WlSeatError {
     ReleaseError(#[from] ReleaseError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    IpcError(#[from] IpcError),
 }
 efrom!(WlSeatError, ClientError);
 

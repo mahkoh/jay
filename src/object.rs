@@ -10,6 +10,8 @@ pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 pub struct ObjectId(u32);
 
 impl ObjectId {
+    pub const NONE: Self = ObjectId(0);
+
     pub fn from_raw(raw: u32) -> Self {
         Self(raw)
     }

@@ -1,7 +1,6 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
-use crate::client::ClientId;
+use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
-use crate::ifs::wl_data_device::WlDataDevice;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::{
@@ -11,13 +10,16 @@ use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
-use crate::ifs::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::smallmap::SmallMap;
-use crate::wire::{WlDataOfferId, ZwpPrimarySelectionOfferV1Id};
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::ifs::ipc;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::object::ObjectId;
+use crate::utils::clonecell::CloneCell;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -243,26 +245,17 @@ impl WlSeatGlobal {
         });
 
         if old.client_id() != Some(surface.client.id) {
-            match self.selection.get() {
-                None => {
-                    self.surface_data_device_event(0, &surface, |dd| {
-                        dd.send_selection(WlDataOfferId::NONE)
-                    });
-                }
-                Some(sel) => {
-                    sel.create_offer(&surface.client);
-                }
-            }
-            match self.primary_selection.get() {
-                None => {
-                    self.surface_primary_selection_device_event(0, &surface, |dd| {
-                        dd.send_selection(ZwpPrimarySelectionOfferV1Id::NONE)
-                    });
-                }
-                Some(sel) => {
-                    sel.create_offer(&surface.client);
-                }
-            }
+            self.offer_selection::<WlDataDevice>(&self.selection, &surface.client);
+            self.offer_selection::<ZwpPrimarySelectionDeviceV1>(&self.primary_selection, &surface.client);
+        }
+    }
+
+    fn offer_selection<T: ipc::Vtable>(&self, field: &CloneCell<Option<Rc<T::Source>>>, client: &Rc<Client>) {
+        match field.get() {
+            Some(sel) => ipc::offer_source_to::<T>(&sel, &client),
+            None => T::for_each_device(self, client.id, |dd| {
+                T::send_selection(dd, ObjectId::NONE.into());
+            }),
         }
     }
 
@@ -353,28 +346,6 @@ impl WlSeatGlobal {
     {
         let client = &surface.client;
         self.for_each_kb(ver, client.id, |p| {
-            f(p);
-        });
-        client.flush();
-    }
-
-    fn surface_data_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-    where
-        F: FnMut(&Rc<WlDataDevice>),
-    {
-        let client = &surface.client;
-        self.for_each_data_device(ver, client.id, |p| {
-            f(p);
-        });
-        client.flush();
-    }
-
-    fn surface_primary_selection_device_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-    where
-        F: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>),
-    {
-        let client = &surface.client;
-        self.for_each_primary_selection_device(ver, client.id, |p| {
             f(p);
         });
         client.flush();

@@ -15,7 +15,6 @@ use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
 use crate::globals::Globals;
 use crate::ifs::wl_compositor::WlCompositorGlobal;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManagerGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
 use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;

@@ -1,13 +1,16 @@
-use crate::client::ClientError;
-use crate::ifs::wl_seat::WlSeat;
-use crate::ifs::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
-use crate::ifs::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1Error;
-use crate::object::Object;
+use crate::client::{Client, ClientError, ClientId};
+use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
+use crate::object::{Object, ObjectId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zwp_primary_selection_device_v1::*;
 use crate::wire::{ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id};
 use std::rc::Rc;
 use thiserror::Error;
+use uapi::OwnedFd;
+use crate::ifs::ipc::{OfferData, SourceData, Vtable};
+use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
+use crate::ifs::ipc::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::{ZwpPrimarySelectionSourceV1};
 
 pub struct ZwpPrimarySelectionDeviceV1 {
     pub id: ZwpPrimarySelectionDeviceV1Id,
@@ -61,6 +64,66 @@ impl ZwpPrimarySelectionDeviceV1 {
     }
 }
 
+impl Vtable for ZwpPrimarySelectionDeviceV1 {
+    type DeviceId = ZwpPrimarySelectionDeviceV1Id;
+    type OfferId = ZwpPrimarySelectionOfferV1Id;
+    type Device = ZwpPrimarySelectionDeviceV1;
+    type Source = ZwpPrimarySelectionSourceV1;
+    type Offer = ZwpPrimarySelectionOfferV1;
+
+    fn device_id(dd: &Self::Device) -> Self::DeviceId {
+        dd.id
+    }
+
+    fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self> {
+        &offer.offer_data
+    }
+
+    fn get_source_data(src: &Self::Source) -> &SourceData<Self> {
+        &src.data
+    }
+
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C) where C: FnMut(&Rc<Self::Device>) {
+        seat.for_each_primary_selection_device(0, client, f)
+    }
+
+    fn create_offer(client: &Rc<Client>, offer_data: OfferData<Self>, id: ObjectId) -> Self::Offer {
+        ZwpPrimarySelectionOfferV1 {
+            id: id.into(),
+            client: client.clone(),
+            offer_data,
+        }
+    }
+
+    fn send_selection(dd: &Self::Device, offer: Self::OfferId) {
+        dd.send_selection(offer);
+    }
+
+    fn send_cancelled(source: &Self::Source) {
+        source.send_cancelled();
+    }
+
+    fn get_offer_id(offer: &Self::Offer) -> Self::OfferId {
+        offer.id
+    }
+
+    fn send_offer(dd: &Self::Device, offer: &Self::Offer) {
+        dd.send_data_offer(offer.id);
+    }
+
+    fn send_mime_type(offer: &Self::Offer, mime_type: &str) {
+        offer.send_offer(mime_type);
+    }
+
+    fn unset(seat: &Rc<WlSeatGlobal>) {
+        seat.unset_primary_selection();
+    }
+
+    fn send_send(src: &Self::Source, mime_type: &str, fd: Rc<OwnedFd>) {
+        src.send_send(mime_type, fd);
+    }
+}
+
 object_base! {
     ZwpPrimarySelectionDeviceV1, ZwpPrimarySelectionDeviceV1Error;
 
@@ -98,11 +161,11 @@ pub enum SetSelectionError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
-    ZwpPrimarySelectionSourceV1Error(Box<ZwpPrimarySelectionSourceV1Error>),
+    WlSeatError(Box<WlSeatError>),
 }
 efrom!(SetSelectionError, ParseFailed, MsgParserError);
 efrom!(SetSelectionError, ClientError);
-efrom!(SetSelectionError, ZwpPrimarySelectionSourceV1Error);
+efrom!(SetSelectionError, WlSeatError);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {

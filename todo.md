@@ -10,7 +10,6 @@
 - Float moving
 - Highlighting active
 - dnd
-- primary selection
 - presentation time
 - viewporter
 - session lock
@@ -19,3 +18,4 @@
 
 - Container resizing
 - clipboard
+- primary selection

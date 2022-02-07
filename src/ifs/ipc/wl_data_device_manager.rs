@@ -1,7 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_data_device::WlDataDevice;
-use crate::ifs::wl_data_source::WlDataSource;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;

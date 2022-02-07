@@ -1,16 +1,13 @@
 use crate::client::{Client, ClientError};
-use crate::ifs::wl_data_source::WlDataSource;
-use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
 use crate::wire::wl_data_offer::*;
-use crate::wire::WlDataOfferId;
-use std::mem;
-use std::ops::Deref;
+use crate::wire::{WlDataOfferId};
 use std::rc::Rc;
 use thiserror::Error;
+use crate::ifs::ipc::{disconnect_offer, OfferData, receive};
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
 
 #[allow(dead_code)]
 const INVALID_FINISH: u32 = 0;
@@ -21,61 +18,15 @@ const INVALID_ACTION: u32 = 2;
 #[allow(dead_code)]
 const INVALID_OFFER: u32 = 3;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum DataOfferRole {
-    Selection,
-}
 
 pub struct WlDataOffer {
     pub id: WlDataOfferId,
     pub client: Rc<Client>,
-    pub role: DataOfferRole,
-    pub source: CloneCell<Option<Rc<WlDataSource>>>,
+    pub offer_data: OfferData<WlDataDevice>,
 }
 
 impl WlDataOffer {
-    pub fn create(
-        client: &Rc<Client>,
-        role: DataOfferRole,
-        src: &Rc<WlDataSource>,
-        seat: &Rc<WlSeatGlobal>,
-    ) -> Option<Rc<Self>> {
-        let id = match client.new_id() {
-            Ok(id) => id,
-            Err(e) => {
-                client.error(e);
-                return None;
-            }
-        };
-        let slf = Rc::new(Self {
-            id,
-            client: client.clone(),
-            role,
-            source: CloneCell::new(Some(src.clone())),
-        });
-        let mt = src.mime_types.borrow_mut();
-        let mut sent_offer = false;
-        seat.for_each_data_device(0, client.id, |device| {
-            if !mem::replace(&mut sent_offer, true) {
-                device.send_data_offer(slf.id);
-            }
-            for mt in mt.deref() {
-                slf.send_offer(mt);
-            }
-            match role {
-                DataOfferRole::Selection => device.send_selection(id),
-            }
-        });
-        client.add_server_obj(&slf);
-        if !sent_offer {
-            let _ = client.remove_obj(&*slf);
-            None
-        } else {
-            Some(slf)
-        }
-    }
-
-    pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
+    pub fn send_offer(&self, mime_type: &str) {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,
@@ -89,22 +40,13 @@ impl WlDataOffer {
 
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
         let req: Receive = self.client.parse(self, parser)?;
-        if let Some(src) = self.source.get() {
-            src.send_send(req.mime_type, req.fd);
-            src.client.flush();
-        }
+        receive::<WlDataDevice>(self, req.mime_type, req.fd);
         Ok(())
-    }
-
-    fn disconnect(&self) {
-        if let Some(src) = self.source.set(None) {
-            src.destroy_offer();
-        }
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        self.disconnect();
+        disconnect_offer::<WlDataDevice>(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -136,7 +78,7 @@ impl Object for WlDataOffer {
     }
 
     fn break_loops(&self) {
-        self.disconnect();
+        disconnect_offer::<WlDataDevice>(self);
     }
 }
 

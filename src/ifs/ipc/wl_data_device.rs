@@ -1,14 +1,17 @@
-use crate::client::ClientError;
-use crate::ifs::wl_data_device_manager::WlDataDeviceManager;
-use crate::ifs::wl_data_source::WlDataSourceError;
-use crate::ifs::wl_seat::WlSeat;
-use crate::object::Object;
+use crate::client::{Client, ClientError, ClientId};
+use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManager;
+use crate::ifs::ipc::wl_data_source::{WlDataSource};
+use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
+use crate::object::{Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_data_device::*;
 use crate::wire::{WlDataDeviceId, WlDataOfferId};
 use std::rc::Rc;
 use thiserror::Error;
+use uapi::OwnedFd;
+use crate::ifs::ipc::{OfferData, SourceData, Vtable};
+use crate::ifs::ipc::wl_data_offer::WlDataOffer;
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
@@ -16,7 +19,7 @@ const ROLE: u32 = 0;
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
     pub manager: Rc<WlDataDeviceManager>,
-    seat: Rc<WlSeat>,
+    pub seat: Rc<WlSeat>,
 }
 
 impl WlDataDevice {
@@ -63,6 +66,66 @@ impl WlDataDevice {
         self.seat.remove_data_device(self);
         self.manager.client.remove_obj(self)?;
         Ok(())
+    }
+}
+
+impl Vtable for WlDataDevice {
+    type DeviceId = WlDataDeviceId;
+    type OfferId = WlDataOfferId;
+    type Device = WlDataDevice;
+    type Source = WlDataSource;
+    type Offer = WlDataOffer;
+
+    fn device_id(dd: &Self::Device) -> Self::DeviceId {
+        dd.id
+    }
+
+    fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self> {
+        &offer.offer_data
+    }
+
+    fn get_source_data(src: &Self::Source) -> &SourceData<Self> {
+        &src.data
+    }
+
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C) where C: FnMut(&Rc<Self::Device>) {
+        seat.for_each_data_device(0, client, f);
+    }
+
+    fn create_offer(client: &Rc<Client>, offer_data: OfferData<Self>, id: ObjectId) -> Self::Offer {
+        WlDataOffer {
+            id: id.into(),
+            client: client.clone(),
+            offer_data,
+        }
+    }
+
+    fn send_selection(dd: &Self::Device, offer: Self::OfferId) {
+        dd.send_selection(offer);
+    }
+
+    fn send_cancelled(source: &Self::Source) {
+        source.send_cancelled();
+    }
+
+    fn get_offer_id(offer: &Self::Offer) -> Self::OfferId {
+        offer.id
+    }
+
+    fn send_offer(dd: &Self::Device, offer: &Self::Offer) {
+        dd.send_data_offer(offer.id);
+    }
+
+    fn send_mime_type(offer: &Self::Offer, mime_type: &str) {
+        offer.send_offer(mime_type);
+    }
+
+    fn unset(seat: &Rc<WlSeatGlobal>) {
+        seat.unset_selection();
+    }
+
+    fn send_send(src: &Self::Source, mime_type: &str, fd: Rc<OwnedFd>) {
+        src.send_send(mime_type, fd);
     }
 }
 
@@ -116,11 +179,11 @@ pub enum SetSelectionError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
-    WlDataSourceError(Box<WlDataSourceError>),
+    WlSeatError(Box<WlSeatError>),
 }
 efrom!(SetSelectionError, ParseFailed, MsgParserError);
 efrom!(SetSelectionError, ClientError);
-efrom!(SetSelectionError, WlDataSourceError);
+efrom!(SetSelectionError, WlSeatError);
 
 #[derive(Debug, Error)]
 pub enum ReleaseError {
