@@ -1,12 +1,12 @@
 use crate::client::{Client, ClientError};
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::ipc::{break_offer_loops, destroy_offer, receive, OfferData};
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zwp_primary_selection_offer_v1::*;
 use crate::wire::ZwpPrimarySelectionOfferV1Id;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::ipc::{disconnect_offer, OfferData, receive};
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 
 pub struct ZwpPrimarySelectionOfferV1 {
     pub id: ZwpPrimarySelectionOfferV1Id,
@@ -30,7 +30,7 @@ impl ZwpPrimarySelectionOfferV1 {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        disconnect_offer::<ZwpPrimarySelectionDeviceV1>(self);
+        destroy_offer::<ZwpPrimarySelectionDeviceV1>(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -49,7 +49,7 @@ impl Object for ZwpPrimarySelectionOfferV1 {
     }
 
     fn break_loops(&self) {
-        disconnect_offer::<ZwpPrimarySelectionDeviceV1>(self);
+        break_offer_loops::<ZwpPrimarySelectionDeviceV1>(self);
     }
 }
 

@@ -36,6 +36,13 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
+    pub fn optstr<S: AsRef<[u8]> + ?Sized>(&mut self, s: Option<&S>) -> &mut Self {
+        match s {
+            Some(s) => self.string(s),
+            _ => self.uint(0),
+        }
+    }
+
     pub fn string<S: AsRef<[u8]> + ?Sized>(&mut self, s: &S) -> &mut Self {
         let s = s.as_ref();
         let len = s.len() + 1;

@@ -1,59 +1,66 @@
 use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
 use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
+use crate::ifs::ipc;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
-use crate::ifs::wl_seat::{
-    wl_keyboard, wl_pointer, PointerGrab, PointerGrabber, WlSeat, WlSeatGlobal,
-};
+use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, WlSeat, WlSeatGlobal, Dnd};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
-use crate::tree::{FloatNode, FoundNode, Node};
-use crate::utils::smallmap::SmallMap;
-use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
-use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
-use crate::ifs::ipc;
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::object::ObjectId;
+use crate::tree::{FloatNode, Node};
 use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use crate::wire::WlDataOfferId;
+use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
+use std::ops::{Deref};
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
-    grabs: SmallMap<SeatId, PointerGrab, 1>,
+    grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
 
 impl NodeSeatState {
-    fn enter(&self, seat: &Rc<WlSeatGlobal>) {
+    pub(super) fn enter(&self, seat: &Rc<WlSeatGlobal>) {
         self.pointer_foci.insert(seat.seat.id(), seat.clone());
     }
 
-    fn leave(&self, seat: &WlSeatGlobal) {
+    pub(super) fn leave(&self, seat: &WlSeatGlobal) {
         self.pointer_foci.remove(&seat.seat.id());
     }
 
-    fn focus(&self, seat: &Rc<WlSeatGlobal>) -> bool {
+    pub(super) fn focus(&self, seat: &Rc<WlSeatGlobal>) -> bool {
         self.kb_foci.insert(seat.seat.id(), seat.clone());
         self.kb_foci.len() == 1
     }
 
-    fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
+    pub(super) fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
         self.kb_foci.remove(&seat.seat.id());
         self.kb_foci.len() == 0
     }
 
-    fn add_pointer_grab(&self, seat: &Rc<WlSeatGlobal>) {
-        self.grabs
-            .insert(seat.id(), PointerGrab { seat: seat.clone() });
+    pub(super) fn add_pointer_grab(&self, seat: &Rc<WlSeatGlobal>) {
+        self.grabs.insert(seat.id(), seat.clone());
     }
 
-    fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
+    pub(super) fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
         self.grabs.remove(&seat.id());
+    }
+
+    pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
+        self.dnd_targets.insert(seat.id(), seat.clone());
+    }
+
+    pub(super) fn remove_dnd_target(&self, seat: &WlSeatGlobal) {
+        self.dnd_targets.remove(&seat.id());
     }
 
     // pub fn remove_pointer_grabs(&self) {
@@ -65,8 +72,13 @@ impl NodeSeatState {
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
-        self.grabs.clear();
+        while let Some((_, seat)) = self.grabs.pop() {
+            seat.pointer_owner.revert_to_default(&seat);
+        }
         let node_id = node.id();
+        while let Some((_, seat)) = self.dnd_targets.pop() {
+            seat.pointer_owner.dnd_target_removed(&seat);
+        }
         while let Some((_, seat)) = self.pointer_foci.pop() {
             let mut ps = seat.pointer_stack.borrow_mut();
             while let Some(last) = ps.pop() {
@@ -90,8 +102,8 @@ impl WlSeatGlobal {
         match event {
             SeatEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
             SeatEvent::Motion(dx, dy) => self.motion_event(dx, dy),
-            SeatEvent::Button(b, s) => self.button_event(b, s),
-            SeatEvent::Scroll(d, a) => self.scroll_event(d, a),
+            SeatEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
+            SeatEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
             SeatEvent::Key(k, s) => self.key_event(k, s),
         }
     }
@@ -109,52 +121,6 @@ impl WlSeatGlobal {
     fn motion_event(self: &Rc<Self>, dx: Fixed, dy: Fixed) {
         let (x, y) = self.pos.get();
         self.set_new_position(x + dx, y + dy);
-    }
-
-    fn button_event(self: &Rc<Self>, button: u32, state: KeyState) {
-        let mut release_grab = false;
-        let mut grabber = self.grabber.borrow_mut();
-        let node = if let Some(pg) = grabber.deref_mut() {
-            if state == KeyState::Released {
-                pg.buttons.remove(&button);
-                if pg.buttons.is_empty() {
-                    release_grab = true;
-                }
-            } else {
-                pg.buttons.insert(button, ());
-            }
-            pg.node.clone()
-        } else if state == KeyState::Pressed {
-            match self.pointer_node() {
-                Some(n) => {
-                    *grabber = Some(PointerGrabber {
-                        node: n.clone(),
-                        buttons: SmallMap::new_with(button, ()),
-                    });
-                    n.seat_state().add_pointer_grab(self);
-                    n
-                }
-                _ => return,
-            }
-        } else {
-            return;
-        };
-        drop(grabber);
-        if release_grab {
-            node.seat_state().remove_pointer_grab(self);
-        }
-        node.button(self, button, state);
-    }
-
-    fn scroll_event(&self, delta: i32, axis: ScrollAxis) {
-        let node = match self.grabber.borrow_mut().as_ref().map(|g| g.node.clone()) {
-            Some(n) => n,
-            _ => match self.pointer_node() {
-                Some(n) => n,
-                _ => return,
-            },
-        };
-        node.scroll(self, delta, axis);
     }
 
     fn key_event(&self, key: u32, state: KeyState) {
@@ -182,7 +148,7 @@ impl WlSeatGlobal {
 }
 
 impl WlSeatGlobal {
-    fn pointer_node(&self) -> Option<Rc<dyn Node>> {
+    pub(super) fn pointer_node(&self) -> Option<Rc<dyn Node>> {
         self.pointer_stack.borrow().last().cloned()
     }
 
@@ -246,13 +212,22 @@ impl WlSeatGlobal {
 
         if old.client_id() != Some(surface.client.id) {
             self.offer_selection::<WlDataDevice>(&self.selection, &surface.client);
-            self.offer_selection::<ZwpPrimarySelectionDeviceV1>(&self.primary_selection, &surface.client);
+            self.offer_selection::<ZwpPrimarySelectionDeviceV1>(
+                &self.primary_selection,
+                &surface.client,
+            );
         }
     }
 
-    fn offer_selection<T: ipc::Vtable>(&self, field: &CloneCell<Option<Rc<T::Source>>>, client: &Rc<Client>) {
+    fn offer_selection<T: ipc::Vtable>(
+        &self,
+        field: &CloneCell<Option<Rc<T::Source>>>,
+        client: &Rc<Client>,
+    ) {
         match field.get() {
-            Some(sel) => ipc::offer_source_to::<T>(&sel, &client),
+            Some(sel) => {
+                ipc::offer_source_to::<T>(&sel, &client)
+            },
             None => T::for_each_device(self, client.id, |dd| {
                 T::send_selection(dd, ObjectId::NONE.into());
             }),
@@ -367,86 +342,7 @@ impl WlSeatGlobal {
                 cursor.set_position(x.round_down(), y.round_down());
             }
         }
-        'handle_grab: {
-            let grab_node = {
-                let grabber = self.grabber.borrow_mut();
-                match grabber.as_ref() {
-                    Some(n) => n.node.clone(),
-                    None => break 'handle_grab,
-                }
-            };
-            if pos_changed {
-                let pos = grab_node.absolute_position();
-                let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
-                grab_node.motion(self, x.apply_fract(x_int), y.apply_fract(y_int));
-            }
-            return;
-        }
-        let mut found_tree = self.found_tree.borrow_mut();
-        let mut stack = self.pointer_stack.borrow_mut();
-        // if self.move_.get() {
-        //     for node in stack.iter().rev() {
-        //         if let NodeKind::Toplevel(tn) = node.clone().into_kind() {
-        //             let (move_start_x, move_start_y) = self.move_start_pos.get();
-        //             let (move_start_ex, move_start_ey) = self.extents_start_pos.get();
-        //             let mut ex = tn.common.extents.get();
-        //             ex.x = (x - move_start_x).round_down() + move_start_ex;
-        //             ex.y = (y - move_start_y).round_down() + move_start_ey;
-        //             tn.common.extents.set(ex);
-        //         }
-        //     }
-        //     return;
-        // }
-        let x_int = x.round_down();
-        let y_int = y.round_down();
-        found_tree.push(FoundNode {
-            node: self.state.root.clone(),
-            x: x_int,
-            y: y_int,
-        });
-        self.state.root.find_tree_at(x_int, y_int, &mut found_tree);
-        let mut divergence = found_tree.len().min(stack.len());
-        for (i, (found, stack)) in found_tree.iter().zip(stack.iter()).enumerate() {
-            if found.node.id() != stack.id() {
-                divergence = i;
-                break;
-            }
-        }
-        if (stack.len(), found_tree.len()) == (divergence, divergence) {
-            if pos_changed {
-                if let Some(node) = found_tree.last() {
-                    node.node
-                        .motion(self, x.apply_fract(node.x), y.apply_fract(node.y));
-                }
-            }
-        } else {
-            if let Some(last) = stack.last() {
-                last.pointer_untarget(self);
-            }
-            for old in stack.drain(divergence..).rev() {
-                old.leave(self);
-                old.seat_state().leave(self);
-            }
-            if found_tree.len() == divergence {
-                if let Some(node) = found_tree.last() {
-                    node.node
-                        .clone()
-                        .motion(self, x.apply_fract(node.x), y.apply_fract(node.y));
-                }
-            } else {
-                for new in found_tree.drain(divergence..) {
-                    new.node.seat_state().enter(self);
-                    new.node
-                        .clone()
-                        .enter(self, x.apply_fract(new.x), y.apply_fract(new.y));
-                    stack.push(new.node);
-                }
-            }
-            if let Some(node) = stack.last() {
-                node.pointer_target(self);
-            }
-        }
-        found_tree.clear();
+        self.pointer_owner.handle_pointer_position(self);
     }
 }
 
@@ -542,5 +438,56 @@ impl WlSeatGlobal {
                 )
             });
         }
+    }
+}
+
+// Dnd callbacks
+impl WlSeatGlobal {
+    pub fn dnd_surface_leave(&self, surface: &WlSurface, dnd: &Dnd) {
+        if dnd.src.is_some() || surface.client.id == dnd.client.id {
+            self.for_each_data_device(0, surface.client.id, |dd| {
+                dd.send_leave();
+            })
+        }
+        if let Some(src) = &dnd.src {
+            src.on_leave();
+        }
+        surface.client.flush();
+    }
+
+    pub fn dnd_surface_drop(&self, surface: &WlSurface, dnd: &Dnd) {
+        if dnd.src.is_some() || surface.client.id == dnd.client.id {
+            self.for_each_data_device(0, surface.client.id, |dd| {
+                dd.send_drop();
+            })
+        }
+        if let Some(src) = &dnd.src {
+            src.on_drop();
+        }
+        surface.client.flush();
+    }
+
+    pub fn dnd_surface_enter(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed) {
+        if let Some(src) = &dnd.src {
+            ipc::offer_source_to::<WlDataDevice>(src, &surface.client);
+            src.for_each_data_offer(|offer| {
+                offer.device.send_enter(surface.id, x, y, offer.id);
+                offer.send_source_actions();
+            })
+        } else if surface.client.id == dnd.client.id {
+            self.for_each_data_device(0, dnd.client.id, |dd| {
+                dd.send_enter(surface.id, x, y, WlDataOfferId::NONE);
+            })
+        }
+        surface.client.flush();
+    }
+
+    pub fn dnd_surface_motion(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed) {
+        if dnd.src.is_some() || surface.client.id == dnd.client.id {
+            self.for_each_data_device(0, surface.client.id, |dd| {
+                dd.send_motion(x, y);
+            })
+        }
+        surface.client.flush();
     }
 }

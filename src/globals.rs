@@ -1,4 +1,6 @@
 use crate::client::Client;
+use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManagerGlobal;
+use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
 use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
 use crate::ifs::wl_drm::WlDrmGlobal;
 use crate::ifs::wl_output::WlOutputGlobal;
@@ -7,8 +9,8 @@ use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::{
-    NumCell, State, WlCompositorGlobal, WlShmGlobal,
-    WlSubcompositorGlobal, XdgWmBaseGlobal, ZwpLinuxDmabufV1Global, ZxdgDecorationManagerV1Global,
+    NumCell, State, WlCompositorGlobal, WlShmGlobal, WlSubcompositorGlobal, XdgWmBaseGlobal,
+    ZwpLinuxDmabufV1Global, ZxdgDecorationManagerV1Global,
 };
 use ahash::AHashMap;
 use std::cell::RefMut;
@@ -16,8 +18,6 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManagerGlobal;
-use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
 
 #[derive(Debug, Error)]
 pub enum GlobalsError {

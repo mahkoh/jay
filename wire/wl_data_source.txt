@@ -15,7 +15,7 @@ msg set_actions = 2 {
 # events
 
 msg target = 0 {
-    mime_type: str,
+    mime_type: optstr,
 }
 
 msg send = 1 {

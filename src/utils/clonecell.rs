@@ -47,3 +47,5 @@ unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> {}
 unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> {}
 
 unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
+
+unsafe impl UnsafeCellCloneSafe for () {}

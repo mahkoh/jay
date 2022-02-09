@@ -79,6 +79,17 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         Ok(s[..s.len() - 1].as_bstr())
     }
 
+    pub fn optstr(&mut self) -> Result<Option<&'b str>, MsgParserError> {
+        let s = self.array()?;
+        if s.len() == 0 {
+            return Ok(None);
+        }
+        match s[..s.len() - 1].as_bstr().to_str() {
+            Ok(s) => Ok(Some(s)),
+            _ => Err(MsgParserError::NonUtf8),
+        }
+    }
+
     pub fn str(&mut self) -> Result<&'b str, MsgParserError> {
         match self.bstr()?.to_str() {
             Ok(s) => Ok(s),

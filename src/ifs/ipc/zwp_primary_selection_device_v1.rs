@@ -1,4 +1,10 @@
 use crate::client::{Client, ClientError, ClientId};
+use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
+use crate::ifs::ipc::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::ifs::ipc::{
+    break_device_loops, destroy_device, DeviceData, OfferData, Role, SourceData, Vtable,
+};
 use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
 use crate::object::{Object, ObjectId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
@@ -7,15 +13,12 @@ use crate::wire::{ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ifs::ipc::{OfferData, SourceData, Vtable};
-use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
-use crate::ifs::ipc::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::{ZwpPrimarySelectionSourceV1};
 
 pub struct ZwpPrimarySelectionDeviceV1 {
     pub id: ZwpPrimarySelectionDeviceV1Id,
     pub manager: Rc<ZwpPrimarySelectionDeviceManagerV1>,
     seat: Rc<WlSeat>,
+    data: DeviceData<Self>,
 }
 
 impl ZwpPrimarySelectionDeviceV1 {
@@ -28,6 +31,7 @@ impl ZwpPrimarySelectionDeviceV1 {
             id,
             manager: manager.clone(),
             seat: seat.clone(),
+            data: DeviceData::default(),
         }
     }
 
@@ -58,6 +62,7 @@ impl ZwpPrimarySelectionDeviceV1 {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.manager.client.parse(self, parser)?;
+        destroy_device::<Self>(self);
         self.seat.remove_primary_selection_device(self);
         self.manager.client.remove_obj(self)?;
         Ok(())
@@ -75,6 +80,10 @@ impl Vtable for ZwpPrimarySelectionDeviceV1 {
         dd.id
     }
 
+    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self> {
+        &dd.data
+    }
+
     fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self> {
         &offer.offer_data
     }
@@ -83,11 +92,19 @@ impl Vtable for ZwpPrimarySelectionDeviceV1 {
         &src.data
     }
 
-    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C) where C: FnMut(&Rc<Self::Device>) {
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>),
+    {
         seat.for_each_primary_selection_device(0, client, f)
     }
 
-    fn create_offer(client: &Rc<Client>, offer_data: OfferData<Self>, id: ObjectId) -> Self::Offer {
+    fn create_offer(
+        client: &Rc<Client>,
+        _device: &Rc<ZwpPrimarySelectionDeviceV1>,
+        offer_data: OfferData<Self>,
+        id: ObjectId,
+    ) -> Self::Offer {
         ZwpPrimarySelectionOfferV1 {
             id: id.into(),
             client: client.clone(),
@@ -115,7 +132,7 @@ impl Vtable for ZwpPrimarySelectionDeviceV1 {
         offer.send_offer(mime_type);
     }
 
-    fn unset(seat: &Rc<WlSeatGlobal>) {
+    fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
         seat.unset_primary_selection();
     }
 
@@ -137,6 +154,7 @@ impl Object for ZwpPrimarySelectionDeviceV1 {
     }
 
     fn break_loops(&self) {
+        break_device_loops::<Self>(self);
         self.seat.remove_primary_selection_device(self);
     }
 }

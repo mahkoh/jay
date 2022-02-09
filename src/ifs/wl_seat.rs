@@ -1,17 +1,25 @@
-mod handling;
+mod event_handling;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
+mod pointer_owner;
 
 use crate::backend::{Seat, SeatId};
 use crate::client::{Client, ClientError, ClientId};
 use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
 use crate::globals::{Global, GlobalName};
+use crate::ifs::ipc;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::ifs::ipc::IpcError;
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::WlPointer;
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::WlSurface;
 use crate::object::{Object, ObjectId};
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
@@ -20,29 +28,22 @@ use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
-use crate::utils::smallmap::SmallMap;
 use crate::wire::wl_seat::*;
 use crate::wire::{
-    WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
-    ZwpPrimarySelectionDeviceV1Id,
+    WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId, ZwpPrimarySelectionDeviceV1Id,
 };
 use crate::xkbcommon::{XkbContext, XkbState};
 use crate::{NumCell, State};
 use ahash::{AHashMap, AHashSet};
 use bstr::ByteSlice;
-pub use handling::NodeSeatState;
+pub use event_handling::NodeSeatState;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::io::Write;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::ifs::ipc;
-use crate::ifs::ipc::IpcError;
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::ifs::wl_seat::pointer_owner::{PointerOwnerHolder};
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -56,19 +57,22 @@ pub const BTN_LEFT: u32 = 0x110;
 
 pub const SEAT_NAME_SINCE: u32 = 2;
 
-struct PointerGrab {
-    seat: Rc<WlSeatGlobal>,
+#[derive(Clone)]
+pub struct Dnd {
+    pub seat: Rc<WlSeatGlobal>,
+    client: Rc<Client>,
+    src: Option<Rc<WlDataSource>>,
 }
 
-struct PointerGrabber {
-    node: Rc<dyn Node>,
-    buttons: SmallMap<u32, (), 1>,
+pub struct DroppedDnd {
+    dnd: Dnd,
 }
 
-impl Drop for PointerGrab {
+impl Drop for DroppedDnd {
     fn drop(&mut self) {
-        *self.seat.grabber.borrow_mut() = None;
-        self.seat.tree_changed.trigger();
+        if let Some(src) = self.dnd.src.take() {
+            ipc::detach_seat::<WlDataDevice>(&src);
+        }
     }
 }
 
@@ -99,10 +103,11 @@ pub struct WlSeatGlobal {
     layout_size: u32,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     serial: NumCell<u32>,
-    grabber: RefCell<Option<PointerGrabber>>,
     tree_changed: Rc<AsyncEvent>,
     selection: CloneCell<Option<Rc<WlDataSource>>>,
     primary_selection: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
+    pointer_owner: PointerOwnerHolder,
+    dropped_dnd: RefCell<Option<DroppedDnd>>,
 }
 
 impl WlSeatGlobal {
@@ -151,10 +156,11 @@ impl WlSeatGlobal {
             layout_size,
             cursor: Default::default(),
             serial: Default::default(),
-            grabber: RefCell::new(None),
             tree_changed: tree_changed.clone(),
             selection: Default::default(),
             primary_selection: Default::default(),
+            pointer_owner: Default::default(),
+            dropped_dnd: RefCell::new(None)
         }
     }
 
@@ -164,14 +170,16 @@ impl WlSeatGlobal {
         src: Option<Rc<T::Source>>,
     ) -> Result<(), WlSeatError> {
         if let Some(new) = &src {
-            ipc::attach_source::<T>(new, self, ipc::Role::Selection)?;
+            ipc::attach_seat::<T>(new, self, ipc::Role::Selection)?;
         }
         if let Some(old) = field.set(src.clone()) {
-            ipc::detach_source::<T>(&old);
+            ipc::detach_seat::<T>(&old);
         }
         if let Some(client) = self.keyboard_node.get().client() {
             match src {
-                Some(src) => ipc::offer_source_to::<T>(&src, &client),
+                Some(src) => {
+                    ipc::offer_source_to::<T>(&src, &client)
+                },
                 _ => T::for_each_device(self, client.id, |device| {
                     T::send_selection(device, ObjectId::NONE.into());
                 }),
@@ -179,6 +187,18 @@ impl WlSeatGlobal {
             client.flush();
         }
         Ok(())
+    }
+
+    pub fn start_drag(
+        self: &Rc<Self>,
+        origin: &Rc<WlSurface>,
+        source: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError> {
+        self.pointer_owner.start_drag(self, origin, source)
+    }
+
+    pub fn cancel_dnd(self: &Rc<Self>) {
+        self.pointer_owner.cancel_dnd(self);
     }
 
     pub fn unset_selection(self: &Rc<Self>) {

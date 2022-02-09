@@ -2,7 +2,7 @@
 
 msg accept = 0 {
     serial: u32,
-    mime_type: str,
+    mime_type: optstr,
 }
 
 msg receive = 1 {

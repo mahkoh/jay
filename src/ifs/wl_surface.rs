@@ -7,7 +7,7 @@ use crate::client::{Client, ClientError, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceRole};
@@ -632,6 +632,26 @@ impl Node for WlSurface {
 
     fn client(&self) -> Option<Rc<Client>> {
         Some(self.client.clone())
+    }
+
+    fn into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
+        Some(self)
+    }
+
+    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+        dnd.seat.dnd_surface_enter(self, dnd, x, y);
+    }
+
+    fn dnd_drop(&self, dnd: &Dnd) {
+        dnd.seat.dnd_surface_drop(self, dnd);
+    }
+
+    fn dnd_leave(&self, dnd: &Dnd) {
+        dnd.seat.dnd_surface_leave(self, dnd);
+    }
+
+    fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+        dnd.seat.dnd_surface_motion(self, dnd, x, y);
     }
 }
 

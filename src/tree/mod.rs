@@ -3,7 +3,8 @@ use crate::client::{Client, ClientId};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_output::WlOutputGlobal;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::utils::clonecell::CloneCell;
@@ -175,6 +176,30 @@ pub trait Node {
 
     fn client_id(&self) -> Option<ClientId> {
         self.client().map(|c| c.id)
+    }
+
+    fn into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
+        None
+    }
+
+    fn dnd_drop(&self, dnd: &Dnd) {
+        let _ = dnd;
+    }
+
+    fn dnd_leave(&self, dnd: &Dnd) {
+        let _ = dnd;
+    }
+
+    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+        let _ = dnd;
+        let _ = x;
+        let _ = y;
+    }
+
+    fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+        let _ = dnd;
+        let _ = x;
+        let _ = y;
     }
 }
 

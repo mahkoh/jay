@@ -1,17 +1,20 @@
 use crate::client::{Client, ClientError, ClientId};
+use crate::fixed::Fixed;
 use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManager;
-use crate::ifs::ipc::wl_data_source::{WlDataSource};
+use crate::ifs::ipc::wl_data_offer::WlDataOffer;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::ipc::{
+    break_device_loops, destroy_device, DeviceData, OfferData, Role, SourceData, Vtable,
+};
 use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
 use crate::object::{Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_data_device::*;
-use crate::wire::{WlDataDeviceId, WlDataOfferId};
+use crate::wire::{WlDataDeviceId, WlDataOfferId, WlSurfaceId};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ifs::ipc::{OfferData, SourceData, Vtable};
-use crate::ifs::ipc::wl_data_offer::WlDataOffer;
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
@@ -20,6 +23,7 @@ pub struct WlDataDevice {
     pub id: WlDataDeviceId,
     pub manager: Rc<WlDataDeviceManager>,
     pub seat: Rc<WlSeat>,
+    pub data: DeviceData<WlDataDevice>,
 }
 
 impl WlDataDevice {
@@ -28,6 +32,7 @@ impl WlDataDevice {
             id,
             manager: manager.clone(),
             seat: seat.clone(),
+            data: Default::default(),
         }
     }
 
@@ -45,8 +50,43 @@ impl WlDataDevice {
         })
     }
 
+    pub fn send_leave(&self) {
+        self.manager.client.event(Leave { self_id: self.id })
+    }
+
+    pub fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, offer: WlDataOfferId) {
+        self.manager.client.event(Enter {
+            self_id: self.id,
+            serial: 0,
+            surface,
+            x,
+            y,
+            id: offer,
+        })
+    }
+
+    pub fn send_motion(&self, x: Fixed, y: Fixed) {
+        self.manager.client.event(Motion {
+            self_id: self.id,
+            time: 0,
+            x,
+            y,
+        })
+    }
+
+    pub fn send_drop(&self) {
+        self.manager.client.event(Drop { self_id: self.id })
+    }
+
     fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
-        let _req: StartDrag = self.manager.client.parse(self, parser)?;
+        let req: StartDrag = self.manager.client.parse(self, parser)?;
+        let origin = self.manager.client.lookup(req.origin)?;
+        let source = if req.source.is_some() {
+            Some(self.manager.client.lookup(req.source)?)
+        } else {
+            None
+        };
+        self.seat.global.start_drag(&origin, source)?;
         Ok(())
     }
 
@@ -63,6 +103,7 @@ impl WlDataDevice {
 
     fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.manager.client.parse(self, parser)?;
+        destroy_device::<Self>(self);
         self.seat.remove_data_device(self);
         self.manager.client.remove_obj(self)?;
         Ok(())
@@ -80,23 +121,36 @@ impl Vtable for WlDataDevice {
         dd.id
     }
 
+    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self> {
+        &dd.data
+    }
+
     fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self> {
-        &offer.offer_data
+        &offer.data
     }
 
     fn get_source_data(src: &Self::Source) -> &SourceData<Self> {
         &src.data
     }
 
-    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C) where C: FnMut(&Rc<Self::Device>) {
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>),
+    {
         seat.for_each_data_device(0, client, f);
     }
 
-    fn create_offer(client: &Rc<Client>, offer_data: OfferData<Self>, id: ObjectId) -> Self::Offer {
+    fn create_offer(
+        client: &Rc<Client>,
+        device: &Rc<WlDataDevice>,
+        offer_data: OfferData<Self>,
+        id: ObjectId,
+    ) -> Self::Offer {
         WlDataOffer {
             id: id.into(),
             client: client.clone(),
-            offer_data,
+            device: device.clone(),
+            data: offer_data,
         }
     }
 
@@ -120,8 +174,11 @@ impl Vtable for WlDataDevice {
         offer.send_offer(mime_type);
     }
 
-    fn unset(seat: &Rc<WlSeatGlobal>) {
-        seat.unset_selection();
+    fn unset(seat: &Rc<WlSeatGlobal>, role: Role) {
+        match role {
+            Role::Selection => seat.unset_selection(),
+            Role::Dnd => seat.cancel_dnd(),
+        }
     }
 
     fn send_send(src: &Self::Source, mime_type: &str, fd: Rc<OwnedFd>) {
@@ -143,6 +200,7 @@ impl Object for WlDataDevice {
     }
 
     fn break_loops(&self) {
+        break_device_loops::<Self>(self);
         self.seat.remove_data_device(self);
     }
 }
@@ -168,9 +226,12 @@ pub enum StartDragError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error(transparent)]
+    WlSeatError(Box<WlSeatError>),
 }
 efrom!(StartDragError, ParseFailed, MsgParserError);
 efrom!(StartDragError, ClientError);
+efrom!(StartDragError, WlSeatError);
 
 #[derive(Debug, Error)]
 pub enum SetSelectionError {

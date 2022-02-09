@@ -77,6 +77,10 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
     pub fn pop(&self) -> Option<(K, V)> {
         unsafe { self.m.get().deref_mut().pop() }
     }
+
+    pub fn iter<'a>(&'a self) -> SmallMapIter<'a, K, V, N> {
+        SmallMapIter { pos: 0, map: self }
+    }
 }
 
 impl<K: Eq, V: UnsafeCellCloneSafe, const N: usize> SmallMap<K, V, N> {

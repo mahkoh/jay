@@ -1,4 +1,6 @@
 use crate::client::{Client, ClientError};
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_region::WlRegion;
@@ -21,8 +23,6 @@ use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
 use std::rc::Rc;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

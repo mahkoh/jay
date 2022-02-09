@@ -1,5 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -7,8 +9,6 @@ use crate::wire::zwp_primary_selection_device_manager_v1::*;
 use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 
 pub struct ZwpPrimarySelectionDeviceManagerV1Global {
     name: GlobalName,

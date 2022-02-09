@@ -1,4 +1,4 @@
-#![feature(c_variadic, thread_local, label_break_value)]
+#![feature(c_variadic, thread_local, label_break_value, ptr_metadata)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,

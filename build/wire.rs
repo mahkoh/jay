@@ -213,6 +213,7 @@ enum Type {
     U32,
     I32,
     Str,
+    OptStr,
     BStr,
     Fixed,
     Fd,
@@ -430,6 +431,7 @@ impl<'a> Parser<'a> {
             b"u32" => Type::U32,
             b"i32" => Type::I32,
             b"str" => Type::Str,
+            b"optstr" => Type::OptStr,
             b"bstr" => Type::BStr,
             b"fixed" => Type::Fixed,
             b"fd" => Type::Fd,
@@ -513,6 +515,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
         Type::U32 => write!(f, "u32")?,
         Type::I32 => write!(f, "i32")?,
         Type::Str => write!(f, "&'a str")?,
+        Type::OptStr => write!(f, "Option<&'a str>")?,
         Type::BStr => write!(f, "&'a BStr")?,
         Type::Fixed => write!(f, "Fixed")?,
         Type::Fd => write!(f, "Rc<OwnedFd>")?,
@@ -561,7 +564,7 @@ fn write_message_type<W: Write>(
             write!(f, ", ")?;
         }
         let formatter = match &field.val.ty.val {
-            Type::Str | Type::Fd | Type::Array(..) => "{:?}",
+            Type::OptStr | Type::Str | Type::Fd | Type::Array(..) => "{:?}",
             _ => "{}",
         };
         write!(f, "{}: {}", field.val.name, formatter)?;
@@ -578,7 +581,7 @@ fn write_message_type<W: Write>(
 
 fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<()> {
     let has_reference_type = message.fields.iter().any(|f| match &f.val.ty.val {
-        Type::Str | Type::BStr | Type::Array(..) => true,
+        Type::OptStr | Type::Str | Type::BStr | Type::Array(..) => true,
         _ => false,
     });
     let uppercase = message.name.to_ascii_uppercase();
@@ -609,6 +612,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
             Type::Id(_) => "object",
             Type::U32 => "uint",
             Type::I32 => "int",
+            Type::OptStr => "optstr",
             Type::Str => "str",
             Type::Fixed => "fixed",
             Type::Fd => "fd",
@@ -633,6 +637,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
             Type::Id(_) => "object",
             Type::U32 => "uint",
             Type::I32 => "int",
+            Type::OptStr => "optstr",
             Type::Str | Type::BStr => "string",
             Type::Fixed => "fixed",
             Type::Fd => "fd",
