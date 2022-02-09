@@ -29,6 +29,7 @@ const HEADER_SIZE: u32 = 16;
 pub trait Cursor {
     fn set_position(&self, x: i32, y: i32);
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32);
+    fn get_hotspot(&self) -> (i32, i32);
     fn extents(&self) -> Rect;
     fn handle_unset(&self) {}
     fn tick(&self) {}
@@ -208,6 +209,10 @@ impl Cursor for StaticCursor {
         renderer.render_texture(&self.image.tex, x, y, ARGB8888);
     }
 
+    fn get_hotspot(&self) -> (i32, i32) {
+        (self.image.xhot, self.image.yhot)
+    }
+
     fn extents(&self) -> Rect {
         self.extents.get()
     }
@@ -233,6 +238,11 @@ impl Cursor for AnimatedCursor {
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         let img = &self.images[self.idx.get()];
         renderer.render_texture(&img.tex, x, y, ARGB8888);
+    }
+
+    fn get_hotspot(&self) -> (i32, i32) {
+        let img = &self.images[self.idx.get()];
+        (img.xhot, img.yhot)
     }
 
     fn extents(&self) -> Rect {

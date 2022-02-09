@@ -191,8 +191,9 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
+        icon: Option<Rc<WlSurface>>,
     ) -> Result<(), WlSeatError> {
-        self.pointer_owner.start_drag(self, origin, source)
+        self.pointer_owner.start_drag(self, origin, source, icon)
     }
 
     pub fn cancel_dnd(self: &Rc<Self>) {
@@ -251,6 +252,14 @@ impl WlSeatGlobal {
             cursor.set_position(x.round_down(), y.round_down());
         }
         self.cursor.set(cursor);
+    }
+
+    pub fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        self.pointer_owner.dnd_icon()
+    }
+
+    pub fn remove_dnd_icon(&self) {
+        self.pointer_owner.remove_dnd_icon();
     }
 
     pub fn get_cursor(&self) -> Option<Rc<dyn Cursor>> {

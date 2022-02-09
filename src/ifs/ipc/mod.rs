@@ -173,7 +173,6 @@ pub fn cancel_offers<T: Vtable>(src: &T::Source) {
     let data = T::get_source_data(src);
     while let Some((_, offer)) = data.offers.pop() {
         let data = T::get_offer_data(&offer);
-        log::error!("cancel_offers");
         data.source.take();
         destroy_offer::<T>(&offer);
     }
@@ -268,7 +267,6 @@ fn destroy_offer<T: Vtable>(offer: &T::Offer) {
             }
         }
     }
-    log::error!("destroy_offer");
     if let Some(src) = data.source.take() {
         let src_data = T::get_source_data(&src);
         src_data.offers.remove(&T::get_offer_id(offer));

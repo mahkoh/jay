@@ -76,6 +76,10 @@ impl Cursor for CursorSurface {
         renderer.render_surface(&self.surface, x, y);
     }
 
+    fn get_hotspot(&self) -> (i32, i32) {
+        self.hotspot.get()
+    }
+
     fn extents(&self) -> Rect {
         self.extents.get()
     }

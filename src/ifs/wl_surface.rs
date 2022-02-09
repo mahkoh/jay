@@ -44,6 +44,7 @@ pub enum SurfaceRole {
     Subsurface,
     XdgSurface,
     Cursor,
+    DndIcon,
 }
 
 impl SurfaceRole {
@@ -53,6 +54,7 @@ impl SurfaceRole {
             SurfaceRole::Subsurface => "subsurface",
             SurfaceRole::XdgSurface => "xdg_surface",
             SurfaceRole::Cursor => "cursor",
+            SurfaceRole::DndIcon => "dnd_icon",
         }
     }
 }
@@ -77,6 +79,7 @@ pub struct WlSurface {
     seat_state: NodeSeatState,
     xdg: CloneCell<Option<Rc<XdgSurface>>>,
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
+    pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -172,6 +175,7 @@ impl WlSurface {
             seat_state: Default::default(),
             xdg: Default::default(),
             cursors: Default::default(),
+            dnd_icons: Default::default(),
         }
     }
 
@@ -234,7 +238,7 @@ impl WlSurface {
         self.xdg.set(xdg);
     }
 
-    fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
+    pub fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
         use SurfaceRole::*;
         match (self.role.get(), role) {
             (None, _) => {}
@@ -308,8 +312,15 @@ impl WlSurface {
         }
     }
 
+    fn unset_dnd_icons(&self) {
+        while let Some((_, seat)) = self.dnd_icons.pop() {
+            seat.remove_dnd_icon()
+        }
+    }
+
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.parse(parser)?;
+        self.unset_dnd_icons();
         self.unset_cursors();
         self.destroy_node(true);
         if self.ext.get().is_some() {
@@ -536,6 +547,7 @@ impl Object for WlSurface {
     }
 
     fn break_loops(&self) {
+        self.unset_dnd_icons();
         self.unset_cursors();
         self.destroy_node(true);
         *self.children.borrow_mut() = None;

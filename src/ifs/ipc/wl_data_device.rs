@@ -15,6 +15,7 @@ use crate::wire::{WlDataDeviceId, WlDataOfferId, WlSurfaceId};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
+use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceError};
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
@@ -86,7 +87,14 @@ impl WlDataDevice {
         } else {
             None
         };
-        self.seat.global.start_drag(&origin, source)?;
+        let icon = if req.icon.is_some() {
+            let icon = self.manager.client.lookup(req.icon)?;
+            icon.set_role(SurfaceRole::DndIcon)?;
+            Some(icon)
+        } else {
+            None
+        };
+        self.seat.global.start_drag(&origin, source, icon)?;
         Ok(())
     }
 
@@ -225,6 +233,8 @@ pub enum StartDragError {
     #[error("Parsing failed")]
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
+    #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WlSeatError(Box<WlSeatError>),
@@ -232,6 +242,7 @@ pub enum StartDragError {
 efrom!(StartDragError, ParseFailed, MsgParserError);
 efrom!(StartDragError, ClientError);
 efrom!(StartDragError, WlSeatError);
+efrom!(StartDragError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum SetSelectionError {

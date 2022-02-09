@@ -4,7 +4,7 @@ use crate::ifs::ipc;
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::wl_seat::{Dnd, DroppedDnd, WlSeatError, WlSeatGlobal};
-use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::{WlSurface};
 use crate::tree::{FoundNode, Node};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
@@ -43,8 +43,9 @@ impl PointerOwnerHolder {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
+        icon: Option<Rc<WlSurface>>,
     ) -> Result<(), WlSeatError> {
-        self.owner.get().start_drag(seat, origin, source)
+        self.owner.get().start_drag(seat, origin, source, icon)
     }
 
     pub fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
@@ -58,6 +59,14 @@ impl PointerOwnerHolder {
     pub fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
         self.owner.get().dnd_target_removed(seat);
     }
+
+    pub fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        self.owner.get().dnd_icon()
+    }
+
+    pub fn remove_dnd_icon(&self) {
+        self.owner.get().remove_dnd_icon()
+    }
 }
 
 trait PointerOwner {
@@ -69,10 +78,13 @@ trait PointerOwner {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
+        icon: Option<Rc<WlSurface>>,
     ) -> Result<(), WlSeatError>;
     fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>);
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>);
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>);
+    fn dnd_icon(&self) -> Option<Rc<WlSurface>>;
+    fn remove_dnd_icon(&self);
 }
 
 struct DefaultPointerOwner;
@@ -86,6 +98,7 @@ struct DndPointerOwner {
     button: u32,
     dnd: Dnd,
     target: CloneCell<Rc<dyn Node>>,
+    icon: CloneCell<Option<Rc<WlSurface>>>,
     pos_x: Cell<Fixed>,
     pos_y: Cell<Fixed>,
 }
@@ -171,8 +184,12 @@ impl PointerOwner for DefaultPointerOwner {
         &self,
         _seat: &Rc<WlSeatGlobal>,
         _origin: &Rc<WlSurface>,
-        _source: Option<Rc<WlDataSource>>,
+        source: Option<Rc<WlDataSource>>,
+        _icon: Option<Rc<WlSurface>>,
     ) -> Result<(), WlSeatError> {
+        if let Some(src) = source {
+            src.send_cancelled();
+        }
         Ok(())
     }
 
@@ -186,6 +203,14 @@ impl PointerOwner for DefaultPointerOwner {
 
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
         self.cancel_dnd(seat);
+    }
+
+    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        None
+    }
+
+    fn remove_dnd_icon(&self) {
+        // nothing
     }
 }
 
@@ -226,6 +251,7 @@ impl PointerOwner for GrabPointerOwner {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
+        icon: Option<Rc<WlSurface>>,
     ) -> Result<(), WlSeatError> {
         let button = match self.buttons.iter().next() {
             Some((b, _)) => b,
@@ -236,6 +262,9 @@ impl PointerOwner for GrabPointerOwner {
         }
         if self.node.id() != origin.node_id {
             return Ok(());
+        }
+        if let Some(icon) = &icon {
+            icon.dnd_icons.insert(seat.id(), seat.clone());
         }
         if let Some(new) = &src {
             ipc::attach_seat::<WlDataDevice>(&new, seat, ipc::Role::Dnd)?;
@@ -249,6 +278,7 @@ impl PointerOwner for GrabPointerOwner {
                 src,
             },
             target: CloneCell::new(seat.state.root.clone()),
+            icon: CloneCell::new(icon),
             pos_x: Cell::new(Fixed::from_int(0)),
             pos_y: Cell::new(Fixed::from_int(0)),
         });
@@ -284,6 +314,14 @@ impl PointerOwner for GrabPointerOwner {
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
         self.cancel_dnd(seat)
     }
+
+    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        None
+    }
+
+    fn remove_dnd_icon(&self) {
+        // nothing
+    }
 }
 
 impl PointerOwner for DndPointerOwner {
@@ -308,6 +346,9 @@ impl PointerOwner for DndPointerOwner {
             if let Some(src) = &self.dnd.src {
                 ipc::detach_seat::<WlDataDevice>(src);
             }
+        }
+        if let Some(icon) = self.icon.get() {
+            icon.dnd_icons.remove(&seat.id());
         }
         seat.pointer_owner
             .owner
@@ -354,8 +395,12 @@ impl PointerOwner for DndPointerOwner {
         &self,
         _seat: &Rc<WlSeatGlobal>,
         _origin: &Rc<WlSurface>,
-        _source: Option<Rc<WlDataSource>>,
+        source: Option<Rc<WlDataSource>>,
+        _icon: Option<Rc<WlSurface>>,
     ) -> Result<(), WlSeatError> {
+        if let Some(src) = source {
+            src.send_cancelled();
+        }
         Ok(())
     }
 
@@ -365,6 +410,9 @@ impl PointerOwner for DndPointerOwner {
         target.seat_state().remove_dnd_target(seat);
         if let Some(src) = &self.dnd.src {
             ipc::detach_seat::<WlDataDevice>(src);
+        }
+        if let Some(icon) = self.icon.get() {
+            icon.dnd_icons.remove(&seat.id());
         }
         seat.pointer_owner
             .owner
@@ -380,5 +428,13 @@ impl PointerOwner for DndPointerOwner {
         self.target.get().dnd_leave(&self.dnd);
         self.target.set(seat.state.root.clone());
         seat.state.tree_changed();
+    }
+
+    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        self.icon.get()
+    }
+
+    fn remove_dnd_icon(&self) {
+        self.icon.set(None);
     }
 }

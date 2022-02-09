@@ -68,12 +68,6 @@ impl WlDataSource {
         } else {
             0
         };
-        log::info!(
-            "sa = {}, ra = {}, action = {}",
-            server_actions,
-            shared.receiver_actions.get(),
-            action
-        );
         if shared.selected_action.replace(action) != action {
             for (_, offer) in &self.data.offers {
                 offer.send_action(action);

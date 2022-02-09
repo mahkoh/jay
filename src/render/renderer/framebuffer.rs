@@ -41,6 +41,17 @@ impl Framebuffer {
                     if let Some(cursor) = seat.get_cursor() {
                         cursor.tick();
                         let extents = cursor.extents();
+                        if let Some(dnd_icon) = seat.dnd_icon() {
+                            let (x_hot, y_hot) = cursor.get_hotspot();
+                            let extents = dnd_icon.extents.get().move_(
+                                extents.x1() + x_hot + dnd_icon.buf_x.get(),
+                                extents.y1() + y_hot + dnd_icon.buf_y.get(),
+                            );
+                            if extents.intersects(&rect) {
+                                let (x, y) = rect.translate(extents.x1(), extents.y1());
+                                renderer.render_surface(&dnd_icon, x, y);
+                            }
+                        }
                         if extents.intersects(&rect) {
                             let (x, y) = rect.translate(extents.x1(), extents.y1());
                             cursor.render(&mut renderer, x, y);

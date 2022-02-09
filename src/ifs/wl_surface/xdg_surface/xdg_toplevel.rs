@@ -323,7 +323,6 @@ impl XdgToplevel {
     }
 
     fn map_tiled(self: &Rc<Self>) {
-        log::info!("map tiled");
         let state = &self.xdg.surface.client.state;
         let seat = state.seat_queue.last();
         if let Some(seat) = seat {
