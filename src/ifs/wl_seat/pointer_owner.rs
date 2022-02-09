@@ -1,5 +1,3 @@
-use std::cell::Cell;
-use std::rc::Rc;
 use crate::backend::{KeyState, ScrollAxis};
 use crate::fixed::Fixed;
 use crate::ifs::ipc;
@@ -10,6 +8,8 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{FoundNode, Node};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct PointerOwnerHolder {
     default: Rc<DefaultPointerOwner>,
@@ -38,12 +38,17 @@ impl PointerOwnerHolder {
         self.owner.get().handle_pointer_position(seat)
     }
 
-    pub fn start_drag(&self, seat: &Rc<WlSeatGlobal>, origin: &Rc<WlSurface>, source: Option<Rc<WlDataSource>>) -> Result<(), WlSeatError> {
+    pub fn start_drag(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        origin: &Rc<WlSurface>,
+        source: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError> {
         self.owner.get().start_drag(seat, origin, source)
     }
 
     pub fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
-       self.owner.get().cancel_dnd(seat)
+        self.owner.get().cancel_dnd(seat)
     }
 
     pub fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
@@ -59,7 +64,12 @@ trait PointerOwner {
     fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState);
     fn scroll(&self, seat: &Rc<WlSeatGlobal>, delta: i32, axis: ScrollAxis);
     fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>);
-    fn start_drag(&self, seat: &Rc<WlSeatGlobal>, origin: &Rc<WlSurface>, source: Option<Rc<WlDataSource>>) -> Result<(), WlSeatError>;
+    fn start_drag(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        origin: &Rc<WlSurface>,
+        source: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError>;
     fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>);
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>);
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>);
@@ -124,7 +134,8 @@ impl PointerOwner for DefaultPointerOwner {
         }
         if (stack.len(), found_tree.len()) == (divergence, divergence) {
             if let Some(node) = found_tree.last() {
-                node.node.motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
+                node.node
+                    .motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
             }
         } else {
             if let Some(last) = stack.last() {
@@ -156,7 +167,12 @@ impl PointerOwner for DefaultPointerOwner {
         found_tree.clear();
     }
 
-    fn start_drag(&self, _seat: &Rc<WlSeatGlobal>, _origin: &Rc<WlSurface>, _source: Option<Rc<WlDataSource>>) -> Result<(), WlSeatError> {
+    fn start_drag(
+        &self,
+        _seat: &Rc<WlSeatGlobal>,
+        _origin: &Rc<WlSurface>,
+        _source: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError> {
         Ok(())
     }
 
@@ -181,12 +197,14 @@ impl PointerOwner for GrabPointerOwner {
                 if self.buttons.is_empty() {
                     self.node.seat_state().remove_pointer_grab(seat);
                     seat.tree_changed.trigger();
-                    seat.pointer_owner.owner.set(seat.pointer_owner.default.clone());
+                    seat.pointer_owner
+                        .owner
+                        .set(seat.pointer_owner.default.clone());
                 }
-            },
+            }
             KeyState::Pressed => {
                 self.buttons.insert(button, ());
-            },
+            }
         }
         self.node.clone().button(seat, button, state);
     }
@@ -199,10 +217,16 @@ impl PointerOwner for GrabPointerOwner {
         let (x, y) = seat.pos.get();
         let pos = self.node.absolute_position();
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
-        self.node.motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
+        self.node
+            .motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
     }
 
-    fn start_drag(&self, seat: &Rc<WlSeatGlobal>, origin: &Rc<WlSurface>, src: Option<Rc<WlDataSource>>) -> Result<(), WlSeatError> {
+    fn start_drag(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        origin: &Rc<WlSurface>,
+        src: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError> {
         let button = match self.buttons.iter().next() {
             Some((b, _)) => b,
             None => return Ok(()),
@@ -252,7 +276,9 @@ impl PointerOwner for GrabPointerOwner {
 
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
         self.node.seat_state().remove_pointer_grab(seat);
-        seat.pointer_owner.owner.set(seat.pointer_owner.default.clone());
+        seat.pointer_owner
+            .owner
+            .set(seat.pointer_owner.default.clone());
     }
 
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
@@ -283,7 +309,9 @@ impl PointerOwner for DndPointerOwner {
                 ipc::detach_seat::<WlDataDevice>(src);
             }
         }
-        seat.pointer_owner.owner.set(seat.pointer_owner.default.clone());
+        seat.pointer_owner
+            .owner
+            .set(seat.pointer_owner.default.clone());
         seat.tree_changed.trigger();
     }
 
@@ -302,11 +330,7 @@ impl PointerOwner for DndPointerOwner {
                 y: y_int,
             });
             seat.state.root.find_tree_at(x_int, y_int, &mut found_tree);
-            let FoundNode {
-                node,
-                x,
-                y,
-            } = found_tree.pop().unwrap();
+            let FoundNode { node, x, y } = found_tree.pop().unwrap();
             found_tree.clear();
             (node, x, y)
         };
@@ -326,7 +350,12 @@ impl PointerOwner for DndPointerOwner {
         self.pos_y.set(y);
     }
 
-    fn start_drag(&self, _seat: &Rc<WlSeatGlobal>, _origin: &Rc<WlSurface>, _source: Option<Rc<WlDataSource>>) -> Result<(), WlSeatError> {
+    fn start_drag(
+        &self,
+        _seat: &Rc<WlSeatGlobal>,
+        _origin: &Rc<WlSurface>,
+        _source: Option<Rc<WlDataSource>>,
+    ) -> Result<(), WlSeatError> {
         Ok(())
     }
 
@@ -337,7 +366,9 @@ impl PointerOwner for DndPointerOwner {
         if let Some(src) = &self.dnd.src {
             ipc::detach_seat::<WlDataDevice>(src);
         }
-        seat.pointer_owner.owner.set(seat.pointer_owner.default.clone());
+        seat.pointer_owner
+            .owner
+            .set(seat.pointer_owner.default.clone());
         seat.tree_changed.trigger();
     }
 

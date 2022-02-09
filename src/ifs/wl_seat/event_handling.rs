@@ -6,7 +6,7 @@ use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
-use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, WlSeat, WlSeatGlobal, Dnd};
+use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, WlSeat, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
@@ -17,7 +17,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlDataOfferId;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
-use std::ops::{Deref};
+use std::ops::Deref;
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -225,9 +225,7 @@ impl WlSeatGlobal {
         client: &Rc<Client>,
     ) {
         match field.get() {
-            Some(sel) => {
-                ipc::offer_source_to::<T>(&sel, &client)
-            },
+            Some(sel) => ipc::offer_source_to::<T>(&sel, &client),
             None => T::for_each_device(self, client.id, |dd| {
                 T::send_selection(dd, ObjectId::NONE.into());
             }),

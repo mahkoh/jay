@@ -1,8 +1,13 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::wl_data_device_manager::{DND_ALL, DND_NONE};
 use crate::ifs::ipc::wl_data_offer::WlDataOffer;
-use crate::ifs::ipc::{add_mime_type, break_source_loops, cancel_offers, destroy_source, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED, SharedState, SourceData};
+use crate::ifs::ipc::{
+    add_mime_type, break_source_loops, cancel_offers, destroy_source, SharedState, SourceData,
+    OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
+};
 use crate::object::Object;
+use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_data_source::*;
@@ -10,8 +15,6 @@ use crate::wire::WlDataSourceId;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ifs::ipc::wl_data_device_manager::{DND_ALL, DND_NONE};
-use crate::utils::bitflags::BitflagsExt;
 
 #[allow(dead_code)]
 const INVALID_ACTION_MASK: u32 = 0;
@@ -32,7 +35,14 @@ impl WlDataSource {
     }
 
     pub fn on_leave(&self) {
-        if self.data.shared.get().state.get().contains(OFFER_STATE_DROPPED) {
+        if self
+            .data
+            .shared
+            .get()
+            .state
+            .get()
+            .contains(OFFER_STATE_DROPPED)
+        {
             return;
         }
         self.data.shared.set(Rc::new(SharedState::default()));
@@ -58,7 +68,12 @@ impl WlDataSource {
         } else {
             0
         };
-        log::info!("sa = {}, ra = {}, action = {}", server_actions, shared.receiver_actions.get(), action);
+        log::info!(
+            "sa = {}, ra = {}, action = {}",
+            server_actions,
+            shared.receiver_actions.get(),
+            action
+        );
         if shared.selected_action.replace(action) != action {
             for (_, offer) in &self.data.offers {
                 offer.send_action(action);
@@ -110,11 +125,16 @@ impl WlDataSource {
     }
 
     pub fn send_action(&self, dnd_action: u32) {
-        self.data.client.event(Action { self_id: self.id, dnd_action, })
+        self.data.client.event(Action {
+            self_id: self.id,
+            dnd_action,
+        })
     }
 
     pub fn send_dnd_drop_performed(&self) {
-        self.data.client.event(DndDropPerformed { self_id: self.id })
+        self.data
+            .client
+            .event(DndDropPerformed { self_id: self.id })
     }
 
     fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {

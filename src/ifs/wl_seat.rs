@@ -1,8 +1,8 @@
 mod event_handling;
+mod pointer_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
-mod pointer_owner;
 
 use crate::backend::{Seat, SeatId};
 use crate::client::{Client, ClientError, ClientId};
@@ -15,6 +15,7 @@ use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::ifs::ipc::IpcError;
+use crate::ifs::wl_seat::pointer_owner::PointerOwnerHolder;
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::WlPointer;
 use crate::ifs::wl_seat::wl_touch::WlTouch;
@@ -43,7 +44,6 @@ use std::io::Write;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::ifs::wl_seat::pointer_owner::{PointerOwnerHolder};
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -160,7 +160,7 @@ impl WlSeatGlobal {
             selection: Default::default(),
             primary_selection: Default::default(),
             pointer_owner: Default::default(),
-            dropped_dnd: RefCell::new(None)
+            dropped_dnd: RefCell::new(None),
         }
     }
 
@@ -177,9 +177,7 @@ impl WlSeatGlobal {
         }
         if let Some(client) = self.keyboard_node.get().client() {
             match src {
-                Some(src) => {
-                    ipc::offer_source_to::<T>(&src, &client)
-                },
+                Some(src) => ipc::offer_source_to::<T>(&src, &client),
                 _ => T::for_each_device(self, client.id, |device| {
                     T::send_selection(device, ObjectId::NONE.into());
                 }),

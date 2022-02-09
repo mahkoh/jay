@@ -1,15 +1,18 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::{break_offer_loops, destroy_offer, receive, OfferData, Role, OFFER_STATE_FINISHED, OFFER_STATE_DROPPED, OFFER_STATE_ACCEPTED, SOURCE_STATE_FINISHED};
+use crate::ifs::ipc::wl_data_device_manager::DND_ALL;
+use crate::ifs::ipc::{
+    break_offer_loops, destroy_offer, receive, OfferData, Role, OFFER_STATE_ACCEPTED,
+    OFFER_STATE_DROPPED, OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
+};
 use crate::object::Object;
+use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_data_offer::*;
 use crate::wire::WlDataOfferId;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::ipc::wl_data_device_manager::{DND_ALL};
-use crate::utils::bitflags::BitflagsExt;
 
 #[allow(dead_code)]
 const INVALID_FINISH: u32 = 0;
@@ -126,7 +129,10 @@ impl WlDataOffer {
             return Err(SetActionsError::MultiplePreferred);
         }
         self.data.shared.receiver_actions.set(req.dnd_actions);
-        self.data.shared.receiver_preferred_action.set(req.preferred_action);
+        self.data
+            .shared
+            .receiver_preferred_action
+            .set(req.preferred_action);
         if let Some(src) = self.data.source.get() {
             src.update_selected_action();
         }

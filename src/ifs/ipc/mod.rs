@@ -1,16 +1,16 @@
 use crate::client::{Client, ClientId, WaylandObject};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::object::ObjectId;
+use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
+use crate::NumCell;
 use ahash::AHashSet;
 use std::cell::{Cell, RefCell};
-use std::ops::{Deref};
+use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::NumCell;
-use crate::utils::bitflags::BitflagsExt;
 
 pub mod wl_data_device;
 pub mod wl_data_device_manager;
@@ -122,7 +122,7 @@ impl Default for SharedState {
             role: Cell::new(Role::Selection),
             receiver_actions: Cell::new(0),
             receiver_preferred_action: Cell::new(0),
-            selected_action: Cell::new(0)
+            selected_action: Cell::new(0),
         }
     }
 }
@@ -272,7 +272,10 @@ fn destroy_offer<T: Vtable>(offer: &T::Offer) {
     if let Some(src) = data.source.take() {
         let src_data = T::get_source_data(&src);
         src_data.offers.remove(&T::get_offer_id(offer));
-        if src_data.offers.is_empty() && src_data.role.get() == Role::Dnd && data.shared.state.get().contains(OFFER_STATE_DROPPED) {
+        if src_data.offers.is_empty()
+            && src_data.role.get() == Role::Dnd
+            && data.shared.state.get().contains(OFFER_STATE_DROPPED)
+        {
             if let Some(seat) = src_data.seat.take() {
                 T::unset(&seat, data.shared.role.get());
             }
