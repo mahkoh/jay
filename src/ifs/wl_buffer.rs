@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::clientmem::{ClientMem, ClientMemOffset};
 use crate::format::Format;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::{Image, Texture};
@@ -29,6 +30,7 @@ pub struct WlBuffer {
     pub texture: CloneCell<Option<Rc<Texture>>>,
     width: i32,
     height: i32,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlBuffer {
@@ -55,6 +57,7 @@ impl WlBuffer {
             height,
             texture: CloneCell::new(None),
             storage: WlBufferStorage::Dmabuf(img.clone()),
+            tracker: Default::default(),
         }
     }
 
@@ -89,6 +92,7 @@ impl WlBuffer {
             width,
             height,
             texture: CloneCell::new(None),
+            tracker: Default::default(),
         })
     }
 

@@ -7,6 +7,8 @@ use crate::ifs::ipc::{
     break_device_loops, destroy_device, DeviceData, OfferData, Role, SourceData, Vtable,
 };
 use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
+use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceError};
+use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -15,7 +17,6 @@ use crate::wire::{WlDataDeviceId, WlDataOfferId, WlSurfaceId};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
-use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceError};
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;
@@ -25,6 +26,7 @@ pub struct WlDataDevice {
     pub manager: Rc<WlDataDeviceManager>,
     pub seat: Rc<WlSeat>,
     pub data: DeviceData<WlDataDevice>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlDataDevice {
@@ -34,6 +36,7 @@ impl WlDataDevice {
             manager: manager.clone(),
             seat: seat.clone(),
             data: Default::default(),
+            tracker: Default::default(),
         }
     }
 
@@ -153,13 +156,16 @@ impl Vtable for WlDataDevice {
         device: &Rc<WlDataDevice>,
         offer_data: OfferData<Self>,
         id: ObjectId,
-    ) -> Self::Offer {
-        WlDataOffer {
+    ) -> Rc<Self::Offer> {
+        let rc = Rc::new(WlDataOffer {
             id: id.into(),
             client: client.clone(),
             device: device.clone(),
             data: offer_data,
-        }
+            tracker: Default::default(),
+        });
+        track!(client, rc);
+        rc
     }
 
     fn send_selection(dd: &Self::Device, offer: Self::OfferId) {

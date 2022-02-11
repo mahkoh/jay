@@ -1,6 +1,7 @@
 use crate::backend::Output;
 use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -100,7 +101,9 @@ impl WlOutputGlobal {
             id,
             client: client.clone(),
             version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         self.bindings
             .borrow_mut()
@@ -142,6 +145,7 @@ pub struct WlOutput {
     pub id: WlOutputId,
     client: Rc<Client>,
     version: u32,
+    tracker: Tracker<Self>,
 }
 
 pub const SEND_DONE_SINCE: u32 = 2;

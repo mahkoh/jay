@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::{break_offer_loops, destroy_offer, receive, OfferData};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zwp_primary_selection_offer_v1::*;
@@ -12,6 +13,7 @@ pub struct ZwpPrimarySelectionOfferV1 {
     pub id: ZwpPrimarySelectionOfferV1Id,
     pub client: Rc<Client>,
     pub offer_data: OfferData<ZwpPrimarySelectionDeviceV1>,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZwpPrimarySelectionOfferV1 {

@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::format::FORMATS;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_shm_pool::{WlShmPool, WlShmPoolError};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -18,6 +19,7 @@ pub struct WlShm {
     _global: Rc<WlShmGlobal>,
     id: WlShmId,
     client: Rc<Client>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlShmGlobal {
@@ -35,7 +37,9 @@ impl WlShmGlobal {
             _global: self,
             id,
             client: client.clone(),
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         for format in FORMATS {
             client.event(Format {
@@ -59,6 +63,7 @@ impl WlShm {
             create.fd,
             create.size as usize,
         )?);
+        track!(self.client, pool);
         self.client.add_client_obj(&pool)?;
         Ok(())
     }

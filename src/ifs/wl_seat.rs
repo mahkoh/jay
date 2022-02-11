@@ -21,6 +21,7 @@ use crate::ifs::wl_seat::wl_pointer::WlPointer;
 use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
 use crate::tree::{FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
@@ -41,6 +42,8 @@ pub use event_handling::NodeSeatState;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::io::Write;
+use std::mem;
+use std::ops::DerefMut;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
@@ -266,6 +269,11 @@ impl WlSeatGlobal {
         self.cursor.get()
     }
 
+    pub fn clear(&self) {
+        mem::take(self.pointer_stack.borrow_mut().deref_mut());
+        mem::take(self.found_tree.borrow_mut().deref_mut());
+    }
+
     pub fn id(&self) -> SeatId {
         self.seat.id()
     }
@@ -283,7 +291,9 @@ impl WlSeatGlobal {
             pointers: Default::default(),
             keyboards: Default::default(),
             version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         obj.send_capabilities();
         if version >= SEAT_NAME_SINCE {
@@ -323,6 +333,7 @@ pub struct WlSeat {
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
     version: u32,
+    tracker: Tracker<Self>,
 }
 
 impl WlSeat {
@@ -381,6 +392,7 @@ impl WlSeat {
     fn get_pointer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPointerError> {
         let req: GetPointer = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlPointer::new(req.id, self));
+        track!(self.client, p);
         self.client.add_client_obj(&p)?;
         self.pointers.set(req.id, p);
         Ok(())
@@ -389,6 +401,7 @@ impl WlSeat {
     fn get_keyboard(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetKeyboardError> {
         let req: GetKeyboard = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlKeyboard::new(req.id, self));
+        track!(self.client, p);
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
         p.send_keymap(wl_keyboard::XKB_V1, p.keymap_fd()?, self.global.layout_size);
@@ -401,6 +414,7 @@ impl WlSeat {
     fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetTouchError> {
         let req: GetTouch = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlTouch::new(req.id, self));
+        track!(self.client, p);
         self.client.add_client_obj(&p)?;
         Ok(())
     }
@@ -409,8 +423,11 @@ impl WlSeat {
         let _req: Release = self.client.parse(self, parser)?;
         {
             let mut bindings = self.global.bindings.borrow_mut();
-            if let Some(hm) = bindings.get_mut(&self.client.id) {
-                hm.remove(&self.id);
+            if let Entry::Occupied(mut hm) = bindings.entry(self.client.id) {
+                hm.get_mut().remove(&self.id);
+                if hm.get().is_empty() {
+                    hm.remove();
+                }
             }
         }
         self.client.remove_obj(self)?;
@@ -439,8 +456,11 @@ impl Object for WlSeat {
     fn break_loops(&self) {
         {
             let mut bindings = self.global.bindings.borrow_mut();
-            if let Some(hm) = bindings.get_mut(&self.client.id) {
-                hm.remove(&self.id);
+            if let Entry::Occupied(mut hm) = bindings.entry(self.client.id) {
+                hm.get_mut().remove(&self.id);
+                if hm.get().is_empty() {
+                    hm.remove();
+                }
             }
         }
         self.pointers.clear();

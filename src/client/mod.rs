@@ -4,12 +4,12 @@ use crate::client::objects::Objects;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_registry::WlRegistry;
+use crate::leaks::Tracker;
 use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain};
 use crate::utils::numcell::NumCell;
-use crate::utils::oneshot::{oneshot, OneshotTx};
 use crate::utils::queue::AsyncQueue;
 use crate::wire::WlRegistryId;
 use crate::ErrorFmt;
@@ -19,6 +19,7 @@ use std::cell::{Cell, RefCell, RefMut};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::mem;
+use std::ops::DerefMut;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
 
@@ -48,6 +49,11 @@ impl Clients {
             clients: Default::default(),
             shutdown_clients: Default::default(),
         }
+    }
+
+    pub fn clear(&self) {
+        mem::take(self.clients.borrow_mut().deref_mut());
+        mem::take(self.shutdown_clients.borrow_mut().deref_mut());
     }
 
     pub fn id(&self) -> ClientId {
@@ -86,7 +92,6 @@ impl Clients {
                 }
             }
         };
-        let (send, recv) = oneshot();
         let data = Rc::new(Client {
             id,
             state: global.clone(),
@@ -95,14 +100,17 @@ impl Clients {
             objects: Objects::new(),
             swapchain: Default::default(),
             flush_request: Default::default(),
-            shutdown: Cell::new(Some(send)),
+            shutdown: Default::default(),
             dispatch_frame_requests: AsyncQueue::new(),
+            tracker: Default::default(),
         });
+        track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
+        track!(data, display);
         data.objects.display.set(Some(display.clone()));
         data.objects.add_client_object(display).expect("");
         let client = ClientHolder {
-            _handler: global.eng.spawn(tasks::client(data.clone(), recv)),
+            _handler: global.eng.spawn(tasks::client(data.clone())),
             data,
         };
         log::info!(
@@ -126,7 +134,7 @@ impl Clients {
     pub fn shutdown(&self, client_id: ClientId) {
         if let Some(client) = self.clients.borrow_mut().remove(&client_id) {
             log::info!("Shutting down client {}", client.data.id.0);
-            client.data.shutdown.replace(None).unwrap().send(());
+            client.data.shutdown.trigger();
             client.data.flush_request.trigger();
             self.shutdown_clients.borrow_mut().insert(client_id, client);
         }
@@ -159,6 +167,8 @@ impl Drop for ClientHolder {
     fn drop(&mut self) {
         self.data.objects.destroy();
         self.data.dispatch_frame_requests.clear();
+        self.data.flush_request.clear();
+        self.data.shutdown.clear();
     }
 }
 
@@ -180,8 +190,9 @@ pub struct Client {
     pub objects: Objects,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
-    shutdown: Cell<Option<OneshotTx<()>>>,
+    shutdown: AsyncEvent,
     pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
+    pub tracker: Tracker<Client>,
 }
 
 const MAX_PENDING_BUFFERS: usize = 10;

@@ -10,6 +10,7 @@ use crate::ifs::wl_surface::{
     CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
 };
 use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
@@ -22,6 +23,7 @@ use crate::wire::xdg_surface::*;
 use crate::wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId};
 use crate::NumCell;
 use std::cell::Cell;
+use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -64,14 +66,15 @@ pub struct XdgSurface {
     pub(super) focus_surface: SmallMap<SeatId, Rc<WlSurface>, 1>,
     seat_state: NodeSeatState,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    pub tracker: Tracker<Self>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct PendingXdgSurfaceData {
     geometry: Cell<Option<Rect>>,
 }
 
-trait XdgSurfaceExt {
+pub trait XdgSurfaceExt: Debug {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         Ok(())
     }
@@ -111,6 +114,7 @@ impl XdgSurface {
             focus_surface: Default::default(),
             seat_state: Default::default(),
             workspace: Default::default(),
+            tracker: Default::default(),
         }
     }
 
@@ -214,6 +218,7 @@ impl XdgSurface {
                 return Err(DestroyError::PopupsNotYetDestroyed);
             }
         }
+        self.focus_surface.clear();
         self.surface.set_xdg_surface(None);
         self.surface.unset_ext();
         self.base.surfaces.remove(&self.id);
@@ -236,6 +241,7 @@ impl XdgSurface {
             return Err(GetToplevelError::AlreadyConstructed);
         }
         let toplevel = Rc::new(XdgToplevel::new(req.id, self));
+        track!(self.surface.client, toplevel);
         self.surface.client.add_client_obj(&toplevel)?;
         self.ext.set(Some(toplevel));
         Ok(())
@@ -261,6 +267,7 @@ impl XdgSurface {
             return Err(GetPopupError::AlreadyConstructed);
         }
         let popup = Rc::new(XdgPopup::new(req.id, self, parent.as_ref(), &positioner)?);
+        track!(self.surface.client, popup);
         self.surface.client.add_client_obj(&popup)?;
         if let Some(parent) = &parent {
             parent.popups.set(req.id, popup.clone());
@@ -341,6 +348,9 @@ impl Object for XdgSurface {
 
     fn break_loops(&self) {
         self.focus_surface.take();
+        self.ext.take();
+        self.popups.clear();
+        self.workspace.set(None);
     }
 }
 

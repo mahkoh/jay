@@ -3,6 +3,7 @@ use crate::drm::dma::{DmaBuf, DmaBufPlane};
 use crate::drm::INVALID_MODIFIER;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -28,6 +29,7 @@ pub struct ZwpLinuxBufferParamsV1 {
     pub parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<AHashMap<u32, Add>>,
     used: Cell<bool>,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZwpLinuxBufferParamsV1 {
@@ -37,6 +39,7 @@ impl ZwpLinuxBufferParamsV1 {
             parent: parent.clone(),
             planes: RefCell::new(Default::default()),
             used: Cell::new(false),
+            tracker: Default::default(),
         }
     }
 
@@ -120,6 +123,7 @@ impl ZwpLinuxBufferParamsV1 {
             format,
             &img,
         ));
+        track!(self.parent.client, buffer);
         if is_client_id {
             self.parent.client.add_client_obj(&buffer)?;
         } else {

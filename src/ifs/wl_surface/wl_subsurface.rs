@@ -3,6 +3,7 @@ use crate::ifs::wl_surface::{
     CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
     WlSurfaceId,
 };
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
@@ -31,6 +32,7 @@ pub struct WlSubsurface {
     node: RefCell<Option<LinkedNode<StackElement>>>,
     depth: NumCell<u32>,
     pending: PendingSubsurfaceData,
+    pub tracker: Tracker<Self>,
 }
 
 #[derive(Default)]
@@ -85,6 +87,7 @@ impl WlSubsurface {
             node: RefCell::new(None),
             depth: NumCell::new(0),
             pending: Default::default(),
+            tracker: Default::default(),
         }
     }
 

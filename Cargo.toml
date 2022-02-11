@@ -9,6 +9,7 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
+codegen-units = 1
 
 [dependencies]
 uapi = "0.2.4"
@@ -31,6 +32,7 @@ renderdoc = "0.10.1"
 smallvec = { version = "1.8.0", features = ["const_generics", "const_new", "union"] }
 backtrace = "0.3.64"
 byteorder = "1.4.3"
+chrono = "0.4.19"
 
 [build-dependencies]
 repc = "0.1.1"
@@ -39,3 +41,6 @@ bstr = "0.2.17"
 
 [profile.dev.build-override]
 opt-level = 3
+
+[features]
+rc_tracking = []

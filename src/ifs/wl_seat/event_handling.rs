@@ -85,6 +85,8 @@ impl NodeSeatState {
                 if last.id() == node_id {
                     break;
                 }
+                last.seat_state().leave(&seat);
+                last.leave(&seat);
             }
             seat.state.tree_changed();
         }

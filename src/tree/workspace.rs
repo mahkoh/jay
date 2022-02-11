@@ -6,6 +6,7 @@ use crate::tree::container::ContainerNode;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 tree_id!(WorkspaceNodeId);

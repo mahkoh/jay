@@ -1,4 +1,5 @@
 use crate::fixed::Fixed;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 linear_ids!(OutputIds, OutputId);

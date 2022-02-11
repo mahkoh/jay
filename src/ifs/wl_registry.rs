@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::globals::{Global, GlobalName, GlobalsError};
+use crate::leaks::Tracker;
 use crate::object::{Interface, Object};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -11,6 +12,7 @@ use thiserror::Error;
 pub struct WlRegistry {
     id: WlRegistryId,
     client: Rc<Client>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlRegistry {
@@ -18,6 +20,7 @@ impl WlRegistry {
         Self {
             id,
             client: client.clone(),
+            tracker: Default::default(),
         }
     }
 

@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::globals::GlobalsError;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
+use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -17,8 +18,9 @@ const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {
-    id: WlDisplayId,
-    client: Rc<Client>,
+    pub id: WlDisplayId,
+    pub client: Rc<Client>,
+    pub tracker: Tracker<WlDisplay>,
 }
 
 impl WlDisplay {
@@ -26,12 +28,14 @@ impl WlDisplay {
         Self {
             id: WL_DISPLAY_ID,
             client: client.clone(),
+            tracker: Default::default(),
         }
     }
 
     fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
         let sync: Sync = self.client.parse(self, parser)?;
         let cb = Rc::new(WlCallback::new(sync.callback, &self.client));
+        track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
         cb.send_done();
         self.client.remove_obj(&*cb)?;
@@ -41,6 +45,7 @@ impl WlDisplay {
     fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), GetRegistryError> {
         let gr: GetRegistry = self.client.parse(self, parser)?;
         let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
+        track!(self.client, registry);
         self.client.add_client_obj(&registry)?;
         self.client.state.globals.notify_all(&registry);
         Ok(())

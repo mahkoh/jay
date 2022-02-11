@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -33,7 +34,9 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
             id,
             client: client.clone(),
             _version: version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         obj.send_default_mode(SERVER);
         Ok(())
@@ -62,6 +65,7 @@ pub struct OrgKdeKwinServerDecorationManager {
     id: OrgKdeKwinServerDecorationManagerId,
     client: Rc<Client>,
     _version: u32,
+    pub tracker: Tracker<Self>,
 }
 
 impl OrgKdeKwinServerDecorationManager {
@@ -76,6 +80,7 @@ impl OrgKdeKwinServerDecorationManager {
         let req: Create = self.client.parse(self, parser)?;
         let _ = self.client.lookup(req.surface)?;
         let obj = Rc::new(OrgKdeKwinServerDecoration::new(req.id, &self.client));
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         obj.send_mode(SERVER);
         Ok(())

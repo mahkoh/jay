@@ -1,4 +1,5 @@
 use crate::client::{Client, ClientError};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -18,6 +19,7 @@ pub struct OrgKdeKwinServerDecoration {
     id: OrgKdeKwinServerDecorationId,
     client: Rc<Client>,
     requested: Cell<bool>,
+    pub tracker: Tracker<Self>,
 }
 
 impl OrgKdeKwinServerDecoration {
@@ -26,6 +28,7 @@ impl OrgKdeKwinServerDecoration {
             id,
             client: client.clone(),
             requested: Cell::new(false),
+            tracker: Default::default(),
         }
     }
 

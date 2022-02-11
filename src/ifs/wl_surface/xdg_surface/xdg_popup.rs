@@ -4,6 +4,7 @@ use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::ifs::xdg_positioner::{XdgPositioned, XdgPositioner, CA};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
@@ -15,6 +16,7 @@ use crate::utils::linkedlist::LinkedNode;
 use crate::wire::xdg_popup::*;
 use crate::wire::XdgPopupId;
 use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -32,6 +34,13 @@ pub struct XdgPopup {
     display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
     workspace_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
     pos: RefCell<XdgPositioned>,
+    pub tracker: Tracker<Self>,
+}
+
+impl Debug for XdgPopup {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("XdgPopup").finish_non_exhaustive()
+    }
 }
 
 impl XdgPopup {
@@ -54,6 +63,7 @@ impl XdgPopup {
             display_link: RefCell::new(None),
             workspace_link: RefCell::new(None),
             pos: RefCell::new(pos),
+            tracker: Default::default(),
         })
     }
 

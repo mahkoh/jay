@@ -1,9 +1,16 @@
 use std::cell::Cell;
+use std::fmt::{Debug, Formatter};
 use std::ops::{Add, BitAnd, BitOr, Sub};
 
 #[derive(Default)]
 pub struct NumCell<T> {
     t: Cell<T>,
+}
+
+impl<T: Copy + Debug> Debug for NumCell<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.t.get().fmt(f)
+    }
 }
 
 impl<T> NumCell<T> {

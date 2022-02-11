@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError};
 use crate::ifs::xdg_positioner::XdgPositioner;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -32,6 +33,7 @@ pub struct XdgWmBase {
     client: Rc<Client>,
     pub version: u32,
     pub(super) surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
+    pub tracker: Tracker<Self>,
 }
 
 impl XdgWmBaseGlobal {
@@ -50,7 +52,9 @@ impl XdgWmBaseGlobal {
             client: client.clone(),
             version,
             surfaces: Default::default(),
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         Ok(())
     }
@@ -80,6 +84,7 @@ impl XdgWmBase {
     ) -> Result<(), CreatePositionerError> {
         let req: CreatePositioner = self.client.parse(&**self, parser)?;
         let pos = Rc::new(XdgPositioner::new(self, req.id, &self.client));
+        track!(self.client, pos);
         self.client.add_client_obj(&pos)?;
         Ok(())
     }
@@ -91,6 +96,7 @@ impl XdgWmBase {
         let req: GetXdgSurface = self.client.parse(&**self, parser)?;
         let surface = self.client.lookup(req.surface)?;
         let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface));
+        track!(self.client, xdg_surface);
         self.client.add_client_obj(&xdg_surface)?;
         xdg_surface.install()?;
         self.surfaces.set(req.id, xdg_surface);

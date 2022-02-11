@@ -14,7 +14,7 @@ use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 pub use container::*;
 use std::cell::{Cell, RefCell};
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
@@ -306,6 +306,12 @@ pub struct OutputNode {
     pub seat_state: NodeSeatState,
 }
 
+impl Debug for OutputNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OutputNode").finish_non_exhaustive()
+    }
+}
+
 impl Node for OutputNode {
     fn id(&self) -> NodeId {
         self.id.into()
@@ -373,6 +379,12 @@ pub struct FloatNode {
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub child: CloneCell<Option<Rc<dyn Node>>>,
     pub seat_state: NodeSeatState,
+}
+
+impl Debug for FloatNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FloatNode").finish_non_exhaustive()
+    }
 }
 
 impl Node for FloatNode {

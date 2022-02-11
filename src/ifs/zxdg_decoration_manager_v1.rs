@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zxdg_decoration_manager_v1::*;
@@ -26,7 +27,9 @@ impl ZxdgDecorationManagerV1Global {
             id,
             client: client.clone(),
             _version: version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         Ok(())
     }
@@ -54,6 +57,7 @@ pub struct ZxdgDecorationManagerV1 {
     id: ZxdgDecorationManagerV1Id,
     client: Rc<Client>,
     _version: u32,
+    tracker: Tracker<Self>,
 }
 
 impl ZxdgDecorationManagerV1 {
@@ -70,6 +74,7 @@ impl ZxdgDecorationManagerV1 {
         let req: GetToplevelDecoration = self.client.parse(self, parser)?;
         let tl = self.client.lookup(req.toplevel)?;
         let obj = Rc::new(ZxdgToplevelDecorationV1::new(req.id, &self.client, &tl));
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         obj.do_send_configure();
         Ok(())

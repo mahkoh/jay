@@ -65,9 +65,7 @@ impl OutBufferSwapchain {
 
     pub fn commit(&mut self) {
         if self.cur.write_pos > 0 {
-            let new = self.free.pop().unwrap_or_else(|| {
-                Default::default()
-            });
+            let new = self.free.pop().unwrap_or_else(|| Default::default());
             let old = mem::replace(&mut self.cur, new);
             self.pending.push_back(old);
         }

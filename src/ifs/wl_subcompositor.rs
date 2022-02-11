@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -19,6 +20,7 @@ pub struct WlSubcompositorGlobal {
 pub struct WlSubcompositor {
     id: WlSubcompositorId,
     client: Rc<Client>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlSubcompositorGlobal {
@@ -35,7 +37,9 @@ impl WlSubcompositorGlobal {
         let obj = Rc::new(WlSubcompositor {
             id,
             client: client.clone(),
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         Ok(())
     }
@@ -53,6 +57,7 @@ impl WlSubcompositor {
         let surface = self.client.lookup(req.surface)?;
         let parent = self.client.lookup(req.parent)?;
         let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent));
+        track!(self.client, subsurface);
         self.client.add_client_obj(&subsurface)?;
         subsurface.install()?;
         Ok(())

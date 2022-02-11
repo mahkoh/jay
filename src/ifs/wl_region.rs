@@ -1,4 +1,5 @@
 use crate::client::{Client, ClientError};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::pixman::Region;
 use crate::utils::buffd::MsgParser;
@@ -13,6 +14,7 @@ pub struct WlRegion {
     id: WlRegionId,
     client: Rc<Client>,
     rect: RefCell<Region>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlRegion {
@@ -21,6 +23,7 @@ impl WlRegion {
             id,
             client: client.clone(),
             rect: RefCell::new(Region::new()),
+            tracker: Default::default(),
         }
     }
 

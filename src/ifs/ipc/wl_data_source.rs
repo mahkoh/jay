@@ -6,6 +6,7 @@ use crate::ifs::ipc::{
     add_mime_type, break_source_loops, cancel_offers, destroy_source, SharedState, SourceData,
     OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
 };
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buffd::MsgParser;
@@ -24,12 +25,14 @@ const INVALID_SOURCE: u32 = 1;
 pub struct WlDataSource {
     pub id: WlDataSourceId,
     pub data: SourceData<WlDataDevice>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlDataSource {
     pub fn new(id: WlDataSourceId, client: &Rc<Client>) -> Self {
         Self {
             id,
+            tracker: Default::default(),
             data: SourceData::new(client),
         }
     }

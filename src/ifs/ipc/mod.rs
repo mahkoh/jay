@@ -47,7 +47,7 @@ pub trait Vtable: Sized {
         dd: &Rc<Self::Device>,
         data: OfferData<Self>,
         id: ObjectId,
-    ) -> Self::Offer;
+    ) -> Rc<Self::Offer>;
     fn send_selection(dd: &Self::Device, offer: Self::OfferId);
     fn send_cancelled(source: &Self::Source);
     fn get_offer_id(offer: &Self::Offer) -> Self::OfferId;
@@ -215,7 +215,7 @@ pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
             client: client.clone(),
             shared: shared.clone(),
         };
-        let offer = Rc::new(T::create_offer(client, dd, offer_data, id));
+        let offer = T::create_offer(client, dd, offer_data, id);
         data.offers.insert(id.into(), offer.clone());
         let mt = data.mime_types.borrow_mut();
         T::send_offer(dd, &offer);

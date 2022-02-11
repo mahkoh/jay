@@ -20,6 +20,7 @@ pub static NONE: Bugs = Bugs {
     respect_min_max_size: false,
 };
 
+#[derive(Debug)]
 pub struct Bugs {
     pub respect_min_max_size: bool,
 }

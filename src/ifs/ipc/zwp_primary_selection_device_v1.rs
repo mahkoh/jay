@@ -6,6 +6,7 @@ use crate::ifs::ipc::{
     break_device_loops, destroy_device, DeviceData, OfferData, Role, SourceData, Vtable,
 };
 use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
+use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zwp_primary_selection_device_v1::*;
@@ -19,6 +20,7 @@ pub struct ZwpPrimarySelectionDeviceV1 {
     pub manager: Rc<ZwpPrimarySelectionDeviceManagerV1>,
     seat: Rc<WlSeat>,
     data: DeviceData<Self>,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZwpPrimarySelectionDeviceV1 {
@@ -32,6 +34,7 @@ impl ZwpPrimarySelectionDeviceV1 {
             manager: manager.clone(),
             seat: seat.clone(),
             data: DeviceData::default(),
+            tracker: Default::default(),
         }
     }
 
@@ -104,12 +107,15 @@ impl Vtable for ZwpPrimarySelectionDeviceV1 {
         _device: &Rc<ZwpPrimarySelectionDeviceV1>,
         offer_data: OfferData<Self>,
         id: ObjectId,
-    ) -> Self::Offer {
-        ZwpPrimarySelectionOfferV1 {
+    ) -> Rc<Self::Offer> {
+        let rc = Rc::new(ZwpPrimarySelectionOfferV1 {
             id: id.into(),
             client: client.clone(),
             offer_data,
-        }
+            tracker: Default::default(),
+        });
+        track!(client, rc);
+        rc
     }
 
     fn send_selection(dd: &Self::Device, offer: Self::OfferId) {

@@ -1,5 +1,6 @@
 use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeat;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -26,6 +27,7 @@ const ORIENTATION: u32 = 6;
 pub struct WlTouch {
     id: WlTouchId,
     seat: Rc<WlSeat>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlTouch {
@@ -33,6 +35,7 @@ impl WlTouch {
         Self {
             id,
             seat: seat.clone(),
+            tracker: Default::default(),
         }
     }
 

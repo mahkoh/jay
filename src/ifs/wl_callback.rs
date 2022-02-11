@@ -1,4 +1,5 @@
 use crate::client::Client;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::wire::wl_callback::*;
 use crate::wire::WlCallbackId;
@@ -8,6 +9,7 @@ use thiserror::Error;
 pub struct WlCallback {
     client: Rc<Client>,
     id: WlCallbackId,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlCallback {
@@ -15,6 +17,7 @@ impl WlCallback {
         Self {
             client: client.clone(),
             id,
+            tracker: Default::default(),
         }
     }
 

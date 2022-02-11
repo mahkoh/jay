@@ -3,6 +3,7 @@ use crate::cursor::Cursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
 use crate::ifs::wl_surface::WlSurfaceError;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -34,6 +35,7 @@ pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
 pub struct WlPointer {
     id: WlPointerId,
     seat: Rc<WlSeat>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlPointer {
@@ -41,6 +43,7 @@ impl WlPointer {
         Self {
             id,
             seat: seat.clone(),
+            tracker: Default::default(),
         }
     }
 

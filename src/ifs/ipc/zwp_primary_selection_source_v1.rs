@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::{add_mime_type, break_source_loops, destroy_source, SourceData};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zwp_primary_selection_source_v1::*;
@@ -12,6 +13,7 @@ use uapi::OwnedFd;
 pub struct ZwpPrimarySelectionSourceV1 {
     pub id: ZwpPrimarySelectionSourceV1Id,
     pub data: SourceData<ZwpPrimarySelectionDeviceV1>,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZwpPrimarySelectionSourceV1 {
@@ -19,6 +21,7 @@ impl ZwpPrimarySelectionSourceV1 {
         Self {
             id,
             data: SourceData::new(client),
+            tracker: Default::default(),
         }
     }
 

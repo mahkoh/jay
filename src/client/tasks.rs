@@ -1,7 +1,6 @@
 use crate::client::{Client, ClientError};
 use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgParser};
-use crate::utils::oneshot::OneshotRx;
 use crate::utils::vec_ext::VecExt;
 use crate::ErrorFmt;
 use futures::{select, FutureExt};
@@ -9,14 +8,15 @@ use std::collections::VecDeque;
 use std::mem;
 use std::rc::Rc;
 
-pub async fn client(data: Rc<Client>, shutdown: OneshotRx<()>) {
+pub async fn client(data: Rc<Client>) {
     let mut recv = data.state.eng.spawn(receive(data.clone())).fuse();
     let mut dispatch_fr = data.state.eng.spawn(dispatch_fr(data.clone())).fuse();
+    let mut shutdown = data.shutdown.triggered().fuse();
     let _send = data.state.eng.spawn(send(data.clone()));
     select! {
         _ = recv => { },
         _ = dispatch_fr => { },
-        _ = shutdown.fuse() => { },
+        _ = shutdown => { },
     }
     drop(recv);
     drop(dispatch_fr);

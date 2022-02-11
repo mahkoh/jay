@@ -11,6 +11,10 @@ pub struct AsyncEvent {
 }
 
 impl AsyncEvent {
+    pub fn clear(&self) {
+        self.waker.take();
+    }
+
     pub fn trigger(&self) {
         self.triggers.fetch_add(1);
         if let Some(waker) = self.waker.take() {

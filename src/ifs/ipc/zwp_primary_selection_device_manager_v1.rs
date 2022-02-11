@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -18,6 +19,7 @@ pub struct ZwpPrimarySelectionDeviceManagerV1 {
     pub id: ZwpPrimarySelectionDeviceManagerV1Id,
     pub client: Rc<Client>,
     pub version: u32,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZwpPrimarySelectionDeviceManagerV1Global {
@@ -35,7 +37,9 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
             id,
             client: client.clone(),
             version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         Ok(())
     }
@@ -45,6 +49,7 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
     fn create_source(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSourceError> {
         let req: CreateSource = self.client.parse(self, parser)?;
         let res = Rc::new(ZwpPrimarySelectionSourceV1::new(req.id, &self.client));
+        track!(self.client, res);
         self.client.add_client_obj(&res)?;
         Ok(())
     }
@@ -53,6 +58,7 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
         let req: GetDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(ZwpPrimarySelectionDeviceV1::new(req.id, self, &seat));
+        track!(self.client, dev);
         seat.add_primary_selection_device(&dev);
         self.client.add_client_obj(&dev)?;
         Ok(())

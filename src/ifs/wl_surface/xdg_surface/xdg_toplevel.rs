@@ -5,6 +5,7 @@ use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
@@ -21,7 +22,9 @@ use crate::{bugs, NumCell};
 use ahash::{AHashMap, AHashSet};
 use num_derive::FromPrimitive;
 use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter};
 use std::mem;
+use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -78,6 +81,13 @@ pub struct XdgToplevel {
     min_height: Cell<Option<i32>>,
     max_width: Cell<Option<i32>>,
     max_height: Cell<Option<i32>>,
+    pub tracker: Tracker<Self>,
+}
+
+impl Debug for XdgToplevel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("XdgToplevel").finish_non_exhaustive()
+    }
 }
 
 impl XdgToplevel {
@@ -103,6 +113,7 @@ impl XdgToplevel {
             min_height: Cell::new(None),
             max_width: Cell::new(None),
             max_height: Cell::new(None),
+            tracker: Default::default(),
         }
     }
 
@@ -158,19 +169,30 @@ impl XdgToplevel {
         })
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
-        let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
+    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+        let _req: Destroy = self.xdg.surface.client.parse(self.deref(), parser)?;
         self.destroy_node(true);
         self.xdg.ext.set(None);
-        if let Some(parent) = self.parent_node.take() {
-            parent.remove_child(self);
-        }
         {
             let mut children = self.children.borrow_mut();
+            let parent = self.parent.get();
+            let mut parent_children = match &parent {
+                Some(p) => Some(p.children.borrow_mut()),
+                _ => None,
+            };
             for (_, child) in children.drain() {
-                child.parent.set(self.parent.get());
+                child.parent.set(parent.clone());
+                if let Some(parent_children) = &mut parent_children {
+                    parent_children.insert(child.id, child);
+                }
             }
         }
+        {
+            if let Some(parent) = self.parent.take() {
+                parent.children.borrow_mut().remove(&self.id);
+            }
+        }
+        self.xdg.surface.client.remove_obj(self.deref())?;
         Ok(())
     }
 
@@ -388,9 +410,6 @@ impl Object for XdgToplevel {
 
     fn break_loops(&self) {
         self.destroy_node(true);
-        if let Some(parent) = self.parent_node.take() {
-            parent.remove_child(self);
-        }
         self.parent.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
     }
@@ -411,6 +430,7 @@ impl Node for XdgToplevel {
         if let Some(parent) = self.parent_node.take() {
             if detach {
                 parent.remove_child(self);
+                self.xdg.surface.client.state.tree_changed();
             }
         }
         self.toplevel_history.take();

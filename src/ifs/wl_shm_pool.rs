@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::clientmem::ClientMem;
 use crate::format::{formats, map_wayland_format_id};
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferError};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -18,6 +19,7 @@ pub struct WlShmPool {
     client: Rc<Client>,
     fd: Rc<OwnedFd>,
     mem: CloneCell<Rc<ClientMem>>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlShmPool {
@@ -32,6 +34,7 @@ impl WlShmPool {
             client: client.clone(),
             mem: CloneCell::new(Rc::new(ClientMem::new(fd.raw(), len)?)),
             fd,
+            tracker: Default::default(),
         })
     }
 
@@ -55,6 +58,7 @@ impl WlShmPool {
             format,
             &self.mem.get(),
         )?);
+        track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())
     }

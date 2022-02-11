@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -27,6 +28,7 @@ pub struct WlDataDeviceManager {
     pub id: WlDataDeviceManagerId,
     pub client: Rc<Client>,
     pub version: u32,
+    tracker: Tracker<Self>,
 }
 
 impl WlDataDeviceManagerGlobal {
@@ -44,7 +46,9 @@ impl WlDataDeviceManagerGlobal {
             id,
             client: client.clone(),
             version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         Ok(())
     }
@@ -54,6 +58,7 @@ impl WlDataDeviceManager {
     fn create_data_source(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateDataSourceError> {
         let req: CreateDataSource = self.client.parse(self, parser)?;
         let res = Rc::new(WlDataSource::new(req.id, &self.client));
+        track!(self.client, res);
         self.client.add_client_obj(&res)?;
         Ok(())
     }
@@ -65,6 +70,7 @@ impl WlDataDeviceManager {
         let req: GetDataDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(WlDataDevice::new(req.id, self, &seat));
+        track!(self.client, dev);
         seat.add_data_device(&dev);
         self.client.add_client_obj(&dev)?;
         Ok(())

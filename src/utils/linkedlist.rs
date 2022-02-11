@@ -1,12 +1,18 @@
 use crate::utils::ptr_ext::PtrExt;
 use crate::NumCell;
 use std::cell::Cell;
-use std::mem::MaybeUninit;
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::ptr::NonNull;
 
 pub struct LinkedList<T> {
     root: LinkedNode<T>,
+}
+
+impl<T: Debug> Debug for LinkedList<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
 }
 
 impl<T> Default for LinkedList<T> {
@@ -18,10 +24,10 @@ impl<T> Default for LinkedList<T> {
 impl<T> LinkedList<T> {
     pub fn new() -> Self {
         let node = Box::into_raw(Box::new(NodeData {
-            rc: NumCell::new(3),
+            rc: NumCell::new(1),
             prev: Cell::new(NonNull::dangling()),
             next: Cell::new(NonNull::dangling()),
-            data: MaybeUninit::uninit(),
+            data: None,
         }));
         unsafe {
             node.deref().prev.set(NonNull::new_unchecked(node));
@@ -151,11 +157,17 @@ pub struct LinkedNode<T> {
     data: NonNull<NodeData<T>>,
 }
 
+impl<T: Debug> Debug for LinkedNode<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        unsafe { self.data.as_ref().data.as_ref().unwrap_unchecked().fmt(f) }
+    }
+}
+
 impl<T> Deref for LinkedNode<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.data.as_ref().data.assume_init_ref() }
+        unsafe { self.data.as_ref().data.as_ref().unwrap_unchecked() }
     }
 }
 
@@ -163,11 +175,17 @@ pub struct NodeRef<T> {
     data: NonNull<NodeData<T>>,
 }
 
+impl<T: Debug> Debug for NodeRef<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        unsafe { self.data.as_ref().data.as_ref().unwrap_unchecked().fmt(f) }
+    }
+}
+
 impl<T> Deref for NodeRef<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.data.as_ref().data.assume_init_ref() }
+        unsafe { self.data.as_ref().data.as_ref().unwrap_unchecked() }
     }
 }
 
@@ -197,22 +215,16 @@ impl<T> NodeRef<T> {
         unsafe { append(self.data, t) }
     }
 
-    pub fn prev(&self) -> NodeRef<T> {
+    pub fn prev(&self) -> Option<NodeRef<T>> {
         unsafe {
             let data = self.data.as_ref();
             let other = data.prev.get();
-            other.as_ref().rc.fetch_add(1);
-            NodeRef { data: other }
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn next(&self) -> NodeRef<T> {
-        unsafe {
-            let data = self.data.as_ref();
-            let other = data.next.get();
-            other.as_ref().rc.fetch_add(1);
-            NodeRef { data: other }
+            if other.as_ref().data.is_some() {
+                other.as_ref().rc.fetch_add(1);
+                Some(NodeRef { data: other })
+            } else {
+                None
+            }
         }
     }
 }
@@ -221,7 +233,7 @@ struct NodeData<T> {
     rc: NumCell<usize>,
     prev: Cell<NonNull<NodeData<T>>>,
     next: Cell<NonNull<NodeData<T>>>,
-    data: MaybeUninit<T>,
+    data: Option<T>,
 }
 
 unsafe fn dec_ref_count<T>(slf: NonNull<NodeData<T>>, n: usize) {
@@ -237,8 +249,10 @@ impl<T> Drop for LinkedNode<T> {
                 let data = self.data.as_ref();
                 data.prev.get().as_ref().next.set(data.next.get());
                 data.next.get().as_ref().prev.set(data.prev.get());
+                data.prev.set(self.data);
+                data.next.set(self.data);
             }
-            dec_ref_count(self.data, 3);
+            dec_ref_count(self.data, 1);
         }
     }
 }
@@ -263,10 +277,10 @@ impl<T> LinkedNode<T> {
 unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     let dref = data.as_ref();
     let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-        rc: NumCell::new(3),
+        rc: NumCell::new(1),
         prev: Cell::new(dref.prev.get()),
         next: Cell::new(data),
-        data: MaybeUninit::new(t),
+        data: Some(t),
     })));
     dref.prev.get().as_ref().next.set(node);
     dref.prev.set(node);
@@ -276,10 +290,10 @@ unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
 unsafe fn append<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     let dref = data.as_ref();
     let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-        rc: NumCell::new(3),
+        rc: NumCell::new(1),
         prev: Cell::new(data),
         next: Cell::new(dref.next.get()),
-        data: MaybeUninit::new(t),
+        data: Some(t),
     })));
     dref.next.get().as_ref().prev.set(node);
     dref.next.set(node);

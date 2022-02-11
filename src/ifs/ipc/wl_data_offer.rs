@@ -5,6 +5,7 @@ use crate::ifs::ipc::{
     break_offer_loops, destroy_offer, receive, OfferData, Role, OFFER_STATE_ACCEPTED,
     OFFER_STATE_DROPPED, OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
 };
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buffd::MsgParser;
@@ -28,6 +29,7 @@ pub struct WlDataOffer {
     pub client: Rc<Client>,
     pub device: Rc<WlDataDevice>,
     pub data: OfferData<WlDataDevice>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlDataOffer {

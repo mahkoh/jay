@@ -4,7 +4,7 @@ use crate::ifs::ipc;
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::wl_seat::{Dnd, DroppedDnd, WlSeatError, WlSeatGlobal};
-use crate::ifs::wl_surface::{WlSurface};
+use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{FoundNode, Node};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;

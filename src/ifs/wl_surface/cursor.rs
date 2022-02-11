@@ -1,6 +1,7 @@
 use crate::cursor::Cursor;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use std::cell::Cell;
@@ -12,6 +13,7 @@ pub struct CursorSurface {
     hotspot: Cell<(i32, i32)>,
     pos: Cell<(i32, i32)>,
     extents: Cell<Rect>,
+    pub tracker: Tracker<Self>,
 }
 
 impl CursorSurface {
@@ -22,6 +24,7 @@ impl CursorSurface {
             hotspot: Cell::new((0, 0)),
             pos: Cell::new((0, 0)),
             extents: Cell::new(Default::default()),
+            tracker: Default::default(),
         }
     }
 

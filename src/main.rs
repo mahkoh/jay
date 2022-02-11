@@ -1,4 +1,11 @@
-#![feature(c_variadic, thread_local, label_break_value, ptr_metadata)]
+#![feature(
+    c_variadic,
+    thread_local,
+    label_break_value,
+    ptr_metadata,
+    linkage,
+    const_type_name
+)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,
@@ -32,14 +39,18 @@ use crate::wheel::WheelError;
 use acceptor::Acceptor;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
+use isnt::std_1::primitive::IsntMutPtrExt;
 use log::LevelFilter;
 use std::cell::Cell;
+use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
 
 #[macro_use]
 mod macros;
+#[macro_use]
+pub mod leaks;
 mod acceptor;
 mod async_engine;
 mod backend;
@@ -70,6 +81,15 @@ mod wire;
 mod xkbcommon;
 
 fn main() {
+    unsafe {
+        extern "C" {
+            #[linkage = "extern_weak"]
+            static BYTEHOUND_REACHED_MAIN: *mut bool;
+        }
+        if BYTEHOUND_REACHED_MAIN.is_not_null() {
+            *BYTEHOUND_REACHED_MAIN = true;
+        }
+    }
     env_logger::builder()
         .filter_level(LevelFilter::Info)
         .filter_level(LevelFilter::Debug)
@@ -102,6 +122,7 @@ enum MainError {
 }
 
 fn main_() -> Result<(), MainError> {
+    leaks::init();
     render::init()?;
     clientmem::init()?;
     let el = EventLoop::new()?;
@@ -136,5 +157,10 @@ fn main_() -> Result<(), MainError> {
     Acceptor::install(&state)?;
     let _backend = XorgBackend::new(&state)?;
     el.run()?;
+    state.clients.clear();
+    for (_, seat) in state.globals.seats.lock().deref() {
+        seat.clear();
+    }
+    leaks::log_leaked();
     Ok(())
 }

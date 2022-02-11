@@ -1,5 +1,6 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::wire::zxdg_toplevel_decoration_v1::*;
@@ -14,6 +15,7 @@ pub struct ZxdgToplevelDecorationV1 {
     pub id: ZxdgToplevelDecorationV1Id,
     pub client: Rc<Client>,
     pub toplevel: Rc<XdgToplevel>,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZxdgToplevelDecorationV1 {
@@ -26,6 +28,7 @@ impl ZxdgToplevelDecorationV1 {
             id,
             client: client.clone(),
             toplevel: toplevel.clone(),
+            tracker: Default::default(),
         }
     }
 

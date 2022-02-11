@@ -9,7 +9,6 @@
 - Workspaces
 - Float moving
 - Highlighting active
-- dnd
 - presentation time
 - viewporter
 - session lock
@@ -19,3 +18,4 @@
 - Container resizing
 - clipboard
 - primary selection
+- dnd

@@ -1,5 +1,6 @@
 use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeat;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -21,6 +22,7 @@ pub(super) const PRESSED: u32 = 1;
 pub struct WlKeyboard {
     id: WlKeyboardId,
     seat: Rc<WlSeat>,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlKeyboard {
@@ -28,6 +30,7 @@ impl WlKeyboard {
         Self {
             id,
             seat: seat.clone(),
+            tracker: Default::default(),
         }
     }
 

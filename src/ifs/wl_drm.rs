@@ -1,5 +1,6 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -31,7 +32,9 @@ impl WlDrmGlobal {
             id,
             client: client.clone(),
             _version: version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         if let Some(rc) = client.state.render_ctx.get() {
             obj.send_device(&rc.render_node());
@@ -59,6 +62,7 @@ pub struct WlDrm {
     id: WlDrmId,
     pub client: Rc<Client>,
     _version: u32,
+    tracker: Tracker<Self>,
 }
 
 impl WlDrm {

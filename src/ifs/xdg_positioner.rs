@@ -1,5 +1,6 @@
 use crate::client::{Client, ClientError};
 use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::utils::buffd::MsgParser;
@@ -69,6 +70,7 @@ pub struct XdgPositioner {
     base: Rc<XdgWmBase>,
     client: Rc<Client>,
     position: RefCell<XdgPositioned>,
+    pub tracker: Tracker<Self>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -146,6 +148,7 @@ impl XdgPositioner {
             client: client.clone(),
             base: base.clone(),
             position: RefCell::new(Default::default()),
+            tracker: Default::default(),
         }
     }
 

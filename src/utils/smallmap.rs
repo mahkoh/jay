@@ -2,10 +2,21 @@ use crate::utils::clonecell::UnsafeCellCloneSafe;
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use smallvec::SmallVec;
 use std::cell::UnsafeCell;
+use std::fmt::{Debug, Formatter};
 use std::mem;
 
 pub struct SmallMap<K, V, const N: usize> {
     m: UnsafeCell<SmallVec<[(K, V); N]>>,
+}
+
+impl<K: Debug, V: Debug, const N: usize> Debug for SmallMap<K, V, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        unsafe {
+            f.debug_map()
+                .entries(self.m.get().deref().iter().map(|e| (&e.0, &e.1)))
+                .finish()
+        }
+    }
 }
 
 impl<K, V, const N: usize> Default for SmallMap<K, V, N> {

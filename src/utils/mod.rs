@@ -7,7 +7,6 @@ pub mod debug_fn;
 pub mod errorfmt;
 pub mod linkedlist;
 pub mod numcell;
-pub mod oneshot;
 pub mod ptr_ext;
 pub mod queue;
 pub mod smallmap;

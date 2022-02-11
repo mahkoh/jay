@@ -35,6 +35,7 @@ impl<T> AsyncQueue<T> {
 
     pub fn clear(&self) {
         mem::take(&mut *self.data.borrow_mut());
+        mem::take(&mut *self.waiters.borrow_mut());
     }
 }
 

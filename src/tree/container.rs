@@ -10,6 +10,7 @@ use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{NumCell, State};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
@@ -53,6 +54,12 @@ pub struct ContainerNode {
     seat_state: NodeSeatState,
     workspace: CloneCell<Rc<WorkspaceNode>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
+}
+
+impl Debug for ContainerNode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContainerNode").finish_non_exhaustive()
+    }
 }
 
 pub struct ContainerChild {
@@ -318,7 +325,7 @@ impl ContainerNode {
                     dist_left,
                     dist_right,
                 } => {
-                    let prev = op.child.prev();
+                    let prev = op.child.prev().unwrap();
                     let prev_body = prev.body.get();
                     let child_body = op.child.body.get();
                     let (prev_factor, child_factor) = match self.split.get() {
@@ -458,7 +465,7 @@ impl Node for ContainerNode {
                         if seat_data.x < body.x2() {
                             let op = if seat_data.x < body.x1() {
                                 SeatOpKind::Resize {
-                                    dist_left: seat_data.x - child.prev().body.get().x2(),
+                                    dist_left: seat_data.x - child.prev().unwrap().body.get().x2(),
                                     dist_right: body.x1() - seat_data.x,
                                 }
                             } else {
@@ -473,7 +480,7 @@ impl Node for ContainerNode {
                         if seat_data.y < body.y1() {
                             let op = if seat_data.y < body.y1() - CONTAINER_TITLE_HEIGHT {
                                 SeatOpKind::Resize {
-                                    dist_left: seat_data.y - child.prev().body.get().y2(),
+                                    dist_left: seat_data.y - child.prev().unwrap().body.get().y2(),
                                     dist_right: body.y1() - seat_data.y,
                                 }
                             } else {
@@ -528,6 +535,7 @@ impl Node for ContainerNode {
         };
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
+            self.seats.borrow_mut().clear();
             self.parent.get().remove_child(self);
             return;
         }

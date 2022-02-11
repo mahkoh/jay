@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::drm::INVALID_MODIFIER;
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -29,7 +30,9 @@ impl ZwpLinuxDmabufV1Global {
             id,
             client: client.clone(),
             _version: version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         if let Some(ctx) = client.state.render_ctx.get() {
             let formats = ctx.formats();
@@ -68,6 +71,7 @@ pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
     _version: u32,
+    pub tracker: Tracker<Self>,
 }
 
 impl ZwpLinuxDmabufV1 {
@@ -96,6 +100,7 @@ impl ZwpLinuxDmabufV1 {
     fn create_params(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CreateParamsError> {
         let req: CreateParams = self.client.parse(&**self, parser)?;
         let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, self));
+        track!(self.client, params);
         self.client.add_client_obj(&params)?;
         Ok(())
     }

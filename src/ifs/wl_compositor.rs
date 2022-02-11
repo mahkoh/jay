@@ -2,6 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -18,6 +19,7 @@ pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
     _version: u32,
+    pub tracker: Tracker<Self>,
 }
 
 impl WlCompositorGlobal {
@@ -35,7 +37,9 @@ impl WlCompositorGlobal {
             id,
             client: client.clone(),
             _version: version,
+            tracker: Default::default(),
         });
+        track!(client, obj);
         client.add_client_obj(&obj)?;
         Ok(())
     }
@@ -45,6 +49,7 @@ impl WlCompositor {
     fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSurfaceError> {
         let surface: CreateSurface = self.client.parse(self, parser)?;
         let surface = Rc::new(WlSurface::new(surface.id, &self.client));
+        track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         Ok(())
     }
@@ -52,6 +57,7 @@ impl WlCompositor {
     fn create_region(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateRegionError> {
         let region: CreateRegion = self.client.parse(self, parser)?;
         let region = Rc::new(WlRegion::new(region.id, &self.client));
+        track!(self.client, region);
         self.client.add_client_obj(&region)?;
         Ok(())
     }

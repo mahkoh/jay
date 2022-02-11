@@ -1,11 +1,18 @@
 use crate::utils::linkedlist::NodeRef;
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use std::cell::UnsafeCell;
+use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::rc::Rc;
 
 pub struct CloneCell<T: UnsafeCellCloneSafe> {
     data: UnsafeCell<T>,
+}
+
+impl<T: UnsafeCellCloneSafe + Debug> Debug for CloneCell<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        unsafe { self.data.get().deref().fmt(f) }
+    }
 }
 
 impl<T: UnsafeCellCloneSafe> CloneCell<T> {

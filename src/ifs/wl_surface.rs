@@ -11,6 +11,7 @@ use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceRole};
+use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::pixman::Region;
 use crate::rect::Rect;
@@ -26,6 +27,7 @@ use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -80,6 +82,13 @@ pub struct WlSurface {
     xdg: CloneCell<Option<Rc<XdgSurface>>>,
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
     pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    pub tracker: Tracker<Self>,
+}
+
+impl Debug for WlSurface {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WlSurface").finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -176,6 +185,7 @@ impl WlSurface {
             xdg: Default::default(),
             cursors: Default::default(),
             dnd_icons: Default::default(),
+            tracker: Default::default(),
         }
     }
 
@@ -204,6 +214,7 @@ impl WlSurface {
         }
         self.set_role(SurfaceRole::Cursor)?;
         let cursor = Rc::new(CursorSurface::new(seat, self));
+        track!(self.client, cursor);
         cursor.handle_buffer_change();
         self.cursors.insert(seat.id(), cursor.clone());
         Ok(cursor)
@@ -335,6 +346,9 @@ impl WlSurface {
             }
             *children = None;
         }
+        self.buffer.set(None);
+        self.frame_requests.borrow_mut().clear();
+        self.xdg.set(None);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -358,6 +372,7 @@ impl WlSurface {
     fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
         let req: Frame = self.parse(parser)?;
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
+        track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
         self.pending.frame_request.borrow_mut().push(cb);
         Ok(())

@@ -22,6 +22,7 @@ use crate::wire::{
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
 use std::mem;
+use std::ops::DerefMut;
 use std::rc::Rc;
 
 pub struct Objects {
@@ -71,14 +72,14 @@ impl Objects {
             for obj in toplevel.values_mut() {
                 obj.destroy_node(true);
             }
-            toplevel.clear();
+            mem::take(toplevel.deref_mut());
         }
         {
             let mut registry = self.registry.lock();
             for obj in registry.values_mut() {
                 obj.break_loops();
             }
-            registry.clear();
+            mem::take(registry.deref_mut());
         }
         self.display.set(None);
         self.registries.clear();
