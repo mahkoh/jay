@@ -1,11 +1,4 @@
-#![feature(
-    c_variadic,
-    thread_local,
-    label_break_value,
-    ptr_metadata,
-    linkage,
-    const_type_name
-)]
+#![feature(c_variadic, thread_local, label_break_value)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,
@@ -39,18 +32,18 @@ use crate::wheel::WheelError;
 use acceptor::Acceptor;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
-use isnt::std_1::primitive::IsntMutPtrExt;
 use log::LevelFilter;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
+use crate::xkbcommon::XkbContext;
 
 #[macro_use]
 mod macros;
 #[macro_use]
-pub mod leaks;
+mod leaks;
 mod acceptor;
 mod async_engine;
 mod backend;
@@ -58,6 +51,7 @@ mod backends;
 mod bugs;
 mod client;
 mod clientmem;
+mod config;
 mod cursor;
 mod drm;
 mod event_loop;
@@ -81,15 +75,6 @@ mod wire;
 mod xkbcommon;
 
 fn main() {
-    unsafe {
-        extern "C" {
-            #[linkage = "extern_weak"]
-            static BYTEHOUND_REACHED_MAIN: *mut bool;
-        }
-        if BYTEHOUND_REACHED_MAIN.is_not_null() {
-            *BYTEHOUND_REACHED_MAIN = true;
-        }
-    }
     env_logger::builder()
         .filter_level(LevelFilter::Info)
         .filter_level(LevelFilter::Debug)
@@ -127,10 +112,14 @@ fn main_() -> Result<(), MainError> {
     clientmem::init()?;
     let el = EventLoop::new()?;
     sighand::install(&el)?;
+    let xkb_ctx = XkbContext::new().unwrap();
+    let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
     let wheel = Wheel::install(&el)?;
     let engine = AsyncEngine::install(&el, &wheel)?;
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
+        xkb_ctx,
+        default_keymap: xkb_keymap,
         eng: engine.clone(),
         el: el.clone(),
         render_ctx: Default::default(),
@@ -144,14 +133,20 @@ fn main_() -> Result<(), MainError> {
         node_ids,
         backend_events: AsyncQueue::new(),
         output_handlers: Default::default(),
+        mouse_handlers: Default::default(),
         seat_ids: Default::default(),
-        seats: Default::default(),
+        kb_ids: Default::default(),
         outputs: Default::default(),
         seat_queue: Default::default(),
         slow_clients: AsyncQueue::new(),
         none_surface_ext: Rc::new(NoneSurfaceExt),
         tree_changed_sent: Cell::new(false),
+        config: Default::default(),
+        mouse_ids: Default::default(),
+        kb_handlers: Default::default(),
     });
+    let config = config::ConfigProxy::default(&state);
+    state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
     Acceptor::install(&state)?;

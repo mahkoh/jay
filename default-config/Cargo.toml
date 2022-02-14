@@ -1,0 +1,11 @@
+[package]
+name = "default-config"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+i4config = { path = "../i4config" }
+log = "0.4.14"

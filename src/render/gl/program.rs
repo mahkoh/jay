@@ -38,7 +38,7 @@ impl GlProgram {
 
         let mut ok = 0;
         glGetProgramiv(res.prog, GL_LINK_STATUS, &mut ok);
-        if ok == GL_FALSE as _ {
+        if ok == GL_FALSE as GLint {
             return Err(RenderError::ProgramLink);
         }
 

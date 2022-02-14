@@ -2,12 +2,11 @@ pub mod cursor;
 pub mod wl_subsurface;
 pub mod xdg_surface;
 
-use crate::backend::{KeyState, ScrollAxis, SeatId};
 use crate::client::{Client, ClientError, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceRole};
@@ -32,6 +31,8 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
+use i4config::Direction;
+use crate::backend::{KeyState, ScrollAxis};
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -609,6 +610,14 @@ impl Node for WlSurface {
         self.seat_state.destroy_node(self);
     }
 
+    fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let xdg = match self.xdg.get() {
+            Some(x) => x,
+            _ => return,
+        };
+        xdg.move_focus(seat, direction);
+    }
+
     fn absolute_position(&self) -> Rect {
         self.buffer_abs_pos.get()
     }
@@ -619,8 +628,12 @@ impl Node for WlSurface {
         }
     }
 
-    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32, mods: Option<ModifierState>) {
-        seat.key_surface(self, key, state, mods);
+    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32) {
+        seat.key_surface(self, key, state);
+    }
+
+    fn mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
+        seat.mods_surface(self, mods);
     }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
@@ -665,16 +678,16 @@ impl Node for WlSurface {
         Some(self)
     }
 
-    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
-        dnd.seat.dnd_surface_enter(self, dnd, x, y);
-    }
-
     fn dnd_drop(&self, dnd: &Dnd) {
         dnd.seat.dnd_surface_drop(self, dnd);
     }
 
     fn dnd_leave(&self, dnd: &Dnd) {
         dnd.seat.dnd_surface_leave(self, dnd);
+    }
+
+    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+        dnd.seat.dnd_surface_enter(self, dnd, x, y);
     }
 
     fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {

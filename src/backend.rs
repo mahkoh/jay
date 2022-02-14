@@ -3,7 +3,8 @@ use std::fmt::Debug;
 use std::rc::Rc;
 
 linear_ids!(OutputIds, OutputId);
-linear_ids!(SeatIds, SeatId);
+linear_ids!(KeyboardIds, KeyboardId);
+linear_ids!(MouseIds, MouseId);
 
 pub trait Output {
     fn id(&self) -> OutputId;
@@ -13,16 +14,24 @@ pub trait Output {
     fn on_change(&self, cb: Rc<dyn Fn()>);
 }
 
-pub trait Seat {
-    fn id(&self) -> SeatId;
+pub trait Keyboard {
+    fn id(&self) -> KeyboardId;
     fn removed(&self) -> bool;
-    fn event(&self) -> Option<SeatEvent>;
+    fn event(&self) -> Option<KeyboardEvent>;
+    fn on_change(&self, cb: Rc<dyn Fn()>);
+}
+
+pub trait Mouse {
+    fn id(&self) -> MouseId;
+    fn removed(&self) -> bool;
+    fn event(&self) -> Option<MouseEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
 }
 
 pub enum BackendEvent {
     NewOutput(Rc<dyn Output>),
-    NewSeat(Rc<dyn Seat>),
+    NewKeyboard(Rc<dyn Keyboard>),
+    NewMouse(Rc<dyn Mouse>),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -38,11 +47,15 @@ pub enum ScrollAxis {
 }
 
 #[derive(Debug)]
-pub enum SeatEvent {
+pub enum KeyboardEvent {
+    Key(u32, KeyState),
+}
+
+#[derive(Debug)]
+pub enum MouseEvent {
     OutputPosition(OutputId, Fixed, Fixed),
     #[allow(dead_code)]
     Motion(Fixed, Fixed),
     Button(u32, KeyState),
     Scroll(i32, ScrollAxis),
-    Key(u32, KeyState),
 }

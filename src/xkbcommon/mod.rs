@@ -7,12 +7,14 @@ include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 use bstr::{BStr, ByteSlice};
 pub use consts::*;
 use std::ffi::{CStr, VaList};
+use std::io::Write;
 use std::ops::Deref;
 use std::ptr;
+use std::rc::Rc;
 
 use crate::utils::ptr_ext::PtrExt;
 use thiserror::Error;
-use uapi::c;
+use uapi::{c, OwnedFd};
 
 #[derive(Debug, Error)]
 pub enum XkbCommonError {
@@ -20,8 +22,8 @@ pub enum XkbCommonError {
     CreateContext,
     #[error("Could not create an xkbcommon state")]
     CreateState,
-    #[error("Could not create keymap from names")]
-    KeymapFromNames,
+    #[error("Could not create keymap from buffer")]
+    KeymapFromBuffer,
     #[error("Could not convert the keymap to a string")]
     AsStr,
 }
@@ -29,6 +31,11 @@ pub enum XkbCommonError {
 struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
+
+type xkb_keycode_t = u32;
+type xkb_layout_index_t = u32;
+type xkb_level_index_t = u32;
+type xkb_keysym_t = u32;
 
 #[repr(C)]
 struct xkb_rule_names {
@@ -55,6 +62,7 @@ impl Default for xkb_rule_names {
 extern "C" {
     fn xkb_context_new(flags: xkb_context_flags) -> *mut xkb_context;
     fn xkb_context_unref(context: *mut xkb_context);
+    fn xkb_context_set_log_verbosity(context: *mut xkb_context, verbosity: c::c_int);
     fn xkb_context_set_log_fn(
         context: *mut xkb_context,
         log_fn: unsafe extern "C" fn(
@@ -64,9 +72,11 @@ extern "C" {
             args: VaList,
         ),
     );
-    fn xkb_keymap_new_from_names(
+    fn xkb_keymap_new_from_buffer(
         context: *mut xkb_context,
-        name: *const xkb_rule_names,
+        buffer: *const u8,
+        length: usize,
+        format: xkb_keymap_format,
         flags: xkb_keymap_compile_flags,
     ) -> *mut xkb_keymap;
     fn xkb_keymap_get_as_string(
@@ -74,6 +84,14 @@ extern "C" {
         format: xkb_keymap_format,
     ) -> *mut c::c_char;
     fn xkb_keymap_unref(keymap: *mut xkb_keymap);
+    // fn xkb_keymap_ref(keymap: *mut xkb_keymap) -> *mut xkb_keymap;
+    fn xkb_keymap_key_get_syms_by_level(
+        keymap: *mut xkb_keymap,
+        key: xkb_keycode_t,
+        layout: xkb_layout_index_t,
+        level: xkb_level_index_t,
+        syms_out: *mut *const xkb_keysym_t,
+    ) -> c::c_int;
     fn xkb_state_unref(state: *mut xkb_state);
     fn xkb_state_new(keymap: *mut xkb_keymap) -> *mut xkb_state;
     #[allow(dead_code)]
@@ -99,19 +117,47 @@ impl XkbContext {
             return Err(XkbCommonError::CreateContext);
         }
         unsafe {
+            xkb_context_set_log_verbosity(res, 10);
             xkb_context_set_log_fn(res, xkbcommon_logger);
         }
         Ok(Self { context: res })
     }
 
-    pub fn default_keymap(&self) -> Result<XkbKeymap, XkbCommonError> {
-        unsafe {
-            let names = Default::default();
-            let keymap = xkb_keymap_new_from_names(self.context, &names, 0);
-            if keymap.is_null() {
-                return Err(XkbCommonError::KeymapFromNames);
+    fn raw_to_map(raw: *mut xkb_keymap) -> Result<Rc<XkbKeymap>, XkbCommonError> {
+        let res =
+            unsafe { xkb_keymap_get_as_string(raw, XKB_KEYMAP_FORMAT_TEXT_V1.raw() as _) };
+        if res.is_null() {
+            unsafe {
+                xkb_keymap_unref(raw);
             }
-            Ok(XkbKeymap { keymap })
+            return Err(XkbCommonError::AsStr);
+        }
+        let str = XkbKeymapStr {
+            s: unsafe { CStr::from_ptr(res).to_bytes().as_bstr() },
+        };
+        let mut memfd =
+            uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).unwrap();
+        memfd.write_all(str.as_bytes()).unwrap();
+        memfd.write_all(&[0]).unwrap();
+        uapi::lseek(memfd.raw(), 0, c::SEEK_SET).unwrap();
+        uapi::fcntl_add_seals(
+            memfd.raw(),
+            c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
+        ).unwrap();
+        Ok(Rc::new(XkbKeymap {
+            keymap: raw,
+            map: Rc::new(memfd),
+            map_len: str.len() + 1,
+        }))
+    }
+
+    pub fn keymap_from_str(&self, s: &str) -> Result<Rc<XkbKeymap>, XkbCommonError> {
+        unsafe {
+            let keymap = xkb_keymap_new_from_buffer(self.context, s.as_bytes().as_ptr(), s.len(), XKB_KEYMAP_FORMAT_TEXT_V1.raw(), 0);
+            if keymap.is_null() {
+                return Err(XkbCommonError::KeymapFromBuffer);
+            }
+            Self::raw_to_map(keymap)
         }
     }
 }
@@ -126,31 +172,24 @@ impl Drop for XkbContext {
 
 pub struct XkbKeymap {
     keymap: *mut xkb_keymap,
+    pub map: Rc<OwnedFd>,
+    pub map_len: usize,
 }
 
 impl XkbKeymap {
-    pub fn as_str(&self) -> Result<XkbKeymapStr, XkbCommonError> {
-        let res =
-            unsafe { xkb_keymap_get_as_string(self.keymap, XKB_KEYMAP_FORMAT_TEXT_V1.raw() as _) };
-        if res.is_null() {
-            return Err(XkbCommonError::AsStr);
-        }
-        Ok(XkbKeymapStr {
-            s: unsafe { CStr::from_ptr(res).to_bytes().as_bstr() },
-        })
-    }
-
-    pub fn state(&self) -> Result<XkbState, XkbCommonError> {
+    pub fn state(self: &Rc<Self>) -> Result<XkbState, XkbCommonError> {
         let res = unsafe { xkb_state_new(self.keymap) };
         if res.is_null() {
             return Err(XkbCommonError::CreateState);
         }
         Ok(XkbState {
+            map: self.clone(),
             state: res,
             mods: ModifierState {
                 mods_depressed: 0,
                 mods_latched: 0,
                 mods_locked: 0,
+                mods_effective: 0,
                 group: 0,
             },
         })
@@ -188,10 +227,12 @@ pub struct ModifierState {
     pub mods_depressed: u32,
     pub mods_latched: u32,
     pub mods_locked: u32,
+    pub mods_effective: u32,
     pub group: u32,
 }
 
 pub struct XkbState {
+    map: Rc<XkbKeymap>,
     state: *mut xkb_state,
     mods: ModifierState,
 }
@@ -212,11 +253,31 @@ impl XkbState {
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LATCHED.raw() as _);
                 self.mods.mods_locked =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LOCKED.raw() as _);
+                self.mods.mods_effective =
+                    self.mods.mods_depressed | self.mods.mods_latched | self.mods.mods_locked;
                 self.mods.group =
                     xkb_state_serialize_layout(self.state, XKB_STATE_LAYOUT_EFFECTIVE.raw() as _);
                 Some(self.mods)
             } else {
                 None
+            }
+        }
+    }
+
+    pub fn unmodified_keysyms(&self, key: u32) -> &[xkb_keysym_t] {
+        let mut res = ptr::null();
+        unsafe {
+            let num = xkb_keymap_key_get_syms_by_level(
+                self.map.keymap,
+                key + 8,
+                self.mods.group,
+                0,
+                &mut res,
+            );
+            if num > 0 {
+                std::slice::from_raw_parts(res, num as usize)
+            } else {
+                &[]
             }
         }
     }
@@ -242,10 +303,10 @@ unsafe extern "C" fn xkbcommon_logger(
     let mut buf = ptr::null_mut();
     let res = vasprintf(&mut buf, format, args);
     if res < 0 {
-        log::warn!("Could not vasprintf");
+        log::error!("Could not vasprintf");
+        return;
     }
     let buf = std::slice::from_raw_parts(buf as *const u8, res as usize);
-    let buf = buf.as_bstr();
     let level = match XkbLogLevel(level) {
         XKB_LOG_LEVEL_CRITICAL | XKB_LOG_LEVEL_ERROR => log::Level::Error,
         XKB_LOG_LEVEL_WARNING => log::Level::Warn,
@@ -253,5 +314,5 @@ unsafe extern "C" fn xkbcommon_logger(
         XKB_LOG_LEVEL_DEBUG => log::Level::Debug,
         _ => log::Level::Error,
     };
-    log::log!(level, "xkbcommon: {}", buf);
+    log::log!(level, "xkbcommon: {}", buf.trim_end().as_bstr());
 }

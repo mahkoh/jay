@@ -168,6 +168,11 @@ macro_rules! linear_ids {
             pub fn raw(&self) -> u32 {
                 self.0
             }
+
+            #[allow(dead_code)]
+            pub fn from_raw(id: u32) -> Self {
+                Self(id)
+            }
         }
 
         impl std::fmt::Display for $id {

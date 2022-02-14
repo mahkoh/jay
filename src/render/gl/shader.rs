@@ -3,6 +3,7 @@ use crate::render::gl::sys::{
     glCompileShader, glCreateShader, glDeleteShader, glGetShaderiv, glShaderSource, GLenum, GLuint,
     GL_COMPILE_STATUS, GL_FALSE,
 };
+use crate::render::sys::GLint;
 use crate::render::RenderError;
 use std::rc::Rc;
 
@@ -28,7 +29,7 @@ impl GlShader {
 
         let mut ok = 0;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &mut ok);
-        if ok == GL_FALSE as _ {
+        if ok == GL_FALSE as GLint {
             return Err(RenderError::ShaderCompileFailed);
         }
         Ok(res)

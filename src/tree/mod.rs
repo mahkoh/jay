@@ -17,6 +17,7 @@ use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
+use i4config::Direction;
 pub use workspace::*;
 
 mod container;
@@ -66,6 +67,22 @@ pub trait Node {
     fn seat_state(&self) -> &NodeSeatState;
     fn destroy_node(&self, detach: bool);
 
+    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let _ = seat;
+        let _ = direction;
+    }
+
+    fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let _ = seat;
+        let _ = direction;
+    }
+
+    fn move_focus_from_child(&self, seat: &Rc<WlSeatGlobal>, child: &dyn Node, direction: Direction) {
+        let _ = seat;
+        let _ = direction;
+        let _ = child;
+    }
+
     fn absolute_position(&self) -> Rect {
         Rect::new_empty(0, 0)
     }
@@ -78,10 +95,14 @@ pub trait Node {
         let _ = active;
     }
 
-    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32, mods: Option<ModifierState>) {
+    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32) {
         let _ = seat;
         let _ = key;
         let _ = state;
+    }
+
+    fn mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
+        let _ = seat;
         let _ = mods;
     }
 

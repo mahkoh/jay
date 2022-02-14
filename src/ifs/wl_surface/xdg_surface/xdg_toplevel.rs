@@ -1,9 +1,8 @@
-use crate::backend::SeatId;
 use crate::bugs::Bugs;
 use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::leaks::Tracker;
 use crate::object::Object;
@@ -27,6 +26,7 @@ use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
+use i4config::Direction;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {
@@ -438,6 +438,10 @@ impl Node for XdgToplevel {
         self.xdg.seat_state.destroy_node(self)
     }
 
+    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+        seat.focus_toplevel(&self);
+    }
+
     fn absolute_position(&self) -> Rect {
         self.xdg.absolute_desired_extents.get()
     }
@@ -480,6 +484,14 @@ impl Node for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
+    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let pn = match self.parent_node.get() {
+            Some(pn) => pn,
+            _ => return,
+        };
+        pn.move_focus_from_child(seat, &*self, direction);
+    }
+
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         self.send_configure(0, 0);
         Ok(())

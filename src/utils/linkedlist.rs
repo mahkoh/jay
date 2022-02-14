@@ -2,6 +2,7 @@ use crate::utils::ptr_ext::PtrExt;
 use crate::NumCell;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
+use std::mem;
 use std::ops::Deref;
 use std::ptr::NonNull;
 
@@ -153,6 +154,7 @@ impl<T> Drop for RevLinkedListIter<T> {
     }
 }
 
+#[repr(transparent)]
 pub struct LinkedNode<T> {
     data: NonNull<NodeData<T>>,
 }
@@ -164,13 +166,14 @@ impl<T: Debug> Debug for LinkedNode<T> {
 }
 
 impl<T> Deref for LinkedNode<T> {
-    type Target = T;
+    type Target = NodeRef<T>;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { self.data.as_ref().data.as_ref().unwrap_unchecked() }
+        unsafe { mem::transmute(self) }
     }
 }
 
+#[repr(transparent)]
 pub struct NodeRef<T> {
     data: NonNull<NodeData<T>>,
 }
@@ -215,10 +218,12 @@ impl<T> NodeRef<T> {
         unsafe { append(self.data, t) }
     }
 
-    pub fn prev(&self) -> Option<NodeRef<T>> {
+    fn peer<F>(&self, peer: F) -> Option<NodeRef<T>>
+        where F: FnOnce(&NodeData<T>) -> &Cell<NonNull<NodeData<T>>>,
+    {
         unsafe {
             let data = self.data.as_ref();
-            let other = data.prev.get();
+            let other = peer(&data).get();
             if other.as_ref().data.is_some() {
                 other.as_ref().rc.fetch_add(1);
                 Some(NodeRef { data: other })
@@ -226,6 +231,14 @@ impl<T> NodeRef<T> {
                 None
             }
         }
+    }
+
+    pub fn prev(&self) -> Option<NodeRef<T>> {
+        self.peer(|d| &d.prev)
+    }
+
+    pub fn next(&self) -> Option<NodeRef<T>> {
+        self.peer(|d| &d.next)
     }
 }
 

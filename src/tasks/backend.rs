@@ -1,10 +1,8 @@
-use crate::backend::{BackendEvent, Output, Seat};
-use crate::state::SeatData;
+use crate::backend::{BackendEvent, Output};
 use crate::tasks::output::OutputHandler;
-use crate::tasks::seat::SeatHandler;
-use crate::utils::asyncevent::AsyncEvent;
 use crate::State;
 use std::rc::Rc;
+use crate::tasks::device;
 
 pub struct BackendEventHandler {
     pub state: Rc<State>,
@@ -21,7 +19,8 @@ impl BackendEventHandler {
     fn handle_event(&mut self, event: BackendEvent) {
         match event {
             BackendEvent::NewOutput(output) => self.handle_new_output(output),
-            BackendEvent::NewSeat(seat) => self.handle_new_seat(seat),
+            BackendEvent::NewMouse(s) => device::handle(&self.state, s),
+            BackendEvent::NewKeyboard(s) => device::handle(&self.state, s),
         }
     }
 
@@ -33,23 +32,5 @@ impl BackendEventHandler {
         };
         let future = self.state.eng.spawn(oh.handle());
         self.state.output_handlers.borrow_mut().insert(id, future);
-    }
-
-    fn handle_new_seat(&mut self, seat: Rc<dyn Seat>) {
-        let id = seat.id();
-        let tree_changed = Rc::new(AsyncEvent::default());
-        let oh = SeatHandler {
-            state: self.state.clone(),
-            seat,
-            tree_changed: tree_changed.clone(),
-        };
-        let handler = self.state.eng.spawn(oh.handle());
-        self.state.seats.borrow_mut().insert(
-            id,
-            SeatData {
-                handler,
-                tree_changed,
-            },
-        );
     }
 }

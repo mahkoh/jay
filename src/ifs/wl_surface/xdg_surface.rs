@@ -1,9 +1,8 @@
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use crate::backend::SeatId;
 use crate::client::ClientError;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
@@ -26,6 +25,7 @@ use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
+use i4config::Direction;
 
 #[allow(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;
@@ -75,6 +75,11 @@ struct PendingXdgSurfaceData {
 }
 
 pub trait XdgSurfaceExt: Debug {
+    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let _ = seat;
+        let _ = direction;
+    }
+
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         Ok(())
     }
@@ -135,6 +140,14 @@ impl XdgSurface {
         if let Some(ext) = self.ext.get() {
             ext.surface_active_changed(active);
         }
+    }
+
+    pub fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let ext = match self.ext.get() {
+            None => return,
+            Some(e) => e,
+        };
+        ext.move_focus(seat, direction);
     }
 
     pub fn role(&self) -> XdgSurfaceRole {

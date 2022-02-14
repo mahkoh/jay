@@ -1,4 +1,4 @@
-use crate::backend::{KeyState, OutputId, ScrollAxis, SeatEvent, SeatId};
+use crate::backend::{KeyboardEvent, KeyState, MouseEvent, OutputId, ScrollAxis};
 use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
 use crate::ifs::ipc;
@@ -6,7 +6,7 @@ use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
-use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, WlSeat, WlSeatGlobal};
+use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, WlSeat, WlSeatGlobal, SeatId};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
@@ -17,6 +17,10 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlDataOfferId;
 use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
+use i4config::keyboard::mods::Modifiers;
+use i4config::keyboard::syms::KeySym;
+use i4config::keyboard::ModifiedKeySym;
+use smallvec::SmallVec;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -30,37 +34,37 @@ pub struct NodeSeatState {
 
 impl NodeSeatState {
     pub(super) fn enter(&self, seat: &Rc<WlSeatGlobal>) {
-        self.pointer_foci.insert(seat.seat.id(), seat.clone());
+        self.pointer_foci.insert(seat.id, seat.clone());
     }
 
     pub(super) fn leave(&self, seat: &WlSeatGlobal) {
-        self.pointer_foci.remove(&seat.seat.id());
+        self.pointer_foci.remove(&seat.id);
     }
 
     pub(super) fn focus(&self, seat: &Rc<WlSeatGlobal>) -> bool {
-        self.kb_foci.insert(seat.seat.id(), seat.clone());
+        self.kb_foci.insert(seat.id, seat.clone());
         self.kb_foci.len() == 1
     }
 
     pub(super) fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
-        self.kb_foci.remove(&seat.seat.id());
+        self.kb_foci.remove(&seat.id);
         self.kb_foci.len() == 0
     }
 
     pub(super) fn add_pointer_grab(&self, seat: &Rc<WlSeatGlobal>) {
-        self.grabs.insert(seat.id(), seat.clone());
+        self.grabs.insert(seat.id, seat.clone());
     }
 
     pub(super) fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
-        self.grabs.remove(&seat.id());
+        self.grabs.remove(&seat.id);
     }
 
     pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
-        self.dnd_targets.insert(seat.id(), seat.clone());
+        self.dnd_targets.insert(seat.id, seat.clone());
     }
 
     pub(super) fn remove_dnd_target(&self, seat: &WlSeatGlobal) {
-        self.dnd_targets.remove(&seat.id());
+        self.dnd_targets.remove(&seat.id);
     }
 
     // pub fn remove_pointer_grabs(&self) {
@@ -100,13 +104,18 @@ impl NodeSeatState {
 }
 
 impl WlSeatGlobal {
-    pub fn event(self: &Rc<Self>, event: SeatEvent) {
+    pub fn kb_event(self: &Rc<Self>, event: KeyboardEvent) {
         match event {
-            SeatEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
-            SeatEvent::Motion(dx, dy) => self.motion_event(dx, dy),
-            SeatEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
-            SeatEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
-            SeatEvent::Key(k, s) => self.key_event(k, s),
+            KeyboardEvent::Key(k, s) => self.key_event(k, s),
+        }
+    }
+
+    pub fn mouse_event(self: &Rc<Self>, event: MouseEvent) {
+        match event {
+            MouseEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
+            MouseEvent::Motion(dx, dy) => self.motion_event(dx, dy),
+            MouseEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
+            MouseEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
         }
     }
 
@@ -143,9 +152,35 @@ impl WlSeatGlobal {
                 }
             }
         };
-        let mods = self.kb_state.borrow_mut().update(key, xkb_dir);
+        let mut shortcuts = SmallVec::<[_; 1]>::new();
+        let new_mods;
+        {
+            let mut kb_state = self.kb_state.borrow_mut();
+            if state == wl_keyboard::PRESSED {
+                let old_mods = kb_state.mods();
+                let keysyms = kb_state.unmodified_keysyms(key);
+                for &sym in keysyms {
+                    if let Some(mods) = self.shortcuts.get(&(old_mods.mods_effective, sym)) {
+                        shortcuts.push(ModifiedKeySym {
+                            mods,
+                            sym: KeySym(sym),
+                        });
+                    }
+                }
+            }
+            new_mods = kb_state.update(key, xkb_dir);
+        }
         let node = self.keyboard_node.get();
-        node.key(self, key, state, mods);
+        if shortcuts.is_empty() {
+            node.key(self, key, state);
+        } else if let Some(config) = self.state.config.get() {
+            for shortcut in shortcuts {
+                config.invoke_shortcut(self.id(), &shortcut);
+            }
+        }
+        if let Some(mods) = new_mods {
+            node.mods(self, mods);
+        }
     }
 }
 
@@ -206,6 +241,7 @@ impl WlSeatGlobal {
             mods_latched,
             mods_locked,
             group,
+            ..
         } = self.kb_state.borrow().mods();
         let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, &surface, |k| {
@@ -331,7 +367,15 @@ impl WlSeatGlobal {
         self.handle_new_position(true);
     }
 
-    pub fn tree_changed(self: &Rc<Self>) {
+    pub fn add_shortcut(&self, mods: Modifiers, keysym: KeySym) {
+        self.shortcuts.set((mods.0, keysym.0), mods);
+    }
+
+    pub fn trigger_tree_changed(&self) {
+        self.tree_changed.trigger();
+    }
+
+    pub(super) fn tree_changed(self: &Rc<Self>) {
         self.handle_new_position(false);
     }
 
@@ -417,27 +461,25 @@ impl WlSeatGlobal {
 
 // Key callbacks
 impl WlSeatGlobal {
-    pub fn key_surface(
-        &self,
-        surface: &WlSurface,
-        key: u32,
-        state: u32,
-        mods: Option<ModifierState>,
-    ) {
+    pub fn key_surface(&self, surface: &WlSurface, key: u32, state: u32) {
         let serial = self.serial.fetch_add(1);
         self.surface_kb_event(0, surface, |k| k.send_key(serial, 0, key, state));
+    }
+}
+
+// Modifiers callbacks
+impl WlSeatGlobal {
+    pub fn mods_surface(&self, surface: &WlSurface, mods: ModifierState) {
         let serial = self.serial.fetch_add(1);
-        if let Some(mods) = mods {
-            self.surface_kb_event(0, surface, |k| {
-                k.send_modifiers(
-                    serial,
-                    mods.mods_depressed,
-                    mods.mods_latched,
-                    mods.mods_locked,
-                    mods.group,
-                )
-            });
-        }
+        self.surface_kb_event(0, surface, |k| {
+            k.send_modifiers(
+                serial,
+                mods.mods_depressed,
+                mods.mods_latched,
+                mods.mods_locked,
+                mods.group,
+            )
+        });
     }
 }
 

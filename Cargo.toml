@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 build = "build/build.rs"
 
+[workspace]
+members = ["i4config", "default-config"]
+
 [profile.release]
 panic = "abort"
 
@@ -33,6 +36,9 @@ smallvec = { version = "1.8.0", features = ["const_generics", "const_new", "unio
 backtrace = "0.3.64"
 byteorder = "1.4.3"
 chrono = "0.4.19"
+bincode = "2.0.0-beta.2"
+i4config = { path = "i4config" }
+default-config = { path = "default-config" }
 
 [build-dependencies]
 repc = "0.1.1"

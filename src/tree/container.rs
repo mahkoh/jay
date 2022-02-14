@@ -1,7 +1,7 @@
-use crate::backend::{KeyState, SeatId};
+use crate::backend::{KeyState};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal, BTN_LEFT};
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal, BTN_LEFT, SeatId};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -14,6 +14,7 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
+use i4config::Direction;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -419,6 +420,52 @@ impl Node for ContainerNode {
             n.node.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let node = match direction {
+            Direction::Left => self.children.last(),
+            Direction::Down => self.children.first(),
+            Direction::Up => self.children.last(),
+            Direction::Right => self.children.first(),
+        };
+        if let Some(node) = node {
+            node.node.clone().do_focus(seat, direction);
+        }
+    }
+
+    fn move_focus_from_child(&self, seat: &Rc<WlSeatGlobal>, child: &dyn Node, direction: Direction) {
+        let children = self.child_nodes.borrow_mut();
+        let child = match children.get(&child.id()) {
+            Some(c) => c,
+            _ => return,
+        };
+        let in_line = match self.split.get() {
+            ContainerSplit::Horizontal => matches!(direction, Direction::Left | Direction::Right),
+            ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
+        };
+        if !in_line {
+            self.parent.get().move_focus_from_child(seat, self, direction);
+            return;
+        }
+        let prev = match direction {
+            Direction::Left => true,
+            Direction::Down => false,
+            Direction::Up => true,
+            Direction::Right => false,
+        };
+        let sibling = match prev {
+            true => child.prev(),
+            false => child.next()
+        };
+        let sibling = match sibling {
+            Some(s) => s,
+            None => {
+                self.parent.get().move_focus_from_child(seat, self, direction);
+                return;
+            }
+        };
+        sibling.node.clone().do_focus(seat, direction);
     }
 
     fn absolute_position(&self) -> Rect {

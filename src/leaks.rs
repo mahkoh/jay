@@ -1,8 +1,14 @@
 pub use leaks::*;
 
+macro_rules! track {
+    ($client:expr, $rc:expr) => {
+        $rc.tracker.register($client.id);
+    };
+}
+
 #[cfg(not(feature = "rc_tracking"))]
-#[macro_use]
 mod leaks {
+    use crate::client::ClientId;
     use std::marker::PhantomData;
 
     pub fn init() {
@@ -17,6 +23,12 @@ mod leaks {
         _phantom: PhantomData<T>,
     }
 
+    impl<T> Tracker<T> {
+        pub fn register(&self, _client: ClientId) {
+            // nothing
+        }
+    }
+
     impl<T> Default for Tracker<T> {
         fn default() -> Self {
             Self {
@@ -24,16 +36,9 @@ mod leaks {
             }
         }
     }
-
-    macro_rules! track {
-        ($client:expr, $rc:expr) => {
-            let _ = $rc.tracker;
-        }
-    }
 }
 
 #[cfg(feature = "rc_tracking")]
-#[macro_use]
 mod leaks {
     use crate::client::ClientId;
     use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
@@ -59,7 +64,12 @@ mod leaks {
         }
     }
 
-    fn log_containers(prefix: &str, allocation: &mut Allocation, offset: usize, logged: &mut AHashSet<*mut u8>) {
+    fn log_containers(
+        prefix: &str,
+        allocation: &mut Allocation,
+        offset: usize,
+        logged: &mut AHashSet<*mut u8>,
+    ) {
         log::info!(
             "{}Contained in allocation {:?} at offset {}. Backtrace:",
             prefix,
@@ -94,6 +104,9 @@ mod leaks {
             for (id, obj) in MAP.deref_mut().drain() {
                 map.entry(obj.client).or_default().push((id, obj));
             }
+            if map.is_empty() {
+                log::info!("No leaks");
+            }
             for (_, mut objs) in map.drain() {
                 if objs.len() == 0 {
                     continue;
@@ -102,13 +115,11 @@ mod leaks {
                 log::info!("Client {} leaked {} objects", objs[0].1.client, objs.len());
                 for (_, obj) in objs {
                     let time = chrono::NaiveDateTime::from_timestamp(obj.time.0, obj.time.1);
-                    log::info!(
-                        "  [{}] {}",
-                        time.format("%H:%M:%S%.3f"),
-                        obj.ty,
-                    );
+                    log::info!("  [{}] {}", time.format("%H:%M:%S%.3f"), obj.ty,);
                     match find_allocation_containing(obj.addr) {
-                        Some(mut alloc) => log_containers("    ", &mut alloc, 0, &mut AHashSet::new()),
+                        Some(mut alloc) => {
+                            log_containers("    ", &mut alloc, 0, &mut AHashSet::new())
+                        }
                         _ => log::error!("    Not contained in any allocation??"),
                     }
                 }
@@ -174,14 +185,6 @@ mod leaks {
         }
     }
 
-    macro_rules! track {
-        ($client:expr, $rc:expr) => {
-            ($rc)
-                .tracker
-                .register($client.id);
-        };
-    }
-
     struct TracingAllocator;
 
     #[global_allocator]
@@ -225,7 +228,7 @@ mod leaks {
             if INITIALIZED {
                 ALLOCATIONS.deref_mut().remove(&ptr);
             }
-            c::memset(ptr as _, 0, layout.size());
+            // c::memset(ptr as _, 0, layout.size());
             c::free(ptr as _);
         }
     }
