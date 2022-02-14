@@ -1,6 +1,6 @@
 use crate::_private::ipc::{InitMessage, Request, Response};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
-use crate::{Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
+use crate::{Axis, Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -169,6 +169,21 @@ impl Client {
                 vec![]
             }
         }
+    }
+
+    pub fn split(&self, seat: Seat) -> Axis {
+        let res = self.with_response(|| self.send(&Request::GetSplit { seat }));
+        match res {
+            Response::GetSplit { axis } => axis,
+            _ => {
+                log::error!("Server did not send a response to a get_split request");
+                Axis::Horizontal
+            },
+        }
+    }
+
+    pub fn set_split(&self, seat: Seat, axis: Axis) {
+        self.send(&Request::SetSplit { seat, axis });
     }
 
     pub fn create_seat(&self, name: &str) -> Seat {

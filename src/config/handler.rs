@@ -7,13 +7,14 @@ use thiserror::Error;
 use i4config::_private::bincode_ops;
 use i4config::_private::ipc::{Request, Response};
 use i4config::keyboard::keymap::Keymap;
-use i4config::{Direction, InputDevice, Keyboard, LogLevel, Mouse, Seat};
+use i4config::{Axis, Direction, InputDevice, Keyboard, LogLevel, Mouse, Seat};
 use i4config::keyboard::mods::Modifiers;
 use i4config::keyboard::syms::KeySym;
 use crate::{ErrorFmt, NumCell, State};
 use crate::backend::{KeyboardId, MouseId};
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::state::DeviceHandlerData;
+use crate::tree::ContainerSplit;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
 use crate::utils::stack::Stack;
@@ -181,6 +182,22 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_split(&self, seat: Seat) -> Result<(), GetSplitError> {
+        let seat = self.get_seat(seat)?;
+        self.send(&Request::Response {
+            response: Response::GetSplit {
+                axis: seat.get_split().unwrap_or(ContainerSplit::Horizontal).into(),
+            }
+        });
+        Ok(())
+    }
+
+    fn handle_set_split(&self, seat: Seat, axis: Axis) -> Result<(), SetSplitError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_split(axis.into());
+        Ok(())
+    }
+
     fn handle_add_shortcut(&self, seat: Seat, mods: Modifiers, sym: KeySym) -> Result<(), AddShortcutError> {
         let seat = self.get_seat(seat)?;
         seat.add_shortcut(mods, sym);
@@ -245,6 +262,8 @@ impl ConfigProxyHandler {
             Request::SeatGetRepeatRate { seat } => self.handle_get_repeat_rate(seat)?,
             Request::SeatSetRepeatRate { seat, rate, delay } => self.handle_set_repeat_rate(seat, rate, delay)?,
             Request::SetSeat { device, seat } => self.handle_set_seat(device, seat)?,
+            Request::GetSplit { seat } => self.handle_get_split(seat)?,
+            Request::SetSplit { seat, axis } => self.handle_set_split(seat, axis)?,
             Request::AddShortcut {
                 seat,
                 mods,
@@ -285,6 +304,10 @@ enum CphError {
     SeatSetRepeatRateError(#[from] SeatSetRepeatRateError),
     #[error("Could not process a `focus` request")]
     FocusError(#[from] FocusError),
+    #[error("Could not process a `set_split` request")]
+    SetSplitError(#[from] SetSplitError),
+    #[error("Could not process a `get_split` request")]
+    GetSplitError(#[from] GetSplitError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Device {0:?} does not exist")]
@@ -368,3 +391,17 @@ enum FocusError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(FocusError, CphError);
+
+#[derive(Debug, Error)]
+enum SetSplitError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(SetSplitError, CphError);
+
+#[derive(Debug, Error)]
+enum GetSplitError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(GetSplitError, CphError);

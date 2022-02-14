@@ -17,7 +17,7 @@ use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
-use i4config::Direction;
+use i4config::{Direction};
 pub use workspace::*;
 
 mod container;
@@ -66,6 +66,22 @@ pub trait Node {
     fn id(&self) -> NodeId;
     fn seat_state(&self) -> &NodeSeatState;
     fn destroy_node(&self, detach: bool);
+
+    fn get_parent_split(&self) -> Option<ContainerSplit> {
+        None
+    }
+
+    fn set_parent_split(&self, split: ContainerSplit) {
+        let _ = split;
+    }
+
+    fn get_split(&self) -> Option<ContainerSplit> {
+        None
+    }
+
+    fn set_split(&self, split: ContainerSplit) {
+        let _ = split;
+    }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let _ = seat;

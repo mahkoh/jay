@@ -12,7 +12,7 @@ use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
-use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
+use crate::tree::{ContainerSplit, FindTreeResult, FoundNode, Node, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
@@ -25,7 +25,7 @@ use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::Direction;
+use i4config::{Direction};
 
 #[allow(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;
@@ -75,6 +75,14 @@ struct PendingXdgSurfaceData {
 }
 
 pub trait XdgSurfaceExt: Debug {
+    fn get_split(&self) -> Option<ContainerSplit> {
+        None
+    }
+
+    fn set_split(&self, split: ContainerSplit) {
+        let _ = split;
+    }
+
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let _ = seat;
         let _ = direction;
@@ -140,6 +148,14 @@ impl XdgSurface {
         if let Some(ext) = self.ext.get() {
             ext.surface_active_changed(active);
         }
+    }
+
+    pub fn get_split(&self) -> Option<ContainerSplit> {
+        self.ext.get().and_then(|e| e.get_split())
+    }
+
+    pub fn set_split(&self, split: ContainerSplit) {
+        self.ext.get().map(|e| e.set_split(split));
     }
 
     pub fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {

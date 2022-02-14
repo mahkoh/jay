@@ -15,7 +15,7 @@ use crate::object::Object;
 use crate::pixman::Region;
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{Node, NodeId};
+use crate::tree::{ContainerSplit, Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
@@ -31,7 +31,7 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::Direction;
+use i4config::{ Direction};
 use crate::backend::{KeyState, ScrollAxis};
 
 #[allow(dead_code)]
@@ -608,6 +608,14 @@ impl Node for WlSurface {
             }
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn get_parent_split(&self) -> Option<ContainerSplit> {
+        self.xdg.get().and_then(|x| x.get_split())
+    }
+
+    fn set_parent_split(&self, split: ContainerSplit) {
+        self.xdg.get().map(|x| x.set_split(split));
     }
 
     fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {

@@ -1,5 +1,5 @@
 use i4config::keyboard::mods::{ALT, CTRL, Modifiers, SHIFT};
-use i4config::keyboard::syms::{SYM_Super_L, SYM_h, SYM_j, SYM_k, SYM_l, SYM_plus, SYM_minus, SYM_r};
+use i4config::keyboard::syms::{SYM_Super_L, SYM_h, SYM_j, SYM_k, SYM_l, SYM_plus, SYM_minus, SYM_r, SYM_t};
 use i4config::Direction::{Down, Left, Right, Up};
 use i4config::{config, shell, Seat, create_seat, input_devices, on_new_input_device};
 
@@ -22,6 +22,10 @@ fn configure_seat(s: Seat) {
     s.bind(CTRL | SYM_j, move || s.focus(Down));
     s.bind(CTRL | SYM_k, move || s.focus(Up));
     s.bind(CTRL | SYM_l, move || s.focus(Right));
+
+    s.bind(CTRL | SYM_t, move || {
+        s.set_split(s.split().other());
+    });
 
     s.bind(MOD | SHIFT | SYM_h, move || s.move_(Left));
     s.bind(MOD | SHIFT | SYM_j, move || s.move_(Down));

@@ -8,7 +8,7 @@ use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{ContainerNode, FindTreeResult};
+use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult};
 use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -26,7 +26,7 @@ use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::Direction;
+use i4config::{Direction};
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {
@@ -484,6 +484,14 @@ impl Node for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
+    fn get_split(&self) -> Option<ContainerSplit> {
+        self.parent_node.get().and_then(|p| p.get_split())
+    }
+
+    fn set_split(&self, split: ContainerSplit) {
+        self.parent_node.get().map(|p| p.set_split(split));
+    }
+
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let pn = match self.parent_node.get() {
             Some(pn) => pn,

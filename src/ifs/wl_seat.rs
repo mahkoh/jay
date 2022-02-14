@@ -22,7 +22,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
-use crate::tree::{FloatNode, FoundNode, Node};
+use crate::tree::{ContainerSplit, FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -45,7 +45,7 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
-use i4config::Direction;
+use i4config::{ Direction};
 use crate::async_engine::SpawnedFuture;
 
 const POINTER: u32 = 1;
@@ -188,6 +188,14 @@ impl WlSeatGlobal {
                 }
             }
         }
+    }
+
+    pub fn get_split(&self) -> Option<ContainerSplit> {
+        self.keyboard_node.get().get_parent_split()
+    }
+
+    pub fn set_split(&self, axis: ContainerSplit) {
+        self.keyboard_node.get().set_parent_split(axis)
     }
 
     pub fn get_rate(&self) -> (i32, i32) {

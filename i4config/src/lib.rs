@@ -56,6 +56,21 @@ impl InputDevice {
     }
 }
 
+#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum Axis {
+    Horizontal,
+    Vertical,
+}
+
+impl Axis {
+    pub fn other(self) -> Self {
+        match self {
+            Self::Horizontal => Self::Vertical,
+            Self::Vertical => Self::Horizontal,
+        }
+    }
+}
+
 impl Seat {
     #[doc(hidden)]
     pub fn raw(self) -> u64 {
@@ -87,14 +102,24 @@ impl Seat {
         get!().seat_set_keymap(self, keymap)
     }
 
-    pub fn set_repeat_rate(self, rate: i32, delay: i32) {
-        get!().seat_set_repeat_rate(self, rate, delay)
-    }
-
     pub fn repeat_rate(self) -> (i32, i32) {
         let mut res = (25, 250);
         (|| res = get!().seat_get_repeat_rate(self))();
         res
+    }
+
+    pub fn set_repeat_rate(self, rate: i32, delay: i32) {
+        get!().seat_set_repeat_rate(self, rate, delay)
+    }
+
+    pub fn split(self) -> Axis {
+        let mut res = Axis::Horizontal;
+        (|| res = get!().split(self))();
+        res
+    }
+
+    pub fn set_split(self, axis: Axis) {
+        get!().set_split(self, axis)
     }
 }
 

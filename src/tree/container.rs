@@ -14,13 +14,31 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
-use i4config::Direction;
+use i4config::{Axis, Direction};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerSplit {
     Horizontal,
     Vertical,
+}
+
+impl From<Axis> for ContainerSplit {
+    fn from(a: Axis) -> Self {
+        match a {
+            Axis::Horizontal => Self::Horizontal,
+            Axis::Vertical => Self::Vertical,
+        }
+    }
+}
+
+impl Into<Axis> for ContainerSplit {
+    fn into(self) -> Axis {
+        match self {
+            ContainerSplit::Horizontal => Axis::Horizontal,
+            ContainerSplit::Vertical => Axis::Vertical,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -422,6 +440,16 @@ impl Node for ContainerNode {
         self.seat_state.destroy_node(self);
     }
 
+    fn get_split(&self) -> Option<ContainerSplit> {
+        Some(self.split.get())
+    }
+
+    fn set_split(&self, split: ContainerSplit) {
+        self.split.set(split);
+        self.update_content_size();
+        self.apply_factors(1.0);
+    }
+
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let node = match direction {
             Direction::Left => self.children.last(),
@@ -539,7 +567,6 @@ impl Node for ContainerNode {
                 };
                 return;
             };
-            log::info!("op = {:?}", kind);
             seat_data.op = Some(SeatOp { child, kind })
         } else if state == KeyState::Released {
             let op = seat_data.op.take().unwrap();

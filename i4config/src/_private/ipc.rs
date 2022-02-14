@@ -1,6 +1,6 @@
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
-use crate::{Direction, InputDevice, LogLevel, Seat};
+use crate::{Axis, Direction, InputDevice, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
 use crate::keyboard::keymap::Keymap;
 
@@ -37,6 +37,13 @@ pub enum Request<'a> {
         seat: Seat,
         rate: i32,
         delay: i32,
+    },
+    GetSplit {
+        seat: Seat,
+    },
+    SetSplit {
+        seat: Seat,
+        axis: Axis,
     },
     RemoveSeat {
         seat: Seat,
@@ -81,6 +88,7 @@ pub enum Request<'a> {
 pub enum Response {
     None,
     GetSeats { seats: Vec<Seat> },
+    GetSplit { axis: Axis },
     GetRepeatRate { rate: i32, delay: i32 },
     ParseKeymap { keymap: Keymap, },
     CreateSeat { seat: Seat },
