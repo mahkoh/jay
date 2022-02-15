@@ -9,7 +9,6 @@ use crate::{AsyncEngine, AsyncQueue, ErrorFmt, EventLoop, State, Wheel};
 use bincode::{Decode, Encode};
 use i4config::_private::bincode_ops;
 use log::Level;
-use parking_lot::Mutex;
 use std::cell::Cell;
 use std::ffi::OsStr;
 use std::io::Read;
@@ -17,7 +16,7 @@ use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::{c, pipe2, IntoUstr, OwnedFd, UstrPtr};
+use uapi::{c, pipe2, IntoUstr, OwnedFd, UstrPtr, Fd};
 
 pub struct ForkerProxy {
     pidfd: Rc<OwnedFd>,
@@ -181,29 +180,29 @@ struct Forker {
 }
 
 impl Forker {
-    fn handle(mut socket: OwnedFd) -> ! {
+    fn handle(socket: OwnedFd) -> ! {
         std::env::set_var("XDG_SESSION_TYPE", "wayland");
         std::env::remove_var("DISPLAY");
         std::env::remove_var("WAYLAND_DISPLAY");
         setup_deathsig();
         reset_signals();
-        socket = setup_fds(socket);
+        let socket = Rc::new(setup_fds(socket));
         std::panic::set_hook({
-            let socket = Mutex::new(uapi::fcntl_dupfd_cloexec(socket.raw(), 0).unwrap());
+            let socket = socket.raw();
             Box::new(move |pi| {
                 let msg = ForkerMessage::Log {
                     level: log::Level::Error as _,
                     msg: format!("The ol' forker panicked: {}", pi),
                 };
                 let msg = bincode::encode_to_vec(&msg, bincode_ops()).unwrap();
-                let _ = socket.lock().write_all(&msg);
+                let _ = Fd::new(socket).write_all(&msg);
             })
         });
         let el = EventLoop::new().unwrap();
         let wheel = Wheel::install(&el).unwrap();
         let ae = AsyncEngine::install(&el, &wheel).unwrap();
         let forker = Rc::new(Forker {
-            socket: ae.fd(&Rc::new(socket)).unwrap(),
+            socket: ae.fd(&socket).unwrap(),
             ae: ae.clone(),
             outgoing: Default::default(),
             pending_spawns: Default::default(),
@@ -259,7 +258,7 @@ impl Forker {
     }
 
     fn handle_spawn(self: &Rc<Self>, prog: String, args: Vec<String>, env: Vec<(String, String)>) {
-        let (mut read, mut write) = pipe2(c::O_CLOEXEC).unwrap();
+        let (read, mut write) = pipe2(c::O_CLOEXEC).unwrap();
         let res = match fork_with_pidfd(false) {
             Ok(o) => o,
             Err(e) => {
@@ -271,14 +270,14 @@ impl Forker {
             }
         };
         match res {
-            Forked::Parent { pidfd, pid } => {
+            Forked::Parent { pid, .. } => {
                 drop(write);
                 let slf = self.clone();
                 let spawn = self.ae.spawn(async move {
-                    let pidfd = slf.ae.fd(&Rc::new(pidfd)).unwrap();
-                    let _ = pidfd.readable().await;
+                    let read = slf.ae.fd(&Rc::new(read)).unwrap();
+                    let _ = read.readable().await;
                     let mut s = String::new();
-                    let _ = read.read_to_string(&mut s);
+                    let _ = Fd::new(read.raw()).read_to_string(&mut s);
                     if s.len() > 0 {
                         slf.outgoing.push(ForkerMessage::Log {
                             level: log::Level::Error as _,
