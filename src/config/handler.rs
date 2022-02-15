@@ -263,7 +263,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_run(&self, prog: &str, args: Vec<String>, env: Vec<(String, String)>) -> Result<(), RunError> {
+    fn handle_run(
+        &self,
+        prog: &str,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
+    ) -> Result<(), RunError> {
         let forker = match self.state.forker.get() {
             Some(f) => f,
             _ => return Err(RunError::NoForker),
@@ -354,8 +359,6 @@ enum CphError {
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]
     SeatDoesNotExist(Seat),
-    #[error("Seat {0:?} does not exist")]
-    UnexpectedMessage(String),
     #[error("Could not parse the message")]
     ParsingFailed(#[source] DecodeError),
 }

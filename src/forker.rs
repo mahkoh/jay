@@ -10,13 +10,14 @@ use bincode::{Decode, Encode};
 use i4config::_private::bincode_ops;
 use log::Level;
 use std::cell::Cell;
+use std::env;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::{c, pipe2, IntoUstr, OwnedFd, UstrPtr, Fd};
+use uapi::{c, pipe2, Fd, IntoUstr, OwnedFd, UstrPtr};
 
 pub struct ForkerProxy {
     pidfd: Rc<OwnedFd>,
@@ -46,6 +47,7 @@ impl ForkerProxy {
             Ok(o) => o,
             Err(e) => return Err(ForkerError::Socketpair(e.into())),
         };
+        let pid = uapi::getpid();
         match fork_with_pidfd(false)? {
             Forked::Parent { pid, pidfd } => Ok(ForkerProxy {
                 pidfd: Rc::new(pidfd),
@@ -56,7 +58,7 @@ impl ForkerProxy {
                 task_proc: Cell::new(None),
                 outgoing: Default::default(),
             }),
-            Forked::Child { .. } => Forker::handle(child),
+            Forked::Child { .. } => Forker::handle(pid, child),
         }
     }
 
@@ -83,11 +85,7 @@ impl ForkerProxy {
     }
 
     pub fn spawn(&self, prog: String, args: Vec<String>, env: Vec<(String, String)>) {
-        self.outgoing.push(ServerMessage::Spawn {
-            prog,
-            args,
-            env,
-        })
+        self.outgoing.push(ServerMessage::Spawn { prog, args, env })
     }
 
     async fn incoming(self: Rc<Self>, socket: AsyncFd) {
@@ -163,8 +161,15 @@ impl ForkerProxy {
 
 #[derive(Encode, Decode)]
 enum ServerMessage {
-    SetEnv { var: Vec<u8>, val: Vec<u8> },
-    Spawn { prog: String, args: Vec<String>, env: Vec<(String, String)> },
+    SetEnv {
+        var: Vec<u8>,
+        val: Vec<u8>,
+    },
+    Spawn {
+        prog: String,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
+    },
 }
 
 #[derive(Encode, Decode)]
@@ -180,11 +185,11 @@ struct Forker {
 }
 
 impl Forker {
-    fn handle(socket: OwnedFd) -> ! {
-        std::env::set_var("XDG_SESSION_TYPE", "wayland");
-        std::env::remove_var("DISPLAY");
-        std::env::remove_var("WAYLAND_DISPLAY");
-        setup_deathsig();
+    fn handle(ppid: c::pid_t, socket: OwnedFd) -> ! {
+        env::set_var("XDG_SESSION_TYPE", "wayland");
+        env::remove_var("DISPLAY");
+        env::remove_var("WAYLAND_DISPLAY");
+        setup_deathsig(ppid);
         reset_signals();
         let socket = Rc::new(setup_fds(socket));
         std::panic::set_hook({
@@ -254,7 +259,7 @@ impl Forker {
     }
 
     fn handle_set_env(self: &Rc<Self>, var: &[u8], val: &[u8]) {
-        std::env::set_var(OsStr::from_bytes(var), OsStr::from_bytes(val));
+        env::set_var(OsStr::from_bytes(var), OsStr::from_bytes(val));
     }
 
     fn handle_spawn(self: &Rc<Self>, prog: String, args: Vec<String>, env: Vec<(String, String)>) {
@@ -293,7 +298,7 @@ impl Forker {
                     c::signal(c::SIGCHLD, c::SIG_DFL);
                 }
                 for (key, val) in env {
-                    std::env::set_var(&key, &val);
+                    env::set_var(&key, &val);
                 }
                 let prog = prog.into_ustr();
                 let mut argsnt = UstrPtr::new();
@@ -335,9 +340,12 @@ fn reset_signals() {
     }
 }
 
-fn setup_deathsig() {
+fn setup_deathsig(ppid: c::pid_t) {
     unsafe {
         let res = c::prctl(c::PR_SET_PDEATHSIG, c::SIGKILL as c::c_ulong);
         uapi::map_err!(res).unwrap();
+        if ppid != uapi::getppid() {
+            std::process::exit(0);
+        }
     }
 }

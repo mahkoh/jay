@@ -1,7 +1,9 @@
 use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
-use i4config::keyboard::syms::{SYM_Super_L, SYM_h, SYM_j, SYM_k, SYM_l, SYM_r, SYM_t, SYM_x, SYM_y};
+use i4config::keyboard::syms::{
+    SYM_Super_L, SYM_h, SYM_j, SYM_k, SYM_l, SYM_r, SYM_t, SYM_x, SYM_y,
+};
 use i4config::Direction::{Down, Left, Right, Up};
-use i4config::{config, create_seat, input_devices, on_new_input_device, Seat, Command};
+use i4config::{config, create_seat, input_devices, on_new_input_device, Command, Seat};
 
 const MOD: Modifiers = ALT;
 
@@ -32,12 +34,8 @@ fn configure_seat(s: Seat) {
     s.bind(MOD | SHIFT | SYM_k, move || s.move_(Up));
     s.bind(MOD | SHIFT | SYM_l, move || s.move_(Right));
 
-    s.bind(SYM_x, || {
-        Command::new("alacritty").spawn()
-    });
-    s.bind(SYM_y, || {
-        Command::new("sleep").arg("100").spawn()
-    });
+    s.bind(SYM_x, || Command::new("alacritty").spawn());
+    s.bind(SYM_y, || Command::new("sleep").arg("100").spawn());
 }
 
 pub fn configure() {

@@ -128,7 +128,11 @@ impl Client {
     }
 
     pub fn spawn(&self, command: &Command) {
-        let env = command.env.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
+        let env = command
+            .env
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect();
         self.send(&ClientMessage::Run {
             prog: &command.prog,
             args: command.args.clone(),
