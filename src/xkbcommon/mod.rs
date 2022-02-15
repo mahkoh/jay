@@ -124,8 +124,7 @@ impl XkbContext {
     }
 
     fn raw_to_map(raw: *mut xkb_keymap) -> Result<Rc<XkbKeymap>, XkbCommonError> {
-        let res =
-            unsafe { xkb_keymap_get_as_string(raw, XKB_KEYMAP_FORMAT_TEXT_V1.raw() as _) };
+        let res = unsafe { xkb_keymap_get_as_string(raw, XKB_KEYMAP_FORMAT_TEXT_V1.raw() as _) };
         if res.is_null() {
             unsafe {
                 xkb_keymap_unref(raw);
@@ -143,7 +142,8 @@ impl XkbContext {
         uapi::fcntl_add_seals(
             memfd.raw(),
             c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
-        ).unwrap();
+        )
+        .unwrap();
         Ok(Rc::new(XkbKeymap {
             keymap: raw,
             map: Rc::new(memfd),
@@ -153,7 +153,13 @@ impl XkbContext {
 
     pub fn keymap_from_str(&self, s: &str) -> Result<Rc<XkbKeymap>, XkbCommonError> {
         unsafe {
-            let keymap = xkb_keymap_new_from_buffer(self.context, s.as_bytes().as_ptr(), s.len(), XKB_KEYMAP_FORMAT_TEXT_V1.raw(), 0);
+            let keymap = xkb_keymap_new_from_buffer(
+                self.context,
+                s.as_bytes().as_ptr(),
+                s.len(),
+                XKB_KEYMAP_FORMAT_TEXT_V1.raw(),
+                0,
+            );
             if keymap.is_null() {
                 return Err(XkbCommonError::KeymapFromBuffer);
             }

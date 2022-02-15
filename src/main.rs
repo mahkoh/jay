@@ -13,6 +13,7 @@ use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::event_loop::EventLoopError;
+use crate::forker::ForkerError;
 use crate::globals::Globals;
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_shm::WlShmGlobal;
@@ -29,6 +30,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::wheel::WheelError;
+use crate::xkbcommon::XkbContext;
 use acceptor::Acceptor;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
@@ -38,7 +40,6 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
-use crate::xkbcommon::XkbContext;
 
 #[macro_use]
 mod macros;
@@ -56,6 +57,7 @@ mod cursor;
 mod drm;
 mod event_loop;
 mod fixed;
+mod forker;
 mod format;
 mod globals;
 mod ifs;
@@ -104,9 +106,12 @@ enum MainError {
     XorgBackendError(#[from] XorgBackendError),
     #[error("The render backend caused an error")]
     RenderError(#[from] RenderError),
+    #[error("The ol' forker caused an error")]
+    ForkerError(#[from] ForkerError),
 }
 
 fn main_() -> Result<(), MainError> {
+    let forker = Rc::new(forker::ForkerProxy::create()?);
     leaks::init();
     render::init()?;
     clientmem::init()?;
@@ -119,6 +124,7 @@ fn main_() -> Result<(), MainError> {
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         xkb_ctx,
+        forker: Default::default(),
         default_keymap: xkb_keymap,
         eng: engine.clone(),
         el: el.clone(),
@@ -145,11 +151,13 @@ fn main_() -> Result<(), MainError> {
         mouse_ids: Default::default(),
         kb_handlers: Default::default(),
     });
+    forker.install(&state);
     let config = config::ConfigProxy::default(&state);
     state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
-    Acceptor::install(&state)?;
+    let socket_path = Acceptor::install(&state)?;
+    forker.setenv(b"WAYLAND_DISPLAY", socket_path.as_bytes());
     let _backend = XorgBackend::new(&state)?;
     el.run()?;
     state.clients.clear();

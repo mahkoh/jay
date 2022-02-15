@@ -1,7 +1,7 @@
 mod backend;
+mod device;
 mod output;
 mod slow_clients;
-mod device;
 
 use crate::tasks::backend::BackendEventHandler;
 use crate::tasks::slow_clients::SlowClientHandler;

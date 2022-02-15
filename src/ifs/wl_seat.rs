@@ -4,6 +4,7 @@ pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
 
+use crate::async_engine::SpawnedFuture;
 use crate::client::{Client, ClientError, ClientId};
 use crate::cursor::{Cursor, KnownCursor};
 use crate::fixed::Fixed;
@@ -38,6 +39,7 @@ use crate::{ErrorFmt, NumCell, State};
 use ahash::{AHashMap, AHashSet};
 pub use event_handling::NodeSeatState;
 use i4config::keyboard::mods::Modifiers;
+use i4config::Direction;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::mem;
@@ -45,8 +47,6 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
-use i4config::{ Direction};
-use crate::async_engine::SpawnedFuture;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -119,11 +119,7 @@ pub struct WlSeatGlobal {
 }
 
 impl WlSeatGlobal {
-    pub fn new(
-        name: GlobalName,
-        seat_name: &str,
-        state: &Rc<State>,
-    ) -> Rc<Self> {
+    pub fn new(name: GlobalName, seat_name: &str, state: &Rc<State>) -> Rc<Self> {
         let slf = Rc::new(Self {
             id: state.seat_ids.next(),
             name,
@@ -167,7 +163,8 @@ impl WlSeatGlobal {
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {
-        self.queue_link.set(Some(self.state.seat_queue.add_last(self.clone())));
+        self.queue_link
+            .set(Some(self.state.seat_queue.add_last(self.clone())));
     }
 
     pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
@@ -464,7 +461,11 @@ impl WlSeat {
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
         let keymap = self.global.kb_map.get();
-        p.send_keymap(wl_keyboard::XKB_V1, self.keymap_fd(&keymap)?, keymap.map_len as _);
+        p.send_keymap(
+            wl_keyboard::XKB_V1,
+            self.keymap_fd(&keymap)?,
+            keymap.map_len as _,
+        );
         if self.version >= REPEAT_INFO_SINCE {
             let (rate, delay) = self.global.repeat_rate.get();
             p.send_repeat_info(rate, delay);
@@ -484,12 +485,7 @@ impl WlSeat {
         let mut pos = 0;
         while pos < target {
             let rem = target - pos;
-            let res = uapi::sendfile(
-                fd.raw(),
-                keymap.map.raw(),
-                Some(&mut pos),
-                rem as usize,
-            );
+            let res = uapi::sendfile(fd.raw(), keymap.map.raw(), Some(&mut pos), rem as usize);
             match res {
                 Ok(_) | Err(Errno(c::EINTR)) => {}
                 Err(e) => return Err(WlKeyboardError::KeymapCopy(e.into())),

@@ -71,7 +71,7 @@ fn bind_socket(fd: i32, xdr: &str) -> Result<u32, AcceptorError> {
 }
 
 impl Acceptor {
-    pub fn install(global: &Rc<State>) -> Result<(), AcceptorError> {
+    pub fn install(global: &Rc<State>) -> Result<String, AcceptorError> {
         let xrd = match std::env::var("XDG_RUNTIME_DIR") {
             Ok(d) => d,
             Err(_) => return Err(AcceptorError::XrdNotSet),
@@ -87,7 +87,7 @@ impl Acceptor {
         let socket_id = bind_socket(fd.raw(), &xrd)?;
         let socket_path = socket_path(&xrd, socket_id);
         log::info!("bound to socket {}", socket_path);
-        let unlinker = Unlinker(socket_path);
+        let unlinker = Unlinker(socket_path.clone());
         if let Err(e) = uapi::listen(fd.raw(), 4096) {
             return Err(AcceptorError::ListenFailed(e.into()));
         }
@@ -99,7 +99,7 @@ impl Acceptor {
             global: global.clone(),
         });
         global.el.insert(id, Some(acc.fd.raw()), c::EPOLLIN, acc)?;
-        Ok(())
+        Ok(socket_path)
     }
 }
 

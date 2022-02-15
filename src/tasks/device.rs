@@ -1,11 +1,11 @@
+use crate::async_engine::SpawnedFuture;
 use crate::backend::{Keyboard, KeyboardEvent, Mouse, MouseEvent};
+use crate::config::ConfigProxy;
 use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::state::{DeviceHandlerData, KeyboardData, MouseData};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::State;
 use std::rc::Rc;
-use crate::async_engine::SpawnedFuture;
-use crate::config::ConfigProxy;
-use crate::state::{DeviceHandlerData, KeyboardData, MouseData};
 
 pub trait DeviceApi: 'static {
     type Event;
@@ -40,11 +40,14 @@ impl DeviceApi for dyn Keyboard {
     }
 
     fn add(&self, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
-        state.kb_handlers.borrow_mut().insert(self.id(), KeyboardData {
-            handler,
-            id: self.id(),
-            data,
-        });
+        state.kb_handlers.borrow_mut().insert(
+            self.id(),
+            KeyboardData {
+                handler,
+                id: self.id(),
+                data,
+            },
+        );
     }
 
     fn remove(&self, state: &State) {
@@ -80,11 +83,14 @@ impl DeviceApi for dyn Mouse {
     }
 
     fn add(&self, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
-        state.mouse_handlers.borrow_mut().insert(self.id(), MouseData {
-            handler,
-            id: self.id(),
-            data,
-        });
+        state.mouse_handlers.borrow_mut().insert(
+            self.id(),
+            MouseData {
+                handler,
+                id: self.id(),
+                data,
+            },
+        );
     }
 
     fn remove(&self, state: &State) {

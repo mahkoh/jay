@@ -1,9 +1,12 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{BackendEvent, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId, OutputIds};
+use crate::backend::{
+    BackendEvent, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId, OutputIds,
+};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
 use crate::event_loop::EventLoop;
+use crate::forker::ForkerProxy;
 use crate::globals::{Globals, GlobalsError, WaylandGlobal};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
@@ -15,14 +18,15 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
+use crate::xkbcommon::XkbKeymap;
 use crate::{ErrorFmt, Wheel, XkbContext};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use crate::xkbcommon::XkbKeymap;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
+    pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
@@ -53,13 +57,13 @@ pub struct State {
 pub struct MouseData {
     pub handler: SpawnedFuture<()>,
     pub id: MouseId,
-    pub data: Rc<DeviceHandlerData>
+    pub data: Rc<DeviceHandlerData>,
 }
 
 pub struct KeyboardData {
     pub handler: SpawnedFuture<()>,
     pub id: KeyboardId,
-    pub data: Rc<DeviceHandlerData>
+    pub data: Rc<DeviceHandlerData>,
 }
 
 pub struct DeviceHandlerData {

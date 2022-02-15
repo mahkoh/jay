@@ -2,6 +2,7 @@ pub mod cursor;
 pub mod wl_subsurface;
 pub mod xdg_surface;
 
+use crate::backend::{KeyState, ScrollAxis};
 use crate::client::{Client, ClientError, RequestParser};
 use crate::fixed::Fixed;
 use crate::ifs::wl_buffer::WlBuffer;
@@ -25,14 +26,13 @@ use crate::wire::{WlOutputId, WlSurfaceId};
 use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 use ahash::AHashMap;
+use i4config::Direction;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::{ Direction};
-use crate::backend::{KeyState, ScrollAxis};
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;

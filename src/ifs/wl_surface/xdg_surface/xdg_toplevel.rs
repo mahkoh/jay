@@ -19,6 +19,7 @@ use crate::wire::xdg_toplevel::*;
 use crate::wire::XdgToplevelId;
 use crate::{bugs, NumCell};
 use ahash::{AHashMap, AHashSet};
+use i4config::Direction;
 use num_derive::FromPrimitive;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
@@ -26,7 +27,6 @@ use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::{Direction};
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {

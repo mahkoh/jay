@@ -3,9 +3,9 @@ use crate::keyboard::syms::KeySym;
 use bincode::{Decode, Encode};
 use std::ops::{BitOr, BitOrAssign};
 
+pub mod keymap;
 pub mod mods;
 pub mod syms;
-pub mod keymap;
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ModifiedKeySym {

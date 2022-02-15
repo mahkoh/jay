@@ -1,20 +1,35 @@
+use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::{Axis, Direction, InputDevice, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
-use crate::keyboard::keymap::Keymap;
 
 #[derive(Encode, BorrowDecode, Debug)]
-pub enum Request<'a> {
+pub enum ServerMessage {
     Configure,
+    Response {
+        response: Response,
+    },
+    NewInputDevice {
+        device: InputDevice,
+    },
+    DelInputDevice {
+        device: InputDevice,
+    },
+    InvokeShortcut {
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+    },
+}
+
+#[derive(Encode, BorrowDecode, Debug)]
+pub enum ClientMessage<'a> {
     Log {
         level: LogLevel,
         msg: &'a str,
         file: Option<&'a str>,
         line: Option<u32>,
-    },
-    Response {
-        response: Response,
     },
     CreateSeat {
         name: &'a str,
@@ -50,12 +65,6 @@ pub enum Request<'a> {
     },
     GetSeats,
     GetInputDevices,
-    NewInputDevice {
-        device: InputDevice,
-    },
-    DelInputDevice {
-        device: InputDevice,
-    },
     AddShortcut {
         seat: Seat,
         mods: Modifiers,
@@ -66,13 +75,10 @@ pub enum Request<'a> {
         mods: Modifiers,
         sym: KeySym,
     },
-    InvokeShortcut {
-        seat: Seat,
-        mods: Modifiers,
-        sym: KeySym,
-    },
-    Shell {
-        script: &'a str,
+    Run {
+        prog: &'a str,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
     },
     Focus {
         seat: Seat,
@@ -90,7 +96,7 @@ pub enum Response {
     GetSeats { seats: Vec<Seat> },
     GetSplit { axis: Axis },
     GetRepeatRate { rate: i32, delay: i32 },
-    ParseKeymap { keymap: Keymap, },
+    ParseKeymap { keymap: Keymap },
     CreateSeat { seat: Seat },
     GetInputDevices { devices: Vec<InputDevice> },
 }

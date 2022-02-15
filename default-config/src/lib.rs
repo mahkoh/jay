@@ -1,7 +1,7 @@
-use i4config::keyboard::mods::{ALT, CTRL, Modifiers, SHIFT};
-use i4config::keyboard::syms::{SYM_Super_L, SYM_h, SYM_j, SYM_k, SYM_l, SYM_plus, SYM_minus, SYM_r, SYM_t};
+use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
+use i4config::keyboard::syms::{SYM_Super_L, SYM_h, SYM_j, SYM_k, SYM_l, SYM_r, SYM_t, SYM_x};
 use i4config::Direction::{Down, Left, Right, Up};
-use i4config::{config, shell, Seat, create_seat, input_devices, on_new_input_device};
+use i4config::{config, create_seat, input_devices, on_new_input_device, Seat, Command};
 
 const MOD: Modifiers = ALT;
 
@@ -15,8 +15,8 @@ fn configure_seat(s: Seat) {
         s.set_repeat_rate(new_rate, new_delay);
     };
 
-    s.bind(CTRL | SYM_l, move || change_rate(-1));
-    s.bind(CTRL | SYM_r, move || change_rate(1));
+    s.bind(CTRL | SHIFT | SYM_l, move || change_rate(-1));
+    s.bind(CTRL | SHIFT | SYM_r, move || change_rate(1));
 
     s.bind(CTRL | SYM_h, move || s.focus(Left));
     s.bind(CTRL | SYM_j, move || s.focus(Down));
@@ -32,7 +32,9 @@ fn configure_seat(s: Seat) {
     s.bind(MOD | SHIFT | SYM_k, move || s.move_(Up));
     s.bind(MOD | SHIFT | SYM_l, move || s.move_(Right));
 
-    s.bind(SYM_Super_L, || shell("alacritty"));
+    s.bind(SYM_x, || {
+        Command::new("alacritty").spawn()
+    });
 }
 
 pub fn configure() {

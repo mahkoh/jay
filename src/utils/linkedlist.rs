@@ -219,7 +219,8 @@ impl<T> NodeRef<T> {
     }
 
     fn peer<F>(&self, peer: F) -> Option<NodeRef<T>>
-        where F: FnOnce(&NodeData<T>) -> &Cell<NonNull<NodeData<T>>>,
+    where
+        F: FnOnce(&NodeData<T>) -> &Cell<NonNull<NodeData<T>>>,
     {
         unsafe {
             let data = self.data.as_ref();

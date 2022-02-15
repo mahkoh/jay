@@ -1,4 +1,7 @@
-use crate::backend::{BackendEvent, Keyboard, KeyboardEvent, KeyboardId, KeyState, Mouse, MouseEvent, MouseId, Output, OutputId, ScrollAxis};
+use crate::backend::{
+    BackendEvent, KeyState, Keyboard, KeyboardEvent, KeyboardId, Mouse, MouseEvent, MouseId,
+    Output, OutputId, ScrollAxis,
+};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};

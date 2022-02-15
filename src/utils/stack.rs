@@ -1,5 +1,5 @@
-use std::cell::UnsafeCell;
 use crate::utils::ptr_ext::MutPtrExt;
+use std::cell::UnsafeCell;
 
 pub struct Stack<T> {
     vec: UnsafeCell<Vec<T>>,
@@ -21,8 +21,6 @@ impl<T> Stack<T> {
     }
 
     pub fn pop(&self) -> Option<T> {
-        unsafe {
-            self.vec.get().deref_mut().pop()
-        }
+        unsafe { self.vec.get().deref_mut().pop() }
     }
 }

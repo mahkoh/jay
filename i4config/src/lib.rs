@@ -1,8 +1,9 @@
 #![feature(thread_local_const_init)]
 
+use std::collections::HashMap;
+use crate::keyboard::keymap::Keymap;
 use crate::keyboard::ModifiedKeySym;
 use bincode::{Decode, Encode};
-use crate::keyboard::keymap::Keymap;
 
 #[macro_use]
 mod macros;
@@ -151,6 +152,32 @@ pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(f: F) {
     get!().on_new_input_device(f)
 }
 
-pub fn shell(shell: &str) {
-    get!().shell(shell)
+pub struct Command {
+    prog: String,
+    args: Vec<String>,
+    env: HashMap<String, String>,
+}
+
+impl Command {
+    pub fn new(prog: &str) -> Self {
+        Self {
+            prog: prog.to_string(),
+            args: vec![],
+            env: Default::default(),
+        }
+    }
+
+    pub fn arg(&mut self, arg: &str) -> &mut Self {
+        self.args.push(arg.to_string());
+        self
+    }
+
+    pub fn env(&mut self, key: &str, val: &str) -> &mut Self {
+        self.env.insert(key.to_string(), val.to_string());
+        self
+    }
+
+    pub fn spawn(&self) {
+        get!().spawn(self);
+    }
 }

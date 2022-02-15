@@ -1,8 +1,8 @@
 use crate::backend::{BackendEvent, Output};
+use crate::tasks::device;
 use crate::tasks::output::OutputHandler;
 use crate::State;
 use std::rc::Rc;
-use crate::tasks::device;
 
 pub struct BackendEventHandler {
     pub state: Rc<State>,

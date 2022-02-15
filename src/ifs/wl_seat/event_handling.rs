@@ -1,4 +1,4 @@
-use crate::backend::{KeyboardEvent, KeyState, MouseEvent, OutputId, ScrollAxis};
+use crate::backend::{KeyState, KeyboardEvent, MouseEvent, OutputId, ScrollAxis};
 use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
 use crate::ifs::ipc;
@@ -6,7 +6,7 @@ use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
-use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, WlSeat, WlSeatGlobal, SeatId};
+use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, SeatId, WlSeat, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;

@@ -8,7 +8,7 @@ use crate::wire::wl_keyboard::*;
 use crate::wire::{WlKeyboardId, WlSurfaceId};
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::{OwnedFd};
+use uapi::OwnedFd;
 
 pub const REPEAT_INFO_SINCE: u32 = 4;
 

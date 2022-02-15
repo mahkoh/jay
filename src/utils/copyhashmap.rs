@@ -15,7 +15,7 @@ impl<K, V> Default for CopyHashMap<K, V> {
     }
 }
 
-impl<K: Eq + Hash, V: Clone> CopyHashMap<K, V> {
+impl<K: Eq + Hash, V> CopyHashMap<K, V> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -24,7 +24,10 @@ impl<K: Eq + Hash, V: Clone> CopyHashMap<K, V> {
         self.map.borrow_mut().insert(k, v);
     }
 
-    pub fn get(&self, k: &K) -> Option<V> {
+    pub fn get(&self, k: &K) -> Option<V>
+    where
+        V: Clone,
+    {
         self.map.borrow_mut().get(k).cloned()
     }
 

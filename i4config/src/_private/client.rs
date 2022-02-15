@@ -1,13 +1,13 @@
-use crate::_private::ipc::{InitMessage, Request, Response};
+use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
-use crate::{Axis, Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
+use crate::keyboard::keymap::Keymap;
+use crate::{Axis, Command, Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::{ptr, slice};
-use crate::keyboard::keymap::Keymap;
 
 pub(crate) struct Client {
     configure: extern "C" fn(),
@@ -117,7 +117,7 @@ pub unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize
 }
 
 impl Client {
-    fn send(&self, msg: &Request) {
+    fn send(&self, msg: &ClientMessage) {
         let mut buf = self.bufs.borrow_mut().pop().unwrap_or_default();
         buf.clear();
         bincode::encode_into_std_write(msg, &mut buf, bincode_ops()).unwrap();
@@ -127,16 +127,21 @@ impl Client {
         self.bufs.borrow_mut().push(buf);
     }
 
-    pub fn shell(&self, shell: &str) {
-        self.send(&Request::Shell { script: shell });
+    pub fn spawn(&self, command: &Command) {
+        let env = command.env.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
+        self.send(&ClientMessage::Run {
+            prog: &command.prog,
+            args: command.args.clone(),
+            env,
+        });
     }
 
     pub fn focus(&self, seat: Seat, direction: Direction) {
-        self.send(&Request::Focus { seat, direction });
+        self.send(&ClientMessage::Focus { seat, direction });
     }
 
     pub fn move_(&self, seat: Seat, direction: Direction) {
-        self.send(&Request::Move { seat, direction });
+        self.send(&ClientMessage::Move { seat, direction });
     }
 
     pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T) {
@@ -147,7 +152,7 @@ impl Client {
             .remove(&(seat, mod_sym))
             .is_some();
         if deregister {
-            self.send(&Request::RemoveShortcut {
+            self.send(&ClientMessage::RemoveShortcut {
                 seat,
                 mods: mod_sym.mods,
                 sym: mod_sym.sym,
@@ -161,7 +166,7 @@ impl Client {
     }
 
     pub fn seats(&self) -> Vec<Seat> {
-        let response = self.with_response(|| self.send(&Request::GetSeats));
+        let response = self.with_response(|| self.send(&ClientMessage::GetSeats));
         match response {
             Response::GetSeats { seats } => seats,
             _ => {
@@ -172,22 +177,22 @@ impl Client {
     }
 
     pub fn split(&self, seat: Seat) -> Axis {
-        let res = self.with_response(|| self.send(&Request::GetSplit { seat }));
+        let res = self.with_response(|| self.send(&ClientMessage::GetSplit { seat }));
         match res {
             Response::GetSplit { axis } => axis,
             _ => {
                 log::error!("Server did not send a response to a get_split request");
                 Axis::Horizontal
-            },
+            }
         }
     }
 
     pub fn set_split(&self, seat: Seat, axis: Axis) {
-        self.send(&Request::SetSplit { seat, axis });
+        self.send(&ClientMessage::SetSplit { seat, axis });
     }
 
     pub fn create_seat(&self, name: &str) -> Seat {
-        let response = self.with_response(|| self.send(&Request::CreateSeat { name }));
+        let response = self.with_response(|| self.send(&ClientMessage::CreateSeat { name }));
         match response {
             Response::CreateSeat { seat } => seat,
             _ => {
@@ -198,12 +203,12 @@ impl Client {
     }
 
     pub fn get_input_devices(&self) -> Vec<InputDevice> {
-        let res = self.with_response(|| self.send(&Request::GetInputDevices));
+        let res = self.with_response(|| self.send(&ClientMessage::GetInputDevices));
         match res {
             Response::GetInputDevices { devices } => devices,
             _ => {
                 log::error!("Server did not send a response to a get_input_devices request");
-                vec!()
+                vec![]
             }
         }
     }
@@ -217,19 +222,19 @@ impl Client {
     }
 
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
-        self.send(&Request::SetSeat { device, seat })
+        self.send(&ClientMessage::SetSeat { device, seat })
     }
 
     pub fn seat_set_keymap(&self, seat: Seat, keymap: Keymap) {
-        self.send(&Request::SeatSetKeymap { seat, keymap })
+        self.send(&ClientMessage::SeatSetKeymap { seat, keymap })
     }
 
     pub fn seat_set_repeat_rate(&self, seat: Seat, rate: i32, delay: i32) {
-        self.send(&Request::SeatSetRepeatRate { seat, rate, delay })
+        self.send(&ClientMessage::SeatSetRepeatRate { seat, rate, delay })
     }
 
     pub fn seat_get_repeat_rate(&self, seat: Seat) -> (i32, i32) {
-        let res = self.with_response(|| self.send(&Request::SeatGetRepeatRate { seat }));
+        let res = self.with_response(|| self.send(&ClientMessage::SeatGetRepeatRate { seat }));
         match res {
             Response::GetRepeatRate { rate, delay } => (rate, delay),
             _ => {
@@ -240,7 +245,7 @@ impl Client {
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
-        let res = self.with_response(|| self.send(&Request::ParseKeymap { keymap }));
+        let res = self.with_response(|| self.send(&ClientMessage::ParseKeymap { keymap }));
         match res {
             Response::ParseKeymap { keymap } => keymap,
             _ => {
@@ -267,7 +272,7 @@ impl Client {
             }
         };
         if register {
-            self.send(&Request::AddShortcut {
+            self.send(&ClientMessage::AddShortcut {
                 seat,
                 mods: mod_sym.mods,
                 sym: mod_sym.sym,
@@ -276,7 +281,7 @@ impl Client {
     }
 
     pub fn log(&self, level: LogLevel, msg: &str, file: Option<&str>, line: Option<u32>) {
-        self.send(&Request::Log {
+        self.send(&ClientMessage::Log {
             level,
             msg,
             file,
@@ -285,7 +290,7 @@ impl Client {
     }
 
     fn handle_msg(&self, msg: &[u8]) {
-        let res = bincode::decode_from_slice::<Request, _>(msg, bincode_ops());
+        let res = bincode::decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
         let (msg, _) = match res {
             Ok(msg) => msg,
             Err(e) => {
@@ -295,30 +300,26 @@ impl Client {
             }
         };
         match msg {
-            Request::Configure => {
+            ServerMessage::Configure => {
                 (self.configure)();
             }
-            Request::Response { response } => {
+            ServerMessage::Response { response } => {
                 self.response.borrow_mut().push(response);
             }
-            Request::InvokeShortcut { seat, mods, sym } => {
+            ServerMessage::InvokeShortcut { seat, mods, sym } => {
                 let ms = ModifiedKeySym { mods, sym };
                 let handler = self.key_handlers.borrow_mut().get(&(seat, ms)).cloned();
                 if let Some(handler) = handler {
                     handler();
                 }
             }
-            Request::NewInputDevice { device } => {
+            ServerMessage::NewInputDevice { device } => {
                 let handler = self.on_new_input_device.borrow_mut().clone();
                 if let Some(handler) = handler {
                     handler(device);
                 }
             }
-            m => {
-                let err = format!("unexpected message: {:?}", m);
-                self.log(LogLevel::Error, &err, None, None);
-                return;
-            }
+            ServerMessage::DelInputDevice { .. } => {}
         }
     }
 

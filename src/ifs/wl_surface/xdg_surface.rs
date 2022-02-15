@@ -21,11 +21,11 @@ use crate::utils::smallmap::SmallMap;
 use crate::wire::xdg_surface::*;
 use crate::wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId};
 use crate::NumCell;
+use i4config::Direction;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::{Direction};
 
 #[allow(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;

@@ -13,11 +13,11 @@ use crate::utils::linkedlist::{LinkedList, LinkedNode};
 use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 pub use container::*;
+use i4config::Direction;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
-use i4config::{Direction};
 pub use workspace::*;
 
 mod container;
@@ -93,7 +93,12 @@ pub trait Node {
         let _ = direction;
     }
 
-    fn move_focus_from_child(&self, seat: &Rc<WlSeatGlobal>, child: &dyn Node, direction: Direction) {
+    fn move_focus_from_child(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        child: &dyn Node,
+        direction: Direction,
+    ) {
         let _ = seat;
         let _ = direction;
         let _ = child;

@@ -10,6 +10,12 @@ pub struct AsyncQueue<T> {
     waiters: RefCell<Vec<Waker>>,
 }
 
+impl<T> Default for AsyncQueue<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> AsyncQueue<T> {
     pub fn new() -> Self {
         Self {

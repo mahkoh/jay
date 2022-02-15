@@ -1,7 +1,7 @@
-use crate::backend::{KeyState};
+use crate::backend::KeyState;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal, BTN_LEFT, SeatId};
+use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
@@ -9,12 +9,12 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{NumCell, State};
 use ahash::AHashMap;
+use i4config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
-use i4config::{Axis, Direction};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -462,7 +462,12 @@ impl Node for ContainerNode {
         }
     }
 
-    fn move_focus_from_child(&self, seat: &Rc<WlSeatGlobal>, child: &dyn Node, direction: Direction) {
+    fn move_focus_from_child(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        child: &dyn Node,
+        direction: Direction,
+    ) {
         let children = self.child_nodes.borrow_mut();
         let child = match children.get(&child.id()) {
             Some(c) => c,
@@ -473,7 +478,9 @@ impl Node for ContainerNode {
             ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
         };
         if !in_line {
-            self.parent.get().move_focus_from_child(seat, self, direction);
+            self.parent
+                .get()
+                .move_focus_from_child(seat, self, direction);
             return;
         }
         let prev = match direction {
@@ -484,12 +491,14 @@ impl Node for ContainerNode {
         };
         let sibling = match prev {
             true => child.prev(),
-            false => child.next()
+            false => child.next(),
         };
         let sibling = match sibling {
             Some(s) => s,
             None => {
-                self.parent.get().move_focus_from_child(seat, self, direction);
+                self.parent
+                    .get()
+                    .move_focus_from_child(seat, self, direction);
                 return;
             }
         };

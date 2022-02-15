@@ -1,19 +1,19 @@
 mod handler;
 
 use crate::backend::{KeyboardId, MouseId};
+use crate::config::handler::ConfigProxyHandler;
+use crate::ifs::wl_seat::SeatId;
 use crate::utils::ptr_ext::PtrExt;
 use crate::{NumCell, State};
-use i4config::_private::ipc::{InitMessage, Request, V1InitMessage};
+use i4config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
 use i4config::_private::{bincode_ops, ConfigEntry, VERSION};
 use i4config::keyboard::ModifiedKeySym;
+use i4config::{InputDevice, Keyboard, Mouse, Seat};
 use libloading::Library;
 use std::cell::Cell;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
-use i4config::{InputDevice, Keyboard, Mouse, Seat};
-use crate::config::handler::ConfigProxyHandler;
-use crate::ifs::wl_seat::{SeatId};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -29,7 +29,7 @@ pub struct ConfigProxy {
 
 impl ConfigProxy {
     pub fn invoke_shortcut(&self, seat: SeatId, modsym: &ModifiedKeySym) {
-        self.handler.send(&Request::InvokeShortcut {
+        self.handler.send(&ServerMessage::InvokeShortcut {
             seat: Seat(seat.raw() as _),
             mods: modsym.mods,
             sym: modsym.sym,
@@ -37,25 +37,25 @@ impl ConfigProxy {
     }
 
     pub fn new_keyboard(&self, kb: KeyboardId) {
-        self.handler.send(&Request::NewInputDevice {
+        self.handler.send(&ServerMessage::NewInputDevice {
             device: InputDevice::Keyboard(Keyboard(kb.raw() as _)),
         });
     }
 
     pub fn new_mouse(&self, mouse: MouseId) {
-        self.handler.send(&Request::NewInputDevice {
+        self.handler.send(&ServerMessage::NewInputDevice {
             device: InputDevice::Mouse(Mouse(mouse.raw() as _)),
         });
     }
 
     pub fn del_keyboard(&self, kb: KeyboardId) {
-        self.handler.send(&Request::DelInputDevice {
+        self.handler.send(&ServerMessage::DelInputDevice {
             device: InputDevice::Keyboard(Keyboard(kb.raw() as _)),
         });
     }
 
     pub fn del_mouse(&self, mouse: MouseId) {
-        self.handler.send(&Request::DelInputDevice {
+        self.handler.send(&ServerMessage::DelInputDevice {
             device: InputDevice::Mouse(Mouse(mouse.raw() as _)),
         });
     }
@@ -110,7 +110,7 @@ impl ConfigProxy {
             );
             data.client_data.set(client_data);
         }
-        data.send(&Request::Configure);
+        data.send(&ServerMessage::Configure);
         Self { handler: data }
     }
 
