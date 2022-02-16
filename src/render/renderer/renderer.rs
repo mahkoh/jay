@@ -33,6 +33,11 @@ fn focus_color(focus: ContainerFocus) -> (f32, f32, f32) {
     }
 }
 
+const TITLE_COLOR: (f32, f32, f32) = ((0x46 as f32)/255., (0x04 as f32)/255., (0x17 as f32)/255.);
+// const BORDER_COLOR: (f32, f32, f32) = ((0xba as f32)/255., (0x57 as f32)/255., (0x00 as f32)/255.);
+const UNDERLINE_COLOR: (f32, f32, f32) = ((0x66 as f32)/255., (0x24 as f32)/255., (0x37 as f32)/255.);
+const BORDER_COLOR: (f32, f32, f32) = ((0x36 as f32)/255., (0x00 as f32)/255., (0x07 as f32)/255.);
+
 pub struct Renderer<'a> {
     pub(super) ctx: &'a RenderContext,
     pub(super) fb: &'a GlFrameBuffer,
@@ -103,13 +108,17 @@ impl Renderer<'_> {
         let cheight = container.height.get();
         let num_children = container.num_children();
         let title_rect =
-            Rect::new_sized(x, y, container.width.get(), CONTAINER_TITLE_HEIGHT).unwrap();
+            Rect::new_sized(x, y, container.width.get(), CONTAINER_TITLE_HEIGHT - 1).unwrap();
+        let underline_rect =
+            Rect::new_sized(x, y + CONTAINER_TITLE_HEIGHT - 1, container.width.get(), 1).unwrap();
         if let Some(child) = container.mono_child.get() {
             let space_per_child = cwidth / num_children as i32;
             let mut rem = cwidth % num_children as i32;
             let mut pos = x;
             let (r, g, b) = focus_color(ContainerFocus::None);
             self.fill_boxes(slice::from_ref(&title_rect), r, g, b, 1.0);
+            let (r, g, b) = BORDER_COLOR;
+            self.fill_boxes(slice::from_ref(&underline_rect), r, g, b, 1.0);
             for child in container.children.iter() {
                 let focus = child.focus.get();
                 let (r, g, b) = focus_color(focus);
@@ -132,12 +141,20 @@ impl Renderer<'_> {
             }
         } else {
             let split = container.split.get();
-            let mut rects = Vec::with_capacity(num_children);
-            rects.push(title_rect);
+            let num_title_rects = if split == ContainerSplit::Horizontal {
+                1
+            } else {
+                num_children
+            };
+            let mut title_rects = Vec::with_capacity(num_title_rects);
+            let mut underline_rects = Vec::with_capacity(num_title_rects);
+            let mut border_rects = Vec::with_capacity(num_children - 1);
+            title_rects.push(title_rect);
+            underline_rects.push(underline_rect);
             for (i, child) in container.children.iter().enumerate() {
                 let body = child.body.get();
                 if i + 1 < num_children {
-                    let rect = if split == ContainerSplit::Horizontal {
+                    let border_rect = if split == ContainerSplit::Horizontal {
                         Rect::new_sized(
                             x + body.x2(),
                             y + body.y1() - CONTAINER_TITLE_HEIGHT,
@@ -146,19 +163,37 @@ impl Renderer<'_> {
                         )
                         .unwrap()
                     } else {
+                        title_rects.push(Rect::new_sized(
+                            x,
+                            y + body.y2() + CONTAINER_BORDER,
+                            container.width.get(),
+                            CONTAINER_TITLE_HEIGHT - 1,
+                        ).unwrap());
+                        underline_rects.push(Rect::new_sized(
+                            x,
+                            y + body.y2() + CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT - 1,
+                            container.width.get(),
+                            1,
+                        ).unwrap());
                         Rect::new_sized(
                             x,
                             y + body.y2(),
                             container.width.get(),
-                            CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT,
+                            CONTAINER_BORDER,
                         )
                         .unwrap()
                     };
-                    rects.push(rect);
+                    border_rects.push(border_rect);
                 }
             }
-            let (r, g, b) = focus_color(ContainerFocus::None);
-            self.fill_boxes(&rects, r, g, b, 1.0);
+            {
+                let (r, g, b) = TITLE_COLOR;
+                self.fill_boxes(&title_rects, r, g, b, 1.0);
+                let (r, g, b) = UNDERLINE_COLOR;
+                self.fill_boxes(&underline_rects, r, g, b, 1.0);
+                let (r, g, b) = BORDER_COLOR;
+                self.fill_boxes(&border_rects, r, g, b, 1.0);
+            }
             for child in container.children.iter() {
                 let body = child.body.get();
                 if body.x1() >= cwidth || body.y1() >= cheight {

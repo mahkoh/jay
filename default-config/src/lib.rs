@@ -1,5 +1,5 @@
 use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
-use i4config::keyboard::syms::{SYM_h, SYM_j, SYM_k, SYM_l, SYM_r, SYM_t, SYM_x, SYM_y, SYM_b, SYM_Super_L};
+use i4config::keyboard::syms::{SYM_h, SYM_j, SYM_k, SYM_l, SYM_r, SYM_t, SYM_y, SYM_b, SYM_Super_L};
 use i4config::Direction::{Down, Left, Right, Up};
 use i4config::{config, create_seat, input_devices, on_new_input_device, Command, Seat, InputDevice};
 use i4config::embedded::grab_keyboard;
