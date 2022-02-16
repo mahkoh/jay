@@ -40,6 +40,8 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
+use crate::backends::dummy::DummyBackend;
+use crate::utils::clonecell::CloneCell;
 
 #[macro_use]
 mod macros;
@@ -125,6 +127,7 @@ fn main_() -> Result<(), MainError> {
     let state = Rc::new(State {
         xkb_ctx,
         forker: Default::default(),
+        backend: CloneCell::new(DummyBackend::new()),
         default_keymap: xkb_keymap,
         eng: engine.clone(),
         el: el.clone(),
@@ -152,13 +155,14 @@ fn main_() -> Result<(), MainError> {
         kb_handlers: Default::default(),
     });
     forker.install(&state);
+    let backend = XorgBackend::new(&state)?;
+    state.backend.set(backend);
     let config = config::ConfigProxy::default(&state);
     state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
     let socket_path = Acceptor::install(&state)?;
     forker.setenv(b"WAYLAND_DISPLAY", socket_path.as_bytes());
-    let _backend = XorgBackend::new(&state)?;
     el.run()?;
     state.clients.clear();
     for (_, seat) in state.globals.seats.lock().deref() {

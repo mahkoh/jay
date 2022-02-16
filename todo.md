@@ -4,8 +4,6 @@
 - Container moving (kb)
 - Float toggle
 - Toplevel splitting
-- Shortcuts
-- Config
 - Workspaces
 - Float moving
 - Highlighting active
@@ -19,3 +17,5 @@
 - clipboard
 - primary selection
 - dnd
+- Shortcuts
+- Config

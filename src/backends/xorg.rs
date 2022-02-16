@@ -1,7 +1,4 @@
-use crate::backend::{
-    BackendEvent, KeyState, Keyboard, KeyboardEvent, KeyboardId, Mouse, MouseEvent, MouseId,
-    Output, OutputId, ScrollAxis,
-};
+use crate::backend::{BackendEvent, KeyState, Keyboard, KeyboardEvent, KeyboardId, Mouse, MouseEvent, MouseId, Output, OutputId, ScrollAxis, Backend};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -14,7 +11,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::ptr_ext::PtrExt;
 use crate::wheel::{WheelDispatcher, WheelId};
-use crate::{EventLoopError, NumCell, State, WheelError};
+use crate::{ErrorFmt, EventLoopError, NumCell, State, WheelError};
 use isnt::std_1::primitive::IsntConstPtrExt;
 use rand::Rng;
 use std::cell::{Cell, RefCell};
@@ -212,6 +209,9 @@ pub struct XorgBackend {
     r: Cell<f32>,
     g: Cell<f32>,
     b: Cell<f32>,
+}
+
+impl Backend for XorgBackend {
 }
 
 fn get_drm(con: &XcbCon) -> Result<Drm, XorgBackendError> {
@@ -555,7 +555,7 @@ impl XorgBackend {
                 kb_id: self.state.kb_ids.next(),
                 mouse_id: self.state.mouse_ids.next(),
                 backend: self.clone(),
-                _kb: info.deviceid,
+                kb: info.deviceid,
                 mouse: info.attachment,
                 removed: Cell::new(false),
                 kb_cb: Default::default(),
@@ -998,7 +998,7 @@ struct XorgSeat {
     kb_id: KeyboardId,
     mouse_id: MouseId,
     backend: Rc<XorgBackend>,
-    _kb: ffi::xcb_input_device_id_t,
+    kb: ffi::xcb_input_device_id_t,
     mouse: ffi::xcb_input_device_id_t,
     removed: Cell<bool>,
     kb_cb: CloneCell<Option<Rc<dyn Fn()>>>,
@@ -1079,6 +1079,43 @@ impl Keyboard for XorgSeat {
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
         self.kb_cb.set(Some(cb));
+    }
+
+    fn grab(&self, grab: bool) {
+        unsafe {
+            let con = &self.backend.con;
+            let mut err = ptr::null_mut();
+            if grab {
+                let res = con.input.xcb_input_xi_grab_device(
+                    con.c,
+                    con.screen.root,
+                    0,
+                    0,
+                    self.kb,
+                    ffi::XCB_GRAB_MODE_ASYNC as _,
+                    ffi::XCB_GRAB_MODE_ASYNC as _,
+                    1,
+                    0,
+                    ptr::null(),
+                );
+                let res = con.input.xcb_input_xi_grab_device_reply(con.c, res, &mut err);
+                let res = match con.check(res, err) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("Could not grab device {}: {}", self.kb, ErrorFmt(e));
+                        return;
+                    }
+                };
+                if res.status != ffi::XCB_GRAB_STATUS_SUCCESS as _ {
+                    log::error!("Could not grab device {}: status = {}", self.kb, res.status);
+                }
+            } else {
+                let cookie = con.input.xcb_input_xi_ungrab_device_checked(con.c, 0, self.kb);
+                if let Err(e) = con.check_cookie(cookie) {
+                    log::error!("Could not ungrab device {}: {}", self.kb, ErrorFmt(e));
+                }
+            }
+        }
     }
 }
 

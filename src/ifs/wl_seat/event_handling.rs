@@ -371,6 +371,10 @@ impl WlSeatGlobal {
         self.shortcuts.set((mods.0, keysym.0), mods);
     }
 
+    pub fn remove_shortcut(&self, mods: Modifiers, keysym: KeySym) {
+        self.shortcuts.remove(&(mods.0, keysym.0));
+    }
+
     pub fn trigger_tree_changed(&self) {
         self.tree_changed.trigger();
     }

@@ -1,7 +1,7 @@
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
 use crate::keyboard::keymap::Keymap;
-use crate::{Axis, Command, Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
+use crate::{Axis, Command, Direction, InputDevice, Keyboard, LogLevel, ModifiedKeySym, Seat};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -140,6 +140,10 @@ impl Client {
         });
     }
 
+    pub fn grab(&self, kb: Keyboard, grab: bool) {
+        self.send(&ClientMessage::GrabKb { kb, grab });
+    }
+
     pub fn focus(&self, seat: Seat, direction: Direction) {
         self.send(&ClientMessage::Focus { seat, direction });
     }
@@ -206,8 +210,8 @@ impl Client {
         }
     }
 
-    pub fn get_input_devices(&self) -> Vec<InputDevice> {
-        let res = self.with_response(|| self.send(&ClientMessage::GetInputDevices));
+    pub fn get_input_devices(&self, seat: Option<Seat>) -> Vec<InputDevice> {
+        let res = self.with_response(|| self.send(&ClientMessage::GetInputDevices { seat }));
         match res {
             Response::GetInputDevices { devices } => devices,
             _ => {

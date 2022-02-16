@@ -10,6 +10,7 @@ mod macros;
 #[doc(hidden)]
 pub mod _private;
 pub mod keyboard;
+pub mod embedded;
 
 #[derive(Encode, Decode, Copy, Clone, Debug)]
 pub enum LogLevel {
@@ -122,6 +123,12 @@ impl Seat {
     pub fn set_split(self, axis: Axis) {
         get!().set_split(self, axis)
     }
+
+    pub fn input_devices(self) -> Vec<InputDevice> {
+        let mut res = vec![];
+        (|| res = get!().get_input_devices(Some(self)))();
+        res
+    }
 }
 
 pub fn get_seats() -> Vec<Seat> {
@@ -132,7 +139,7 @@ pub fn get_seats() -> Vec<Seat> {
 
 pub fn input_devices() -> Vec<InputDevice> {
     let mut res = vec![];
-    (|| res = get!().get_input_devices())();
+    (|| res = get!().get_input_devices(None))();
     res
 }
 

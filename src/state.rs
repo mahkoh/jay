@@ -1,7 +1,5 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{
-    BackendEvent, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId, OutputIds,
-};
+use crate::backend::{Backend, BackendEvent, Keyboard, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId, OutputIds};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
@@ -27,6 +25,7 @@ use std::rc::Rc;
 pub struct State {
     pub xkb_ctx: XkbContext,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
+    pub backend: CloneCell<Rc<dyn Backend>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
@@ -63,6 +62,7 @@ pub struct MouseData {
 pub struct KeyboardData {
     pub handler: SpawnedFuture<()>,
     pub id: KeyboardId,
+    pub kb: Rc<dyn Keyboard>,
     pub data: Rc<DeviceHandlerData>,
 }
 

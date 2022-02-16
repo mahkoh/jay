@@ -12,7 +12,6 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
-codegen-units = 1
 
 [dependencies]
 uapi = "0.2.7"

@@ -1,12 +1,12 @@
 use crate::backend::{KeyboardId, MouseId};
-use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::state::DeviceHandlerData;
+use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
+use crate::state::{DeviceHandlerData};
 use crate::tree::ContainerSplit;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
 use crate::utils::stack::Stack;
 use crate::xkbcommon::XkbKeymap;
-use crate::{ErrorFmt, NumCell, State};
+use crate::{backend, ErrorFmt, NumCell, State};
 use bincode::error::DecodeError;
 use i4config::_private::bincode_ops;
 use i4config::_private::ipc::{ClientMessage, Response, ServerMessage};
@@ -181,6 +181,14 @@ impl ConfigProxyHandler {
         Err(CphError::SeatDoesNotExist(seat))
     }
 
+    fn get_kb(&self, kb: Keyboard) -> Result<Rc<dyn backend::Keyboard>, CphError> {
+        let kbs = self.state.kb_handlers.borrow_mut();
+        match kbs.get(&(KeyboardId::from_raw(kb.0 as _))) {
+            None => Err(CphError::KeyboardDoesNotExist(kb)),
+            Some(kb) => Ok(kb.kb.clone()),
+        }
+    }
+
     fn get_keymap(&self, keymap: Keymap) -> Result<Rc<XkbKeymap>, CphError> {
         match self.keymaps.get(&keymap) {
             Some(k) => Ok(k),
@@ -229,18 +237,44 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_get_input_devices(&self) -> Result<(), GetInputDevicesError> {
+    fn handle_remove_shortcut(
+        &self,
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+    ) -> Result<(), AddShortcutError> {
+        let seat = self.get_seat(seat)?;
+        seat.remove_shortcut(mods, sym);
+        Ok(())
+    }
+
+    fn handle_get_input_devices(&self, seat: Option<Seat>) -> Result<(), GetInputDevicesError> {
+        let id = seat.map(|s| SeatId::from_raw(s.0 as _));
+        let matches = |dhd: &DeviceHandlerData| {
+            let id = match id {
+                Some(id) => id,
+                _ => return true,
+            };
+            if let Some(seat) = dhd.seat.get() {
+                return seat.id() == id;
+            }
+            false
+        };
         let mut res = vec![];
         {
             let devs = self.state.kb_handlers.borrow_mut();
             for dev in devs.values() {
-                res.push(InputDevice::Keyboard(Keyboard(dev.id.raw() as _)));
+                if matches(&dev.data) {
+                    res.push(InputDevice::Keyboard(Keyboard(dev.id.raw() as _)));
+                }
             }
         }
         {
             let devs = self.state.mouse_handlers.borrow_mut();
             for dev in devs.values() {
-                res.push(InputDevice::Mouse(Mouse(dev.id.raw() as _)));
+                if matches(&dev.data) {
+                    res.push(InputDevice::Mouse(Mouse(dev.id.raw() as _)));
+                }
             }
         }
         self.send(&ServerMessage::Response {
@@ -274,6 +308,16 @@ impl ConfigProxyHandler {
             _ => return Err(RunError::NoForker),
         };
         forker.spawn(prog.to_string(), args, env);
+        Ok(())
+    }
+
+    fn handle_grab(
+        &self,
+        kb: Keyboard,
+        grab: bool,
+    ) -> Result<(), GrabError> {
+        let kb = self.get_kb(kb)?;
+        kb.grab(grab);
         Ok(())
     }
 
@@ -311,13 +355,16 @@ impl ConfigProxyHandler {
             ClientMessage::AddShortcut { seat, mods, sym } => {
                 self.handle_add_shortcut(seat, mods, sym)?
             }
-            ClientMessage::RemoveShortcut { .. } => {}
+            ClientMessage::RemoveShortcut { seat, mods, sym } => {
+                self.handle_remove_shortcut(seat, mods, sym)?
+            }
             ClientMessage::Focus { seat, direction } => self.handle_focus(seat, direction)?,
             ClientMessage::Move { seat, direction } => {}
-            ClientMessage::GetInputDevices => self.handle_get_input_devices()?,
+            ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat)?,
             ClientMessage::GetSeats => self.handle_get_seats()?,
             ClientMessage::RemoveSeat { .. } => {}
             ClientMessage::Run { prog, args, env } => self.handle_run(prog, args, env)?,
+            ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab)?,
         }
         Ok(())
     }
@@ -335,6 +382,8 @@ enum CphError {
     SetSeatError(#[from] SetSeatError),
     #[error("Could not process a `add_shortcut` request")]
     AddShortcutError(#[from] AddShortcutError),
+    #[error("Could not process a `remove_shortcut` request")]
+    RemoveShortcutError(#[from] RemoveShortcutError),
     #[error("Could not process a `get_input_devices` request")]
     GetInputDevicesError(#[from] GetInputDevicesError),
     #[error("Could not process a `get_seats` request")]
@@ -353,12 +402,16 @@ enum CphError {
     GetSplitError(#[from] GetSplitError),
     #[error("Could not process a `run` request")]
     RunError(#[from] RunError),
+    #[error("Could not process a `grab` request")]
+    GrabError(#[from] GrabError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Device {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]
     SeatDoesNotExist(Seat),
+    #[error("Keyboard {0:?} does not exist")]
+    KeyboardDoesNotExist(Keyboard),
     #[error("Could not parse the message")]
     ParsingFailed(#[source] DecodeError),
 }
@@ -388,6 +441,13 @@ enum AddShortcutError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(AddShortcutError, CphError);
+
+#[derive(Debug, Error)]
+enum RemoveShortcutError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(RemoveShortcutError, CphError);
 
 #[derive(Debug, Error)]
 enum GetInputDevicesError {}
@@ -446,3 +506,10 @@ enum RunError {
     #[error("The ol' forker is not available")]
     NoForker,
 }
+
+#[derive(Debug, Error)]
+enum GrabError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(GrabError, CphError);

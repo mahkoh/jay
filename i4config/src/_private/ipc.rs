@@ -1,7 +1,7 @@
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
-use crate::{Axis, Direction, InputDevice, LogLevel, Seat};
+use crate::{Axis, Direction, InputDevice, Keyboard, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
 
 #[derive(Encode, BorrowDecode, Debug)]
@@ -64,7 +64,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
     },
     GetSeats,
-    GetInputDevices,
+    GetInputDevices {
+        seat: Option<Seat>,
+    },
     AddShortcut {
         seat: Seat,
         mods: Modifiers,
@@ -87,6 +89,10 @@ pub enum ClientMessage<'a> {
     Move {
         seat: Seat,
         direction: Direction,
+    },
+    GrabKb {
+        kb: Keyboard,
+        grab: bool,
     },
 }
 

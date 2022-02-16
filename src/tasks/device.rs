@@ -14,7 +14,7 @@ pub trait DeviceApi: 'static {
     fn announce(&self, config: &ConfigProxy);
     fn announce_del(&self, config: &ConfigProxy);
     fn removed(&self) -> bool;
-    fn add(&self, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>);
+    fn add(self: &Rc<Self>, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>);
     fn remove(&self, state: &State);
     fn event(&self) -> Option<Self::Event>;
     fn send(seat: &Rc<WlSeatGlobal>, event: Self::Event);
@@ -39,12 +39,13 @@ impl DeviceApi for dyn Keyboard {
         self.removed()
     }
 
-    fn add(&self, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
+    fn add(self: &Rc<Self>, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
         state.kb_handlers.borrow_mut().insert(
             self.id(),
             KeyboardData {
                 handler,
                 id: self.id(),
+                kb: self.clone(),
                 data,
             },
         );
@@ -82,7 +83,7 @@ impl DeviceApi for dyn Mouse {
         self.removed()
     }
 
-    fn add(&self, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
+    fn add(self: &Rc<Self>, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
         state.mouse_handlers.borrow_mut().insert(
             self.id(),
             MouseData {

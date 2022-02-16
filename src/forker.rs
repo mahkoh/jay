@@ -189,6 +189,7 @@ impl Forker {
         env::set_var("XDG_SESSION_TYPE", "wayland");
         env::remove_var("DISPLAY");
         env::remove_var("WAYLAND_DISPLAY");
+        setup_name("the ol' forker");
         setup_deathsig(ppid);
         reset_signals();
         let socket = Rc::new(setup_fds(socket));
@@ -347,5 +348,12 @@ fn setup_deathsig(ppid: c::pid_t) {
         if ppid != uapi::getppid() {
             std::process::exit(0);
         }
+    }
+}
+
+fn setup_name(name: &str) {
+    unsafe {
+        let name = name.into_ustr();
+        c::prctl(c::PR_SET_NAME, name.as_ptr());
     }
 }
