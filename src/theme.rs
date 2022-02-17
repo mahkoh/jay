@@ -1,5 +1,5 @@
-use std::cell::Cell;
 use crate::NumCell;
+use std::cell::Cell;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Color {
@@ -38,6 +38,7 @@ impl From<i4config::theme::Color> for Color {
 pub struct Theme {
     pub background_color: Cell<Color>,
     pub title_color: Cell<Color>,
+    pub active_title_color: Cell<Color>,
     pub underline_color: Cell<Color>,
     pub border_color: Cell<Color>,
     pub title_height: Cell<i32>,
@@ -50,6 +51,7 @@ impl Default for Theme {
         Self {
             background_color: Cell::new(Color::from_rgba(0, 0, 0, 255)),
             title_color: Cell::new(Color::from_rgba(0x46, 0x04, 0x17, 255)),
+            active_title_color: Cell::new(Color::from_rgba(0x17, 0x04, 0x46, 255)),
             underline_color: Cell::new(Color::from_rgba(0x66, 0x24, 0x37, 255)),
             border_color: Cell::new(Color::from_rgba(0x36, 0x00, 0x07, 255)),
             title_height: Cell::new(17),

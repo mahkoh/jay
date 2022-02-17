@@ -179,6 +179,10 @@ pub trait Node {
         let _ = (child, width, height);
     }
 
+    fn child_active_changed(&self, child: &dyn Node, active: bool) {
+        let _ = (child, active);
+    }
+
     fn leave(&self, seat: &WlSeatGlobal) {
         let _ = seat;
     }

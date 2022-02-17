@@ -147,7 +147,8 @@ impl PointerOwner for DefaultPointerOwner {
         }
         if (stack.len(), found_tree.len()) == (divergence, divergence) {
             if let Some(node) = found_tree.last() {
-                node.node.clone()
+                node.node
+                    .clone()
                     .motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
             }
         } else {
@@ -242,7 +243,8 @@ impl PointerOwner for GrabPointerOwner {
         let (x, y) = seat.pos.get();
         let pos = self.node.absolute_position();
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
-        self.node.clone()
+        self.node
+            .clone()
             .motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
     }
 

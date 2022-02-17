@@ -118,6 +118,9 @@ impl XdgToplevel {
     }
 
     pub fn set_active(self: &Rc<Self>, active: bool) {
+        if let Some(parent) = self.parent_node.get() {
+            parent.child_active_changed(&**self, active);
+        }
         let changed = {
             let mut states = self.states.borrow_mut();
             match active {

@@ -65,6 +65,9 @@ impl Renderer<'_> {
     }
 
     fn fill_boxes(&self, boxes: &[Rect], r: f32, g: f32, b: f32, a: f32) {
+        if boxes.is_empty() {
+            return;
+        }
         let mut pos = Vec::with_capacity(boxes.len() * 12);
         for bx in boxes {
             let x1 = self.x_to_f(bx.x1());
@@ -146,10 +149,22 @@ impl Renderer<'_> {
             let mut title_rects = Vec::with_capacity(num_title_rects);
             let mut underline_rects = Vec::with_capacity(num_title_rects);
             let mut border_rects = Vec::with_capacity(num_children - 1);
+            let mut active_rects = Vec::new();
             title_rects.push(title_rect);
             underline_rects.push(underline_rect);
             for (i, child) in container.children.iter().enumerate() {
                 let body = child.body.get();
+                if child.active.get() {
+                    active_rects.push(
+                        Rect::new_sized(
+                            x + body.x1(),
+                            y + body.y1() - title_height - 1,
+                            body.width(),
+                            title_height,
+                        )
+                            .unwrap(),
+                    );
+                }
                 if i + 1 < num_children {
                     let border_rect = if split == ContainerSplit::Horizontal {
                         Rect::new_sized(
@@ -187,6 +202,8 @@ impl Renderer<'_> {
             {
                 let c = self.state.theme.title_color.get();
                 self.fill_boxes(&title_rects, c.r, c.g, c.b, c.a);
+                let c = self.state.theme.active_title_color.get();
+                self.fill_boxes(&active_rects, c.r, c.g, c.b, c.a);
                 let c = self.state.theme.underline_color.get();
                 self.fill_boxes(&underline_rects, c.r, c.g, c.b, c.a);
                 let c = self.state.theme.border_color.get();

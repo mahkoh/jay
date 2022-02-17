@@ -1,10 +1,10 @@
-use crate::backend::{KeyState};
+use crate::backend::KeyState;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{FindTreeResult,  FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{NumCell, State};
@@ -84,6 +84,7 @@ impl Debug for ContainerNode {
 
 pub struct ContainerChild {
     pub node: Rc<dyn Node>,
+    pub active: Cell<bool>,
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
     factor: Cell<f64>,
@@ -130,6 +131,7 @@ impl ContainerNode {
             child.id(),
             children.add_last(ContainerChild {
                 node: child,
+                active: Cell::new(false),
                 body: Cell::new(Default::default()),
                 content: Cell::new(Default::default()),
                 factor: Cell::new(1.0),
@@ -200,6 +202,7 @@ impl ContainerNode {
                 new.id(),
                 prev.append(ContainerChild {
                     node: new.clone(),
+                    active: Cell::new(false),
                     body: Default::default(),
                     content: Default::default(),
                     factor: Cell::new(0.0),
@@ -362,7 +365,9 @@ impl ContainerNode {
                     let (prev_factor, child_factor) = match self.split.get() {
                         ContainerSplit::Horizontal => {
                             let cw = self.content_width.get();
-                            x = x.max(prev_body.x1() + dist_left).min(child_body.x2() - dist_right);
+                            x = x
+                                .max(prev_body.x1() + dist_left)
+                                .min(child_body.x2() - dist_right);
                             let prev_factor = (x - prev_body.x1() - dist_left) as f64 / cw as f64;
                             let child_factor =
                                 (child_body.x2() - x - dist_right) as f64 / cw as f64;
@@ -370,16 +375,19 @@ impl ContainerNode {
                         }
                         ContainerSplit::Vertical => {
                             let ch = self.content_height.get();
-                            y = y.max(prev_body.y1() + dist_left).min(child_body.y2() - dist_right);
+                            y = y
+                                .max(prev_body.y1() + dist_left)
+                                .min(child_body.y2() - dist_right);
                             let prev_factor = (y - prev_body.y1() - dist_left) as f64 / ch as f64;
                             let child_factor =
                                 (child_body.y2() - y - dist_right) as f64 / ch as f64;
                             (prev_factor, child_factor)
                         }
                     };
-                    let sum_factors = self.sum_factors.get() - prev.factor.get() - op.child.factor.get()
-                        + prev_factor
-                        + child_factor;
+                    let sum_factors =
+                        self.sum_factors.get() - prev.factor.get() - op.child.factor.get()
+                            + prev_factor
+                            + child_factor;
                     prev.factor.set(prev_factor);
                     op.child.factor.set(child_factor);
                     self.apply_factors(sum_factors);
@@ -484,9 +492,8 @@ impl Node for ContainerNode {
         child: &dyn Node,
         direction: Direction,
     ) {
-        let children = self.child_nodes.borrow_mut();
-        let child = match children.get(&child.id()) {
-            Some(c) => c,
+        let child = match self.child_nodes.borrow_mut().get(&child.id()) {
+            Some(c) => c.to_ref(),
             _ => return,
         };
         let in_line = match self.split.get() {
@@ -633,8 +640,9 @@ impl Node for ContainerNode {
             Some(c) => c,
             None => return,
         };
-        let link= node.append(ContainerChild {
+        let link = node.append(ContainerChild {
             node: new.clone(),
+            active: Cell::new(false),
             body: Cell::new(node.body.get()),
             content: Cell::new(node.content.get()),
             factor: Cell::new(node.factor.get()),
@@ -709,6 +717,18 @@ impl Node for ContainerNode {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
+    fn child_active_changed(&self, child: &dyn Node, active: bool) {
+        log::info!("cac = {}", active);
+        let node = match self.child_nodes.borrow_mut().get(&child.id()) {
+            Some(l) => l.to_ref(),
+            None => {
+                log::info!("return");
+                return
+            },
+        };
+        node.active.set(active);
+    }
+
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_container(self, x, y);
     }
@@ -727,7 +747,9 @@ impl Node for ContainerNode {
             self.update_content_size();
             self.do_apply_factors();
             self.cancel_seat_ops();
-            self.parent.get().child_size_changed(&*self, rect.width(), rect.height());
+            self.parent
+                .get()
+                .child_size_changed(&*self, rect.width(), rect.height());
         } else {
             for child in self.children.iter() {
                 let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
