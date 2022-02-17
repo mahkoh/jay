@@ -47,6 +47,15 @@ impl Node for WorkspaceNode {
         self.seat_state.destroy_node(self);
     }
 
+    fn do_layout(&self) {
+        if let Some(c) = self.container.get() {
+            c.do_layout();
+        }
+        for s in self.stacked.iter() {
+            s.do_layout();
+        }
+    }
+
     fn absolute_position(&self) -> Rect {
         self.output.get().position.get()
     }
@@ -63,7 +72,7 @@ impl Node for WorkspaceNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(&self, _child: &dyn Node) {
+    fn remove_child(self: Rc<Self>, _child: &dyn Node) {
         self.container.set(None);
     }
 

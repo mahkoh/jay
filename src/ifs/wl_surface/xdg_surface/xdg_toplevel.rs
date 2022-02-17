@@ -373,6 +373,7 @@ impl XdgToplevel {
                         &workspace,
                         workspace.clone(),
                         self.clone(),
+                        ContainerSplit::Horizontal,
                     ));
                     workspace.set_container(&container);
                     self.parent_node.set(Some(container));
@@ -490,6 +491,26 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn set_split(&self, split: ContainerSplit) {
         self.parent_node.get().map(|p| p.set_split(split));
+    }
+
+    fn create_split(self: Rc<Self>, split: ContainerSplit) {
+        let ws = match self.xdg.workspace.get() {
+            Some(ws) => ws,
+            _ => return,
+        };
+        let pn = match self.parent_node.get() {
+            Some(pn) => pn,
+            _ => return,
+        };
+        let cn = Rc::new(ContainerNode::new(
+            &self.xdg.surface.client.state,
+            &ws,
+            pn.clone(),
+            self.clone(),
+            split,
+        ));
+        self.parent_node.set(Some(cn.clone()));
+        pn.replace_child(&*self, cn);
     }
 
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {

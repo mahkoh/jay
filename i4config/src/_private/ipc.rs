@@ -1,6 +1,7 @@
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
+use crate::theme::Color;
 use crate::{Axis, Direction, InputDevice, Keyboard, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
 
@@ -94,6 +95,30 @@ pub enum ClientMessage<'a> {
         kb: Keyboard,
         grab: bool,
     },
+    GetTitleHeight,
+    GetBorderWidth,
+    SetTitleHeight {
+        height: i32,
+    },
+    SetBorderWidth {
+        width: i32,
+    },
+    SetTitleColor {
+        color: Color,
+    },
+    SetTitleUnderlineColor {
+        color: Color,
+    },
+    SetBorderColor {
+        color: Color,
+    },
+    SetBackgroundColor {
+        color: Color,
+    },
+    CreateSplit {
+        seat: Seat,
+        axis: Axis,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -105,6 +130,8 @@ pub enum Response {
     ParseKeymap { keymap: Keymap },
     CreateSeat { seat: Seat },
     GetInputDevices { devices: Vec<InputDevice> },
+    GetTitleHeight { height: i32 },
+    GetBorderWidth { width: i32 },
 }
 
 #[derive(Encode, Decode, Debug)]

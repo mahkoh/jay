@@ -195,6 +195,10 @@ impl WlSeatGlobal {
         self.keyboard_node.get().set_parent_split(axis)
     }
 
+    pub fn create_split(&self, axis: ContainerSplit) {
+        self.keyboard_node.get().create_split(axis)
+    }
+
     pub fn get_rate(&self) -> (i32, i32) {
         self.repeat_rate.get()
     }

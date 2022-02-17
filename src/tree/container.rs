@@ -1,10 +1,10 @@
-use crate::backend::KeyState;
+use crate::backend::{KeyState};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult,  FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{NumCell, State};
@@ -51,9 +51,6 @@ pub enum ContainerFocus {
 
 tree_id!(ContainerNodeId);
 
-pub const CONTAINER_TITLE_HEIGHT: i32 = 18;
-pub const CONTAINER_BORDER: i32 = 4;
-
 pub struct ContainerNode {
     pub id: ContainerNodeId,
     pub parent: CloneCell<Rc<dyn Node>>,
@@ -67,12 +64,16 @@ pub struct ContainerNode {
     pub height: Cell<i32>,
     pub content_width: Cell<i32>,
     pub content_height: Cell<i32>,
+    pub sum_factors: Cell<f64>,
+    pub theme_version: Cell<u32>,
+    pub needs_layout: Cell<bool>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
     seat_state: NodeSeatState,
     workspace: CloneCell<Rc<WorkspaceNode>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
+    state: Rc<State>,
 }
 
 impl Debug for ContainerNode {
@@ -116,10 +117,11 @@ impl ContainerChild {
 
 impl ContainerNode {
     pub fn new(
-        state: &State,
+        state: &Rc<State>,
         workspace: &Rc<WorkspaceNode>,
         parent: Rc<dyn Node>,
         child: Rc<dyn Node>,
+        split: ContainerSplit,
     ) -> Self {
         child.clone().set_workspace(workspace);
         let children = LinkedList::new();
@@ -137,7 +139,7 @@ impl ContainerNode {
         Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent),
-            split: Cell::new(ContainerSplit::Horizontal),
+            split: Cell::new(split),
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
             mono_content: Cell::new(Default::default()),
@@ -147,12 +149,16 @@ impl ContainerNode {
             height: Cell::new(0),
             content_width: Cell::new(0),
             content_height: Cell::new(0),
+            sum_factors: Cell::new(1.0),
+            theme_version: Cell::new(0),
+            needs_layout: Cell::new(false),
             num_children: NumCell::new(1),
             children,
             child_nodes: RefCell::new(child_nodes),
             seat_state: Default::default(),
             workspace: CloneCell::new(workspace.clone()),
             seats: RefCell::new(Default::default()),
+            state: state.clone(),
         }
     }
 
@@ -226,7 +232,19 @@ impl ContainerNode {
         }
     }
 
-    fn apply_factors(&self, sum_factors: f64) {
+    fn apply_factors(self: &Rc<Self>, sum_factors: f64) {
+        self.sum_factors.set(sum_factors);
+        self.needs_layout.set(true);
+        self.state.pending_layout.push(self.clone());
+    }
+
+    fn do_apply_factors(&self) {
+        if self.theme_version.get() != self.state.theme.version.get() {
+            self.update_content_size();
+        }
+        let sum_factors = self.sum_factors.get();
+        let border_width = self.state.theme.border_width.get();
+        let title_height = self.state.theme.title_height.get();
         let split = self.split.get();
         let (content_size, other_content_size) = match split {
             ContainerSplit::Horizontal => (self.content_width.get(), self.content_height.get()),
@@ -243,20 +261,15 @@ impl ContainerNode {
             remaining_content_size -= body_size;
             let (x1, y1, width, height) = match split {
                 ContainerSplit::Horizontal => {
-                    (pos, CONTAINER_TITLE_HEIGHT, body_size, other_content_size)
+                    (pos, title_height + 1, body_size, other_content_size)
                 }
-                _ => (
-                    0,
-                    pos + CONTAINER_TITLE_HEIGHT,
-                    other_content_size,
-                    body_size,
-                ),
+                _ => (0, pos + title_height + 1, other_content_size, body_size),
             };
             let body = Rect::new_sized(x1, y1, width, height).unwrap();
             child.body.set(body);
-            pos += body_size + CONTAINER_BORDER;
+            pos += body_size + border_width;
             if split == ContainerSplit::Vertical {
-                pos += CONTAINER_TITLE_HEIGHT;
+                pos += title_height + 1;
             }
         }
         if remaining_content_size > 0 {
@@ -273,13 +286,7 @@ impl ContainerNode {
                 let (x1, y1, width, height, size) = match split {
                     ContainerSplit::Horizontal => {
                         let width = body.width() + add;
-                        (
-                            pos,
-                            CONTAINER_TITLE_HEIGHT,
-                            width,
-                            other_content_size,
-                            width,
-                        )
+                        (pos, title_height + 1, width, other_content_size, width)
                     }
                     _ => {
                         let height = body.height() + add;
@@ -288,12 +295,14 @@ impl ContainerNode {
                 };
                 body = Rect::new_sized(x1, y1, width, height).unwrap();
                 child.body.set(body);
-                pos += size + CONTAINER_BORDER;
+                pos += size + border_width;
                 if split == ContainerSplit::Vertical {
-                    pos += CONTAINER_TITLE_HEIGHT;
+                    pos += title_height + 1;
                 }
             }
         }
+        self.sum_factors.set(1.0);
+        self.needs_layout.set(false);
         for child in self.children.iter() {
             let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
             child.node.clone().change_extents(&body);
@@ -302,29 +311,32 @@ impl ContainerNode {
     }
 
     fn update_content_size(&self) {
+        let border_width = self.state.theme.border_width.get();
+        let title_height = self.state.theme.title_height.get();
         let nc = self.num_children.get();
         match self.split.get() {
             ContainerSplit::Horizontal => {
                 let new_content_size = self
                     .width
                     .get()
-                    .saturating_sub((nc - 1) as i32 * CONTAINER_BORDER);
+                    .saturating_sub((nc - 1) as i32 * border_width);
                 self.content_width.set(new_content_size);
                 self.content_height
-                    .set(self.height.get().saturating_sub(CONTAINER_TITLE_HEIGHT));
+                    .set(self.height.get().saturating_sub(title_height + 1));
             }
             ContainerSplit::Vertical => {
                 let new_content_size = self.height.get().saturating_sub(
-                    CONTAINER_TITLE_HEIGHT
-                        + (nc - 1) as i32 * (CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT),
+                    title_height + 1 + (nc - 1) as i32 * (border_width + title_height + 1),
                 );
                 self.content_height.set(new_content_size);
                 self.content_width.set(self.width.get());
             }
         }
+        self.theme_version.set(self.state.theme.version.get());
     }
 
-    fn pointer_move(&self, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
+    fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, mut x: i32, mut y: i32) {
+        let title_height = self.state.theme.title_height.get();
         let mut seats = self.seats.borrow_mut();
         let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
             cursor: KnownCursor::Default,
@@ -350,9 +362,7 @@ impl ContainerNode {
                     let (prev_factor, child_factor) = match self.split.get() {
                         ContainerSplit::Horizontal => {
                             let cw = self.content_width.get();
-                            if prev_body.x1() + dist_left > x || x + dist_right > child_body.x2() {
-                                return;
-                            }
+                            x = x.max(prev_body.x1() + dist_left).min(child_body.x2() - dist_right);
                             let prev_factor = (x - prev_body.x1() - dist_left) as f64 / cw as f64;
                             let child_factor =
                                 (child_body.x2() - x - dist_right) as f64 / cw as f64;
@@ -360,16 +370,14 @@ impl ContainerNode {
                         }
                         ContainerSplit::Vertical => {
                             let ch = self.content_height.get();
-                            if prev_body.y1() + dist_left > y || y + dist_right > child_body.y2() {
-                                return;
-                            }
+                            y = y.max(prev_body.y1() + dist_left).min(child_body.y2() - dist_right);
                             let prev_factor = (y - prev_body.y1() - dist_left) as f64 / ch as f64;
                             let child_factor =
                                 (child_body.y2() - y - dist_right) as f64 / ch as f64;
                             (prev_factor, child_factor)
                         }
                     };
-                    let sum_factors = 1.0 - prev.factor.get() - op.child.factor.get()
+                    let sum_factors = self.sum_factors.get() - prev.factor.get() - op.child.factor.get()
                         + prev_factor
                         + child_factor;
                     prev.factor.set(prev_factor);
@@ -382,7 +390,7 @@ impl ContainerNode {
         let new_cursor = if self.mono_child.get().is_some() {
             KnownCursor::Default
         } else if self.split.get() == ContainerSplit::Horizontal {
-            if y < CONTAINER_TITLE_HEIGHT {
+            if y < title_height + 1 {
                 KnownCursor::Default
             } else {
                 KnownCursor::ResizeLeftRight
@@ -392,7 +400,7 @@ impl ContainerNode {
             for child in self.children.iter() {
                 let body = child.body.get();
                 if body.y1() > y {
-                    if body.y1() - y > CONTAINER_TITLE_HEIGHT {
+                    if body.y1() - y > title_height + 1 {
                         cursor = KnownCursor::ResizeTopBottom
                     }
                     break;
@@ -440,14 +448,22 @@ impl Node for ContainerNode {
         self.seat_state.destroy_node(self);
     }
 
+    fn needs_layout(&self) -> bool {
+        self.needs_layout.get()
+    }
+
+    fn do_layout(&self) {
+        self.do_apply_factors();
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         Some(self.split.get())
     }
 
-    fn set_split(&self, split: ContainerSplit) {
+    fn set_split(self: Rc<Self>, split: ContainerSplit) {
         self.split.set(split);
         self.update_content_size();
-        self.apply_factors(1.0);
+        self.apply_factors(self.sum_factors.get());
     }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
@@ -519,6 +535,7 @@ impl Node for ContainerNode {
         if button != BTN_LEFT {
             return;
         }
+        let title_height = self.state.theme.title_height.get();
         let mut seat_datas = self.seats.borrow_mut();
         let seat_data = match seat_datas.get_mut(&seat.id()) {
             Some(s) => s,
@@ -562,7 +579,7 @@ impl Node for ContainerNode {
                     for child in self.children.iter() {
                         let body = child.body.get();
                         if seat_data.y < body.y1() {
-                            let op = if seat_data.y < body.y1() - CONTAINER_TITLE_HEIGHT {
+                            let op = if seat_data.y < body.y1() - title_height - 1 {
                                 SeatOpKind::Resize {
                                     dist_left: seat_data.y - child.prev().unwrap().body.get().y2(),
                                     dist_right: body.y1() - seat_data.y,
@@ -611,7 +628,25 @@ impl Node for ContainerNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(&self, child: &dyn Node) {
+    fn replace_child(&self, old: &dyn Node, new: Rc<dyn Node>) {
+        let node = match self.child_nodes.borrow_mut().remove(&old.id()) {
+            Some(c) => c,
+            None => return,
+        };
+        let link= node.append(ContainerChild {
+            node: new.clone(),
+            body: Cell::new(node.body.get()),
+            content: Cell::new(node.content.get()),
+            factor: Cell::new(node.factor.get()),
+            focus: Cell::new(node.focus.get()),
+        });
+        self.child_nodes.borrow_mut().insert(new.id(), link);
+        new.clone().set_workspace(&self.workspace.get());
+        let body = node.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+        new.clone().change_extents(&body);
+    }
+
+    fn remove_child(self: Rc<Self>, child: &dyn Node) {
         let node = match self.child_nodes.borrow_mut().remove(&child.id()) {
             Some(c) => c.to_ref(),
             None => return,
@@ -619,7 +654,7 @@ impl Node for ContainerNode {
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
             self.seats.borrow_mut().clear();
-            self.parent.get().remove_child(self);
+            self.parent.get().remove_child(&*self);
             return;
         }
         self.update_content_size();
@@ -670,7 +705,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
@@ -690,8 +725,9 @@ impl Node for ContainerNode {
         size_changed |= self.height.replace(rect.height()) != rect.height();
         if size_changed {
             self.update_content_size();
-            self.apply_factors(1.0);
+            self.do_apply_factors();
             self.cancel_seat_ops();
+            self.parent.get().child_size_changed(&*self, rect.width(), rect.height());
         } else {
             for child in self.children.iter() {
                 let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());

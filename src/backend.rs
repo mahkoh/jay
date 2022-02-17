@@ -6,8 +6,7 @@ linear_ids!(OutputIds, OutputId);
 linear_ids!(KeyboardIds, KeyboardId);
 linear_ids!(MouseIds, MouseId);
 
-pub trait Backend {
-}
+pub trait Backend {}
 
 pub trait Output {
     fn id(&self) -> OutputId;

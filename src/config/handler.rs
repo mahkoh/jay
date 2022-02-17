@@ -1,6 +1,6 @@
 use crate::backend::{KeyboardId, MouseId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
-use crate::state::{DeviceHandlerData};
+use crate::state::DeviceHandlerData;
 use crate::tree::ContainerSplit;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
@@ -54,7 +54,7 @@ impl ConfigProxyHandler {
         msg: &str,
         file: Option<&str>,
         line: Option<u32>,
-    ) -> Result<(), LogError> {
+    ) {
         let level = match level {
             LogLevel::Error => Level::Error,
             LogLevel::Warn => Level::Warn,
@@ -74,10 +74,9 @@ impl ConfigProxyHandler {
             Ok(())
         });
         log::log!(level, "{:?}", debug);
-        Ok(())
     }
 
-    fn handle_create_seat(&self, name: &str) -> Result<(), CreateSeatError> {
+    fn handle_create_seat(&self, name: &str) {
         let global_name = self.state.globals.name();
         let seat = WlSeatGlobal::new(global_name, name, &self.state);
         self.state.globals.add_global(&self.state, &seat);
@@ -86,7 +85,6 @@ impl ConfigProxyHandler {
                 seat: Seat(seat.id().raw() as _),
             },
         });
-        Ok(())
     }
 
     fn handle_parse_keymap(&self, keymap: &str) -> Result<(), ParseKeymapError> {
@@ -248,7 +246,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_get_input_devices(&self, seat: Option<Seat>) -> Result<(), GetInputDevicesError> {
+    fn handle_get_input_devices(&self, seat: Option<Seat>) {
         let id = seat.map(|s| SeatId::from_raw(s.0 as _));
         let matches = |dhd: &DeviceHandlerData| {
             let id = match id {
@@ -280,10 +278,9 @@ impl ConfigProxyHandler {
         self.send(&ServerMessage::Response {
             response: Response::GetInputDevices { devices: res },
         });
-        Ok(())
     }
 
-    fn handle_get_seats(&self) -> Result<(), GetSeatsError> {
+    fn handle_get_seats(&self) {
         let seats = {
             let seats = self.state.globals.seats.lock();
             seats
@@ -294,7 +291,6 @@ impl ConfigProxyHandler {
         self.send(&ServerMessage::Response {
             response: Response::GetSeats { seats },
         });
-        Ok(())
     }
 
     fn handle_run(
@@ -311,14 +307,76 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_grab(
-        &self,
-        kb: Keyboard,
-        grab: bool,
-    ) -> Result<(), GrabError> {
+    fn handle_grab(&self, kb: Keyboard, grab: bool) -> Result<(), GrabError> {
         let kb = self.get_kb(kb)?;
         kb.grab(grab);
         Ok(())
+    }
+
+    fn handle_get_title_height(&self) {
+        self.send(&ServerMessage::Response {
+            response: Response::GetTitleHeight {
+                height: self.state.theme.title_height.get(),
+            },
+        });
+    }
+
+    fn handle_get_border_width(&self) {
+        self.send(&ServerMessage::Response {
+            response: Response::GetBorderWidth {
+                width: self.state.theme.border_width.get(),
+            },
+        });
+    }
+
+    fn handle_create_split(&self, seat: Seat, axis: Axis) -> Result<(), CreateSplitError> {
+        let seat = self.get_seat(seat)?;
+        seat.create_split(axis.into());
+        Ok(())
+    }
+
+    fn handle_set_title_height(&self, height: i32) -> Result<(), SetTitleHeightError> {
+        if height < 0 {
+            return Err(SetTitleHeightError::Negative(height));
+        }
+        if height > 1000 {
+            return Err(SetTitleHeightError::Excessive(height));
+        }
+        self.state.theme.title_height.set(height);
+        self.state.theme.version.fetch_add(1);
+        self.state.root.needs_layout.set(true);
+        self.state.pending_layout.push(self.state.root.clone());
+        Ok(())
+    }
+
+    fn handle_set_border_width(&self, width: i32) -> Result<(), SetBorderWidthError> {
+        if width < 0 {
+            return Err(SetBorderWidthError::Negative(width));
+        }
+        if width > 1000 {
+            return Err(SetBorderWidthError::Excessive(width));
+        }
+        self.state.theme.border_width.set(width);
+        self.state.theme.version.fetch_add(1);
+        self.state.root.needs_layout.set(true);
+        self.state.pending_layout.push(self.state.root.clone());
+        Ok(())
+    }
+
+    fn handle_set_title_color(&self, color: i4config::theme::Color) {
+        self.state.theme.title_color.set(color.into());
+    }
+
+    fn handle_set_border_color(&self, color: i4config::theme::Color) {
+        self.state.theme.border_color.set(color.into());
+    }
+
+    fn handle_set_background_color(&self, color: i4config::theme::Color) {
+        self.state.theme.background_color.set(color.into());
+    }
+
+    fn handle_set_title_underline_color(&self, color: i4config::theme::Color) {
+        self.state.theme.underline_color.set(color.into());
     }
 
     pub fn handle_request(&self, msg: &[u8]) {
@@ -339,8 +397,8 @@ impl ConfigProxyHandler {
                 msg,
                 file,
                 line,
-            } => self.handle_log_request(level, msg, file, line)?,
-            ClientMessage::CreateSeat { name } => self.handle_create_seat(name)?,
+            } => self.handle_log_request(level, msg, file, line),
+            ClientMessage::CreateSeat { name } => self.handle_create_seat(name),
             ClientMessage::ParseKeymap { keymap } => self.handle_parse_keymap(keymap)?,
             ClientMessage::SeatSetKeymap { seat, keymap } => {
                 self.handle_set_keymap(seat, keymap)?
@@ -360,11 +418,22 @@ impl ConfigProxyHandler {
             }
             ClientMessage::Focus { seat, direction } => self.handle_focus(seat, direction)?,
             ClientMessage::Move { seat, direction } => {}
-            ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat)?,
-            ClientMessage::GetSeats => self.handle_get_seats()?,
+            ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat),
+            ClientMessage::GetSeats => self.handle_get_seats(),
             ClientMessage::RemoveSeat { .. } => {}
             ClientMessage::Run { prog, args, env } => self.handle_run(prog, args, env)?,
             ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab)?,
+            ClientMessage::SetTitleHeight { height } => self.handle_set_title_height(height)?,
+            ClientMessage::SetBorderWidth { width } => self.handle_set_border_width(width)?,
+            ClientMessage::SetTitleColor { color } => self.handle_set_title_color(color),
+            ClientMessage::SetTitleUnderlineColor { color } => {
+                self.handle_set_title_underline_color(color)
+            }
+            ClientMessage::SetBorderColor { color } => self.handle_set_border_color(color),
+            ClientMessage::SetBackgroundColor { color } => self.handle_set_background_color(color),
+            ClientMessage::GetTitleHeight => self.handle_get_title_height(),
+            ClientMessage::GetBorderWidth => self.handle_get_border_width(),
+            ClientMessage::CreateSplit { seat, axis } => self.handle_create_split(seat, axis)?,
         }
         Ok(())
     }
@@ -372,10 +441,6 @@ impl ConfigProxyHandler {
 
 #[derive(Debug, Error)]
 enum CphError {
-    #[error("Could not process a `log` request")]
-    LogError(#[from] LogError),
-    #[error("Could not process a `create_seat` request")]
-    CreateSeatError(#[from] CreateSeatError),
     #[error("Could not process a `parse_keymap` request")]
     ParseKeymapError(#[from] ParseKeymapError),
     #[error("Could not process a `set_seat` request")]
@@ -384,10 +449,6 @@ enum CphError {
     AddShortcutError(#[from] AddShortcutError),
     #[error("Could not process a `remove_shortcut` request")]
     RemoveShortcutError(#[from] RemoveShortcutError),
-    #[error("Could not process a `get_input_devices` request")]
-    GetInputDevicesError(#[from] GetInputDevicesError),
-    #[error("Could not process a `get_seats` request")]
-    GetSeatsError(#[from] GetSeatsError),
     #[error("Could not process a `set_keymap` request")]
     SeatSetKeymapError(#[from] SeatSetKeymapError),
     #[error("Could not process a `get_repeat_rate` request")]
@@ -404,6 +465,12 @@ enum CphError {
     RunError(#[from] RunError),
     #[error("Could not process a `grab` request")]
     GrabError(#[from] GrabError),
+    #[error("Could not process a `create_split` request")]
+    CreateSplitError(#[from] CreateSplitError),
+    #[error("Could not process a `set_title_height` request")]
+    SetTitleHeightError(#[from] SetTitleHeightError),
+    #[error("Could not process a `set_border_width` request")]
+    SetBorderWidthError(#[from] SetBorderWidthError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Device {0:?} does not exist")]
@@ -415,12 +482,6 @@ enum CphError {
     #[error("Could not parse the message")]
     ParsingFailed(#[source] DecodeError),
 }
-
-#[derive(Debug, Error)]
-enum LogError {}
-
-#[derive(Debug, Error)]
-enum CreateSeatError {}
 
 #[derive(Debug, Error)]
 enum ParseKeymapError {
@@ -448,12 +509,6 @@ enum RemoveShortcutError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(RemoveShortcutError, CphError);
-
-#[derive(Debug, Error)]
-enum GetInputDevicesError {}
-
-#[derive(Debug, Error)]
-enum GetSeatsError {}
 
 #[derive(Debug, Error)]
 enum SeatSetKeymapError {
@@ -513,3 +568,26 @@ enum GrabError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(GrabError, CphError);
+
+#[derive(Debug, Error)]
+enum SetTitleHeightError {
+    #[error("The height {0} is negative")]
+    Negative(i32),
+    #[error("The height {0} is larger than the maximum 1000")]
+    Excessive(i32),
+}
+
+#[derive(Debug, Error)]
+enum SetBorderWidthError {
+    #[error("The width {0} is negative")]
+    Negative(i32),
+    #[error("The width {0} is larger than the maximum 1000")]
+    Excessive(i32),
+}
+
+#[derive(Debug, Error)]
+enum CreateSplitError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(CreateSplitError, CphError);

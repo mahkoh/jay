@@ -9,6 +9,7 @@
 
 use crate::acceptor::AcceptorError;
 use crate::async_engine::AsyncError;
+use crate::backends::dummy::DummyBackend;
 use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
@@ -26,6 +27,7 @@ use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
 use crate::tree::{DisplayNode, NodeIds};
+use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
@@ -40,8 +42,6 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
-use crate::backends::dummy::DummyBackend;
-use crate::utils::clonecell::CloneCell;
 
 #[macro_use]
 mod macros;
@@ -71,6 +71,7 @@ mod servermem;
 mod sighand;
 mod state;
 mod tasks;
+mod theme;
 mod time;
 mod tree;
 mod utils;
@@ -153,6 +154,8 @@ fn main_() -> Result<(), MainError> {
         config: Default::default(),
         mouse_ids: Default::default(),
         kb_handlers: Default::default(),
+        theme: Default::default(),
+        pending_layout: Default::default(),
     });
     forker.install(&state);
     let backend = XorgBackend::new(&state)?;
@@ -161,6 +164,7 @@ fn main_() -> Result<(), MainError> {
     state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
+    let _do_layout = engine.spawn(tasks::do_layout(state.clone()));
     let socket_path = Acceptor::install(&state)?;
     forker.setenv(b"WAYLAND_DISPLAY", socket_path.as_bytes());
     el.run()?;

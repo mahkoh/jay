@@ -17,3 +17,12 @@ pub async fn handle_slow_clients(state: Rc<State>) {
     let mut sch = SlowClientHandler { state };
     sch.handle_events().await;
 }
+
+pub async fn do_layout(state: Rc<State>) {
+    loop {
+        let node = state.pending_layout.pop().await;
+        if node.needs_layout() {
+            node.do_layout();
+        }
+    }
+}

@@ -1,4 +1,7 @@
-use crate::backend::{BackendEvent, KeyState, Keyboard, KeyboardEvent, KeyboardId, Mouse, MouseEvent, MouseId, Output, OutputId, ScrollAxis, Backend};
+use crate::backend::{
+    Backend, BackendEvent, KeyState, Keyboard, KeyboardEvent, KeyboardId, Mouse, MouseEvent,
+    MouseId, Output, OutputId, ScrollAxis,
+};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -211,8 +214,7 @@ pub struct XorgBackend {
     b: Cell<f32>,
 }
 
-impl Backend for XorgBackend {
-}
+impl Backend for XorgBackend {}
 
 fn get_drm(con: &XcbCon) -> Result<Drm, XorgBackendError> {
     unsafe {
@@ -1098,7 +1100,9 @@ impl Keyboard for XorgSeat {
                     0,
                     ptr::null(),
                 );
-                let res = con.input.xcb_input_xi_grab_device_reply(con.c, res, &mut err);
+                let res = con
+                    .input
+                    .xcb_input_xi_grab_device_reply(con.c, res, &mut err);
                 let res = match con.check(res, err) {
                     Ok(r) => r,
                     Err(e) => {
@@ -1110,7 +1114,9 @@ impl Keyboard for XorgSeat {
                     log::error!("Could not grab device {}: status = {}", self.kb, res.status);
                 }
             } else {
-                let cookie = con.input.xcb_input_xi_ungrab_device_checked(con.c, 0, self.kb);
+                let cookie = con
+                    .input
+                    .xcb_input_xi_ungrab_device_checked(con.c, 0, self.kb);
                 if let Err(e) = con.check_cookie(cookie) {
                     log::error!("Could not ungrab device {}: {}", self.kb, ErrorFmt(e));
                 }

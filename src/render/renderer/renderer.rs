@@ -15,8 +15,8 @@ use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::render::Texture;
 use crate::tree::{
     ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
-    CONTAINER_BORDER, CONTAINER_TITLE_HEIGHT,
 };
+use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
@@ -33,14 +33,10 @@ fn focus_color(focus: ContainerFocus) -> (f32, f32, f32) {
     }
 }
 
-const TITLE_COLOR: (f32, f32, f32) = ((0x46 as f32)/255., (0x04 as f32)/255., (0x17 as f32)/255.);
-// const BORDER_COLOR: (f32, f32, f32) = ((0xba as f32)/255., (0x57 as f32)/255., (0x00 as f32)/255.);
-const UNDERLINE_COLOR: (f32, f32, f32) = ((0x66 as f32)/255., (0x24 as f32)/255., (0x37 as f32)/255.);
-const BORDER_COLOR: (f32, f32, f32) = ((0x36 as f32)/255., (0x00 as f32)/255., (0x07 as f32)/255.);
-
 pub struct Renderer<'a> {
     pub(super) ctx: &'a RenderContext,
     pub(super) fb: &'a GlFrameBuffer,
+    pub(super) state: &'a State,
 }
 
 impl Renderer<'_> {
@@ -104,21 +100,22 @@ impl Renderer<'_> {
     }
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
+        let border_width = self.state.theme.border_width.get();
+        let title_height = self.state.theme.title_height.get();
         let cwidth = container.width.get();
         let cheight = container.height.get();
         let num_children = container.num_children();
-        let title_rect =
-            Rect::new_sized(x, y, container.width.get(), CONTAINER_TITLE_HEIGHT - 1).unwrap();
+        let title_rect = Rect::new_sized(x, y, container.width.get(), title_height).unwrap();
         let underline_rect =
-            Rect::new_sized(x, y + CONTAINER_TITLE_HEIGHT - 1, container.width.get(), 1).unwrap();
+            Rect::new_sized(x, y + title_height, container.width.get(), 1).unwrap();
         if let Some(child) = container.mono_child.get() {
             let space_per_child = cwidth / num_children as i32;
             let mut rem = cwidth % num_children as i32;
             let mut pos = x;
             let (r, g, b) = focus_color(ContainerFocus::None);
             self.fill_boxes(slice::from_ref(&title_rect), r, g, b, 1.0);
-            let (r, g, b) = BORDER_COLOR;
-            self.fill_boxes(slice::from_ref(&underline_rect), r, g, b, 1.0);
+            let c = self.state.theme.border_color.get();
+            self.fill_boxes(slice::from_ref(&underline_rect), c.r, c.g, c.b, c.a);
             for child in container.children.iter() {
                 let focus = child.focus.get();
                 let (r, g, b) = focus_color(focus);
@@ -128,7 +125,7 @@ impl Renderer<'_> {
                     width += 1;
                 }
                 if focus != ContainerFocus::None {
-                    let rect = Rect::new_sized(pos, y, width, CONTAINER_TITLE_HEIGHT).unwrap();
+                    let rect = Rect::new_sized(pos, y, width, title_height).unwrap();
                     self.fill_boxes(slice::from_ref(&rect), r, g, b, 1.0);
                 }
                 pos += width as i32;
@@ -157,48 +154,50 @@ impl Renderer<'_> {
                     let border_rect = if split == ContainerSplit::Horizontal {
                         Rect::new_sized(
                             x + body.x2(),
-                            y + body.y1() - CONTAINER_TITLE_HEIGHT,
-                            CONTAINER_BORDER,
+                            y + body.y1() - title_height - 1,
+                            border_width,
                             container.height.get(),
                         )
                         .unwrap()
                     } else {
-                        title_rects.push(Rect::new_sized(
-                            x,
-                            y + body.y2() + CONTAINER_BORDER,
-                            container.width.get(),
-                            CONTAINER_TITLE_HEIGHT - 1,
-                        ).unwrap());
-                        underline_rects.push(Rect::new_sized(
-                            x,
-                            y + body.y2() + CONTAINER_BORDER + CONTAINER_TITLE_HEIGHT - 1,
-                            container.width.get(),
-                            1,
-                        ).unwrap());
-                        Rect::new_sized(
-                            x,
-                            y + body.y2(),
-                            container.width.get(),
-                            CONTAINER_BORDER,
-                        )
-                        .unwrap()
+                        title_rects.push(
+                            Rect::new_sized(
+                                x,
+                                y + body.y2() + border_width,
+                                container.width.get(),
+                                title_height,
+                            )
+                            .unwrap(),
+                        );
+                        underline_rects.push(
+                            Rect::new_sized(
+                                x,
+                                y + body.y2() + border_width + title_height,
+                                container.width.get(),
+                                1,
+                            )
+                            .unwrap(),
+                        );
+                        Rect::new_sized(x, y + body.y2(), container.width.get(), border_width)
+                            .unwrap()
                     };
                     border_rects.push(border_rect);
                 }
             }
             {
-                let (r, g, b) = TITLE_COLOR;
-                self.fill_boxes(&title_rects, r, g, b, 1.0);
-                let (r, g, b) = UNDERLINE_COLOR;
-                self.fill_boxes(&underline_rects, r, g, b, 1.0);
-                let (r, g, b) = BORDER_COLOR;
-                self.fill_boxes(&border_rects, r, g, b, 1.0);
+                let c = self.state.theme.title_color.get();
+                self.fill_boxes(&title_rects, c.r, c.g, c.b, c.a);
+                let c = self.state.theme.underline_color.get();
+                self.fill_boxes(&underline_rects, c.r, c.g, c.b, c.a);
+                let c = self.state.theme.border_color.get();
+                self.fill_boxes(&border_rects, c.r, c.g, c.b, c.a);
             }
             for child in container.children.iter() {
                 let body = child.body.get();
                 if body.x1() >= cwidth || body.y1() >= cheight {
                     break;
                 }
+                let body = body.move_(container.abs_x1.get(), container.abs_y1.get());
                 unsafe {
                     with_scissor(&body, || {
                         let content = child.content.get();
@@ -323,7 +322,6 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        log::info!("rendering at {}x{}", x, y);
         if let Some(child) = floating.child.get() {
             child.render(self, x, y)
         }

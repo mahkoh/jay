@@ -9,8 +9,9 @@ use std::collections::HashMap;
 mod macros;
 #[doc(hidden)]
 pub mod _private;
-pub mod keyboard;
 pub mod embedded;
+pub mod keyboard;
+pub mod theme;
 
 #[derive(Encode, Decode, Copy, Clone, Debug)]
 pub enum LogLevel {
@@ -128,6 +129,10 @@ impl Seat {
         let mut res = vec![];
         (|| res = get!().get_input_devices(Some(self)))();
         res
+    }
+
+    pub fn create_split(self, axis: Axis) {
+        get!().create_split(self, axis);
     }
 }
 

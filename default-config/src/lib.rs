@@ -1,8 +1,13 @@
-use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
-use i4config::keyboard::syms::{SYM_h, SYM_j, SYM_k, SYM_l, SYM_r, SYM_t, SYM_y, SYM_b, SYM_Super_L};
-use i4config::Direction::{Down, Left, Right, Up};
-use i4config::{config, create_seat, input_devices, on_new_input_device, Command, Seat, InputDevice};
 use i4config::embedded::grab_keyboard;
+use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
+use i4config::keyboard::syms::{SYM_Super_L, SYM_b, SYM_comma, SYM_h, SYM_j, SYM_k, SYM_l, SYM_period, SYM_r, SYM_t, SYM_y, SYM_d, SYM_v};
+use i4config::theme::{get_title_height, set_title_color, set_title_height, Color};
+use i4config::Direction::{Down, Left, Right, Up};
+use i4config::{
+    config, create_seat, input_devices, on_new_input_device, Command, InputDevice, Seat,
+};
+use rand::Rng;
+use i4config::Axis::{Horizontal, Vertical};
 
 const MOD: Modifiers = ALT;
 
@@ -20,10 +25,27 @@ fn configure_seat(s: Seat) {
     s.bind(CTRL | SHIFT | SYM_l, move || change_rate(-1));
     s.bind(CTRL | SHIFT | SYM_r, move || change_rate(1));
 
+    s.bind(MOD | SYM_comma, move || {
+        let mut rng = rand::thread_rng();
+        set_title_color(Color {
+            r: rng.gen(),
+            g: rng.gen(),
+            b: rng.gen(),
+            a: rng.gen(),
+        })
+    });
+
+    s.bind(MOD | SYM_period, move || {
+        set_title_height(get_title_height() + 1)
+    });
+
     s.bind(MOD | SYM_h, move || s.focus(Left));
     s.bind(MOD | SYM_j, move || s.focus(Down));
     s.bind(MOD | SYM_k, move || s.focus(Up));
     s.bind(MOD | SYM_l, move || s.focus(Right));
+
+    s.bind(MOD | SYM_d, move || s.create_split(Horizontal));
+    s.bind(MOD | SYM_v, move || s.create_split(Vertical));
 
     s.bind(MOD | SYM_t, move || {
         s.set_split(s.split().other());
@@ -39,7 +61,11 @@ fn configure_seat(s: Seat) {
     fn do_grab(s: Seat, grab: bool) {
         for device in s.input_devices() {
             if let InputDevice::Keyboard(kb) = device {
-                log::info!("{}rabbing keyboard {:?}", if grab { "G" } else { "Ung" }, kb.0);
+                log::info!(
+                    "{}rabbing keyboard {:?}",
+                    if grab { "G" } else { "Ung" },
+                    kb.0
+                );
                 grab_keyboard(kb, grab);
             }
         }

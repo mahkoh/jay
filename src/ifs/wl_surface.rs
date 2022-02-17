@@ -618,6 +618,10 @@ impl Node for WlSurface {
         self.xdg.get().map(|x| x.set_split(split));
     }
 
+    fn create_split(self: Rc<Self>, split: ContainerSplit) {
+        self.xdg.get().map(|x| x.create_split(split));
+    }
+
     fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let xdg = match self.xdg.get() {
             Some(x) => x,
@@ -670,8 +674,8 @@ impl Node for WlSurface {
         seat.enter_surface(&self, x, y)
     }
 
-    fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        seat.motion_surface(self, x, y)
+    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        seat.motion_surface(&*self, x, y)
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

@@ -1,2 +1,2 @@
-pub mod xorg;
 pub mod dummy;
+pub mod xorg;

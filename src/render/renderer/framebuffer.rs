@@ -33,6 +33,7 @@ impl Framebuffer {
             let mut renderer = Renderer {
                 ctx: &self.ctx,
                 fb: &self.gl,
+                state,
             };
             node.render(&mut renderer, 0, 0);
             if let Some(rect) = cursor_rect {

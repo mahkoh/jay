@@ -67,6 +67,14 @@ pub trait Node {
     fn seat_state(&self) -> &NodeSeatState;
     fn destroy_node(&self, detach: bool);
 
+    fn needs_layout(&self) -> bool {
+        false
+    }
+
+    fn do_layout(&self) {
+        // nothing
+    }
+
     fn get_parent_split(&self) -> Option<ContainerSplit> {
         None
     }
@@ -79,7 +87,11 @@ pub trait Node {
         None
     }
 
-    fn set_split(&self, split: ContainerSplit) {
+    fn set_split(self: Rc<Self>, split: ContainerSplit) {
+        let _ = split;
+    }
+
+    fn create_split(self: Rc<Self>, split: ContainerSplit) {
         let _ = split;
     }
 
@@ -154,7 +166,12 @@ pub trait Node {
         FindTreeResult::Other
     }
 
-    fn remove_child(&self, child: &dyn Node) {
+    fn replace_child(&self, old: &dyn Node, new: Rc<dyn Node>) {
+        let _ = old;
+        let _ = new;
+    }
+
+    fn remove_child(self: Rc<Self>, child: &dyn Node) {
         let _ = child;
     }
 
@@ -180,7 +197,7 @@ pub trait Node {
         let _ = seat;
     }
 
-    fn motion(&self, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         let _ = seat;
         let _ = x;
         let _ = y;
@@ -258,6 +275,7 @@ pub struct DisplayNode {
     pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
+    pub needs_layout: Cell<bool>,
 }
 
 impl DisplayNode {
@@ -267,6 +285,7 @@ impl DisplayNode {
             outputs: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
+            needs_layout: Cell::new(false),
         }
     }
 }
@@ -290,6 +309,18 @@ impl Node for DisplayNode {
             stacked.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn needs_layout(&self) -> bool {
+        self.needs_layout.get()
+    }
+
+    fn do_layout(&self) {
+        self.needs_layout.set(false);
+        let outputs = self.outputs.lock();
+        for output in outputs.values() {
+            output.do_layout();
+        }
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -365,13 +396,20 @@ impl Node for OutputNode {
 
     fn destroy_node(&self, detach: bool) {
         if detach {
-            self.display.remove_child(self);
+            self.display.clone().remove_child(self);
         }
         let mut workspaces = self.workspaces.borrow_mut();
         for workspace in workspaces.drain(..) {
             workspace.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn do_layout(&self) {
+        let workspaces = self.workspaces.borrow_mut();
+        for ws in workspaces.deref() {
+            ws.do_layout();
+        }
     }
 
     fn absolute_position(&self) -> Rect {
@@ -390,7 +428,7 @@ impl Node for OutputNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(&self, _child: &dyn Node) {
+    fn remove_child(self: Rc<Self>, _child: &dyn Node) {
         self.workspace.set(None);
     }
 
@@ -464,7 +502,7 @@ impl Node for FloatNode {
         child.find_tree_at(x, y, tree)
     }
 
-    fn remove_child(&self, _child: &dyn Node) {
+    fn remove_child(self: Rc<Self>, _child: &dyn Node) {
         self.child.set(None);
         self.display_link.set(None);
         self.workspace_link.set(None);

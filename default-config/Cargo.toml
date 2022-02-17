@@ -9,3 +9,4 @@ crate-type = ["lib", "cdylib"]
 [dependencies]
 i4config = { path = "../i4config" }
 log = "0.4.14"
+rand = "0.8.5"

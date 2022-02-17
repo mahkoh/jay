@@ -39,7 +39,12 @@ impl DeviceApi for dyn Keyboard {
         self.removed()
     }
 
-    fn add(self: &Rc<Self>, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
+    fn add(
+        self: &Rc<Self>,
+        state: &State,
+        handler: SpawnedFuture<()>,
+        data: Rc<DeviceHandlerData>,
+    ) {
         state.kb_handlers.borrow_mut().insert(
             self.id(),
             KeyboardData {
@@ -83,7 +88,12 @@ impl DeviceApi for dyn Mouse {
         self.removed()
     }
 
-    fn add(self: &Rc<Self>, state: &State, handler: SpawnedFuture<()>, data: Rc<DeviceHandlerData>) {
+    fn add(
+        self: &Rc<Self>,
+        state: &State,
+        handler: SpawnedFuture<()>,
+        data: Rc<DeviceHandlerData>,
+    ) {
         state.mouse_handlers.borrow_mut().insert(
             self.id(),
             MouseData {

@@ -38,6 +38,7 @@ impl OutputHandler {
             stacked: Default::default(),
             seat_state: Default::default(),
         });
+        on.workspaces.borrow_mut().push(workspace.clone());
         on.workspace.set(Some(workspace));
         self.state.root.outputs.set(self.output.id(), on.clone());
         self.state.add_global(&global);

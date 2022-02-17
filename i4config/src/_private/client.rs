@@ -1,6 +1,7 @@
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
 use crate::keyboard::keymap::Keymap;
+use crate::theme::Color;
 use crate::{Axis, Command, Direction, InputDevice, Keyboard, LogLevel, ModifiedKeySym, Seat};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
@@ -195,8 +196,58 @@ impl Client {
         }
     }
 
+    pub fn set_title_color(&self, color: Color) {
+        self.send(&ClientMessage::SetTitleColor { color });
+    }
+
+    pub fn set_border_color(&self, color: Color) {
+        self.send(&ClientMessage::SetBorderColor { color });
+    }
+
+    pub fn set_title_underline_color(&self, color: Color) {
+        self.send(&ClientMessage::SetTitleUnderlineColor { color });
+    }
+
+    pub fn set_background_color(&self, color: Color) {
+        self.send(&ClientMessage::SetBackgroundColor { color });
+    }
+
+    pub fn get_title_height(&self) -> i32 {
+        let resp = self.with_response(|| self.send(&ClientMessage::GetTitleHeight));
+        match resp {
+            Response::GetTitleHeight { height } => height,
+            _ => {
+                log::warn!("Server did not reply to a get_title_height request");
+                0
+            }
+        }
+    }
+
+    pub fn get_border_width(&self) -> i32 {
+        let resp = self.with_response(|| self.send(&ClientMessage::GetBorderWidth));
+        match resp {
+            Response::GetBorderWidth { width } => width,
+            _ => {
+                log::warn!("Server did not reply to a get_border_width request");
+                0
+            }
+        }
+    }
+
+    pub fn set_title_height(&self, height: i32) {
+        self.send(&ClientMessage::SetTitleHeight { height })
+    }
+
+    pub fn set_border_width(&self, width: i32) {
+        self.send(&ClientMessage::SetBorderWidth { width })
+    }
+
     pub fn set_split(&self, seat: Seat, axis: Axis) {
         self.send(&ClientMessage::SetSplit { seat, axis });
+    }
+
+    pub fn create_split(&self, seat: Seat, axis: Axis) {
+        self.send(&ClientMessage::CreateSplit { seat, axis });
     }
 
     pub fn create_seat(&self, name: &str) -> Seat {

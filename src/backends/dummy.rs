@@ -1,15 +1,12 @@
-use std::rc::Rc;
 use crate::backend::Backend;
+use std::rc::Rc;
 
-pub struct DummyBackend {
-
-}
+pub struct DummyBackend {}
 
 impl DummyBackend {
     pub fn new() -> Rc<Self> {
-        Rc::new(Self { })
+        Rc::new(Self {})
     }
 }
 
-impl Backend for DummyBackend {
-}
+impl Backend for DummyBackend {}

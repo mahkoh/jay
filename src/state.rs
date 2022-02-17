@@ -1,5 +1,8 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{Backend, BackendEvent, Keyboard, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId, OutputIds};
+use crate::backend::{
+    Backend, BackendEvent, Keyboard, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId,
+    OutputIds,
+};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
@@ -10,7 +13,8 @@ use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::render::RenderContext;
-use crate::tree::{DisplayNode, NodeIds};
+use crate::theme::Theme;
+use crate::tree::{DisplayNode, Node, NodeIds};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
@@ -51,6 +55,8 @@ pub struct State {
     pub none_surface_ext: Rc<NoneSurfaceExt>,
     pub tree_changed_sent: Cell<bool>,
     pub config: CloneCell<Option<Rc<ConfigProxy>>>,
+    pub theme: Theme,
+    pub pending_layout: AsyncQueue<Rc<dyn Node>>,
 }
 
 pub struct MouseData {
