@@ -47,12 +47,14 @@ pub fn render(
     };
     let fd = FontDescription::from_string(font);
     let layout = Layout::new(&pctx);
-    layout.set_width(width * pango::SCALE);
+    layout.set_width((width - 2).max(0) * pango::SCALE);
     layout.set_ellipsize(EllipsizeMode::End);
     layout.set_font_description(Some(&fd));
     layout.set_text(text);
+    let font_height = layout.pixel_size().1;
     cctx.set_operator(Operator::Source);
     cctx.set_source_rgba(color.r as _, color.g as _, color.b as _, color.a as _);
+    cctx.move_to(1.0, ((height - font_height) / 2) as f64);
     pangocairo::show_layout(&cctx, &layout);
     let mut texture = None;
     let _ = image.with_data(|d| unsafe {

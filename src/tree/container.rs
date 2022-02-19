@@ -14,7 +14,7 @@ use i4config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;
-use std::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Sub};
 use std::rc::Rc;
 use crate::backend::KeyState;
 
@@ -336,15 +336,16 @@ impl ContainerNode {
                 let new_content_size = self
                     .width
                     .get()
-                    .saturating_sub((nc - 1) as i32 * border_width);
+                    .sub((nc - 1) as i32 * border_width)
+                    .max(0);
                 self.content_width.set(new_content_size);
                 self.content_height
-                    .set(self.height.get().saturating_sub(title_height + 1));
+                    .set(self.height.get().sub(title_height + 1).max(0));
             }
             ContainerSplit::Vertical => {
-                let new_content_size = self.height.get().saturating_sub(
+                let new_content_size = self.height.get().sub(
                     title_height + 1 + (nc - 1) as i32 * (border_width + title_height + 1),
-                );
+                ).max(0);
                 self.content_height.set(new_content_size);
                 self.content_width.set(self.width.get());
             }
@@ -448,7 +449,7 @@ impl ContainerNode {
         title.push_str("[");
         for (i, c) in self.children.iter().enumerate() {
             if i > 0 {
-                title.push_str(" ");
+                title.push_str(", ");
             }
             title.push_str(c.title.borrow_mut().deref());
         }
@@ -470,7 +471,8 @@ impl ContainerNode {
         for c in self.children.iter() {
             c.title_texture.set(None);
             let title = c.title.borrow_mut();
-            if title.is_empty() {
+            let body = c.body.get();
+            if title.is_empty() || th == 0 || body.width() == 0 {
                 continue;
             }
             let ctx = match self.state.render_ctx.get() {
@@ -478,7 +480,7 @@ impl ContainerNode {
                 _ => continue,
             };
             let texture =
-                match text::render(&ctx, c.body.get().width(), th, &font, &title, Color::RED) {
+                match text::render(&ctx, body.width(), th, &font, &title, Color::GREY) {
                     Ok(t) => t,
                     Err(e) => {
                         log::error!("Could not render title {}: {}", title, ErrorFmt(e));
@@ -541,6 +543,16 @@ impl Node for ContainerNode {
         self.seat_state.destroy_node(self);
     }
 
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_container(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        for child in self.children.iter() {
+            child.node.clone().visit(visitor);
+        }
+    }
+
     fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let child = match self.child_nodes.borrow_mut().get(&child.id()) {
             Some(cn) => cn.to_ref(),
@@ -557,26 +569,28 @@ impl Node for ContainerNode {
         self.update_title();
     }
 
-    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        self.parent.get().focus_self(seat);
+    fn get_split(&self) -> Option<ContainerSplit> {
+        Some(self.split.get())
     }
 
-    fn active_changed(&self, active: bool) {
-        self.parent.get().child_active_changed(self, active);
+    fn set_split(self: Rc<Self>, split: ContainerSplit) {
+        if self.split.replace(split) != split {
+            self.update_content_size();
+            self.schedule_layout();
+            self.update_title();
+        }
     }
 
     fn focus_self(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         seat.focus_node(self);
     }
 
-    fn get_split(&self) -> Option<ContainerSplit> {
-        Some(self.split.get())
-    }
-
-    fn set_split(self: Rc<Self>, split: ContainerSplit) {
-        self.split.set(split);
-        self.update_content_size();
-        self.schedule_layout();
+    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if direction == Direction::Down {
+            self.do_focus(seat, direction);
+            return;
+        }
+        self.parent.get().move_focus_from_child(seat, &*self, direction);
     }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
@@ -641,6 +655,10 @@ impl Node for ContainerNode {
             self.height.get(),
         )
         .unwrap()
+    }
+
+    fn active_changed(&self, active: bool) {
+        self.parent.get().child_active_changed(self, active);
     }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
@@ -713,6 +731,10 @@ impl Node for ContainerNode {
                 // todo
             }
         }
+    }
+
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        self.parent.get().focus_self(seat);
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -802,6 +824,14 @@ impl Node for ContainerNode {
         }
     }
 
+    fn child_active_changed(&self, child: &dyn Node, active: bool) {
+        let node = match self.child_nodes.borrow_mut().get(&child.id()) {
+            Some(l) => l.to_ref(),
+            None => return,
+        };
+        node.active.set(active);
+    }
+
     fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
@@ -823,14 +853,6 @@ impl Node for ContainerNode {
 
     fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
-    }
-
-    fn child_active_changed(&self, child: &dyn Node, active: bool) {
-        let node = match self.child_nodes.borrow_mut().get(&child.id()) {
-            Some(l) => l.to_ref(),
-            None => return,
-        };
-        node.active.set(active);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
@@ -867,15 +889,5 @@ impl Node for ContainerNode {
             child.node.clone().set_workspace(ws);
         }
         self.workspace.set(ws.clone());
-    }
-
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_container(&self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        for child in self.children.iter() {
-            child.node.clone().visit(visitor);
-        }
     }
 }

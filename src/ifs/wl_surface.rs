@@ -629,7 +629,7 @@ impl Node for WlSurface {
         self.xdg.get().map(|x| x.create_split(split));
     }
 
-    fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let xdg = match self.xdg.get() {
             Some(x) => x,
             _ => return,

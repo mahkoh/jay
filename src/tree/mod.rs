@@ -105,7 +105,7 @@ pub trait Node {
         let _ = direction;
     }
 
-    fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let _ = seat;
         let _ = direction;
     }

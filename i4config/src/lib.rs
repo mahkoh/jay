@@ -22,7 +22,7 @@ pub enum LogLevel {
     Trace,
 }
 
-#[derive(Encode, Decode, Copy, Clone, Debug)]
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Direction {
     Left,
     Down,
