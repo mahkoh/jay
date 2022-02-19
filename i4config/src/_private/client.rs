@@ -250,6 +250,10 @@ impl Client {
         self.send(&ClientMessage::CreateSplit { seat, axis });
     }
 
+    pub fn focus_parent(&self, seat: Seat) {
+        self.send(&ClientMessage::FocusParent { seat });
+    }
+
     pub fn create_seat(&self, name: &str) -> Seat {
         let response = self.with_response(|| self.send(&ClientMessage::CreateSeat { name }));
         match response {

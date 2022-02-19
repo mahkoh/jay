@@ -16,6 +16,7 @@ use crate::object::Object;
 use crate::pixman::Region;
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::tree::walker::NodeVisitor;
 use crate::tree::{ContainerSplit, Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
@@ -578,6 +579,12 @@ dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
 impl Node for WlSurface {
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        if let Some(xdg) = self.xdg.get() {
+            xdg.focus_parent(seat);
+        }
+    }
+
     fn id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -658,8 +665,9 @@ impl Node for WlSurface {
 
     fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         if let Some(xdg) = self.xdg.get() {
-            xdg.focus_surface.insert(seat.id(), self);
+            xdg.focus_surface.insert(seat.id(), self.clone());
         }
+        seat.focus_surface(&self);
     }
 
     fn unfocus(&self, seat: &WlSeatGlobal) {
@@ -704,6 +712,19 @@ impl Node for WlSurface {
 
     fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
         dnd.seat.dnd_surface_motion(self, dnd, x, y);
+    }
+
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_surface(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        let children = self.children.borrow_mut();
+        if let Some(c) = children.deref() {
+            for child in c.subsurfaces.values() {
+                visitor.visit_surface(&child.surface);
+            }
+        }
     }
 }
 

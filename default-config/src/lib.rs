@@ -1,8 +1,8 @@
 use i4config::embedded::grab_keyboard;
 use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use i4config::keyboard::syms::{
-    SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_h, SYM_j, SYM_k, SYM_l, SYM_period, SYM_r, SYM_t,
-    SYM_v, SYM_y,
+    SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_period, SYM_r,
+    SYM_t, SYM_v, SYM_y,
 };
 use i4config::theme::{get_title_height, set_title_color, set_title_height, Color};
 use i4config::Axis::{Horizontal, Vertical};
@@ -52,6 +52,10 @@ fn configure_seat(s: Seat) {
 
     s.bind(MOD | SYM_t, move || {
         s.set_split(s.split().other());
+    });
+
+    s.bind(MOD | SYM_f, move || {
+        s.focus_parent();
     });
 
     s.bind(MOD | SHIFT | SYM_h, move || s.move_(Left));

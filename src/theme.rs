@@ -1,5 +1,4 @@
-use crate::NumCell;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Color {
@@ -7,6 +6,15 @@ pub struct Color {
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+
+impl Color {
+    pub const RED: Self = Self {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
 }
 
 fn to_f32(c: u8) -> f32 {
@@ -43,7 +51,7 @@ pub struct Theme {
     pub border_color: Cell<Color>,
     pub title_height: Cell<i32>,
     pub border_width: Cell<i32>,
-    pub version: NumCell<u32>,
+    pub font: RefCell<String>,
 }
 
 impl Default for Theme {
@@ -56,7 +64,7 @@ impl Default for Theme {
             border_color: Cell::new(Color::from_rgba(0x36, 0x00, 0x07, 255)),
             title_height: Cell::new(17),
             border_width: Cell::new(4),
-            version: NumCell::new(1),
+            font: RefCell::new("monospace 8".to_string()),
         }
     }
 }

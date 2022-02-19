@@ -134,6 +134,10 @@ impl Seat {
     pub fn create_split(self, axis: Axis) {
         get!().create_split(self, axis);
     }
+
+    pub fn focus_parent(self) {
+        get!().focus_parent(self);
+    }
 }
 
 pub fn get_seats() -> Vec<Seat> {

@@ -1,4 +1,4 @@
-use crate::format::Format;
+use crate::format::{Format, ARGB8888};
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
@@ -16,7 +16,7 @@ use crate::render::Texture;
 use crate::tree::{
     ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
 };
-use crate::State;
+use crate::{State};
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
@@ -34,7 +34,7 @@ fn focus_color(focus: ContainerFocus) -> (f32, f32, f32) {
 }
 
 pub struct Renderer<'a> {
-    pub(super) ctx: &'a RenderContext,
+    pub(super) ctx: &'a Rc<RenderContext>,
     pub(super) fb: &'a GlFrameBuffer,
     pub(super) state: &'a State,
 }
@@ -111,6 +111,7 @@ impl Renderer<'_> {
         let title_rect = Rect::new_sized(x, y, container.width.get(), title_height).unwrap();
         let underline_rect =
             Rect::new_sized(x, y + title_height, container.width.get(), 1).unwrap();
+        let mut titles = vec![];
         if let Some(child) = container.mono_child.get() {
             let space_per_child = cwidth / num_children as i32;
             let mut rem = cwidth % num_children as i32;
@@ -126,6 +127,13 @@ impl Renderer<'_> {
                 if rem > 0 {
                     rem -= 1;
                     width += 1;
+                }
+                if let Some(title) = child.title_texture.get() {
+                    titles.push((
+                        pos,
+                        0,
+                        title,
+                    ));
                 }
                 if focus != ContainerFocus::None {
                     let rect = Rect::new_sized(pos, y, width, title_height).unwrap();
@@ -154,6 +162,13 @@ impl Renderer<'_> {
             underline_rects.push(underline_rect);
             for (i, child) in container.children.iter().enumerate() {
                 let body = child.body.get();
+                if let Some(title) = child.title_texture.get() {
+                    titles.push((
+                        body.x1(),
+                        body.y1() - title_height - 1,
+                        title,
+                    ));
+                }
                 if child.active.get() {
                     active_rects.push(
                         Rect::new_sized(
@@ -162,7 +177,7 @@ impl Renderer<'_> {
                             body.width(),
                             title_height,
                         )
-                            .unwrap(),
+                        .unwrap(),
                     );
                 }
                 if i + 1 < num_children {
@@ -208,6 +223,9 @@ impl Renderer<'_> {
                 self.fill_boxes(&underline_rects, c.r, c.g, c.b, c.a);
                 let c = self.state.theme.border_color.get();
                 self.fill_boxes(&border_rects, c.r, c.g, c.b, c.a);
+                for (tx, ty, tex) in titles {
+                    self.render_texture(&tex, x + tx, y + ty, ARGB8888);
+                }
             }
             for child in container.children.iter() {
                 let body = child.body.get();

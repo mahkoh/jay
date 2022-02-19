@@ -2,7 +2,7 @@ use crate::client::{Client, ClientError};
 use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgParser};
 use crate::utils::vec_ext::VecExt;
-use crate::ErrorFmt;
+use crate::{ErrorFmt, Phase};
 use futures::{select, FutureExt};
 use std::collections::VecDeque;
 use std::mem;
@@ -12,7 +12,7 @@ pub async fn client(data: Rc<Client>) {
     let mut recv = data.state.eng.spawn(receive(data.clone())).fuse();
     let mut dispatch_fr = data.state.eng.spawn(dispatch_fr(data.clone())).fuse();
     let mut shutdown = data.shutdown.triggered().fuse();
-    let _send = data.state.eng.spawn(send(data.clone()));
+    let _send = data.state.eng.spawn2(Phase::PostLayout, send(data.clone()));
     select! {
         _ = recv => { },
         _ = dispatch_fr => { },

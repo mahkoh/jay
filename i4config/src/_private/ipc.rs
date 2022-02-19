@@ -119,6 +119,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         axis: Axis,
     },
+    FocusParent {
+        seat: Seat,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

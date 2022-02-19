@@ -7,6 +7,7 @@ use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::tree::walker::NodeVisitor;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::{LinkedList, LinkedNode};
@@ -21,6 +22,7 @@ use std::rc::Rc;
 pub use workspace::*;
 
 mod container;
+pub mod walker;
 mod workspace;
 
 pub struct NodeIds {
@@ -66,13 +68,12 @@ pub trait Node {
     fn id(&self) -> NodeId;
     fn seat_state(&self) -> &NodeSeatState;
     fn destroy_node(&self, detach: bool);
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor);
 
-    fn needs_layout(&self) -> bool {
-        false
-    }
-
-    fn do_layout(&self) {
-        // nothing
+    fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
+        let _ = child;
+        let _ = title;
     }
 
     fn get_parent_split(&self) -> Option<ContainerSplit> {
@@ -93,6 +94,10 @@ pub trait Node {
 
     fn create_split(self: Rc<Self>, split: ContainerSplit) {
         let _ = split;
+    }
+
+    fn focus_self(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
     }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
@@ -152,6 +157,10 @@ pub trait Node {
     }
 
     fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
+    }
+
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
 
@@ -279,7 +288,6 @@ pub struct DisplayNode {
     pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
-    pub needs_layout: Cell<bool>,
 }
 
 impl DisplayNode {
@@ -289,7 +297,6 @@ impl DisplayNode {
             outputs: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
-            needs_layout: Cell::new(false),
         }
     }
 }
@@ -315,15 +322,17 @@ impl Node for DisplayNode {
         self.seat_state.destroy_node(self);
     }
 
-    fn needs_layout(&self) -> bool {
-        self.needs_layout.get()
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_display(&self);
     }
 
-    fn do_layout(&self) {
-        self.needs_layout.set(false);
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         let outputs = self.outputs.lock();
-        for output in outputs.values() {
-            output.do_layout();
+        for (_, output) in outputs.deref() {
+            visitor.visit_output(output);
+        }
+        for stacked in self.stacked.iter() {
+            stacked.deref().clone().visit(visitor);
         }
     }
 
@@ -409,10 +418,14 @@ impl Node for OutputNode {
         self.seat_state.destroy_node(self);
     }
 
-    fn do_layout(&self) {
-        let workspaces = self.workspaces.borrow_mut();
-        for ws in workspaces.deref() {
-            ws.do_layout();
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_output(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        let ws = self.workspaces.borrow_mut();
+        for ws in ws.deref() {
+            visitor.visit_workspace(ws);
         }
     }
 
@@ -487,6 +500,16 @@ impl Node for FloatNode {
             child.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_float(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        if let Some(c) = self.child.get() {
+            c.visit(visitor);
+        }
     }
 
     fn absolute_position(&self) -> Rect {

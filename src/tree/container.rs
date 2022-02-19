@@ -1,20 +1,22 @@
-use crate::backend::KeyState;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
-use crate::render::Renderer;
+use crate::render::{Renderer, Texture};
+use crate::theme::Color;
+use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
-use crate::{NumCell, State};
+use crate::{text, ErrorFmt, NumCell, State};
 use ahash::AHashMap;
 use i4config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::backend::KeyState;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -55,6 +57,7 @@ pub struct ContainerNode {
     pub id: ContainerNodeId,
     pub parent: CloneCell<Rc<dyn Node>>,
     pub split: Cell<ContainerSplit>,
+    title: RefCell<String>,
     pub mono_child: CloneCell<Option<NodeRef<ContainerChild>>>,
     pub mono_body: Cell<Rect>,
     pub mono_content: Cell<Rect>,
@@ -65,8 +68,8 @@ pub struct ContainerNode {
     pub content_width: Cell<i32>,
     pub content_height: Cell<i32>,
     pub sum_factors: Cell<f64>,
-    pub theme_version: Cell<u32>,
-    pub needs_layout: Cell<bool>,
+    layout_scheduled: Cell<bool>,
+    render_titles_scheduled: Cell<bool>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
@@ -89,6 +92,8 @@ pub struct ContainerChild {
     pub content: Cell<Rect>,
     factor: Cell<f64>,
     pub focus: Cell<ContainerFocus>,
+    title: RefCell<String>,
+    pub title_texture: CloneCell<Option<Rc<Texture>>>,
 }
 
 struct SeatState {
@@ -136,12 +141,15 @@ impl ContainerNode {
                 content: Cell::new(Default::default()),
                 factor: Cell::new(1.0),
                 focus: Cell::new(ContainerFocus::None),
+                title: Default::default(),
+                title_texture: Default::default(),
             }),
         );
         Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent),
             split: Cell::new(split),
+            title: Default::default(),
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
             mono_content: Cell::new(Default::default()),
@@ -152,8 +160,8 @@ impl ContainerNode {
             content_width: Cell::new(0),
             content_height: Cell::new(0),
             sum_factors: Cell::new(1.0),
-            theme_version: Cell::new(0),
-            needs_layout: Cell::new(false),
+            layout_scheduled: Cell::new(false),
+            render_titles_scheduled: Cell::new(false),
             num_children: NumCell::new(1),
             children,
             child_nodes: RefCell::new(child_nodes),
@@ -207,6 +215,8 @@ impl ContainerNode {
                     content: Default::default(),
                     factor: Cell::new(0.0),
                     focus: Cell::new(ContainerFocus::None),
+                    title: Default::default(),
+                    title_texture: Default::default(),
                 }),
             );
         }
@@ -224,7 +234,8 @@ impl ContainerNode {
             child.factor.set(factor);
             sum_factors += factor;
         }
-        self.apply_factors(sum_factors);
+        self.sum_factors.set(sum_factors);
+        self.schedule_layout();
         self.cancel_seat_ops();
     }
 
@@ -235,16 +246,18 @@ impl ContainerNode {
         }
     }
 
-    fn apply_factors(self: &Rc<Self>, sum_factors: f64) {
-        self.sum_factors.set(sum_factors);
-        self.needs_layout.set(true);
-        self.state.pending_layout.push(self.clone());
+    pub fn on_theme_changed(self: &Rc<Self>) {
+        self.update_content_size();
+        self.schedule_layout();
     }
 
-    fn do_apply_factors(&self) {
-        if self.theme_version.get() != self.state.theme.version.get() {
-            self.update_content_size();
+    fn schedule_layout(self: &Rc<Self>) {
+        if !self.layout_scheduled.replace(true) {
+            self.state.pending_container_layout.push(self.clone());
         }
+    }
+
+    fn perform_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
         let border_width = self.state.theme.border_width.get();
         let title_height = self.state.theme.title_height.get();
@@ -305,12 +318,13 @@ impl ContainerNode {
             }
         }
         self.sum_factors.set(1.0);
-        self.needs_layout.set(false);
+        self.layout_scheduled.set(false);
         for child in self.children.iter() {
             let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
             child.node.clone().change_extents(&body);
             child.position_content();
         }
+        self.schedule_render_titles();
     }
 
     fn update_content_size(&self) {
@@ -335,7 +349,6 @@ impl ContainerNode {
                 self.content_width.set(self.width.get());
             }
         }
-        self.theme_version.set(self.state.theme.version.get());
     }
 
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, mut x: i32, mut y: i32) {
@@ -390,7 +403,8 @@ impl ContainerNode {
                             + child_factor;
                     prev.factor.set(prev_factor);
                     op.child.factor.set(child_factor);
-                    self.apply_factors(sum_factors);
+                    self.sum_factors.set(sum_factors);
+                    self.schedule_layout();
                 }
             }
             return;
@@ -422,6 +436,59 @@ impl ContainerNode {
             }
         }
     }
+
+    fn update_title(self: &Rc<Self>) {
+        let split = match self.split.get() {
+            ContainerSplit::Horizontal => "H",
+            ContainerSplit::Vertical => "V",
+        };
+        let mut title = self.title.borrow_mut();
+        title.clear();
+        title.push_str(split);
+        title.push_str("[");
+        for (i, c) in self.children.iter().enumerate() {
+            if i > 0 {
+                title.push_str(" ");
+            }
+            title.push_str(c.title.borrow_mut().deref());
+        }
+        title.push_str("]");
+        self.parent.get().child_title_changed(&**self, &title);
+        self.schedule_render_titles();
+    }
+
+    fn schedule_render_titles(self: &Rc<Self>) {
+        if !self.render_titles_scheduled.replace(true) {
+            self.state.pending_container_titles.push(self.clone());
+        }
+    }
+
+    fn render_titles(&self) {
+        let theme = &self.state.theme;
+        let th = theme.title_height.get();
+        let font = theme.font.borrow_mut();
+        for c in self.children.iter() {
+            c.title_texture.set(None);
+            let title = c.title.borrow_mut();
+            if title.is_empty() {
+                continue;
+            }
+            let ctx = match self.state.render_ctx.get() {
+                Some(c) => c,
+                _ => continue,
+            };
+            let texture =
+                match text::render(&ctx, c.body.get().width(), th, &font, &title, Color::RED) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                        continue;
+                    }
+                };
+            c.title_texture.set(Some(texture));
+        }
+        self.render_titles_scheduled.set(false);
+    }
 }
 
 struct SeatOp {
@@ -433,6 +500,24 @@ struct SeatOp {
 enum SeatOpKind {
     Move,
     Resize { dist_left: i32, dist_right: i32 },
+}
+
+pub async fn container_layout(state: Rc<State>) {
+    loop {
+        let container = state.pending_container_layout.pop().await;
+        if container.layout_scheduled.get() {
+            container.perform_layout();
+        }
+    }
+}
+
+pub async fn render_titles(state: Rc<State>) {
+    loop {
+        let container = state.pending_container_titles.pop().await;
+        if container.render_titles_scheduled.get() {
+            container.render_titles();
+        }
+    }
 }
 
 impl Node for ContainerNode {
@@ -456,12 +541,32 @@ impl Node for ContainerNode {
         self.seat_state.destroy_node(self);
     }
 
-    fn needs_layout(&self) -> bool {
-        self.needs_layout.get()
+    fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
+        let child = match self.child_nodes.borrow_mut().get(&child.id()) {
+            Some(cn) => cn.to_ref(),
+            _ => return,
+        };
+        {
+            let mut ct = child.title.borrow_mut();
+            if ct.deref() == title {
+                return;
+            }
+            ct.clear();
+            ct.push_str(title);
+        }
+        self.update_title();
     }
 
-    fn do_layout(&self) {
-        self.do_apply_factors();
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        self.parent.get().focus_self(seat);
+    }
+
+    fn active_changed(&self, active: bool) {
+        self.parent.get().child_active_changed(self, active);
+    }
+
+    fn focus_self(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        seat.focus_node(self);
     }
 
     fn get_split(&self) -> Option<ContainerSplit> {
@@ -471,7 +576,7 @@ impl Node for ContainerNode {
     fn set_split(self: Rc<Self>, split: ContainerSplit) {
         self.split.set(split);
         self.update_content_size();
-        self.apply_factors(self.sum_factors.get());
+        self.schedule_layout();
     }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
@@ -647,6 +752,8 @@ impl Node for ContainerNode {
             content: Cell::new(node.content.get()),
             factor: Cell::new(node.factor.get()),
             focus: Cell::new(node.focus.get()),
+            title: Default::default(),
+            title_texture: Default::default(),
         });
         self.child_nodes.borrow_mut().insert(new.id(), link);
         new.clone().set_workspace(&self.workspace.get());
@@ -681,7 +788,8 @@ impl Node for ContainerNode {
                 sum += factor;
             }
         }
-        self.apply_factors(sum);
+        self.sum_factors.set(sum);
+        self.schedule_layout();
         self.cancel_seat_ops();
     }
 
@@ -718,13 +826,9 @@ impl Node for ContainerNode {
     }
 
     fn child_active_changed(&self, child: &dyn Node, active: bool) {
-        log::info!("cac = {}", active);
         let node = match self.child_nodes.borrow_mut().get(&child.id()) {
             Some(l) => l.to_ref(),
-            None => {
-                log::info!("return");
-                return
-            },
+            None => return,
         };
         node.active.set(active);
     }
@@ -745,7 +849,7 @@ impl Node for ContainerNode {
         size_changed |= self.height.replace(rect.height()) != rect.height();
         if size_changed {
             self.update_content_size();
-            self.do_apply_factors();
+            self.perform_layout();
             self.cancel_seat_ops();
             self.parent
                 .get()
@@ -763,5 +867,15 @@ impl Node for ContainerNode {
             child.node.clone().set_workspace(ws);
         }
         self.workspace.set(ws.clone());
+    }
+
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_container(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        for child in self.children.iter() {
+            child.node.clone().visit(visitor);
+        }
     }
 }

@@ -3,6 +3,7 @@ use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::container::ContainerNode;
+use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
@@ -47,12 +48,13 @@ impl Node for WorkspaceNode {
         self.seat_state.destroy_node(self);
     }
 
-    fn do_layout(&self) {
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_workspace(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.container.get() {
-            c.do_layout();
-        }
-        for s in self.stacked.iter() {
-            s.do_layout();
+            visitor.visit_container(&c);
         }
     }
 

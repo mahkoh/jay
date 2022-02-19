@@ -8,6 +8,7 @@ use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -270,6 +271,14 @@ impl Node for XdgPopup {
         let _v = self.workspace_link.borrow_mut().take();
         self.xdg.destroy_node();
         self.xdg.seat_state.destroy_node(self);
+    }
+
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_popup(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_surface(&self.xdg.surface);
     }
 
     fn absolute_position(&self) -> Rect {

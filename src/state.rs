@@ -14,7 +14,7 @@ use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::render::RenderContext;
 use crate::theme::Theme;
-use crate::tree::{DisplayNode, Node, NodeIds};
+use crate::tree::{ContainerNode, DisplayNode, NodeIds};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
@@ -56,7 +56,8 @@ pub struct State {
     pub tree_changed_sent: Cell<bool>,
     pub config: CloneCell<Option<Rc<ConfigProxy>>>,
     pub theme: Theme,
-    pub pending_layout: AsyncQueue<Rc<dyn Node>>,
+    pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_titles: AsyncQueue<Rc<ContainerNode>>,
 }
 
 pub struct MouseData {

@@ -8,6 +8,7 @@ use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::tree::walker::NodeVisitor;
 use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult};
 use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
@@ -81,6 +82,7 @@ pub struct XdgToplevel {
     min_height: Cell<Option<i32>>,
     max_width: Cell<Option<i32>>,
     max_height: Cell<Option<i32>>,
+    title: RefCell<String>,
     pub tracker: Tracker<Self>,
 }
 
@@ -113,6 +115,7 @@ impl XdgToplevel {
             min_height: Cell::new(None),
             max_width: Cell::new(None),
             max_height: Cell::new(None),
+            title: RefCell::new("".to_string()),
             tracker: Default::default(),
         }
     }
@@ -210,7 +213,13 @@ impl XdgToplevel {
     }
 
     fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), SetTitleError> {
-        let _req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
+        let req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
+        let mut title = self.title.borrow_mut();
+        title.clear();
+        title.push_str(req.title);
+        if let Some(parent) = self.parent_node.get() {
+            parent.child_title_changed(self, &title);
+        }
         Ok(())
     }
 
@@ -302,6 +311,16 @@ impl XdgToplevel {
         Ok(())
     }
 
+    fn notify_parent(&self) {
+        let parent = match self.parent_node.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        let extents = self.xdg.extents.get();
+        parent.child_size_changed(self, extents.width(), extents.height());
+        parent.child_title_changed(self, self.title.borrow_mut().deref());
+    }
+
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
         let workspace = match parent.xdg.workspace.get() {
             Some(w) => w,
@@ -311,8 +330,8 @@ impl XdgToplevel {
         let output = workspace.output.get();
         let output_rect = output.position.get();
         log::info!("or = {:?}", output_rect);
+        let extents = self.xdg.extents.get();
         let position = {
-            let extents = self.xdg.extents.get().to_origin();
             let width = extents.width();
             let height = extents.height();
             let mut x1 = output_rect.x1();
@@ -345,6 +364,7 @@ impl XdgToplevel {
         floater
             .workspace_link
             .set(Some(workspace.stacked.add_last(floater.clone())));
+        self.notify_parent();
     }
 
     fn map_tiled(self: &Rc<Self>) {
@@ -442,6 +462,14 @@ impl Node for XdgToplevel {
         self.xdg.seat_state.destroy_node(self)
     }
 
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_toplevel(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_surface(&self.xdg.surface);
+    }
+
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(&self);
     }
@@ -488,6 +516,10 @@ impl Node for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        self.parent_node.get().map(|p| p.focus_self(seat));
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         self.parent_node.get().and_then(|p| p.get_split())
     }
@@ -514,6 +546,7 @@ impl XdgSurfaceExt for XdgToplevel {
         ));
         self.parent_node.set(Some(cn.clone()));
         pn.replace_child(&*self, cn);
+        self.notify_parent();
     }
 
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
@@ -574,9 +607,8 @@ impl XdgSurfaceExt for XdgToplevel {
     }
 
     fn extents_changed(&self) {
-        if let Some(parent) = self.parent_node.get() {
-            let extents = self.xdg.extents.get();
-            parent.child_size_changed(self, extents.width(), extents.height());
+        self.notify_parent();
+        if self.parent_node.get().is_some() {
             self.xdg.surface.client.state.tree_changed();
         }
     }

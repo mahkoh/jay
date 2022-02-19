@@ -199,6 +199,10 @@ impl WlSeatGlobal {
         self.keyboard_node.get().create_split(axis)
     }
 
+    pub fn focus_parent(self: &Rc<Self>) {
+        self.keyboard_node.get().focus_parent(self);
+    }
+
     pub fn get_rate(&self) -> (i32, i32) {
         self.repeat_rate.get()
     }

@@ -23,6 +23,14 @@ pub enum AsyncError {
     EventLoopError(#[from] EventLoopError),
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Phase {
+    EventHandling,
+    Layout,
+    PostLayout,
+}
+const NUM_PHASES: usize = 3;
+
 pub struct AsyncEngine {
     wheel: Rc<Wheel>,
     el: Rc<EventLoop>,
@@ -56,7 +64,15 @@ impl AsyncEngine {
     }
 
     pub fn spawn<T, F: Future<Output = T> + 'static>(&self, f: F) -> SpawnedFuture<T> {
-        self.queue.spawn(f)
+        self.queue.spawn(Phase::EventHandling, f)
+    }
+
+    pub fn spawn2<T, F: Future<Output = T> + 'static>(
+        &self,
+        phase: Phase,
+        f: F,
+    ) -> SpawnedFuture<T> {
+        self.queue.spawn(phase, f)
     }
 
     pub fn fd(self: &Rc<Self>, fd: &Rc<OwnedFd>) -> Result<AsyncFd, AsyncError> {
@@ -171,6 +187,7 @@ mod timeout {
 
 mod task {
     use crate::async_engine::queue::DispatchQueue;
+    use crate::async_engine::Phase;
     use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
     use crate::NumCell;
     use std::cell::{Cell, UnsafeCell};
@@ -253,6 +270,7 @@ mod task {
 
     struct Task<T, F: Future<Output = T>> {
         ref_count: NumCell<u64>,
+        phase: Phase,
         state: NumCell<u32>,
         data: UnsafeCell<TaskData<T, F>>,
         waker: Cell<Option<Waker>>,
@@ -282,9 +300,14 @@ mod task {
     }
 
     impl DispatchQueue {
-        pub(super) fn spawn<T, F: Future<Output = T>>(self: &Rc<Self>, f: F) -> SpawnedFuture<T> {
+        pub(super) fn spawn<T, F: Future<Output = T>>(
+            self: &Rc<Self>,
+            phase: Phase,
+            f: F,
+        ) -> SpawnedFuture<T> {
             let f = Box::new(Task {
                 ref_count: NumCell::new(1),
+                phase,
                 state: NumCell::new(0),
                 data: UnsafeCell::new(TaskData {
                     future: ManuallyDrop::new(f),
@@ -354,10 +377,13 @@ mod task {
                     self.state.or_assign(RUNNING);
                     self.inc_ref_count();
                     let data = self as *const _ as _;
-                    self.queue.push(Runnable {
-                        data,
-                        run: Self::run_proxy,
-                    });
+                    self.queue.push(
+                        Runnable {
+                            data,
+                            run: Self::run_proxy,
+                        },
+                        self.phase,
+                    );
                 } else {
                     self.state.or_assign(RUN_AGAIN);
                 }
@@ -404,13 +430,15 @@ mod task {
 
 mod queue {
     use crate::async_engine::task::Runnable;
-    use crate::async_engine::AsyncError;
+    use crate::async_engine::{AsyncError, Phase, NUM_PHASES};
     use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopId};
+    use crate::utils::array;
     use crate::utils::numcell::NumCell;
     use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
     use std::error::Error;
     use std::mem;
+    use std::ops::DerefMut;
     use std::rc::Rc;
 
     pub(super) struct Dispatcher {
@@ -425,7 +453,8 @@ mod queue {
                 id,
                 el: el.clone(),
                 dispatch_scheduled: Cell::new(false),
-                queue: RefCell::new(Default::default()),
+                num_queued: Default::default(),
+                queues: array::from_fn(|_| Default::default()),
                 iteration: Default::default(),
             });
             let slf = Rc::new(Dispatcher {
@@ -439,15 +468,20 @@ mod queue {
 
     impl EventLoopDispatcher for Dispatcher {
         fn dispatch(self: Rc<Self>, _events: i32) -> Result<(), Box<dyn Error>> {
-            loop {
+            let mut stash = self.stash.borrow_mut();
+            while self.queue.num_queued.get() > 0 {
                 self.queue.iteration.fetch_add(1);
-                let mut stash = self.stash.borrow_mut();
-                mem::swap(&mut *stash, &mut *self.queue.queue.borrow_mut());
-                if stash.is_empty() {
-                    break;
-                }
-                for runnable in stash.drain(..) {
-                    runnable.run();
+                let mut phase = 0;
+                while phase < NUM_PHASES as usize {
+                    mem::swap(&mut *stash, &mut *self.queue.queues[phase].borrow_mut());
+                    if stash.is_empty() {
+                        phase += 1;
+                        continue;
+                    }
+                    self.queue.num_queued.fetch_sub(stash.len());
+                    for runnable in stash.drain(..) {
+                        runnable.run();
+                    }
                 }
             }
             self.queue.dispatch_scheduled.set(false);
@@ -458,7 +492,9 @@ mod queue {
     impl Drop for Dispatcher {
         fn drop(&mut self) {
             let _ = self.queue.el.remove(self.queue.id);
-            mem::take(&mut *self.queue.queue.borrow_mut());
+            for queue in &self.queue.queues {
+                mem::take(queue.borrow_mut().deref_mut());
+            }
         }
     }
 
@@ -466,13 +502,15 @@ mod queue {
         dispatch_scheduled: Cell<bool>,
         id: EventLoopId,
         el: Rc<EventLoop>,
-        queue: RefCell<VecDeque<Runnable>>,
+        num_queued: NumCell<usize>,
+        queues: [RefCell<VecDeque<Runnable>>; NUM_PHASES],
         iteration: NumCell<u64>,
     }
 
     impl DispatchQueue {
-        pub fn push(&self, runnable: Runnable) {
-            self.queue.borrow_mut().push_back(runnable);
+        pub fn push(&self, runnable: Runnable, phase: Phase) {
+            self.queues[phase as usize].borrow_mut().push_back(runnable);
+            self.num_queued.fetch_add(1);
             if !self.dispatch_scheduled.get() {
                 let _ = self.el.schedule(self.id);
                 self.dispatch_scheduled.set(true);

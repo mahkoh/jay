@@ -115,6 +115,7 @@ impl Rect {
         self.x1 == self.x2 || self.y1 == self.y2
     }
 
+    #[allow(dead_code)]
     pub fn to_origin(&self) -> Self {
         Self {
             x1: 0,

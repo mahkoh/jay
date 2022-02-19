@@ -1,7 +1,8 @@
 use crate::backend::{KeyboardId, MouseId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::DeviceHandlerData;
-use crate::tree::ContainerSplit;
+use crate::tree::walker::visit_containers;
+use crate::tree::{ContainerSplit, Node};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
 use crate::utils::stack::Stack;
@@ -335,6 +336,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_focus_parent(&self, seat: Seat) -> Result<(), FocusParentError> {
+        let seat = self.get_seat(seat)?;
+        seat.focus_parent();
+        Ok(())
+    }
+
     fn handle_set_title_height(&self, height: i32) -> Result<(), SetTitleHeightError> {
         if height < 0 {
             return Err(SetTitleHeightError::Negative(height));
@@ -343,9 +350,10 @@ impl ConfigProxyHandler {
             return Err(SetTitleHeightError::Excessive(height));
         }
         self.state.theme.title_height.set(height);
-        self.state.theme.version.fetch_add(1);
-        self.state.root.needs_layout.set(true);
-        self.state.pending_layout.push(self.state.root.clone());
+        self.state
+            .root
+            .clone()
+            .visit(&mut visit_containers(|c| c.on_theme_changed()));
         Ok(())
     }
 
@@ -357,9 +365,10 @@ impl ConfigProxyHandler {
             return Err(SetBorderWidthError::Excessive(width));
         }
         self.state.theme.border_width.set(width);
-        self.state.theme.version.fetch_add(1);
-        self.state.root.needs_layout.set(true);
-        self.state.pending_layout.push(self.state.root.clone());
+        self.state
+            .root
+            .clone()
+            .visit(&mut visit_containers(|c| c.on_theme_changed()));
         Ok(())
     }
 
@@ -434,6 +443,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetTitleHeight => self.handle_get_title_height(),
             ClientMessage::GetBorderWidth => self.handle_get_border_width(),
             ClientMessage::CreateSplit { seat, axis } => self.handle_create_split(seat, axis)?,
+            ClientMessage::FocusParent { seat } => self.handle_focus_parent(seat)?,
         }
         Ok(())
     }
@@ -467,6 +477,8 @@ enum CphError {
     GrabError(#[from] GrabError),
     #[error("Could not process a `create_split` request")]
     CreateSplitError(#[from] CreateSplitError),
+    #[error("Could not process a `focus_parent` request")]
+    FocusParentError(#[from] FocusParentError),
     #[error("Could not process a `set_title_height` request")]
     SetTitleHeightError(#[from] SetTitleHeightError),
     #[error("Could not process a `set_border_width` request")]
@@ -591,3 +603,10 @@ enum CreateSplitError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(CreateSplitError, CphError);
+
+#[derive(Debug, Error)]
+enum FocusParentError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(FocusParentError, CphError);

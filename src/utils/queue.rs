@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::future::Future;
 use std::mem;
@@ -7,7 +7,7 @@ use std::task::{Context, Poll, Waker};
 
 pub struct AsyncQueue<T> {
     data: RefCell<VecDeque<T>>,
-    waiters: RefCell<Vec<Waker>>,
+    waiter: Cell<Option<Waker>>,
 }
 
 impl<T> Default for AsyncQueue<T> {
@@ -19,14 +19,14 @@ impl<T> Default for AsyncQueue<T> {
 impl<T> AsyncQueue<T> {
     pub fn new() -> Self {
         Self {
-            data: RefCell::new(Default::default()),
-            waiters: RefCell::new(vec![]),
+            data: Default::default(),
+            waiter: Default::default(),
         }
     }
 
     pub fn push(&self, t: T) {
         self.data.borrow_mut().push_back(t);
-        for waiter in self.waiters.borrow_mut().drain(..) {
+        if let Some(waiter) = self.waiter.take() {
             waiter.wake();
         }
     }
@@ -41,7 +41,7 @@ impl<T> AsyncQueue<T> {
 
     pub fn clear(&self) {
         mem::take(&mut *self.data.borrow_mut());
-        mem::take(&mut *self.waiters.borrow_mut());
+        self.waiter.take();
     }
 }
 
@@ -56,7 +56,7 @@ impl<'a, T> Future for AsyncQueuePop<'a, T> {
         if let Some(t) = self.queue.try_pop() {
             Poll::Ready(t)
         } else {
-            self.queue.waiters.borrow_mut().push(cx.waker().clone());
+            self.queue.waiter.set(Some(cx.waker().clone()));
             Poll::Pending
         }
     }

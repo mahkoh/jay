@@ -75,6 +75,10 @@ struct PendingXdgSurfaceData {
 }
 
 pub trait XdgSurfaceExt: Debug {
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         None
     }
@@ -201,6 +205,12 @@ impl XdgSurface {
         }
         self.role.set(role);
         Ok(())
+    }
+
+    pub fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        if let Some(ext) = self.ext.get() {
+            ext.focus_parent(seat);
+        }
     }
 
     pub fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface> {

@@ -3,10 +3,8 @@
 - Container moving (mouse)
 - Container moving (kb)
 - Float toggle
-- Toplevel splitting
 - Workspaces
 - Float moving
-- Highlighting active
 - presentation time
 - viewporter
 - session lock
@@ -19,3 +17,5 @@
 - dnd
 - Shortcuts
 - Config
+- Highlighting active
+- Toplevel splitting

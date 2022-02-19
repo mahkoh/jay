@@ -212,12 +212,12 @@ impl WlSeatGlobal {
     }
 
     fn focus_xdg_surface(self: &Rc<Self>, xdg: &Rc<XdgSurface>) {
-        self.focus_surface(&xdg.focus_surface(self));
+        self.focus_node(xdg.focus_surface(self));
     }
 
-    fn focus_surface(self: &Rc<Self>, surface: &Rc<WlSurface>) {
+    pub fn focus_node(self: &Rc<Self>, node: Rc<dyn Node>) {
         let old = self.keyboard_node.get();
-        if old.id() == surface.node_id {
+        if old.id() == node.id() {
             return;
         }
         old.unfocus(self);
@@ -225,36 +225,11 @@ impl WlSeatGlobal {
             old.active_changed(false);
         }
 
-        if surface.seat_state().focus(self) {
-            surface.active_changed(true);
+        if node.seat_state().focus(self) {
+            node.active_changed(true);
         }
-        surface.clone().focus(self);
-        self.keyboard_node.set(surface.clone());
-
-        let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
-        let serial = self.serial.fetch_add(1);
-        self.surface_kb_event(0, &surface, |k| {
-            k.send_enter(serial, surface.id, &pressed_keys)
-        });
-        let ModifierState {
-            mods_depressed,
-            mods_latched,
-            mods_locked,
-            group,
-            ..
-        } = self.kb_state.borrow().mods();
-        let serial = self.serial.fetch_add(1);
-        self.surface_kb_event(0, &surface, |k| {
-            k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
-        });
-
-        if old.client_id() != Some(surface.client.id) {
-            self.offer_selection::<WlDataDevice>(&self.selection, &surface.client);
-            self.offer_selection::<ZwpPrimarySelectionDeviceV1>(
-                &self.primary_selection,
-                &surface.client,
-            );
-        }
+        node.clone().focus(self);
+        self.keyboard_node.set(node.clone());
     }
 
     fn offer_selection<T: ipc::Vtable>(
@@ -405,7 +380,7 @@ impl WlSeatGlobal {
         self.surface_pointer_event(0, surface, |p| p.send_button(serial, 0, button, state));
         self.surface_pointer_frame(surface);
         if pressed && surface.belongs_to_toplevel() {
-            self.focus_surface(surface);
+            self.focus_node(surface.clone());
         }
     }
 }
@@ -460,6 +435,36 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
         self.surface_kb_event(0, surface, |k| k.send_leave(0, surface.id))
+    }
+}
+
+// Focus callbacks
+impl WlSeatGlobal {
+    pub fn focus_surface(&self, surface: &WlSurface) {
+        let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
+        let serial = self.serial.fetch_add(1);
+        self.surface_kb_event(0, &surface, |k| {
+            k.send_enter(serial, surface.id, &pressed_keys)
+        });
+        let ModifierState {
+            mods_depressed,
+            mods_latched,
+            mods_locked,
+            group,
+            ..
+        } = self.kb_state.borrow().mods();
+        let serial = self.serial.fetch_add(1);
+        self.surface_kb_event(0, &surface, |k| {
+            k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
+        });
+
+        if self.keyboard_node.get().client_id() != Some(surface.client.id) {
+            self.offer_selection::<WlDataDevice>(&self.selection, &surface.client);
+            self.offer_selection::<ZwpPrimarySelectionDeviceV1>(
+                &self.primary_selection,
+                &surface.client,
+            );
+        }
     }
 }
 
