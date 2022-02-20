@@ -1,26 +1,26 @@
-use crate::backend::{KeyState, ScrollAxis};
+use crate::backend::{KeyState};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, Dnd};
+use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::{Renderer, Texture};
 use crate::theme::Color;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FloatNode, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{text, ErrorFmt, NumCell, State};
 use ahash::AHashMap;
 use i4config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
-use std::collections::hash_map::Entry;
+
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};
 use std::rc::Rc;
-use crate::client::{Client, ClientId};
-use crate::ifs::wl_surface::WlSurface;
-use crate::xkbcommon::ModifierState;
+
+
+
 
 
 #[allow(dead_code)]
@@ -697,7 +697,7 @@ impl Node for ContainerNode {
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
         if split == self.split.get() {
-            let mut cc = match self.child_nodes.borrow_mut().get(&child.id()) {
+            let cc = match self.child_nodes.borrow_mut().get(&child.id()) {
                 Some(l) => l.to_ref(),
                 None => return,
             };
