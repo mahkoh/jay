@@ -22,6 +22,7 @@ use crate::client::{Client, ClientId};
 use crate::ifs::wl_surface::WlSurface;
 use crate::xkbcommon::ModifierState;
 
+
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerSplit {
@@ -181,12 +182,18 @@ impl ContainerNode {
         self.num_children.get()
     }
 
+    pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn Node>) {
+        if let Some(child) = self.children.first() {
+            self.add_child_before_(&child, new);
+            return;
+        }
+    }
+
     pub fn append_child(self: &Rc<Self>, new: Rc<dyn Node>) {
         if let Some(child) = self.children.last() {
             self.add_child_after_(&child, new);
             return;
         }
-        log::error!("Tried to add a child to a container but container is empty");
     }
 
     pub fn add_child_after(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn Node>) {
@@ -482,7 +489,6 @@ impl ContainerNode {
         title.push_str("]");
         self.parent.get().child_title_changed(&**self, &title);
         self.schedule_render_titles();
-        log::info!("num children: {}", self.num_children.get());
     }
 
     fn schedule_render_titles(self: &Rc<Self>) {
@@ -683,31 +689,34 @@ impl Node for ContainerNode {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
             let parent = self.parent.get();
-            let can_replace = parent.is_container() || child.clone().into_container().is_some();
-            if can_replace {
-                self.parent.get().replace_child(&*self, child.clone());
+            if parent.accepts_child(&*child) {
+                parent.replace_child(&*self, child.clone());
             }
             return;
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
         if split == self.split.get() {
-            let mut cn = self.child_nodes.borrow_mut();
-            let mut child = match cn.entry(child.id()) {
-                Entry::Occupied(o) => o,
-                Entry::Vacant(_) => return,
+            let mut cc = match self.child_nodes.borrow_mut().get(&child.id()) {
+                Some(l) => l.to_ref(),
+                None => return,
             };
             let neighbor = match prev {
-                true => child.get().prev(),
-                false => child.get().next(),
+                true => cc.prev(),
+                false => cc.next(),
             };
             if let Some(neighbor) = neighbor {
-                let cc = child.get().deref().deref().clone();
+                if neighbor.node.accepts_child(&*child) {
+                    self.remove_child(&*child);
+                    neighbor.node.clone().insert_child(child, direction);
+                    return;
+                }
+                let cc = cc.deref().clone();
                 let link = match prev {
                     true => neighbor.prepend(cc),
                     false => neighbor.append(cc),
                 };
-                child.insert(link);
+                self.child_nodes.borrow_mut().insert(child.id(), link);
                 self.schedule_layout();
                 return;
             }
@@ -900,6 +909,7 @@ impl Node for ContainerNode {
             }
         }
         self.sum_factors.set(sum);
+        self.update_title();
         self.schedule_layout();
         self.cancel_seat_ops();
     }
@@ -958,6 +968,15 @@ impl Node for ContainerNode {
 
     fn accepts_child(&self, _node: &dyn Node) -> bool {
         true
+    }
+
+    fn insert_child(self: Rc<Self>, node: Rc<dyn Node>, direction: Direction) {
+        let (split, right) = direction_to_split(direction);
+        if split != self.split.get() || right {
+            self.append_child(node);
+        } else {
+            self.prepend_child(node);
+        }
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {

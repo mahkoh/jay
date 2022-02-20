@@ -244,7 +244,13 @@ pub trait Node {
     }
 
     fn accepts_child(&self, node: &dyn Node) -> bool {
+        let _ = node;
         false
+    }
+
+    fn insert_child(self: Rc<Self>, node: Rc<dyn Node>, direction: Direction) {
+        let _ = node;
+        let _ = direction;
     }
 
     fn is_float(&self) -> bool {
@@ -537,10 +543,6 @@ impl Node for FloatNode {
         }
     }
 
-    fn accepts_child(&self, _node: &dyn Node) -> bool {
-        true
-    }
-
     fn absolute_position(&self) -> Rect {
         self.position.get()
     }
@@ -580,6 +582,10 @@ impl Node for FloatNode {
 
     fn into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         Some(self)
+    }
+
+    fn accepts_child(&self, _node: &dyn Node) -> bool {
+        true
     }
 
     fn is_float(&self) -> bool {
