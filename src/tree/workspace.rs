@@ -10,12 +10,6 @@ use crate::utils::linkedlist::LinkedList;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-
-
-
-
-
-
 tree_id!(WorkspaceNodeId);
 
 pub struct WorkspaceNode {

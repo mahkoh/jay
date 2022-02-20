@@ -10,7 +10,7 @@ use crate::render::Renderer;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::linkedlist::{LinkedList, LinkedNode};
+use crate::utils::linkedlist::{LinkedList};
 use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 pub use container::*;
@@ -20,10 +20,12 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
+pub use float::*;
 
 mod container;
 pub mod walker;
 mod workspace;
+mod float;
 
 pub struct NodeIds {
     next: NumCell<u32>,
@@ -170,6 +172,10 @@ pub trait Node {
     }
 
     fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
+    }
+
+    fn toggle_floating(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
 
@@ -493,117 +499,5 @@ impl Node for OutputNode {
         if let Some(c) = self.workspace.get() {
             c.change_extents(rect);
         }
-    }
-}
-
-tree_id!(FloatNodeId);
-pub struct FloatNode {
-    pub id: FloatNodeId,
-    pub visible: Cell<bool>,
-    pub position: Cell<Rect>,
-    pub display: Rc<DisplayNode>,
-    pub display_link: Cell<Option<LinkedNode<Rc<dyn Node>>>>,
-    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn Node>>>>,
-    pub workspace: CloneCell<Rc<WorkspaceNode>>,
-    pub child: CloneCell<Option<Rc<dyn Node>>>,
-    pub seat_state: NodeSeatState,
-}
-
-impl Debug for FloatNode {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("FloatNode").finish_non_exhaustive()
-    }
-}
-
-impl Node for FloatNode {
-    fn id(&self) -> NodeId {
-        self.id.into()
-    }
-
-    fn seat_state(&self) -> &NodeSeatState {
-        &self.seat_state
-    }
-
-    fn destroy_node(&self, _detach: bool) {
-        let _v = self.display_link.take();
-        let _v = self.workspace_link.take();
-        if let Some(child) = self.child.get() {
-            child.destroy_node(false);
-        }
-        self.seat_state.destroy_node(self);
-    }
-
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_float(&self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        if let Some(c) = self.child.get() {
-            c.visit(visitor);
-        }
-    }
-
-    fn absolute_position(&self) -> Rect {
-        self.position.get()
-    }
-
-    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        let child = match self.child.get() {
-            Some(c) => c,
-            _ => return FindTreeResult::Other,
-        };
-        tree.push(FoundNode {
-            node: child.clone(),
-            x,
-            y,
-        });
-        child.find_tree_at(x, y, tree)
-    }
-
-    fn remove_child(self: Rc<Self>, _child: &dyn Node) {
-        self.child.set(None);
-        self.display_link.set(None);
-        self.workspace_link.set(None);
-    }
-
-    fn child_size_changed(&self, _child: &dyn Node, width: i32, height: i32) {
-        let pos = self.position.get();
-        self.position
-            .set(Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap());
-    }
-
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_floating(self, x, y)
-    }
-
-    fn into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
-        Some(self)
-    }
-
-    fn accepts_child(&self, _node: &dyn Node) -> bool {
-        true
-    }
-
-    fn is_float(&self) -> bool {
-        true
-    }
-
-    fn change_extents(self: Rc<Self>, rect: &Rect) {
-        if let Some(child) = self.child.get() {
-            child.change_extents(rect);
-        }
-    }
-
-    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        if let Some(c) = self.child.get() {
-            c.set_workspace(ws);
-        }
-        self.workspace_link
-            .set(Some(ws.stacked.add_last(self.clone())));
-        self.workspace.set(ws.clone());
     }
 }

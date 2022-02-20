@@ -12,9 +12,12 @@ use crate::globals::{Globals, GlobalsError, WaylandGlobal};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
 use crate::ifs::wl_surface::NoneSurfaceExt;
+use crate::rect::Rect;
 use crate::render::RenderContext;
 use crate::theme::Theme;
-use crate::tree::{ContainerNode, DisplayNode, NodeIds};
+use crate::tree::{
+    ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, WorkspaceNode,
+};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedList;
@@ -58,6 +61,8 @@ pub struct State {
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_titles: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
+    pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
 }
 
 pub struct MouseData {
@@ -106,5 +111,71 @@ impl State {
         for seat in seats.values() {
             seat.trigger_tree_changed();
         }
+    }
+
+    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn Node>) {
+        let seat = self.seat_queue.last();
+        if let Some(seat) = seat {
+            if let Some(prev) = seat.last_tiled_keyboard_toplevel() {
+                if let Some(container) = prev.parent_node.get() {
+                    if let Some(container) = container.into_container() {
+                        container.add_child_after(&*prev, node);
+                        return;
+                    }
+                }
+            }
+        }
+        let output = {
+            let outputs = self.root.outputs.lock();
+            outputs.values().next().cloned()
+        };
+        if let Some(output) = output {
+            if let Some(workspace) = output.workspace.get() {
+                if let Some(container) = workspace.container.get() {
+                    container.append_child(node);
+                } else {
+                    let container = ContainerNode::new(
+                        self,
+                        &workspace,
+                        workspace.clone(),
+                        node,
+                        ContainerSplit::Horizontal,
+                    );
+                    workspace.set_container(&container);
+                };
+                return;
+            }
+        }
+        todo!("map_tiled");
+    }
+
+    pub fn map_floating(
+        self: &Rc<Self>,
+        node: Rc<dyn Node>,
+        mut width: i32,
+        mut height: i32,
+        workspace: &Rc<WorkspaceNode>,
+    ) {
+        node.clone().set_workspace(workspace);
+        width += 2 * self.theme.border_width.get();
+        height += 2 * self.theme.border_width.get() + self.theme.title_height.get();
+        let output = workspace.output.get();
+        let output_rect = output.position.get();
+        let position = {
+            let mut x1 = output_rect.x1();
+            let mut y1 = output_rect.y1();
+            if width < output_rect.width() {
+                x1 += (output_rect.width() - width) as i32 / 2;
+            } else {
+                width = output_rect.width();
+            }
+            if height < output_rect.height() {
+                y1 += (output_rect.height() - height) as i32 / 2;
+            } else {
+                height = output_rect.height();
+            }
+            Rect::new_sized(x1, y1, width, height).unwrap()
+        };
+        FloatNode::new(self, workspace, position, node);
     }
 }

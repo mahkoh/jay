@@ -196,6 +196,10 @@ impl Client {
         }
     }
 
+    pub fn toggle_floating(&self, seat: Seat) {
+        self.send(&ClientMessage::ToggleFloating { seat });
+    }
+
     pub fn set_title_color(&self, color: Color) {
         self.send(&ClientMessage::SetTitleColor { color });
     }

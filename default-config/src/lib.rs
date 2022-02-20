@@ -58,6 +58,10 @@ fn configure_seat(s: Seat) {
         s.focus_parent();
     });
 
+    s.bind(MOD | SHIFT | SYM_f, move || {
+        s.toggle_floating();
+    });
+
     s.bind(MOD | SHIFT | SYM_h, move || s.move_(Left));
     s.bind(MOD | SHIFT | SYM_j, move || s.move_(Down));
     s.bind(MOD | SHIFT | SYM_k, move || s.move_(Up));

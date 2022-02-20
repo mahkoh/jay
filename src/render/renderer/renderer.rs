@@ -20,12 +20,13 @@ use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
+use crate::theme::Color;
 
-const NON_COLOR: (f32, f32, f32) = (0.2, 0.2, 0.2);
-const CHILD_COLOR: (f32, f32, f32) = (0.8, 0.8, 0.8);
-const YES_COLOR: (f32, f32, f32) = (0.0, 0.0, 1.0);
+const NON_COLOR: Color = Color::from_rgbaf(0.2, 0.2, 0.2, 1.0);
+const CHILD_COLOR: Color = Color::from_rgbaf(0.8, 0.8, 0.8, 1.0);
+const YES_COLOR: Color = Color::from_rgbaf(0.0, 0.0, 1.0, 1.0);
 
-fn focus_color(focus: ContainerFocus) -> (f32, f32, f32) {
+fn focus_color(focus: ContainerFocus) -> Color {
     match focus {
         ContainerFocus::None => NON_COLOR,
         ContainerFocus::Child => CHILD_COLOR,
@@ -64,7 +65,7 @@ impl Renderer<'_> {
         2.0 * (y as f32 / self.fb.height as f32) - 1.0
     }
 
-    fn fill_boxes(&self, boxes: &[Rect], r: f32, g: f32, b: f32, a: f32) {
+    fn fill_boxes(&self, boxes: &[Rect], color: &Color) {
         if boxes.is_empty() {
             return;
         }
@@ -87,7 +88,7 @@ impl Renderer<'_> {
         }
         unsafe {
             glUseProgram(self.ctx.fill_prog.prog);
-            glUniform4f(self.ctx.fill_prog_color, r, g, b, a);
+            glUniform4f(self.ctx.fill_prog_color, color.r, color.g, color.b, color.a);
             glVertexAttribPointer(
                 self.ctx.fill_prog_pos as _,
                 2,
@@ -116,13 +117,13 @@ impl Renderer<'_> {
             let space_per_child = cwidth / num_children as i32;
             let mut rem = cwidth % num_children as i32;
             let mut pos = x;
-            let (r, g, b) = focus_color(ContainerFocus::None);
-            self.fill_boxes(slice::from_ref(&title_rect), r, g, b, 1.0);
+            let color = focus_color(ContainerFocus::None);
+            self.fill_boxes(slice::from_ref(&title_rect), &color);
             let c = self.state.theme.border_color.get();
-            self.fill_boxes(slice::from_ref(&underline_rect), c.r, c.g, c.b, c.a);
+            self.fill_boxes(slice::from_ref(&underline_rect), &c);
             for child in container.children.iter() {
                 let focus = child.focus.get();
-                let (r, g, b) = focus_color(focus);
+                let color = focus_color(focus);
                 let mut width = space_per_child;
                 if rem > 0 {
                     rem -= 1;
@@ -133,7 +134,7 @@ impl Renderer<'_> {
                 }
                 if focus != ContainerFocus::None {
                     let rect = Rect::new_sized(pos, y, width, title_height).unwrap();
-                    self.fill_boxes(slice::from_ref(&rect), r, g, b, 1.0);
+                    self.fill_boxes(slice::from_ref(&rect), &color);
                 }
                 pos += width as i32;
             }
@@ -208,13 +209,13 @@ impl Renderer<'_> {
             }
             {
                 let c = self.state.theme.title_color.get();
-                self.fill_boxes(&title_rects, c.r, c.g, c.b, c.a);
+                self.fill_boxes(&title_rects, &c);
                 let c = self.state.theme.active_title_color.get();
-                self.fill_boxes(&active_rects, c.r, c.g, c.b, c.a);
+                self.fill_boxes(&active_rects, &c);
                 let c = self.state.theme.underline_color.get();
-                self.fill_boxes(&underline_rects, c.r, c.g, c.b, c.a);
+                self.fill_boxes(&underline_rects, &c);
                 let c = self.state.theme.border_color.get();
-                self.fill_boxes(&border_rects, c.r, c.g, c.b, c.a);
+                self.fill_boxes(&border_rects, &c);
                 for (tx, ty, tex) in titles {
                     self.render_texture(&tex, x + tx, y + ty, ARGB8888);
                 }
@@ -349,8 +350,43 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        if let Some(child) = floating.child.get() {
-            child.render(self, x, y)
+        let child = match floating.child.get() {
+            Some(c) => c,
+            _ => return,
+        };
+        let pos = floating.position.get();
+        let theme = &self.state.theme;
+        let th = theme.title_height.get();
+        let bw = theme.border_width.get();
+        let bc = theme.border_color.get();
+        let tc = match floating.active.get() {
+            true => theme.active_title_color.get(),
+            false => theme.title_color.get(),
+        };
+        let uc = theme.underline_color.get();
+        let borders = [
+            Rect::new_sized(x, y, pos.width(), bw).unwrap(),
+            Rect::new_sized(x, y, bw, pos.height()).unwrap(),
+            Rect::new_sized(x + pos.width() - bw, y, bw, pos.height()).unwrap(),
+            Rect::new_sized(x, y + pos.height() - bw, pos.width(), bw).unwrap(),
+        ];
+        self.fill_boxes(&borders, &bc);
+        let title = [
+            Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap(),
+        ];
+        self.fill_boxes(&title, &tc);
+        let title_underline = [
+            Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap(),
+        ];
+        self.fill_boxes(&title_underline, &uc);
+        if let Some(title) = floating.title_texture.get() {
+            self.render_texture(&title, x + bw, y + bw, ARGB8888);
+        }
+        let body = Rect::new_sized(x + bw, y + bw + th + 1, pos.width() - 2 * bw, pos.height() - 2 * bw - th - 1).unwrap();
+        unsafe {
+            with_scissor(&body, || {
+                child.render(self, body.x1(), body.y1());
+            });
         }
     }
 }

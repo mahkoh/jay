@@ -579,12 +579,6 @@ dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
 impl Node for WlSurface {
-    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(xdg) = self.xdg.get() {
-            xdg.focus_parent(seat);
-        }
-    }
-
     fn id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -615,6 +609,19 @@ impl Node for WlSurface {
             }
         }
         self.seat_state.destroy_node(self);
+    }
+
+    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_surface(&self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        let children = self.children.borrow_mut();
+        if let Some(c) = children.deref() {
+            for child in c.subsurfaces.values() {
+                visitor.visit_surface(&child.surface);
+            }
+        }
     }
 
     fn get_parent_split(&self) -> Option<ContainerSplit> {
@@ -678,6 +685,18 @@ impl Node for WlSurface {
         seat.focus_surface(&self);
     }
 
+    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
+        if let Some(xdg) = self.xdg.get() {
+            xdg.focus_parent(seat);
+        }
+    }
+
+    fn toggle_floating(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        if let Some(xdg) = self.xdg.get() {
+            xdg.toggle_floating(seat);
+        }
+    }
+
     fn unfocus(&self, seat: &WlSeatGlobal) {
         seat.unfocus_surface(self);
     }
@@ -720,19 +739,6 @@ impl Node for WlSurface {
 
     fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
         dnd.seat.dnd_surface_motion(self, dnd, x, y);
-    }
-
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_surface(&self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        let children = self.children.borrow_mut();
-        if let Some(c) = children.deref() {
-            for child in c.subsurfaces.values() {
-                visitor.visit_surface(&child.surface);
-            }
-        }
     }
 }
 

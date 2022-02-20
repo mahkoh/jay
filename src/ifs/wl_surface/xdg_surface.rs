@@ -79,6 +79,10 @@ pub trait XdgSurfaceExt: Debug {
         let _ = seat;
     }
 
+    fn toggle_floating(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         None
     }
@@ -218,6 +222,12 @@ impl XdgSurface {
     pub fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
         if let Some(ext) = self.ext.get() {
             ext.focus_parent(seat);
+        }
+    }
+
+    pub fn toggle_floating(&self, seat: &Rc<WlSeatGlobal>) {
+        if let Some(ext) = self.ext.get() {
+            ext.toggle_floating(seat);
         }
     }
 

@@ -84,13 +84,24 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
     }
 }
 
-pub fn visit_containers<F: FnMut(&Rc<ContainerNode>)>(f: F) -> impl NodeVisitor {
-    struct V<F>(F);
-    impl<F: FnMut(&Rc<ContainerNode>)> NodeVisitorBase for V<F> {
-        fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-            (self.0)(node);
-            node.visit_children(self);
-        }
-    }
-    V(f)
-}
+// pub fn visit_containers<F: FnMut(&Rc<ContainerNode>)>(f: F) -> impl NodeVisitor {
+//     struct V<F>(F);
+//     impl<F: FnMut(&Rc<ContainerNode>)> NodeVisitorBase for V<F> {
+//         fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+//             (self.0)(node);
+//             node.visit_children(self);
+//         }
+//     }
+//     V(f)
+// }
+//
+// pub fn visit_floats<F: FnMut(&Rc<FloatNode>)>(f: F) -> impl NodeVisitor {
+//     struct V<F>(F);
+//     impl<F: FnMut(&Rc<FloatNode>)> NodeVisitorBase for V<F> {
+//         fn visit_float(&mut self, node: &Rc<FloatNode>) {
+//             (self.0)(node);
+//             node.visit_children(self);
+//         }
+//     }
+//     V(f)
+// }

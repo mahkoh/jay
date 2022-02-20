@@ -122,6 +122,9 @@ pub enum ClientMessage<'a> {
     FocusParent {
         seat: Seat,
     },
+    ToggleFloating {
+        seat: Seat,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

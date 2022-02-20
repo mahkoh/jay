@@ -10,7 +10,7 @@ use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::walker::NodeVisitor;
 use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult};
-use crate::tree::{FloatNode, FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
+use crate::tree::{FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
@@ -311,6 +311,20 @@ impl XdgToplevel {
         Ok(())
     }
 
+    fn toggle_floating(self: &Rc<Self>) {
+        let parent = match self.parent_node.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        if parent.is_float() {
+            parent.remove_child(&**self);
+            self.map_tiled();
+        } else if let Some(ws) = self.xdg.workspace.get() {
+            parent.remove_child(&**self);
+            self.map_floating(&ws);
+        }
+    }
+
     fn notify_parent(&self) {
         let parent = match self.parent_node.get() {
             Some(p) => p,
@@ -322,90 +336,22 @@ impl XdgToplevel {
         parent.child_title_changed(self, self.title.borrow_mut().deref());
     }
 
-    fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
-        let workspace = match parent.xdg.workspace.get() {
-            Some(w) => w,
-            _ => return self.map_tiled(),
-        };
-        self.xdg.set_workspace(&workspace);
-        let output = workspace.output.get();
-        let output_rect = output.position.get();
-        log::info!("or = {:?}", output_rect);
+    fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
         let extents = self.xdg.extents.get();
-        let position = {
-            let width = extents.width();
-            let height = extents.height();
-            let mut x1 = output_rect.x1();
-            let mut y1 = output_rect.y1();
-            if width < output_rect.width() {
-                x1 += (output_rect.width() - width) as i32 / 2;
-            }
-            if height < output_rect.height() {
-                y1 += (output_rect.height() - height) as i32 / 2;
-            }
-            Rect::new_sized(x1, y1, width, height).unwrap()
-        };
-        log::info!("pos = {:?}", position);
         let state = &self.xdg.surface.client.state;
-        let floater = Rc::new(FloatNode {
-            id: state.node_ids.next(),
-            visible: Cell::new(true),
-            position: Cell::new(position),
-            display: output.display.clone(),
-            display_link: Cell::new(None),
-            workspace_link: Cell::new(None),
-            workspace: CloneCell::new(workspace.clone()),
-            child: CloneCell::new(Some(self.clone())),
-            seat_state: Default::default(),
-        });
-        self.parent_node.set(Some(floater.clone()));
-        floater
-            .display_link
-            .set(Some(state.root.stacked.add_last(floater.clone())));
-        floater
-            .workspace_link
-            .set(Some(workspace.stacked.add_last(floater.clone())));
-        self.notify_parent();
+        state.map_floating(self.clone(), extents.width(), extents.height(), workspace);
+    }
+
+    fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
+        match parent.xdg.workspace.get() {
+            Some(w) => self.map_floating(&w),
+            _ => self.map_tiled(),
+        }
     }
 
     fn map_tiled(self: &Rc<Self>) {
         let state = &self.xdg.surface.client.state;
-        let seat = state.seat_queue.last();
-        if let Some(seat) = seat {
-            if let Some(prev) = seat.last_tiled_keyboard_toplevel() {
-                if let Some(container) = prev.parent_node.get() {
-                    if let Some(container) = container.into_container() {
-                        container.add_child_after(&*prev, self.clone());
-                        self.parent_node.set(Some(container));
-                        return;
-                    }
-                }
-            }
-        }
-        let output = {
-            let outputs = state.root.outputs.lock();
-            outputs.values().next().cloned()
-        };
-        if let Some(output) = output {
-            if let Some(workspace) = output.workspace.get() {
-                if let Some(container) = workspace.container.get() {
-                    container.append_child(self.clone());
-                    self.parent_node.set(Some(container));
-                } else {
-                    let container = Rc::new(ContainerNode::new(
-                        state,
-                        &workspace,
-                        workspace.clone(),
-                        self.clone(),
-                        ContainerSplit::Horizontal,
-                    ));
-                    workspace.set_container(&container);
-                    self.parent_node.set(Some(container));
-                };
-                return;
-            }
-        }
-        todo!("map_tiled");
+        state.map_tiled(self.clone());
     }
 }
 
@@ -526,6 +472,10 @@ impl XdgSurfaceExt for XdgToplevel {
         self.parent_node.get().map(|p| p.focus_self(seat));
     }
 
+    fn toggle_floating(self: Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+        Self::toggle_floating(&self);
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         self.parent_node.get().and_then(|p| p.get_split())
     }
@@ -543,14 +493,13 @@ impl XdgSurfaceExt for XdgToplevel {
             Some(pn) => pn,
             _ => return,
         };
-        let cn = Rc::new(ContainerNode::new(
+        let cn = ContainerNode::new(
             &self.xdg.surface.client.state,
             &ws,
             pn.clone(),
             self.clone(),
             split,
-        ));
-        self.parent_node.set(Some(cn.clone()));
+        );
         pn.replace_child(&*self, cn);
     }
 

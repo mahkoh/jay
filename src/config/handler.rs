@@ -1,8 +1,8 @@
 use crate::backend::{KeyboardId, MouseId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::DeviceHandlerData;
-use crate::tree::walker::visit_containers;
-use crate::tree::{ContainerSplit, Node};
+use crate::tree::walker::{NodeVisitorBase};
+use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
 use crate::utils::stack::Stack;
@@ -348,6 +348,42 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_toggle_floating(&self, seat: Seat) -> Result<(), FocusParentError> {
+        let seat = self.get_seat(seat)?;
+        seat.toggle_floating();
+        Ok(())
+    }
+
+    fn spaces_change(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.on_spaces_changed();
+                node.visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.on_spaces_changed();
+                node.visit_children(self);
+            }
+        }
+        self.state.root.clone().visit(&mut V);
+    }
+
+    fn colors_change(&self) {
+        struct V;
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.on_colors_changed();
+                node.visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.on_colors_changed();
+                node.visit_children(self);
+            }
+        }
+        self.state.root.clone().visit(&mut V);
+    }
+
     fn handle_set_title_height(&self, height: i32) -> Result<(), SetTitleHeightError> {
         if height < 0 {
             return Err(SetTitleHeightError::Negative(height));
@@ -356,10 +392,7 @@ impl ConfigProxyHandler {
             return Err(SetTitleHeightError::Excessive(height));
         }
         self.state.theme.title_height.set(height);
-        self.state
-            .root
-            .clone()
-            .visit(&mut visit_containers(|c| c.on_theme_changed()));
+        self.spaces_change();
         Ok(())
     }
 
@@ -371,15 +404,13 @@ impl ConfigProxyHandler {
             return Err(SetBorderWidthError::Excessive(width));
         }
         self.state.theme.border_width.set(width);
-        self.state
-            .root
-            .clone()
-            .visit(&mut visit_containers(|c| c.on_theme_changed()));
+        self.spaces_change();
         Ok(())
     }
 
     fn handle_set_title_color(&self, color: i4config::theme::Color) {
         self.state.theme.title_color.set(color.into());
+        self.colors_change();
     }
 
     fn handle_set_border_color(&self, color: i4config::theme::Color) {
@@ -450,6 +481,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetBorderWidth => self.handle_get_border_width(),
             ClientMessage::CreateSplit { seat, axis } => self.handle_create_split(seat, axis)?,
             ClientMessage::FocusParent { seat } => self.handle_focus_parent(seat)?,
+            ClientMessage::ToggleFloating { seat } => self.handle_toggle_floating(seat)?,
         }
         Ok(())
     }
@@ -487,6 +519,8 @@ enum CphError {
     CreateSplitError(#[from] CreateSplitError),
     #[error("Could not process a `focus_parent` request")]
     FocusParentError(#[from] FocusParentError),
+    #[error("Could not process a `toggle_floating` request")]
+    ToggleFloatingError(#[from] ToggleFloatingError),
     #[error("Could not process a `set_title_height` request")]
     SetTitleHeightError(#[from] SetTitleHeightError),
     #[error("Could not process a `set_border_width` request")]
@@ -625,3 +659,10 @@ enum FocusParentError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(FocusParentError, CphError);
+
+#[derive(Debug, Error)]
+enum ToggleFloatingError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(ToggleFloatingError, CphError);

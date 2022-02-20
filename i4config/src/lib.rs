@@ -138,6 +138,10 @@ impl Seat {
     pub fn focus_parent(self) {
         get!().focus_parent(self);
     }
+
+    pub fn toggle_floating(self) {
+        get!().toggle_floating(self);
+    }
 }
 
 pub fn get_seats() -> Vec<Seat> {

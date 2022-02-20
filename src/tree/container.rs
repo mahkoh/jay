@@ -1,4 +1,4 @@
-use crate::backend::{KeyState};
+use crate::backend::KeyState;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
@@ -18,10 +18,6 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};
 use std::rc::Rc;
-
-
-
-
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -135,14 +131,14 @@ impl ContainerNode {
         parent: Rc<dyn Node>,
         child: Rc<dyn Node>,
         split: ContainerSplit,
-    ) -> Self {
+    ) -> Rc<Self> {
         child.clone().set_workspace(workspace);
         let children = LinkedList::new();
         let mut child_nodes = AHashMap::new();
         child_nodes.insert(
             child.id(),
             children.add_last(ContainerChild {
-                node: child,
+                node: child.clone(),
                 active: Cell::new(false),
                 body: Cell::new(Default::default()),
                 content: Cell::new(Default::default()),
@@ -152,7 +148,7 @@ impl ContainerNode {
                 title_texture: Default::default(),
             }),
         );
-        Self {
+        let slf = Rc::new(Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent),
             active: Cell::new(false),
@@ -177,7 +173,9 @@ impl ContainerNode {
             workspace: CloneCell::new(workspace.clone()),
             seats: RefCell::new(Default::default()),
             state: state.clone(),
-        }
+        });
+        child.set_parent(slf.clone());
+        slf
     }
 
     pub fn num_children(&self) -> usize {
@@ -283,9 +281,13 @@ impl ContainerNode {
         }
     }
 
-    pub fn on_theme_changed(self: &Rc<Self>) {
+    pub fn on_spaces_changed(self: &Rc<Self>) {
         self.update_content_size();
         self.schedule_layout();
+    }
+
+    pub fn on_colors_changed(self: &Rc<Self>) {
+        self.schedule_render_titles();
     }
 
     fn schedule_layout(self: &Rc<Self>) {
@@ -500,6 +502,7 @@ impl ContainerNode {
     }
 
     fn render_titles(&self) {
+        self.render_titles_scheduled.set(false);
         let theme = &self.state.theme;
         let th = theme.title_height.get();
         let font = theme.font.borrow_mut();
@@ -523,7 +526,6 @@ impl ContainerNode {
             };
             c.title_texture.set(Some(texture));
         }
-        self.render_titles_scheduled.set(false);
     }
 }
 
@@ -547,7 +549,7 @@ pub async fn container_layout(state: Rc<State>) {
     }
 }
 
-pub async fn render_titles(state: Rc<State>) {
+pub async fn container_titles(state: Rc<State>) {
     loop {
         let container = state.pending_container_titles.pop().await;
         if container.render_titles_scheduled.get() {
@@ -833,6 +835,21 @@ impl Node for ContainerNode {
 
     fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
         self.parent.get().focus_self(seat);
+    }
+
+    fn toggle_floating(self: Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+        let parent = self.parent.get();
+        parent.clone().remove_child(&*self);
+        if parent.is_float() {
+            self.state.map_tiled(self.clone());
+        } else {
+            self.state.map_floating(
+                self.clone(),
+                self.width.get(),
+                self.height.get(),
+                &self.workspace.get(),
+            );
+        }
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {

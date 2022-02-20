@@ -9,13 +9,6 @@ pub struct Color {
 }
 
 impl Color {
-    pub const RED: Self = Self {
-        r: 1.0,
-        g: 0.0,
-        b: 0.0,
-        a: 1.0,
-    };
-
     pub const GREY: Self = Self {
         r: 0.8,
         g: 0.8,
@@ -35,6 +28,15 @@ impl Color {
             g: to_f32(g),
             b: to_f32(b),
             a: to_f32(a),
+        }
+    }
+
+    pub const fn from_rgbaf(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self {
+            r,
+            g,
+            b,
+            a,
         }
     }
 }

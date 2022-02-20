@@ -203,6 +203,10 @@ impl WlSeatGlobal {
         self.keyboard_node.get().focus_parent(self);
     }
 
+    pub fn toggle_floating(self: &Rc<Self>) {
+        self.keyboard_node.get().toggle_floating(self);
+    }
+
     pub fn get_rate(&self) -> (i32, i32) {
         self.repeat_rate.get()
     }
