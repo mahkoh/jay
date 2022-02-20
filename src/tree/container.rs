@@ -61,6 +61,7 @@ tree_id!(ContainerNodeId);
 pub struct ContainerNode {
     pub id: ContainerNodeId,
     pub parent: CloneCell<Rc<dyn Node>>,
+    active: Cell<bool>,
     pub split: Cell<ContainerSplit>,
     title: RefCell<String>,
     pub mono_child: CloneCell<Option<NodeRef<ContainerChild>>>,
@@ -154,6 +155,7 @@ impl ContainerNode {
         Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent),
+            active: Cell::new(false),
             split: Cell::new(split),
             title: Default::default(),
             mono_child: CloneCell::new(None),
@@ -753,6 +755,7 @@ impl Node for ContainerNode {
     }
 
     fn active_changed(&self, active: bool) {
+        self.active.set(active);
         self.parent.get().child_active_changed(self, active);
     }
 
@@ -1009,6 +1012,7 @@ impl Node for ContainerNode {
 
     fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
         self.parent.set(parent.clone());
+        parent.child_active_changed(&*self, self.active.get());
         parent.child_size_changed(&*self, self.width.get(), self.height.get());
         parent
             .clone()

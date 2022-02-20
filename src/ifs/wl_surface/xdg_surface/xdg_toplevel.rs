@@ -317,6 +317,7 @@ impl XdgToplevel {
             _ => return,
         };
         let extents = self.xdg.extents.get();
+        parent.child_active_changed(self, self.active_surfaces.get() > 0);
         parent.child_size_changed(self, extents.width(), extents.height());
         parent.child_title_changed(self, self.title.borrow_mut().deref());
     }

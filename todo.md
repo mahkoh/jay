@@ -1,7 +1,6 @@
 # todo
 
 - Container moving (mouse)
-- Container moving (kb)
 - Float toggle
 - Workspaces
 - Float moving
@@ -11,6 +10,7 @@
 
 # done
 
+- Container moving (kb)
 - Container resizing
 - clipboard
 - primary selection
