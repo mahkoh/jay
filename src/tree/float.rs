@@ -1,22 +1,16 @@
+use crate::cursor::KnownCursor;
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::rect::Rect;
+use crate::render::{Renderer, Texture};
+use crate::theme::Color;
+use crate::tree::walker::NodeVisitor;
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::utils::linkedlist::LinkedNode;
+use crate::{text, CloneCell, ErrorFmt, State};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
-use i4config::Direction;
-use crate::{CloneCell, ErrorFmt, State, text};
-use crate::backend::{KeyState, ScrollAxis};
-use crate::client::{Client, ClientId};
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
-use crate::ifs::wl_surface::WlSurface;
-use crate::rect::Rect;
-use crate::render::{Renderer, Texture};
-use crate::theme::Color;
-use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::tree::walker::NodeVisitor;
-use crate::utils::linkedlist::LinkedNode;
-use crate::xkbcommon::ModifierState;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {
@@ -55,7 +49,12 @@ pub async fn float_titles(state: Rc<State>) {
 }
 
 impl FloatNode {
-    pub fn new(state: &Rc<State>, ws: &Rc<WorkspaceNode>, position: Rect, child: Rc<dyn Node>) -> Rc<Self> {
+    pub fn new(
+        state: &Rc<State>,
+        ws: &Rc<WorkspaceNode>,
+        position: Rect,
+        child: Rc<dyn Node>,
+    ) -> Rc<Self> {
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
@@ -112,7 +111,8 @@ impl FloatNode {
             pos.y1() + bw + th + 1,
             (pos.width() - 2 * bw).max(0),
             (pos.height() - 2 * bw - th - 1).max(0),
-        ).unwrap();
+        )
+        .unwrap();
         child.clone().change_extents(&cpos);
         self.layout_scheduled.set(false);
         self.schedule_render_titles();
@@ -181,6 +181,15 @@ impl Node for FloatNode {
         }
     }
 
+    fn child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
+        let mut t = self.title.borrow_mut();
+        if t.deref() != title {
+            t.clear();
+            t.push_str(title);
+            self.schedule_render_titles();
+        }
+    }
+
     fn absolute_position(&self) -> Rect {
         self.position.get()
     }
@@ -216,6 +225,10 @@ impl Node for FloatNode {
         self.workspace_link.set(None);
     }
 
+    fn child_active_changed(&self, _child: &dyn Node, active: bool) {
+        self.active.set(active);
+    }
+
     fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
         seat.set_known_cursor(KnownCursor::Default);
     }
@@ -243,18 +256,5 @@ impl Node for FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
-    }
-
-    fn child_active_changed(&self, _child: &dyn Node, active: bool) {
-        self.active.set(active);
-    }
-
-    fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
-        let mut t = self.title.borrow_mut();
-        if t.deref() != title {
-            t.clear();
-            t.push_str(title);
-            self.schedule_render_titles();
-        }
     }
 }

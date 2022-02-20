@@ -1,7 +1,7 @@
 use crate::backend::{KeyboardId, MouseId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::DeviceHandlerData;
-use crate::tree::walker::{NodeVisitorBase};
+use crate::tree::walker::NodeVisitorBase;
 use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;

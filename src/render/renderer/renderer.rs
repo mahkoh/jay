@@ -13,6 +13,7 @@ use crate::render::gl::sys::{
 use crate::render::renderer::context::RenderContext;
 use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::render::Texture;
+use crate::theme::Color;
 use crate::tree::{
     ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
 };
@@ -20,7 +21,6 @@ use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
-use crate::theme::Color;
 
 const NON_COLOR: Color = Color::from_rgbaf(0.2, 0.2, 0.2, 1.0);
 const CHILD_COLOR: Color = Color::from_rgbaf(0.8, 0.8, 0.8, 1.0);
@@ -366,23 +366,26 @@ impl Renderer<'_> {
         let uc = theme.underline_color.get();
         let borders = [
             Rect::new_sized(x, y, pos.width(), bw).unwrap(),
-            Rect::new_sized(x, y, bw, pos.height()).unwrap(),
-            Rect::new_sized(x + pos.width() - bw, y, bw, pos.height()).unwrap(),
-            Rect::new_sized(x, y + pos.height() - bw, pos.width(), bw).unwrap(),
+            Rect::new_sized(x, y + bw, bw, pos.height() - bw).unwrap(),
+            Rect::new_sized(x + pos.width() - bw, y + bw, bw, pos.height() - bw).unwrap(),
+            Rect::new_sized(x + bw, y + pos.height() - bw, pos.width() - 2 * bw, bw).unwrap(),
         ];
         self.fill_boxes(&borders, &bc);
-        let title = [
-            Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap(),
-        ];
+        let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
         self.fill_boxes(&title, &tc);
-        let title_underline = [
-            Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap(),
-        ];
+        let title_underline =
+            [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
         self.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_texture.get() {
             self.render_texture(&title, x + bw, y + bw, ARGB8888);
         }
-        let body = Rect::new_sized(x + bw, y + bw + th + 1, pos.width() - 2 * bw, pos.height() - 2 * bw - th - 1).unwrap();
+        let body = Rect::new_sized(
+            x + bw,
+            y + bw + th + 1,
+            pos.width() - 2 * bw,
+            pos.height() - 2 * bw - th - 1,
+        )
+        .unwrap();
         unsafe {
             with_scissor(&body, || {
                 child.render(self, body.x1(), body.y1());

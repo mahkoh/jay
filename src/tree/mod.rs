@@ -10,22 +10,22 @@ use crate::render::Renderer;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::linkedlist::{LinkedList};
+use crate::utils::linkedlist::LinkedList;
 use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 pub use container::*;
+pub use float::*;
 use i4config::Direction;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
-pub use float::*;
 
 mod container;
+mod float;
 pub mod walker;
 mod workspace;
-mod float;
 
 pub struct NodeIds {
     next: NumCell<u32>,

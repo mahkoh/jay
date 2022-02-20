@@ -26,7 +26,9 @@ use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
-use crate::tree::{container_layout, container_titles, DisplayNode, float_layout, float_titles, NodeIds};
+use crate::tree::{
+    container_layout, container_titles, float_layout, float_titles, DisplayNode, NodeIds,
+};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
@@ -169,7 +171,8 @@ fn main_() -> Result<(), MainError> {
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
     let _container_do_layout = engine.spawn2(Phase::Layout, container_layout(state.clone()));
-    let _container_render_titles = engine.spawn2(Phase::PostLayout, container_titles(state.clone()));
+    let _container_render_titles =
+        engine.spawn2(Phase::PostLayout, container_titles(state.clone()));
     let _float_do_layout = engine.spawn2(Phase::Layout, float_layout(state.clone()));
     let _float_render_titles = engine.spawn2(Phase::PostLayout, float_titles(state.clone()));
     let socket_path = Acceptor::install(&state)?;
