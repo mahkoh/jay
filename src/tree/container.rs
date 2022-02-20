@@ -589,6 +589,14 @@ impl Node for ContainerNode {
         }
     }
 
+    fn is_contained_in(&self, other: NodeId) -> bool {
+        let parent = self.parent.get();
+        if parent.id() == other {
+            return true;
+        }
+        parent.is_contained_in(other)
+    }
+
     fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let child = match self.child_nodes.borrow_mut().get(&child.id()) {
             Some(cn) => cn.to_ref(),
@@ -621,6 +629,18 @@ impl Node for ContainerNode {
         seat.focus_node(self);
     }
 
+    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        let node = match direction {
+            Direction::Left => self.children.last(),
+            Direction::Down => self.children.first(),
+            Direction::Up => self.children.last(),
+            Direction::Right => self.children.first(),
+        };
+        if let Some(node) = node {
+            node.node.clone().do_focus(seat, direction);
+        }
+    }
+
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if direction == Direction::Down {
             self.do_focus(seat, direction);
@@ -633,18 +653,6 @@ impl Node for ContainerNode {
 
     fn move_self(self: Rc<Self>, direction: Direction) {
         self.parent.get().move_child(self, direction);
-    }
-
-    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let node = match direction {
-            Direction::Left => self.children.last(),
-            Direction::Down => self.children.first(),
-            Direction::Up => self.children.last(),
-            Direction::Right => self.children.first(),
-        };
-        if let Some(node) = node {
-            node.node.clone().do_focus(seat, direction);
-        }
     }
 
     fn move_focus_from_child(

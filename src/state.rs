@@ -116,7 +116,7 @@ impl State {
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn Node>) {
         let seat = self.seat_queue.last();
         if let Some(seat) = seat {
-            if let Some(prev) = seat.last_tiled_keyboard_toplevel() {
+            if let Some(prev) = seat.last_tiled_keyboard_toplevel(&*node) {
                 if let Some(container) = prev.parent_node.get() {
                     if let Some(container) = container.into_container() {
                         container.add_child_after(&*prev, node);

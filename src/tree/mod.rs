@@ -73,6 +73,11 @@ pub trait Node {
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn visit_children(&self, visitor: &mut dyn NodeVisitor);
 
+    fn is_contained_in(&self, other: NodeId) -> bool {
+        let _ = other;
+        false
+    }
+
     fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let _ = child;
         let _ = title;

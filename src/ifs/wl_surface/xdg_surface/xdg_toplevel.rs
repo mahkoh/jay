@@ -417,6 +417,16 @@ impl Node for XdgToplevel {
         visitor.visit_surface(&self.xdg.surface);
     }
 
+    fn is_contained_in(&self, other: NodeId) -> bool {
+        if let Some(parent) = self.parent_node.get() {
+            if parent.id() == other {
+                return true;
+            }
+            return parent.is_contained_in(other);
+        }
+        false
+    }
+
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(&self);
     }

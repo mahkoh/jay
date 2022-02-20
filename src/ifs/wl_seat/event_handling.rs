@@ -189,9 +189,10 @@ impl WlSeatGlobal {
         self.pointer_stack.borrow().last().cloned()
     }
 
-    pub fn last_tiled_keyboard_toplevel(&self) -> Option<Rc<XdgToplevel>> {
+    pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<XdgToplevel>> {
+        let is_container = new.is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
-            if !tl.parent_is_float() {
+            if !tl.parent_is_float() && (!is_container || !tl.is_contained_in(new.id())) {
                 return Some(tl.deref().clone());
             }
         }
