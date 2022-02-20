@@ -175,13 +175,13 @@ impl XdgSurface {
     }
 
     pub fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(ext)= self.ext.get() {
+        if let Some(ext) = self.ext.get() {
             ext.move_focus(seat, direction);
         }
     }
 
     pub fn move_self(&self, direction: Direction) {
-        if let Some(ext)= self.ext.get() {
+        if let Some(ext) = self.ext.get() {
             ext.move_self(direction);
         }
     }

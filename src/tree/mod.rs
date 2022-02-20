@@ -125,11 +125,7 @@ pub trait Node {
         let _ = child;
     }
 
-    fn move_child(
-        self: Rc<Self>,
-        child: Rc<dyn Node>,
-        direction: Direction,
-    ) {
+    fn move_child(self: Rc<Self>, child: Rc<dyn Node>, direction: Direction) {
         let _ = direction;
         let _ = child;
     }
@@ -241,6 +237,14 @@ pub trait Node {
 
     fn into_container(self: Rc<Self>) -> Option<Rc<ContainerNode>> {
         None
+    }
+
+    fn is_container(&self) -> bool {
+        false
+    }
+
+    fn accepts_child(&self, node: &dyn Node) -> bool {
+        false
     }
 
     fn is_float(&self) -> bool {
@@ -531,6 +535,10 @@ impl Node for FloatNode {
         if let Some(c) = self.child.get() {
             c.visit(visitor);
         }
+    }
+
+    fn accepts_child(&self, _node: &dyn Node) -> bool {
+        true
     }
 
     fn absolute_position(&self) -> Rect {

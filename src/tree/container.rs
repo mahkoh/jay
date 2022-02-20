@@ -1,3 +1,4 @@
+use crate::backend::{KeyState, ScrollAxis};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, Dnd};
@@ -5,7 +6,7 @@ use crate::rect::Rect;
 use crate::render::{Renderer, Texture};
 use crate::theme::Color;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult, FloatNode, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{text, ErrorFmt, NumCell, State};
@@ -17,7 +18,9 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};
 use std::rc::Rc;
-use crate::backend::KeyState;
+use crate::client::{Client, ClientId};
+use crate::ifs::wl_surface::WlSurface;
+use crate::xkbcommon::ModifierState;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -195,7 +198,8 @@ impl ContainerNode {
     }
 
     fn add_child_x<F>(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn Node>, f: F)
-        where F: FnOnce(&NodeRef<ContainerChild>, Rc<dyn Node>),
+    where
+        F: FnOnce(&NodeRef<ContainerChild>, Rc<dyn Node>),
     {
         let node = self
             .child_nodes
@@ -220,7 +224,8 @@ impl ContainerNode {
     }
 
     fn add_child<F>(self: &Rc<Self>, f: F, new: Rc<dyn Node>)
-        where F: FnOnce(ContainerChild) -> LinkedNode<ContainerChild>,
+    where
+        F: FnOnce(ContainerChild) -> LinkedNode<ContainerChild>,
     {
         {
             let mut links = self.child_nodes.borrow_mut();
@@ -356,19 +361,17 @@ impl ContainerNode {
         let nc = self.num_children.get();
         match self.split.get() {
             ContainerSplit::Horizontal => {
-                let new_content_size = self
-                    .width
-                    .get()
-                    .sub((nc - 1) as i32 * border_width)
-                    .max(0);
+                let new_content_size = self.width.get().sub((nc - 1) as i32 * border_width).max(0);
                 self.content_width.set(new_content_size);
                 self.content_height
                     .set(self.height.get().sub(title_height + 1).max(0));
             }
             ContainerSplit::Vertical => {
-                let new_content_size = self.height.get().sub(
-                    title_height + 1 + (nc - 1) as i32 * (border_width + title_height + 1),
-                ).max(0);
+                let new_content_size = self
+                    .height
+                    .get()
+                    .sub(title_height + 1 + (nc - 1) as i32 * (border_width + title_height + 1))
+                    .max(0);
                 self.content_height.set(new_content_size);
                 self.content_width.set(self.width.get());
             }
@@ -503,14 +506,13 @@ impl ContainerNode {
                 Some(c) => c,
                 _ => continue,
             };
-            let texture =
-                match text::render(&ctx, body.width(), th, &font, &title, Color::GREY) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                        continue;
-                    }
-                };
+            let texture = match text::render(&ctx, body.width(), th, &font, &title, Color::GREY) {
+                Ok(t) => t,
+                Err(e) => {
+                    log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                    continue;
+                }
+            };
             c.title_texture.set(Some(texture));
         }
         self.render_titles_scheduled.set(false);
@@ -614,7 +616,9 @@ impl Node for ContainerNode {
             self.do_focus(seat, direction);
             return;
         }
-        self.parent.get().move_focus_from_child(seat, &*self, direction);
+        self.parent
+            .get()
+            .move_focus_from_child(seat, &*self, direction);
     }
 
     fn move_self(self: Rc<Self>, direction: Direction) {
@@ -675,15 +679,13 @@ impl Node for ContainerNode {
         sibling.node.clone().do_focus(seat, direction);
     }
     //
-    fn move_child(
-        self: Rc<Self>,
-        child: Rc<dyn Node>,
-        direction: Direction,
-    ) {
+    fn move_child(self: Rc<Self>, child: Rc<dyn Node>, direction: Direction) {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
-            if let Some(parent) = self.parent.get().into_container() {
-                parent.replace_child(&*self, child.clone());
+            let parent = self.parent.get();
+            let can_replace = parent.is_container() || child.clone().into_container().is_some();
+            if can_replace {
+                self.parent.get().replace_child(&*self, child.clone());
             }
             return;
         }
@@ -950,6 +952,14 @@ impl Node for ContainerNode {
         Some(self)
     }
 
+    fn is_container(&self) -> bool {
+        true
+    }
+
+    fn accepts_child(&self, _node: &dyn Node) -> bool {
+        true
+    }
+
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
@@ -981,7 +991,9 @@ impl Node for ContainerNode {
     fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
         self.parent.set(parent.clone());
         parent.child_size_changed(&*self, self.width.get(), self.height.get());
-        parent.clone().child_title_changed(&*self, self.title.borrow_mut().deref());
+        parent
+            .clone()
+            .child_title_changed(&*self, self.title.borrow_mut().deref());
     }
 }
 

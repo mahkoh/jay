@@ -16,7 +16,7 @@ use crate::render::Texture;
 use crate::tree::{
     ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
 };
-use crate::{State};
+use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
@@ -129,11 +129,7 @@ impl Renderer<'_> {
                     width += 1;
                 }
                 if let Some(title) = child.title_texture.get() {
-                    titles.push((
-                        pos,
-                        0,
-                        title,
-                    ));
+                    titles.push((pos, 0, title));
                 }
                 if focus != ContainerFocus::None {
                     let rect = Rect::new_sized(pos, y, width, title_height).unwrap();
@@ -163,11 +159,7 @@ impl Renderer<'_> {
             for (i, child) in container.children.iter().enumerate() {
                 let body = child.body.get();
                 if let Some(title) = child.title_texture.get() {
-                    titles.push((
-                        body.x1(),
-                        body.y1() - title_height - 1,
-                        title,
-                    ));
+                    titles.push((body.x1(), body.y1() - title_height - 1, title));
                 }
                 if child.active.get() {
                     active_rects.push(

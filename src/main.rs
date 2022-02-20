@@ -26,7 +26,7 @@ use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
-use crate::tree::{container_layout, DisplayNode, NodeIds, render_titles};
+use crate::tree::{container_layout, render_titles, DisplayNode, NodeIds};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
