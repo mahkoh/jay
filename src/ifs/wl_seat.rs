@@ -227,6 +227,11 @@ impl WlSeatGlobal {
         kb_node.move_focus(self, direction);
     }
 
+    pub fn move_focused(self: &Rc<Self>, direction: Direction) {
+        let kb_node = self.keyboard_node.get();
+        kb_node.move_self(direction);
+    }
+
     fn set_selection_<T: ipc::Vtable>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<T::Source>>>,

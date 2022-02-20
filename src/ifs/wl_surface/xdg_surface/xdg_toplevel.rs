@@ -510,6 +510,11 @@ impl Node for XdgToplevel {
         self.xdg.set_workspace(ws);
     }
 
+    fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
+        self.parent_node.set(Some(parent));
+        self.notify_parent();
+    }
+
     fn client(&self) -> Option<Rc<Client>> {
         Some(self.xdg.surface.client.clone())
     }
@@ -546,15 +551,18 @@ impl XdgSurfaceExt for XdgToplevel {
         ));
         self.parent_node.set(Some(cn.clone()));
         pn.replace_child(&*self, cn);
-        self.notify_parent();
     }
 
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let pn = match self.parent_node.get() {
-            Some(pn) => pn,
-            _ => return,
-        };
-        pn.move_focus_from_child(seat, &*self, direction);
+        if let Some(pn) = self.parent_node.get() {
+            pn.move_focus_from_child(seat, &*self, direction);
+        }
+    }
+
+    fn move_self(self: Rc<Self>, direction: Direction) {
+        if let Some(pn) = self.parent_node.get() {
+            pn.move_child(self, direction);
+        }
     }
 
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {

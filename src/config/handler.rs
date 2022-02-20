@@ -120,6 +120,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_move(&self, seat: Seat, direction: Direction) -> Result<(), MoveError> {
+        let seat = self.get_seat(seat)?;
+        seat.move_focused(direction);
+        Ok(())
+    }
+
     fn handle_get_repeat_rate(&self, seat: Seat) -> Result<(), SeatGetRepeatRateError> {
         let seat = self.get_seat(seat)?;
         let (rate, delay) = seat.get_rate();
@@ -426,7 +432,7 @@ impl ConfigProxyHandler {
                 self.handle_remove_shortcut(seat, mods, sym)?
             }
             ClientMessage::Focus { seat, direction } => self.handle_focus(seat, direction)?,
-            ClientMessage::Move { seat, direction } => {}
+            ClientMessage::Move { seat, direction } => self.handle_move(seat, direction)?,
             ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat),
             ClientMessage::GetSeats => self.handle_get_seats(),
             ClientMessage::RemoveSeat { .. } => {}
@@ -467,6 +473,8 @@ enum CphError {
     SeatSetRepeatRateError(#[from] SeatSetRepeatRateError),
     #[error("Could not process a `focus` request")]
     FocusError(#[from] FocusError),
+    #[error("Could not process a `move` request")]
+    MoveError(#[from] MoveError),
     #[error("Could not process a `set_split` request")]
     SetSplitError(#[from] SetSplitError),
     #[error("Could not process a `get_split` request")]
@@ -553,6 +561,13 @@ enum FocusError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(FocusError, CphError);
+
+#[derive(Debug, Error)]
+enum MoveError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(MoveError, CphError);
 
 #[derive(Debug, Error)]
 enum SetSplitError {

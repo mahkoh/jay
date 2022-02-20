@@ -110,6 +110,10 @@ pub trait Node {
         let _ = direction;
     }
 
+    fn move_self(self: Rc<Self>, direction: Direction) {
+        let _ = direction;
+    }
+
     fn move_focus_from_child(
         &self,
         seat: &Rc<WlSeatGlobal>,
@@ -117,6 +121,15 @@ pub trait Node {
         direction: Direction,
     ) {
         let _ = seat;
+        let _ = direction;
+        let _ = child;
+    }
+
+    fn move_child(
+        self: Rc<Self>,
+        child: Rc<dyn Node>,
+        direction: Direction,
+    ) {
         let _ = direction;
         let _ = child;
     }
@@ -175,7 +188,7 @@ pub trait Node {
         FindTreeResult::Other
     }
 
-    fn replace_child(&self, old: &dyn Node, new: Rc<dyn Node>) {
+    fn replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn Node>) {
         let _ = old;
         let _ = new;
     }
@@ -234,12 +247,20 @@ pub trait Node {
         false
     }
 
+    fn is_workspace(&self) -> bool {
+        false
+    }
+
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         let _ = rect;
     }
 
     fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         let _ = ws;
+    }
+
+    fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
+        let _ = parent;
     }
 
     fn client(&self) -> Option<Rc<Client>> {

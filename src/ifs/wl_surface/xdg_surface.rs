@@ -96,6 +96,10 @@ pub trait XdgSurfaceExt: Debug {
         let _ = direction;
     }
 
+    fn move_self(self: Rc<Self>, direction: Direction) {
+        let _ = direction;
+    }
+
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         Ok(())
     }
@@ -171,11 +175,15 @@ impl XdgSurface {
     }
 
     pub fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let ext = match self.ext.get() {
-            None => return,
-            Some(e) => e,
-        };
-        ext.move_focus(seat, direction);
+        if let Some(ext)= self.ext.get() {
+            ext.move_focus(seat, direction);
+        }
+    }
+
+    pub fn move_self(&self, direction: Direction) {
+        if let Some(ext)= self.ext.get() {
+            ext.move_self(direction);
+        }
     }
 
     pub fn role(&self) -> XdgSurfaceRole {

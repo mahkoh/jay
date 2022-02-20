@@ -637,6 +637,14 @@ impl Node for WlSurface {
         xdg.move_focus(seat, direction);
     }
 
+    fn move_self(self: Rc<Self>, direction: Direction) {
+        let xdg = match self.xdg.get() {
+            Some(x) => x,
+            _ => return,
+        };
+        xdg.move_self(direction);
+    }
+
     fn absolute_position(&self) -> Rect {
         self.buffer_abs_pos.get()
     }

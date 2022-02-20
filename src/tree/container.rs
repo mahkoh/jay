@@ -1,6 +1,6 @@
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
+use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, Dnd};
 use crate::rect::Rect;
 use crate::render::{Renderer, Texture};
 use crate::theme::Color;
@@ -12,6 +12,7 @@ use crate::{text, ErrorFmt, NumCell, State};
 use ahash::AHashMap;
 use i4config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
+use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};
@@ -85,6 +86,7 @@ impl Debug for ContainerNode {
     }
 }
 
+#[derive(Clone)]
 pub struct ContainerChild {
     pub node: Rc<dyn Node>,
     pub active: Cell<bool>,
@@ -185,13 +187,23 @@ impl ContainerNode {
     }
 
     pub fn add_child_after(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn Node>) {
+        self.add_child_x(prev, new, |prev, new| self.add_child_after_(prev, new));
+    }
+
+    pub fn add_child_before(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn Node>) {
+        self.add_child_x(prev, new, |prev, new| self.add_child_before_(prev, new));
+    }
+
+    fn add_child_x<F>(self: &Rc<Self>, prev: &dyn Node, new: Rc<dyn Node>, f: F)
+        where F: FnOnce(&NodeRef<ContainerChild>, Rc<dyn Node>),
+    {
         let node = self
             .child_nodes
             .borrow()
             .get(&prev.id())
             .map(|n| n.to_ref());
         if let Some(node) = node {
-            self.add_child_after_(&node, new);
+            f(&node, new);
             return;
         }
         log::error!(
@@ -200,6 +212,16 @@ impl ContainerNode {
     }
 
     fn add_child_after_(self: &Rc<Self>, prev: &NodeRef<ContainerChild>, new: Rc<dyn Node>) {
+        self.add_child(|cc| prev.append(cc), new);
+    }
+
+    fn add_child_before_(self: &Rc<Self>, prev: &NodeRef<ContainerChild>, new: Rc<dyn Node>) {
+        self.add_child(|cc| prev.prepend(cc), new);
+    }
+
+    fn add_child<F>(self: &Rc<Self>, f: F, new: Rc<dyn Node>)
+        where F: FnOnce(ContainerChild) -> LinkedNode<ContainerChild>,
+    {
         {
             let mut links = self.child_nodes.borrow_mut();
             if links.contains_key(&new.id()) {
@@ -208,7 +230,7 @@ impl ContainerNode {
             }
             links.insert(
                 new.id(),
-                prev.append(ContainerChild {
+                f(ContainerChild {
                     node: new.clone(),
                     active: Cell::new(false),
                     body: Default::default(),
@@ -221,6 +243,7 @@ impl ContainerNode {
             );
         }
         new.clone().set_workspace(&self.workspace.get());
+        new.clone().set_parent(self.clone());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -456,6 +479,7 @@ impl ContainerNode {
         title.push_str("]");
         self.parent.get().child_title_changed(&**self, &title);
         self.schedule_render_titles();
+        log::info!("num children: {}", self.num_children.get());
     }
 
     fn schedule_render_titles(self: &Rc<Self>) {
@@ -593,6 +617,10 @@ impl Node for ContainerNode {
         self.parent.get().move_focus_from_child(seat, &*self, direction);
     }
 
+    fn move_self(self: Rc<Self>, direction: Direction) {
+        self.parent.get().move_child(self, direction);
+    }
+
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let node = match direction {
             Direction::Left => self.children.last(),
@@ -645,6 +673,62 @@ impl Node for ContainerNode {
             }
         };
         sibling.node.clone().do_focus(seat, direction);
+    }
+    //
+    fn move_child(
+        self: Rc<Self>,
+        child: Rc<dyn Node>,
+        direction: Direction,
+    ) {
+        // CASE 1: This is the only child of the container. Replace the container by the child.
+        if self.num_children.get() == 1 {
+            if let Some(parent) = self.parent.get().into_container() {
+                parent.replace_child(&*self, child.clone());
+            }
+            return;
+        }
+        let (split, prev) = direction_to_split(direction);
+        // CASE 2: We're moving the child within the container.
+        if split == self.split.get() {
+            let mut cn = self.child_nodes.borrow_mut();
+            let mut child = match cn.entry(child.id()) {
+                Entry::Occupied(o) => o,
+                Entry::Vacant(_) => return,
+            };
+            let neighbor = match prev {
+                true => child.get().prev(),
+                false => child.get().next(),
+            };
+            if let Some(neighbor) = neighbor {
+                let cc = child.get().deref().deref().clone();
+                let link = match prev {
+                    true => neighbor.prepend(cc),
+                    false => neighbor.append(cc),
+                };
+                child.insert(link);
+                self.schedule_layout();
+                return;
+            }
+        }
+        // CASE 3: We're moving the child out of the container.
+        let mut neighbor = self.clone();
+        let mut parent_opt = self.parent.get().into_container();
+        while let Some(parent) = &parent_opt {
+            if parent.split.get() == split {
+                break;
+            }
+            neighbor = parent.clone();
+            parent_opt = parent.parent.get().into_container();
+        }
+        let parent = match parent_opt {
+            Some(p) => p,
+            _ => return,
+        };
+        self.clone().remove_child(&*child);
+        match prev {
+            true => parent.add_child_before(&*neighbor, child.clone()),
+            false => parent.add_child_after(&*neighbor, child.clone()),
+        }
     }
 
     fn absolute_position(&self) -> Rect {
@@ -762,7 +846,7 @@ impl Node for ContainerNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn replace_child(&self, old: &dyn Node, new: Rc<dyn Node>) {
+    fn replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn Node>) {
         let node = match self.child_nodes.borrow_mut().remove(&old.id()) {
             Some(c) => c,
             None => return,
@@ -777,9 +861,12 @@ impl Node for ContainerNode {
             title: Default::default(),
             title_texture: Default::default(),
         });
+        let body = link.body.get();
+        drop(node);
         self.child_nodes.borrow_mut().insert(new.id(), link);
+        new.clone().set_parent(self.clone());
         new.clone().set_workspace(&self.workspace.get());
-        let body = node.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+        let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
         new.clone().change_extents(&body);
     }
 
@@ -889,5 +976,20 @@ impl Node for ContainerNode {
             child.node.clone().set_workspace(ws);
         }
         self.workspace.set(ws.clone());
+    }
+
+    fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
+        self.parent.set(parent.clone());
+        parent.child_size_changed(&*self, self.width.get(), self.height.get());
+        parent.clone().child_title_changed(&*self, self.title.borrow_mut().deref());
+    }
+}
+
+fn direction_to_split(dir: Direction) -> (ContainerSplit, bool) {
+    match dir {
+        Direction::Left => (ContainerSplit::Horizontal, true),
+        Direction::Down => (ContainerSplit::Vertical, false),
+        Direction::Up => (ContainerSplit::Vertical, true),
+        Direction::Right => (ContainerSplit::Horizontal, false),
     }
 }

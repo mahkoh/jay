@@ -31,7 +31,7 @@ macro_rules! object_base {
                 ) -> Result<(), $ename> {
                     match request {
                         $(
-                            $code => slf.$f(parser)?,
+                            $code => $oname::$f(&slf, parser)?,
                         )*
                         _ => unreachable!(),
                     }

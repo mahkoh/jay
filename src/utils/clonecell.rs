@@ -9,6 +9,14 @@ pub struct CloneCell<T: UnsafeCellCloneSafe> {
     data: UnsafeCell<T>,
 }
 
+impl<T: UnsafeCellCloneSafe> Clone for CloneCell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            data: UnsafeCell::new(self.get()),
+        }
+    }
+}
+
 impl<T: UnsafeCellCloneSafe + Debug> Debug for CloneCell<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         unsafe { self.data.get().deref().fmt(f) }

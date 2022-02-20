@@ -86,6 +86,10 @@ impl Node for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
+    fn is_workspace(&self) -> bool {
+        true
+    }
+
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         if let Some(c) = self.container.get() {
             c.change_extents(rect);
