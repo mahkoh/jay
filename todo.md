@@ -5,10 +5,11 @@
 - presentation time
 - viewporter
 - session lock
-- layer shell
+- xwayland
 
 # done
 
+- layer shell
 - Float moving
 - Float toggle
 - Container moving (kb)

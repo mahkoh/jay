@@ -1,0 +1,25 @@
+# requests
+
+msg destroy = 0 { }
+
+# events
+
+msg logical_position = 0 {
+    x: i32,
+    y: i32,
+}
+
+msg logical_size = 1 {
+    width: i32,
+    height: i32,
+}
+
+msg done = 2 { }
+
+msg name = 3 {
+    name: str,
+}
+
+msg description = 4 {
+    description: str,
+}

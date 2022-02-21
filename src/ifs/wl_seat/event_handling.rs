@@ -75,6 +75,22 @@ impl NodeSeatState {
         self.kb_foci.len() > 0
     }
 
+    pub fn release_kb_grab(&self) {
+        for (_, seat) in &self.kb_foci {
+            seat.ungrab_kb();
+        }
+    }
+
+    pub fn release_kb_focus(&self) {
+        while let Some((_, seat)) = self.kb_foci.pop() {
+            seat.ungrab_kb();
+            seat.keyboard_node.set(seat.state.root.clone());
+            if let Some(tl) = seat.toplevel_focus_history.last() {
+                seat.focus_xdg_surface(&tl.xdg);
+            }
+        }
+    }
+
     pub fn destroy_node(&self, node: &dyn Node) {
         while let Some((_, seat)) = self.grabs.pop() {
             seat.pointer_owner.revert_to_default(&seat);
@@ -94,12 +110,7 @@ impl NodeSeatState {
             }
             seat.state.tree_changed();
         }
-        while let Some((_, seat)) = self.kb_foci.pop() {
-            seat.keyboard_node.set(seat.state.root.clone());
-            if let Some(tl) = seat.toplevel_focus_history.last() {
-                seat.focus_xdg_surface(&tl.xdg);
-            }
-        }
+        self.release_kb_focus();
     }
 }
 
@@ -124,8 +135,9 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
-        x += Fixed::from_int(output.x.get());
-        y += Fixed::from_int(output.y.get());
+        let pos = output.position();
+        x += Fixed::from_int(pos.x1());
+        y += Fixed::from_int(pos.y1());
         self.set_new_position(x, y);
     }
 
@@ -216,21 +228,16 @@ impl WlSeatGlobal {
         self.focus_node(xdg.focus_surface(self));
     }
 
-    pub fn focus_node(self: &Rc<Self>, node: Rc<dyn Node>) {
-        let old = self.keyboard_node.get();
-        if old.id() == node.id() {
-            return;
-        }
-        old.unfocus(self);
-        if old.seat_state().unfocus(self) {
-            old.active_changed(false);
-        }
+    fn ungrab_kb(self: &Rc<Self>) {
+        self.kb_owner.ungrab(self);
+    }
 
-        if node.seat_state().focus(self) {
-            node.active_changed(true);
-        }
-        node.clone().focus(self);
-        self.keyboard_node.set(node.clone());
+    pub fn grab(self: &Rc<Self>, node: Rc<dyn Node>) {
+        self.kb_owner.grab(self, node);
+    }
+
+    pub fn focus_node(self: &Rc<Self>, node: Rc<dyn Node>) {
+        self.kb_owner.set_kb_node(self, node);
     }
 
     fn offer_selection<T: ipc::Vtable>(
@@ -380,7 +387,7 @@ impl WlSeatGlobal {
         let serial = self.serial.fetch_add(1);
         self.surface_pointer_event(0, surface, |p| p.send_button(serial, 0, button, state));
         self.surface_pointer_frame(surface);
-        if pressed && surface.belongs_to_toplevel() {
+        if pressed && surface.accepts_kb_focus() {
             self.focus_node(surface.clone());
         }
     }

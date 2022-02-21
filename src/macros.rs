@@ -44,14 +44,14 @@ macro_rules! object_base {
             }
 
             fn interface(&self) -> crate::object::Interface {
-                crate::object::Interface::$oname
+                crate::wire::$oname
             }
         }
 
         impl From<$ename> for crate::client::ObjectError {
             fn from(v: $ename) -> Self {
                 Self {
-                    interface: crate::object::Interface::$oname,
+                    interface: crate::wire::$oname,
                     error: Box::new(v),
                 }
             }
@@ -79,14 +79,14 @@ macro_rules! global_base {
             }
 
             fn interface(&self) -> crate::object::Interface {
-                crate::object::Interface::$ifname
+                crate::wire::$ifname
             }
         }
 
         impl From<$ename> for crate::globals::GlobalError {
             fn from(e: $ename) -> Self {
                 Self {
-                    interface: crate::object::Interface::$ifname,
+                    interface: crate::wire::$ifname,
                     error: Box::new(e),
                 }
             }
@@ -281,7 +281,7 @@ macro_rules! dedicated_add_obj {
 
         impl crate::client::WaylandObjectLookup for $idname {
             type Object = $oname;
-            const INTERFACE: crate::object::Interface = crate::object::Interface::$oname;
+            const INTERFACE: crate::object::Interface = crate::wire::$oname;
 
             fn lookup(client: &crate::client::Client, id: Self) -> Option<Rc<$oname>> {
                 client.objects.$field.get(&id)

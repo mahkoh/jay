@@ -30,7 +30,9 @@ impl OutputHandler {
             workspace: CloneCell::new(None),
             seat_state: Default::default(),
             global: global.clone(),
+            layers: Default::default(),
         });
+        global.node.set(Some(on.clone()));
         let workspace = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
             output: CloneCell::new(on.clone()),
@@ -60,6 +62,7 @@ impl OutputHandler {
             global.update_properties();
             ae.triggered().await;
         }
+        global.node.set(None);
         self.state.outputs.remove(&self.output.id());
         let _ = self.state.remove_global(&*global);
         self.state

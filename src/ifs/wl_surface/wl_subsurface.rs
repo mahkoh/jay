@@ -263,9 +263,8 @@ impl SurfaceExt for WlSubsurface {
         Ok(CommitAction::ContinueCommit)
     }
 
-    fn post_commit(&self) {
+    fn post_commit(self: Rc<Self>) {
         if let Some(v) = self.pending.node.take() {
-            log::info!("post commit");
             v.pending.set(false);
             self.node.borrow_mut().replace(v);
         }

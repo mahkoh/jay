@@ -1,0 +1,12 @@
+# requests
+
+msg get_layer_surface = 0 {
+    id: id(zwlr_layer_surface_v1),
+    surface: id(wl_surface),
+    output: id(wl_output),
+    layer: u32,
+    namespace: str,
+}
+
+msg destroy = 1 {
+}

@@ -6,6 +6,7 @@ use crate::ifs::wl_drm::WlDrmGlobal;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1Global;
 use crate::object::{Interface, ObjectId};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::{
@@ -18,6 +19,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use thiserror::Error;
+use crate::ifs::zxdg_output_manager_v1::ZxdgOutputManagerV1Global;
 
 #[derive(Debug, Error)]
 pub enum GlobalsError {
@@ -103,6 +105,8 @@ impl Globals {
         add_singleton!(ZxdgDecorationManagerV1Global);
         add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
         add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
+        add_singleton!(ZwlrLayerShellV1Global);
+        add_singleton!(ZxdgOutputManagerV1Global);
         slf
     }
 

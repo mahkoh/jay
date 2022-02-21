@@ -1,6 +1,7 @@
 pub mod cursor;
 pub mod wl_subsurface;
 pub mod xdg_surface;
+pub mod zwlr_layer_surface_v1;
 
 use crate::backend::{KeyState, ScrollAxis};
 use crate::client::{Client, ClientError, RequestParser};
@@ -34,6 +35,7 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -49,6 +51,7 @@ pub enum SurfaceRole {
     XdgSurface,
     Cursor,
     DndIcon,
+    ZwlrLayerSurface,
 }
 
 impl SurfaceRole {
@@ -59,6 +62,7 @@ impl SurfaceRole {
             SurfaceRole::XdgSurface => "xdg_surface",
             SurfaceRole::Cursor => "cursor",
             SurfaceRole::DndIcon => "dnd_icon",
+            SurfaceRole::ZwlrLayerSurface => "zwlr_layer_surface",
         }
     }
 }
@@ -111,7 +115,7 @@ trait SurfaceExt {
         Ok(CommitAction::ContinueCommit)
     }
 
-    fn post_commit(&self) {
+    fn post_commit(self: Rc<Self>) {
         // nothing
     }
 
@@ -133,6 +137,10 @@ trait SurfaceExt {
 
     fn into_subsurface(self: Rc<Self>) -> Option<Rc<WlSubsurface>> {
         None
+    }
+
+    fn accepts_kb_focus(&self) -> bool {
+        true
     }
 }
 
@@ -222,11 +230,11 @@ impl WlSurface {
         Ok(cursor)
     }
 
-    pub fn belongs_to_toplevel(&self) -> bool {
+    pub fn accepts_kb_focus(&self) -> bool {
         if let Some(xdg) = self.xdg.get() {
             return xdg.role() == XdgSurfaceRole::XdgToplevel;
         }
-        false
+        self.ext.get().accepts_kb_focus()
     }
 
     fn send_enter(&self, output: WlOutputId) {
@@ -747,6 +755,8 @@ pub enum WlSurfaceError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
+    ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
+    #[error(transparent)]
     XdgSurfaceError(Box<XdgSurfaceError>),
     #[error("Could not process `destroy` request")]
     DestroyError(#[source] Box<DestroyError>),
@@ -784,13 +794,10 @@ efrom!(WlSurfaceError, FrameError);
 efrom!(WlSurfaceError, SetOpaqueRegionError);
 efrom!(WlSurfaceError, SetInputRegionError);
 efrom!(WlSurfaceError, CommitError);
-efrom!(
-    WlSurfaceError,
-    SetBufferTransformError,
-    SetBufferTransformError
-);
+efrom!(WlSurfaceError, SetBufferTransformError);
 efrom!(WlSurfaceError, SetBufferScaleError);
 efrom!(WlSurfaceError, DamageBufferError);
+efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
 
 #[derive(Debug, Error)]
 pub enum DestroyError {

@@ -27,6 +27,7 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
+use backtrace::Backtrace;
 use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]

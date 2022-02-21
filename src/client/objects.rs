@@ -3,6 +3,7 @@ use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_display::WlDisplay;
+use crate::ifs::wl_output::WlOutput;
 use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_seat::WlSeat;
@@ -16,8 +17,8 @@ use crate::tree::Node;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::{
-    WlBufferId, WlDataSourceId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId,
-    XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
+    WlBufferId, WlDataSourceId, WlOutputId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId,
+    XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
 };
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
@@ -29,6 +30,7 @@ pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
     registry: CopyHashMap<ObjectId, Rc<dyn Object>>,
     registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
+    pub outputs: CopyHashMap<WlOutputId, Rc<WlOutput>>,
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
     pub xdg_toplevel: CopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
@@ -52,6 +54,7 @@ impl Objects {
             display: CloneCell::new(None),
             registry: Default::default(),
             registries: Default::default(),
+            outputs: Default::default(),
             surfaces: Default::default(),
             xdg_surfaces: Default::default(),
             xdg_toplevel: Default::default(),
@@ -83,6 +86,7 @@ impl Objects {
         }
         self.display.set(None);
         self.registries.clear();
+        self.outputs.clear();
         self.surfaces.clear();
         self.xdg_surfaces.clear();
         self.wl_data_source.clear();

@@ -3,6 +3,7 @@ mod pointer_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
+mod kb_owner;
 
 use crate::async_engine::SpawnedFuture;
 use crate::client::{Client, ClientError, ClientId};
@@ -43,10 +44,12 @@ use i4config::Direction;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::mem;
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
+use crate::ifs::wl_output::{WlOutputGlobal};
+use crate::ifs::wl_seat::kb_owner::KbOwnerHolder;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -112,6 +115,7 @@ pub struct WlSeatGlobal {
     selection: CloneCell<Option<Rc<WlDataSource>>>,
     primary_selection: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
     pointer_owner: PointerOwnerHolder,
+    kb_owner: KbOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
     shortcuts: CopyHashMap<(u32, u32), Modifiers>,
     queue_link: Cell<Option<LinkedNode<Rc<Self>>>>,
@@ -146,6 +150,7 @@ impl WlSeatGlobal {
             selection: Default::default(),
             primary_selection: Default::default(),
             pointer_owner: Default::default(),
+            kb_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
             shortcuts: Default::default(),
             queue_link: Cell::new(None),
@@ -160,6 +165,17 @@ impl WlSeatGlobal {
             }
         });
         slf
+    }
+
+    pub fn get_output(&self) -> Option<Rc<WlOutputGlobal>> {
+        let ps = self.pointer_stack.borrow_mut();
+        for node in ps.deref() {
+            if node.is_output() {
+                let on = node.clone().into_output().unwrap();
+                return Some(on.global.clone());
+            }
+        }
+        None
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {

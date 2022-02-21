@@ -345,7 +345,13 @@ impl ContainerNode {
                     }
                     _ => {
                         let height = body.height() + add;
-                        (0, pos + title_height + 1, other_content_size, height, height)
+                        (
+                            0,
+                            pos + title_height + 1,
+                            other_content_size,
+                            height,
+                            height,
+                        )
                     }
                 };
                 body = Rect::new_sized(x1, y1, width, height).unwrap();

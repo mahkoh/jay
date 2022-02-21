@@ -6,12 +6,17 @@ use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_output::*;
-use crate::wire::WlOutputId;
+use crate::wire::{WlOutputId, ZxdgOutputV1Id};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::CloneCell;
+use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
+use crate::rect::Rect;
+use crate::tree::OutputNode;
+use crate::utils::copyhashmap::CopyHashMap;
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]
@@ -48,10 +53,8 @@ const MODE_PREFERRED: u32 = 2;
 pub struct WlOutputGlobal {
     name: GlobalName,
     output: Rc<dyn Output>,
-    pub x: Cell<i32>,
-    pub y: Cell<i32>,
-    width: Cell<i32>,
-    height: Cell<i32>,
+    pos: Cell<Rect>,
+    pub node: CloneCell<Option<Rc<OutputNode>>>,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
 }
 
@@ -60,23 +63,27 @@ impl WlOutputGlobal {
         Self {
             name,
             output: output.clone(),
-            x: Cell::new(0),
-            y: Cell::new(0),
-            width: Cell::new(output.width()),
-            height: Cell::new(output.height()),
+            pos: Cell::new(Rect::new_sized(0, 0, output.width(), output.height()).unwrap()),
+            node: Default::default(),
             bindings: Default::default(),
         }
+    }
+
+    pub fn position(&self) -> Rect {
+        self.pos.get()
     }
 
     pub fn update_properties(&self) {
         let width = self.output.width();
         let height = self.output.height();
 
-        let mut changed = false;
-        changed |= self.width.replace(width) != width;
-        changed |= self.height.replace(height) != height;
+        let pos = self.pos.get();
+        let old_width = pos.width();
+        let old_height = pos.height();
+        let changed = old_width != width || old_height != height;
 
         if changed {
+            self.pos.set(Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap());
             let bindings = self.bindings.borrow_mut();
             for binding in bindings.values() {
                 for binding in binding.values() {
@@ -85,6 +92,10 @@ impl WlOutputGlobal {
                     binding.send_scale();
                     binding.send_done();
                     binding.client.flush();
+                    let xdg = binding.xdg_outputs.lock();
+                    for xdg in xdg.values() {
+                        xdg.send_updates();
+                    }
                 }
             }
         }
@@ -99,6 +110,7 @@ impl WlOutputGlobal {
         let obj = Rc::new(WlOutput {
             global: self.clone(),
             id,
+            xdg_outputs: Default::default(),
             client: client.clone(),
             version,
             tracker: Default::default(),
@@ -141,10 +153,11 @@ impl Global for WlOutputGlobal {
 dedicated_add_global!(WlOutputGlobal, outputs);
 
 pub struct WlOutput {
-    global: Rc<WlOutputGlobal>,
+    pub global: Rc<WlOutputGlobal>,
     pub id: WlOutputId,
+    pub xdg_outputs: CopyHashMap<ZxdgOutputV1Id, Rc<ZxdgOutputV1>>,
     client: Rc<Client>,
-    version: u32,
+    pub version: u32,
     tracker: Tracker<Self>,
 }
 
@@ -153,12 +166,13 @@ pub const SEND_SCALE_SINCE: u32 = 2;
 
 impl WlOutput {
     fn send_geometry(&self) {
+        let pos = self.global.pos.get();
         let event = Geometry {
             self_id: self.id,
-            x: 0,
-            y: 0,
-            physical_width: self.global.width.get() as _,
-            physical_height: self.global.height.get() as _,
+            x: pos.x1(),
+            y: pos.y1(),
+            physical_width: pos.width(),
+            physical_height: pos.height(),
             subpixel: SP_UNKNOWN,
             make: "i4",
             model: "i4",
@@ -168,11 +182,12 @@ impl WlOutput {
     }
 
     fn send_mode(&self) {
+        let pos = self.global.pos.get();
         let event = Mode {
             self_id: self.id,
             flags: MODE_CURRENT,
-            width: self.global.width.get() as _,
-            height: self.global.height.get() as _,
+            width: pos.width(),
+            height: pos.height(),
             refresh: 60_000_000,
         };
         self.client.event(event);
@@ -186,7 +201,7 @@ impl WlOutput {
         self.client.event(event);
     }
 
-    fn send_done(&self) {
+    pub fn send_done(&self) {
         let event = Done { self_id: self.id };
         self.client.event(event);
     }
@@ -202,6 +217,7 @@ impl WlOutput {
 
     fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
         let _req: Release = self.client.parse(self, parser)?;
+        self.xdg_outputs.clear();
         self.remove_binding();
         self.client.remove_obj(self)?;
         Ok(())
@@ -224,11 +240,12 @@ impl Object for WlOutput {
     }
 
     fn break_loops(&self) {
+        self.xdg_outputs.clear();
         self.remove_binding();
     }
 }
 
-simple_add_obj!(WlOutput);
+dedicated_add_obj!(WlOutput, WlOutputId, outputs);
 
 #[derive(Debug, Error)]
 pub enum WlOutputError {

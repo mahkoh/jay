@@ -1,0 +1,8 @@
+# requests
+
+msg destroy = 0 { }
+
+msg get_xdg_output = 1 {
+    id: id(zxdg_output_v1),
+    output: id(wl_output),
+}

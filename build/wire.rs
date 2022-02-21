@@ -663,11 +663,8 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f, "        fn id(&self) -> ObjectId {{")?;
     writeln!(f, "            self.self_id.into()")?;
     writeln!(f, "        }}")?;
-    writeln!(
-        f,
-        "        fn interface(&self) -> crate::object::Interface {{"
-    )?;
-    writeln!(f, "            crate::object::Interface::{}", obj)?;
+    writeln!(f, "        fn interface(&self) -> Interface {{")?;
+    writeln!(f, "            {}", obj)?;
     writeln!(f, "        }}")?;
     writeln!(f, "    }}")?;
     Ok(())
@@ -681,6 +678,12 @@ fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     let camel_obj_name = to_camel(obj_name);
     writeln!(f)?;
     writeln!(f, "id!({}Id);", camel_obj_name)?;
+    writeln!(f)?;
+    writeln!(
+        f,
+        "pub const {}: Interface = Interface(\"{}\");",
+        camel_obj_name, obj_name
+    )?;
     let contents = std::fs::read(file.path())?;
     let messages = parse_messages(&contents)?;
     if messages.is_empty() {
@@ -703,7 +706,7 @@ pub fn main() -> Result<()> {
     writeln!(f, "use bstr::BStr;")?;
     writeln!(f, "use crate::fixed::Fixed;")?;
     writeln!(f, "use crate::client::{{EventFormatter, RequestParser}};")?;
-    writeln!(f, "use crate::object::ObjectId;")?;
+    writeln!(f, "use crate::object::{{ObjectId, Interface}};")?;
     writeln!(
         f,
         "use crate::utils::buffd::{{MsgFormatter, MsgParser, MsgParserError}};"

@@ -443,7 +443,7 @@ impl SurfaceExt for XdgSurface {
         Ok(CommitAction::ContinueCommit)
     }
 
-    fn post_commit(&self) {
+    fn post_commit(self: Rc<Self>) {
         if let Some(ext) = self.ext.get() {
             ext.post_commit();
         }
