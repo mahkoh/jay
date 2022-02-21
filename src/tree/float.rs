@@ -1,16 +1,20 @@
 use crate::cursor::KnownCursor;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::{Renderer, Texture};
 use crate::theme::Color;
 use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::{LinkedNode};
 use crate::{text, CloneCell, ErrorFmt, State};
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
+use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
+use ahash::AHashMap;
+use crate::backend::KeyState;
+use crate::fixed::Fixed;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {
@@ -28,6 +32,31 @@ pub struct FloatNode {
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
     pub title_texture: CloneCell<Option<Rc<Texture>>>,
+    seats: RefCell<AHashMap<SeatId, SeatState>>,
+}
+
+struct SeatState {
+    cursor: KnownCursor,
+    target: bool,
+    x: i32,
+    y: i32,
+    op_type: OpType,
+    op_active: bool,
+    dist_hor: i32,
+    dist_ver: i32,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum OpType {
+    Move,
+    ResizeLeft,
+    ResizeTop,
+    ResizeRight,
+    ResizeBottom,
+    ResizeTopLeft,
+    ResizeTopRight,
+    ResizeBottomLeft,
+    ResizeBottomRight,
 }
 
 pub async fn float_layout(state: Rc<State>) {
@@ -70,6 +99,7 @@ impl FloatNode {
             render_titles_scheduled: Cell::new(false),
             title: Default::default(),
             title_texture: Default::default(),
+            seats: Default::default(),
         });
         floater
             .display_link
@@ -128,6 +158,7 @@ impl FloatNode {
         self.render_titles_scheduled.set(false);
         let theme = &self.state.theme;
         let th = theme.title_height.get();
+        let bw = theme.border_width.get();
         let font = theme.font.borrow_mut();
         let title = self.title.borrow_mut();
         self.title_texture.set(None);
@@ -136,7 +167,7 @@ impl FloatNode {
             Some(c) => c,
             _ => return,
         };
-        let texture = match text::render(&ctx, pos.width(), th, &font, &title, Color::GREY) {
+        let texture = match text::render(&ctx, pos.width() - 2 * bw, th, &font, &title, Color::GREY) {
             Ok(t) => t,
             Err(e) => {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
@@ -145,6 +176,118 @@ impl FloatNode {
         };
         self.title_texture.set(Some(texture));
     }
+
+    fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
+        let theme = &self.state.theme;
+        let bw = theme.border_width.get();
+        let mut seats = self.seats.borrow_mut();
+        let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
+            cursor: KnownCursor::Default,
+            target: false,
+            x,
+            y,
+            op_type: OpType::Move,
+            op_active: false,
+            dist_hor: 0,
+            dist_ver: 0
+        });
+        seat_state.x = x;
+        seat_state.y = y;
+        let pos = self.position.get();
+        if seat_state.op_active {
+            let mut x1 = pos.x1();
+            let mut y1 = pos.y1();
+            let mut x2 = pos.x2();
+            let mut y2 = pos.y2();
+            match seat_state.op_type {
+                OpType::Move => {
+                    let dx = x - seat_state.dist_hor;
+                    let dy = y - seat_state.dist_ver;
+                    x1 += dx;
+                    y1 += dy;
+                    x2 += dx;
+                    y2 += dy;
+                }
+                OpType::ResizeLeft => {
+                    x1 += x - seat_state.dist_hor;
+                }
+                OpType::ResizeTop => {
+                    y1 += y - seat_state.dist_ver;
+                }
+                OpType::ResizeRight => {
+                    x2 += x - pos.width() + seat_state.dist_hor;
+                }
+                OpType::ResizeBottom => {
+                    y2 += y - pos.height() + seat_state.dist_ver;
+                }
+                OpType::ResizeTopLeft => {
+                    x1 += x - seat_state.dist_hor;
+                    y1 += y - seat_state.dist_ver;
+                }
+                OpType::ResizeTopRight => {
+                    x2 += x - pos.width() + seat_state.dist_hor;
+                    y1 += y - seat_state.dist_ver;
+                }
+                OpType::ResizeBottomLeft => {
+                    x1 += x - seat_state.dist_hor;
+                    y2 += y - pos.height() + seat_state.dist_ver;
+                }
+                OpType::ResizeBottomRight => {
+                    x2 += x - pos.width() + seat_state.dist_hor;
+                    y2 += y - pos.height() + seat_state.dist_ver;
+                }
+            }
+            self.position.set(Rect::new(x1, y1, x2, y2).unwrap());
+            self.schedule_layout();
+            return;
+        }
+        let resize_left = x < bw;
+        let resize_right = x >= pos.width() - bw;
+        let resize_top = y < bw;
+        let resize_bottom = y >= pos.height() - bw;
+        let id = 0
+            | ((resize_left as usize) << 0)
+            | ((resize_right as usize) << 1)
+            | ((resize_top as usize) << 2)
+            | ((resize_bottom as usize) << 3);
+        const OP_TYPES: [OpType; 16] = [
+            OpType::Move,              // 0000
+            OpType::ResizeLeft,        // 0001
+            OpType::ResizeRight,       // 0010
+            OpType::Move,              // 0011
+            OpType::ResizeTop,         // 0100
+            OpType::ResizeTopLeft,     // 0101
+            OpType::ResizeTopRight,    // 0110
+            OpType::Move,              // 0111
+            OpType::ResizeBottom,      // 1000
+            OpType::ResizeBottomLeft,  // 1001
+            OpType::ResizeBottomRight, // 1010
+            OpType::Move,              // 1011
+            OpType::Move,              // 1100
+            OpType::Move,              // 1101
+            OpType::Move,              // 1110
+            OpType::Move,              // 1111
+        ];
+        let op_type = OP_TYPES[id];
+        let new_cursor = match op_type {
+            OpType::Move => KnownCursor::Default,
+            OpType::ResizeLeft => KnownCursor::ResizeLeftRight,
+            OpType::ResizeTop => KnownCursor::ResizeTopBottom,
+            OpType::ResizeRight => KnownCursor::ResizeLeftRight,
+            OpType::ResizeBottom => KnownCursor::ResizeTopBottom,
+            OpType::ResizeTopLeft => KnownCursor::ResizeTopLeft,
+            OpType::ResizeTopRight => KnownCursor::ResizeTopRight,
+            OpType::ResizeBottomLeft => KnownCursor::ResizeBottomLeft,
+            OpType::ResizeBottomRight => KnownCursor::ResizeBottomRight,
+        };
+        seat_state.op_type = op_type;
+        if new_cursor != mem::replace(&mut seat_state.cursor, new_cursor) {
+            if seat_state.target {
+                seat.set_known_cursor(new_cursor);
+            }
+        }
+    }
+
 }
 
 impl Debug for FloatNode {
@@ -178,6 +321,52 @@ impl Node for FloatNode {
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.child.get() {
             c.visit(visitor);
+        }
+    }
+
+    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+        if button != BTN_LEFT {
+            return;
+        }
+        let mut seat_datas = self.seats.borrow_mut();
+        let seat_data = match seat_datas.get_mut(&seat.id()) {
+            Some(s) => s,
+            _ => return,
+        };
+        if !seat_data.op_active {
+            if state != KeyState::Pressed {
+                return;
+            }
+            seat_data.op_active = true;
+            let pos = self.position.get();
+            match seat_data.op_type {
+                OpType::Move => {
+                    seat_data.dist_hor = seat_data.x;
+                    seat_data.dist_ver = seat_data.y;
+                },
+                OpType::ResizeLeft => seat_data.dist_hor = seat_data.x,
+                OpType::ResizeTop => seat_data.dist_ver = seat_data.y,
+                OpType::ResizeRight => seat_data.dist_hor = pos.width() - seat_data.x,
+                OpType::ResizeBottom => seat_data.dist_ver = pos.height() - seat_data.y,
+                OpType::ResizeTopLeft => {
+                    seat_data.dist_hor = seat_data.x;
+                    seat_data.dist_ver = seat_data.y;
+                }
+                OpType::ResizeTopRight => {
+                    seat_data.dist_hor = pos.width() - seat_data.x;
+                    seat_data.dist_ver = seat_data.y;
+                }
+                OpType::ResizeBottomLeft => {
+                    seat_data.dist_hor = seat_data.x;
+                    seat_data.dist_ver = pos.height() - seat_data.y;
+                }
+                OpType::ResizeBottomRight => {
+                    seat_data.dist_hor = pos.width() - seat_data.x;
+                    seat_data.dist_ver = pos.height() - seat_data.y;
+                }
+            }
+        } else if state == KeyState::Released {
+            seat_data.op_active = false;
         }
     }
 
@@ -219,6 +408,29 @@ impl Node for FloatNode {
         child.find_tree_at(x, y, tree)
     }
 
+    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
+    fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
+        let mut seats = self.seats.borrow_mut();
+        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+            seat_state.target = false;
+        }
+    }
+
+    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+        let mut seats = self.seats.borrow_mut();
+        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+            seat_state.target = true;
+            seat.set_known_cursor(seat_state.cursor);
+        }
+    }
+
+    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
     fn remove_child(self: Rc<Self>, _child: &dyn Node) {
         self.child.set(None);
         self.display_link.set(None);
@@ -227,10 +439,6 @@ impl Node for FloatNode {
 
     fn child_active_changed(&self, _child: &dyn Node, active: bool) {
         self.active.set(active);
-    }
-
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

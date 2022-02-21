@@ -306,6 +306,10 @@ impl WlSeatGlobal {
             KnownCursor::Default => &cursors.default,
             KnownCursor::ResizeLeftRight => &cursors.resize_left_right,
             KnownCursor::ResizeTopBottom => &cursors.resize_top_bottom,
+            KnownCursor::ResizeTopLeft => &cursors.resize_top_left,
+            KnownCursor::ResizeTopRight => &cursors.resize_top_right,
+            KnownCursor::ResizeBottomLeft => &cursors.resize_bottom_left,
+            KnownCursor::ResizeBottomRight => &cursors.resize_bottom_right,
         };
         self.set_cursor(Some(tpl.instantiate()));
     }

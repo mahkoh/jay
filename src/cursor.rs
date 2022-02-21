@@ -54,6 +54,10 @@ pub enum KnownCursor {
     Default,
     ResizeLeftRight,
     ResizeTopBottom,
+    ResizeTopLeft,
+    ResizeTopRight,
+    ResizeBottomLeft,
+    ResizeBottomRight,
 }
 
 impl ServerCursors {
@@ -72,7 +76,7 @@ impl ServerCursors {
             resize_left_right: load("h_double_arrow")?,
             resize_top_left: load("top_left_corner")?,
             resize_top_right: load("top_right_corner")?,
-            resize_bottom_left: load("top_left_corner")?,
+            resize_bottom_left: load("bottom_left_corner")?,
             resize_bottom_right: load("bottom_right_corner")?,
         })
     }

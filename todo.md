@@ -1,15 +1,16 @@
 # todo
 
 - Container moving (mouse)
-- Float toggle
 - Workspaces
-- Float moving
 - presentation time
 - viewporter
 - session lock
+- layer shell
 
 # done
 
+- Float moving
+- Float toggle
 - Container moving (kb)
 - Container resizing
 - clipboard
