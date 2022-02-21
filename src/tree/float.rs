@@ -1,10 +1,10 @@
 use crate::cursor::KnownCursor;
-use crate::ifs::wl_seat::{BTN_LEFT, NodeSeatState, SeatId, WlSeatGlobal};
+use crate::ifs::wl_seat::{BTN_LEFT, Dnd, NodeSeatState, SeatId, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::{Renderer, Texture};
 use crate::theme::Color;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::linkedlist::{LinkedNode};
 use crate::{text, CloneCell, ErrorFmt, State};
 use std::cell::{Cell, RefCell};
@@ -13,8 +13,12 @@ use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 use ahash::AHashMap;
-use crate::backend::KeyState;
+use i4config::Direction;
+use crate::backend::{KeyState, ScrollAxis};
+use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
+use crate::ifs::wl_surface::WlSurface;
+use crate::xkbcommon::ModifierState;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {
@@ -163,6 +167,9 @@ impl FloatNode {
         let title = self.title.borrow_mut();
         self.title_texture.set(None);
         let pos = self.position.get();
+        if pos.width() <= 2 * bw {
+            return;
+        }
         let ctx = match self.state.render_ctx.get() {
             Some(c) => c,
             _ => return,
@@ -180,6 +187,7 @@ impl FloatNode {
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
         let theme = &self.state.theme;
         let bw = theme.border_width.get();
+        let th = theme.title_height.get();
         let mut seats = self.seats.borrow_mut();
         let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
             cursor: KnownCursor::Default,
@@ -210,31 +218,43 @@ impl FloatNode {
                 }
                 OpType::ResizeLeft => {
                     x1 += x - seat_state.dist_hor;
+                    x1 = x1.min(x2 - 2 * bw);
                 }
                 OpType::ResizeTop => {
                     y1 += y - seat_state.dist_ver;
+                    y1 = y1.min(y2 - 2 * bw - th - 1);
                 }
                 OpType::ResizeRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
+                    x2 = x2.max(x1 + 2 * bw);
                 }
                 OpType::ResizeBottom => {
                     y2 += y - pos.height() + seat_state.dist_ver;
+                    y2 = y2.max(y1 + 2 * bw + th + 1);
                 }
                 OpType::ResizeTopLeft => {
                     x1 += x - seat_state.dist_hor;
                     y1 += y - seat_state.dist_ver;
+                    x1 = x1.min(x2 - 2 * bw);
+                    y1 = y1.min(y2 - 2 * bw - th - 1);
                 }
                 OpType::ResizeTopRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
                     y1 += y - seat_state.dist_ver;
+                    x2 = x2.max(x1 + 2 * bw);
+                    y1 = y1.min(y2 - 2 * bw - th - 1);
                 }
                 OpType::ResizeBottomLeft => {
                     x1 += x - seat_state.dist_hor;
                     y2 += y - pos.height() + seat_state.dist_ver;
+                    x1 = x1.min(x2 - 2 * bw);
+                    y2 = y2.max(y1 + 2 * bw + th + 1);
                 }
                 OpType::ResizeBottomRight => {
                     x2 += x - pos.width() + seat_state.dist_hor;
                     y2 += y - pos.height() + seat_state.dist_ver;
+                    x2 = x2.max(x1 + 2 * bw);
+                    y2 = y2.max(y1 + 2 * bw + th + 1);
                 }
             }
             self.position.set(Rect::new(x1, y1, x2, y2).unwrap());
@@ -391,7 +411,7 @@ impl Node for FloatNode {
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;
         }
-        if y < bw + th + 1 || x >= pos.height() - bw {
+        if y < bw + th + 1 || y >= pos.height() - bw {
             return FindTreeResult::AcceptsInput;
         }
         let child = match self.child.get() {
@@ -429,6 +449,13 @@ impl Node for FloatNode {
 
     fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
+    fn replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn Node>) {
+        self.child.set(Some(new.clone()));
+        new.clone().set_parent(self.clone());
+        new.clone().set_workspace(&self.workspace.get());
+        self.schedule_layout();
     }
 
     fn remove_child(self: Rc<Self>, _child: &dyn Node) {
