@@ -216,21 +216,21 @@ pub trait Node {
         let _ = seat;
     }
 
-    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         let _ = seat;
         let _ = x;
         let _ = y;
     }
 
-    fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
 
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         let _ = seat;
     }
 
-    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         let _ = seat;
         let _ = x;
         let _ = y;
@@ -418,7 +418,7 @@ impl Node for DisplayNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         seat.set_known_cursor(KnownCursor::Default);
     }
 }
@@ -491,7 +491,7 @@ impl Node for OutputNode {
         self.workspace.set(None);
     }
 
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         seat.set_known_cursor(KnownCursor::Default);
     }
 

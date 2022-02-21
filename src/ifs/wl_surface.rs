@@ -705,11 +705,11 @@ impl Node for WlSurface {
         seat.leave_surface(self);
     }
 
-    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.enter_surface(&self, x, y)
     }
 
-    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.motion_surface(&*self, x, y)
     }
 

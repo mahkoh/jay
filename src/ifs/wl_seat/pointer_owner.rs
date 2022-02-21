@@ -149,11 +149,11 @@ impl PointerOwner for DefaultPointerOwner {
             if let Some(node) = found_tree.last() {
                 node.node
                     .clone()
-                    .motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
+                    .pointer_motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
             }
         } else {
             if let Some(last) = stack.last() {
-                last.pointer_untarget(seat);
+                last.pointer_unfocus(seat);
             }
             for old in stack.drain(divergence..).rev() {
                 old.leave(seat);
@@ -163,19 +163,19 @@ impl PointerOwner for DefaultPointerOwner {
                 if let Some(node) = found_tree.last() {
                     node.node
                         .clone()
-                        .motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
+                        .pointer_motion(seat, x.apply_fract(node.x), y.apply_fract(node.y));
                 }
             } else {
                 for new in found_tree.drain(divergence..) {
                     new.node.seat_state().enter(seat);
                     new.node
                         .clone()
-                        .enter(seat, x.apply_fract(new.x), y.apply_fract(new.y));
+                        .pointer_enter(seat, x.apply_fract(new.x), y.apply_fract(new.y));
                     stack.push(new.node);
                 }
             }
             if let Some(node) = stack.last() {
-                node.pointer_target(seat);
+                node.pointer_focus(seat);
             }
         }
         found_tree.clear();
@@ -245,7 +245,7 @@ impl PointerOwner for GrabPointerOwner {
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
         self.node
             .clone()
-            .motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
+            .pointer_motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
     }
 
     fn start_drag(

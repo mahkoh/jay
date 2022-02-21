@@ -293,11 +293,11 @@ impl Node for XdgPopup {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.enter_popup(&self);
     }
 
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         seat.set_known_cursor(KnownCursor::Default);
     }
 

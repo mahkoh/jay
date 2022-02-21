@@ -345,7 +345,7 @@ impl ContainerNode {
                     }
                     _ => {
                         let height = body.height() + add;
-                        (0, pos, other_content_size, height, height)
+                        (0, pos + title_height + 1, other_content_size, height, height)
                     }
                 };
                 body = Rect::new_sized(x1, y1, width, height).unwrap();
@@ -959,18 +959,18 @@ impl Node for ContainerNode {
         node.active.set(active);
     }
 
-    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
-    fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = false;
         }
     }
 
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
+    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = true;
@@ -978,7 +978,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 

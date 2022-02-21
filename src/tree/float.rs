@@ -1,24 +1,20 @@
+use crate::backend::KeyState;
 use crate::cursor::KnownCursor;
-use crate::ifs::wl_seat::{BTN_LEFT, Dnd, NodeSeatState, SeatId, WlSeatGlobal};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
 use crate::rect::Rect;
 use crate::render::{Renderer, Texture};
 use crate::theme::Color;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::linkedlist::{LinkedNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::utils::linkedlist::LinkedNode;
 use crate::{text, CloneCell, ErrorFmt, State};
+use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
-use ahash::AHashMap;
-use i4config::Direction;
-use crate::backend::{KeyState, ScrollAxis};
-use crate::client::{Client, ClientId};
-use crate::fixed::Fixed;
-use crate::ifs::wl_surface::WlSurface;
-use crate::xkbcommon::ModifierState;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {
@@ -174,7 +170,8 @@ impl FloatNode {
             Some(c) => c,
             _ => return,
         };
-        let texture = match text::render(&ctx, pos.width() - 2 * bw, th, &font, &title, Color::GREY) {
+        let texture = match text::render(&ctx, pos.width() - 2 * bw, th, &font, &title, Color::GREY)
+        {
             Ok(t) => t,
             Err(e) => {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
@@ -197,7 +194,7 @@ impl FloatNode {
             op_type: OpType::Move,
             op_active: false,
             dist_hor: 0,
-            dist_ver: 0
+            dist_ver: 0,
         });
         seat_state.x = x;
         seat_state.y = y;
@@ -307,7 +304,6 @@ impl FloatNode {
             }
         }
     }
-
 }
 
 impl Debug for FloatNode {
@@ -344,6 +340,19 @@ impl Node for FloatNode {
         }
     }
 
+    fn child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
+        let mut t = self.title.borrow_mut();
+        if t.deref() != title {
+            t.clear();
+            t.push_str(title);
+            self.schedule_render_titles();
+        }
+    }
+
+    fn absolute_position(&self) -> Rect {
+        self.position.get()
+    }
+
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
         if button != BTN_LEFT {
             return;
@@ -363,7 +372,7 @@ impl Node for FloatNode {
                 OpType::Move => {
                     seat_data.dist_hor = seat_data.x;
                     seat_data.dist_ver = seat_data.y;
-                },
+                }
                 OpType::ResizeLeft => seat_data.dist_hor = seat_data.x,
                 OpType::ResizeTop => seat_data.dist_ver = seat_data.y,
                 OpType::ResizeRight => seat_data.dist_hor = pos.width() - seat_data.x,
@@ -388,19 +397,6 @@ impl Node for FloatNode {
         } else if state == KeyState::Released {
             seat_data.op_active = false;
         }
-    }
-
-    fn child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
-        let mut t = self.title.borrow_mut();
-        if t.deref() != title {
-            t.clear();
-            t.push_str(title);
-            self.schedule_render_titles();
-        }
-    }
-
-    fn absolute_position(&self) -> Rect {
-        self.position.get()
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -428,29 +424,6 @@ impl Node for FloatNode {
         child.find_tree_at(x, y, tree)
     }
 
-    fn enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
-    }
-
-    fn pointer_untarget(&self, seat: &Rc<WlSeatGlobal>) {
-        let mut seats = self.seats.borrow_mut();
-        if let Some(seat_state) = seats.get_mut(&seat.id()) {
-            seat_state.target = false;
-        }
-    }
-
-    fn pointer_target(&self, seat: &Rc<WlSeatGlobal>) {
-        let mut seats = self.seats.borrow_mut();
-        if let Some(seat_state) = seats.get_mut(&seat.id()) {
-            seat_state.target = true;
-            seat.set_known_cursor(seat_state.cursor);
-        }
-    }
-
-    fn motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
-    }
-
     fn replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn Node>) {
         self.child.set(Some(new.clone()));
         new.clone().set_parent(self.clone());
@@ -466,6 +439,29 @@ impl Node for FloatNode {
 
     fn child_active_changed(&self, _child: &dyn Node, active: bool) {
         self.active.set(active);
+    }
+
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
+    fn pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
+        let mut seats = self.seats.borrow_mut();
+        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+            seat_state.target = false;
+        }
+    }
+
+    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        let mut seats = self.seats.borrow_mut();
+        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+            seat_state.target = true;
+            seat.set_known_cursor(seat_state.cursor);
+        }
+    }
+
+    fn pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
