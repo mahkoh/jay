@@ -157,7 +157,7 @@ impl BufFdOut {
         Ok(false)
     }
 
-    pub async fn flush2(&mut self, buf: &[u8], fds: &mut Vec<OwnedFd>) -> Result<(), BufFdError> {
+    pub async fn flush2(&mut self, buf: &[u8], fds: &mut Vec<Rc<OwnedFd>>) -> Result<(), BufFdError> {
         let mut read_pos = 0;
         while read_pos < buf.len() {
             if self.flush_sync2(&mut read_pos, buf, fds)? {
@@ -171,7 +171,7 @@ impl BufFdOut {
         &mut self,
         read_pos: &mut usize,
         buf: &[u8],
-        fds: &mut Vec<OwnedFd>,
+        fds: &mut Vec<Rc<OwnedFd>>,
     ) -> Result<bool, BufFdError> {
         let mut cmsg_len = 0;
         let mut fds_opt = None;

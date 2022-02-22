@@ -81,6 +81,7 @@ mod utils;
 mod wheel;
 mod wire;
 mod xkbcommon;
+mod xwayland;
 
 fn main() {
     env_logger::builder()
