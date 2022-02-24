@@ -39,6 +39,10 @@ impl<T> AsyncQueue<T> {
         AsyncQueuePop { queue: self }
     }
 
+    pub fn non_empty<'a>(&'a self) -> AsyncQueueNonEmpty<'a, T> {
+        AsyncQueueNonEmpty { queue: self }
+    }
+
     pub fn clear(&self) {
         mem::take(&mut *self.data.borrow_mut());
         self.waiter.take();
@@ -55,6 +59,23 @@ impl<'a, T> Future for AsyncQueuePop<'a, T> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if let Some(t) = self.queue.try_pop() {
             Poll::Ready(t)
+        } else {
+            self.queue.waiter.set(Some(cx.waker().clone()));
+            Poll::Pending
+        }
+    }
+}
+
+pub struct AsyncQueueNonEmpty<'a, T> {
+    queue: &'a AsyncQueue<T>,
+}
+
+impl<'a, T> Future for AsyncQueueNonEmpty<'a, T> {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.queue.data.borrow_mut().len() > 0 {
+            Poll::Ready(())
         } else {
             self.queue.waiter.set(Some(cx.waker().clone()));
             Poll::Pending

@@ -2,6 +2,7 @@ pub mod cursor;
 pub mod wl_subsurface;
 pub mod xdg_surface;
 pub mod zwlr_layer_surface_v1;
+pub mod xwindow;
 
 use crate::backend::{KeyState, ScrollAxis};
 use crate::client::{Client, ClientError, RequestParser};
@@ -12,6 +13,7 @@ use crate::ifs::wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceRole};
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::pixman::Region;
@@ -35,7 +37,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -52,6 +53,7 @@ pub enum SurfaceRole {
     Cursor,
     DndIcon,
     ZwlrLayerSurface,
+    XSurface,
 }
 
 impl SurfaceRole {
@@ -63,6 +65,7 @@ impl SurfaceRole {
             SurfaceRole::Cursor => "cursor",
             SurfaceRole::DndIcon => "dnd_icon",
             SurfaceRole::ZwlrLayerSurface => "zwlr_layer_surface",
+            SurfaceRole::XSurface => "xwayland surface",
         }
     }
 }
@@ -121,6 +124,14 @@ trait SurfaceExt {
 
     fn is_some(&self) -> bool {
         true
+    }
+
+    fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
+        if self.is_some() {
+            Err(WlSurfaceError::ReloObjectStillExists)
+        } else {
+            Ok(())
+        }
     }
 
     fn update_subsurface_parent_extents(&self) {
@@ -343,10 +354,8 @@ impl WlSurface {
         let _req: Destroy = self.parse(parser)?;
         self.unset_dnd_icons();
         self.unset_cursors();
+        self.ext.get().on_surface_destroy()?;
         self.destroy_node(true);
-        if self.ext.get().is_some() {
-            return Err(DestroyError::ReloObjectStillExists);
-        }
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -784,6 +793,8 @@ pub enum WlSurfaceError {
         old: SurfaceRole,
         new: SurfaceRole,
     },
+    #[error("Cannot destroy a `wl_surface` before its role object")]
+    ReloObjectStillExists,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
@@ -805,11 +816,12 @@ pub enum DestroyError {
     ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Cannot destroy a `wl_surface` before its role object")]
-    ReloObjectStillExists,
+    #[error(transparent)]
+    WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(DestroyError, ParseFailed, MsgParserError);
 efrom!(DestroyError, ClientError);
+efrom!(DestroyError, WlSurfaceError);
 
 #[derive(Debug, Error)]
 pub enum AttachError {

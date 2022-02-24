@@ -1,22 +1,22 @@
 use crate::backend::Output;
 use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
+use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::rect::Rect;
+use crate::tree::OutputNode;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
+use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::wl_output::*;
 use crate::wire::{WlOutputId, ZxdgOutputV1Id};
+use crate::CloneCell;
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::CloneCell;
-use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
-use crate::rect::Rect;
-use crate::tree::OutputNode;
-use crate::utils::copyhashmap::CopyHashMap;
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]
@@ -83,7 +83,8 @@ impl WlOutputGlobal {
         let changed = old_width != width || old_height != height;
 
         if changed {
-            self.pos.set(Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap());
+            self.pos
+                .set(Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap());
             let bindings = self.bindings.borrow_mut();
             for binding in bindings.values() {
                 for binding in binding.values() {

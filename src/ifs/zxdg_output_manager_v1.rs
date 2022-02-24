@@ -1,14 +1,14 @@
 use crate::client::{Client, ClientError};
 use crate::globals::{Global, GlobalName};
+use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::zxdg_output_manager_v1::*;
-use crate::wire::{ZxdgOutputManagerV1Id};
+use crate::wire::ZxdgOutputManagerV1Id;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 
 pub struct ZxdgOutputManagerV1Global {
     name: GlobalName,
@@ -51,10 +51,7 @@ impl ZxdgOutputManagerV1 {
         Ok(())
     }
 
-    fn get_xdg_output(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetXdgOutputError> {
+    fn get_xdg_output(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetXdgOutputError> {
         let req: GetXdgOutput = self.client.parse(&**self, parser)?;
         let output = self.client.lookup(req.output)?;
         let xdg_output = Rc::new(ZxdgOutputV1 {
@@ -62,7 +59,7 @@ impl ZxdgOutputManagerV1 {
             version: self.version,
             client: self.client.clone(),
             output: output.clone(),
-            tracker: Default::default()
+            tracker: Default::default(),
         });
         track!(self.client, xdg_output);
         self.client.add_client_obj(&xdg_output)?;

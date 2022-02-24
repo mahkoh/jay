@@ -1,7 +1,7 @@
-use std::rc::Rc;
-use crate::CloneCell;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::tree::Node;
+use crate::CloneCell;
+use std::rc::Rc;
 
 pub struct KbOwnerHolder {
     default: Rc<DefaultKbOwner>,

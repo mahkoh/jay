@@ -117,9 +117,9 @@ impl State {
         let seat = self.seat_queue.last();
         if let Some(seat) = seat {
             if let Some(prev) = seat.last_tiled_keyboard_toplevel(&*node) {
-                if let Some(container) = prev.parent_node.get() {
+                if let Some(container) = prev.parent() {
                     if let Some(container) = container.into_container() {
-                        container.add_child_after(&*prev, node);
+                        container.add_child_after(prev.as_node(), node);
                         return;
                     }
                 }

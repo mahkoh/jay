@@ -1,9 +1,6 @@
 use i4config::embedded::grab_keyboard;
 use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
-use i4config::keyboard::syms::{
-    SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_period, SYM_r,
-    SYM_t, SYM_v, SYM_y,
-};
+use i4config::keyboard::syms::{SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_period, SYM_r, SYM_t, SYM_v, SYM_y, SYM_p};
 use i4config::theme::{get_title_height, set_title_color, set_title_height, Color};
 use i4config::Axis::{Horizontal, Vertical};
 use i4config::Direction::{Down, Left, Right, Up};
@@ -68,6 +65,8 @@ fn configure_seat(s: Seat) {
     s.bind(MOD | SHIFT | SYM_l, move || s.move_(Right));
 
     s.bind(SYM_Super_L, || Command::new("alacritty").spawn());
+
+    s.bind(MOD | SYM_p, || Command::new("xeyes").spawn());
 
     fn do_grab(s: Seat, grab: bool) {
         for device in s.input_devices() {

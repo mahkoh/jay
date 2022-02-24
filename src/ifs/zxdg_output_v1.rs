@@ -1,14 +1,16 @@
-use std::rc::Rc;
-use thiserror::Error;
 use crate::client::{Client, ClientError};
-use crate::ifs::wl_output::{SEND_DONE_SINCE, WlOutput};
+use crate::ifs::wl_output::{WlOutput, SEND_DONE_SINCE};
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::ZxdgOutputV1Id;
 use crate::wire::zxdg_output_v1::*;
+use crate::wire::ZxdgOutputV1Id;
+use std::rc::Rc;
+use thiserror::Error;
 
+#[allow(dead_code)]
 pub const NAME_SINCE: u32 = 2;
+#[allow(dead_code)]
 pub const DESCRIPTION_SINCE: u32 = 2;
 pub const NO_DONE_SINCE: u32 = 3;
 
@@ -38,11 +40,10 @@ impl ZxdgOutputV1 {
     }
 
     pub fn send_done(&self) {
-        self.client.event(Done {
-            self_id: self.id,
-        });
+        self.client.event(Done { self_id: self.id });
     }
 
+    #[allow(dead_code)]
     pub fn send_name(&self, name: &str) {
         self.client.event(Name {
             self_id: self.id,
@@ -50,6 +51,7 @@ impl ZxdgOutputV1 {
         });
     }
 
+    #[allow(dead_code)]
     pub fn send_description(&self, description: &str) {
         self.client.event(Description {
             self_id: self.id,

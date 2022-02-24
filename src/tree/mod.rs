@@ -14,17 +14,18 @@ use crate::NumCell;
 pub use container::*;
 pub use float::*;
 use i4config::Direction;
+pub use output::*;
 use std::fmt::{Debug, Display};
 use std::ops::Deref;
 use std::rc::Rc;
 pub use workspace::*;
-pub use output::*;
 
 mod container;
 mod float;
+mod output;
 pub mod walker;
 mod workspace;
-mod output;
+pub mod toplevel;
 
 pub struct NodeIds {
     next: NumCell<u32>,

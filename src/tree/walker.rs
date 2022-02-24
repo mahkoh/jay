@@ -1,10 +1,11 @@
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
 use crate::DisplayNode;
 use std::rc::Rc;
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
+use crate::ifs::wl_surface::xwindow::Xwindow;
 
 pub trait NodeVisitorBase: Sized {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
@@ -42,6 +43,10 @@ pub trait NodeVisitorBase: Sized {
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>) {
         node.visit_children(self);
     }
+
+    fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
+        node.visit_children(self);
+    }
 }
 
 pub trait NodeVisitor {
@@ -54,6 +59,7 @@ pub trait NodeVisitor {
     fn visit_float(&mut self, node: &Rc<FloatNode>);
     fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>);
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>);
+    fn visit_xwindow(&mut self, node: &Rc<Xwindow>);
 }
 
 impl<T: NodeVisitorBase> NodeVisitor for T {
@@ -91,6 +97,10 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
 
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>) {
         <T as NodeVisitorBase>::visit_layer_surface(self, node)
+    }
+
+    fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
+        <T as NodeVisitorBase>::visit_xwindow(self, node)
     }
 }
 

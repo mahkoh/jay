@@ -1,4 +1,4 @@
-#![feature(c_variadic, thread_local, label_break_value)]
+#![feature(c_variadic, thread_local, label_break_value, try_blocks)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,
@@ -178,7 +178,9 @@ fn main_() -> Result<(), MainError> {
     let _float_render_titles = engine.spawn2(Phase::PostLayout, float_titles(state.clone()));
     let socket_path = Acceptor::install(&state)?;
     forker.setenv(b"WAYLAND_DISPLAY", socket_path.as_bytes());
+    let _xwayland = engine.spawn(xwayland::manage(state.clone()));
     el.run()?;
+    drop(_xwayland);
     state.clients.clear();
     for (_, seat) in state.globals.seats.lock().deref() {
         seat.clear();

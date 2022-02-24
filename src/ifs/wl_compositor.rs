@@ -10,6 +10,7 @@ use crate::wire::wl_compositor::*;
 use crate::wire::WlCompositorId;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::xwayland::XWaylandEvent;
 
 pub struct WlCompositorGlobal {
     name: GlobalName,
@@ -51,6 +52,9 @@ impl WlCompositor {
         let surface = Rc::new(WlSurface::new(surface.id, &self.client));
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
+        if let Some(queue) = &self.client.xwayland_queue {
+            queue.push(XWaylandEvent::SurfaceCreated(surface.clone()));
+        }
         Ok(())
     }
 

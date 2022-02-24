@@ -27,8 +27,10 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
-use backtrace::Backtrace;
+
 use thiserror::Error;
+use crate::ifs::wl_surface::WlSurface;
+use crate::tree::toplevel::ToplevelNode;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {
@@ -75,7 +77,7 @@ pub struct XdgToplevel {
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
     states: RefCell<AHashSet<u32>>,
-    pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<XdgToplevel>>, 1>,
+    pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
     active_surfaces: NumCell<u32>,
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,
@@ -137,13 +139,6 @@ impl XdgToplevel {
             self.send_configure_checked(rect.width(), rect.height());
             self.xdg.do_send_configure();
         }
-    }
-
-    pub fn parent_is_float(&self) -> bool {
-        if let Some(parent) = self.parent_node.get() {
-            return parent.is_float();
-        }
-        false
     }
 
     fn send_configure_checked(&self, mut width: i32, mut height: i32) {
@@ -429,7 +424,7 @@ impl Node for XdgToplevel {
     }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
-        seat.focus_toplevel(&self);
+        seat.focus_toplevel(self);
     }
 
     fn absolute_position(&self) -> Rect {
@@ -441,7 +436,7 @@ impl Node for XdgToplevel {
     }
 
     fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.enter_toplevel(&self);
+        seat.enter_toplevel(self);
     }
 
     fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -475,6 +470,27 @@ impl Node for XdgToplevel {
 
     fn client(&self) -> Option<Rc<Client>> {
         Some(self.xdg.surface.client.clone())
+    }
+}
+
+impl ToplevelNode for XdgToplevel {
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        self.parent_node.get()
+    }
+
+    fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface> {
+        self.xdg
+            .focus_surface
+            .get(&seat.id())
+            .unwrap_or_else(|| self.xdg.surface.clone())
+    }
+
+    fn set_focus_history_link(&self, seat: &WlSeatGlobal, link: LinkedNode<Rc<dyn ToplevelNode>>) {
+        self.toplevel_history.insert(seat.id(), link);
+    }
+
+    fn as_node(&self) -> &dyn Node {
+        self
     }
 }
 
@@ -564,7 +580,7 @@ impl XdgSurfaceExt for XdgToplevel {
             {
                 let seats = surface.client.state.globals.lock_seats();
                 for seat in seats.values() {
-                    seat.focus_toplevel(&self);
+                    seat.focus_toplevel(self.clone());
                 }
             }
             surface.client.state.tree_changed();

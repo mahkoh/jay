@@ -231,12 +231,6 @@ impl XdgSurface {
         }
     }
 
-    pub fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface> {
-        self.focus_surface
-            .get(&seat.id())
-            .unwrap_or_else(|| self.surface.clone())
-    }
-
     fn destroy_node(&self) {
         self.workspace.set(None);
         self.surface.destroy_node(false);

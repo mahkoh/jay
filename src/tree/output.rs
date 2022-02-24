@@ -1,17 +1,17 @@
-use std::cell::{Cell, RefCell};
-use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
-use std::rc::Rc;
-use crate::{CloneCell, DisplayNode};
 use crate::cursor::KnownCursor;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::tree::walker::NodeVisitor;
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::linkedlist::LinkedList;
+use crate::{CloneCell, DisplayNode};
+use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
+use std::rc::Rc;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {

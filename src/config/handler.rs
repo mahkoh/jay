@@ -310,7 +310,7 @@ impl ConfigProxyHandler {
             Some(f) => f,
             _ => return Err(RunError::NoForker),
         };
-        forker.spawn(prog.to_string(), args, env);
+        forker.spawn(prog.to_string(), args, env, None);
         Ok(())
     }
 

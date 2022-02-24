@@ -8,8 +8,6 @@ use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
 use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
 use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, SeatId, WlSeat, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::WlSurface;
 use crate::object::ObjectId;
 use crate::tree::{FloatNode, Node};
@@ -23,6 +21,7 @@ use i4config::keyboard::ModifiedKeySym;
 use smallvec::SmallVec;
 use std::ops::Deref;
 use std::rc::Rc;
+use crate::tree::toplevel::ToplevelNode;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -86,7 +85,7 @@ impl NodeSeatState {
             seat.ungrab_kb();
             seat.keyboard_node.set(seat.state.root.clone());
             if let Some(tl) = seat.toplevel_focus_history.last() {
-                seat.focus_xdg_surface(&tl.xdg);
+                seat.focus_node(tl.focus_surface(&seat));
             }
         }
     }
@@ -201,7 +200,7 @@ impl WlSeatGlobal {
         self.pointer_stack.borrow().last().cloned()
     }
 
-    pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<XdgToplevel>> {
+    pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<dyn ToplevelNode>> {
         let is_container = new.is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
             if !tl.parent_is_float() && (!is_container || !tl.is_contained_in(new.id())) {
@@ -218,14 +217,10 @@ impl WlSeatGlobal {
         self.extents_start_pos.set((ex.x1(), ex.y1()));
     }
 
-    pub fn focus_toplevel(self: &Rc<Self>, n: &Rc<XdgToplevel>) {
+    pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
         let node = self.toplevel_focus_history.add_last(n.clone());
-        n.toplevel_history.insert(self.id(), node);
-        self.focus_xdg_surface(&n.xdg);
-    }
-
-    fn focus_xdg_surface(self: &Rc<Self>, xdg: &Rc<XdgSurface>) {
-        self.focus_node(xdg.focus_surface(self));
+        n.set_focus_history_link(self, node);
+        self.focus_node(n.focus_surface(self));
     }
 
     fn ungrab_kb(self: &Rc<Self>) {
@@ -415,7 +410,7 @@ impl WlSeatGlobal {
 
 // Enter callbacks
 impl WlSeatGlobal {
-    pub fn enter_toplevel(self: &Rc<Self>, n: &Rc<XdgToplevel>) {
+    pub fn enter_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
         self.focus_toplevel(n);
     }
 

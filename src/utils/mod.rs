@@ -12,4 +12,5 @@ pub mod ptr_ext;
 pub mod queue;
 pub mod smallmap;
 pub mod stack;
+pub mod tri;
 pub mod vec_ext;

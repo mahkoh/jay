@@ -10,6 +10,10 @@ use bstr::ByteSlice;
 use std::ffi::CString;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::drm::dma::{DmaBuf, DmaBufPlane};
+use crate::drm::INVALID_MODIFIER;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::RenderError;
 
 const PRIME: u32 = 1;
 
@@ -52,7 +56,7 @@ impl Global for WlDrmGlobal {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 
@@ -102,6 +106,60 @@ impl WlDrm {
         let _req: CreatePlanarBuffer = self.client.parse(&**self, parser)?;
         Err(CreatePlanarBufferError::Unsupported)
     }
+
+    fn create_prime_buffer(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), CreatePrimeBufferError> {
+        let req: CreatePrimeBuffer = self.client.parse(&**self, parser)?;
+        let ctx = match self.client.state.render_ctx.get() {
+            Some(ctx) => ctx,
+            None => return Err(CreatePrimeBufferError::NoRenderContext),
+        };
+        let formats = ctx.formats();
+        let format = match formats.get(&req.format) {
+            Some(f) => *f,
+            None => return Err(CreatePrimeBufferError::InvalidFormat(req.format)),
+        };
+        let mut dmabuf = DmaBuf {
+            width: req.width,
+            height: req.height,
+            format,
+            modifier: INVALID_MODIFIER,
+            planes: vec![],
+        };
+        if req.stride0 > 0 {
+            dmabuf.planes.push(DmaBufPlane {
+                offset: req.offset0 as _,
+                stride: req.stride0 as _,
+                fd: req.name.clone(),
+            });
+            if req.stride1 > 0 {
+                dmabuf.planes.push(DmaBufPlane {
+                    offset: req.offset1 as _,
+                    stride: req.stride1 as _,
+                    fd: req.name.clone(),
+                });
+                if req.stride2 > 0 {
+                    dmabuf.planes.push(DmaBufPlane {
+                        offset: req.offset2 as _,
+                        stride: req.stride2 as _,
+                        fd: req.name.clone(),
+                    });
+                }
+            }
+        }
+        let img = ctx.dmabuf_img(&dmabuf)?;
+        let buffer = Rc::new(WlBuffer::new_dmabuf(
+            req.id,
+            &self.client,
+            format,
+            &img,
+        ));
+        track!(self.client, buffer);
+        self.client.add_client_obj(&buffer)?;
+        Ok(())
+    }
 }
 
 object_base! {
@@ -110,11 +168,12 @@ object_base! {
     AUTHENTICATE => authenticate,
     CREATE_BUFFER => create_buffer,
     CREATE_PLANAR_BUFFER => create_planar_buffer,
+    CREATE_PRIME_BUFFER => create_prime_buffer,
 }
 
 impl Object for WlDrm {
     fn num_requests(&self) -> u32 {
-        CREATE_PLANAR_BUFFER + 1
+        CREATE_PRIME_BUFFER + 1
     }
 }
 
@@ -128,6 +187,8 @@ pub enum WlDrmError {
     CreateBufferError(#[from] CreateBufferError),
     #[error("Could not process a `create_planar_buffer` request")]
     CreatePlanarBufferError(#[from] CreatePlanarBufferError),
+    #[error("Could not process a `create_prime_buffer` request")]
+    CreatePrimeBufferError(#[from] CreatePrimeBufferError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
@@ -157,3 +218,19 @@ pub enum CreatePlanarBufferError {
     Unsupported,
 }
 efrom!(CreatePlanarBufferError, ParseError, MsgParserError);
+
+#[derive(Debug, Error)]
+pub enum CreatePrimeBufferError {
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
+    #[error("The compositor has no render context attached")]
+    NoRenderContext,
+    #[error("The format {0} is not supported")]
+    InvalidFormat(u32),
+    #[error("Could not import the buffer")]
+    ImportError(#[from] RenderError),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
+}
+efrom!(CreatePrimeBufferError, MsgParserError);
+efrom!(CreatePrimeBufferError, ClientError);

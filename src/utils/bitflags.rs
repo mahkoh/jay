@@ -1,11 +1,16 @@
 pub trait BitflagsExt {
     fn contains(self, other: Self) -> bool;
+    fn intersects(self, other: Self) -> bool;
 }
 
 macro_rules! num {
     ($ty:ident) => {
         impl BitflagsExt for $ty {
             fn contains(self, other: Self) -> bool {
+                self & other == other
+            }
+
+            fn intersects(self, other: Self) -> bool {
                 self & other != 0
             }
         }

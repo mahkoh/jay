@@ -74,7 +74,11 @@ impl BufFdIn {
             name: uapi::sockaddr_none_mut(),
             flags: 0,
         };
-        let (iov, _, mut cmsg) = match uapi::recvmsg(self.fd.raw(), &mut hdr, c::MSG_DONTWAIT) {
+        let (iov, _, mut cmsg) = match uapi::recvmsg(
+            self.fd.raw(),
+            &mut hdr,
+            c::MSG_DONTWAIT | c::MSG_CMSG_CLOEXEC,
+        ) {
             Ok((iov, _, _)) if iov.is_empty() => return Err(BufFdError::Closed),
             Ok(v) => v,
             Err(Errno(c::EAGAIN)) => return Ok(true),

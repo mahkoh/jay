@@ -1,29 +1,26 @@
-use std::cell::Cell;
-use std::ops::Deref;
-use crate::client::{Client, ClientError, ClientId};
-use crate::ifs::wl_output::{WlOutput, WlOutputGlobal};
-use crate::ifs::wl_surface::{CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
-use crate::ifs::zwlr_layer_shell_v1::{OVERLAY, ZwlrLayerShellV1};
+use crate::client::{Client, ClientError};
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_surface::{
+    CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+};
+use crate::ifs::zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY};
 use crate::leaks::Tracker;
 use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::zwlr_layer_surface_v1::*;
-use crate::wire::{WlSurfaceId, ZwlrLayerSurfaceV1Id};
-use std::rc::Rc;
-use thiserror::Error;
-use i4config::Direction;
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::{CloneCell, NumCell};
-use crate::backend::{KeyState, ScrollAxis};
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult, FloatNode, FoundNode, Node, NodeId, OutputNode, WorkspaceNode};
 use crate::tree::walker::NodeVisitor;
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
 use crate::utils::bitflags::BitflagsExt;
+use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
 use crate::utils::linkedlist::LinkedNode;
+use crate::wire::zwlr_layer_surface_v1::*;
+use crate::wire::{WlSurfaceId, ZwlrLayerSurfaceV1Id};
+use crate::NumCell;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
+use thiserror::Error;
 
 const KI_NONE: u32 = 0;
 #[allow(dead_code)]
@@ -100,7 +97,7 @@ impl ZwlrLayerSurfaceV1 {
             margin: Cell::new((0, 0, 0, 0)),
             keyboard_interactivity: Cell::new(0),
             link: Cell::new(None),
-            seat_state: Default::default()
+            seat_state: Default::default(),
         }
     }
 
@@ -132,7 +129,9 @@ impl ZwlrLayerSurfaceV1 {
         if req.width > u16::MAX as u32 || req.height > u16::MAX as u32 {
             return Err(SetSizeError::ExcessiveSize);
         }
-        self.pending.size.set(Some((req.width as _, req.height as _)));
+        self.pending
+            .size
+            .set(Some((req.width as _, req.height as _)));
         Ok(())
     }
 
@@ -153,16 +152,25 @@ impl ZwlrLayerSurfaceV1 {
 
     fn set_margin(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMarginError> {
         let req: SetMargin = self.client.parse(self, parser)?;
-        self.pending.margin.set(Some((req.top, req.right, req.bottom, req.left)));
+        self.pending
+            .margin
+            .set(Some((req.top, req.right, req.bottom, req.left)));
         Ok(())
     }
 
-    fn set_keyboard_interactivity(&self, parser: MsgParser<'_, '_>) -> Result<(), SetKeyboardInteractivityError> {
+    fn set_keyboard_interactivity(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), SetKeyboardInteractivityError> {
         let req: SetKeyboardInteractivity = self.client.parse(self, parser)?;
         if req.keyboard_interactivity > KI_ON_DEMAND {
-            return Err(SetKeyboardInteractivityError::UnknownKi(req.keyboard_interactivity));
+            return Err(SetKeyboardInteractivityError::UnknownKi(
+                req.keyboard_interactivity,
+            ));
         }
-        self.pending.keyboard_interactivity.set(Some(req.keyboard_interactivity));
+        self.pending
+            .keyboard_interactivity
+            .set(Some(req.keyboard_interactivity));
         Ok(())
     }
 
@@ -271,7 +279,8 @@ impl ZwlrLayerSurfaceV1 {
         } else if anchor.contains(BOTTOM) {
             y1 += opos.height() - height;
         }
-        self.pos.set(Rect::new_sized(x1, y1, width, height).unwrap());
+        self.pos
+            .set(Rect::new_sized(x1, y1, width, height).unwrap());
         self.client.state.tree_changed();
     }
 }
@@ -308,7 +317,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                     if was_active {
                         self.surface.active_changed(false);
                     }
-                },
+                }
                 KI_ON_DEMAND => self.surface.seat_state.release_kb_grab(),
                 KI_EXCLUSIVE => {
                     let seats = self.client.state.globals.seats.lock();
@@ -362,7 +371,7 @@ impl Node for ZwlrLayerSurfaceV1 {
         tree.push(FoundNode {
             node: self.surface.clone(),
             x,
-            y
+            y,
         });
         self.surface.find_tree_at(x, y, tree)
     }

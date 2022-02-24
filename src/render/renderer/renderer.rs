@@ -1,6 +1,7 @@
 use crate::format::{Format, ARGB8888};
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::gl::frame_buffer::{with_scissor, GlFrameBuffer};
@@ -21,7 +22,6 @@ use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 
 const NON_COLOR: Color = Color::from_rgbaf(0.2, 0.2, 0.2, 1.0);
 const CHILD_COLOR: Color = Color::from_rgbaf(0.8, 0.8, 0.8, 1.0);
@@ -49,7 +49,7 @@ impl Renderer<'_> {
                     let pos = ls.position();
                     self.render_layer_surface(ls.deref(), pos.x1(), pos.y1());
                 }
-            }
+            };
         }
         render_layer!(output.layers[0]);
         render_layer!(output.layers[1]);

@@ -22,6 +22,7 @@ use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
+use crate::xwayland::XWaylandEvent;
 
 mod error;
 mod objects;
@@ -92,6 +93,19 @@ impl Clients {
                 }
             }
         };
+        self.spawn2(id, global, socket, uid, pid, None)?;
+        Ok(())
+    }
+
+    pub fn spawn2(
+        &self,
+        id: ClientId,
+        global: &Rc<State>,
+        socket: OwnedFd,
+        uid: c::uid_t,
+        pid: c::pid_t,
+        xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
+    ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new(Client {
             id,
             state: global.clone(),
@@ -103,6 +117,7 @@ impl Clients {
             shutdown: Default::default(),
             dispatch_frame_requests: AsyncQueue::new(),
             tracker: Default::default(),
+            xwayland_queue,
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -111,7 +126,7 @@ impl Clients {
         data.objects.add_client_object(display).expect("");
         let client = ClientHolder {
             _handler: global.eng.spawn(tasks::client(data.clone())),
-            data,
+            data: data.clone(),
         };
         log::info!(
             "Client {} connected, pid: {}, uid: {}, fd: {}",
@@ -121,7 +136,7 @@ impl Clients {
             client.data.socket.raw()
         );
         self.clients.borrow_mut().insert(client.data.id, client);
-        Ok(())
+        Ok(data)
     }
 
     pub fn kill(&self, client: ClientId) {
@@ -193,6 +208,7 @@ pub struct Client {
     shutdown: AsyncEvent,
     pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
     pub tracker: Tracker<Client>,
+    pub xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
 }
 
 const MAX_PENDING_BUFFERS: usize = 10;

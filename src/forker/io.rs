@@ -1,13 +1,13 @@
+use bincode::{Decode, Encode};
 use std::mem;
 use std::rc::Rc;
-use bincode::{Decode, Encode};
-use bincode::error::EncodeError;
-use uapi::OwnedFd;
-use i4config::_private::bincode_ops;
+
 use crate::async_engine::AsyncFd;
-use crate::ForkerError;
 use crate::utils::buffd::{BufFdIn, BufFdOut};
 use crate::utils::vec_ext::VecExt;
+use crate::ForkerError;
+use i4config::_private::bincode_ops;
+use uapi::OwnedFd;
 
 pub struct IoIn {
     incoming: BufFdIn,
@@ -18,7 +18,7 @@ impl IoIn {
     pub fn new(fd: AsyncFd) -> Self {
         Self {
             incoming: BufFdIn::new(fd),
-            scratch: vec![]
+            scratch: vec![],
         }
     }
 
@@ -51,7 +51,7 @@ impl IoIn {
 pub struct IoOut {
     outgoing: BufFdOut,
     scratch: Vec<u8>,
-    fds: Vec<Rc<OwnedFd>>
+    fds: Vec<Rc<OwnedFd>>,
 }
 
 impl IoOut {
@@ -59,7 +59,7 @@ impl IoOut {
         Self {
             outgoing: BufFdOut::new(fd),
             scratch: vec![],
-            fds: vec![]
+            fds: vec![],
         }
     }
 

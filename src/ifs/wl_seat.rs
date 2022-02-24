@@ -1,9 +1,9 @@
 mod event_handling;
+mod kb_owner;
 mod pointer_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
-mod kb_owner;
 
 use crate::async_engine::SpawnedFuture;
 use crate::client::{Client, ClientError, ClientId};
@@ -16,11 +16,12 @@ use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::ifs::ipc::IpcError;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::ifs::wl_seat::kb_owner::KbOwnerHolder;
 use crate::ifs::wl_seat::pointer_owner::PointerOwnerHolder;
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
 use crate::ifs::wl_seat::wl_pointer::WlPointer;
 use crate::ifs::wl_seat::wl_touch::WlTouch;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
@@ -48,8 +49,7 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
-use crate::ifs::wl_output::{WlOutputGlobal};
-use crate::ifs::wl_seat::kb_owner::KbOwnerHolder;
+use crate::tree::toplevel::ToplevelNode;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -95,7 +95,7 @@ pub struct WlSeatGlobal {
     pos: Cell<(Fixed, Fixed)>,
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
     found_tree: RefCell<Vec<FoundNode>>,
-    toplevel_focus_history: LinkedList<Rc<XdgToplevel>>,
+    toplevel_focus_history: LinkedList<Rc<dyn ToplevelNode>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
