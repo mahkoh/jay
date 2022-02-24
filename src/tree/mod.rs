@@ -3,6 +3,7 @@ use crate::client::{Client, ClientId};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{Dnd, NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
 use crate::render::Renderer;
@@ -23,9 +24,9 @@ pub use workspace::*;
 mod container;
 mod float;
 mod output;
+pub mod toplevel;
 pub mod walker;
 mod workspace;
-pub mod toplevel;
 
 pub struct NodeIds {
     next: NumCell<u32>,
@@ -337,6 +338,7 @@ pub struct DisplayNode {
     pub id: NodeId,
     pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
+    pub xstacked: LinkedList<Rc<Xwindow>>,
     pub seat_state: NodeSeatState,
 }
 
@@ -346,6 +348,7 @@ impl DisplayNode {
             id,
             outputs: Default::default(),
             stacked: Default::default(),
+            xstacked: Default::default(),
             seat_state: Default::default(),
         }
     }

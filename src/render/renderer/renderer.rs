@@ -16,7 +16,7 @@ use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::render::Texture;
 use crate::theme::Color;
 use crate::tree::{
-    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, OutputNode, WorkspaceNode,
+    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, Node, OutputNode, WorkspaceNode,
 };
 use crate::State;
 use std::ops::Deref;
@@ -58,6 +58,10 @@ impl Renderer<'_> {
         }
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
+        for stacked in output.display.xstacked.iter() {
+            let pos = stacked.absolute_position();
+            stacked.render(self, pos.x1(), pos.y1());
+        }
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {

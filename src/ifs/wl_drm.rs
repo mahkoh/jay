@@ -1,19 +1,19 @@
 use crate::client::{Client, ClientError};
+use crate::drm::dma::{DmaBuf, DmaBufPlane};
+use crate::drm::INVALID_MODIFIER;
 use crate::globals::{Global, GlobalName};
+use crate::ifs::wl_buffer::WlBuffer;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_drm::*;
 use crate::wire::WlDrmId;
+use crate::RenderError;
 use bstr::ByteSlice;
 use std::ffi::CString;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::drm::dma::{DmaBuf, DmaBufPlane};
-use crate::drm::INVALID_MODIFIER;
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::RenderError;
 
 const PRIME: u32 = 1;
 
@@ -150,12 +150,7 @@ impl WlDrm {
             }
         }
         let img = ctx.dmabuf_img(&dmabuf)?;
-        let buffer = Rc::new(WlBuffer::new_dmabuf(
-            req.id,
-            &self.client,
-            format,
-            &img,
-        ));
+        let buffer = Rc::new(WlBuffer::new_dmabuf(req.id, &self.client, format, &img));
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())

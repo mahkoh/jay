@@ -1,8 +1,12 @@
 mod xsocket;
 mod xwm;
 
+use crate::client::ClientError;
 use crate::forker::ForkerProxy;
+use crate::ifs::wl_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::WlSurface;
 use crate::utils::tri::Try;
+use crate::wire::WlSurfaceId;
 use crate::xwayland::xsocket::allocate_socket;
 use crate::xwayland::xwm::Wm;
 use crate::{AsyncError, AsyncQueue, ErrorFmt, ForkerError, State};
@@ -11,11 +15,7 @@ use std::error::Error;
 use std::num::ParseIntError;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::{c, Errno, OwnedFd, pipe2};
-use crate::client::ClientError;
-use crate::ifs::wl_surface::WlSurface;
-use crate::ifs::wl_surface::xwindow::Xwindow;
-use crate::wire::WlSurfaceId;
+use uapi::{c, pipe2, Errno, OwnedFd};
 
 #[derive(Debug, Error)]
 enum XWaylandError {
@@ -63,6 +63,14 @@ enum XWaylandError {
     CreateXWindow(#[source] Box<dyn Error>),
     #[error("Could not acquire a selection")]
     SelectionOwner(#[source] Box<dyn Error>),
+    #[error("Could not load the resource database")]
+    ResourceDatabase(#[source] Box<dyn Error>),
+    #[error("Could not acquire a cursor handle")]
+    CursorHandle(#[source] Box<dyn Error>),
+    #[error("Could not load the default cursor")]
+    LoadCursor(#[source] Box<dyn Error>),
+    #[error("Could not set the cursor of the root window")]
+    SetCursor(#[source] Box<dyn Error>),
     #[error("composite_redirect_subwindows failed")]
     CompositeRedirectSubwindows(#[source] Box<dyn Error>),
     #[error("Could not spawn the Xwayland client")]
@@ -128,7 +136,11 @@ async fn run(
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
     };
-    let client = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK, 0);
+    let client = uapi::socketpair(
+        c::AF_UNIX,
+        c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
+        0,
+    );
     let (client1, client2) = match client {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
@@ -149,7 +161,9 @@ async fn run(
     };
     let client_id = state.clients.id();
     let queue = Rc::new(AsyncQueue::new());
-    let client = state.clients.spawn2(client_id, state, client1, 9999, 9999, Some(queue.clone()));
+    let client = state
+        .clients
+        .spawn2(client_id, state, client1, 9999, 9999, Some(queue.clone()));
     let client = match client {
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),

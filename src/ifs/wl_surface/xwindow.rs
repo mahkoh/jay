@@ -1,27 +1,29 @@
-use std::cell::Cell;
-use std::rc::Rc;
-use thiserror::Error;
-use x11rb::protocol::xproto::Window;
-use i4config::Direction;
 use crate::client::Client;
-use crate::{AsyncQueue, CloneCell, State};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::tree::toplevel::ToplevelNode;
 use crate::tree::walker::NodeVisitor;
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlSurfaceId;
 use crate::xwayland::XWaylandEvent;
+use crate::{AsyncQueue, CloneCell, State};
+use i4config::Direction;
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+use thiserror::Error;
+use x11rb::protocol::xproto::{CreateNotifyEvent, Window};
 
 pub struct XwindowData {
     pub state: Rc<State>,
     pub window_id: Window,
+    pub override_redirect: bool,
+    pub extents: Cell<Rect>,
     pub client: Rc<Client>,
     pub surface_id: Cell<Option<WlSurfaceId>>,
     pub window: CloneCell<Option<Rc<Xwindow>>>,
@@ -36,15 +38,20 @@ pub struct Xwindow {
     pub parent: CloneCell<Option<Rc<dyn Node>>>,
     pub focus_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
     pub events: Rc<AsyncQueue<XWaylandEvent>>,
-    pub extents: Cell<Rect>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    pub display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
+    pub display_xlink: RefCell<Option<LinkedNode<Rc<Xwindow>>>>,
 }
 
 impl XwindowData {
-    pub fn new(state: &Rc<State>, window_id: Window, client: &Rc<Client>) -> Self {
+    pub fn new(state: &Rc<State>, event: &CreateNotifyEvent, client: &Rc<Client>) -> Self {
+        let extents = Rect::new_sized(event.x as _, event.y as _, event.width as _, event.height as _).unwrap();
+        log::info!("extents = {:?}", extents);
         Self {
             state: state.clone(),
-            window_id,
+            window_id: event.window,
+            override_redirect: event.override_redirect,
+            extents: Cell::new(extents),
             client: client.clone(),
             surface_id: Cell::new(None),
             window: Default::default(),
@@ -53,7 +60,11 @@ impl XwindowData {
 }
 
 impl Xwindow {
-    pub fn new(data: &Rc<XwindowData>, surface: &Rc<WlSurface>, events: &Rc<AsyncQueue<XWaylandEvent>>) -> Self {
+    pub fn new(
+        data: &Rc<XwindowData>,
+        surface: &Rc<WlSurface>,
+        events: &Rc<AsyncQueue<XWaylandEvent>>,
+    ) -> Self {
         Self {
             id: data.state.node_ids.next(),
             seat_state: Default::default(),
@@ -62,8 +73,9 @@ impl Xwindow {
             parent: Default::default(),
             focus_history: Default::default(),
             events: events.clone(),
-            extents: Default::default(),
             workspace: Default::default(),
+            display_link: Default::default(),
+            display_xlink: Default::default(),
         }
     }
 
@@ -96,10 +108,8 @@ impl Xwindow {
         parent.child_size_changed(self, extents.width(), extents.height());
         // parent.child_title_changed(self, self.title.borrow_mut().deref());
     }
-}
 
-impl SurfaceExt for Xwindow {
-    fn post_commit(self: Rc<Self>) {
+    fn managed_post_commit(self: &Rc<Self>) {
         let parent = self.parent.get();
         if self.surface.buffer.get().is_some() {
             if parent.is_none() {
@@ -107,8 +117,36 @@ impl SurfaceExt for Xwindow {
             }
         } else {
             if parent.is_some() {
-               self.destroy_node(true);
+                self.destroy_node(true);
             }
+        }
+    }
+
+    fn unmanaged_post_commit(self: &Rc<Self>) {
+        let mut dl = self.display_link.borrow_mut();
+        let mut dxl = self.display_xlink.borrow_mut();
+        if self.surface.buffer.get().is_some() {
+            if dl.is_none() {
+                *dl = Some(self.data.state.root.stacked.add_last(self.clone()));
+                *dxl = Some(self.data.state.root.xstacked.add_last(self.clone()));
+                self.data.state.tree_changed();
+            }
+        } else {
+            if dl.is_some() {
+                drop(dl);
+                drop(dxl);
+                self.destroy_node(true);
+            }
+        }
+    }
+}
+
+impl SurfaceExt for Xwindow {
+    fn post_commit(self: Rc<Self>) {
+        if self.data.override_redirect {
+            self.unmanaged_post_commit();
+        } else {
+            self.managed_post_commit();
         }
     }
 
@@ -117,7 +155,8 @@ impl SurfaceExt for Xwindow {
         self.surface.unset_ext();
         self.data.window.set(None);
         self.data.surface_id.set(None);
-        self.events.push(XWaylandEvent::SurfaceDestroyed(self.surface.id));
+        self.events
+            .push(XWaylandEvent::SurfaceDestroyed(self.surface.id));
         Ok(())
     }
 
@@ -136,6 +175,8 @@ impl Node for Xwindow {
     }
 
     fn destroy_node(&self, _detach: bool) {
+        self.display_xlink.borrow_mut().take();
+        self.display_link.borrow_mut().take();
         self.workspace.take();
         self.focus_history.clear();
         if let Some(parent) = self.parent.take() {
@@ -168,7 +209,7 @@ impl Node for Xwindow {
     }
 
     fn absolute_position(&self) -> Rect {
-        self.extents.get()
+        self.data.extents.get()
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -200,7 +241,7 @@ impl Node for Xwindow {
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         let nw = rect.width();
         let nh = rect.height();
-        let de = self.extents.replace(*rect);
+        let de = self.data.extents.replace(*rect);
         if de.width() != nw || de.height() != nh {
             self.events.push(XWaylandEvent::Configure(self.clone()));
         }

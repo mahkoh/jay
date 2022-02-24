@@ -1,8 +1,8 @@
-use std::rc::Rc;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
 use crate::tree::Node;
 use crate::utils::linkedlist::LinkedNode;
+use std::rc::Rc;
 
 pub trait ToplevelNode: Node {
     fn parent(&self) -> Option<Rc<dyn Node>>;

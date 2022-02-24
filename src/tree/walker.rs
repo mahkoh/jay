@@ -1,11 +1,11 @@
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
 use crate::DisplayNode;
 use std::rc::Rc;
-use crate::ifs::wl_surface::xwindow::Xwindow;
 
 pub trait NodeVisitorBase: Sized {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {

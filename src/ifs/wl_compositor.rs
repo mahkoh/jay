@@ -8,9 +8,9 @@ use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_compositor::*;
 use crate::wire::WlCompositorId;
+use crate::xwayland::XWaylandEvent;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::xwayland::XWaylandEvent;
 
 pub struct WlCompositorGlobal {
     name: GlobalName,

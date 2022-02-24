@@ -140,7 +140,9 @@ impl ForkerProxy {
         wmfd: Rc<OwnedFd>,
         waylandfd: Rc<OwnedFd>,
     ) -> Result<OwnedFd, ForkerError> {
-        self.fds.borrow_mut().extend([stderr, dfd, listenfd, wmfd, waylandfd]);
+        self.fds
+            .borrow_mut()
+            .extend([stderr, dfd, listenfd, wmfd, waylandfd]);
         let id = self.next_id.fetch_add(1);
         self.outgoing.push(ServerMessage::Xwayland { id });
         self.pidfd(id).await

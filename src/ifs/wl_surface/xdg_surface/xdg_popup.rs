@@ -345,6 +345,8 @@ impl XdgSurfaceExt for XdgPopup {
             }
         } else {
             if wl.take().is_some() {
+                drop(wl);
+                drop(dl);
                 self.destroy_node(true);
                 self.send_popup_done();
             }

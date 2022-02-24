@@ -10,6 +10,7 @@ use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, SeatId, WlSeat, WlSeatGl
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::WlSurface;
 use crate::object::ObjectId;
+use crate::tree::toplevel::ToplevelNode;
 use crate::tree::{FloatNode, Node};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
@@ -21,7 +22,6 @@ use i4config::keyboard::ModifiedKeySym;
 use smallvec::SmallVec;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::tree::toplevel::ToplevelNode;
 
 #[derive(Default)]
 pub struct NodeSeatState {

@@ -1,8 +1,8 @@
 pub mod cursor;
 pub mod wl_subsurface;
 pub mod xdg_surface;
-pub mod zwlr_layer_surface_v1;
 pub mod xwindow;
+pub mod zwlr_layer_surface_v1;
 
 use crate::backend::{KeyState, ScrollAxis};
 use crate::client::{Client, ClientError, RequestParser};

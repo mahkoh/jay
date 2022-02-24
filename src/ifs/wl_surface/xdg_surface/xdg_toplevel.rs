@@ -28,9 +28,9 @@ use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 
-use thiserror::Error;
 use crate::ifs::wl_surface::WlSurface;
 use crate::tree::toplevel::ToplevelNode;
+use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {

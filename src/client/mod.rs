@@ -12,6 +12,7 @@ use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwap
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::wire::WlRegistryId;
+use crate::xwayland::XWaylandEvent;
 use crate::ErrorFmt;
 use ahash::AHashMap;
 pub use error::{ClientError, ObjectError};
@@ -22,7 +23,6 @@ use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
-use crate::xwayland::XWaylandEvent;
 
 mod error;
 mod objects;

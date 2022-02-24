@@ -25,6 +25,7 @@ use crate::ifs::wl_seat::wl_touch::WlTouch;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
+use crate::tree::toplevel::ToplevelNode;
 use crate::tree::{ContainerSplit, FloatNode, FoundNode, Node};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
@@ -49,7 +50,6 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
-use crate::tree::toplevel::ToplevelNode;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;

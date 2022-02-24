@@ -1,24 +1,27 @@
-use std::error::Error;
 use crate::async_engine::AsyncFd;
+use crate::client::Client;
+use crate::ifs::wl_surface::xwindow::{Xwindow, XwindowData};
+use crate::ifs::wl_surface::WlSurface;
+use crate::wire::WlSurfaceId;
 use crate::xwayland::{XWaylandError, XWaylandEvent};
 use crate::{AsyncQueue, ErrorFmt, State};
+use ahash::AHashMap;
+use futures::FutureExt;
+use std::error::Error;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::net::UnixStream;
 use std::rc::Rc;
-use ahash::AHashMap;
-use futures::FutureExt;
 use uapi::OwnedFd;
 use x11rb::atom_manager;
 use x11rb::connection::Connection;
+use x11rb::cursor::Handle;
 use x11rb::errors::ConnectionError;
 use x11rb::protocol::composite::{ConnectionExt as _, Redirect};
-use x11rb::protocol::xproto::{ChangeWindowAttributesAux, CreateWindowAux, ConnectionExt as _, EventMask, Window, WindowClass, ClientMessageEvent, CreateNotifyEvent, DestroyNotifyEvent, ConfigureWindowAux, MapRequestEvent, ConfigureRequestEvent};
+use x11rb::protocol::xproto::{ChangeWindowAttributesAux, ClientMessageEvent, ConfigureNotifyEvent, ConfigureRequestEvent, ConfigureWindowAux, ConnectionExt as _, CreateNotifyEvent, CreateWindowAux, DestroyNotifyEvent, EventMask, MapRequestEvent, Window, WindowClass};
 use x11rb::protocol::Event;
+use x11rb::resource_manager::Database;
 use x11rb::rust_connection::{DefaultStream, RustConnection};
-use crate::client::Client;
-use crate::ifs::wl_surface::WlSurface;
-use crate::wire::WlSurfaceId;
-use crate::ifs::wl_surface::xwindow::{Xwindow, XwindowData};
+use crate::rect::Rect;
 
 atom_manager! {
     pub Atoms: AtomsCookie {
@@ -119,7 +122,12 @@ impl Drop for Wm {
 }
 
 impl Wm {
-    pub(super) fn get(state: &Rc<State>, client: Rc<Client>, socket: OwnedFd, queue: Rc<AsyncQueue<XWaylandEvent>>) -> Result<Self, XWaylandError> {
+    pub(super) fn get(
+        state: &Rc<State>,
+        client: Rc<Client>,
+        socket: OwnedFd,
+        queue: Rc<AsyncQueue<XWaylandEvent>>,
+    ) -> Result<Self, XWaylandError> {
         let socket_dup = match uapi::fcntl_dupfd_cloexec(socket.raw(), 0) {
             Ok(s) => state.eng.fd(&Rc::new(s))?,
             Err(e) => return Err(XWaylandError::Dupfd(e.into())),
@@ -153,7 +161,10 @@ impl Wm {
             }
         }
         {
-            let res = try { c.composite_redirect_subwindows(root, Redirect::MANUAL)?.check()? };
+            let res = try {
+                c.composite_redirect_subwindows(root, Redirect::MANUAL)?
+                    .check()?
+            };
             if let Err(e) = res {
                 return Err(XWaylandError::CompositeRedirectSubwindows(e));
             }
@@ -186,6 +197,26 @@ impl Wm {
             };
             if let Err(e) = res {
                 return Err(XWaylandError::SelectionOwner(e));
+            }
+        }
+        {
+            let rdb = match Database::new_from_default(&c) {
+                Ok(rdb) => rdb,
+                Err(e) => return Err(XWaylandError::ResourceDatabase(e.into())),
+            };
+            let handle: Res<Handle> = try { Handle::new(&c, 0, &rdb)?.reply()? };
+            let handle = match handle {
+                Ok(h) => h,
+                Err(e) => return Err(XWaylandError::CursorHandle(e)),
+            };
+            let cursor = match handle.load_cursor(&c, "left_ptr") {
+                Ok(c) => c,
+                Err(e) => return Err(XWaylandError::LoadCursor(e.into())),
+            };
+            let cwa = ChangeWindowAttributesAux::new().cursor(cursor);
+            let res: Res<_> = try { c.change_window_attributes(root, &cwa)?.check()? };
+            if let Err(e) = res {
+                return Err(XWaylandError::SetCursor(e));
             }
         }
         Ok(Self {
@@ -231,7 +262,7 @@ impl Wm {
     }
 
     fn send_configure(&mut self, window: Rc<Xwindow>) {
-        let extents = window.extents.get();
+        let extents = window.data.extents.get();
         let cfg = ConfigureWindowAux::new()
             .x(extents.x1())
             .y(extents.y1())
@@ -239,10 +270,12 @@ impl Wm {
             .height(extents.height() as u32)
             .border_width(0);
         let res: Res<()> = try {
-            self.c.configure_window(window.data.window_id, &cfg)?.check()?;
+            self.c
+                .configure_window(window.data.window_id, &cfg)?
+                .check()?;
         };
         if let Err(e) = res {
-             log::error!("Could not configure window: {}", ErrorFmt(&*e));
+            log::error!("Could not configure window: {}", ErrorFmt(&*e));
         }
     }
 
@@ -253,7 +286,10 @@ impl Wm {
         }
         let window = Rc::new(Xwindow::new(&data, &surface, &self.queue));
         if let Err(e) = window.install() {
-            log::error!("Could not attach the xwindow to the surface: {}", ErrorFmt(e));
+            log::error!(
+                "Could not attach the xwindow to the surface: {}",
+                ErrorFmt(e)
+            );
             return;
         }
         data.window.set(Some(window.clone()));
@@ -286,10 +322,11 @@ impl Wm {
         match event {
             Event::MapRequest(event) => self.handle_map_request(event),
             Event::ConfigureRequest(event) => self.handle_configure_request(event),
+            Event::ConfigureNotify(event) => self.handle_configure_notify(event),
             Event::ClientMessage(event) => self.handle_client_message(event),
             Event::CreateNotify(event) => self.handle_create_notify(event),
             Event::DestroyNotify(event) => self.handle_destroy_notify(event),
-            _ => { },
+            _ => {}
         }
     }
 
@@ -307,7 +344,7 @@ impl Wm {
     }
 
     fn handle_create_notify(&mut self, event: CreateNotifyEvent) {
-        let data = Rc::new(XwindowData::new(&self.state, event.window, &self.client));
+        let data = Rc::new(XwindowData::new(&self.state, &event, &self.client));
         self.windows.insert(event.window, data);
     }
 
@@ -321,6 +358,25 @@ impl Wm {
         let res: Res<_> = try { self.c.map_window(event.window)?.check()? };
         if let Err(e) = res {
             log::error!("Could not map window: {}", ErrorFmt(&*e));
+        }
+    }
+
+    fn handle_configure_notify(&mut self, event: ConfigureNotifyEvent) {
+        let data = match self.windows.get(&event.window) {
+            Some(d) => d,
+            _ => return,
+        };
+        if data.override_redirect {
+            let extents = Rect::new_sized(
+                event.x as _,
+                event.y as _,
+                event.width as _,
+                event.height as _,
+            ).unwrap();
+            let changed = data.extents.replace(extents) != extents;
+            if changed {
+                self.state.tree_changed();
+            }
         }
     }
 
