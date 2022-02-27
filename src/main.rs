@@ -1,4 +1,10 @@
-#![feature(c_variadic, thread_local, label_break_value, try_blocks)]
+#![feature(
+    c_variadic,
+    thread_local,
+    label_break_value,
+    try_blocks,
+    generic_associated_types
+)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,
@@ -13,6 +19,7 @@ use crate::backends::dummy::DummyBackend;
 use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
+use crate::dbus::Dbus;
 use crate::event_loop::EventLoopError;
 use crate::forker::ForkerError;
 use crate::globals::Globals;
@@ -34,11 +41,13 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::wheel::WheelError;
+use crate::wire_dbus::org;
 use crate::xkbcommon::XkbContext;
 use acceptor::Acceptor;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
 use log::LevelFilter;
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -58,6 +67,7 @@ mod client;
 mod clientmem;
 mod config;
 mod cursor;
+mod dbus;
 mod drm;
 mod event_loop;
 mod fixed;
@@ -65,6 +75,7 @@ mod forker;
 mod format;
 mod globals;
 mod ifs;
+mod logind;
 mod object;
 mod pixman;
 mod rect;
@@ -80,6 +91,7 @@ mod tree;
 mod utils;
 mod wheel;
 mod wire;
+mod wire_dbus;
 mod xkbcommon;
 mod xwayland;
 
@@ -163,7 +175,21 @@ fn main_() -> Result<(), MainError> {
         pending_container_titles: Default::default(),
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
+        dbus: Dbus::new(&engine),
     });
+    state.dbus.system().unwrap().call_noreply(
+        "org.freedesktop.DBus",
+        "/org/freedesktop/dbus",
+        org::freedesktop::dbus::HelloCall,
+    );
+    state.dbus.system().unwrap().call_noreply(
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1",
+        org::freedesktop::login1::manager::GetSessionCall {
+            // session_id: Cow::Owned(std::env::var("XDG_SESSION_ID").unwrap()),
+            session_id: Cow::Borrowed("hurr durr"),
+        },
+    );
     forker.install(&state);
     let backend = XorgBackend::new(&state)?;
     state.backend.set(backend);

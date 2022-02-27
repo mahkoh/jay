@@ -6,6 +6,7 @@ use crate::backend::{
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
+use crate::dbus::Dbus;
 use crate::event_loop::EventLoop;
 use crate::forker::ForkerProxy;
 use crate::globals::{Globals, GlobalsError, WaylandGlobal};
@@ -63,6 +64,7 @@ pub struct State {
     pub pending_container_titles: AsyncQueue<Rc<ContainerNode>>,
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
+    pub dbus: Dbus,
 }
 
 pub struct MouseData {

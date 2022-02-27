@@ -45,7 +45,13 @@ pub struct Xwindow {
 
 impl XwindowData {
     pub fn new(state: &Rc<State>, event: &CreateNotifyEvent, client: &Rc<Client>) -> Self {
-        let extents = Rect::new_sized(event.x as _, event.y as _, event.width as _, event.height as _).unwrap();
+        let extents = Rect::new_sized(
+            event.x as _,
+            event.y as _,
+            event.width as _,
+            event.height as _,
+        )
+        .unwrap();
         log::info!("extents = {:?}", extents);
         Self {
             state: state.clone(),

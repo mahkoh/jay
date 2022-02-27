@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::{env, io};
 
 mod enums;
+mod tokens;
 mod wire;
+mod wire_dbus;
 
 fn open(s: &str) -> io::Result<BufWriter<File>> {
     let mut path = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -20,7 +22,7 @@ fn open(s: &str) -> io::Result<BufWriter<File>> {
 
 fn main() -> anyhow::Result<()> {
     wire::main()?;
-
+    wire_dbus::main()?;
     enums::main()?;
 
     println!("cargo:rerun-if-changed=build/build.rs");

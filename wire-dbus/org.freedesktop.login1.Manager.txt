@@ -1,0 +1,5 @@
+fn GetSession(
+    session_id: string,
+) {
+    object_path: object_path,
+}

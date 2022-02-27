@@ -314,3 +314,33 @@ macro_rules! dedicated_add_global {
         }
     };
 }
+
+macro_rules! assert_size_eq {
+    ($t:ty, $u:ty) => {{
+        struct AssertEqSize<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
+        impl<T, U> AssertEqSize<T, U> {
+            const VAL: usize = {
+                if std::mem::size_of::<T>() != std::mem::size_of::<U>() {
+                    panic!("Types have different size");
+                }
+                1
+            };
+        }
+        let _ = AssertEqSize::<$t, $u>::VAL;
+    }};
+}
+
+macro_rules! assert_align_eq {
+    ($t:ty, $u:ty) => {{
+        struct AssertEqAlign<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
+        impl<T, U> AssertEqAlign<T, U> {
+            const VAL: usize = {
+                if std::mem::align_of::<T>() != std::mem::align_of::<U>() {
+                    panic!("Types have different alignment");
+                }
+                1
+            };
+        }
+        let _ = AssertEqAlign::<$t, $u>::VAL;
+    }};
+}

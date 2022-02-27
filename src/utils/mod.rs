@@ -1,3 +1,4 @@
+pub mod aligned;
 pub mod array;
 pub mod asyncevent;
 pub mod bitflags;
@@ -6,6 +7,7 @@ pub mod clonecell;
 pub mod copyhashmap;
 pub mod debug_fn;
 pub mod errorfmt;
+pub mod hex;
 pub mod linkedlist;
 pub mod numcell;
 pub mod ptr_ext;
@@ -14,3 +16,4 @@ pub mod smallmap;
 pub mod stack;
 pub mod tri;
 pub mod vec_ext;
+pub mod vecstorage;

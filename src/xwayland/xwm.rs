@@ -2,6 +2,7 @@ use crate::async_engine::AsyncFd;
 use crate::client::Client;
 use crate::ifs::wl_surface::xwindow::{Xwindow, XwindowData};
 use crate::ifs::wl_surface::WlSurface;
+use crate::rect::Rect;
 use crate::wire::WlSurfaceId;
 use crate::xwayland::{XWaylandError, XWaylandEvent};
 use crate::{AsyncQueue, ErrorFmt, State};
@@ -17,11 +18,14 @@ use x11rb::connection::Connection;
 use x11rb::cursor::Handle;
 use x11rb::errors::ConnectionError;
 use x11rb::protocol::composite::{ConnectionExt as _, Redirect};
-use x11rb::protocol::xproto::{ChangeWindowAttributesAux, ClientMessageEvent, ConfigureNotifyEvent, ConfigureRequestEvent, ConfigureWindowAux, ConnectionExt as _, CreateNotifyEvent, CreateWindowAux, DestroyNotifyEvent, EventMask, MapRequestEvent, Window, WindowClass};
+use x11rb::protocol::xproto::{
+    ChangeWindowAttributesAux, ClientMessageEvent, ConfigureNotifyEvent, ConfigureRequestEvent,
+    ConfigureWindowAux, ConnectionExt as _, CreateNotifyEvent, CreateWindowAux, DestroyNotifyEvent,
+    EventMask, MapRequestEvent, Window, WindowClass,
+};
 use x11rb::protocol::Event;
 use x11rb::resource_manager::Database;
 use x11rb::rust_connection::{DefaultStream, RustConnection};
-use crate::rect::Rect;
 
 atom_manager! {
     pub Atoms: AtomsCookie {
@@ -372,7 +376,8 @@ impl Wm {
                 event.y as _,
                 event.width as _,
                 event.height as _,
-            ).unwrap();
+            )
+            .unwrap();
             let changed = data.extents.replace(extents) != extents;
             if changed {
                 self.state.tree_changed();
