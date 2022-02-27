@@ -30,12 +30,15 @@ struct Auth {
 impl Auth {
     async fn run(&mut self) {
         if let Err(e) = self.handle_auth().await {
-            log::error!("Could not authenticate to dbus socket: {}", ErrorFmt(e));
-            self.socket.dead.set(true);
-            self.socket.auth.take();
+            log::error!(
+                "{}: Could not authenticate to dbus socket: {}",
+                self.socket.bus_name,
+                ErrorFmt(e)
+            );
+            self.socket.kill();
             return;
         }
-        log::info!("Authenticated");
+        log::info!("{}: Authenticated", self.socket.bus_name);
         self.socket.incoming.set(Some(
             self.socket.eng.spawn(handle_incoming(self.socket.clone())),
         ));

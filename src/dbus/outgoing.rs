@@ -1,8 +1,10 @@
 use crate::dbus::{DbusMessage, DbusSocket};
-use crate::utils::vec_ext::VecExt;
+use crate::utils::vec_ext::{UninitVecExt, VecExt};
 use crate::utils::vecstorage::VecStorage;
+use crate::ErrorFmt;
 use std::collections::VecDeque;
 use std::mem;
+use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 use std::rc::Rc;
 use uapi::{c, Errno, Msghdr};
@@ -27,7 +29,7 @@ struct Outgoing {
     socket: Rc<DbusSocket>,
 
     msgs: VecDeque<DbusMessageOffset>,
-    cmsg: Vec<u8>,
+    cmsg: Vec<MaybeUninit<u8>>,
     fds: Vec<c::c_int>,
     iovecs: VecStorage<NonNull<[u8]>>,
 }
@@ -37,7 +39,15 @@ impl Outgoing {
         loop {
             self.socket.outgoing.non_empty().await;
             while let Err(e) = self.try_flush() {
-                if e != Errno(c::EAGAIN) {}
+                if e != Errno(c::EAGAIN) {
+                    log::error!(
+                        "{}: Could not send a message to the bus: {}",
+                        self.socket.bus_name,
+                        ErrorFmt(e)
+                    );
+                    self.socket.kill();
+                    return;
+                }
                 let _ = self.socket.fd.writable().await;
             }
         }
@@ -68,16 +78,14 @@ impl Outgoing {
                 self.fds.extend(fds.iter().map(|f| f.raw()));
                 let cmsg_space = uapi::cmsg_space(fds.len() * mem::size_of::<c::c_int>());
                 self.cmsg.reserve(cmsg_space);
-                let (_, mut spare) = self.cmsg.split_at_spare_mut_ext();
+                let (_, mut spare) = self.cmsg.split_at_spare_mut_bytes_ext();
                 let hdr = c::cmsghdr {
                     cmsg_len: 0,
                     cmsg_level: c::SOL_SOCKET,
                     cmsg_type: c::SCM_RIGHTS,
                 };
                 let len = uapi::cmsg_write(&mut spare, hdr, &self.fds).unwrap();
-                unsafe {
-                    self.cmsg.set_len(len);
-                }
+                self.cmsg.set_len_safe(len);
             }
             let msg = Msghdr {
                 iov: &iovecs[..],

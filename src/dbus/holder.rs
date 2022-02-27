@@ -1,6 +1,6 @@
 use crate::dbus::auth::handle_auth;
 use crate::dbus::{DbusError, DbusHolder, DbusSocket};
-use crate::{AsyncEngine, NumCell};
+use crate::{org, AsyncEngine, ErrorFmt, NumCell, RunToplevel};
 use std::cell::Cell;
 use std::rc::Rc;
 use uapi::c;
@@ -10,6 +10,7 @@ impl DbusHolder {
         self: &Rc<Self>,
         eng: &Rc<AsyncEngine>,
         addr: &str,
+        name: &'static str,
     ) -> Result<Rc<DbusSocket>, DbusError> {
         if let Some(c) = self.socket.get() {
             if c.dead.get() {
@@ -18,13 +19,18 @@ impl DbusHolder {
                 return Ok(c);
             }
         }
-        let socket = connect(eng, addr)?;
+        let socket = connect(eng, addr, name, &self.run_toplevel)?;
         self.socket.set(Some(socket.clone()));
         Ok(socket)
     }
 }
 
-fn connect(eng: &Rc<AsyncEngine>, addr: &str) -> Result<Rc<DbusSocket>, DbusError> {
+fn connect(
+    eng: &Rc<AsyncEngine>,
+    addr: &str,
+    name: &'static str,
+    run_toplevel: &Rc<RunToplevel>,
+) -> Result<Rc<DbusSocket>, DbusError> {
     let socket = match uapi::socket(
         c::AF_UNIX,
         c::SOCK_STREAM | c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
@@ -41,19 +47,37 @@ fn connect(eng: &Rc<AsyncEngine>, addr: &str) -> Result<Rc<DbusSocket>, DbusErro
         return Err(DbusError::Connect(e.into()));
     }
     let socket = Rc::new(DbusSocket {
+        bus_name: name,
         fd: eng.fd(&Rc::new(socket))?,
         eng: eng.clone(),
         next_serial: NumCell::new(1),
         bufs: Default::default(),
+        unique_name: Default::default(),
         outgoing: Default::default(),
-        waiters: Default::default(),
-        replies: Default::default(),
+        reply_handlers: Default::default(),
         incoming: Default::default(),
         outgoing_: Default::default(),
         auth: Default::default(),
         dead: Cell::new(false),
         headers: Default::default(),
+        run_toplevel: run_toplevel.clone(),
     });
+    let skt = socket.clone();
+    socket.call(
+        "org.freedesktop.DBus",
+        "/org/freedesktop/dbus",
+        org::freedesktop::dbus::Hello,
+        move |res| match res {
+            Ok(name) => {
+                log::info!("{}: Acquired unique name {}", skt.bus_name, name.name);
+                let _ = skt.unique_name.set(Rc::new(name.name.to_string()));
+            }
+            Err(e) => {
+                log::error!("{}: Hello call failed: {}", skt.bus_name, ErrorFmt(e));
+                skt.kill();
+            }
+        },
+    );
     let future = eng.spawn(handle_auth(socket.clone()));
     socket.auth.set(Some(future));
     Ok(socket)

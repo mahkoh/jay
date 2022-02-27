@@ -42,6 +42,7 @@ pango = { version = "0.15.2", features = ["v1_44"] }
 i4config = { path = "i4config" }
 default-config = { path = "default-config" }
 x11rb = { version = "0.9.0", features = ["composite", "cursor"] }
+pin-project = "1.0.10"
 
 [build-dependencies]
 repc = "0.1.1"

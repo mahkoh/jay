@@ -2,17 +2,21 @@ use super::{
     HDR_DESTINATION, HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL,
     HDR_SENDER, HDR_SIGNATURE, HDR_UNIX_FDS,
 };
-use crate::dbus::{DbusError, DbusSocket, DynamicType, Headers, Parser};
+use crate::dbus::{
+    CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN,
+};
+use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use crate::ErrorFmt;
+use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
+use std::ops::Deref;
 use std::rc::Rc;
 use uapi::{c, Errno, MaybeUninitSliceExt, MsghdrMut, OwnedFd};
 
 pub async fn handle_incoming(socket: Rc<DbusSocket>) {
     let mut incoming = Incoming {
         socket,
-        msg_buf: vec![],
         buf: Box::new([MaybeUninit::uninit(); 4096]),
         buf_start: 0,
         buf_end: 0,
@@ -25,7 +29,6 @@ pub async fn handle_incoming(socket: Rc<DbusSocket>) {
 pub struct Incoming {
     socket: Rc<DbusSocket>,
 
-    msg_buf: Vec<u8>,
     buf: Box<[MaybeUninit<u8>; 4096]>,
     buf_start: usize,
     buf_end: usize,
@@ -36,36 +39,46 @@ pub struct Incoming {
 impl Incoming {
     async fn run(&mut self) {
         loop {
+            if self.socket.dead.get() {
+                return;
+            }
             if let Err(e) = self.handle_msg().await {
-                log::error!("Could not process an incoming message: {}", ErrorFmt(e));
-                self.socket.incoming.take();
-                self.socket.outgoing_.take();
+                log::error!(
+                    "{}: Could not process an incoming message: {}",
+                    self.socket.bus_name,
+                    ErrorFmt(e)
+                );
+                self.socket.kill();
                 return;
             }
         }
     }
 
     async fn handle_msg(&mut self) -> Result<(), DbusError> {
-        self.msg_buf.clear();
+        let msg_buf_data = UnsafeCell::new(self.socket.bufs.pop().unwrap_or_default());
+        let msg_buf = unsafe { msg_buf_data.get().deref_mut() };
+        msg_buf.clear();
         const FIXED_HEADER_SIZE: usize = 16;
-        self.fill_msg_buf(FIXED_HEADER_SIZE).await?;
-        let endianess = self.msg_buf[0];
+        self.fill_msg_buf(FIXED_HEADER_SIZE, msg_buf).await?;
+        let endianess = msg_buf[0];
         if (endianess == b'l') != cfg!(target_endian = "little") {
             return Err(DbusError::InvalidEndianess);
         }
-        let msg_ty = self.msg_buf[1];
-        let flags = self.msg_buf[2];
-        let protocol = self.msg_buf[3];
+        let msg_ty = msg_buf[1];
+        let _flags = msg_buf[2];
+        let protocol = msg_buf[3];
         if protocol != 1 {
-            return Err(DbusError::InvalidEndianess);
+            return Err(DbusError::InvalidProtocol);
         }
         let mut fields2 = [0u32; 3];
-        uapi::pod_write(&self.msg_buf[4..], &mut fields2[..]).unwrap();
-        let [body_len, serial, headers_len] = fields2;
+        uapi::pod_write(&msg_buf[4..], &mut fields2[..]).unwrap();
+        let [body_len, _serial, headers_len] = fields2;
         let dyn_header_len = headers_len + (headers_len.wrapping_neg() & 7);
         let remaining = dyn_header_len + body_len;
-        self.fill_msg_buf(remaining as usize).await?;
-        let headers = &self.msg_buf[FIXED_HEADER_SIZE..FIXED_HEADER_SIZE + headers_len as usize];
+        self.fill_msg_buf(remaining as usize, msg_buf).await?;
+        drop(msg_buf);
+        let msg_buf = unsafe { msg_buf_data.get().deref().deref() };
+        let headers = &msg_buf[FIXED_HEADER_SIZE..FIXED_HEADER_SIZE + headers_len as usize];
         let headers = self.parse_headers(headers)?;
         let unix_fds = headers.unix_fds.unwrap_or(0) as usize;
         if self.fds.len() < unix_fds {
@@ -73,19 +86,60 @@ impl Incoming {
         }
         let fds: Vec<_> = self.fds.drain(..unix_fds).collect();
         let mut parser = Parser {
-            buf: &self.msg_buf,
+            buf: &msg_buf,
             pos: FIXED_HEADER_SIZE + dyn_header_len as usize,
             fds: &fds,
         };
-        log::info!("headers = {:?}", headers);
-        if let Some(sig) = headers.signature {
-            let mut sig = sig.0.as_bytes();
-            while sig.len() > 0 {
-                let (dt, rem) = DynamicType::from_signature(sig)?;
-                sig = rem;
-                let val = dt.parse(&mut parser)?;
-                log::info!("{:?}", val);
+        match msg_ty {
+            MSG_METHOD_RETURN | MSG_ERROR => {
+                let serial = match headers.reply_serial {
+                    Some(s) => s,
+                    _ => return Err(DbusError::NoReplySerial),
+                };
+                if let Some(reply) = self.socket.reply_handlers.remove(&serial) {
+                    if msg_ty == MSG_ERROR {
+                        let ename = match headers.error_name {
+                            Some(n) => n.into_owned(),
+                            _ => return Err(DbusError::NoErrorName),
+                        };
+                        let mut emsg = None;
+                        if let Some(sig) = headers.signature {
+                            if sig.0.starts_with("s") {
+                                emsg = Some(parser.read_string()?.into_owned());
+                            }
+                        }
+                        let error = CallError {
+                            name: ename,
+                            msg: emsg,
+                        };
+                        reply.handle_error(&self.socket, DbusError::CallError(error));
+                    } else {
+                        let sig = headers.signature.as_deref().unwrap_or("");
+                        if sig != reply.signature() {
+                            log::error!(
+                                "{}: Message reply has an invalid signature: expected: {}, actual: {}",
+                                self.socket.bus_name,
+                                sig,
+                                reply.signature()
+                            );
+                        } else {
+                            let buf = unsafe { std::mem::take(msg_buf_data.get().deref_mut()) };
+                            if let Err(e) = reply.handle(&self.socket, &headers, &mut parser, buf) {
+                                log::error!(
+                                    "{}: Could not handle reply: {}",
+                                    self.socket.bus_name,
+                                    ErrorFmt(e)
+                                );
+                            }
+                        }
+                    }
+                }
             }
+            _ => {}
+        }
+        let msg_buf = msg_buf_data.into_inner();
+        if msg_buf.capacity() > 0 {
+            self.socket.bufs.push(msg_buf);
         }
         Ok(())
     }
@@ -113,7 +167,7 @@ impl Incoming {
         Ok(headers)
     }
 
-    async fn fill_msg_buf(&mut self, mut n: usize) -> Result<(), DbusError> {
+    async fn fill_msg_buf(&mut self, mut n: usize, buf: &mut Vec<u8>) -> Result<(), DbusError> {
         while n > 0 {
             if self.buf_start == self.buf_end {
                 while let Err(e) = self.recvmsg() {
@@ -129,17 +183,9 @@ impl Incoming {
             let read = n.min(self.buf_end - self.buf_start);
             let buf_start = self.buf_start % self.buf.len();
             unsafe {
-                if buf_start + read <= self.buf.len() {
-                    self.msg_buf.extend_from_slice(
-                        self.buf[buf_start..buf_start + read].slice_assume_init_ref(),
-                    );
-                } else {
-                    self.msg_buf
-                        .extend_from_slice(self.buf[buf_start..].slice_assume_init_ref());
-                    self.msg_buf.extend_from_slice(
-                        self.buf[..read - (self.buf.len() - buf_start)].slice_assume_init_ref(),
-                    );
-                }
+                buf.extend_from_slice(
+                    self.buf[buf_start..buf_start + read].slice_assume_init_ref(),
+                );
             }
             n -= read;
             self.buf_start += read;

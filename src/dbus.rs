@@ -1,14 +1,20 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
+use crate::dbus::property::GetReply;
 use crate::dbus::types::{ObjectPath, Signature, Variant};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::stack::Stack;
 use crate::utils::vecstorage::VecStorage;
-use crate::{AsyncEngine, AsyncError, AsyncQueue, CloneCell, NumCell};
+use crate::{AsyncEngine, AsyncError, AsyncQueue, CloneCell, NumCell, RunToplevel};
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
+use std::fmt::{Debug, Display};
+use std::future::Future;
+use std::mem;
+use std::pin::Pin;
 use std::rc::Rc;
-use std::task::Waker;
+use std::task::{Context, Poll, Waker};
 use thiserror::Error;
+pub use types::*;
 use uapi::OwnedFd;
 
 mod auth;
@@ -18,17 +24,40 @@ mod holder;
 mod incoming;
 mod outgoing;
 mod parser;
+mod property;
 mod socket;
 mod types;
 
+#[derive(Debug)]
+pub struct CallError {
+    pub name: String,
+    pub msg: Option<String>,
+}
+
+impl Display for CallError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(msg) = &self.msg {
+            write!(f, "{}: {}", self.name, msg)
+        } else {
+            write!(f, "{}", self.name)
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum DbusError {
-    #[error("timeout")]
-    Timeout,
     #[error("Encountered an unknown type in a signature")]
     UnknownType,
     #[error("BUS closed the connection")]
     Closed,
+    #[error("Function call reply does not contain a reply serial")]
+    NoReplySerial,
+    #[error("Error has no error name")]
+    NoErrorName,
+    #[error("The socket was killed")]
+    Killed,
+    #[error("{0}")]
+    CallError(CallError),
     #[error("FD index is out of bounds")]
     OobFds,
     #[error("Variant has an invalid type")]
@@ -71,10 +100,8 @@ pub enum DbusError {
     InvalidEndianess,
     #[error("Server speaks an unexpected protocol version")]
     InvalidProtocol,
-    #[error("Could not read from the socket")]
-    ReadFailed(#[source] std::io::Error),
-    #[error(transparent)]
-    Rc(Rc<DbusError>),
+    #[error("Signature contains an invalid type")]
+    InvalidSignatureType,
 }
 efrom!(DbusError, AsyncError);
 
@@ -84,32 +111,46 @@ pub struct Dbus {
 }
 
 impl Dbus {
-    pub fn new(eng: &Rc<AsyncEngine>) -> Self {
+    pub fn new(eng: &Rc<AsyncEngine>, run_toplevel: &Rc<RunToplevel>) -> Self {
         Self {
             eng: eng.clone(),
-            system: Default::default(),
+            system: Rc::new(DbusHolder::new(run_toplevel)),
         }
     }
 
     pub fn system(&self) -> Result<Rc<DbusSocket>, DbusError> {
         self.system
-            .get(&self.eng, "/var/run/dbus/system_bus_socket")
+            .get(&self.eng, "/var/run/dbus/system_bus_socket", "System bus")
     }
 }
 
+unsafe trait ReplyHandler {
+    fn signature(&self) -> &str;
+    fn handle_error(self: Box<Self>, socket: &Rc<DbusSocket>, error: DbusError);
+    fn handle(
+        self: Box<Self>,
+        socket: &Rc<DbusSocket>,
+        headers: &Headers,
+        parser: &mut Parser,
+        buf: Vec<u8>,
+    ) -> Result<(), DbusError>;
+}
+
 pub struct DbusSocket {
+    bus_name: &'static str,
     fd: AsyncFd,
     eng: Rc<AsyncEngine>,
     next_serial: NumCell<u32>,
     bufs: Stack<Vec<u8>>,
+    unique_name: CloneCell<Rc<String>>,
     outgoing: AsyncQueue<DbusMessage>,
-    waiters: CopyHashMap<u32, Waker>,
-    replies: CopyHashMap<u32, Reply>,
+    reply_handlers: CopyHashMap<u32, Box<dyn ReplyHandler>>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
     outgoing_: Cell<Option<SpawnedFuture<()>>>,
     auth: Cell<Option<SpawnedFuture<()>>>,
     dead: Cell<bool>,
     headers: RefCell<VecStorage<(u8, Variant<'static>)>>,
+    run_toplevel: Rc<RunToplevel>,
 }
 
 const TY_BYTE: u8 = b'y';
@@ -138,6 +179,15 @@ const HDR_SENDER: u8 = 7;
 const HDR_SIGNATURE: u8 = 8;
 const HDR_UNIX_FDS: u8 = 9;
 
+const MSG_METHOD_CALL: u8 = 1;
+const MSG_METHOD_RETURN: u8 = 2;
+const MSG_ERROR: u8 = 3;
+const MSG_SIGNAL: u8 = 4;
+
+const NO_REPLY_EXPECTED: u8 = 0x1;
+const NO_AUTO_START: u8 = 0x2;
+const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
+
 #[derive(Default, Debug)]
 struct Headers<'a> {
     path: Option<ObjectPath<'a>>,
@@ -153,6 +203,16 @@ struct Headers<'a> {
 
 struct DbusHolder {
     socket: CloneCell<Option<Rc<DbusSocket>>>,
+    run_toplevel: Rc<RunToplevel>,
+}
+
+impl DbusHolder {
+    pub fn new(run_toplevel: &Rc<RunToplevel>) -> Self {
+        Self {
+            socket: Default::default(),
+            run_toplevel: run_toplevel.clone(),
+        }
+    }
 }
 
 impl Drop for DbusHolder {
@@ -165,21 +225,9 @@ impl Drop for DbusHolder {
     }
 }
 
-impl Default for DbusHolder {
-    fn default() -> Self {
-        Self {
-            socket: Default::default(),
-        }
-    }
-}
-
 struct DbusMessage {
     fds: Vec<Rc<OwnedFd>>,
     buf: Vec<u8>,
-}
-
-struct Reply {
-    signature: String,
 }
 
 #[derive(Clone, Debug)]
@@ -214,24 +262,33 @@ pub struct Formatter<'a> {
     buf: &'a mut Vec<u8>,
 }
 
-pub trait Message<'a>: Sized {
+pub unsafe trait Message<'a>: Sized + 'a {
     const SIGNATURE: &'static str;
     const INTERFACE: &'static str;
     const MEMBER: &'static str;
+    type Generic<'b>: Message<'b>;
 
     fn marshal(&self, w: &mut Formatter);
     fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError>;
     fn num_fds(&self) -> u32;
 }
 
-pub trait MethodCall<'a>: Message<'a> {
-    type Reply<'b>: Message<'b>;
+pub trait Property {
+    const INTERFACE: &'static str;
+    const PROPERTY: &'static str;
+    type Type: DbusType<'static>;
 }
 
-pub unsafe trait DbusType<'a>: Clone {
+pub trait MethodCall<'a>: Message<'a> {
+    type Reply: Message<'static>;
+}
+
+pub unsafe trait DbusType<'a>: Clone + 'a {
     const ALIGNMENT: usize;
     const IS_POD: bool;
+    type Generic<'b>: DbusType<'b> + 'b;
 
+    fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError>;
     fn write_signature(w: &mut Vec<u8>);
     fn marshal(&self, fmt: &mut Formatter);
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError>;
@@ -241,10 +298,105 @@ pub unsafe trait DbusType<'a>: Clone {
     }
 }
 
+pub struct Reply<T: Message<'static>> {
+    socket: Rc<DbusSocket>,
+    buf: Vec<u8>,
+    t: T::Generic<'static>,
+}
+
+pub struct PropertyValue<T: Property> {
+    reply: Reply<GetReply<'static, T::Type>>,
+}
+
+impl<T: Property> Debug for PropertyValue<T>
+where
+    for<'a> <T::Type as DbusType<'static>>::Generic<'a>: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+impl<T: Property> PropertyValue<T> {
+    pub fn get<'a>(&'a self) -> &'a <T::Type as DbusType<'static>>::Generic<'a> {
+        &self.reply.get().value
+    }
+}
+
+impl<T: Message<'static>> Debug for Reply<T>
+where
+    for<'a> T::Generic<'a>: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+impl<T: Message<'static>> Reply<T> {
+    pub fn get<'a>(&'a self) -> &'a T::Generic<'a> {
+        unsafe { mem::transmute(&self.t) }
+    }
+}
+
+impl<T: Message<'static>> Drop for Reply<T> {
+    fn drop(&mut self) {
+        self.socket.bufs.push(mem::take(&mut self.buf));
+    }
+}
+
+struct AsyncReplySlot<T: Message<'static>> {
+    data: Cell<Option<Result<Reply<T>, DbusError>>>,
+    waker: Cell<Option<Waker>>,
+}
+
+pub struct AsyncReply<T: Message<'static>> {
+    socket: Rc<DbusSocket>,
+    serial: u32,
+    slot: Rc<AsyncReplySlot<T>>,
+}
+
+#[pin_project::pin_project]
+pub struct AsyncProperty<T: Property> {
+    #[pin]
+    reply: AsyncReply<GetReply<'static, T::Type>>,
+}
+
+impl<T: Message<'static>> Drop for AsyncReply<T> {
+    fn drop(&mut self) {
+        self.socket.reply_handlers.remove(&self.serial);
+    }
+}
+
+impl<T: Message<'static>> Future for AsyncReply<T> {
+    type Output = Result<Reply<T>, DbusError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Some(d) = self.slot.data.take() {
+            Poll::Ready(d)
+        } else {
+            self.slot.waker.set(Some(cx.waker().clone()));
+            Poll::Pending
+        }
+    }
+}
+
+impl<T: Property> Future for AsyncProperty<T> {
+    type Output = Result<PropertyValue<T>, DbusError>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        AsyncProperty::project(self)
+            .reply
+            .poll(cx)
+            .map(|r| r.map(|v| PropertyValue { reply: v }))
+    }
+}
+
 pub mod prelude {
     pub use super::{
         types::{Bool, DictEntry, ObjectPath, Signature, Variant},
-        DbusError, DbusType, Formatter, Message, MethodCall, Parser,
+        DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property,
     };
     pub use std::borrow::Cow;
+    pub use std::rc::Rc;
+    pub use uapi::OwnedFd;
 }

@@ -9,13 +9,37 @@ use std::ops::Deref;
 use std::rc::Rc;
 use uapi::{OwnedFd, Packed, Pod};
 
+macro_rules! consume_signature_body {
+    ($s:expr, $ty:expr) => {{
+        if $s.is_empty() {
+            return Err(DbusError::EmptySignature);
+        }
+        if $s[0] != $ty {
+            return Err(DbusError::InvalidSignatureType);
+        }
+        *$s = &(*$s)[1..];
+    }};
+}
+
+macro_rules! signature {
+    ($ty:expr) => {
+        fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError> {
+            consume_signature_body!(s, $ty);
+            Ok(())
+        }
+
+        fn write_signature(w: &mut Vec<u8>) {
+            w.push(TY_BYTE);
+        }
+    };
+}
+
 unsafe impl<'a> DbusType<'a> for u8 {
     const ALIGNMENT: usize = 1;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_BYTE);
-    }
+    signature!(TY_BYTE);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -38,10 +62,9 @@ unsafe impl Packed for Bool {}
 unsafe impl<'a> DbusType<'a> for Bool {
     const ALIGNMENT: usize = 4;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_BOOLEAN);
-    }
+    signature!(TY_BOOLEAN);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -55,10 +78,9 @@ unsafe impl<'a> DbusType<'a> for Bool {
 unsafe impl<'a> DbusType<'a> for i16 {
     const ALIGNMENT: usize = 2;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_INT16);
-    }
+    signature!(TY_INT16);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -72,10 +94,9 @@ unsafe impl<'a> DbusType<'a> for i16 {
 unsafe impl<'a> DbusType<'a> for u16 {
     const ALIGNMENT: usize = 2;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_UINT16)
-    }
+    signature!(TY_UINT16);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -89,10 +110,9 @@ unsafe impl<'a> DbusType<'a> for u16 {
 unsafe impl<'a> DbusType<'a> for i32 {
     const ALIGNMENT: usize = 4;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_INT32)
-    }
+    signature!(TY_INT32);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -106,10 +126,9 @@ unsafe impl<'a> DbusType<'a> for i32 {
 unsafe impl<'a> DbusType<'a> for u32 {
     const ALIGNMENT: usize = 4;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_UINT32)
-    }
+    signature!(TY_UINT32);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -123,10 +142,9 @@ unsafe impl<'a> DbusType<'a> for u32 {
 unsafe impl<'a> DbusType<'a> for AlignedI64 {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_INT64)
-    }
+    signature!(TY_INT64);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -140,10 +158,9 @@ unsafe impl<'a> DbusType<'a> for AlignedI64 {
 unsafe impl<'a> DbusType<'a> for AlignedU64 {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_UINT64)
-    }
+    signature!(TY_UINT64);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -157,10 +174,9 @@ unsafe impl<'a> DbusType<'a> for AlignedU64 {
 unsafe impl<'a> DbusType<'a> for AlignedF64 {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = true;
+    type Generic<'b> = Self;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_DOUBLE)
-    }
+    signature!(TY_DOUBLE);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_packed(self);
@@ -174,10 +190,9 @@ unsafe impl<'a> DbusType<'a> for AlignedF64 {
 unsafe impl<'a> DbusType<'a> for Cow<'a, str> {
     const ALIGNMENT: usize = 4;
     const IS_POD: bool = false;
+    type Generic<'b> = Cow<'b, str>;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_STRING)
-    }
+    signature!(TY_STRING);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_str(self);
@@ -191,13 +206,20 @@ unsafe impl<'a> DbusType<'a> for Cow<'a, str> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Signature<'a>(pub Cow<'a, str>);
 
+impl<'a> Deref for Signature<'a> {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 unsafe impl<'a> DbusType<'a> for Signature<'a> {
     const ALIGNMENT: usize = 1;
     const IS_POD: bool = false;
+    type Generic<'b> = Signature<'b>;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_SIGNATURE)
-    }
+    signature!(TY_SIGNATURE);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_signature(self.0.as_bytes());
@@ -211,13 +233,20 @@ unsafe impl<'a> DbusType<'a> for Signature<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ObjectPath<'a>(pub Cow<'a, str>);
 
+impl<'a> Deref for ObjectPath<'a> {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 unsafe impl<'a> DbusType<'a> for ObjectPath<'a> {
     const ALIGNMENT: usize = 4;
     const IS_POD: bool = false;
+    type Generic<'b> = ObjectPath<'b>;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_OBJECT_PATH)
-    }
+    signature!(TY_OBJECT_PATH);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_str(&self.0);
@@ -228,9 +257,35 @@ unsafe impl<'a> DbusType<'a> for ObjectPath<'a> {
     }
 }
 
+unsafe impl<'a> DbusType<'a> for Rc<OwnedFd> {
+    const ALIGNMENT: usize = 4;
+    const IS_POD: bool = false;
+    type Generic<'b> = Self;
+
+    signature!(TY_UNIX_FD);
+
+    fn marshal(&self, fmt: &mut Formatter) {
+        fmt.write_fd(self)
+    }
+
+    fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError> {
+        parser.read_fd()
+    }
+
+    fn num_fds(&self) -> u32 {
+        1
+    }
+}
+
 unsafe impl<'a, T: DbusType<'a>> DbusType<'a> for Cow<'a, [T]> {
     const ALIGNMENT: usize = 4;
     const IS_POD: bool = false;
+    type Generic<'b> = Cow<'b, [T::Generic<'b>]>;
+
+    fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError> {
+        consume_signature_body!(s, TY_ARRAY);
+        T::consume_signature(s)
+    }
 
     fn write_signature(w: &mut Vec<u8>) {
         w.push(TY_ARRAY);
@@ -263,6 +318,15 @@ pub struct DictEntry<K, V> {
 unsafe impl<'a, K: DbusType<'a>, V: DbusType<'a>> DbusType<'a> for DictEntry<K, V> {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = false;
+    type Generic<'b> = DictEntry<K::Generic<'b>, V::Generic<'b>>;
+
+    fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError> {
+        consume_signature_body!(s, b'{');
+        K::consume_signature(s)?;
+        V::consume_signature(s)?;
+        consume_signature_body!(s, b'}');
+        Ok(())
+    }
 
     fn write_signature(w: &mut Vec<u8>) {
         w.push(b'{');
@@ -292,6 +356,16 @@ macro_rules! tuple {
         unsafe impl<'a, $($p: DbusType<'a>),*> DbusType<'a> for ($($p,)*) {
             const ALIGNMENT: usize = 8;
             const IS_POD: bool = false;
+            type Generic<'b> = ($($p::Generic<'b>,)*);
+
+            fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError> {
+                consume_signature_body!(s, b'(');
+                $(
+                    $p::consume_signature(s)?;
+                )*
+                consume_signature_body!(s, b')');
+                Ok(())
+            }
 
             fn write_signature(w: &mut Vec<u8>) {
                 w.push(b'(');
@@ -429,10 +503,9 @@ impl<'a> Variant<'a> {
 unsafe impl<'a> DbusType<'a> for Variant<'a> {
     const ALIGNMENT: usize = 1;
     const IS_POD: bool = false;
+    type Generic<'b> = Variant<'b>;
 
-    fn write_signature(w: &mut Vec<u8>) {
-        w.push(TY_VARIANT);
-    }
+    signature!(TY_VARIANT);
 
     fn marshal(&self, fmt: &mut Formatter) {
         fmt.write_variant(self);

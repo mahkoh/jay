@@ -3,3 +3,5 @@ fn GetSession(
 ) {
     object_path: object_path,
 }
+
+prop BootLoaderEntries = array(string)

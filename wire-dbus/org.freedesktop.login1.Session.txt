@@ -1,0 +1,10 @@
+fn TakeControl(force: bool) {
+}
+
+fn TakeDevice(major: u32, minor: u32) {
+    fd: fd,
+    inactive: bool,
+}
+
+fn PauseDeviceComplete(major: u32, minor: u32) { }
+

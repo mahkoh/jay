@@ -12,6 +12,7 @@ pub mod linkedlist;
 pub mod numcell;
 pub mod ptr_ext;
 pub mod queue;
+pub mod run_toplevel;
 pub mod smallmap;
 pub mod stack;
 pub mod tri;

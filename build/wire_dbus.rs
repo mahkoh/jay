@@ -5,7 +5,6 @@ use bstr::{BStr, BString, ByteSlice};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io::Write;
-use std::mem;
 use std::os::unix::ffi::OsStrExt;
 
 #[derive(Debug)]
@@ -42,18 +41,28 @@ struct Function {
     out_fields: Vec<Field>,
 }
 
+#[derive(Debug)]
+struct Property {
+    name: BString,
+    ty: Type,
+}
+
 struct Parser<'a> {
     pos: usize,
     tokens: &'a [Token<'a>],
 }
 
 impl<'a> Parser<'a> {
-    fn parse(&mut self) -> Result<Vec<Function>> {
-        let mut res = vec![];
+    fn parse(&mut self) -> Result<Component> {
+        let mut res = Component {
+            functions: vec![],
+            properties: vec![],
+        };
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
             match ty.as_bytes() {
-                b"fn" => res.push(self.parse_fn()?.val),
+                b"fn" => res.functions.push(self.parse_fn()?.val),
+                b"prop" => res.properties.push(self.parse_prop()?.val),
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
             }
         }
@@ -69,6 +78,22 @@ impl<'a> Parser<'a> {
             bail!("Unexpected eof");
         }
         Ok(())
+    }
+
+    fn parse_prop(&mut self) -> Result<Lined<Property>> {
+        let (line, name) = self.expect_ident()?;
+        let res: Result<_> = (|| {
+            self.expect_symbol(Symbol::Equals)?;
+            let ty = self.parse_type()?;
+            Ok(Lined {
+                line,
+                val: Property {
+                    name: name.to_owned(),
+                    ty,
+                },
+            })
+        })();
+        res.with_context(|| format!("While parsing property starting at line {}", line))
     }
 
     fn parse_fn(&mut self) -> Result<Lined<Function>> {
@@ -101,7 +126,7 @@ impl<'a> Parser<'a> {
                 },
             })
         })();
-        res.with_context(|| format!("While parsing message starting at line {}", line))
+        res.with_context(|| format!("While parsing function starting at line {}", line))
     }
 
     fn parse_field(&mut self) -> Result<Field> {
@@ -252,7 +277,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn parse_functions(s: &[u8]) -> Result<Vec<Function>> {
+fn parse_component(s: &[u8]) -> Result<Component> {
     let tokens = tokenize(s)?;
     let mut parser = Parser {
         pos: 0,
@@ -343,6 +368,10 @@ fn write_signature<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
 }
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
+    write_type2(f, "'a", ty)
+}
+
+fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
     let ty = match ty {
         Type::U8 => "u8",
         Type::Bool => "Bool",
@@ -353,22 +382,34 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
         Type::I64 => "AlignedI64",
         Type::U64 => "AlignedU64",
         Type::F64 => "AlignedF64",
-        Type::String => "Cow<'a, str>",
-        Type::ObjectPath => "ObjectPath<'a>",
-        Type::Signature => "Signature<'a>",
-        Type::Variant => "Variant<'a>",
+        Type::String => {
+            write!(f, "Cow<{}, str>", lt)?;
+            return Ok(());
+        }
+        Type::ObjectPath => {
+            write!(f, "ObjectPath<{}>", lt)?;
+            return Ok(());
+        }
+        Type::Signature => {
+            write!(f, "Signature<{}>", lt)?;
+            return Ok(());
+        }
+        Type::Variant => {
+            write!(f, "Variant<{}>", lt)?;
+            return Ok(());
+        }
         Type::Fd => "Rc<OwnedFd>",
         Type::Array(e) => {
-            write!(f, "Cow<'a, [")?;
-            write_type(f, &e)?;
-            write!(f, ">")?;
+            write!(f, "Cow<{}, [", lt)?;
+            write_type2(f, lt, &e)?;
+            write!(f, "]>")?;
             return Ok(());
         }
         Type::DictEntry(k, v) => {
             write!(f, "DictEntry<")?;
-            write_type(f, &k)?;
+            write_type2(f, lt, &k)?;
             write!(f, ", ")?;
-            write_type(f, &v)?;
+            write_type2(f, lt, &v)?;
             write!(f, ">")?;
             return Ok(());
         }
@@ -378,7 +419,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
                 if idx > 0 {
                     write!(f, ", ")?;
                 }
-                write_type(f, &fs)?;
+                write_type2(f, lt, &fs)?;
             }
             write!(f, ")")?;
             return Ok(());
@@ -400,7 +441,9 @@ fn write_message<W: Write>(
 ) -> Result<()> {
     let needs_lt = fields.iter().any(|f| needs_lifetime(&f.ty));
     let lt = if needs_lt { "<'a>" } else { "" };
+    let ltb = if needs_lt { "<'b>" } else { "" };
     writeln!(f)?;
+    writeln!(f, "{}#[derive(Debug)]", indent)?;
     if fields.is_empty() {
         writeln!(f, "{}pub struct {}{};", indent, name, lt)?;
     } else {
@@ -413,7 +456,11 @@ fn write_message<W: Write>(
         writeln!(f, "{}}}", indent)?;
     }
     writeln!(f)?;
-    writeln!(f, "{}impl<'a> Message<'a> for {}{} {{", indent, name, lt)?;
+    writeln!(
+        f,
+        "{}unsafe impl<'a> Message<'a> for {}{} {{",
+        indent, name, lt
+    )?;
     write!(f, "{}    const SIGNATURE: &'static str = \"", indent)?;
     for field in fields {
         write_signature(f, &field.ty)?;
@@ -429,6 +476,7 @@ fn write_message<W: Write>(
         "{}    const MEMBER: &'static str = \"{}\";",
         indent, fun.name
     )?;
+    writeln!(f, "{}    type Generic<'b> = {}{};", indent, name, ltb,)?;
     writeln!(f)?;
     writeln!(f, "{}    fn marshal(&self, fmt: &mut Formatter) {{", indent)?;
     if fields.is_empty() {
@@ -471,41 +519,86 @@ fn write_message<W: Write>(
     writeln!(f, "{}    }}", indent)?;
     writeln!(f, "{}}}", indent)?;
     if let Some(rn) = reply_name {
-        let reply_lt = if reply_has_lt { "<'b>" } else { "" };
+        let reply_lt = if reply_has_lt { "<'static>" } else { "" };
         writeln!(f)?;
         writeln!(f, "{}impl<'a> MethodCall<'a> for {}{} {{", indent, name, lt)?;
-        writeln!(f, "{}    type Reply<'b> = {}{};", indent, rn, reply_lt)?;
+        writeln!(f, "{}    type Reply = {}{};", indent, rn, reply_lt)?;
         writeln!(f, "{}}}", indent)?;
     }
     Ok(())
 }
 
-fn write_interface<W: Write>(f: &mut W, element: &Element, indent: &str) -> Result<()> {
-    for fun in &element.functions {
-        let in_name = format!("{}Call", fun.name);
-        let out_name = format!("{}Reply", fun.name);
-        let reply_has_lt = fun.out_fields.iter().any(|f| needs_lifetime(&f.ty));
-        write_message(
-            f,
-            element,
-            fun,
-            &in_name,
-            indent,
-            &fun.in_fields,
-            Some(&out_name),
-            reply_has_lt,
-        )?;
-        write_message(
-            f,
-            element,
-            fun,
-            &out_name,
-            indent,
-            &fun.out_fields,
-            None,
-            false,
-        )?;
+fn write_component<W: Write>(
+    f: &mut W,
+    element: &Element,
+    component: &Component,
+    indent: &str,
+) -> Result<()> {
+    for fun in &component.functions {
+        write_function(f, element, fun, indent)?;
     }
+    for prop in &component.properties {
+        write_property(f, element, prop, indent)?;
+    }
+    Ok(())
+}
+
+fn write_property<W: Write>(
+    f: &mut W,
+    el: &Element,
+    property: &Property,
+    indent: &str,
+) -> Result<()> {
+    writeln!(f)?;
+    writeln!(f, "{}pub struct {};", indent, property.name)?;
+    writeln!(f)?;
+    writeln!(f, "{}impl Property for {} {{", indent, property.name)?;
+    writeln!(
+        f,
+        "{}    const INTERFACE: &'static str = \"{}\";",
+        indent, el.interface
+    )?;
+    writeln!(
+        f,
+        "{}    const PROPERTY: &'static str = \"{}\";",
+        indent, property.name,
+    )?;
+    write!(f, "{}    type Type = ", indent)?;
+    write_type2(f, "'static", &property.ty)?;
+    writeln!(f, ";")?;
+    writeln!(f, "{}}}", indent)?;
+    Ok(())
+}
+
+fn write_function<W: Write>(
+    f: &mut W,
+    element: &Element,
+    fun: &Function,
+    indent: &str,
+) -> Result<()> {
+    let in_name = format!("{}", fun.name);
+    let out_name = format!("{}Reply", fun.name);
+    let reply_has_lt = fun.out_fields.iter().any(|f| needs_lifetime(&f.ty));
+    write_message(
+        f,
+        element,
+        fun,
+        &in_name,
+        indent,
+        &fun.in_fields,
+        Some(&out_name),
+        reply_has_lt,
+    )?;
+    write_message(
+        f,
+        element,
+        fun,
+        &out_name,
+        indent,
+        &fun.out_fields,
+        None,
+        false,
+    )?;
     Ok(())
 }
 
@@ -524,18 +617,27 @@ fn write_element<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<
     writeln!(f, "{}    use crate::dbus::prelude::*;", indent)?;
     {
         let indent = format!("{}    ", indent);
-        write_interface(f, &element, &indent)?;
+        for component in &element.components {
+            write_component(f, &element, &component, &indent)?;
+        }
         write_module(f, element, &indent)?;
     }
     writeln!(f, "{}}}", indent)?;
     Ok(())
 }
 
+#[derive(Debug)]
+struct Component {
+    functions: Vec<Function>,
+    properties: Vec<Property>,
+}
+
+#[derive(Debug)]
 struct Element {
     name: BString,
     interface: BString,
     children: HashMap<BString, Element>,
-    functions: Vec<Function>,
+    components: Vec<Component>,
 }
 
 fn collect_interfaces() -> Result<Element> {
@@ -543,7 +645,7 @@ fn collect_interfaces() -> Result<Element> {
         name: Default::default(),
         interface: Default::default(),
         children: Default::default(),
-        functions: vec![],
+        components: vec![],
     };
     let mut files = vec![];
     for file in std::fs::read_dir("wire-dbus")? {
@@ -553,7 +655,7 @@ fn collect_interfaces() -> Result<Element> {
         let file_name = file.file_name();
         let file_name = file_name.as_bytes().as_bstr();
         println!("cargo:rerun-if-changed=wire-dbus/{}", file_name);
-        let mut interface = file_name
+        let interface = file_name
             .rsplitn_str(2, ".")
             .skip(1)
             .next()
@@ -562,37 +664,27 @@ fn collect_interfaces() -> Result<Element> {
             .to_owned();
         let mut components: Vec<_> = file_name.split_str(".").collect();
         components.pop();
-        let functions = (|| {
+        let component = (|| {
             let contents = std::fs::read(file.path())?;
-            parse_functions(&contents)
+            parse_component(&contents)
         })();
-        let mut functions =
-            functions.with_context(|| format!("While parsing file {}", file.path().display()))?;
+        let component =
+            component.with_context(|| format!("While parsing file {}", file.path().display()))?;
         let mut target = &mut root;
-        for (i, comp) in components.iter().enumerate() {
-            let comp = comp.as_bstr();
-            if i + 1 < components.len() {
-                target = match target.children.entry(comp.to_owned()) {
-                    Entry::Occupied(o) => o.into_mut(),
-                    Entry::Vacant(v) => v.insert(Element {
-                        name: comp.to_owned(),
-                        interface: Default::default(),
-                        children: HashMap::new(),
-                        functions: Vec::new(),
-                    }),
-                };
-            } else {
-                target.children.insert(
-                    comp.to_owned(),
-                    Element {
-                        name: to_snake(comp),
-                        interface: mem::take(&mut interface),
-                        children: Default::default(),
-                        functions: mem::take(&mut functions),
-                    },
-                );
-            }
+        for comp in components.iter() {
+            let comp = to_snake(comp.as_bstr());
+            target = match target.children.entry(comp.to_owned()) {
+                Entry::Occupied(o) => o.into_mut(),
+                Entry::Vacant(v) => v.insert(Element {
+                    name: comp.to_owned(),
+                    interface: Default::default(),
+                    children: HashMap::new(),
+                    components: vec![],
+                }),
+            };
         }
+        target.interface = interface;
+        target.components.push(component);
     }
     Ok(root)
 }

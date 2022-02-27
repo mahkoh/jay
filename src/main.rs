@@ -19,7 +19,7 @@ use crate::backends::dummy::DummyBackend;
 use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
-use crate::dbus::Dbus;
+use crate::dbus::{Dbus, FALSE};
 use crate::event_loop::EventLoopError;
 use crate::forker::ForkerError;
 use crate::globals::Globals;
@@ -40,6 +40,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
+use crate::utils::run_toplevel::RunToplevel;
 use crate::wheel::WheelError;
 use crate::wire_dbus::org;
 use crate::xkbcommon::XkbContext;
@@ -47,7 +48,6 @@ use acceptor::Acceptor;
 use async_engine::AsyncEngine;
 use event_loop::EventLoop;
 use log::LevelFilter;
-use std::borrow::Cow;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -140,6 +140,7 @@ fn main_() -> Result<(), MainError> {
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
     let wheel = Wheel::install(&el)?;
     let engine = AsyncEngine::install(&el, &wheel)?;
+    let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         xkb_ctx,
@@ -175,21 +176,39 @@ fn main_() -> Result<(), MainError> {
         pending_container_titles: Default::default(),
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
-        dbus: Dbus::new(&engine),
+        dbus: Dbus::new(&engine, &run_toplevel),
     });
-    state.dbus.system().unwrap().call_noreply(
-        "org.freedesktop.DBus",
-        "/org/freedesktop/dbus",
-        org::freedesktop::dbus::HelloCall,
-    );
-    state.dbus.system().unwrap().call_noreply(
-        "org.freedesktop.login1",
-        "/org/freedesktop/login1",
-        org::freedesktop::login1::manager::GetSessionCall {
-            // session_id: Cow::Owned(std::env::var("XDG_SESSION_ID").unwrap()),
-            session_id: Cow::Borrowed("hurr durr"),
-        },
-    );
+    let _future = state.eng.spawn({
+        let dbus = state.dbus.system().unwrap();
+        async move {
+            const LOGIND: &str = "org.freedesktop.login1";
+            let reply = dbus
+                .call_async(
+                    LOGIND,
+                    "/org/freedesktop/login1",
+                    org::freedesktop::login1::manager::GetSession {
+                        session_id: std::env::var("XDG_SESSION_ID").unwrap().into(),
+                    },
+                )
+                .await
+                .unwrap();
+            let reply = dbus
+                .call_async(
+                    LOGIND,
+                    &reply.get().object_path,
+                    org::freedesktop::login1::session::TakeControl { force: FALSE },
+                )
+                .await;
+            log::info!("{:?}", reply);
+            let reply = dbus
+                .get_async::<org::freedesktop::login1::manager::BootLoaderEntries>(
+                    LOGIND,
+                    "/org/freedesktop/login1",
+                )
+                .await;
+            log::info!("{:?}", reply);
+        }
+    });
     forker.install(&state);
     let backend = XorgBackend::new(&state)?;
     state.backend.set(backend);

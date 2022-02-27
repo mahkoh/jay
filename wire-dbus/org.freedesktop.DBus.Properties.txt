@@ -1,0 +1,10 @@
+fn Get(interface_name: string, property_name: string) {
+    value: variant,
+}
+
+fn Set(interface_name: string, property_name: string, value: variant) {
+}
+
+fn GetAll(interface_name: string) {
+    props: array(dict(string, variant)),
+}

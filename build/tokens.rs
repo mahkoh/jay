@@ -158,7 +158,7 @@ impl<'a> Tokenizer<'a> {
             b'{' => self.tokenize_tree(TreeDelim::Brace)?,
             c @ (b')' | b'}') => {
                 if self.delim.map(|d| d.closing()) != Some(c) {
-                    bail!("Unexpected '{}' in line {}", c, self.line);
+                    bail!("Unexpected {:?} in line {}", c as char, self.line);
                 }
                 return Ok(false);
             }

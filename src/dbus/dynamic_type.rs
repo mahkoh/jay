@@ -145,7 +145,7 @@ impl DynamicType {
             DynamicType::Fd => Variant::Fd(parser.read_fd()?),
             DynamicType::Array(el) => {
                 let len: u32 = parser.read_pod()?;
-                parser.align_to(el.alignment());
+                parser.align_to(el.alignment())?;
                 let len = len as usize;
                 if parser.buf.len() - parser.pos < len {
                     return Err(DbusError::UnexpectedEof);
@@ -165,12 +165,12 @@ impl DynamicType {
                 Variant::Array(el.deref().clone(), vals)
             }
             DynamicType::DictEntry(k, v) => {
-                parser.align_to(8);
+                parser.align_to(8)?;
                 Variant::DictEntry(Box::new(k.parse(parser)?), Box::new(v.parse(parser)?))
             }
             DynamicType::Struct(fields) => {
                 let mut vals = vec![];
-                parser.align_to(8);
+                parser.align_to(8)?;
                 for field in fields {
                     vals.push(field.parse(parser)?);
                 }

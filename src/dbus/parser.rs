@@ -38,7 +38,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn read_pod<'b, T: DbusType<'b> + Pod>(&mut self) -> Result<T, DbusError> {
-        self.align_to(T::ALIGNMENT);
+        self.align_to(T::ALIGNMENT)?;
         match uapi::pod_read_init(&self.buf[self.pos..]) {
             Ok(v) => {
                 self.pos += mem::size_of::<T>();
@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
     }
 
     fn read_string_(&mut self, len: usize) -> Result<&'a str, DbusError> {
-        if self.buf.len() - self.pos < len + 1 {
+        if len == usize::MAX || self.buf.len() - self.pos < len + 1 {
             return Err(DbusError::UnexpectedEof);
         }
         let s = &self.buf[self.pos..self.pos + len];
@@ -127,5 +127,15 @@ impl<'a> Parser<'a> {
             return Err(DbusError::TrailingVariantSignature);
         }
         parser.parse(self)
+    }
+
+    pub fn read_variant_as<T: DbusType<'a>>(&mut self) -> Result<T, DbusError> {
+        let sig = self.read_signature()?;
+        let mut sig = sig.0.as_bytes();
+        T::consume_signature(&mut sig)?;
+        if sig.len() > 0 {
+            return Err(DbusError::TrailingVariantSignature);
+        }
+        T::unmarshal(self)
     }
 }

@@ -40,7 +40,7 @@ impl IoIn {
         unsafe {
             self.scratch.set_len(len);
         }
-        let res = bincode::decode_from_slice::<T, _>(&&self.scratch, bincode_ops());
+        let res = bincode::decode_from_slice::<T, _>(&self.scratch, bincode_ops());
         match res {
             Ok((msg, _)) => Ok(msg),
             Err(e) => Err(ForkerError::DecodeFailed(e)),
