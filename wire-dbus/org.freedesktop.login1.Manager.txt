@@ -5,3 +5,4 @@ fn GetSession(
 }
 
 prop BootLoaderEntries = array(string)
+prop ScheduledShutdown = struct(string, u64)

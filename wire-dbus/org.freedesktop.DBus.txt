@@ -1,3 +1,7 @@
 fn Hello() {
     name: string,
 }
+
+fn AddMatch(rule: string) { }
+
+fn RemoveMatch(rule: string) { }

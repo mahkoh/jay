@@ -2,11 +2,15 @@ use crate::dbus::property::Get;
 use crate::dbus::types::{ObjectPath, Signature, Variant};
 use crate::dbus::{
     AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusMessage, DbusSocket, DbusType,
-    Formatter, Headers, Message, MethodCall, Parser, Property, Reply, ReplyHandler,
+    Formatter, Headers, InterfaceSignalHandlers, Message, MethodCall, Parser, Property, Reply,
+    ReplyHandler, Signal, SignalHandler, SignalHandlerApi, SignalHandlerData, BUS_DEST, BUS_PATH,
     HDR_DESTINATION, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_SIGNATURE, HDR_UNIX_FDS,
     MSG_METHOD_CALL, NO_REPLY_EXPECTED,
 };
+use crate::{org, ErrorFmt};
 use std::cell::Cell;
+use std::collections::hash_map::Entry;
+use std::fmt::Write;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::DerefMut;
@@ -114,6 +118,118 @@ impl DbusSocket {
         AsyncProperty {
             reply: self.call_async(destination, path, msg),
         }
+    }
+
+    pub fn handle_signal<T, F>(
+        self: &Rc<Self>,
+        sender: Option<&str>,
+        path: Option<&str>,
+        handler: F,
+    ) -> Result<SignalHandler, DbusError>
+    where
+        T: Signal<'static>,
+        F: for<'a> Fn(T::Generic<'a>) + 'static,
+    {
+        let mut rule = format!(
+            "type='signal',interface='{}',member='{}'",
+            T::INTERFACE,
+            T::MEMBER
+        );
+        if let Some(sender) = sender {
+            let _ = write!(rule, ",sender='{}'", sender);
+        }
+        if let Some(path) = path {
+            let _ = write!(rule, ",path='{}'", path);
+        }
+        let shd: SignalHandlerData<T, _> = SignalHandlerData {
+            path: path.map(|s| s.to_owned()),
+            rule,
+            handler,
+            _phantom: Default::default(),
+        };
+        self.handle_signal_dyn(Rc::new(shd))
+    }
+
+    fn handle_signal_dyn(
+        self: &Rc<Self>,
+        handler: Rc<dyn SignalHandlerApi>,
+    ) -> Result<SignalHandler, DbusError> {
+        let mut sh = self.signal_handlers.borrow_mut();
+        let entry = sh
+            .entry((handler.interface(), handler.member()))
+            .or_insert_with(|| InterfaceSignalHandlers {
+                unconditional: Default::default(),
+                conditional: Default::default(),
+            });
+        match handler.path() {
+            Some(p) => match entry.conditional.entry(p.to_owned()) {
+                Entry::Occupied(_) => return Err(DbusError::AlreadyHandled),
+                Entry::Vacant(v) => {
+                    v.insert(handler.clone());
+                }
+            },
+            _ if entry.unconditional.is_some() => return Err(DbusError::AlreadyHandled),
+            _ => entry.unconditional = Some(handler.clone()),
+        }
+        self.call(
+            BUS_DEST,
+            BUS_PATH,
+            org::freedesktop::dbus::AddMatch {
+                rule: handler.rule().into(),
+            },
+            {
+                let slf = self.clone();
+                move |res| {
+                    if let Err(e) = res {
+                        log::error!(
+                            "{}: Could not register a signal handler: {}",
+                            slf.bus_name,
+                            ErrorFmt(e)
+                        );
+                    }
+                }
+            },
+        );
+        Ok(SignalHandler {
+            socket: self.clone(),
+            data: handler,
+        })
+    }
+
+    pub(super) fn remove_signal_handler(self: &Rc<Self>, handler: &dyn SignalHandlerApi) {
+        let mut sh = self.signal_handlers.borrow_mut();
+        let mut entry = match sh.entry((handler.interface(), handler.member())) {
+            Entry::Occupied(o) => o,
+            Entry::Vacant(_) => return,
+        };
+        match handler.path() {
+            Some(p) => {
+                entry.get_mut().conditional.remove(p);
+            }
+            _ => entry.get_mut().unconditional = None,
+        }
+        if entry.get().unconditional.is_none() && entry.get().conditional.is_empty() {
+            entry.remove();
+        }
+        self.call(
+            BUS_DEST,
+            BUS_PATH,
+            org::freedesktop::dbus::RemoveMatch {
+                rule: handler.rule().into(),
+            },
+            {
+                let slf = self.clone();
+                move |res| {
+                    if let Err(e) = res {
+                        log::error!(
+                            "{}: Could not unregister a signal handler: {}",
+                            slf.bus_name,
+                            ErrorFmt(e)
+                        );
+                    }
+                }
+            },
+        );
     }
 
     fn send_call<'a, T: Message<'a>>(

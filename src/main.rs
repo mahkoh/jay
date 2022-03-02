@@ -3,7 +3,8 @@
     thread_local,
     label_break_value,
     try_blocks,
-    generic_associated_types
+    generic_associated_types,
+    extern_types
 )]
 #![allow(
     clippy::len_zero,
@@ -19,7 +20,7 @@ use crate::backends::dummy::DummyBackend;
 use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
-use crate::dbus::{Dbus, FALSE};
+use crate::dbus::{Dbus, FALSE, TRUE};
 use crate::event_loop::EventLoopError;
 use crate::forker::ForkerError;
 use crate::globals::Globals;
@@ -36,6 +37,7 @@ use crate::state::State;
 use crate::tree::{
     container_layout, container_titles, float_layout, float_titles, DisplayNode, NodeIds,
 };
+use crate::udev::Udev;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
@@ -53,6 +55,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
+use crate::backends::metal;
 
 #[macro_use]
 mod macros;
@@ -75,6 +78,7 @@ mod forker;
 mod format;
 mod globals;
 mod ifs;
+mod libinput;
 mod logind;
 mod object;
 mod pixman;
@@ -88,6 +92,7 @@ mod text;
 mod theme;
 mod time;
 mod tree;
+mod udev;
 mod utils;
 mod wheel;
 mod wire;
@@ -178,40 +183,10 @@ fn main_() -> Result<(), MainError> {
         pending_float_titles: Default::default(),
         dbus: Dbus::new(&engine, &run_toplevel),
     });
-    let _future = state.eng.spawn({
-        let dbus = state.dbus.system().unwrap();
-        async move {
-            const LOGIND: &str = "org.freedesktop.login1";
-            let reply = dbus
-                .call_async(
-                    LOGIND,
-                    "/org/freedesktop/login1",
-                    org::freedesktop::login1::manager::GetSession {
-                        session_id: std::env::var("XDG_SESSION_ID").unwrap().into(),
-                    },
-                )
-                .await
-                .unwrap();
-            let reply = dbus
-                .call_async(
-                    LOGIND,
-                    &reply.get().object_path,
-                    org::freedesktop::login1::session::TakeControl { force: FALSE },
-                )
-                .await;
-            log::info!("{:?}", reply);
-            let reply = dbus
-                .get_async::<org::freedesktop::login1::manager::BootLoaderEntries>(
-                    LOGIND,
-                    "/org/freedesktop/login1",
-                )
-                .await;
-            log::info!("{:?}", reply);
-        }
-    });
+    let _future = state.eng.spawn(metal::run(state.clone()));
     forker.install(&state);
-    let backend = XorgBackend::new(&state)?;
-    state.backend.set(backend);
+    // let backend = XorgBackend::new(&state)?;
+    // state.backend.set(backend);
     let config = config::ConfigProxy::default(&state);
     state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));

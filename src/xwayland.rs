@@ -100,7 +100,7 @@ pub async fn manage(state: Rc<State>) {
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
         let res = XWaylandError::tria(async {
-            let _ = state.eng.fd(&socket)?.readable().await;
+            state.eng.fd(&socket)?.readable().await?;
             Ok(())
         })
         .await;
@@ -168,13 +168,13 @@ async fn run(
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),
     };
-    let _ = state.eng.fd(&Rc::new(dfdread))?.readable().await;
+    state.eng.fd(&Rc::new(dfdread))?.readable().await?;
     let wm = match Wm::get(state, client, wm1, queue.clone()) {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
     };
     let wm = state.eng.spawn(wm.run());
-    let _ = state.eng.fd(&Rc::new(pidfd))?.readable().await;
+    state.eng.fd(&Rc::new(pidfd))?.readable().await?;
     drop(wm);
     queue.clear();
     stderr_read.await;
@@ -223,7 +223,10 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
     let mut buf2 = [0; 128];
     let mut done = false;
     while !done {
-        let _ = afd.readable().await;
+        if let Err(e) = afd.readable().await {
+            log::error!("Cannot wait for the xwayland stderr to become readable: {}", ErrorFmt(e));
+            return;
+        }
         loop {
             match uapi::read(afd.raw(), &mut buf2[..]) {
                 Ok(buf2) if buf2.len() > 0 => {

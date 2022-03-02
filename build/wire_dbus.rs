@@ -47,6 +47,12 @@ struct Property {
     ty: Type,
 }
 
+#[derive(Debug)]
+struct Signal {
+    name: BString,
+    fields: Vec<Field>,
+}
+
 struct Parser<'a> {
     pos: usize,
     tokens: &'a [Token<'a>],
@@ -57,12 +63,14 @@ impl<'a> Parser<'a> {
         let mut res = Component {
             functions: vec![],
             properties: vec![],
+            signals: vec![],
         };
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
             match ty.as_bytes() {
                 b"fn" => res.functions.push(self.parse_fn()?.val),
                 b"prop" => res.properties.push(self.parse_prop()?.val),
+                b"sig" => res.signals.push(self.parse_signal()?.val),
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
             }
         }
@@ -94,6 +102,29 @@ impl<'a> Parser<'a> {
             })
         })();
         res.with_context(|| format!("While parsing property starting at line {}", line))
+    }
+
+    fn parse_signal(&mut self) -> Result<Lined<Signal>> {
+        let (line, name) = self.expect_ident()?;
+        let res: Result<_> = (|| {
+            let (_, body) = self.expect_tree(TreeDelim::Brace)?;
+            let mut parser = Parser {
+                pos: 0,
+                tokens: body,
+            };
+            let mut fields = vec![];
+            while !parser.eof() {
+                fields.push(parser.parse_field()?);
+            }
+            Ok(Lined {
+                line,
+                val: Signal {
+                    name: name.to_owned(),
+                    fields,
+                },
+            })
+        })();
+        res.with_context(|| format!("While parsing signal starting at line {}", line))
     }
 
     fn parse_fn(&mut self) -> Result<Lined<Function>> {
@@ -379,9 +410,9 @@ fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
         Type::U16 => "u16",
         Type::I32 => "i32",
         Type::U32 => "u32",
-        Type::I64 => "AlignedI64",
-        Type::U64 => "AlignedU64",
-        Type::F64 => "AlignedF64",
+        Type::I64 => "i64",
+        Type::U64 => "u64",
+        Type::F64 => "f64",
         Type::String => {
             write!(f, "Cow<{}, str>", lt)?;
             return Ok(());
@@ -432,7 +463,7 @@ fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
 fn write_message<W: Write>(
     f: &mut W,
     el: &Element,
-    fun: &Function,
+    msg_name: &BStr,
     name: &str,
     indent: &str,
     fields: &[Field],
@@ -474,7 +505,7 @@ fn write_message<W: Write>(
     writeln!(
         f,
         "{}    const MEMBER: &'static str = \"{}\";",
-        indent, fun.name
+        indent, msg_name,
     )?;
     writeln!(f, "{}    type Generic<'b> = {}{};", indent, name, ltb,)?;
     writeln!(f)?;
@@ -540,6 +571,9 @@ fn write_component<W: Write>(
     for prop in &component.properties {
         write_property(f, element, prop, indent)?;
     }
+    for sig in &component.signals {
+        write_signal(f, element, sig, indent)?;
+    }
     Ok(())
 }
 
@@ -570,6 +604,25 @@ fn write_property<W: Write>(
     Ok(())
 }
 
+fn write_signal<W: Write>(f: &mut W, element: &Element, sig: &Signal, indent: &str) -> Result<()> {
+    let name = format!("{}", sig.name);
+    write_message(
+        f,
+        element,
+        sig.name.as_bstr(),
+        &name,
+        indent,
+        &sig.fields,
+        None,
+        false,
+    )?;
+    let has_lt = sig.fields.iter().any(|f| needs_lifetime(&f.ty));
+    let lt = if has_lt { "<'a>" } else { "" };
+    writeln!(f)?;
+    writeln!(f, "{}impl<'a> Signal<'a> for {}{} {{ }}", indent, name, lt)?;
+    Ok(())
+}
+
 fn write_function<W: Write>(
     f: &mut W,
     element: &Element,
@@ -582,7 +635,7 @@ fn write_function<W: Write>(
     write_message(
         f,
         element,
-        fun,
+        fun.name.as_bstr(),
         &in_name,
         indent,
         &fun.in_fields,
@@ -592,7 +645,7 @@ fn write_function<W: Write>(
     write_message(
         f,
         element,
-        fun,
+        fun.name.as_bstr(),
         &out_name,
         indent,
         &fun.out_fields,
@@ -630,6 +683,7 @@ fn write_element<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<
 struct Component {
     functions: Vec<Function>,
     properties: Vec<Property>,
+    signals: Vec<Signal>,
 }
 
 #[derive(Debug)]

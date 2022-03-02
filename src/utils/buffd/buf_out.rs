@@ -101,7 +101,9 @@ impl BufFdOut {
                     _ = timeout.as_mut().unwrap() => {
                         return Err(BufFdError::Timeout);
                     },
-                    res = self.fd.writable().fuse() => res?,
+                    res = self.fd.writable().fuse() => {
+                        res?;
+                    },
                 }
             }
         }

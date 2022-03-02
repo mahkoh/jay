@@ -5,10 +5,12 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::stack::Stack;
 use crate::utils::vecstorage::VecStorage;
 use crate::{AsyncEngine, AsyncError, AsyncQueue, CloneCell, NumCell, RunToplevel};
+use ahash::AHashMap;
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Display};
 use std::future::Future;
+use std::marker::PhantomData;
 use std::mem;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -52,6 +54,8 @@ pub enum DbusError {
     Closed,
     #[error("Function call reply does not contain a reply serial")]
     NoReplySerial,
+    #[error("Signal message contains no interface or member or path")]
+    MissingSignalHeaders,
     #[error("Error has no error name")]
     NoErrorName,
     #[error("The socket was killed")]
@@ -102,6 +106,8 @@ pub enum DbusError {
     InvalidProtocol,
     #[error("Signature contains an invalid type")]
     InvalidSignatureType,
+    #[error("The signal already has a handler")]
+    AlreadyHandled,
 }
 efrom!(DbusError, AsyncError);
 
@@ -151,6 +157,7 @@ pub struct DbusSocket {
     dead: Cell<bool>,
     headers: RefCell<VecStorage<(u8, Variant<'static>)>>,
     run_toplevel: Rc<RunToplevel>,
+    signal_handlers: RefCell<AHashMap<(&'static str, &'static str), InterfaceSignalHandlers>>,
 }
 
 const TY_BYTE: u8 = b'y';
@@ -187,6 +194,9 @@ const MSG_SIGNAL: u8 = 4;
 const NO_REPLY_EXPECTED: u8 = 0x1;
 const NO_AUTO_START: u8 = 0x2;
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
+
+pub const BUS_DEST: &'static str = "org.freedesktop.DBus";
+pub const BUS_PATH: &'static str = "/org/freedesktop/dbus";
 
 #[derive(Default, Debug)]
 struct Headers<'a> {
@@ -278,6 +288,8 @@ pub trait Property {
     const PROPERTY: &'static str;
     type Type: DbusType<'static>;
 }
+
+pub trait Signal<'a>: Message<'a> {}
 
 pub trait MethodCall<'a>: Message<'a> {
     type Reply: Message<'static>;
@@ -391,10 +403,74 @@ impl<T: Property> Future for AsyncProperty<T> {
     }
 }
 
+struct SignalHandlerData<T, F> {
+    path: Option<String>,
+    rule: String,
+    handler: F,
+    _phantom: PhantomData<T>,
+}
+
+trait SignalHandlerApi {
+    fn interface(&self) -> &'static str;
+    fn member(&self) -> &'static str;
+    fn signature(&self) -> &'static str;
+    fn path(&self) -> Option<&str>;
+    fn rule(&self) -> &str;
+    fn handle(&self, parser: &mut Parser) -> Result<(), DbusError>;
+}
+
+impl<T, F> SignalHandlerApi for SignalHandlerData<T, F>
+where
+    T: Signal<'static>,
+    F: for<'a> Fn(T::Generic<'a>),
+{
+    fn interface(&self) -> &'static str {
+        T::INTERFACE
+    }
+
+    fn member(&self) -> &'static str {
+        T::MEMBER
+    }
+
+    fn signature(&self) -> &'static str {
+        T::SIGNATURE
+    }
+
+    fn path(&self) -> Option<&str> {
+        self.path.as_deref()
+    }
+
+    fn rule(&self) -> &str {
+        &self.rule
+    }
+
+    fn handle<'a>(&self, parser: &mut Parser<'a>) -> Result<(), DbusError> {
+        (self.handler)(T::Generic::<'a>::unmarshal(parser)?);
+        Ok(())
+    }
+}
+
+#[must_use]
+pub struct SignalHandler {
+    socket: Rc<DbusSocket>,
+    data: Rc<dyn SignalHandlerApi>,
+}
+
+impl Drop for SignalHandler {
+    fn drop(&mut self) {
+        self.socket.remove_signal_handler(&*self.data);
+    }
+}
+
+struct InterfaceSignalHandlers {
+    unconditional: Option<Rc<dyn SignalHandlerApi>>,
+    conditional: AHashMap<String, Rc<dyn SignalHandlerApi>>,
+}
+
 pub mod prelude {
     pub use super::{
         types::{Bool, DictEntry, ObjectPath, Signature, Variant},
-        DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property,
+        DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property, Signal,
     };
     pub use std::borrow::Cow;
     pub use std::rc::Rc;

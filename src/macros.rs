@@ -330,6 +330,21 @@ macro_rules! assert_size_eq {
     }};
 }
 
+macro_rules! assert_size_le {
+    ($t:ty, $u:ty) => {{
+        struct AssertLeSize<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);
+        impl<T, U> AssertLeSize<T, U> {
+            const VAL: usize = {
+                if std::mem::size_of::<T>() > std::mem::size_of::<U>() {
+                    panic!("Left type has size larger than right type");
+                }
+                1
+            };
+        }
+        let _ = AssertLeSize::<$t, $u>::VAL;
+    }};
+}
+
 macro_rules! assert_align_eq {
     ($t:ty, $u:ty) => {{
         struct AssertEqAlign<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);

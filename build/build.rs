@@ -1,3 +1,5 @@
+extern crate core;
+
 use std::fs::{File, OpenOptions};
 use std::io::BufWriter;
 use std::path::PathBuf;

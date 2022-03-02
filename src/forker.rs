@@ -234,8 +234,11 @@ impl ForkerProxy {
 
     async fn check_process(self: Rc<Self>, state: Rc<State>) {
         let pidfd = state.eng.fd(&self.pidfd).unwrap();
-        let _ = pidfd.readable().await;
-        let _ = uapi::waitpid(self.pid, 0);
+        if let Err(e) = pidfd.readable().await {
+            log::error!("Cannot wait for the forker pidfd to become readable: {}", ErrorFmt(e));
+        } else {
+            let _ = uapi::waitpid(self.pid, 0);
+        }
         log::error!("The ol' forker died. Cannot spawn further processes.");
         state.forker.set(None);
         self.task_out.take();
@@ -413,14 +416,17 @@ impl Forker {
                 let slf = self.clone();
                 let spawn = self.ae.spawn(async move {
                     let read = slf.ae.fd(&Rc::new(read)).unwrap();
-                    let _ = read.readable().await;
-                    let mut s = String::new();
-                    let _ = Fd::new(read.raw()).read_to_string(&mut s);
-                    if s.len() > 0 {
-                        slf.outgoing.push(ForkerMessage::Log {
-                            level: log::Level::Error as _,
-                            msg: format!("Could not spawn `{}`: {}", prog, s),
-                        });
+                    if let Err(e) = read.readable().await {
+                        log::error!("Cannot wait for the child fd to become readable: {}", ErrorFmt(e));
+                    } else {
+                        let mut s = String::new();
+                        let _ = Fd::new(read.raw()).read_to_string(&mut s);
+                        if s.len() > 0 {
+                            slf.outgoing.push(ForkerMessage::Log {
+                                level: log::Level::Error as _,
+                                msg: format!("Could not spawn `{}`: {}", prog, s),
+                            });
+                        }
                     }
                     slf.pending_spawns.remove(&pid);
                 });

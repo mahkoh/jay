@@ -247,7 +247,12 @@ impl Wm {
                 return;
             }
             futures::select! {
-                _ = self.socket.readable().fuse() => { },
+                res = self.socket.readable().fuse() => {
+                    if let Err(e) = res {
+                        log::error!("Cannot wait for xwm fd to become readable: {}", ErrorFmt(e));
+                        return;
+                    }
+                }
                 _ = self.queue.non_empty().fuse() => { },
             }
         }

@@ -61,6 +61,7 @@ fn connect(
         dead: Cell::new(false),
         headers: Default::default(),
         run_toplevel: run_toplevel.clone(),
+        signal_handlers: Default::default(),
     });
     let skt = socket.clone();
     socket.call(

@@ -3,7 +3,6 @@ use crate::dbus::{
     TY_INT16, TY_INT32, TY_INT64, TY_OBJECT_PATH, TY_SIGNATURE, TY_STRING, TY_UINT16, TY_UINT32,
     TY_UINT64, TY_UNIX_FD, TY_VARIANT,
 };
-use crate::utils::aligned::{AlignedF64, AlignedI64, AlignedU64};
 use std::borrow::Cow;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -139,7 +138,7 @@ unsafe impl<'a> DbusType<'a> for u32 {
     }
 }
 
-unsafe impl<'a> DbusType<'a> for AlignedI64 {
+unsafe impl<'a> DbusType<'a> for i64 {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = true;
     type Generic<'b> = Self;
@@ -155,7 +154,7 @@ unsafe impl<'a> DbusType<'a> for AlignedI64 {
     }
 }
 
-unsafe impl<'a> DbusType<'a> for AlignedU64 {
+unsafe impl<'a> DbusType<'a> for u64 {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = true;
     type Generic<'b> = Self;
@@ -171,7 +170,7 @@ unsafe impl<'a> DbusType<'a> for AlignedU64 {
     }
 }
 
-unsafe impl<'a> DbusType<'a> for AlignedF64 {
+unsafe impl<'a> DbusType<'a> for f64 {
     const ALIGNMENT: usize = 8;
     const IS_POD: bool = true;
     type Generic<'b> = Self;
@@ -179,11 +178,11 @@ unsafe impl<'a> DbusType<'a> for AlignedF64 {
     signature!(TY_DOUBLE);
 
     fn marshal(&self, fmt: &mut Formatter) {
-        fmt.write_packed(self);
+        fmt.write_packed(&self.to_bits());
     }
 
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError> {
-        parser.read_pod()
+        Ok(f64::from_bits(parser.read_pod()?))
     }
 }
 
@@ -417,9 +416,9 @@ pub enum Variant<'a> {
     U16(u16),
     I32(i32),
     U32(u32),
-    I64(AlignedI64),
-    U64(AlignedU64),
-    F64(AlignedF64),
+    I64(i64),
+    U64(u64),
+    F64(f64),
     String(Cow<'a, str>),
     ObjectPath(ObjectPath<'a>),
     Signature(Signature<'a>),

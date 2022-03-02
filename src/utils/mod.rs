@@ -1,4 +1,3 @@
-pub mod aligned;
 pub mod array;
 pub mod asyncevent;
 pub mod bitflags;
@@ -18,3 +17,4 @@ pub mod stack;
 pub mod tri;
 pub mod vec_ext;
 pub mod vecstorage;
+pub mod bitfield;

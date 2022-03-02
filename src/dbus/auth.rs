@@ -86,7 +86,7 @@ impl Auth {
             match uapi::read(self.socket.fd.raw(), &mut self.buf[..]) {
                 Ok(n) => self.buf_stop = n.len(),
                 Err(Errno(c::EAGAIN)) => {
-                    let _ = self.socket.fd.readable().await;
+                    self.socket.fd.readable().await?;
                 }
                 Err(e) => return Err(DbusError::ReadError(e.into())),
             }
@@ -99,7 +99,7 @@ impl Auth {
             match uapi::write(self.socket.fd.raw(), &buf[start..]) {
                 Ok(n) => start += n,
                 Err(Errno(c::EAGAIN)) => {
-                    let _ = self.socket.fd.writable().await;
+                    self.socket.fd.writable().await?;
                 }
                 Err(e) => return Err(DbusError::WriteError(e.into())),
             }

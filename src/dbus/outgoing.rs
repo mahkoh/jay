@@ -48,7 +48,11 @@ impl Outgoing {
                     self.socket.kill();
                     return;
                 }
-                let _ = self.socket.fd.writable().await;
+                if let Err(e) = self.socket.fd.writable().await {
+                    log::error!("{}: Cannot wait for fd to become readable: {}", self.socket.bus_name, ErrorFmt(e));
+                    self.socket.kill();
+                    return;
+                }
             }
         }
     }

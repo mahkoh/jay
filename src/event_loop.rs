@@ -128,7 +128,9 @@ impl EventLoop {
         };
         if let Some(fd) = entry.fd {
             if let Err(e) = uapi::epoll_ctl(self.epoll.raw(), c::EPOLL_CTL_DEL, fd, None) {
-                return Err(EventLoopError::RemoveFailed(e.into()));
+                if e.0 != c::ENOENT {
+                    return Err(EventLoopError::RemoveFailed(e.into()));
+                }
             }
         }
         Ok(())

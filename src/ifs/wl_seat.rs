@@ -157,13 +157,14 @@ impl WlSeatGlobal {
             tree_changed_handler: Cell::new(None),
         });
         let seat = slf.clone();
-        state.eng.spawn(async move {
+        let future = state.eng.spawn(async move {
             loop {
                 seat.tree_changed.triggered().await;
                 seat.state.tree_changed_sent.set(false);
                 seat.tree_changed();
             }
         });
+        slf.tree_changed_handler.set(Some(future));
         slf
     }
 

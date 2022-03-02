@@ -3,7 +3,7 @@ use super::{
     HDR_SENDER, HDR_SIGNATURE, HDR_UNIX_FDS,
 };
 use crate::dbus::{
-    CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN,
+    CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN, MSG_SIGNAL,
 };
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use crate::ErrorFmt;
@@ -119,14 +119,47 @@ impl Incoming {
                             log::error!(
                                 "{}: Message reply has an invalid signature: expected: {}, actual: {}",
                                 self.socket.bus_name,
+                                reply.signature(),
                                 sig,
-                                reply.signature()
                             );
                         } else {
                             let buf = unsafe { std::mem::take(msg_buf_data.get().deref_mut()) };
                             if let Err(e) = reply.handle(&self.socket, &headers, &mut parser, buf) {
                                 log::error!(
                                     "{}: Could not handle reply: {}",
+                                    self.socket.bus_name,
+                                    ErrorFmt(e)
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            MSG_SIGNAL => {
+                let (interface, member, path) =
+                    match (&headers.interface, &headers.member, &headers.path) {
+                        (Some(i), Some(m), Some(p)) => (i, m, p),
+                        _ => return Err(DbusError::MissingSignalHeaders),
+                    };
+                let handlers = self.socket.signal_handlers.borrow_mut();
+                if let Some(handler) = handlers.get(&(interface.deref(), member.deref())) {
+                    let handler = handler
+                        .conditional
+                        .get(path.deref())
+                        .or(handler.unconditional.as_ref());
+                    if let Some(handler) = handler {
+                        let sig = headers.signature.as_deref().unwrap_or("");
+                        if sig != handler.signature() {
+                            log::error!(
+                                "{}: Signal has an invalid signature: expected: {}, actual: {}",
+                                self.socket.bus_name,
+                                handler.signature(),
+                                sig,
+                            );
+                        } else {
+                            if let Err(e) = handler.handle(&mut parser) {
+                                log::error!(
+                                    "{}: Could not handle signal: {}",
                                     self.socket.bus_name,
                                     ErrorFmt(e)
                                 );
@@ -174,7 +207,7 @@ impl Incoming {
                     if e.0 != c::EAGAIN {
                         return Err(DbusError::ReadError(e.into()));
                     }
-                    let _ = self.socket.fd.readable().await;
+                    self.socket.fd.readable().await?;
                 }
                 if self.buf_start == self.buf_end {
                     return Err(DbusError::Closed);

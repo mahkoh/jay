@@ -137,7 +137,7 @@ impl DynamicType {
             DynamicType::U32 => Variant::U32(parser.read_pod()?),
             DynamicType::I64 => Variant::I64(parser.read_pod()?),
             DynamicType::U64 => Variant::U64(parser.read_pod()?),
-            DynamicType::F64 => Variant::F64(parser.read_pod()?),
+            DynamicType::F64 => Variant::F64(f64::from_bits(parser.read_pod()?)),
             DynamicType::String => Variant::String(parser.read_string()?),
             DynamicType::ObjectPath => Variant::ObjectPath(parser.read_object_path()?),
             DynamicType::Signature => Variant::Signature(parser.read_signature()?),
