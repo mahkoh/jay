@@ -9,17 +9,17 @@ use uapi::{c, Errno, OwnedFd};
 #[derive(Debug, Error)]
 pub enum EventLoopError {
     #[error("Could not create an epoll fd: {0}")]
-    CreateFailed(std::io::Error),
+    CreateFailed(crate::utils::oserror::OsError),
     #[error("epoll_wait failed: {0}")]
-    WaitFailed(std::io::Error),
+    WaitFailed(crate::utils::oserror::OsError),
     #[error("A dispatcher returned a fatal error: {0}")]
     DispatcherError(Box<dyn std::error::Error>),
     #[error("Could not insert an fd to wait on: {0}")]
-    InsertFailed(std::io::Error),
+    InsertFailed(crate::utils::oserror::OsError),
     #[error("Could not modify an fd to wait on: {0}")]
-    ModifyFailed(std::io::Error),
+    ModifyFailed(crate::utils::oserror::OsError),
     #[error("Could not remove an fd to wait on: {0}")]
-    RemoveFailed(std::io::Error),
+    RemoveFailed(crate::utils::oserror::OsError),
     #[error("Entry is not registered")]
     NoEntry,
     #[error("Event loop is already destroyed")]

@@ -12,13 +12,13 @@ use uapi::{c, Errno, OwnedFd, Ustring};
 #[derive(Debug, Error)]
 pub enum DrmError {
     #[error("Could not reopen a node")]
-    ReopenNode(#[source] std::io::Error),
+    ReopenNode(#[source] crate::utils::oserror::OsError),
     #[error("Could not retrieve the render node name")]
     RenderNodeName,
     #[error("Could not retrieve the device node name")]
     DeviceNodeName,
     #[error("Could not retrieve device")]
-    GetDevice(#[source] std::io::Error),
+    GetDevice(#[source] crate::utils::oserror::OsError),
 }
 
 #[allow(dead_code)]

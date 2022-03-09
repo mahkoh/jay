@@ -10,11 +10,11 @@ pub enum SighandError {
     #[error("The signal fd is in an error state")]
     ErrorEvent,
     #[error("Could not read from the signal fd")]
-    ReadFailed(#[source] std::io::Error),
+    ReadFailed(#[source] crate::utils::oserror::OsError),
     #[error("Could not block the signalfd signals")]
-    BlockFailed(#[source] std::io::Error),
+    BlockFailed(#[source] crate::utils::oserror::OsError),
     #[error("Could not create a signalfd")]
-    CreateFailed(#[source] std::io::Error),
+    CreateFailed(#[source] crate::utils::oserror::OsError),
     #[error("The event loop caused an error")]
     EventLoopError(#[from] EventLoopError),
 }

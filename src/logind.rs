@@ -1,8 +1,9 @@
-use crate::dbus::{DbusError, DbusSocket, Reply};
-use crate::org::freedesktop::login1::session::TakeControlReply;
+use crate::dbus::{DbusError, DbusSocket};
+use crate::org::freedesktop::login1::session::TakeDeviceReply;
 use crate::{org, FALSE};
 use std::rc::Rc;
 use thiserror::Error;
+use uapi::c;
 
 const LOGIND_NAME: &str = "org.freedesktop.login1";
 const MANAGER_PATH: &str = "/org/freedesktop/login1";
@@ -72,8 +73,22 @@ impl Session {
             )
             .await;
         match res {
-            Ok(r) => Ok(()),
+            Ok(_) => Ok(()),
             Err(e) => Err(LogindError::TakeControl(e)),
         }
+    }
+
+    pub fn get_device<F>(&self, dev: c::dev_t, f: F)
+    where
+        F: FnOnce(Result<&TakeDeviceReply, DbusError>) + 'static,
+    {
+        let major = uapi::major(dev) as _;
+        let minor = uapi::minor(dev) as _;
+        self.socket.call(
+            LOGIND_NAME,
+            &self.session_path,
+            org::freedesktop::login1::session::TakeDevice { major, minor },
+            move |r| f(r),
+        );
     }
 }

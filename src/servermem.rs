@@ -10,15 +10,15 @@ use uapi::{c, Errno, OwnedFd};
 #[derive(Debug, Error)]
 pub enum ServerMemError {
     #[error("memfd_create failed")]
-    MemfdCreate(#[source] std::io::Error),
+    MemfdCreate(#[source] crate::utils::oserror::OsError),
     #[error("The provided size does not fit into off_t")]
     SizeOverflow,
     #[error("ftruncate failed")]
-    Ftruncate(#[source] std::io::Error),
+    Ftruncate(#[source] crate::utils::oserror::OsError),
     #[error("mmap failed")]
-    MmapFailed(#[source] std::io::Error),
+    MmapFailed(#[source] crate::utils::oserror::OsError),
     #[error("sealing failed")]
-    Seal(#[source] std::io::Error),
+    Seal(#[source] crate::utils::oserror::OsError),
 }
 
 pub struct ServerMem {

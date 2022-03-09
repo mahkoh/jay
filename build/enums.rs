@@ -15,6 +15,9 @@ mod pixman;
 #[path = "../src/xkbcommon/consts.rs"]
 mod xkbcommon;
 
+#[path = "../src/libinput/consts.rs"]
+mod libinput;
+
 fn get_target() -> repc::Target {
     let rustc_target = env::var("TARGET").unwrap();
     repc::TARGET_MAP
@@ -193,6 +196,67 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
 }
 
 pub fn main() -> anyhow::Result<()> {
+    let mut f = open("libinput_tys.rs")?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_LOG_PRIORITY,
+        "libinput_log_priority",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_DEVICE_CAPABILITY,
+        "libinput_device_capability",
+    )?;
+    write_ty(&mut f, libinput::LIBINPUT_KEY_STATE, "libinput_key_state")?;
+    write_ty(&mut f, libinput::LIBINPUT_LED, "libinput_led")?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_BUTTON_STATE,
+        "libinput_button_state",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_POINTER_AXIS,
+        "libinput_pointer_axis",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_POINTER_AXIS_SOURCE,
+        "libinput_pointer_axis_source",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_TABLET_PAD_RING_AXIS_SOURCE,
+        "libinput_tablet_pad_ring_axis_source",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_TABLET_PAD_STRIP_AXIS_SOURCE,
+        "libinput_tablet_pad_strip_axis_source",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_TABLET_TOOL_TYPE,
+        "libinput_tablet_tool_type",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_TABLET_TOOL_PROXIMITY_STATE,
+        "libinput_tablet_tool_proximity_state",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_TABLET_TOOL_TIP_STATE,
+        "libinput_tablet_tool_tip_state",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_SWITCH_STATE,
+        "libinput_switch_state",
+    )?;
+    write_ty(&mut f, libinput::LIBINPUT_SWITCH, "libinput_switch")?;
+    write_ty(&mut f, libinput::LIBINPUT_EVENT_TYPE, "libinput_event_type")?;
+
     let mut f = open("pixman_tys.rs")?;
     write_ty(&mut f, pixman::FORMATS, "PixmanFormat")?;
     write_ty(&mut f, pixman::OPS, "PixmanOp")?;

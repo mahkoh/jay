@@ -10,11 +10,11 @@ use uapi::c::raise;
 #[derive(Debug, Error)]
 pub enum ClientMemError {
     #[error("Could not install the sigbus handler")]
-    SigactionFailed(#[source] std::io::Error),
+    SigactionFailed(#[source] crate::utils::oserror::OsError),
     #[error("A SIGBUS occurred while accessing mapped memory")]
     Sigbus,
     #[error("mmap failed")]
-    MmapFailed(#[source] std::io::Error),
+    MmapFailed(#[source] crate::utils::oserror::OsError),
 }
 
 pub struct ClientMem {

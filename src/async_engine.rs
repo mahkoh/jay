@@ -3,8 +3,8 @@ use crate::event_loop::{EventLoop, EventLoopError};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
 use crate::wheel::{Wheel, WheelError};
-pub use fd::{AsyncFd, FdStatus};
 use fd::AsyncFdData;
+pub use fd::{AsyncFd, FdStatus};
 use queue::{DispatchQueue, Dispatcher};
 use std::cell::{Cell, RefCell};
 use std::future::Future;
@@ -562,7 +562,10 @@ mod fd {
             let res = self.el.modify(self.id, events);
             if res.is_err() {
                 if let Err(e) = self.el.remove(self.id) {
-                    log::error!("Fatal error: Cannot remove file descriptor from event loop: {:?}", e);
+                    log::error!(
+                        "Fatal error: Cannot remove file descriptor from event loop: {:?}",
+                        e
+                    );
                     self.el.stop();
                 }
             }

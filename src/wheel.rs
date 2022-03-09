@@ -14,9 +14,9 @@ use uapi::{c, OwnedFd};
 #[derive(Debug, Error)]
 pub enum WheelError {
     #[error("Could not create the timerfd: {0}")]
-    CreateFailed(std::io::Error),
+    CreateFailed(crate::utils::oserror::OsError),
     #[error("Could not set the timerfd: {0}")]
-    SetFailed(std::io::Error),
+    SetFailed(crate::utils::oserror::OsError),
     #[error("The timerfd is in an error state")]
     ErrorEvent,
     #[error("An event loop error occurred: {0}")]

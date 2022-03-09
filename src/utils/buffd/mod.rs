@@ -13,7 +13,7 @@ mod parser;
 #[derive(Debug, Error)]
 pub enum BufFdError {
     #[error("An IO error occurred")]
-    Io(#[source] std::io::Error),
+    Io(#[source] crate::utils::oserror::OsError),
     #[error("An async error occurred")]
     Async(#[from] AsyncError),
     #[error("The peer did not send a file descriptor")]

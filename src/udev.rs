@@ -1,10 +1,9 @@
-use crate::dbus::DbusError;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::{c, Errno, IntoUstr, Ustr};
+use uapi::{c, Errno, IntoUstr};
 
 #[link(name = "udev")]
 extern "C" {
@@ -47,32 +46,33 @@ extern "C" {
     fn udev_device_get_sysname(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_is_initialized(udev_device: *mut udev_device) -> c::c_int;
     fn udev_device_get_devnode(udev_device: *mut udev_device) -> *const c::c_char;
+    fn udev_device_get_devnum(udev_device: *mut udev_device) -> c::dev_t;
 }
 
 #[derive(Debug, Error)]
 pub enum UdevError {
     #[error("Could not create a new udev instance")]
-    New(#[source] std::io::Error),
+    New(#[source] crate::utils::oserror::OsError),
     #[error("Could not create a new udev_monitor instance")]
-    NewMonitor(#[source] std::io::Error),
+    NewMonitor(#[source] crate::utils::oserror::OsError),
     #[error("Could not create a new udev_enumerate instance")]
-    NewEnumerate(#[source] std::io::Error),
+    NewEnumerate(#[source] crate::utils::oserror::OsError),
     #[error("Could not enable receiving on a udev_monitor")]
-    EnableReceiving(#[source] std::io::Error),
+    EnableReceiving(#[source] crate::utils::oserror::OsError),
     #[error("Could not add a match rule to a udev_monitor")]
-    MonitorAddMatch(#[source] std::io::Error),
+    MonitorAddMatch(#[source] crate::utils::oserror::OsError),
     #[error("Could not add a match rule to a udev_enumerate")]
-    EnumerateAddMatch(#[source] std::io::Error),
+    EnumerateAddMatch(#[source] crate::utils::oserror::OsError),
     #[error("Could not list devices of a udev_enumerate")]
-    EnumerateGetListEntry(#[source] std::io::Error),
+    EnumerateGetListEntry(#[source] crate::utils::oserror::OsError),
     #[error("Could not scan devices of a udev_enumerate")]
-    ScanDevices(#[source] std::io::Error),
+    ScanDevices(#[source] crate::utils::oserror::OsError),
     #[error("Could not create a udev_device from a syspath")]
-    DeviceFromSyspath(#[source] std::io::Error),
+    DeviceFromSyspath(#[source] crate::utils::oserror::OsError),
     #[error("Could not retrieve the sysname of a udev_device")]
-    GetSysname(#[source] std::io::Error),
+    GetSysname(#[source] crate::utils::oserror::OsError),
     #[error("Could not retrieve the devnode of a udev_device")]
-    GetDevnode(#[source] std::io::Error),
+    GetDevnode(#[source] crate::utils::oserror::OsError),
 }
 
 pub struct Udev {
@@ -193,9 +193,7 @@ impl UdevMonitor {
     }
 
     pub fn receive_device(&self) -> Option<UdevDevice> {
-        let res = unsafe {
-            udev_monitor_receive_device(self.monitor)
-        };
+        let res = unsafe { udev_monitor_receive_device(self.monitor) };
         if res.is_null() {
             None
         } else {
@@ -301,6 +299,10 @@ impl UdevDevice {
         } else {
             unsafe { Ok(CStr::from_ptr(res)) }
         }
+    }
+
+    pub fn devnum(&self) -> c::dev_t {
+        unsafe { udev_device_get_devnum(self.device) }
     }
 
     pub fn is_initialized(&self) -> bool {

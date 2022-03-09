@@ -17,10 +17,11 @@
 use crate::acceptor::AcceptorError;
 use crate::async_engine::{AsyncError, Phase};
 use crate::backends::dummy::DummyBackend;
-use crate::backends::xorg::{XorgBackend, XorgBackendError};
+use crate::backends::metal;
+use crate::backends::xorg::XorgBackendError;
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
-use crate::dbus::{Dbus, FALSE, TRUE};
+use crate::dbus::{Dbus, FALSE};
 use crate::event_loop::EventLoopError;
 use crate::forker::ForkerError;
 use crate::globals::Globals;
@@ -55,7 +56,6 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
-use crate::backends::metal;
 
 #[macro_use]
 mod macros;

@@ -43,9 +43,9 @@ struct PidfdHandoff {
 #[derive(Debug, Error)]
 pub enum ForkerError {
     #[error("Could not create a socketpair")]
-    Socketpair(#[source] std::io::Error),
+    Socketpair(#[source] crate::utils::oserror::OsError),
     #[error("Could not fork")]
-    Fork(#[source] std::io::Error),
+    Fork(#[source] crate::utils::oserror::OsError),
     #[error("Could not read the next message")]
     ReadFailed(#[source] BufFdError),
     #[error("Could not write the next message")]
@@ -235,7 +235,10 @@ impl ForkerProxy {
     async fn check_process(self: Rc<Self>, state: Rc<State>) {
         let pidfd = state.eng.fd(&self.pidfd).unwrap();
         if let Err(e) = pidfd.readable().await {
-            log::error!("Cannot wait for the forker pidfd to become readable: {}", ErrorFmt(e));
+            log::error!(
+                "Cannot wait for the forker pidfd to become readable: {}",
+                ErrorFmt(e)
+            );
         } else {
             let _ = uapi::waitpid(self.pid, 0);
         }
@@ -417,7 +420,10 @@ impl Forker {
                 let spawn = self.ae.spawn(async move {
                     let read = slf.ae.fd(&Rc::new(read)).unwrap();
                     if let Err(e) = read.readable().await {
-                        log::error!("Cannot wait for the child fd to become readable: {}", ErrorFmt(e));
+                        log::error!(
+                            "Cannot wait for the child fd to become readable: {}",
+                            ErrorFmt(e)
+                        );
                     } else {
                         let mut s = String::new();
                         let _ = Fd::new(read.raw()).read_to_string(&mut s);
@@ -476,9 +482,9 @@ impl Forker {
 #[derive(Debug, Error)]
 enum SpawnError {
     #[error("exec failed")]
-    Exec(#[source] std::io::Error),
+    Exec(#[source] crate::utils::oserror::OsError),
     #[error("Could not unset cloexec flag")]
-    Cloexec(#[source] std::io::Error),
+    Cloexec(#[source] crate::utils::oserror::OsError),
 }
 
 fn setup_fds(mut socket: OwnedFd) -> OwnedFd {

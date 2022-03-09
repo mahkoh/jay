@@ -1,0 +1,66 @@
+use crate::libinput::consts::{EventType, KeyState};
+use crate::libinput::device::LibInputDevice;
+use crate::libinput::sys::{
+    libinput_event, libinput_event_destroy, libinput_event_get_device,
+    libinput_event_get_keyboard_event, libinput_event_get_type, libinput_event_keyboard,
+    libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
+    libinput_event_keyboard_get_time_usec,
+};
+use std::marker::PhantomData;
+
+pub struct LibInputEvent<'a> {
+    pub(super) event: *mut libinput_event,
+    pub(super) _phantom: PhantomData<&'a ()>,
+}
+
+pub struct LibInputEventKeyboard<'a> {
+    pub(super) event: *mut libinput_event_keyboard,
+    pub(super) _phantom: PhantomData<&'a ()>,
+}
+
+impl<'a> Drop for LibInputEvent<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            libinput_event_destroy(self.event);
+        }
+    }
+}
+
+impl<'a> LibInputEvent<'a> {
+    pub fn ty(&self) -> EventType {
+        unsafe { EventType(libinput_event_get_type(self.event)) }
+    }
+
+    pub fn device(&self) -> LibInputDevice {
+        LibInputDevice {
+            dev: unsafe { libinput_event_get_device(self.event) },
+            _phantom: Default::default(),
+        }
+    }
+
+    pub fn keyboard_event(&self) -> Option<LibInputEventKeyboard> {
+        let res = unsafe { libinput_event_get_keyboard_event(self.event) };
+        if res.is_null() {
+            None
+        } else {
+            Some(LibInputEventKeyboard {
+                event: res,
+                _phantom: Default::default(),
+            })
+        }
+    }
+}
+
+impl<'a> LibInputEventKeyboard<'a> {
+    pub fn key(&self) -> u32 {
+        unsafe { libinput_event_keyboard_get_key(self.event) }
+    }
+
+    pub fn key_state(&self) -> KeyState {
+        unsafe { KeyState(libinput_event_keyboard_get_key_state(self.event)) }
+    }
+
+    pub fn time_usec(&self) -> u64 {
+        unsafe { libinput_event_keyboard_get_time_usec(self.event) }
+    }
+}

@@ -67,13 +67,13 @@ pub enum DbusError {
     #[error("Variant has an invalid type")]
     InvalidVariantType,
     #[error("Could not create a socket")]
-    Socket(#[source] std::io::Error),
+    Socket(#[source] crate::utils::oserror::OsError),
     #[error("Could not connect")]
-    Connect(#[source] std::io::Error),
+    Connect(#[source] crate::utils::oserror::OsError),
     #[error("Could not write to the dbus socket")]
-    WriteError(#[source] std::io::Error),
+    WriteError(#[source] crate::utils::oserror::OsError),
     #[error("Could not read from the dbus socket")]
-    ReadError(#[source] std::io::Error),
+    ReadError(#[source] crate::utils::oserror::OsError),
     #[error("timeout")]
     AsyncError(#[source] Box<AsyncError>),
     #[error("Server did not accept our authentication")]

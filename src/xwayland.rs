@@ -20,11 +20,11 @@ use uapi::{c, pipe2, Errno, OwnedFd};
 #[derive(Debug, Error)]
 enum XWaylandError {
     #[error("Could not create a wayland socket")]
-    SocketFailed(#[source] std::io::Error),
+    SocketFailed(#[source] crate::utils::oserror::OsError),
     #[error("/tmp/.X11-unix does not exist")]
     MissingSocketDir,
     #[error("Could not stat /tmp/.X11-unix")]
-    StatSocketDir(#[source] std::io::Error),
+    StatSocketDir(#[source] crate::utils::oserror::OsError),
     #[error("/tmp/.X11-unix is not a directory")]
     NotASocketDir,
     #[error("/tmp/.X11-unix is writable")]
@@ -38,17 +38,17 @@ enum XWaylandError {
     #[error("The socket is already in use")]
     AlreadyInUse,
     #[error("Could not bind the socket to an address")]
-    BindFailed(#[source] std::io::Error),
+    BindFailed(#[source] crate::utils::oserror::OsError),
     #[error("All X displays in the range 0..1000 are already in use")]
     AddressesInUse,
     #[error("The async engine returned an error")]
     AsyncError(#[from] AsyncError),
     #[error("pipe(2) failed")]
-    Pipe(#[source] std::io::Error),
+    Pipe(#[source] crate::utils::oserror::OsError),
     #[error("dupfd(2) failed")]
-    Dupfd(#[source] std::io::Error),
+    Dupfd(#[source] crate::utils::oserror::OsError),
     #[error("socketpair(2) failed")]
-    Socketpair(#[source] std::io::Error),
+    Socketpair(#[source] crate::utils::oserror::OsError),
     #[error("Could not start Xwayland")]
     ExecFailed(#[source] ForkerError),
     #[error("Could not load the atoms")]
@@ -224,7 +224,10 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
     let mut done = false;
     while !done {
         if let Err(e) = afd.readable().await {
-            log::error!("Cannot wait for the xwayland stderr to become readable: {}", ErrorFmt(e));
+            log::error!(
+                "Cannot wait for the xwayland stderr to become readable: {}",
+                ErrorFmt(e)
+            );
             return;
         }
         loop {
@@ -242,7 +245,7 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
                 Err(e) => {
                     log::error!(
                         "Could not read from stderr fd: {}",
-                        ErrorFmt(std::io::Error::from(e))
+                        ErrorFmt(crate::utils::oserror::OsError::from(e))
                     );
                     return;
                 }

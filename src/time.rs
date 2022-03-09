@@ -8,7 +8,7 @@ use uapi::c;
 #[derive(Debug, Error)]
 pub enum TimeError {
     #[error("clock_gettime failed: {0}")]
-    ClockGettime(std::io::Error),
+    ClockGettime(crate::utils::oserror::OsError),
 }
 
 #[derive(Copy, Clone)]

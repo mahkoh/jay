@@ -330,6 +330,7 @@ macro_rules! assert_size_eq {
     }};
 }
 
+#[allow(unused_macros)]
 macro_rules! assert_size_le {
     ($t:ty, $u:ty) => {{
         struct AssertLeSize<T, U>(std::marker::PhantomData<T>, std::marker::PhantomData<U>);

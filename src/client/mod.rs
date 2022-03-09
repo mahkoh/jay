@@ -87,7 +87,7 @@ impl Clients {
                 Err(e) => {
                     log::error!(
                         "Cannot determine peer credentials of new connection: {:?}",
-                        std::io::Error::from(e)
+                        crate::utils::oserror::OsError::from(e)
                     );
                     return Ok(());
                 }
