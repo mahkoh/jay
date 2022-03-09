@@ -1,4 +1,4 @@
-use i4config::embedded::grab_keyboard;
+use i4config::embedded::grab_input_device;
 use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use i4config::keyboard::syms::{
     SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_p, SYM_period,
@@ -8,7 +8,7 @@ use i4config::theme::{get_title_height, set_title_color, set_title_height, Color
 use i4config::Axis::{Horizontal, Vertical};
 use i4config::Direction::{Down, Left, Right, Up};
 use i4config::{
-    config, create_seat, input_devices, on_new_input_device, Command, InputDevice, Seat,
+    config, create_seat, input_devices, on_new_input_device, Command, Seat,
 };
 use rand::Rng;
 
@@ -73,14 +73,12 @@ fn configure_seat(s: Seat) {
 
     fn do_grab(s: Seat, grab: bool) {
         for device in s.input_devices() {
-            if let InputDevice::Keyboard(kb) = device {
-                log::info!(
-                    "{}rabbing keyboard {:?}",
-                    if grab { "G" } else { "Ung" },
-                    kb.0
-                );
-                grab_keyboard(kb, grab);
-            }
+            log::info!(
+                "{}rabbing keyboard {:?}",
+                if grab { "G" } else { "Ung" },
+                device.0
+            );
+            grab_input_device(device, grab);
         }
         if grab {
             s.unbind(SYM_y);
@@ -99,7 +97,9 @@ pub fn configure() {
     for device in input_devices() {
         device.set_seat(seat);
     }
-    on_new_input_device(move |device| device.set_seat(seat));
+    on_new_input_device(move |device| {
+        device.set_seat(seat)
+    });
 }
 
 config!(configure);

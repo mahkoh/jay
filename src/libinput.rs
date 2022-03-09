@@ -78,7 +78,7 @@ pub enum LibInputError {
 }
 
 pub struct LibInput {
-    data: Box<UserData>,
+    _data: Box<UserData>,
     li: *mut libinput,
 }
 
@@ -102,7 +102,7 @@ impl LibInput {
             };
             libinput_log_set_priority(li, priority.raw() as _);
         }
-        Ok(Self { data: ud, li })
+        Ok(Self { _data: ud, li })
     }
 
     pub fn fd(&self) -> c::c_int {
@@ -122,7 +122,7 @@ impl LibInput {
                 libinput_device_ref(res);
             }
             Ok(RegisteredDevice {
-                li: self.clone(),
+                _li: self.clone(),
                 dev: res,
             })
         }

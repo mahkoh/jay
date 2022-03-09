@@ -1,7 +1,4 @@
-use crate::backend::{
-    Backend, BackendEvent, KeyState, Keyboard, KeyboardEvent, KeyboardId, Mouse, MouseEvent,
-    MouseId, Output, OutputId, ScrollAxis,
-};
+use crate::backend::{Backend, BackendEvent, KeyState, InputEvent, Output, OutputId, ScrollAxis, InputDeviceId, InputDevice};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -26,11 +23,13 @@ use thiserror::Error;
 use uapi::{c, OwnedFd};
 use xcb_dl::{ffi, Xcb, XcbDri3, XcbPresent, XcbRender, XcbXinput, XcbXkb};
 use xcb_dl_util::cursor::{XcbCursorContext, XcbCursorImage};
-use xcb_dl_util::error::{XcbError, XcbErrorParser};
+use xcb_dl_util::error::{XcbConnectionError, XcbError, XcbErrorParser};
 use xcb_dl_util::xcb_box::XcbBox;
 
 #[derive(Debug, Error)]
 pub enum XorgBackendError {
+    #[error("Could not connect to the X server")]
+    CannotConnect(#[source] XcbConnectionError),
     #[error("The xcb connection is in an error state")]
     ErrorEvent,
     #[error("The drm subsystem returned an error")]
@@ -97,6 +96,10 @@ impl XcbCon {
             let render = Box::new(XcbRender::load_loose()?);
 
             let c = xcb.xcb_connect(ptr::null(), ptr::null_mut());
+            match xcb.xcb_connection_has_error(c) {
+                0 => { },
+                n => return Err(XorgBackendError::CannotConnect(n.into())),
+            }
             let errors = XcbErrorParser::new(&xcb, c);
 
             let mut con = Self {
@@ -554,8 +557,8 @@ impl XorgBackend {
                 );
             }
             let seat = Rc::new(XorgSeat {
-                kb_id: self.state.kb_ids.next(),
-                mouse_id: self.state.mouse_ids.next(),
+                kb_id: self.state.input_device_ids.next(),
+                mouse_id: self.state.input_device_ids.next(),
                 backend: self.clone(),
                 kb: info.deviceid,
                 mouse: info.attachment,
@@ -571,10 +574,10 @@ impl XorgBackend {
             self.mouse_seats.set(info.attachment, seat.clone());
             self.state
                 .backend_events
-                .push(BackendEvent::NewMouse(seat.clone()));
+                .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatMouse(seat.clone()))));
             self.state
                 .backend_events
-                .push(BackendEvent::NewKeyboard(seat.clone()));
+                .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatKeyboard(seat.clone()))));
         }
     }
 
@@ -766,7 +769,7 @@ impl XorgBackend {
                         7 => (ScrollAxis::Horizontal, 15),
                         _ => unreachable!(),
                     };
-                    seat.mouse_event(MouseEvent::Scroll(val, axis));
+                    seat.mouse_event(InputEvent::Scroll(val, axis));
                 }
             } else {
                 const BTN_LEFT: u32 = 0x110;
@@ -780,7 +783,7 @@ impl XorgBackend {
                     3 => BTN_RIGHT,
                     n => BTN_SIDE + n - 8,
                 };
-                seat.mouse_event(MouseEvent::Button(button, state));
+                seat.mouse_event(InputEvent::Button(button, state));
             }
         }
         Ok(())
@@ -800,7 +803,7 @@ impl XorgBackend {
         let event =
             unsafe { (event as *const _ as *const ffi::xcb_input_key_press_event_t).deref() };
         if let Some(seat) = self.seats.get(&event.deviceid) {
-            seat.kb_event(KeyboardEvent::Key(event.detail - 8, state));
+            seat.kb_event(InputEvent::Key(event.detail - 8, state));
         }
         Ok(())
     }
@@ -843,7 +846,7 @@ impl XorgBackend {
             self.outputs.get(&event.event),
             self.mouse_seats.get(&event.deviceid),
         ) {
-            seat.mouse_event(MouseEvent::OutputPosition(
+            seat.mouse_event(InputEvent::OutputPosition(
                 win.id,
                 Fixed::from_1616(event.event_x),
                 Fixed::from_1616(event.event_y),
@@ -864,7 +867,7 @@ impl XorgBackend {
             (Some(a), Some(b)) => (a, b),
             _ => return Ok(()),
         };
-        seat.mouse_event(MouseEvent::OutputPosition(
+        seat.mouse_event(InputEvent::OutputPosition(
             win.id,
             Fixed::from_1616(event.event_x),
             Fixed::from_1616(event.event_y),
@@ -997,18 +1000,22 @@ impl Output for XorgOutput {
 }
 
 struct XorgSeat {
-    kb_id: KeyboardId,
-    mouse_id: MouseId,
+    kb_id: InputDeviceId,
+    mouse_id: InputDeviceId,
     backend: Rc<XorgBackend>,
     kb: ffi::xcb_input_device_id_t,
     mouse: ffi::xcb_input_device_id_t,
     removed: Cell<bool>,
     kb_cb: CloneCell<Option<Rc<dyn Fn()>>>,
     mouse_cb: CloneCell<Option<Rc<dyn Fn()>>>,
-    kb_events: RefCell<VecDeque<KeyboardEvent>>,
-    mouse_events: RefCell<VecDeque<MouseEvent>>,
+    kb_events: RefCell<VecDeque<InputEvent>>,
+    mouse_events: RefCell<VecDeque<InputEvent>>,
     button_map: CopyHashMap<u32, u32>,
 }
+
+struct XorgSeatKeyboard(Rc<XorgSeat>);
+
+struct XorgSeatMouse(Rc<XorgSeat>);
 
 impl XorgSeat {
     fn kb_changed(&self) {
@@ -1023,12 +1030,12 @@ impl XorgSeat {
         }
     }
 
-    fn mouse_event(&self, event: MouseEvent) {
+    fn mouse_event(&self, event: InputEvent) {
         self.mouse_events.borrow_mut().push_back(event);
         self.mouse_changed();
     }
 
-    fn kb_event(&self, event: KeyboardEvent) {
+    fn kb_event(&self, event: InputEvent) {
         self.kb_events.borrow_mut().push_back(event);
         self.kb_changed();
     }
@@ -1066,26 +1073,26 @@ impl XorgSeat {
     }
 }
 
-impl Keyboard for XorgSeat {
-    fn id(&self) -> KeyboardId {
-        self.kb_id
+impl InputDevice for XorgSeatKeyboard {
+    fn id(&self) -> InputDeviceId {
+        self.0.kb_id
     }
 
     fn removed(&self) -> bool {
-        self.removed.get()
+        self.0.removed.get()
     }
 
-    fn event(&self) -> Option<KeyboardEvent> {
-        self.kb_events.borrow_mut().pop_front()
+    fn event(&self) -> Option<InputEvent> {
+        self.0.kb_events.borrow_mut().pop_front()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
-        self.kb_cb.set(Some(cb));
+        self.0.kb_cb.set(Some(cb));
     }
 
     fn grab(&self, grab: bool) {
         unsafe {
-            let con = &self.backend.con;
+            let con = &self.0.backend.con;
             let mut err = ptr::null_mut();
             if grab {
                 let res = con.input.xcb_input_xi_grab_device(
@@ -1093,7 +1100,7 @@ impl Keyboard for XorgSeat {
                     con.screen.root,
                     0,
                     0,
-                    self.kb,
+                    self.0.kb,
                     ffi::XCB_GRAB_MODE_ASYNC as _,
                     ffi::XCB_GRAB_MODE_ASYNC as _,
                     1,
@@ -1106,39 +1113,43 @@ impl Keyboard for XorgSeat {
                 let res = match con.check(res, err) {
                     Ok(r) => r,
                     Err(e) => {
-                        log::error!("Could not grab device {}: {}", self.kb, ErrorFmt(e));
+                        log::error!("Could not grab device {}: {}", self.0.kb, ErrorFmt(e));
                         return;
                     }
                 };
                 if res.status != ffi::XCB_GRAB_STATUS_SUCCESS as _ {
-                    log::error!("Could not grab device {}: status = {}", self.kb, res.status);
+                    log::error!("Could not grab device {}: status = {}", self.0.kb, res.status);
                 }
             } else {
                 let cookie = con
                     .input
-                    .xcb_input_xi_ungrab_device_checked(con.c, 0, self.kb);
+                    .xcb_input_xi_ungrab_device_checked(con.c, 0, self.0.kb);
                 if let Err(e) = con.check_cookie(cookie) {
-                    log::error!("Could not ungrab device {}: {}", self.kb, ErrorFmt(e));
+                    log::error!("Could not ungrab device {}: {}", self.0.kb, ErrorFmt(e));
                 }
             }
         }
     }
 }
 
-impl Mouse for XorgSeat {
-    fn id(&self) -> MouseId {
-        self.mouse_id
+impl InputDevice for XorgSeatMouse {
+    fn id(&self) -> InputDeviceId {
+        self.0.mouse_id
     }
 
     fn removed(&self) -> bool {
-        self.removed.get()
+        self.0.removed.get()
     }
 
-    fn event(&self) -> Option<MouseEvent> {
-        self.mouse_events.borrow_mut().pop_front()
+    fn event(&self) -> Option<InputEvent> {
+        self.0.mouse_events.borrow_mut().pop_front()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
-        self.mouse_cb.set(Some(cb));
+        self.0.mouse_cb.set(Some(cb));
+    }
+
+    fn grab(&self, _grab: bool) {
+        log::error!("Cannot grab xorg mouse");
     }
 }

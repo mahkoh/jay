@@ -1,4 +1,3 @@
-use crate::backend::{KeyboardId, MouseId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::DeviceHandlerData;
 use crate::tree::walker::NodeVisitorBase;
@@ -14,12 +13,13 @@ use i4config::_private::ipc::{ClientMessage, Response, ServerMessage};
 use i4config::keyboard::keymap::Keymap;
 use i4config::keyboard::mods::Modifiers;
 use i4config::keyboard::syms::KeySym;
-use i4config::{Axis, Direction, InputDevice, Keyboard, LogLevel, Mouse, Seat};
+use i4config::{Axis, Direction, InputDevice, LogLevel, Seat};
 use libloading::Library;
 use log::Level;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::backend::InputDeviceId;
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -156,20 +156,12 @@ impl ConfigProxyHandler {
         &self,
         device: InputDevice,
     ) -> Result<Rc<DeviceHandlerData>, CphError> {
-        let data = match device {
-            InputDevice::Keyboard(kb) => self
+        let data = self
                 .state
-                .kb_handlers
+                .input_device_handlers
                 .borrow_mut()
-                .get(&KeyboardId::from_raw(kb.0 as _))
-                .map(|d| d.data.clone()),
-            InputDevice::Mouse(mouse) => self
-                .state
-                .mouse_handlers
-                .borrow_mut()
-                .get(&MouseId::from_raw(mouse.0 as _))
-                .map(|d| d.data.clone()),
-        };
+                .get(&InputDeviceId::from_raw(device.0 as _))
+                .map(|d| d.data.clone());
         match data {
             Some(d) => Ok(d),
             _ => Err(CphError::DeviceDoesNotExist(device)),
@@ -186,11 +178,11 @@ impl ConfigProxyHandler {
         Err(CphError::SeatDoesNotExist(seat))
     }
 
-    fn get_kb(&self, kb: Keyboard) -> Result<Rc<dyn backend::Keyboard>, CphError> {
-        let kbs = self.state.kb_handlers.borrow_mut();
-        match kbs.get(&(KeyboardId::from_raw(kb.0 as _))) {
+    fn get_kb(&self, kb: InputDevice) -> Result<Rc<dyn backend::InputDevice>, CphError> {
+        let kbs = self.state.input_device_handlers.borrow_mut();
+        match kbs.get(&(InputDeviceId::from_raw(kb.0 as _))) {
             None => Err(CphError::KeyboardDoesNotExist(kb)),
-            Some(kb) => Ok(kb.kb.clone()),
+            Some(kb) => Ok(kb.device.clone()),
         }
     }
 
@@ -267,18 +259,10 @@ impl ConfigProxyHandler {
         };
         let mut res = vec![];
         {
-            let devs = self.state.kb_handlers.borrow_mut();
+            let devs = self.state.input_device_handlers.borrow_mut();
             for dev in devs.values() {
                 if matches(&dev.data) {
-                    res.push(InputDevice::Keyboard(Keyboard(dev.id.raw() as _)));
-                }
-            }
-        }
-        {
-            let devs = self.state.mouse_handlers.borrow_mut();
-            for dev in devs.values() {
-                if matches(&dev.data) {
-                    res.push(InputDevice::Mouse(Mouse(dev.id.raw() as _)));
+                    res.push(InputDevice(dev.id.raw() as _));
                 }
             }
         }
@@ -314,7 +298,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_grab(&self, kb: Keyboard, grab: bool) -> Result<(), GrabError> {
+    fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), GrabError> {
         let kb = self.get_kb(kb)?;
         kb.grab(grab);
         Ok(())
@@ -532,7 +516,7 @@ enum CphError {
     #[error("Seat {0:?} does not exist")]
     SeatDoesNotExist(Seat),
     #[error("Keyboard {0:?} does not exist")]
-    KeyboardDoesNotExist(Keyboard),
+    KeyboardDoesNotExist(InputDevice),
     #[error("Could not parse the message")]
     ParsingFailed(#[source] DecodeError),
 }

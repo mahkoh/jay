@@ -1,8 +1,5 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, Keyboard, KeyboardId, KeyboardIds, MouseId, MouseIds, OutputId,
-    OutputIds,
-};
+use crate::backend::{BackendEvent, InputDevice, InputDeviceId, InputDeviceIds, OutputId, OutputIds};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
@@ -33,7 +30,6 @@ use std::rc::Rc;
 pub struct State {
     pub xkb_ctx: XkbContext,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
-    pub backend: CloneCell<Rc<dyn Backend>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
@@ -45,14 +41,12 @@ pub struct State {
     pub globals: Globals,
     pub output_ids: OutputIds,
     pub seat_ids: SeatIds,
-    pub kb_ids: KeyboardIds,
-    pub mouse_ids: MouseIds,
+    pub input_device_ids: InputDeviceIds,
     pub node_ids: NodeIds,
     pub root: Rc<DisplayNode>,
     pub backend_events: AsyncQueue<BackendEvent>,
     pub output_handlers: RefCell<AHashMap<OutputId, SpawnedFuture<()>>>,
-    pub mouse_handlers: RefCell<AHashMap<MouseId, MouseData>>,
-    pub kb_handlers: RefCell<AHashMap<KeyboardId, KeyboardData>>,
+    pub input_device_handlers: RefCell<AHashMap<InputDeviceId, InputDeviceData>>,
     pub outputs: CopyHashMap<OutputId, Rc<WlOutputGlobal>>,
     pub seat_queue: LinkedList<Rc<WlSeatGlobal>>,
     pub slow_clients: AsyncQueue<Rc<Client>>,
@@ -67,16 +61,10 @@ pub struct State {
     pub dbus: Dbus,
 }
 
-pub struct MouseData {
+pub struct InputDeviceData {
     pub handler: SpawnedFuture<()>,
-    pub id: MouseId,
-    pub data: Rc<DeviceHandlerData>,
-}
-
-pub struct KeyboardData {
-    pub handler: SpawnedFuture<()>,
-    pub id: KeyboardId,
-    pub kb: Rc<dyn Keyboard>,
+    pub id: InputDeviceId,
+    pub device: Rc<dyn InputDevice>,
     pub data: Rc<DeviceHandlerData>,
 }
 

@@ -1,5 +1,5 @@
-use crate::Keyboard;
+use crate::InputDevice;
 
-pub fn grab_keyboard(kb: Keyboard, grab: bool) {
+pub fn grab_input_device(kb: InputDevice, grab: bool) {
     get!().grab(kb, grab);
 }

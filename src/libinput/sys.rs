@@ -16,6 +16,7 @@ extern "C" {
     pub type libinput_device;
     pub type libinput_event;
     pub type libinput_event_keyboard;
+    pub type libinput_event_pointer;
 
     pub fn libinput_log_set_handler(libinput: *mut libinput, log_handler: libinput_log_handler);
     pub fn libinput_log_set_priority(libinput: *mut libinput, priority: libinput_log_priority);
@@ -42,15 +43,22 @@ extern "C" {
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;
     pub fn libinput_event_get_device(event: *mut libinput_event) -> *mut libinput_device;
+
     pub fn libinput_event_get_keyboard_event(
         event: *mut libinput_event,
     ) -> *mut libinput_event_keyboard;
-
     pub fn libinput_event_keyboard_get_key(event: *mut libinput_event_keyboard) -> u32;
     pub fn libinput_event_keyboard_get_key_state(
         event: *mut libinput_event_keyboard,
     ) -> libinput_key_state;
     pub fn libinput_event_keyboard_get_time_usec(event: *mut libinput_event_keyboard) -> u64;
+
+    pub fn libinput_event_get_pointer_event(
+        event: *mut libinput_event,
+    ) -> *mut libinput_event_pointer;
+    pub fn libinput_event_pointer_get_time_usec(event: *mut libinput_event_pointer) -> u64;
+    pub fn libinput_event_pointer_get_dx(event: *mut libinput_event_pointer) -> f64;
+    pub fn libinput_event_pointer_get_dy(event: *mut libinput_event_pointer) -> f64;
 }
 
 #[repr(C)]

@@ -8,12 +8,15 @@ use crate::libinput::{LibInput, LibInputAdapter, LibInputError};
 use crate::logind::{LogindError, Session};
 use crate::udev::{UdevError, UdevMonitor};
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::{AsyncQueue, CloneCell, ErrorFmt, NumCell, State, Udev};
+use crate::{CloneCell, State, Udev};
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
+use std::future::pending;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
+use crate::backend::{Backend, InputDevice, InputDeviceId, InputEvent};
+use crate::utils::syncqueue::SyncQueue;
 
 #[derive(Debug, Error)]
 pub enum MetalError {
@@ -31,11 +34,14 @@ pub enum MetalError {
     LibInput(#[from] LibInputError),
     #[error("Dupfd failed")]
     Dup(#[source] crate::utils::oserror::OsError),
+    #[error("Metal backend terminated unexpectedly")]
+    UnexpectedTermination,
 }
 
-pub async fn run(state: Rc<State>) {
-    if let Err(e) = run_(state).await {
-        log::error!("{}", ErrorFmt(e));
+pub async fn run(state: Rc<State>) -> MetalError {
+    match run_(state).await {
+        Err(e) => e,
+        _ => MetalError::UnexpectedTermination,
     }
 }
 
@@ -48,7 +54,10 @@ struct MetalBackend {
     libinput_fd: AsyncFd,
     device_holder: Rc<DeviceHolder>,
     session: Session,
-    ids: NumCell<u64>,
+}
+
+impl Backend for MetalBackend {
+
 }
 
 async fn run_(state: Rc<State>) -> Result<(), MetalError> {
@@ -89,26 +98,26 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
         libinput_fd,
         device_holder,
         session,
-        ids: Default::default(),
     });
     let _monitor = state.eng.spawn(metal.clone().monitor_devices());
     let _events = state.eng.spawn(metal.clone().handle_libinput_events());
     if let Err(e) = metal.enumerate_devices() {
         return Err(MetalError::Enumerate(Box::new(e)));
     }
-    let queue = AsyncQueue::<String>::new();
-    queue.pop().await;
-    Ok(())
+    pending().await
 }
 
 struct MetalDevice {
     slot: usize,
-    device_id: u64,
+    id: InputDeviceId,
     devnum: c::dev_t,
     fd: CloneCell<Option<Rc<OwnedFd>>>,
     inputdev: Cell<Option<RegisteredDevice>>,
     devnode: CString,
-    sysname: CString,
+    _sysname: CString,
+    removed: Cell<bool>,
+    events: SyncQueue<InputEvent>,
+    cb: CloneCell<Option<Rc<dyn Fn()>>>,
 }
 
 struct DeviceHolder {
@@ -135,8 +144,33 @@ impl LibInputAdapter for DeviceHolder {
     }
 }
 
-impl MetalBackend {
-    fn id(&self) -> u64 {
-        self.ids.fetch_add(1)
+impl InputDevice for MetalDevice {
+    fn id(&self) -> InputDeviceId {
+        self.id
+    }
+
+    fn removed(&self) -> bool {
+        self.removed.get()
+    }
+
+    fn event(&self) -> Option<InputEvent> {
+        self.events.pop()
+    }
+
+    fn on_change(&self, cb: Rc<dyn Fn()>) {
+        self.cb.set(Some(cb));
+    }
+
+    fn grab(&self, _grab: bool) {
+        log::warn!("Metal backend does not support grabbing devices");
+    }
+}
+
+impl MetalDevice {
+    fn event(&self, event: InputEvent) {
+        self.events.push(event);
+        if let Some(cb) = self.cb.get() {
+            cb();
+        }
     }
 }

@@ -22,7 +22,7 @@ pub enum LogindError {
 
 pub struct Session {
     socket: Rc<DbusSocket>,
-    seat: String,
+    _seat: String,
     session_path: String,
 }
 
@@ -58,7 +58,7 @@ impl Session {
         };
         Ok(Self {
             socket: socket.clone(),
-            seat,
+            _seat: seat,
             session_path,
         })
     }

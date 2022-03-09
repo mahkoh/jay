@@ -21,8 +21,6 @@ pub enum AsyncError {
     WheelError(#[from] WheelError),
     #[error("The event loop caused an error: {0}")]
     EventLoopError(#[from] EventLoopError),
-    #[error("The file descriptor is in an error state")]
-    FdError,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

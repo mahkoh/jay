@@ -42,16 +42,7 @@ impl Seat {
 }
 
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct Keyboard(pub u64);
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct Mouse(pub u64);
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub enum InputDevice {
-    Keyboard(Keyboard),
-    Mouse(Mouse),
-}
+pub struct InputDevice(pub u64);
 
 impl InputDevice {
     pub fn set_seat(self, seat: Seat) {

@@ -1,4 +1,4 @@
-use crate::backend::{KeyState, KeyboardEvent, MouseEvent, OutputId, ScrollAxis};
+use crate::backend::{KeyState, InputEvent, OutputId, ScrollAxis};
 use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
 use crate::ifs::ipc;
@@ -114,18 +114,13 @@ impl NodeSeatState {
 }
 
 impl WlSeatGlobal {
-    pub fn kb_event(self: &Rc<Self>, event: KeyboardEvent) {
+    pub fn event(self: &Rc<Self>, event: InputEvent) {
         match event {
-            KeyboardEvent::Key(k, s) => self.key_event(k, s),
-        }
-    }
-
-    pub fn mouse_event(self: &Rc<Self>, event: MouseEvent) {
-        match event {
-            MouseEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
-            MouseEvent::Motion(dx, dy) => self.motion_event(dx, dy),
-            MouseEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
-            MouseEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
+            InputEvent::Key(k, s) => self.key_event(k, s),
+            InputEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
+            InputEvent::Motion(dx, dy) => self.motion_event(dx, dy),
+            InputEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
+            InputEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
         }
     }
 
@@ -141,6 +136,7 @@ impl WlSeatGlobal {
     }
 
     fn motion_event(self: &Rc<Self>, dx: Fixed, dy: Fixed) {
+        log::info!("motion: {}x{}", dx, dy);
         let (x, y) = self.pos.get();
         self.set_new_position(x + dx, y + dy);
     }

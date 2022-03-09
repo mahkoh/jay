@@ -1,5 +1,5 @@
 use crate::backend::{BackendEvent, Output};
-use crate::tasks::device;
+use crate::tasks::input_device;
 use crate::tasks::output::OutputHandler;
 use crate::State;
 use std::rc::Rc;
@@ -19,8 +19,7 @@ impl BackendEventHandler {
     fn handle_event(&mut self, event: BackendEvent) {
         match event {
             BackendEvent::NewOutput(output) => self.handle_new_output(output),
-            BackendEvent::NewMouse(s) => device::handle(&self.state, s),
-            BackendEvent::NewKeyboard(s) => device::handle(&self.state, s),
+            BackendEvent::NewInputDevice(s) => input_device::handle(&self.state, s),
         }
     }
 

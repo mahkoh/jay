@@ -1,11 +1,6 @@
 use crate::libinput::consts::{EventType, KeyState};
 use crate::libinput::device::LibInputDevice;
-use crate::libinput::sys::{
-    libinput_event, libinput_event_destroy, libinput_event_get_device,
-    libinput_event_get_keyboard_event, libinput_event_get_type, libinput_event_keyboard,
-    libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
-    libinput_event_keyboard_get_time_usec,
-};
+use crate::libinput::sys::{libinput_event, libinput_event_destroy, libinput_event_get_device, libinput_event_get_keyboard_event, libinput_event_get_pointer_event, libinput_event_get_type, libinput_event_keyboard, libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec, libinput_event_pointer, libinput_event_pointer_get_dx, libinput_event_pointer_get_dy, libinput_event_pointer_get_time_usec};
 use std::marker::PhantomData;
 
 pub struct LibInputEvent<'a> {
@@ -15,6 +10,11 @@ pub struct LibInputEvent<'a> {
 
 pub struct LibInputEventKeyboard<'a> {
     pub(super) event: *mut libinput_event_keyboard,
+    pub(super) _phantom: PhantomData<&'a ()>,
+}
+
+pub struct LibInputEventPointer<'a> {
+    pub(super) event: *mut libinput_event_pointer,
     pub(super) _phantom: PhantomData<&'a ()>,
 }
 
@@ -49,6 +49,18 @@ impl<'a> LibInputEvent<'a> {
             })
         }
     }
+
+    pub fn pointer_event(&self) -> Option<LibInputEventPointer> {
+        let res = unsafe { libinput_event_get_pointer_event(self.event) };
+        if res.is_null() {
+            None
+        } else {
+            Some(LibInputEventPointer {
+                event: res,
+                _phantom: Default::default(),
+            })
+        }
+    }
 }
 
 impl<'a> LibInputEventKeyboard<'a> {
@@ -60,7 +72,23 @@ impl<'a> LibInputEventKeyboard<'a> {
         unsafe { KeyState(libinput_event_keyboard_get_key_state(self.event)) }
     }
 
+    #[allow(dead_code)]
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_keyboard_get_time_usec(self.event) }
+    }
+}
+
+impl<'a> LibInputEventPointer<'a> {
+    pub fn dx(&self) -> f64 {
+        unsafe { libinput_event_pointer_get_dx(self.event) }
+    }
+
+    pub fn dy(&self) -> f64 {
+        unsafe { libinput_event_pointer_get_dy(self.event) }
+    }
+
+    #[allow(dead_code)]
+    pub fn time_usec(&self) -> u64 {
+        unsafe { libinput_event_pointer_get_time_usec(self.event) }
     }
 }

@@ -2,7 +2,7 @@ use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
 use crate::keyboard::keymap::Keymap;
 use crate::theme::Color;
-use crate::{Axis, Command, Direction, InputDevice, Keyboard, LogLevel, ModifiedKeySym, Seat};
+use crate::{Axis, Command, Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -141,7 +141,7 @@ impl Client {
         });
     }
 
-    pub fn grab(&self, kb: Keyboard, grab: bool) {
+    pub fn grab(&self, kb: InputDevice, grab: bool) {
         self.send(&ClientMessage::GrabKb { kb, grab });
     }
 

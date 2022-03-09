@@ -1,9 +1,11 @@
+use std::cell::Cell;
 use crate::async_engine::FdStatus;
 use crate::dbus::TRUE;
 use crate::metal::{MetalBackend, MetalDevice, MetalError};
 use crate::udev::UdevDevice;
 use crate::ErrorFmt;
 use std::rc::Rc;
+use crate::backend::BackendEvent;
 
 impl MetalBackend {
     pub async fn monitor_devices(self: Rc<Self>) {
@@ -54,8 +56,11 @@ impl MetalBackend {
     }
 
     fn add_input_device(self: &Rc<Self>, dev: &UdevDevice) {
+        if !dev.is_initialized() {
+            return;
+        }
         let slf = self.clone();
-        let device_id = self.id();
+        let device_id = self.state.input_device_ids.next();
         let devnum = dev.devnum();
         let devnode = match dev.devnode() {
             Ok(n) => n,
@@ -83,12 +88,15 @@ impl MetalBackend {
         };
         let dev = Rc::new(MetalDevice {
             slot,
-            device_id,
+            id: device_id,
             devnum,
             fd: Default::default(),
             inputdev: Default::default(),
             devnode: devnode.to_owned(),
-            sysname: sysname.to_owned(),
+            _sysname: sysname.to_owned(),
+            removed: Cell::new(false),
+            events: Default::default(),
+            cb: Default::default(),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder.input_devices.set(devnum, dev);
@@ -97,7 +105,7 @@ impl MetalBackend {
             let mut slots = slf.device_holder.input_devices_.borrow_mut();
             let dev = 'dev: {
                 if let Some(dev) = id.get(&devnum) {
-                    if dev.device_id == device_id {
+                    if dev.id == device_id {
                         break 'dev dev;
                     }
                 }
@@ -126,6 +134,7 @@ impl MetalBackend {
             };
             inputdev.device().set_slot(slot);
             dev.inputdev.set(Some(inputdev));
+            slf.state.backend_events.push(BackendEvent::NewInputDevice(dev.clone()));
         });
     }
 }

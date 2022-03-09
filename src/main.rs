@@ -16,9 +16,8 @@
 
 use crate::acceptor::AcceptorError;
 use crate::async_engine::{AsyncError, Phase};
-use crate::backends::dummy::DummyBackend;
 use crate::backends::metal;
-use crate::backends::xorg::XorgBackendError;
+use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::dbus::{Dbus, FALSE};
@@ -150,7 +149,6 @@ fn main_() -> Result<(), MainError> {
     let state = Rc::new(State {
         xkb_ctx,
         forker: Default::default(),
-        backend: CloneCell::new(DummyBackend::new()),
         default_keymap: xkb_keymap,
         eng: engine.clone(),
         el: el.clone(),
@@ -165,17 +163,15 @@ fn main_() -> Result<(), MainError> {
         node_ids,
         backend_events: AsyncQueue::new(),
         output_handlers: Default::default(),
-        mouse_handlers: Default::default(),
         seat_ids: Default::default(),
-        kb_ids: Default::default(),
         outputs: Default::default(),
         seat_queue: Default::default(),
         slow_clients: AsyncQueue::new(),
         none_surface_ext: Rc::new(NoneSurfaceExt),
         tree_changed_sent: Cell::new(false),
         config: Default::default(),
-        mouse_ids: Default::default(),
-        kb_handlers: Default::default(),
+        input_device_ids: Default::default(),
+        input_device_handlers: Default::default(),
         theme: Default::default(),
         pending_container_layout: Default::default(),
         pending_container_titles: Default::default(),
@@ -183,10 +179,7 @@ fn main_() -> Result<(), MainError> {
         pending_float_titles: Default::default(),
         dbus: Dbus::new(&engine, &run_toplevel),
     });
-    let _future = state.eng.spawn(metal::run(state.clone()));
     forker.install(&state);
-    // let backend = XorgBackend::new(&state)?;
-    // state.backend.set(backend);
     let config = config::ConfigProxy::default(&state);
     state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
@@ -199,6 +192,7 @@ fn main_() -> Result<(), MainError> {
     let socket_path = Acceptor::install(&state)?;
     forker.setenv(b"WAYLAND_DISPLAY", socket_path.as_bytes());
     let _xwayland = engine.spawn(xwayland::manage(state.clone()));
+    let _backend = engine.spawn(tasks::start_backend(state.clone()));
     el.run()?;
     drop(_xwayland);
     state.clients.clear();

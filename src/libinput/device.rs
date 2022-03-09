@@ -1,7 +1,4 @@
-use crate::libinput::sys::{
-    libinput_device, libinput_device_set_user_data, libinput_device_unref,
-    libinput_path_remove_device,
-};
+use crate::libinput::sys::{libinput_device, libinput_device_get_user_data, libinput_device_set_user_data, libinput_device_unref, libinput_path_remove_device};
 use crate::libinput::LibInput;
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -12,7 +9,7 @@ pub struct LibInputDevice<'a> {
 }
 
 pub struct RegisteredDevice {
-    pub(super) li: Rc<LibInput>,
+    pub(super) _li: Rc<LibInput>,
     pub(super) dev: *mut libinput_device,
 }
 
@@ -28,6 +25,15 @@ impl<'a> LibInputDevice<'a> {
     fn set_slot_(&self, slot: usize) {
         unsafe {
             libinput_device_set_user_data(self.dev, slot as _);
+        }
+    }
+
+    pub fn slot(&self) -> Option<usize> {
+        let res = unsafe { libinput_device_get_user_data(self.dev) as usize };
+        if res == 0 {
+            None
+        } else {
+            Some(res - 1)
         }
     }
 }

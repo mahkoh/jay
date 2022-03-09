@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::mem;
 
 const SEG_SIZE: usize = 8 * mem::size_of::<usize>();

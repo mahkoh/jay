@@ -192,7 +192,9 @@ const MSG_ERROR: u8 = 3;
 const MSG_SIGNAL: u8 = 4;
 
 const NO_REPLY_EXPECTED: u8 = 0x1;
+#[allow(dead_code)]
 const NO_AUTO_START: u8 = 0x2;
+#[allow(dead_code)]
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
 
 pub const BUS_DEST: &'static str = "org.freedesktop.DBus";

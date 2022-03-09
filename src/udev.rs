@@ -38,6 +38,7 @@ extern "C" {
 
     fn udev_list_entry_get_next(list_entry: *mut udev_list_entry) -> *mut udev_list_entry;
     fn udev_list_entry_get_name(list_entry: *mut udev_list_entry) -> *const c::c_char;
+    #[allow(dead_code)]
     fn udev_list_entry_get_value(list_entry: *mut udev_list_entry) -> *const c::c_char;
 
     fn udev_device_new_from_syspath(udev: *mut udev, syspath: *const c::c_char)
@@ -85,7 +86,7 @@ pub struct UdevMonitor {
 }
 
 pub struct UdevEnumerate {
-    udev: Rc<Udev>,
+    _udev: Rc<Udev>,
     enumerate: *mut udev_enumerate,
 }
 
@@ -95,7 +96,7 @@ pub struct UdevListEntry<'a> {
 }
 
 pub struct UdevDevice {
-    udev: Rc<Udev>,
+    _udev: Rc<Udev>,
     device: *mut udev_device,
 }
 
@@ -125,7 +126,7 @@ impl Udev {
             return Err(UdevError::NewEnumerate(Errno::default().into()));
         }
         Ok(UdevEnumerate {
-            udev: self.clone(),
+            _udev: self.clone(),
             enumerate: res,
         })
     }
@@ -140,7 +141,7 @@ impl Udev {
             return Err(UdevError::DeviceFromSyspath(Errno::default().into()));
         }
         Ok(UdevDevice {
-            udev: self.clone(),
+            _udev: self.clone(),
             device: res,
         })
     }
@@ -198,7 +199,7 @@ impl UdevMonitor {
             None
         } else {
             Some(UdevDevice {
-                udev: self.udev.clone(),
+                _udev: self.udev.clone(),
                 device: res,
             })
         }
@@ -305,6 +306,7 @@ impl UdevDevice {
         unsafe { udev_device_get_devnum(self.device) }
     }
 
+    #[allow(dead_code)]
     pub fn is_initialized(&self) -> bool {
         unsafe { udev_device_get_is_initialized(self.device) != 0 }
     }

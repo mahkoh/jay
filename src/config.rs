@@ -1,6 +1,5 @@
 mod handler;
 
-use crate::backend::{KeyboardId, MouseId};
 use crate::config::handler::ConfigProxyHandler;
 use crate::ifs::wl_seat::SeatId;
 use crate::utils::ptr_ext::PtrExt;
@@ -8,12 +7,13 @@ use crate::{NumCell, State};
 use i4config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
 use i4config::_private::{bincode_ops, ConfigEntry, VERSION};
 use i4config::keyboard::ModifiedKeySym;
-use i4config::{InputDevice, Keyboard, Mouse, Seat};
+use i4config::{InputDevice, Seat};
 use libloading::Library;
 use std::cell::Cell;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::backend::InputDeviceId;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -36,27 +36,15 @@ impl ConfigProxy {
         });
     }
 
-    pub fn new_keyboard(&self, kb: KeyboardId) {
+    pub fn new_input_device(&self, dev: InputDeviceId) {
         self.handler.send(&ServerMessage::NewInputDevice {
-            device: InputDevice::Keyboard(Keyboard(kb.raw() as _)),
+            device: InputDevice(dev.raw() as _),
         });
     }
 
-    pub fn new_mouse(&self, mouse: MouseId) {
-        self.handler.send(&ServerMessage::NewInputDevice {
-            device: InputDevice::Mouse(Mouse(mouse.raw() as _)),
-        });
-    }
-
-    pub fn del_keyboard(&self, kb: KeyboardId) {
+    pub fn del_input_device(&self, dev: InputDeviceId) {
         self.handler.send(&ServerMessage::DelInputDevice {
-            device: InputDevice::Keyboard(Keyboard(kb.raw() as _)),
-        });
-    }
-
-    pub fn del_mouse(&self, mouse: MouseId) {
-        self.handler.send(&ServerMessage::DelInputDevice {
-            device: InputDevice::Mouse(Mouse(mouse.raw() as _)),
+            device: InputDevice(dev.raw() as _),
         });
     }
 }

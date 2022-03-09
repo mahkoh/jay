@@ -3,8 +3,7 @@ use std::fmt::Debug;
 use std::rc::Rc;
 
 linear_ids!(OutputIds, OutputId);
-linear_ids!(KeyboardIds, KeyboardId);
-linear_ids!(MouseIds, MouseId);
+linear_ids!(InputDeviceIds, InputDeviceId);
 
 pub trait Backend {}
 
@@ -16,25 +15,17 @@ pub trait Output {
     fn on_change(&self, cb: Rc<dyn Fn()>);
 }
 
-pub trait Keyboard {
-    fn id(&self) -> KeyboardId;
+pub trait InputDevice {
+    fn id(&self) -> InputDeviceId;
     fn removed(&self) -> bool;
-    fn event(&self) -> Option<KeyboardEvent>;
+    fn event(&self) -> Option<InputEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn grab(&self, grab: bool);
 }
 
-pub trait Mouse {
-    fn id(&self) -> MouseId;
-    fn removed(&self) -> bool;
-    fn event(&self) -> Option<MouseEvent>;
-    fn on_change(&self, cb: Rc<dyn Fn()>);
-}
-
 pub enum BackendEvent {
     NewOutput(Rc<dyn Output>),
-    NewKeyboard(Rc<dyn Keyboard>),
-    NewMouse(Rc<dyn Mouse>),
+    NewInputDevice(Rc<dyn InputDevice>),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -50,12 +41,8 @@ pub enum ScrollAxis {
 }
 
 #[derive(Debug)]
-pub enum KeyboardEvent {
+pub enum InputEvent {
     Key(u32, KeyState),
-}
-
-#[derive(Debug)]
-pub enum MouseEvent {
     OutputPosition(OutputId, Fixed, Fixed),
     #[allow(dead_code)]
     Motion(Fixed, Fixed),

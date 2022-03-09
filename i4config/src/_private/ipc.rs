@@ -2,7 +2,7 @@ use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::theme::Color;
-use crate::{Axis, Direction, InputDevice, Keyboard, LogLevel, Seat};
+use crate::{Axis, Direction, InputDevice, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
 
 #[derive(Encode, BorrowDecode, Debug)]
@@ -92,7 +92,7 @@ pub enum ClientMessage<'a> {
         direction: Direction,
     },
     GrabKb {
-        kb: Keyboard,
+        kb: InputDevice,
         grab: bool,
     },
     GetTitleHeight,

@@ -30,6 +30,7 @@ impl DbusSocket {
         }
     }
 
+    #[allow(dead_code)]
     pub fn call_noreply<'a, T: MethodCall<'a>>(&self, destination: &str, path: &str, msg: T) {
         if !self.dead.get() {
             self.send_call(path, destination, NO_REPLY_EXPECTED, &msg);
@@ -89,6 +90,7 @@ impl DbusSocket {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get<T, F>(&self, destination: &str, path: &str, f: F)
     where
         T: Property,
@@ -120,6 +122,7 @@ impl DbusSocket {
         }
     }
 
+    #[allow(dead_code)]
     pub fn handle_signal<T, F>(
         self: &Rc<Self>,
         sender: Option<&str>,
