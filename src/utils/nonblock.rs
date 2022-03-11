@@ -1,5 +1,5 @@
-use uapi::{c};
 use crate::utils::oserror::OsError;
+use uapi::c;
 
 pub fn set_nonblock(fd: c::c_int) -> Result<(), OsError> {
     let fl = uapi::fcntl_getfl(fd)?;

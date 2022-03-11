@@ -1,5 +1,11 @@
+use crate::async_engine::{AsyncFd, SpawnedFuture};
 use crate::backend::{BackendEvent, Output, OutputId};
-use crate::drm::drm::{ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmFb, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT, DrmEvent};
+use crate::drm::drm::{
+    ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmEvent,
+    DrmFb, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty,
+    DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC,
+    DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
+};
 use crate::drm::gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::format::{Format, XRGB8888};
@@ -14,7 +20,6 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::c;
-use crate::async_engine::{AsyncFd, SpawnedFuture};
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -462,14 +467,14 @@ impl MetalBackend {
 
         let connectors = get_connectors(&self.state, &dev, &resources.connectors)?;
 
-        let slf = Rc::new(MetalDrmDevice {
-            dev,
-            connectors,
-        });
+        let slf = Rc::new(MetalDrmDevice { dev, connectors });
 
         self.reset_drm_device(&slf)?;
 
-        let handler = self.state.eng.spawn(self.clone().handle_drm_events(slf.clone()));
+        let handler = self
+            .state
+            .eng
+            .spawn(self.clone().handle_drm_events(slf.clone()));
         slf.dev.handle_events.handle_events.set(Some(handler));
 
         self.state.render_ctx.set(Some(egl));
@@ -498,13 +503,23 @@ impl MetalBackend {
 
     fn handle_drm_event(self: &Rc<Self>, event: DrmEvent, dev: &Rc<MetalDrmDevice>) {
         match event {
-            DrmEvent::FlipComplete { tv_sec, tv_usec, sequence, crtc_id } => self.handle_drm_flip_event(
-                dev, crtc_id, tv_sec, tv_usec, sequence
-            ),
+            DrmEvent::FlipComplete {
+                tv_sec,
+                tv_usec,
+                sequence,
+                crtc_id,
+            } => self.handle_drm_flip_event(dev, crtc_id, tv_sec, tv_usec, sequence),
         }
     }
 
-    fn handle_drm_flip_event(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, crtc_id: DrmCrtc, _tv_sec: u32, _tv_usec: u32, _sequence: u32) {
+    fn handle_drm_flip_event(
+        self: &Rc<Self>,
+        dev: &Rc<MetalDrmDevice>,
+        crtc_id: DrmCrtc,
+        _tv_sec: u32,
+        _tv_usec: u32,
+        _sequence: u32,
+    ) {
         let crtc = match dev.dev.crtcs.get(&crtc_id) {
             Some(c) => c,
             _ => return,
@@ -559,15 +574,26 @@ impl MetalBackend {
         }
     }
 
-    fn create_scanout_buffers(&self, dev: &Rc<MetalDrmDevice>, connector: &Rc<MetalConnector>, format: &ModifiedFormat, width: i32, height: i32) -> Result<[RenderBuffer; 2], MetalError> {
+    fn create_scanout_buffers(
+        &self,
+        dev: &Rc<MetalDrmDevice>,
+        connector: &Rc<MetalConnector>,
+        format: &ModifiedFormat,
+        width: i32,
+        height: i32,
+    ) -> Result<[RenderBuffer; 2], MetalError> {
         let create = || self.create_scanout_buffer(dev, connector, format, width, height);
-        Ok([
-            create()?,
-            create()?,
-        ])
+        Ok([create()?, create()?])
     }
 
-    fn create_scanout_buffer(&self, dev: &Rc<MetalDrmDevice>, connector: &Rc<MetalConnector>, format: &ModifiedFormat, width: i32, height: i32) -> Result<RenderBuffer, MetalError> {
+    fn create_scanout_buffer(
+        &self,
+        dev: &Rc<MetalDrmDevice>,
+        connector: &Rc<MetalConnector>,
+        format: &ModifiedFormat,
+        width: i32,
+        height: i32,
+    ) -> Result<RenderBuffer, MetalError> {
         let bo = dev.dev.gbm.create_bo(
             width,
             height,
@@ -628,7 +654,13 @@ impl MetalBackend {
             format: XRGB8888,
             modifier: INVALID_MODIFIER,
         };
-        let buffers = self.create_scanout_buffers(dev, connector, &format, mode.hdisplay as _, mode.vdisplay as _)?;
+        let buffers = self.create_scanout_buffers(
+            dev,
+            connector,
+            &format,
+            mode.hdisplay as _,
+            mode.vdisplay as _,
+        )?;
         let mut changes = connector.master.change(DRM_MODE_ATOMIC_ALLOW_MODESET);
         changes.change_object(connector.id, |c| {
             c.change(connector.crtc_id.id, crtc.id.0 as _);
@@ -694,9 +726,13 @@ impl MetalBackend {
         };
         let buffer = &buffers[connector.next_buffer.fetch_add(1) % buffers.len()];
         if let Some(node) = self.state.root.outputs.get(&connector.output_id) {
-            buffer.egl.render(&*node, &self.state, Some(node.position.get()));
+            buffer
+                .egl
+                .render(&*node, &self.state, Some(node.position.get()));
         }
-        let mut changes = connector.master.change(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT);
+        let mut changes = connector
+            .master
+            .change(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT);
         changes.change_object(plane.id, |c| {
             c.change(plane.fb_id.id, buffer.drm.id().0 as _);
         });

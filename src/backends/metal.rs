@@ -164,7 +164,7 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
 struct MetalInputDevice {
     slot: usize,
     id: InputDeviceId,
-    devnum: c::dev_t,
+    _devnum: c::dev_t,
     fd: CloneCell<Option<Rc<OwnedFd>>>,
     inputdev: Cell<Option<RegisteredDevice>>,
     devnode: CString,

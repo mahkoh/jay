@@ -6,12 +6,12 @@ use crate::metal::video::PendingDrmDevice;
 use crate::metal::{MetalBackend, MetalDevice, MetalDrmDevice, MetalError, MetalInputDevice};
 use crate::org::freedesktop::login1::session::{PauseDevice, ResumeDevice};
 use crate::udev::UdevDevice;
+use crate::utils::nonblock::set_nonblock;
 use crate::ErrorFmt;
 use bstr::ByteSlice;
 use std::cell::Cell;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
-use crate::utils::nonblock::set_nonblock;
 
 const DRM: &[u8] = b"drm";
 const INPUT: &[u8] = b"input";
@@ -82,7 +82,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, fd: Rc<OwnedFd>) {
+    fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, _fd: Rc<OwnedFd>) {
         log::info!("Device resumed: {}", dev.dev.devnode.to_bytes().as_bstr());
     }
 
@@ -224,7 +224,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+    fn handle_drm_change(self: &Rc<Self>, _dev: UdevDevice) -> Option<()> {
         None
     }
 
@@ -266,7 +266,7 @@ impl MetalBackend {
         let dev = Rc::new(MetalInputDevice {
             slot,
             id: device_id,
-            devnum,
+            _devnum: devnum,
             fd: Default::default(),
             inputdev: Default::default(),
             devnode: devnode.to_owned(),

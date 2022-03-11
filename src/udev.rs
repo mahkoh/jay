@@ -284,6 +284,7 @@ impl<'a> UdevListEntry<'a> {
 
 macro_rules! strfn {
     ($f:ident, $raw:ident) => {
+        #[allow(dead_code)]
         pub fn $f(&self) -> Option<&CStr> {
             let res = unsafe { $raw(self.device) };
             if res.is_null() {
