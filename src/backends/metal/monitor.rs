@@ -11,6 +11,7 @@ use bstr::ByteSlice;
 use std::cell::Cell;
 use std::rc::Rc;
 use uapi::{c, OwnedFd};
+use crate::utils::nonblock::set_nonblock;
 
 const DRM: &[u8] = b"drm";
 const INPUT: &[u8] = b"input";
@@ -191,12 +192,13 @@ impl MetalBackend {
                     return;
                 }
             };
-            if res.inactive == TRUE {
+            if let Err(e) = set_nonblock(res.fd.raw()) {
+                log::error!("Could set drm fd to non-blocking: {}", ErrorFmt(e));
                 return;
             }
             let master = Rc::new(DrmMaster::new(res.fd.clone()));
             let dev = match slf.creat_drm_device(dev, &master) {
-                Ok(d) => Rc::new(d),
+                Ok(d) => d,
                 Err(e) => {
                     log::error!("Could not initialize drm device: {}", ErrorFmt(e));
                     return;
@@ -298,6 +300,10 @@ impl MetalBackend {
                 }
             };
             if res.inactive == TRUE {
+                return;
+            }
+            if let Err(e) = set_nonblock(res.fd.raw()) {
+                log::error!("Could set input fd to non-blocking: {}", ErrorFmt(e));
                 return;
             }
             dev.fd.set(Some(res.fd.clone()));

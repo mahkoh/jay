@@ -529,6 +529,7 @@ mod fd {
     use crate::utils::numcell::NumCell;
     use std::cell::{Cell, RefCell};
     use std::error::Error;
+    use std::fmt::{Debug, Formatter};
     use std::future::Future;
     use std::pin::Pin;
     use std::rc::Rc;
@@ -639,6 +640,12 @@ mod fd {
     pub struct AsyncFd {
         pub(super) engine: Rc<AsyncEngine>,
         pub(super) data: Rc<AsyncFdData>,
+    }
+
+    impl Debug for AsyncFd {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("AsyncFd").finish_non_exhaustive()
+        }
     }
 
     impl Clone for AsyncFd {

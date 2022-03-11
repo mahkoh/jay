@@ -1,17 +1,18 @@
 mod sys;
 
 use std::cell::RefCell;
-use crate::drm::drm::sys::{create_lease, drm_mode_modeinfo, get_cap, get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes, is_master, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob, mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane, mode_getplaneresources, mode_getproperty, mode_obj_getproperties, mode_rmfb, set_client_cap, DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS, DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_MODE, DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY, gem_close, prime_fd_to_handle};
+use crate::drm::drm::sys::{create_lease, drm_mode_modeinfo, get_cap, get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes, is_master, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob, mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane, mode_getplaneresources, mode_getproperty, mode_obj_getproperties, mode_rmfb, set_client_cap, DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS, DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_MODE, DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY, gem_close, prime_fd_to_handle, drm_event, drm_event_vblank};
 use crate::utils::oserror::OsError;
 use ahash::AHashMap;
 use bstr::{BString, ByteSlice};
 use std::ffi::CString;
 use std::fmt::{Debug, Display, Formatter};
 use std::mem;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use thiserror::Error;
-use uapi::{c, OwnedFd, Ustring};
+use uapi::{c, Errno, OwnedFd, Ustring};
 
 use crate::drm::gbm::GbmBo;
 use crate::drm::INVALID_MODIFIER;
@@ -21,6 +22,7 @@ pub use sys::{
     DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
     DRM_MODE_PAGE_FLIP_EVENT,
 };
+use crate::utils::syncqueue::SyncQueue;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -74,6 +76,10 @@ pub enum DrmError {
     AddFb(#[source] OsError),
     #[error("Could not convert prime fd to gem handle")]
     GemHandle(#[source] OsError),
+    #[error("Could not read events from the drm fd")]
+    ReadEvents(#[source] OsError),
+    #[error("Read invalid data from drm device")]
+    InvalidRead,
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -114,6 +120,10 @@ impl Drm {
         })
     }
 
+    pub fn fd(&self) -> &Rc<OwnedFd> {
+        &self.fd
+    }
+
     pub fn raw(&self) -> c::c_int {
         self.fd.raw()
     }
@@ -132,6 +142,8 @@ pub struct DrmMaster {
     u32_bufs: Stack<Vec<u32>>,
     u64_bufs: Stack<Vec<u64>>,
     gem_handles: RefCell<AHashMap<u32, Weak<GemHandle>>>,
+    events: SyncQueue<DrmEvent>,
+    buf: RefCell<Box<[MaybeUninit<u8>; 1024]>>,
 }
 
 impl Debug for DrmMaster {
@@ -155,6 +167,8 @@ impl DrmMaster {
             u32_bufs: Default::default(),
             u64_bufs: Default::default(),
             gem_handles: Default::default(),
+            events: Default::default(),
+            buf: RefCell::new(Box::new([MaybeUninit::uninit(); 1024])),
         }
     }
 
@@ -284,6 +298,53 @@ impl DrmMaster {
         handles.insert(handle, Rc::downgrade(&h));
         Ok(h)
     }
+
+    pub fn event(&self) -> Result<Option<DrmEvent>, DrmError> {
+        if self.events.is_empty() {
+            let mut buf = self.buf.borrow_mut();
+            let mut buf = match uapi::read(self.raw(), buf.as_mut_slice()) {
+                Ok(b) => b,
+                Err(Errno(c::EAGAIN)) => return Ok(None),
+                Err(e) => return Err(DrmError::ReadEvents(e.into())),
+            };
+            while buf.len() > 0 {
+                let header: drm_event = match uapi::pod_read_init(buf) {
+                    Ok(e) => e,
+                    _ => return Err(DrmError::InvalidRead),
+                };
+                let len = header.length as usize;
+                if len > buf.len() {
+                    return Err(DrmError::InvalidRead);
+                }
+                match header.ty {
+                    sys::DRM_EVENT_FLIP_COMPLETE => {
+                        let event: drm_event_vblank = match uapi::pod_read_init(buf) {
+                            Ok(e) => e,
+                            _ => return Err(DrmError::InvalidRead),
+                        };
+                        self.events.push(DrmEvent::FlipComplete {
+                            tv_sec: event.tv_sec,
+                            tv_usec: event.tv_usec,
+                            sequence: event.sequence,
+                            crtc_id: DrmCrtc(event.crtc_id),
+                        });
+                    }
+                    _ => { },
+                }
+                buf = &mut buf[len as usize..];
+            }
+        }
+        Ok(self.events.pop())
+    }
+}
+
+pub enum DrmEvent {
+    FlipComplete {
+        tv_sec: u32,
+        tv_usec: u32,
+        sequence: u32,
+        crtc_id: DrmCrtc,
+    },
 }
 
 pub struct DrmFramebuffer {

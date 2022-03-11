@@ -24,4 +24,8 @@ impl<T> SyncQueue<T> {
     pub fn pop(&self) -> Option<T> {
         unsafe { self.el.get().deref_mut().pop_front() }
     }
+
+    pub fn is_empty(&self) -> bool {
+        unsafe { self.el.get().deref_mut().is_empty() }
+    }
 }

@@ -1,17 +1,12 @@
 use crate::backend::{BackendEvent, Output, OutputId};
-use crate::drm::drm::{
-    ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmFb,
-    DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty,
-    DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC,
-    DRM_MODE_ATOMIC_ALLOW_MODESET,
-};
+use crate::drm::drm::{ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmFb, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT, DrmEvent};
 use crate::drm::gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::format::{Format, XRGB8888};
 use crate::metal::{DrmId, MetalBackend, MetalError};
 use crate::render::{Framebuffer, RenderContext};
 use crate::utils::bitflags::BitflagsExt;
-use crate::{CloneCell, ErrorFmt, State};
+use crate::{CloneCell, ErrorFmt, NumCell, State};
 use ahash::AHashMap;
 use bstr::{BString, ByteSlice};
 use std::cell::Cell;
@@ -19,6 +14,7 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::c;
+use crate::async_engine::{AsyncFd, SpawnedFuture};
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -41,6 +37,18 @@ pub struct MetalDrmDeviceStatic {
     pub max_height: u32,
     pub gbm: GbmDevice,
     pub egl: Rc<RenderContext>,
+    pub async_fd: AsyncFd,
+    pub handle_events: HandleEvents,
+}
+
+pub struct HandleEvents {
+    pub handle_events: Cell<Option<SpawnedFuture<()>>>,
+}
+
+impl Debug for HandleEvents {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HandleEvents").finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug)]
@@ -60,6 +68,9 @@ pub struct MetalConnector {
     pub modes: Vec<DrmModeInfo>,
     pub mode: CloneCell<Option<Rc<DrmModeInfo>>>,
 
+    pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+    pub next_buffer: NumCell<usize>,
+
     pub connector_type: ConnectorType,
     pub connector_type_id: u32,
 
@@ -67,6 +78,9 @@ pub struct MetalConnector {
     pub mm_width: u32,
     pub mm_height: u32,
     pub subpixel: u32,
+
+    pub primary_plane: CloneCell<Option<Rc<MetalPlane>>>,
+    pub cursor_plane: Cell<DrmPlane>,
 
     pub crtc_id: MutableProperty<DrmCrtc>,
 
@@ -125,10 +139,7 @@ pub struct MetalCrtc {
 
     pub possible_planes: AHashMap<DrmPlane, Rc<MetalPlane>>,
 
-    pub connector: Cell<DrmConnector>,
-
-    pub primary_plane: Cell<DrmPlane>,
-    pub cursor_plane: Cell<DrmPlane>,
+    pub connector: CloneCell<Option<Rc<MetalConnector>>>,
 
     pub active: MutableProperty<bool>,
     pub mode_id: MutableProperty<DrmBlob>,
@@ -158,8 +169,6 @@ pub struct MetalPlane {
 
     pub possible_crtcs: u32,
     pub formats: AHashMap<u32, &'static Format>,
-
-    pub fb: CloneCell<Option<Rc<DrmFramebuffer>>>,
 
     pub fb_id: MutableProperty<DrmFb>,
     pub crtc_id: MutableProperty<DrmCrtc>,
@@ -214,12 +223,16 @@ fn create_connector(
         crtcs,
         modes: info.modes,
         mode: Default::default(),
+        buffers: Default::default(),
+        next_buffer: Default::default(),
         connector_type: info.connector_type.into(),
         connector_type_id: info.connector_type_id,
         connection: info.connection.into(),
         mm_width: info.mm_width,
         mm_height: info.mm_height,
         subpixel: info.subpixel,
+        primary_plane: Default::default(),
+        cursor_plane: Default::default(),
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         egl_fb: Default::default(),
         on_change: Default::default(),
@@ -263,9 +276,7 @@ fn create_crtc(
         idx,
         master: master.clone(),
         possible_planes,
-        connector: Cell::new(DrmConnector::NONE),
-        primary_plane: Cell::new(DrmPlane::NONE),
-        cursor_plane: Cell::new(DrmPlane::NONE),
+        connector: Default::default(),
         active: props.get("ACTIVE")?.map(|v| v == 1),
         mode_id: props.get("MODE_ID")?.map(|v| DrmBlob(v as u32)),
         mode_blob: Default::default(),
@@ -316,7 +327,6 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         ty,
         possible_crtcs: info.possible_crtcs,
         formats,
-        fb: Default::default(),
         fb_id: props.get("FB_ID")?.map(|v| DrmFb(v as _)),
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtc_x: props.get("CRTC_X")?.map(|v| v as i32),
@@ -378,10 +388,10 @@ impl<T: Copy> MutableProperty<T> {
 
 impl MetalBackend {
     pub fn creat_drm_device(
-        &self,
+        self: &Rc<Self>,
         pending: PendingDrmDevice,
         master: &Rc<DrmMaster>,
-    ) -> Result<MetalDrmDevice, MetalError> {
+    ) -> Result<Rc<MetalDrmDevice>, MetalError> {
         if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_ATOMIC, 2) {
             return Err(MetalError::AtomicModesetting(e));
         }
@@ -425,8 +435,12 @@ impl MetalBackend {
             Ok(r) => Rc::new(r),
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
         };
+        let async_fd = match self.state.eng.fd(master.fd()) {
+            Ok(f) => f,
+            Err(e) => return Err(MetalError::CreateDrmAsyncFd(e)),
+        };
 
-        let dev = MetalDrmDeviceStatic {
+        let dev = Rc::new(MetalDrmDeviceStatic {
             id: pending.id,
             devnum: pending.devnum,
             devnode: pending.devnode,
@@ -439,28 +453,67 @@ impl MetalBackend {
             min_height: resources.min_height,
             max_height: resources.max_height,
             gbm,
-            egl,
-        };
+            egl: egl.clone(),
+            async_fd,
+            handle_events: HandleEvents {
+                handle_events: Cell::new(None),
+            },
+        });
 
         let connectors = get_connectors(&self.state, &dev, &resources.connectors)?;
 
-        let slf = MetalDrmDevice {
-            dev: Rc::new(dev),
+        let slf = Rc::new(MetalDrmDevice {
+            dev,
             connectors,
-        };
+        });
 
         self.reset_drm_device(&slf)?;
+
+        let handler = self.state.eng.spawn(self.clone().handle_drm_events(slf.clone()));
+        slf.dev.handle_events.handle_events.set(Some(handler));
+
+        self.state.render_ctx.set(Some(egl));
 
         Ok(slf)
     }
 
-    pub fn refresh_drm_device(&self, dev: MetalDrmDevice) -> Result<MetalDrmDevice, DrmError> {
-        let resources = dev.dev.master.get_resources()?;
-        let connectors = get_connectors(&self.state, &dev.dev, &resources.connectors)?;
-        Ok(MetalDrmDevice {
-            dev: dev.dev.clone(),
-            connectors,
-        })
+    async fn handle_drm_events(self: Rc<Self>, dev: Rc<MetalDrmDevice>) {
+        loop {
+            if let Err(e) = dev.dev.async_fd.readable().await {
+                log::error!("Could not register the DRM fd for reading: {}", ErrorFmt(e));
+                break;
+            }
+            loop {
+                match dev.dev.master.event() {
+                    Ok(Some(e)) => self.handle_drm_event(e, &dev),
+                    Ok(None) => break,
+                    Err(e) => {
+                        log::error!("Could not read DRM event: {}", ErrorFmt(e));
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    fn handle_drm_event(self: &Rc<Self>, event: DrmEvent, dev: &Rc<MetalDrmDevice>) {
+        match event {
+            DrmEvent::FlipComplete { tv_sec, tv_usec, sequence, crtc_id } => self.handle_drm_flip_event(
+                dev, crtc_id, tv_sec, tv_usec, sequence
+            ),
+        }
+    }
+
+    fn handle_drm_flip_event(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, crtc_id: DrmCrtc, _tv_sec: u32, _tv_usec: u32, _sequence: u32) {
+        let crtc = match dev.dev.crtcs.get(&crtc_id) {
+            Some(c) => c,
+            _ => return,
+        };
+        let connector = match crtc.connector.get() {
+            Some(c) => c,
+            _ => return,
+        };
+        self.present(&connector);
     }
 
     fn reset_drm_device(&self, dev: &MetalDrmDevice) -> Result<(), DrmError> {
@@ -506,6 +559,39 @@ impl MetalBackend {
         }
     }
 
+    fn create_scanout_buffers(&self, dev: &Rc<MetalDrmDevice>, connector: &Rc<MetalConnector>, format: &ModifiedFormat, width: i32, height: i32) -> Result<[RenderBuffer; 2], MetalError> {
+        let create = || self.create_scanout_buffer(dev, connector, format, width, height);
+        Ok([
+            create()?,
+            create()?,
+        ])
+    }
+
+    fn create_scanout_buffer(&self, dev: &Rc<MetalDrmDevice>, connector: &Rc<MetalConnector>, format: &ModifiedFormat, width: i32, height: i32) -> Result<RenderBuffer, MetalError> {
+        let bo = dev.dev.gbm.create_bo(
+            width,
+            height,
+            &format,
+            GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT,
+        );
+        let bo = match bo {
+            Ok(b) => b,
+            Err(e) => return Err(MetalError::ScanoutBuffer(e)),
+        };
+        let drm_fb = match connector.master.add_fb(&bo) {
+            Ok(fb) => Rc::new(fb),
+            Err(e) => return Err(MetalError::Framebuffer(e)),
+        };
+        let egl_fb = match dev.dev.egl.dmabuf_fb(&bo.dma()) {
+            Ok(fb) => fb,
+            Err(e) => return Err(MetalError::ImportFb(e)),
+        };
+        Ok(RenderBuffer {
+            drm: drm_fb,
+            egl: egl_fb,
+        })
+    }
+
     fn init_drm_connector(
         &self,
         dev: &Rc<MetalDrmDevice>,
@@ -542,24 +628,7 @@ impl MetalBackend {
             format: XRGB8888,
             modifier: INVALID_MODIFIER,
         };
-        let bo = dev.dev.gbm.create_bo(
-            mode.hdisplay as i32,
-            mode.vdisplay as i32,
-            &format,
-            GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT,
-        );
-        let bo = match bo {
-            Ok(b) => b,
-            Err(e) => return Err(MetalError::ScanoutBuffer(e)),
-        };
-        let drm_fb = match connector.master.add_fb(&bo) {
-            Ok(fb) => Rc::new(fb),
-            Err(e) => return Err(MetalError::Framebuffer(e)),
-        };
-        let egl_fb = match dev.dev.egl.dmabuf_fb(&bo.dma()) {
-            Ok(fb) => fb,
-            Err(e) => return Err(MetalError::ImportFb(e)),
-        };
+        let buffers = self.create_scanout_buffers(dev, connector, &format, mode.hdisplay as _, mode.vdisplay as _)?;
         let mut changes = connector.master.change(DRM_MODE_ATOMIC_ALLOW_MODESET);
         changes.change_object(connector.id, |c| {
             c.change(connector.crtc_id.id, crtc.id.0 as _);
@@ -569,7 +638,7 @@ impl MetalBackend {
             c.change(crtc.mode_id.id, mode_blob.id().0 as _);
         });
         changes.change_object(primary_plane.id, |c| {
-            c.change(primary_plane.fb_id.id, drm_fb.id().0 as _);
+            c.change(primary_plane.fb_id.id, buffers[0].drm.id().0 as _);
             c.change(primary_plane.crtc_id.id, crtc.id.0 as _);
             c.change(primary_plane.crtc_x.id, 0);
             c.change(primary_plane.crtc_y.id, 0);
@@ -583,15 +652,7 @@ impl MetalBackend {
         if let Err(e) = changes.commit(0) {
             return Err(MetalError::Configure(e));
         }
-        connector.crtc_id.value.set(crtc.id);
-        connector.egl_fb.set(Some(egl_fb));
-        connector.mode.set(Some(Rc::new(mode.clone())));
-        crtc.connector.set(connector.id);
-        crtc.active.value.set(true);
-        crtc.mode_id.value.set(mode_blob.id());
-        crtc.mode_blob.set(Some(Rc::new(mode_blob)));
-        primary_plane.fb_id.value.set(drm_fb.id());
-        primary_plane.fb.set(Some(drm_fb));
+        primary_plane.fb_id.value.set(buffers[0].drm.id());
         primary_plane.crtc_id.value.set(crtc.id);
         primary_plane.crtc_x.value.set(0);
         primary_plane.crtc_y.value.set(0);
@@ -601,6 +662,14 @@ impl MetalBackend {
         primary_plane.src_y.value.set(0);
         primary_plane.src_w.value.set((mode.hdisplay as u32) << 16);
         primary_plane.src_h.value.set((mode.vdisplay as u32) << 16);
+        connector.crtc_id.value.set(crtc.id);
+        connector.mode.set(Some(Rc::new(mode.clone())));
+        connector.buffers.set(Some(Rc::new(buffers)));
+        connector.primary_plane.set(Some(primary_plane.clone()));
+        crtc.connector.set(Some(connector.clone()));
+        crtc.active.value.set(true);
+        crtc.mode_id.value.set(mode_blob.id());
+        crtc.mode_blob.set(Some(Rc::new(mode_blob)));
         self.state
             .backend_events
             .push(BackendEvent::NewOutput(connector.clone()));
@@ -610,6 +679,35 @@ impl MetalBackend {
             connector.connector_type_id,
             mode
         );
+        self.present(connector);
         Ok(())
     }
+
+    fn present(&self, connector: &Rc<MetalConnector>) {
+        let buffers = match connector.buffers.get() {
+            None => return,
+            Some(b) => b,
+        };
+        let plane = match connector.primary_plane.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        let buffer = &buffers[connector.next_buffer.fetch_add(1) % buffers.len()];
+        if let Some(node) = self.state.root.outputs.get(&connector.output_id) {
+            buffer.egl.render(&*node, &self.state, Some(node.position.get()));
+        }
+        let mut changes = connector.master.change(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT);
+        changes.change_object(plane.id, |c| {
+            c.change(plane.fb_id.id, buffer.drm.id().0 as _);
+        });
+        if let Err(e) = changes.commit(0) {
+            log::error!("Could not set plane framebuffer: {}", ErrorFmt(e));
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct RenderBuffer {
+    drm: Rc<DrmFramebuffer>,
+    egl: Rc<Framebuffer>,
 }

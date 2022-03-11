@@ -15,7 +15,7 @@ use crate::udev::{UdevError, UdevMonitor};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::oserror::OsError;
 use crate::utils::syncqueue::SyncQueue;
-use crate::{CloneCell, RenderError, State, Udev};
+use crate::{AsyncError, CloneCell, RenderError, State, Udev};
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
 use std::future::pending;
@@ -69,6 +69,8 @@ pub enum MetalError {
     CreateEncoder(#[source] DrmError),
     #[error(transparent)]
     DrmError(#[from] DrmError),
+    #[error("Could not create an async fd for the drm fd")]
+    CreateDrmAsyncFd(#[source] AsyncError),
 }
 
 pub async fn run(state: Rc<State>) -> MetalError {

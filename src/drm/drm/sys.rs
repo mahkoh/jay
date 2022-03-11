@@ -13,7 +13,7 @@ use bstr::ByteSlice;
 use std::ffi::CString;
 use std::io::{BufRead, BufReader};
 use std::mem;
-use uapi::{c, OwnedFd, Ustring};
+use uapi::{c, OwnedFd, Pod, Ustring};
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
     let mut ret;
@@ -1032,3 +1032,27 @@ pub fn gem_close(fd: c::c_int, handle: u32) -> Result<(), OsError> {
     }
     Ok(())
 }
+
+pub const DRM_EVENT_VBLANK : u32 = 0x01;
+pub const DRM_EVENT_FLIP_COMPLETE : u32 = 0x02;
+pub const DRM_EVENT_CRTC_SEQUENCE	: u32 = 0x03;
+
+#[repr(C)]
+pub struct drm_event {
+    pub ty: u32,
+    pub length: u32,
+}
+
+unsafe impl Pod for drm_event { }
+
+#[repr(C)]
+pub struct drm_event_vblank {
+    pub base: drm_event,
+    pub user_data: u64,
+    pub tv_sec: u32,
+    pub tv_usec: u32,
+    pub sequence: u32,
+    pub crtc_id: u32,
+}
+
+unsafe impl Pod for drm_event_vblank { }
