@@ -274,6 +274,8 @@ impl MetalBackend {
             removed: Cell::new(false),
             events: Default::default(),
             cb: Default::default(),
+            hscroll: Cell::new(0.0),
+            vscroll: Cell::new(0.0),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder
