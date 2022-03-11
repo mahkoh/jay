@@ -1,5 +1,6 @@
 mod handler;
 
+use crate::backend::InputDeviceId;
 use crate::config::handler::ConfigProxyHandler;
 use crate::ifs::wl_seat::SeatId;
 use crate::utils::ptr_ext::PtrExt;
@@ -13,7 +14,6 @@ use std::cell::Cell;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::backend::InputDeviceId;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {

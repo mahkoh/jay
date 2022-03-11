@@ -1,35 +1,38 @@
 use crate::async_engine::FdStatus;
+use crate::backend::{InputEvent, KeyState};
+use crate::libinput::consts::LIBINPUT_KEY_STATE_PRESSED;
 use crate::libinput::event::LibInputEvent;
 use crate::metal::MetalBackend;
 use crate::ErrorFmt;
 use std::rc::Rc;
-use crate::backend::{InputEvent, KeyState};
-use crate::libinput::consts::LIBINPUT_KEY_STATE_PRESSED;
 
 macro_rules! unpack {
-    ($slf:expr, $ev:expr) => {
+    ($slf:expr, $ev:expr) => {{
+        let slot = match $ev.device().slot() {
+            Some(s) => s,
+            _ => return,
+        };
+        let data = match $slf
+            .device_holder
+            .input_devices
+            .borrow_mut()
+            .get(slot)
+            .cloned()
+            .and_then(|v| v)
         {
-            let slot = match $ev.device().slot() {
-                Some(s) => s,
-                _ => return,
-            };
-            let data = match $slf.device_holder.input_devices_.borrow_mut().get(slot).cloned().and_then(|v| v) {
-                Some(d) => d,
-                _ => return,
-            };
-            data
-        }
-    };
-    ($slf:expr, $ev:expr, $conv:ident) => {
-        {
-            let event = match $ev.$conv() {
-                Some(e) => e,
-                _ => return,
-            };
-            let data = unpack!($slf, $ev);
-            (event, data)
-        }
-    };
+            Some(d) => d,
+            _ => return,
+        };
+        data
+    }};
+    ($slf:expr, $ev:expr, $conv:ident) => {{
+        let event = match $ev.$conv() {
+            Some(e) => e,
+            _ => return,
+        };
+        let data = unpack!($slf, $ev);
+        (event, data)
+    }};
 }
 
 impl MetalBackend {
@@ -65,7 +68,7 @@ impl MetalBackend {
 
         match event.ty() {
             c::LIBINPUT_EVENT_DEVICE_ADDED => self.handle_device_added(event),
-            c::LIBINPUT_EVENT_DEVICE_REMOVED => self.handle_device_removed(event),
+            c::LIBINPUT_EVENT_DEVICE_REMOVED => self.handle_li_device_removed(event),
             c::LIBINPUT_EVENT_KEYBOARD_KEY => self.handle_keyboard_key(event),
             c::LIBINPUT_EVENT_POINTER_MOTION => self.handle_pointer_motion(event),
             _ => {}
@@ -76,10 +79,9 @@ impl MetalBackend {
         // let dev = unpack!(self, event);
     }
 
-    fn handle_device_removed(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_li_device_removed(self: &Rc<Self>, event: LibInputEvent) {
         let dev = unpack!(self, event);
-        self.device_holder.input_devices.remove(&dev.devnum);
-        self.device_holder.input_devices_.borrow_mut()[dev.slot] = None;
+        dev.inputdev.set(None);
         event.device().unset_slot();
     }
 

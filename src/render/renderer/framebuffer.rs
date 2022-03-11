@@ -8,12 +8,19 @@ use crate::render::renderer::renderer::Renderer;
 use crate::render::sys::{glBlendFunc, GL_ONE, GL_ONE_MINUS_SRC_ALPHA};
 use crate::tree::Node;
 use crate::State;
+use std::fmt::{Debug, Formatter};
 use std::ptr;
 use std::rc::Rc;
 
 pub struct Framebuffer {
     pub(super) ctx: Rc<RenderContext>,
     pub(super) gl: GlFrameBuffer,
+}
+
+impl Debug for Framebuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Framebuffer").finish_non_exhaustive()
+    }
 }
 
 impl Framebuffer {

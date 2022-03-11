@@ -1,6 +1,7 @@
 use once_cell::sync::Lazy;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use uapi::c::c_int;
 use uapi::{c, Errno};
 
 static ERRORS: Lazy<&'static [Option<&'static str>]> = Lazy::new(|| {
@@ -165,6 +166,21 @@ pub struct OsError(pub c::c_int);
 impl From<Errno> for OsError {
     fn from(e: Errno) -> Self {
         Self(e.0)
+    }
+}
+
+impl From<c::c_int> for OsError {
+    fn from(v: c_int) -> Self {
+        Self(v)
+    }
+}
+
+impl From<std::io::Error> for OsError {
+    fn from(v: std::io::Error) -> Self {
+        match v.raw_os_error() {
+            Some(v) => Self(v),
+            None => Self(c::EINVAL),
+        }
     }
 }
 

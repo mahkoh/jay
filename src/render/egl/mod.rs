@@ -1,4 +1,4 @@
-use crate::drm::drm::DrmDevice;
+use crate::drm::drm::NodeType;
 use crate::render::egl::device::EglDevice;
 use crate::render::egl::sys::{
     eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
@@ -8,10 +8,11 @@ use crate::render::egl::sys::{
 use crate::render::ext::{get_client_ext, get_device_ext, ClientExt, DeviceExt};
 use crate::render::proc::ExtProc;
 use crate::render::RenderError;
+use ahash::AHashMap;
 use bstr::ByteSlice;
 use log::Level;
 use once_cell::sync::Lazy;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 use sys::{
     EGL_BAD_ACCESS, EGL_BAD_ALLOC, EGL_BAD_ATTRIBUTE, EGL_BAD_CONFIG, EGL_BAD_CONTEXT,
@@ -63,12 +64,14 @@ pub fn init() -> Result<(), RenderError> {
     Ok(())
 }
 
-pub fn find_drm_device(drm_dev: &DrmDevice) -> Result<Option<EglDevice>, RenderError> {
+pub fn find_drm_device(
+    drm_dev: &AHashMap<NodeType, CString>,
+) -> Result<Option<EglDevice>, RenderError> {
     for device in query_devices()? {
         if device.exts.contains(DeviceExt::EXT_DEVICE_DRM) {
             let device_file = device.query_string(EGL_DRM_DEVICE_FILE_EXT)?;
-            for (_, name) in drm_dev.nodes() {
-                if device_file == name {
+            for name in drm_dev.values() {
+                if device_file == &**name {
                     return Ok(Some(device));
                 }
             }

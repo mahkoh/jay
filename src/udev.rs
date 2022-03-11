@@ -47,7 +47,10 @@ extern "C" {
     fn udev_device_get_sysname(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_is_initialized(udev_device: *mut udev_device) -> c::c_int;
     fn udev_device_get_devnode(udev_device: *mut udev_device) -> *const c::c_char;
+    fn udev_device_get_devtype(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_devnum(udev_device: *mut udev_device) -> c::dev_t;
+    fn udev_device_get_action(udev_device: *mut udev_device) -> *const c::c_char;
+    fn udev_device_get_subsystem(udev_device: *mut udev_device) -> *const c::c_char;
 }
 
 #[derive(Debug, Error)]
@@ -70,10 +73,6 @@ pub enum UdevError {
     ScanDevices(#[source] crate::utils::oserror::OsError),
     #[error("Could not create a udev_device from a syspath")]
     DeviceFromSyspath(#[source] crate::utils::oserror::OsError),
-    #[error("Could not retrieve the sysname of a udev_device")]
-    GetSysname(#[source] crate::utils::oserror::OsError),
-    #[error("Could not retrieve the devnode of a udev_device")]
-    GetDevnode(#[source] crate::utils::oserror::OsError),
 }
 
 pub struct Udev {
@@ -215,7 +214,7 @@ impl Drop for UdevMonitor {
 }
 
 impl UdevEnumerate {
-    pub fn add_match_subsystem(&self, subsystem: &str) -> Result<(), UdevError> {
+    pub fn add_match_subsystem(&self, subsystem: &[u8]) -> Result<(), UdevError> {
         let subsystem = subsystem.into_ustr();
         let res = unsafe { udev_enumerate_add_match_subsystem(self.enumerate, subsystem.as_ptr()) };
         if res < 0 {
@@ -283,24 +282,25 @@ impl<'a> UdevListEntry<'a> {
     }
 }
 
-impl UdevDevice {
-    pub fn sysname(&self) -> Result<&CStr, UdevError> {
-        let res = unsafe { udev_device_get_sysname(self.device) };
-        if res.is_null() {
-            Err(UdevError::GetSysname(Errno::default().into()))
-        } else {
-            unsafe { Ok(CStr::from_ptr(res)) }
+macro_rules! strfn {
+    ($f:ident, $raw:ident) => {
+        pub fn $f(&self) -> Option<&CStr> {
+            let res = unsafe { $raw(self.device) };
+            if res.is_null() {
+                None
+            } else {
+                unsafe { Some(CStr::from_ptr(res)) }
+            }
         }
-    }
+    };
+}
 
-    pub fn devnode(&self) -> Result<&CStr, UdevError> {
-        let res = unsafe { udev_device_get_devnode(self.device) };
-        if res.is_null() {
-            Err(UdevError::GetDevnode(Errno::default().into()))
-        } else {
-            unsafe { Ok(CStr::from_ptr(res)) }
-        }
-    }
+impl UdevDevice {
+    strfn!(sysname, udev_device_get_sysname);
+    strfn!(devnode, udev_device_get_devnode);
+    strfn!(devtype, udev_device_get_devtype);
+    strfn!(action, udev_device_get_action);
+    strfn!(subsystem, udev_device_get_subsystem);
 
     pub fn devnum(&self) -> c::dev_t {
         unsafe { udev_device_get_devnum(self.device) }

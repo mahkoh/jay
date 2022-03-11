@@ -1,4 +1,7 @@
-use crate::backend::{Backend, BackendEvent, KeyState, InputEvent, Output, OutputId, ScrollAxis, InputDeviceId, InputDevice};
+use crate::backend::{
+    Backend, BackendEvent, InputDevice, InputDeviceId, InputEvent, KeyState, Output, OutputId,
+    ScrollAxis,
+};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -97,7 +100,7 @@ impl XcbCon {
 
             let c = xcb.xcb_connect(ptr::null(), ptr::null_mut());
             match xcb.xcb_connection_has_error(c) {
-                0 => { },
+                0 => {}
                 n => return Err(XorgBackendError::CannotConnect(n.into())),
             }
             let errors = XcbErrorParser::new(&xcb, c);
@@ -231,7 +234,7 @@ fn get_drm(con: &XcbCon) -> Result<Drm, XorgBackendError> {
         assert!(res.nfd == 1);
         let fd = *con.dri.xcb_dri3_open_reply_fds(con.c, &mut *res);
         let fd = OwnedFd::new(fd);
-        Ok(Drm::new(fd.raw(), true)?)
+        Ok(Drm::reopen(fd.raw(), true)?)
     }
 }
 
@@ -574,10 +577,14 @@ impl XorgBackend {
             self.mouse_seats.set(info.attachment, seat.clone());
             self.state
                 .backend_events
-                .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatMouse(seat.clone()))));
+                .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatMouse(
+                    seat.clone(),
+                ))));
             self.state
                 .backend_events
-                .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatKeyboard(seat.clone()))));
+                .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatKeyboard(
+                    seat.clone(),
+                ))));
         }
     }
 
@@ -1118,7 +1125,11 @@ impl InputDevice for XorgSeatKeyboard {
                     }
                 };
                 if res.status != ffi::XCB_GRAB_STATUS_SUCCESS as _ {
-                    log::error!("Could not grab device {}: status = {}", self.0.kb, res.status);
+                    log::error!(
+                        "Could not grab device {}: status = {}",
+                        self.0.kb,
+                        res.status
+                    );
                 }
             } else {
                 let cookie = con

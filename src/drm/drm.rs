@@ -1,106 +1,114 @@
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::debug_fn::debug_fn;
-use crate::utils::ptr_ext::PtrExt;
-use bstr::ByteSlice;
-use std::ffi::{CStr, CString};
-use std::fmt::{Debug, Formatter};
-use std::ptr;
+mod sys;
+
+use std::cell::RefCell;
+use crate::drm::drm::sys::{create_lease, drm_mode_modeinfo, get_cap, get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes, is_master, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob, mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane, mode_getplaneresources, mode_getproperty, mode_obj_getproperties, mode_rmfb, set_client_cap, DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS, DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_MODE, DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY, gem_close, prime_fd_to_handle};
+use crate::utils::oserror::OsError;
+use ahash::AHashMap;
+use bstr::{BString, ByteSlice};
+use std::ffi::CString;
+use std::fmt::{Debug, Display, Formatter};
+use std::mem;
+use std::ops::Deref;
+use std::rc::{Rc, Weak};
 use thiserror::Error;
-use uapi::c::c_char;
-use uapi::{c, Errno, OwnedFd, Ustring};
+use uapi::{c, OwnedFd, Ustring};
+
+use crate::drm::gbm::GbmBo;
+use crate::drm::INVALID_MODIFIER;
+use crate::utils::stack::Stack;
+use crate::ErrorFmt;
+pub use sys::{
+    DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
+    DRM_MODE_PAGE_FLIP_EVENT,
+};
 
 #[derive(Debug, Error)]
 pub enum DrmError {
     #[error("Could not reopen a node")]
     ReopenNode(#[source] crate::utils::oserror::OsError),
     #[error("Could not retrieve the render node name")]
-    RenderNodeName,
+    RenderNodeName(#[source] OsError),
     #[error("Could not retrieve the device node name")]
-    DeviceNodeName,
-    #[error("Could not retrieve device")]
-    GetDevice(#[source] crate::utils::oserror::OsError),
-}
-
-#[allow(dead_code)]
-const DRM_NODE_PRIMARY: c::c_int = 0;
-#[allow(dead_code)]
-const DRM_NODE_CONTROL: c::c_int = 1;
-pub const DRM_NODE_RENDER: c::c_int = 2;
-const DRM_NODE_MAX: c::c_int = 3;
-
-const DRM_BUS_PCI: c::c_int = 0;
-const DRM_BUS_USB: c::c_int = 1;
-const DRM_BUS_PLATFORM: c::c_int = 2;
-const DRM_BUS_HOST1X: c::c_int = 3;
-
-#[link(name = "drm")]
-extern "C" {
-    fn drmIsMaster(fd: c::c_int) -> c::c_int;
-    fn drmModeCreateLease(
-        fd: c::c_int,
-        o: *const u32,
-        num_objects: c::c_int,
-        flags: c::c_int,
-        lessee_id: *mut u32,
-    ) -> c::c_int;
-    fn drmGetNodeTypeFromFd(fd: c::c_int) -> c::c_int;
-    fn drmGetRenderDeviceNameFromFd(fd: c::c_int) -> *mut c::c_char;
-    fn drmGetDeviceNameFromFd2(fd: c::c_int) -> *mut c::c_char;
-    fn drmFreeDevice(device: *mut *mut drmDevice);
-    fn drmGetDevice(fd: c::c_int, device: *mut *mut drmDevice) -> c::c_int;
+    DeviceNodeName(#[source] OsError),
+    #[error("Could not retrieve device nodes")]
+    GetNodes(#[source] OsError),
+    #[error("Could not retrieve device type")]
+    GetDeviceType(#[source] OsError),
+    #[error("Could not perform drm property ioctl")]
+    GetProperty(#[source] OsError),
+    #[error("Could not perform drm getencoder ioctl")]
+    GetEncoder(#[source] OsError),
+    #[error("Could not perform drm getresources ioctl")]
+    GetResources(#[source] OsError),
+    #[error("Could not perform drm getplaneresources ioctl")]
+    GetPlaneResources(#[source] OsError),
+    #[error("Could not perform drm getplane ioctl")]
+    GetPlane(#[source] OsError),
+    #[error("Could not create a blob")]
+    CreateBlob(#[source] OsError),
+    #[error("Could not perform drm getconnector ioctl")]
+    GetConnector(#[source] OsError),
+    #[error("Could not perform drm properties ioctl")]
+    GetProperties(#[source] OsError),
+    #[error("Could not perform drm atomic ioctl")]
+    Atomic(#[source] OsError),
+    #[error("Could not inspect a connector")]
+    CreateConnector(#[source] Box<DrmError>),
+    #[error("Drm property has an unknown type {0}")]
+    UnknownPropertyType(u32),
+    #[error("Range property does not have exactly two values")]
+    RangeValues,
+    #[error("Object property does not have exactly one value")]
+    ObjectValues,
+    #[error("Object does not have the required property {0}")]
+    MissingProperty(Box<str>),
+    #[error("Plane has an unknown type {0}")]
+    UnknownPlaneType(BString),
+    #[error("Plane has an invalid type {0}")]
+    InvalidPlaneType(u64),
+    #[error("Plane type property has an invalid property type")]
+    InvalidPlaneTypeProperty,
+    #[error("Could not reset drm objects")]
+    ResetFailed(#[source] Box<Self>),
+    #[error("Could not create a framebuffer")]
+    AddFb(#[source] OsError),
+    #[error("Could not convert prime fd to gem handle")]
+    GemHandle(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
-    unsafe {
-        let name = drmGetRenderDeviceNameFromFd(fd);
-        if name.is_null() {
-            Err(DrmError::RenderNodeName)
-        } else {
-            Ok(CString::from_raw(name).into())
-        }
-    }
+    get_minor_name_from_fd(fd, NodeType::Render).map_err(DrmError::RenderNodeName)
 }
 
 fn device_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
-    unsafe {
-        let name = drmGetDeviceNameFromFd2(fd);
-        if name.is_null() {
-            Err(DrmError::DeviceNodeName)
-        } else {
-            Ok(CString::from_raw(name).into())
-        }
-    }
+    get_device_name_from_fd2(fd).map_err(DrmError::DeviceNodeName)
 }
 
-fn reopen(fd: c::c_int, allow_downgrade: bool) -> Result<OwnedFd, DrmError> {
-    unsafe {
-        if drmIsMaster(fd) != 0 {
-            let mut lessee = 0;
-            let lease_fd = drmModeCreateLease(fd, ptr::null(), 0, c::O_CLOEXEC, &mut lessee);
-            if lease_fd >= 0 {
-                return Ok(OwnedFd::new(lease_fd));
-            }
+fn reopen(fd: c::c_int, allow_downgrade: bool) -> Result<Rc<OwnedFd>, DrmError> {
+    if is_master(fd) && allow_downgrade {
+        if let Ok((fd, _)) = create_lease(fd, &[], c::O_CLOEXEC as _) {
+            return Ok(Rc::new(fd));
         }
-        let path = if drmGetNodeTypeFromFd(fd) == DRM_NODE_RENDER {
-            uapi::format_ustr!("/proc/self/fd/{}", fd)
-        } else if allow_downgrade {
-            render_node_name(fd)?
-        } else {
-            device_node_name(fd)?
-        };
-        match uapi::open(&path, c::O_RDWR | c::O_CLOEXEC, 0) {
-            Ok(f) => Ok(f),
-            Err(e) => Err(DrmError::ReopenNode(e.into())),
-        }
+    }
+    let path = if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
+        uapi::format_ustr!("/proc/self/fd/{}", fd)
+    } else if allow_downgrade {
+        render_node_name(fd)?
+    } else {
+        device_node_name(fd)?
+    };
+    match uapi::open(&path, c::O_RDWR | c::O_CLOEXEC, 0) {
+        Ok(f) => Ok(Rc::new(f)),
+        Err(e) => Err(DrmError::ReopenNode(e.into())),
     }
 }
 
 pub struct Drm {
-    fd: OwnedFd,
+    fd: Rc<OwnedFd>,
 }
 
 impl Drm {
-    pub fn new(fd: c::c_int, allow_downgrade: bool) -> Result<Self, DrmError> {
+    pub fn reopen(fd: c::c_int, allow_downgrade: bool) -> Result<Self, DrmError> {
         Ok(Self {
             fd: reopen(fd, allow_downgrade)?,
         })
@@ -111,285 +119,640 @@ impl Drm {
     }
 
     pub fn dup_unprivileged(&self) -> Result<Self, DrmError> {
-        Self::new(self.fd.raw(), true)
+        Self::reopen(self.fd.raw(), true)
     }
 
-    pub fn get_device(&self) -> Result<DrmDevice, DrmError> {
-        unsafe {
-            let mut dev = ptr::null_mut();
-            if drmGetDevice(self.fd.raw(), &mut dev) < 0 {
-                return Err(DrmError::GetDevice(Errno::default().into()));
-            }
-            Ok(DrmDevice { dev })
-        }
+    pub fn get_nodes(&self) -> Result<AHashMap<NodeType, CString>, DrmError> {
+        get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
     }
 }
 
-#[repr(C)]
-struct drmPciBusInfo {
-    domain: u16,
-    bus: u8,
-    dev: u8,
-    func: u8,
+pub struct DrmMaster {
+    drm: Drm,
+    u32_bufs: Stack<Vec<u32>>,
+    u64_bufs: Stack<Vec<u64>>,
+    gem_handles: RefCell<AHashMap<u32, Weak<GemHandle>>>,
 }
 
-#[repr(C)]
-struct drmUsbBusInfo {
-    bus: u8,
-    dev: u8,
-}
-
-const DRM_PLATFORM_DEVICE_NAME_LEN: usize = 512;
-
-#[repr(C)]
-struct drmPlatformBusInfo {
-    fullname: [c::c_char; DRM_PLATFORM_DEVICE_NAME_LEN],
-}
-
-const DRM_HOST1X_DEVICE_NAME_LEN: usize = 512;
-
-#[repr(C)]
-struct drmHost1xBusInfo {
-    fullname: [c::c_char; DRM_HOST1X_DEVICE_NAME_LEN],
-}
-
-#[repr(C)]
-union businfo {
-    pci: *mut drmPciBusInfo,
-    usb: *mut drmUsbBusInfo,
-    platform: *mut drmPlatformBusInfo,
-    host1x: *mut drmHost1xBusInfo,
-}
-
-#[repr(C)]
-struct drmPciDeviceInfo {
-    vendor_id: u16,
-    device_id: u16,
-    subvendor_id: u16,
-    subdevice_id: u16,
-    revision_id: u8,
-}
-
-#[repr(C)]
-struct drmUsbDeviceInfo {
-    vendor: u16,
-    product: u16,
-}
-
-#[repr(C)]
-struct drmPlatformDeviceInfo {
-    compatible: *mut *mut c::c_char,
-}
-
-#[repr(C)]
-struct drmHost1xDeviceInfo {
-    compatible: *mut *mut c::c_char,
-}
-
-#[repr(C)]
-union deviceinfo {
-    pci: *mut drmPciDeviceInfo,
-    usb: *mut drmUsbDeviceInfo,
-    platform: *mut drmPlatformDeviceInfo,
-    host1x: *mut drmHost1xDeviceInfo,
-}
-
-#[repr(C)]
-struct drmDevice {
-    nodes: *mut *mut c::c_char,
-    available_nodes: c::c_int,
-    bustype: c::c_int,
-    businfo: businfo,
-    deviceinfo: deviceinfo,
-}
-
-pub struct DrmDevice {
-    dev: *mut drmDevice,
-}
-
-impl Drop for DrmDevice {
-    fn drop(&mut self) {
-        unsafe {
-            drmFreeDevice(&mut self.dev);
-        }
-    }
-}
-
-impl DrmDevice {
-    pub fn nodes<'a>(&'a self) -> impl Iterator<Item = (c::c_int, &'a CStr)> + 'a {
-        struct Iter<'a> {
-            next: usize,
-            dev: &'a DrmDevice,
-        }
-        impl<'a> Iterator for Iter<'a> {
-            type Item = (c::c_int, &'a CStr);
-
-            fn next(&mut self) -> Option<Self::Item> {
-                unsafe {
-                    let dev = self.dev.dev.deref();
-                    while self.next < DRM_NODE_MAX as _ {
-                        let idx = self.next;
-                        self.next += 1;
-                        if dev.available_nodes.contains(1 << idx) {
-                            return Some((idx as _, CStr::from_ptr(*dev.nodes.add(idx))));
-                        }
-                    }
-                    None
-                }
-            }
-        }
-        Iter { next: 0, dev: self }
-    }
-}
-
-impl Debug for DrmDevice {
+impl Debug for DrmMaster {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        struct StrStr<'a> {
-            v: &'a [*mut c::c_char],
+        write!(f, "{}", self.drm.raw())
+    }
+}
+
+impl Deref for DrmMaster {
+    type Target = Drm;
+
+    fn deref(&self) -> &Self::Target {
+        &self.drm
+    }
+}
+
+impl DrmMaster {
+    pub fn new(fd: Rc<OwnedFd>) -> Self {
+        Self {
+            drm: Drm { fd },
+            u32_bufs: Default::default(),
+            u64_bufs: Default::default(),
+            gem_handles: Default::default(),
         }
-        impl Debug for StrStr<'_> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                let mut list = f.debug_list();
-                for &v in self.v {
-                    if v.is_null() {
-                        list.entry(&v);
-                    } else {
-                        unsafe {
-                            list.entry(&CStr::from_ptr(v));
-                        }
-                    }
-                }
-                list.finish()
+    }
+
+    pub fn raw(&self) -> c::c_int {
+        self.drm.raw()
+    }
+
+    pub fn get_property(&self, prop: DrmProperty) -> Result<DrmPropertyDefinition, DrmError> {
+        mode_getproperty(self.raw(), prop)
+    }
+
+    pub fn get_properties<T: DrmObject>(&self, t: T) -> Result<Vec<DrmPropertyValue>, DrmError> {
+        mode_obj_getproperties(self.raw(), t.id(), T::TYPE)
+    }
+
+    pub fn get_resources(&self) -> Result<DrmCardResources, DrmError> {
+        mode_get_resources(self.raw())
+    }
+
+    pub fn get_cap(&self, cap: u64) -> Result<u64, OsError> {
+        get_cap(self.raw(), cap)
+    }
+
+    pub fn set_client_cap(&self, cap: u64, value: u64) -> Result<(), OsError> {
+        set_client_cap(self.raw(), cap, value)
+    }
+
+    pub fn get_planes(&self) -> Result<Vec<DrmPlane>, DrmError> {
+        mode_getplaneresources(self.raw())
+    }
+
+    pub fn get_plane_info(&self, plane: DrmPlane) -> Result<DrmPlaneInfo, DrmError> {
+        mode_getplane(self.raw(), plane.0)
+    }
+
+    pub fn get_encoder_info(&self, encoder: DrmEncoder) -> Result<DrmEncoderInfo, DrmError> {
+        mode_getencoder(self.raw(), encoder.0)
+    }
+
+    pub fn get_connector_info(
+        &self,
+        connector: DrmConnector,
+        force: bool,
+    ) -> Result<DrmConnectorInfo, DrmError> {
+        mode_getconnector(self.raw(), connector.0, force)
+    }
+
+    pub fn change(self: &Rc<Self>, flags: u32) -> Change {
+        let mut res = Change {
+            master: self.clone(),
+            flags,
+            objects: self.u32_bufs.pop().unwrap_or_default(),
+            object_lengths: self.u32_bufs.pop().unwrap_or_default(),
+            props: self.u32_bufs.pop().unwrap_or_default(),
+            values: self.u64_bufs.pop().unwrap_or_default(),
+        };
+        res.objects.clear();
+        res.object_lengths.clear();
+        res.props.clear();
+        res.values.clear();
+        res
+    }
+
+    pub fn create_blob<T>(self: &Rc<Self>, t: &T) -> Result<PropBlob, DrmError> {
+        match mode_create_blob(self.raw(), t) {
+            Ok(b) => Ok(PropBlob {
+                master: self.clone(),
+                id: b,
+            }),
+            Err(e) => Err(DrmError::CreateBlob(e)),
+        }
+    }
+
+    pub fn add_fb(self: &Rc<Self>, bo: &GbmBo) -> Result<DrmFramebuffer, DrmError> {
+        let dma = bo.dma();
+        let mut modifier = 0;
+        let mut flags = 0;
+        if dma.modifier != INVALID_MODIFIER {
+            modifier = dma.modifier;
+            flags |= DRM_MODE_FB_MODIFIERS;
+        }
+        let mut strides = [0; 4];
+        let mut offsets = [0; 4];
+        let mut handles = [0; 4];
+        let mut handles_ = vec![];
+        for (idx, plane) in dma.planes.iter().enumerate() {
+            strides[idx] = plane.stride;
+            offsets[idx] = plane.offset;
+            let handle = self.gem_handle(plane.fd.raw())?;
+            handles[idx] = handle.handle();
+            handles_.push(handle);
+        }
+        match mode_addfb2(
+            self.raw(),
+            dma.width as _,
+            dma.height as _,
+            dma.format.drm,
+            flags,
+            handles,
+            strides,
+            offsets,
+            modifier,
+        ) {
+            Ok(fb) => Ok(DrmFramebuffer {
+                master: self.clone(),
+                fb,
+            }),
+            Err(e) => return Err(DrmError::AddFb(e)),
+        }
+    }
+
+    pub fn gem_handle(self: &Rc<Self>, fd: c::c_int) -> Result<Rc<GemHandle>, DrmError> {
+        let handle = match prime_fd_to_handle(self.raw(), fd) {
+            Ok(h) => h,
+            Err(e) => return Err(DrmError::GemHandle(e)),
+        };
+        let mut handles = self.gem_handles.borrow_mut();
+        if let Some(h) = handles.get(&handle) {
+            if let Some(h) = h.upgrade() {
+                return Ok(h);
             }
         }
-        impl<'a> StrStr<'a> {
-            fn from_nt(nt: *const *mut c_char) -> Self {
-                unsafe {
-                    let mut num = 0;
-                    let mut tmp = nt;
-                    while !tmp.deref().is_null() {
-                        num += 1;
-                        tmp = tmp.add(1);
-                    }
-                    Self {
-                        v: std::slice::from_raw_parts(nt, num),
-                    }
-                }
+        let h = Rc::new(GemHandle {
+            master: self.clone(),
+            handle,
+        });
+        handles.insert(handle, Rc::downgrade(&h));
+        Ok(h)
+    }
+}
+
+pub struct DrmFramebuffer {
+    master: Rc<DrmMaster>,
+    fb: DrmFb,
+}
+
+impl Debug for DrmFramebuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DrmFramebuffer")
+            .field("fb", &self.fb)
+            .finish_non_exhaustive()
+    }
+}
+
+impl DrmFramebuffer {
+    pub fn id(&self) -> DrmFb {
+        self.fb
+    }
+}
+
+impl Drop for DrmFramebuffer {
+    fn drop(&mut self) {
+        if let Err(e) = mode_rmfb(self.master.raw(), self.fb) {
+            log::error!("Could not delete framebuffer: {}", ErrorFmt(e));
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum NodeType {
+    Primary,
+    Control,
+    Render,
+}
+
+impl NodeType {
+    fn name(self) -> &'static str {
+        match self {
+            NodeType::Primary => "card",
+            NodeType::Control => "controlD",
+            NodeType::Render => "renderD",
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DrmPropertyDefinition {
+    pub id: DrmProperty,
+    pub name: BString,
+    pub immutable: bool,
+    pub atomic: bool,
+    pub ty: DrmPropertyType,
+}
+
+#[derive(Debug)]
+pub enum DrmPropertyType {
+    Range {
+        min: u64,
+        max: u64,
+    },
+    SignedRange {
+        min: i64,
+        max: i64,
+    },
+    Object {
+        ty: u32,
+    },
+    Blob,
+    Enum {
+        values: Vec<DrmPropertyEnumValue>,
+        bitmask: bool,
+    },
+}
+
+#[derive(Debug)]
+pub struct DrmPropertyEnumValue {
+    pub value: u64,
+    pub name: BString,
+}
+
+#[derive(Debug)]
+pub struct DrmPropertyValue {
+    pub id: DrmProperty,
+    pub value: u64,
+}
+
+pub trait DrmObject {
+    const TYPE: u32;
+    const NONE: Self;
+    fn id(&self) -> u32;
+    fn is_some(&self) -> bool;
+    fn is_none(&self) -> bool;
+}
+
+macro_rules! drm_obj {
+    ($name:ident, $ty:expr) => {
+        #[repr(transparent)]
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+        pub struct $name(pub u32);
+
+        impl DrmObject for $name {
+            const TYPE: u32 = $ty;
+            const NONE: Self = Self(0);
+
+            fn id(&self) -> u32 {
+                self.0
+            }
+
+            fn is_some(&self) -> bool {
+                self.0 != 0
+            }
+
+            fn is_none(&self) -> bool {
+                self.0 == 0
             }
         }
-        let mut ds = f.debug_struct("DrmDevice");
-        unsafe {
-            let dev = self.dev.deref();
-            let nodes = std::slice::from_raw_parts(dev.nodes, DRM_NODE_MAX as _);
-            ds.field(
-                "available_nodes",
-                &debug_fn(|f| write!(f, "0b{:b}", dev.available_nodes)),
-            );
-            ds.field("nodes", &StrStr { v: nodes });
-            ds.field("bustype", &dev.bustype);
-            match dev.bustype {
-                DRM_BUS_PCI => {
-                    ds.field(
-                        "businfo",
-                        &debug_fn(|f| {
-                            let pci = dev.businfo.pci.deref();
-                            f.debug_struct("drmPciBusInfo")
-                                .field("domain", &pci.domain)
-                                .field("bus", &pci.bus)
-                                .field("dev", &pci.dev)
-                                .field("func", &pci.func)
-                                .finish()
-                        }),
-                    );
-                    ds.field(
-                        "deviceinfo",
-                        &debug_fn(|f| {
-                            let pci = dev.deviceinfo.pci.deref();
-                            f.debug_struct("drmPciDeviceInfo")
-                                .field("vendor_id", &pci.vendor_id)
-                                .field("device_id", &pci.device_id)
-                                .field("subvendor_id", &pci.subvendor_id)
-                                .field("subdevice_id", &pci.subdevice_id)
-                                .field("revision_id", &pci.revision_id)
-                                .finish()
-                        }),
-                    );
-                }
-                DRM_BUS_USB => {
-                    ds.field(
-                        "businfo",
-                        &debug_fn(|f| {
-                            let usb = dev.businfo.usb.deref();
-                            f.debug_struct("drmUsbBusInfo")
-                                .field("bus", &usb.bus)
-                                .field("dev", &usb.dev)
-                                .finish()
-                        }),
-                    );
-                    ds.field(
-                        "deviceinfo",
-                        &debug_fn(|f| {
-                            let usb = dev.deviceinfo.usb.deref();
-                            f.debug_struct("drmUsbDeviceInfo")
-                                .field("vendor", &usb.vendor)
-                                .field("product", &usb.product)
-                                .finish()
-                        }),
-                    );
-                }
-                DRM_BUS_PLATFORM => {
-                    ds.field(
-                        "businfo",
-                        &debug_fn(|f| {
-                            let platform = dev.businfo.platform.deref();
-                            f.debug_struct("drmPlatformBusInfo")
-                                .field(
-                                    "fullname",
-                                    &CStr::from_ptr(platform.fullname.as_ptr())
-                                        .to_bytes()
-                                        .as_bstr(),
-                                )
-                                .finish()
-                        }),
-                    );
-                    ds.field(
-                        "deviceinfo",
-                        &debug_fn(|f| {
-                            let platform = dev.deviceinfo.platform.deref();
-                            f.debug_struct("drmPlatformDeviceInfo")
-                                .field("compatible", &StrStr::from_nt(platform.compatible))
-                                .finish()
-                        }),
-                    );
-                }
-                DRM_BUS_HOST1X => {
-                    ds.field(
-                        "businfo",
-                        &debug_fn(|f| {
-                            let host1x = dev.businfo.host1x.deref();
-                            f.debug_struct("drmHost1xBusInfo")
-                                .field(
-                                    "fullname",
-                                    &CStr::from_ptr(host1x.fullname.as_ptr())
-                                        .to_bytes()
-                                        .as_bstr(),
-                                )
-                                .finish()
-                        }),
-                    );
-                    ds.field(
-                        "deviceinfo",
-                        &debug_fn(|f| {
-                            let host1x = dev.deviceinfo.host1x.deref();
-                            f.debug_struct("drmHost1xDeviceInfo")
-                                .field("compatible", &StrStr::from_nt(host1x.compatible))
-                                .finish()
-                        }),
-                    );
-                }
-                _ => {}
+    };
+}
+drm_obj!(DrmCrtc, DRM_MODE_OBJECT_CRTC);
+drm_obj!(DrmConnector, DRM_MODE_OBJECT_CONNECTOR);
+drm_obj!(DrmEncoder, DRM_MODE_OBJECT_ENCODER);
+drm_obj!(DrmMode, DRM_MODE_OBJECT_MODE);
+drm_obj!(DrmProperty, DRM_MODE_OBJECT_PROPERTY);
+drm_obj!(DrmFb, DRM_MODE_OBJECT_FB);
+drm_obj!(DrmBlob, DRM_MODE_OBJECT_BLOB);
+drm_obj!(DrmPlane, DRM_MODE_OBJECT_PLANE);
+
+#[derive(Debug)]
+pub struct DrmCardResources {
+    pub min_width: u32,
+    pub max_width: u32,
+    pub min_height: u32,
+    pub max_height: u32,
+    pub fbs: Vec<DrmFb>,
+    pub crtcs: Vec<DrmCrtc>,
+    pub connectors: Vec<DrmConnector>,
+    pub encoders: Vec<DrmEncoder>,
+}
+
+#[derive(Debug)]
+pub struct DrmPlaneInfo {
+    pub plane_id: DrmPlane,
+    pub crtc_id: DrmCrtc,
+    pub fb_id: DrmFb,
+    pub possible_crtcs: u32,
+    pub gamma_size: u32,
+    pub format_types: Vec<u32>,
+}
+
+#[derive(Debug)]
+pub struct DrmEncoderInfo {
+    pub encoder_id: DrmEncoder,
+    pub encoder_type: u32,
+    pub crtc_id: DrmCrtc,
+    pub possible_crtcs: u32,
+    pub possible_clones: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct DrmModeInfo {
+    pub clock: u32,
+    pub hdisplay: u16,
+    pub hsync_start: u16,
+    pub hsync_end: u16,
+    pub htotal: u16,
+    pub hskew: u16,
+    pub vdisplay: u16,
+    pub vsync_start: u16,
+    pub vsync_end: u16,
+    pub vtotal: u16,
+    pub vscan: u16,
+
+    pub vrefresh: u32,
+
+    pub flags: u32,
+    pub ty: u32,
+    pub name: BString,
+}
+
+impl DrmModeInfo {
+    pub fn create_blob(&self, master: &Rc<DrmMaster>) -> Result<PropBlob, DrmError> {
+        let raw = self.into_raw();
+        master.create_blob(&raw)
+    }
+
+    fn into_raw(&self) -> drm_mode_modeinfo {
+        let mut name = [0u8; DRM_DISPLAY_MODE_LEN];
+        let len = name.len().min(self.name.len());
+        name[..len].copy_from_slice(&self.name.as_bytes()[..len]);
+        drm_mode_modeinfo {
+            clock: self.clock,
+            hdisplay: self.hdisplay,
+            hsync_start: self.hsync_start,
+            hsync_end: self.hsync_end,
+            htotal: self.htotal,
+            hskew: self.hskew,
+            vdisplay: self.vdisplay,
+            vsync_start: self.vsync_start,
+            vsync_end: self.vsync_end,
+            vtotal: self.vtotal,
+            vscan: self.vscan,
+            vrefresh: self.vrefresh,
+            flags: self.flags,
+            ty: self.ty,
+            name,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DrmConnectorInfo {
+    pub encoders: Vec<DrmEncoder>,
+    pub modes: Vec<DrmModeInfo>,
+    pub props: Vec<DrmPropertyValue>,
+
+    pub encoder_id: DrmEncoder,
+    pub connector_id: DrmConnector,
+    pub connector_type: u32,
+    pub connector_type_id: u32,
+
+    pub connection: u32,
+    pub mm_width: u32,
+    pub mm_height: u32,
+    pub subpixel: u32,
+}
+
+pub struct Change {
+    master: Rc<DrmMaster>,
+    flags: u32,
+    objects: Vec<u32>,
+    object_lengths: Vec<u32>,
+    props: Vec<u32>,
+    values: Vec<u64>,
+}
+
+pub struct ObjectChange<'a> {
+    change: &'a mut Change,
+}
+
+impl Change {
+    pub fn test(&self) -> Result<(), DrmError> {
+        mode_atomic(
+            self.master.raw(),
+            self.flags | DRM_MODE_ATOMIC_TEST_ONLY,
+            &self.objects,
+            &self.object_lengths,
+            &self.props,
+            &self.values,
+            0,
+        )
+    }
+
+    pub fn commit(&self, user_data: u64) -> Result<(), DrmError> {
+        mode_atomic(
+            self.master.raw(),
+            self.flags,
+            &self.objects,
+            &self.object_lengths,
+            &self.props,
+            &self.values,
+            user_data,
+        )
+    }
+
+    pub fn change_object<T, F>(&mut self, obj: T, f: F)
+    where
+        T: DrmObject,
+        F: FnOnce(&mut ObjectChange),
+    {
+        let old_len = self.props.len();
+        let mut oc = ObjectChange { change: self };
+        f(&mut oc);
+        if self.props.len() > old_len {
+            let new = (self.props.len() - old_len) as u32;
+            if self.objects.last() == Some(&obj.id()) {
+                *self.object_lengths.last_mut().unwrap() += new;
+            } else {
+                self.objects.push(obj.id());
+                self.object_lengths.push(new);
             }
-            ds.finish()
+        }
+    }
+}
+
+impl<'a> ObjectChange<'a> {
+    pub fn change(&mut self, property_id: DrmProperty, value: u64) {
+        self.change.props.push(property_id.0);
+        self.change.values.push(value);
+    }
+}
+
+impl Drop for Change {
+    fn drop(&mut self) {
+        self.master.u32_bufs.push(mem::take(&mut self.objects));
+        self.master
+            .u32_bufs
+            .push(mem::take(&mut self.object_lengths));
+        self.master.u32_bufs.push(mem::take(&mut self.props));
+        self.master.u64_bufs.push(mem::take(&mut self.values));
+    }
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Copy, Clone, Debug)]
+pub enum ConnectorType {
+    Unknown(u32),
+    VGA,
+    DVII,
+    DVID,
+    DVIA,
+    Composite,
+    SVIDEO,
+    LVDS,
+    Component,
+    _9PinDIN,
+    DisplayPort,
+    HDMIA,
+    HDMIB,
+    TV,
+    eDP,
+    VIRTUAL,
+    DSI,
+    DPI,
+    WRITEBACK,
+    SPI,
+    USB,
+}
+
+impl Display for ConnectorType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Unknown(n) => return write!(f, "Unknown({})", n),
+            Self::VGA => "VGA",
+            Self::DVII => "DVI-I",
+            Self::DVID => "DVI-D",
+            Self::DVIA => "DVI-A",
+            Self::Composite => "Composite",
+            Self::SVIDEO => "SVIDEO",
+            Self::LVDS => "LVDS",
+            Self::Component => "Component",
+            Self::_9PinDIN => "DIN",
+            Self::DisplayPort => "DP",
+            Self::HDMIA => "HDMI-A",
+            Self::HDMIB => "HDMI-B",
+            Self::TV => "TV",
+            Self::eDP => "eDP",
+            Self::VIRTUAL => "Virtual",
+            Self::DSI => "DSI",
+            Self::DPI => "DPI",
+            Self::WRITEBACK => "Writeback",
+            Self::SPI => "SPI",
+            Self::USB => "USB",
+        };
+        f.write_str(s)
+    }
+}
+
+impl From<u32> for ConnectorType {
+    fn from(v: u32) -> Self {
+        match v {
+            sys::DRM_MODE_CONNECTOR_VGA => Self::VGA,
+            sys::DRM_MODE_CONNECTOR_DVII => Self::DVII,
+            sys::DRM_MODE_CONNECTOR_DVID => Self::DVID,
+            sys::DRM_MODE_CONNECTOR_DVIA => Self::DVIA,
+            sys::DRM_MODE_CONNECTOR_Composite => Self::Composite,
+            sys::DRM_MODE_CONNECTOR_SVIDEO => Self::SVIDEO,
+            sys::DRM_MODE_CONNECTOR_LVDS => Self::LVDS,
+            sys::DRM_MODE_CONNECTOR_Component => Self::Component,
+            sys::DRM_MODE_CONNECTOR_9PinDIN => Self::_9PinDIN,
+            sys::DRM_MODE_CONNECTOR_DisplayPort => Self::DisplayPort,
+            sys::DRM_MODE_CONNECTOR_HDMIA => Self::HDMIA,
+            sys::DRM_MODE_CONNECTOR_HDMIB => Self::HDMIB,
+            sys::DRM_MODE_CONNECTOR_TV => Self::TV,
+            sys::DRM_MODE_CONNECTOR_eDP => Self::eDP,
+            sys::DRM_MODE_CONNECTOR_VIRTUAL => Self::VIRTUAL,
+            sys::DRM_MODE_CONNECTOR_DSI => Self::DSI,
+            sys::DRM_MODE_CONNECTOR_DPI => Self::DPI,
+            sys::DRM_MODE_CONNECTOR_WRITEBACK => Self::WRITEBACK,
+            sys::DRM_MODE_CONNECTOR_SPI => Self::SPI,
+            sys::DRM_MODE_CONNECTOR_USB => Self::USB,
+            _ => Self::Unknown(v),
+        }
+    }
+}
+
+impl Into<u32> for ConnectorType {
+    fn into(self) -> u32 {
+        match self {
+            Self::Unknown(n) => n,
+            Self::VGA => sys::DRM_MODE_CONNECTOR_VGA,
+            Self::DVII => sys::DRM_MODE_CONNECTOR_DVII,
+            Self::DVID => sys::DRM_MODE_CONNECTOR_DVID,
+            Self::DVIA => sys::DRM_MODE_CONNECTOR_DVIA,
+            Self::Composite => sys::DRM_MODE_CONNECTOR_Composite,
+            Self::SVIDEO => sys::DRM_MODE_CONNECTOR_SVIDEO,
+            Self::LVDS => sys::DRM_MODE_CONNECTOR_LVDS,
+            Self::Component => sys::DRM_MODE_CONNECTOR_Component,
+            Self::_9PinDIN => sys::DRM_MODE_CONNECTOR_9PinDIN,
+            Self::DisplayPort => sys::DRM_MODE_CONNECTOR_DisplayPort,
+            Self::HDMIA => sys::DRM_MODE_CONNECTOR_HDMIA,
+            Self::HDMIB => sys::DRM_MODE_CONNECTOR_HDMIB,
+            Self::TV => sys::DRM_MODE_CONNECTOR_TV,
+            Self::eDP => sys::DRM_MODE_CONNECTOR_eDP,
+            Self::VIRTUAL => sys::DRM_MODE_CONNECTOR_VIRTUAL,
+            Self::DSI => sys::DRM_MODE_CONNECTOR_DSI,
+            Self::DPI => sys::DRM_MODE_CONNECTOR_DPI,
+            Self::WRITEBACK => sys::DRM_MODE_CONNECTOR_WRITEBACK,
+            Self::SPI => sys::DRM_MODE_CONNECTOR_SPI,
+            Self::USB => sys::DRM_MODE_CONNECTOR_USB,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ConnectorStatus {
+    Connected,
+    Disconnected,
+    Unknown,
+    Other(u32),
+}
+
+impl From<u32> for ConnectorStatus {
+    fn from(v: u32) -> Self {
+        match v {
+            sys::CONNECTOR_STATUS_CONNECTED => Self::Connected,
+            sys::CONNECTOR_STATUS_DISCONNECTED => Self::Disconnected,
+            sys::CONNECTOR_STATUS_UNKNOWN => Self::Unknown,
+            _ => Self::Other(v),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PropBlob {
+    master: Rc<DrmMaster>,
+    id: DrmBlob,
+}
+
+impl PropBlob {
+    pub fn id(&self) -> DrmBlob {
+        self.id
+    }
+}
+
+impl Drop for PropBlob {
+    fn drop(&mut self) {
+        if let Err(e) = mode_destroy_blob(self.master.raw(), self.id) {
+            log::error!("Could not destroy blob: {}", ErrorFmt(e));
+        }
+    }
+}
+
+pub struct GemHandle {
+    master: Rc<DrmMaster>,
+    handle: u32,
+}
+
+impl GemHandle {
+    pub fn handle(&self) -> u32 {
+        self.handle
+    }
+}
+
+impl Drop for GemHandle {
+    fn drop(&mut self) {
+        self.master.gem_handles.borrow_mut().remove(&self.handle);
+        if let Err(e) = gem_close(self.master.raw(), self.handle) {
+            log::error!("Could not close gem handle: {}", ErrorFmt(e));
         }
     }
 }

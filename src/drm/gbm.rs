@@ -2,10 +2,12 @@ use crate::drm::dma::{DmaBuf, DmaBufPlane};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::format::formats;
+use crate::utils::oserror::OsError;
+use std::fmt::{Debug, Formatter};
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::{c, OwnedFd};
+use uapi::{c, Errno, OwnedFd};
 
 #[derive(Debug, Error)]
 pub enum GbmError {
@@ -19,12 +21,13 @@ pub enum GbmError {
     UnknownFormat,
     #[error("Could not retrieve a drm-buf fd")]
     DrmFd,
+    #[error("Could not retrieve a GEM handle")]
+    GemHandle(#[source] OsError),
 }
 
 type Device = u8;
 type Bo = u8;
 
-#[allow(dead_code)]
 pub const GBM_BO_USE_SCANOUT: u32 = 1 << 0;
 #[allow(dead_code)]
 pub const GBM_BO_USE_CURSOR: u32 = 1 << 1;
@@ -35,6 +38,16 @@ pub const GBM_BO_USE_WRITE: u32 = 1 << 3;
 pub const GBM_BO_USE_LINEAR: u32 = 1 << 4;
 #[allow(dead_code)]
 pub const GBM_BO_USE_PROTECTED: u32 = 1 << 5;
+
+#[allow(non_camel_case_types)]
+#[repr(C)]
+union gbm_bo_handle {
+    ptr: *mut u8,
+    s32: i32,
+    u32: u32,
+    s64: i64,
+    u64: u64,
+}
 
 #[link(name = "gbm")]
 extern "C" {
@@ -59,6 +72,7 @@ extern "C" {
     fn gbm_bo_get_modifier(bo: *mut Bo) -> u64;
     fn gbm_bo_get_stride_for_plane(bo: *mut Bo, plane: c::c_int) -> u32;
     fn gbm_bo_get_fd_for_plane(bo: *mut Bo, plane: c::c_int) -> c::c_int;
+    fn gbm_bo_get_handle_for_plane(bo: *mut Bo, plane: c::c_int) -> gbm_bo_handle;
     fn gbm_bo_get_offset(bo: *mut Bo, plane: c::c_int) -> u32;
     fn gbm_bo_get_format(bo: *mut Bo) -> u32;
     #[allow(dead_code)]
@@ -70,6 +84,12 @@ pub struct GbmDevice {
     dev: *mut Device,
 }
 
+impl Debug for GbmDevice {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GbmDevice").finish_non_exhaustive()
+    }
+}
+
 struct BoHolder {
     bo: *mut Bo,
 }
@@ -77,6 +97,7 @@ struct BoHolder {
 pub struct GbmBo {
     _bo: BoHolder,
     dma: DmaBuf,
+    handles: Vec<u32>,
 }
 
 unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
@@ -109,6 +130,18 @@ unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
             planes
         },
     })
+}
+
+unsafe fn export_handles(bo: *mut Bo) -> Result<Vec<u32>, GbmError> {
+    let mut planes = vec![];
+    for plane in 0..gbm_bo_get_plane_count(bo) {
+        let handle = gbm_bo_get_handle_for_plane(bo, plane);
+        if handle.s32 < 0 {
+            return Err(GbmError::GemHandle(Errno::default().into()));
+        }
+        planes.push(handle.u32);
+    }
+    Ok(planes)
 }
 
 impl GbmDevice {
@@ -149,7 +182,12 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
-            Ok(GbmBo { _bo: bo, dma })
+            let handles = export_handles(bo.bo)?;
+            Ok(GbmBo {
+                _bo: bo,
+                dma,
+                handles,
+            })
         }
     }
 }
@@ -165,6 +203,10 @@ impl Drop for GbmDevice {
 impl GbmBo {
     pub fn dma(&self) -> &DmaBuf {
         &self.dma
+    }
+
+    pub fn gem(&self) -> &[u32] {
+        &self.handles
     }
 }
 

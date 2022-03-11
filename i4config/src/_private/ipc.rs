@@ -35,6 +35,7 @@ pub enum ClientMessage<'a> {
     CreateSeat {
         name: &'a str,
     },
+    Quit,
     SetSeat {
         device: InputDevice,
         seat: Seat,

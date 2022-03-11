@@ -284,6 +284,10 @@ impl Client {
         *self.on_new_seat.borrow_mut() = Some(Rc::new(f));
     }
 
+    pub fn quit(&self) {
+        self.send(&ClientMessage::Quit)
+    }
+
     pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(&self, f: F) {
         *self.on_new_input_device.borrow_mut() = Some(Rc::new(f));
     }

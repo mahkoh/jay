@@ -1,7 +1,9 @@
 use crate::pixman;
 use crate::render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE};
+use crate::utils::debug_fn::debug_fn;
 use ahash::AHashMap;
 use once_cell::sync::Lazy;
+use std::fmt::{Debug, Write};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Format {
@@ -30,6 +32,16 @@ pub fn formats() -> &'static AHashMap<u32, &'static Format> {
 #[allow(dead_code)]
 const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
     (a as u32) | ((b as u32) << 8) | ((c as u32) << 16) | ((d as u32) << 24)
+}
+
+pub fn debug(fourcc: u32) -> impl Debug {
+    debug_fn(move |fmt| {
+        fmt.write_char(fourcc as u8 as char)?;
+        fmt.write_char((fourcc >> 8) as u8 as char)?;
+        fmt.write_char((fourcc >> 16) as u8 as char)?;
+        fmt.write_char((fourcc >> 24) as u8 as char)?;
+        Ok(())
+    })
 }
 
 const ARGB8888_ID: u32 = 0;

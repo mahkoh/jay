@@ -2,14 +2,12 @@ use i4config::embedded::grab_input_device;
 use i4config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use i4config::keyboard::syms::{
     SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_p, SYM_period,
-    SYM_r, SYM_t, SYM_v, SYM_y,
+    SYM_q, SYM_r, SYM_t, SYM_v, SYM_y,
 };
 use i4config::theme::{get_title_height, set_title_color, set_title_height, Color};
 use i4config::Axis::{Horizontal, Vertical};
 use i4config::Direction::{Down, Left, Right, Up};
-use i4config::{
-    config, create_seat, input_devices, on_new_input_device, Command, Seat,
-};
+use i4config::{config, create_seat, input_devices, on_new_input_device, quit, Command, Seat};
 use rand::Rng;
 
 const MOD: Modifiers = ALT;
@@ -71,6 +69,8 @@ fn configure_seat(s: Seat) {
 
     s.bind(MOD | SYM_p, || Command::new("xeyes").spawn());
 
+    s.bind(MOD | SYM_q, || quit());
+
     fn do_grab(s: Seat, grab: bool) {
         for device in s.input_devices() {
             log::info!(
@@ -97,9 +97,7 @@ pub fn configure() {
     for device in input_devices() {
         device.set_seat(seat);
     }
-    on_new_input_device(move |device| {
-        device.set_seat(seat)
-    });
+    on_new_input_device(move |device| device.set_seat(seat));
 }
 
 config!(configure);

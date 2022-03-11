@@ -163,6 +163,10 @@ pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(f: F) {
     get!().on_new_input_device(f)
 }
 
+pub fn quit() {
+    get!().quit()
+}
+
 pub struct Command {
     prog: String,
     args: Vec<String>,

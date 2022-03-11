@@ -1,3 +1,4 @@
+use crate::backend::InputDeviceId;
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::DeviceHandlerData;
 use crate::tree::walker::NodeVisitorBase;
@@ -19,7 +20,6 @@ use log::Level;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::backend::InputDeviceId;
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -157,11 +157,11 @@ impl ConfigProxyHandler {
         device: InputDevice,
     ) -> Result<Rc<DeviceHandlerData>, CphError> {
         let data = self
-                .state
-                .input_device_handlers
-                .borrow_mut()
-                .get(&InputDeviceId::from_raw(device.0 as _))
-                .map(|d| d.data.clone());
+            .state
+            .input_device_handlers
+            .borrow_mut()
+            .get(&InputDeviceId::from_raw(device.0 as _))
+            .map(|d| d.data.clone());
         match data {
             Some(d) => Ok(d),
             _ => Err(CphError::DeviceDoesNotExist(device)),
@@ -332,6 +332,11 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_quit(&self) {
+        log::info!("Quitting");
+        self.state.el.stop();
+    }
+
     fn handle_toggle_floating(&self, seat: Seat) -> Result<(), FocusParentError> {
         let seat = self.get_seat(seat)?;
         seat.toggle_floating();
@@ -466,6 +471,7 @@ impl ConfigProxyHandler {
             ClientMessage::CreateSplit { seat, axis } => self.handle_create_split(seat, axis)?,
             ClientMessage::FocusParent { seat } => self.handle_focus_parent(seat)?,
             ClientMessage::ToggleFloating { seat } => self.handle_toggle_floating(seat)?,
+            ClientMessage::Quit => self.handle_quit(),
         }
         Ok(())
     }

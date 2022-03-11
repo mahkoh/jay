@@ -1,6 +1,6 @@
+use crate::utils::ptr_ext::MutPtrExt;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
-use crate::utils::ptr_ext::MutPtrExt;
 
 pub struct SyncQueue<T> {
     el: UnsafeCell<VecDeque<T>>,
@@ -22,8 +22,6 @@ impl<T> SyncQueue<T> {
     }
 
     pub fn pop(&self) -> Option<T> {
-        unsafe {
-            self.el.get().deref_mut().pop_front()
-        }
+        unsafe { self.el.get().deref_mut().pop_front() }
     }
 }

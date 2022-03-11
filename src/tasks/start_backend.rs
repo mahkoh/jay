@@ -1,6 +1,6 @@
+use crate::{metal, ErrorFmt, State, XorgBackend};
 use std::future::pending;
 use std::rc::Rc;
-use crate::{ErrorFmt, metal, State, XorgBackend};
 
 pub async fn start_backend(state: Rc<State>) {
     log::info!("Trying to start X backend");

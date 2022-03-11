@@ -1,4 +1,4 @@
-use crate::backend::{InputDevice};
+use crate::backend::InputDevice;
 use crate::state::{DeviceHandlerData, InputDeviceData};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::State;
@@ -64,6 +64,9 @@ impl DeviceHandler {
         if let Some(config) = self.state.config.get() {
             config.del_input_device(self.dev.id());
         }
-        self.state.input_device_handlers.borrow_mut().remove(&self.dev.id());
+        self.state
+            .input_device_handlers
+            .borrow_mut()
+            .remove(&self.dev.id());
     }
 }

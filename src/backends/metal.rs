@@ -1,22 +1,27 @@
 mod input;
 mod monitor;
+mod video;
 
 use crate::async_engine::AsyncFd;
+use crate::backend::{Backend, InputDevice, InputDeviceId, InputEvent};
 use crate::dbus::DbusError;
+use crate::drm::drm::DrmError;
+use crate::drm::gbm::GbmError;
 use crate::libinput::device::RegisteredDevice;
 use crate::libinput::{LibInput, LibInputAdapter, LibInputError};
 use crate::logind::{LogindError, Session};
+use crate::metal::video::{MetalDrmDevice, PendingDrmDevice};
 use crate::udev::{UdevError, UdevMonitor};
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::{CloneCell, State, Udev};
+use crate::utils::oserror::OsError;
+use crate::utils::syncqueue::SyncQueue;
+use crate::{CloneCell, RenderError, State, Udev};
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
 use std::future::pending;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::backend::{Backend, InputDevice, InputDeviceId, InputEvent};
-use crate::utils::syncqueue::SyncQueue;
 
 #[derive(Debug, Error)]
 pub enum MetalError {
@@ -36,6 +41,34 @@ pub enum MetalError {
     Dup(#[source] crate::utils::oserror::OsError),
     #[error("Metal backend terminated unexpectedly")]
     UnexpectedTermination,
+    #[error("Could not create GBM device")]
+    GbmDevice(#[source] GbmError),
+    #[error("Could not create a render context")]
+    CreateRenderContex(#[source] RenderError),
+    #[error("Cannot initialize connector because no CRTC is available")]
+    NoCrtcForConnector,
+    #[error("Cannot initialize connector because no primary plane is available")]
+    NoPrimaryPlaneForConnector,
+    #[error("Cannot initialize connector because no mode is available")]
+    NoModeForConnector,
+    #[error("Could not allocate scanout buffer")]
+    ScanoutBuffer(#[source] GbmError),
+    #[error("Could not create a framebuffer")]
+    Framebuffer(#[source] DrmError),
+    #[error("Could not import a framebuffer into EGL")]
+    ImportFb(#[source] RenderError),
+    #[error("Could not configure connector chain")]
+    Configure(#[source] DrmError),
+    #[error("Could not enable atomic modesetting")]
+    AtomicModesetting(#[source] OsError),
+    #[error("Could not inspect a plane")]
+    CreatePlane(#[source] DrmError),
+    #[error("Could not inspect a crtc")]
+    CreateCrtc(#[source] DrmError),
+    #[error("Could not inspect an encoder")]
+    CreateEncoder(#[source] DrmError),
+    #[error(transparent)]
+    DrmError(#[from] DrmError),
 }
 
 pub async fn run(state: Rc<State>) -> MetalError {
@@ -44,6 +77,8 @@ pub async fn run(state: Rc<State>) -> MetalError {
         _ => MetalError::UnexpectedTermination,
     }
 }
+
+linear_ids!(DrmIds, DrmId);
 
 struct MetalBackend {
     state: Rc<State>,
@@ -54,11 +89,10 @@ struct MetalBackend {
     libinput_fd: AsyncFd,
     device_holder: Rc<DeviceHolder>,
     session: Session,
+    drm_ids: DrmIds,
 }
 
-impl Backend for MetalBackend {
-
-}
+impl Backend for MetalBackend {}
 
 async fn run_(state: Rc<State>) -> Result<(), MetalError> {
     let socket = match state.dbus.system() {
@@ -73,12 +107,15 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
         return Err(MetalError::TakeControl(e));
     }
     let device_holder = Rc::new(DeviceHolder {
+        devices: Default::default(),
         input_devices: Default::default(),
-        input_devices_: Default::default(),
+        drm_devices: Default::default(),
+        pending_drm_devices: Default::default(),
     });
     let udev = Rc::new(Udev::new()?);
     let monitor = Rc::new(udev.create_monitor()?);
     monitor.add_match_subsystem_devtype(Some("input"), None)?;
+    monitor.add_match_subsystem_devtype(Some("drm"), None)?;
     monitor.enable_receiving()?;
     let libinput = Rc::new(LibInput::new(device_holder.clone())?);
     let monitor_fd = match uapi::fcntl_dupfd_cloexec(monitor.fd(), 0) {
@@ -98,7 +135,22 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
         libinput_fd,
         device_holder,
         session,
+        drm_ids: Default::default(),
     });
+    let _pause_handler = {
+        let mtl = metal.clone();
+        metal
+            .session
+            .on_pause(move |p| mtl.handle_device_pause(p))
+            .unwrap()
+    };
+    let _resume_handler = {
+        let mtl = metal.clone();
+        metal
+            .session
+            .on_resume(move |p| mtl.handle_device_resume(p))
+            .unwrap()
+    };
     let _monitor = state.eng.spawn(metal.clone().monitor_devices());
     let _events = state.eng.spawn(metal.clone().handle_libinput_events());
     if let Err(e) = metal.enumerate_devices() {
@@ -107,7 +159,7 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
     pending().await
 }
 
-struct MetalDevice {
+struct MetalInputDevice {
     slot: usize,
     id: InputDeviceId,
     devnum: c::dev_t,
@@ -120,9 +172,17 @@ struct MetalDevice {
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
 }
 
+#[derive(Clone)]
+enum MetalDevice {
+    Input(Rc<MetalInputDevice>),
+    Drm(Rc<MetalDrmDevice>),
+}
+
 struct DeviceHolder {
-    input_devices: CopyHashMap<c::dev_t, Rc<MetalDevice>>,
-    input_devices_: RefCell<Vec<Option<Rc<MetalDevice>>>>,
+    devices: CopyHashMap<c::dev_t, MetalDevice>,
+    input_devices: RefCell<Vec<Option<Rc<MetalInputDevice>>>>,
+    drm_devices: CopyHashMap<c::dev_t, Rc<MetalDrmDevice>>,
+    pending_drm_devices: CopyHashMap<c::dev_t, PendingDrmDevice>,
 }
 
 impl LibInputAdapter for DeviceHolder {
@@ -131,8 +191,8 @@ impl LibInputAdapter for DeviceHolder {
             Ok(s) => s,
             Err(e) => return Err(LibInputError::Stat(e.into())),
         };
-        match self.input_devices.get(&stat.st_rdev) {
-            Some(d) => match d.fd.get() {
+        match self.devices.get(&stat.st_rdev) {
+            Some(MetalDevice::Input(d)) => match d.fd.get() {
                 Some(fd) => match uapi::fcntl_dupfd_cloexec(fd.raw(), 0) {
                     Ok(fd) => Ok(fd),
                     Err(e) => Err(LibInputError::DupFd(e.into())),
@@ -144,7 +204,7 @@ impl LibInputAdapter for DeviceHolder {
     }
 }
 
-impl InputDevice for MetalDevice {
+impl InputDevice for MetalInputDevice {
     fn id(&self) -> InputDeviceId {
         self.id
     }
@@ -166,7 +226,7 @@ impl InputDevice for MetalDevice {
     }
 }
 
-impl MetalDevice {
+impl MetalInputDevice {
     fn event(&self, event: InputEvent) {
         self.events.push(event);
         if let Some(cb) = self.cb.get() {

@@ -1,4 +1,7 @@
-use crate::libinput::sys::{libinput_device, libinput_device_get_user_data, libinput_device_set_user_data, libinput_device_unref, libinput_path_remove_device};
+use crate::libinput::sys::{
+    libinput_device, libinput_device_get_user_data, libinput_device_set_user_data,
+    libinput_device_unref, libinput_path_remove_device,
+};
 use crate::libinput::LibInput;
 use std::marker::PhantomData;
 use std::rc::Rc;

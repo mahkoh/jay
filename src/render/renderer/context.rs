@@ -1,5 +1,5 @@
 use crate::drm::dma::DmaBuf;
-use crate::drm::drm::{Drm, DRM_NODE_RENDER};
+use crate::drm::drm::{Drm, NodeType};
 use crate::format::{Format, XRGB8888};
 use crate::render::egl::context::EglContext;
 use crate::render::egl::find_drm_device;
@@ -15,6 +15,7 @@ use ahash::AHashMap;
 use renderdoc::{RenderDoc, V100};
 use std::cell::{Cell, RefCell};
 use std::ffi::CString;
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::ustr;
 
@@ -51,14 +52,20 @@ pub struct RenderContext {
     pub(super) fill_prog_color: GLint,
 }
 
+impl Debug for RenderContext {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RenderContext").finish_non_exhaustive()
+    }
+}
+
 impl RenderContext {
     pub fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
-        let drm_dev = drm.get_device()?;
-        let node = match drm_dev.nodes().find(|(ty, _)| *ty == DRM_NODE_RENDER) {
+        let nodes = drm.get_nodes()?;
+        let node = match nodes.get(&NodeType::Render) {
             None => return Err(RenderError::NoRenderNode),
-            Some((_, n)) => Rc::new(n.to_owned()),
+            Some(path) => Rc::new(path.to_owned()),
         };
-        let egl_dev = match find_drm_device(&drm_dev)? {
+        let egl_dev = match find_drm_device(&nodes)? {
             Some(d) => d,
             None => return Err(RenderError::UnknownDrmDevice),
         };

@@ -1,4 +1,4 @@
-use crate::backend::{KeyState, InputEvent, OutputId, ScrollAxis};
+use crate::backend::{InputEvent, KeyState, OutputId, ScrollAxis};
 use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
 use crate::ifs::ipc;
@@ -136,7 +136,6 @@ impl WlSeatGlobal {
     }
 
     fn motion_event(self: &Rc<Self>, dx: Fixed, dy: Fixed) {
-        log::info!("motion: {}x{}", dx, dy);
         let (x, y) = self.pos.get();
         self.set_new_position(x + dx, y + dy);
     }

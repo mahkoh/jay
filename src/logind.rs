@@ -1,5 +1,5 @@
-use crate::dbus::{DbusError, DbusSocket};
-use crate::org::freedesktop::login1::session::TakeDeviceReply;
+use crate::dbus::{DbusError, DbusSocket, SignalHandler};
+use crate::org::freedesktop::login1::session::{PauseDevice, ResumeDevice, TakeDeviceReply};
 use crate::{org, FALSE};
 use std::rc::Rc;
 use thiserror::Error;
@@ -89,6 +89,38 @@ impl Session {
             &self.session_path,
             org::freedesktop::login1::session::TakeDevice { major, minor },
             move |r| f(r),
+        );
+    }
+
+    pub fn on_pause<F>(&self, f: F) -> Result<SignalHandler, DbusError>
+    where
+        F: for<'b> Fn(PauseDevice<'b>) + 'static,
+    {
+        self.socket
+            .handle_signal::<org::freedesktop::login1::session::PauseDevice, _>(
+                Some(LOGIND_NAME),
+                Some(&self.session_path),
+                move |v| f(v),
+            )
+    }
+
+    pub fn on_resume<F>(&self, f: F) -> Result<SignalHandler, DbusError>
+    where
+        F: Fn(ResumeDevice) + 'static,
+    {
+        self.socket
+            .handle_signal::<org::freedesktop::login1::session::ResumeDevice, _>(
+                Some(LOGIND_NAME),
+                Some(&self.session_path),
+                move |v| f(v),
+            )
+    }
+
+    pub fn device_paused(&self, major: u32, minor: u32) {
+        self.socket.call_noreply(
+            LOGIND_NAME,
+            &self.session_path,
+            org::freedesktop::login1::session::PauseDeviceComplete { major, minor },
         );
     }
 }

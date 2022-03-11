@@ -1,6 +1,13 @@
 use crate::libinput::consts::{EventType, KeyState};
 use crate::libinput::device::LibInputDevice;
-use crate::libinput::sys::{libinput_event, libinput_event_destroy, libinput_event_get_device, libinput_event_get_keyboard_event, libinput_event_get_pointer_event, libinput_event_get_type, libinput_event_keyboard, libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec, libinput_event_pointer, libinput_event_pointer_get_dx, libinput_event_pointer_get_dy, libinput_event_pointer_get_time_usec};
+use crate::libinput::sys::{
+    libinput_event, libinput_event_destroy, libinput_event_get_device,
+    libinput_event_get_keyboard_event, libinput_event_get_pointer_event, libinput_event_get_type,
+    libinput_event_keyboard, libinput_event_keyboard_get_key,
+    libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec,
+    libinput_event_pointer, libinput_event_pointer_get_dx, libinput_event_pointer_get_dy,
+    libinput_event_pointer_get_time_usec,
+};
 use std::marker::PhantomData;
 
 pub struct LibInputEvent<'a> {

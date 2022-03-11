@@ -1,11 +1,29 @@
-use std::cell::Cell;
 use crate::async_engine::FdStatus;
+use crate::backend::BackendEvent;
 use crate::dbus::TRUE;
-use crate::metal::{MetalBackend, MetalDevice, MetalError};
+use crate::drm::drm::DrmMaster;
+use crate::metal::video::PendingDrmDevice;
+use crate::metal::{MetalBackend, MetalDevice, MetalDrmDevice, MetalError, MetalInputDevice};
+use crate::org::freedesktop::login1::session::{PauseDevice, ResumeDevice};
 use crate::udev::UdevDevice;
 use crate::ErrorFmt;
+use bstr::ByteSlice;
+use std::cell::Cell;
 use std::rc::Rc;
-use crate::backend::BackendEvent;
+use uapi::{c, OwnedFd};
+
+const DRM: &[u8] = b"drm";
+const INPUT: &[u8] = b"input";
+const EVENT: &[u8] = b"event";
+
+const CARD: &[u8] = b"card";
+
+fn is_primary_node(n: &[u8]) -> bool {
+    match n.strip_prefix(CARD) {
+        Some(r) => r.iter().copied().all(|c| matches!(c, b'0'..=b'9')),
+        _ => false,
+    }
+}
 
 impl MetalBackend {
     pub async fn monitor_devices(self: Rc<Self>) {
@@ -25,58 +43,215 @@ impl MetalBackend {
                 _ => {}
             }
             while let Some(dev) = self.monitor.receive_device() {
-                log::info!("x {:?}", dev.devnode());
+                let action = match dev.action() {
+                    Some(c) => c,
+                    _ => continue,
+                };
+                match action.to_bytes() {
+                    b"add" => self.handle_device_add(dev),
+                    b"change" => self.handle_device_change(dev),
+                    _ => None,
+                };
             }
         }
         log::error!("Monitor task exited. Future hotplug events will be ignored.");
     }
 
+    pub fn handle_device_pause(self: &Rc<Self>, pause: PauseDevice) {
+        if pause.ty == "pause" {
+            self.session.device_paused(pause.major, pause.minor);
+        }
+        let dev = uapi::makedev(pause.major as _, pause.minor as _);
+        if pause.ty == "gone" {
+            self.handle_device_removed(dev);
+        } else {
+            self.handle_device_paused(dev);
+        }
+    }
+
+    pub fn handle_device_resume(self: &Rc<Self>, resume: ResumeDevice) {
+        let dev = uapi::makedev(resume.major as _, resume.minor as _);
+        let dev = match self.device_holder.devices.get(&dev) {
+            Some(d) => d,
+            _ => return,
+        };
+        match dev {
+            MetalDevice::Input(id) => self.handle_input_device_resume(&id, resume.fd),
+            MetalDevice::Drm(dd) => self.handle_drm_device_resume(&dd, resume.fd),
+        }
+    }
+
+    fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, fd: Rc<OwnedFd>) {
+        log::info!("Device resumed: {}", dev.dev.devnode.to_bytes().as_bstr());
+    }
+
+    fn handle_input_device_resume(self: &Rc<Self>, dev: &Rc<MetalInputDevice>, fd: Rc<OwnedFd>) {
+        log::info!("Device resumed: {}", dev.devnode.to_bytes().as_bstr());
+        dev.fd.set(Some(fd));
+        let inputdev = match self.libinput.open(dev.devnode.as_c_str()) {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        inputdev.device().set_slot(dev.slot);
+        dev.inputdev.set(Some(inputdev));
+    }
+
+    fn handle_device_removed(self: &Rc<Self>, dev: c::dev_t) {
+        let dev = match self.device_holder.devices.remove(&dev) {
+            Some(d) => d,
+            _ => return,
+        };
+        match dev {
+            MetalDevice::Input(id) => self.handle_input_device_removed(&id),
+            MetalDevice::Drm(dd) => self.handle_drm_device_removed(&dd),
+        }
+    }
+
+    fn handle_drm_device_removed(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>) {
+        log::info!("Device removed: {}", dev.dev.devnode.to_bytes().as_bstr());
+    }
+
+    fn handle_input_device_removed(self: &Rc<Self>, dev: &Rc<MetalInputDevice>) {
+        log::info!("Device removed: {}", dev.devnode.to_bytes().as_bstr());
+        self.device_holder.input_devices.borrow_mut()[dev.slot] = None;
+        dev.fd.set(None);
+        if let Some(rd) = dev.inputdev.take() {
+            rd.device().unset_slot();
+        }
+        dev.removed.set(true);
+        if let Some(cb) = dev.cb.take() {
+            cb();
+        }
+    }
+
+    fn handle_device_paused(self: &Rc<Self>, dev: c::dev_t) {
+        let dev = match self.device_holder.devices.get(&dev) {
+            Some(d) => d,
+            _ => return,
+        };
+        match dev {
+            MetalDevice::Input(id) => self.handle_input_device_paused(&id),
+            MetalDevice::Drm(dd) => self.handle_drm_device_paused(&dd),
+        }
+    }
+
+    fn handle_drm_device_paused(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>) {
+        log::info!("Device paused: {}", dev.dev.devnode.to_bytes().as_bstr());
+    }
+
+    fn handle_input_device_paused(self: &Rc<Self>, dev: &Rc<MetalInputDevice>) {
+        log::info!("Device paused: {}", dev.devnode.to_bytes().as_bstr());
+        if let Some(rd) = dev.inputdev.take() {
+            rd.device().unset_slot();
+        }
+    }
+
+    fn handle_device_add(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        let ss = dev.subsystem()?;
+        match ss.to_bytes() {
+            INPUT => self.handle_input_device_add(dev),
+            DRM => self.handle_drm_add(dev),
+            _ => None,
+        }
+    }
+
+    fn handle_input_device_add(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        let sysname = dev.sysname()?;
+        if sysname.to_bytes().starts_with(EVENT) {
+            self.add_input_device(&dev);
+        }
+        None
+    }
+
+    fn handle_drm_add(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        let sysname = dev.sysname()?;
+        if !is_primary_node(sysname.to_bytes()) {
+            return None;
+        }
+        let devnum = dev.devnum();
+        let devnode = dev.devnode()?;
+        let id = self.drm_ids.next();
+        log::info!("Device added: {}", devnode.to_bytes().as_bstr());
+        let dev = PendingDrmDevice {
+            id,
+            devnum,
+            devnode: devnode.to_owned(),
+        };
+        self.device_holder.pending_drm_devices.set(devnum, dev);
+        let slf = self.clone();
+        self.session.get_device(devnum, move |res| {
+            let dev = match slf.device_holder.pending_drm_devices.remove(&devnum) {
+                Some(d) if d.id == id => d,
+                _ => return,
+            };
+            let res = match res {
+                Ok(r) => r,
+                Err(e) => {
+                    log::error!("Could not take control of drm device: {}", ErrorFmt(e));
+                    return;
+                }
+            };
+            if res.inactive == TRUE {
+                return;
+            }
+            let master = Rc::new(DrmMaster::new(res.fd.clone()));
+            let dev = match slf.creat_drm_device(dev, &master) {
+                Ok(d) => Rc::new(d),
+                Err(e) => {
+                    log::error!("Could not initialize drm device: {}", ErrorFmt(e));
+                    return;
+                }
+            };
+            slf.init_drm_device(&dev);
+            slf.device_holder
+                .drm_devices
+                .set(dev.dev.devnum, dev.clone());
+            slf.device_holder
+                .devices
+                .set(dev.dev.devnum, MetalDevice::Drm(dev.clone()));
+        });
+        None
+    }
+
+    fn handle_device_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        let ss = dev.subsystem()?;
+        log::info!("Device changed: {}", dev.devnode()?.to_bytes().as_bstr());
+        match ss.to_bytes() {
+            DRM => self.handle_drm_change(dev),
+            _ => None,
+        }
+    }
+
+    fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        None
+    }
+
     pub fn enumerate_devices(self: &Rc<Self>) -> Result<(), MetalError> {
         let mut enumerate = self.udev.create_enumerate()?;
-        enumerate.add_match_subsystem("input")?;
+        enumerate.add_match_subsystem(INPUT)?;
+        enumerate.add_match_subsystem(DRM)?;
         enumerate.scan_devices()?;
         let mut entry_opt = enumerate.get_list_entry()?;
         while let Some(entry) = entry_opt.take() {
-            'inner: {
-                let device = match self.udev.create_device_from_syspath(entry.name()) {
-                    Ok(d) => d,
-                    _ => break 'inner,
-                };
-                let sysname = match device.sysname() {
-                    Ok(s) => s,
-                    _ => break 'inner,
-                };
-                if sysname.to_bytes().starts_with(b"event") {
-                    self.add_input_device(&device);
-                }
+            if let Ok(dev) = self.udev.create_device_from_syspath(entry.name()) {
+                self.handle_device_add(dev);
             }
             entry_opt = entry.next();
         }
         Ok(())
     }
 
-    fn add_input_device(self: &Rc<Self>, dev: &UdevDevice) {
+    fn add_input_device(self: &Rc<Self>, dev: &UdevDevice) -> Option<()> {
         if !dev.is_initialized() {
-            return;
+            return None;
         }
         let slf = self.clone();
         let device_id = self.state.input_device_ids.next();
         let devnum = dev.devnum();
-        let devnode = match dev.devnode() {
-            Ok(n) => n,
-            Err(e) => {
-                log::error!("Could not retrieve devnode of udev device: {}", ErrorFmt(e));
-                return;
-            }
-        };
-        let sysname = match dev.sysname() {
-            Ok(n) => n,
-            Err(e) => {
-                log::error!("Could not retrieve sysname of udev device: {}", ErrorFmt(e));
-                return;
-            }
-        };
-        let mut slots = self.device_holder.input_devices_.borrow_mut();
+        let devnode = dev.devnode()?;
+        let sysname = dev.sysname()?;
+        log::info!("Device added: {}", devnode.to_bytes().as_bstr());
+        let mut slots = self.device_holder.input_devices.borrow_mut();
         let slot = 'slot: {
             for (i, s) in slots.iter().enumerate() {
                 if s.is_none() {
@@ -86,7 +261,7 @@ impl MetalBackend {
             slots.push(None);
             slots.len() - 1
         };
-        let dev = Rc::new(MetalDevice {
+        let dev = Rc::new(MetalInputDevice {
             slot,
             id: device_id,
             devnum,
@@ -99,12 +274,14 @@ impl MetalBackend {
             cb: Default::default(),
         });
         slots[slot] = Some(dev.clone());
-        self.device_holder.input_devices.set(devnum, dev);
+        self.device_holder
+            .devices
+            .set(devnum, MetalDevice::Input(dev));
         self.session.get_device(devnum, move |res| {
-            let id = &slf.device_holder.input_devices;
-            let mut slots = slf.device_holder.input_devices_.borrow_mut();
+            let id = &slf.device_holder.devices;
+            let mut slots = slf.device_holder.input_devices.borrow_mut();
             let dev = 'dev: {
-                if let Some(dev) = id.get(&devnum) {
+                if let Some(dev) = slots[slot].clone() {
                     if dev.id == device_id {
                         break 'dev dev;
                     }
@@ -126,15 +303,14 @@ impl MetalBackend {
             dev.fd.set(Some(res.fd.clone()));
             let inputdev = match slf.libinput.open(dev.devnode.as_c_str()) {
                 Ok(d) => d,
-                Err(_) => {
-                    slots[dev.slot] = None;
-                    id.remove(&devnum);
-                    return;
-                }
+                Err(_) => return,
             };
             inputdev.device().set_slot(slot);
             dev.inputdev.set(Some(inputdev));
-            slf.state.backend_events.push(BackendEvent::NewInputDevice(dev.clone()));
+            slf.state
+                .backend_events
+                .push(BackendEvent::NewInputDevice(dev.clone()));
         });
+        None
     }
 }
