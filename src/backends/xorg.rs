@@ -234,7 +234,7 @@ fn get_drm(con: &XcbCon) -> Result<Drm, XorgBackendError> {
         assert!(res.nfd == 1);
         let fd = *con.dri.xcb_dri3_open_reply_fds(con.c, &mut *res);
         let fd = OwnedFd::new(fd);
-        Ok(Drm::reopen(fd.raw(), true)?)
+        Ok(Drm::reopen(fd.raw(), false)?)
     }
 }
 

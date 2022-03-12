@@ -204,7 +204,6 @@ impl MetalBackend {
                     return;
                 }
             };
-            slf.init_drm_device(&dev);
             slf.device_holder
                 .drm_devices
                 .set(dev.dev.devnum, dev.clone());

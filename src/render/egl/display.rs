@@ -48,10 +48,6 @@ impl EglDisplay {
                 dpy: self.clone(),
                 ext: GlExt::empty(),
                 ctx,
-                tex_prog: 0,
-                tex_tex: 0,
-                tex_texcoord: 0,
-                tex_pos: 0,
             };
             ctx.ext = ctx.with_current(|| Ok(get_gl_ext()))?;
             // if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE) {
@@ -100,7 +96,7 @@ impl EglDisplay {
             },
         ];
 
-        let mut attribs = vec![];
+        let mut attribs = Vec::with_capacity(19);
         attribs.extend_from_slice(&[EGL_WIDTH, buf.width]);
         attribs.extend_from_slice(&[EGL_HEIGHT, buf.height]);
         attribs.extend_from_slice(&[EGL_LINUX_DRM_FOURCC_EXT, buf.format.drm as _]);

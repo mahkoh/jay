@@ -1,11 +1,6 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
 use crate::backend::{BackendEvent, Output, OutputId};
-use crate::drm::drm::{
-    ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmEvent,
-    DrmFb, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty,
-    DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC,
-    DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
-};
+use crate::drm::drm::{ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT, Change};
 use crate::drm::gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::format::{Format, XRGB8888};
@@ -469,7 +464,20 @@ impl MetalBackend {
 
         let slf = Rc::new(MetalDrmDevice { dev, connectors });
 
-        self.reset_drm_device(&slf)?;
+        let mut changes = master.change(DRM_MODE_ATOMIC_ALLOW_MODESET);
+
+        self.reset_drm_device(&slf, &mut changes);
+        self.init_drm_device(&slf, &mut changes);
+
+        if let Err(e) = changes.commit(0) {
+            return Err(MetalError::Configure(e));
+        }
+
+        for connector in slf.connectors.values() {
+            if connector.primary_plane.get().is_some() {
+                self.start_connector(connector);
+            }
+        }
 
         let handler = self
             .state
@@ -477,7 +485,7 @@ impl MetalBackend {
             .spawn(self.clone().handle_drm_events(slf.clone()));
         slf.dev.handle_events.handle_events.set(Some(handler));
 
-        self.state.render_ctx.set(Some(egl));
+        self.state.set_render_ctx(&egl);
 
         Ok(slf)
     }
@@ -531,8 +539,7 @@ impl MetalBackend {
         self.present(&connector);
     }
 
-    fn reset_drm_device(&self, dev: &MetalDrmDevice) -> Result<(), DrmError> {
-        let mut changes = dev.dev.master.change(DRM_MODE_ATOMIC_ALLOW_MODESET);
+    fn reset_drm_device(&self, dev: &MetalDrmDevice, changes: &mut Change) {
         for connector in dev.connectors.values() {
             if connector.crtc_id.value.take().is_some() {
                 changes.change_object(connector.id, |c| {
@@ -560,15 +567,11 @@ impl MetalBackend {
                 }
             })
         }
-        if let Err(e) = changes.commit(0) {
-            return Err(DrmError::ResetFailed(Box::new(e)));
-        }
-        Ok(())
     }
 
-    pub fn init_drm_device(&self, dev: &Rc<MetalDrmDevice>) {
+    pub fn init_drm_device(&self, dev: &Rc<MetalDrmDevice>, changes: &mut Change) {
         for connector in dev.connectors.values() {
-            if let Err(e) = self.init_drm_connector(dev, connector) {
+            if let Err(e) = self.init_drm_connector(dev, connector, changes) {
                 log::error!("Could not initialize drm connector: {}", ErrorFmt(e));
             }
         }
@@ -604,11 +607,11 @@ impl MetalBackend {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
         };
-        let drm_fb = match connector.master.add_fb(&bo) {
+        let drm_fb = match connector.master.add_fb(bo.dma()) {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let egl_fb = match dev.dev.egl.dmabuf_fb(&bo.dma()) {
+        let egl_fb = match dev.dev.egl.dmabuf_fb(bo.dma()) {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
@@ -622,6 +625,7 @@ impl MetalBackend {
         &self,
         dev: &Rc<MetalDrmDevice>,
         connector: &Rc<MetalConnector>,
+        changes: &mut Change,
     ) -> Result<(), MetalError> {
         if connector.connection != ConnectorStatus::Connected {
             return Ok(());
@@ -661,7 +665,6 @@ impl MetalBackend {
             mode.hdisplay as _,
             mode.vdisplay as _,
         )?;
-        let mut changes = connector.master.change(DRM_MODE_ATOMIC_ALLOW_MODESET);
         changes.change_object(connector.id, |c| {
             c.change(connector.crtc_id.id, crtc.id.0 as _);
         });
@@ -681,9 +684,6 @@ impl MetalBackend {
             c.change(primary_plane.src_w.id, (mode.hdisplay as u64) << 16);
             c.change(primary_plane.src_h.id, (mode.vdisplay as u64) << 16);
         });
-        if let Err(e) = changes.commit(0) {
-            return Err(MetalError::Configure(e));
-        }
         primary_plane.fb_id.value.set(buffers[0].drm.id());
         primary_plane.crtc_id.value.set(crtc.id);
         primary_plane.crtc_x.value.set(0);
@@ -702,6 +702,11 @@ impl MetalBackend {
         crtc.active.value.set(true);
         crtc.mode_id.value.set(mode_blob.id());
         crtc.mode_blob.set(Some(Rc::new(mode_blob)));
+        Ok(())
+    }
+
+    fn start_connector(&self, connector: &Rc<MetalConnector>) {
+        let mode = connector.mode.get().unwrap();
         self.state
             .backend_events
             .push(BackendEvent::NewOutput(connector.clone()));
@@ -712,7 +717,6 @@ impl MetalBackend {
             mode
         );
         self.present(connector);
-        Ok(())
     }
 
     fn present(&self, connector: &Rc<MetalConnector>) {

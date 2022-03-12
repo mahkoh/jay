@@ -119,7 +119,7 @@ unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
 
 impl GbmDevice {
     pub fn new(drm: &Drm) -> Result<Self, GbmError> {
-        let drm = drm.dup_unprivileged()?;
+        let drm = drm.dup_render()?;
         let dev = unsafe { gbm_create_device(drm.raw()) };
         if dev.is_null() {
             Err(GbmError::CreateDevice)

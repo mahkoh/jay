@@ -2,7 +2,7 @@ mod sys;
 
 use crate::drm::drm::sys::{
     create_lease, drm_event, drm_event_vblank, drm_mode_modeinfo, gem_close, get_cap,
-    get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes, is_master,
+    get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes,
     mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob, mode_get_resources,
     mode_getconnector, mode_getencoder, mode_getplane, mode_getplaneresources, mode_getproperty,
     mode_obj_getproperties, mode_rmfb, prime_fd_to_handle, set_client_cap, DRM_DISPLAY_MODE_LEN,
@@ -23,7 +23,6 @@ use std::rc::{Rc, Weak};
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd, Ustring};
 
-use crate::drm::gbm::GbmBo;
 use crate::drm::INVALID_MODIFIER;
 use crate::utils::stack::Stack;
 use crate::utils::syncqueue::SyncQueue;
@@ -32,6 +31,7 @@ pub use sys::{
     DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
     DRM_MODE_PAGE_FLIP_EVENT,
 };
+use crate::drm::dma::DmaBuf;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -79,8 +79,6 @@ pub enum DrmError {
     InvalidPlaneType(u64),
     #[error("Plane type property has an invalid property type")]
     InvalidPlaneTypeProperty,
-    #[error("Could not reset drm objects")]
-    ResetFailed(#[source] Box<Self>),
     #[error("Could not create a framebuffer")]
     AddFb(#[source] OsError),
     #[error("Could not convert prime fd to gem handle")]
@@ -99,15 +97,13 @@ fn device_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
     get_device_name_from_fd2(fd).map_err(DrmError::DeviceNodeName)
 }
 
-fn reopen(fd: c::c_int, allow_downgrade: bool) -> Result<Rc<OwnedFd>, DrmError> {
-    if is_master(fd) && allow_downgrade {
-        if let Ok((fd, _)) = create_lease(fd, &[], c::O_CLOEXEC as _) {
-            return Ok(Rc::new(fd));
-        }
+fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
+    if let Ok((fd, _)) = create_lease(fd, &[], c::O_CLOEXEC as _) {
+        return Ok(Rc::new(fd));
     }
     let path = if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
         uapi::format_ustr!("/proc/self/fd/{}", fd)
-    } else if allow_downgrade {
+    } else if !need_primary {
         render_node_name(fd)?
     } else {
         device_node_name(fd)?
@@ -123,9 +119,9 @@ pub struct Drm {
 }
 
 impl Drm {
-    pub fn reopen(fd: c::c_int, allow_downgrade: bool) -> Result<Self, DrmError> {
+    pub fn reopen(fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {
         Ok(Self {
-            fd: reopen(fd, allow_downgrade)?,
+            fd: reopen(fd, need_primary)?,
         })
     }
 
@@ -137,8 +133,8 @@ impl Drm {
         self.fd.raw()
     }
 
-    pub fn dup_unprivileged(&self) -> Result<Self, DrmError> {
-        Self::reopen(self.fd.raw(), true)
+    pub fn dup_render(&self) -> Result<Self, DrmError> {
+        Self::reopen(self.fd.raw(), false)
     }
 
     pub fn get_nodes(&self) -> Result<AHashMap<NodeType, CString>, DrmError> {
@@ -252,8 +248,7 @@ impl DrmMaster {
         }
     }
 
-    pub fn add_fb(self: &Rc<Self>, bo: &GbmBo) -> Result<DrmFramebuffer, DrmError> {
-        let dma = bo.dma();
+    pub fn add_fb(self: &Rc<Self>, dma: &DmaBuf) -> Result<DrmFramebuffer, DrmError> {
         let mut modifier = 0;
         let mut flags = 0;
         if dma.modifier != INVALID_MODIFIER {

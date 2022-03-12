@@ -39,27 +39,6 @@ pub const fn drm_iowr<T>(nr: u64) -> u64 {
     uapi::_IOWR::<T>(DRM_IOCTL_BASE, nr)
 }
 
-const DRM_IOCTL_AUTH_MAGIC: u64 = drm_iow::<drm_auth>(0x11);
-
-pub type drm_magic_t = c::c_int;
-
-#[repr(C)]
-struct drm_auth {
-    magic: drm_magic_t,
-}
-
-pub fn auth_magic(fd: c::c_int, magic: drm_magic_t) -> Result<(), OsError> {
-    let mut auth = drm_auth { magic };
-    unsafe { ioctl(fd, DRM_IOCTL_AUTH_MAGIC, &mut auth).map(drop) }
-}
-
-pub fn is_master(fd: c::c_int) -> bool {
-    match auth_magic(fd, 0) {
-        Err(OsError(c::EACCES)) => false,
-        _ => true,
-    }
-}
-
 const DRM_IOCTL_MODE_CREATE_LEASE: u64 = drm_iowr::<drm_mode_create_lease>(0xc6);
 
 #[repr(C)]

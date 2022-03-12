@@ -3,7 +3,6 @@ use crate::render::egl::sys::{
     eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE,
 };
 use crate::render::ext::GlExt;
-use crate::render::gl::sys::{GLint, GLuint};
 use crate::render::RenderError;
 use std::rc::Rc;
 
@@ -12,11 +11,6 @@ pub struct EglContext {
     pub dpy: Rc<EglDisplay>,
     pub ext: GlExt,
     pub ctx: EGLContext,
-
-    pub tex_prog: GLuint,
-    pub tex_tex: GLint,
-    pub tex_texcoord: GLint,
-    pub tex_pos: GLint,
 }
 
 impl Drop for EglContext {
