@@ -1,6 +1,9 @@
 use crate::async_engine::FdStatus;
 use crate::backend::{InputEvent, KeyState, ScrollAxis};
-use crate::libinput::consts::{LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL};
+use crate::libinput::consts::{
+    LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
+    LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
+};
 use crate::libinput::event::LibInputEvent;
 use crate::metal::MetalBackend;
 use crate::ErrorFmt;
@@ -101,17 +104,26 @@ impl MetalBackend {
         const PX_PER_SCROLL: f64 = 15.0;
         const ONE_TWENTRY: f64 = 120.0;
         let (event, dev) = unpack!(self, event, pointer_event);
-        let hscroll = event.scroll_value_v120(LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL) / ONE_TWENTRY + dev.hscroll.get();
-        let vscroll = event.scroll_value_v120(LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL) / ONE_TWENTRY + dev.vscroll.get();
+        let hscroll = event.scroll_value_v120(LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)
+            / ONE_TWENTRY
+            + dev.hscroll.get();
+        let vscroll = event.scroll_value_v120(LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL) / ONE_TWENTRY
+            + dev.vscroll.get();
         let hscroll_used = (PX_PER_SCROLL * hscroll).round();
         let vscroll_used = (PX_PER_SCROLL * vscroll).round();
         dev.hscroll.set(hscroll - hscroll_used / PX_PER_SCROLL);
         dev.vscroll.set(vscroll - vscroll_used / PX_PER_SCROLL);
         if hscroll_used != 0.0 {
-            dev.event(InputEvent::Scroll(hscroll_used as i32, ScrollAxis::Horizontal));
+            dev.event(InputEvent::Scroll(
+                hscroll_used as i32,
+                ScrollAxis::Horizontal,
+            ));
         }
         if vscroll_used != 0.0 {
-            dev.event(InputEvent::Scroll(vscroll_used as i32, ScrollAxis::Vertical));
+            dev.event(InputEvent::Scroll(
+                vscroll_used as i32,
+                ScrollAxis::Vertical,
+            ));
         }
     }
 

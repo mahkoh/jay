@@ -1,5 +1,3 @@
-#![feature(thread_local_const_init)]
-
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::ModifiedKeySym;
 use bincode::{Decode, Encode};

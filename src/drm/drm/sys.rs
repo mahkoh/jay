@@ -686,6 +686,8 @@ pub struct drm_mode_modeinfo {
     pub name: [u8; DRM_DISPLAY_MODE_LEN],
 }
 
+unsafe impl Pod for drm_mode_modeinfo {}
+
 impl Into<DrmModeInfo> for drm_mode_modeinfo {
     fn into(self) -> DrmModeInfo {
         DrmModeInfo {
@@ -1038,3 +1040,28 @@ pub struct drm_event_vblank {
 }
 
 unsafe impl Pod for drm_event_vblank {}
+
+#[repr(C)]
+struct drm_mode_get_blob {
+    blob_id: u32,
+    length: u32,
+    data: u64,
+}
+
+const DRM_IOCTL_MODE_GETPROPBLOB: u64 = drm_iowr::<drm_mode_get_blob>(0xac);
+
+pub fn mode_getprobblob<T: Pod + ?Sized>(
+    fd: c::c_int,
+    blob_id: u32,
+    t: &mut T,
+) -> Result<usize, OsError> {
+    let mut res = drm_mode_get_blob {
+        blob_id,
+        length: mem::size_of_val(t) as _,
+        data: t as *const T as *const u8 as _,
+    };
+    unsafe {
+        ioctl(fd, DRM_IOCTL_MODE_GETPROPBLOB, &mut res)?;
+    }
+    Ok(res.length as _)
+}

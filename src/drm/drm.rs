@@ -1,10 +1,10 @@
 mod sys;
 
 use crate::drm::drm::sys::{
-    create_lease, drm_event, drm_event_vblank, drm_mode_modeinfo, gem_close, get_cap,
-    get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes,
-    mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob, mode_get_resources,
-    mode_getconnector, mode_getencoder, mode_getplane, mode_getplaneresources, mode_getproperty,
+    create_lease, drm_event, drm_event_vblank, gem_close, get_cap, get_device_name_from_fd2,
+    get_minor_name_from_fd, get_node_type_from_fd, get_nodes, mode_addfb2, mode_atomic,
+    mode_create_blob, mode_destroy_blob, mode_get_resources, mode_getconnector, mode_getencoder,
+    mode_getplane, mode_getplaneresources, mode_getprobblob, mode_getproperty,
     mode_obj_getproperties, mode_rmfb, prime_fd_to_handle, set_client_cap, DRM_DISPLAY_MODE_LEN,
     DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS, DRM_MODE_OBJECT_BLOB,
     DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB,
@@ -21,17 +21,17 @@ use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use thiserror::Error;
-use uapi::{c, Errno, OwnedFd, Ustring};
+use uapi::{c, Errno, OwnedFd, Pod, Ustring};
 
+use crate::drm::dma::DmaBuf;
 use crate::drm::INVALID_MODIFIER;
 use crate::utils::stack::Stack;
 use crate::utils::syncqueue::SyncQueue;
 use crate::ErrorFmt;
 pub use sys::{
-    DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
-    DRM_MODE_PAGE_FLIP_EVENT,
+    drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
+    DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
 };
-use crate::drm::dma::DmaBuf;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -59,6 +59,10 @@ pub enum DrmError {
     CreateBlob(#[source] OsError),
     #[error("Could not perform drm getconnector ioctl")]
     GetConnector(#[source] OsError),
+    #[error("Could not perform drm getprobblob ioctl")]
+    GetPropBlob(#[source] OsError),
+    #[error("Property has an invalid size")]
+    InvalidProbSize,
     #[error("Could not perform drm properties ioctl")]
     GetProperties(#[source] OsError),
     #[error("Could not perform drm atomic ioctl")]
@@ -222,10 +226,9 @@ impl DrmMaster {
         mode_getconnector(self.raw(), connector.0, force)
     }
 
-    pub fn change(self: &Rc<Self>, flags: u32) -> Change {
+    pub fn change(self: &Rc<Self>) -> Change {
         let mut res = Change {
             master: self.clone(),
-            flags,
             objects: self.u32_bufs.pop().unwrap_or_default(),
             object_lengths: self.u32_bufs.pop().unwrap_or_default(),
             props: self.u32_bufs.pop().unwrap_or_default(),
@@ -302,6 +305,15 @@ impl DrmMaster {
         });
         handles.insert(handle, Rc::downgrade(&h));
         Ok(h)
+    }
+
+    pub fn getblob<T: Pod>(&self, blob: DrmBlob) -> Result<T, DrmError> {
+        let mut t = MaybeUninit::<T>::uninit();
+        match mode_getprobblob(self.raw(), blob.0, &mut t) {
+            Err(e) => Err(DrmError::GetPropBlob(e)),
+            Ok(n) if n != mem::size_of::<T>() => Err(DrmError::InvalidProbSize),
+            _ => unsafe { Ok(t.assume_init()) },
+        }
     }
 
     pub fn event(&self) -> Result<Option<DrmEvent>, DrmError> {
@@ -509,7 +521,7 @@ pub struct DrmEncoderInfo {
     pub possible_clones: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DrmModeInfo {
     pub clock: u32,
     pub hdisplay: u16,
@@ -536,7 +548,7 @@ impl DrmModeInfo {
         master.create_blob(&raw)
     }
 
-    fn into_raw(&self) -> drm_mode_modeinfo {
+    pub fn into_raw(&self) -> drm_mode_modeinfo {
         let mut name = [0u8; DRM_DISPLAY_MODE_LEN];
         let len = name.len().min(self.name.len());
         name[..len].copy_from_slice(&self.name.as_bytes()[..len]);
@@ -579,7 +591,6 @@ pub struct DrmConnectorInfo {
 
 pub struct Change {
     master: Rc<DrmMaster>,
-    flags: u32,
     objects: Vec<u32>,
     object_lengths: Vec<u32>,
     props: Vec<u32>,
@@ -592,10 +603,10 @@ pub struct ObjectChange<'a> {
 
 impl Change {
     #[allow(dead_code)]
-    pub fn test(&self) -> Result<(), DrmError> {
+    pub fn test(&self, flags: u32) -> Result<(), DrmError> {
         mode_atomic(
             self.master.raw(),
-            self.flags | DRM_MODE_ATOMIC_TEST_ONLY,
+            flags | DRM_MODE_ATOMIC_TEST_ONLY,
             &self.objects,
             &self.object_lengths,
             &self.props,
@@ -604,10 +615,10 @@ impl Change {
         )
     }
 
-    pub fn commit(&self, user_data: u64) -> Result<(), DrmError> {
+    pub fn commit(&self, flags: u32, user_data: u64) -> Result<(), DrmError> {
         mode_atomic(
             self.master.raw(),
-            self.flags,
+            flags,
             &self.objects,
             &self.object_lengths,
             &self.props,

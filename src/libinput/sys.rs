@@ -60,8 +60,13 @@ extern "C" {
     pub fn libinput_event_pointer_get_dx(event: *mut libinput_event_pointer) -> f64;
     pub fn libinput_event_pointer_get_dy(event: *mut libinput_event_pointer) -> f64;
     pub fn libinput_event_pointer_get_button(event: *mut libinput_event_pointer) -> u32;
-    pub fn libinput_event_pointer_get_button_state(event: *mut libinput_event_pointer) -> libinput_button_state;
-    pub fn libinput_event_pointer_get_scroll_value_v120(event: *mut libinput_event_pointer, axis: libinput_pointer_axis) -> f64;
+    pub fn libinput_event_pointer_get_button_state(
+        event: *mut libinput_event_pointer,
+    ) -> libinput_button_state;
+    pub fn libinput_event_pointer_get_scroll_value_v120(
+        event: *mut libinput_event_pointer,
+        axis: libinput_pointer_axis,
+    ) -> f64;
 }
 
 #[repr(C)]

@@ -24,6 +24,18 @@ impl Debug for Framebuffer {
 }
 
 impl Framebuffer {
+    pub fn clear(&self) {
+        let _ = self.ctx.ctx.with_current(|| {
+            unsafe {
+                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
+                glViewport(0, 0, self.gl.width, self.gl.height);
+                glClearColor(0.0, 0.0, 0.0, 0.0);
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+            Ok(())
+        });
+    }
+
     pub fn render(&self, node: &dyn Node, state: &State, cursor_rect: Option<Rect>) {
         let _ = self.ctx.ctx.with_current(|| {
             if let Some(rd) = &self.ctx.renderdoc {

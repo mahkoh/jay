@@ -43,6 +43,8 @@ pub enum MetalError {
     UnexpectedTermination,
     #[error("Could not create GBM device")]
     GbmDevice(#[source] GbmError),
+    #[error("Could not update the drm properties")]
+    UpdateProperties(#[source] DrmError),
     #[error("Could not create a render context")]
     CreateRenderContex(#[source] RenderError),
     #[error("Cannot initialize connector because no CRTC is available")]
@@ -57,8 +59,8 @@ pub enum MetalError {
     Framebuffer(#[source] DrmError),
     #[error("Could not import a framebuffer into EGL")]
     ImportFb(#[source] RenderError),
-    #[error("Could not configure connector chain")]
-    Configure(#[source] DrmError),
+    #[error("Could not perform modeset")]
+    Modeset(#[source] DrmError),
     #[error("Could not enable atomic modesetting")]
     AtomicModesetting(#[source] OsError),
     #[error("Could not inspect a plane")]

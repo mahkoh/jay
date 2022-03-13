@@ -155,10 +155,7 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
-            Ok(GbmBo {
-                _bo: bo,
-                dma,
-            })
+            Ok(GbmBo { _bo: bo, dma })
         }
     }
 }
