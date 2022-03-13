@@ -20,7 +20,6 @@ use std::cell::Cell;
 use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::time::Instant;
 use uapi::c;
 
 pub struct PendingDrmDevice {
@@ -68,8 +67,6 @@ pub struct MetalDrmDevice {
 pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
-
-    pub active: Cell<bool>,
 
     pub output_id: OutputId,
 
@@ -226,7 +223,6 @@ fn create_connector(
     Ok(MetalConnector {
         id: connector,
         master: dev.master.clone(),
-        active: Cell::new(false),
         output_id: state.output_ids.next(),
         crtcs,
         mode: CloneCell::new(info.modes.first().cloned().map(|m| Rc::new(m))),
@@ -593,56 +589,8 @@ impl MetalBackend {
         self.present(&connector);
     }
 
-    fn reuse_primary_planes(&self, dev: &MetalDrmDevice) -> AHashSet<DrmPlane> {
-        let mut crtc_primary_planes = AHashMap::new();
-        for connector in dev.connectors.values() {
-            connector.active.set(false);
-            connector.primary_plane.set(None);
-            if let Some(crtc) = connector.crtc.get() {
-                crtc_primary_planes.insert(crtc.id, vec![]);
-            }
-        }
+    fn reset_planes(&self, dev: &MetalDrmDevice, changes: &mut Change) {
         for plane in dev.dev.planes.values() {
-            if plane.ty == PlaneType::Primary {
-                if let Some(ncp) = crtc_primary_planes.get_mut(&plane.crtc_id.value.get()) {
-                    ncp.push(plane.clone());
-                }
-            }
-        }
-        let mut reuse_possible = true;
-        for planes in crtc_primary_planes.values() {
-            if planes.len() > 1 {
-                reuse_possible = false;
-                break;
-            }
-            if let Some(plane) = planes.first() {
-                if !plane.formats.contains_key(&XRGB8888.drm) {
-                    reuse_possible = false;
-                    break;
-                }
-            }
-        }
-        let mut preserve = AHashSet::new();
-        if !reuse_possible {
-            log::warn!("Not reusing primary planes");
-            return preserve;
-        }
-        for connector in dev.connectors.values() {
-            if let Some(planes) = crtc_primary_planes.get(&connector.crtc_id.value.get()) {
-                if let Some(plane) = planes.first() {
-                    connector.primary_plane.set(Some(plane.clone()));
-                    preserve.insert(plane.id);
-                }
-            }
-        }
-        preserve
-    }
-
-    fn reset_planes(&self, dev: &MetalDrmDevice, changes: &mut Change, preserve: &AHashSet<DrmPlane>) {
-        for plane in dev.dev.planes.values() {
-            if preserve.contains(&plane.id) {
-                continue;
-            }
             plane.crtc_id.value.set(DrmCrtc::NONE);
             changes.change_object(plane.id, |c| {
                 c.change(plane.crtc_id.id, 0);
@@ -686,33 +634,15 @@ impl MetalBackend {
                 }
             }
         }
-        let preserve = self.reuse_primary_planes(dev);
-        self.reset_planes(dev, &mut changes, &preserve);
-        {
-            let mut connector: Vec<_> = dev.connectors.values().collect();
-            connector.sort_by_key(|k| {
-                if k.primary_plane.get().is_some() {
-                    0
-                } else {
-                    1
-                }
-            });
-            for connector in connector {
-                if let Err(e) = self.assign_connector_plane(dev, connector, &mut changes) {
-                    log::error!("Could not assign a plane: {}", ErrorFmt(e));
-                }
-            }
-        }
+        self.reset_planes(dev, &mut changes);
         for connector in dev.connectors.values() {
-            if !connector.active.get() {
-                connector.primary_plane.set(None);
+            if let Err(e) = self.assign_connector_plane(dev, connector, &mut changes) {
+                log::error!("Could not assign a plane: {}", ErrorFmt(e));
             }
         }
-        let mut start = Instant::now();
         if let Err(e) = changes.commit(flags, 0) {
             return Err(MetalError::Modeset(e));
         }
-        log::info!("commit 2: {:?}", start.elapsed());
         Ok(())
     }
 
@@ -892,34 +822,32 @@ impl MetalBackend {
                 return Ok(());
             }
         };
-        let mut primary_plane = connector.primary_plane.get();
-        if primary_plane.is_none() {
+        let primary_plane = 'primary_plane: {
             for plane in crtc.possible_planes.values() {
                 if plane.ty == PlaneType::Primary
                     && plane.crtc_id.value.get().is_none()
                     && plane.formats.contains_key(&XRGB8888.drm)
                 {
-                    primary_plane = Some(plane.clone());
-                    break;
+                    break 'primary_plane plane.clone();
                 }
             }
-        }
-        let primary_plane = match primary_plane {
-            Some(p) => p,
-            _ => return Err(MetalError::NoPrimaryPlaneForConnector),
+            return Err(MetalError::NoPrimaryPlaneForConnector);
         };
-        let format = ModifiedFormat {
-            format: XRGB8888,
-            modifier: INVALID_MODIFIER,
-        };
+        connector.buffers.set(None);
         let buffers = match connector.buffers.get() {
             Some(b) => b,
-            None => Rc::new(self.create_scanout_buffers(
-                dev,
-                &format,
-                mode.hdisplay as _,
-                mode.vdisplay as _,
-            )?),
+            None => {
+                let format = ModifiedFormat {
+                    format: XRGB8888,
+                    modifier: INVALID_MODIFIER,
+                };
+                Rc::new(self.create_scanout_buffers(
+                    dev,
+                    &format,
+                    mode.hdisplay as _,
+                    mode.vdisplay as _,
+                )?)
+            },
         };
         changes.change_object(primary_plane.id, |c| {
             c.change(primary_plane.fb_id, buffers[0].drm.id().0 as _);
@@ -944,7 +872,6 @@ impl MetalBackend {
         primary_plane.src_h.value.set((mode.vdisplay as u32) << 16);
         connector.buffers.set(Some(buffers));
         connector.primary_plane.set(Some(primary_plane.clone()));
-        connector.active.set(true);
         Ok(())
     }
 

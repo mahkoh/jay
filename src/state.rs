@@ -28,6 +28,8 @@ use crate::{ErrorFmt, Wheel, XkbContext};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::Arc;
+use crate::utils::fdcloser::FdCloser;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -61,6 +63,7 @@ pub struct State {
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub dbus: Dbus,
+    pub fdcloser: Arc<FdCloser>,
 }
 
 pub struct InputDeviceData {

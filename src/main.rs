@@ -55,6 +55,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
+use crate::utils::fdcloser::FdCloser;
 
 #[macro_use]
 mod macros;
@@ -101,6 +102,7 @@ mod xwayland;
 
 fn main() {
     env_logger::builder()
+        .format_timestamp_millis()
         .filter_level(LevelFilter::Info)
         .filter_level(LevelFilter::Debug)
         // .filter_level(LevelFilter::Trace)
@@ -178,6 +180,7 @@ fn main_() -> Result<(), MainError> {
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
         dbus: Dbus::new(&engine, &run_toplevel),
+        fdcloser: FdCloser::new(),
     });
     forker.install(&state);
     let config = config::ConfigProxy::default(&state);

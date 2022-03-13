@@ -85,20 +85,22 @@ impl MetalBackend {
 
     fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, _fd: Rc<OwnedFd>) {
         log::info!("Device resumed: {}", dev.dev.devnode.to_bytes().as_bstr());
-        let start = Instant::now();
         if let Err(e) = self.resume_drm_device(dev) {
             log::error!("Could not resume drm device: {}", ErrorFmt(e));
         }
-        log::info!("resume took {:?}", start.elapsed());
     }
 
     fn handle_input_device_resume(self: &Rc<Self>, dev: &Rc<MetalInputDevice>, fd: Rc<OwnedFd>) {
+        let start = Instant::now();
         log::info!("Device resumed: {}", dev.devnode.to_bytes().as_bstr());
-        dev.fd.set(Some(fd));
+        if let Some(old) = dev.fd.set(Some(fd)) {
+            self.state.fdcloser.close(old);
+        }
         let inputdev = match self.libinput.open(dev.devnode.as_c_str()) {
             Ok(d) => d,
             Err(_) => return,
         };
+        log::info!("took {:?}", start.elapsed());
         inputdev.device().set_slot(dev.slot);
         dev.inputdev.set(Some(inputdev));
     }
