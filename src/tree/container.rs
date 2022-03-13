@@ -11,7 +11,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
 use crate::{text, ErrorFmt, NumCell, State};
 use ahash::AHashMap;
-use i4config::{Axis, Direction};
+use jay_config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
 
 use std::fmt::{Debug, Formatter};

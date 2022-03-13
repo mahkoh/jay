@@ -14,7 +14,7 @@ use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 pub use container::*;
 pub use float::*;
-use i4config::Direction;
+use jay_config::Direction;
 pub use output::*;
 use std::fmt::{Debug, Display};
 use std::ops::Deref;

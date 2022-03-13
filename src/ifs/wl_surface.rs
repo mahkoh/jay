@@ -30,7 +30,7 @@ use crate::wire::{WlOutputId, WlSurfaceId};
 use crate::xkbcommon::ModifierState;
 use crate::NumCell;
 use ahash::AHashMap;
-use i4config::Direction;
+use jay_config::Direction;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::mem;

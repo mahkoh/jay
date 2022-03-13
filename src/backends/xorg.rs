@@ -418,7 +418,7 @@ impl XorgBackend {
                 images,
             });
             {
-                let class = "i4\0i4\0";
+                let class = "jay\0jay\0";
                 let cookie = con.xcb.xcb_change_property_checked(
                     con.c,
                     ffi::XCB_PROP_MODE_REPLACE as _,

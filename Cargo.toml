@@ -1,11 +1,11 @@
 [package]
-name = "i4"
+name = "jay"
 version = "0.1.0"
 edition = "2021"
 build = "build/build.rs"
 
 [workspace]
-members = ["i4config", "default-config"]
+members = ["jay-config", "default-config"]
 
 [profile.release]
 panic = "abort"
@@ -39,7 +39,7 @@ bincode = "2.0.0-beta.3"
 pangocairo = "0.15.1"
 cairo-rs = { version = "0.15.1", features = ["png"] }
 pango = { version = "0.15.2", features = ["v1_44"] }
-i4config = { path = "i4config" }
+jay-config = { path = "jay-config" }
 default-config = { path = "default-config" }
 x11rb = { version = "0.9.0", features = ["composite", "cursor"] }
 pin-project = "1.0.10"

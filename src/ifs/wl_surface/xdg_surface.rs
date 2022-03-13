@@ -21,7 +21,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::wire::xdg_surface::*;
 use crate::wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId};
 use crate::NumCell;
-use i4config::Direction;
+use jay_config::Direction;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;

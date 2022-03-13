@@ -20,7 +20,7 @@ use crate::wire::xdg_toplevel::*;
 use crate::wire::XdgToplevelId;
 use crate::{bugs, NumCell};
 use ahash::{AHashMap, AHashSet};
-use i4config::Direction;
+use jay_config::Direction;
 use num_derive::FromPrimitive;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};

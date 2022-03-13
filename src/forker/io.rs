@@ -6,7 +6,7 @@ use crate::async_engine::AsyncFd;
 use crate::utils::buffd::{BufFdIn, BufFdOut};
 use crate::utils::vec_ext::VecExt;
 use crate::ForkerError;
-use i4config::_private::bincode_ops;
+use jay_config::_private::bincode_ops;
 use uapi::OwnedFd;
 
 pub struct IoIn {

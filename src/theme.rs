@@ -36,8 +36,8 @@ impl Color {
     }
 }
 
-impl From<i4config::theme::Color> for Color {
-    fn from(f: i4config::theme::Color) -> Self {
+impl From<jay_config::theme::Color> for Color {
+    fn from(f: jay_config::theme::Color) -> Self {
         Self {
             r: to_f32(f.r),
             g: to_f32(f.g),

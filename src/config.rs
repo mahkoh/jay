@@ -5,10 +5,10 @@ use crate::config::handler::ConfigProxyHandler;
 use crate::ifs::wl_seat::SeatId;
 use crate::utils::ptr_ext::PtrExt;
 use crate::{NumCell, State};
-use i4config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
-use i4config::_private::{bincode_ops, ConfigEntry, VERSION};
-use i4config::keyboard::ModifiedKeySym;
-use i4config::{InputDevice, Seat};
+use jay_config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
+use jay_config::_private::{bincode_ops, ConfigEntry, VERSION};
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::{InputDevice, Seat};
 use libloading::Library;
 use std::cell::Cell;
 use std::ptr;
@@ -68,7 +68,7 @@ unsafe extern "C" fn default_client_init(
     extern "C" fn configure() {
         default_config::configure();
     }
-    i4config::_private::client::init(srv_data, srv_unref, srv_handler, msg, size, configure)
+    jay_config::_private::client::init(srv_data, srv_unref, srv_handler, msg, size, configure)
 }
 
 impl ConfigProxy {
@@ -106,8 +106,8 @@ impl ConfigProxy {
         let entry = ConfigEntry {
             version: VERSION,
             init: default_client_init,
-            unref: i4config::_private::client::unref,
-            handle_msg: i4config::_private::client::handle_msg,
+            unref: jay_config::_private::client::unref,
+            handle_msg: jay_config::_private::client::handle_msg,
         };
         Self::new(None, &entry, state)
     }

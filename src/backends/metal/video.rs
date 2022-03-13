@@ -847,7 +847,7 @@ impl MetalBackend {
                     mode.hdisplay as _,
                     mode.vdisplay as _,
                 )?)
-            },
+            }
         };
         changes.change_object(primary_plane.id, |c| {
             c.change(primary_plane.fb_id, buffers[0].drm.id().0 as _);

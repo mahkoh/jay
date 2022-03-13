@@ -13,7 +13,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::wire::WlSurfaceId;
 use crate::xwayland::XWaylandEvent;
 use crate::{AsyncQueue, CloneCell, State};
-use i4config::Direction;
+use jay_config::Direction;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use thiserror::Error;

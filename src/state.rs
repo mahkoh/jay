@@ -20,6 +20,7 @@ use crate::tree::{
 };
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fdcloser::FdCloser;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
@@ -29,7 +30,6 @@ use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
-use crate::utils::fdcloser::FdCloser;
 
 pub struct State {
     pub xkb_ctx: XkbContext,

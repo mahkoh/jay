@@ -9,7 +9,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::{xwayland, AsyncEngine, AsyncQueue, ErrorFmt, EventLoop, NumCell, State, Wheel};
 use bincode::error::{DecodeError, EncodeError};
 use bincode::{Decode, Encode};
-use i4config::_private::bincode_ops;
+use jay_config::_private::bincode_ops;
 use log::Level;
 use std::cell::{Cell, RefCell};
 use std::env;

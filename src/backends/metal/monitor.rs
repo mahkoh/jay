@@ -11,7 +11,6 @@ use crate::ErrorFmt;
 use bstr::ByteSlice;
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::Instant;
 use uapi::{c, OwnedFd};
 
 const DRM: &[u8] = b"drm";
@@ -91,7 +90,6 @@ impl MetalBackend {
     }
 
     fn handle_input_device_resume(self: &Rc<Self>, dev: &Rc<MetalInputDevice>, fd: Rc<OwnedFd>) {
-        let start = Instant::now();
         log::info!("Device resumed: {}", dev.devnode.to_bytes().as_bstr());
         if let Some(old) = dev.fd.set(Some(fd)) {
             self.state.fdcloser.close(old);
@@ -100,7 +98,6 @@ impl MetalBackend {
             Ok(d) => d,
             Err(_) => return,
         };
-        log::info!("took {:?}", start.elapsed());
         inputdev.device().set_slot(dev.slot);
         dev.inputdev.set(Some(inputdev));
     }

@@ -1,7 +1,7 @@
+use parking_lot::{Condvar, Mutex};
 use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
-use parking_lot::{Condvar, Mutex};
 use uapi::OwnedFd;
 
 pub struct FdCloser {
@@ -38,7 +38,7 @@ impl FdCloser {
             Ok(fd) => {
                 self.fds.lock().push(fd);
                 self.cv.notify_all();
-            },
+            }
             Err(_e) => {
                 log::warn!("Could not close file descriptor in separate thread. There are still references.");
             }

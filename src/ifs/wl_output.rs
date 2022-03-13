@@ -175,8 +175,8 @@ impl WlOutput {
             physical_width: pos.width(),
             physical_height: pos.height(),
             subpixel: SP_UNKNOWN,
-            make: "i4",
-            model: "i4",
+            make: "jay",
+            model: "jay",
             transform: TF_NORMAL,
         };
         self.client.event(event);

@@ -184,7 +184,7 @@ dependencies = [
 name = "default-config"
 version = "0.1.0"
 dependencies = [
- "i4config",
+ "jay-config",
  "log",
  "rand",
 ]
@@ -405,7 +405,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
-name = "i4"
+name = "isnt"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a7558cc96ddcaf0b4144d7149984ace2899bb29d4ee2999979d429efc305200"
+
+[[package]]
+name = "jay"
 version = "0.1.0"
 dependencies = [
  "ahash",
@@ -420,8 +426,8 @@ dependencies = [
  "default-config",
  "env_logger",
  "futures",
- "i4config",
  "isnt",
+ "jay-config",
  "libloading",
  "log",
  "num-derive",
@@ -443,18 +449,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "i4config"
+name = "jay-config"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "log",
 ]
-
-[[package]]
-name = "isnt"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a7558cc96ddcaf0b4144d7149984ace2899bb29d4ee2999979d429efc305200"
 
 [[package]]
 name = "lazy_static"

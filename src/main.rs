@@ -40,6 +40,7 @@ use crate::tree::{
 use crate::udev::Udev;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fdcloser::FdCloser;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::run_toplevel::RunToplevel;
@@ -55,7 +56,6 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 use wheel::Wheel;
-use crate::utils::fdcloser::FdCloser;
 
 #[macro_use]
 mod macros;

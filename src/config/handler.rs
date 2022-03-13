@@ -9,12 +9,12 @@ use crate::utils::stack::Stack;
 use crate::xkbcommon::XkbKeymap;
 use crate::{backend, ErrorFmt, NumCell, State};
 use bincode::error::DecodeError;
-use i4config::_private::bincode_ops;
-use i4config::_private::ipc::{ClientMessage, Response, ServerMessage};
-use i4config::keyboard::keymap::Keymap;
-use i4config::keyboard::mods::Modifiers;
-use i4config::keyboard::syms::KeySym;
-use i4config::{Axis, Direction, InputDevice, LogLevel, Seat};
+use jay_config::_private::bincode_ops;
+use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};
+use jay_config::keyboard::keymap::Keymap;
+use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::syms::KeySym;
+use jay_config::{Axis, Direction, InputDevice, LogLevel, Seat};
 use libloading::Library;
 use log::Level;
 use std::cell::Cell;
@@ -397,20 +397,20 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_title_color(&self, color: i4config::theme::Color) {
+    fn handle_set_title_color(&self, color: jay_config::theme::Color) {
         self.state.theme.title_color.set(color.into());
         self.colors_change();
     }
 
-    fn handle_set_border_color(&self, color: i4config::theme::Color) {
+    fn handle_set_border_color(&self, color: jay_config::theme::Color) {
         self.state.theme.border_color.set(color.into());
     }
 
-    fn handle_set_background_color(&self, color: i4config::theme::Color) {
+    fn handle_set_background_color(&self, color: jay_config::theme::Color) {
         self.state.theme.background_color.set(color.into());
     }
 
-    fn handle_set_title_underline_color(&self, color: i4config::theme::Color) {
+    fn handle_set_title_underline_color(&self, color: jay_config::theme::Color) {
         self.state.theme.underline_color.set(color.into());
     }
 
