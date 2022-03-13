@@ -36,6 +36,9 @@ pub enum ClientMessage<'a> {
         name: &'a str,
     },
     Quit,
+    SwitchTo {
+        vtnr: u32,
+    },
     SetSeat {
         device: InputDevice,
         seat: Seat,

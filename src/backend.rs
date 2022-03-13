@@ -5,7 +5,9 @@ use std::rc::Rc;
 linear_ids!(OutputIds, OutputId);
 linear_ids!(InputDeviceIds, InputDeviceId);
 
-pub trait Backend {}
+pub trait Backend {
+    fn switch_to(&self, vtnr: u32);
+}
 
 pub trait Output {
     fn id(&self) -> OutputId;

@@ -15,7 +15,7 @@ use crate::udev::{UdevError, UdevMonitor};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::oserror::OsError;
 use crate::utils::syncqueue::SyncQueue;
-use crate::{AsyncError, CloneCell, RenderError, State, Udev};
+use crate::{AsyncError, CloneCell, ErrorFmt, RenderError, State, Udev};
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
 use std::future::pending;
@@ -96,7 +96,15 @@ struct MetalBackend {
     drm_ids: DrmIds,
 }
 
-impl Backend for MetalBackend {}
+impl Backend for MetalBackend {
+    fn switch_to(&self, vtnr: u32) {
+        self.session.switch_to(vtnr, move |res| {
+            if let Err(e) = res {
+                log::error!("Could not switch to VT {}: {}", vtnr, ErrorFmt(e));
+            }
+        })
+    }
+}
 
 async fn run_(state: Rc<State>) -> Result<(), MetalError> {
     let socket = match state.dbus.system() {
@@ -160,6 +168,7 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
     if let Err(e) = metal.enumerate_devices() {
         return Err(MetalError::Enumerate(Box::new(e)));
     }
+    state.backend.set(Some(metal.clone()));
     pending().await
 }
 

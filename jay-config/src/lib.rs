@@ -165,6 +165,10 @@ pub fn quit() {
     get!().quit()
 }
 
+pub fn switch_to_vt(n: u32) {
+    get!().switch_to_vt(n)
+}
+
 pub struct Command {
     prog: String,
     args: Vec<String>,

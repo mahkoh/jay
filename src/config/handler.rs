@@ -337,6 +337,13 @@ impl ConfigProxyHandler {
         self.state.el.stop();
     }
 
+    fn handle_switch_to(&self, vtnr: u32) {
+        match self.state.backend.get() {
+            Some(b) => b.switch_to(vtnr),
+            _ => log::warn!("Cannot switch to VT {}: Backend has not yet started", vtnr),
+        }
+    }
+
     fn handle_toggle_floating(&self, seat: Seat) -> Result<(), FocusParentError> {
         let seat = self.get_seat(seat)?;
         seat.toggle_floating();
@@ -472,6 +479,7 @@ impl ConfigProxyHandler {
             ClientMessage::FocusParent { seat } => self.handle_focus_parent(seat)?,
             ClientMessage::ToggleFloating { seat } => self.handle_toggle_floating(seat)?,
             ClientMessage::Quit => self.handle_quit(),
+            ClientMessage::SwitchTo { vtnr } => self.handle_switch_to(vtnr),
         }
         Ok(())
     }

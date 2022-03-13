@@ -150,6 +150,7 @@ fn main_() -> Result<(), MainError> {
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         xkb_ctx,
+        backend: Default::default(),
         forker: Default::default(),
         default_keymap: xkb_keymap,
         eng: engine.clone(),

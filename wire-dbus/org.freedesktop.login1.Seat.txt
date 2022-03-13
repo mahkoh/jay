@@ -1,0 +1,2 @@
+fn SwitchTo(vtnr: u32) {
+}

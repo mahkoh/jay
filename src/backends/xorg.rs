@@ -220,7 +220,11 @@ pub struct XorgBackend {
     b: Cell<f32>,
 }
 
-impl Backend for XorgBackend {}
+impl Backend for XorgBackend {
+    fn switch_to(&self, _vtnr: u32) {
+        log::error!("Xorg backend cannot switch vts");
+    }
+}
 
 fn get_drm(con: &XcbCon) -> Result<Drm, XorgBackendError> {
     unsafe {

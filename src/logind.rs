@@ -4,6 +4,7 @@ use crate::{org, FALSE};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;
+use crate::org::freedesktop::login1::seat::SwitchToReply;
 
 const LOGIND_NAME: &str = "org.freedesktop.login1";
 const MANAGER_PATH: &str = "/org/freedesktop/login1";
@@ -22,7 +23,7 @@ pub enum LogindError {
 
 pub struct Session {
     socket: Rc<DbusSocket>,
-    _seat: String,
+    seat: String,
     session_path: String,
 }
 
@@ -52,13 +53,13 @@ impl Session {
                 .get_async::<org::freedesktop::login1::session::Seat>(LOGIND_NAME, &session_path)
                 .await;
             match seat {
-                Ok(s) => s.get().0.to_string(),
+                Ok(s) => s.get().1.0.to_string(),
                 Err(e) => return Err(LogindError::GetSeatName(e)),
             }
         };
         Ok(Self {
             socket: socket.clone(),
-            _seat: seat,
+            seat,
             session_path,
         })
     }
@@ -121,6 +122,17 @@ impl Session {
             LOGIND_NAME,
             &self.session_path,
             org::freedesktop::login1::session::PauseDeviceComplete { major, minor },
+        );
+    }
+
+    pub fn switch_to<F>(&self, vtnr: u32, f: F)
+        where F: FnOnce(Result<&SwitchToReply, DbusError>) + 'static
+    {
+        self.socket.call(
+            LOGIND_NAME,
+            &self.seat,
+            org::freedesktop::login1::seat::SwitchTo { vtnr },
+            |r| f(r),
         );
     }
 }

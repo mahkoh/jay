@@ -1,7 +1,5 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{
-    BackendEvent, InputDevice, InputDeviceId, InputDeviceIds, OutputId, OutputIds,
-};
+use crate::backend::{Backend, BackendEvent, InputDevice, InputDeviceId, InputDeviceIds, OutputId, OutputIds};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
@@ -33,6 +31,7 @@ use std::sync::Arc;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
+    pub backend: CloneCell<Option<Rc<dyn Backend>>>,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,

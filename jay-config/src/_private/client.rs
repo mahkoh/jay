@@ -288,6 +288,10 @@ impl Client {
         self.send(&ClientMessage::Quit)
     }
 
+    pub fn switch_to_vt(&self, vtnr: u32) {
+        self.send(&ClientMessage::SwitchTo { vtnr })
+    }
+
     pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(&self, f: F) {
         *self.on_new_input_device.borrow_mut() = Some(Rc::new(f));
     }

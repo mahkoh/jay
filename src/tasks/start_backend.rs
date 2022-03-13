@@ -5,7 +5,10 @@ use std::rc::Rc;
 pub async fn start_backend(state: Rc<State>) {
     log::info!("Trying to start X backend");
     let e = match XorgBackend::new(&state) {
-        Ok(_b) => pending().await,
+        Ok(b) => {
+            state.backend.set(Some(b));
+            pending().await
+        },
         Err(e) => e,
     };
     log::warn!("Could not start X backend: {}", ErrorFmt(e));
