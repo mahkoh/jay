@@ -1,10 +1,16 @@
 use jay_config::embedded::grab_input_device;
 use jay_config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
-use jay_config::keyboard::syms::{SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_p, SYM_period, SYM_q, SYM_r, SYM_t, SYM_v, SYM_y, SYM_F1, SYM_F9, SYM_F12, SYM_F11, SYM_F10, SYM_F8, SYM_F7, SYM_F6, SYM_F5, SYM_F4, SYM_F3, SYM_F2};
+use jay_config::keyboard::syms::{
+    SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_p, SYM_period,
+    SYM_q, SYM_r, SYM_t, SYM_v, SYM_y, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F2, SYM_F3, SYM_F4,
+    SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
+};
 use jay_config::theme::{get_title_height, set_title_color, set_title_height, Color};
 use jay_config::Axis::{Horizontal, Vertical};
 use jay_config::Direction::{Down, Left, Right, Up};
-use jay_config::{config, create_seat, input_devices, on_new_input_device, quit, Command, Seat, switch_to_vt};
+use jay_config::{
+    config, create_seat, input_devices, on_new_input_device, quit, switch_to_vt, Command, Seat,
+};
 use rand::Rng;
 
 const MOD: Modifiers = ALT;

@@ -5,35 +5,24 @@ use super::{
 use crate::dbus::{
     CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN, MSG_SIGNAL,
 };
+use crate::utils::bufio::BufIoIncoming;
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use crate::ErrorFmt;
 use std::cell::UnsafeCell;
-use std::collections::VecDeque;
-use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::rc::Rc;
-use uapi::{c, Errno, MaybeUninitSliceExt, MsghdrMut, OwnedFd};
 
 pub async fn handle_incoming(socket: Rc<DbusSocket>) {
     let mut incoming = Incoming {
+        incoming: socket.bufio.incoming(),
         socket,
-        buf: Box::new([MaybeUninit::uninit(); 4096]),
-        buf_start: 0,
-        buf_end: 0,
-        fds: Default::default(),
-        cmsg: Box::new([MaybeUninit::uninit(); 256]),
     };
     incoming.run().await;
 }
 
 pub struct Incoming {
     socket: Rc<DbusSocket>,
-
-    buf: Box<[MaybeUninit<u8>; 4096]>,
-    buf_start: usize,
-    buf_end: usize,
-    fds: VecDeque<Rc<OwnedFd>>,
-    cmsg: Box<[MaybeUninit<u8>; 256]>,
+    incoming: BufIoIncoming,
 }
 
 impl Incoming {
@@ -55,11 +44,12 @@ impl Incoming {
     }
 
     async fn handle_msg(&mut self) -> Result<(), DbusError> {
-        let msg_buf_data = UnsafeCell::new(self.socket.bufs.pop().unwrap_or_default());
+        let msg_buf_data = UnsafeCell::new(self.socket.bufio.buf());
         let msg_buf = unsafe { msg_buf_data.get().deref_mut() };
-        msg_buf.clear();
         const FIXED_HEADER_SIZE: usize = 16;
-        self.fill_msg_buf(FIXED_HEADER_SIZE, msg_buf).await?;
+        self.incoming
+            .fill_msg_buf(FIXED_HEADER_SIZE, msg_buf)
+            .await?;
         let endianess = msg_buf[0];
         if (endianess == b'l') != cfg!(target_endian = "little") {
             return Err(DbusError::InvalidEndianess);
@@ -75,16 +65,18 @@ impl Incoming {
         let [body_len, _serial, headers_len] = fields2;
         let dyn_header_len = headers_len + (headers_len.wrapping_neg() & 7);
         let remaining = dyn_header_len + body_len;
-        self.fill_msg_buf(remaining as usize, msg_buf).await?;
+        self.incoming
+            .fill_msg_buf(remaining as usize, msg_buf)
+            .await?;
         drop(msg_buf);
         let msg_buf = unsafe { msg_buf_data.get().deref().deref() };
         let headers = &msg_buf[FIXED_HEADER_SIZE..FIXED_HEADER_SIZE + headers_len as usize];
         let headers = self.parse_headers(headers)?;
         let unix_fds = headers.unix_fds.unwrap_or(0) as usize;
-        if self.fds.len() < unix_fds {
+        if self.incoming.fds.len() < unix_fds {
             return Err(DbusError::TooFewFds);
         }
-        let fds: Vec<_> = self.fds.drain(..unix_fds).collect();
+        let fds: Vec<_> = self.incoming.fds.drain(..unix_fds).collect();
         let mut parser = Parser {
             buf: &msg_buf,
             pos: FIXED_HEADER_SIZE + dyn_header_len as usize,
@@ -172,7 +164,7 @@ impl Incoming {
         }
         let msg_buf = msg_buf_data.into_inner();
         if msg_buf.capacity() > 0 {
-            self.socket.bufs.push(msg_buf);
+            self.socket.bufio.add_buf(msg_buf);
         }
         Ok(())
     }
@@ -198,55 +190,5 @@ impl Incoming {
             }
         }
         Ok(headers)
-    }
-
-    async fn fill_msg_buf(&mut self, mut n: usize, buf: &mut Vec<u8>) -> Result<(), DbusError> {
-        while n > 0 {
-            if self.buf_start == self.buf_end {
-                while let Err(e) = self.recvmsg() {
-                    if e.0 != c::EAGAIN {
-                        return Err(DbusError::ReadError(e.into()));
-                    }
-                    self.socket.fd.readable().await?;
-                }
-                if self.buf_start == self.buf_end {
-                    return Err(DbusError::Closed);
-                }
-            }
-            let read = n.min(self.buf_end - self.buf_start);
-            let buf_start = self.buf_start % self.buf.len();
-            unsafe {
-                buf.extend_from_slice(
-                    self.buf[buf_start..buf_start + read].slice_assume_init_ref(),
-                );
-            }
-            n -= read;
-            self.buf_start += read;
-        }
-        Ok(())
-    }
-
-    fn recvmsg(&mut self) -> Result<(), Errno> {
-        self.buf_start = 0;
-        self.buf_end = 0;
-        let mut iov = [&mut self.buf[..]];
-        let mut hdr = MsghdrMut {
-            iov: &mut iov[..],
-            control: Some(&mut self.cmsg[..]),
-            name: uapi::sockaddr_none_mut(),
-            flags: 0,
-        };
-        let (ivec, _, mut cmsg) =
-            uapi::recvmsg(self.socket.fd.raw(), &mut hdr, c::MSG_CMSG_CLOEXEC)?;
-        self.buf_end += ivec.len();
-        while cmsg.len() > 0 {
-            let (_, hdr, body) = uapi::cmsg_read(&mut cmsg)?;
-            if hdr.cmsg_level == c::SOL_SOCKET && hdr.cmsg_type == c::SCM_RIGHTS {
-                for fd in uapi::pod_iter(body)? {
-                    self.fds.push_back(Rc::new(OwnedFd::new(fd)));
-                }
-            }
-        }
-        Ok(())
     }
 }

@@ -9,6 +9,7 @@ mod enums;
 mod tokens;
 mod wire;
 mod wire_dbus;
+mod wire_xcon;
 
 fn open(s: &str) -> io::Result<BufWriter<File>> {
     let mut path = PathBuf::from(env::var("OUT_DIR").unwrap());
@@ -25,6 +26,7 @@ fn open(s: &str) -> io::Result<BufWriter<File>> {
 fn main() -> anyhow::Result<()> {
     wire::main()?;
     wire_dbus::main()?;
+    wire_xcon::main()?;
     enums::main()?;
 
     println!("cargo:rerun-if-changed=build/build.rs");

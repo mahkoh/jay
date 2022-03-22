@@ -17,7 +17,6 @@
 use crate::acceptor::AcceptorError;
 use crate::async_engine::{AsyncError, Phase};
 use crate::backends::metal;
-use crate::backends::xorg::{XorgBackend, XorgBackendError};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::dbus::{Dbus, FALSE};
@@ -97,6 +96,8 @@ mod utils;
 mod wheel;
 mod wire;
 mod wire_dbus;
+mod wire_xcon;
+mod xcon;
 mod xkbcommon;
 mod xwayland;
 
@@ -127,8 +128,6 @@ enum MainError {
     WheelError(#[from] WheelError),
     #[error("The async subsystem caused an error")]
     AsyncError(#[from] AsyncError),
-    #[error("The xorg backend caused an error")]
-    XorgBackendError(#[from] XorgBackendError),
     #[error("The render backend caused an error")]
     RenderError(#[from] RenderError),
     #[error("The ol' forker caused an error")]

@@ -151,16 +151,19 @@ impl EventLoop {
     fn run_(&self) -> Result<(), EventLoopError> {
         self.check_destroyed()?;
         let mut buf = [c::epoll_event { events: 0, u64: 0 }; 16];
-        while !self.destroyed.get() {
+        'outer: while !self.destroyed.get() {
             while let Some(id) = self.scheduled.borrow_mut().pop_front() {
                 if self.destroyed.get() {
-                    break;
+                    break 'outer;
                 }
                 if let Some(entry) = self.entries.get(&id) {
                     if let Err(e) = entry.dispatcher.clone().dispatch(0) {
                         return Err(EventLoopError::DispatcherError(e));
                     }
                 }
+            }
+            if self.destroyed.get() {
+                break 'outer;
             }
             let num = match uapi::epoll_wait(self.epoll.raw(), &mut buf, -1) {
                 Ok(n) => n,
@@ -169,7 +172,7 @@ impl EventLoop {
             };
             for event in &buf[..num] {
                 if self.destroyed.get() {
-                    break;
+                    break 'outer;
                 }
                 let id = event.u64;
                 let entry = match self.entries.get(&id) {

@@ -1,0 +1,28 @@
+ext "XKEYBOARD"
+
+request XkbUseExtension = 0 (
+    wanted_major: u16,
+    wanted_minor: u16,
+) {
+    supported: u8,
+    server_major: u16,
+    server_minor: u16,
+    @pad 20,
+}
+
+request XkbPerClientFlags = 21 (
+    device_spec: u16,
+    @pad 2,
+    change: u32,
+    value: u32,
+    ctrls_to_change: u32,
+    auto_ctrls: u32,
+    auto_ctrls_values: u32,
+) {
+    device_id: u8,
+    supported: u32,
+    value: u32,
+    auto_ctrls: u32,
+    auto_ctrls_values: u32,
+    @pad 8,
+}

@@ -1,5 +1,7 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{Backend, BackendEvent, InputDevice, InputDeviceId, InputDeviceIds, OutputId, OutputIds};
+use crate::backend::{
+    Backend, BackendEvent, InputDevice, InputDeviceId, InputDeviceIds, OutputId, OutputIds,
+};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;

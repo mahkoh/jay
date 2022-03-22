@@ -1,0 +1,264 @@
+struct Format {
+    depth: u8,
+    bits_per_pixel: u8,
+    scanline_pad: u8,
+    @pad 5,
+}
+
+struct Visualtype {
+    visual_id: u32,
+    class: u8,
+    bits_per_rgb_value: u8,
+    colormap_entries: u16,
+    red_mask: u32,
+    green_mask: u32,
+    blue_mask: u32,
+    @pad 4,
+}
+
+struct Depth {
+    depth: u8,
+    @pad 1,
+    num_visualtypes: u16 = len(visuals),
+    @pad 4,
+    visuals: list(Visualtype, field(num_visualtypes)),
+}
+
+struct Screen {
+    root: u32,
+    default_colormap: u32,
+    white_pixel: u32,
+    black_pixel: u32,
+    input_mask: u32,
+    width: u16,
+    height: u16,
+    width_mm: u16,
+    height_mm: u16,
+    min_maps: u16,
+    max_maps: u16,
+    root_visual: u32,
+    backing_stores: u8,
+    save_unders: u8,
+    root_depth: u8,
+    number_of_depths: u8 = len(allowed_depths),
+    allowed_depths: list(Depth, field(number_of_depths)),
+}
+
+struct Setup {
+    success: u8 = literal(1),
+    @pad 1,
+    protocol_major: u16,
+    protocol_minor: u16,
+    additional_data: u16,
+    release_number: u32,
+    resource_id_base: u32,
+    resource_id_mask: u32,
+    motion_buffer_size: u32,
+    vendor_len: u16 = len(vendor),
+    max_request_length: u16,
+    number_of_screens: u8 = len(screens),
+    number_of_formats: u8 = len(formats),
+    image_byte_order: u8,
+    bitmap_format_bit_order: u8,
+    bitmap_format_scanline_unit: u8,
+    bitmap_format_scanline_pad: u8,
+    min_keycode: u8,
+    max_keycode: u8,
+    @pad 4,
+    vendor: str(field(vendor_len)),
+    @align 4,
+    formats: list(Format, field(number_of_formats)),
+    screens: list(Screen, field(number_of_screens)),
+}
+
+struct Str {
+    len: u8 = len(val),
+    val: str(field(len)),
+}
+
+request ListExtensions = 99 () {
+    names_len: u8 = len(names),
+    @pad 24,
+    names: list(Str, field(names_len)),
+}
+
+request GetInputFocus = 43 () {
+    revert_to: u8,
+    focus: u32,
+}
+
+request QueryExtension = 98 (
+    @pad 1,
+    name_len: u16 = len(name),
+    @pad 2,
+    name: str(field(name_len)),
+    @align 4,
+) {
+    @pad 1,
+    present: u8,
+    major_opcode: u8,
+    first_event: u8,
+    first_error: u8,
+}
+
+bitmask CreateWindowValues {
+    background_pixmap:     u32 = 0,
+    background_pixel:      u32 = 1,
+    border_pixmap:         u32 = 2,
+    border_pixel:          u32 = 3,
+    bit_gravity:           u32 = 4,
+    win_gravity:           u32 = 5,
+    backing_store:         u32 = 6,
+    backing_planes:        u32 = 7,
+    backing_pixel:         u32 = 8,
+    override_redirect:     u32 = 9,
+    save_under:            u32 = 10,
+    event_mask:            u32 = 11,
+    do_not_propagate_mask: u32 = 12,
+    colormap:              u32 = 13,
+    cursor:                u32 = 14,
+}
+
+request CreateWindow = 1 (
+    depth: u8,
+    wid: u32,
+    parent: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    class: u16,
+    visual: u32,
+    value_mask: u32 = bitmask(values),
+    values: bitmask(CreateWindowValues, field(value_mask)),
+);
+
+request ChangeWindowAttributes = 2 (
+    @pad 1,
+    window: u32,
+    value_mask: u32 = bitmask(values),
+    values: bitmask(CreateWindowValues, field(value_mask)),
+);
+
+request DestroyWindow = 4 (
+    @pad 1,
+    window: u32,
+);
+
+request MapWindow = 8 (
+    @pad 1,
+    window: u32,
+);
+
+event DestroyNotify = 17 {
+    @pad 1,
+    event: u32,
+    window: u32,
+}
+
+event ConfigureNotify = 22 {
+    @pad 1,
+    event: u32,
+    window: u32,
+    above_sibling: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    override_redirect: u8,
+    @pad 1,
+}
+
+request CreatePixmap = 53 (
+    depth: u8,
+    pid: u32,
+    drawable: u32,
+    width: u16,
+    height: u16,
+);
+
+request FreePixmap = 54 (
+    @pad 1,
+    pixmap: u32,
+);
+
+bitmask GC {
+    function:              u32 = 0,
+    plane_mask:            u32 = 1,
+    foreground:            u32 = 2,
+    background:            u32 = 3,
+    line_width:            u32 = 4,
+    line_style:            u32 = 5,
+    cap_style:             u32 = 6,
+    join_style:            u32 = 7,
+    fill_style:            u32 = 8,
+    fill_rule:             u32 = 9,
+    tile:                  u32 = 10,
+    stipple:               u32 = 11,
+    tile_stipple_x_origin: u32 = 12,
+    tile_stipple_y_origin: u32 = 13,
+    font:                  u32 = 14,
+    subwindow_mode:        u32 = 15,
+    graphics_exposures:    u32 = 16,
+    clip_x_origin:         u32 = 17,
+    clip_y_origin:         u32 = 18,
+    clip_mask:             u32 = 19,
+    dash_offset:           u32 = 20,
+    dashes:                u32 = 21,
+    arc_mode:              u32 = 22,
+}
+
+request CreateGC = 55 (
+    @pad 1,
+    cid: u32,
+    drawable: u32,
+    value_mask: u32 = bitmask(values),
+    values: bitmask(GC, field(value_mask)),
+);
+
+request FreeGC = 60 (
+    @pad 1,
+    gc: u32,
+);
+
+request PutImage = 72 (
+    format: u8,
+    drawable: u32,
+    gc: u32,
+    width: u16,
+    height: u16,
+    dst_x: i16,
+    dst_y: i16,
+    left_pad: u8,
+    depth: u8,
+    @pad 2,
+    data: list(u8),
+);
+
+request CreateCursor = 93 (
+    @pad 1,
+    cid: u32,
+    source: u32,
+    mask: u32,
+    fore_red: u16,
+    fore_green: u16,
+    fore_blue: u16,
+    back_red: u16,
+    back_green: u16,
+    back_blue: u16,
+    x: u16,
+    y: u16,
+);
+
+request ChangeProperty = 18 (
+    mode: u8,
+    window: u32,
+    property: u32,
+    ty: u32,
+    format: u8,
+    @pad 3,
+    data_len: u32 = div(mul(len(data), literal(8)), field(format)),
+    data: list(u8, mul(field(data_len), div(field(format), literal(8)))),
+);

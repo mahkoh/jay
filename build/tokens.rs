@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TreeDelim {
@@ -27,7 +27,9 @@ impl TreeDelim {
 pub enum Symbol {
     Comma,
     Colon,
+    Semicolon,
     Equals,
+    At,
 }
 
 impl Symbol {
@@ -36,17 +38,19 @@ impl Symbol {
             Symbol::Comma => "','",
             Symbol::Colon => "':'",
             Symbol::Equals => "'='",
+            Symbol::At => "'@'",
+            Symbol::Semicolon => "';'",
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Token<'a> {
     pub line: u32,
     pub kind: TokenKind<'a>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum TokenKind<'a> {
     Ident(&'a BStr),
     Num(u32),
@@ -55,6 +59,7 @@ pub enum TokenKind<'a> {
         body: Vec<Token<'a>>,
     },
     Symbol(Symbol),
+    String(BString),
 }
 
 impl TokenKind<'_> {
@@ -67,6 +72,7 @@ impl TokenKind<'_> {
                 TreeDelim::Brace => "'{'-tree",
             },
             TokenKind::Symbol(s) => s.name(),
+            TokenKind::String(_) => "string",
         }
     }
 }
@@ -153,7 +159,9 @@ impl<'a> Tokenizer<'a> {
             }
             b',' => TokenKind::Symbol(Symbol::Comma),
             b'=' => TokenKind::Symbol(Symbol::Equals),
+            b'@' => TokenKind::Symbol(Symbol::At),
             b':' => TokenKind::Symbol(Symbol::Colon),
+            b';' => TokenKind::Symbol(Symbol::Semicolon),
             b'(' => self.tokenize_tree(TreeDelim::Paren)?,
             b'{' => self.tokenize_tree(TreeDelim::Brace)?,
             c @ (b')' | b'}') => {
@@ -161,6 +169,37 @@ impl<'a> Tokenizer<'a> {
                     bail!("Unexpected {:?} in line {}", c as char, self.line);
                 }
                 return Ok(false);
+            }
+            b'"' => {
+                let mut res = vec![];
+                let mut escaped = false;
+                while !c.eof() {
+                    let char = c.s[c.pos];
+                    if char == b'\\' {
+                        escaped = true;
+                    } else if escaped {
+                        escaped = false;
+                        if matches!(char, b'"' | b'\\') {
+                            res.push(char);
+                        } else {
+                            bail!(
+                                "Unexpected escape sequence '\\{}' in line {}",
+                                char,
+                                self.line
+                            );
+                        }
+                    } else if char == b'"' {
+                        break;
+                    } else {
+                        res.push(char);
+                    }
+                    c.pos += 1;
+                }
+                if c.eof() {
+                    bail!("Unterminated string in line {}", self.line);
+                }
+                c.pos += 1;
+                TokenKind::String(res.into())
             }
             _ => bail!("Unexpected byte {:?} in line {}", b as char, self.line),
         };

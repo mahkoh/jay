@@ -28,8 +28,9 @@ pub enum Phase {
     EventHandling,
     Layout,
     PostLayout,
+    Present,
 }
-const NUM_PHASES: usize = 3;
+const NUM_PHASES: usize = 4;
 
 pub struct AsyncEngine {
     wheel: Rc<Wheel>,

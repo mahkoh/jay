@@ -1,12 +1,13 @@
 use crate::dbus::property::Get;
 use crate::dbus::types::{ObjectPath, Signature, Variant};
 use crate::dbus::{
-    AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusMessage, DbusSocket, DbusType,
-    Formatter, Headers, InterfaceSignalHandlers, Message, MethodCall, Parser, Property, Reply,
-    ReplyHandler, Signal, SignalHandler, SignalHandlerApi, SignalHandlerData, BUS_DEST, BUS_PATH,
-    HDR_DESTINATION, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_SIGNATURE, HDR_UNIX_FDS,
-    MSG_METHOD_CALL, NO_REPLY_EXPECTED,
+    AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusSocket, DbusType, Formatter, Headers,
+    InterfaceSignalHandlers, Message, MethodCall, Parser, Property, Reply, ReplyHandler, Signal,
+    SignalHandler, SignalHandlerApi, SignalHandlerData, BUS_DEST, BUS_PATH, HDR_DESTINATION,
+    HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_SIGNATURE, HDR_UNIX_FDS, MSG_METHOD_CALL,
+    NO_REPLY_EXPECTED,
 };
+use crate::utils::bufio::BufIoMessage;
 use crate::{org, ErrorFmt};
 use std::cell::Cell;
 use std::collections::hash_map::Entry;
@@ -243,7 +244,7 @@ impl DbusSocket {
         msg: &T,
     ) -> u32 {
         let (msg, serial) = self.format_call(path, destination, flags, msg);
-        self.outgoing.push(msg);
+        self.bufio.send(msg);
         serial
     }
 
@@ -253,12 +254,11 @@ impl DbusSocket {
         destination: &str,
         flags: u8,
         msg: &T,
-    ) -> (DbusMessage, u32) {
+    ) -> (BufIoMessage, u32) {
         let num_fds = msg.num_fds();
         let mut fds = Vec::with_capacity(num_fds as _);
         let serial = self.serial();
-        let mut buf = self.bufs.pop().unwrap_or_default();
-        buf.clear();
+        let mut buf = self.bufio.buf();
         let mut fmt = Formatter::new(&mut fds, &mut buf);
         self.format_header(
             &mut fmt,
@@ -276,7 +276,7 @@ impl DbusSocket {
         msg.marshal(&mut fmt);
         let body_len = (buf.len() - body_start) as u32;
         buf[4..8].copy_from_slice(uapi::as_bytes(&body_len));
-        (DbusMessage { fds, buf }, serial)
+        (BufIoMessage { fds, buf }, serial)
     }
 
     fn format_header(
@@ -345,12 +345,21 @@ where
     ) -> Result<(), DbusError> {
         let msg = <T::Generic<'a> as Message>::unmarshal(parser)?;
         (self.0)(Ok(&msg));
-        socket.bufs.push(buf);
+        socket.bufio.add_buf(buf);
         Ok(())
     }
 }
 
 struct AsyncReplyHandler<T: Message<'static>>(Rc<AsyncReplySlot<T>>);
+
+impl<T: Message<'static>> AsyncReplyHandler<T> {
+    fn complete(self: Box<Self>, res: Result<Reply<T>, DbusError>) {
+        self.0.data.set(Some(res));
+        if let Some(waker) = self.0.waker.take() {
+            waker.wake();
+        }
+    }
+}
 
 unsafe impl<T> ReplyHandler for AsyncReplyHandler<T>
 where
@@ -376,16 +385,21 @@ where
     ) -> Result<(), DbusError> {
         let msg = <T::Generic<'static> as Message<'static>>::unmarshal(unsafe {
             mem::transmute::<&mut Parser<'a>, &mut Parser<'static>>(parser)
-        })?;
+        });
+        let msg = match msg {
+            Ok(msg) => msg,
+            Err(e) => {
+                let e = Rc::new(e);
+                self.complete(Err(DbusError::DbusError(e.clone())));
+                return Err(DbusError::DbusError(e.clone()));
+            }
+        };
         let reply = Reply {
             socket: socket.clone(),
             buf,
             t: msg,
         };
-        self.0.data.set(Some(Ok(reply)));
-        if let Some(waker) = self.0.waker.take() {
-            waker.wake();
-        }
+        self.complete(Ok(reply));
         Ok(())
     }
 }

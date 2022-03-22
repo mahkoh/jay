@@ -3,7 +3,7 @@ use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use std::cell::UnsafeCell;
 use std::fmt::{Debug, Formatter};
 use std::mem;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 pub struct CloneCell<T: UnsafeCellCloneSafe> {
     data: UnsafeCell<T>,
@@ -60,6 +60,7 @@ pub unsafe trait UnsafeCellCloneSafe: Clone {}
 unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> {}
 
 unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> {}
+unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Weak<T> {}
 
 unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
 

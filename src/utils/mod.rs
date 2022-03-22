@@ -3,6 +3,7 @@ pub mod asyncevent;
 pub mod bitfield;
 pub mod bitflags;
 pub mod buffd;
+pub mod bufio;
 pub mod clonecell;
 pub mod copyhashmap;
 pub mod debug_fn;

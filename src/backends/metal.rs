@@ -237,7 +237,7 @@ impl InputDevice for MetalInputDevice {
     }
 
     fn grab(&self, _grab: bool) {
-        log::warn!("Metal backend does not support grabbing devices");
+        // nothing
     }
 }
 

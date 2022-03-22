@@ -1,0 +1,59 @@
+ext "Present"
+
+xge PresentCompleteNotify = 1 {
+    kind: u8,
+    mode: u8,
+    event: u32,
+    window: u32,
+    serial: u32,
+    ust: u64,
+    msc: u64,
+}
+
+struct PresentNotify {
+    window: u32,
+    serial: u32,
+}
+
+xge PresentIdleNotify = 2 {
+    @pad 2,
+    event: u32,
+    window: u32,
+    serial: u32,
+    pixmap: u32,
+    idle_fence: u32,
+}
+
+request PresentQueryVersion = 0 (
+    major_version: u32,
+    minor_version: u32,
+) {
+    @pad 1,
+    major_version: u32,
+    minor_version: u32,
+}
+
+request PresentPixmap = 1 (
+    window: u32,
+    pixmap: u32,
+    serial: u32,
+    valid: u32,
+    update: u32,
+    x_off: i16,
+    y_off: i16,
+    target_crtc: u32,
+    wait_fence: u32,
+    idle_fence: u32,
+    options: u32,
+    @pad 4,
+    target_msc: u64,
+    divisor: u64,
+    remainder: u64,
+    notifies: list(PresentNotify),
+);
+
+request PresentSelectInput = 3 (
+    eid: u32,
+    window: u32,
+    event_mask: u32,
+);

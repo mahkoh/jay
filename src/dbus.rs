@@ -1,10 +1,10 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
 use crate::dbus::property::GetReply;
 use crate::dbus::types::{ObjectPath, Signature, Variant};
+use crate::utils::bufio::{BufIo, BufIoError};
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::stack::Stack;
 use crate::utils::vecstorage::VecStorage;
-use crate::{AsyncEngine, AsyncError, AsyncQueue, CloneCell, NumCell, RunToplevel};
+use crate::{AsyncEngine, AsyncError, CloneCell, NumCell, RunToplevel};
 use ahash::AHashMap;
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
@@ -50,8 +50,6 @@ impl Display for CallError {
 pub enum DbusError {
     #[error("Encountered an unknown type in a signature")]
     UnknownType,
-    #[error("BUS closed the connection")]
-    Closed,
     #[error("Function call reply does not contain a reply serial")]
     NoReplySerial,
     #[error("Signal message contains no interface or member or path")]
@@ -108,6 +106,10 @@ pub enum DbusError {
     InvalidSignatureType,
     #[error("The signal already has a handler")]
     AlreadyHandled,
+    #[error(transparent)]
+    BufIoError(#[from] BufIoError),
+    #[error(transparent)]
+    DbusError(Rc<DbusError>),
 }
 efrom!(DbusError, AsyncError);
 
@@ -145,11 +147,10 @@ unsafe trait ReplyHandler {
 pub struct DbusSocket {
     bus_name: &'static str,
     fd: AsyncFd,
+    bufio: Rc<BufIo>,
     eng: Rc<AsyncEngine>,
     next_serial: NumCell<u32>,
-    bufs: Stack<Vec<u8>>,
     unique_name: CloneCell<Rc<String>>,
-    outgoing: AsyncQueue<DbusMessage>,
     reply_handlers: CopyHashMap<u32, Box<dyn ReplyHandler>>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
     outgoing_: Cell<Option<SpawnedFuture<()>>>,
@@ -235,11 +236,6 @@ impl Drop for DbusHolder {
             socket.incoming.take();
         }
     }
-}
-
-struct DbusMessage {
-    fds: Vec<Rc<OwnedFd>>,
-    buf: Vec<u8>,
 }
 
 #[derive(Clone, Debug)]
@@ -354,7 +350,7 @@ impl<T: Message<'static>> Reply<T> {
 
 impl<T: Message<'static>> Drop for Reply<T> {
     fn drop(&mut self) {
-        self.socket.bufs.push(mem::take(&mut self.buf));
+        self.socket.bufio.add_buf(mem::take(&mut self.buf));
     }
 }
 

@@ -1,12 +1,19 @@
-use crate::{metal, ErrorFmt, State, XorgBackend};
+use crate::{metal, ErrorFmt, State};
 use std::future::pending;
 use std::rc::Rc;
+use crate::backends::xorgng::XorgngBackend;
 
 pub async fn start_backend(state: Rc<State>) {
     log::info!("Trying to start X backend");
-    let e = match XorgBackend::new(&state) {
-        Ok(b) => {
-            state.backend.set(Some(b));
+    // let e = match XorgBackend::new(&state) {
+    //     Ok(b) => {
+    //         state.backend.set(Some(b));
+    //         pending().await
+    //     }
+    //     Err(e) => e,
+    // };
+    let e = match XorgngBackend::run(&state).await {
+        Ok(_) => {
             pending().await
         },
         Err(e) => e,

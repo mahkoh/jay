@@ -1,0 +1,31 @@
+ext "DRI3"
+
+request Dri3QueryVersion = 0 (
+    major_version: u32,
+    minor_version: u32,
+) {
+    @pad 1,
+    major_version: u32,
+    minor_version: u32,
+}
+
+request Dri3Open = 1 (
+    drawable: u32,
+    provider: u32,
+) {
+    @pad 1,
+    device_fd: fd,
+    @pad 24,
+}
+
+request Dri3PixmapFromBuffer = 2 (
+    pixmap: u32,
+    drawable: u32,
+    size: u32,
+    width: u16,
+    height: u16,
+    stride: u16,
+    depth: u8,
+    bpp: u8,
+    pixmap_fd: fd,
+);

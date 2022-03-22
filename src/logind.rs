@@ -1,10 +1,10 @@
 use crate::dbus::{DbusError, DbusSocket, SignalHandler};
+use crate::org::freedesktop::login1::seat::SwitchToReply;
 use crate::org::freedesktop::login1::session::{PauseDevice, ResumeDevice, TakeDeviceReply};
 use crate::{org, FALSE};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;
-use crate::org::freedesktop::login1::seat::SwitchToReply;
 
 const LOGIND_NAME: &str = "org.freedesktop.login1";
 const MANAGER_PATH: &str = "/org/freedesktop/login1";
@@ -53,7 +53,7 @@ impl Session {
                 .get_async::<org::freedesktop::login1::session::Seat>(LOGIND_NAME, &session_path)
                 .await;
             match seat {
-                Ok(s) => s.get().1.0.to_string(),
+                Ok(s) => s.get().1 .0.to_string(),
                 Err(e) => return Err(LogindError::GetSeatName(e)),
             }
         };
@@ -126,7 +126,8 @@ impl Session {
     }
 
     pub fn switch_to<F>(&self, vtnr: u32, f: F)
-        where F: FnOnce(Result<&SwitchToReply, DbusError>) + 'static
+    where
+        F: FnOnce(Result<&SwitchToReply, DbusError>) + 'static,
     {
         self.socket.call(
             LOGIND_NAME,

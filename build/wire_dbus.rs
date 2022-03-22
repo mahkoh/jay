@@ -747,7 +747,13 @@ pub fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=wire-dbus");
 
     let mut f = open("wire_dbus.rs")?;
-    for (_, child) in collect_interfaces()?.children {
+    let mut children: Vec<_> = collect_interfaces()?
+        .children
+        .into_iter()
+        .map(|v| v.1)
+        .collect();
+    children.sort_by(|c1, c2| c1.name.cmp(&c2.name));
+    for child in children {
         write_element(&mut f, child, "")?;
     }
     Ok(())

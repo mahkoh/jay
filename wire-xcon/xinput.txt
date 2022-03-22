@@ -1,0 +1,214 @@
+ext "XInputExtension"
+
+struct XiModifierInfo {
+    base: u32,
+    latched: u32,
+    locked: u32,
+    effective: u32,
+}
+
+struct XiGroupInfo {
+    base: u8,
+    latched: u8,
+    locked: u8,
+    effective: u8,
+}
+
+xge XiKeyPress = 2 {
+    deviceid: u16,
+    time: u32,
+    detail: u32,
+    root: u32,
+    event: u32,
+    child: u32,
+    root_x: i32,
+    root_y: i32,
+    event_x: i32,
+    event_y: i32,
+    buttons_len: u16 = len(button_mask),
+    valuators_len: u16 = len(valuator_mask),
+    sourceid: u16,
+    @pad 2,
+    flags: u32,
+    mods: XiModifierInfo,
+    groups: XiGroupInfo,
+    button_mask: list(u32, field(buttons_len)),
+    valuator_mask: list(u32, field(valuators_len)),
+    axisvalues: list(u32, mul(sum(map(iter(field(valuator_mask)), popcount(it))), literal(2))),
+}
+
+eventcopy XiKeyRelease = 3 = XiKeyPress;
+eventcopy XiButtonPress = 4 = XiKeyPress;
+eventcopy XiButtonRelease = 5 = XiKeyPress;
+eventcopy XiMotion = 6 = XiKeyPress;
+
+xge XiEnter = 7 {
+    deviceid: u16,
+    time: u32,
+    sourceid: u16,
+    mode: u8,
+    detail: u8,
+    root: u32,
+    event: u32,
+    child: u32,
+    root_x: i32,
+    root_y: i32,
+    event_x: i32,
+    event_y: i32,
+    same_screen: u8,
+    focus: u8,
+    buttons_len: u16 = len(buttons),
+    buttons: list(u32, field(buttons_len)),
+}
+
+struct XiHierarchyInfo {
+    deviceid: u16,
+    attachment: u16,
+    ty: u8,
+    enabled: u8,
+    @pad 2,
+    flags: u32,
+}
+
+xge XiHierarchy = 11 {
+    deviceid: u16,
+    time: u32,
+    flags: u32,
+    num_infos: u16 = len(infos),
+    @pad 10,
+    infos: list(XiHierarchyInfo, field(num_infos)),
+}
+
+request XiQueryVersion = 47 (
+    major_version: u16,
+    minor_version: u16,
+) {
+    @pad 1,
+    major_version: u16,
+    minor_version: u16,
+    @pad 20,
+}
+
+struct XiEventMask {
+    deviceid: u16,
+    mask_len: u16 = len(mask),
+    mask: list(u32, field(mask_len)),
+}
+
+request XiSelectEvents = 46 (
+    window: u32,
+    num_mask: u16 = len(masks),
+    @pad 2,
+    masks: list(XiEventMask, field(num_mask)),
+);
+
+struct XiDeviceClassKey {
+    num_keys: u16 = len(keys),
+    keys: list(u32, field(num_keys)),
+}
+
+struct XiDeviceClassButton {
+    num_buttons: u16 = len(labels),
+    state: list(u32, div(plus(field(num_buttons), literal(31)), literal(32))),
+    labels: list(u32, field(num_buttons)),
+}
+
+struct XiDeviceClassValuator {
+    number: u16,
+    label: u32,
+    min_int: i32,
+    min_frac: u32,
+    max_int: i32,
+    max_frac: u32,
+    value_int: i32,
+    value_frac: u32,
+    resolution: u32,
+    mode: u8,
+    @pad 3,
+}
+
+struct XiDeviceClassScroll {
+    number: u16,
+    scroll_type: u16,
+    @pad 2,
+    flags: u32,
+    increment_int: i32,
+    increment_frac: u32,
+}
+
+struct XiDeviceClassTouch {
+    mode: u8,
+    num_touches: u8,
+}
+
+enum XiDeviceClassType {
+    Key: XiDeviceClassKey = 0,
+    Button: XiDeviceClassButton = 1,
+    Valuator: XiDeviceClassValuator = 2,
+    Scroll: XiDeviceClassScroll = 3,
+    Touch: XiDeviceClassTouch = 8,
+}
+
+struct XiDeviceClass {
+    ty: u16 = variant(data),
+    len: u16,
+    sourceid: u16,
+    data: enum(XiDeviceClassType, field(ty)),
+}
+
+struct XiDeviceInfo {
+    deviceid: u16,
+    ty: u16,
+    attachment: u16,
+    num_classes: u16 = len(classes),
+    name_len: u16 = len(name),
+    enabled: u8,
+    @pad 1,
+    name: str(field(name_len)),
+    @align 4,
+    classes: list(XiDeviceClass, field(num_classes)),
+}
+
+request XiQueryDevice = 48 (
+    deviceid: u16,
+    @pad 2,
+) {
+    @pad 1,
+    num_infos: u16 = len(infos),
+    @pad 22,
+    infos: list(XiDeviceInfo, field(num_infos)),
+}
+
+request XiGetDeviceButtonMapping = 28 (
+    device_id: u8,
+    @pad 3,
+) {
+    xi_reply_type: u8,
+    map_size: u8 = len(map),
+    @pad 23,
+    map: list(u8, field(map_size)),
+    @align 4,
+}
+
+request XiGrabDevice = 51 (
+    window: u32,
+    time: u32,
+    cursor: u32,
+    deviceid: u16,
+    mode: u8,
+    paired_device_mode: u8,
+    owner_events: u8,
+    @pad 1,
+    mask_len: u16 = len(mask),
+    mask: list(u32, field(mask_len)),
+) {
+    @pad 1,
+    status: u8,
+    @pad 23,
+}
+
+request XiUngrabDevice = 52 (
+    time: u32,
+    deviceid: u16,
+    @pad 2,
+);

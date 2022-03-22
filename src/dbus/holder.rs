@@ -1,5 +1,6 @@
 use crate::dbus::auth::handle_auth;
 use crate::dbus::{DbusError, DbusHolder, DbusSocket};
+use crate::utils::bufio::BufIo;
 use crate::{org, AsyncEngine, ErrorFmt, NumCell, RunToplevel};
 use std::cell::Cell;
 use std::rc::Rc;
@@ -46,14 +47,14 @@ fn connect(
     if let Err(e) = uapi::connect(socket.raw(), &sadr) {
         return Err(DbusError::Connect(e.into()));
     }
+    let fd = eng.fd(&Rc::new(socket))?;
     let socket = Rc::new(DbusSocket {
         bus_name: name,
-        fd: eng.fd(&Rc::new(socket))?,
+        fd: fd.clone(),
+        bufio: Rc::new(BufIo::new(fd)),
         eng: eng.clone(),
         next_serial: NumCell::new(1),
-        bufs: Default::default(),
         unique_name: Default::default(),
-        outgoing: Default::default(),
         reply_handlers: Default::default(),
         incoming: Default::default(),
         outgoing_: Default::default(),
