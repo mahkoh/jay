@@ -191,7 +191,7 @@ impl XorgngBackend {
             let cc = CreateCursor {
                 cid: c.generate_id()?,
                 source: cp.pid,
-                mask: 0,
+                mask: cp.pid,
                 fore_red: 0,
                 fore_green: 0,
                 fore_blue: 0,
@@ -204,6 +204,7 @@ impl XorgngBackend {
             if let Err(e) = c.call(&cc).await {
                 return Err(XorgngBackendError::CreateCursor(e));
             }
+            c.call(&FreePixmap { pixmap: cp.pid });
             cc.cid
         };
         {
@@ -230,7 +231,7 @@ impl XorgngBackend {
             cursor,
             root,
             scheduled_present: Default::default(),
-            grab_requests: Default::default()
+            grab_requests: Default::default(),
         });
         data.add_output().await?;
         data.query_devices(INPUT_DEVICE_ALL_MASTER).await?;
@@ -256,7 +257,10 @@ impl XorgngBackendData {
         loop {
             let event = self.c.event().await;
             if let Err(e) = self.handle_event(&event).await {
-                log::error!("Fatal error: Could not handle an event from the X server: {}", ErrorFmt(e));
+                log::error!(
+                    "Fatal error: Could not handle an event from the X server: {}",
+                    ErrorFmt(e)
+                );
                 self.state.el.stop();
                 return;
             }

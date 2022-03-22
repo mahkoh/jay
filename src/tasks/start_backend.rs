@@ -1,7 +1,7 @@
+use crate::backends::xorgng::XorgngBackend;
 use crate::{metal, ErrorFmt, State};
 use std::future::pending;
 use std::rc::Rc;
-use crate::backends::xorgng::XorgngBackend;
 
 pub async fn start_backend(state: Rc<State>) {
     log::info!("Trying to start X backend");
@@ -13,9 +13,7 @@ pub async fn start_backend(state: Rc<State>) {
     //     Err(e) => e,
     // };
     let e = match XorgngBackend::run(&state).await {
-        Ok(_) => {
-            pending().await
-        },
+        Ok(_) => pending().await,
         Err(e) => e,
     };
     log::warn!("Could not start X backend: {}", ErrorFmt(e));

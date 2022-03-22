@@ -101,3 +101,7 @@ pub const GRAB_STATUS_ALREADY_GRABBED: u8 = 1;
 pub const GRAB_STATUS_INVALID_TIME: u8 = 2;
 pub const GRAB_STATUS_NOT_VIEWABLE: u8 = 3;
 pub const GRAB_STATUS_FROZEN: u8 = 4;
+
+pub const IMAGE_FORMAT_XY_BITMAP: u8 = 0;
+pub const IMAGE_FORMAT_XY_PIXMAP: u8 = 1;
+pub const IMAGE_FORMAT_Z_PIXMAP: u8 = 2;

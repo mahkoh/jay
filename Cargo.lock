@@ -444,8 +444,6 @@ dependencies = [
  "thiserror",
  "uapi",
  "x11rb",
- "xcb-dl",
- "xcb-dl-util",
 ]
 
 [[package]]
@@ -1109,31 +1107,4 @@ dependencies = [
  "nix",
  "winapi",
  "winapi-wsapoll",
-]
-
-[[package]]
-name = "xcb-dl"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ce37e57249f12cbdf43844a3c9b3162f528ec27a1dc1dd7c6f46826063f51e8"
-dependencies = [
- "libc",
- "libloading",
-]
-
-[[package]]
-name = "xcb-dl-util"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac09222229087f380311b876bf8651de4cfe78cf793ef8702932a81385c0f400"
-dependencies = [
- "bitflags",
- "bstr",
- "byteorder",
- "isnt",
- "libc",
- "log",
- "smallvec",
- "thiserror",
- "xcb-dl",
 ]

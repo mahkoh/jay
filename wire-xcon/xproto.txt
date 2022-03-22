@@ -235,6 +235,7 @@ request PutImage = 72 (
     depth: u8,
     @pad 2,
     data: list(u8),
+    @align 4,
 );
 
 request CreateCursor = 93 (
