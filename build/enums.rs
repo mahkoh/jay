@@ -18,6 +18,9 @@ mod xkbcommon;
 #[path = "../src/libinput/consts.rs"]
 mod libinput;
 
+#[path = "../src/pango/consts.rs"]
+mod pango;
+
 fn get_target() -> repc::Target {
     let rustc_target = env::var("TARGET").unwrap();
     repc::TARGET_MAP
@@ -40,11 +43,11 @@ fn get_enum_ty(variants: Vec<i128>) -> anyhow::Result<u64> {
     Ok(ty.layout.size_bits)
 }
 
-fn write_ty<W: Write>(f: &mut W, vals: &[u32], ty: &str) -> anyhow::Result<()> {
+fn write_ty<W: Write>(f: &mut W, vals: &[i32], ty: &str) -> anyhow::Result<()> {
     let variants: Vec<_> = vals.iter().cloned().map(|v| v as i128).collect();
     let size = get_enum_ty(variants)?;
     writeln!(f, "#[allow(dead_code)]")?;
-    writeln!(f, "pub type {} = u{};", ty, size)?;
+    writeln!(f, "pub type {} = i{};", ty, size)?;
     Ok(())
 }
 
@@ -260,6 +263,12 @@ pub fn main() -> anyhow::Result<()> {
     let mut f = open("pixman_tys.rs")?;
     write_ty(&mut f, pixman::FORMATS, "PixmanFormat")?;
     write_ty(&mut f, pixman::OPS, "PixmanOp")?;
+
+    let mut f = open("pango_tys.rs")?;
+    write_ty(&mut f, pango::CAIRO_FORMATS, "cairo_format_t")?;
+    write_ty(&mut f, pango::CAIRO_STATUSES, "cairo_status_t")?;
+    write_ty(&mut f, pango::CAIRO_OPERATORS, "cairo_operator_t")?;
+    write_ty(&mut f, pango::PANGO_ELLIPSIZE_MODES, "PangoEllipsizeMode_")?;
 
     let mut f = open("xkbcommon_tys.rs")?;
     write_ty(&mut f, xkbcommon::XKB_LOG_LEVEL, "xkb_log_level")?;

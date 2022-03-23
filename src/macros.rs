@@ -186,15 +186,15 @@ macro_rules! linear_ids {
 macro_rules! cenum {
     ($name:ident, $uc:ident; $($name2:ident = $val:expr,)*) => {
         #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-        pub struct $name(pub(super) u32);
+        pub struct $name(pub(super) i32);
 
         impl $name {
-            pub fn raw(self) -> u32 {
+            pub fn raw(self) -> i32 {
                 self.0
             }
         }
 
-        pub const $uc: &[u32] = &[$($val,)*];
+        pub const $uc: &[i32] = &[$($val,)*];
 
         $(
             pub const $name2: $name = $name($val);

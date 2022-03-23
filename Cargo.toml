@@ -33,9 +33,6 @@ backtrace = { version = "0.3.64", optional = true }
 byteorder = "1.4.3"
 chrono = "0.4.19"
 bincode = "2.0.0-beta.3"
-pangocairo = "0.15.1"
-cairo-rs = { version = "0.15.1", features = ["png"] }
-pango = { version = "0.15.2", features = ["v1_44"] }
 jay-config = { path = "jay-config" }
 default-config = { path = "default-config" }
 pin-project = "1.0.10"
@@ -45,8 +42,8 @@ repc = "0.1.1"
 anyhow = "1.0.52"
 bstr = "0.2.17"
 
-[profile.dev.build-override]
-opt-level = 3
+#[profile.dev.build-override]
+#opt-level = 3
 
 [features]
 rc_tracking = ["backtrace"]

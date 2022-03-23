@@ -99,6 +99,7 @@ mod wire_xcon;
 mod xcon;
 mod xkbcommon;
 mod xwayland;
+mod pango;
 
 fn main() {
     env_logger::builder()

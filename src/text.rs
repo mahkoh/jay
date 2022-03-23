@@ -2,27 +2,25 @@ use crate::format::ARGB8888;
 use crate::render::{RenderContext, Texture};
 use crate::theme::Color;
 use crate::RenderError;
-use cairo::{ImageSurface, Operator};
-use pango::{EllipsizeMode, Layout};
-use pangocairo::cairo::Format;
-use pangocairo::pango::FontDescription;
-use pangocairo::{cairo, pango};
-use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::pango::{CairoImageSurface, PangoError, PangoFontDescription};
+use crate::pango::consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE};
 
 #[derive(Debug, Error)]
 pub enum TextError {
     #[error("Could not create a cairo image")]
-    CreateImage(#[source] cairo::Error),
+    CreateImage(#[source] PangoError),
     #[error("Could not create a cairo context")]
-    CairoContext(#[source] cairo::Error),
+    CairoContext(#[source] PangoError),
     #[error("Could not create a pango context")]
-    PangoContext,
+    PangoContext(#[source] PangoError),
+    #[error("Could not create a pango layout")]
+    CreateLayout(#[source] PangoError),
     #[error("Could not import the rendered text")]
     RenderError(#[source] RenderError),
     #[error("Could not access the cairo image data")]
-    ImageData,
+    ImageData(#[source] PangoError),
 }
 
 pub fn render(
@@ -33,37 +31,39 @@ pub fn render(
     text: &str,
     color: Color,
 ) -> Result<Rc<Texture>, TextError> {
-    let image = match ImageSurface::create(Format::ARgb32, width, height) {
+    let image = match CairoImageSurface::new_image_surface(CAIRO_FORMAT_ARGB32, width, height) {
         Ok(s) => s,
         Err(e) => return Err(TextError::CreateImage(e)),
     };
-    let cctx = match cairo::Context::new(&image) {
+    let cctx = match image.create_context() {
         Ok(c) => c,
         Err(e) => return Err(TextError::CairoContext(e)),
     };
-    let pctx = match pangocairo::create_context(&cctx) {
-        Some(c) => c,
-        _ => return Err(TextError::PangoContext),
+    let pctx = match cctx.create_pango_context() {
+        Ok(c) => c,
+        Err(e) => return Err(TextError::PangoContext(e)),
     };
-    let fd = FontDescription::from_string(font);
-    let layout = Layout::new(&pctx);
-    layout.set_width((width - 2).max(0) * pango::SCALE);
-    layout.set_ellipsize(EllipsizeMode::End);
-    layout.set_font_description(Some(&fd));
+    let fd = PangoFontDescription::from_string(font);
+    let layout = match pctx.create_layout() {
+        Ok(l) => l,
+        Err(e) => return Err(TextError::CreateLayout(e)),
+    };
+    layout.set_width((width - 2).max(0) * PANGO_SCALE);
+    layout.set_ellipsize(PANGO_ELLIPSIZE_END);
+    layout.set_font_description(&fd);
     layout.set_text(text);
     let font_height = layout.pixel_size().1;
-    cctx.set_operator(Operator::Source);
+    cctx.set_operator(CAIRO_OPERATOR_SOURCE);
     cctx.set_source_rgba(color.r as _, color.g as _, color.b as _, color.a as _);
     cctx.move_to(1.0, ((height - font_height) / 2) as f64);
-    pangocairo::show_layout(&cctx, &layout);
-    let mut texture = None;
-    let _ = image.with_data(|d| unsafe {
-        let d = mem::transmute(d);
-        texture = Some(ctx.shmem_texture(d, ARGB8888, width, height, image.stride()));
-    });
-    match texture {
-        Some(Ok(t)) => Ok(t),
-        Some(Err(e)) => Err(TextError::RenderError(e)),
-        None => Err(TextError::ImageData),
+    layout.show_layout();
+    image.flush();
+    let data = match image.data() {
+        Ok(d) => d,
+        Err(e) => return Err(TextError::ImageData(e)),
+    };
+    match ctx.shmem_texture(data, ARGB8888, width, height, image.stride()) {
+        Ok(t) => Ok(t),
+        Err(e) => Err(TextError::RenderError(e)),
     }
 }

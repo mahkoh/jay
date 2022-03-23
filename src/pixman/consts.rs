@@ -1,17 +1,17 @@
 #![allow(dead_code)]
 
-pub const fn format(bpp: u32, ty: u32, a: u32, r: u32, g: u32, b: u32) -> u32 {
-    (bpp << 24) | (ty << 16) | (a << 12) | (r << 8) | (g << 4) | b
+pub const fn format(bpp: u32, ty: u32, a: u32, r: u32, g: u32, b: u32) -> i32 {
+    ((bpp << 24) | (ty << 16) | (a << 12) | (r << 8) | (g << 4) | b) as i32
 }
 
-pub const fn format_byte(bpp: u32, ty: u32, a: u32, r: u32, g: u32, b: u32) -> u32 {
-    ((bpp >> 3) << 24)
+pub const fn format_byte(bpp: u32, ty: u32, a: u32, r: u32, g: u32, b: u32) -> i32 {
+    (((bpp >> 3) << 24)
         | (3 << 22)
         | (ty << 16)
         | ((a >> 3) << 12)
         | ((r >> 3) << 8)
         | ((g >> 3) << 4)
-        | (b >> 3)
+        | (b >> 3)) as i32
 }
 
 pub const fn format_reshift(val: u32, ofs: u32, num: u32) -> u32 {
