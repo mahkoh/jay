@@ -11,17 +11,17 @@ use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlSurfaceId;
+use crate::wire_xcon::CreateNotify;
 use crate::xwayland::XWaylandEvent;
 use crate::{AsyncQueue, CloneCell, State};
 use jay_config::Direction;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use thiserror::Error;
-use x11rb::protocol::xproto::{CreateNotifyEvent, Window};
 
 pub struct XwindowData {
     pub state: Rc<State>,
-    pub window_id: Window,
+    pub window_id: u32,
     pub override_redirect: bool,
     pub extents: Cell<Rect>,
     pub client: Rc<Client>,
@@ -44,7 +44,7 @@ pub struct Xwindow {
 }
 
 impl XwindowData {
-    pub fn new(state: &Rc<State>, event: &CreateNotifyEvent, client: &Rc<Client>) -> Self {
+    pub fn new(state: &Rc<State>, event: &CreateNotify, client: &Rc<Client>) -> Self {
         let extents = Rect::new_sized(
             event.x as _,
             event.y as _,
@@ -56,7 +56,7 @@ impl XwindowData {
         Self {
             state: state.clone(),
             window_id: event.window,
-            override_redirect: event.override_redirect,
+            override_redirect: event.override_redirect != 0,
             extents: Cell::new(extents),
             client: client.clone(),
             surface_id: Cell::new(None),

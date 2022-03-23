@@ -151,26 +151,6 @@ request MapWindow = 8 (
     window: u32,
 );
 
-event DestroyNotify = 17 {
-    @pad 1,
-    event: u32,
-    window: u32,
-}
-
-event ConfigureNotify = 22 {
-    @pad 1,
-    event: u32,
-    window: u32,
-    above_sibling: u32,
-    x: i16,
-    y: i16,
-    width: u16,
-    height: u16,
-    border_width: u16,
-    override_redirect: u8,
-    @pad 1,
-}
-
 request CreatePixmap = 53 (
     depth: u8,
     pid: u32,
@@ -263,3 +243,98 @@ request ChangeProperty = 18 (
     data_len: u32 = div(mul(len(data), literal(8)), field(format)),
     data: list(u8, mul(field(data_len), div(field(format), literal(8)))),
 );
+
+request InternAtom = 16 (
+    only_if_exists: u8,
+    name_len: u16 = len(name),
+    @pad 2,
+    name: str(field(name_len)),
+    @align 4,
+) {
+    @pad 1,
+    atom: u32,
+}
+
+request SetSelectionOwner = 22 (
+    @pad 1,
+    owner: u32,
+    selection: u32,
+    time: u32,
+);
+
+bitmask ConfigureWindowValues {
+    x:               i32 = 0,
+    y:               i32 = 1,
+    width:           u32 = 2,
+    height:          u32 = 3,
+    border_width:    u32 = 4,
+    sibling:         u32 = 5,
+    stack_mode:      u32 = 6,
+}
+
+request ConfigureWindow = 12 (
+    @pad 1,
+    window: u32,
+    value_mask: u16 = bitmask(values),
+    @pad 2,
+    values: bitmask(ConfigureWindowValues, field(value_mask)),
+);
+
+event CreateNotify = 16 {
+    @pad 1,
+    parent: u32,
+    window: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    override_redirect: u8,
+    @pad 1,
+}
+
+event DestroyNotify = 17 {
+    @pad 1,
+    event: u32,
+    window: u32,
+}
+
+event MapRequest= 20 {
+    @pad 1,
+    parent: u32,
+    window: u32,
+}
+
+event ConfigureNotify = 22 {
+    @pad 1,
+    event: u32,
+    window: u32,
+    above_sibling: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    override_redirect: u8,
+    @pad 1,
+}
+
+event ConfigureRequest = 23 {
+    stack_mode: u8,
+    parent: u32,
+    window: u32,
+    sibling: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    value_mask: u16,
+}
+
+event ClientMessage = 33 {
+    format: u8,
+    window: u32,
+    ty: u32,
+    data: list(u32, literal(5)),
+}

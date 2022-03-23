@@ -2,8 +2,10 @@ use crate::async_engine::SpawnedFuture;
 use crate::utils::bufio::{BufIo, BufIoError, BufIoMessage};
 use crate::utils::oserror::OsError;
 use crate::wire_xcon::{
-    Extension, GetInputFocus, ListExtensions, QueryExtension, Setup, EXTENSIONS,
+    Extension, GetInputFocus, ListExtensions, QueryExtension, RenderQueryPictFormats, Setup,
+    EXTENSIONS,
 };
+use crate::xcon::consts::RENDER_PICT_TYPE_DIRECT;
 pub use crate::xcon::formatter::Formatter;
 use crate::xcon::incoming::handle_incoming;
 use crate::xcon::outgoing::handle_outgoing;
@@ -89,6 +91,10 @@ pub enum XconError {
     XidExhausted,
     #[error("Enum contains an unknown variant")]
     UnknownEnumVariant,
+    #[error("Could not query the render pict formats")]
+    QueryPictFormats(#[source] Box<XconError>),
+    #[error("The server does not support the picture format for cursors")]
+    CursorFormatNotSupported,
 }
 
 #[derive(Debug)]
@@ -443,6 +449,29 @@ impl Xcon {
 
     pub fn call<'a, T: Request<'a>>(self: &Rc<Self>, t: &T) -> AsyncReply<T::Reply> {
         self.data.call(t, &self.extensions)
+    }
+
+    pub async fn find_cursor_format(self: &Rc<Self>) -> Result<u32, XconError> {
+        let res = match self.call(&RenderQueryPictFormats {}).await {
+            Ok(r) => r,
+            Err(e) => return Err(XconError::QueryPictFormats(Box::new(e))),
+        };
+        for format in res.get().formats.iter() {
+            let valid = format.ty == RENDER_PICT_TYPE_DIRECT
+                && format.depth == 32
+                && format.direct.red_shift == 16
+                && format.direct.red_mask == 0xff
+                && format.direct.green_shift == 8
+                && format.direct.green_mask == 0xff
+                && format.direct.blue_shift == 0
+                && format.direct.blue_mask == 0xff
+                && format.direct.alpha_shift == 24
+                && format.direct.alpha_mask == 0xff;
+            if valid {
+                return Ok(format.id);
+            }
+        }
+        Err(XconError::CursorFormatNotSupported)
     }
 }
 

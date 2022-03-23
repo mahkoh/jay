@@ -1,0 +1,88 @@
+ext "RENDER"
+
+struct RenderDirectFormat {
+    red_shift: u16,
+    red_mask: u16,
+    green_shift: u16,
+    green_mask: u16,
+    blue_shift: u16,
+    blue_mask: u16,
+    alpha_shift: u16,
+    alpha_mask: u16,
+}
+
+struct RenderPictFormInfo {
+    id: u32,
+    ty: u8,
+    depth: u8,
+    @pad 2,
+    direct: RenderDirectFormat,
+    colormap: u32,
+}
+
+struct RenderPictVisual {
+    visual: u32,
+    format: u32,
+}
+
+struct RenderPictDepth {
+    depth: u8,
+    @pad 1,
+    num_visuals: u16 = len(visuals),
+    @pad 4,
+    visuals: list(RenderPictVisual, field(num_visuals)),
+}
+
+struct RenderPictScreen {
+    num_depths: u32 = len(depths),
+    fallback: u32,
+    depths: list(RenderPictDepth, field(num_depths)),
+}
+
+request RenderQueryPictFormats = 1 () {
+    @pad 1,
+    num_formats: u32 = len(formats),
+    num_screens: u32 = len(screens),
+    num_depths: u32,
+    num_visuals: u32,
+    num_subpixel: u32 = len(subpixels),
+    @pad 4,
+    formats: list(RenderPictFormInfo, field(num_formats)),
+    screens: list(RenderPictScreen, field(num_screens)),
+    subpixels: list(u32, field(num_subpixel)),
+}
+
+bitmask RenderCreatePictureValues {
+    repeat:             u32 = 0,
+    alphamap:           u32 = 1,
+    alphaxorigin:       u32 = 2,
+    alphayorigin:       u32 = 3,
+    clipxorigin:        u32 = 4,
+    clipyorigin:        u32 = 5,
+    clipmask:           u32 = 6,
+    graphicsexposure:   u32 = 7,
+    subwindowmode:      u32 = 8,
+    polyedge:           u32 = 9,
+    polymode:           u32 = 10,
+    dither:             u32 = 11,
+    componentalpha:     u32 = 12,
+}
+
+request RenderCreatePicture = 4 (
+    pid: u32,
+    drawable: u32,
+    format: u32,
+    value_mask: u32 = bitmask(values),
+    values: bitmask(RenderCreatePictureValues, field(value_mask)),
+);
+
+request RenderFreePicture = 7 (
+    picture: u32,
+);
+
+request RenderCreateCursor = 27 (
+    cid: u32,
+    source: u32,
+    x: u16,
+    y: u16,
+);

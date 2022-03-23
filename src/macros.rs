@@ -360,3 +360,40 @@ macro_rules! assert_align_eq {
         let _ = AssertEqAlign::<$t, $u>::VAL;
     }};
 }
+
+macro_rules! atom_manager {
+    {
+        $name:ident;
+        $($field_name:ident,)*
+    } => {
+        #[allow(non_snake_case, dead_code)]
+        #[derive(Debug, Clone, Copy)]
+        struct $name {
+            $(
+                $field_name: u32,
+            )*
+        }
+
+        impl $name {
+            fn get(
+                conn: &std::rc::Rc<crate::xcon::Xcon>,
+            ) -> impl std::future::Future<Output = Result<Self, crate::xcon::XconError>> {
+                #![allow(non_snake_case)]
+                use bstr::ByteSlice;
+                $(
+                    let $field_name = conn.call(&InternAtom {
+                        only_if_exists: 0,
+                        name: stringify!($field_name).as_bytes().as_bstr(),
+                    });
+                )*
+                async move {
+                    Ok(Self {
+                        $(
+                            $field_name: $field_name.await?.get().atom,
+                        )*
+                    })
+                }
+            }
+        }
+    }
+}

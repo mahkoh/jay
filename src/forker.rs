@@ -121,7 +121,7 @@ impl ForkerProxy {
             waiter: Cell::new(None),
         });
         self.pending_pidfds.set(id, Rc::downgrade(&handoff));
-        futures::future::poll_fn(|ctx| {
+        futures_util::future::poll_fn(|ctx| {
             if let Some(pidfd) = handoff.pidfd.take() {
                 Poll::Ready(pidfd)
             } else {

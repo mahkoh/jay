@@ -84,6 +84,7 @@ impl ServerCursors {
 
 pub struct ServerCursorTemplate {
     var: ServerCursorTemplateVariant,
+    pub xcursor: Vec<XCursorImage>,
 }
 
 enum ServerCursorTemplateVariant {
@@ -100,18 +101,19 @@ impl ServerCursorTemplate {
         ctx: &Rc<RenderContext>,
     ) -> Result<Self, CursorError> {
         match open_cursor(name, theme, size, paths) {
-            Ok(c) => {
-                if c.len() == 1 {
-                    let c = &c[0];
+            Ok(cs) => {
+                if cs.len() == 1 {
+                    let c = &cs[0];
                     let cursor = CursorImage::from_bytes(
                         ctx, &c.pixels, 0, c.width, c.height, c.xhot, c.yhot,
                     )?;
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
+                        xcursor: cs,
                     })
                 } else {
                     let mut images = vec![];
-                    for c in c {
+                    for c in &cs {
                         let img = CursorImage::from_bytes(
                             ctx,
                             &c.pixels,
@@ -125,6 +127,7 @@ impl ServerCursorTemplate {
                     }
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Animated(Rc::new(images)),
+                        xcursor: cs,
                     })
                 }
             }
@@ -134,6 +137,7 @@ impl ServerCursorTemplate {
                 let cursor = CursorImage::from_bytes(ctx, &empty, 0, 1, 1, 0, 0)?;
                 Ok(ServerCursorTemplate {
                     var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
+                    xcursor: Default::default(),
                 })
             }
         }
@@ -427,13 +431,13 @@ pub enum CursorError {
 }
 
 #[derive(Default, Clone)]
-struct XCursorImage {
-    width: i32,
-    height: i32,
-    xhot: i32,
-    yhot: i32,
-    delay: u32,
-    pixels: Vec<Cell<u8>>,
+pub struct XCursorImage {
+    pub width: i32,
+    pub height: i32,
+    pub xhot: i32,
+    pub yhot: i32,
+    pub delay: u32,
+    pub pixels: Vec<Cell<u8>>,
 }
 
 impl Debug for XCursorImage {

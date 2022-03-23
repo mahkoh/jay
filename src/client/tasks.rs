@@ -3,7 +3,7 @@ use crate::object::ObjectId;
 use crate::utils::buffd::{BufFdIn, BufFdOut, MsgParser};
 use crate::utils::vec_ext::VecExt;
 use crate::{ErrorFmt, Phase};
-use futures::{select, FutureExt};
+use futures_util::{select, FutureExt};
 use std::collections::VecDeque;
 use std::mem;
 use std::rc::Rc;

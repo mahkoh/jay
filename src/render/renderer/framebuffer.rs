@@ -9,7 +9,6 @@ use crate::render::sys::{glBlendFunc, GL_ONE, GL_ONE_MINUS_SRC_ALPHA};
 use crate::tree::Node;
 use crate::State;
 use std::fmt::{Debug, Formatter};
-use std::ptr;
 use std::rc::Rc;
 
 pub struct Framebuffer {
@@ -38,10 +37,6 @@ impl Framebuffer {
 
     pub fn render(&self, node: &dyn Node, state: &State, cursor_rect: Option<Rect>) {
         let _ = self.ctx.ctx.with_current(|| {
-            if let Some(rd) = &self.ctx.renderdoc {
-                rd.borrow_mut()
-                    .start_frame_capture(ptr::null(), ptr::null());
-            }
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
                 glViewport(0, 0, self.gl.width, self.gl.height);
@@ -78,9 +73,6 @@ impl Framebuffer {
                         }
                     }
                 }
-            }
-            if let Some(rd) = &self.ctx.renderdoc {
-                rd.borrow_mut().end_frame_capture(ptr::null(), ptr::null());
             }
             Ok(())
         });

@@ -41,7 +41,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum XorgngBackendError {
+pub enum XBackendError {
     #[error("Could not connect to the X server")]
     CannotConnect(#[source] XconError),
     #[error("Could not enable XInput")]
@@ -90,38 +90,38 @@ pub enum XorgngBackendError {
     QueryDevice(#[source] XconError),
 }
 
-pub struct XorgngBackend {
-    _data: Rc<XorgngBackendData>,
+pub struct XBackend {
+    _data: Rc<XBackendData>,
     _events: SpawnedFuture<()>,
     _present: SpawnedFuture<()>,
     _grab: SpawnedFuture<()>,
 }
 
-impl Backend for XorgngBackend {
+impl Backend for XBackend {
     fn switch_to(&self, _vtnr: u32) {
-        log::error!("Xorg backend cannot switch vts");
+        log::error!("X backend cannot switch vts");
     }
 }
 
-pub struct XorgngBackendData {
+struct XBackendData {
     state: Rc<State>,
     c: Rc<Xcon>,
-    outputs: CopyHashMap<u32, Rc<XorgOutput>>,
-    seats: CopyHashMap<u16, Rc<XorgSeat>>,
-    mouse_seats: CopyHashMap<u16, Rc<XorgSeat>>,
+    outputs: CopyHashMap<u32, Rc<XOutput>>,
+    seats: CopyHashMap<u16, Rc<XSeat>>,
+    mouse_seats: CopyHashMap<u16, Rc<XSeat>>,
     ctx: Rc<RenderContext>,
     gbm: GbmDevice,
     cursor: u32,
     root: u32,
-    scheduled_present: AsyncQueue<Rc<XorgOutput>>,
-    grab_requests: AsyncQueue<(Rc<XorgSeat>, bool)>,
+    scheduled_present: AsyncQueue<Rc<XOutput>>,
+    grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
 }
 
-impl XorgngBackend {
-    pub async fn run(state: &Rc<State>) -> Result<Rc<Self>, XorgngBackendError> {
+impl XBackend {
+    pub async fn run(state: &Rc<State>) -> Result<Rc<Self>, XBackendError> {
         let c = match Xcon::connect(state.eng.clone()).await {
             Ok(c) => c,
-            Err(e) => return Err(XorgngBackendError::CannotConnect(e)),
+            Err(e) => return Err(XBackendError::CannotConnect(e)),
         };
         if let Err(e) = c
             .call(&XiQueryVersion {
@@ -130,7 +130,7 @@ impl XorgngBackend {
             })
             .await
         {
-            return Err(XorgngBackendError::EnableXinput(e));
+            return Err(XBackendError::EnableXinput(e));
         }
         if let Err(e) = c
             .call(&Dri3QueryVersion {
@@ -139,7 +139,7 @@ impl XorgngBackend {
             })
             .await
         {
-            return Err(XorgngBackendError::EnableDri3(e));
+            return Err(XBackendError::EnableDri3(e));
         }
         if let Err(e) = c
             .call(&PresentQueryVersion {
@@ -148,7 +148,7 @@ impl XorgngBackend {
             })
             .await
         {
-            return Err(XorgngBackendError::EnablePresent(e));
+            return Err(XBackendError::EnablePresent(e));
         }
         if let Err(e) = c
             .call(&XkbUseExtension {
@@ -157,7 +157,7 @@ impl XorgngBackend {
             })
             .await
         {
-            return Err(XorgngBackendError::EnableXkb(e));
+            return Err(XBackendError::EnableXkb(e));
         }
         let root = c.setup().screens[0].root;
         let drm = {
@@ -169,13 +169,13 @@ impl XorgngBackend {
                 .await;
             match res {
                 Ok(r) => Drm::reopen(r.get().device_fd.raw(), false)?,
-                Err(e) => return Err(XorgngBackendError::DriOpen(e)),
+                Err(e) => return Err(XBackendError::DriOpen(e)),
             }
         };
         let gbm = GbmDevice::new(&drm)?;
         let ctx = match RenderContext::from_drm_device(&drm) {
             Ok(r) => Rc::new(r),
-            Err(e) => return Err(XorgngBackendError::CreateEgl(e)),
+            Err(e) => return Err(XBackendError::CreateEgl(e)),
         };
         let cursor = {
             let cp = CreatePixmap {
@@ -186,7 +186,7 @@ impl XorgngBackend {
                 height: 1,
             };
             if let Err(e) = c.call(&cp).await {
-                return Err(XorgngBackendError::CreatePixmap(e));
+                return Err(XBackendError::CreatePixmap(e));
             }
             let cc = CreateCursor {
                 cid: c.generate_id()?,
@@ -202,7 +202,7 @@ impl XorgngBackend {
                 y: 0,
             };
             if let Err(e) = c.call(&cc).await {
-                return Err(XorgngBackendError::CreateCursor(e));
+                return Err(XBackendError::CreateCursor(e));
             }
             c.call(&FreePixmap { pixmap: cp.pid });
             cc.cid
@@ -216,11 +216,11 @@ impl XorgngBackend {
                 }]),
             };
             if let Err(e) = c.call(&se).await {
-                return Err(XorgngBackendError::SelectHierarchyEvents(e));
+                return Err(XBackendError::SelectHierarchyEvents(e));
             }
         }
 
-        let data = Rc::new(XorgngBackendData {
+        let data = Rc::new(XBackendData {
             state: state.clone(),
             c,
             outputs: Default::default(),
@@ -252,7 +252,7 @@ impl XorgngBackend {
     }
 }
 
-impl XorgngBackendData {
+impl XBackendData {
     async fn event_handler(self: Rc<Self>) {
         loop {
             let event = self.c.event().await;
@@ -281,7 +281,7 @@ impl XorgngBackendData {
         }
     }
 
-    async fn handle_grab_request(&self, dev: &XorgSeat, grab: bool) {
+    async fn handle_grab_request(&self, dev: &XSeat, grab: bool) {
         if grab {
             let xg = XiGrabDevice {
                 window: self.root,
@@ -320,7 +320,7 @@ impl XorgngBackendData {
         window: u32,
         width: i32,
         height: i32,
-    ) -> Result<[XorgImage; 2], XorgngBackendError> {
+    ) -> Result<[XImage; 2], XBackendError> {
         let format = ModifiedFormat {
             format: XRGB8888,
             modifier: INVALID_MODIFIER,
@@ -336,7 +336,7 @@ impl XorgngBackendData {
             let size = plane.stride * dma.height as u32;
             let fb = match self.ctx.dmabuf_fb(dma) {
                 Ok(f) => f,
-                Err(e) => return Err(XorgngBackendError::CreateFramebuffer(e)),
+                Err(e) => return Err(XBackendError::CreateFramebuffer(e)),
             };
             let pixmap = {
                 let pfb = Dri3PixmapFromBuffer {
@@ -351,11 +351,11 @@ impl XorgngBackendData {
                     pixmap_fd: plane.fd.clone(),
                 };
                 if let Err(e) = self.c.call(&pfb).await {
-                    return Err(XorgngBackendError::ImportBuffer(e));
+                    return Err(XBackendError::ImportBuffer(e));
                 }
                 pfb.pixmap
             };
-            images[i] = Some(XorgImage {
+            images[i] = Some(XImage {
                 pixmap: Cell::new(pixmap),
                 fb: CloneCell::new(fb),
                 idle: Cell::new(true),
@@ -366,7 +366,7 @@ impl XorgngBackendData {
         Ok([images[0].take().unwrap(), images[1].take().unwrap()])
     }
 
-    async fn add_output(self: &Rc<Self>) -> Result<(), XorgngBackendError> {
+    async fn add_output(self: &Rc<Self>) -> Result<(), XBackendError> {
         const WIDTH: i32 = 800;
         const HEIGHT: i32 = 600;
         let window_id = {
@@ -384,12 +384,12 @@ impl XorgngBackendData {
                 values: Default::default(),
             };
             if let Err(e) = self.c.call(&cw).await {
-                return Err(XorgngBackendError::CreateWindow(e));
+                return Err(XBackendError::CreateWindow(e));
             }
             cw.wid
         };
         let images = self.create_images(window_id, WIDTH, HEIGHT).await?;
-        let output = Rc::new(XorgOutput {
+        let output = Rc::new(XOutput {
             id: self.state.output_ids.next(),
             _backend: self.clone(),
             window: window_id,
@@ -413,7 +413,7 @@ impl XorgngBackendData {
                 data: class.as_bytes(),
             };
             if let Err(e) = self.c.call(&cp).await {
-                return Err(XorgngBackendError::WmClass(e));
+                return Err(XBackendError::WmClass(e));
             };
         }
         {
@@ -430,11 +430,11 @@ impl XorgngBackendData {
                 },
             };
             if let Err(e) = self.c.call(&cwa).await {
-                return Err(XorgngBackendError::WindowEvents(e));
+                return Err(XBackendError::WindowEvents(e));
             }
         }
         if let Err(e) = self.c.call(&MapWindow { window: window_id }).await {
-            return Err(XorgngBackendError::MapWindow(e));
+            return Err(XBackendError::MapWindow(e));
         }
         {
             let mask = 0
@@ -459,7 +459,7 @@ impl XorgngBackendData {
                 masks: Cow::Borrowed(&mask[..]),
             };
             if let Err(e) = self.c.call(&xs).await {
-                return Err(XorgngBackendError::CannotSelectInputEvents(e));
+                return Err(XBackendError::CannotSelectInputEvents(e));
             }
         }
         {
@@ -470,7 +470,7 @@ impl XorgngBackendData {
                 event_mask: mask,
             };
             if let Err(e) = self.c.call(&si).await {
-                return Err(XorgngBackendError::CannotSelectPresentEvents(e));
+                return Err(XBackendError::CannotSelectPresentEvents(e));
             }
         }
         self.outputs.set(window_id, output.clone());
@@ -481,10 +481,10 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    async fn query_devices(self: &Rc<Self>, deviceid: u16) -> Result<(), XorgngBackendError> {
+    async fn query_devices(self: &Rc<Self>, deviceid: u16) -> Result<(), XBackendError> {
         let reply = match self.c.call(&XiQueryDevice { deviceid }).await {
             Ok(r) => r,
-            Err(e) => return Err(XorgngBackendError::QueryDevice(e)),
+            Err(e) => return Err(XBackendError::QueryDevice(e)),
         };
         for dev in reply.get().infos.iter() {
             self.handle_input_device(dev).await;
@@ -517,7 +517,7 @@ impl XorgngBackendData {
                 ErrorFmt(e),
             );
         }
-        let seat = Rc::new(XorgSeat {
+        let seat = Rc::new(XSeat {
             kb_id: self.state.input_device_ids.next(),
             mouse_id: self.state.input_device_ids.next(),
             backend: self.clone(),
@@ -535,17 +535,17 @@ impl XorgngBackendData {
         self.mouse_seats.set(info.attachment, seat.clone());
         self.state
             .backend_events
-            .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatMouse(
+            .push(BackendEvent::NewInputDevice(Rc::new(XSeatMouse(
                 seat.clone(),
             ))));
         self.state
             .backend_events
-            .push(BackendEvent::NewInputDevice(Rc::new(XorgSeatKeyboard(
+            .push(BackendEvent::NewInputDevice(Rc::new(XSeatKeyboard(
                 seat.clone(),
             ))));
     }
 
-    async fn handle_event(self: &Rc<Self>, event: &Event) -> Result<(), XorgngBackendError> {
+    async fn handle_event(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         match event.ext() {
             Some(ext) => self.handle_ext_event(ext, event).await,
             _ => self.handle_core_event(event).await,
@@ -556,7 +556,7 @@ impl XorgngBackendData {
         self: &Rc<Self>,
         ext: Extension,
         event: &Event,
-    ) -> Result<(), XorgngBackendError> {
+    ) -> Result<(), XBackendError> {
         match ext {
             Extension::Present => self.handle_present_event(event),
             Extension::XInputExtension => self.handle_input_event(event).await,
@@ -564,7 +564,7 @@ impl XorgngBackendData {
         }
     }
 
-    async fn handle_core_event(self: &Rc<Self>, event: &Event) -> Result<(), XorgngBackendError> {
+    async fn handle_core_event(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         match event.code() {
             ConfigureNotify::OPCODE => self.handle_configure(event).await,
             DestroyNotify::OPCODE => self.handle_destroy(event),
@@ -572,7 +572,7 @@ impl XorgngBackendData {
         }
     }
 
-    fn handle_present_event(self: &Rc<Self>, event: &Event) -> Result<(), XorgngBackendError> {
+    fn handle_present_event(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         match event.code() {
             PresentCompleteNotify::OPCODE => self.handle_present_complete(event)?,
             PresentIdleNotify::OPCODE => self.handle_present_idle(event)?,
@@ -581,7 +581,7 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    fn handle_present_complete(self: &Rc<Self>, event: &Event) -> Result<(), XorgngBackendError> {
+    fn handle_present_complete(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         let event: PresentCompleteNotify = event.parse()?;
         let window = event.window;
         let output = match self.outputs.get(&window) {
@@ -598,7 +598,7 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    fn handle_present_idle(self: &Rc<Self>, event: &Event) -> Result<(), XorgngBackendError> {
+    fn handle_present_idle(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         let event: PresentIdleNotify = event.parse()?;
         let output = match self.outputs.get(&event.window) {
             Some(o) => o,
@@ -615,11 +615,11 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    fn schedule_present(&self, output: &Rc<XorgOutput>) {
+    fn schedule_present(&self, output: &Rc<XOutput>) {
         self.scheduled_present.push(output.clone());
     }
 
-    async fn present(&self, output: &Rc<XorgOutput>) {
+    async fn present(&self, output: &Rc<XOutput>) {
         if output.removed.get() {
             return;
         }
@@ -657,7 +657,7 @@ impl XorgngBackendData {
         image.last_serial.set(serial);
     }
 
-    async fn handle_input_event(self: &Rc<Self>, event: &Event) -> Result<(), XorgngBackendError> {
+    async fn handle_input_event(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         match event.code() {
             XiMotion::OPCODE => self.handle_input_motion(event),
             XiEnter::OPCODE => self.handle_input_enter(event),
@@ -674,7 +674,7 @@ impl XorgngBackendData {
         self: &Rc<Self>,
         event: &Event,
         state: KeyState,
-    ) -> Result<(), XorgngBackendError> {
+    ) -> Result<(), XBackendError> {
         let event: XiButtonPress = event.parse()?;
         if let Some(seat) = self.mouse_seats.get(&event.deviceid) {
             let button = event.detail;
@@ -712,7 +712,7 @@ impl XorgngBackendData {
         self: &Rc<Self>,
         event: &Event,
         state: KeyState,
-    ) -> Result<(), XorgngBackendError> {
+    ) -> Result<(), XBackendError> {
         let event: XiKeyPress = event.parse()?;
         if let Some(seat) = self.seats.get(&event.deviceid) {
             seat.kb_event(InputEvent::Key(event.detail - 8, state));
@@ -720,15 +720,12 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    async fn handle_input_hierarchy(
-        self: &Rc<Self>,
-        event: &Event,
-    ) -> Result<(), XorgngBackendError> {
+    async fn handle_input_hierarchy(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         let event: XiHierarchy = event.parse()?;
         for info in event.infos.iter() {
             if info.flags & INPUT_HIERARCHY_MASK_MASTER_ADDED != 0 {
                 if let Err(e) = self.query_devices(info.deviceid).await {
-                    log::error!("Could not query device {}: {:#}", info.deviceid, e);
+                    log::error!("Could not query device {}: {}", info.deviceid, ErrorFmt(e));
                 }
             } else if info.flags & INPUT_HIERARCHY_MASK_MASTER_REMOVED != 0 {
                 self.mouse_seats.remove(&info.attachment);
@@ -742,7 +739,7 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    fn handle_input_enter(&self, event: &Event) -> Result<(), XorgngBackendError> {
+    fn handle_input_enter(&self, event: &Event) -> Result<(), XBackendError> {
         let event: XiEnter = event.parse()?;
         if let (Some(win), Some(seat)) = (
             self.outputs.get(&event.event),
@@ -757,7 +754,7 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    fn handle_input_motion(&self, event: &Event) -> Result<(), XorgngBackendError> {
+    fn handle_input_motion(&self, event: &Event) -> Result<(), XBackendError> {
         let event: XiMotion = event.parse()?;
         let (win, seat) = match (
             self.outputs.get(&event.event),
@@ -774,7 +771,7 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    fn handle_destroy(&self, event: &Event) -> Result<(), XorgngBackendError> {
+    fn handle_destroy(&self, event: &Event) -> Result<(), XBackendError> {
         self.state.el.stop();
         let event: DestroyNotify = event.parse()?;
         let output = match self.outputs.remove(&event.event) {
@@ -786,7 +783,7 @@ impl XorgngBackendData {
         Ok(())
     }
 
-    async fn handle_configure(&self, event: &Event) -> Result<(), XorgngBackendError> {
+    async fn handle_configure(&self, event: &Event) -> Result<(), XBackendError> {
         let event: ConfigureNotify = event.parse()?;
         let output = match self.outputs.get(&event.event) {
             Some(o) => o,
@@ -812,9 +809,9 @@ impl XorgngBackendData {
     }
 }
 
-struct XorgOutput {
+struct XOutput {
     id: OutputId,
-    _backend: Rc<XorgngBackendData>,
+    _backend: Rc<XBackendData>,
     window: u32,
     removed: Cell<bool>,
     width: Cell<i32>,
@@ -822,11 +819,11 @@ struct XorgOutput {
     serial: NumCell<u32>,
     next_msc: Cell<u64>,
     next_image: NumCell<usize>,
-    images: [XorgImage; 2],
+    images: [XImage; 2],
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
 }
 
-struct XorgImage {
+struct XImage {
     pixmap: Cell<u32>,
     fb: CloneCell<Rc<Framebuffer>>,
     idle: Cell<bool>,
@@ -834,7 +831,7 @@ struct XorgImage {
     last_serial: Cell<u32>,
 }
 
-impl XorgOutput {
+impl XOutput {
     fn changed(&self) {
         if let Some(cb) = self.cb.get() {
             cb();
@@ -842,7 +839,7 @@ impl XorgOutput {
     }
 }
 
-impl Output for XorgOutput {
+impl Output for XOutput {
     fn id(&self) -> OutputId {
         self.id
     }
@@ -864,10 +861,10 @@ impl Output for XorgOutput {
     }
 }
 
-struct XorgSeat {
+struct XSeat {
     kb_id: InputDeviceId,
     mouse_id: InputDeviceId,
-    backend: Rc<XorgngBackendData>,
+    backend: Rc<XBackendData>,
     kb: u16,
     mouse: u16,
     removed: Cell<bool>,
@@ -878,11 +875,11 @@ struct XorgSeat {
     button_map: CopyHashMap<u32, u32>,
 }
 
-struct XorgSeatKeyboard(Rc<XorgSeat>);
+struct XSeatKeyboard(Rc<XSeat>);
 
-struct XorgSeatMouse(Rc<XorgSeat>);
+struct XSeatMouse(Rc<XSeat>);
 
-impl XorgSeat {
+impl XSeat {
     fn kb_changed(&self) {
         if let Some(cb) = self.kb_cb.get() {
             cb();
@@ -927,7 +924,7 @@ impl XorgSeat {
     }
 }
 
-impl InputDevice for XorgSeatKeyboard {
+impl InputDevice for XSeatKeyboard {
     fn id(&self) -> InputDeviceId {
         self.0.kb_id
     }
@@ -949,7 +946,7 @@ impl InputDevice for XorgSeatKeyboard {
     }
 }
 
-impl InputDevice for XorgSeatMouse {
+impl InputDevice for XSeatMouse {
     fn id(&self) -> InputDeviceId {
         self.0.mouse_id
     }

@@ -9,5 +9,3 @@ mod framebuffer;
 mod image;
 mod renderer;
 mod texture;
-
-pub const RENDERDOC: bool = false;

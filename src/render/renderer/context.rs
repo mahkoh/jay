@@ -9,11 +9,9 @@ use crate::render::gl::sys::GLint;
 use crate::render::gl::texture::GlTexture;
 use crate::render::renderer::framebuffer::Framebuffer;
 use crate::render::renderer::image::Image;
-use crate::render::renderer::RENDERDOC;
 use crate::render::{RenderError, Texture};
 use ahash::AHashMap;
-use renderdoc::{RenderDoc, V100};
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -41,8 +39,6 @@ pub struct RenderContext {
     pub(super) ctx: Rc<EglContext>,
 
     pub(super) render_node: Rc<CString>,
-
-    pub(super) renderdoc: Option<RefCell<RenderDoc<V100>>>,
 
     pub(super) tex_prog: TexProg,
     pub(super) tex_alpha_prog: TexProg,
@@ -104,12 +100,6 @@ impl RenderContext {
             fill_prog_pos: fill_prog.get_attrib_location(ustr!("pos")),
             fill_prog_color: fill_prog.get_uniform_location(ustr!("color")),
             fill_prog,
-
-            renderdoc: if RENDERDOC {
-                Some(RefCell::new(RenderDoc::new().unwrap()))
-            } else {
-                None
-            },
         })
     }
 

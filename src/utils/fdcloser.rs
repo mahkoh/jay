@@ -1,7 +1,6 @@
-use parking_lot::{Condvar, Mutex};
 use std::mem;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
 use uapi::OwnedFd;
 
 pub struct FdCloser {
@@ -18,15 +17,15 @@ impl FdCloser {
         let slf2 = slf.clone();
         std::thread::spawn(move || {
             let mut fds = vec![];
-            let mut lock = slf2.fds.lock();
+            let mut lock = slf2.fds.lock().unwrap();
             loop {
                 mem::swap(&mut *lock, &mut fds);
                 if fds.len() > 0 {
                     drop(lock);
                     fds.clear();
-                    lock = slf2.fds.lock();
+                    lock = slf2.fds.lock().unwrap();
                 } else {
-                    slf2.cv.wait(&mut lock);
+                    lock = slf2.cv.wait(lock).unwrap();
                 }
             }
         });
@@ -36,7 +35,7 @@ impl FdCloser {
     pub fn close(&self, fd: Rc<OwnedFd>) {
         match Rc::try_unwrap(fd) {
             Ok(fd) => {
-                self.fds.lock().push(fd);
+                self.fds.lock().unwrap().push(fd);
                 self.cv.notify_all();
             }
             Err(_e) => {

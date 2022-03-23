@@ -105,3 +105,9 @@ pub const GRAB_STATUS_FROZEN: u8 = 4;
 pub const IMAGE_FORMAT_XY_BITMAP: u8 = 0;
 pub const IMAGE_FORMAT_XY_PIXMAP: u8 = 1;
 pub const IMAGE_FORMAT_Z_PIXMAP: u8 = 2;
+
+pub const COMPOSITE_REDIRECT_AUTOMATIC: u8 = 0;
+pub const COMPOSITE_REDIRECT_MANUAL: u8 = 1;
+
+pub const RENDER_PICT_TYPE_INDEXED: u8 = 0;
+pub const RENDER_PICT_TYPE_DIRECT: u8 = 1;

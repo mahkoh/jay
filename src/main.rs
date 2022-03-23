@@ -83,7 +83,6 @@ mod object;
 mod pixman;
 mod rect;
 mod render;
-mod servermem;
 mod sighand;
 mod state;
 mod tasks;

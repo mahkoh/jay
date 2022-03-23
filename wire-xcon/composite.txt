@@ -1,0 +1,7 @@
+ext "Composite"
+
+request CompositeRedirectSubwindows = 2 (
+    window: u32,
+    update: u8,
+    @pad 3,
+);

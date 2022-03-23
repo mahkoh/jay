@@ -7,15 +7,16 @@ use crate::ifs::wl_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::WlSurface;
 use crate::utils::tri::Try;
 use crate::wire::WlSurfaceId;
+use crate::xcon::XconError;
 use crate::xwayland::xsocket::allocate_socket;
 use crate::xwayland::xwm::Wm;
 use crate::{AsyncError, AsyncQueue, ErrorFmt, ForkerError, State};
 use bstr::ByteSlice;
-use std::error::Error;
 use std::num::ParseIntError;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, pipe2, Errno, OwnedFd};
+use crate::utils::oserror::OsError;
 
 #[derive(Debug, Error)]
 enum XWaylandError {
@@ -38,43 +39,39 @@ enum XWaylandError {
     #[error("The socket is already in use")]
     AlreadyInUse,
     #[error("Could not bind the socket to an address")]
-    BindFailed(#[source] crate::utils::oserror::OsError),
+    BindFailed(#[source] OsError),
     #[error("All X displays in the range 0..1000 are already in use")]
     AddressesInUse,
     #[error("The async engine returned an error")]
     AsyncError(#[from] AsyncError),
     #[error("pipe(2) failed")]
-    Pipe(#[source] crate::utils::oserror::OsError),
-    #[error("dupfd(2) failed")]
-    Dupfd(#[source] crate::utils::oserror::OsError),
+    Pipe(#[source] OsError),
     #[error("socketpair(2) failed")]
-    Socketpair(#[source] crate::utils::oserror::OsError),
+    Socketpair(#[source] OsError),
     #[error("Could not start Xwayland")]
     ExecFailed(#[source] ForkerError),
     #[error("Could not load the atoms")]
-    LoadAtoms(#[source] Box<dyn Error>),
+    LoadAtoms(#[source] XconError),
     #[error("Could not connect to Xwayland")]
-    Connect(#[source] Box<dyn Error>),
+    Connect(#[source] XconError),
     #[error("Could not create a window manager")]
     CreateWm(#[source] Box<Self>),
     #[error("Could not select the root events")]
-    SelectRootEvents(#[source] Box<dyn Error>),
+    SelectRootEvents(#[source] XconError),
     #[error("Could not create the WM window")]
-    CreateXWindow(#[source] Box<dyn Error>),
+    CreateXWindow(#[source] XconError),
     #[error("Could not acquire a selection")]
-    SelectionOwner(#[source] Box<dyn Error>),
-    #[error("Could not load the resource database")]
-    ResourceDatabase(#[source] Box<dyn Error>),
-    #[error("Could not acquire a cursor handle")]
-    CursorHandle(#[source] Box<dyn Error>),
-    #[error("Could not load the default cursor")]
-    LoadCursor(#[source] Box<dyn Error>),
+    SelectionOwner(#[source] XconError),
     #[error("Could not set the cursor of the root window")]
-    SetCursor(#[source] Box<dyn Error>),
+    SetCursor(#[source] XconError),
     #[error("composite_redirect_subwindows failed")]
-    CompositeRedirectSubwindows(#[source] Box<dyn Error>),
+    CompositeRedirectSubwindows(#[source] XconError),
     #[error("Could not spawn the Xwayland client")]
     SpawnClient(#[source] ClientError),
+    #[error("Could not map a window")]
+    MapWindow(#[source] XconError),
+    #[error("An unspecified XconError occurred")]
+    XconError(#[from] XconError),
 }
 
 pub async fn manage(state: Rc<State>) {
@@ -131,7 +128,7 @@ async fn run(
         Ok(p) => p,
         Err(e) => return Err(XWaylandError::Pipe(e.into())),
     };
-    let wm = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
+    let wm = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK, 0);
     let (wm1, wm2) = match wm {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
@@ -169,7 +166,7 @@ async fn run(
         Err(e) => return Err(XWaylandError::SpawnClient(e)),
     };
     state.eng.fd(&Rc::new(dfdread))?.readable().await?;
-    let wm = match Wm::get(state, client, wm1, queue.clone()) {
+    let wm = match Wm::get(state, client, wm1, queue.clone()).await {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
     };

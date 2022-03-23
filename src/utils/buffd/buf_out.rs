@@ -1,7 +1,7 @@
 use crate::async_engine::{AsyncFd, Timeout};
 use crate::utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE};
-use futures::future::Fuse;
-use futures::{select, FutureExt};
+use futures_util::future::Fuse;
+use futures_util::{select, FutureExt};
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
