@@ -6,20 +6,18 @@ use crate::wire::WlSurfaceId;
 use crate::wire_xcon::{
     ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows, ConfigureNotify,
     ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateGC, CreateNotify, CreatePixmap,
-    CreateWindow, CreateWindowValues, DestroyNotify, FreeGC, FreePixmap, InternAtom,
-    MapRequest, MapWindow, PutImage, RenderCreateCursor, RenderCreatePicture,
-    SetSelectionOwner,
+    CreateWindow, CreateWindowValues, DestroyNotify, FreeGC, FreePixmap, InternAtom, MapRequest,
+    MapWindow, PutImage, RenderCreateCursor, RenderCreatePicture, SetSelectionOwner,
 };
 use crate::xcon::consts::{
     COMPOSITE_REDIRECT_MANUAL, EVENT_MASK_PROPERTY_CHANGE, EVENT_MASK_SUBSTRUCTURE_NOTIFY,
-    EVENT_MASK_SUBSTRUCTURE_REDIRECT, IMAGE_FORMAT_Z_PIXMAP,
-    WINDOW_CLASS_INPUT_OUTPUT,
+    EVENT_MASK_SUBSTRUCTURE_REDIRECT, IMAGE_FORMAT_Z_PIXMAP, WINDOW_CLASS_INPUT_OUTPUT,
 };
 use crate::xcon::{Event, XEvent, Xcon};
 use crate::xwayland::{XWaylandError, XWaylandEvent};
 use crate::{AsyncQueue, ErrorFmt, State};
 use ahash::AHashMap;
-use futures_util::{FutureExt, select};
+use futures_util::{select, FutureExt};
 use std::mem;
 use std::rc::Rc;
 use uapi::OwnedFd;

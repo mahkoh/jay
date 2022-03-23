@@ -80,6 +80,7 @@ mod ifs;
 mod libinput;
 mod logind;
 mod object;
+mod pango;
 mod pixman;
 mod rect;
 mod render;
@@ -99,7 +100,6 @@ mod wire_xcon;
 mod xcon;
 mod xkbcommon;
 mod xwayland;
-mod pango;
 
 fn main() {
     env_logger::builder()

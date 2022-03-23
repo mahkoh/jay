@@ -21,6 +21,7 @@ pub mod smallmap;
 pub mod stack;
 pub mod syncqueue;
 pub mod tri;
+pub mod trim;
 pub mod vasprintf;
 pub mod vec_ext;
 pub mod vecstorage;

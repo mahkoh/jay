@@ -1,6 +1,7 @@
 use crate::render::egl::sys::{eglQueryString, EGLDeviceEXT, EGLDisplay, EGL_EXTENSIONS};
 use crate::render::egl::PROCS;
 use crate::render::gl::sys::{glGetString, GL_EXTENSIONS};
+use crate::utils::trim::AsciiTrim;
 use ahash::AHashSet;
 use bstr::ByteSlice;
 use std::ffi::CStr;

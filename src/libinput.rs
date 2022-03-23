@@ -19,6 +19,7 @@ use crate::libinput::sys::{
 use crate::udev::UdevError;
 use crate::utils::oserror::OsError;
 use crate::utils::ptr_ext::PtrExt;
+use crate::utils::trim::AsciiTrim;
 use crate::utils::vasprintf::vasprintf_;
 use crate::ErrorFmt;
 use bstr::ByteSlice;

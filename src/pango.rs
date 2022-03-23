@@ -1,17 +1,17 @@
 #![allow(non_camel_case_types)]
 
+use crate::pango::consts::{CairoFormat, CairoOperator, PangoEllipsizeMode};
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, IntoUstr};
-use crate::pango::consts::{CairoFormat, CairoOperator, PangoEllipsizeMode};
 
 pub mod consts;
 
 include!(concat!(env!("OUT_DIR"), "/pango_tys.rs"));
 
 #[link(name = "cairo")]
-extern {
+extern "C" {
     type cairo_surface_t;
     type cairo_t;
 
@@ -33,18 +33,12 @@ extern {
     fn cairo_destroy(cairo: *mut cairo_t);
 
     fn cairo_set_operator(cr: *mut cairo_t, op: cairo_operator_t);
-    fn cairo_set_source_rgba(
-        cr: *mut cairo_t,
-        red: f64,
-        green: f64,
-        blue: f64,
-        alpha: f64,
-    );
+    fn cairo_set_source_rgba(cr: *mut cairo_t, red: f64, green: f64, blue: f64, alpha: f64);
     fn cairo_move_to(cr: *mut cairo_t, x: f64, y: f64);
 }
 
 #[link(name = "pangocairo-1.0")]
-extern {
+extern "C" {
     type PangoContext_;
 
     fn pango_cairo_create_context(cr: *mut cairo_t) -> *mut PangoContext_;
@@ -52,14 +46,14 @@ extern {
 }
 
 #[link(name = "gobject-2.0")]
-extern {
+extern "C" {
     type GObject;
 
     fn g_object_unref(object: *mut GObject);
 }
 
 #[link(name = "pango-1.0")]
-extern {
+extern "C" {
     type PangoFontDescription_;
     type PangoLayout_;
 
@@ -100,16 +94,18 @@ pub struct CairoImageSurface {
 }
 
 impl CairoImageSurface {
-    pub fn new_image_surface(format: CairoFormat, width: i32, height: i32) -> Result<Rc<Self>, PangoError> {
+    pub fn new_image_surface(
+        format: CairoFormat,
+        width: i32,
+        height: i32,
+    ) -> Result<Rc<Self>, PangoError> {
         unsafe {
             let s = cairo_image_surface_create(format.raw() as _, width as _, height as _);
             let status = cairo_surface_status(s);
             if status != 0 {
                 return Err(PangoError::CreateSurface(status as _));
             }
-            Ok(Rc::new(Self {
-                s,
-            }))
+            Ok(Rc::new(Self { s }))
         }
     }
 
@@ -134,15 +130,11 @@ impl CairoImageSurface {
     }
 
     pub fn height(&self) -> i32 {
-        unsafe {
-            cairo_image_surface_get_height(self.s) as _
-        }
+        unsafe { cairo_image_surface_get_height(self.s) as _ }
     }
 
     pub fn stride(&self) -> i32 {
-        unsafe {
-            cairo_image_surface_get_stride(self.s) as _
-        }
+        unsafe { cairo_image_surface_get_stride(self.s) as _ }
     }
 
     pub fn data(&self) -> Result<&[Cell<u8>], PangoError> {
@@ -177,10 +169,7 @@ impl CairoContext {
             if p.is_null() {
                 return Err(PangoError::CreatePangoCairo);
             }
-            Ok(Rc::new(PangoCairoContext {
-                c: self.clone(),
-                p,
-            }))
+            Ok(Rc::new(PangoCairoContext { c: self.clone(), p }))
         }
     }
 
@@ -247,9 +236,7 @@ impl PangoFontDescription {
     pub fn from_string<'a>(s: impl IntoUstr<'a>) -> Self {
         let s = s.into_ustr();
         Self {
-            s: unsafe {
-                pango_font_description_from_string(s.as_ptr())
-            },
+            s: unsafe { pango_font_description_from_string(s.as_ptr()) },
         }
     }
 }

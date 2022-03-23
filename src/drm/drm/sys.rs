@@ -8,6 +8,7 @@ use crate::drm::drm::{
 };
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::oserror::OsError;
+use crate::utils::trim::AsciiTrim;
 use ahash::AHashMap;
 use bstr::ByteSlice;
 use std::ffi::CString;

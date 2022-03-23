@@ -1,11 +1,13 @@
 use crate::format::ARGB8888;
+use crate::pango::consts::{
+    CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
+};
+use crate::pango::{CairoImageSurface, PangoError, PangoFontDescription};
 use crate::render::{RenderContext, Texture};
 use crate::theme::Color;
 use crate::RenderError;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::pango::{CairoImageSurface, PangoError, PangoFontDescription};
-use crate::pango::consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE};
 
 #[derive(Debug, Error)]
 pub enum TextError {

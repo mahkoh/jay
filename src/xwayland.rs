@@ -5,6 +5,7 @@ use crate::client::ClientError;
 use crate::forker::ForkerProxy;
 use crate::ifs::wl_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::WlSurface;
+use crate::utils::oserror::OsError;
 use crate::utils::tri::Try;
 use crate::wire::WlSurfaceId;
 use crate::xcon::XconError;
@@ -16,7 +17,6 @@ use std::num::ParseIntError;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, pipe2, Errno, OwnedFd};
-use crate::utils::oserror::OsError;
 
 #[derive(Debug, Error)]
 enum XWaylandError {
@@ -128,7 +128,11 @@ async fn run(
         Ok(p) => p,
         Err(e) => return Err(XWaylandError::Pipe(e.into())),
     };
-    let wm = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK, 0);
+    let wm = uapi::socketpair(
+        c::AF_UNIX,
+        c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
+        0,
+    );
     let (wm1, wm2) = match wm {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
