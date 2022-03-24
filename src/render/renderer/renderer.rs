@@ -16,24 +16,11 @@ use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::render::Texture;
 use crate::theme::Color;
 use crate::tree::{
-    ContainerFocus, ContainerNode, ContainerSplit, FloatNode, Node, OutputNode, WorkspaceNode,
+    ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode,
 };
 use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::slice;
-
-const NON_COLOR: Color = Color::from_rgbaf(0.2, 0.2, 0.2, 1.0);
-const CHILD_COLOR: Color = Color::from_rgbaf(0.8, 0.8, 0.8, 1.0);
-const YES_COLOR: Color = Color::from_rgbaf(0.0, 0.0, 1.0, 1.0);
-
-fn focus_color(focus: ContainerFocus) -> Color {
-    match focus {
-        ContainerFocus::None => NON_COLOR,
-        ContainerFocus::Child => CHILD_COLOR,
-        ContainerFocus::Yes => YES_COLOR,
-    }
-}
 
 pub struct Renderer<'a> {
     pub(super) ctx: &'a Rc<RenderContext>,
@@ -82,16 +69,21 @@ impl Renderer<'_> {
         2.0 * (y as f32 / self.fb.height as f32) - 1.0
     }
 
+
     fn fill_boxes(&self, boxes: &[Rect], color: &Color) {
+        self.fill_boxes2(boxes, color, 0, 0);
+    }
+
+    fn fill_boxes2(&self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
         if boxes.is_empty() {
             return;
         }
         let mut pos = Vec::with_capacity(boxes.len() * 12);
         for bx in boxes {
-            let x1 = self.x_to_f(bx.x1());
-            let y1 = self.y_to_f(bx.y1());
-            let x2 = self.x_to_f(bx.x2());
-            let y2 = self.y_to_f(bx.y2());
+            let x1 = self.x_to_f(bx.x1() + dx);
+            let y1 = self.y_to_f(bx.y1() + dy);
+            let x2 = self.x_to_f(bx.x2() + dx);
+            let y2 = self.y_to_f(bx.y2() + dy);
             pos.extend_from_slice(&[
                 // triangle 1
                 x2, y1, // top right
@@ -121,128 +113,35 @@ impl Renderer<'_> {
     }
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
-        let border_width = self.state.theme.border_width.get();
-        let title_height = self.state.theme.title_height.get();
-        let cwidth = container.width.get();
-        let cheight = container.height.get();
-        let num_children = container.num_children();
-        let title_rect = Rect::new_sized(x, y, container.width.get(), title_height).unwrap();
-        let underline_rect =
-            Rect::new_sized(x, y + title_height, container.width.get(), 1).unwrap();
-        let mut titles = vec![];
-        if let Some(child) = container.mono_child.get() {
-            let space_per_child = cwidth / num_children as i32;
-            let mut rem = cwidth % num_children as i32;
-            let mut pos = x;
-            let color = focus_color(ContainerFocus::None);
-            self.fill_boxes(slice::from_ref(&title_rect), &color);
+        {
+            let rd = container.render_data.borrow_mut();
+            let c = self.state.theme.title_color.get();
+            self.fill_boxes2(&rd.title_rects, &c, x, y);
+            let c = self.state.theme.active_title_color.get();
+            self.fill_boxes2(&rd.active_title_rects, &c, x, y);
+            let c = self.state.theme.underline_color.get();
+            self.fill_boxes2(&rd.underline_rects, &c, x, y);
             let c = self.state.theme.border_color.get();
-            self.fill_boxes(slice::from_ref(&underline_rect), &c);
-            for child in container.children.iter() {
-                let focus = child.focus.get();
-                let color = focus_color(focus);
-                let mut width = space_per_child;
-                if rem > 0 {
-                    rem -= 1;
-                    width += 1;
-                }
-                if let Some(title) = child.title_texture.get() {
-                    titles.push((pos, 0, title));
-                }
-                if focus != ContainerFocus::None {
-                    let rect = Rect::new_sized(pos, y, width, title_height).unwrap();
-                    self.fill_boxes(slice::from_ref(&rect), &color);
-                }
-                pos += width as i32;
+            self.fill_boxes2(&rd.border_rects, &c, x, y);
+            for title in &rd.titles {
+                self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
             }
+        }
+        if let Some(child) = container.mono_child.get() {
             unsafe {
-                with_scissor(&container.mono_body.get(), || {
+                let body = container.mono_body.get().move_(x, y);
+                with_scissor(&body, || {
                     let content = container.mono_content.get();
                     child.node.render(self, x + content.x1(), y + content.y1());
                 });
             }
         } else {
-            let split = container.split.get();
-            let num_title_rects = if split == ContainerSplit::Horizontal {
-                1
-            } else {
-                num_children
-            };
-            let mut title_rects = Vec::with_capacity(num_title_rects);
-            let mut underline_rects = Vec::with_capacity(num_title_rects);
-            let mut border_rects = Vec::with_capacity(num_children - 1);
-            let mut active_rects = Vec::new();
-            title_rects.push(title_rect);
-            underline_rects.push(underline_rect);
-            for (i, child) in container.children.iter().enumerate() {
-                let body = child.body.get();
-                if let Some(title) = child.title_texture.get() {
-                    titles.push((body.x1(), body.y1() - title_height - 1, title));
-                }
-                if child.active.get() {
-                    active_rects.push(
-                        Rect::new_sized(
-                            x + body.x1(),
-                            y + body.y1() - title_height - 1,
-                            body.width(),
-                            title_height,
-                        )
-                        .unwrap(),
-                    );
-                }
-                if i + 1 < num_children {
-                    let border_rect = if split == ContainerSplit::Horizontal {
-                        Rect::new_sized(
-                            x + body.x2(),
-                            y + body.y1() - title_height - 1,
-                            border_width,
-                            container.height.get(),
-                        )
-                        .unwrap()
-                    } else {
-                        title_rects.push(
-                            Rect::new_sized(
-                                x,
-                                y + body.y2() + border_width,
-                                container.width.get(),
-                                title_height,
-                            )
-                            .unwrap(),
-                        );
-                        underline_rects.push(
-                            Rect::new_sized(
-                                x,
-                                y + body.y2() + border_width + title_height,
-                                container.width.get(),
-                                1,
-                            )
-                            .unwrap(),
-                        );
-                        Rect::new_sized(x, y + body.y2(), container.width.get(), border_width)
-                            .unwrap()
-                    };
-                    border_rects.push(border_rect);
-                }
-            }
-            {
-                let c = self.state.theme.title_color.get();
-                self.fill_boxes(&title_rects, &c);
-                let c = self.state.theme.active_title_color.get();
-                self.fill_boxes(&active_rects, &c);
-                let c = self.state.theme.underline_color.get();
-                self.fill_boxes(&underline_rects, &c);
-                let c = self.state.theme.border_color.get();
-                self.fill_boxes(&border_rects, &c);
-                for (tx, ty, tex) in titles {
-                    self.render_texture(&tex, x + tx, y + ty, ARGB8888);
-                }
-            }
             for child in container.children.iter() {
                 let body = child.body.get();
-                if body.x1() >= cwidth || body.y1() >= cheight {
+                if body.x1() >= container.width.get() || body.y1() >= container.height.get() {
                     break;
                 }
-                let body = body.move_(container.abs_x1.get(), container.abs_y1.get());
+                let body = body.move_(x, y);
                 unsafe {
                     with_scissor(&body, || {
                         let content = child.content.get();

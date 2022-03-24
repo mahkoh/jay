@@ -104,6 +104,16 @@ impl Seat {
         get!().seat_set_repeat_rate(self, rate, delay)
     }
 
+    pub fn mono(self) -> bool {
+        let mut res = false;
+        (|| res = get!().mono(self))();
+        res
+    }
+
+    pub fn set_mono(self, mono: bool) {
+        get!().set_mono(self, mono)
+    }
+
     pub fn split(self) -> Axis {
         let mut res = Axis::Horizontal;
         (|| res = get!().split(self))();

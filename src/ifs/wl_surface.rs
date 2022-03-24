@@ -641,8 +641,16 @@ impl Node for WlSurface {
         }
     }
 
+    fn get_parent_mono(&self) -> Option<bool> {
+        self.xdg.get().and_then(|x| x.get_mono())
+    }
+
     fn get_parent_split(&self) -> Option<ContainerSplit> {
         self.xdg.get().and_then(|x| x.get_split())
+    }
+
+    fn set_parent_mono(&self, mono: bool) {
+        self.xdg.get().map(|x| x.set_mono(mono));
     }
 
     fn set_parent_split(&self, split: ContainerSplit) {

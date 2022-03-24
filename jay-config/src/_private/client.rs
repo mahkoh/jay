@@ -185,6 +185,17 @@ impl Client {
         }
     }
 
+    pub fn mono(&self, seat: Seat) -> bool {
+        let res = self.with_response(|| self.send(&ClientMessage::GetMono { seat }));
+        match res {
+            Response::GetMono { mono } => mono,
+            _ => {
+                log::error!("Server did not send a response to a get_mono request");
+                false
+            }
+        }
+    }
+
     pub fn split(&self, seat: Seat) -> Axis {
         let res = self.with_response(|| self.send(&ClientMessage::GetSplit { seat }));
         match res {
@@ -244,6 +255,10 @@ impl Client {
 
     pub fn set_border_width(&self, width: i32) {
         self.send(&ClientMessage::SetBorderWidth { width })
+    }
+
+    pub fn set_mono(&self, seat: Seat, mono: bool) {
+        self.send(&ClientMessage::SetMono { seat, mono });
     }
 
     pub fn set_split(&self, seat: Seat, axis: Axis) {

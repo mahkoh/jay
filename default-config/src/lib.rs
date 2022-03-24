@@ -1,9 +1,9 @@
 use jay_config::embedded::grab_input_device;
 use jay_config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use jay_config::keyboard::syms::{
-    SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_p, SYM_period,
-    SYM_q, SYM_r, SYM_t, SYM_v, SYM_y, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F2, SYM_F3, SYM_F4,
-    SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
+    SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p,
+    SYM_period, SYM_q, SYM_r, SYM_t, SYM_v, SYM_y, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F2,
+    SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
 };
 use jay_config::theme::{get_title_height, set_title_color, set_title_height, Color};
 use jay_config::Axis::{Horizontal, Vertical};
@@ -53,6 +53,10 @@ fn configure_seat(s: Seat) {
 
     s.bind(MOD | SYM_t, move || {
         s.set_split(s.split().other());
+    });
+
+    s.bind(MOD | SYM_m, move || {
+        s.set_mono(!s.mono());
     });
 
     s.bind(MOD | SYM_f, move || {

@@ -84,16 +84,32 @@ pub trait Node {
         let _ = title;
     }
 
+    fn get_parent_mono(&self) -> Option<bool> {
+        None
+    }
+
     fn get_parent_split(&self) -> Option<ContainerSplit> {
         None
+    }
+
+    fn set_parent_mono(&self, mono: bool) {
+        let _ = mono;
     }
 
     fn set_parent_split(&self, split: ContainerSplit) {
         let _ = split;
     }
 
+    fn get_mono(&self) -> Option<bool> {
+        None
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         None
+    }
+
+    fn set_mono(self: Rc<Self>, child: Option<&dyn Node>) {
+        let _ = child;
     }
 
     fn set_split(self: Rc<Self>, split: ContainerSplit) {
@@ -209,7 +225,7 @@ pub trait Node {
         let _ = (child, width, height);
     }
 
-    fn child_active_changed(&self, child: &dyn Node, active: bool) {
+    fn child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool) {
         let _ = (child, active);
     }
 

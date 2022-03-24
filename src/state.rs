@@ -60,7 +60,7 @@ pub struct State {
     pub config: CloneCell<Option<Rc<ConfigProxy>>>,
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
-    pub pending_container_titles: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_render_data: AsyncQueue<Rc<ContainerNode>>,
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub dbus: Dbus,

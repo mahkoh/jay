@@ -83,8 +83,16 @@ pub trait XdgSurfaceExt: Debug {
         let _ = seat;
     }
 
+    fn get_mono(&self) -> Option<bool> {
+        None
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         None
+    }
+
+    fn set_mono(&self, mono: bool) {
+        let _ = mono;
     }
 
     fn set_split(&self, split: ContainerSplit) {
@@ -166,8 +174,16 @@ impl XdgSurface {
         }
     }
 
+    pub fn get_mono(&self) -> Option<bool> {
+        self.ext.get().and_then(|e| e.get_mono())
+    }
+
     pub fn get_split(&self) -> Option<ContainerSplit> {
         self.ext.get().and_then(|e| e.get_split())
+    }
+
+    pub fn set_mono(&self, mono: bool) {
+        self.ext.get().map(|e| e.set_mono(mono));
     }
 
     pub fn set_split(&self, split: ContainerSplit) {

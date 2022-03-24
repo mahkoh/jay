@@ -54,6 +54,21 @@ pub enum ContainerFocus {
 
 tree_id!(ContainerNodeId);
 
+pub struct ContainerTitle {
+    pub x: i32,
+    pub y: i32,
+    pub tex: Rc<Texture>,
+}
+
+#[derive(Default)]
+pub struct ContainerRenderData {
+    pub title_rects: Vec<Rect>,
+    pub active_title_rects: Vec<Rect>,
+    pub border_rects: Vec<Rect>,
+    pub underline_rects: Vec<Rect>,
+    pub titles: Vec<ContainerTitle>,
+}
+
 pub struct ContainerNode {
     pub id: ContainerNodeId,
     pub parent: CloneCell<Rc<dyn Node>>,
@@ -71,7 +86,7 @@ pub struct ContainerNode {
     pub content_height: Cell<i32>,
     pub sum_factors: Cell<f64>,
     layout_scheduled: Cell<bool>,
-    render_titles_scheduled: Cell<bool>,
+    compute_render_data_scheduled: Cell<bool>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
@@ -79,6 +94,7 @@ pub struct ContainerNode {
     workspace: CloneCell<Rc<WorkspaceNode>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
     state: Rc<State>,
+    pub render_data: RefCell<ContainerRenderData>,
 }
 
 impl Debug for ContainerNode {
@@ -94,9 +110,7 @@ pub struct ContainerChild {
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
     factor: Cell<f64>,
-    pub focus: Cell<ContainerFocus>,
     title: RefCell<String>,
-    pub title_texture: CloneCell<Option<Rc<Texture>>>,
 }
 
 struct SeatState {
@@ -143,9 +157,7 @@ impl ContainerNode {
                 body: Cell::new(Default::default()),
                 content: Cell::new(Default::default()),
                 factor: Cell::new(1.0),
-                focus: Cell::new(ContainerFocus::None),
                 title: Default::default(),
-                title_texture: Default::default(),
             }),
         );
         let slf = Rc::new(Self {
@@ -165,7 +177,7 @@ impl ContainerNode {
             content_height: Cell::new(0),
             sum_factors: Cell::new(1.0),
             layout_scheduled: Cell::new(false),
-            render_titles_scheduled: Cell::new(false),
+            compute_render_data_scheduled: Cell::new(false),
             num_children: NumCell::new(1),
             children,
             child_nodes: RefCell::new(child_nodes),
@@ -173,13 +185,10 @@ impl ContainerNode {
             workspace: CloneCell::new(workspace.clone()),
             seats: RefCell::new(Default::default()),
             state: state.clone(),
+            render_data: Default::default(),
         });
         child.set_parent(slf.clone());
         slf
-    }
-
-    pub fn num_children(&self) -> usize {
-        self.num_children.get()
     }
 
     pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn Node>) {
@@ -248,9 +257,7 @@ impl ContainerNode {
                     body: Default::default(),
                     content: Default::default(),
                     factor: Cell::new(0.0),
-                    focus: Cell::new(ContainerFocus::None),
                     title: Default::default(),
-                    title_texture: Default::default(),
                 }),
             );
         }
@@ -287,7 +294,7 @@ impl ContainerNode {
     }
 
     pub fn on_colors_changed(self: &Rc<Self>) {
-        self.schedule_render_titles();
+        self.schedule_compute_render_data();
     }
 
     fn schedule_layout(self: &Rc<Self>) {
@@ -297,6 +304,23 @@ impl ContainerNode {
     }
 
     fn perform_layout(self: &Rc<Self>) {
+        self.layout_scheduled.set(false);
+        if let Some(child) = self.mono_child.get() {
+            self.perform_mono_layout(&child);
+        } else {
+            self.perform_split_layout();
+        }
+        self.schedule_compute_render_data();
+    }
+
+    fn perform_mono_layout(self: &Rc<Self>, child: &ContainerChild) {
+        let mb = self.mono_body.get();
+        child.node.clone().change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
+        self.mono_content
+            .set(child.content.get().at_point(mb.x1(), mb.y1()));
+    }
+
+    fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
         let border_width = self.state.theme.border_width.get();
         let title_height = self.state.theme.title_height.get();
@@ -363,13 +387,11 @@ impl ContainerNode {
             }
         }
         self.sum_factors.set(1.0);
-        self.layout_scheduled.set(false);
         for child in self.children.iter() {
             let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
             child.node.clone().change_extents(&body);
             child.position_content();
         }
-        self.schedule_render_titles();
     }
 
     fn update_content_size(&self) {
@@ -393,6 +415,15 @@ impl ContainerNode {
                 self.content_width.set(self.width.get());
             }
         }
+        self.mono_body.set(
+            Rect::new_sized(
+                0,
+                title_height + 1,
+                self.width.get(),
+                self.height.get().sub(title_height + 1).max(0),
+            )
+            .unwrap(),
+        );
     }
 
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, mut x: i32, mut y: i32) {
@@ -482,55 +513,122 @@ impl ContainerNode {
     }
 
     fn update_title(self: &Rc<Self>) {
-        let split = match self.split.get() {
-            ContainerSplit::Horizontal => "H",
-            ContainerSplit::Vertical => "V",
-        };
         let mut title = self.title.borrow_mut();
         title.clear();
-        title.push_str(split);
-        title.push_str("[");
-        for (i, c) in self.children.iter().enumerate() {
-            if i > 0 {
-                title.push_str(", ");
+        if let Some(mc) = self.mono_child.get() {
+            title.push_str("M[");
+            title.push_str(mc.title.borrow_mut().deref());
+            title.push_str("]");
+        } else {
+            let split = match self.split.get() {
+                ContainerSplit::Horizontal => "H",
+                ContainerSplit::Vertical => "V",
+            };
+            title.push_str(split);
+            title.push_str("[");
+            for (i, c) in self.children.iter().enumerate() {
+                if i > 0 {
+                    title.push_str(", ");
+                }
+                title.push_str(c.title.borrow_mut().deref());
             }
-            title.push_str(c.title.borrow_mut().deref());
+            title.push_str("]");
         }
-        title.push_str("]");
         self.parent.get().child_title_changed(&**self, &title);
-        self.schedule_render_titles();
     }
 
-    fn schedule_render_titles(self: &Rc<Self>) {
-        if !self.render_titles_scheduled.replace(true) {
-            self.state.pending_container_titles.push(self.clone());
+    fn schedule_compute_render_data(self: &Rc<Self>) {
+        if !self.compute_render_data_scheduled.replace(true) {
+            self.state.pending_container_render_data.push(self.clone());
         }
     }
 
-    fn render_titles(&self) {
-        self.render_titles_scheduled.set(false);
+    fn compute_render_data(&self) {
+        self.compute_render_data_scheduled.set(false);
+        let mut rd = self.render_data.borrow_mut();
         let theme = &self.state.theme;
         let th = theme.title_height.get();
+        let bw = theme.border_width.get();
         let font = theme.font.borrow_mut();
-        for c in self.children.iter() {
-            c.title_texture.set(None);
-            let title = c.title.borrow_mut();
-            let body = c.body.get();
-            if title.is_empty() || th == 0 || body.width() == 0 {
-                continue;
-            }
-            let ctx = match self.state.render_ctx.get() {
-                Some(c) => c,
-                _ => continue,
-            };
-            let texture = match text::render(&ctx, body.width(), th, &font, &title, Color::GREY) {
-                Ok(t) => t,
-                Err(e) => {
-                    log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                    continue;
+        let cwidth = self.width.get();
+        let cheight = self.height.get();
+        let num_children = self.num_children.get() as i32;
+        let ctx = self.state.render_ctx.get();
+        rd.titles.clear();
+        rd.title_rects.clear();
+        rd.active_title_rects.clear();
+        rd.border_rects.clear();
+        rd.underline_rects.clear();
+        if self.mono_child.get().is_some() {
+            let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
+            let space_per_child = content_width / num_children;
+            let mut rem = content_width % num_children;
+            let mut pos = 0;
+            for (i, c) in self.children.iter().enumerate() {
+                if i > 0 {
+                    rd.border_rects.push(Rect::new_sized(pos - bw, 0, bw, th).unwrap());
                 }
-            };
-            c.title_texture.set(Some(texture));
+                let mut width = space_per_child;
+                if rem > 0 {
+                    rem -= 1;
+                    width += 1;
+                }
+                let rect = Rect::new_sized(pos, 0, width, th).unwrap();
+                if c.active.get() {
+                    rd.active_title_rects.push(rect);
+                } else {
+                    rd.title_rects.push(rect);
+                }
+                if let Some(ctx) = &ctx {
+                    let title = c.title.borrow_mut();
+                    match text::render(&ctx, width, th, &font, &title, Color::GREY) {
+                        Ok(t) => rd.titles.push(ContainerTitle {
+                                x: pos,
+                                y: 0,
+                                tex: t,
+                        }),
+                        Err(e) => {
+                            log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                        }
+                    }
+                }
+                pos += width + bw;
+            }
+            rd.underline_rects.push(Rect::new_sized(0, th, cwidth, 1).unwrap());
+        } else {
+            let split = self.split.get();
+            for (i, c) in self.children.iter().enumerate() {
+                let body = c.body.get();
+                if i > 0 {
+                    let rect = if split == ContainerSplit::Horizontal {
+                        Rect::new_sized(body.x1() - bw, 0, bw, cheight).unwrap()
+                    } else {
+                        Rect::new_sized(0, body.y1() - th - 1 - bw, cwidth, bw).unwrap()
+                    };
+                    rd.border_rects.push(rect);
+                }
+                let rect = Rect::new_sized(body.x1(), body.y1() - th - 1, body.width(), th).unwrap();
+                if c.active.get() {
+                    rd.active_title_rects.push(rect);
+                } else {
+                    rd.title_rects.push(rect);
+                }
+                let rect = Rect::new_sized(body.x1(), body.y1() - 1, body.width(), 1).unwrap();
+                rd.underline_rects.push(rect);
+                if let Some(ctx) = &ctx {
+                    let title = c.title.borrow_mut();
+                    match text::render(&ctx, body.width(), th, &font, &title, Color::GREY) {
+                        Ok(t) => rd.titles.push(ContainerTitle {
+                            x: body.x1(),
+                            y: body.y1() - th - 1,
+                            tex: t,
+                        }),
+                        Err(e) => {
+                            log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -555,11 +653,11 @@ pub async fn container_layout(state: Rc<State>) {
     }
 }
 
-pub async fn container_titles(state: Rc<State>) {
+pub async fn container_render_data(state: Rc<State>) {
     loop {
-        let container = state.pending_container_titles.pop().await;
-        if container.render_titles_scheduled.get() {
-            container.render_titles();
+        let container = state.pending_container_render_data.pop().await;
+        if container.compute_render_data_scheduled.get() {
+            container.compute_render_data();
         }
     }
 }
@@ -617,10 +715,31 @@ impl Node for ContainerNode {
             ct.push_str(title);
         }
         self.update_title();
+        self.schedule_compute_render_data();
+    }
+
+    fn get_mono(&self) -> Option<bool> {
+        Some(self.mono_child.get().is_some())
     }
 
     fn get_split(&self) -> Option<ContainerSplit> {
         Some(self.split.get())
+    }
+
+    fn set_mono(self: Rc<Self>, child: Option<&dyn Node>) {
+        if self.mono_child.get().is_some() != child.is_some() {
+            let children = self.child_nodes.borrow_mut();
+            let child = match child {
+                Some(c) => match children.get(&c.id()) {
+                    Some(c) => Some(c.to_ref()),
+                    _ => return,
+                },
+                _ => None,
+            };
+            self.mono_child.set(child);
+            self.schedule_layout();
+            self.update_title();
+        }
     }
 
     fn set_split(self: Rc<Self>, split: ContainerSplit) {
@@ -636,11 +755,15 @@ impl Node for ContainerNode {
     }
 
     fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let node = match direction {
-            Direction::Left => self.children.last(),
-            Direction::Down => self.children.first(),
-            Direction::Up => self.children.last(),
-            Direction::Right => self.children.first(),
+        let node = if let Some(cn) = self.mono_child.get() {
+            Some(cn)
+        } else {
+            match direction {
+                Direction::Left => self.children.last(),
+                Direction::Down => self.children.first(),
+                Direction::Up => self.children.last(),
+                Direction::Right => self.children.first(),
+            }
         };
         if let Some(node) = node {
             node.node.clone().do_focus(seat, direction);
@@ -671,9 +794,14 @@ impl Node for ContainerNode {
             Some(c) => c.to_ref(),
             _ => return,
         };
-        let in_line = match self.split.get() {
-            ContainerSplit::Horizontal => matches!(direction, Direction::Left | Direction::Right),
-            ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
+        let mc = self.mono_child.get();
+        let in_line = if mc.is_some() {
+            matches!(direction, Direction::Left | Direction::Right)
+        } else {
+            match self.split.get() {
+                ContainerSplit::Horizontal => matches!(direction, Direction::Left | Direction::Right),
+                ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
+            }
         };
         if !in_line {
             self.parent
@@ -700,6 +828,12 @@ impl Node for ContainerNode {
                 return;
             }
         };
+        if mc.is_some() {
+            self.mono_child.set(Some(sibling.clone()));
+            let body = self.mono_body.get();
+            self.mono_content.set(sibling.content.get().at_point(body.x1(), body.y1()));
+            sibling.node.clone().change_extents(&body.move_(self.abs_x1.get(), self.abs_y1.get()));
+        }
         sibling.node.clone().do_focus(seat, direction);
     }
     //
@@ -902,9 +1036,7 @@ impl Node for ContainerNode {
             body: Cell::new(node.body.get()),
             content: Cell::new(node.content.get()),
             factor: Cell::new(node.factor.get()),
-            focus: Cell::new(node.focus.get()),
             title: Default::default(),
-            title_texture: Default::default(),
         });
         let body = link.body.get();
         drop(node);
@@ -954,15 +1086,22 @@ impl Node for ContainerNode {
             let rect = Rect::new(0, 0, width, height).unwrap();
             node.content.set(rect);
             node.position_content();
+            if let Some(mono) = self.mono_child.get() {
+                if mono.node.id() == node.node.id() {
+                    let body = self.mono_body.get();
+                    self.mono_content.set(rect.at_point(body.x1(), body.y1()));
+                }
+            }
         }
     }
 
-    fn child_active_changed(&self, child: &dyn Node, active: bool) {
+    fn child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool) {
         let node = match self.child_nodes.borrow_mut().get(&child.id()) {
             Some(l) => l.to_ref(),
             None => return,
         };
         node.active.set(active);
+        self.schedule_compute_render_data();
     }
 
     fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
@@ -1027,9 +1166,14 @@ impl Node for ContainerNode {
                 .get()
                 .child_size_changed(&*self, rect.width(), rect.height());
         } else {
-            for child in self.children.iter() {
-                let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
-                child.node.clone().change_extents(&body);
+            if let Some(c) = self.mono_child.get() {
+                let body = self.mono_body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+                c.node.clone().change_extents(&body);
+            } else {
+                for child in self.children.iter() {
+                    let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+                    child.node.clone().change_extents(&body);
+                }
             }
         }
     }
@@ -1043,7 +1187,7 @@ impl Node for ContainerNode {
 
     fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
         self.parent.set(parent.clone());
-        parent.child_active_changed(&*self, self.active.get());
+        parent.clone().child_active_changed(&*self, self.active.get());
         parent.child_size_changed(&*self, self.width.get(), self.height.get());
         parent
             .clone()

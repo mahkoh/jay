@@ -327,7 +327,7 @@ impl XdgToplevel {
             _ => return,
         };
         let extents = self.xdg.extents.get();
-        parent.child_active_changed(self, self.active_surfaces.get() > 0);
+        parent.clone().child_active_changed(self, self.active_surfaces.get() > 0);
         parent.child_size_changed(self, extents.width(), extents.height());
         parent.child_title_changed(self, self.title.borrow_mut().deref());
     }
@@ -503,8 +503,21 @@ impl XdgSurfaceExt for XdgToplevel {
         Self::toggle_floating(&self);
     }
 
+    fn get_mono(&self) -> Option<bool> {
+        self.parent_node.get().and_then(|p| p.get_mono())
+    }
+
     fn get_split(&self) -> Option<ContainerSplit> {
         self.parent_node.get().and_then(|p| p.get_split())
+    }
+
+    fn set_mono(&self, mono: bool) {
+        let node = if mono {
+            Some(self as &dyn Node)
+        } else {
+            None
+        };
+        self.parent_node.get().map(move |p| p.set_mono(node));
     }
 
     fn set_split(&self, split: ContainerSplit) {

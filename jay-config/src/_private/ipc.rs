@@ -65,6 +65,13 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         axis: Axis,
     },
+    GetMono {
+        seat: Seat,
+    },
+    SetMono {
+        seat: Seat,
+        mono: bool,
+    },
     RemoveSeat {
         seat: Seat,
     },
@@ -136,6 +143,7 @@ pub enum Response {
     None,
     GetSeats { seats: Vec<Seat> },
     GetSplit { axis: Axis },
+    GetMono { mono: bool },
     GetRepeatRate { rate: i32, delay: i32 },
     ParseKeymap { keymap: Keymap },
     CreateSeat { seat: Seat },

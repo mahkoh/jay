@@ -5,7 +5,7 @@ use crate::render::gl::sys::{
 };
 use crate::render::renderer::context::RenderContext;
 use crate::render::renderer::renderer::Renderer;
-use crate::render::sys::{glBlendFunc, GL_ONE, GL_ONE_MINUS_SRC_ALPHA};
+use crate::render::sys::{glBlendFunc, GL_ONE, GL_ONE_MINUS_SRC_ALPHA, glFlush};
 use crate::tree::Node;
 use crate::State;
 use std::fmt::{Debug, Formatter};
@@ -73,6 +73,9 @@ impl Framebuffer {
                         }
                     }
                 }
+            }
+            unsafe {
+                glFlush();
             }
             Ok(())
         });

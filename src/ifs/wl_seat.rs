@@ -204,8 +204,16 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn get_mono(&self) -> Option<bool> {
+        self.keyboard_node.get().get_parent_mono()
+    }
+
     pub fn get_split(&self) -> Option<ContainerSplit> {
         self.keyboard_node.get().get_parent_split()
+    }
+
+    pub fn set_mono(&self, mono: bool) {
+        self.keyboard_node.get().set_parent_mono(mono)
     }
 
     pub fn set_split(&self, axis: ContainerSplit) {

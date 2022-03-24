@@ -204,6 +204,22 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_mono(&self, seat: Seat) -> Result<(), GetMonoError> {
+        let seat = self.get_seat(seat)?;
+        self.send(&ServerMessage::Response {
+            response: Response::GetMono {
+                mono: seat.get_mono().unwrap_or(false).into(),
+            },
+        });
+        Ok(())
+    }
+
+    fn handle_set_mono(&self, seat: Seat, mono: bool) -> Result<(), SetMonoError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_mono(mono);
+        Ok(())
+    }
+
     fn handle_get_split(&self, seat: Seat) -> Result<(), GetSplitError> {
         let seat = self.get_seat(seat)?;
         self.send(&ServerMessage::Response {
@@ -450,6 +466,8 @@ impl ConfigProxyHandler {
                 self.handle_set_repeat_rate(seat, rate, delay)?
             }
             ClientMessage::SetSeat { device, seat } => self.handle_set_seat(device, seat)?,
+            ClientMessage::GetMono { seat } => self.handle_get_mono(seat)?,
+            ClientMessage::SetMono { seat, mono } => self.handle_set_mono(seat, mono)?,
             ClientMessage::GetSplit { seat } => self.handle_get_split(seat)?,
             ClientMessage::SetSplit { seat, axis } => self.handle_set_split(seat, axis)?,
             ClientMessage::AddShortcut { seat, mods, sym } => {
@@ -505,6 +523,10 @@ enum CphError {
     FocusError(#[from] FocusError),
     #[error("Could not process a `move` request")]
     MoveError(#[from] MoveError),
+    #[error("Could not process a `set_mono` request")]
+    SetMonoError(#[from] SetMonoError),
+    #[error("Could not process a `get_mono` request")]
+    GetMonoError(#[from] GetMonoError),
     #[error("Could not process a `set_split` request")]
     SetSplitError(#[from] SetSplitError),
     #[error("Could not process a `get_split` request")]
@@ -600,6 +622,20 @@ enum MoveError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(MoveError, CphError);
+
+#[derive(Debug, Error)]
+enum SetMonoError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(SetMonoError, CphError);
+
+#[derive(Debug, Error)]
+enum GetMonoError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(GetMonoError, CphError);
 
 #[derive(Debug, Error)]
 enum SetSplitError {

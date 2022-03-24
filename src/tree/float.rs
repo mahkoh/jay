@@ -437,7 +437,7 @@ impl Node for FloatNode {
         self.workspace_link.set(None);
     }
 
-    fn child_active_changed(&self, _child: &dyn Node, active: bool) {
+    fn child_active_changed(self: Rc<Self>, _child: &dyn Node, active: bool) {
         self.active.set(active);
     }
 
