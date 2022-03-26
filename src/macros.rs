@@ -361,7 +361,7 @@ macro_rules! assert_align_eq {
     }};
 }
 
-macro_rules! atom_manager {
+macro_rules! atoms {
     {
         $name:ident;
         $($field_name:ident,)*

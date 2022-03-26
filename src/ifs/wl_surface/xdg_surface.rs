@@ -2,7 +2,7 @@ pub mod xdg_popup;
 pub mod xdg_toplevel;
 
 use crate::client::ClientError;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
+use crate::ifs::wl_seat::{NodeSeatState};
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
@@ -12,16 +12,14 @@ use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
-use crate::tree::{ContainerSplit, FindTreeResult, FoundNode, Node, WorkspaceNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::smallmap::SmallMap;
 use crate::wire::xdg_surface::*;
 use crate::wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId};
 use crate::NumCell;
-use jay_config::Direction;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -63,7 +61,6 @@ pub struct XdgSurface {
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
     pending: PendingXdgSurfaceData,
-    pub(super) focus_surface: SmallMap<SeatId, Rc<WlSurface>, 1>,
     seat_state: NodeSeatState,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
@@ -75,43 +72,6 @@ struct PendingXdgSurfaceData {
 }
 
 pub trait XdgSurfaceExt: Debug {
-    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        let _ = seat;
-    }
-
-    fn toggle_floating(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        let _ = seat;
-    }
-
-    fn get_mono(&self) -> Option<bool> {
-        None
-    }
-
-    fn get_split(&self) -> Option<ContainerSplit> {
-        None
-    }
-
-    fn set_mono(&self, mono: bool) {
-        let _ = mono;
-    }
-
-    fn set_split(&self, split: ContainerSplit) {
-        let _ = split;
-    }
-
-    fn create_split(self: Rc<Self>, split: ContainerSplit) {
-        let _ = split;
-    }
-
-    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let _ = seat;
-        let _ = direction;
-    }
-
-    fn move_self(self: Rc<Self>, direction: Direction) {
-        let _ = direction;
-    }
-
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         Ok(())
     }
@@ -120,16 +80,8 @@ pub trait XdgSurfaceExt: Debug {
         // nothing
     }
 
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
-        None
-    }
-
     fn extents_changed(&self) {
         // nothing
-    }
-
-    fn surface_active_changed(self: Rc<Self>, active: bool) {
-        let _ = active;
     }
 }
 
@@ -148,7 +100,6 @@ impl XdgSurface {
             ext: Default::default(),
             popups: Default::default(),
             pending: Default::default(),
-            focus_surface: Default::default(),
             seat_state: Default::default(),
             workspace: Default::default(),
             tracker: Default::default(),
@@ -166,48 +117,6 @@ impl XdgSurface {
             self.surface.set_absolute_position(x1, y1);
             self.update_popup_positions();
         }
-    }
-
-    pub fn surface_active_changed(&self, active: bool) {
-        if let Some(ext) = self.ext.get() {
-            ext.surface_active_changed(active);
-        }
-    }
-
-    pub fn get_mono(&self) -> Option<bool> {
-        self.ext.get().and_then(|e| e.get_mono())
-    }
-
-    pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.ext.get().and_then(|e| e.get_split())
-    }
-
-    pub fn set_mono(&self, mono: bool) {
-        self.ext.get().map(|e| e.set_mono(mono));
-    }
-
-    pub fn set_split(&self, split: ContainerSplit) {
-        self.ext.get().map(|e| e.set_split(split));
-    }
-
-    pub fn create_split(&self, split: ContainerSplit) {
-        self.ext.get().map(|e| e.create_split(split));
-    }
-
-    pub fn move_focus(&self, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(ext) = self.ext.get() {
-            ext.move_focus(seat, direction);
-        }
-    }
-
-    pub fn move_self(&self, direction: Direction) {
-        if let Some(ext) = self.ext.get() {
-            ext.move_self(direction);
-        }
-    }
-
-    pub fn role(&self) -> XdgSurfaceRole {
-        self.role.get()
     }
 
     fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -233,18 +142,6 @@ impl XdgSurface {
         }
         self.role.set(role);
         Ok(())
-    }
-
-    pub fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(ext) = self.ext.get() {
-            ext.focus_parent(seat);
-        }
-    }
-
-    pub fn toggle_floating(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(ext) = self.ext.get() {
-            ext.toggle_floating(seat);
-        }
     }
 
     fn destroy_node(&self) {
@@ -278,7 +175,6 @@ impl XdgSurface {
             return Err(XdgSurfaceError::AlreadyAttached(self.surface.id));
         }
         self.surface.ext.set(self.clone());
-        self.surface.set_xdg_surface(Some(self.clone()));
         Ok(())
     }
 
@@ -293,8 +189,6 @@ impl XdgSurface {
                 return Err(DestroyError::PopupsNotYetDestroyed);
             }
         }
-        self.focus_surface.clear();
-        self.surface.set_xdg_surface(None);
         self.surface.unset_ext();
         self.base.surfaces.remove(&self.id);
         self.surface.client.remove_obj(self)?;
@@ -318,7 +212,8 @@ impl XdgSurface {
         let toplevel = Rc::new(XdgToplevel::new(req.id, self));
         track!(self.surface.client, toplevel);
         self.surface.client.add_client_obj(&toplevel)?;
-        self.ext.set(Some(toplevel));
+        self.ext.set(Some(toplevel.clone()));
+        self.surface.set_toplevel(Some(toplevel));
         Ok(())
     }
 
@@ -422,7 +317,6 @@ impl Object for XdgSurface {
     }
 
     fn break_loops(&self) {
-        self.focus_surface.take();
         self.ext.take();
         self.popups.clear();
         self.workspace.set(None);

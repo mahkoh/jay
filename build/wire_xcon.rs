@@ -141,7 +141,12 @@ impl<'a> Parser<'a> {
             let (_, body) = self.expect_tree(TreeDelim::Brace)?;
             let mut parser = Parser::new(body);
             let data = parser.parse_struct_body(name)?;
-            Ok(Event { opcode, xge, data })
+            Ok(Event {
+                opcode,
+                xge,
+                data,
+                ext_idx: self.ext_idx,
+            })
         })();
         res.with_context(|| format!("While parsing event starting at line {}", line))
     }
@@ -779,6 +784,7 @@ struct Event {
     opcode: u32,
     xge: bool,
     data: Struct,
+    ext_idx: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -941,6 +947,7 @@ enum StructUsecase<'a> {
     EventCopy {
         copy: &'a EventCopy,
         original: &'a Struct,
+        xge: bool,
     },
 }
 
@@ -950,6 +957,7 @@ fn format_xevent<F: Write>(
     s: &Struct,
     opcode: u32,
     protocols: &Protocols,
+    ext: Option<usize>,
 ) -> Result<()> {
     let lt_a = if struct_needs_lt(s, protocols)? {
         "<'a>"
@@ -958,6 +966,7 @@ fn format_xevent<F: Write>(
     };
     writeln!(f)?;
     writeln!(f, "impl<'a> XEvent<'a> for {}{lt_a} {{", name)?;
+    writeln!(f, "    const EXTENSION: Option<usize> = {:?};", ext)?;
     writeln!(f, "    const OPCODE: u16 = {:?};", opcode)?;
     writeln!(f, "}}")?;
     Ok(())
@@ -965,7 +974,14 @@ fn format_xevent<F: Write>(
 
 fn format_event<F: Write>(f: &mut F, s: &Event, protocols: &Protocols) -> Result<()> {
     format_struct(f, &s.data, protocols, &StructUsecase::Event { xge: s.xge })?;
-    format_xevent(f, s.data.name.as_bstr(), &s.data, s.opcode, protocols)
+    format_xevent(
+        f,
+        s.data.name.as_bstr(),
+        &s.data,
+        s.opcode,
+        protocols,
+        s.ext_idx,
+    )
 }
 
 fn format_eventcopy<F: Write>(f: &mut F, s: &EventCopy, protocols: &Protocols) -> Result<()> {
@@ -980,9 +996,17 @@ fn format_eventcopy<F: Write>(f: &mut F, s: &EventCopy, protocols: &Protocols) -
         &StructUsecase::EventCopy {
             copy: s,
             original: &original.data,
+            xge: original.xge,
         },
     )?;
-    format_xevent(f, s.name.as_bstr(), &original.data, s.opcode, protocols)
+    format_xevent(
+        f,
+        s.name.as_bstr(),
+        &original.data,
+        s.opcode,
+        protocols,
+        original.ext_idx,
+    )
 }
 
 fn format_request<F: Write>(f: &mut F, s: &Request, protocols: &Protocols) -> Result<()> {
@@ -1276,7 +1300,7 @@ fn format_struct<F: Write>(
     writeln!(f, "#[derive(Debug, Clone)]")?;
     writeln!(f, "pub struct {}{lt_a} {{", struct_name)?;
     if let StructUsecase::EventCopy { original, .. } = usecase {
-        writeln!(f, "    data: {}{lt_a},", original.name)?;
+        writeln!(f, "    pub data: {}{lt_a},", original.name)?;
     } else {
         for field in &s.fields {
             if let Field::Real(rf) = field {
@@ -1308,87 +1332,97 @@ fn format_struct<F: Write>(
     writeln!(f, "    type Generic<'b> = {}{lt_b};", struct_name)?;
     writeln!(f, "    const IS_POD: bool = false;")?;
     writeln!(f, "    const HAS_FDS: bool = {has_fds};")?;
-    if !matches!(
+    let mut write_serialize = true;
+    if matches!(
         usecase,
-        StructUsecase::Event { .. } | StructUsecase::EventCopy { .. } | StructUsecase::Reply
+        StructUsecase::Reply
+            | StructUsecase::Event { xge: true }
+            | StructUsecase::EventCopy { xge: true, .. }
     ) {
+        write_serialize = false;
+    }
+    if write_serialize {
         writeln!(f)?;
         writeln!(f, "    fn serialize(&self, formatter: &mut Formatter) {{")?;
-        for group in &groups {
-            match group {
-                FieldGroup::Pods { fields, .. } => {
-                    writeln!(f, "        {{")?;
-                    for field in fields {
-                        if let Field::Real(rf) = field {
-                            write!(f, "            let {}_bytes = ", rf.name)?;
-                            match &rf.value {
-                                Some(e) => {
-                                    writeln!(f, "{{")?;
-                                    write!(f, "                let tmp: ")?;
-                                    write_type(f, &rf.ty, protocols)?;
-                                    write!(f, " = (")?;
-                                    write_expr(f, e, "self.")?;
-                                    writeln!(f, ") as _;")?;
-                                    writeln!(f, "                tmp.to_ne_bytes()")?;
-                                    writeln!(f, "            }};")?;
+        if let StructUsecase::EventCopy { .. } = usecase {
+            writeln!(f, "        self.data.serialize(formatter);")?;
+        } else {
+            for group in &groups {
+                match group {
+                    FieldGroup::Pods { fields, .. } => {
+                        writeln!(f, "        {{")?;
+                        for field in fields {
+                            if let Field::Real(rf) = field {
+                                write!(f, "            let {}_bytes = ", rf.name)?;
+                                match &rf.value {
+                                    Some(e) => {
+                                        writeln!(f, "{{")?;
+                                        write!(f, "                let tmp: ")?;
+                                        write_type(f, &rf.ty, protocols)?;
+                                        write!(f, " = (")?;
+                                        write_expr(f, e, "self.")?;
+                                        writeln!(f, ") as _;")?;
+                                        writeln!(f, "                tmp.to_ne_bytes()")?;
+                                        writeln!(f, "            }};")?;
+                                    }
+                                    _ => writeln!(f, "self.{}.to_ne_bytes();", rf.name)?,
                                 }
-                                _ => writeln!(f, "self.{}.to_ne_bytes();", rf.name)?,
                             }
                         }
+                        writeln!(f, "            formatter.write_bytes(&[")?;
+                        for field in fields {
+                            match field {
+                                Field::Pad(n) => {
+                                    write!(f, "               ")?;
+                                    for _ in 0..*n {
+                                        write!(f, " 0,")?;
+                                    }
+                                    writeln!(f)?;
+                                }
+                                Field::Real(rf) => {
+                                    let num_bytes = match rf.ty {
+                                        Type::I8 | Type::U8 => 1,
+                                        Type::I16 | Type::U16 => 2,
+                                        Type::I32 | Type::U32 => 4,
+                                        Type::I64 | Type::U64 => 8,
+                                        _ => unreachable!(),
+                                    };
+                                    write!(f, "               ")?;
+                                    for i in 0..num_bytes {
+                                        write!(f, " {}_bytes[{}],", rf.name, i)?;
+                                    }
+                                    writeln!(f)?;
+                                }
+                                Field::Opcode(n) => {
+                                    writeln!(f, "                {},", n)?;
+                                }
+                                Field::ExtMajor => {
+                                    writeln!(f, "                formatter.ext_opcode(),")?;
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        writeln!(f, "            ]);")?;
+                        writeln!(f, "        }}")?;
                     }
-                    writeln!(f, "            formatter.write_bytes(&[")?;
-                    for field in fields {
-                        match field {
-                            Field::Pad(n) => {
-                                write!(f, "               ")?;
-                                for _ in 0..*n {
-                                    write!(f, " 0,")?;
-                                }
-                                writeln!(f)?;
+                    FieldGroup::Single(field) => match field {
+                        Field::Align(n) => writeln!(f, "        formatter.align({n});")?,
+                        Field::Real(rf) => match &rf.value {
+                            Some(v) => {
+                                writeln!(f, "        {{")?;
+                                write!(f, "            let tmp: ")?;
+                                write_type(f, &rf.ty, protocols)?;
+                                write!(f, " = ")?;
+                                write_expr(f, v, "self.")?;
+                                writeln!(f, " as _;")?;
+                                writeln!(f, "            tmp.serialize(formatter);")?;
+                                writeln!(f, "        }}")?;
                             }
-                            Field::Real(rf) => {
-                                let num_bytes = match rf.ty {
-                                    Type::I8 | Type::U8 => 1,
-                                    Type::I16 | Type::U16 => 2,
-                                    Type::I32 | Type::U32 => 4,
-                                    Type::I64 | Type::U64 => 8,
-                                    _ => unreachable!(),
-                                };
-                                write!(f, "               ")?;
-                                for i in 0..num_bytes {
-                                    write!(f, " {}_bytes[{}],", rf.name, i)?;
-                                }
-                                writeln!(f)?;
-                            }
-                            Field::Opcode(n) => {
-                                writeln!(f, "                {},", n)?;
-                            }
-                            Field::ExtMajor => {
-                                writeln!(f, "                formatter.ext_opcode(),")?;
-                            }
-                            _ => unreachable!(),
-                        }
-                    }
-                    writeln!(f, "            ]);")?;
-                    writeln!(f, "        }}")?;
-                }
-                FieldGroup::Single(field) => match field {
-                    Field::Align(n) => writeln!(f, "        formatter.align({n});")?,
-                    Field::Real(rf) => match &rf.value {
-                        Some(v) => {
-                            writeln!(f, "        {{")?;
-                            write!(f, "            let tmp: ")?;
-                            write_type(f, &rf.ty, protocols)?;
-                            write!(f, " = ")?;
-                            write_expr(f, v, "self.")?;
-                            writeln!(f, " as _;")?;
-                            writeln!(f, "            tmp.serialize(formatter);")?;
-                            writeln!(f, "        }}")?;
-                        }
-                        _ => writeln!(f, "        self.{}.serialize(formatter);", rf.name)?,
+                            _ => writeln!(f, "        self.{}.serialize(formatter);", rf.name)?,
+                        },
+                        _ => unreachable!(),
                     },
-                    _ => unreachable!(),
-                },
+                }
             }
         }
         writeln!(f, "    }}")?;

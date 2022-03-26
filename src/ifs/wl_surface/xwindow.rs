@@ -5,28 +5,118 @@ use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
 use crate::rect::Rect;
 use crate::render::Renderer;
-use crate::tree::toplevel::ToplevelNode;
+use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlSurfaceId;
 use crate::wire_xcon::CreateNotify;
 use crate::xwayland::XWaylandEvent;
-use crate::{AsyncQueue, CloneCell, State};
+use crate::{AsyncQueue, CloneCell,  State};
+use bstr::BString;
 use jay_config::Direction;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum XInputModel {
+    None,
+    Passive,
+    Local,
+    Global,
+}
+
+impl Default for XInputModel {
+    fn default() -> Self {
+        Self::Passive
+    }
+}
+
+#[derive(Default, Debug)]
+pub struct IcccmHints {
+    pub flags: Cell<i32>,
+    pub input: Cell<u32>,
+    pub initial_state: Cell<i32>,
+    pub icon_pixmap: Cell<u32>,
+    pub icon_window: Cell<u32>,
+    pub icon_x: Cell<i32>,
+    pub icon_y: Cell<i32>,
+    pub icon_mask: Cell<u32>,
+    pub window_group: Cell<u32>,
+}
+
+#[derive(Default, Debug)]
+pub struct SizeHints {
+    pub flags: Cell<u32>,
+    pub x: Cell<i32>,
+    pub y: Cell<i32>,
+    pub width: Cell<i32>,
+    pub height: Cell<i32>,
+    pub min_width: Cell<i32>,
+    pub min_height: Cell<i32>,
+    pub max_width: Cell<i32>,
+    pub max_height: Cell<i32>,
+    pub width_inc: Cell<i32>,
+    pub height_inc: Cell<i32>,
+    pub min_aspect_num: Cell<i32>,
+    pub min_aspect_den: Cell<i32>,
+    pub max_aspect_num: Cell<i32>,
+    pub max_aspect_den: Cell<i32>,
+    pub base_width: Cell<i32>,
+    pub base_height: Cell<i32>,
+    pub win_gravity: Cell<u32>,
+}
+
+#[derive(Default, Debug)]
+pub struct MotifHints {
+    pub flags: Cell<u32>,
+    pub decorations: Cell<u32>,
+}
+
+#[derive(Default, Debug)]
+pub struct XwindowInfo {
+    pub has_alpha: Cell<bool>,
+    pub override_redirect: Cell<bool>,
+    pub extents: Cell<Rect>,
+    pub instance: RefCell<Option<BString>>,
+    pub class: RefCell<Option<BString>>,
+    pub title: RefCell<Option<BString>>,
+    pub role: RefCell<Option<BString>>,
+    pub protocols: CopyHashMap<u32, ()>,
+    pub window_types: CopyHashMap<u32, ()>,
+    pub never_focus: Cell<bool>,
+    pub utf8_title: Cell<bool>,
+    pub icccm_hints: IcccmHints,
+    pub normal_hints: SizeHints,
+    pub motif_hints: MotifHints,
+    pub startup_id: RefCell<Option<BString>>,
+    pub fullscreen: Cell<bool>,
+    pub modal: Cell<bool>,
+    pub maximized_vert: Cell<bool>,
+    pub maximized_horz: Cell<bool>,
+    pub minimized: Cell<bool>,
+    pub pid: Cell<Option<u32>>,
+    pub input_model: Cell<XInputModel>,
+    pub mapped: Cell<bool>,
+    pub wants_floating: Cell<bool>,
+}
+
 pub struct XwindowData {
     pub state: Rc<State>,
     pub window_id: u32,
-    pub override_redirect: bool,
-    pub extents: Cell<Rect>,
     pub client: Rc<Client>,
     pub surface_id: Cell<Option<WlSurfaceId>>,
     pub window: CloneCell<Option<Rc<Xwindow>>>,
+    pub info: XwindowInfo,
+    pub children: CopyHashMap<u32, Rc<XwindowData>>,
+    pub parent: CloneCell<Option<Rc<XwindowData>>>,
+    pub stack_link: RefCell<Option<LinkedNode<Rc<XwindowData>>>>,
+    pub map_link: Cell<Option<LinkedNode<Rc<XwindowData>>>>,
+    pub startup_info: RefCell<Vec<u8>>,
+    pub destroyed: Cell<bool>,
 }
 
 tree_id!(XwindowId);
@@ -35,12 +125,13 @@ pub struct Xwindow {
     pub seat_state: NodeSeatState,
     pub data: Rc<XwindowData>,
     pub surface: Rc<WlSurface>,
-    pub parent: CloneCell<Option<Rc<dyn Node>>>,
+    pub parent_node: CloneCell<Option<Rc<dyn Node>>>,
     pub focus_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
     pub events: Rc<AsyncQueue<XWaylandEvent>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
     pub display_xlink: RefCell<Option<LinkedNode<Rc<Xwindow>>>>,
+    pub toplevel_data: ToplevelData,
 }
 
 impl XwindowData {
@@ -52,17 +143,43 @@ impl XwindowData {
             event.height as _,
         )
         .unwrap();
-        log::info!("extents = {:?}", extents);
         Self {
             state: state.clone(),
             window_id: event.window,
-            override_redirect: event.override_redirect != 0,
-            extents: Cell::new(extents),
             client: client.clone(),
             surface_id: Cell::new(None),
             window: Default::default(),
+            info: XwindowInfo {
+                override_redirect: Cell::new(event.override_redirect != 0),
+                extents: Cell::new(extents),
+                ..Default::default()
+            },
+            children: Default::default(),
+            parent: Default::default(),
+            stack_link: Default::default(),
+            map_link: Default::default(),
+            startup_info: Default::default(),
+            destroyed: Cell::new(false),
         }
     }
+
+    pub fn is_ancestor_of(&self, mut other: Rc<Self>) -> bool {
+        loop {
+            if other.window_id == self.window_id {
+                return true;
+            }
+            other = match other.parent.get() {
+                Some(p) => p,
+                _ => return false,
+            }
+        }
+    }
+}
+
+pub enum Change {
+    None,
+    Map,
+    Unmap,
 }
 
 impl Xwindow {
@@ -76,12 +193,13 @@ impl Xwindow {
             seat_state: Default::default(),
             data: data.clone(),
             surface: surface.clone(),
-            parent: Default::default(),
+            parent_node: Default::default(),
             focus_history: Default::default(),
             events: events.clone(),
             workspace: Default::default(),
             display_link: Default::default(),
             display_xlink: Default::default(),
+            toplevel_data: Default::default(),
         }
     }
 
@@ -92,6 +210,7 @@ impl Xwindow {
 
     pub fn break_loops(&self) {
         self.destroy_node(true);
+        self.surface.set_toplevel(None);
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), XWindowError> {
@@ -100,11 +219,12 @@ impl Xwindow {
             return Err(XWindowError::AlreadyAttached);
         }
         self.surface.ext.set(self.clone());
+        self.surface.set_toplevel(Some(self.clone()));
         Ok(())
     }
 
     fn notify_parent(&self) {
-        let parent = match self.parent.get() {
+        let parent = match self.parent_node.get() {
             Some(p) => p,
             _ => return,
         };
@@ -115,45 +235,47 @@ impl Xwindow {
         // parent.child_title_changed(self, self.title.borrow_mut().deref());
     }
 
-    fn managed_post_commit(self: &Rc<Self>) {
-        let parent = self.parent.get();
-        if self.surface.buffer.get().is_some() {
-            if parent.is_none() {
-                self.data.state.map_tiled(self.clone());
-            }
-        } else {
-            if parent.is_some() {
-                self.destroy_node(true);
-            }
+    pub fn is_mapped(&self) -> bool {
+        self.parent_node.get().is_some() || self.display_link.borrow_mut().is_some()
+    }
+
+    pub fn may_be_mapped(&self) -> bool {
+        self.surface.buffer.get().is_some() && self.data.info.mapped.get()
+    }
+
+    fn map_change(&self) -> Change {
+        match (self.may_be_mapped(), self.is_mapped()) {
+            (true, false) => Change::Map,
+            (false, true) => Change::Unmap,
+            _ => Change::None,
         }
     }
 
-    fn unmanaged_post_commit(self: &Rc<Self>) {
-        let mut dl = self.display_link.borrow_mut();
-        let mut dxl = self.display_xlink.borrow_mut();
-        if self.surface.buffer.get().is_some() {
-            if dl.is_none() {
-                *dl = Some(self.data.state.root.stacked.add_last(self.clone()));
-                *dxl = Some(self.data.state.root.xstacked.add_last(self.clone()));
+    pub fn map_status_changed(self: &Rc<Self>) {
+        match self.map_change() {
+            Change::None => {}
+            Change::Unmap => self.destroy_node(true),
+            Change::Map if self.data.info.override_redirect.get() => {
+                *self.display_link.borrow_mut() = Some(self.data.state.root.stacked.add_last(self.clone()));
+                *self.display_xlink.borrow_mut() = Some(self.data.state.root.xstacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
-        } else {
-            if dl.is_some() {
-                drop(dl);
-                drop(dxl);
-                self.destroy_node(true);
-            }
+            Change::Map if self.data.info.wants_floating.get() => {
+                let ws = self.data.state.root.outputs.lock().iter().next().unwrap().1.workspace.get().unwrap();
+                // todo
+                let ext = self.data.info.extents.get();
+                self.data.state.map_floating(self.clone(), ext.width(), ext.height(), &ws);
+            },
+            Change::Map => {
+                self.data.state.map_tiled(self.clone())
+            },
         }
     }
 }
 
 impl SurfaceExt for Xwindow {
     fn post_commit(self: Rc<Self>) {
-        if self.data.override_redirect {
-            self.unmanaged_post_commit();
-        } else {
-            self.managed_post_commit();
-        }
+        self.map_status_changed();
     }
 
     fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
@@ -185,11 +307,12 @@ impl Node for Xwindow {
         self.display_link.borrow_mut().take();
         self.workspace.take();
         self.focus_history.clear();
-        if let Some(parent) = self.parent.take() {
+        if let Some(parent) = self.parent_node.take() {
             parent.remove_child(self);
         }
         self.surface.destroy_node(false);
         self.seat_state.destroy_node(self);
+        self.toplevel_data.clear();
     }
 
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
@@ -201,7 +324,7 @@ impl Node for Xwindow {
     }
 
     fn is_contained_in(&self, other: NodeId) -> bool {
-        if let Some(parent) = self.parent.get() {
+        if let Some(parent) = self.parent_node.get() {
             if parent.id() == other {
                 return true;
             }
@@ -215,7 +338,7 @@ impl Node for Xwindow {
     }
 
     fn absolute_position(&self) -> Rect {
-        self.data.extents.get()
+        self.data.info.extents.get()
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -247,7 +370,7 @@ impl Node for Xwindow {
     fn change_extents(self: Rc<Self>, rect: &Rect) {
         let nw = rect.width();
         let nh = rect.height();
-        let de = self.data.extents.replace(*rect);
+        let de = self.data.info.extents.replace(*rect);
         if de.width() != nw || de.height() != nh {
             self.events.push(XWaylandEvent::Configure(self.clone()));
         }
@@ -258,7 +381,7 @@ impl Node for Xwindow {
     }
 
     fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
-        self.parent.set(Some(parent));
+        self.parent_node.set(Some(parent));
         self.notify_parent();
     }
 
@@ -268,20 +391,46 @@ impl Node for Xwindow {
 }
 
 impl ToplevelNode for Xwindow {
+    fn data(&self) -> &ToplevelData {
+        &self.toplevel_data
+    }
+
     fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.parent.get()
+        self.parent_node.get()
     }
 
-    fn focus_surface(&self, _seat: &WlSeatGlobal) -> Rc<WlSurface> {
-        self.surface.clone()
-    }
-
-    fn set_focus_history_link(&self, seat: &WlSeatGlobal, link: LinkedNode<Rc<dyn ToplevelNode>>) {
-        self.focus_history.insert(seat.id(), link);
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.workspace.get()
     }
 
     fn as_node(&self) -> &dyn Node {
         self
+    }
+
+    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
+        self
+    }
+
+    fn accepts_keyboard_focus(&self) -> bool {
+        self.data.info.icccm_hints.input.get() != 0
+    }
+
+    fn default_surface(&self) -> Rc<WlSurface> {
+        self.surface.clone()
+    }
+
+    fn set_active(&self, active: bool) {
+        if let Some(pn) = self.parent_node.get() {
+            pn.child_active_changed(self, active);
+        }
+    }
+
+    fn activate(&self) {
+        self.events.push(XWaylandEvent::Activate(self.data.clone()));
+    }
+
+    fn toggle_floating(self: Rc<Self>) {
+        todo!()
     }
 }
 

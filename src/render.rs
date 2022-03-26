@@ -72,7 +72,6 @@ pub enum RenderError {
     #[error("EGL display does not support `EGL_EXT_image_dma_buf_import_modifiers`")]
     DmaBufImport,
     #[error("GLES driver does not support `GL_OES_EGL_image`")]
-    #[allow(dead_code)]
     OesEglImage,
     #[error("EGL display does not support `EGL_KHR_image_base`")]
     ImageBase,

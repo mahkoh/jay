@@ -128,7 +128,7 @@ mod yield_ {
             if self.queue.iteration() > self.iteration {
                 Poll::Ready(())
             } else {
-                cx.waker().wake_by_ref();
+                self.queue.push_yield(cx.waker().clone());
                 Poll::Pending
             }
         }
@@ -435,16 +435,17 @@ mod queue {
     use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopId};
     use crate::utils::array;
     use crate::utils::numcell::NumCell;
+    use crate::utils::syncqueue::SyncQueue;
     use std::cell::{Cell, RefCell};
     use std::collections::VecDeque;
     use std::error::Error;
-    use std::mem;
-    use std::ops::DerefMut;
     use std::rc::Rc;
+    use std::task::Waker;
 
     pub(super) struct Dispatcher {
         queue: Rc<DispatchQueue>,
         stash: RefCell<VecDeque<Runnable>>,
+        yield_stash: RefCell<VecDeque<Waker>>,
     }
 
     impl Dispatcher {
@@ -457,10 +458,12 @@ mod queue {
                 num_queued: Default::default(),
                 queues: array::from_fn(|_| Default::default()),
                 iteration: Default::default(),
+                yields: Default::default(),
             });
             let slf = Rc::new(Dispatcher {
                 queue: queue.clone(),
-                stash: RefCell::new(Default::default()),
+                stash: Default::default(),
+                yield_stash: Default::default(),
             });
             el.insert(id, None, 0, slf)?;
             Ok(queue)
@@ -470,11 +473,12 @@ mod queue {
     impl EventLoopDispatcher for Dispatcher {
         fn dispatch(self: Rc<Self>, _events: i32) -> Result<(), Box<dyn Error>> {
             let mut stash = self.stash.borrow_mut();
+            let mut yield_stash = self.yield_stash.borrow_mut();
             while self.queue.num_queued.get() > 0 {
                 self.queue.iteration.fetch_add(1);
                 let mut phase = 0;
                 while phase < NUM_PHASES as usize {
-                    mem::swap(&mut *stash, &mut *self.queue.queues[phase].borrow_mut());
+                    self.queue.queues[phase].swap(&mut *stash);
                     if stash.is_empty() {
                         phase += 1;
                         continue;
@@ -483,6 +487,10 @@ mod queue {
                     for runnable in stash.drain(..) {
                         runnable.run();
                     }
+                }
+                self.queue.yields.swap(&mut *yield_stash);
+                for waker in yield_stash.drain(..) {
+                    waker.wake();
                 }
             }
             self.queue.dispatch_scheduled.set(false);
@@ -494,7 +502,7 @@ mod queue {
         fn drop(&mut self) {
             let _ = self.queue.el.remove(self.queue.id);
             for queue in &self.queue.queues {
-                mem::take(queue.borrow_mut().deref_mut());
+                queue.swap(&mut VecDeque::new());
             }
         }
     }
@@ -504,18 +512,23 @@ mod queue {
         id: EventLoopId,
         el: Rc<EventLoop>,
         num_queued: NumCell<usize>,
-        queues: [RefCell<VecDeque<Runnable>>; NUM_PHASES],
+        queues: [SyncQueue<Runnable>; NUM_PHASES],
         iteration: NumCell<u64>,
+        yields: SyncQueue<Waker>,
     }
 
     impl DispatchQueue {
         pub fn push(&self, runnable: Runnable, phase: Phase) {
-            self.queues[phase as usize].borrow_mut().push_back(runnable);
+            self.queues[phase as usize].push(runnable);
             self.num_queued.fetch_add(1);
             if !self.dispatch_scheduled.get() {
                 let _ = self.el.schedule(self.id);
                 self.dispatch_scheduled.set(true);
             }
+        }
+
+        pub fn push_yield(&self, waker: Waker) {
+            self.yields.push(waker);
         }
 
         pub fn iteration(&self) -> u64 {

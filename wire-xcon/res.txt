@@ -1,0 +1,22 @@
+ext "X-Resource"
+
+struct ResClientIdSpec {
+    client: u32,
+    mask: u32,
+}
+
+struct ResClientIdValue {
+    spec: ResClientIdSpec,
+    length: u32 = mul(len(value), literal(4)),
+    value: list(u32, div(field(length), literal(4))),
+}
+
+request ResQueryClientIds = 4 (
+    num_specs: u32 = len(specs),
+    specs: list(ResClientIdSpec, field(num_specs)),
+) {
+    @pad 1,
+    num_ids: u32 = len(ids),
+    @pad 20,
+    ids: list(ResClientIdValue, field(num_ids)),
+}

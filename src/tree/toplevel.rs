@@ -1,19 +1,55 @@
-use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::{SeatId};
 use crate::ifs::wl_surface::WlSurface;
-use crate::tree::Node;
+use crate::tree::{Node, WorkspaceNode};
 use crate::utils::linkedlist::LinkedNode;
 use std::rc::Rc;
+use crate::NumCell;
+use crate::utils::smallmap::SmallMap;
 
-pub trait ToplevelNode: Node {
+pub trait ToplevelNode {
+    fn data(&self) -> &ToplevelData;
     fn parent(&self) -> Option<Rc<dyn Node>>;
-    fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface>;
-    fn set_focus_history_link(&self, seat: &WlSeatGlobal, link: LinkedNode<Rc<dyn ToplevelNode>>);
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>>;
     fn as_node(&self) -> &dyn Node;
+    fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
+    fn accepts_keyboard_focus(&self) -> bool;
+    fn default_surface(&self) -> Rc<WlSurface>;
+    fn set_active(&self, active: bool);
+    fn activate(&self);
+    fn toggle_floating(self: Rc<Self>);
+}
 
-    fn parent_is_float(&self) -> bool {
-        if let Some(parent) = self.parent() {
-            return parent.is_float();
+#[derive(Default)]
+pub struct ToplevelData {
+    pub active_surfaces: NumCell<u32>,
+    pub focus_surface: SmallMap<SeatId, Rc<WlSurface>, 1>,
+    pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
+}
+
+impl ToplevelData {
+    pub fn clear(&self) {
+        self.focus_surface.clear();
+        self.toplevel_history.clear();
+    }
+}
+
+impl<'a> dyn ToplevelNode + 'a {
+    pub fn surface_active_changed(&self, active: bool) {
+        if active {
+            if self.data().active_surfaces.fetch_add(1) == 0 {
+                self.set_active(true);
+            }
+        } else {
+            if self.data().active_surfaces.fetch_sub(1) == 1 {
+                self.set_active(false);
+            }
         }
-        false
+    }
+
+    pub fn focus_surface(&self, seat: SeatId) -> Rc<WlSurface> {
+        self.data()
+            .focus_surface
+            .get(&seat)
+            .unwrap_or_else(|| self.default_surface())
     }
 }

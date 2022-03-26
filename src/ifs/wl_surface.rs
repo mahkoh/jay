@@ -12,7 +12,7 @@ use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceRole};
+use crate::ifs::wl_surface::xdg_surface::{XdgSurfaceError};
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 use crate::leaks::Tracker;
 use crate::object::Object;
@@ -20,7 +20,7 @@ use crate::pixman::Region;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{ContainerSplit, Node, NodeId};
+use crate::tree::{ContainerNode, ContainerSplit, Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
@@ -37,6 +37,7 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
+use crate::tree::toplevel::ToplevelNode;
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -88,7 +89,7 @@ pub struct WlSurface {
     ext: CloneCell<Rc<dyn SurfaceExt>>,
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
     seat_state: NodeSeatState,
-    xdg: CloneCell<Option<Rc<XdgSurface>>>,
+    toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
     pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
@@ -203,7 +204,7 @@ impl WlSurface {
             ext: CloneCell::new(client.state.none_surface_ext.clone()),
             frame_requests: RefCell::new(vec![]),
             seat_state: Default::default(),
-            xdg: Default::default(),
+            toplevel: Default::default(),
             cursors: Default::default(),
             dnd_icons: Default::default(),
             tracker: Default::default(),
@@ -242,10 +243,10 @@ impl WlSurface {
     }
 
     pub fn accepts_kb_focus(&self) -> bool {
-        if let Some(xdg) = self.xdg.get() {
-            return xdg.role() == XdgSurfaceRole::XdgToplevel;
+        match self.toplevel.get() {
+            Some(tl) => tl.accepts_keyboard_focus(),
+            _ => self.ext.get().accepts_kb_focus(),
         }
-        self.ext.get().accepts_kb_focus()
     }
 
     fn send_enter(&self, output: WlOutputId) {
@@ -255,19 +256,19 @@ impl WlSurface {
         })
     }
 
-    fn set_xdg_surface(&self, xdg: Option<Rc<XdgSurface>>) {
+    fn set_toplevel(&self, tl: Option<Rc<dyn ToplevelNode>>) {
         let ch = self.children.borrow();
         if let Some(ch) = &*ch {
             for ss in ch.subsurfaces.values() {
-                ss.surface.set_xdg_surface(xdg.clone());
+                ss.surface.set_toplevel(tl.clone());
             }
         }
         if self.seat_state.is_active() {
-            if let Some(xdg) = &xdg {
-                xdg.surface_active_changed(true);
+            if let Some(tl) = &tl {
+                tl.surface_active_changed(true);
             }
         }
-        self.xdg.set(xdg);
+        self.toplevel.set(tl);
     }
 
     pub fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
@@ -367,7 +368,7 @@ impl WlSurface {
         }
         self.buffer.set(None);
         self.frame_requests.borrow_mut().clear();
-        self.xdg.set(None);
+        self.toplevel.set(None);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -588,7 +589,7 @@ impl Object for WlSurface {
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
         self.buffer.set(None);
-        self.xdg.set(None);
+        self.toplevel.set(None);
     }
 }
 
@@ -611,18 +612,19 @@ impl Node for WlSurface {
                 ss.surface.destroy_node(false);
             }
         }
-        if let Some(xdg) = self.xdg.get() {
+        if let Some(tl) = self.toplevel.get() {
+            let data = tl.data();
             let mut remove = vec![];
-            for (seat, s) in &xdg.focus_surface {
+            for (seat, s) in data.focus_surface.iter() {
                 if s.id == self.id {
                     remove.push(seat);
                 }
             }
             for seat in remove {
-                xdg.focus_surface.remove(&seat);
+                data.focus_surface.remove(&seat);
             }
             if self.seat_state.is_active() {
-                xdg.surface_active_changed(false);
+                tl.surface_active_changed(false);
             }
         }
         self.seat_state.destroy_node(self);
@@ -642,39 +644,71 @@ impl Node for WlSurface {
     }
 
     fn get_parent_mono(&self) -> Option<bool> {
-        self.xdg.get().and_then(|x| x.get_mono())
+        self.toplevel.get()
+            .and_then(|t| t.parent())
+            .and_then(|p| p.get_mono())
     }
 
     fn get_parent_split(&self) -> Option<ContainerSplit> {
-        self.xdg.get().and_then(|x| x.get_split())
+        self.toplevel.get()
+            .and_then(|t| t.parent())
+            .and_then(|p| p.get_split())
     }
 
     fn set_parent_mono(&self, mono: bool) {
-        self.xdg.get().map(|x| x.set_mono(mono));
+        if let Some(tl) = self.toplevel.get() {
+            if let Some(pn) = tl.parent() {
+                let node = if mono { Some(tl.as_node()) } else { None };
+                pn.set_mono(node)
+            }
+        }
     }
 
     fn set_parent_split(&self, split: ContainerSplit) {
-        self.xdg.get().map(|x| x.set_split(split));
+        if let Some(tl) = self.toplevel.get() {
+            if let Some(pn) = tl.parent() {
+                pn.set_split(split);
+            }
+        }
     }
 
     fn create_split(self: Rc<Self>, split: ContainerSplit) {
-        self.xdg.get().map(|x| x.create_split(split));
+        let tl = match self.toplevel.get() {
+            Some(tl) => tl,
+            _ => return,
+        };
+        let ws = match tl.workspace() {
+            Some(ws) => ws,
+            _ => return,
+        };
+        let pn = match tl.parent() {
+            Some(pn) => pn,
+            _ => return,
+        };
+        let cn = ContainerNode::new(
+            &self.client.state,
+            &ws,
+            pn.clone(),
+            tl.clone().into_node(),
+            split,
+        );
+        pn.replace_child(tl.as_node(), cn);
     }
 
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        let xdg = match self.xdg.get() {
-            Some(x) => x,
-            _ => return,
-        };
-        xdg.move_focus(seat, direction);
+        if let Some(tl) = self.toplevel.get() {
+            if let Some(pn) = tl.parent() {
+                pn.move_focus_from_child(seat, tl.as_node(), direction);
+            }
+        }
     }
 
     fn move_self(self: Rc<Self>, direction: Direction) {
-        let xdg = match self.xdg.get() {
-            Some(x) => x,
-            _ => return,
-        };
-        xdg.move_self(direction);
+        if let Some(tl) = self.toplevel.get() {
+            if let Some(pn) = tl.parent() {
+                pn.move_child(tl.into_node(), direction);
+            }
+        }
     }
 
     fn absolute_position(&self) -> Rect {
@@ -682,8 +716,8 @@ impl Node for WlSurface {
     }
 
     fn active_changed(&self, active: bool) {
-        if let Some(xdg) = self.xdg.get() {
-            xdg.surface_active_changed(active);
+        if let Some(tl) = self.toplevel.get() {
+            tl.surface_active_changed(active);
         }
     }
 
@@ -704,21 +738,22 @@ impl Node for WlSurface {
     }
 
     fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        if let Some(xdg) = self.xdg.get() {
-            xdg.focus_surface.insert(seat.id(), self.clone());
+        if let Some(tl) = self.toplevel.get() {
+            tl.data().focus_surface.insert(seat.id(), self.clone());
+            tl.activate();
         }
         seat.focus_surface(&self);
     }
 
     fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(xdg) = self.xdg.get() {
-            xdg.focus_parent(seat);
+        if let Some(tl) = self.toplevel.get() {
+            tl.parent().map(|p| p.focus_self(seat));
         }
     }
 
-    fn toggle_floating(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        if let Some(xdg) = self.xdg.get() {
-            xdg.toggle_floating(seat);
+    fn toggle_floating(self: Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+        if let Some(tl) = self.toplevel.get() {
+            tl.toggle_floating();
         }
     }
 

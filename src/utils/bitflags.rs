@@ -1,5 +1,6 @@
 pub trait BitflagsExt {
     fn contains(self, other: Self) -> bool;
+    fn not_contains(self, other: Self) -> bool;
     fn intersects(self, other: Self) -> bool;
 }
 
@@ -8,6 +9,10 @@ macro_rules! num {
         impl BitflagsExt for $ty {
             fn contains(self, other: Self) -> bool {
                 self & other == other
+            }
+
+            fn not_contains(self, other: Self) -> bool {
+                self & other != other
             }
 
             fn intersects(self, other: Self) -> bool {

@@ -353,10 +353,6 @@ impl XdgSurfaceExt for XdgPopup {
         }
     }
 
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
-        Some(self)
-    }
-
     fn extents_changed(&self) {
         self.xdg.surface.client.state.tree_changed();
     }

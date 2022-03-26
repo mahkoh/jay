@@ -2,23 +2,21 @@ use crate::bugs::Bugs;
 use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{ContainerNode, ContainerSplit, FindTreeResult};
+use crate::tree::{FindTreeResult};
 use crate::tree::{FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::linkedlist::LinkedNode;
-use crate::utils::smallmap::SmallMap;
 use crate::wire::xdg_toplevel::*;
 use crate::wire::XdgToplevelId;
-use crate::{bugs, NumCell};
+use crate::{bugs};
 use ahash::{AHashMap, AHashSet};
 use jay_config::Direction;
 use num_derive::FromPrimitive;
@@ -27,9 +25,8 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
-
 use crate::ifs::wl_surface::WlSurface;
-use crate::tree::toplevel::ToplevelNode;
+use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
@@ -51,15 +48,10 @@ const STATE_MAXIMIZED: u32 = 1;
 const STATE_FULLSCREEN: u32 = 2;
 #[allow(dead_code)]
 const STATE_RESIZING: u32 = 3;
-#[allow(dead_code)]
 const STATE_ACTIVATED: u32 = 4;
-#[allow(dead_code)]
 const STATE_TILED_LEFT: u32 = 5;
-#[allow(dead_code)]
 const STATE_TILED_RIGHT: u32 = 6;
-#[allow(dead_code)]
 const STATE_TILED_TOP: u32 = 7;
-#[allow(dead_code)]
 const STATE_TILED_BOTTOM: u32 = 8;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -77,8 +69,6 @@ pub struct XdgToplevel {
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
     states: RefCell<AHashSet<u32>>,
-    pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
-    active_surfaces: NumCell<u32>,
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,
     min_width: Cell<Option<i32>>,
@@ -87,6 +77,7 @@ pub struct XdgToplevel {
     max_height: Cell<Option<i32>>,
     title: RefCell<String>,
     pub tracker: Tracker<Self>,
+    toplevel_data: ToplevelData,
 }
 
 impl Debug for XdgToplevel {
@@ -110,8 +101,6 @@ impl XdgToplevel {
             parent: Default::default(),
             children: RefCell::new(Default::default()),
             states: RefCell::new(states),
-            toplevel_history: Default::default(),
-            active_surfaces: Default::default(),
             decoration: Cell::new(Decoration::Server),
             bugs: Cell::new(&bugs::NONE),
             min_width: Cell::new(None),
@@ -120,24 +109,7 @@ impl XdgToplevel {
             max_height: Cell::new(None),
             title: RefCell::new("".to_string()),
             tracker: Default::default(),
-        }
-    }
-
-    pub fn set_active(self: &Rc<Self>, active: bool) {
-        if let Some(parent) = self.parent_node.get() {
-            parent.child_active_changed(&**self, active);
-        }
-        let changed = {
-            let mut states = self.states.borrow_mut();
-            match active {
-                true => states.insert(STATE_ACTIVATED),
-                false => states.remove(&STATE_ACTIVATED),
-            }
-        };
-        if changed {
-            let rect = self.xdg.absolute_desired_extents.get();
-            self.send_configure_checked(rect.width(), rect.height());
-            self.xdg.do_send_configure();
+            toplevel_data: Default::default(),
         }
     }
 
@@ -195,6 +167,7 @@ impl XdgToplevel {
             }
         }
         self.xdg.surface.client.remove_obj(self.deref())?;
+        self.xdg.surface.set_toplevel(None);
         Ok(())
     }
 
@@ -307,27 +280,15 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn toggle_floating(self: &Rc<Self>) {
-        let parent = match self.parent_node.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        if parent.is_float() {
-            parent.remove_child(&**self);
-            self.map_tiled();
-        } else if let Some(ws) = self.xdg.workspace.get() {
-            parent.remove_child(&**self);
-            self.map_floating(&ws);
-        }
-    }
-
     fn notify_parent(&self) {
         let parent = match self.parent_node.get() {
             Some(p) => p,
             _ => return,
         };
         let extents = self.xdg.extents.get();
-        parent.clone().child_active_changed(self, self.active_surfaces.get() > 0);
+        parent
+            .clone()
+            .child_active_changed(self, self.toplevel_data.active_surfaces.get() > 0);
         parent.child_size_changed(self, extents.width(), extents.height());
         parent.child_title_changed(self, self.title.borrow_mut().deref());
     }
@@ -400,7 +361,7 @@ impl Node for XdgToplevel {
                 self.xdg.surface.client.state.tree_changed();
             }
         }
-        self.toplevel_history.take();
+        self.toplevel_data.clear();
         self.xdg.destroy_node();
         self.xdg.seat_state.destroy_node(self)
     }
@@ -474,87 +435,72 @@ impl Node for XdgToplevel {
 }
 
 impl ToplevelNode for XdgToplevel {
+    fn data(&self) -> &ToplevelData {
+        &self.toplevel_data
+    }
+
     fn parent(&self) -> Option<Rc<dyn Node>> {
         self.parent_node.get()
     }
 
-    fn focus_surface(&self, seat: &WlSeatGlobal) -> Rc<WlSurface> {
-        self.xdg
-            .focus_surface
-            .get(&seat.id())
-            .unwrap_or_else(|| self.xdg.surface.clone())
-    }
-
-    fn set_focus_history_link(&self, seat: &WlSeatGlobal, link: LinkedNode<Rc<dyn ToplevelNode>>) {
-        self.toplevel_history.insert(seat.id(), link);
+    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.xdg.workspace.get()
     }
 
     fn as_node(&self) -> &dyn Node {
         self
     }
+
+    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
+        self
+    }
+
+    fn accepts_keyboard_focus(&self) -> bool {
+        true
+    }
+
+    fn default_surface(&self) -> Rc<WlSurface> {
+        self.xdg.surface.clone()
+    }
+
+    fn set_active(&self, active: bool) {
+        if let Some(parent) = self.parent_node.get() {
+            parent.child_active_changed(self, active);
+        }
+        let changed = {
+            let mut states = self.states.borrow_mut();
+            match active {
+                true => states.insert(STATE_ACTIVATED),
+                false => states.remove(&STATE_ACTIVATED),
+            }
+        };
+        if changed {
+            let rect = self.xdg.absolute_desired_extents.get();
+            self.send_configure_checked(rect.width(), rect.height());
+            self.xdg.do_send_configure();
+        }
+    }
+
+    fn activate(&self) {
+        // nothing
+    }
+
+    fn toggle_floating(self: Rc<Self>) {
+        let parent = match self.parent_node.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        if parent.is_float() {
+            parent.remove_child(&*self);
+            self.map_tiled();
+        } else if let Some(ws) = self.xdg.workspace.get() {
+            parent.remove_child(&*self);
+            self.map_floating(&ws);
+        }
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
-    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        self.parent_node.get().map(|p| p.focus_self(seat));
-    }
-
-    fn toggle_floating(self: Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
-        Self::toggle_floating(&self);
-    }
-
-    fn get_mono(&self) -> Option<bool> {
-        self.parent_node.get().and_then(|p| p.get_mono())
-    }
-
-    fn get_split(&self) -> Option<ContainerSplit> {
-        self.parent_node.get().and_then(|p| p.get_split())
-    }
-
-    fn set_mono(&self, mono: bool) {
-        let node = if mono {
-            Some(self as &dyn Node)
-        } else {
-            None
-        };
-        self.parent_node.get().map(move |p| p.set_mono(node));
-    }
-
-    fn set_split(&self, split: ContainerSplit) {
-        self.parent_node.get().map(|p| p.set_split(split));
-    }
-
-    fn create_split(self: Rc<Self>, split: ContainerSplit) {
-        let ws = match self.xdg.workspace.get() {
-            Some(ws) => ws,
-            _ => return,
-        };
-        let pn = match self.parent_node.get() {
-            Some(pn) => pn,
-            _ => return,
-        };
-        let cn = ContainerNode::new(
-            &self.xdg.surface.client.state,
-            &ws,
-            pn.clone(),
-            self.clone(),
-            split,
-        );
-        pn.replace_child(&*self, cn);
-    }
-
-    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(pn) = self.parent_node.get() {
-            pn.move_focus_from_child(seat, &*self, direction);
-        }
-    }
-
-    fn move_self(self: Rc<Self>, direction: Direction) {
-        if let Some(pn) = self.parent_node.get() {
-            pn.move_child(self, direction);
-        }
-    }
-
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         self.send_configure(0, 0);
         Ok(())
@@ -600,26 +546,10 @@ impl XdgSurfaceExt for XdgToplevel {
         }
     }
 
-    fn into_node(self: Rc<Self>) -> Option<Rc<dyn Node>> {
-        Some(self)
-    }
-
     fn extents_changed(&self) {
         self.notify_parent();
         if self.parent_node.get().is_some() {
             self.xdg.surface.client.state.tree_changed();
-        }
-    }
-
-    fn surface_active_changed(self: Rc<Self>, active: bool) {
-        if active {
-            if self.active_surfaces.fetch_add(1) == 0 {
-                self.set_active(true);
-            }
-        } else {
-            if self.active_surfaces.fetch_sub(1) == 1 {
-                self.set_active(false);
-            }
         }
     }
 }

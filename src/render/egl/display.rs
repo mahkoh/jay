@@ -50,9 +50,9 @@ impl EglDisplay {
                 ctx,
             };
             ctx.ext = ctx.with_current(|| Ok(get_gl_ext()))?;
-            // if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE) {
-            //     return Err(GlesError::OesEglImage);
-            // }
+            if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE) {
+                return Err(RenderError::OesEglImage);
+            }
             Ok(Rc::new(ctx))
         }
     }

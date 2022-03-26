@@ -1,10 +1,17 @@
 use ahash::AHashMap;
 use std::cell::{RefCell, RefMut};
+use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::mem;
 
 pub struct CopyHashMap<K, V> {
     map: RefCell<AHashMap<K, V>>,
+}
+
+impl<K: Debug, V: Debug> Debug for CopyHashMap<K, V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.map.fmt(f)
+    }
 }
 
 impl<K, V> Default for CopyHashMap<K, V> {

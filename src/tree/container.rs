@@ -315,7 +315,10 @@ impl ContainerNode {
 
     fn perform_mono_layout(self: &Rc<Self>, child: &ContainerChild) {
         let mb = self.mono_body.get();
-        child.node.clone().change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
+        child
+            .node
+            .clone()
+            .change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
     }
@@ -566,7 +569,8 @@ impl ContainerNode {
             let mut pos = 0;
             for (i, c) in self.children.iter().enumerate() {
                 if i > 0 {
-                    rd.border_rects.push(Rect::new_sized(pos - bw, 0, bw, th).unwrap());
+                    rd.border_rects
+                        .push(Rect::new_sized(pos - bw, 0, bw, th).unwrap());
                 }
                 let mut width = space_per_child;
                 if rem > 0 {
@@ -583,9 +587,9 @@ impl ContainerNode {
                     let title = c.title.borrow_mut();
                     match text::render(&ctx, width, th, &font, &title, Color::GREY) {
                         Ok(t) => rd.titles.push(ContainerTitle {
-                                x: pos,
-                                y: 0,
-                                tex: t,
+                            x: pos,
+                            y: 0,
+                            tex: t,
                         }),
                         Err(e) => {
                             log::error!("Could not render title {}: {}", title, ErrorFmt(e));
@@ -594,7 +598,8 @@ impl ContainerNode {
                 }
                 pos += width + bw;
             }
-            rd.underline_rects.push(Rect::new_sized(0, th, cwidth, 1).unwrap());
+            rd.underline_rects
+                .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
         } else {
             let split = self.split.get();
             for (i, c) in self.children.iter().enumerate() {
@@ -607,7 +612,8 @@ impl ContainerNode {
                     };
                     rd.border_rects.push(rect);
                 }
-                let rect = Rect::new_sized(body.x1(), body.y1() - th - 1, body.width(), th).unwrap();
+                let rect =
+                    Rect::new_sized(body.x1(), body.y1() - th - 1, body.width(), th).unwrap();
                 if c.active.get() {
                     rd.active_title_rects.push(rect);
                 } else {
@@ -799,7 +805,9 @@ impl Node for ContainerNode {
             matches!(direction, Direction::Left | Direction::Right)
         } else {
             match self.split.get() {
-                ContainerSplit::Horizontal => matches!(direction, Direction::Left | Direction::Right),
+                ContainerSplit::Horizontal => {
+                    matches!(direction, Direction::Left | Direction::Right)
+                }
                 ContainerSplit::Vertical => matches!(direction, Direction::Up | Direction::Down),
             }
         };
@@ -831,8 +839,12 @@ impl Node for ContainerNode {
         if mc.is_some() {
             self.mono_child.set(Some(sibling.clone()));
             let body = self.mono_body.get();
-            self.mono_content.set(sibling.content.get().at_point(body.x1(), body.y1()));
-            sibling.node.clone().change_extents(&body.move_(self.abs_x1.get(), self.abs_y1.get()));
+            self.mono_content
+                .set(sibling.content.get().at_point(body.x1(), body.y1()));
+            sibling
+                .node
+                .clone()
+                .change_extents(&body.move_(self.abs_x1.get(), self.abs_y1.get()));
         }
         sibling.node.clone().do_focus(seat, direction);
     }
@@ -1167,7 +1179,10 @@ impl Node for ContainerNode {
                 .child_size_changed(&*self, rect.width(), rect.height());
         } else {
             if let Some(c) = self.mono_child.get() {
-                let body = self.mono_body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+                let body = self
+                    .mono_body
+                    .get()
+                    .move_(self.abs_x1.get(), self.abs_y1.get());
                 c.node.clone().change_extents(&body);
             } else {
                 for child in self.children.iter() {
@@ -1187,7 +1202,9 @@ impl Node for ContainerNode {
 
     fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
         self.parent.set(parent.clone());
-        parent.clone().child_active_changed(&*self, self.active.get());
+        parent
+            .clone()
+            .child_active_changed(&*self, self.active.get());
         parent.child_size_changed(&*self, self.width.get(), self.height.get());
         parent
             .clone()

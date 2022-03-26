@@ -26,6 +26,14 @@ impl<'a> Formatter<'a> {
         self.buf.extend_from_slice(&BUF[..pad]);
     }
 
+    pub fn pad_to(&mut self, size: usize) {
+        static BUF: [u8; 8] = [0; 8];
+        while self.buf.len() < size {
+            let len = (size - self.buf.len()).min(8);
+            self.buf.extend_from_slice(&BUF[..len]);
+        }
+    }
+
     pub fn align(&mut self, alignment: usize) {
         static BUF: [u8; 8] = [0; 8];
         let len = self.buf.len().wrapping_neg() & (alignment - 1);

@@ -244,6 +244,22 @@ request ChangeProperty = 18 (
     data: list(u8, mul(field(data_len), div(field(format), literal(8)))),
 );
 
+request GetProperty = 20 (
+    delete: u8,
+    window: u32,
+    property: u32,
+    ty: u32,
+    long_offset: u32,
+    long_length: u32,
+) {
+    format: u8,
+    ty: u32,
+    bytes_after: u32,
+    value_len: u32 = div(mul(len(data), literal(8)), field(format)),
+    @pad 12,
+    data: list(u8, mul(field(value_len), div(field(format), literal(8)))),
+}
+
 request InternAtom = 16 (
     only_if_exists: u8,
     name_len: u16 = len(name),
@@ -337,4 +353,71 @@ event ClientMessage = 33 {
     window: u32,
     ty: u32,
     data: list(u32, literal(5)),
+}
+
+request GetGeometry = 14 (
+    @pad 1,
+    drawable: u32,
+) {
+    depth: u8,
+    root: u32,
+    x: i16,
+    y: i16,
+    width: u16,
+    height: u16,
+    border_width: u16,
+    @pad 2,
+}
+
+event PropertyNotify = 28 {
+    @pad 1,
+    window: u32,
+    atom: u32,
+    time: u32,
+    state: u8,
+    @pad 3,
+}
+
+request GetAtomName = 17 (
+    @pad 1,
+    atom: u32,
+) {
+    @pad 1,
+    name_len: u16 = len(name),
+    @pad 22,
+    name: str(field(name_len)),
+}
+
+request SetInputFocus = 42 (
+    revert_to: u8,
+    focus: u32,
+    time: u32,
+);
+
+event FocusIn = 9 {
+    detail: u8,
+    event: u32,
+    mode: u8,
+    @pad 3,
+}
+
+request KillClient = 113 (
+    @pad 1,
+    resource: u32,
+);
+
+event UnmapNotify = 18 {
+    @pad 1,
+    event: u32,
+    window: u32,
+    from_configure: u8,
+    @pad 8,
+}
+
+event MapNotify = 19 {
+    @pad 1,
+    event: u32,
+    window: u32,
+    override_redirect: u8,
+    @pad 3,
 }

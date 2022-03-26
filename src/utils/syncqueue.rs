@@ -1,6 +1,7 @@
 use crate::utils::ptr_ext::MutPtrExt;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
+use std::mem;
 
 pub struct SyncQueue<T> {
     el: UnsafeCell<VecDeque<T>>,
@@ -27,5 +28,11 @@ impl<T> SyncQueue<T> {
 
     pub fn is_empty(&self) -> bool {
         unsafe { self.el.get().deref_mut().is_empty() }
+    }
+
+    pub fn swap(&self, queue: &mut VecDeque<T>) {
+        unsafe {
+            mem::swap(self.el.get().deref_mut(), queue);
+        }
     }
 }

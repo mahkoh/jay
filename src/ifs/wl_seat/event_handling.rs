@@ -66,10 +66,6 @@ impl NodeSeatState {
         self.dnd_targets.remove(&seat.id);
     }
 
-    // pub fn remove_pointer_grabs(&self) {
-    //     self.grabs.clear();
-    // }
-
     pub fn is_active(&self) -> bool {
         self.kb_foci.len() > 0
     }
@@ -85,7 +81,7 @@ impl NodeSeatState {
             seat.ungrab_kb();
             seat.keyboard_node.set(seat.state.root.clone());
             if let Some(tl) = seat.toplevel_focus_history.last() {
-                seat.focus_node(tl.focus_surface(&seat));
+                seat.focus_node(tl.focus_surface(seat.id));
             }
         }
     }
@@ -198,7 +194,11 @@ impl WlSeatGlobal {
     pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<dyn ToplevelNode>> {
         let is_container = new.is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
-            if !tl.parent_is_float() && (!is_container || !tl.is_contained_in(new.id())) {
+            let parent_is_float = match tl.parent() {
+                Some(pn) => pn.is_float(),
+                _ => false,
+            };
+            if !parent_is_float && (!is_container || !tl.as_node().is_contained_in(new.id())) {
                 return Some(tl.deref().clone());
             }
         }
@@ -214,8 +214,8 @@ impl WlSeatGlobal {
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
         let node = self.toplevel_focus_history.add_last(n.clone());
-        n.set_focus_history_link(self, node);
-        self.focus_node(n.focus_surface(self));
+        n.data().toplevel_history.insert(self.id, node);
+        self.focus_node(n.focus_surface(self.id));
     }
 
     fn ungrab_kb(self: &Rc<Self>) {

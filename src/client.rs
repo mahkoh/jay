@@ -211,8 +211,6 @@ pub struct Client {
     pub xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
 }
 
-const MAX_PENDING_BUFFERS: usize = 10;
-
 impl Client {
     pub fn invalid_request(&self, obj: &dyn Object, request: u32) {
         log::error!(
@@ -303,7 +301,7 @@ impl Client {
         fmt.write_len();
         if swapchain.cur.is_full() {
             swapchain.commit();
-            if swapchain.pending.len() > MAX_PENDING_BUFFERS {
+            if swapchain.exceeds_limit() {
                 if !self.checking_queue_size.replace(true) {
                     self.state.slow_clients.push(self.clone());
                 }

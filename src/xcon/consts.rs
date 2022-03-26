@@ -7,10 +7,76 @@ pub const INPUT_DEVICE_ALL_MASTER: u16 = 1;
 
 pub const WINDOW_CLASS_INPUT_OUTPUT: u16 = 1;
 
-pub const PROP_MODE_REPLACE: u8 = 0;
-
-pub const ATOM_WM_CLASS: u32 = 67;
+pub const ATOM_NONE: u32 = 0;
+pub const ATOM_ANY: u32 = 0;
+pub const ATOM_PRIMARY: u32 = 1;
+pub const ATOM_SECONDARY: u32 = 2;
+pub const ATOM_ARC: u32 = 3;
+pub const ATOM_ATOM: u32 = 4;
+pub const ATOM_BITMAP: u32 = 5;
+pub const ATOM_CARDINAL: u32 = 6;
+pub const ATOM_COLORMAP: u32 = 7;
+pub const ATOM_CURSOR: u32 = 8;
+pub const ATOM_CUT_BUFFER0: u32 = 9;
+pub const ATOM_CUT_BUFFER1: u32 = 10;
+pub const ATOM_CUT_BUFFER2: u32 = 11;
+pub const ATOM_CUT_BUFFER3: u32 = 12;
+pub const ATOM_CUT_BUFFER4: u32 = 13;
+pub const ATOM_CUT_BUFFER5: u32 = 14;
+pub const ATOM_CUT_BUFFER6: u32 = 15;
+pub const ATOM_CUT_BUFFER7: u32 = 16;
+pub const ATOM_DRAWABLE: u32 = 17;
+pub const ATOM_FONT: u32 = 18;
+pub const ATOM_INTEGER: u32 = 19;
+pub const ATOM_PIXMAP: u32 = 20;
+pub const ATOM_POINT: u32 = 21;
+pub const ATOM_RECTANGLE: u32 = 22;
+pub const ATOM_RESOURCE_MANAGER: u32 = 23;
+pub const ATOM_RGB_COLOR_MAP: u32 = 24;
+pub const ATOM_RGB_BEST_MAP: u32 = 25;
+pub const ATOM_RGB_BLUE_MAP: u32 = 26;
+pub const ATOM_RGB_DEFAULT_MAP: u32 = 27;
+pub const ATOM_RGB_GRAY_MAP: u32 = 28;
+pub const ATOM_RGB_GREEN_MAP: u32 = 29;
+pub const ATOM_RGB_RED_MAP: u32 = 30;
 pub const ATOM_STRING: u32 = 31;
+pub const ATOM_VISUALID: u32 = 32;
+pub const ATOM_WINDOW: u32 = 33;
+pub const ATOM_WM_COMMAND: u32 = 34;
+pub const ATOM_WM_HINTS: u32 = 35;
+pub const ATOM_WM_CLIENT_MACHINE: u32 = 36;
+pub const ATOM_WM_ICON_NAME: u32 = 37;
+pub const ATOM_WM_ICON_SIZE: u32 = 38;
+pub const ATOM_WM_NAME: u32 = 39;
+pub const ATOM_WM_NORMAL_HINTS: u32 = 40;
+pub const ATOM_WM_SIZE_HINTS: u32 = 41;
+pub const ATOM_WM_ZOOM_HINTS: u32 = 42;
+pub const ATOM_MIN_SPACE: u32 = 43;
+pub const ATOM_NORM_SPACE: u32 = 44;
+pub const ATOM_MAX_SPACE: u32 = 45;
+pub const ATOM_END_SPACE: u32 = 46;
+pub const ATOM_SUPERSCRIPT_X: u32 = 47;
+pub const ATOM_SUPERSCRIPT_Y: u32 = 48;
+pub const ATOM_SUBSCRIPT_X: u32 = 49;
+pub const ATOM_SUBSCRIPT_Y: u32 = 50;
+pub const ATOM_UNDERLINE_POSITION: u32 = 51;
+pub const ATOM_UNDERLINE_THICKNESS: u32 = 52;
+pub const ATOM_STRIKEOUT_ASCENT: u32 = 53;
+pub const ATOM_STRIKEOUT_DESCENT: u32 = 54;
+pub const ATOM_ITALIC_ANGLE: u32 = 55;
+pub const ATOM_X_HEIGHT: u32 = 56;
+pub const ATOM_QUAD_WIDTH: u32 = 57;
+pub const ATOM_WEIGHT: u32 = 58;
+pub const ATOM_POINT_SIZE: u32 = 59;
+pub const ATOM_RESOLUTION: u32 = 60;
+pub const ATOM_COPYRIGHT: u32 = 61;
+pub const ATOM_NOTICE: u32 = 62;
+pub const ATOM_FONT_NAME: u32 = 63;
+pub const ATOM_FAMILY_NAME: u32 = 64;
+pub const ATOM_FULL_NAME: u32 = 65;
+pub const ATOM_CAP_HEIGHT: u32 = 66;
+pub const ATOM_WM_CLASS: u32 = 67;
+pub const ATOM_WM_TRANSIENT_FOR: u32 = 68;
 
 pub const EVENT_MASK_NO_EVENT: u32 = 0;
 pub const EVENT_MASK_KEY_PRESS: u32 = 1;
@@ -111,3 +177,77 @@ pub const COMPOSITE_REDIRECT_MANUAL: u8 = 1;
 
 pub const RENDER_PICT_TYPE_INDEXED: u8 = 0;
 pub const RENDER_PICT_TYPE_DIRECT: u8 = 1;
+
+pub const PROP_MODE_REPLACE: u8 = 0;
+pub const PROP_MODE_PREPEND: u8 = 1;
+pub const PROP_MODE_APPEND: u8 = 2;
+
+pub const ICCCM_WM_HINT_INPUT: i32 = 1 << 0;
+pub const ICCCM_WM_HINT_STATE: i32 = 1 << 1;
+pub const ICCCM_WM_HINT_ICON_PIXMAP: i32 = 1 << 2;
+pub const ICCCM_WM_HINT_ICON_WINDOW: i32 = 1 << 3;
+pub const ICCCM_WM_HINT_ICON_POSITION: i32 = 1 << 4;
+pub const ICCCM_WM_HINT_ICON_MASK: i32 = 1 << 5;
+pub const ICCCM_WM_HINT_WINDOW_GROUP: i32 = 1 << 6;
+pub const ICCCM_WM_HINT_X_URGENCY: i32 = 1 << 8;
+
+pub const ICCCM_SIZE_HINT_US_POSITION: u32 = 1 << 0;
+pub const ICCCM_SIZE_HINT_US_SIZE: u32 = 1 << 1;
+pub const ICCCM_SIZE_HINT_P_POSITION: u32 = 1 << 2;
+pub const ICCCM_SIZE_HINT_P_SIZE: u32 = 1 << 3;
+pub const ICCCM_SIZE_HINT_P_MIN_SIZE: u32 = 1 << 4;
+pub const ICCCM_SIZE_HINT_P_MAX_SIZE: u32 = 1 << 5;
+pub const ICCCM_SIZE_HINT_P_RESIZE_INC: u32 = 1 << 6;
+pub const ICCCM_SIZE_HINT_P_ASPECT: u32 = 1 << 7;
+pub const ICCCM_SIZE_HINT_BASE_SIZE: u32 = 1 << 8;
+pub const ICCCM_SIZE_HINT_P_WIN_GRAVITY: u32 = 1 << 9;
+
+pub const MWM_HINTS_FLAGS_FIELD: usize = 0;
+pub const MWM_HINTS_DECORATIONS_FIELD: usize = 2;
+pub const MWM_HINTS_DECORATIONS: u32 = 1 << 1;
+pub const MWM_DECOR_ALL: u32 = 1 << 0;
+pub const MWM_DECOR_BORDER: u32 = 1 << 1;
+pub const MWM_DECOR_TITLE: u32 = 1 << 3;
+
+pub const RES_CLIENT_ID_MASK_CLIENT_XID: u32 = 1;
+pub const RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID: u32 = 2;
+
+pub const INPUT_FOCUS_NONE: u8 = 0;
+pub const INPUT_FOCUS_POINTER_ROOT: u8 = 1;
+pub const INPUT_FOCUS_PARENT: u8 = 2;
+pub const INPUT_FOCUS_FOLLOW_KEYBOARD: u8 = 3;
+
+pub const NOTIFY_MODE_NORMAL        :u8 = 0;
+pub const NOTIFY_MODE_GRAB          :u8 = 1;
+pub const NOTIFY_MODE_UNGRAB        :u8 = 2;
+pub const NOTIFY_MODE_WHILE_GRABBED :u8 = 3;
+
+pub const NOTIFY_DETAIL_ANCESTOR          : u8 = 0;
+pub const NOTIFY_DETAIL_VIRTUAL           : u8 = 1;
+pub const NOTIFY_DETAIL_INFERIOR          : u8 = 2;
+pub const NOTIFY_DETAIL_NONLINEAR         : u8 = 3;
+pub const NOTIFY_DETAIL_NONLINEAR_VIRTUAL : u8 = 4;
+pub const NOTIFY_DETAIL_POINTER           : u8 = 5;
+pub const NOTIFY_DETAIL_POINTER_ROOT      : u8 = 6;
+pub const NOTIFY_DETAIL_NONE              : u8 = 7;
+
+pub const ICCCM_WM_STATE_WITHDRAWN : u32 = 0;
+pub const ICCCM_WM_STATE_NORMAL    : u32 = 1;
+pub const ICCCM_WM_STATE_ICONIC    : u32 = 3;
+
+pub const _NET_WM_STATE_REMOVE: u32 = 0;
+pub const _NET_WM_STATE_ADD: u32 = 1;
+pub const _NET_WM_STATE_TOGGLE: u32 = 2;
+
+pub const _NET_WM_MOVERESIZE_SIZE_TOPLEFT     : u32 = 0;
+pub const _NET_WM_MOVERESIZE_SIZE_TOP         : u32 = 1;
+pub const _NET_WM_MOVERESIZE_SIZE_TOPRIGHT    : u32 = 2;
+pub const _NET_WM_MOVERESIZE_SIZE_RIGHT       : u32 = 3;
+pub const _NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT : u32 = 4;
+pub const _NET_WM_MOVERESIZE_SIZE_BOTTOM      : u32 = 5;
+pub const _NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT  : u32 = 6;
+pub const _NET_WM_MOVERESIZE_SIZE_LEFT        : u32 = 7;
+pub const _NET_WM_MOVERESIZE_MOVE             : u32 = 8;
+pub const _NET_WM_MOVERESIZE_SIZE_KEYBOARD    : u32 = 9;
+pub const _NET_WM_MOVERESIZE_MOVE_KEYBOARD    : u32 = 10;
+pub const _NET_WM_MOVERESIZE_CANCEL           : u32 = 11;

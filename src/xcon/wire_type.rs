@@ -34,6 +34,7 @@ pub trait Request<'a>: Message<'a> {
 }
 
 pub trait XEvent<'a>: Message<'a> {
+    const EXTENSION: Option<usize>;
     const OPCODE: u16;
 }
 
@@ -114,5 +115,40 @@ unsafe impl<'a> Message<'a> for Rc<OwnedFd> {
 
     fn deserialize(parser: &mut Parser<'a>) -> Result<Self, XconError> {
         parser.read_fd()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct SendEvent {
+    pub propagate: u8,
+    pub destination: u32,
+    pub event_mask: u32,
+}
+
+unsafe impl<'a> Message<'a> for SendEvent {
+    type Generic<'b> = SendEvent;
+    const IS_POD: bool = false;
+    const HAS_FDS: bool = false;
+
+    fn serialize(&self, formatter: &mut Formatter) {
+        {
+            let propagate_bytes = self.propagate.to_ne_bytes();
+            let destination_bytes = self.destination.to_ne_bytes();
+            let event_mask_bytes = self.event_mask.to_ne_bytes();
+            formatter.write_bytes(&[
+                25,
+                propagate_bytes[0],
+                0,
+                0,
+                destination_bytes[0],
+                destination_bytes[1],
+                destination_bytes[2],
+                destination_bytes[3],
+                event_mask_bytes[0],
+                event_mask_bytes[1],
+                event_mask_bytes[2],
+                event_mask_bytes[3],
+            ]);
+        }
     }
 }

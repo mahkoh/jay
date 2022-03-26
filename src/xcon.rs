@@ -1,15 +1,18 @@
 use crate::async_engine::SpawnedFuture;
 use crate::utils::bufio::{BufIo, BufIoError, BufIoMessage};
 use crate::utils::oserror::OsError;
+use crate::utils::vec_ext::VecExt;
 use crate::wire_xcon::{
-    Extension, GetInputFocus, ListExtensions, QueryExtension, RenderQueryPictFormats, Setup,
-    EXTENSIONS,
+    CreateGC, CreatePixmap, Extension, FreeGC, FreePixmap, GetInputFocus, GetProperty,
+    ListExtensions, PutImage, QueryExtension, RenderCreateCursor, RenderCreatePicture,
+    RenderQueryPictFormats, Setup, EXTENSIONS,
 };
-use crate::xcon::consts::RENDER_PICT_TYPE_DIRECT;
+use crate::xcon::consts::{IMAGE_FORMAT_Z_PIXMAP, RENDER_PICT_TYPE_DIRECT};
 pub use crate::xcon::formatter::Formatter;
 use crate::xcon::incoming::handle_incoming;
 use crate::xcon::outgoing::handle_outgoing;
 pub use crate::xcon::parser::Parser;
+use crate::xcon::wire_type::SendEvent;
 pub use crate::xcon::wire_type::{Message, Request, XEvent};
 use crate::xcon::xauthority::{XAuthority, LOCAL, MIT_MAGIC_COOKIE};
 use crate::{AsyncEngine, AsyncError, AsyncQueue, CloneCell, ErrorFmt, NumCell, Phase};
@@ -95,6 +98,24 @@ pub enum XconError {
     QueryPictFormats(#[source] Box<XconError>),
     #[error("The server does not support the picture format for cursors")]
     CursorFormatNotSupported,
+    #[error("Could not create a pixmap")]
+    CreatePixmap(#[source] Box<XconError>),
+    #[error("Could not create a graphics context")]
+    CreateGc(#[source] Box<XconError>),
+    #[error("Could not upload an image")]
+    PutImage(#[source] Box<XconError>),
+    #[error("Could not create a picture")]
+    CreatePicture(#[source] Box<XconError>),
+    #[error("Could not create a cursor")]
+    CreateCursor(#[source] Box<XconError>),
+    #[error("Property has an invalid type")]
+    InvalidPropertyType,
+    #[error("Property has an invalid format. Expected: {0}; Actual: {1}")]
+    InvalidPropertyFormat(u8, u8),
+    #[error("Length of the property data is not a multiple of its format")]
+    IrregularPropertyLength,
+    #[error("The property is not set")]
+    PropertyUnavailable,
 }
 
 #[derive(Debug)]
@@ -107,6 +128,7 @@ struct ExtensionIdRange {
 #[derive(Default, Debug)]
 struct ExtensionData {
     opcodes: [Option<u8>; EXTENSIONS.len()],
+    first_event: [Option<u8>; EXTENSIONS.len()],
     ext_by_opcode: AHashMap<u8, Extension>,
     events: Vec<ExtensionIdRange>,
     errors: Vec<ExtensionIdRange>,
@@ -122,6 +144,12 @@ pub struct Xcon {
     xid_next: Cell<u32>,
     xid_inc: u32,
     xid_max: u32,
+}
+
+impl Drop for Xcon {
+    fn drop(&mut self) {
+        self.data.kill();
+    }
 }
 
 struct XconData {
@@ -147,6 +175,7 @@ pub struct Event {
     ext: Option<Extension>,
     code: u16,
     buf: Vec<u8>,
+    serial: u64,
 }
 
 impl Deref for Event {
@@ -164,6 +193,10 @@ impl Event {
 
     pub fn code(&self) -> u16 {
         self.code
+    }
+
+    pub fn serial(&self) -> u64 {
+        self.serial
     }
 
     pub fn parse<'a, M: Message<'a>>(&'a self) -> Result<M, XconError> {
@@ -448,30 +481,178 @@ impl Xcon {
     }
 
     pub fn call<'a, T: Request<'a>>(self: &Rc<Self>, t: &T) -> AsyncReply<T::Reply> {
-        self.data.call(t, &self.extensions)
+        self.data.call_with_serial(t, &self.extensions).0
     }
 
-    pub async fn find_cursor_format(self: &Rc<Self>) -> Result<u32, XconError> {
-        let res = match self.call(&RenderQueryPictFormats {}).await {
-            Ok(r) => r,
-            Err(e) => return Err(XconError::QueryPictFormats(Box::new(e))),
-        };
-        for format in res.get().formats.iter() {
-            let valid = format.ty == RENDER_PICT_TYPE_DIRECT
-                && format.depth == 32
-                && format.direct.red_shift == 16
-                && format.direct.red_mask == 0xff
-                && format.direct.green_shift == 8
-                && format.direct.green_mask == 0xff
-                && format.direct.blue_shift == 0
-                && format.direct.blue_mask == 0xff
-                && format.direct.alpha_shift == 24
-                && format.direct.alpha_mask == 0xff;
-            if valid {
-                return Ok(format.id);
+    pub fn call_with_serial<'a, T: Request<'a>>(
+        self: &Rc<Self>,
+        t: &T,
+    ) -> (AsyncReply<T::Reply>, u64) {
+        self.data.call_with_serial(t, &self.extensions)
+    }
+
+    pub fn send_event<'a, T: XEvent<'a>>(
+        self: &Rc<Self>,
+        propagate: bool,
+        destination: u32,
+        event_mask: u32,
+        t: &T,
+    ) -> AsyncReply<()> {
+        self.data
+            .send_event(t, &self.extensions, propagate, destination, event_mask)
+    }
+
+    pub async fn get_property<T: PropertyType>(
+        self: &Rc<Self>,
+        window: u32,
+        property: u32,
+        ty: u32,
+        buf: &mut Vec<T>,
+    ) -> Result<u32, XconError> {
+        let len = buf.len();
+        match self.get_property2(window, property, ty, buf).await {
+            Ok(n) => Ok(n),
+            Err(e) => {
+                buf.truncate(len);
+                Err(e)
             }
         }
-        Err(XconError::CursorFormatNotSupported)
+    }
+
+    async fn get_property2<T: PropertyType>(
+        self: &Rc<Self>,
+        window: u32,
+        property: u32,
+        ty: u32,
+        buf: &mut Vec<T>,
+    ) -> Result<u32, XconError> {
+        let mut gp = GetProperty {
+            delete: 0,
+            window,
+            property,
+            ty,
+            long_offset: 0,
+            long_length: 128,
+        };
+        let format = mem::size_of::<T>() as u8 * 8;
+        loop {
+            let res = self.call(&gp).await?;
+            let res = res.get();
+            if res.format == 0 {
+                return Err(XconError::PropertyUnavailable);
+            }
+            if gp.ty != 0 && gp.ty != res.ty {
+                return Err(XconError::InvalidPropertyType);
+            }
+            gp.ty = res.ty;
+            if res.format != format {
+                return Err(XconError::InvalidPropertyFormat(format, res.format));
+            }
+            if res.data.len() % mem::size_of::<T>() != 0 {
+                return Err(XconError::IrregularPropertyLength);
+            }
+            let len = res.data.len() / mem::size_of::<T>();
+            buf.reserve(len);
+            let (_, uninit) = buf.split_at_spare_mut_bytes_ext();
+            uninit[..res.data.len()].copy_from_slice(uapi::as_maybe_uninit_bytes(res.data));
+            unsafe {
+                buf.set_len(buf.len() + len);
+            }
+            if res.bytes_after == 0 {
+                return Ok(res.ty);
+            }
+            gp.long_offset += gp.long_length;
+        }
+    }
+
+    pub async fn create_cursor(
+        self: &Rc<Self>,
+        pixels: &[Cell<u8>],
+        width: i32,
+        height: i32,
+        xhot: i32,
+        yhot: i32,
+    ) -> Result<u32, XconError> {
+        let cursor_format = 'cursor_format: {
+            let res = match self.call(&RenderQueryPictFormats {}).await {
+                Ok(r) => r,
+                Err(e) => return Err(XconError::QueryPictFormats(Box::new(e))),
+            };
+            for format in res.get().formats.iter() {
+                let valid = format.ty == RENDER_PICT_TYPE_DIRECT
+                    && format.depth == 32
+                    && format.direct.red_shift == 16
+                    && format.direct.red_mask == 0xff
+                    && format.direct.green_shift == 8
+                    && format.direct.green_mask == 0xff
+                    && format.direct.blue_shift == 0
+                    && format.direct.blue_mask == 0xff
+                    && format.direct.alpha_shift == 24
+                    && format.direct.alpha_mask == 0xff;
+                if valid {
+                    break 'cursor_format format.id;
+                }
+            }
+            return Err(XconError::CursorFormatNotSupported);
+        };
+        let pixmap = self.generate_id()?;
+        let gc = self.generate_id()?;
+        let picture = self.generate_id()?;
+        let cursor = self.generate_id()?;
+        let create_pixmap = self.call(&CreatePixmap {
+            depth: 32,
+            pid: pixmap,
+            drawable: self.setup.get().screens[0].root,
+            width: width as _,
+            height: height as _,
+        });
+        let create_gc = self.call(&CreateGC {
+            cid: gc,
+            drawable: pixmap,
+            values: Default::default(),
+        });
+        let put_image = self.call(&PutImage {
+            format: IMAGE_FORMAT_Z_PIXMAP,
+            drawable: pixmap,
+            gc,
+            width: width as _,
+            height: height as _,
+            dst_x: 0,
+            dst_y: 0,
+            left_pad: 0,
+            depth: 32,
+            data: unsafe { mem::transmute(pixels) },
+        });
+        self.call(&FreeGC { gc });
+        let create_picture = self.call(&RenderCreatePicture {
+            pid: picture,
+            drawable: pixmap,
+            format: cursor_format,
+            values: Default::default(),
+        });
+        self.call(&FreePixmap { pixmap });
+        let create_cursor = self.call(&RenderCreateCursor {
+            cid: cursor,
+            source: picture,
+            x: xhot as _,
+            y: yhot as _,
+        });
+        if let Err(e) = create_pixmap.await {
+            return Err(XconError::CreatePixmap(Box::new(e)));
+        }
+        if let Err(e) = create_gc.await {
+            return Err(XconError::CreateGc(Box::new(e)));
+        }
+        if let Err(e) = put_image.await {
+            return Err(XconError::PutImage(Box::new(e)));
+        }
+        if let Err(e) = create_picture.await {
+            return Err(XconError::CreatePicture(Box::new(e)));
+        }
+        if let Err(e) = create_cursor.await {
+            return Err(XconError::CreateCursor(Box::new(e)));
+        }
+        Ok(cursor)
     }
 }
 
@@ -489,35 +670,86 @@ impl XconData {
         }
     }
 
+    #[cold]
+    fn dead<T: Message<'static>>(self: &Rc<Self>) -> AsyncReply<T> {
+        AsyncReply {
+            slot: Rc::new(AsyncReplySlot {
+                data: Cell::new(Some(Err(XconError::Dead))),
+                waker: Cell::new(None),
+            }),
+            xorg: self.clone(),
+        }
+    }
+
+    #[cold]
+    fn ext_unavailable<T: Message<'static>>(self: &Rc<Self>, idx: usize) -> AsyncReply<T> {
+        AsyncReply {
+            slot: Rc::new(AsyncReplySlot {
+                data: Cell::new(Some(Err(XconError::ExtensionUnavailable(
+                    EXTENSIONS[idx].name(),
+                )))),
+                waker: Cell::new(None),
+            }),
+            xorg: self.clone(),
+        }
+    }
+
+    fn send_event<'a, T: XEvent<'a>>(
+        self: &Rc<Self>,
+        t: &T,
+        extensions: &ExtensionData,
+        propagate: bool,
+        destination: u32,
+        event_mask: u32,
+    ) -> AsyncReply<()> {
+        if self.dead.get() {
+            return self.dead();
+        }
+        let first_event = match T::EXTENSION {
+            None => 0,
+            Some(idx) => match extensions.first_event[idx] {
+                Some(o) => o,
+                _ => return self.ext_unavailable(idx),
+            },
+        };
+        let mut fds = vec![];
+        let mut buf = self.bufio.buf();
+        let mut formatter = Formatter::new(&mut fds, &mut buf, 0);
+        let se = SendEvent {
+            propagate: propagate as u8,
+            destination,
+            event_mask,
+        };
+        se.serialize(&mut formatter);
+        t.serialize(&mut formatter);
+        formatter.pad_to(44);
+        formatter.write_request_length();
+        buf[12] = first_event + T::OPCODE as u8;
+        self.need_sync.set(true);
+        self.send(fds, buf).0
+    }
+
     fn call<'a, T: Request<'a>>(
         self: &Rc<Self>,
         t: &T,
         extensions: &ExtensionData,
     ) -> AsyncReply<T::Reply> {
+        self.call_with_serial(t, extensions).0
+    }
+
+    fn call_with_serial<'a, T: Request<'a>>(
+        self: &Rc<Self>,
+        t: &T,
+        extensions: &ExtensionData,
+    ) -> (AsyncReply<T::Reply>, u64) {
         if self.dead.get() {
-            return AsyncReply {
-                slot: Rc::new(AsyncReplySlot {
-                    data: Cell::new(Some(Err(XconError::Dead))),
-                    waker: Cell::new(None),
-                }),
-                xorg: self.clone(),
-            };
+            return (self.dead(), 0);
         }
         let opcode = match T::EXTENSION {
             None => 0,
             Some(idx) => match extensions.opcodes[idx] {
                 Some(o) => o,
-                _ => {
-                    return AsyncReply {
-                        slot: Rc::new(AsyncReplySlot {
-                            data: Cell::new(Some(Err(XconError::ExtensionUnavailable(
-                                EXTENSIONS[idx].name(),
-                            )))),
-                            waker: Cell::new(None),
-                        }),
-                        xorg: self.clone(),
-                    }
-                }
+                _ => return (self.ext_unavailable(idx), 0),
             },
         };
         let mut fds = vec![];
@@ -525,21 +757,31 @@ impl XconData {
         let mut formatter = Formatter::new(&mut fds, &mut buf, opcode);
         t.serialize(&mut formatter);
         formatter.write_request_length();
+        self.need_sync.set(T::IS_VOID);
+        self.send(fds, buf)
+    }
+
+    fn send<T: Message<'static>>(
+        self: &Rc<Self>,
+        fds: Vec<Rc<OwnedFd>>,
+        buf: Vec<u8>,
+    ) -> (AsyncReply<T>, u64) {
         self.bufio.send(BufIoMessage { fds, buf });
         let slot = Rc::new(AsyncReplySlot {
             data: Cell::new(None),
             waker: Cell::new(None),
         });
+        let serial = self.next_serial.fetch_add(1);
         let handler = Box::new(AsyncReplyHandler {
-            serial: self.next_serial.fetch_add(1),
+            serial,
             slot: Rc::downgrade(&slot),
         });
         self.reply_handlers.borrow_mut().push_back(handler);
-        self.need_sync.set(T::IS_VOID);
-        AsyncReply {
+        let rep = AsyncReply {
             slot,
             xorg: self.clone(),
-        }
+        };
+        (rep, serial)
     }
 
     fn send_sync(&self) {
@@ -590,6 +832,7 @@ impl XconData {
                 }
                 if let Some(e) = e {
                     ed.opcodes[e as usize] = Some(data.major_opcode);
+                    ed.first_event[e as usize] = Some(data.first_event);
                     ed.ext_by_opcode.insert(data.major_opcode, e);
                 }
             }
@@ -617,3 +860,9 @@ fn parse_display() -> Result<u32, XconError> {
     };
     Ok(num)
 }
+
+pub unsafe trait PropertyType {}
+
+unsafe impl PropertyType for u8 {}
+unsafe impl PropertyType for u16 {}
+unsafe impl PropertyType for u32 {}

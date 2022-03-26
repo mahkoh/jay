@@ -15,9 +15,7 @@ use crate::render::renderer::context::RenderContext;
 use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::render::Texture;
 use crate::theme::Color;
-use crate::tree::{
-    ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode,
-};
+use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
 use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -68,7 +66,6 @@ impl Renderer<'_> {
     fn y_to_f(&self, y: i32) -> f32 {
         2.0 * (y as f32 / self.fb.height as f32) - 1.0
     }
-
 
     fn fill_boxes(&self, boxes: &[Rect], color: &Color) {
         self.fill_boxes2(boxes, color, 0, 0);

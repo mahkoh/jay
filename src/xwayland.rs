@@ -3,7 +3,7 @@ mod xwm;
 
 use crate::client::ClientError;
 use crate::forker::ForkerProxy;
-use crate::ifs::wl_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xwindow::{Xwindow, XwindowData};
 use crate::ifs::wl_surface::WlSurface;
 use crate::utils::oserror::OsError;
 use crate::utils::tri::Try;
@@ -60,16 +60,12 @@ enum XWaylandError {
     SelectRootEvents(#[source] XconError),
     #[error("Could not create the WM window")]
     CreateXWindow(#[source] XconError),
-    #[error("Could not acquire a selection")]
-    SelectionOwner(#[source] XconError),
     #[error("Could not set the cursor of the root window")]
     SetCursor(#[source] XconError),
     #[error("composite_redirect_subwindows failed")]
     CompositeRedirectSubwindows(#[source] XconError),
     #[error("Could not spawn the Xwayland client")]
     SpawnClient(#[source] ClientError),
-    #[error("Could not map a window")]
-    MapWindow(#[source] XconError),
     #[error("An unspecified XconError occurred")]
     XconError(#[from] XconError),
 }
@@ -263,4 +259,5 @@ pub enum XWaylandEvent {
     SurfaceCreated(Rc<WlSurface>),
     SurfaceDestroyed(WlSurfaceId),
     Configure(Rc<Xwindow>),
+    Activate(Rc<XwindowData>),
 }
