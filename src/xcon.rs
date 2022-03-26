@@ -29,6 +29,7 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 use std::task::{Context, Poll, Waker};
 use std::{mem, ptr};
+use std::fmt::Debug;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
 
@@ -170,6 +171,14 @@ pub struct Reply<T: Message<'static>> {
     t: T::Generic<'static>,
 }
 
+impl<T: Message<'static>> Debug for Reply<T>
+    where T::Generic<'static>: Debug
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.t.fmt(f)
+    }
+}
+
 pub struct Event {
     bufio: Rc<BufIo>,
     ext: Option<Extension>,
@@ -250,6 +259,8 @@ impl<T: Message<'static>> AsyncReplyHandler<T> {
             if let Some(waker) = slot.waker.take() {
                 waker.wake();
             }
+        } else if let Err(e) = res {
+            log::error!("Received an error whose handler has already been dropped: {}", ErrorFmt(e));
         }
     }
 }
@@ -756,6 +767,7 @@ impl XconData {
         let mut buf = self.bufio.buf();
         let mut formatter = Formatter::new(&mut fds, &mut buf, opcode);
         t.serialize(&mut formatter);
+        formatter.align(4);
         formatter.write_request_length();
         self.need_sync.set(T::IS_VOID);
         self.send(fds, buf)

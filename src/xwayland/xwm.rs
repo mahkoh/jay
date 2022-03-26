@@ -199,64 +199,64 @@ impl Wm {
             if let Err(e) = c.call(&cw).await {
                 return Err(XWaylandError::CreateXWindow(e));
             }
-            // c.call(&ChangeProperty {
-            //     mode: PROP_MODE_REPLACE,
-            //     window: xwin,
-            //     property: atoms._NET_WM_NAME,
-            //     ty: atoms.UTF8_STRING,
-            //     format: 8,
-            //     data: "jay wm".as_bytes(),
-            // });
-            // c.call(&ChangeProperty {
-            //     mode: PROP_MODE_REPLACE,
-            //     window: root,
-            //     property: atoms._NET_SUPPORTING_WM_CHECK,
-            //     ty: ATOM_WINDOW,
-            //     format: 32,
-            //     data: uapi::as_bytes(&xwin),
-            // });
-            // c.call(&ChangeProperty {
-            //     mode: PROP_MODE_REPLACE,
-            //     window: xwin,
-            //     property: atoms._NET_SUPPORTING_WM_CHECK,
-            //     ty: ATOM_WINDOW,
-            //     format: 32,
-            //     data: uapi::as_bytes(&xwin),
-            // });
+            c.call(&ChangeProperty {
+                mode: PROP_MODE_REPLACE,
+                window: xwin,
+                property: atoms._NET_WM_NAME,
+                ty: atoms.UTF8_STRING,
+                format: 8,
+                data: "wlroots wm".as_bytes(),
+            });
+            c.call(&ChangeProperty {
+                mode: PROP_MODE_REPLACE,
+                window: root,
+                property: atoms._NET_SUPPORTING_WM_CHECK,
+                ty: ATOM_WINDOW,
+                format: 32,
+                data: uapi::as_bytes(&xwin),
+            });
+            c.call(&ChangeProperty {
+                mode: PROP_MODE_REPLACE,
+                window: xwin,
+                property: atoms._NET_SUPPORTING_WM_CHECK,
+                ty: ATOM_WINDOW,
+                format: 32,
+                data: uapi::as_bytes(&xwin),
+            });
             c.call(&SetSelectionOwner {
                 owner: xwin,
                 selection: atoms.WM_S0,
                 time: 0,
             });
-            // c.call(&SetSelectionOwner {
-            //     owner: xwin,
-            //     selection: atoms._NET_WM_CM_S0,
-            //     time: 0,
-            // });
+            c.call(&SetSelectionOwner {
+                owner: xwin,
+                selection: atoms._NET_WM_CM_S0,
+                time: 0,
+            });
             xwin
         };
         {
-            // let supported_atoms = [
-            //     atoms._NET_WM_STATE,
-            //     atoms._NET_ACTIVE_WINDOW,
-            //     atoms._NET_WM_MOVERESIZE,
-            //     atoms._NET_WM_STATE_FOCUSED,
-            //     atoms._NET_WM_STATE_MODAL,
-            //     atoms._NET_WM_STATE_FULLSCREEN,
-            //     atoms._NET_WM_STATE_MAXIMIZED_VERT,
-            //     atoms._NET_WM_STATE_MAXIMIZED_HORZ,
-            //     atoms._NET_WM_STATE_HIDDEN,
-            //     atoms._NET_CLIENT_LIST,
-            //     atoms._NET_CLIENT_LIST_STACKING,
-            // ];
-            // c.call(&ChangeProperty {
-            //     mode: PROP_MODE_REPLACE,
-            //     window: root,
-            //     property: atoms._NET_SUPPORTED,
-            //     ty: ATOM_ATOM,
-            //     format: 32,
-            //     data: uapi::as_bytes(&supported_atoms[..]),
-            // });
+            let supported_atoms = [
+                atoms._NET_WM_STATE,
+                atoms._NET_ACTIVE_WINDOW,
+                atoms._NET_WM_MOVERESIZE,
+                atoms._NET_WM_STATE_FOCUSED,
+                atoms._NET_WM_STATE_MODAL,
+                atoms._NET_WM_STATE_FULLSCREEN,
+                atoms._NET_WM_STATE_MAXIMIZED_VERT,
+                atoms._NET_WM_STATE_MAXIMIZED_HORZ,
+                atoms._NET_WM_STATE_HIDDEN,
+                atoms._NET_CLIENT_LIST,
+                atoms._NET_CLIENT_LIST_STACKING,
+            ];
+            c.call(&ChangeProperty {
+                mode: PROP_MODE_REPLACE,
+                window: root,
+                property: atoms._NET_SUPPORTED,
+                ty: ATOM_ATOM,
+                format: 32,
+                data: uapi::as_bytes(&supported_atoms[..]),
+            });
         }
         {
             c.call(&ChangeProperty {
