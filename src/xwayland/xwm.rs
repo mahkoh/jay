@@ -205,7 +205,7 @@ impl Wm {
                 property: atoms._NET_WM_NAME,
                 ty: atoms.UTF8_STRING,
                 format: 8,
-                data: "wlroots wm".as_bytes(),
+                data: "jay wm".as_bytes(),
             });
             c.call(&ChangeProperty {
                 mode: PROP_MODE_REPLACE,
@@ -571,7 +571,8 @@ impl Wm {
                 return;
             }
         }
-        *data.info.title.borrow_mut() = Some(buf.into());
+        *data.info.title.borrow_mut() = Some(buf.as_bstr().to_string());
+        data.title_changed();
     }
 
     async fn load_window_wm_name(&self, data: &Rc<XwindowData>) {

@@ -18,6 +18,7 @@ use crate::{AsyncQueue, CloneCell,  State};
 use bstr::BString;
 use jay_config::Direction;
 use std::cell::{Cell, RefCell};
+use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -83,7 +84,7 @@ pub struct XwindowInfo {
     pub extents: Cell<Rect>,
     pub instance: RefCell<Option<BString>>,
     pub class: RefCell<Option<BString>>,
-    pub title: RefCell<Option<BString>>,
+    pub title: RefCell<Option<String>>,
     pub role: RefCell<Option<BString>>,
     pub protocols: CopyHashMap<u32, ()>,
     pub window_types: CopyHashMap<u32, ()>,
@@ -171,6 +172,15 @@ impl XwindowData {
             other = match other.parent.get() {
                 Some(p) => p,
                 _ => return false,
+            }
+        }
+    }
+
+    pub fn title_changed(&self) {
+        let title = self.info.title.borrow_mut();
+        if let Some(w) = self.window.get() {
+            if let Some(p) = w.parent_node.get() {
+                p.child_title_changed(w.deref(), title.as_deref().unwrap_or(""));
             }
         }
     }
@@ -265,9 +275,11 @@ impl Xwindow {
                 // todo
                 let ext = self.data.info.extents.get();
                 self.data.state.map_floating(self.clone(), ext.width(), ext.height(), &ws);
+                self.data.title_changed();
             },
             Change::Map => {
-                self.data.state.map_tiled(self.clone())
+                self.data.state.map_tiled(self.clone());
+                self.data.title_changed();
             },
         }
     }
@@ -303,6 +315,7 @@ impl Node for Xwindow {
     }
 
     fn destroy_node(&self, _detach: bool) {
+        self.toplevel_data.clear();
         self.display_xlink.borrow_mut().take();
         self.display_link.borrow_mut().take();
         self.workspace.take();
@@ -312,7 +325,6 @@ impl Node for Xwindow {
         }
         self.surface.destroy_node(false);
         self.seat_state.destroy_node(self);
-        self.toplevel_data.clear();
     }
 
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
