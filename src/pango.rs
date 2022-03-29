@@ -214,7 +214,7 @@ impl PangoCairoContext {
             }
             Ok(PangoLayout {
                 c: self.clone(),
-                l: l,
+                l,
             })
         }
     }

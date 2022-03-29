@@ -24,19 +24,19 @@ use uapi::{c, pipe2, Errno, OwnedFd};
 #[derive(Debug, Error)]
 enum XWaylandError {
     #[error("Could not create a wayland socket")]
-    SocketFailed(#[source] crate::utils::oserror::OsError),
+    SocketFailed(#[source] OsError),
     #[error("/tmp/.X11-unix does not exist")]
     MissingSocketDir,
     #[error("Could not stat /tmp/.X11-unix")]
-    StatSocketDir(#[source] crate::utils::oserror::OsError),
+    StatSocketDir(#[source] OsError),
     #[error("/tmp/.X11-unix is not a directory")]
     NotASocketDir,
     #[error("/tmp/.X11-unix is writable")]
     SocketDirNotWritable,
     #[error("Could not write to the lock file")]
-    WriteLockFile(#[source] std::io::Error),
+    WriteLockFile(#[source] OsError),
     #[error("Could not open the lock file for reading")]
-    ReadLockFile(#[source] std::io::Error),
+    ReadLockFile(#[source] OsError),
     #[error("The lock file does not contain a PID")]
     NotALockFile(#[source] ParseIntError),
     #[error("The socket is already in use")]
@@ -183,17 +183,18 @@ async fn run(
 
 pub fn build_args(fds: &[OwnedFd]) -> (String, Vec<String>) {
     let prog = "Xwayland".to_string();
-    let mut args = vec![];
-    args.push("-terminate".to_string());
-    args.push("-rootless".to_string());
-    args.push("-verbose".to_string());
-    args.push(10.to_string());
-    args.push("-displayfd".to_string());
-    args.push(fds[0].raw().to_string());
-    args.push("-listenfd".to_string());
-    args.push(fds[1].raw().to_string());
-    args.push("-wm".to_string());
-    args.push(fds[2].raw().to_string());
+    let args = vec![
+        "-terminate".to_string(),
+        "-rootless".to_string(),
+        "-verbose".to_string(),
+        10.to_string(),
+        "-displayfd".to_string(),
+        fds[0].raw().to_string(),
+        "-listenfd".to_string(),
+        fds[1].raw().to_string(),
+        "-wm".to_string(),
+        fds[2].raw().to_string(),
+    ];
     (prog, args)
 }
 

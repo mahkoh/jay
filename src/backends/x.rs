@@ -329,7 +329,7 @@ impl XBackendData {
             modifier: INVALID_MODIFIER,
         };
         let mut images = [None, None];
-        for i in 0..2 {
+        for image in &mut images {
             let bo = self
                 .gbm
                 .create_bo(width, height, &format, GBM_BO_USE_RENDERING)?;
@@ -358,7 +358,7 @@ impl XBackendData {
                 }
                 pfb.pixmap
             };
-            images[i] = Some(XImage {
+            *image = Some(XImage {
                 pixmap: Cell::new(pixmap),
                 fb: CloneCell::new(fb),
                 idle: Cell::new(true),

@@ -210,7 +210,7 @@ impl ConfigProxyHandler {
         let seat = self.get_seat(seat)?;
         self.send(&ServerMessage::Response {
             response: Response::GetMono {
-                mono: seat.get_mono().unwrap_or(false).into(),
+                mono: seat.get_mono().unwrap_or(false),
             },
         });
         Ok(())

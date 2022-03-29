@@ -5,7 +5,7 @@ use uapi::c::c_int;
 use uapi::{c, Errno};
 
 static ERRORS: Lazy<&'static [Option<&'static str>]> = Lazy::new(|| {
-    static MSGS: &'static [(c::c_int, &'static str)] = &[
+    static MSGS: &[(c::c_int, &str)] = &[
         (c::EWOULDBLOCK, "Operation would block"),
         (c::ENOTSUP, "Not supported"),
         (c::EHWPOISON, "Memory page has hardware error"),

@@ -284,7 +284,7 @@ impl DrmMaster {
                 master: self.clone(),
                 fb,
             }),
-            Err(e) => return Err(DrmError::AddFb(e)),
+            Err(e) => Err(DrmError::AddFb(e)),
         }
     }
 
@@ -544,11 +544,11 @@ pub struct DrmModeInfo {
 
 impl DrmModeInfo {
     pub fn create_blob(&self, master: &Rc<DrmMaster>) -> Result<PropBlob, DrmError> {
-        let raw = self.into_raw();
+        let raw = self.to_raw();
         master.create_blob(&raw)
     }
 
-    pub fn into_raw(&self) -> drm_mode_modeinfo {
+    pub fn to_raw(&self) -> drm_mode_modeinfo {
         let mut name = [0u8; DRM_DISPLAY_MODE_LEN];
         let len = name.len().min(self.name.len());
         name[..len].copy_from_slice(&self.name.as_bytes()[..len]);

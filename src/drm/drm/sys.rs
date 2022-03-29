@@ -87,7 +87,7 @@ pub fn get_minor_type(min: u64) -> Result<NodeType, OsError> {
     }
 }
 
-const DRM_DIR_NAME: &'static str = "/dev/dri";
+const DRM_DIR_NAME: &str = "/dev/dri";
 
 fn device_dir(maj: u64, min: u64) -> Ustring {
     uapi::format_ustr!("/sys/dev/char/{maj}:{min}/device/drm")
@@ -264,11 +264,11 @@ pub fn mode_getproperty(
             prop.count_values = 0;
             let mut props =
                 Vec::<drm_mode_property_enum>::with_capacity(prop.count_enum_blobs as usize);
+            prop.enum_blob_ptr = props.as_mut_ptr() as _;
+            get(&mut prop)?;
             unsafe {
                 props.set_len(prop.count_enum_blobs as usize);
             }
-            prop.enum_blob_ptr = props.as_mut_ptr() as _;
-            get(&mut prop)?;
             let mut values = Vec::with_capacity(props.len());
             for v in props {
                 values.push(DrmPropertyEnumValue {

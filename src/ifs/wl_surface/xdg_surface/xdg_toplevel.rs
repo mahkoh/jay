@@ -530,7 +530,7 @@ impl XdgSurfaceExt for XdgToplevel {
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();
                 let bindings = output.global.bindings.borrow_mut();
-                for binding in bindings.get(&self.xdg.surface.client.id) {
+                if let Some(binding) = bindings.get(&self.xdg.surface.client.id) {
                     for binding in binding.values() {
                         self.xdg.surface.send_enter(binding.id);
                     }

@@ -11,7 +11,23 @@
     clippy::needless_lifetimes,
     clippy::enum_variant_names,
     clippy::useless_format,
-    clippy::redundant_clone
+    clippy::redundant_clone,
+    clippy::collapsible_if,
+    clippy::match_like_matches_macro,
+    clippy::collapsible_else_if,
+    clippy::identity_op,
+    clippy::module_inception,
+    clippy::single_char_pattern,
+    clippy::too_many_arguments,
+    clippy::from_over_into,
+    clippy::single_match,
+    clippy::upper_case_acronyms,
+    clippy::manual_map,
+    clippy::type_complexity,
+    clippy::option_map_unit_fn,
+    clippy::wrong_self_convention,
+    clippy::single_char_add_str,
+    clippy::ptr_eq,
 )]
 
 use crate::cli::{Cli, Cmd};

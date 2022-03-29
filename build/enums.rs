@@ -149,7 +149,7 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
     writeln!(f)?;
     writeln!(f, "#[derive(Copy, Clone, Debug)]")?;
     writeln!(f, "pub struct ExtProc {{")?;
-    for (name, _, _) in map.iter().copied() {
+    for (name, _, _) in map.iter() {
         writeln!(f, "    {}: *mut u8,", name)?;
     }
     writeln!(f, "}}")?;

@@ -76,7 +76,7 @@ fn configure_seat(s: Seat) {
 
     s.bind(MOD | SYM_p, || Command::new("xeyes").spawn());
 
-    s.bind(MOD | SYM_q, || quit());
+    s.bind(MOD | SYM_q, quit);
 
     s.bind(CTRL | ALT | SYM_F1, || switch_to_vt(1));
     s.bind(CTRL | ALT | SYM_F2, || switch_to_vt(2));

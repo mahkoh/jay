@@ -1,3 +1,16 @@
+#![allow(
+    clippy::len_zero,
+    clippy::needless_lifetimes,
+    clippy::enum_variant_names,
+    clippy::useless_format,
+    clippy::redundant_clone,
+    clippy::collapsible_if,
+    clippy::unnecessary_to_owned,
+    clippy::match_like_matches_macro,
+    clippy::too_many_arguments,
+    clippy::iter_skip_next,
+)]
+
 extern crate core;
 
 use std::fs::{File, OpenOptions};

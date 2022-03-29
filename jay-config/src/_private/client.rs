@@ -1,3 +1,5 @@
+#![allow(clippy::declare_interior_mutable_const, clippy::type_complexity)]
+
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
 use crate::keyboard::keymap::Keymap;

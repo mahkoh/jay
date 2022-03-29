@@ -367,12 +367,10 @@ impl Client {
     pub fn lookup<Id: WaylandObjectLookup>(&self, id: Id) -> Result<Rc<Id::Object>, ClientError> {
         match Id::lookup(self, id) {
             Some(t) => Ok(t),
-            _ => {
-                return Err(ClientError::LookupError(LookupError {
-                    interface: Id::INTERFACE,
-                    id: id.into(),
-                }))
-            }
+            _ => Err(ClientError::LookupError(LookupError {
+                interface: Id::INTERFACE,
+                id: id.into(),
+            })),
         }
     }
 }

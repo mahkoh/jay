@@ -432,15 +432,15 @@ fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
         Type::Fd => "Rc<OwnedFd>",
         Type::Array(e) => {
             write!(f, "Cow<{}, [", lt)?;
-            write_type2(f, lt, &e)?;
+            write_type2(f, lt, e)?;
             write!(f, "]>")?;
             return Ok(());
         }
         Type::DictEntry(k, v) => {
             write!(f, "DictEntry<")?;
-            write_type2(f, lt, &k)?;
+            write_type2(f, lt, k)?;
             write!(f, ", ")?;
-            write_type2(f, lt, &v)?;
+            write_type2(f, lt, v)?;
             write!(f, ">")?;
             return Ok(());
         }
@@ -450,7 +450,7 @@ fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
                 if idx > 0 {
                     write!(f, ", ")?;
                 }
-                write_type2(f, lt, &fs)?;
+                write_type2(f, lt, fs)?;
             }
             write!(f, ")")?;
             return Ok(());
@@ -671,7 +671,7 @@ fn write_element<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<
     {
         let indent = format!("{}    ", indent);
         for component in &element.components {
-            write_component(f, &element, &component, &indent)?;
+            write_component(f, &element, component, &indent)?;
         }
         write_module(f, element, &indent)?;
     }

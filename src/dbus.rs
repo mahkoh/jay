@@ -200,8 +200,8 @@ const NO_AUTO_START: u8 = 0x2;
 #[allow(dead_code)]
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
 
-pub const BUS_DEST: &'static str = "org.freedesktop.DBus";
-pub const BUS_PATH: &'static str = "/org/freedesktop/dbus";
+pub const BUS_DEST: &str = "org.freedesktop.DBus";
+pub const BUS_PATH: &str = "/org/freedesktop/dbus";
 
 #[derive(Default, Debug)]
 struct Headers<'a> {

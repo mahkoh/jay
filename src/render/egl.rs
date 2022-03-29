@@ -28,9 +28,9 @@ pub mod display;
 pub mod image;
 pub mod sys;
 
-pub(super) static PROCS: Lazy<ExtProc> = Lazy::new(|| ExtProc::load());
+pub(super) static PROCS: Lazy<ExtProc> = Lazy::new(ExtProc::load);
 
-pub(super) static EXTS: Lazy<ClientExt> = Lazy::new(|| get_client_ext());
+pub(super) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
 
 pub fn init() -> Result<(), RenderError> {
     if !EXTS.contains(ClientExt::EXT_PLATFORM_BASE) {

@@ -68,6 +68,7 @@ impl Incoming {
         self.incoming
             .fill_msg_buf(remaining as usize, msg_buf)
             .await?;
+        #[allow(clippy::drop_ref)]
         drop(msg_buf);
         let msg_buf = unsafe { msg_buf_data.get().deref().deref() };
         let headers = &msg_buf[FIXED_HEADER_SIZE..FIXED_HEADER_SIZE + headers_len as usize];
@@ -78,7 +79,7 @@ impl Incoming {
         }
         let fds: Vec<_> = self.incoming.fds.drain(..unix_fds).collect();
         let mut parser = Parser {
-            buf: &msg_buf,
+            buf: msg_buf,
             pos: FIXED_HEADER_SIZE + dyn_header_len as usize,
             fds: &fds,
         };

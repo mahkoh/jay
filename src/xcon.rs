@@ -257,7 +257,7 @@ struct AsyncReplyHandler<T: Message<'static>> {
 }
 
 impl<T: Message<'static>> AsyncReplyHandler<T> {
-    fn done(self: Box<Self>, res: Result<Reply<T>, XconError>) {
+    fn done(self, res: Result<Reply<T>, XconError>) {
         if let Some(slot) = self.slot.upgrade() {
             slot.data.set(Some(res));
             if let Some(waker) = slot.waker.take() {

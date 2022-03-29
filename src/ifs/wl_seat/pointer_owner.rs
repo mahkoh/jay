@@ -275,7 +275,7 @@ impl PointerOwner for GrabPointerOwner {
             icon.dnd_icons.insert(seat.id(), seat.clone());
         }
         if let Some(new) = &src {
-            ipc::attach_seat::<WlDataDevice>(&new, seat, ipc::Role::Dnd)?;
+            ipc::attach_seat::<WlDataDevice>(new, seat, ipc::Role::Dnd)?;
         }
         *seat.dropped_dnd.borrow_mut() = None;
         let pointer_owner = Rc::new(DndPointerOwner {

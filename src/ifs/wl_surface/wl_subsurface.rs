@@ -126,7 +126,7 @@ impl WlSubsurface {
         self.sync_ancestor.set(sync_ancestor);
         self.depth.set(depth);
         self.surface.ext.set(self.clone());
-        update_children_attach(&self, sync_ancestor, depth)?;
+        update_children_attach(self, sync_ancestor, depth)?;
         Ok(())
     }
 

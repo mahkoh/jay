@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
         Ok(self.fds[self.fds_pos - 1].clone())
     }
 
-    pub fn read_pod<'b, T: Pod>(&mut self) -> Result<T, XconError> {
+    pub fn read_pod<T: Pod>(&mut self) -> Result<T, XconError> {
         match uapi::pod_read_init(&self.buf[self.pos..]) {
             Ok(v) => {
                 self.pos += mem::size_of::<T>();

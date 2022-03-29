@@ -21,6 +21,7 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};
 use std::rc::Rc;
+use crate::utils::rc_eq::rc_eq;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -197,14 +198,12 @@ impl ContainerNode {
     pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn Node>) {
         if let Some(child) = self.children.first() {
             self.add_child_before_(&child, new);
-            return;
         }
     }
 
     pub fn append_child(self: &Rc<Self>, new: Rc<dyn Node>) {
         if let Some(child) = self.children.last() {
             self.add_child_after_(&child, new);
-            return;
         }
     }
 
@@ -271,7 +270,7 @@ impl ContainerNode {
         let new_child_factor = 1.0 / num_children as f64;
         let mut sum_factors = 0.0;
         for child in self.children.iter() {
-            let factor = if Rc::ptr_eq(&child.node, &new) {
+            let factor = if rc_eq(&child.node, &new) {
                 new_child_factor
             } else {
                 child.factor.get() * (1.0 - new_child_factor)
@@ -588,7 +587,7 @@ impl ContainerNode {
                 }
                 if let Some(ctx) = &ctx {
                     let title = c.title.borrow_mut();
-                    match text::render(&ctx, width, th, &font, &title, Color::GREY) {
+                    match text::render(ctx, width, th, &font, &title, Color::GREY) {
                         Ok(t) => rd.titles.push(ContainerTitle {
                             x: pos,
                             y: 0,
@@ -626,7 +625,7 @@ impl ContainerNode {
                 rd.underline_rects.push(rect);
                 if let Some(ctx) = &ctx {
                     let title = c.title.borrow_mut();
-                    match text::render(&ctx, body.width(), th, &font, &title, Color::GREY) {
+                    match text::render(ctx, body.width(), th, &font, &title, Color::GREY) {
                         Ok(t) => rd.titles.push(ContainerTitle {
                             x: body.x1(),
                             y: body.y1() - th - 1,

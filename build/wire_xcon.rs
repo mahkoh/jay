@@ -362,9 +362,7 @@ impl<'a> Parser<'a> {
                     }
                     Ok(Type::String(len))
                 })();
-                let ty =
-                    ty.with_context(|| format!("While parsing string starting in line {}", line))?;
-                ty
+                ty.with_context(|| format!("While parsing string starting in line {}", line))?
             }
             b"list" => {
                 let (line, body) = self.expect_tree(TreeDelim::Paren)?;
@@ -381,9 +379,7 @@ impl<'a> Parser<'a> {
                     }
                     Ok(Type::List(Box::new(ty), len))
                 })();
-                let ty =
-                    ty.with_context(|| format!("While parsing list starting in line {}", line))?;
-                ty
+                ty.with_context(|| format!("While parsing list starting in line {}", line))?
             }
             b"bitmask" => {
                 let (line, body) = self.expect_tree(TreeDelim::Paren)?;
@@ -397,9 +393,7 @@ impl<'a> Parser<'a> {
                     }
                     Ok(Type::Bitmask(name.to_owned(), len))
                 })();
-                let ty =
-                    ty.with_context(|| format!("While parsing bitmask starting in line {}", line))?;
-                ty
+                ty.with_context(|| format!("While parsing bitmask starting in line {}", line))?
             }
             b"enum" => {
                 let (line, body) = self.expect_tree(TreeDelim::Paren)?;
@@ -413,9 +407,7 @@ impl<'a> Parser<'a> {
                     }
                     Ok(Type::Enum(Box::new(ty), len))
                 })();
-                let ty =
-                    ty.with_context(|| format!("While parsing enum starting in line {}", line))?;
-                ty
+                ty.with_context(|| format!("While parsing enum starting in line {}", line))?
             }
             _ => Type::Named(ty.to_owned()),
         };

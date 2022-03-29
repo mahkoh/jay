@@ -115,7 +115,7 @@ impl Session {
             .handle_signal::<org::freedesktop::login1::session::ResumeDevice, _>(
                 Some(LOGIND_NAME),
                 Some(&self.session_path),
-                move |v| f(v),
+                f,
             )
     }
 

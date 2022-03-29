@@ -228,7 +228,7 @@ fn create_connector(
         master: dev.master.clone(),
         output_id: state.output_ids.next(),
         crtcs,
-        mode: CloneCell::new(info.modes.first().cloned().map(|m| Rc::new(m))),
+        mode: CloneCell::new(info.modes.first().cloned().map(Rc::new)),
         modes: info.modes,
         buffers: Default::default(),
         next_buffer: Default::default(),
@@ -749,7 +749,7 @@ impl MetalBackend {
         let bo = dev.dev.gbm.create_bo(
             width,
             height,
-            &format,
+            format,
             GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT,
         );
         let bo = match bo {
@@ -929,7 +929,7 @@ pub struct RenderBuffer {
 }
 
 fn modes_equal(a: &DrmModeInfo, b: &DrmModeInfo) -> bool {
-    true && a.clock == b.clock
+    a.clock == b.clock
         && a.hdisplay == b.hdisplay
         && a.hsync_start == b.hsync_start
         && a.hsync_end == b.hsync_end

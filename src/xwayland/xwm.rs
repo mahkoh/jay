@@ -326,8 +326,8 @@ impl Wm {
             c,
             atoms,
             never_focus,
-            root: root,
-            xwin: xwin,
+            root,
+            xwin,
             client,
             windows: Default::default(),
             windows_by_surface_id: Default::default(),
@@ -687,7 +687,7 @@ impl Wm {
         {
             data.info.icccm_hints.input.set(1);
         }
-        self.compute_input_model(&data);
+        self.compute_input_model(data);
     }
 
     async fn load_window_wm_normal_hints(&self, data: &Rc<XwindowData>) {
@@ -838,7 +838,7 @@ impl Wm {
         }
         data.info
             .never_focus
-            .set(buf.iter().any(|t| self.never_focus.contains(&t)));
+            .set(buf.iter().any(|t| self.never_focus.contains(t)));
         data.info.window_types.clear();
         data.info
             .window_types
@@ -852,7 +852,7 @@ impl Wm {
             log::error!("The xwindow has already been constructed");
             return;
         }
-        let window = Rc::new(Xwindow::new(&data, &surface, &self.queue));
+        let window = Rc::new(Xwindow::new(data, &surface, &self.queue));
         if let Err(e) = window.install() {
             log::error!(
                 "Could not attach the xwindow to the surface: {}",
@@ -912,7 +912,7 @@ impl Wm {
     async fn handle_event(&mut self, event: &Event) {
         match event.ext() {
             Some(_) => {}
-            _ => self.handle_core_event(&event).await,
+            _ => self.handle_core_event(event).await,
         }
     }
 
@@ -1489,8 +1489,7 @@ impl Wm {
     }
 
     fn update_wants_floating(&self, data: &Rc<XwindowData>) {
-        let res = false
-            || data.info.modal.get()
+        let res = data.info.modal.get()
             || data
                 .info
                 .window_types

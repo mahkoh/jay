@@ -52,6 +52,7 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
+use crate::utils::rc_eq::rc_eq;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -193,7 +194,7 @@ impl WlSeatGlobal {
             for seat in client.values() {
                 let kbs = seat.keyboards.lock();
                 for kb in kbs.values() {
-                    let fd = match seat.keymap_fd(&keymap) {
+                    let fd = match seat.keymap_fd(keymap) {
                         Ok(fd) => fd,
                         Err(e) => {
                             log::error!("Could not creat a file descriptor to transfer the keymap to client {}: {}", id, ErrorFmt(e));
@@ -344,7 +345,7 @@ impl WlSeatGlobal {
     pub fn set_cursor(&self, cursor: Option<Rc<dyn Cursor>>) {
         if let Some(old) = self.cursor.get() {
             if let Some(new) = cursor.as_ref() {
-                if Rc::ptr_eq(&old, new) {
+                if rc_eq(&old, new) {
                     return;
                 }
             }

@@ -354,7 +354,7 @@ where
 struct AsyncReplyHandler<T: Message<'static>>(Rc<AsyncReplySlot<T>>);
 
 impl<T: Message<'static>> AsyncReplyHandler<T> {
-    fn complete(self: Box<Self>, res: Result<Reply<T>, DbusError>) {
+    fn complete(self, res: Result<Reply<T>, DbusError>) {
         self.0.data.set(Some(res));
         if let Some(waker) = self.0.waker.take() {
             waker.wake();

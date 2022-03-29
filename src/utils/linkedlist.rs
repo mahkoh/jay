@@ -224,7 +224,7 @@ impl<T> NodeRef<T> {
     {
         unsafe {
             let data = self.data.as_ref();
-            let other = peer(&data).get();
+            let other = peer(data).get();
             if other.as_ref().data.is_some() {
                 other.as_ref().rc.fetch_add(1);
                 Some(NodeRef { data: other })

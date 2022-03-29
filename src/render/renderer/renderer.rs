@@ -19,6 +19,7 @@ use crate::theme::Color;
 use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
 use std::ops::Deref;
 use std::rc::Rc;
+use crate::utils::rc_eq::rc_eq;
 
 pub struct Renderer<'a> {
     pub(super) ctx: &'a Rc<RenderContext>,
@@ -201,7 +202,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_texture(&mut self, texture: &Texture, x: i32, y: i32, format: &Format) {
-        assert!(Rc::ptr_eq(&self.ctx.ctx, &texture.ctx.ctx));
+        assert!(rc_eq(&self.ctx.ctx, &texture.ctx.ctx));
         unsafe {
             glActiveTexture(GL_TEXTURE0);
 

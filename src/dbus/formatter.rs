@@ -60,7 +60,7 @@ impl<'a> Formatter<'a> {
     pub fn write_variant(&mut self, variant: &Variant) {
         let pos = self.buf.len();
         self.buf.push(0);
-        variant.write_signature(&mut self.buf);
+        variant.write_signature(self.buf);
         self.buf.push(0);
         self.buf[pos] = (self.buf.len() - pos - 2) as u8;
         self.write_variant_body(variant);

@@ -236,7 +236,7 @@ impl WlSeatGlobal {
         client: &Rc<Client>,
     ) {
         match field.get() {
-            Some(sel) => ipc::offer_source_to::<T>(&sel, &client),
+            Some(sel) => ipc::offer_source_to::<T>(&sel, client),
             None => T::for_each_device(self, client.id, |dd| {
                 T::send_selection(dd, ObjectId::NONE.into());
             }),
@@ -441,7 +441,7 @@ impl WlSeatGlobal {
     pub fn focus_surface(&self, surface: &WlSurface) {
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
         let serial = self.serial.fetch_add(1);
-        self.surface_kb_event(0, &surface, |k| {
+        self.surface_kb_event(0, surface, |k| {
             k.send_enter(serial, surface.id, &pressed_keys)
         });
         let ModifierState {
@@ -452,7 +452,7 @@ impl WlSeatGlobal {
             ..
         } = self.kb_state.borrow().mods();
         let serial = self.serial.fetch_add(1);
-        self.surface_kb_event(0, &surface, |k| {
+        self.surface_kb_event(0, surface, |k| {
             k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
 

@@ -18,7 +18,7 @@ impl Color {
 }
 
 fn to_f32(c: u8) -> f32 {
-    c as f32 / 255 as f32
+    c as f32 / 255f32
 }
 
 impl Color {
