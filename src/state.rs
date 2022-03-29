@@ -20,12 +20,13 @@ use crate::tree::{
 };
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fdcloser::FdCloser;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
-use crate::xkbcommon::XkbKeymap;
-use crate::{ErrorFmt, Wheel, XkbContext};
+use crate::wheel::Wheel;
+use crate::xkbcommon::{XkbContext, XkbKeymap};
 use ahash::AHashMap;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;

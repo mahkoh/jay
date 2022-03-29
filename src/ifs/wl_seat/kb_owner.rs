@@ -1,6 +1,6 @@
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::tree::Node;
-use crate::CloneCell;
+use crate::utils::clonecell::CloneCell;
 use std::rc::Rc;
 
 pub struct KbOwnerHolder {

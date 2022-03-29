@@ -188,8 +188,8 @@ mod timeout {
 mod task {
     use crate::async_engine::queue::DispatchQueue;
     use crate::async_engine::Phase;
+    use crate::utils::numcell::NumCell;
     use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-    use crate::NumCell;
     use std::cell::{Cell, UnsafeCell};
     use std::future::Future;
     use std::mem::ManuallyDrop;

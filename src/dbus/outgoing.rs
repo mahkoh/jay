@@ -1,5 +1,5 @@
 use crate::dbus::DbusSocket;
-use crate::ErrorFmt;
+use crate::utils::errorfmt::ErrorFmt;
 use std::rc::Rc;
 
 pub async fn handle_outgoing(socket: Rc<DbusSocket>) {

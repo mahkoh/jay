@@ -6,8 +6,8 @@ use crate::dbus::{
     CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN, MSG_SIGNAL,
 };
 use crate::utils::bufio::BufIoIncoming;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-use crate::ErrorFmt;
 use std::cell::UnsafeCell;
 use std::ops::Deref;
 use std::rc::Rc;

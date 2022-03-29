@@ -1,5 +1,4 @@
-use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopId};
-use crate::EventLoopError;
+use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId};
 use std::error::Error;
 use std::rc::Rc;
 use thiserror::Error;

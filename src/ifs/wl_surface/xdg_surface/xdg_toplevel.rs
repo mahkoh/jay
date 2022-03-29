@@ -1,22 +1,24 @@
+use crate::bugs;
 use crate::bugs::Bugs;
 use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
+use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult};
+use crate::tree::FindTreeResult;
 use crate::tree::{FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::xdg_toplevel::*;
 use crate::wire::XdgToplevelId;
-use crate::{bugs};
 use ahash::{AHashMap, AHashSet};
 use jay_config::Direction;
 use num_derive::FromPrimitive;
@@ -25,8 +27,6 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::ifs::wl_surface::WlSurface;
-use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]

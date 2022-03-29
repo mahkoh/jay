@@ -1,7 +1,8 @@
 use crate::format::ARGB8888;
 use crate::rect::Rect;
-use crate::render::{RenderContext, Renderer, Texture};
-use crate::{ErrorFmt, NumCell, RenderError};
+use crate::render::{RenderContext, RenderError, Renderer, Texture};
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
 use ahash::AHashSet;
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use byteorder::{LittleEndian, ReadBytesExt};

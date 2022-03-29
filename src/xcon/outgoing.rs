@@ -1,5 +1,5 @@
+use crate::utils::errorfmt::ErrorFmt;
 use crate::xcon::XconData;
-use crate::ErrorFmt;
 use std::rc::Rc;
 
 pub(super) async fn handle_outgoing(socket: Rc<XconData>) {

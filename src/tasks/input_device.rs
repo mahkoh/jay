@@ -1,7 +1,6 @@
 use crate::backend::InputDevice;
-use crate::state::{DeviceHandlerData, InputDeviceData};
+use crate::state::{DeviceHandlerData, InputDeviceData, State};
 use crate::utils::asyncevent::AsyncEvent;
-use crate::State;
 use std::rc::Rc;
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {

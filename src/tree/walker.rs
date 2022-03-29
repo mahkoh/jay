@@ -3,8 +3,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::ifs::wl_surface::WlSurface;
-use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
-use crate::DisplayNode;
+use crate::tree::{ContainerNode, DisplayNode, FloatNode, Node, OutputNode, WorkspaceNode};
 use std::rc::Rc;
 
 pub trait NodeVisitorBase: Sized {

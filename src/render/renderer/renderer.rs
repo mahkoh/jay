@@ -14,9 +14,9 @@ use crate::render::gl::sys::{
 use crate::render::renderer::context::RenderContext;
 use crate::render::sys::{glDisable, glEnable, GL_BLEND};
 use crate::render::Texture;
+use crate::state::State;
 use crate::theme::Color;
 use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
-use crate::State;
 use std::ops::Deref;
 use std::rc::Rc;
 

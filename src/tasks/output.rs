@@ -1,10 +1,10 @@
 use crate::backend::Output;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::rect::Rect;
+use crate::state::State;
 use crate::tree::{Node, OutputNode, WorkspaceNode};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
-use crate::State;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

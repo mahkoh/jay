@@ -1,4 +1,4 @@
-use crate::async_engine::SpawnedFuture;
+use crate::async_engine::{Phase, SpawnedFuture};
 use crate::backend::{
     Backend, BackendEvent, InputDevice, InputDeviceId, InputEvent, KeyState, Output, OutputId,
     ScrollAxis,
@@ -9,8 +9,12 @@ use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::fixed::Fixed;
 use crate::format::XRGB8888;
 use crate::render::{Framebuffer, RenderContext, RenderError};
+use crate::state::State;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::queue::AsyncQueue;
 use crate::wire_xcon::{
     ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
     CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffer,
@@ -33,7 +37,6 @@ use crate::xcon::consts::{
     XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
 };
 use crate::xcon::{Event, XEvent, Xcon, XconError};
-use crate::{AsyncQueue, ErrorFmt, NumCell, Phase, State};
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;

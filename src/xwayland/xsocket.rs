@@ -1,5 +1,5 @@
+use crate::utils::errorfmt::ErrorFmt;
 use crate::xwayland::XWaylandError;
-use crate::ErrorFmt;
 use std::io::{Read, Write};
 use std::rc::Rc;
 use uapi::{c, format_ustr, Errno, OwnedFd, Ustring};

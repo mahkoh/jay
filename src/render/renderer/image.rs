@@ -1,7 +1,6 @@
 use crate::render::egl::image::EglImage;
 use crate::render::gl::texture::GlTexture;
-use crate::render::{RenderContext, Texture};
-use crate::RenderError;
+use crate::render::{RenderContext, RenderError, Texture};
 use std::rc::Rc;
 
 pub struct Image {

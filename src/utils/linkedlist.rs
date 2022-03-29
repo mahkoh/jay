@@ -1,5 +1,5 @@
+use crate::utils::numcell::NumCell;
 use crate::utils::ptr_ext::PtrExt;
-use crate::NumCell;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 use std::mem;

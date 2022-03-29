@@ -1,7 +1,7 @@
 use crate::client::ClientError;
 use crate::event_loop::{EventLoopDispatcher, EventLoopError, EventLoopId};
 use crate::state::State;
-use crate::ErrorFmt;
+use crate::utils::errorfmt::ErrorFmt;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, format_ustr, Errno, OwnedFd, Ustring};

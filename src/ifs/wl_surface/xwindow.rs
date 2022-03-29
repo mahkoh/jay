@@ -5,16 +5,18 @@ use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::state::State;
 use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::linkedlist::LinkedNode;
+use crate::utils::queue::AsyncQueue;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlSurfaceId;
 use crate::wire_xcon::CreateNotify;
 use crate::xwayland::XWaylandEvent;
-use crate::{AsyncQueue, CloneCell,  State};
 use bstr::BString;
 use jay_config::Direction;
 use std::cell::{Cell, RefCell};
@@ -266,21 +268,37 @@ impl Xwindow {
             Change::None => {}
             Change::Unmap => self.destroy_node(true),
             Change::Map if self.data.info.override_redirect.get() => {
-                *self.display_link.borrow_mut() = Some(self.data.state.root.stacked.add_last(self.clone()));
-                *self.display_xlink.borrow_mut() = Some(self.data.state.root.xstacked.add_last(self.clone()));
+                *self.display_link.borrow_mut() =
+                    Some(self.data.state.root.stacked.add_last(self.clone()));
+                *self.display_xlink.borrow_mut() =
+                    Some(self.data.state.root.xstacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
             Change::Map if self.data.info.wants_floating.get() => {
-                let ws = self.data.state.root.outputs.lock().iter().next().unwrap().1.workspace.get().unwrap();
+                let ws = self
+                    .data
+                    .state
+                    .root
+                    .outputs
+                    .lock()
+                    .iter()
+                    .next()
+                    .unwrap()
+                    .1
+                    .workspace
+                    .get()
+                    .unwrap();
                 // todo
                 let ext = self.data.info.extents.get();
-                self.data.state.map_floating(self.clone(), ext.width(), ext.height(), &ws);
+                self.data
+                    .state
+                    .map_floating(self.clone(), ext.width(), ext.height(), &ws);
                 self.data.title_changed();
-            },
+            }
             Change::Map => {
                 self.data.state.map_tiled(self.clone());
                 self.data.title_changed();
-            },
+            }
         }
     }
 }
@@ -442,7 +460,20 @@ impl ToplevelNode for Xwindow {
     }
 
     fn toggle_floating(self: Rc<Self>) {
-        todo!()
+        let parent = match self.parent_node.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        if parent.is_float() {
+            parent.remove_child(&*self);
+            self.data.state.map_tiled(self.clone());
+        } else if let Some(ws) = self.workspace.get() {
+            parent.remove_child(&*self);
+            let extents = self.data.info.extents.get();
+            self.data
+                .state
+                .map_floating(self.clone(), extents.width(), extents.height(), &ws);
+        }
     }
 }
 

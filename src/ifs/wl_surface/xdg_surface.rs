@@ -2,7 +2,7 @@ pub mod xdg_popup;
 pub mod xdg_toplevel;
 
 use crate::client::ClientError;
-use crate::ifs::wl_seat::{NodeSeatState};
+use crate::ifs::wl_seat::NodeSeatState;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::{
@@ -17,9 +17,9 @@ use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::numcell::NumCell;
 use crate::wire::xdg_surface::*;
 use crate::wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId};
-use crate::NumCell;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;

@@ -1,9 +1,9 @@
-use crate::async_engine::AsyncFd;
+use crate::async_engine::{AsyncError, AsyncFd};
 use crate::utils::oserror::OsError;
+use crate::utils::queue::AsyncQueue;
 use crate::utils::stack::Stack;
 use crate::utils::vec_ext::{UninitVecExt, VecExt};
 use crate::utils::vecstorage::VecStorage;
-use crate::{AsyncError, AsyncQueue};
 use std::collections::VecDeque;
 use std::mem;
 use std::mem::MaybeUninit;

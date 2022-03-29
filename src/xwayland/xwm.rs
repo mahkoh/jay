@@ -2,24 +2,41 @@ use crate::client::Client;
 use crate::ifs::wl_surface::xwindow::{XInputModel, Xwindow, XwindowData};
 use crate::ifs::wl_surface::WlSurface;
 use crate::rect::Rect;
+use crate::state::State;
+use crate::tree::Node;
 use crate::utils::bitflags::BitflagsExt;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::queue::AsyncQueue;
 use crate::wire::WlSurfaceId;
-use crate::wire_xcon::{ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows, ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetGeometry, InternAtom, KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify};
-use crate::xcon::consts::{_NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE, ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE, EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT, ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN, INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD, NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, WINDOW_CLASS_INPUT_OUTPUT};
+use crate::wire_xcon::{
+    ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
+    ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify,
+    CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetGeometry, InternAtom, KillClient,
+    MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds,
+    SetInputFocus, SetSelectionOwner, UnmapNotify,
+};
+use crate::xcon::consts::{
+    ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS,
+    ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, EVENT_MASK_FOCUS_CHANGE,
+    EVENT_MASK_PROPERTY_CHANGE, EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+    ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN,
+    INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD,
+    NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE,
+    RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD,
+    _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE,
+};
 use crate::xcon::{Event, XEvent, Xcon, XconError};
 use crate::xwayland::{XWaylandError, XWaylandEvent};
-use crate::{AsyncQueue, ErrorFmt, State};
 use ahash::{AHashMap, AHashSet};
+use bstr::ByteSlice;
 use futures_util::{select, FutureExt};
 use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use bstr::ByteSlice;
 use uapi::OwnedFd;
-use crate::tree::Node;
-use crate::utils::linkedlist::LinkedList;
 
 atoms! {
     Atoms;
@@ -320,7 +337,7 @@ impl Wm {
             stack_list: Default::default(),
             num_stacked: 0,
             map_list: Default::default(),
-            num_mapped: 0
+            num_mapped: 0,
         })
     }
 
@@ -513,7 +530,10 @@ impl Wm {
                 return;
             }
             Err(e) => {
-                log::error!("Could not retrieve WM_WINDOW_ROLE property: {}", ErrorFmt(e));
+                log::error!(
+                    "Could not retrieve WM_WINDOW_ROLE property: {}",
+                    ErrorFmt(e)
+                );
                 return;
             }
         }
@@ -587,9 +607,16 @@ impl Wm {
 
     async fn load_window_wm_transient_for(&self, data: &Rc<XwindowData>) {
         let mut buf = vec![];
-        if let Err(e) = self.c.get_property::<u32>(data.window_id, ATOM_WM_TRANSIENT_FOR, ATOM_WINDOW, &mut buf).await {
+        if let Err(e) = self
+            .c
+            .get_property::<u32>(data.window_id, ATOM_WM_TRANSIENT_FOR, ATOM_WINDOW, &mut buf)
+            .await
+        {
             if !matches!(e, XconError::PropertyUnavailable) {
-                log::error!("Could not retrieve WM_TRANSIENT_FOR property: {}", ErrorFmt(e));
+                log::error!(
+                    "Could not retrieve WM_TRANSIENT_FOR property: {}",
+                    ErrorFmt(e)
+                );
             }
         }
         if let Some(old) = data.parent.take() {
@@ -940,7 +967,10 @@ impl Wm {
             if let Some(prev) = focus_window {
                 let prev_pid = prev.info.pid.get();
                 let new_pid = window.info.pid.get();
-                if prev_pid.is_some() && prev_pid == new_pid && revent.serial() >= self.last_input_serial {
+                if prev_pid.is_some()
+                    && prev_pid == new_pid
+                    && revent.serial() >= self.last_input_serial
+                {
                     focus_window = new_window;
                 }
             }
@@ -952,9 +982,12 @@ impl Wm {
 
     async fn close_window(&mut self, window: &Rc<XwindowData>) {
         if window.info.protocols.contains(&self.atoms.WM_DELETE_WINDOW) {
-            self.send_wm_message(window, 0, &[self.atoms.WM_DELETE_WINDOW]).await;
+            self.send_wm_message(window, 0, &[self.atoms.WM_DELETE_WINDOW])
+                .await;
         } else {
-            self.c.call(&KillClient { resource: window.window_id });
+            self.c.call(&KillClient {
+                resource: window.window_id,
+            });
         }
     }
 
@@ -963,7 +996,7 @@ impl Wm {
             return;
         }
         if let Some(w) = window {
-            if w.destroyed.get() && w.info.override_redirect.get() {
+            if w.destroyed.get() || w.info.override_redirect.get() {
                 return;
             }
             if w.info.minimized.get() {
@@ -1104,7 +1137,9 @@ impl Wm {
             self.handle_net_wm_state(&event).await?;
         } else if event.ty == self.atoms._NET_ACTIVE_WINDOW {
             self.handle_net_active_window(&event).await?;
-        } else if event.ty == self.atoms._NET_STARTUP_INFO || event.ty == self.atoms._NET_STARTUP_INFO_BEGIN {
+        } else if event.ty == self.atoms._NET_STARTUP_INFO
+            || event.ty == self.atoms._NET_STARTUP_INFO_BEGIN
+        {
             self.handle_net_startup_info(&event).await?;
         } else if event.ty == self.atoms.WM_CHANGE_STATE {
             self.handle_wm_change_state(&event).await?;
@@ -1182,7 +1217,11 @@ impl Wm {
         };
         self.set_wm_state(&data, ICCCM_WM_STATE_NORMAL).await;
         self.set_net_wm_state(&data).await;
-        if data.map_link.replace(Some(self.map_list.add_last(data.clone()))).is_none() {
+        if data
+            .map_link
+            .replace(Some(self.map_list.add_last(data.clone())))
+            .is_none()
+        {
             self.num_mapped += 1;
         }
         self.set_net_client_list().await;
@@ -1196,7 +1235,12 @@ impl Wm {
         Ok(())
     }
 
-    async fn stack_window(&mut self, window: &Rc<XwindowData>, sibling: Option<&Rc<XwindowData>>, above: bool) {
+    async fn stack_window(
+        &mut self,
+        window: &Rc<XwindowData>,
+        sibling: Option<&Rc<XwindowData>>,
+        above: bool,
+    ) {
         let link = 'link: {
             if let Some(s) = sibling {
                 if s.window_id == window.window_id {
@@ -1249,7 +1293,7 @@ impl Wm {
                 event.width as _,
                 event.height as _,
             )
-                .unwrap();
+            .unwrap();
             let changed = data.info.extents.replace(extents) != extents;
             if changed {
                 self.state.tree_changed();
@@ -1286,16 +1330,29 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let _data = match self.windows.get(&event.window) {
+        let data = match self.windows.get(&event.window) {
             Some(d) => d,
             _ => return Ok(()),
         };
-        let _minimize = match event.data[0] {
+        let minimize = match event.data[0] {
             ICCCM_WM_STATE_NORMAL => false,
-            ICCCM_WM_STATE_ICONIC => true,
+            ICCCM_WM_STATE_ICONIC => self.handle_minimize_requested(data).await,
             _ => return Ok(()),
         };
+        data.info.minimized.set(minimize);
+        self.set_net_wm_state(data).await;
         Ok(())
+    }
+
+    async fn handle_minimize_requested(&self, data: &Rc<XwindowData>) -> bool {
+        if let Some(w) = data.window.get() {
+            if w.toplevel_data.active_surfaces.get() > 0 {
+                self.set_wm_state(data, ICCCM_WM_STATE_NORMAL).await;
+                return false;
+            }
+        }
+        self.set_wm_state(data, ICCCM_WM_STATE_ICONIC).await;
+        true
     }
 
     async fn handle_net_startup_info(
@@ -1330,11 +1387,25 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let _data = match self.windows.get(&event.window) {
+        let data = match self.windows.get(&event.window) {
             Some(d) => d,
             _ => return Ok(()),
         };
-        // TODO activate
+        let fw = match &self.focus_window {
+            Some(w) => w,
+            _ => return Ok(()),
+        };
+        if data.info.pid.get().is_none() || data.info.pid.get() != fw.info.pid.get() {
+            return Ok(());
+        }
+        let win = match data.window.get() {
+            Some(w) => w,
+            _ => return Ok(()),
+        };
+        let seats = self.state.globals.seats.lock();
+        for (_, seat) in seats.deref() {
+            seat.focus_toplevel(win.clone());
+        }
         Ok(())
     }
 
@@ -1380,6 +1451,11 @@ impl Wm {
         if !changed {
             return Ok(());
         }
+        if minimized != data.info.minimized.get() {
+            if minimized {
+                minimized = self.handle_minimize_requested(data).await;
+            }
+        }
         data.info.fullscreen.set(fullscreen);
         data.info.maximized_horz.set(maximized_horz);
         data.info.maximized_vert.set(maximized_vert);
@@ -1415,10 +1491,22 @@ impl Wm {
     fn update_wants_floating(&self, data: &Rc<XwindowData>) {
         let res = false
             || data.info.modal.get()
-            || data.info.window_types.contains(&self.atoms._NET_WM_WINDOW_TYPE_DIALOG)
-            || data.info.window_types.contains(&self.atoms._NET_WM_WINDOW_TYPE_UTILITY)
-            || data.info.window_types.contains(&self.atoms._NET_WM_WINDOW_TYPE_TOOLBAR)
-            || data.info.window_types.contains(&self.atoms._NET_WM_WINDOW_TYPE_SPLASH)
+            || data
+                .info
+                .window_types
+                .contains(&self.atoms._NET_WM_WINDOW_TYPE_DIALOG)
+            || data
+                .info
+                .window_types
+                .contains(&self.atoms._NET_WM_WINDOW_TYPE_UTILITY)
+            || data
+                .info
+                .window_types
+                .contains(&self.atoms._NET_WM_WINDOW_TYPE_TOOLBAR)
+            || data
+                .info
+                .window_types
+                .contains(&self.atoms._NET_WM_WINDOW_TYPE_SPLASH)
             || {
                 let max_w = data.info.normal_hints.max_width.get();
                 let min_w = data.info.normal_hints.min_width.get();

@@ -17,11 +17,11 @@ use crate::libinput::sys::{
     libinput_path_add_device, libinput_path_create_context, libinput_unref,
 };
 use crate::udev::UdevError;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::trim::AsciiTrim;
 use crate::utils::vasprintf::vasprintf_;
-use crate::ErrorFmt;
 use bstr::ByteSlice;
 use std::ffi::{CStr, VaList};
 use std::rc::Rc;

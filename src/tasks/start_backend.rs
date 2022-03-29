@@ -1,5 +1,7 @@
+use crate::backends::metal;
 use crate::backends::x::XBackend;
-use crate::{metal, ErrorFmt, State};
+use crate::state::State;
+use crate::utils::errorfmt::ErrorFmt;
 use std::future::pending;
 use std::rc::Rc;
 

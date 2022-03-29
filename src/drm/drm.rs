@@ -25,9 +25,9 @@ use uapi::{c, Errno, OwnedFd, Pod, Ustring};
 
 use crate::drm::dma::DmaBuf;
 use crate::drm::INVALID_MODIFIER;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::stack::Stack;
 use crate::utils::syncqueue::SyncQueue;
-use crate::ErrorFmt;
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,

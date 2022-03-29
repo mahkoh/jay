@@ -1,7 +1,7 @@
 use crate::backend::{BackendEvent, Output};
+use crate::state::State;
 use crate::tasks::input_device;
 use crate::tasks::output::OutputHandler;
-use crate::State;
 use std::rc::Rc;
 
 pub struct BackendEventHandler {

@@ -1,10 +1,10 @@
-use crate::ifs::wl_seat::{SeatId};
+use crate::ifs::wl_seat::SeatId;
 use crate::ifs::wl_surface::WlSurface;
 use crate::tree::{Node, WorkspaceNode};
 use crate::utils::linkedlist::LinkedNode;
-use std::rc::Rc;
-use crate::NumCell;
+use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
+use std::rc::Rc;
 
 pub trait ToplevelNode {
     fn data(&self) -> &ToplevelData;

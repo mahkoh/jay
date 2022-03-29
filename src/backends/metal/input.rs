@@ -1,12 +1,12 @@
 use crate::async_engine::FdStatus;
 use crate::backend::{InputEvent, KeyState, ScrollAxis};
+use crate::backends::metal::MetalBackend;
 use crate::libinput::consts::{
     LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
     LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
 };
 use crate::libinput::event::LibInputEvent;
-use crate::metal::MetalBackend;
-use crate::ErrorFmt;
+use crate::utils::errorfmt::ErrorFmt;
 use std::rc::Rc;
 
 macro_rules! unpack {

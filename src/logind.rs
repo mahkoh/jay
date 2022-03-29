@@ -1,7 +1,9 @@
-use crate::dbus::{DbusError, DbusSocket, SignalHandler};
-use crate::org::freedesktop::login1::seat::SwitchToReply;
-use crate::org::freedesktop::login1::session::{PauseDevice, ResumeDevice, TakeDeviceReply};
-use crate::{org, FALSE};
+use crate::dbus::{DbusError, DbusSocket, SignalHandler, FALSE};
+use crate::wire_dbus::org;
+use crate::wire_dbus::org::freedesktop::login1::seat::SwitchToReply;
+use crate::wire_dbus::org::freedesktop::login1::session::{
+    PauseDevice, ResumeDevice, TakeDeviceReply,
+};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;

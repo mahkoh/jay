@@ -1,8 +1,8 @@
+use crate::async_engine::AsyncError;
 use crate::client::ClientId;
 use crate::object::{Interface, ObjectId};
 use crate::utils::buffd::{BufFdError, MsgParserError};
 use crate::wire::WlDisplayId;
-use crate::AsyncError;
 use std::error::Error;
 use thiserror::Error;
 

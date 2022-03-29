@@ -8,7 +8,8 @@ use crate::dbus::{
     NO_REPLY_EXPECTED,
 };
 use crate::utils::bufio::BufIoMessage;
-use crate::{org, ErrorFmt};
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire_dbus::org;
 use std::cell::Cell;
 use std::collections::hash_map::Entry;
 use std::fmt::Write;

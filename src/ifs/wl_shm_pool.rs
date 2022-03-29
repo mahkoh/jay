@@ -1,5 +1,5 @@
 use crate::client::{Client, ClientError};
-use crate::clientmem::ClientMem;
+use crate::clientmem::{ClientMem, ClientMemError};
 use crate::format::{formats, map_wayland_format_id};
 use crate::ifs::wl_buffer::{WlBuffer, WlBufferError};
 use crate::leaks::Tracker;
@@ -9,7 +9,6 @@ use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::wl_shm_pool::*;
 use crate::wire::WlShmPoolId;
-use crate::ClientMemError;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;

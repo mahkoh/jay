@@ -3,9 +3,9 @@ use std::mem;
 use std::rc::Rc;
 
 use crate::async_engine::AsyncFd;
+use crate::forker::ForkerError;
 use crate::utils::buffd::{BufFdIn, BufFdOut};
 use crate::utils::vec_ext::VecExt;
-use crate::ForkerError;
 use jay_config::_private::bincode_ops;
 use uapi::OwnedFd;
 

@@ -1,4 +1,4 @@
-use crate::State;
+use crate::state::State;
 use std::rc::Rc;
 
 pub struct SlowClientHandler {

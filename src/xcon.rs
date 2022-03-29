@@ -1,6 +1,10 @@
-use crate::async_engine::SpawnedFuture;
+use crate::async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture};
 use crate::utils::bufio::{BufIo, BufIoError, BufIoMessage};
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
+use crate::utils::queue::AsyncQueue;
 use crate::utils::vec_ext::VecExt;
 use crate::wire_xcon::{
     CreateGC, CreatePixmap, Extension, FreeGC, FreePixmap, GetInputFocus, GetProperty,
@@ -15,12 +19,12 @@ pub use crate::xcon::parser::Parser;
 use crate::xcon::wire_type::SendEvent;
 pub use crate::xcon::wire_type::{Message, Request, XEvent};
 use crate::xcon::xauthority::{XAuthority, LOCAL, MIT_MAGIC_COOKIE};
-use crate::{AsyncEngine, AsyncError, AsyncQueue, CloneCell, ErrorFmt, NumCell, Phase};
 use ahash::AHashMap;
 use bstr::{BString, ByteSlice};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
+use std::fmt::Debug;
 use std::future::Future;
 use std::io::Write;
 use std::mem::MaybeUninit;
@@ -29,7 +33,6 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 use std::task::{Context, Poll, Waker};
 use std::{mem, ptr};
-use std::fmt::Debug;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
 
@@ -172,7 +175,8 @@ pub struct Reply<T: Message<'static>> {
 }
 
 impl<T: Message<'static>> Debug for Reply<T>
-    where T::Generic<'static>: Debug
+where
+    T::Generic<'static>: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.t.fmt(f)
@@ -260,7 +264,10 @@ impl<T: Message<'static>> AsyncReplyHandler<T> {
                 waker.wake();
             }
         } else if let Err(e) = res {
-            log::error!("Received an error whose handler has already been dropped: {}", ErrorFmt(e));
+            log::error!(
+                "Received an error whose handler has already been dropped: {}",
+                ErrorFmt(e)
+            );
         }
     }
 }

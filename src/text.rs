@@ -3,9 +3,8 @@ use crate::pango::consts::{
     CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
 };
 use crate::pango::{CairoImageSurface, PangoError, PangoFontDescription};
-use crate::render::{RenderContext, Texture};
+use crate::render::{RenderContext, RenderError, Texture};
 use crate::theme::Color;
-use crate::RenderError;
 use std::rc::Rc;
 use thiserror::Error;
 

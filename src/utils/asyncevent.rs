@@ -1,4 +1,4 @@
-use crate::NumCell;
+use crate::utils::numcell::NumCell;
 use std::cell::Cell;
 use std::future::Future;
 use std::pin::Pin;

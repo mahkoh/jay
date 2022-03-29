@@ -1,8 +1,8 @@
 use crate::dbus::incoming::handle_incoming;
 use crate::dbus::outgoing::handle_outgoing;
 use crate::dbus::{DbusError, DbusSocket};
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hex;
-use crate::ErrorFmt;
 use std::io::Write;
 use std::rc::Rc;
 use uapi::{c, Errno};

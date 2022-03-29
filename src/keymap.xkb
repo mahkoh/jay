@@ -120,19 +120,26 @@ xkb_keymap {
 
         type "ONE_LEVEL" {
             modifiers = none;
+            level_name[Level1] = "Base";
         };
         type "TWO_LEVEL" {
             modifiers  = Shift;
             map[Shift] = Level2;
+            level_name[Level1] = "Base";
+            level_name[Level2] = "Shift";
         };
         type "ALPHABETIC" {
             modifiers  = Shift+Lock;
             map[Shift] = Level2;
             map[Lock]  = Level2;
+            level_name[Level1] = "Base";
+            level_name[Level2] = "Shift";
         };
         type "KEYPAD" {
             modifiers = Shift+Mod2;
             map[Mod2] = Level2;
+            level_name[Level1] = "Base";
+            level_name[Level2] = "Shift";
         };
     };
 

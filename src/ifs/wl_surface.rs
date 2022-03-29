@@ -12,23 +12,24 @@ use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal};
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::ifs::wl_surface::xdg_surface::{XdgSurfaceError};
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::pixman::Region;
 use crate::rect::Rect;
 use crate::render::Renderer;
+use crate::tree::toplevel::ToplevelNode;
 use crate::tree::walker::NodeVisitor;
 use crate::tree::{ContainerNode, ContainerSplit, Node, NodeId};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
+use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::wl_surface::*;
 use crate::wire::{WlOutputId, WlSurfaceId};
 use crate::xkbcommon::ModifierState;
-use crate::NumCell;
 use ahash::AHashMap;
 use jay_config::Direction;
 use std::cell::{Cell, RefCell};
@@ -37,7 +38,6 @@ use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
-use crate::tree::toplevel::ToplevelNode;
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -644,13 +644,15 @@ impl Node for WlSurface {
     }
 
     fn get_parent_mono(&self) -> Option<bool> {
-        self.toplevel.get()
+        self.toplevel
+            .get()
             .and_then(|t| t.parent())
             .and_then(|p| p.get_mono())
     }
 
     fn get_parent_split(&self) -> Option<ContainerSplit> {
-        self.toplevel.get()
+        self.toplevel
+            .get()
             .and_then(|t| t.parent())
             .and_then(|p| p.get_split())
     }

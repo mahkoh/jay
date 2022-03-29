@@ -6,8 +6,8 @@ use crate::render::gl::sys::{
 use crate::render::renderer::context::RenderContext;
 use crate::render::renderer::renderer::Renderer;
 use crate::render::sys::{glBlendFunc, glFlush, GL_ONE, GL_ONE_MINUS_SRC_ALPHA};
+use crate::state::State;
 use crate::tree::Node;
-use crate::State;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 

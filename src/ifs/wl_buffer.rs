@@ -1,16 +1,15 @@
 use crate::client::{Client, ClientError};
-use crate::clientmem::{ClientMem, ClientMemOffset};
+use crate::clientmem::{ClientMem, ClientMemError, ClientMemOffset};
 use crate::format::Format;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
-use crate::render::{Image, Texture};
+use crate::render::{Image, RenderError, Texture};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::wl_buffer::*;
 use crate::wire::WlBufferId;
-use crate::{ClientMemError, RenderError};
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;

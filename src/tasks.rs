@@ -4,9 +4,9 @@ mod output;
 mod slow_clients;
 mod start_backend;
 
+use crate::state::State;
 use crate::tasks::backend::BackendEventHandler;
 use crate::tasks::slow_clients::SlowClientHandler;
-use crate::State;
 pub use start_backend::start_backend;
 use std::rc::Rc;
 

@@ -1,13 +1,15 @@
+use crate::backend;
 use crate::backend::InputDeviceId;
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
-use crate::state::DeviceHandlerData;
+use crate::state::{DeviceHandlerData, State};
 use crate::tree::walker::NodeVisitorBase;
 use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
 use crate::utils::stack::Stack;
 use crate::xkbcommon::XkbKeymap;
-use crate::{backend, ErrorFmt, NumCell, State};
 use bincode::error::DecodeError;
 use jay_config::_private::bincode_ops;
 use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};

@@ -1,7 +1,7 @@
 use crate::utils::bufio::BufIoIncoming;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::xcon::consts::XGE_EVENT;
 use crate::xcon::{Event, ExtensionData, ExtensionIdRange, Parser, XconData, XconError};
-use crate::ErrorFmt;
 use std::mem;
 use std::rc::Rc;
 

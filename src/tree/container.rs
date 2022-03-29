@@ -9,11 +9,14 @@ use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
-use crate::{text, ErrorFmt, NumCell, State};
 use ahash::AHashMap;
 use jay_config::{Axis, Direction};
 use std::cell::{Cell, RefCell};
 
+use crate::state::State;
+use crate::text;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};

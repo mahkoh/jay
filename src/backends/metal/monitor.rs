@@ -1,13 +1,13 @@
 use crate::async_engine::FdStatus;
 use crate::backend::BackendEvent;
+use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
+use crate::backends::metal::{MetalBackend, MetalDevice, MetalError, MetalInputDevice};
 use crate::dbus::TRUE;
 use crate::drm::drm::DrmMaster;
-use crate::metal::video::PendingDrmDevice;
-use crate::metal::{MetalBackend, MetalDevice, MetalDrmDevice, MetalError, MetalInputDevice};
-use crate::org::freedesktop::login1::session::{PauseDevice, ResumeDevice};
 use crate::udev::UdevDevice;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::nonblock::set_nonblock;
-use crate::ErrorFmt;
+use crate::wire_dbus::org::freedesktop::login1::session::{PauseDevice, ResumeDevice};
 use bstr::ByteSlice;
 use std::cell::Cell;
 use std::rc::Rc;

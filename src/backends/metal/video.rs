@@ -1,5 +1,6 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
 use crate::backend::{BackendEvent, Output, OutputId};
+use crate::backends::metal::{DrmId, MetalBackend, MetalError};
 use crate::drm::drm::{
     drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc,
     DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane,
@@ -9,11 +10,13 @@ use crate::drm::drm::{
 use crate::drm::gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::format::{Format, XRGB8888};
-use crate::metal::{DrmId, MetalBackend, MetalError};
 use crate::render::{Framebuffer, RenderContext};
+use crate::state::State;
 use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
-use crate::{CloneCell, ErrorFmt, NumCell, State};
 use ahash::{AHashMap, AHashSet};
 use bstr::{BString, ByteSlice};
 use std::cell::Cell;
