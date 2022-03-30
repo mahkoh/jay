@@ -618,7 +618,13 @@ impl XBackendData {
             }
         }
         if !matched_any {
-            fatal!("idle event did not match any images {:#?}", event);
+            fatal!(
+                "idle event did not match any images {}, {}, {}, {:#?}",
+                output.serial.get(),
+                output.images[0].last_serial.get(),
+                output.images[1].last_serial.get(),
+                event
+            );
         }
         Ok(())
     }

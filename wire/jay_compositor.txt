@@ -7,3 +7,6 @@ msg destroy = 0 {
 msg get_log_file = 1 {
     id: id(jay_log_file),
 }
+
+msg quit = 2 {
+}

@@ -1,5 +1,6 @@
 mod generate;
 mod log;
+mod quit;
 
 use crate::compositor::start_compositor;
 use ::log::Level;
@@ -30,6 +31,8 @@ pub enum Cmd {
     GenerateCompletion(GenerateArgs),
     /// Open the log file.
     Log(LogArgs),
+    /// Stop the compositor.
+    Quit,
 }
 
 #[derive(Args, Debug)]
@@ -104,5 +107,6 @@ pub fn main() {
         Cmd::Run(a) => start_compositor(cli.global, a),
         Cmd::GenerateCompletion(g) => generate::main(g),
         Cmd::Log(a) => log::main(cli.global, a),
+        Cmd::Quit => quit::main(cli.global),
     }
 }

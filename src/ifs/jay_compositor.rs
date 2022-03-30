@@ -74,6 +74,13 @@ impl JayCompositor {
         log_file.send_path(self.client.state.logger.path());
         Ok(())
     }
+
+    fn quit(&self, parser: MsgParser<'_, '_>) -> Result<(), QuitError> {
+        let _req: Quit = self.client.parse(self, parser)?;
+        log::info!("Quitting");
+        self.client.state.el.stop();
+        Ok(())
+    }
 }
 
 object_base! {
@@ -81,11 +88,12 @@ object_base! {
 
     DESTROY => destroy,
     GET_LOG_FILE => get_log_file,
+    QUIT => quit,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        GET_LOG_FILE + 1
+        QUIT + 1
     }
 }
 
@@ -97,6 +105,8 @@ pub enum JayCompositorError {
     DestroyError(#[from] DestroyError),
     #[error("Could not process a `get_log_file` request")]
     GetLogFileError(#[from] GetLogFileError),
+    #[error("Could not process a `quit` request")]
+    QuitError(#[from] QuitError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
@@ -121,3 +131,10 @@ pub enum GetLogFileError {
 }
 efrom!(GetLogFileError, ClientError);
 efrom!(GetLogFileError, MsgParserError);
+
+#[derive(Debug, Error)]
+pub enum QuitError {
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
+}
+efrom!(QuitError, MsgParserError);

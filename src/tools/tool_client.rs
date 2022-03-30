@@ -9,13 +9,17 @@ use crate::utils::buffd::{
     BufFdError, BufFdIn, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
     OutBufferSwapchain,
 };
+use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
 use crate::utils::stack::Stack;
 use crate::utils::vec_ext::VecExt;
 use crate::wheel::{Wheel, WheelError};
-use crate::wire::{wl_callback, wl_display, WlCallbackId};
+use crate::wire::{
+    wl_callback, wl_display, wl_registry, JayCompositor, JayCompositorId, WlCallbackId,
+    WlRegistryId,
+};
 use ahash::AHashMap;
 use log::Level;
 use std::cell::{Cell, RefCell};
@@ -80,6 +84,8 @@ pub struct ToolClient {
     next_id: NumCell<u32>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
     outgoing: Cell<Option<SpawnedFuture<()>>>,
+    singletons: CloneCell<Option<Rc<Singletons>>>,
+    jay_compositor: Cell<Option<JayCompositorId>>,
 }
 
 impl ToolClient {
@@ -168,6 +174,8 @@ impl ToolClient {
             next_id: Default::default(),
             incoming: Default::default(),
             outgoing: Default::default(),
+            singletons: Default::default(),
+            jay_compositor: Default::default(),
         });
         wl_display::Error::handle(&slf, WL_DISPLAY_ID, (), |_, val| {
             fatal!("The compositor returned a fatal error: {}", val.message);
@@ -257,6 +265,64 @@ impl ToolClient {
         });
         ah.triggered().await;
     }
+
+    pub async fn singletons(self: &Rc<Self>) -> Rc<Singletons> {
+        if let Some(res) = self.singletons.get() {
+            return res;
+        }
+        #[derive(Default)]
+        struct S {
+            jay_compositor: Cell<Option<u32>>,
+        }
+        let s = Rc::new(S::default());
+        let registry: WlRegistryId = self.id();
+        self.send(wl_display::GetRegistry {
+            self_id: WL_DISPLAY_ID,
+            registry,
+        });
+        wl_registry::Global::handle(self, registry, s.clone(), |s, g| {
+            if g.interface == JayCompositor.name() {
+                s.jay_compositor.set(Some(g.name));
+            }
+        });
+        self.round_trip().await;
+        macro_rules! get {
+            ($field:ident, $if:expr) => {
+                match s.$field.get() {
+                    Some(j) => j,
+                    _ => fatal!("Compositor does not provide the {} singleton", $if.name()),
+                }
+            };
+        }
+        let res = Rc::new(Singletons {
+            registry,
+            jay_compositor: get!(jay_compositor, JayCompositor),
+        });
+        self.singletons.set(Some(res.clone()));
+        res
+    }
+
+    pub async fn jay_compositor(self: &Rc<Self>) -> JayCompositorId {
+        if let Some(id) = self.jay_compositor.get() {
+            return id;
+        }
+        let s = self.singletons().await;
+        let id: JayCompositorId = self.id();
+        self.send(wl_registry::Bind {
+            self_id: s.registry,
+            name: s.jay_compositor,
+            interface: JayCompositor.name(),
+            version: 1,
+            id: id.into(),
+        });
+        self.jay_compositor.set(Some(id));
+        id
+    }
+}
+
+pub struct Singletons {
+    registry: WlRegistryId,
+    pub jay_compositor: u32,
 }
 
 pub const NONE_FUTURE: Option<Pending<()>> = None;

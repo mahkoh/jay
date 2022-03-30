@@ -1,28 +1,21 @@
 use crate::cli::{GlobalArgs, LogArgs};
-use crate::object::WL_DISPLAY_ID;
 use crate::tools::tool_client::{Handle, ToolClient};
 use crate::utils::errorfmt::ErrorFmt;
-use crate::wire::wl_display::GetRegistry;
-use crate::wire::{
-    jay_compositor, jay_log_file, wl_registry, JayCompositor, JayCompositorId, WlRegistryId,
-};
+use crate::wire::{jay_compositor, jay_log_file};
 use bstr::{BString, ByteSlice};
 use jay_compositor::GetLogFile;
 use jay_log_file::Path;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::ops::Deref;
 use std::os::unix::process::CommandExt;
 use std::process;
 use std::process::Command;
 use std::rc::Rc;
-use wl_registry::{Bind, Global};
 
 pub fn main(global: GlobalArgs, args: LogArgs) {
     let tc = ToolClient::new(global.log_level.into());
     let logger = Rc::new(Log {
         tc: tc.clone(),
-        registry: Cell::new(WlRegistryId::NONE),
-        comp: Cell::new(JayCompositorId::NONE),
         path: RefCell::new(None),
         args,
     });
@@ -31,41 +24,13 @@ pub fn main(global: GlobalArgs, args: LogArgs) {
 
 struct Log {
     tc: Rc<ToolClient>,
-    registry: Cell<WlRegistryId>,
-    comp: Cell<JayCompositorId>,
     path: RefCell<Option<BString>>,
     args: LogArgs,
 }
 
 async fn run(log: Rc<Log>) {
     let tc = &log.tc;
-    let registry = tc.id();
-    tc.send(GetRegistry {
-        self_id: WL_DISPLAY_ID,
-        registry,
-    });
-    log.registry.set(registry);
-    Global::handle(tc, registry, log.clone(), |log, g| {
-        if g.interface == JayCompositor.name() {
-            let id: JayCompositorId = log.tc.id();
-            log.tc.send(Bind {
-                self_id: log.registry.get(),
-                name: g.name,
-                interface: g.interface,
-                version: 1,
-                id: id.into(),
-            });
-            log.comp.set(id);
-        }
-    });
-    tc.round_trip().await;
-    let comp = log.comp.get();
-    if comp.is_none() {
-        fatal!(
-            "Server does not provide the {} interface",
-            JayCompositor.name()
-        );
-    }
+    let comp = tc.jay_compositor().await;
     let log_file = tc.id();
     tc.send(GetLogFile {
         self_id: comp,
