@@ -17,11 +17,14 @@ macro_rules! config {
 
 macro_rules! get {
     () => {{
+        get!(())
+    }};
+    ($def:expr) => {{
         #[allow(unused_unsafe)]
         let client = unsafe {
             let client = crate::_private::client::CLIENT.with(|client| client.get());
             if client.is_null() {
-                return;
+                return $def;
             }
             &*client
         };

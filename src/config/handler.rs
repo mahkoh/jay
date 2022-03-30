@@ -1,5 +1,5 @@
 use crate::backend;
-use crate::backend::InputDeviceId;
+use crate::backend::{InputDeviceCapability, InputDeviceId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::{DeviceHandlerData, State};
 use crate::tree::walker::NodeVisitorBase;
@@ -16,12 +16,13 @@ use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};
 use jay_config::keyboard::keymap::Keymap;
 use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;
-use jay_config::{Axis, Direction, InputDevice, LogLevel, Seat};
+use jay_config::{Axis, Direction, LogLevel, Seat};
 use libloading::Library;
 use log::Level;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
+use jay_config::input::{CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD, CAP_TABLET_TOOL, CAP_TOUCH, Capability, InputDevice};
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -45,6 +46,12 @@ impl ConfigProxyHandler {
             (self.handle_msg)(self.client_data.get(), buf.as_ptr(), buf.len());
         }
         self.bufs.push(buf);
+    }
+
+    pub fn respond(&self, msg: Response) {
+        self.send(&ServerMessage::Response {
+            response: msg,
+        })
     }
 
     fn id(&self) -> u64 {
@@ -83,10 +90,8 @@ impl ConfigProxyHandler {
         let global_name = self.state.globals.name();
         let seat = WlSeatGlobal::new(global_name, name, &self.state);
         self.state.globals.add_global(&self.state, &seat);
-        self.send(&ServerMessage::Response {
-            response: Response::CreateSeat {
-                seat: Seat(seat.id().raw() as _),
-            },
+        self.respond(Response::CreateSeat {
+            seat: Seat(seat.id().raw() as _),
         });
     }
 
@@ -99,9 +104,7 @@ impl ConfigProxyHandler {
             }
             _ => (Keymap::INVALID, Err(ParseKeymapError::ParsingFailed)),
         };
-        self.send(&ServerMessage::Response {
-            response: Response::ParseKeymap { keymap },
-        });
+        self.respond(Response::ParseKeymap { keymap });
         res
     }
 
@@ -131,9 +134,7 @@ impl ConfigProxyHandler {
     fn handle_get_repeat_rate(&self, seat: Seat) -> Result<(), SeatGetRepeatRateError> {
         let seat = self.get_seat(seat)?;
         let (rate, delay) = seat.get_rate();
-        self.send(&ServerMessage::Response {
-            response: Response::GetRepeatRate { rate, delay },
-        });
+        self.respond(Response::GetRepeatRate { rate, delay });
         Ok(())
     }
 
@@ -184,7 +185,7 @@ impl ConfigProxyHandler {
         let kbs = self.state.input_device_handlers.borrow_mut();
         match kbs.get(&(InputDeviceId::from_raw(kb.0 as _))) {
             None => Err(CphError::KeyboardDoesNotExist(kb)),
-            Some(kb) => Ok(kb.device.clone()),
+            Some(kb) => Ok(kb.data.device.clone()),
         }
     }
 
@@ -206,12 +207,31 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_has_capability(&self, device: InputDevice, cap: Capability) -> Result<(), HasCapabilityError> {
+        let dev = self.get_device_handler_data(device)?;
+        let has_cap = 'has_cap: {
+            let cap = match cap {
+                CAP_KEYBOARD => InputDeviceCapability::Keyboard,
+                CAP_POINTER => InputDeviceCapability::Pointer,
+                CAP_TOUCH => InputDeviceCapability::Touch,
+                CAP_TABLET_TOOL => InputDeviceCapability::TabletTool,
+                CAP_TABLET_PAD => InputDeviceCapability::TabletPad,
+                CAP_GESTURE => InputDeviceCapability::Gesture,
+                CAP_SWITCH => InputDeviceCapability::Switch,
+                _ => break 'has_cap false,
+            };
+            dev.device.has_capability(cap)
+        };
+        self.respond(Response::HasCapability {
+            has: has_cap,
+        });
+        Ok(())
+    }
+
     fn handle_get_mono(&self, seat: Seat) -> Result<(), GetMonoError> {
         let seat = self.get_seat(seat)?;
-        self.send(&ServerMessage::Response {
-            response: Response::GetMono {
-                mono: seat.get_mono().unwrap_or(false),
-            },
+        self.respond(Response::GetMono {
+            mono: seat.get_mono().unwrap_or(false),
         });
         Ok(())
     }
@@ -224,13 +244,11 @@ impl ConfigProxyHandler {
 
     fn handle_get_split(&self, seat: Seat) -> Result<(), GetSplitError> {
         let seat = self.get_seat(seat)?;
-        self.send(&ServerMessage::Response {
-            response: Response::GetSplit {
-                axis: seat
-                    .get_split()
-                    .unwrap_or(ContainerSplit::Horizontal)
-                    .into(),
-            },
+        self.respond(Response::GetSplit {
+            axis: seat
+                .get_split()
+                .unwrap_or(ContainerSplit::Horizontal)
+                .into(),
         });
         Ok(())
     }
@@ -284,9 +302,7 @@ impl ConfigProxyHandler {
                 }
             }
         }
-        self.send(&ServerMessage::Response {
-            response: Response::GetInputDevices { devices: res },
-        });
+        self.respond(Response::GetInputDevices { devices: res });
     }
 
     fn handle_get_seats(&self) {
@@ -297,9 +313,7 @@ impl ConfigProxyHandler {
                 .map(|seat| Seat::from_raw(seat.id().raw() as _))
                 .collect()
         };
-        self.send(&ServerMessage::Response {
-            response: Response::GetSeats { seats },
-        });
+        self.respond(Response::GetSeats { seats });
     }
 
     fn handle_run(
@@ -323,18 +337,14 @@ impl ConfigProxyHandler {
     }
 
     fn handle_get_title_height(&self) {
-        self.send(&ServerMessage::Response {
-            response: Response::GetTitleHeight {
-                height: self.state.theme.title_height.get(),
-            },
+        self.respond(Response::GetTitleHeight {
+            height: self.state.theme.title_height.get(),
         });
     }
 
     fn handle_get_border_width(&self) {
-        self.send(&ServerMessage::Response {
-            response: Response::GetBorderWidth {
-                width: self.state.theme.border_width.get(),
-            },
+        self.respond(Response::GetBorderWidth {
+            width: self.state.theme.border_width.get(),
         });
     }
 
@@ -500,6 +510,7 @@ impl ConfigProxyHandler {
             ClientMessage::ToggleFloating { seat } => self.handle_toggle_floating(seat)?,
             ClientMessage::Quit => self.handle_quit(),
             ClientMessage::SwitchTo { vtnr } => self.handle_switch_to(vtnr),
+            ClientMessage::HasCapability { device, cap } => self.handle_has_capability(device, cap)?,
         }
         Ok(())
     }
@@ -547,6 +558,8 @@ enum CphError {
     SetTitleHeightError(#[from] SetTitleHeightError),
     #[error("Could not process a `set_border_width` request")]
     SetBorderWidthError(#[from] SetBorderWidthError),
+    #[error("Could not process a `has_capability` request")]
+    HasCapabilityError(#[from] HasCapabilityError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Device {0:?} does not exist")]
@@ -571,6 +584,13 @@ enum SetSeatError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(SetSeatError, CphError);
+
+#[derive(Debug, Error)]
+enum HasCapabilityError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(HasCapabilityError, CphError);
 
 #[derive(Debug, Error)]
 enum AddShortcutError {

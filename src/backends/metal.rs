@@ -3,7 +3,7 @@ mod monitor;
 mod video;
 
 use crate::async_engine::{AsyncError, AsyncFd};
-use crate::backend::{Backend, InputDevice, InputDeviceId, InputEvent};
+use crate::backend::{Backend, InputDevice, InputDeviceCapability, InputDeviceId, InputEvent};
 use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
 use crate::dbus::DbusError;
 use crate::drm::drm::DrmError;
@@ -25,6 +25,7 @@ use std::future::pending;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
+use crate::libinput::consts::{LIBINPUT_DEVICE_CAP_GESTURE, LIBINPUT_DEVICE_CAP_KEYBOARD, LIBINPUT_DEVICE_CAP_POINTER, LIBINPUT_DEVICE_CAP_SWITCH, LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL, LIBINPUT_DEVICE_CAP_TOUCH};
 
 #[derive(Debug, Error)]
 pub enum MetalError {
@@ -180,7 +181,7 @@ struct MetalInputDevice {
     id: InputDeviceId,
     _devnum: c::dev_t,
     fd: CloneCell<Option<Rc<OwnedFd>>>,
-    inputdev: Cell<Option<RegisteredDevice>>,
+    inputdev: CloneCell<Option<Rc<RegisteredDevice>>>,
     devnode: CString,
     _sysname: CString,
     removed: Cell<bool>,
@@ -241,6 +242,22 @@ impl InputDevice for MetalInputDevice {
 
     fn grab(&self, _grab: bool) {
         // nothing
+    }
+
+    fn has_capability(&self, cap: InputDeviceCapability) -> bool {
+        let li = match cap {
+            InputDeviceCapability::Keyboard => LIBINPUT_DEVICE_CAP_KEYBOARD,
+            InputDeviceCapability::Pointer => LIBINPUT_DEVICE_CAP_POINTER,
+            InputDeviceCapability::Touch => LIBINPUT_DEVICE_CAP_TOUCH,
+            InputDeviceCapability::TabletTool => LIBINPUT_DEVICE_CAP_TABLET_TOOL,
+            InputDeviceCapability::TabletPad => LIBINPUT_DEVICE_CAP_TABLET_PAD,
+            InputDeviceCapability::Gesture => LIBINPUT_DEVICE_CAP_GESTURE,
+            InputDeviceCapability::Switch => LIBINPUT_DEVICE_CAP_SWITCH,
+        };
+        match self.inputdev.get() {
+            Some(dev) => dev.device().has_cap(li),
+            _ => false,
+        }
     }
 }
 

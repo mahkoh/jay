@@ -2,6 +2,7 @@ use crate::keyboard::keymap::Keymap;
 use crate::keyboard::ModifiedKeySym;
 use bincode::{Decode, Encode};
 use std::collections::HashMap;
+use crate::input::InputDevice;
 
 #[macro_use]
 mod macros;
@@ -10,6 +11,7 @@ pub mod _private;
 pub mod embedded;
 pub mod keyboard;
 pub mod theme;
+pub mod input;
 
 #[derive(Encode, Decode, Copy, Clone, Debug)]
 pub enum LogLevel {
@@ -36,15 +38,6 @@ impl Seat {
 
     pub fn is_invalid(self) -> bool {
         self == Self::INVALID
-    }
-}
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct InputDevice(pub u64);
-
-impl InputDevice {
-    pub fn set_seat(self, seat: Seat) {
-        get!().set_seat(self, seat)
     }
 }
 

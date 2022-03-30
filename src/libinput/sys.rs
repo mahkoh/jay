@@ -24,6 +24,11 @@ extern "C" {
         interface: *const libinput_interface,
         user_data: *mut c::c_void,
     ) -> *mut libinput;
+    pub fn libinput_unref(libinput: *mut libinput) -> *mut libinput;
+    pub fn libinput_get_fd(libinput: *mut libinput) -> c::c_int;
+    pub fn libinput_dispatch(libinput: *mut libinput) -> c::c_int;
+    pub fn libinput_get_event(libinput: *mut libinput) -> *mut libinput_event;
+
     pub fn libinput_device_set_user_data(device: *mut libinput_device, user_data: *mut c::c_void);
     pub fn libinput_device_get_user_data(device: *mut libinput_device) -> *mut c::c_void;
     pub fn libinput_device_ref(device: *mut libinput_device) -> *mut libinput_device;
@@ -33,12 +38,7 @@ extern "C" {
         path: *const c::c_char,
     ) -> *mut libinput_device;
     pub fn libinput_path_remove_device(device: *mut libinput_device);
-    pub fn libinput_unref(libinput: *mut libinput) -> *mut libinput;
-    pub fn libinput_get_fd(libinput: *mut libinput) -> c::c_int;
-
-    pub fn libinput_dispatch(libinput: *mut libinput) -> c::c_int;
-
-    pub fn libinput_get_event(libinput: *mut libinput) -> *mut libinput_event;
+    pub fn libinput_device_has_capability(device: *mut libinput_device, cap: libinput_device_capability) -> c::c_int;
 
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;

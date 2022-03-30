@@ -6,6 +6,7 @@ use std::rc::Rc;
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
     let data = Rc::new(DeviceHandlerData {
         seat: Default::default(),
+        device: dev.clone(),
     });
     let oh = DeviceHandler {
         state: state.clone(),
@@ -18,7 +19,6 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         InputDeviceData {
             handler,
             id: dev.id(),
-            device: dev.clone(),
             data,
         },
     );

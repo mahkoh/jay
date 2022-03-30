@@ -1,8 +1,5 @@
 use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, InputDevice, InputDeviceId, InputEvent, KeyState, Output, OutputId,
-    ScrollAxis,
-};
+use crate::backend::{Backend, BackendEvent, InputDevice, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Output, OutputId, ScrollAxis};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -638,8 +635,11 @@ impl XBackendData {
             return;
         }
 
-        let image = &output.images[output.next_image.fetch_add(1) % output.images.len()];
         let serial = output.serial.fetch_add(1);
+
+        let image = &output.images[output.next_image.fetch_add(1) % output.images.len()];
+        image.idle.set(false);
+        image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
             let fb = image.fb.get();
@@ -667,8 +667,6 @@ impl XBackendData {
             log::error!("Could not present image: {:?}", e);
             return;
         }
-        image.idle.set(false);
-        image.last_serial.set(serial);
     }
 
     async fn handle_input_event(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
@@ -958,6 +956,13 @@ impl InputDevice for XSeatKeyboard {
     fn grab(&self, grab: bool) {
         self.0.backend.grab_requests.push((self.0.clone(), grab));
     }
+
+    fn has_capability(&self, cap: InputDeviceCapability) -> bool {
+        match cap {
+            InputDeviceCapability::Keyboard => true,
+            _ => false,
+        }
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -979,5 +984,12 @@ impl InputDevice for XSeatMouse {
 
     fn grab(&self, _grab: bool) {
         log::error!("Cannot grab xorg mouse");
+    }
+
+    fn has_capability(&self, cap: InputDeviceCapability) -> bool {
+        match cap {
+            InputDeviceCapability::Pointer => true,
+            _ => false,
+        }
     }
 }

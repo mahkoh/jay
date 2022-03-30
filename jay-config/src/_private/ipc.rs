@@ -2,8 +2,9 @@ use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::theme::Color;
-use crate::{Axis, Direction, InputDevice, LogLevel, Seat};
+use crate::{Axis, Direction, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
+use crate::input::{Capability, InputDevice};
 
 #[derive(Encode, BorrowDecode, Debug)]
 pub enum ServerMessage {
@@ -136,6 +137,10 @@ pub enum ClientMessage<'a> {
     ToggleFloating {
         seat: Seat,
     },
+    HasCapability {
+        device: InputDevice,
+        cap: Capability,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -150,6 +155,7 @@ pub enum Response {
     GetInputDevices { devices: Vec<InputDevice> },
     GetTitleHeight { height: i32 },
     GetBorderWidth { width: i32 },
+    HasCapability { has: bool },
 }
 
 #[derive(Encode, Decode, Debug)]

@@ -73,12 +73,12 @@ pub struct State {
 pub struct InputDeviceData {
     pub handler: SpawnedFuture<()>,
     pub id: InputDeviceId,
-    pub device: Rc<dyn InputDevice>,
     pub data: Rc<DeviceHandlerData>,
 }
 
 pub struct DeviceHandlerData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
+    pub device: Rc<dyn InputDevice>,
 }
 
 impl State {

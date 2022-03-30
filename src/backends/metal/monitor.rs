@@ -95,7 +95,7 @@ impl MetalBackend {
             self.state.fdcloser.close(old);
         }
         let inputdev = match self.libinput.open(dev.devnode.as_c_str()) {
-            Ok(d) => d,
+            Ok(d) => Rc::new(d),
             Err(_) => return,
         };
         inputdev.device().set_slot(dev.slot);
@@ -314,7 +314,7 @@ impl MetalBackend {
             }
             dev.fd.set(Some(res.fd.clone()));
             let inputdev = match slf.libinput.open(dev.devnode.as_c_str()) {
-                Ok(d) => d,
+                Ok(d) => Rc::new(d),
                 Err(_) => return,
             };
             inputdev.device().set_slot(slot);

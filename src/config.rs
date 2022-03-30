@@ -9,12 +9,13 @@ use crate::utils::ptr_ext::PtrExt;
 use jay_config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
 use jay_config::_private::{bincode_ops, ConfigEntry, VERSION};
 use jay_config::keyboard::ModifiedKeySym;
-use jay_config::{InputDevice, Seat};
+use jay_config::{Seat};
 use libloading::Library;
 use std::cell::Cell;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
+use jay_config::input::InputDevice;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {

@@ -4,13 +4,14 @@ use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
 use crate::keyboard::keymap::Keymap;
 use crate::theme::Color;
-use crate::{Axis, Command, Direction, InputDevice, LogLevel, ModifiedKeySym, Seat};
+use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Seat};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::{ptr, slice};
+use crate::input::{Capability, InputDevice};
 
 pub(crate) struct Client {
     configure: extern "C" fn(),
@@ -315,6 +316,17 @@ impl Client {
 
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
         self.send(&ClientMessage::SetSeat { device, seat })
+    }
+
+    pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {
+        let res = self.with_response(|| self.send(&ClientMessage::HasCapability { device, cap }));
+        match res {
+            Response::HasCapability { has } => has,
+            _ => {
+                log::error!("Server did not send a response to a has_capability request");
+                false
+            }
+        }
     }
 
     pub fn seat_set_keymap(&self, seat: Seat, keymap: Keymap) {

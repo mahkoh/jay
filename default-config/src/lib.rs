@@ -12,6 +12,7 @@ use jay_config::{
     config, create_seat, input_devices, on_new_input_device, quit, switch_to_vt, Command, Seat,
 };
 use rand::Rng;
+use jay_config::input::CAP_KEYBOARD;
 
 const MOD: Modifiers = ALT;
 
@@ -93,12 +94,14 @@ fn configure_seat(s: Seat) {
 
     fn do_grab(s: Seat, grab: bool) {
         for device in s.input_devices() {
-            log::info!(
-                "{}rabbing keyboard {:?}",
-                if grab { "G" } else { "Ung" },
-                device.0
-            );
-            grab_input_device(device, grab);
+            if device.has_capability(CAP_KEYBOARD) {
+                log::info!(
+                    "{}rabbing keyboard {:?}",
+                    if grab { "G" } else { "Ung" },
+                    device.0
+                );
+                grab_input_device(device, grab);
+            }
         }
         if grab {
             s.unbind(SYM_y);

@@ -23,6 +23,18 @@ pub trait InputDevice {
     fn event(&self) -> Option<InputEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn grab(&self, grab: bool);
+    fn has_capability(&self, cap: InputDeviceCapability) -> bool;
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum InputDeviceCapability {
+    Keyboard,
+    Pointer,
+    Touch,
+    TabletTool,
+    TabletPad,
+    Gesture,
+    Switch,
 }
 
 pub enum BackendEvent {
