@@ -166,7 +166,7 @@ impl FloatNode {
         let title = self.title.borrow_mut();
         self.title_texture.set(None);
         let pos = self.position.get();
-        if pos.width() <= 2 * bw {
+        if pos.width() <= 2 * bw || th == 0 || title.is_empty() {
             return;
         }
         let ctx = match self.state.render_ctx.get() {

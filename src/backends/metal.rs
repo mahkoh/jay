@@ -3,11 +3,19 @@ mod monitor;
 mod video;
 
 use crate::async_engine::{AsyncError, AsyncFd};
-use crate::backend::{Backend, InputDevice, InputDeviceCapability, InputDeviceId, InputEvent};
+use crate::backend::{
+    Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
+};
 use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
 use crate::dbus::DbusError;
 use crate::drm::drm::DrmError;
 use crate::drm::gbm::GbmError;
+use crate::libinput::consts::{
+    AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+    LIBINPUT_DEVICE_CAP_GESTURE, LIBINPUT_DEVICE_CAP_KEYBOARD, LIBINPUT_DEVICE_CAP_POINTER,
+    LIBINPUT_DEVICE_CAP_SWITCH, LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL,
+    LIBINPUT_DEVICE_CAP_TOUCH,
+};
 use crate::libinput::device::RegisteredDevice;
 use crate::libinput::{LibInput, LibInputAdapter, LibInputError};
 use crate::logind::{LogindError, Session};
@@ -25,7 +33,6 @@ use std::future::pending;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::libinput::consts::{LIBINPUT_DEVICE_CAP_GESTURE, LIBINPUT_DEVICE_CAP_KEYBOARD, LIBINPUT_DEVICE_CAP_POINTER, LIBINPUT_DEVICE_CAP_SWITCH, LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL, LIBINPUT_DEVICE_CAP_TOUCH};
 
 #[derive(Debug, Error)]
 pub enum MetalError {
@@ -189,6 +196,12 @@ struct MetalInputDevice {
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     hscroll: Cell<f64>,
     vscroll: Cell<f64>,
+
+    // config
+    left_handed: Cell<Option<bool>>,
+    accel_profile: Cell<Option<AccelProfile>>,
+    accel_speed: Cell<Option<f64>>,
+    transform_matrix: Cell<Option<[[f64; 2]; 2]>>,
 }
 
 #[derive(Clone)]
@@ -219,6 +232,24 @@ impl LibInputAdapter for DeviceHolder {
                 _ => Err(LibInputError::DeviceUnavailable),
             },
             _ => Err(LibInputError::DeviceUnavailable),
+        }
+    }
+}
+
+impl MetalInputDevice {
+    fn apply_config(&self) {
+        let dev = match self.inputdev.get() {
+            Some(dev) => dev,
+            _ => return,
+        };
+        if let Some(lh) = self.left_handed.get() {
+            dev.device().set_left_handed(lh);
+        }
+        if let Some(profile) = self.accel_profile.get() {
+            dev.device().set_accel_profile(profile);
+        }
+        if let Some(speed) = self.accel_speed.get() {
+            dev.device().set_accel_speed(speed);
         }
     }
 }
@@ -258,6 +289,35 @@ impl InputDevice for MetalInputDevice {
             Some(dev) => dev.device().has_cap(li),
             _ => false,
         }
+    }
+
+    fn set_left_handed(&self, left_handed: bool) {
+        self.left_handed.set(Some(left_handed));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_left_handed(left_handed);
+        }
+    }
+
+    fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
+        let profile = match profile {
+            InputDeviceAccelProfile::Flat => LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+            InputDeviceAccelProfile::Adaptive => LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
+        };
+        self.accel_profile.set(Some(profile));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_accel_profile(profile);
+        }
+    }
+
+    fn set_accel_speed(&self, speed: f64) {
+        self.accel_speed.set(Some(speed));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_accel_speed(speed);
+        }
+    }
+
+    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
+        self.transform_matrix.set(Some(matrix));
     }
 }
 

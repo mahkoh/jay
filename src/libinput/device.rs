@@ -1,8 +1,13 @@
-use crate::libinput::sys::{libinput_device, libinput_device_get_user_data, libinput_device_has_capability, libinput_device_set_user_data, libinput_device_unref, libinput_path_remove_device};
+use crate::libinput::consts::{AccelProfile, DeviceCapability};
+use crate::libinput::sys::{
+    libinput_device, libinput_device_config_accel_set_profile,
+    libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
+    libinput_device_get_user_data, libinput_device_has_capability, libinput_device_set_user_data,
+    libinput_device_unref, libinput_path_remove_device,
+};
 use crate::libinput::LibInput;
 use std::marker::PhantomData;
 use std::rc::Rc;
-use crate::libinput::consts::{DeviceCapability};
 
 pub struct LibInputDevice<'a> {
     pub(super) dev: *mut libinput_device,
@@ -41,6 +46,24 @@ impl<'a> LibInputDevice<'a> {
     pub fn has_cap(&self, cap: DeviceCapability) -> bool {
         let res = unsafe { libinput_device_has_capability(self.dev, cap.raw() as _) };
         res != 0
+    }
+
+    pub fn set_left_handed(&self, left_handed: bool) {
+        unsafe {
+            libinput_device_config_left_handed_set(self.dev, left_handed as _);
+        }
+    }
+
+    pub fn set_accel_profile(&self, profile: AccelProfile) {
+        unsafe {
+            libinput_device_config_accel_set_profile(self.dev, profile.raw() as _);
+        }
+    }
+
+    pub fn set_accel_speed(&self, speed: f64) {
+        unsafe {
+            libinput_device_config_accel_set_speed(self.dev, speed);
+        }
     }
 }
 

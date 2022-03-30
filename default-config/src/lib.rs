@@ -1,4 +1,7 @@
 use jay_config::embedded::grab_input_device;
+use jay_config::input::{
+    InputDevice, CAP_KEYBOARD, CAP_POINTER,
+};
 use jay_config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use jay_config::keyboard::syms::{
     SYM_Super_L, SYM_b, SYM_comma, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p,
@@ -12,7 +15,6 @@ use jay_config::{
     config, create_seat, input_devices, on_new_input_device, quit, switch_to_vt, Command, Seat,
 };
 use rand::Rng;
-use jay_config::input::CAP_KEYBOARD;
 
 const MOD: Modifiers = ALT;
 
@@ -117,10 +119,15 @@ fn configure_seat(s: Seat) {
 pub fn configure() {
     let seat = create_seat("default");
     configure_seat(seat);
-    for device in input_devices() {
+    let handle_input_device = move |device: InputDevice| {
+        if device.has_capability(CAP_POINTER) {
+            device.set_left_handed(true);
+            device.set_transform_matrix([[0.35, 0.0], [0.0, 0.35]]);
+        }
         device.set_seat(seat);
-    }
-    on_new_input_device(move |device| device.set_seat(seat));
+    };
+    input_devices().into_iter().for_each(handle_input_device);
+    on_new_input_device(handle_input_device);
 }
 
 config!(configure);

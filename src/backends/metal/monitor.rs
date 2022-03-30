@@ -100,6 +100,7 @@ impl MetalBackend {
         };
         inputdev.device().set_slot(dev.slot);
         dev.inputdev.set(Some(inputdev));
+        dev.apply_config();
     }
 
     fn handle_device_removed(self: &Rc<Self>, dev: c::dev_t) {
@@ -280,6 +281,10 @@ impl MetalBackend {
             cb: Default::default(),
             hscroll: Cell::new(0.0),
             vscroll: Cell::new(0.0),
+            left_handed: Default::default(),
+            accel_profile: Default::default(),
+            accel_speed: Default::default(),
+            transform_matrix: Default::default(),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder
@@ -319,6 +324,7 @@ impl MetalBackend {
             };
             inputdev.device().set_slot(slot);
             dev.inputdev.set(Some(inputdev));
+            dev.apply_config();
             slf.state
                 .backend_events
                 .push(BackendEvent::NewInputDevice(dev.clone()));

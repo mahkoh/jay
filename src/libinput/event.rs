@@ -8,7 +8,7 @@ use crate::libinput::sys::{
     libinput_event_pointer, libinput_event_pointer_get_button,
     libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
     libinput_event_pointer_get_dy, libinput_event_pointer_get_scroll_value_v120,
-    libinput_event_pointer_get_time_usec,
+    libinput_event_pointer_get_time_usec, libinput_event_pointer_has_axis,
 };
 use std::marker::PhantomData;
 
@@ -106,6 +106,10 @@ impl<'a> LibInputEventPointer<'a> {
 
     pub fn scroll_value_v120(&self, axis: PointerAxis) -> f64 {
         unsafe { libinput_event_pointer_get_scroll_value_v120(self.event, axis.raw() as _) }
+    }
+
+    pub fn has_axis(&self, axis: PointerAxis) -> bool {
+        unsafe { libinput_event_pointer_has_axis(self.event, axis.raw() as _) != 0 }
     }
 
     #[allow(dead_code)]

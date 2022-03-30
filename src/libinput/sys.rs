@@ -38,7 +38,22 @@ extern "C" {
         path: *const c::c_char,
     ) -> *mut libinput_device;
     pub fn libinput_path_remove_device(device: *mut libinput_device);
-    pub fn libinput_device_has_capability(device: *mut libinput_device, cap: libinput_device_capability) -> c::c_int;
+    pub fn libinput_device_has_capability(
+        device: *mut libinput_device,
+        cap: libinput_device_capability,
+    ) -> c::c_int;
+    pub fn libinput_device_config_left_handed_set(
+        device: *mut libinput_device,
+        left_handed: c::c_int,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_accel_set_profile(
+        device: *mut libinput_device,
+        profile: libinput_config_accel_profile,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_accel_set_speed(
+        device: *mut libinput_device,
+        speed: f64,
+    ) -> libinput_config_status;
 
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;
@@ -67,6 +82,10 @@ extern "C" {
         event: *mut libinput_event_pointer,
         axis: libinput_pointer_axis,
     ) -> f64;
+    pub fn libinput_event_pointer_has_axis(
+        event: *mut libinput_event_pointer,
+        axis: libinput_pointer_axis,
+    ) -> c::c_int;
 }
 
 #[repr(C)]

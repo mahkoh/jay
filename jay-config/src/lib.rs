@@ -1,17 +1,17 @@
+use crate::input::InputDevice;
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::ModifiedKeySym;
 use bincode::{Decode, Encode};
 use std::collections::HashMap;
-use crate::input::InputDevice;
 
 #[macro_use]
 mod macros;
 #[doc(hidden)]
 pub mod _private;
 pub mod embedded;
+pub mod input;
 pub mod keyboard;
 pub mod theme;
-pub mod input;
 
 #[derive(Encode, Decode, Copy, Clone, Debug)]
 pub enum LogLevel {

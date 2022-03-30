@@ -551,6 +551,7 @@ impl ContainerNode {
     fn compute_render_data(&self) {
         self.compute_render_data_scheduled.set(false);
         let mut rd = self.render_data.borrow_mut();
+        let rd = rd.deref_mut();
         let theme = &self.state.theme;
         let th = theme.title_height.get();
         let bw = theme.border_width.get();
@@ -564,6 +565,19 @@ impl ContainerNode {
         rd.active_title_rects.clear();
         rd.border_rects.clear();
         rd.underline_rects.clear();
+        let mut render_title = |title: &str, width: i32, x: i32, y: i32| {
+            if th == 0 || width == 0 || title.is_empty() {
+                return;
+            }
+            if let Some(ctx) = &ctx {
+                match text::render(ctx, width, th, &font, title, Color::GREY) {
+                    Ok(t) => rd.titles.push(ContainerTitle { x, y, tex: t }),
+                    Err(e) => {
+                        log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                    }
+                }
+            }
+        };
         if self.mono_child.get().is_some() {
             let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
             let space_per_child = content_width / num_children;
@@ -585,19 +599,8 @@ impl ContainerNode {
                 } else {
                     rd.title_rects.push(rect);
                 }
-                if let Some(ctx) = &ctx {
-                    let title = c.title.borrow_mut();
-                    match text::render(ctx, width, th, &font, &title, Color::GREY) {
-                        Ok(t) => rd.titles.push(ContainerTitle {
-                            x: pos,
-                            y: 0,
-                            tex: t,
-                        }),
-                        Err(e) => {
-                            log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                        }
-                    }
-                }
+                let title = c.title.borrow_mut();
+                render_title(&title, width, pos, 0);
                 pos += width + bw;
             }
             rd.underline_rects
@@ -623,19 +626,8 @@ impl ContainerNode {
                 }
                 let rect = Rect::new_sized(body.x1(), body.y1() - 1, body.width(), 1).unwrap();
                 rd.underline_rects.push(rect);
-                if let Some(ctx) = &ctx {
-                    let title = c.title.borrow_mut();
-                    match text::render(ctx, body.width(), th, &font, &title, Color::GREY) {
-                        Ok(t) => rd.titles.push(ContainerTitle {
-                            x: body.x1(),
-                            y: body.y1() - th - 1,
-                            tex: t,
-                        }),
-                        Err(e) => {
-                            log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                        }
-                    }
-                }
+                let title = c.title.borrow_mut();
+                render_title(&title, body.width(), body.x1(), body.y1() - th - 1);
             }
         }
     }

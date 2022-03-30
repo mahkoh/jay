@@ -1,5 +1,5 @@
 use crate::backend;
-use crate::backend::{InputDeviceCapability, InputDeviceId};
+use crate::backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId};
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::{DeviceHandlerData, State};
 use crate::tree::walker::NodeVisitorBase;
@@ -13,6 +13,10 @@ use crate::xkbcommon::XkbKeymap;
 use bincode::error::DecodeError;
 use jay_config::_private::bincode_ops;
 use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};
+use jay_config::input::{
+    AccelProfile, Capability, InputDevice, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, CAP_GESTURE,
+    CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD, CAP_TABLET_TOOL, CAP_TOUCH,
+};
 use jay_config::keyboard::keymap::Keymap;
 use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;
@@ -22,7 +26,6 @@ use log::Level;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
-use jay_config::input::{CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD, CAP_TABLET_TOOL, CAP_TOUCH, Capability, InputDevice};
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -49,9 +52,7 @@ impl ConfigProxyHandler {
     }
 
     pub fn respond(&self, msg: Response) {
-        self.send(&ServerMessage::Response {
-            response: msg,
-        })
+        self.send(&ServerMessage::Response { response: msg })
     }
 
     fn id(&self) -> u64 {
@@ -207,8 +208,58 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_has_capability(&self, device: InputDevice, cap: Capability) -> Result<(), HasCapabilityError> {
+    fn handle_set_left_handed(
+        &self,
+        device: InputDevice,
+        left_handed: bool,
+    ) -> Result<(), SetLeftHandedError> {
         let dev = self.get_device_handler_data(device)?;
+        dev.device.set_left_handed(left_handed);
+        Ok(())
+    }
+
+    fn handle_set_accel_profile(
+        &self,
+        device: InputDevice,
+        accel_profile: AccelProfile,
+    ) -> Result<(), SetAccelProfileError> {
+        let dev = self.get_device_handler_data(device)?;
+        let profile = match accel_profile {
+            ACCEL_PROFILE_FLAT => InputDeviceAccelProfile::Flat,
+            ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
+            _ => return Err(SetAccelProfileError::UnknownAccelProfile(accel_profile)),
+        };
+        dev.device.set_accel_profile(profile);
+        Ok(())
+    }
+
+    fn handle_set_accel_speed(
+        &self,
+        device: InputDevice,
+        speed: f64,
+    ) -> Result<(), SetAccelSpeedError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_accel_speed(speed);
+        Ok(())
+    }
+
+    fn handle_set_transform_matrix(
+        &self,
+        device: InputDevice,
+        matrix: [[f64; 2]; 2],
+    ) -> Result<(), SetTransformMatrixError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_transform_matrix(matrix);
+        Ok(())
+    }
+
+    fn handle_has_capability(
+        &self,
+        device: InputDevice,
+        cap: Capability,
+    ) -> Result<(), HasCapabilityError> {
+        let dev = self.get_device_handler_data(device)?;
+        let mut is_unknown = false;
         let has_cap = 'has_cap: {
             let cap = match cap {
                 CAP_KEYBOARD => InputDeviceCapability::Keyboard,
@@ -218,14 +269,19 @@ impl ConfigProxyHandler {
                 CAP_TABLET_PAD => InputDeviceCapability::TabletPad,
                 CAP_GESTURE => InputDeviceCapability::Gesture,
                 CAP_SWITCH => InputDeviceCapability::Switch,
-                _ => break 'has_cap false,
+                _ => {
+                    is_unknown = true;
+                    break 'has_cap false;
+                }
             };
             dev.device.has_capability(cap)
         };
-        self.respond(Response::HasCapability {
-            has: has_cap,
-        });
-        Ok(())
+        self.respond(Response::HasCapability { has: has_cap });
+        if is_unknown {
+            Err(HasCapabilityError::UnknownCapability(cap))
+        } else {
+            Ok(())
+        }
     }
 
     fn handle_get_mono(&self, seat: Seat) -> Result<(), GetMonoError> {
@@ -510,7 +566,22 @@ impl ConfigProxyHandler {
             ClientMessage::ToggleFloating { seat } => self.handle_toggle_floating(seat)?,
             ClientMessage::Quit => self.handle_quit(),
             ClientMessage::SwitchTo { vtnr } => self.handle_switch_to(vtnr),
-            ClientMessage::HasCapability { device, cap } => self.handle_has_capability(device, cap)?,
+            ClientMessage::HasCapability { device, cap } => {
+                self.handle_has_capability(device, cap)?
+            }
+            ClientMessage::SetLeftHanded {
+                device,
+                left_handed,
+            } => self.handle_set_left_handed(device, left_handed)?,
+            ClientMessage::SetAccelProfile { device, profile } => {
+                self.handle_set_accel_profile(device, profile)?
+            }
+            ClientMessage::SetAccelSpeed { device, speed } => {
+                self.handle_set_accel_speed(device, speed)?
+            }
+            ClientMessage::SetTransformMatrix { device, matrix } => {
+                self.handle_set_transform_matrix(device, matrix)?
+            }
         }
         Ok(())
     }
@@ -560,6 +631,14 @@ enum CphError {
     SetBorderWidthError(#[from] SetBorderWidthError),
     #[error("Could not process a `has_capability` request")]
     HasCapabilityError(#[from] HasCapabilityError),
+    #[error("Could not process a `set_left_handed` request")]
+    SetLeftHandedError(#[from] SetLeftHandedError),
+    #[error("Could not process a `set_accel_profile` request")]
+    SetAccelProfileError(#[from] SetAccelProfileError),
+    #[error("Could not process a `set_accel_speed` request")]
+    SetAccelSpeedError(#[from] SetAccelSpeedError),
+    #[error("Could not process a `set_transform_matrix` request")]
+    SetTransformMatrixError(#[from] SetTransformMatrixError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Device {0:?} does not exist")]
@@ -586,9 +665,41 @@ enum SetSeatError {
 efrom!(SetSeatError, CphError);
 
 #[derive(Debug, Error)]
+enum SetLeftHandedError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(SetLeftHandedError, CphError);
+
+#[derive(Debug, Error)]
+enum SetAccelProfileError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+    #[error("Tried to set an unknown accel profile: {}", (.0).0)]
+    UnknownAccelProfile(AccelProfile),
+}
+efrom!(SetAccelProfileError, CphError);
+
+#[derive(Debug, Error)]
+enum SetAccelSpeedError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(SetAccelSpeedError, CphError);
+
+#[derive(Debug, Error)]
+enum SetTransformMatrixError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(SetTransformMatrixError, CphError);
+
+#[derive(Debug, Error)]
 enum HasCapabilityError {
     #[error(transparent)]
     CphError(#[from] Box<CphError>),
+    #[error("Queried unknown capability: {}", (.0).0)]
+    UnknownCapability(Capability),
 }
 efrom!(HasCapabilityError, CphError);
 

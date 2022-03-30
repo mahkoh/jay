@@ -104,26 +104,28 @@ impl MetalBackend {
         const PX_PER_SCROLL: f64 = 15.0;
         const ONE_TWENTRY: f64 = 120.0;
         let (event, dev) = unpack!(self, event, pointer_event);
-        let hscroll = event.scroll_value_v120(LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL)
-            / ONE_TWENTRY
-            + dev.hscroll.get();
-        let vscroll = event.scroll_value_v120(LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL) / ONE_TWENTRY
-            + dev.vscroll.get();
-        let hscroll_used = (PX_PER_SCROLL * hscroll).round();
-        let vscroll_used = (PX_PER_SCROLL * vscroll).round();
-        dev.hscroll.set(hscroll - hscroll_used / PX_PER_SCROLL);
-        dev.vscroll.set(vscroll - vscroll_used / PX_PER_SCROLL);
-        if hscroll_used != 0.0 {
-            dev.event(InputEvent::Scroll(
-                hscroll_used as i32,
+        let axes = [
+            (
+                LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL,
+                &dev.hscroll,
                 ScrollAxis::Horizontal,
-            ));
-        }
-        if vscroll_used != 0.0 {
-            dev.event(InputEvent::Scroll(
-                vscroll_used as i32,
+            ),
+            (
+                LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
+                &dev.vscroll,
                 ScrollAxis::Vertical,
-            ));
+            ),
+        ];
+        for (axis, val, sa) in axes {
+            if !event.has_axis(axis) {
+                continue;
+            }
+            let scroll = event.scroll_value_v120(axis) / ONE_TWENTRY + val.get();
+            let scroll_used = (PX_PER_SCROLL * scroll).round();
+            val.set(scroll - scroll_used / PX_PER_SCROLL);
+            if scroll_used != 0.0 {
+                dev.event(InputEvent::Scroll(scroll_used as i32, sa));
+            }
         }
     }
 
@@ -139,6 +141,12 @@ impl MetalBackend {
 
     fn handle_pointer_motion(self: &Rc<Self>, event: LibInputEvent) {
         let (event, dev) = unpack!(self, event, pointer_event);
-        dev.event(InputEvent::Motion(event.dx().into(), event.dy().into()));
+        let mut dx = event.dx();
+        let mut dy = event.dy();
+        if let Some(matrix) = dev.transform_matrix.get() {
+            dx = matrix[0][0] * dx + matrix[0][1] * dy;
+            dy = matrix[1][0] * dx + matrix[1][1] * dy;
+        }
+        dev.event(InputEvent::Motion(dx.into(), dy.into()));
     }
 }

@@ -2,6 +2,7 @@
 
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
+use crate::input::{AccelProfile, Capability, InputDevice};
 use crate::keyboard::keymap::Keymap;
 use crate::theme::Color;
 use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Seat};
@@ -11,7 +12,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::{ptr, slice};
-use crate::input::{Capability, InputDevice};
 
 pub(crate) struct Client {
     configure: extern "C" fn(),
@@ -316,6 +316,25 @@ impl Client {
 
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
         self.send(&ClientMessage::SetSeat { device, seat })
+    }
+
+    pub fn set_left_handed(&self, device: InputDevice, left_handed: bool) {
+        self.send(&ClientMessage::SetLeftHanded {
+            device,
+            left_handed,
+        })
+    }
+
+    pub fn set_accel_profile(&self, device: InputDevice, profile: AccelProfile) {
+        self.send(&ClientMessage::SetAccelProfile { device, profile })
+    }
+
+    pub fn set_accel_speed(&self, device: InputDevice, speed: f64) {
+        self.send(&ClientMessage::SetAccelSpeed { device, speed })
+    }
+
+    pub fn set_transform_matrix(&self, device: InputDevice, matrix: [[f64; 2]; 2]) {
+        self.send(&ClientMessage::SetTransformMatrix { device, matrix })
     }
 
     pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {

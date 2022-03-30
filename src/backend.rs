@@ -24,6 +24,10 @@ pub trait InputDevice {
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn grab(&self, grab: bool);
     fn has_capability(&self, cap: InputDeviceCapability) -> bool;
+    fn set_left_handed(&self, left_handed: bool);
+    fn set_accel_profile(&self, profile: InputDeviceAccelProfile);
+    fn set_accel_speed(&self, speed: f64);
+    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]);
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -35,6 +39,12 @@ pub enum InputDeviceCapability {
     TabletPad,
     Gesture,
     Switch,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum InputDeviceAccelProfile {
+    Flat,
+    Adaptive,
 }
 
 pub enum BackendEvent {

@@ -1,5 +1,8 @@
 use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{Backend, BackendEvent, InputDevice, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Output, OutputId, ScrollAxis};
+use crate::backend::{
+    Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+    InputDeviceId, InputEvent, KeyState, Output, OutputId, ScrollAxis,
+};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -963,6 +966,22 @@ impl InputDevice for XSeatKeyboard {
             _ => false,
         }
     }
+
+    fn set_left_handed(&self, left_handed: bool) {
+        let _ = left_handed;
+    }
+
+    fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
+        let _ = profile;
+    }
+
+    fn set_accel_speed(&self, speed: f64) {
+        let _ = speed;
+    }
+
+    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
+        let _ = matrix;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -991,5 +1010,21 @@ impl InputDevice for XSeatMouse {
             InputDeviceCapability::Pointer => true,
             _ => false,
         }
+    }
+
+    fn set_left_handed(&self, left_handed: bool) {
+        let _ = left_handed;
+    }
+
+    fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
+        let _ = profile;
+    }
+
+    fn set_accel_speed(&self, speed: f64) {
+        let _ = speed;
+    }
+
+    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
+        let _ = matrix;
     }
 }

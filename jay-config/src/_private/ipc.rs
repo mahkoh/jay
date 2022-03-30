@@ -1,10 +1,10 @@
+use crate::input::{AccelProfile, Capability, InputDevice};
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::theme::Color;
 use crate::{Axis, Direction, LogLevel, Seat};
 use bincode::{BorrowDecode, Decode, Encode};
-use crate::input::{Capability, InputDevice};
 
 #[derive(Encode, BorrowDecode, Debug)]
 pub enum ServerMessage {
@@ -140,6 +140,22 @@ pub enum ClientMessage<'a> {
     HasCapability {
         device: InputDevice,
         cap: Capability,
+    },
+    SetLeftHanded {
+        device: InputDevice,
+        left_handed: bool,
+    },
+    SetAccelProfile {
+        device: InputDevice,
+        profile: AccelProfile,
+    },
+    SetAccelSpeed {
+        device: InputDevice,
+        speed: f64,
+    },
+    SetTransformMatrix {
+        device: InputDevice,
+        matrix: [[f64; 2]; 2],
     },
 }
 

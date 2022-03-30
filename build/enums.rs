@@ -259,6 +259,16 @@ pub fn main() -> anyhow::Result<()> {
     )?;
     write_ty(&mut f, libinput::LIBINPUT_SWITCH, "libinput_switch")?;
     write_ty(&mut f, libinput::LIBINPUT_EVENT_TYPE, "libinput_event_type")?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_CONFIG_STATUS,
+        "libinput_config_status",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_CONFIG_ACCEL_PROFILE,
+        "libinput_config_accel_profile",
+    )?;
 
     let mut f = open("pixman_tys.rs")?;
     write_ty(&mut f, pixman::FORMATS, "PixmanFormat")?;
