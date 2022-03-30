@@ -471,7 +471,7 @@ mod queue {
     }
 
     impl EventLoopDispatcher for Dispatcher {
-        fn dispatch(self: Rc<Self>, _events: i32) -> Result<(), Box<dyn Error>> {
+        fn dispatch(self: Rc<Self>, _fd: Option<i32>, _events: i32) -> Result<(), Box<dyn Error>> {
             let mut stash = self.stash.borrow_mut();
             let mut yield_stash = self.yield_stash.borrow_mut();
             while self.queue.num_queued.get() > 0 {
@@ -609,7 +609,7 @@ mod fd {
     }
 
     impl EventLoopDispatcher for AsyncFdData {
-        fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error>> {
+        fn dispatch(self: Rc<Self>, _fd: Option<i32>, events: i32) -> Result<(), Box<dyn Error>> {
             let mut status = FdStatus::Ok;
             if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
                 status = FdStatus::Err;

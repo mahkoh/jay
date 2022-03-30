@@ -1,0 +1,10 @@
+# requests
+
+msg destroy = 0 {
+}
+
+# events
+
+msg path = 0 {
+    path: bstr,
+}

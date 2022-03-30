@@ -30,7 +30,11 @@ pub enum EventLoopError {
 pub struct EventLoopId(u64);
 
 pub trait EventLoopDispatcher {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn std::error::Error>>;
+    fn dispatch(
+        self: Rc<Self>,
+        fd: Option<i32>,
+        events: i32,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 #[derive(Clone)]
@@ -157,7 +161,7 @@ impl EventLoop {
                     break 'outer;
                 }
                 if let Some(entry) = self.entries.get(&id) {
-                    if let Err(e) = entry.dispatcher.clone().dispatch(0) {
+                    if let Err(e) = entry.dispatcher.clone().dispatch(entry.fd, 0) {
                         return Err(EventLoopError::DispatcherError(e));
                     }
                 }
@@ -185,7 +189,11 @@ impl EventLoop {
                         continue;
                     }
                 };
-                if let Err(e) = entry.dispatcher.clone().dispatch(event.events as i32) {
+                if let Err(e) = entry
+                    .dispatcher
+                    .clone()
+                    .dispatch(entry.fd, event.events as i32)
+                {
                     return Err(EventLoopError::DispatcherError(e));
                 }
             }

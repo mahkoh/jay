@@ -172,7 +172,11 @@ struct WheelWrapper {
 }
 
 impl EventLoopDispatcher for WheelWrapper {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn std::error::Error>> {
+    fn dispatch(
+        self: Rc<Self>,
+        _fd: Option<i32>,
+        events: i32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(WheelError::ErrorEvent));
         }
@@ -238,7 +242,7 @@ struct PeriodicDispatcher {
 }
 
 impl EventLoopDispatcher for PeriodicDispatcher {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn Error>> {
+    fn dispatch(self: Rc<Self>, _fd: Option<i32>, events: i32) -> Result<(), Box<dyn Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(WheelError::ErrorEvent));
         }

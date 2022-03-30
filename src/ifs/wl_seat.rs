@@ -36,6 +36,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::{LinkedList, LinkedNode};
 use crate::utils::numcell::NumCell;
+use crate::utils::rc_eq::rc_eq;
 use crate::wire::wl_seat::*;
 use crate::wire::{
     WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId, ZwpPrimarySelectionDeviceV1Id,
@@ -52,7 +53,6 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
-use crate::utils::rc_eq::rc_eq;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;

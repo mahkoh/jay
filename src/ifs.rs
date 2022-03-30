@@ -1,4 +1,6 @@
 pub mod ipc;
+pub mod jay_compositor;
+pub mod jay_log_file;
 pub mod org_kde_kwin_server_decoration;
 pub mod org_kde_kwin_server_decoration_manager;
 pub mod wl_buffer;

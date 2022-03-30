@@ -37,7 +37,7 @@ pub enum AcceptorError {
 }
 
 pub struct Acceptor {
-    id: EventLoopId,
+    ids: [EventLoopId; 2],
     socket: AllocatedSocket,
     global: Rc<State>,
 }
@@ -47,10 +47,12 @@ struct AllocatedSocket {
     name: Ustring,
     // /run/user/1000/wayland-x
     path: Ustring,
-    fd: Rc<OwnedFd>,
+    insecure: Rc<OwnedFd>,
     // /run/user/1000/wayland-x.lock
     lock_path: Ustring,
     _lock_fd: OwnedFd,
+    // /run/user/1000/wayland-x.jay
+    secure: Rc<OwnedFd>,
 }
 
 impl Drop for AllocatedSocket {
@@ -60,13 +62,19 @@ impl Drop for AllocatedSocket {
     }
 }
 
-fn bind_socket(fd: &Rc<OwnedFd>, xrd: &str, id: u32) -> Result<AllocatedSocket, AcceptorError> {
+fn bind_socket(
+    insecure: &Rc<OwnedFd>,
+    secure: &Rc<OwnedFd>,
+    xrd: &str,
+    id: u32,
+) -> Result<AllocatedSocket, AcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
     let name = format_ustr!("wayland-{}", id);
     let path = format_ustr!("{}/{}", xrd, name.display());
+    let jay_path = format_ustr!("{}.jay", path.display());
     let lock_path = format_ustr!("{}.lock", path.display());
-    if path.len() + 1 > addr.sun_path.len() {
+    if jay_path.len() + 1 > addr.sun_path.len() {
         return Err(AcceptorError::XrdTooLong(xrd.to_string()));
     }
     let lock_fd = match uapi::open(&*lock_path, c::O_CREAT | c::O_CLOEXEC | c::O_RDWR, 0o644) {
@@ -76,26 +84,29 @@ fn bind_socket(fd: &Rc<OwnedFd>, xrd: &str, id: u32) -> Result<AllocatedSocket, 
     if let Err(e) = uapi::flock(lock_fd.raw(), c::LOCK_EX | c::LOCK_NB) {
         return Err(AcceptorError::LockLockFile(e.into()));
     }
-    match uapi::lstat(&*path) {
-        Ok(_) => {
-            log::info!("Unlinking {}", path.display());
-            let _ = uapi::unlink(&*path);
+    for (name, fd) in [(&path, insecure), (&jay_path, secure)] {
+        match uapi::lstat(name) {
+            Ok(_) => {
+                log::info!("Unlinking {}", name.display());
+                let _ = uapi::unlink(name);
+            }
+            Err(Errno(c::ENOENT)) => {}
+            Err(e) => return Err(AcceptorError::SocketStat(e.into())),
         }
-        Err(Errno(c::ENOENT)) => {}
-        Err(e) => return Err(AcceptorError::SocketStat(e.into())),
-    }
-    let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
-    sun_path[..path.len()].copy_from_slice(path.as_bytes());
-    sun_path[path.len()] = 0;
-    if let Err(e) = uapi::bind(fd.raw(), &addr) {
-        return Err(AcceptorError::BindFailed(e.into()));
+        let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
+        sun_path[..name.len()].copy_from_slice(name.as_bytes());
+        sun_path[name.len()] = 0;
+        if let Err(e) = uapi::bind(fd.raw(), &addr) {
+            return Err(AcceptorError::BindFailed(e.into()));
+        }
     }
     Ok(AllocatedSocket {
         name,
         path,
-        fd: fd.clone(),
+        insecure: insecure.clone(),
         lock_path,
         _lock_fd: lock_fd,
+        secure: secure.clone(),
     })
 }
 
@@ -104,16 +115,22 @@ fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
         Ok(d) => d,
         Err(_) => return Err(AcceptorError::XrdNotSet),
     };
-    let fd = match uapi::socket(
-        c::AF_UNIX,
-        c::SOCK_STREAM | c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
-        0,
-    ) {
-        Ok(f) => Rc::new(f),
-        Err(e) => return Err(AcceptorError::SocketFailed(e.into())),
-    };
+    let mut fds = [None, None];
+    for fd in &mut fds {
+        let socket = match uapi::socket(
+            c::AF_UNIX,
+            c::SOCK_STREAM | c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
+            0,
+        ) {
+            Ok(f) => Rc::new(f),
+            Err(e) => return Err(AcceptorError::SocketFailed(e.into())),
+        };
+        *fd = Some(socket);
+    }
+    let unsecure = fds[0].take().unwrap();
+    let secure = fds[1].take().unwrap();
     for i in 1..1000 {
-        match bind_socket(&fd, &xrd, i) {
+        match bind_socket(&unsecure, &secure, &xrd, i) {
             Ok(s) => return Ok(s),
             Err(e) => {
                 log::warn!("Cannot use the wayland-{} socket: {}", i, ErrorFmt(e));
@@ -124,34 +141,49 @@ fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
 }
 
 impl Acceptor {
-    pub fn install(global: &Rc<State>) -> Result<Ustring, AcceptorError> {
+    pub fn install(state: &Rc<State>) -> Result<Ustring, AcceptorError> {
         let socket = allocate_socket()?;
         log::info!("bound to socket {}", socket.path.display());
-        if let Err(e) = uapi::listen(socket.fd.raw(), 4096) {
-            return Err(AcceptorError::ListenFailed(e.into()));
+        for fd in [&socket.secure, &socket.insecure] {
+            if let Err(e) = uapi::listen(fd.raw(), 4096) {
+                return Err(AcceptorError::ListenFailed(e.into()));
+            }
         }
-        let id = global.el.id();
+        let id1 = state.el.id();
+        let id2 = state.el.id();
         let name = socket.name.to_owned();
         let acc = Rc::new(Acceptor {
-            id,
+            ids: [id1, id2],
             socket,
-            global: global.clone(),
+            global: state.clone(),
         });
-        global
+        state.el.insert(
+            id1,
+            Some(acc.socket.insecure.raw()),
+            c::EPOLLIN,
+            acc.clone(),
+        )?;
+        state
             .el
-            .insert(id, Some(acc.socket.fd.raw()), c::EPOLLIN, acc)?;
+            .insert(id2, Some(acc.socket.secure.raw()), c::EPOLLIN, acc)?;
         Ok(name)
     }
 }
 
 impl EventLoopDispatcher for Acceptor {
-    fn dispatch(self: Rc<Self>, events: i32) -> Result<(), Box<dyn std::error::Error>> {
+    fn dispatch(
+        self: Rc<Self>,
+        fd: Option<i32>,
+        events: i32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
             return Err(Box::new(AcceptorError::ErrorEvent));
         }
+        let fd = fd.unwrap();
+        let secure = fd == self.socket.secure.raw();
         loop {
             let fd = match uapi::accept4(
-                self.socket.fd.raw(),
+                fd,
                 uapi::sockaddr_none_mut(),
                 c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
             ) {
@@ -160,7 +192,7 @@ impl EventLoopDispatcher for Acceptor {
                 Err(e) => return Err(Box::new(AcceptorError::AcceptFailed(e.into()))),
             };
             let id = self.global.clients.id();
-            if let Err(e) = self.global.clients.spawn(id, &self.global, fd) {
+            if let Err(e) = self.global.clients.spawn(id, &self.global, fd, secure) {
                 return Err(Box::new(AcceptorError::SpawnFailed(e)));
             }
         }
@@ -170,6 +202,7 @@ impl EventLoopDispatcher for Acceptor {
 
 impl Drop for Acceptor {
     fn drop(&mut self) {
-        let _ = self.global.el.remove(self.id);
+        let _ = self.global.el.remove(self.ids[0]);
+        let _ = self.global.el.remove(self.ids[1]);
     }
 }

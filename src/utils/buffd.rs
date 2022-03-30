@@ -1,6 +1,6 @@
 use crate::async_engine::AsyncError;
 pub use buf_in::BufFdIn;
-pub use buf_out::{BufFdOut, OutBufferSwapchain};
+pub use buf_out::{BufFdOut, OutBuffer, OutBufferSwapchain};
 pub use formatter::MsgFormatter;
 pub use parser::{MsgParser, MsgParserError};
 use thiserror::Error;

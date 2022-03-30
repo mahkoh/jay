@@ -1,5 +1,6 @@
 use crate::acceptor::{Acceptor, AcceptorError};
 use crate::async_engine::{AsyncEngine, AsyncError, Phase};
+use crate::cli::{GlobalArgs, RunArgs};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
 use crate::config::ConfigProxy;
@@ -8,6 +9,7 @@ use crate::event_loop::{EventLoop, EventLoopError};
 use crate::forker::ForkerError;
 use crate::globals::Globals;
 use crate::ifs::wl_surface::NoneSurfaceExt;
+use crate::logger::Logger;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
@@ -22,21 +24,20 @@ use crate::utils::run_toplevel::RunToplevel;
 use crate::wheel::{Wheel, WheelError};
 use crate::xkbcommon::XkbContext;
 use crate::{clientmem, forker, leaks, render, sighand, tasks, xwayland};
-use log::LevelFilter;
+use forker::ForkerProxy;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 use thiserror::Error;
 
-pub fn start_compositor() {
-    env_logger::builder()
-        .format_timestamp_millis()
-        .filter_level(LevelFilter::Info)
-        .filter_level(LevelFilter::Debug)
-        // .filter_level(LevelFilter::Trace)
-        .init();
-    if let Err(e) = main_() {
-        log::error!("A fatal error occurred: {}", ErrorFmt(e));
+pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
+    let logger = Logger::install_compositor(global.log_level.into());
+    if let Err(e) = main_(logger.clone(), &args) {
+        let e = ErrorFmt(e);
+        log::error!("A fatal error occurred: {}", e);
+        eprintln!("A fatal error occurred: {}", e);
+        eprintln!("See {} for more details.", logger.path());
         std::process::exit(1);
     }
 }
@@ -61,8 +62,8 @@ enum MainError {
     ForkerError(#[from] ForkerError),
 }
 
-fn main_() -> Result<(), MainError> {
-    let forker = Rc::new(forker::ForkerProxy::create()?);
+fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
+    let forker = Rc::new(ForkerProxy::create()?);
     leaks::init();
     render::init()?;
     clientmem::init()?;
@@ -108,6 +109,7 @@ fn main_() -> Result<(), MainError> {
         pending_float_titles: Default::default(),
         dbus: Dbus::new(&engine, &run_toplevel),
         fdcloser: FdCloser::new(),
+        logger,
     });
     forker.install(&state);
     let config = ConfigProxy::default(&state);

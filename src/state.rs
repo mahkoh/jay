@@ -12,6 +12,7 @@ use crate::globals::{Globals, GlobalsError, WaylandGlobal};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
 use crate::ifs::wl_surface::NoneSurfaceExt;
+use crate::logger::Logger;
 use crate::rect::Rect;
 use crate::render::RenderContext;
 use crate::theme::Theme;
@@ -66,6 +67,7 @@ pub struct State {
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
+    pub logger: Arc<Logger>,
 }
 
 pub struct InputDeviceData {

@@ -37,7 +37,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         Self {
             buf,
             pos: 0,
-            data: unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) },
+            data: uapi::as_bytes(data),
         }
     }
 

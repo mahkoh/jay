@@ -17,8 +17,7 @@ panic = "abort"
 uapi = "0.2.7"
 thiserror = "1.0.30"
 ahash = "0.7.6"
-log = "0.4.14"
-env_logger = "0.9.0"
+log = { version = "0.4.16", features = ["std"] }
 futures-util = "0.3.19"
 num-traits = "0.2.14"
 num-derive = "0.3.3"
@@ -35,9 +34,11 @@ jay-config = { path = "jay-config" }
 default-config = { path = "default-config" }
 pin-project = "1.0.10"
 clap = { version = "3.1.6", features = ["derive", "wrap_help"] }
+clap_complete = "3.1.1"
+humantime = "2.1.0"
+dirs = "4.0.0"
 
 backtrace = { version = "0.3.64", optional = true }
-chrono = { version = "0.4.19", optional = true }
 
 [build-dependencies]
 repc = "0.1.1"
@@ -48,4 +49,4 @@ bstr = { version = "0.2.17", default-features = false, features = ["std"] }
 #opt-level = 3
 
 [features]
-rc_tracking = ["backtrace", "chrono"]
+rc_tracking = ["backtrace"]

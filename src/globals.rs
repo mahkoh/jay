@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManagerGlobal;
 use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
+use crate::ifs::jay_compositor::JayCompositorGlobal;
 use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
 use crate::ifs::wl_compositor::WlCompositorGlobal;
 use crate::ifs::wl_drm::WlDrmGlobal;
@@ -77,6 +78,9 @@ pub trait Global: GlobalBase {
     fn singleton(&self) -> bool;
     fn version(&self) -> u32;
     fn break_loops(&self) {}
+    fn secure(&self) -> bool {
+        false
+    }
 }
 
 pub struct Globals {
@@ -111,6 +115,7 @@ impl Globals {
         add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
         add_singleton!(ZwlrLayerShellV1Global);
         add_singleton!(ZxdgOutputManagerV1Global);
+        add_singleton!(JayCompositorGlobal);
         slf
     }
 
@@ -132,7 +137,7 @@ impl Globals {
 
     fn insert(&self, state: &State, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
-        self.broadcast(state, |r| r.send_global(&global));
+        self.broadcast(state, global.secure(), |r| r.send_global(&global));
     }
 
     pub fn get(&self, name: GlobalName) -> Result<Rc<dyn Global>, GlobalsError> {
@@ -142,7 +147,9 @@ impl Globals {
     pub fn remove<T: WaylandGlobal>(&self, state: &State, global: &T) -> Result<(), GlobalsError> {
         let _global = self.take(global.name(), true)?;
         global.remove(self);
-        self.broadcast(state, |r| r.send_global_remove(global.name()));
+        self.broadcast(state, global.secure(), |r| {
+            r.send_global_remove(global.name())
+        });
         Ok(())
     }
 
@@ -151,12 +158,15 @@ impl Globals {
     }
 
     pub fn notify_all(&self, registry: &Rc<WlRegistry>) {
+        let secure = registry.client.secure;
         let globals = self.registry.lock();
         macro_rules! emit {
             ($singleton:expr) => {
                 for global in globals.values() {
-                    if global.singleton() == $singleton {
-                        registry.send_global(global);
+                    if secure || !global.secure() {
+                        if global.singleton() == $singleton {
+                            registry.send_global(global);
+                        }
                     }
                 }
             };
@@ -165,8 +175,8 @@ impl Globals {
         emit!(false);
     }
 
-    fn broadcast<F: Fn(&Rc<WlRegistry>)>(&self, state: &State, f: F) {
-        state.clients.broadcast(|c| {
+    fn broadcast<F: Fn(&Rc<WlRegistry>)>(&self, state: &State, secure: bool, f: F) {
+        state.clients.broadcast(secure, |c| {
             let registries = c.lock_registries();
             for registry in registries.values() {
                 f(registry);

@@ -10,6 +10,15 @@ pub struct Bitfield {
 }
 
 impl Bitfield {
+    pub fn take(&mut self, val: u32) {
+        let idx = val as usize / SEG_SIZE;
+        let pos = val as usize % SEG_SIZE;
+        while self.vals.len() <= idx {
+            self.vals.push(0);
+        }
+        self.vals[idx] &= !(1 << pos);
+    }
+
     pub fn acquire(&mut self) -> u32 {
         for (idx, n) in self.vals.iter_mut().enumerate() {
             if *n != 0 {

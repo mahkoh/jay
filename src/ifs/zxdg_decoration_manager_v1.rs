@@ -12,6 +12,7 @@ use thiserror::Error;
 pub struct ZxdgDecorationManagerV1Global {
     name: GlobalName,
 }
+
 impl ZxdgDecorationManagerV1Global {
     pub fn new(name: GlobalName) -> Self {
         Self { name }

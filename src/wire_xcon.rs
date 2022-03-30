@@ -1,4 +1,12 @@
-#![allow(unused_imports, unused_variables, dead_code, unused_assignments, clippy::eval_order_dependence, clippy::double_parens, clippy::unnecessary_cast)]
+#![allow(
+    unused_imports,
+    unused_variables,
+    dead_code,
+    unused_assignments,
+    clippy::eval_order_dependence,
+    clippy::double_parens,
+    clippy::unnecessary_cast
+)]
 
 use crate::xcon::{Formatter, Message, Parser, Request, XEvent, XconError};
 use bstr::BStr;

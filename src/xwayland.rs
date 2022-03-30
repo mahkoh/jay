@@ -161,9 +161,15 @@ async fn run(
     };
     let client_id = state.clients.id();
     let queue = Rc::new(AsyncQueue::new());
-    let client = state
-        .clients
-        .spawn2(client_id, state, client1, 9999, 9999, Some(queue.clone()));
+    let client = state.clients.spawn2(
+        client_id,
+        state,
+        client1,
+        9999,
+        9999,
+        true,
+        Some(queue.clone()),
+    );
     let client = match client {
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),

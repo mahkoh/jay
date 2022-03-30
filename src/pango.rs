@@ -212,10 +212,7 @@ impl PangoCairoContext {
             if l.is_null() {
                 return Err(PangoError::CreateLayout);
             }
-            Ok(PangoLayout {
-                c: self.clone(),
-                l,
-            })
+            Ok(PangoLayout { c: self.clone(), l })
         }
     }
 }

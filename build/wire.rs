@@ -590,6 +590,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id.val)?;
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
+    let lifetime_b = if has_reference_type { "<'b>" } else { "" };
     let parser = if message.fields.len() > 0 {
         "parser"
     } else {
@@ -600,6 +601,12 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
         "    impl<'a> RequestParser<'a> for {}{} {{",
         message.camel_name, lifetime
     )?;
+    writeln!(
+        f,
+        "        type Generic<'b> = {}{};",
+        message.camel_name, lifetime_b,
+    )?;
+    writeln!(f, "        const ID: u32 = {};", message.id.val,)?;
     writeln!(
         f,
         "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",

@@ -17,11 +17,11 @@ use crate::state::State;
 use crate::text;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
+use crate::utils::rc_eq::rc_eq;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Deref, DerefMut, Sub};
 use std::rc::Rc;
-use crate::utils::rc_eq::rc_eq;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

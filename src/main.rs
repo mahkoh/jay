@@ -27,12 +27,8 @@
     clippy::option_map_unit_fn,
     clippy::wrong_self_convention,
     clippy::single_char_add_str,
-    clippy::ptr_eq,
+    clippy::ptr_eq
 )]
-
-use crate::cli::{Cli, Cmd};
-use crate::compositor::start_compositor;
-use clap::Parser;
 
 #[macro_use]
 mod macros;
@@ -58,6 +54,7 @@ mod format;
 mod globals;
 mod ifs;
 mod libinput;
+mod logger;
 mod logind;
 mod object;
 mod pango;
@@ -70,6 +67,7 @@ mod tasks;
 mod text;
 mod theme;
 mod time;
+mod tools;
 mod tree;
 mod udev;
 mod utils;
@@ -82,10 +80,5 @@ mod xkbcommon;
 mod xwayland;
 
 fn main() {
-    let cli: Cli = Cli::parse();
-    println!("{:?}", cli);
-    match cli.command {
-        Cmd::Run => start_compositor(),
-        _ => {}
-    }
+    cli::main();
 }

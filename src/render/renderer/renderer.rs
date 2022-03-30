@@ -17,9 +17,9 @@ use crate::render::Texture;
 use crate::state::State;
 use crate::theme::Color;
 use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
+use crate::utils::rc_eq::rc_eq;
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::utils::rc_eq::rc_eq;
 
 pub struct Renderer<'a> {
     pub(super) ctx: &'a Rc<RenderContext>,

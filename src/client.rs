@@ -75,6 +75,7 @@ impl Clients {
         id: ClientId,
         global: &Rc<State>,
         socket: OwnedFd,
+        secure: bool,
     ) -> Result<(), ClientError> {
         let (uid, pid) = {
             let mut cred = c::ucred {
@@ -93,7 +94,7 @@ impl Clients {
                 }
             }
         };
-        self.spawn2(id, global, socket, uid, pid, None)?;
+        self.spawn2(id, global, socket, uid, pid, secure, None)?;
         Ok(())
     }
 
@@ -104,6 +105,7 @@ impl Clients {
         socket: OwnedFd,
         uid: c::uid_t,
         pid: c::pid_t,
+        secure: bool,
         xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
     ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new(Client {
@@ -118,6 +120,7 @@ impl Clients {
             dispatch_frame_requests: AsyncQueue::new(),
             tracker: Default::default(),
             xwayland_queue,
+            secure,
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -129,11 +132,12 @@ impl Clients {
             data: data.clone(),
         };
         log::info!(
-            "Client {} connected, pid: {}, uid: {}, fd: {}",
+            "Client {} connected, pid: {}, uid: {}, fd: {}, secure: {}",
             id,
             pid,
             uid,
-            client.data.socket.raw()
+            client.data.socket.raw(),
+            secure,
         );
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
@@ -155,13 +159,15 @@ impl Clients {
         }
     }
 
-    pub fn broadcast<B>(&self, mut f: B)
+    pub fn broadcast<B>(&self, secure: bool, mut f: B)
     where
         B: FnMut(&Rc<Client>),
     {
         let clients = self.clients.borrow();
         for client in clients.values() {
-            f(&client.data);
+            if !secure || client.data.secure {
+                f(&client.data);
+            }
         }
     }
 }
@@ -194,6 +200,8 @@ pub trait EventFormatter: Debug {
 }
 
 pub trait RequestParser<'a>: Debug + Sized {
+    type Generic<'b>: RequestParser<'b>;
+    const ID: u32;
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
 }
 
@@ -209,6 +217,7 @@ pub struct Client {
     pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
     pub tracker: Tracker<Client>,
     pub xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
+    pub secure: bool,
 }
 
 impl Client {

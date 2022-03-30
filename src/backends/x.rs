@@ -607,13 +607,18 @@ impl XBackendData {
             Some(o) => o,
             _ => return Ok(()),
         };
+        let mut matched_any = false;
         for image in &output.images {
             if image.last_serial.get() == event.serial {
+                matched_any = true;
                 image.idle.set(true);
                 if image.render_on_idle.replace(false) {
                     self.schedule_present(&output);
                 }
             }
+        }
+        if !matched_any {
+            fatal!("idle event did not match any images {:#?}", event);
         }
         Ok(())
     }

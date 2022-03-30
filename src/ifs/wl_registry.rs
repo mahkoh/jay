@@ -11,7 +11,7 @@ use thiserror::Error;
 
 pub struct WlRegistry {
     id: WlRegistryId,
-    client: Rc<Client>,
+    pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
 

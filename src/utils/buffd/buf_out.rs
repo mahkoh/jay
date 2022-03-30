@@ -112,6 +112,17 @@ impl BufFdOut {
         Ok(())
     }
 
+    pub async fn flush_no_timeout(&mut self, buf: &mut OutBuffer) -> Result<(), BufFdError> {
+        while buf.read_pos < buf.write_pos {
+            if self.flush_sync(buf)? {
+                self.fd.writable().await?;
+            }
+        }
+        buf.read_pos = 0;
+        buf.write_pos = 0;
+        Ok(())
+    }
+
     fn flush_sync(&mut self, buffer: &mut OutBuffer) -> Result<bool, BufFdError> {
         while buffer.read_pos < buffer.write_pos {
             let mut buf = unsafe { &(*buffer.buf)[buffer.read_pos..buffer.write_pos] };
