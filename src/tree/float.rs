@@ -151,7 +151,7 @@ impl FloatNode {
         self.schedule_render_titles();
     }
 
-    fn schedule_render_titles(self: &Rc<Self>) {
+    pub fn schedule_render_titles(self: &Rc<Self>) {
         if !self.render_titles_scheduled.replace(true) {
             self.state.pending_float_titles.push(self.clone());
         }

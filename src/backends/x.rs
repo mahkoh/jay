@@ -532,6 +532,8 @@ impl XBackendData {
             kb_events: RefCell::new(Default::default()),
             mouse_events: RefCell::new(Default::default()),
             button_map: Default::default(),
+            kb_name: Rc::new(format!("kb{}", info.deviceid)),
+            mouse_name: Rc::new(format!("mouse{}", info.deviceid)),
         });
         seat.update_button_map().await;
         self.seats.set(info.deviceid, seat.clone());
@@ -888,6 +890,8 @@ struct XSeat {
     kb_events: RefCell<VecDeque<InputEvent>>,
     mouse_events: RefCell<VecDeque<InputEvent>>,
     button_map: CopyHashMap<u32, u32>,
+    kb_name: Rc<String>,
+    mouse_name: Rc<String>,
 }
 
 struct XSeatKeyboard(Rc<XSeat>);
@@ -982,6 +986,10 @@ impl InputDevice for XSeatKeyboard {
     fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
         let _ = matrix;
     }
+
+    fn name(&self) -> Rc<String> {
+        self.0.kb_name.clone()
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1026,5 +1034,9 @@ impl InputDevice for XSeatMouse {
 
     fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
         let _ = matrix;
+    }
+
+    fn name(&self) -> Rc<String> {
+        self.0.mouse_name.clone()
     }
 }

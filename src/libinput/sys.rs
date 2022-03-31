@@ -54,6 +54,7 @@ extern "C" {
         device: *mut libinput_device,
         speed: f64,
     ) -> libinput_config_status;
+    pub fn libinput_device_get_name(device: *mut libinput_device) -> *const c::c_char;
 
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;

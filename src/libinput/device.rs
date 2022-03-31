@@ -2,10 +2,12 @@ use crate::libinput::consts::{AccelProfile, DeviceCapability};
 use crate::libinput::sys::{
     libinput_device, libinput_device_config_accel_set_profile,
     libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
-    libinput_device_get_user_data, libinput_device_has_capability, libinput_device_set_user_data,
-    libinput_device_unref, libinput_path_remove_device,
+    libinput_device_get_name, libinput_device_get_user_data, libinput_device_has_capability,
+    libinput_device_set_user_data, libinput_device_unref, libinput_path_remove_device,
 };
 use crate::libinput::LibInput;
+use bstr::ByteSlice;
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
@@ -63,6 +65,13 @@ impl<'a> LibInputDevice<'a> {
     pub fn set_accel_speed(&self, speed: f64) {
         unsafe {
             libinput_device_config_accel_set_speed(self.dev, speed);
+        }
+    }
+
+    pub fn name(&self) -> String {
+        unsafe {
+            let name = libinput_device_get_name(self.dev);
+            CStr::from_ptr(name).to_bytes().as_bstr().to_string()
         }
     }
 }

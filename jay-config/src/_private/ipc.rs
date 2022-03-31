@@ -3,7 +3,7 @@ use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::theme::Color;
-use crate::{Axis, Direction, LogLevel, Seat};
+use crate::{Axis, Direction, LogLevel, Seat, Workspace};
 use bincode::{BorrowDecode, Decode, Encode};
 
 #[derive(Encode, BorrowDecode, Debug)]
@@ -157,6 +157,16 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         matrix: [[f64; 2]; 2],
     },
+    GetDeviceName {
+        device: InputDevice,
+    },
+    GetWorkspace {
+        name: &'a str,
+    },
+    ShowWorkspace {
+        seat: Seat,
+        workspace: Workspace,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -172,6 +182,8 @@ pub enum Response {
     GetTitleHeight { height: i32 },
     GetBorderWidth { width: i32 },
     HasCapability { has: bool },
+    GetDeviceName { name: String },
+    GetWorkspace { workspace: Workspace },
 }
 
 #[derive(Encode, Decode, Debug)]

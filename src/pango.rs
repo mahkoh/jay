@@ -1,7 +1,9 @@
 #![allow(non_camel_case_types)]
 
 use crate::pango::consts::{CairoFormat, CairoOperator, PangoEllipsizeMode};
+use crate::rect::Rect;
 use std::cell::Cell;
+use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, IntoUstr};
@@ -73,6 +75,13 @@ extern "C" {
         width: *mut c::c_int,
         height: *mut c::c_int,
     );
+    fn pango_layout_get_extents(
+        layout: *mut PangoLayout_,
+        ink_rect: *mut PangoRectangle,
+        logical_rect: *mut PangoRectangle,
+    );
+
+    fn pango_extents_to_pixels(inclusive: *mut PangoRectangle, nearest: *mut PangoRectangle);
 }
 
 #[derive(Debug, Error)]
@@ -87,6 +96,14 @@ pub enum PangoError {
     CreateLayout,
     #[error("Could not retrieve image data")]
     GetData,
+}
+
+#[repr(C)]
+struct PangoRectangle {
+    x: c::c_int,
+    y: c::c_int,
+    width: c::c_int,
+    height: c::c_int,
 }
 
 pub struct CairoImageSurface {
@@ -282,6 +299,20 @@ impl PangoLayout {
             let mut h = 0;
             pango_layout_get_pixel_size(self.l, &mut w, &mut h);
             (w as _, h as _)
+        }
+    }
+
+    pub fn inc_pixel_rect(&self) -> Rect {
+        unsafe {
+            let mut rect = PangoRectangle {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+            };
+            pango_layout_get_extents(self.l, &mut rect, ptr::null_mut());
+            pango_extents_to_pixels(&mut rect, ptr::null_mut());
+            Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
         }
     }
 

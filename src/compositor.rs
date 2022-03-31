@@ -13,9 +13,7 @@ use crate::logger::Logger;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
-use crate::tree::{
-    container_layout, container_render_data, float_layout, float_titles, DisplayNode, NodeIds,
-};
+use crate::tree::{container_layout, container_render_data, float_layout, float_titles, DisplayNode, NodeIds, OutputNode, WorkspaceNode};
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fdcloser::FdCloser;
 use crate::utils::numcell::NumCell;
@@ -25,11 +23,14 @@ use crate::wheel::{Wheel, WheelError};
 use crate::xkbcommon::XkbContext;
 use crate::{clientmem, forker, leaks, render, sighand, tasks, xwayland};
 use forker::ForkerProxy;
-use std::cell::Cell;
+use std::cell::{Cell};
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use thiserror::Error;
+use crate::backends::dummy::DummyOutput;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::utils::clonecell::CloneCell;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let logger = Logger::install_compositor(global.log_level.into());
@@ -90,6 +91,8 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
         globals: Globals::new(),
         output_ids: Default::default(),
         root: Rc::new(DisplayNode::new(node_ids.next())),
+        workspaces: Default::default(),
+        dummy_output: Default::default(),
         node_ids,
         backend_events: AsyncQueue::new(),
         output_handlers: Default::default(),
@@ -111,6 +114,33 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
         fdcloser: FdCloser::new(),
         logger,
     });
+    {
+        let dummy_output = Rc::new(OutputNode {
+            id: state.node_ids.next(),
+            position: Default::default(),
+            global: Rc::new(WlOutputGlobal::new(state.globals.name(), Rc::new(DummyOutput {
+                id: state.output_ids.next(),
+            }))),
+            workspaces: Default::default(),
+            workspace: Default::default(),
+            seat_state: Default::default(),
+            layers: Default::default(),
+            render_data: Default::default(),
+            state: state.clone(),
+            is_dummy: true,
+        });
+        let dummy_workspace = Rc::new(WorkspaceNode {
+            id: state.node_ids.next(),
+            output: CloneCell::new(dummy_output.clone()),
+            container: Default::default(),
+            stacked: Default::default(),
+            seat_state: Default::default(),
+            name: "dummy".to_string()
+        });
+        dummy_output.workspace.set(Some(dummy_workspace.clone()));
+        dummy_output.workspaces.borrow_mut().push(dummy_workspace);
+        state.dummy_output.set(Some(dummy_output));
+    }
     forker.install(&state);
     let config = ConfigProxy::default(&state);
     state.config.set(Some(Rc::new(config)));

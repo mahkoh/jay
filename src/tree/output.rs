@@ -3,19 +3,23 @@ use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::rect::Rect;
-use crate::render::Renderer;
+use crate::render::{Renderer, Texture};
+use crate::state::State;
+use crate::text;
+use crate::theme::Color;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{DisplayNode, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
+use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::LinkedList;
 use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
+use std::ops::{Deref, Sub};
 use std::rc::Rc;
+use crate::fixed::Fixed;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
-    pub display: Rc<DisplayNode>,
     pub id: OutputNodeId,
     pub position: Cell<Rect>,
     pub global: Rc<WlOutputGlobal>,
@@ -23,6 +27,70 @@ pub struct OutputNode {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
+    pub render_data: RefCell<OutputRenderData>,
+    pub state: Rc<State>,
+    pub is_dummy: bool,
+}
+
+impl OutputNode {
+    pub fn update_render_data(&self) {
+        let mut rd = self.render_data.borrow_mut();
+        rd.titles.clear();
+        rd.inactive_workspaces.clear();
+        let workspaces = self.workspaces.borrow_mut();
+        let mut pos = 0;
+        let font = self.state.theme.font.borrow_mut();
+        let th = self.state.theme.title_height.get();
+        let active_id = self.workspace.get().map(|w| w.id);
+        for ws in workspaces.deref() {
+            let mut title_width = th;
+            'create_texture: {
+                if let Some(ctx) = self.state.render_ctx.get() {
+                    if th == 0 || ws.name.is_empty() {
+                        break 'create_texture;
+                    }
+                    let title = match text::render_fitting(&ctx, th, &font, &ws.name, Color::GREY) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
+                            break 'create_texture;
+                        }
+                    };
+                    let mut x = pos + 1;
+                    if title.width() + 2 > title_width {
+                        title_width = title.width() + 2;
+                    } else {
+                        x = pos + (title_width - title.width()) / 2;
+                    }
+                    rd.titles.push(OutputTitle {
+                        x,
+                        y: 0,
+                        tex: title,
+                    });
+                }
+            }
+            let rect = Rect::new_sized(pos, 0, title_width, th).unwrap();
+            if Some(ws.id) == active_id {
+                rd.active_workspace = rect;
+            } else {
+                rd.inactive_workspaces.push(rect);
+            }
+            pos += title_width;
+        }
+    }
+}
+
+pub struct OutputTitle {
+    pub x: i32,
+    pub y: i32,
+    pub tex: Rc<Texture>,
+}
+
+#[derive(Default)]
+pub struct OutputRenderData {
+    pub active_workspace: Rect,
+    pub inactive_workspaces: Vec<Rect>,
+    pub titles: Vec<OutputTitle>,
 }
 
 impl Debug for OutputNode {
@@ -32,6 +100,14 @@ impl Debug for OutputNode {
 }
 
 impl Node for OutputNode {
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+        seat.enter_output(&self)
+    }
+
+    fn leave(&self, seat: &WlSeatGlobal) {
+        seat.leave_output();
+    }
+
     fn id(&self) -> NodeId {
         self.id.into()
     }
@@ -42,7 +118,7 @@ impl Node for OutputNode {
 
     fn destroy_node(&self, detach: bool) {
         if detach {
-            self.display.clone().remove_child(self);
+            self.state.root.clone().remove_child(self);
         }
         let mut workspaces = self.workspaces.borrow_mut();
         for workspace in workspaces.drain(..) {
@@ -104,9 +180,17 @@ impl Node for OutputNode {
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {
+        let th = self.state.theme.title_height.get();
         self.position.set(*rect);
         if let Some(c) = self.workspace.get() {
-            c.change_extents(rect);
+            let wrect = Rect::new_sized(
+                rect.x1(),
+                rect.y1() + th,
+                rect.width(),
+                rect.height().sub(th).max(0),
+            )
+            .unwrap();
+            c.change_extents(&wrect);
         }
         for layer in &self.layers {
             for surface in layer.iter() {

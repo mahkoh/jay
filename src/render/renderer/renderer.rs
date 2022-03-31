@@ -39,14 +39,26 @@ impl Renderer<'_> {
         }
         render_layer!(output.layers[0]);
         render_layer!(output.layers[1]);
+        let theme = &self.state.theme;
+        let th = theme.title_height.get();
+        {
+            let rd = output.render_data.borrow_mut();
+            let c = theme.active_title_color.get();
+            self.fill_boxes(std::slice::from_ref(&rd.active_workspace), &c);
+            let c = theme.title_color.get();
+            self.fill_boxes(&rd.inactive_workspaces, &c);
+            for title in &rd.titles {
+                self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
+            }
+        }
         if let Some(ws) = output.workspace.get() {
-            self.render_workspace(&ws, x, y);
+            self.render_workspace(&ws, x, y + th);
         }
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
-        for stacked in output.display.xstacked.iter() {
+        for stacked in self.state.root.xstacked.iter() {
             let pos = stacked.absolute_position();
-            stacked.render(self, pos.x1(), pos.y1());
+            stacked.render(self, x + pos.x1(), y + pos.y1());
         }
     }
 

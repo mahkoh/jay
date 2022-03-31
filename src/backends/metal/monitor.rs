@@ -281,6 +281,7 @@ impl MetalBackend {
             cb: Default::default(),
             hscroll: Cell::new(0.0),
             vscroll: Cell::new(0.0),
+            name: Default::default(),
             left_handed: Default::default(),
             accel_profile: Default::default(),
             accel_speed: Default::default(),
@@ -323,6 +324,7 @@ impl MetalBackend {
                 Err(_) => return,
             };
             inputdev.device().set_slot(slot);
+            dev.name.set(Rc::new(inputdev.device().name()));
             dev.inputdev.set(Some(inputdev));
             dev.apply_config();
             slf.state

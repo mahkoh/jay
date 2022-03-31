@@ -87,6 +87,9 @@ impl ConfigProxy {
             next_id: NumCell::new(1),
             keymaps: Default::default(),
             bufs: Default::default(),
+            workspace_ids: NumCell::new(1),
+            workspaces_by_name: Default::default(),
+            workspaces_by_id: Default::default(),
         });
         let init_msg =
             bincode::encode_to_vec(&InitMessage::V1(V1InitMessage {}), bincode_ops()).unwrap();

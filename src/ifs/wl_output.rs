@@ -59,7 +59,7 @@ pub struct WlOutputGlobal {
 }
 
 impl WlOutputGlobal {
-    pub fn new(name: GlobalName, output: &Rc<dyn Output>) -> Self {
+    pub fn new(name: GlobalName, output: Rc<dyn Output>) -> Self {
         Self {
             name,
             output: output.clone(),

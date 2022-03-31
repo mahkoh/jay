@@ -70,8 +70,9 @@ impl ZwlrLayerShellV1 {
                 self.client.lookup(req.output)?.global.node.get().unwrap()
             } else {
                 for seat in self.client.state.seat_queue.rev_iter() {
-                    if let Some(output) = seat.get_output() {
-                        break 'get_output output.node.get().unwrap();
+                    let output = seat.get_output();
+                    if !output.is_dummy {
+                        break 'get_output output;
                     }
                 }
                 let outputs = self.client.state.outputs.lock();

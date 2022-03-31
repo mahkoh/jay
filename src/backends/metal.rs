@@ -196,6 +196,7 @@ struct MetalInputDevice {
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     hscroll: Cell<f64>,
     vscroll: Cell<f64>,
+    name: CloneCell<Rc<String>>,
 
     // config
     left_handed: Cell<Option<bool>>,
@@ -223,16 +224,13 @@ impl LibInputAdapter for DeviceHolder {
             Ok(s) => s,
             Err(e) => return Err(LibInputError::Stat(e.into())),
         };
-        match self.devices.get(&stat.st_rdev) {
-            Some(MetalDevice::Input(d)) => match d.fd.get() {
-                Some(fd) => match uapi::fcntl_dupfd_cloexec(fd.raw(), 0) {
-                    Ok(fd) => Ok(fd),
-                    Err(e) => Err(LibInputError::DupFd(e.into())),
-                },
-                _ => Err(LibInputError::DeviceUnavailable),
-            },
-            _ => Err(LibInputError::DeviceUnavailable),
+        if let Some(MetalDevice::Input(d)) = self.devices.get(&stat.st_rdev) {
+            if let Some(fd) = d.fd.get() {
+                return uapi::fcntl_dupfd_cloexec(fd.raw(), 0)
+                    .map_err(|e| LibInputError::DupFd(e.into()));
+            }
         }
+        Err(LibInputError::DeviceUnavailable)
     }
 }
 
@@ -318,6 +316,10 @@ impl InputDevice for MetalInputDevice {
 
     fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
         self.transform_matrix.set(Some(matrix));
+    }
+
+    fn name(&self) -> Rc<String> {
+        self.name.get()
     }
 }
 

@@ -542,7 +542,7 @@ impl ContainerNode {
         self.parent.get().child_title_changed(&**self, &title);
     }
 
-    fn schedule_compute_render_data(self: &Rc<Self>) {
+    pub fn schedule_compute_render_data(self: &Rc<Self>) {
         if !self.compute_render_data_scheduled.replace(true) {
             self.state.pending_container_render_data.push(self.clone());
         }

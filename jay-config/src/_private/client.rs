@@ -5,7 +5,7 @@ use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen,
 use crate::input::{AccelProfile, Capability, InputDevice};
 use crate::keyboard::keymap::Keymap;
 use crate::theme::Color;
-use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Seat};
+use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Seat, Workspace};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -199,6 +199,21 @@ impl Client {
         }
     }
 
+    pub fn get_workspace(&self, name: &str) -> Workspace {
+        let res = self.with_response(|| self.send(&ClientMessage::GetWorkspace { name }));
+        match res {
+            Response::GetWorkspace { workspace } => workspace,
+            _ => {
+                log::error!("Server did not send a response to a get_workspace request");
+                Workspace(0)
+            }
+        }
+    }
+
+    pub fn show_workspace(&self, seat: Seat, workspace: Workspace) {
+        self.send(&ClientMessage::ShowWorkspace { seat, workspace });
+    }
+
     pub fn split(&self, seat: Seat) -> Axis {
         let res = self.with_response(|| self.send(&ClientMessage::GetSplit { seat }));
         match res {
@@ -335,6 +350,17 @@ impl Client {
 
     pub fn set_transform_matrix(&self, device: InputDevice, matrix: [[f64; 2]; 2]) {
         self.send(&ClientMessage::SetTransformMatrix { device, matrix })
+    }
+
+    pub fn device_name(&self, device: InputDevice) -> String {
+        let res = self.with_response(|| self.send(&ClientMessage::GetDeviceName { device }));
+        match res {
+            Response::GetDeviceName { name } => name,
+            _ => {
+                log::error!("Server did not send a response to a get_device_name request");
+                String::new()
+            }
+        }
     }
 
     pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {

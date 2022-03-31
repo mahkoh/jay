@@ -2,7 +2,7 @@ use crate::backend::Output;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::rect::Rect;
 use crate::state::State;
-use crate::tree::{Node, OutputNode, WorkspaceNode};
+use crate::tree::{Node, OutputNode, OutputRenderData, WorkspaceNode};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
 use std::cell::{Cell, RefCell};
@@ -21,9 +21,8 @@ impl OutputHandler {
             self.output.on_change(Rc::new(move || ae.trigger()));
         }
         let name = self.state.globals.name();
-        let global = Rc::new(WlOutputGlobal::new(name, &self.output));
+        let global = Rc::new(WlOutputGlobal::new(name, self.output.clone()));
         let on = Rc::new(OutputNode {
-            display: self.state.root.clone(),
             id: self.state.node_ids.next(),
             workspaces: RefCell::new(vec![]),
             position: Cell::new(Default::default()),
@@ -31,17 +30,36 @@ impl OutputHandler {
             seat_state: Default::default(),
             global: global.clone(),
             layers: Default::default(),
+            render_data: RefCell::new(OutputRenderData {
+                active_workspace: Rect::new_empty(0, 0),
+                inactive_workspaces: Default::default(),
+                titles: Default::default(),
+            }),
+            state: self.state.clone(),
+            is_dummy: false,
         });
         global.node.set(Some(on.clone()));
+        let name = 'name: {
+            for i in 1.. {
+                let name = i.to_string();
+                if !self.state.workspaces.contains(&name) {
+                    break 'name name;
+                }
+            }
+            unreachable!();
+        };
         let workspace = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
             output: CloneCell::new(on.clone()),
             container: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
+            name: name.clone(),
         });
+        self.state.workspaces.set(name, workspace.clone());
         on.workspaces.borrow_mut().push(workspace.clone());
         on.workspace.set(Some(workspace));
+        on.update_render_data();
         self.state.root.outputs.set(self.output.id(), on.clone());
         self.state.add_global(&global);
         self.state.outputs.set(self.output.id(), global.clone());

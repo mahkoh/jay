@@ -16,8 +16,9 @@ use crate::logger::Logger;
 use crate::rect::Rect;
 use crate::render::RenderContext;
 use crate::theme::Theme;
+use crate::tree::walker::NodeVisitorBase;
 use crate::tree::{
-    ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, WorkspaceNode,
+    ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, OutputNode, WorkspaceNode,
 };
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -51,6 +52,8 @@ pub struct State {
     pub input_device_ids: InputDeviceIds,
     pub node_ids: NodeIds,
     pub root: Rc<DisplayNode>,
+    pub workspaces: CopyHashMap<String, Rc<WorkspaceNode>>,
+    pub dummy_output: CloneCell<Option<Rc<OutputNode>>>,
     pub backend_events: AsyncQueue<BackendEvent>,
     pub output_handlers: RefCell<AHashMap<OutputId, SpawnedFuture<()>>>,
     pub input_device_handlers: RefCell<AHashMap<InputDeviceId, InputDeviceData>>,
@@ -92,6 +95,25 @@ impl State {
         };
         self.cursors.set(cursors);
         self.render_ctx.set(Some(ctx.clone()));
+
+        struct Walker;
+        impl NodeVisitorBase for Walker {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                node.schedule_compute_render_data();
+                node.visit_children(self);
+            }
+
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.update_render_data();
+                node.visit_children(self);
+            }
+
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                node.schedule_render_titles();
+                node.visit_children(self);
+            }
+        }
+        self.root.clone().visit(&mut Walker);
     }
 
     pub fn add_global<T: WaylandGlobal>(&self, global: &Rc<T>) {

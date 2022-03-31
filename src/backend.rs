@@ -28,6 +28,7 @@ pub trait InputDevice {
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile);
     fn set_accel_speed(&self, speed: f64);
     fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]);
+    fn name(&self) -> Rc<String>;
 }
 
 #[derive(Debug, Copy, Clone)]

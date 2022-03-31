@@ -11,7 +11,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::WlSurface;
 use crate::object::ObjectId;
 use crate::tree::toplevel::ToplevelNode;
-use crate::tree::{FloatNode, Node};
+use crate::tree::{FloatNode, Node, OutputNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlDataOfferId;
@@ -413,6 +413,10 @@ impl WlSeatGlobal {
         // self.focus_xdg_surface(&n.xdg);
     }
 
+    pub fn enter_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        self.output.set(output.clone());
+    }
+
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
         let serial = self.serial.fetch_add(1);
         self.surface_pointer_event(0, n, |p| p.send_enter(serial, n.id, x, y));
@@ -426,6 +430,10 @@ impl WlSeatGlobal {
         let serial = self.serial.fetch_add(1);
         self.surface_pointer_event(0, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
+    }
+
+    pub fn leave_output(&self) {
+        self.output.set(self.state.dummy_output.get().unwrap());
     }
 }
 

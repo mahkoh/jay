@@ -16,7 +16,6 @@ use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::ifs::ipc::IpcError;
-use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::kb_owner::KbOwnerHolder;
 use crate::ifs::wl_seat::pointer_owner::PointerOwnerHolder;
 use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
@@ -27,7 +26,7 @@ use crate::leaks::Tracker;
 use crate::object::{Object, ObjectId};
 use crate::state::State;
 use crate::tree::toplevel::ToplevelNode;
-use crate::tree::{ContainerSplit, FloatNode, FoundNode, Node};
+use crate::tree::{ContainerSplit, FloatNode, FoundNode, Node, OutputNode};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -49,7 +48,7 @@ use jay_config::Direction;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::mem;
-use std::ops::{Deref, DerefMut};
+use std::ops::{DerefMut};
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
@@ -123,6 +122,7 @@ pub struct WlSeatGlobal {
     shortcuts: CopyHashMap<(u32, u32), Modifiers>,
     queue_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
+    output: CloneCell<Rc<OutputNode>>,
 }
 
 impl WlSeatGlobal {
@@ -158,6 +158,7 @@ impl WlSeatGlobal {
             shortcuts: Default::default(),
             queue_link: Cell::new(None),
             tree_changed_handler: Cell::new(None),
+            output: CloneCell::new(state.dummy_output.get().unwrap()),
         });
         let seat = slf.clone();
         let future = state.eng.spawn(async move {
@@ -171,15 +172,8 @@ impl WlSeatGlobal {
         slf
     }
 
-    pub fn get_output(&self) -> Option<Rc<WlOutputGlobal>> {
-        let ps = self.pointer_stack.borrow_mut();
-        for node in ps.deref() {
-            if node.is_output() {
-                let on = node.clone().into_output().unwrap();
-                return Some(on.global.clone());
-            }
-        }
-        None
+    pub fn get_output(&self) -> Rc<OutputNode> {
+        self.output.get()
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {

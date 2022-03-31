@@ -3,7 +3,7 @@ use crate::backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDevice
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::{DeviceHandlerData, State};
 use crate::tree::walker::NodeVisitorBase;
-use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
+use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node, WorkspaceNode};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
 use crate::utils::errorfmt::ErrorFmt;
@@ -20,12 +20,13 @@ use jay_config::input::{
 use jay_config::keyboard::keymap::Keymap;
 use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;
-use jay_config::{Axis, Direction, LogLevel, Seat};
+use jay_config::{Axis, Direction, LogLevel, Seat, Workspace};
 use libloading::Library;
 use log::Level;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::utils::clonecell::CloneCell;
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -38,6 +39,9 @@ pub(super) struct ConfigProxyHandler {
     pub next_id: NumCell<u64>,
     pub keymaps: CopyHashMap<Keymap, Rc<XkbKeymap>>,
     pub bufs: Stack<Vec<u8>>,
+    pub workspace_ids: NumCell<u64>,
+    pub workspaces_by_name: CopyHashMap<Rc<String>, u64>,
+    pub workspaces_by_id: CopyHashMap<u64, Rc<String>>,
 }
 
 impl ConfigProxyHandler {
@@ -156,6 +160,13 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn get_workspace(&self, ws: Workspace) -> Result<Rc<String>, CphError> {
+        match self.workspaces_by_id.get(&ws.0) {
+            Some(ws) => Ok(ws),
+            _ => Err(CphError::WorkspaceDoesNotExist(ws))
+        }
+    }
+
     fn get_device_handler_data(
         &self,
         device: InputDevice,
@@ -250,6 +261,64 @@ impl ConfigProxyHandler {
     ) -> Result<(), SetTransformMatrixError> {
         let dev = self.get_device_handler_data(device)?;
         dev.device.set_transform_matrix(matrix);
+        Ok(())
+    }
+
+    fn handle_get_workspace(&self, name: &str) {
+        let name = Rc::new(name.to_owned());
+        let ws = match self.workspaces_by_name.get(&name) {
+            Some(w) => w,
+            _ => {
+                let ws = self.workspace_ids.fetch_add(1);
+                self.workspaces_by_name.set(name.clone(), ws);
+                self.workspaces_by_id.set(ws, name);
+                ws
+            }
+        };
+        self.respond(Response::GetWorkspace {
+            workspace: Workspace(ws),
+        });
+    }
+
+    fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), ShowWorkspaceError> {
+        let seat = self.get_seat(seat)?;
+        let name = self.get_workspace(ws)?;
+        let output = match self.state.workspaces.get(name.as_str()) {
+            Some(ws) => {
+                let output = ws.output.get();
+                output.workspace.set(Some(ws.clone()));
+                output
+            }
+            None => {
+                let output = seat.get_output();
+                if output.is_dummy {
+                    return Ok(());
+                }
+                let ws = Rc::new(WorkspaceNode {
+                    id: self.state.node_ids.next(),
+                    output: CloneCell::new(output.clone()),
+                    container: Default::default(),
+                    stacked: Default::default(),
+                    seat_state: Default::default(),
+                    name: name.to_string(),
+                });
+                output.workspaces.borrow_mut().push(ws.clone());
+                output.workspace.set(Some(ws.clone()));
+                self.state.workspaces.set(name.to_string(), ws);
+                output
+            }
+        };
+        output.update_render_data();
+        self.state.tree_changed();
+        Ok(())
+    }
+
+    fn handle_get_device_name(&self, device: InputDevice) -> Result<(), GetDeviceNameError> {
+        let dev = self.get_device_handler_data(device)?;
+        let name = dev.device.name();
+        self.respond(Response::GetDeviceName {
+            name: name.to_string(),
+        });
         Ok(())
     }
 
@@ -582,6 +651,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetTransformMatrix { device, matrix } => {
                 self.handle_set_transform_matrix(device, matrix)?
             }
+            ClientMessage::GetDeviceName { device } => self.handle_get_device_name(device)?,
+            ClientMessage::GetWorkspace { name } => self.handle_get_workspace(name),
+            ClientMessage::ShowWorkspace { seat, workspace } => self.handle_show_workspace(seat, workspace)?,
         }
         Ok(())
     }
@@ -639,12 +711,18 @@ enum CphError {
     SetAccelSpeedError(#[from] SetAccelSpeedError),
     #[error("Could not process a `set_transform_matrix` request")]
     SetTransformMatrixError(#[from] SetTransformMatrixError),
+    #[error("Could not process a `get_device_name` request")]
+    GetDeviceNameError(#[from] GetDeviceNameError),
+    #[error("Could not process a `show_workspace` request")]
+    ShowWorkspaceError(#[from] ShowWorkspaceError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
     #[error("Device {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]
     SeatDoesNotExist(Seat),
+    #[error("Workspace {0:?} does not exist")]
+    WorkspaceDoesNotExist(Workspace),
     #[error("Keyboard {0:?} does not exist")]
     KeyboardDoesNotExist(InputDevice),
     #[error("Could not parse the message")]
@@ -693,6 +771,20 @@ enum SetTransformMatrixError {
     CphError(#[from] Box<CphError>),
 }
 efrom!(SetTransformMatrixError, CphError);
+
+#[derive(Debug, Error)]
+enum GetDeviceNameError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(GetDeviceNameError, CphError);
+
+#[derive(Debug, Error)]
+enum ShowWorkspaceError {
+    #[error(transparent)]
+    CphError(#[from] Box<CphError>),
+}
+efrom!(ShowWorkspaceError, CphError);
 
 #[derive(Debug, Error)]
 enum HasCapabilityError {

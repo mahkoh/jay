@@ -134,6 +134,10 @@ impl Seat {
     pub fn toggle_floating(self) {
         get!().toggle_floating(self);
     }
+
+    pub fn show_workspace(self, workspace: Workspace) {
+        get!().show_workspace(self, workspace)
+    }
 }
 
 pub fn get_seats() -> Vec<Seat> {
@@ -200,4 +204,11 @@ impl Command {
     pub fn spawn(&self) {
         get!().spawn(self);
     }
+}
+
+#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct Workspace(pub u64);
+
+pub fn get_workspace(name: &str) -> Workspace {
+    get!(Workspace(0)).get_workspace(name)
 }

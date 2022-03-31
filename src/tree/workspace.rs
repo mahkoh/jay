@@ -18,6 +18,7 @@ pub struct WorkspaceNode {
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
+    pub name: String,
 }
 
 impl WorkspaceNode {

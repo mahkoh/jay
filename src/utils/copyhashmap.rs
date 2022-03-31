@@ -1,4 +1,5 @@
 use ahash::AHashMap;
+use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
@@ -31,9 +32,11 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         self.map.borrow_mut().insert(k, v);
     }
 
-    pub fn get(&self, k: &K) -> Option<V>
+    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<V>
     where
         V: Clone,
+        Q: Hash + Eq,
+        K: Borrow<Q>,
     {
         self.map.borrow_mut().get(k).cloned()
     }
@@ -42,7 +45,11 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         self.map.borrow_mut().remove(k)
     }
 
-    pub fn contains(&self, k: &K) -> bool {
+    pub fn contains<Q: ?Sized>(&self, k: &Q) -> bool
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
+    {
         self.map.borrow_mut().contains_key(k)
     }
 

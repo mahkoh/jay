@@ -28,6 +28,10 @@ impl InputDevice {
     pub fn set_transform_matrix(self, matrix: [[f64; 2]; 2]) {
         get!().set_transform_matrix(self, matrix);
     }
+
+    pub fn name(self) -> String {
+        get!(String::new()).device_name(self)
+    }
 }
 
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
