@@ -1,7 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{ NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::ifs::xdg_positioner::{XdgPositioned, XdgPositioner, CA};
 use crate::leaks::Tracker;
@@ -279,6 +279,10 @@ impl Node for XdgPopup {
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         visitor.visit_surface(&self.xdg.surface);
+    }
+
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.xdg.workspace.get()
     }
 
     fn absolute_position(&self) -> Rect {

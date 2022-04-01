@@ -1,4 +1,5 @@
 use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
@@ -16,14 +17,13 @@ use std::cell::{Cell, RefCell};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, Sub};
 use std::rc::Rc;
-use crate::fixed::Fixed;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
     pub id: OutputNodeId,
     pub position: Cell<Rect>,
     pub global: Rc<WlOutputGlobal>,
-    pub workspaces: RefCell<Vec<Rc<WorkspaceNode>>>,
+    pub workspaces: LinkedList<Rc<WorkspaceNode>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
@@ -37,12 +37,11 @@ impl OutputNode {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
         rd.inactive_workspaces.clear();
-        let workspaces = self.workspaces.borrow_mut();
         let mut pos = 0;
         let font = self.state.theme.font.borrow_mut();
         let th = self.state.theme.title_height.get();
         let active_id = self.workspace.get().map(|w| w.id);
-        for ws in workspaces.deref() {
+        for ws in self.workspaces.iter() {
             let mut title_width = th;
             'create_texture: {
                 if let Some(ctx) = self.state.render_ctx.get() {
@@ -78,6 +77,23 @@ impl OutputNode {
             pos += title_width;
         }
     }
+
+    pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) {
+        self.workspace.set(Some(ws.clone()));
+        ws.clone().change_extents(&self.workspace_rect());
+    }
+
+    fn workspace_rect(&self) -> Rect {
+        let rect = self.position.get();
+        let th = self.state.theme.title_height.get();
+        Rect::new_sized(
+            rect.x1(),
+            rect.y1() + th,
+            rect.width(),
+            rect.height().sub(th).max(0),
+        )
+        .unwrap()
+    }
 }
 
 pub struct OutputTitle {
@@ -100,14 +116,6 @@ impl Debug for OutputNode {
 }
 
 impl Node for OutputNode {
-    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.enter_output(&self)
-    }
-
-    fn leave(&self, seat: &WlSeatGlobal) {
-        seat.leave_output();
-    }
-
     fn id(&self) -> NodeId {
         self.id.into()
     }
@@ -120,8 +128,9 @@ impl Node for OutputNode {
         if detach {
             self.state.root.clone().remove_child(self);
         }
-        let mut workspaces = self.workspaces.borrow_mut();
-        for workspace in workspaces.drain(..) {
+        self.workspace.set(None);
+        let workspaces: Vec<_> = self.workspaces.iter().map(|e| e.deref().clone()).collect();
+        for workspace in workspaces {
             workspace.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
@@ -132,9 +141,8 @@ impl Node for OutputNode {
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        let ws = self.workspaces.borrow_mut();
-        for ws in ws.deref() {
-            visitor.visit_workspace(ws);
+        for ws in self.workspaces.iter() {
+            visitor.visit_workspace(ws.deref());
         }
         for layers in &self.layers {
             for surface in layers.iter() {
@@ -147,20 +155,32 @@ impl Node for OutputNode {
         self.position.get()
     }
 
-    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        if let Some(ws) = self.workspace.get() {
-            tree.push(FoundNode {
-                node: ws.clone(),
-                x,
-                y,
-            });
-            ws.find_tree_at(x, y, tree);
+    fn find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        let th = self.state.theme.title_height.get();
+        if y > th {
+            y -= th;
+            if let Some(ws) = self.workspace.get() {
+                tree.push(FoundNode {
+                    node: ws.clone(),
+                    x,
+                    y,
+                });
+                ws.find_tree_at(x, y, tree);
+            }
         }
         FindTreeResult::AcceptsInput
     }
 
     fn remove_child(self: Rc<Self>, _child: &dyn Node) {
-        self.workspace.set(None);
+        unimplemented!();
+    }
+
+    fn leave(&self, seat: &WlSeatGlobal) {
+        seat.leave_output();
+    }
+
+    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+        seat.enter_output(&self)
     }
 
     fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -180,17 +200,9 @@ impl Node for OutputNode {
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {
-        let th = self.state.theme.title_height.get();
         self.position.set(*rect);
         if let Some(c) = self.workspace.get() {
-            let wrect = Rect::new_sized(
-                rect.x1(),
-                rect.y1() + th,
-                rect.width(),
-                rect.height().sub(th).max(0),
-            )
-            .unwrap();
-            c.change_extents(&wrect);
+            c.change_extents(&self.workspace_rect());
         }
         for layer in &self.layers {
             for surface in layer.iter() {

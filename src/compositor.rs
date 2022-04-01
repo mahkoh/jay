@@ -1,5 +1,6 @@
 use crate::acceptor::{Acceptor, AcceptorError};
 use crate::async_engine::{AsyncEngine, AsyncError, Phase};
+use crate::backends::dummy::DummyOutput;
 use crate::cli::{GlobalArgs, RunArgs};
 use crate::client::Clients;
 use crate::clientmem::ClientMemError;
@@ -8,12 +9,17 @@ use crate::dbus::Dbus;
 use crate::event_loop::{EventLoop, EventLoopError};
 use crate::forker::ForkerError;
 use crate::globals::Globals;
+use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::logger::Logger;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
 use crate::state::State;
-use crate::tree::{container_layout, container_render_data, float_layout, float_titles, DisplayNode, NodeIds, OutputNode, WorkspaceNode};
+use crate::tree::{
+    container_layout, container_render_data, float_layout, float_titles, DisplayNode, NodeIds,
+    OutputNode, WorkspaceNode,
+};
+use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fdcloser::FdCloser;
 use crate::utils::numcell::NumCell;
@@ -23,14 +29,11 @@ use crate::wheel::{Wheel, WheelError};
 use crate::xkbcommon::XkbContext;
 use crate::{clientmem, forker, leaks, render, sighand, tasks, xwayland};
 use forker::ForkerProxy;
-use std::cell::{Cell};
+use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use thiserror::Error;
-use crate::backends::dummy::DummyOutput;
-use crate::ifs::wl_output::WlOutputGlobal;
-use crate::utils::clonecell::CloneCell;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let logger = Logger::install_compositor(global.log_level.into());
@@ -118,9 +121,12 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
         let dummy_output = Rc::new(OutputNode {
             id: state.node_ids.next(),
             position: Default::default(),
-            global: Rc::new(WlOutputGlobal::new(state.globals.name(), Rc::new(DummyOutput {
-                id: state.output_ids.next(),
-            }))),
+            global: Rc::new(WlOutputGlobal::new(
+                state.globals.name(),
+                Rc::new(DummyOutput {
+                    id: state.output_ids.next(),
+                }),
+            )),
             workspaces: Default::default(),
             workspace: Default::default(),
             seat_state: Default::default(),
@@ -132,13 +138,17 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
         let dummy_workspace = Rc::new(WorkspaceNode {
             id: state.node_ids.next(),
             output: CloneCell::new(dummy_output.clone()),
+            position: Default::default(),
             container: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
-            name: "dummy".to_string()
+            name: "dummy".to_string(),
+            output_link: Default::default(),
         });
-        dummy_output.workspace.set(Some(dummy_workspace.clone()));
-        dummy_output.workspaces.borrow_mut().push(dummy_workspace);
+        dummy_workspace.output_link.set(Some(
+            dummy_output.workspaces.add_last(dummy_workspace.clone()),
+        ));
+        dummy_output.show_workspace(&dummy_workspace);
         state.dummy_output.set(Some(dummy_output));
     }
     forker.install(&state);

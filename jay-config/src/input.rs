@@ -1,3 +1,8 @@
+pub mod acceleration;
+pub mod capability;
+
+use crate::input::acceleration::AccelProfile;
+use crate::input::capability::Capability;
 use crate::Seat;
 use bincode::{Decode, Encode};
 
@@ -33,20 +38,3 @@ impl InputDevice {
         get!(String::new()).device_name(self)
     }
 }
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct Capability(pub u32);
-
-pub const CAP_KEYBOARD: Capability = Capability(0);
-pub const CAP_POINTER: Capability = Capability(1);
-pub const CAP_TOUCH: Capability = Capability(2);
-pub const CAP_TABLET_TOOL: Capability = Capability(3);
-pub const CAP_TABLET_PAD: Capability = Capability(4);
-pub const CAP_GESTURE: Capability = Capability(5);
-pub const CAP_SWITCH: Capability = Capability(6);
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct AccelProfile(pub u32);
-
-pub const ACCEL_PROFILE_FLAT: AccelProfile = AccelProfile(1 << 0);
-pub const ACCEL_PROFILE_ADAPTIVE: AccelProfile = AccelProfile(1 << 1);

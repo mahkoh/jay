@@ -3,9 +3,7 @@ mod monitor;
 mod video;
 
 use crate::async_engine::{AsyncError, AsyncFd};
-use crate::backend::{
-    Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
-};
+use crate::backend::{Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState};
 use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
 use crate::dbus::DbusError;
 use crate::drm::drm::DrmError;
@@ -30,9 +28,11 @@ use crate::utils::syncqueue::SyncQueue;
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
 use std::future::pending;
+use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
+use crate::utils::smallmap::SmallMap;
 
 #[derive(Debug, Error)]
 pub enum MetalError {
@@ -198,11 +198,23 @@ struct MetalInputDevice {
     vscroll: Cell<f64>,
     name: CloneCell<Rc<String>>,
 
+    // state
+    pressed_keys: SmallMap<u32, (), 5>,
+    pressed_buttons: SmallMap<u32, (), 2>,
+
     // config
     left_handed: Cell<Option<bool>>,
     accel_profile: Cell<Option<AccelProfile>>,
     accel_speed: Cell<Option<f64>>,
     transform_matrix: Cell<Option<[[f64; 2]; 2]>>,
+}
+
+impl Drop for MetalInputDevice {
+    fn drop(&mut self) {
+        if let Some(fd) = self.fd.take() {
+            mem::forget(fd);
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -248,6 +260,15 @@ impl MetalInputDevice {
         }
         if let Some(speed) = self.accel_speed.get() {
             dev.device().set_accel_speed(speed);
+        }
+    }
+
+    fn pre_pause(&self) {
+        for (key, _) in self.pressed_keys.take() {
+            self.event(InputEvent::Key(key, KeyState::Released));
+        }
+        for (button, _) in self.pressed_buttons.take() {
+            self.event(InputEvent::Button(button, KeyState::Released));
         }
     }
 }

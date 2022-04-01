@@ -48,7 +48,7 @@ use jay_config::Direction;
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::mem;
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd};
@@ -371,6 +371,10 @@ impl WlSeatGlobal {
 
     pub fn id(&self) -> SeatId {
         self.id
+    }
+
+    pub fn workspace_changed(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        self.kb_owner.workspace_changed(self, output);
     }
 
     fn bind_(

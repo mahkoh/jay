@@ -1,6 +1,7 @@
 mod generate;
 mod log;
 mod quit;
+mod set_log_level;
 
 use crate::compositor::start_compositor;
 use ::log::Level;
@@ -31,6 +32,8 @@ pub enum Cmd {
     GenerateCompletion(GenerateArgs),
     /// Open the log file.
     Log(LogArgs),
+    /// Sets the log level.
+    SetLogLevel(SetLogArgs),
     /// Stop the compositor.
     Quit,
 }
@@ -59,6 +62,13 @@ pub struct LogArgs {
     /// Immediately jump to the end in the pager.
     #[clap(long, short = 'e')]
     pager_end: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct SetLogArgs {
+    /// The new log level.
+    #[clap(arg_enum)]
+    level: CliLogLevel,
 }
 
 #[derive(ArgEnum, Debug, Copy, Clone, Hash)]
@@ -108,5 +118,6 @@ pub fn main() {
         Cmd::GenerateCompletion(g) => generate::main(g),
         Cmd::Log(a) => log::main(cli.global, a),
         Cmd::Quit => quit::main(cli.global),
+        Cmd::SetLogLevel(a) => set_log_level::main(cli.global, a),
     }
 }

@@ -1,5 +1,6 @@
+use std::ops::Deref;
 use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::tree::Node;
+use crate::tree::{Node, OutputNode};
 use crate::utils::clonecell::CloneCell;
 use std::rc::Rc;
 
@@ -29,6 +30,10 @@ impl KbOwnerHolder {
     pub fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) {
         self.owner.get().set_kb_node(seat, node);
     }
+
+    pub fn workspace_changed(&self, seat: &Rc<WlSeatGlobal>, output: &Rc<OutputNode>) {
+        self.owner.get().workspace_changed(seat, output);
+    }
 }
 
 struct DefaultKbOwner;
@@ -39,6 +44,7 @@ trait KbOwner {
     fn grab(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) -> bool;
     fn ungrab(&self, seat: &Rc<WlSeatGlobal>);
     fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>);
+    fn workspace_changed(&self, seat: &Rc<WlSeatGlobal>, output: &Rc<OutputNode>);
 }
 
 impl KbOwner for DefaultKbOwner {
@@ -68,6 +74,31 @@ impl KbOwner for DefaultKbOwner {
         node.clone().focus(seat);
         seat.keyboard_node.set(node.clone());
     }
+
+    fn workspace_changed(&self, seat: &Rc<WlSeatGlobal>, output: &Rc<OutputNode>) {
+        let new_ws = match output.workspace.get() {
+            Some(ws) => ws,
+            _ => return,
+        };
+        let node = seat.keyboard_node.get();
+        let ws = match node.get_workspace() {
+            None => return,
+            Some(ws) => ws,
+        };
+        let ws_output = ws.output.get();
+        if ws_output.id != output.id {
+            return;
+        }
+        for tl in seat.toplevel_focus_history.rev_iter() {
+            if let Some(tl_ws) = tl.as_node().get_workspace() {
+                if tl_ws.id == new_ws.id {
+                    self.set_kb_node(seat, tl.deref().clone().into_node());
+                    return;
+                }
+            }
+        }
+        self.set_kb_node(seat, seat.state.root.clone());
+    }
 }
 
 impl KbOwner for GrabKbOwner {
@@ -80,6 +111,10 @@ impl KbOwner for GrabKbOwner {
     }
 
     fn set_kb_node(&self, _seat: &Rc<WlSeatGlobal>, _node: Rc<dyn Node>) {
+        // nothing
+    }
+
+    fn workspace_changed(&self, _seat: &Rc<WlSeatGlobal>, _output: &Rc<OutputNode>) {
         // nothing
     }
 }

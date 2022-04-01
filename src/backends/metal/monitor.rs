@@ -119,6 +119,7 @@ impl MetalBackend {
     }
 
     fn handle_input_device_removed(self: &Rc<Self>, dev: &Rc<MetalInputDevice>) {
+        dev.pre_pause();
         log::info!("Device removed: {}", dev.devnode.to_bytes().as_bstr());
         self.device_holder.input_devices.borrow_mut()[dev.slot] = None;
         dev.fd.set(None);
@@ -148,6 +149,7 @@ impl MetalBackend {
 
     fn handle_input_device_paused(self: &Rc<Self>, dev: &Rc<MetalInputDevice>) {
         log::info!("Device paused: {}", dev.devnode.to_bytes().as_bstr());
+        dev.pre_pause();
         if let Some(rd) = dev.inputdev.take() {
             rd.device().unset_slot();
         }
@@ -282,6 +284,8 @@ impl MetalBackend {
             hscroll: Cell::new(0.0),
             vscroll: Cell::new(0.0),
             name: Default::default(),
+            pressed_keys: Default::default(),
+            pressed_buttons: Default::default(),
             left_handed: Default::default(),
             accel_profile: Default::default(),
             accel_speed: Default::default(),

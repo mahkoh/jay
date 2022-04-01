@@ -74,6 +74,10 @@ pub trait Node {
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn visit_children(&self, visitor: &mut dyn NodeVisitor);
 
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
+
     fn is_contained_in(&self, other: NodeId) -> bool {
         let _ = other;
         false

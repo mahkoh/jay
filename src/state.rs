@@ -136,7 +136,7 @@ impl State {
 
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn Node>) {
         let seat = self.seat_queue.last();
-        if let Some(seat) = seat {
+        if let Some(seat) = &seat {
             if let Some(prev) = seat.last_tiled_keyboard_toplevel(&*node) {
                 if let Some(container) = prev.parent() {
                     if let Some(container) = container.into_container() {
@@ -146,28 +146,31 @@ impl State {
                 }
             }
         }
-        let output = {
+        let mut output = seat.map(|s| s.get_output());
+        if output.is_none() {
             let outputs = self.root.outputs.lock();
-            outputs.values().next().cloned()
-        };
-        if let Some(output) = output {
-            if let Some(workspace) = output.workspace.get() {
-                if let Some(container) = workspace.container.get() {
-                    container.append_child(node);
-                } else {
-                    let container = ContainerNode::new(
-                        self,
-                        &workspace,
-                        workspace.clone(),
-                        node,
-                        ContainerSplit::Horizontal,
-                    );
-                    workspace.set_container(&container);
-                };
-                return;
-            }
+            output = outputs.values().next().cloned();
         }
-        todo!("map_tiled");
+        let output = match output {
+            Some(output) => output,
+            _ => self.dummy_output.get().unwrap(),
+        };
+        if let Some(workspace) = output.workspace.get() {
+            if let Some(container) = workspace.container.get() {
+                container.append_child(node);
+            } else {
+                let container = ContainerNode::new(
+                    self,
+                    &workspace,
+                    workspace.clone(),
+                    node,
+                    ContainerSplit::Horizontal,
+                );
+                workspace.set_container(&container);
+            };
+            return;
+        }
+        log::warn!("Output has no workspace set");
     }
 
     pub fn map_floating(
@@ -198,5 +201,49 @@ impl State {
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
         FloatNode::new(self, workspace, position, node);
+    }
+
+    pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
+        let output = match self.workspaces.get(name) {
+            Some(ws) => {
+                let output = ws.output.get();
+                if let Some(old) = output.workspace.get() {
+                    if old.id == ws.id {
+                        return;
+                    }
+                }
+                output.show_workspace(&ws);
+                output
+            }
+            _ => {
+                let output = seat.get_output();
+                if output.is_dummy {
+                    log::warn!("Not showing workspace because seat is on dummy output");
+                    return;
+                }
+                let workspace = Rc::new(WorkspaceNode {
+                    id: self.node_ids.next(),
+                    output: CloneCell::new(output.clone()),
+                    position: Cell::new(Default::default()),
+                    container: Default::default(),
+                    stacked: Default::default(),
+                    seat_state: Default::default(),
+                    name: name.to_string(),
+                    output_link: Cell::new(None),
+                });
+                workspace
+                    .output_link
+                    .set(Some(output.workspaces.add_last(workspace.clone())));
+                output.show_workspace(&workspace);
+                self.workspaces.set(name.to_string(), workspace);
+                output
+            }
+        };
+        output.update_render_data();
+        self.tree_changed();
+        let seats = self.globals.seats.lock();
+        for seat in seats.values() {
+            seat.workspace_changed(&output);
+        }
     }
 }

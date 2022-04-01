@@ -289,6 +289,10 @@ impl SurfaceExt for WlSubsurface {
     fn into_subsurface(self: Rc<Self>) -> Option<Rc<WlSubsurface>> {
         Some(self)
     }
+
+    fn accepts_kb_focus(&self) -> bool {
+        self.parent.accepts_kb_focus()
+    }
 }
 
 #[derive(Debug, Error)]

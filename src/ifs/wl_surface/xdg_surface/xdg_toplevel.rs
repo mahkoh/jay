@@ -12,7 +12,7 @@ use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use crate::tree::walker::NodeVisitor;
-use crate::tree::FindTreeResult;
+use crate::tree::{FindTreeResult};
 use crate::tree::{FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -374,6 +374,10 @@ impl Node for XdgToplevel {
         visitor.visit_surface(&self.xdg.surface);
     }
 
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.xdg.workspace.get()
+    }
+
     fn is_contained_in(&self, other: NodeId) -> bool {
         if let Some(parent) = self.parent_node.get() {
             if parent.id() == other {
@@ -441,10 +445,6 @@ impl ToplevelNode for XdgToplevel {
 
     fn parent(&self) -> Option<Rc<dyn Node>> {
         self.parent_node.get()
-    }
-
-    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.xdg.workspace.get()
     }
 
     fn as_node(&self) -> &dyn Node {

@@ -24,7 +24,7 @@ impl OutputHandler {
         let global = Rc::new(WlOutputGlobal::new(name, self.output.clone()));
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
-            workspaces: RefCell::new(vec![]),
+            workspaces: Default::default(),
             position: Cell::new(Default::default()),
             workspace: CloneCell::new(None),
             seat_state: Default::default(),
@@ -51,14 +51,18 @@ impl OutputHandler {
         let workspace = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
             output: CloneCell::new(on.clone()),
+            position: Cell::new(Default::default()),
             container: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
             name: name.clone(),
+            output_link: Default::default(),
         });
         self.state.workspaces.set(name, workspace.clone());
-        on.workspaces.borrow_mut().push(workspace.clone());
-        on.workspace.set(Some(workspace));
+        workspace
+            .output_link
+            .set(Some(on.workspaces.add_last(workspace.clone())));
+        on.show_workspace(&workspace);
         on.update_render_data();
         self.state.root.outputs.set(self.output.id(), on.clone());
         self.state.add_global(&global);

@@ -192,8 +192,14 @@ impl WlSeatGlobal {
     }
 
     pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<dyn ToplevelNode>> {
+        let output = self.output.get();
+        let workspace = output.workspace.get().unwrap();
         let is_container = new.is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
+            match tl.as_node().get_workspace() {
+                Some(ws) if ws.id == workspace.id => { },
+                _ => continue,
+            };
             let parent_is_float = match tl.parent() {
                 Some(pn) => pn.is_float(),
                 _ => false,

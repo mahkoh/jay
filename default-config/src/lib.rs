@@ -1,5 +1,6 @@
 use jay_config::embedded::grab_input_device;
-use jay_config::input::{InputDevice, CAP_KEYBOARD, CAP_POINTER};
+use jay_config::input::capability::{CAP_KEYBOARD, CAP_POINTER};
+use jay_config::input::InputDevice;
 use jay_config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use jay_config::keyboard::syms::{
     SYM_Super_L, SYM_b, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p, SYM_q, SYM_t,
@@ -40,7 +41,7 @@ fn configure_seat(s: Seat) {
 
     s.bind(SYM_Super_L, || Command::new("alacritty").spawn());
 
-    s.bind(MOD | SYM_p, || Command::new("xeyes").spawn());
+    s.bind(MOD | SYM_p, || Command::new("bemenu-run").spawn());
 
     s.bind(MOD | SYM_q, quit);
 

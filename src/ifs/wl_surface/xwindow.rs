@@ -1,4 +1,4 @@
-use crate::client::Client;
+use crate::client::{Client};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
@@ -353,6 +353,10 @@ impl Node for Xwindow {
         visitor.visit_surface(&self.surface);
     }
 
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        self.workspace.get()
+    }
+
     fn is_contained_in(&self, other: NodeId) -> bool {
         if let Some(parent) = self.parent_node.get() {
             if parent.id() == other {
@@ -427,10 +431,6 @@ impl ToplevelNode for Xwindow {
 
     fn parent(&self) -> Option<Rc<dyn Node>> {
         self.parent_node.get()
-    }
-
-    fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.workspace.get()
     }
 
     fn as_node(&self) -> &dyn Node {

@@ -1,5 +1,5 @@
 use crate::client::{Client, ClientError};
-use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::{NodeSeatState};
 use crate::ifs::wl_surface::{
     CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
 };
@@ -359,10 +359,6 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.surface.clone().visit(visitor);
     }
 
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_layer_surface(self, x, y);
-    }
-
     fn absolute_position(&self) -> Rect {
         self.pos.get()
     }
@@ -374,6 +370,10 @@ impl Node for ZwlrLayerSurfaceV1 {
             y,
         });
         self.surface.find_tree_at(x, y, tree)
+    }
+
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_layer_surface(self, x, y);
     }
 
     fn change_extents(self: Rc<Self>, _rect: &Rect) {

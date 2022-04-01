@@ -3,7 +3,7 @@ use crate::backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDevice
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
 use crate::state::{DeviceHandlerData, State};
 use crate::tree::walker::NodeVisitorBase;
-use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node, WorkspaceNode};
+use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::debug_fn::debug_fn;
 use crate::utils::errorfmt::ErrorFmt;
@@ -13,9 +13,13 @@ use crate::xkbcommon::XkbKeymap;
 use bincode::error::DecodeError;
 use jay_config::_private::bincode_ops;
 use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};
+use jay_config::input::acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT};
+use jay_config::input::capability::{
+    Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
+    CAP_TABLET_TOOL, CAP_TOUCH,
+};
 use jay_config::input::{
-    AccelProfile, Capability, InputDevice, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, CAP_GESTURE,
-    CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD, CAP_TABLET_TOOL, CAP_TOUCH,
+    InputDevice,
 };
 use jay_config::keyboard::keymap::Keymap;
 use jay_config::keyboard::mods::Modifiers;
@@ -26,7 +30,6 @@ use log::Level;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::utils::clonecell::CloneCell;
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -163,7 +166,7 @@ impl ConfigProxyHandler {
     fn get_workspace(&self, ws: Workspace) -> Result<Rc<String>, CphError> {
         match self.workspaces_by_id.get(&ws.0) {
             Some(ws) => Ok(ws),
-            _ => Err(CphError::WorkspaceDoesNotExist(ws))
+            _ => Err(CphError::WorkspaceDoesNotExist(ws)),
         }
     }
 
@@ -283,33 +286,7 @@ impl ConfigProxyHandler {
     fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), ShowWorkspaceError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
-        let output = match self.state.workspaces.get(name.as_str()) {
-            Some(ws) => {
-                let output = ws.output.get();
-                output.workspace.set(Some(ws.clone()));
-                output
-            }
-            None => {
-                let output = seat.get_output();
-                if output.is_dummy {
-                    return Ok(());
-                }
-                let ws = Rc::new(WorkspaceNode {
-                    id: self.state.node_ids.next(),
-                    output: CloneCell::new(output.clone()),
-                    container: Default::default(),
-                    stacked: Default::default(),
-                    seat_state: Default::default(),
-                    name: name.to_string(),
-                });
-                output.workspaces.borrow_mut().push(ws.clone());
-                output.workspace.set(Some(ws.clone()));
-                self.state.workspaces.set(name.to_string(), ws);
-                output
-            }
-        };
-        output.update_render_data();
-        self.state.tree_changed();
+        self.state.show_workspace(&seat, &name);
         Ok(())
     }
 
@@ -653,7 +630,9 @@ impl ConfigProxyHandler {
             }
             ClientMessage::GetDeviceName { device } => self.handle_get_device_name(device)?,
             ClientMessage::GetWorkspace { name } => self.handle_get_workspace(name),
-            ClientMessage::ShowWorkspace { seat, workspace } => self.handle_show_workspace(seat, workspace)?,
+            ClientMessage::ShowWorkspace { seat, workspace } => {
+                self.handle_show_workspace(seat, workspace)?
+            }
         }
         Ok(())
     }

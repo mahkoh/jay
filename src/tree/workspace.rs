@@ -6,7 +6,8 @@ use crate::tree::container::ContainerNode;
 use crate::tree::walker::NodeVisitor;
 use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
 use crate::utils::clonecell::CloneCell;
-use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::{LinkedList, LinkedNode};
+use std::cell::Cell;
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -15,16 +16,18 @@ tree_id!(WorkspaceNodeId);
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub output: CloneCell<Rc<OutputNode>>,
+    pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
     pub name: String,
+    pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
 }
 
 impl WorkspaceNode {
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
-        let output = self.output.get().position.get();
-        container.clone().change_extents(&output);
+        let pos = self.position.get();
+        container.clone().change_extents(&pos);
         container.clone().set_workspace(self);
         self.container.set(Some(container.clone()));
     }
@@ -43,14 +46,11 @@ impl Node for WorkspaceNode {
         if detach {
             self.output.get().remove_child(self);
         }
+        self.output_link.set(None);
         if let Some(container) = self.container.take() {
             container.destroy_node(false);
         }
         self.seat_state.destroy_node(self);
-    }
-
-    fn accepts_child(&self, node: &dyn Node) -> bool {
-        node.is_container()
     }
 
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
@@ -64,7 +64,7 @@ impl Node for WorkspaceNode {
     }
 
     fn absolute_position(&self) -> Rect {
-        self.output.get().position.get()
+        self.position.get()
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -91,11 +91,16 @@ impl Node for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
+    fn accepts_child(&self, node: &dyn Node) -> bool {
+        node.is_container()
+    }
+
     fn is_workspace(&self) -> bool {
         true
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {
+        self.position.set(*rect);
         if let Some(c) = self.container.get() {
             c.change_extents(rect);
         }

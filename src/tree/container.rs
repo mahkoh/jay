@@ -1,4 +1,4 @@
-use crate::backend::KeyState;
+use crate::backend::{KeyState};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
@@ -693,6 +693,10 @@ impl Node for ContainerNode {
         }
     }
 
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        Some(self.workspace.get())
+    }
+
     fn is_contained_in(&self, other: NodeId) -> bool {
         let parent = self.parent.get();
         if parent.id() == other {
@@ -1055,8 +1059,22 @@ impl Node for ContainerNode {
 
     fn remove_child(self: Rc<Self>, child: &dyn Node) {
         let node = match self.child_nodes.borrow_mut().remove(&child.id()) {
-            Some(c) => c.to_ref(),
+            Some(c) => c,
             None => return,
+        };
+        let mut mono_child = None;
+        if let Some(mono) = self.mono_child.get() {
+            if mono.node.id() == child.id() {
+                self.mono_child.take();
+                mono_child = node.next();
+                if mono_child.is_none() {
+                    mono_child = node.prev();
+                }
+            }
+        }
+        let node = {
+            let node = node;
+            node.to_ref()
         };
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
@@ -1079,6 +1097,9 @@ impl Node for ContainerNode {
                 child.factor.set(factor);
                 sum += factor;
             }
+        }
+        if mono_child.is_some() {
+            self.mono_child.set(mono_child);
         }
         self.sum_factors.set(sum);
         self.update_title();

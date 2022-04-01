@@ -2,7 +2,9 @@
 
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
-use crate::input::{AccelProfile, Capability, InputDevice};
+use crate::input::acceleration::AccelProfile;
+use crate::input::capability::Capability;
+use crate::input::InputDevice;
 use crate::keyboard::keymap::Keymap;
 use crate::theme::Color;
 use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Seat, Workspace};

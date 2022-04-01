@@ -1,4 +1,4 @@
-use crate::backend::KeyState;
+use crate::backend::{KeyState};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
@@ -341,6 +341,10 @@ impl Node for FloatNode {
         if let Some(c) = self.child.get() {
             c.visit(visitor);
         }
+    }
+
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        Some(self.workspace.get())
     }
 
     fn child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {

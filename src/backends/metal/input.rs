@@ -93,8 +93,14 @@ impl MetalBackend {
     fn handle_keyboard_key(self: &Rc<Self>, event: LibInputEvent) {
         let (event, dev) = unpack!(self, event, keyboard_event);
         let state = if event.key_state() == LIBINPUT_KEY_STATE_PRESSED {
+            if dev.pressed_keys.insert(event.key(), ()).is_some() {
+                return;
+            }
             KeyState::Pressed
         } else {
+            if dev.pressed_keys.remove(&event.key()).is_none() {
+                return;
+            }
             KeyState::Released
         };
         dev.event(InputEvent::Key(event.key(), state));
@@ -132,8 +138,14 @@ impl MetalBackend {
     fn handle_pointer_button(self: &Rc<Self>, event: LibInputEvent) {
         let (event, dev) = unpack!(self, event, pointer_event);
         let state = if event.button_state() == LIBINPUT_BUTTON_STATE_PRESSED {
+            if dev.pressed_buttons.insert(event.button(), ()).is_some() {
+                return;
+            }
             KeyState::Pressed
         } else {
+            if dev.pressed_buttons.remove(&event.button()).is_none() {
+                return;
+            }
             KeyState::Released
         };
         dev.event(InputEvent::Button(event.button(), state));

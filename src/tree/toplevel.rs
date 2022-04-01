@@ -1,6 +1,6 @@
 use crate::ifs::wl_seat::SeatId;
 use crate::ifs::wl_surface::WlSurface;
-use crate::tree::{Node, WorkspaceNode};
+use crate::tree::{Node};
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
@@ -9,7 +9,6 @@ use std::rc::Rc;
 pub trait ToplevelNode {
     fn data(&self) -> &ToplevelData;
     fn parent(&self) -> Option<Rc<dyn Node>>;
-    fn workspace(&self) -> Option<Rc<WorkspaceNode>>;
     fn as_node(&self) -> &dyn Node;
     fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
     fn accepts_keyboard_focus(&self) -> bool;

@@ -87,6 +87,10 @@ xkb_keymap {
          <83> =  91; # KPDOT
          <87> =  95; # F11
          <88> =  96; # F12
+         <89> =  97; # RO
+         <92> = 100; # HENKAN
+         <93> = 101; # KATAKANAHIRAGANA
+         <94> = 102; # MUHENKAN
          <96> = 104; # KPENTER
          <97> = 105; # RIGHTCTRL
          <98> = 106; # KPSLASH
@@ -103,6 +107,7 @@ xkb_keymap {
         <111> = 119; # DELETE
         <117> = 125; # KPEQUAL
         <119> = 127; # PAUSE
+        <124> = 132; # YEN
         <125> = 133; # LEFTMETA
         <126> = 134; # RIGHTMETA
         <139> = 147; # MENU
@@ -311,6 +316,12 @@ xkb_keymap {
         key  <9> { [ 8, asterisk    ] };
         key <10> { [ 9, parenleft   ] };
         key <11> { [ 0, parenright  ] };
+
+        key <89> { [ dollar     , asciitilde  ] };
+        key <93> { [ ampersand  , percent     ] };
+        key <94> { [ equal   , asterisk   ] };
+        key <124> { [ at         , asciicircum ] };
+        key <92> { [ numbersign , grave       ] };
     };
 
 };

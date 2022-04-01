@@ -21,7 +21,7 @@ use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::toplevel::ToplevelNode;
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{ContainerNode, ContainerSplit, Node, NodeId};
+use crate::tree::{ContainerNode, ContainerSplit, Node, NodeId, WorkspaceNode};
 use crate::utils::buffd::{MsgParser, MsgParserError};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedList;
@@ -643,6 +643,13 @@ impl Node for WlSurface {
         }
     }
 
+    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+        if let Some(tl) = self.toplevel.get() {
+            return tl.as_node().get_workspace();
+        }
+        None
+    }
+
     fn get_parent_mono(&self) -> Option<bool> {
         self.toplevel
             .get()
@@ -679,7 +686,7 @@ impl Node for WlSurface {
             Some(tl) => tl,
             _ => return,
         };
-        let ws = match tl.workspace() {
+        let ws = match tl.as_node().get_workspace() {
             Some(ws) => ws,
             _ => return,
         };

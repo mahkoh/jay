@@ -1,4 +1,6 @@
-use crate::input::{AccelProfile, Capability, InputDevice};
+use crate::input::acceleration::AccelProfile;
+use crate::input::capability::Capability;
+use crate::input::InputDevice;
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
