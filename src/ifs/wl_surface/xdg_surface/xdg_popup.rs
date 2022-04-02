@@ -1,7 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{ NodeSeatState, WlSeatGlobal};
+use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
 use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
 use crate::ifs::xdg_positioner::{XdgPositioned, XdgPositioner, CA};
 use crate::leaks::Tracker;

@@ -1,5 +1,5 @@
 use crate::client::{Client, ClientError};
-use crate::ifs::wl_seat::{NodeSeatState};
+use crate::ifs::wl_seat::NodeSeatState;
 use crate::ifs::wl_surface::{
     CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
 };

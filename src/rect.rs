@@ -178,4 +178,8 @@ impl Rect {
     pub fn height(&self) -> i32 {
         self.y2 - self.y1
     }
+
+    pub fn position(&self) -> (i32, i32) {
+        (self.x1, self.y1)
+    }
 }

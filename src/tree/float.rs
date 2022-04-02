@@ -1,4 +1,4 @@
-use crate::backend::{KeyState};
+use crate::backend::KeyState;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};

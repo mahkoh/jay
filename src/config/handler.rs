@@ -18,9 +18,7 @@ use jay_config::input::capability::{
     Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
     CAP_TABLET_TOOL, CAP_TOUCH,
 };
-use jay_config::input::{
-    InputDevice,
-};
+use jay_config::input::InputDevice;
 use jay_config::keyboard::keymap::Keymap;
 use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;

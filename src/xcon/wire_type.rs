@@ -3,6 +3,7 @@ use crate::xcon::parser::Parser;
 use crate::xcon::XconError;
 use bstr::{BStr, ByteSlice};
 use std::borrow::Cow;
+use std::fmt::Debug;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -11,7 +12,7 @@ fn unimplemented() -> ! {
     unimplemented!();
 }
 
-pub unsafe trait Message<'a>: Clone + 'a {
+pub unsafe trait Message<'a>: Clone + Debug + 'a {
     type Generic<'b>: Message<'b>;
     const IS_POD: bool;
     const HAS_FDS: bool;

@@ -3,7 +3,10 @@ mod monitor;
 mod video;
 
 use crate::async_engine::{AsyncError, AsyncFd};
-use crate::backend::{Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState};
+use crate::backend::{
+    Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
+    InputEvent, KeyState,
+};
 use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
 use crate::dbus::DbusError;
 use crate::drm::drm::DrmError;
@@ -24,6 +27,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
+use crate::utils::smallmap::SmallMap;
 use crate::utils::syncqueue::SyncQueue;
 use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
@@ -32,7 +36,6 @@ use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::{c, OwnedFd};
-use crate::utils::smallmap::SmallMap;
 
 #[derive(Debug, Error)]
 pub enum MetalError {

@@ -1,7 +1,7 @@
-use std::ops::Deref;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::tree::{Node, OutputNode};
 use crate::utils::clonecell::CloneCell;
+use std::ops::Deref;
 use std::rc::Rc;
 
 pub struct KbOwnerHolder {

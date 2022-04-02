@@ -1,6 +1,6 @@
 use crate::ifs::wl_seat::SeatId;
 use crate::ifs::wl_surface::WlSurface;
-use crate::tree::{Node};
+use crate::tree::Node;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;

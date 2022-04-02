@@ -12,7 +12,7 @@ use crate::rect::Rect;
 use crate::render::Renderer;
 use crate::tree::toplevel::{ToplevelData, ToplevelNode};
 use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult};
+use crate::tree::FindTreeResult;
 use crate::tree::{FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;

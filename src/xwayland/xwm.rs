@@ -9,23 +9,8 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::queue::AsyncQueue;
 use crate::wire::WlSurfaceId;
-use crate::wire_xcon::{
-    ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
-    ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify,
-    CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetGeometry, InternAtom, KillClient,
-    MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds,
-    SetInputFocus, SetSelectionOwner, UnmapNotify,
-};
-use crate::xcon::consts::{
-    ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS,
-    ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, EVENT_MASK_FOCUS_CHANGE,
-    EVENT_MASK_PROPERTY_CHANGE, EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-    ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN,
-    INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD,
-    NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE,
-    RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD,
-    _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE,
-};
+use crate::wire_xcon::{ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows, ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetAtomName, GetGeometry, InternAtom, KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify};
+use crate::xcon::consts::{ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE, EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT, ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN, INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD, NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE, STACK_MODE_ABOVE, STACK_MODE_BELOW, CONFIG_WINDOW_X, CONFIG_WINDOW_Y, CONFIG_WINDOW_WIDTH, CONFIG_WINDOW_HEIGHT};
 use crate::xcon::{Event, XEvent, Xcon, XconError};
 use crate::xwayland::{XWaylandError, XWaylandEvent};
 use ahash::{AHashMap, AHashSet};
@@ -447,7 +432,8 @@ impl Wm {
         if window.info.override_redirect.get() {
             return;
         }
-        let accepts_input = window.info.icccm_hints.input.get() != 0;
+        let accepts_input = window.info.icccm_hints.input.get();
+        log::info!("{:?} ai {}", window.info.title, accepts_input);
         let mask = if accepts_input {
             EVENT_MASK_SUBSTRUCTURE_REDIRECT
         } else {
@@ -502,7 +488,7 @@ impl Wm {
 
     fn compute_input_model(&self, data: &Rc<XwindowData>) {
         let has_wm_take_focus = data.info.protocols.contains(&self.atoms.WM_TAKE_FOCUS);
-        let accepts_input = data.info.icccm_hints.input.get() != 0;
+        let accepts_input = data.info.icccm_hints.input.get();
         let model = match (accepts_input, has_wm_take_focus) {
             (false, false) => XInputModel::None,
             (true, false) => XInputModel::Passive,
@@ -664,13 +650,14 @@ impl Wm {
             if !matches!(e, XconError::PropertyUnavailable) {
                 log::error!("Could not retrieve WM_HINTS property: {}", ErrorFmt(e));
             }
+            data.info.icccm_hints.input.set(true);
             return;
         }
         let mut values = [0; 9];
         let len = values.len().min(buf.len());
         values[..len].copy_from_slice(&buf[..len]);
         data.info.icccm_hints.flags.set(values[0] as i32);
-        data.info.icccm_hints.input.set(values[1]);
+        data.info.icccm_hints.input.set(values[1] != 0);
         data.info.icccm_hints.initial_state.set(values[2] as i32);
         data.info.icccm_hints.icon_pixmap.set(values[3]);
         data.info.icccm_hints.icon_window.set(values[4]);
@@ -685,7 +672,7 @@ impl Wm {
             .get()
             .not_contains(ICCCM_WM_HINT_INPUT)
         {
-            data.info.icccm_hints.input.set(1);
+            data.info.icccm_hints.input.set(true);
         }
         self.compute_input_model(data);
     }
@@ -1027,6 +1014,12 @@ impl Wm {
 
     async fn handle_property_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: PropertyNotify = event.parse()?;
+        let name = self.c.call(&GetAtomName {
+            atom: event.atom,
+        }).await;
+        if let Ok(name) = name {
+            log::info!("{}", name.get().name);
+        }
         let data = match self.windows.get(&event.window) {
             Some(w) => w,
             _ => return Ok(()),
@@ -1093,7 +1086,9 @@ impl Wm {
                 child.parent.set(None);
             }
         }
-        self.activate_window(None).await;
+        if self.focus_window.as_ref().map(|w| w.window_id) == Some(event.window) {
+            self.activate_window(None).await;
+        }
         Ok(())
     }
 
@@ -1263,6 +1258,20 @@ impl Wm {
             }
         };
         *window.stack_link.borrow_mut() = Some(link);
+        let res = self.c.call(&ConfigureWindow {
+            window: window.window_id,
+            values: ConfigureWindowValues {
+                sibling: sibling.map(|s| s.window_id),
+                stack_mode: Some(match above {
+                    true => STACK_MODE_ABOVE,
+                    false => STACK_MODE_BELOW,
+                }),
+                ..Default::default()
+            },
+        }).await;
+        if let Err(e) = res {
+            log::warn!("Could not restack window: {}", ErrorFmt(e));
+        }
         self.set_net_client_list_stacking().await;
     }
 
@@ -1308,9 +1317,29 @@ impl Wm {
             Some(d) => d,
             _ => return Ok(()),
         };
-        if let Some(w) = data.window.get() {
-            self.send_configure(w).await;
+        if let Some(window) = data.window.get() {
+            if window.is_mapped() {
+                return Ok(());
+            }
         }
+        let de = data.info.extents.get();
+        let mut x1 = de.x1();
+        let mut y1 = de.y1();
+        let mut width = de.width();
+        let mut height = de.height();
+        if event.value_mask.contains(CONFIG_WINDOW_X) {
+            x1 = event.x as _;
+        }
+        if event.value_mask.contains(CONFIG_WINDOW_Y) {
+            y1 = event.y as _;
+        }
+        if event.value_mask.contains(CONFIG_WINDOW_WIDTH) {
+            width = event.width as _;
+        }
+        if event.value_mask.contains(CONFIG_WINDOW_HEIGHT) {
+            height = event.height as _;
+        }
+        data.info.extents.set(Rect::new_sized(x1, y1, width, height).unwrap());
         Ok(())
     }
 

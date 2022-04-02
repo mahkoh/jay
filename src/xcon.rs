@@ -214,7 +214,11 @@ impl Event {
 
     pub fn parse<'a, M: Message<'a>>(&'a self) -> Result<M, XconError> {
         let mut parser = Parser::new(&self.buf, vec![]);
-        M::deserialize(&mut parser)
+        let res = M::deserialize(&mut parser);
+        if let Ok(res) = &res {
+            log::info!("event {:?}", res);
+        }
+        res
     }
 }
 
@@ -296,6 +300,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
                 return Err(XconError::XconError(e));
             }
         };
+        log::info!("result {:?}", msg);
         let reply = Reply {
             bufio: bufio.clone(),
             buf,
@@ -499,6 +504,7 @@ impl Xcon {
     }
 
     pub fn call<'a, T: Request<'a>>(self: &Rc<Self>, t: &T) -> AsyncReply<T::Reply> {
+        log::info!("send {:?}", t);
         self.data.call_with_serial(t, &self.extensions).0
     }
 
@@ -506,6 +512,7 @@ impl Xcon {
         self: &Rc<Self>,
         t: &T,
     ) -> (AsyncReply<T::Reply>, u64) {
+        log::info!("send {:?}", t);
         self.data.call_with_serial(t, &self.extensions)
     }
 
@@ -516,6 +523,7 @@ impl Xcon {
         event_mask: u32,
         t: &T,
     ) -> AsyncReply<()> {
+        log::info!("send {:?}", t);
         self.data
             .send_event(t, &self.extensions, propagate, destination, event_mask)
     }

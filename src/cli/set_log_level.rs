@@ -1,7 +1,7 @@
-use std::rc::Rc;
 use crate::cli::{GlobalArgs, SetLogArgs};
 use crate::tools::tool_client::ToolClient;
 use crate::wire::jay_compositor::SetLogLevel;
+use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: SetLogArgs) {
     let tc = ToolClient::new(global.log_level.into());

@@ -197,7 +197,7 @@ impl WlSeatGlobal {
         let is_container = new.is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
             match tl.as_node().get_workspace() {
-                Some(ws) if ws.id == workspace.id => { },
+                Some(ws) if ws.id == workspace.id => {}
                 _ => continue,
             };
             let parent_is_float = match tl.parent() {
@@ -412,7 +412,9 @@ impl WlSeatGlobal {
 // Enter callbacks
 impl WlSeatGlobal {
     pub fn enter_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        self.focus_toplevel(n);
+        if n.accepts_keyboard_focus() {
+            self.focus_toplevel(n);
+        }
     }
 
     pub fn enter_popup(self: &Rc<Self>, _n: &Rc<XdgPopup>) {

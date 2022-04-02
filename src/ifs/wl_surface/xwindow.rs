@@ -1,4 +1,4 @@
-use crate::client::{Client};
+use crate::client::Client;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
@@ -20,7 +20,7 @@ use crate::xwayland::XWaylandEvent;
 use bstr::BString;
 use jay_config::Direction;
 use std::cell::{Cell, RefCell};
-use std::ops::Deref;
+use std::ops::{Deref, Not};
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -41,7 +41,7 @@ impl Default for XInputModel {
 #[derive(Default, Debug)]
 pub struct IcccmHints {
     pub flags: Cell<i32>,
-    pub input: Cell<u32>,
+    pub input: Cell<bool>,
     pub initial_state: Cell<i32>,
     pub icon_pixmap: Cell<u32>,
     pub icon_window: Cell<u32>,
@@ -402,11 +402,12 @@ impl Node for Xwindow {
     }
 
     fn change_extents(self: Rc<Self>, rect: &Rect) {
-        let nw = rect.width();
-        let nh = rect.height();
-        let de = self.data.info.extents.replace(*rect);
-        if de.width() != nw || de.height() != nh {
+        let old = self.data.info.extents.replace(*rect);
+        if old != *rect {
             self.events.push(XWaylandEvent::Configure(self.clone()));
+            if old.position() != rect.position() {
+                self.surface.set_absolute_position(rect.x1(), rect.y1());
+            }
         }
     }
 
@@ -442,7 +443,8 @@ impl ToplevelNode for Xwindow {
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
-        self.data.info.icccm_hints.input.get() != 0
+        self.data.info.never_focus.get().not() &&
+            self.data.info.icccm_hints.input.get()
     }
 
     fn default_surface(&self) -> Rc<WlSurface> {

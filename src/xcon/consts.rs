@@ -251,3 +251,17 @@ pub const _NET_WM_MOVERESIZE_MOVE: u32 = 8;
 pub const _NET_WM_MOVERESIZE_SIZE_KEYBOARD: u32 = 9;
 pub const _NET_WM_MOVERESIZE_MOVE_KEYBOARD: u32 = 10;
 pub const _NET_WM_MOVERESIZE_CANCEL: u32 = 11;
+
+pub const STACK_MODE_ABOVE     : u32 = 0;
+pub const STACK_MODE_BELOW     : u32 = 1;
+pub const STACK_MODE_TOP_IF    : u32 = 2;
+pub const STACK_MODE_BOTTOM_IF : u32 = 3;
+pub const STACK_MODE_OPPOSITE  : u32 = 4;
+
+pub const CONFIG_WINDOW_X            : u16 = 1;
+pub const CONFIG_WINDOW_Y            : u16 = 2;
+pub const CONFIG_WINDOW_WIDTH        : u16 = 4;
+pub const CONFIG_WINDOW_HEIGHT       : u16 = 8;
+pub const CONFIG_WINDOW_BORDER_WIDTH : u16 = 16;
+pub const CONFIG_WINDOW_SIBLING      : u16 = 32;
+pub const CONFIG_WINDOW_STACK_MODE   : u16 = 64;
