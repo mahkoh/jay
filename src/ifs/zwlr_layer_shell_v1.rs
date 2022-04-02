@@ -82,6 +82,7 @@ impl ZwlrLayerShellV1 {
                 }
             }
         };
+        log::info!("output = {:?}", output.position.get());
         if req.layer > OVERLAY {
             return Err(GetLayerSurfaceError::UnknownLayer(req.layer));
         }

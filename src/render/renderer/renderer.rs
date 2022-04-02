@@ -29,11 +29,16 @@ pub struct Renderer<'a> {
 
 impl Renderer<'_> {
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
+        let opos = output.position.get();
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {
                     let pos = ls.position();
-                    self.render_layer_surface(ls.deref(), pos.x1(), pos.y1());
+                    self.render_layer_surface(
+                        ls.deref(),
+                        x + pos.x1() - opos.x1(),
+                        y + pos.y1() - opos.y1(),
+                    );
                 }
             };
         }
@@ -321,7 +326,7 @@ impl Renderer<'_> {
 
     pub fn render_layer_surface(&mut self, surface: &ZwlrLayerSurfaceV1, x: i32, y: i32) {
         unsafe {
-            let body = surface.position();
+            let body = surface.position().at_point(x, y);
             with_scissor(&body, || {
                 self.render_surface(&surface.surface, x, y);
             });

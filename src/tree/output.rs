@@ -94,6 +94,20 @@ impl OutputNode {
         )
         .unwrap()
     }
+
+    pub fn change_size(&self, width: i32, height: i32) {
+        let pos = self.position.get();
+        let rect = Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap();
+        self.position.set(rect);
+        if let Some(c) = self.workspace.get() {
+            c.change_extents(&self.workspace_rect());
+        }
+        for layer in &self.layers {
+            for surface in layer.iter() {
+                surface.deref().clone().change_extents(&rect);
+            }
+        }
+    }
 }
 
 pub struct OutputTitle {
@@ -197,17 +211,5 @@ impl Node for OutputNode {
 
     fn into_output(self: Rc<Self>) -> Option<Rc<OutputNode>> {
         Some(self)
-    }
-
-    fn change_extents(self: Rc<Self>, rect: &Rect) {
-        self.position.set(*rect);
-        if let Some(c) = self.workspace.get() {
-            c.change_extents(&self.workspace_rect());
-        }
-        for layer in &self.layers {
-            for surface in layer.iter() {
-                surface.deref().clone().change_extents(rect);
-            }
-        }
     }
 }

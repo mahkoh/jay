@@ -281,6 +281,7 @@ impl ZwlrLayerSurfaceV1 {
         }
         self.pos
             .set(Rect::new_sized(x1, y1, width, height).unwrap());
+        self.surface.set_absolute_position(x1, y1);
         self.client.state.tree_changed();
     }
 }
