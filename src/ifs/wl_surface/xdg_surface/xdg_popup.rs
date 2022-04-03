@@ -102,7 +102,7 @@ impl XdgPopup {
         let mut rel_pos = positioner.get_position(false, false);
         let mut abs_pos = rel_pos.move_(parent_abs.x1(), parent_abs.y1());
         if let Some(ws) = parent.workspace.get() {
-            let output_pos = ws.output.get().position.get();
+            let output_pos = ws.output.get().global.pos.get();
             let mut overflow = output_pos.get_overflow(&abs_pos);
             if !overflow.is_contained() {
                 let mut flip_x = positioner.ca.contains(CA::FLIP_X) && overflow.x_overflow();

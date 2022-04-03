@@ -1,8 +1,5 @@
 use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-    InputDeviceId, InputEvent, KeyState, Output, OutputId, ScrollAxis,
-};
+use crate::backend::{Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Connector, OutputId, ScrollAxis, Mode, ConnectorEvent};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -42,6 +39,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::utils::syncqueue::SyncQueue;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {
@@ -396,7 +394,7 @@ impl XBackendData {
             id: self.state.output_ids.next(),
             _backend: self.clone(),
             window: window_id,
-            removed: Cell::new(false),
+            events: Default::default(),
             width: Cell::new(0),
             height: Cell::new(0),
             serial: Default::default(),
@@ -479,7 +477,7 @@ impl XBackendData {
         self.outputs.set(window_id, output.clone());
         self.state
             .backend_events
-            .push(BackendEvent::NewOutput(output.clone()));
+            .push(BackendEvent::NewConnector(output.clone()));
         self.present(&output).await;
         Ok(())
     }
@@ -636,10 +634,6 @@ impl XBackendData {
     }
 
     async fn present(&self, output: &Rc<XOutput>) {
-        if output.removed.get() {
-            return;
-        }
-
         let serial = output.serial.fetch_add(1);
 
         let image = &output.images[output.next_image.fetch_add(1) % output.images.len()];
@@ -648,7 +642,7 @@ impl XBackendData {
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
             let fb = image.fb.get();
-            fb.render(&*node, &self.state, Some(node.position.get()));
+            fb.render(&*node, &self.state, Some(node.global.pos.get()));
         }
 
         let pp = PresentPixmap {
@@ -795,7 +789,7 @@ impl XBackendData {
             Some(o) => o,
             _ => return Ok(()),
         };
-        output.removed.set(true);
+        output.events.push(ConnectorEvent::Removed);
         output.changed();
         Ok(())
     }
@@ -820,6 +814,11 @@ impl XBackendData {
                 old.fb.set(new.fb.get());
                 old.pixmap.set(new.pixmap.get());
             }
+            output.events.push(ConnectorEvent::ModeChanged(Mode {
+                width,
+                height,
+                refresh_rate: 60, // TODO
+            }));
             output.changed();
         }
         Ok(())
@@ -830,7 +829,7 @@ struct XOutput {
     id: OutputId,
     _backend: Rc<XBackendData>,
     window: u32,
-    removed: Cell<bool>,
+    events: SyncQueue<ConnectorEvent>,
     width: Cell<i32>,
     height: Cell<i32>,
     serial: NumCell<u32>,
@@ -856,21 +855,13 @@ impl XOutput {
     }
 }
 
-impl Output for XOutput {
+impl Connector for XOutput {
     fn id(&self) -> OutputId {
         self.id
     }
 
-    fn removed(&self) -> bool {
-        self.removed.get()
-    }
-
-    fn width(&self) -> i32 {
-        self.width.get()
-    }
-
-    fn height(&self) -> i32 {
-        self.height.get()
+    fn event(&self) -> Option<ConnectorEvent> {
+        self.events.pop()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {

@@ -1,4 +1,4 @@
-use crate::backend::Output;
+use crate::backend::Connector;
 use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
@@ -17,6 +17,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::backend;
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]
@@ -52,18 +53,20 @@ const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {
     name: GlobalName,
-    output: Rc<dyn Output>,
-    pos: Cell<Rect>,
+    pub connector: Rc<dyn Connector>,
+    pub pos: Cell<Rect>,
+    pub mode: Cell<backend::Mode>,
     pub node: CloneCell<Option<Rc<OutputNode>>>,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
 }
 
 impl WlOutputGlobal {
-    pub fn new(name: GlobalName, output: Rc<dyn Output>) -> Self {
+    pub fn new(name: GlobalName, connector: Rc<dyn Connector>, x1: i32) -> Self {
         Self {
             name,
-            output: output.clone(),
-            pos: Cell::new(Rect::new_sized(0, 0, output.width(), output.height()).unwrap()),
+            connector: connector.clone(),
+            pos: Cell::new(Rect::new_empty(x1, 0)),
+            mode: Default::default(),
             node: Default::default(),
             bindings: Default::default(),
         }
@@ -73,30 +76,18 @@ impl WlOutputGlobal {
         self.pos.get()
     }
 
-    pub fn update_properties(&self) {
-        let width = self.output.width();
-        let height = self.output.height();
-
-        let pos = self.pos.get();
-        let old_width = pos.width();
-        let old_height = pos.height();
-        let changed = old_width != width || old_height != height;
-
-        if changed {
-            self.pos
-                .set(Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap());
-            let bindings = self.bindings.borrow_mut();
-            for binding in bindings.values() {
-                for binding in binding.values() {
-                    binding.send_geometry();
-                    binding.send_mode();
-                    binding.send_scale();
-                    binding.send_done();
-                    binding.client.flush();
-                    let xdg = binding.xdg_outputs.lock();
-                    for xdg in xdg.values() {
-                        xdg.send_updates();
-                    }
+    pub fn send_mode(&self) {
+        let bindings = self.bindings.borrow_mut();
+        for binding in bindings.values() {
+            for binding in binding.values() {
+                binding.send_geometry();
+                binding.send_mode();
+                binding.send_scale();
+                binding.send_done();
+                binding.client.flush();
+                let xdg = binding.xdg_outputs.lock();
+                for xdg in xdg.values() {
+                    xdg.send_updates();
                 }
             }
         }

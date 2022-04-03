@@ -1,5 +1,5 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
-use crate::backend::{BackendEvent, Output, OutputId};
+use crate::backend::{BackendEvent, Connector, ConnectorEvent, Mode, OutputId};
 use crate::backends::metal::{DrmId, MetalBackend, MetalError};
 use crate::drm::drm::{
     drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc,
@@ -24,6 +24,7 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::c;
+use crate::utils::syncqueue::SyncQueue;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -77,6 +78,8 @@ pub struct MetalConnector {
     pub modes: Vec<DrmModeInfo>,
     pub mode: CloneCell<Option<Rc<DrmModeInfo>>>,
 
+    pub events: SyncQueue<ConnectorEvent>,
+
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub next_buffer: NumCell<usize>,
 
@@ -110,27 +113,13 @@ impl Debug for OnChange {
     }
 }
 
-impl Output for MetalConnector {
+impl Connector for MetalConnector {
     fn id(&self) -> OutputId {
         self.output_id
     }
 
-    fn removed(&self) -> bool {
-        false
-    }
-
-    fn width(&self) -> i32 {
-        match self.mode.get() {
-            Some(m) => m.hdisplay as _,
-            _ => 0,
-        }
-    }
-
-    fn height(&self) -> i32 {
-        match self.mode.get() {
-            Some(m) => m.vdisplay as _,
-            _ => 0,
-        }
+    fn event(&self) -> Option<ConnectorEvent> {
+        self.events.pop()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
@@ -223,12 +212,22 @@ fn create_connector(
         }
     }
     let props = collect_properties(&dev.master, connector)?;
+    let mode = info.modes.first().cloned().map(Rc::new);
+    let events = SyncQueue::default();
+    if let Some(mode) = &mode {
+        events.push(ConnectorEvent::ModeChanged(Mode {
+            width: mode.hdisplay as _,
+            height: mode.vdisplay as _,
+            refresh_rate: mode.refresh_rate(),
+        }));
+    }
     Ok(MetalConnector {
         id: connector,
         master: dev.master.clone(),
         output_id: state.output_ids.next(),
         crtcs,
-        mode: CloneCell::new(info.modes.first().cloned().map(Rc::new)),
+        mode: CloneCell::new(mode),
+        events,
         modes: info.modes,
         buffers: Default::default(),
         next_buffer: Default::default(),
@@ -486,6 +485,9 @@ impl MetalBackend {
         self.init_drm_device(&slf)?;
 
         for connector in slf.connectors.values() {
+            self.state
+                .backend_events
+                .push(BackendEvent::NewConnector(connector.clone()));
             if connector.primary_plane.get().is_some() {
                 self.start_connector(connector);
             }
@@ -880,9 +882,6 @@ impl MetalBackend {
 
     fn start_connector(&self, connector: &Rc<MetalConnector>) {
         let mode = connector.mode.get().unwrap();
-        self.state
-            .backend_events
-            .push(BackendEvent::NewOutput(connector.clone()));
         log::info!(
             "Initialized connector {}-{} with mode {:?}",
             connector.connector_type,
@@ -905,7 +904,7 @@ impl MetalBackend {
         if let Some(node) = self.state.root.outputs.get(&connector.output_id) {
             buffer
                 .egl
-                .render(&*node, &self.state, Some(node.position.get()));
+                .render(&*node, &self.state, Some(node.global.pos.get()));
         }
         let mut changes = connector.master.change();
         changes.change_object(plane.id, |c| {

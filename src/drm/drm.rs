@@ -32,6 +32,7 @@ pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
 };
+use crate::utils::vec_ext::VecExt;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -63,6 +64,8 @@ pub enum DrmError {
     GetPropBlob(#[source] OsError),
     #[error("Property has an invalid size")]
     InvalidProbSize,
+    #[error("Property has a size that is not a multiple of the vector type")]
+    UnalignedPropSize,
     #[error("Could not perform drm properties ioctl")]
     GetProperties(#[source] OsError),
     #[error("Could not perform drm atomic ioctl")]
@@ -313,6 +316,25 @@ impl DrmMaster {
             Err(e) => Err(DrmError::GetPropBlob(e)),
             Ok(n) if n != mem::size_of::<T>() => Err(DrmError::InvalidProbSize),
             _ => unsafe { Ok(t.assume_init()) },
+        }
+    }
+
+    pub fn getblob_vec<T: Pod>(&self, blob: DrmBlob) -> Result<Vec<T>, DrmError> {
+        assert_ne!(mem::size_of::<T>(), 0);
+        let mut vec = vec![];
+        loop {
+            let (_, bytes) = vec.split_at_spare_mut_bytes_ext();
+            match mode_getprobblob(self.raw(), blob.0, bytes) {
+                Err(e) => return Err(DrmError::GetPropBlob(e)),
+                Ok(n) if n % mem::size_of::<T>() != 0 => return Err(DrmError::UnalignedPropSize),
+                Ok(n) if n <= bytes.len() => {
+                    unsafe {
+                        vec.set_len(n / mem::size_of::<T>());
+                    }
+                    return Ok(vec);
+                }
+                Ok(n) => vec.reserve_exact(n / mem::size_of::<T>()),
+            }
         }
     }
 
@@ -569,6 +591,16 @@ impl DrmModeInfo {
             ty: self.ty,
             name,
         }
+    }
+
+    pub fn refresh_rate(&self) -> u32 {
+        let clock_mhz = self.clock as u64 * 1_000_000;
+        let htotal = self.htotal as u64;
+        let vtotal = self.vtotal as u64;
+        (((clock_mhz / htotal) + (vtotal / 2)) / vtotal) as u32
+        // simplifies to
+        //     clock_mhz / (htotal * vtotal) + 1/2
+        // why round up (+1/2) instead of down?
     }
 }
 

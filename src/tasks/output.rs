@@ -1,16 +1,16 @@
-use crate::backend::Output;
+use crate::backend::{Connector, ConnectorEvent};
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::rect::Rect;
 use crate::state::State;
 use crate::tree::{OutputNode, OutputRenderData, WorkspaceNode};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
-use std::cell::{Cell, RefCell};
+use std::cell::{RefCell};
 use std::rc::Rc;
 
 pub struct OutputHandler {
     pub state: Rc<State>,
-    pub output: Rc<dyn Output>,
+    pub output: Rc<dyn Connector>,
 }
 
 impl OutputHandler {
@@ -21,12 +21,11 @@ impl OutputHandler {
             self.output.on_change(Rc::new(move || ae.trigger()));
         }
         let name = self.state.globals.name();
-        let global = Rc::new(WlOutputGlobal::new(name, self.output.clone()));
-        let x1 = self.state.root.outputs.lock().values().map(|o| o.position.get().x2()).max().unwrap_or(0);
+        let x1 = self.state.root.outputs.lock().values().map(|o| o.global.pos.get().x2()).max().unwrap_or(0);
+        let global = Rc::new(WlOutputGlobal::new(name, self.output.clone(), x1));
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),
-            position: Cell::new(Rect::new_empty(x1, 0)),
             workspace: CloneCell::new(None),
             seat_state: Default::default(),
             global: global.clone(),
@@ -68,20 +67,15 @@ impl OutputHandler {
         self.state.root.outputs.set(self.output.id(), on.clone());
         self.state.add_global(&global);
         self.state.outputs.set(self.output.id(), global.clone());
-        let mut width = 0;
-        let mut height = 0;
-        loop {
-            if self.output.removed() {
-                break;
+        'outer: loop {
+            while let Some(event) = self.output.event() {
+                match event {
+                    ConnectorEvent::Removed => break 'outer,
+                    ConnectorEvent::ModeChanged(mode) => {
+                        on.update_mode(mode);
+                    }
+                }
             }
-            let new_width = self.output.width();
-            let new_height = self.output.height();
-            if new_width != width || new_height != height {
-                width = new_width;
-                height = new_height;
-                on.change_size(new_width, new_height);
-            }
-            global.update_properties();
             ae.triggered().await;
         }
         global.node.set(None);

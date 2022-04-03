@@ -9,12 +9,23 @@ pub trait Backend {
     fn switch_to(&self, vtnr: u32);
 }
 
-pub trait Output {
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Mode {
+    pub width: i32,
+    pub height: i32,
+    pub refresh_rate: u32,
+}
+
+pub trait Connector {
     fn id(&self) -> OutputId;
-    fn removed(&self) -> bool;
-    fn width(&self) -> i32;
-    fn height(&self) -> i32;
+    fn event(&self) -> Option<ConnectorEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
+}
+
+#[derive(Debug)]
+pub enum ConnectorEvent {
+    Removed,
+    ModeChanged(Mode),
 }
 
 pub trait InputDevice {
@@ -49,7 +60,7 @@ pub enum InputDeviceAccelProfile {
 }
 
 pub enum BackendEvent {
-    NewOutput(Rc<dyn Output>),
+    NewConnector(Rc<dyn Connector>),
     NewInputDevice(Rc<dyn InputDevice>),
 }
 

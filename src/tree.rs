@@ -434,7 +434,7 @@ impl Node for DisplayNode {
         }
         let outputs = self.outputs.lock();
         for output in outputs.values() {
-            let pos = output.position.get();
+            let pos = output.global.pos.get();
             if pos.contains(x, y) {
                 let (x, y) = pos.translate(x, y);
                 tree.push(FoundNode {

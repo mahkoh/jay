@@ -29,7 +29,7 @@ pub struct Renderer<'a> {
 
 impl Renderer<'_> {
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
-        let opos = output.position.get();
+        let opos = output.global.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {

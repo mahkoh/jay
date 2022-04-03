@@ -1,4 +1,4 @@
-use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use std::cell::UnsafeCell;
 
 pub struct Stack<T> {
@@ -22,5 +22,14 @@ impl<T> Stack<T> {
 
     pub fn pop(&self) -> Option<T> {
         unsafe { self.vec.get().deref_mut().pop() }
+    }
+
+    pub fn to_vec(&self) -> Vec<T>
+        where T: Clone,
+    {
+        unsafe {
+            let v = self.vec.get().deref();
+            (*v).clone()
+        }
     }
 }

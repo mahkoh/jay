@@ -3,6 +3,7 @@ use std::cell::UnsafeCell;
 use std::collections::VecDeque;
 use std::mem;
 
+#[derive(Debug)]
 pub struct SyncQueue<T> {
     el: UnsafeCell<VecDeque<T>>,
 }

@@ -1,4 +1,4 @@
-use crate::backend::{Backend, Output, OutputId};
+use crate::backend::{Backend, Connector, ConnectorEvent, OutputId};
 use std::rc::Rc;
 
 pub struct DummyBackend {}
@@ -13,21 +13,13 @@ pub struct DummyOutput {
     pub id: OutputId,
 }
 
-impl Output for DummyOutput {
+impl Connector for DummyOutput {
     fn id(&self) -> OutputId {
         self.id
     }
 
-    fn removed(&self) -> bool {
-        false
-    }
-
-    fn width(&self) -> i32 {
-        100
-    }
-
-    fn height(&self) -> i32 {
-        100
+    fn event(&self) -> Option<ConnectorEvent> {
+        None
     }
 
     fn on_change(&self, _cb: Rc<dyn Fn()>) {

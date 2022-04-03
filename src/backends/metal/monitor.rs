@@ -232,6 +232,7 @@ impl MetalBackend {
     }
 
     fn handle_drm_change(self: &Rc<Self>, _dev: UdevDevice) -> Option<()> {
+        // TODO: Handle monitor connections and connector hotplug
         None
     }
 

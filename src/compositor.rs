@@ -120,12 +120,12 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
     {
         let dummy_output = Rc::new(OutputNode {
             id: state.node_ids.next(),
-            position: Default::default(),
             global: Rc::new(WlOutputGlobal::new(
                 state.globals.name(),
                 Rc::new(DummyOutput {
                     id: state.output_ids.next(),
                 }),
+                0,
             )),
             workspaces: Default::default(),
             workspace: Default::default(),

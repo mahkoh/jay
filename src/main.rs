@@ -78,6 +78,7 @@ mod wire_xcon;
 mod xcon;
 mod xkbcommon;
 mod xwayland;
+mod edid;
 
 fn main() {
     cli::main();

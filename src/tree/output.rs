@@ -13,15 +13,15 @@ use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::LinkedList;
-use std::cell::{Cell, RefCell};
+use std::cell::{RefCell};
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, Sub};
 use std::rc::Rc;
+use crate::backend::Mode;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
     pub id: OutputNodeId,
-    pub position: Cell<Rect>,
     pub global: Rc<WlOutputGlobal>,
     pub workspaces: LinkedList<Rc<WorkspaceNode>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
@@ -84,7 +84,7 @@ impl OutputNode {
     }
 
     fn workspace_rect(&self) -> Rect {
-        let rect = self.position.get();
+        let rect = self.global.pos.get();
         let th = self.state.theme.title_height.get();
         Rect::new_sized(
             rect.x1(),
@@ -95,10 +95,13 @@ impl OutputNode {
         .unwrap()
     }
 
-    pub fn change_size(&self, width: i32, height: i32) {
-        let pos = self.position.get();
-        let rect = Rect::new_sized(pos.x1(), pos.y1(), width, height).unwrap();
-        self.position.set(rect);
+    pub fn update_mode(&self, mode: Mode) {
+        if self.global.mode.get() == mode {
+            return;
+        }
+        let pos = self.global.pos.get();
+        let rect = Rect::new_sized(pos.x1(), pos.y1(), mode.width, mode.height).unwrap();
+        self.global.pos.set(rect);
         if let Some(c) = self.workspace.get() {
             c.change_extents(&self.workspace_rect());
         }
@@ -107,6 +110,7 @@ impl OutputNode {
                 surface.deref().clone().change_extents(&rect);
             }
         }
+        self.global.send_mode();
     }
 }
 
@@ -166,7 +170,7 @@ impl Node for OutputNode {
     }
 
     fn absolute_position(&self) -> Rect {
-        self.position.get()
+        self.global.pos.get()
     }
 
     fn find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {

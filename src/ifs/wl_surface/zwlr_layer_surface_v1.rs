@@ -262,7 +262,7 @@ impl ZwlrLayerSurfaceV1 {
         if anchor == 0 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
-        let opos = self.output.position.get();
+        let opos = self.output.global.pos.get();
         let mut x1 = opos.x1();
         let mut y1 = opos.y1();
         if anchor.contains(LEFT) {
