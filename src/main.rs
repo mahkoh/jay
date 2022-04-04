@@ -59,7 +59,6 @@ mod logger;
 mod logind;
 mod object;
 mod pango;
-mod pixman;
 mod rect;
 mod render;
 mod sighand;

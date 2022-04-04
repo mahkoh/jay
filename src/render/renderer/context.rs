@@ -2,7 +2,7 @@ use crate::drm::dma::DmaBuf;
 use crate::drm::drm::{Drm, NodeType};
 use crate::format::{Format, XRGB8888};
 use crate::render::egl::context::EglContext;
-use crate::render::egl::find_drm_device;
+use crate::render::egl::display::EglDisplay;
 use crate::render::gl::program::GlProgram;
 use crate::render::gl::render_buffer::GlRenderBuffer;
 use crate::render::gl::sys::GLint;
@@ -16,7 +16,6 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::ustr;
-use crate::render::egl::display::EglDisplay;
 
 pub(super) struct TexProg {
     pub(super) prog: GlProgram,

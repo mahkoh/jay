@@ -1,9 +1,9 @@
-use std::ptr;
 use crate::drm::dma::DmaBuf;
+use crate::drm::drm::Drm;
+use crate::drm::gbm::GbmDevice;
 use crate::drm::INVALID_MODIFIER;
-use crate::format::{Format, formats};
+use crate::format::{formats, Format};
 use crate::render::egl::context::EglContext;
-use crate::render::egl::device::EglDevice;
 use crate::render::egl::image::EglImage;
 use crate::render::egl::sys::{
     eglCreateContext, eglTerminate, EGLClientBuffer, EGLConfig, EGLContext, EGLDisplay, EGLint,
@@ -19,20 +19,18 @@ use crate::render::egl::sys::{
     EGL_LINUX_DRM_FOURCC_EXT, EGL_NONE, EGL_TRUE, EGL_WIDTH,
 };
 use crate::render::egl::PROCS;
-use crate::render::ext::{get_gl_ext, DisplayExt, GlExt, get_display_ext};
+use crate::render::ext::{get_display_ext, get_gl_ext, DisplayExt, GlExt};
+use crate::render::sys::{eglInitialize, EGL_PLATFORM_GBM_KHR};
 use crate::render::RenderError;
 use ahash::AHashMap;
+use std::ptr;
 use std::rc::Rc;
-use crate::drm::drm::Drm;
-use crate::drm::gbm::GbmDevice;
-use crate::render::sys::{EGL_PLATFORM_GBM_KHR, eglInitialize};
 
 #[derive(Debug)]
 pub struct EglDisplay {
     pub exts: DisplayExt,
     pub formats: Rc<AHashMap<u32, &'static Format>>,
-    pub dev: Option<EglDevice>,
-    pub gbm: Option<GbmDevice>,
+    pub gbm: GbmDevice,
     pub dpy: EGLDisplay,
 }
 
@@ -54,8 +52,7 @@ impl EglDisplay {
             let mut dpy = EglDisplay {
                 exts: DisplayExt::empty(),
                 formats: Rc::new(AHashMap::new()),
-                dev: None,
-                gbm: Some(gbm),
+                gbm,
                 dpy,
             };
             let mut major = 0;

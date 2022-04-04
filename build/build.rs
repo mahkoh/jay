@@ -18,6 +18,7 @@ use std::io::BufWriter;
 use std::path::PathBuf;
 use std::{env, io};
 
+mod egl;
 mod enums;
 mod tokens;
 mod wire;
@@ -41,6 +42,7 @@ fn main() -> anyhow::Result<()> {
     wire_dbus::main()?;
     wire_xcon::main()?;
     enums::main()?;
+    egl::main()?;
 
     println!("cargo:rerun-if-changed=build/build.rs");
     Ok(())

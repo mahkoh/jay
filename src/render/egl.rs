@@ -1,19 +1,15 @@
-use crate::drm::drm::NodeType;
-use crate::render::egl::device::EglDevice;
 use crate::render::egl::sys::{
     eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
-    EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR,
-    EGL_DRM_DEVICE_FILE_EXT, EGL_NONE, EGL_OPENGL_ES_API, EGL_TRUE,
+    EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
+    EGL_OPENGL_ES_API, EGL_TRUE,
 };
-use crate::render::ext::{get_client_ext, get_device_ext, ClientExt, DeviceExt};
+use crate::render::ext::{get_client_ext, ClientExt};
 use crate::render::proc::ExtProc;
 use crate::render::RenderError;
-use ahash::AHashMap;
 use bstr::ByteSlice;
 use log::Level;
 use once_cell::sync::Lazy;
-use std::ffi::{CStr, CString};
-use std::ptr;
+use std::ffi::CStr;
 use sys::{
     EGL_BAD_ACCESS, EGL_BAD_ALLOC, EGL_BAD_ATTRIBUTE, EGL_BAD_CONFIG, EGL_BAD_CONTEXT,
     EGL_BAD_CURRENT_SURFACE, EGL_BAD_DEVICE_EXT, EGL_BAD_DISPLAY, EGL_BAD_MATCH,
@@ -23,7 +19,6 @@ use sys::{
 use uapi::c;
 
 pub mod context;
-pub mod device;
 pub mod display;
 pub mod image;
 pub mod sys;
@@ -36,14 +31,8 @@ pub fn init() -> Result<(), RenderError> {
     if !EXTS.contains(ClientExt::EXT_PLATFORM_BASE) {
         return Err(RenderError::ExtPlatformBase);
     }
-    if !EXTS.device_query() {
-        return Err(RenderError::DeviceQuery);
-    }
-    if !EXTS.device_enumeration() {
-        return Err(RenderError::DeviceEnumeration);
-    }
-    if !EXTS.platform_gbm() {
-        return Err(RenderError::DeviceEnumeration);
+    if !EXTS.contains(ClientExt::KHR_PLATFORM_GBM) {
+        return Err(RenderError::GbmExt);
     }
     if EXTS.contains(ClientExt::KHR_DEBUG) {
         let attrib: &[EGLAttrib] = &[
@@ -65,49 +54,6 @@ pub fn init() -> Result<(), RenderError> {
         return Err(RenderError::BindFailed);
     }
     Ok(())
-}
-
-pub fn find_drm_device(
-    drm_dev: &AHashMap<NodeType, CString>,
-) -> Result<Option<EglDevice>, RenderError> {
-    for device in query_devices()? {
-        if device.exts.contains(DeviceExt::EXT_DEVICE_DRM) {
-            let device_file = device.query_string(EGL_DRM_DEVICE_FILE_EXT)?;
-            for name in drm_dev.values() {
-                if device_file == &**name {
-                    return Ok(Some(device));
-                }
-            }
-        }
-    }
-    Ok(None)
-}
-
-pub fn query_devices() -> Result<Vec<EglDevice>, RenderError> {
-    if !EXTS.device_enumeration() {
-        return Err(RenderError::DeviceEnumeration);
-    }
-    unsafe {
-        let mut devices = vec![];
-        let mut num_devices = 0;
-        let res = PROCS.eglQueryDevicesEXT(num_devices, ptr::null_mut(), &mut num_devices);
-        if res != EGL_TRUE {
-            return Err(RenderError::QueryDevices);
-        }
-        devices.reserve_exact(num_devices as usize);
-        let res = PROCS.eglQueryDevicesEXT(num_devices, devices.as_mut_ptr(), &mut num_devices);
-        if res != EGL_TRUE {
-            return Err(RenderError::QueryDevices);
-        }
-        devices.set_len(num_devices as usize);
-        Ok(devices
-            .into_iter()
-            .map(|d| EglDevice {
-                exts: get_device_ext(d),
-                dev: d,
-            })
-            .collect())
-    }
 }
 
 unsafe extern "C" fn egl_log(

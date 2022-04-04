@@ -16,8 +16,7 @@ use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 use crate::leaks::Tracker;
 use crate::object::Object;
-use crate::pixman::Region;
-use crate::rect::Rect;
+use crate::rect::{Rect, Region};
 use crate::render::Renderer;
 use crate::tree::toplevel::ToplevelNode;
 use crate::tree::walker::NodeVisitor;
@@ -77,8 +76,8 @@ pub struct WlSurface {
     pub client: Rc<Client>,
     role: Cell<SurfaceRole>,
     pending: PendingState,
-    input_region: Cell<Option<Region>>,
-    opaque_region: Cell<Option<Region>>,
+    input_region: Cell<Option<Rc<Region>>>,
+    opaque_region: Cell<Option<Rc<Region>>>,
     pub extents: Cell<Rect>,
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
@@ -167,8 +166,8 @@ impl SurfaceExt for NoneSurfaceExt {
 #[derive(Default)]
 struct PendingState {
     buffer: Cell<Option<Option<(i32, i32, Rc<WlBuffer>)>>>,
-    opaque_region: Cell<Option<Option<Region>>>,
-    input_region: Cell<Option<Option<Region>>>,
+    opaque_region: Cell<Option<Option<Rc<Region>>>>,
+    input_region: Cell<Option<Option<Rc<Region>>>>,
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
 }
 

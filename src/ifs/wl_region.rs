@@ -1,7 +1,6 @@
 use crate::client::{Client, ClientError};
 use crate::leaks::Tracker;
 use crate::object::Object;
-use crate::pixman::Region;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_region::*;
@@ -9,11 +8,12 @@ use crate::wire::WlRegionId;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
+use crate::rect::{Rect, Region, RegionBuilder};
 
 pub struct WlRegion {
     id: WlRegionId,
     client: Rc<Client>,
-    rect: RefCell<Region>,
+    region: RefCell<RegionBuilder>,
     pub tracker: Tracker<Self>,
 }
 
@@ -22,13 +22,13 @@ impl WlRegion {
         Self {
             id,
             client: client.clone(),
-            rect: RefCell::new(Region::new()),
+            region: Default::default(),
             tracker: Default::default(),
         }
     }
 
-    pub fn region(&self) -> Region {
-        self.rect.borrow().clone()
+    pub fn region(&self) -> Rc<Region> {
+        self.region.borrow_mut().get()
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
@@ -42,23 +42,18 @@ impl WlRegion {
         if add.width < 0 || add.height < 0 {
             return Err(AddError::NegativeExtents);
         }
-        let mut rect = self.rect.borrow_mut();
-        *rect = rect.add(&Region::rect(add.x, add.y, add.width as _, add.height as _));
+        let mut region = self.region.borrow_mut();
+        region.add(Rect::new_sized(add.x, add.y, add.width, add.height).unwrap());
         Ok(())
     }
 
     fn subtract(&self, parser: MsgParser<'_, '_>) -> Result<(), SubtractError> {
-        let subtract: Subtract = self.client.parse(self, parser)?;
-        if subtract.width < 0 || subtract.height < 0 {
+        let req: Subtract = self.client.parse(self, parser)?;
+        if req.width < 0 || req.height < 0 {
             return Err(SubtractError::NegativeExtents);
         }
-        let mut rect = self.rect.borrow_mut();
-        *rect = rect.subtract(&Region::rect(
-            subtract.x,
-            subtract.y,
-            subtract.width as _,
-            subtract.height as _,
-        ));
+        let mut region = self.region.borrow_mut();
+        region.sub(Rect::new_sized(req.x, req.y, req.width, req.height).unwrap());
         Ok(())
     }
 }

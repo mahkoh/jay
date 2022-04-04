@@ -1,5 +1,4 @@
-use crate::render::egl::sys::{eglQueryString, EGLDeviceEXT, EGLDisplay, EGL_EXTENSIONS};
-use crate::render::egl::PROCS;
+use crate::render::egl::sys::{eglQueryString, EGLDisplay, EGL_EXTENSIONS};
 use crate::render::gl::sys::{glGetString, GL_EXTENSIONS};
 use crate::utils::trim::AsciiTrim;
 use ahash::AHashSet;
@@ -48,25 +47,7 @@ bitflags::bitflags! {
         const EXT_CLIENT_EXTENSION   = 1 << 0;
         const EXT_PLATFORM_BASE      = 1 << 1;
         const KHR_PLATFORM_GBM       = 1 << 2;
-        const EXT_PLATFORM_DEVICE    = 1 << 3;
-        const EXT_DEVICE_BASE        = 1 << 4;
-        const EXT_DEVICE_ENUMERATION = 1 << 5;
-        const EXT_DEVICE_QUERY       = 1 << 6;
-        const KHR_DEBUG              = 1 << 7;
-    }
-}
-
-impl ClientExt {
-    pub fn device_enumeration(self) -> bool {
-        self.contains(Self::EXT_DEVICE_BASE | Self::EXT_DEVICE_ENUMERATION)
-    }
-
-    pub fn device_query(self) -> bool {
-        self.contains(Self::EXT_DEVICE_BASE | Self::EXT_DEVICE_QUERY)
-    }
-
-    pub fn platform_gbm(self) -> bool {
-        self.contains(Self::KHR_PLATFORM_GBM)
+        const KHR_DEBUG              = 1 << 3;
     }
 }
 
@@ -74,13 +55,6 @@ pub fn get_client_ext() -> ClientExt {
     let map = [
         ("EGL_EXT_platform_base", ClientExt::EXT_PLATFORM_BASE),
         ("EGL_KHR_platform_gbm", ClientExt::KHR_PLATFORM_GBM),
-        ("EGL_EXT_platform_device", ClientExt::EXT_PLATFORM_DEVICE),
-        ("EGL_EXT_device_base", ClientExt::EXT_DEVICE_BASE),
-        (
-            "EGL_EXT_device_enumeration",
-            ClientExt::EXT_DEVICE_ENUMERATION,
-        ),
-        ("EGL_EXT_device_query", ClientExt::EXT_DEVICE_QUERY),
         ("EGL_KHR_debug", ClientExt::KHR_DEBUG),
     ];
     match unsafe { get_dpy_extensions(EGLDisplay::none()) } {
@@ -129,35 +103,6 @@ pub(super) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
     match get_dpy_extensions(dpy) {
         Some(exts) => get_typed_ext(&exts, DisplayExt::empty(), &map),
         _ => DisplayExt::empty(),
-    }
-}
-
-bitflags::bitflags! {
-    pub struct DeviceExt: u32 {
-        const MESA_DEVICE_SOFTWARE       = 1 << 0;
-        const EXT_DEVICE_PERSISTENT_ID   = 1 << 1;
-        const EXT_DEVICE_DRM             = 1 << 2;
-        const EXT_DEVICE_DRM_RENDER_NODE = 1 << 3;
-    }
-}
-
-pub(super) unsafe fn get_device_ext(dev: EGLDeviceEXT) -> DeviceExt {
-    let map = [
-        ("EGL_MESA_device_software", DeviceExt::MESA_DEVICE_SOFTWARE),
-        (
-            "EGL_EXT_device_persistent_id",
-            DeviceExt::EXT_DEVICE_PERSISTENT_ID,
-        ),
-        ("EGL_EXT_device_drm", DeviceExt::EXT_DEVICE_DRM),
-        (
-            "EGL_EXT_device_drm_render_node",
-            DeviceExt::EXT_DEVICE_DRM_RENDER_NODE,
-        ),
-    ];
-    let ext = PROCS.eglQueryDeviceStringEXT(dev, EGL_EXTENSIONS);
-    match get_extensions(ext) {
-        Some(exts) => get_typed_ext(&exts, DeviceExt::empty(), &map),
-        _ => DeviceExt::empty(),
     }
 }
 

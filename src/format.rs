@@ -1,4 +1,3 @@
-use crate::pixman;
 use crate::render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE};
 use crate::utils::debug_fn::debug_fn;
 use ahash::AHashMap;
@@ -9,7 +8,6 @@ use std::fmt::{Debug, Write};
 pub struct Format {
     pub name: &'static str,
     pub bpp: u32,
-    pub pixman: Option<pixman::Format>,
     pub gl_format: GLint,
     pub gl_type: GLint,
     pub drm: u32,
@@ -66,7 +64,6 @@ pub static FORMATS: &[Format] = &[
     Format {
         name: "argb8888",
         bpp: 4,
-        pixman: Some(pixman::A8R8G8B8),
         gl_format: GL_BGRA_EXT,
         gl_type: GL_UNSIGNED_BYTE,
         drm: ARGB8888_DRM,
@@ -76,7 +73,6 @@ pub static FORMATS: &[Format] = &[
     Format {
         name: "xrgb8888",
         bpp: 4,
-        pixman: Some(pixman::X8R8G8B8),
         gl_format: GL_BGRA_EXT,
         gl_type: GL_UNSIGNED_BYTE,
         drm: XRGB8888_DRM,

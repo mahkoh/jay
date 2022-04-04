@@ -1,3 +1,10 @@
+mod region;
+
+#[cfg(test)]
+mod tests;
+
+pub use region::RegionBuilder;
+use smallvec::SmallVec;
 use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
@@ -6,6 +13,14 @@ pub struct Rect {
     y1: i32,
     x2: i32,
     y2: i32,
+}
+
+type Container = SmallVec<[Rect; 1]>;
+
+#[derive(Default)]
+pub struct Region {
+    rects: Container,
+    extents: Rect,
 }
 
 impl Debug for Rect {
@@ -58,6 +73,10 @@ impl Rect {
             return None;
         }
         Some(Self { x1, y1, x2, y2 })
+    }
+
+    fn new_unchecked(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
+        Self { x1, y1, x2, y2 }
     }
 
     pub fn new_sized(x1: i32, y1: i32, width: i32, height: i32) -> Option<Self> {

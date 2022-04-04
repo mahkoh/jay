@@ -19,9 +19,9 @@ macro_rules! egl_transparent {
 }
 
 use crate::drm::drm::DrmError;
+use crate::drm::gbm::GbmError;
 pub use renderer::*;
 use thiserror::Error;
-use crate::drm::gbm::GbmError;
 
 mod egl;
 mod ext;
@@ -48,16 +48,10 @@ pub enum RenderError {
     ProgramLink,
     #[error("Could not bind to `EGL_OPENGL_ES_API`")]
     BindFailed,
-    #[error("EGL library does not support device enumeration")]
-    DeviceEnumeration,
     #[error("EGL library does not support the GBM platform")]
     GbmExt,
     #[error("Could not create a GBM device")]
     Gbm(#[source] GbmError),
-    #[error("EGL library does not support device querying")]
-    DeviceQuery,
-    #[error("`eglQueryDeviceStringEXT` failed")]
-    DeviceQueryString,
     #[error("`eglCreateContext` failed")]
     CreateContext,
     #[error("`eglMakeCurrent` failed")]
@@ -68,8 +62,6 @@ pub enum RenderError {
     SmallImageBuffer,
     #[error("Binding a renderbuffer to a framebuffer failed")]
     CreateFramebuffer,
-    #[error("`eglQueryDevicesEXT` failed")]
-    QueryDevices,
     #[error("`eglGetPlatformDisplayEXT` failed")]
     GetDisplay,
     #[error("`eglInitialize` failed")]
@@ -90,8 +82,6 @@ pub enum RenderError {
     QueryDmaBufFormats,
     #[error(transparent)]
     DrmError(#[from] DrmError),
-    #[error("Could not find the requested DRM device")]
-    UnknownDrmDevice,
     #[error("The GLES driver does not support the XRGB8888 format")]
     XRGB888,
     #[error("The DRM device does not have a render node")]
