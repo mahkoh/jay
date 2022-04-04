@@ -8,43 +8,52 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 impl Region {
-    pub fn new(rect: Rect) -> Self {
+    pub fn new(rect: Rect) -> Rc<Self> {
         let mut rects = SmallVec::new();
         rects.push(rect);
-        Self {
+        Rc::new(Self {
             rects,
             extents: rect,
-        }
+        })
     }
 
-    pub fn from_rects(rects: &[Rect]) -> Self {
+    pub fn from_rects(rects: &[Rect]) -> Rc<Self> {
         if rects.is_empty() {
-            return Self::default();
+            return Rc::new(Self::default());
         }
         if rects.len() == 1 {
             return Self::new(rects[0]);
         }
         let rects = rects_to_bands(rects);
-        Self {
+        Rc::new(Self {
             extents: extents(&rects),
             rects,
-        }
+        })
     }
 
-    pub fn union(&self, other: &Self) -> Self {
+    pub fn union(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
+        if self.extents.is_empty() {
+            return other.clone();
+        }
+        if other.extents.is_empty() {
+            return self.clone();
+        }
         let rects = op::<Union>(&self.rects, &other.rects);
-        Self {
+        Rc::new(Self {
             rects,
             extents: self.extents.union(other.extents),
-        }
+        })
     }
 
-    pub fn subtract(&self, other: &Self) -> Self {
+    pub fn subtract(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
+        if self.extents.is_empty() || other.extents.is_empty() {
+            return self.clone();
+        }
         let rects = op::<Subtract>(&self.rects, &other.rects);
-        Self {
+        Rc::new(Self {
             extents: extents(&rects),
             rects,
-        }
+        })
     }
 
     pub fn extents(&self) -> Rect {
@@ -562,10 +571,9 @@ impl RegionBuilder {
             return;
         }
         let region = Region::from_rects(&self.pending);
-        let base = match self.op {
+        self.base = match self.op {
             BuilderOp::Add => self.base.union(&region),
             BuilderOp::Sub => self.base.subtract(&region),
         };
-        self.base = Rc::new(base);
     }
 }

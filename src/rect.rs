@@ -17,7 +17,7 @@ pub struct Rect {
 
 type Container = SmallVec<[Rect; 1]>;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Region {
     rects: Container,
     extents: Rect,
