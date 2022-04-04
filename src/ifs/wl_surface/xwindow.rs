@@ -443,8 +443,7 @@ impl ToplevelNode for Xwindow {
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
-        self.data.info.never_focus.get().not() &&
-            self.data.info.icccm_hints.input.get()
+        self.data.info.never_focus.get().not() && self.data.info.icccm_hints.input.get()
     }
 
     fn default_surface(&self) -> Rc<WlSurface> {

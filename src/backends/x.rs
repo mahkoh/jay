@@ -1,5 +1,8 @@
 use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Connector, OutputId, ScrollAxis, Mode, ConnectorEvent};
+use crate::backend::{
+    Backend, BackendEvent, Connector, ConnectorEvent, InputDevice, InputDeviceAccelProfile,
+    InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, OutputId, ScrollAxis,
+};
 use crate::drm::drm::{Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -12,6 +15,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
+use crate::utils::syncqueue::SyncQueue;
 use crate::wire_xcon::{
     ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
     CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffer,
@@ -39,7 +43,6 @@ use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::utils::syncqueue::SyncQueue;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {

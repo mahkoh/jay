@@ -17,6 +17,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
+use crate::utils::syncqueue::SyncQueue;
 use ahash::{AHashMap, AHashSet};
 use bstr::{BString, ByteSlice};
 use std::cell::Cell;
@@ -24,7 +25,6 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::c;
-use crate::utils::syncqueue::SyncQueue;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -405,7 +405,7 @@ impl<T: Copy> MutableProperty<T> {
 }
 
 impl MetalBackend {
-    pub fn creat_drm_device(
+    pub fn create_drm_device(
         self: &Rc<Self>,
         pending: PendingDrmDevice,
         master: &Rc<DrmMaster>,

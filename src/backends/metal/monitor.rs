@@ -205,7 +205,7 @@ impl MetalBackend {
                 return;
             }
             let master = Rc::new(DrmMaster::new(res.fd.clone()));
-            let dev = match slf.creat_drm_device(dev, &master) {
+            let dev = match slf.create_drm_device(dev, &master) {
                 Ok(d) => d,
                 Err(e) => {
                     log::error!("Could not initialize drm device: {}", ErrorFmt(e));

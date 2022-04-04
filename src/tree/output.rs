@@ -1,3 +1,4 @@
+use crate::backend::Mode;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_output::WlOutputGlobal;
@@ -13,11 +14,10 @@ use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::LinkedList;
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, Sub};
 use std::rc::Rc;
-use crate::backend::Mode;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {

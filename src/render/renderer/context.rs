@@ -16,6 +16,7 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::ustr;
+use crate::render::egl::display::EglDisplay;
 
 pub(super) struct TexProg {
     pub(super) prog: GlProgram,
@@ -57,15 +58,14 @@ impl Debug for RenderContext {
 impl RenderContext {
     pub fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
         let nodes = drm.get_nodes()?;
-        let node = match nodes.get(&NodeType::Render) {
+        let node = match nodes
+            .get(&NodeType::Render)
+            .or_else(|| nodes.get(&NodeType::Primary))
+        {
             None => return Err(RenderError::NoRenderNode),
             Some(path) => Rc::new(path.to_owned()),
         };
-        let egl_dev = match find_drm_device(&nodes)? {
-            Some(d) => d,
-            None => return Err(RenderError::UnknownDrmDevice),
-        };
-        let dpy = egl_dev.create_display()?;
+        let dpy = EglDisplay::create(drm)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
         }

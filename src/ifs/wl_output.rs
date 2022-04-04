@@ -1,3 +1,4 @@
+use crate::backend;
 use crate::backend::Connector;
 use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
@@ -17,7 +18,6 @@ use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::backend;
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]

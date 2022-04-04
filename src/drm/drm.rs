@@ -28,11 +28,11 @@ use crate::drm::INVALID_MODIFIER;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::stack::Stack;
 use crate::utils::syncqueue::SyncQueue;
+use crate::utils::vec_ext::VecExt;
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
 };
-use crate::utils::vec_ext::VecExt;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -108,11 +108,15 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
     if let Ok((fd, _)) = create_lease(fd, &[], c::O_CLOEXEC as _) {
         return Ok(Rc::new(fd));
     }
-    let path = if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
-        uapi::format_ustr!("/proc/self/fd/{}", fd)
-    } else if !need_primary {
-        render_node_name(fd)?
-    } else {
+    let path = 'path: {
+        if get_node_type_from_fd(fd).map_err(DrmError::GetDeviceType)? == NodeType::Render {
+            break 'path uapi::format_ustr!("/proc/self/fd/{}", fd);
+        }
+        if !need_primary {
+            if let Ok(path) = render_node_name(fd) {
+                break 'path path;
+            }
+        }
         device_node_name(fd)?
     };
     match uapi::open(&path, c::O_RDWR | c::O_CLOEXEC, 0) {

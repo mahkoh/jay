@@ -21,6 +21,7 @@ macro_rules! egl_transparent {
 use crate::drm::drm::DrmError;
 pub use renderer::*;
 use thiserror::Error;
+use crate::drm::gbm::GbmError;
 
 mod egl;
 mod ext;
@@ -49,6 +50,10 @@ pub enum RenderError {
     BindFailed,
     #[error("EGL library does not support device enumeration")]
     DeviceEnumeration,
+    #[error("EGL library does not support the GBM platform")]
+    GbmExt,
+    #[error("Could not create a GBM device")]
+    Gbm(#[source] GbmError),
     #[error("EGL library does not support device querying")]
     DeviceQuery,
     #[error("`eglQueryDeviceStringEXT` failed")]

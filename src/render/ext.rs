@@ -58,11 +58,15 @@ bitflags::bitflags! {
 
 impl ClientExt {
     pub fn device_enumeration(self) -> bool {
-        self.intersects(Self::EXT_DEVICE_BASE | Self::EXT_DEVICE_ENUMERATION)
+        self.contains(Self::EXT_DEVICE_BASE | Self::EXT_DEVICE_ENUMERATION)
     }
 
     pub fn device_query(self) -> bool {
-        self.intersects(Self::EXT_DEVICE_BASE | Self::EXT_DEVICE_QUERY)
+        self.contains(Self::EXT_DEVICE_BASE | Self::EXT_DEVICE_QUERY)
+    }
+
+    pub fn platform_gbm(self) -> bool {
+        self.contains(Self::KHR_PLATFORM_GBM)
     }
 }
 

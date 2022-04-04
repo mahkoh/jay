@@ -9,8 +9,24 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::queue::AsyncQueue;
 use crate::wire::WlSurfaceId;
-use crate::wire_xcon::{ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows, ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetAtomName, GetGeometry, InternAtom, KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify};
-use crate::xcon::consts::{ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE, EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT, ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN, INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD, NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE, STACK_MODE_ABOVE, STACK_MODE_BELOW, CONFIG_WINDOW_X, CONFIG_WINDOW_Y, CONFIG_WINDOW_WIDTH, CONFIG_WINDOW_HEIGHT};
+use crate::wire_xcon::{
+    ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
+    ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify,
+    CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetAtomName, GetGeometry, InternAtom,
+    KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec,
+    ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify,
+};
+use crate::xcon::consts::{
+    ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS,
+    ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, CONFIG_WINDOW_HEIGHT, CONFIG_WINDOW_WIDTH,
+    CONFIG_WINDOW_X, CONFIG_WINDOW_Y, EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE,
+    EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT, ICCCM_WM_HINT_INPUT,
+    ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN,
+    INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD,
+    NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE,
+    RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, STACK_MODE_ABOVE, STACK_MODE_BELOW,
+    WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE,
+};
 use crate::xcon::{Event, XEvent, Xcon, XconError};
 use crate::xwayland::{XWaylandError, XWaylandEvent};
 use ahash::{AHashMap, AHashSet};
@@ -1014,9 +1030,7 @@ impl Wm {
 
     async fn handle_property_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: PropertyNotify = event.parse()?;
-        let name = self.c.call(&GetAtomName {
-            atom: event.atom,
-        }).await;
+        let name = self.c.call(&GetAtomName { atom: event.atom }).await;
         if let Ok(name) = name {
             log::info!("{}", name.get().name);
         }
@@ -1258,17 +1272,20 @@ impl Wm {
             }
         };
         *window.stack_link.borrow_mut() = Some(link);
-        let res = self.c.call(&ConfigureWindow {
-            window: window.window_id,
-            values: ConfigureWindowValues {
-                sibling: sibling.map(|s| s.window_id),
-                stack_mode: Some(match above {
-                    true => STACK_MODE_ABOVE,
-                    false => STACK_MODE_BELOW,
-                }),
-                ..Default::default()
-            },
-        }).await;
+        let res = self
+            .c
+            .call(&ConfigureWindow {
+                window: window.window_id,
+                values: ConfigureWindowValues {
+                    sibling: sibling.map(|s| s.window_id),
+                    stack_mode: Some(match above {
+                        true => STACK_MODE_ABOVE,
+                        false => STACK_MODE_BELOW,
+                    }),
+                    ..Default::default()
+                },
+            })
+            .await;
         if let Err(e) = res {
             log::warn!("Could not restack window: {}", ErrorFmt(e));
         }
@@ -1339,7 +1356,9 @@ impl Wm {
         if event.value_mask.contains(CONFIG_WINDOW_HEIGHT) {
             height = event.height as _;
         }
-        data.info.extents.set(Rect::new_sized(x1, y1, width, height).unwrap());
+        data.info
+            .extents
+            .set(Rect::new_sized(x1, y1, width, height).unwrap());
         Ok(())
     }
 

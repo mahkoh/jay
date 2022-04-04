@@ -25,7 +25,8 @@ impl<T> Stack<T> {
     }
 
     pub fn to_vec(&self) -> Vec<T>
-        where T: Clone,
+    where
+        T: Clone,
     {
         unsafe {
             let v = self.vec.get().deref();

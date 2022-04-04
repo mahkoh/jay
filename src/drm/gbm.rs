@@ -22,7 +22,7 @@ pub enum GbmError {
     DrmFd,
 }
 
-type Device = u8;
+pub type Device = u8;
 type Bo = u8;
 
 pub const GBM_BO_USE_SCANOUT: u32 = 1 << 0;
@@ -126,6 +126,10 @@ impl GbmDevice {
         } else {
             Ok(Self { _drm: drm, dev })
         }
+    }
+
+    pub fn raw(&self) -> *mut Device {
+        self.dev
     }
 
     pub fn create_bo(

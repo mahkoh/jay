@@ -41,7 +41,8 @@ impl EglDevice {
             let mut dpy = EglDisplay {
                 exts: DisplayExt::empty(),
                 formats: Rc::new(AHashMap::new()),
-                dev: *self,
+                dev: Some(*self),
+                gbm: None,
                 dpy,
             };
             let mut major = 0;

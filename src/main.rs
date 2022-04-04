@@ -47,6 +47,7 @@ mod config;
 mod cursor;
 mod dbus;
 mod drm;
+mod edid;
 mod event_loop;
 mod fixed;
 mod forker;
@@ -78,7 +79,6 @@ mod wire_xcon;
 mod xcon;
 mod xkbcommon;
 mod xwayland;
-mod edid;
 
 fn main() {
     cli::main();

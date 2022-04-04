@@ -42,6 +42,9 @@ pub fn init() -> Result<(), RenderError> {
     if !EXTS.device_enumeration() {
         return Err(RenderError::DeviceEnumeration);
     }
+    if !EXTS.platform_gbm() {
+        return Err(RenderError::DeviceEnumeration);
+    }
     if EXTS.contains(ClientExt::KHR_DEBUG) {
         let attrib: &[EGLAttrib] = &[
             EGL_DEBUG_MSG_CRITICAL_KHR as _,

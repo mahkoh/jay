@@ -1,10 +1,10 @@
-use std::fmt::{Debug, Formatter};
-use std::rc::Rc;
-use bstr::{BString, ByteSlice};
-use thiserror::Error;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
+use bstr::{BString, ByteSlice};
+use std::fmt::{Debug, Formatter};
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ColorBitDepth {
@@ -26,7 +26,7 @@ pub enum DigitalVideoInterfaceStandard {
     HdmiB,
     MDDI,
     DisplayPort,
-    Unknown(u8)
+    Unknown(u8),
 }
 
 #[derive(Copy, Clone)]
@@ -155,10 +155,18 @@ impl Debug for StereoViewingSupport {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let msg = match *self {
             StereoViewingSupport::None => "none",
-            StereoViewingSupport::FieldSequentialRightDuringStereoSync => "field sequential, right during stereo sync",
-            StereoViewingSupport::FieldSequentialLeftDuringStereoSync => "field sequential, left during stereo sync",
-            StereoViewingSupport::TwoWayInterleavedRightImageOnEvenLines => "2-way interleaved, right image on even lines",
-            StereoViewingSupport::TwoWayInterleavedLeftImageOnEvenLines => "2-way interleaved, left image on even lines",
+            StereoViewingSupport::FieldSequentialRightDuringStereoSync => {
+                "field sequential, right during stereo sync"
+            }
+            StereoViewingSupport::FieldSequentialLeftDuringStereoSync => {
+                "field sequential, left during stereo sync"
+            }
+            StereoViewingSupport::TwoWayInterleavedRightImageOnEvenLines => {
+                "2-way interleaved, right image on even lines"
+            }
+            StereoViewingSupport::TwoWayInterleavedLeftImageOnEvenLines => {
+                "2-way interleaved, left image on even lines"
+            }
             StereoViewingSupport::FourWayInterleaved => "4-way interleaved",
             StereoViewingSupport::SideBySideInterleaved => "side-by-side interleaved",
         };
@@ -362,7 +370,7 @@ macro_rules! bail {
     ($slf:expr, $err:expr) => {{
         $slf.saved_ctx = $slf.context.to_vec();
         return Err($err);
-    }}
+    }};
 }
 
 #[derive(Clone, Debug)]
@@ -414,9 +422,7 @@ impl<'a> EdidParser<'a> {
         if self.data.len() - self.pos < N {
             bail!(self, EdidError::UnexpectedEof);
         }
-        let v = unsafe {
-            self.data[self.pos..].as_ptr().cast::<[u8; N]>().deref()
-        };
+        let v = unsafe { self.data[self.pos..].as_ptr().cast::<[u8; N]>().deref() };
         self.pos += N;
         Ok(v)
     }
@@ -616,7 +622,11 @@ impl<'a> EdidParser<'a> {
         })
     }
 
-    fn parse_standard_timings2(&mut self, revision: u8, b: &[u8; 18]) -> [Option<StandardTiming>; 6] {
+    fn parse_standard_timings2(
+        &mut self,
+        revision: u8,
+        b: &[u8; 18],
+    ) -> [Option<StandardTiming>; 6] {
         let mut res = [None; 6];
         for i in 0..6 {
             let x = b[5 + 2 * i];
@@ -629,7 +639,7 @@ impl<'a> EdidParser<'a> {
     fn parse_color_point(&mut self, b: &[u8; 18]) -> (ColorPoint, Option<ColorPoint>) {
         let mut res = [Default::default(); 2];
         for n in 0..2 {
-            let b = &b[5*(n + 1)..];
+            let b = &b[5 * (n + 1)..];
             res[n] = ColorPoint {
                 white_point_index: b[0],
                 white_point_x: ((b[2] as u16) << 2) | ((b[1] as u16) >> 2),
@@ -649,7 +659,10 @@ impl<'a> EdidParser<'a> {
         (res[0], second)
     }
 
-    fn parse_standard_timings(&mut self, revision: u8) -> Result<[Option<StandardTiming>; 8], EdidError> {
+    fn parse_standard_timings(
+        &mut self,
+        revision: u8,
+    ) -> Result<[Option<StandardTiming>; 8], EdidError> {
         let _ctx = self.push_ctx(EdidParseContext::StandardTimings);
         let bytes = self.read_n::<16>()?;
         let mut res = [None; 8];
@@ -715,7 +728,10 @@ impl<'a> EdidParser<'a> {
         }
     }
 
-    fn parse_display_range_limits_and_additional_timing(&self, b: &[u8; 18]) -> DisplayRangeLimitsAndAdditionalTiming {
+    fn parse_display_range_limits_and_additional_timing(
+        &self,
+        b: &[u8; 18],
+    ) -> DisplayRangeLimitsAndAdditionalTiming {
         let min_vert_off = b[4].contains(0b0001);
         let max_vert_off = min_vert_off || b[4].contains(0b0010);
         let min_horz_off = b[4].contains(0b0100);
@@ -767,56 +783,56 @@ impl<'a> EdidParser<'a> {
                     preferred_vertical_refresh_rate_hz: b[17],
                 },
                 n => ExtendedTimingInformation::Unknown(n),
-            }
+            },
         }
     }
 
     fn parse_established_timings3(&self, b: &[u8; 18]) -> EstablishedTimings3 {
         EstablishedTimings3 {
-            s640x350_85:      b[6].contains(0x80),
-            s640x400_85:      b[6].contains(0x40),
-            s720x400_85:      b[6].contains(0x20),
-            s640x480_85:      b[6].contains(0x10),
-            s848x480_60:      b[6].contains(0x08),
-            s800x600_85:      b[6].contains(0x04),
-            s1024x768_85:     b[6].contains(0x02),
-            s1152x864_75:     b[6].contains(0x01),
-            s1280x768_60_rb:  b[7].contains(0x80),
-            s1280x768_60:     b[7].contains(0x40),
-            s1280x768_75:     b[7].contains(0x20),
-            s1280x768_85:     b[7].contains(0x10),
-            s1280x960_60:     b[7].contains(0x08),
-            s1280x960_85:     b[7].contains(0x04),
-            s1280x1024_60:    b[7].contains(0x02),
-            s1280x1024_85:    b[7].contains(0x01),
-            s1360x768_60:     b[8].contains(0x80),
-            s1440x900_60_rb:  b[8].contains(0x40),
-            s1440x900_60:     b[8].contains(0x20),
-            s1440x900_75:     b[8].contains(0x10),
-            s1440x900_85:     b[8].contains(0x08),
+            s640x350_85: b[6].contains(0x80),
+            s640x400_85: b[6].contains(0x40),
+            s720x400_85: b[6].contains(0x20),
+            s640x480_85: b[6].contains(0x10),
+            s848x480_60: b[6].contains(0x08),
+            s800x600_85: b[6].contains(0x04),
+            s1024x768_85: b[6].contains(0x02),
+            s1152x864_75: b[6].contains(0x01),
+            s1280x768_60_rb: b[7].contains(0x80),
+            s1280x768_60: b[7].contains(0x40),
+            s1280x768_75: b[7].contains(0x20),
+            s1280x768_85: b[7].contains(0x10),
+            s1280x960_60: b[7].contains(0x08),
+            s1280x960_85: b[7].contains(0x04),
+            s1280x1024_60: b[7].contains(0x02),
+            s1280x1024_85: b[7].contains(0x01),
+            s1360x768_60: b[8].contains(0x80),
+            s1440x900_60_rb: b[8].contains(0x40),
+            s1440x900_60: b[8].contains(0x20),
+            s1440x900_75: b[8].contains(0x10),
+            s1440x900_85: b[8].contains(0x08),
             s1400x1050_60_rb: b[8].contains(0x04),
-            s1400x1050_60:    b[8].contains(0x02),
-            s1400x1050_75:    b[8].contains(0x01),
-            s1400x1050_85:    b[9].contains(0x80),
+            s1400x1050_60: b[8].contains(0x02),
+            s1400x1050_75: b[8].contains(0x01),
+            s1400x1050_85: b[9].contains(0x80),
             s1680x1050_60_rb: b[9].contains(0x40),
-            s1680x1050_60:    b[9].contains(0x20),
-            s1680x1050_75:    b[9].contains(0x10),
-            s1680x1050_85:    b[9].contains(0x08),
-            s1600x1200_60:    b[9].contains(0x04),
-            s1600x1200_65:    b[9].contains(0x02),
-            s1600x1200_70:    b[9].contains(0x01),
-            s1600x1200_75:    b[10].contains(0x80),
-            s1600x1200_85:    b[10].contains(0x40),
-            s1792x1344_60:    b[10].contains(0x20),
-            s1792x1344_75:    b[10].contains(0x10),
-            s1856x1392_60:    b[10].contains(0x08),
-            s1856x1392_75:    b[10].contains(0x04),
+            s1680x1050_60: b[9].contains(0x20),
+            s1680x1050_75: b[9].contains(0x10),
+            s1680x1050_85: b[9].contains(0x08),
+            s1600x1200_60: b[9].contains(0x04),
+            s1600x1200_65: b[9].contains(0x02),
+            s1600x1200_70: b[9].contains(0x01),
+            s1600x1200_75: b[10].contains(0x80),
+            s1600x1200_85: b[10].contains(0x40),
+            s1792x1344_60: b[10].contains(0x20),
+            s1792x1344_75: b[10].contains(0x10),
+            s1856x1392_60: b[10].contains(0x08),
+            s1856x1392_75: b[10].contains(0x04),
             s1920x1200_60_rb: b[10].contains(0x02),
-            s1920x1200_60:    b[10].contains(0x01),
-            s1920x1200_75:    b[11].contains(0x80),
-            s1920x1200_85:    b[11].contains(0x40),
-            s1920x1440_60:    b[11].contains(0x20),
-            s1920x1440_75:    b[11].contains(0x10),
+            s1920x1200_60: b[10].contains(0x01),
+            s1920x1200_75: b[11].contains(0x80),
+            s1920x1200_85: b[11].contains(0x40),
+            s1920x1440_60: b[11].contains(0x20),
+            s1920x1440_75: b[11].contains(0x10),
         }
     }
 
@@ -872,13 +888,17 @@ impl<'a> EdidParser<'a> {
             match b[3] {
                 0xff => Descriptor::DisplayProductSerialNumber(str()),
                 0xfe => Descriptor::AlphanumericDataString(str()),
-                0xfd => Descriptor::DisplayRangeLimitsAndAdditionalTiming(self.parse_display_range_limits_and_additional_timing(b)),
+                0xfd => Descriptor::DisplayRangeLimitsAndAdditionalTiming(
+                    self.parse_display_range_limits_and_additional_timing(b),
+                ),
                 0xfc => Descriptor::DisplayProductName(str()),
                 0xfb => {
                     let (first, second) = self.parse_color_point(b);
                     Descriptor::ColorPoint(first, second)
-                },
-                0xfa => Descriptor::StandardTimingIdentifier(self.parse_standard_timings2(revision, b)),
+                }
+                0xfa => {
+                    Descriptor::StandardTimingIdentifier(self.parse_standard_timings2(revision, b))
+                }
                 0xf9 => Descriptor::ColorManagementData(self.parse_color_management_data(b)),
                 0xf8 => Descriptor::Cvt3ByteCode(self.parse_cvt3_byte_codes(b)),
                 0xf7 => Descriptor::EstablishedTimings3(self.parse_established_timings3(b)),
@@ -923,7 +943,7 @@ impl<'a> EdidParser<'a> {
         }
         let &[edid_version, edid_revision] = self.read_n()?;
         let video_input_definition = self.parse_video_input_definition()?;
-        let is_digital = matches!(video_input_definition, VideoInputDefinition::Digital {..});
+        let is_digital = matches!(video_input_definition, VideoInputDefinition::Digital { .. });
         let screen_dimensions = self.parse_screen_dimensions()?;
         let gamma = self.parse_gamma()?;
         let feature_support = self.parse_feature_support(is_digital)?;
@@ -1053,7 +1073,7 @@ pub fn parse(data: &[u8]) -> Result<EdidFile, EdidError> {
         pos: 0,
         context: Rc::new(Default::default()),
         saved_ctx: vec![],
-        errors: vec![]
+        errors: vec![],
     };
     parser.parse()
 }

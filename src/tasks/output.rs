@@ -5,7 +5,7 @@ use crate::state::State;
 use crate::tree::{OutputNode, OutputRenderData, WorkspaceNode};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct OutputHandler {
@@ -21,7 +21,15 @@ impl OutputHandler {
             self.output.on_change(Rc::new(move || ae.trigger()));
         }
         let name = self.state.globals.name();
-        let x1 = self.state.root.outputs.lock().values().map(|o| o.global.pos.get().x2()).max().unwrap_or(0);
+        let x1 = self
+            .state
+            .root
+            .outputs
+            .lock()
+            .values()
+            .map(|o| o.global.pos.get().x2())
+            .max()
+            .unwrap_or(0);
         let global = Rc::new(WlOutputGlobal::new(name, self.output.clone(), x1));
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
