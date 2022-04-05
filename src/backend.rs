@@ -1,8 +1,9 @@
+use crate::drm::drm::ConnectorType;
 use crate::fixed::Fixed;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
-linear_ids!(OutputIds, OutputId);
+linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
 
 pub trait Backend {
@@ -13,17 +14,42 @@ pub trait Backend {
 pub struct Mode {
     pub width: i32,
     pub height: i32,
-    pub refresh_rate: u32,
+    pub refresh_rate_millihz: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct MonitorInfo {
+    pub modes: Vec<Mode>,
+    pub manufacturer: String,
+    pub product: String,
+    pub serial_number: String,
+    pub initial_mode: Mode,
+    pub width_mm: i32,
+    pub height_mm: i32,
+}
+
+pub struct ConnectorKernelId {
+    pub ty: ConnectorType,
+    pub id: u32,
+}
+
+impl Display for ConnectorKernelId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.ty, self.id)
+    }
 }
 
 pub trait Connector {
-    fn id(&self) -> OutputId;
+    fn id(&self) -> ConnectorId;
+    fn kernel_id(&self) -> ConnectorKernelId;
     fn event(&self) -> Option<ConnectorEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
 }
 
 #[derive(Debug)]
 pub enum ConnectorEvent {
+    Connected(MonitorInfo),
+    Disconnected,
     Removed,
     ModeChanged(Mode),
 }
@@ -79,7 +105,7 @@ pub enum ScrollAxis {
 #[derive(Debug)]
 pub enum InputEvent {
     Key(u32, KeyState),
-    OutputPosition(OutputId, Fixed, Fixed),
+    ConnectorPosition(ConnectorId, Fixed, Fixed),
     #[allow(dead_code)]
     Motion(Fixed, Fixed),
     Button(u32, KeyState),

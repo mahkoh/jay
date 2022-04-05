@@ -1,9 +1,6 @@
 use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, Connector, ConnectorEvent, InputDevice, InputDeviceAccelProfile,
-    InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, OutputId, ScrollAxis,
-};
-use crate::drm::drm::{Drm, DrmError};
+use crate::backend::{Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis};
+use crate::drm::drm::{ConnectorType, Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
 use crate::fixed::Fixed;
@@ -394,7 +391,7 @@ impl XBackendData {
         };
         let images = self.create_images(window_id, WIDTH, HEIGHT).await?;
         let output = Rc::new(XOutput {
-            id: self.state.output_ids.next(),
+            id: self.state.connector_ids.next(),
             _backend: self.clone(),
             window: window_id,
             events: Default::default(),
@@ -481,6 +478,20 @@ impl XBackendData {
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(output.clone()));
+        output.events.push(ConnectorEvent::Connected(MonitorInfo {
+            modes: vec![],
+            manufacturer: "X.Org Foundation".to_string(),
+            product: format!("X-Window-{}", window_id),
+            serial_number: window_id.to_string(),
+            initial_mode: Mode {
+                width: WIDTH,
+                height: HEIGHT,
+                refresh_rate_millihz: 60_000, // TODO
+            },
+            width_mm: WIDTH,
+            height_mm: HEIGHT,
+        }));
+        output.changed();
         self.present(&output).await;
         Ok(())
     }
@@ -759,7 +770,7 @@ impl XBackendData {
             self.outputs.get(&event.event),
             self.mouse_seats.get(&event.deviceid),
         ) {
-            seat.mouse_event(InputEvent::OutputPosition(
+            seat.mouse_event(InputEvent::ConnectorPosition(
                 win.id,
                 Fixed::from_1616(event.event_x),
                 Fixed::from_1616(event.event_y),
@@ -777,7 +788,7 @@ impl XBackendData {
             (Some(a), Some(b)) => (a, b),
             _ => return Ok(()),
         };
-        seat.mouse_event(InputEvent::OutputPosition(
+        seat.mouse_event(InputEvent::ConnectorPosition(
             win.id,
             Fixed::from_1616(event.event_x),
             Fixed::from_1616(event.event_y),
@@ -792,6 +803,7 @@ impl XBackendData {
             Some(o) => o,
             _ => return Ok(()),
         };
+        output.events.push(ConnectorEvent::Disconnected);
         output.events.push(ConnectorEvent::Removed);
         output.changed();
         Ok(())
@@ -820,7 +832,7 @@ impl XBackendData {
             output.events.push(ConnectorEvent::ModeChanged(Mode {
                 width,
                 height,
-                refresh_rate: 60, // TODO
+                refresh_rate_millihz: 60, // TODO
             }));
             output.changed();
         }
@@ -829,7 +841,7 @@ impl XBackendData {
 }
 
 struct XOutput {
-    id: OutputId,
+    id: ConnectorId,
     _backend: Rc<XBackendData>,
     window: u32,
     events: SyncQueue<ConnectorEvent>,
@@ -859,8 +871,15 @@ impl XOutput {
 }
 
 impl Connector for XOutput {
-    fn id(&self) -> OutputId {
+    fn id(&self) -> ConnectorId {
         self.id
+    }
+
+    fn kernel_id(&self) -> ConnectorKernelId {
+        ConnectorKernelId {
+            ty: ConnectorType::EmbeddedWindow,
+            id: self.id.raw(),
+        }
     }
 
     fn event(&self) -> Option<ConnectorEvent> {

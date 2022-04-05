@@ -37,8 +37,7 @@ clap = { version = "3.1.6", features = ["derive", "wrap_help"] }
 clap_complete = "3.1.1"
 humantime = "2.1.0"
 dirs = "4.0.0"
-
-backtrace = { version = "0.3.64", optional = true }
+backtrace = "0.3.64"
 
 [build-dependencies]
 repc = "0.1.1"
@@ -49,4 +48,4 @@ bstr = { version = "0.2.17", default-features = false, features = ["std"] }
 #opt-level = 3
 
 [features]
-rc_tracking = ["backtrace"]
+rc_tracking = []

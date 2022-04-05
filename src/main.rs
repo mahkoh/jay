@@ -2,7 +2,6 @@
     c_variadic,
     thread_local,
     label_break_value,
-    try_blocks,
     generic_associated_types,
     extern_types
 )]

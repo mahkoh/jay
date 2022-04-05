@@ -52,6 +52,10 @@ impl<T> LinkedList<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.last().is_none()
+    }
+
     pub fn last(&self) -> Option<NodeRef<T>> {
         unsafe { self.endpoint(self.root.data.as_ref().prev.get()) }
     }

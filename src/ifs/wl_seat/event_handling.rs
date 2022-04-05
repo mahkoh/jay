@@ -1,4 +1,4 @@
-use crate::backend::{InputEvent, KeyState, OutputId, ScrollAxis};
+use crate::backend::{ConnectorId, InputEvent, KeyState, ScrollAxis};
 use crate::client::{Client, ClientId};
 use crate::fixed::Fixed;
 use crate::ifs::ipc;
@@ -113,19 +113,28 @@ impl WlSeatGlobal {
     pub fn event(self: &Rc<Self>, event: InputEvent) {
         match event {
             InputEvent::Key(k, s) => self.key_event(k, s),
-            InputEvent::OutputPosition(o, x, y) => self.output_position_event(o, x, y),
+            InputEvent::ConnectorPosition(o, x, y) => self.connector_position_event(o, x, y),
             InputEvent::Motion(dx, dy) => self.motion_event(dx, dy),
             InputEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
             InputEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
         }
     }
 
-    fn output_position_event(self: &Rc<Self>, output: OutputId, mut x: Fixed, mut y: Fixed) {
-        let output = match self.state.outputs.get(&output) {
+    fn connector_position_event(
+        self: &Rc<Self>,
+        connector: ConnectorId,
+        mut x: Fixed,
+        mut y: Fixed,
+    ) {
+        let output = match self.state.connectors.get(&connector) {
             Some(o) => o,
             _ => return,
         };
-        let pos = output.position();
+        let node = match output.node.get() {
+            Some(n) => n,
+            _ => return,
+        };
+        let pos = node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
         self.set_new_position(x, y);

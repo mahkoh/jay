@@ -8,6 +8,7 @@ use std::collections::HashMap;
 mod macros;
 #[doc(hidden)]
 pub mod _private;
+pub mod drm;
 pub mod embedded;
 pub mod input;
 pub mod keyboard;

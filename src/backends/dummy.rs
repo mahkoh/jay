@@ -1,4 +1,5 @@
-use crate::backend::{Backend, Connector, ConnectorEvent, OutputId};
+use crate::backend::{Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId};
+use crate::drm::drm::ConnectorType;
 use std::rc::Rc;
 
 pub struct DummyBackend {}
@@ -10,12 +11,19 @@ impl Backend for DummyBackend {
 }
 
 pub struct DummyOutput {
-    pub id: OutputId,
+    pub id: ConnectorId,
 }
 
 impl Connector for DummyOutput {
-    fn id(&self) -> OutputId {
+    fn id(&self) -> ConnectorId {
         self.id
+    }
+
+    fn kernel_id(&self) -> ConnectorKernelId {
+        ConnectorKernelId {
+            ty: ConnectorType::Unknown(0),
+            id: 0,
+        }
     }
 
     fn event(&self) -> Option<ConnectorEvent> {

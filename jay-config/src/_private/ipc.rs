@@ -1,3 +1,4 @@
+use crate::drm::Connector;
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
 use crate::input::InputDevice;
@@ -13,6 +14,18 @@ pub enum ServerMessage {
     Configure,
     Response {
         response: Response,
+    },
+    ConnectorConnect {
+        device: Connector,
+    },
+    ConnectorDisconnect {
+        device: Connector,
+    },
+    NewConnector {
+        device: Connector,
+    },
+    DelConnector {
+        device: Connector,
     },
     NewInputDevice {
         device: InputDevice,

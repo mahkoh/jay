@@ -1,7 +1,5 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, InputDevice, InputDeviceId, InputDeviceIds, OutputId, OutputIds,
-};
+use crate::backend::{Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice, InputDeviceId, InputDeviceIds, MonitorInfo};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
@@ -9,7 +7,6 @@ use crate::dbus::Dbus;
 use crate::event_loop::EventLoop;
 use crate::forker::ForkerProxy;
 use crate::globals::{Globals, GlobalsError, WaylandGlobal};
-use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::logger::Logger;
@@ -25,7 +22,6 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fdcloser::FdCloser;
 use crate::utils::linkedlist::LinkedList;
-use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::wheel::Wheel;
 use crate::xkbcommon::{XkbContext, XkbKeymap};
@@ -45,9 +41,8 @@ pub struct State {
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
-    pub next_name: NumCell<u32>,
     pub globals: Globals,
-    pub output_ids: OutputIds,
+    pub connector_ids: ConnectorIds,
     pub seat_ids: SeatIds,
     pub input_device_ids: InputDeviceIds,
     pub node_ids: NodeIds,
@@ -55,9 +50,7 @@ pub struct State {
     pub workspaces: CopyHashMap<String, Rc<WorkspaceNode>>,
     pub dummy_output: CloneCell<Option<Rc<OutputNode>>>,
     pub backend_events: AsyncQueue<BackendEvent>,
-    pub output_handlers: RefCell<AHashMap<OutputId, SpawnedFuture<()>>>,
     pub input_device_handlers: RefCell<AHashMap<InputDeviceId, InputDeviceData>>,
-    pub outputs: CopyHashMap<OutputId, Rc<WlOutputGlobal>>,
     pub seat_queue: LinkedList<Rc<WlSeatGlobal>>,
     pub slow_clients: AsyncQueue<Rc<Client>>,
     pub none_surface_ext: Rc<NoneSurfaceExt>,
@@ -71,6 +64,7 @@ pub struct State {
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
     pub logger: Arc<Logger>,
+    pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
 }
 
 pub struct InputDeviceData {
@@ -82,6 +76,13 @@ pub struct InputDeviceData {
 pub struct DeviceHandlerData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     pub device: Rc<dyn InputDevice>,
+}
+
+pub struct ConnectorData {
+    pub connector: Rc<dyn Connector>,
+    pub monitor_info: CloneCell<Option<Rc<MonitorInfo>>>,
+    pub handler: Cell<Option<SpawnedFuture<()>>>,
+    pub node: CloneCell<Option<Rc<OutputNode>>>,
 }
 
 impl State {

@@ -1,6 +1,7 @@
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
 use crate::utils::ptr_ext::MutPtrExt;
+use backtrace::Backtrace;
 use bstr::{BStr, BString, ByteSlice};
 use log::{Level, Log, Metadata, Record};
 use std::cell::UnsafeCell;
@@ -29,8 +30,7 @@ impl Logger {
             Ok(fd) => fd,
             Err(e) => {
                 let e = OsError::from(e);
-                eprintln!("Error: Could not dup stderr: {}", ErrorFmt(e));
-                std::process::exit(1);
+                fatal!("Error: Could not dup stderr: {}", ErrorFmt(e));
             }
         };
         Self::install(level, b"", file)
@@ -55,13 +55,31 @@ impl Logger {
                     Err(Errno(c::EEXIST)) => {}
                     Err(e) => {
                         let e: OsError = e.into();
-                        eprintln!("Error: Could not create log file: {}", ErrorFmt(e));
-                        std::process::exit(1);
+                        fatal!("Error: Could not create log file: {}", ErrorFmt(e));
                     }
                 }
             }
             unreachable!();
         };
+        std::panic::set_hook(Box::new(|p| {
+            if let Some(loc) = p.location() {
+                log::error!(
+                    "Panic at {} line {} column {}",
+                    loc.file(),
+                    loc.line(),
+                    loc.column()
+                );
+            } else {
+                log::error!("Panic at unknown location");
+            }
+            if let Some(msg) = p.payload().downcast_ref::<&str>() {
+                log::error!("Message: {}", msg);
+            }
+            if let Some(msg) = p.payload().downcast_ref::<String>() {
+                log::error!("Message: {}", msg);
+            }
+            log::error!("Backtrace:\n{:?}", Backtrace::new());
+        }));
         Self::install(level, path.as_bytes(), file)
     }
 

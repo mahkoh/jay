@@ -1,11 +1,11 @@
 use crate::backend;
-use crate::backend::Connector;
 use crate::client::{Client, ClientError, ClientId};
 use crate::globals::{Global, GlobalName};
 use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::rect::Rect;
+use crate::state::ConnectorData;
 use crate::tree::OutputNode;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
@@ -53,21 +53,38 @@ const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {
     name: GlobalName,
-    pub connector: Rc<dyn Connector>,
+    pub connector: Rc<ConnectorData>,
     pub pos: Cell<Rect>,
+    pub manufacturer: String,
+    pub display: String,
     pub mode: Cell<backend::Mode>,
     pub node: CloneCell<Option<Rc<OutputNode>>>,
+    pub width_mm: i32,
+    pub height_mm: i32,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
 }
 
 impl WlOutputGlobal {
-    pub fn new(name: GlobalName, connector: Rc<dyn Connector>, x1: i32) -> Self {
+    pub fn new(
+        name: GlobalName,
+        connector: &Rc<ConnectorData>,
+        x1: i32,
+        mode: &backend::Mode,
+        manufacturer: &str,
+        product: &str,
+        width_mm: i32,
+        height_mm: i32,
+    ) -> Self {
         Self {
             name,
             connector: connector.clone(),
-            pos: Cell::new(Rect::new_empty(x1, 0)),
-            mode: Default::default(),
+            pos: Cell::new(Rect::new_sized(x1, 0, mode.width, mode.height).unwrap()),
+            manufacturer: manufacturer.to_string(),
+            display: product.to_string(),
+            mode: Cell::new(*mode),
             node: Default::default(),
+            width_mm,
+            height_mm,
             bindings: Default::default(),
         }
     }
@@ -163,24 +180,25 @@ impl WlOutput {
             self_id: self.id,
             x: pos.x1(),
             y: pos.y1(),
-            physical_width: pos.width(),
-            physical_height: pos.height(),
+            physical_width: self.global.width_mm,
+            physical_height: self.global.height_mm,
             subpixel: SP_UNKNOWN,
-            make: "jay",
-            model: "jay",
+            make: &self.global.manufacturer,
+            model: &self.global.display,
             transform: TF_NORMAL,
         };
         self.client.event(event);
     }
 
     fn send_mode(&self) {
+        let mode = self.global.mode.get();
         let pos = self.global.pos.get();
         let event = Mode {
             self_id: self.id,
             flags: MODE_CURRENT,
-            width: pos.width(),
-            height: pos.height(),
-            refresh: 60_000_000,
+            width: mode.width,
+            height: mode.height,
+            refresh: mode.refresh_rate_millihz as _,
         };
         self.client.event(event);
     }

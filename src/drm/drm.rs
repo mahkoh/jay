@@ -33,6 +33,7 @@ pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
 };
+use crate::backend;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -597,13 +598,21 @@ impl DrmModeInfo {
         }
     }
 
-    pub fn refresh_rate(&self) -> u32 {
-        let clock_mhz = self.clock as u64 * 1_000_000;
+    pub fn to_backend(&self) -> backend::Mode {
+        backend::Mode {
+            width: self.hdisplay as _,
+            height: self.vdisplay as _,
+            refresh_rate_millihz: self.refresh_rate_millihz(),
+        }
+    }
+
+    pub fn refresh_rate_millihz(&self) -> u32 {
+        let clock_millihz = self.clock as u64 * 1_000_000;
         let htotal = self.htotal as u64;
         let vtotal = self.vtotal as u64;
-        (((clock_mhz / htotal) + (vtotal / 2)) / vtotal) as u32
+        (((clock_millihz / htotal) + (vtotal / 2)) / vtotal) as u32
         // simplifies to
-        //     clock_mhz / (htotal * vtotal) + 1/2
+        //     clock_millihz / (htotal * vtotal) + 1/2
         // why round up (+1/2) instead of down?
     }
 }
@@ -725,6 +734,7 @@ pub enum ConnectorType {
     WRITEBACK,
     SPI,
     USB,
+    EmbeddedWindow,
 }
 
 impl Display for ConnectorType {
@@ -751,6 +761,7 @@ impl Display for ConnectorType {
             Self::WRITEBACK => "Writeback",
             Self::SPI => "SPI",
             Self::USB => "USB",
+            Self::EmbeddedWindow => "EmbeddedWindow",
         };
         f.write_str(s)
     }
@@ -808,6 +819,7 @@ impl Into<u32> for ConnectorType {
             Self::WRITEBACK => sys::DRM_MODE_CONNECTOR_WRITEBACK,
             Self::SPI => sys::DRM_MODE_CONNECTOR_SPI,
             Self::USB => sys::DRM_MODE_CONNECTOR_USB,
+            Self::EmbeddedWindow => sys::DRM_MODE_CONNECTOR_Unknown,
         }
     }
 }

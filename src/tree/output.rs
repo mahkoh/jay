@@ -78,6 +78,37 @@ impl OutputNode {
         }
     }
 
+    pub fn ensure_workspace(self: &Rc<Self>) {
+        if !self.workspaces.is_empty() {
+            return;
+        }
+        let name = 'name: {
+            for i in 1.. {
+                let name = i.to_string();
+                if !self.state.workspaces.contains(&name) {
+                    break 'name name;
+                }
+            }
+            unreachable!();
+        };
+        let workspace = Rc::new(WorkspaceNode {
+            id: self.state.node_ids.next(),
+            output: CloneCell::new(self.clone()),
+            position: Default::default(),
+            container: Default::default(),
+            stacked: Default::default(),
+            seat_state: Default::default(),
+            name: name.clone(),
+            output_link: Default::default(),
+        });
+        self.state.workspaces.set(name, workspace.clone());
+        workspace
+            .output_link
+            .set(Some(self.workspaces.add_last(workspace.clone())));
+        self.show_workspace(&workspace);
+        self.update_render_data();
+    }
+
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(Some(ws.clone()));
         ws.clone().change_extents(&self.workspace_rect());

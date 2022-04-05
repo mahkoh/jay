@@ -1,4 +1,4 @@
-use crate::backend::{KeyState, OutputId, ScrollAxis};
+use crate::backend::{ConnectorId, KeyState, ScrollAxis};
 use crate::client::{Client, ClientId};
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
@@ -356,7 +356,7 @@ tree_id!(ToplevelNodeId);
 
 pub struct DisplayNode {
     pub id: NodeId,
-    pub outputs: CopyHashMap<OutputId, Rc<OutputNode>>,
+    pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
     pub xstacked: LinkedList<Rc<Xwindow>>,
     pub seat_state: NodeSeatState,

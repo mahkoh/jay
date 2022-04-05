@@ -7,14 +7,13 @@ use crate::clientmem::ClientMemError;
 use crate::config::ConfigProxy;
 use crate::dbus::Dbus;
 use crate::event_loop::{EventLoop, EventLoopError};
-use crate::forker::ForkerError;
 use crate::globals::Globals;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::logger::Logger;
 use crate::render::RenderError;
 use crate::sighand::SighandError;
-use crate::state::State;
+use crate::state::{ConnectorData, State};
 use crate::tree::{
     container_layout, container_render_data, float_layout, float_titles, DisplayNode, NodeIds,
     OutputNode, WorkspaceNode,
@@ -22,12 +21,11 @@ use crate::tree::{
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fdcloser::FdCloser;
-use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::run_toplevel::RunToplevel;
 use crate::wheel::{Wheel, WheelError};
 use crate::xkbcommon::XkbContext;
-use crate::{clientmem, forker, leaks, render, sighand, tasks, xwayland};
+use crate::{backend, clientmem, forker, leaks, render, sighand, tasks, xwayland};
 use forker::ForkerProxy;
 use std::cell::Cell;
 use std::ops::Deref;
@@ -36,8 +34,12 @@ use std::sync::Arc;
 use thiserror::Error;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
+    let forker = match ForkerProxy::create() {
+        Ok(f) => Rc::new(f),
+        Err(e) => fatal!("Could not create a forker process: {}", ErrorFmt(e)),
+    };
     let logger = Logger::install_compositor(global.log_level.into());
-    if let Err(e) = main_(logger.clone(), &args) {
+    if let Err(e) = main_(forker, logger.clone(), &args) {
         let e = ErrorFmt(e);
         log::error!("A fatal error occurred: {}", e);
         eprintln!("A fatal error occurred: {}", e);
@@ -62,12 +64,9 @@ enum MainError {
     AsyncError(#[from] AsyncError),
     #[error("The render backend caused an error")]
     RenderError(#[from] RenderError),
-    #[error("The ol' forker caused an error")]
-    ForkerError(#[from] ForkerError),
 }
 
-fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
-    let forker = Rc::new(ForkerProxy::create()?);
+fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
     leaks::init();
     render::init()?;
     clientmem::init()?;
@@ -90,17 +89,14 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
         cursors: Default::default(),
         wheel,
         clients: Clients::new(),
-        next_name: NumCell::new(1),
         globals: Globals::new(),
-        output_ids: Default::default(),
+        connector_ids: Default::default(),
         root: Rc::new(DisplayNode::new(node_ids.next())),
         workspaces: Default::default(),
         dummy_output: Default::default(),
         node_ids,
         backend_events: AsyncQueue::new(),
-        output_handlers: Default::default(),
         seat_ids: Default::default(),
-        outputs: Default::default(),
         seat_queue: Default::default(),
         slow_clients: AsyncQueue::new(),
         none_surface_ext: Rc::new(NoneSurfaceExt),
@@ -116,15 +112,28 @@ fn main_(logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
         dbus: Dbus::new(&engine, &run_toplevel),
         fdcloser: FdCloser::new(),
         logger,
+        connectors: Default::default(),
     });
     {
         let dummy_output = Rc::new(OutputNode {
             id: state.node_ids.next(),
             global: Rc::new(WlOutputGlobal::new(
                 state.globals.name(),
-                Rc::new(DummyOutput {
-                    id: state.output_ids.next(),
+                &Rc::new(ConnectorData {
+                    connector: Rc::new(DummyOutput { id: state.connector_ids.next() }),
+                    monitor_info: Default::default(),
+                    handler: Cell::new(None),
+                    node: Default::default()
                 }),
+                0,
+                &backend::Mode {
+                    width: 0,
+                    height: 0,
+                    refresh_rate_millihz: 0,
+                },
+                "none",
+                "none",
+                0,
                 0,
             )),
             workspaces: Default::default(),

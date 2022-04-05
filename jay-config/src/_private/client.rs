@@ -2,6 +2,7 @@
 
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
+use crate::drm::Connector;
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
 use crate::input::InputDevice;
@@ -24,6 +25,8 @@ pub(crate) struct Client {
     response: RefCell<Vec<Response>>,
     on_new_seat: RefCell<Option<Rc<dyn Fn(Seat)>>>,
     on_new_input_device: RefCell<Option<Rc<dyn Fn(InputDevice)>>>,
+    on_connector_connected: RefCell<Option<Rc<dyn Fn(Connector)>>>,
+    on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
 }
 
@@ -103,6 +106,8 @@ pub unsafe extern "C" fn init(
         response: Default::default(),
         on_new_seat: Default::default(),
         on_new_input_device: Default::default(),
+        on_connector_connected: Default::default(),
+        on_new_connector: Default::default(),
         bufs: Default::default(),
     });
     let init = slice::from_raw_parts(init, size);
@@ -471,6 +476,20 @@ impl Client {
                 }
             }
             ServerMessage::DelInputDevice { .. } => {}
+            ServerMessage::ConnectorConnect { device } => {
+                let handler = self.on_connector_connected.borrow_mut().clone();
+                if let Some(handler) = handler {
+                    handler(device);
+                }
+            }
+            ServerMessage::ConnectorDisconnect { .. } => {}
+            ServerMessage::NewConnector { device } => {
+                let handler = self.on_new_connector.borrow_mut().clone();
+                if let Some(handler) = handler {
+                    handler(device);
+                }
+            }
+            ServerMessage::DelConnector { .. } => {}
         }
     }
 

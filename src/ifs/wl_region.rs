@@ -1,6 +1,7 @@
 use crate::client::{Client, ClientError};
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::rect::{Rect, Region, RegionBuilder};
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::wire::wl_region::*;
@@ -8,7 +9,6 @@ use crate::wire::WlRegionId;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
-use crate::rect::{Rect, Region, RegionBuilder};
 
 pub struct WlRegion {
     id: WlRegionId,

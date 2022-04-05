@@ -17,7 +17,7 @@ pub struct Rect {
 
 type Container = SmallVec<[Rect; 1]>;
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Region {
     rects: Container,
     extents: Rect,
@@ -75,6 +75,7 @@ impl Rect {
         Some(Self { x1, y1, x2, y2 })
     }
 
+    #[allow(dead_code)]
     fn new_unchecked(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
         Self { x1, y1, x2, y2 }
     }

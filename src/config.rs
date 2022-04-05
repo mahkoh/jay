@@ -1,6 +1,6 @@
 mod handler;
 
-use crate::backend::InputDeviceId;
+use crate::backend::{ConnectorId, InputDeviceId};
 use crate::config::handler::ConfigProxyHandler;
 use crate::ifs::wl_seat::SeatId;
 use crate::state::State;
@@ -8,6 +8,7 @@ use crate::utils::numcell::NumCell;
 use crate::utils::ptr_ext::PtrExt;
 use jay_config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
 use jay_config::_private::{bincode_ops, ConfigEntry, VERSION};
+use jay_config::drm::Connector;
 use jay_config::input::InputDevice;
 use jay_config::keyboard::ModifiedKeySym;
 use jay_config::Seat;
@@ -35,6 +36,30 @@ impl ConfigProxy {
             seat: Seat(seat.raw() as _),
             mods: modsym.mods,
             sym: modsym.sym,
+        });
+    }
+
+    pub fn new_connector(&self, connector: ConnectorId) {
+        self.handler.send(&ServerMessage::NewConnector {
+            device: Connector(connector.raw() as _),
+        });
+    }
+
+    pub fn del_connector(&self, connector: ConnectorId) {
+        self.handler.send(&ServerMessage::DelConnector {
+            device: Connector(connector.raw() as _),
+        });
+    }
+
+    pub fn connector_connected(&self, connector: ConnectorId) {
+        self.handler.send(&ServerMessage::ConnectorConnect {
+            device: Connector(connector.raw() as _),
+        });
+    }
+
+    pub fn connector_disconnected(&self, connector: ConnectorId) {
+        self.handler.send(&ServerMessage::ConnectorDisconnect {
+            device: Connector(connector.raw() as _),
         });
     }
 

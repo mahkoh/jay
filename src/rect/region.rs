@@ -1,11 +1,20 @@
 use crate::rect::{Container, Rect, Region};
 use crate::utils::windows::WindowsExt;
+use once_cell::unsync::Lazy;
 use smallvec::SmallVec;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap};
+use std::collections::BinaryHeap;
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
+
+#[thread_local]
+static EMPTY: Lazy<Rc<Region>> = Lazy::new(|| {
+    Rc::new(Region {
+        rects: Default::default(),
+        extents: Default::default(),
+    })
+});
 
 impl Region {
     pub fn new(rect: Rect) -> Rc<Self> {
@@ -17,9 +26,13 @@ impl Region {
         })
     }
 
+    pub fn empty() -> Rc<Self> {
+        EMPTY.clone()
+    }
+
     pub fn from_rects(rects: &[Rect]) -> Rc<Self> {
         if rects.is_empty() {
-            return Rc::new(Self::default());
+            return Self::empty();
         }
         if rects.len() == 1 {
             return Self::new(rects[0]);
@@ -531,11 +544,20 @@ impl Default for BuilderOp {
     }
 }
 
-#[derive(Default)]
 pub struct RegionBuilder {
     base: Rc<Region>,
     op: BuilderOp,
     pending: Vec<Rect>,
+}
+
+impl Default for RegionBuilder {
+    fn default() -> Self {
+        Self {
+            base: Region::empty(),
+            op: Default::default(),
+            pending: Default::default(),
+        }
+    }
 }
 
 impl RegionBuilder {
@@ -556,7 +578,7 @@ impl RegionBuilder {
 
     pub fn clear(&mut self) {
         self.pending.clear();
-        self.base = Rc::new(Region::default());
+        self.base = Region::empty();
     }
 
     fn set_op(&mut self, op: BuilderOp) {

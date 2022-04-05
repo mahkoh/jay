@@ -75,11 +75,13 @@ impl ZwlrLayerShellV1 {
                         break 'get_output output;
                     }
                 }
-                let outputs = self.client.state.outputs.lock();
-                match outputs.values().next() {
-                    Some(ou) => ou.node.get().unwrap(),
-                    _ => return Err(GetLayerSurfaceError::NoOutputs),
+                let outputs = self.client.state.connectors.lock();
+                for output in outputs.values() {
+                    if let Some(node) = output.node.get() {
+                        break 'get_output node;
+                    }
                 }
+                return Err(GetLayerSurfaceError::NoOutputs);
             }
         };
         log::info!("output = {:?}", output.global.pos.get());
