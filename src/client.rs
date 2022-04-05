@@ -9,6 +9,7 @@ use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
 use crate::state::State;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain};
+use crate::utils::copyhashmap::Locked;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
@@ -16,7 +17,7 @@ use crate::wire::WlRegistryId;
 use crate::xwayland::XWaylandEvent;
 use ahash::AHashMap;
 pub use error::{ClientError, ObjectError};
-use std::cell::{Cell, RefCell, RefMut};
+use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::mem;
@@ -335,7 +336,7 @@ impl Client {
         self.checking_queue_size.set(false);
     }
 
-    pub fn lock_registries(&self) -> RefMut<AHashMap<WlRegistryId, Rc<WlRegistry>>> {
+    pub fn lock_registries(&self) -> Locked<WlRegistryId, Rc<WlRegistry>> {
         self.objects.registries()
     }
 

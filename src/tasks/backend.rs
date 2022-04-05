@@ -1,4 +1,4 @@
-use crate::backend::{BackendEvent};
+use crate::backend::BackendEvent;
 use crate::state::State;
 use crate::tasks::{connector, input_device};
 use std::rc::Rc;

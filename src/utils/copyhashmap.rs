@@ -1,12 +1,15 @@
+use crate::utils::clonecell::UnsafeCellCloneSafe;
+use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
 use ahash::AHashMap;
 use std::borrow::Borrow;
-use std::cell::{RefCell, RefMut};
+use std::cell::UnsafeCell;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::mem;
+use std::ops::{Deref, DerefMut};
 
 pub struct CopyHashMap<K, V> {
-    map: RefCell<AHashMap<K, V>>,
+    map: UnsafeCell<AHashMap<K, V>>,
 }
 
 impl<K: Debug, V: Debug> Debug for CopyHashMap<K, V> {
@@ -29,20 +32,22 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
     }
 
     pub fn set(&self, k: K, v: V) {
-        self.map.borrow_mut().insert(k, v);
+        unsafe {
+            self.map.get().deref_mut().insert(k, v);
+        }
     }
 
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<V>
     where
-        V: Clone,
+        V: UnsafeCellCloneSafe,
         Q: Hash + Eq,
         K: Borrow<Q>,
     {
-        self.map.borrow_mut().get(k).cloned()
+        unsafe { self.map.get().deref().get(k).cloned() }
     }
 
     pub fn remove(&self, k: &K) -> Option<V> {
-        self.map.borrow_mut().remove(k)
+        unsafe { self.map.get().deref_mut().remove(k) }
     }
 
     pub fn contains<Q: ?Sized>(&self, k: &Q) -> bool
@@ -50,18 +55,48 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         Q: Hash + Eq,
         K: Borrow<Q>,
     {
-        self.map.borrow_mut().contains_key(k)
+        unsafe { self.map.get().deref().contains_key(k) }
     }
 
-    pub fn lock(&self) -> RefMut<AHashMap<K, V>> {
-        self.map.borrow_mut()
+    pub fn lock(&self) -> Locked<K, V> {
+        Locked {
+            source: self,
+            map: self.clear(),
+        }
     }
 
-    pub fn clear(&self) {
-        mem::take(&mut *self.map.borrow_mut());
+    pub fn clear(&self) -> AHashMap<K, V> {
+        unsafe { mem::take(self.map.get().deref_mut()) }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.map.borrow_mut().is_empty()
+        unsafe { self.map.get().deref().is_empty() }
+    }
+}
+
+pub struct Locked<'a, K, V> {
+    source: &'a CopyHashMap<K, V>,
+    map: AHashMap<K, V>,
+}
+
+impl<'a, K, V> Drop for Locked<'a, K, V> {
+    fn drop(&mut self) {
+        unsafe {
+            mem::swap(&mut self.map, self.source.map.get().deref_mut());
+        }
+    }
+}
+
+impl<'a, K, V> Deref for Locked<'a, K, V> {
+    type Target = AHashMap<K, V>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl<'a, K, V> DerefMut for Locked<'a, K, V> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.map
     }
 }

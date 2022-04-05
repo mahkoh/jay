@@ -1,5 +1,6 @@
 use crate::utils::linkedlist::NodeRef;
 use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
+use jay_config::keyboard::mods::Modifiers;
 use std::cell::UnsafeCell;
 use std::fmt::{Debug, Formatter};
 use std::mem;
@@ -65,3 +66,6 @@ unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Weak<T> {}
 unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
 
 unsafe impl UnsafeCellCloneSafe for () {}
+unsafe impl UnsafeCellCloneSafe for u64 {}
+
+unsafe impl UnsafeCellCloneSafe for Modifiers {}

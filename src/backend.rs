@@ -30,12 +30,12 @@ pub struct MonitorInfo {
 
 pub struct ConnectorKernelId {
     pub ty: ConnectorType,
-    pub id: u32,
+    pub idx: u32,
 }
 
 impl Display for ConnectorKernelId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-{}", self.ty, self.id)
+        write!(f, "{}-{}", self.ty, self.idx)
     }
 }
 

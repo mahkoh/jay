@@ -23,7 +23,7 @@ use crate::logind::{LogindError, Session};
 use crate::render::RenderError;
 use crate::state::State;
 use crate::udev::{Udev, UdevError, UdevMonitor};
-use crate::utils::clonecell::CloneCell;
+use crate::utils::clonecell::{CloneCell, UnsafeCellCloneSafe};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
@@ -225,6 +225,8 @@ enum MetalDevice {
     Input(Rc<MetalInputDevice>),
     Drm(Rc<MetalDrmDevice>),
 }
+
+unsafe impl UnsafeCellCloneSafe for MetalDevice {}
 
 struct DeviceHolder {
     devices: CopyHashMap<c::dev_t, MetalDevice>,

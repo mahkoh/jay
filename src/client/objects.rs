@@ -15,13 +15,12 @@ use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::object::{Object, ObjectId};
 use crate::tree::Node;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::{CopyHashMap, Locked};
 use crate::wire::{
     WlBufferId, WlDataSourceId, WlOutputId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId,
     XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
 };
-use ahash::AHashMap;
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
@@ -167,7 +166,7 @@ impl Objects {
         Ok(())
     }
 
-    pub fn registries(&self) -> RefMut<AHashMap<WlRegistryId, Rc<WlRegistry>>> {
+    pub fn registries(&self) -> Locked<WlRegistryId, Rc<WlRegistry>> {
         self.registries.lock()
     }
 

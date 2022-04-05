@@ -126,13 +126,27 @@ impl OutputNode {
         .unwrap()
     }
 
+    pub fn set_position(&self, x: i32, y: i32) {
+        let pos = self.global.pos.get();
+        if (pos.x1(), pos.y1()) == (x, y) {
+            return;
+        }
+        let rect = pos.at_point(x, y);
+        self.change_extents_(&rect);
+    }
+
     pub fn update_mode(&self, mode: Mode) {
         if self.global.mode.get() == mode {
             return;
         }
+        self.global.mode.set(mode);
         let pos = self.global.pos.get();
         let rect = Rect::new_sized(pos.x1(), pos.y1(), mode.width, mode.height).unwrap();
-        self.global.pos.set(rect);
+        self.change_extents_(&rect);
+    }
+
+    fn change_extents_(&self, rect: &Rect) {
+        self.global.pos.set(*rect);
         if let Some(c) = self.workspace.get() {
             c.change_extents(&self.workspace_rect());
         }

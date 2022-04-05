@@ -1,5 +1,9 @@
 use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis};
+use crate::backend::{
+    Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, InputDevice,
+    InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode,
+    MonitorInfo, ScrollAxis,
+};
 use crate::drm::drm::{ConnectorType, Drm, DrmError};
 use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
@@ -878,7 +882,7 @@ impl Connector for XOutput {
     fn kernel_id(&self) -> ConnectorKernelId {
         ConnectorKernelId {
             ty: ConnectorType::EmbeddedWindow,
-            id: self.id.raw(),
+            idx: self.id.raw(),
         }
     }
 

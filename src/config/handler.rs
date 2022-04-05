@@ -1,7 +1,10 @@
 use crate::backend;
-use crate::backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId};
+use crate::backend::{
+    ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, Mode,
+};
+use crate::compositor::MAX_EXTENTS;
 use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
-use crate::state::{DeviceHandlerData, State};
+use crate::state::{ConnectorData, DeviceHandlerData, State};
 use crate::tree::walker::NodeVisitorBase;
 use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
 use crate::utils::copyhashmap::CopyHashMap;
@@ -9,20 +12,21 @@ use crate::utils::debug_fn::debug_fn;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::stack::Stack;
-use crate::xkbcommon::XkbKeymap;
+use crate::xkbcommon::{XkbCommonError, XkbKeymap};
 use bincode::error::DecodeError;
 use jay_config::_private::bincode_ops;
 use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};
+use jay_config::drm::Connector;
 use jay_config::input::acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT};
 use jay_config::input::capability::{
     Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
     CAP_TABLET_TOOL, CAP_TOUCH,
 };
-use jay_config::input::InputDevice;
+use jay_config::input::{InputDevice, Seat};
 use jay_config::keyboard::keymap::Keymap;
 use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;
-use jay_config::{Axis, Direction, LogLevel, Seat, Workspace};
+use jay_config::{Axis, Direction, LogLevel, Workspace};
 use libloading::Library;
 use log::Level;
 use std::cell::Cell;
@@ -101,20 +105,20 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_parse_keymap(&self, keymap: &str) -> Result<(), ParseKeymapError> {
+    fn handle_parse_keymap(&self, keymap: &str) -> Result<(), CphError> {
         let (keymap, res) = match self.state.xkb_ctx.keymap_from_str(keymap) {
             Ok(keymap) => {
                 let id = Keymap(self.id());
                 self.keymaps.set(id, keymap);
                 (id, Ok(()))
             }
-            _ => (Keymap::INVALID, Err(ParseKeymapError::ParsingFailed)),
+            Err(e) => (Keymap::INVALID, Err(CphError::ParseKeymapError(e))),
         };
         self.respond(Response::ParseKeymap { keymap });
         res
     }
 
-    fn handle_set_keymap(&self, seat: Seat, keymap: Keymap) -> Result<(), SeatSetKeymapError> {
+    fn handle_set_keymap(&self, seat: Seat, keymap: Keymap) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let keymap = if keymap.is_invalid() {
             self.state.default_keymap.clone()
@@ -125,37 +129,32 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_focus(&self, seat: Seat, direction: Direction) -> Result<(), FocusError> {
+    fn handle_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focus(direction);
         Ok(())
     }
 
-    fn handle_move(&self, seat: Seat, direction: Direction) -> Result<(), MoveError> {
+    fn handle_move(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focused(direction);
         Ok(())
     }
 
-    fn handle_get_repeat_rate(&self, seat: Seat) -> Result<(), SeatGetRepeatRateError> {
+    fn handle_get_repeat_rate(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let (rate, delay) = seat.get_rate();
         self.respond(Response::GetRepeatRate { rate, delay });
         Ok(())
     }
 
-    fn handle_set_repeat_rate(
-        &self,
-        seat: Seat,
-        rate: i32,
-        delay: i32,
-    ) -> Result<(), SeatSetRepeatRateError> {
+    fn handle_set_repeat_rate(&self, seat: Seat, rate: i32, delay: i32) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         if rate < 0 {
-            return Err(SeatSetRepeatRateError::NegativeRate);
+            return Err(CphError::NegativeRepeatRate);
         }
         if delay < 0 {
-            return Err(SeatSetRepeatRateError::NegativeDelay);
+            return Err(CphError::NegativeRepeatDelay);
         }
         seat.set_rate(rate, delay);
         Ok(())
@@ -184,6 +183,17 @@ impl ConfigProxyHandler {
         }
     }
 
+    fn get_connector(&self, connector: Connector) -> Result<Rc<ConnectorData>, CphError> {
+        let data = self
+            .state
+            .connectors
+            .get(&ConnectorId::from_raw(connector.0 as _));
+        match data {
+            Some(d) => Ok(d),
+            _ => Err(CphError::ConnectorDoesNotExist(connector)),
+        }
+    }
+
     fn get_seat(&self, seat: Seat) -> Result<Rc<WlSeatGlobal>, CphError> {
         let seats = self.state.globals.seats.lock();
         for seat_global in seats.values() {
@@ -209,7 +219,7 @@ impl ConfigProxyHandler {
         }
     }
 
-    fn handle_set_seat(&self, device: InputDevice, seat: Seat) -> Result<(), SetSeatError> {
+    fn handle_set_seat(&self, device: InputDevice, seat: Seat) -> Result<(), CphError> {
         let seat = if seat.is_invalid() {
             None
         } else {
@@ -224,7 +234,7 @@ impl ConfigProxyHandler {
         &self,
         device: InputDevice,
         left_handed: bool,
-    ) -> Result<(), SetLeftHandedError> {
+    ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         dev.device.set_left_handed(left_handed);
         Ok(())
@@ -234,22 +244,18 @@ impl ConfigProxyHandler {
         &self,
         device: InputDevice,
         accel_profile: AccelProfile,
-    ) -> Result<(), SetAccelProfileError> {
+    ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         let profile = match accel_profile {
             ACCEL_PROFILE_FLAT => InputDeviceAccelProfile::Flat,
             ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
-            _ => return Err(SetAccelProfileError::UnknownAccelProfile(accel_profile)),
+            _ => return Err(CphError::UnknownAccelProfile(accel_profile)),
         };
         dev.device.set_accel_profile(profile);
         Ok(())
     }
 
-    fn handle_set_accel_speed(
-        &self,
-        device: InputDevice,
-        speed: f64,
-    ) -> Result<(), SetAccelSpeedError> {
+    fn handle_set_accel_speed(&self, device: InputDevice, speed: f64) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         dev.device.set_accel_speed(speed);
         Ok(())
@@ -259,7 +265,7 @@ impl ConfigProxyHandler {
         &self,
         device: InputDevice,
         matrix: [[f64; 2]; 2],
-    ) -> Result<(), SetTransformMatrixError> {
+    ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         dev.device.set_transform_matrix(matrix);
         Ok(())
@@ -281,14 +287,14 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), ShowWorkspaceError> {
+    fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
         self.state.show_workspace(&seat, &name);
         Ok(())
     }
 
-    fn handle_get_device_name(&self, device: InputDevice) -> Result<(), GetDeviceNameError> {
+    fn handle_get_device_name(&self, device: InputDevice) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         let name = dev.device.name();
         self.respond(Response::GetDeviceName {
@@ -297,11 +303,72 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_has_capability(
+    fn handle_connector_connected(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_connector(connector)?;
+        self.respond(Response::ConnectorConnected {
+            connected: connector.connected.get(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_type(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_connector(connector)?;
+        self.respond(Response::ConnectorType {
+            ty: connector.connector.kernel_id().ty.to_config(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_mode(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_connector(connector)?;
+        let mut mode = Mode::default();
+        if let Some(node) = connector.node.get() {
+            mode = node.global.mode.get();
+        }
+        self.respond(Response::ConnectorMode {
+            width: mode.width,
+            height: mode.height,
+            refresh_millihz: mode.refresh_rate_millihz,
+        });
+        Ok(())
+    }
+
+    fn handle_connector_set_position(
         &self,
-        device: InputDevice,
-        cap: Capability,
-    ) -> Result<(), HasCapabilityError> {
+        connector: Connector,
+        x: i32,
+        y: i32,
+    ) -> Result<(), CphError> {
+        let connector = self.get_connector(connector)?;
+        if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
+            return Err(CphError::InvalidConnectorPosition(x, y));
+        }
+        if let Some(node) = connector.node.get() {
+            node.set_position(x, y);
+        }
+        Ok(())
+    }
+
+    fn handle_get_connector(
+        &self,
+        ty: jay_config::drm::connector_type::ConnectorType,
+        idx: u32,
+    ) -> Result<(), CphError> {
+        let connectors = self.state.connectors.lock();
+        let connector = 'get_connector: {
+            for connector in connectors.values() {
+                let kid = connector.connector.kernel_id();
+                if ty == kid.ty.to_config() && idx == kid.idx {
+                    break 'get_connector Connector(connector.connector.id().raw() as _);
+                }
+            }
+            Connector(0)
+        };
+        self.respond(Response::GetConnector { connector });
+        Ok(())
+    }
+
+    fn handle_has_capability(&self, device: InputDevice, cap: Capability) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         let mut is_unknown = false;
         let has_cap = 'has_cap: {
@@ -322,13 +389,13 @@ impl ConfigProxyHandler {
         };
         self.respond(Response::HasCapability { has: has_cap });
         if is_unknown {
-            Err(HasCapabilityError::UnknownCapability(cap))
+            Err(CphError::UnknownCapability(cap))
         } else {
             Ok(())
         }
     }
 
-    fn handle_get_mono(&self, seat: Seat) -> Result<(), GetMonoError> {
+    fn handle_get_mono(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetMono {
             mono: seat.get_mono().unwrap_or(false),
@@ -336,13 +403,13 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_mono(&self, seat: Seat, mono: bool) -> Result<(), SetMonoError> {
+    fn handle_set_mono(&self, seat: Seat, mono: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_mono(mono);
         Ok(())
     }
 
-    fn handle_get_split(&self, seat: Seat) -> Result<(), GetSplitError> {
+    fn handle_get_split(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetSplit {
             axis: seat
@@ -353,7 +420,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_split(&self, seat: Seat, axis: Axis) -> Result<(), SetSplitError> {
+    fn handle_set_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_split(axis.into());
         Ok(())
@@ -364,7 +431,7 @@ impl ConfigProxyHandler {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
-    ) -> Result<(), AddShortcutError> {
+    ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.add_shortcut(mods, sym);
         Ok(())
@@ -375,7 +442,7 @@ impl ConfigProxyHandler {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
-    ) -> Result<(), AddShortcutError> {
+    ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.remove_shortcut(mods, sym);
         Ok(())
@@ -421,16 +488,16 @@ impl ConfigProxyHandler {
         prog: &str,
         args: Vec<String>,
         env: Vec<(String, String)>,
-    ) -> Result<(), RunError> {
+    ) -> Result<(), CphError> {
         let forker = match self.state.forker.get() {
             Some(f) => f,
-            _ => return Err(RunError::NoForker),
+            _ => return Err(CphError::NoForker),
         };
         forker.spawn(prog.to_string(), args, env, None);
         Ok(())
     }
 
-    fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), GrabError> {
+    fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), CphError> {
         let kb = self.get_kb(kb)?;
         kb.grab(grab);
         Ok(())
@@ -448,13 +515,13 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_create_split(&self, seat: Seat, axis: Axis) -> Result<(), CreateSplitError> {
+    fn handle_create_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.create_split(axis.into());
         Ok(())
     }
 
-    fn handle_focus_parent(&self, seat: Seat) -> Result<(), FocusParentError> {
+    fn handle_focus_parent(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.focus_parent();
         Ok(())
@@ -472,7 +539,7 @@ impl ConfigProxyHandler {
         }
     }
 
-    fn handle_toggle_floating(&self, seat: Seat) -> Result<(), FocusParentError> {
+    fn handle_toggle_floating(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.toggle_floating();
         Ok(())
@@ -508,24 +575,24 @@ impl ConfigProxyHandler {
         self.state.root.clone().visit(&mut V);
     }
 
-    fn handle_set_title_height(&self, height: i32) -> Result<(), SetTitleHeightError> {
+    fn handle_set_title_height(&self, height: i32) -> Result<(), CphError> {
         if height < 0 {
-            return Err(SetTitleHeightError::Negative(height));
+            return Err(CphError::NegativeTitleHeight(height));
         }
         if height > 1000 {
-            return Err(SetTitleHeightError::Excessive(height));
+            return Err(CphError::ExcessiveTitleHeight(height));
         }
         self.state.theme.title_height.set(height);
         self.spaces_change();
         Ok(())
     }
 
-    fn handle_set_border_width(&self, width: i32) -> Result<(), SetBorderWidthError> {
+    fn handle_set_border_width(&self, width: i32) -> Result<(), CphError> {
         if width < 0 {
-            return Err(SetBorderWidthError::Negative(width));
+            return Err(CphError::NegativeBorderWidth(width));
         }
         if width > 1000 {
-            return Err(SetBorderWidthError::Excessive(width));
+            return Err(CphError::ExcessiveBorderWidth(width));
         }
         self.state.theme.border_width.set(width);
         self.spaces_change();
@@ -569,34 +636,54 @@ impl ConfigProxyHandler {
                 line,
             } => self.handle_log_request(level, msg, file, line),
             ClientMessage::CreateSeat { name } => self.handle_create_seat(name),
-            ClientMessage::ParseKeymap { keymap } => self.handle_parse_keymap(keymap)?,
+            ClientMessage::ParseKeymap { keymap } => {
+                self.handle_parse_keymap(keymap).wrn("parse_keymap")?
+            }
             ClientMessage::SeatSetKeymap { seat, keymap } => {
-                self.handle_set_keymap(seat, keymap)?
+                self.handle_set_keymap(seat, keymap).wrn("set_keymap")?
             }
-            ClientMessage::SeatGetRepeatRate { seat } => self.handle_get_repeat_rate(seat)?,
-            ClientMessage::SeatSetRepeatRate { seat, rate, delay } => {
-                self.handle_set_repeat_rate(seat, rate, delay)?
+            ClientMessage::SeatGetRepeatRate { seat } => {
+                self.handle_get_repeat_rate(seat).wrn("get_repeat_rate")?
             }
-            ClientMessage::SetSeat { device, seat } => self.handle_set_seat(device, seat)?,
-            ClientMessage::GetMono { seat } => self.handle_get_mono(seat)?,
-            ClientMessage::SetMono { seat, mono } => self.handle_set_mono(seat, mono)?,
-            ClientMessage::GetSplit { seat } => self.handle_get_split(seat)?,
-            ClientMessage::SetSplit { seat, axis } => self.handle_set_split(seat, axis)?,
-            ClientMessage::AddShortcut { seat, mods, sym } => {
-                self.handle_add_shortcut(seat, mods, sym)?
+            ClientMessage::SeatSetRepeatRate { seat, rate, delay } => self
+                .handle_set_repeat_rate(seat, rate, delay)
+                .wrn("set_repeat_rate")?,
+            ClientMessage::SetSeat { device, seat } => {
+                self.handle_set_seat(device, seat).wrn("set_seat")?
             }
-            ClientMessage::RemoveShortcut { seat, mods, sym } => {
-                self.handle_remove_shortcut(seat, mods, sym)?
+            ClientMessage::GetMono { seat } => self.handle_get_mono(seat).wrn("get_mono")?,
+            ClientMessage::SetMono { seat, mono } => {
+                self.handle_set_mono(seat, mono).wrn("set_mono")?
             }
-            ClientMessage::Focus { seat, direction } => self.handle_focus(seat, direction)?,
-            ClientMessage::Move { seat, direction } => self.handle_move(seat, direction)?,
+            ClientMessage::GetSplit { seat } => self.handle_get_split(seat).wrn("get_split")?,
+            ClientMessage::SetSplit { seat, axis } => {
+                self.handle_set_split(seat, axis).wrn("set_split")?
+            }
+            ClientMessage::AddShortcut { seat, mods, sym } => self
+                .handle_add_shortcut(seat, mods, sym)
+                .wrn("add_shortcut")?,
+            ClientMessage::RemoveShortcut { seat, mods, sym } => self
+                .handle_remove_shortcut(seat, mods, sym)
+                .wrn("remove_shortcut")?,
+            ClientMessage::Focus { seat, direction } => {
+                self.handle_focus(seat, direction).wrn("focus")?
+            }
+            ClientMessage::Move { seat, direction } => {
+                self.handle_move(seat, direction).wrn("move")?
+            }
             ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat),
             ClientMessage::GetSeats => self.handle_get_seats(),
             ClientMessage::RemoveSeat { .. } => {}
-            ClientMessage::Run { prog, args, env } => self.handle_run(prog, args, env)?,
-            ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab)?,
-            ClientMessage::SetTitleHeight { height } => self.handle_set_title_height(height)?,
-            ClientMessage::SetBorderWidth { width } => self.handle_set_border_width(width)?,
+            ClientMessage::Run { prog, args, env } => {
+                self.handle_run(prog, args, env).wrn("run")?
+            }
+            ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab).wrn("grab")?,
+            ClientMessage::SetTitleHeight { height } => self
+                .handle_set_title_height(height)
+                .wrn("set_title_height")?,
+            ClientMessage::SetBorderWidth { width } => self
+                .handle_set_border_width(width)
+                .wrn("set_bordre_width")?,
             ClientMessage::SetTitleColor { color } => self.handle_set_title_color(color),
             ClientMessage::SetTitleUnderlineColor { color } => {
                 self.handle_set_title_underline_color(color)
@@ -605,32 +692,57 @@ impl ConfigProxyHandler {
             ClientMessage::SetBackgroundColor { color } => self.handle_set_background_color(color),
             ClientMessage::GetTitleHeight => self.handle_get_title_height(),
             ClientMessage::GetBorderWidth => self.handle_get_border_width(),
-            ClientMessage::CreateSplit { seat, axis } => self.handle_create_split(seat, axis)?,
-            ClientMessage::FocusParent { seat } => self.handle_focus_parent(seat)?,
-            ClientMessage::ToggleFloating { seat } => self.handle_toggle_floating(seat)?,
+            ClientMessage::CreateSplit { seat, axis } => {
+                self.handle_create_split(seat, axis).wrn("create_split")?
+            }
+            ClientMessage::FocusParent { seat } => {
+                self.handle_focus_parent(seat).wrn("focus_parent")?
+            }
+            ClientMessage::ToggleFloating { seat } => {
+                self.handle_toggle_floating(seat).wrn("toggle_floating")?
+            }
             ClientMessage::Quit => self.handle_quit(),
             ClientMessage::SwitchTo { vtnr } => self.handle_switch_to(vtnr),
-            ClientMessage::HasCapability { device, cap } => {
-                self.handle_has_capability(device, cap)?
-            }
+            ClientMessage::HasCapability { device, cap } => self
+                .handle_has_capability(device, cap)
+                .wrn("has_capability")?,
             ClientMessage::SetLeftHanded {
                 device,
                 left_handed,
-            } => self.handle_set_left_handed(device, left_handed)?,
-            ClientMessage::SetAccelProfile { device, profile } => {
-                self.handle_set_accel_profile(device, profile)?
+            } => self
+                .handle_set_left_handed(device, left_handed)
+                .wrn("set_left_handed")?,
+            ClientMessage::SetAccelProfile { device, profile } => self
+                .handle_set_accel_profile(device, profile)
+                .wrn("set_accel_profile")?,
+            ClientMessage::SetAccelSpeed { device, speed } => self
+                .handle_set_accel_speed(device, speed)
+                .wrn("set_accel_speed")?,
+            ClientMessage::SetTransformMatrix { device, matrix } => self
+                .handle_set_transform_matrix(device, matrix)
+                .wrn("set_transform_matrix")?,
+            ClientMessage::GetDeviceName { device } => {
+                self.handle_get_device_name(device).wrn("get_device_name")?
             }
-            ClientMessage::SetAccelSpeed { device, speed } => {
-                self.handle_set_accel_speed(device, speed)?
-            }
-            ClientMessage::SetTransformMatrix { device, matrix } => {
-                self.handle_set_transform_matrix(device, matrix)?
-            }
-            ClientMessage::GetDeviceName { device } => self.handle_get_device_name(device)?,
             ClientMessage::GetWorkspace { name } => self.handle_get_workspace(name),
-            ClientMessage::ShowWorkspace { seat, workspace } => {
-                self.handle_show_workspace(seat, workspace)?
+            ClientMessage::ShowWorkspace { seat, workspace } => self
+                .handle_show_workspace(seat, workspace)
+                .wrn("show_workspace")?,
+            ClientMessage::GetConnector { ty, idx } => {
+                self.handle_get_connector(ty, idx).wrn("get_connector")?
             }
+            ClientMessage::ConnectorConnected { connector } => self
+                .handle_connector_connected(connector)
+                .wrn("connector_connected")?,
+            ClientMessage::ConnectorType { connector } => self
+                .handle_connector_type(connector)
+                .wrn("connector_type")?,
+            ClientMessage::ConnectorMode { connector } => self
+                .handle_connector_mode(connector)
+                .wrn("connector_mode")?,
+            ClientMessage::ConnectorSetPosition { connector, x, y } => self
+                .handle_connector_set_position(connector, x, y)
+                .wrn("connector_set_position")?,
         }
         Ok(())
     }
@@ -638,63 +750,33 @@ impl ConfigProxyHandler {
 
 #[derive(Debug, Error)]
 enum CphError {
-    #[error("Could not process a `parse_keymap` request")]
-    ParseKeymapError(#[from] ParseKeymapError),
-    #[error("Could not process a `set_seat` request")]
-    SetSeatError(#[from] SetSeatError),
-    #[error("Could not process a `add_shortcut` request")]
-    AddShortcutError(#[from] AddShortcutError),
-    #[error("Could not process a `remove_shortcut` request")]
-    RemoveShortcutError(#[from] RemoveShortcutError),
-    #[error("Could not process a `set_keymap` request")]
-    SeatSetKeymapError(#[from] SeatSetKeymapError),
-    #[error("Could not process a `get_repeat_rate` request")]
-    SeatGetRepeatRateError(#[from] SeatGetRepeatRateError),
-    #[error("Could not process a `set_repeat_rate` request")]
-    SeatSetRepeatRateError(#[from] SeatSetRepeatRateError),
-    #[error("Could not process a `focus` request")]
-    FocusError(#[from] FocusError),
-    #[error("Could not process a `move` request")]
-    MoveError(#[from] MoveError),
-    #[error("Could not process a `set_mono` request")]
-    SetMonoError(#[from] SetMonoError),
-    #[error("Could not process a `get_mono` request")]
-    GetMonoError(#[from] GetMonoError),
-    #[error("Could not process a `set_split` request")]
-    SetSplitError(#[from] SetSplitError),
-    #[error("Could not process a `get_split` request")]
-    GetSplitError(#[from] GetSplitError),
-    #[error("Could not process a `run` request")]
-    RunError(#[from] RunError),
-    #[error("Could not process a `grab` request")]
-    GrabError(#[from] GrabError),
-    #[error("Could not process a `create_split` request")]
-    CreateSplitError(#[from] CreateSplitError),
-    #[error("Could not process a `focus_parent` request")]
-    FocusParentError(#[from] FocusParentError),
-    #[error("Could not process a `toggle_floating` request")]
-    ToggleFloatingError(#[from] ToggleFloatingError),
-    #[error("Could not process a `set_title_height` request")]
-    SetTitleHeightError(#[from] SetTitleHeightError),
-    #[error("Could not process a `set_border_width` request")]
-    SetBorderWidthError(#[from] SetBorderWidthError),
-    #[error("Could not process a `has_capability` request")]
-    HasCapabilityError(#[from] HasCapabilityError),
-    #[error("Could not process a `set_left_handed` request")]
-    SetLeftHandedError(#[from] SetLeftHandedError),
-    #[error("Could not process a `set_accel_profile` request")]
-    SetAccelProfileError(#[from] SetAccelProfileError),
-    #[error("Could not process a `set_accel_speed` request")]
-    SetAccelSpeedError(#[from] SetAccelSpeedError),
-    #[error("Could not process a `set_transform_matrix` request")]
-    SetTransformMatrixError(#[from] SetTransformMatrixError),
-    #[error("Could not process a `get_device_name` request")]
-    GetDeviceNameError(#[from] GetDeviceNameError),
-    #[error("Could not process a `show_workspace` request")]
-    ShowWorkspaceError(#[from] ShowWorkspaceError),
+    #[error("Tried to set an unknown accel profile: {}", (.0).0)]
+    UnknownAccelProfile(AccelProfile),
+    #[error("Queried unknown capability: {}", (.0).0)]
+    UnknownCapability(Capability),
+    #[error("The height {0} is negative")]
+    NegativeTitleHeight(i32),
+    #[error("The height {0} is larger than the maximum 1000")]
+    ExcessiveTitleHeight(i32),
+    #[error("The width {0} is negative")]
+    NegativeBorderWidth(i32),
+    #[error("The width {0} is larger than the maximum 1000")]
+    ExcessiveBorderWidth(i32),
+    #[error("The ol' forker is not available")]
+    NoForker,
+    #[error("Repeat rate is negative")]
+    NegativeRepeatRate,
+    #[error("Repeat delay is negative")]
+    NegativeRepeatDelay,
+    #[error("Parsing failed")]
+    ParseKeymapError(#[from] XkbCommonError),
     #[error("Device {0:?} does not exist")]
     DeviceDoesNotExist(InputDevice),
-    #[error("Device {0:?} does not exist")]
+    #[error("Connector {0:?} does not exist")]
+    ConnectorDoesNotExist(Connector),
+    #[error("{0}x{1} is not a valid connector position")]
+    InvalidConnectorPosition(i32, i32),
+    #[error("Keymap {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]
     SeatDoesNotExist(Seat),
@@ -704,201 +786,16 @@ enum CphError {
     KeyboardDoesNotExist(InputDevice),
     #[error("Could not parse the message")]
     ParsingFailed(#[source] DecodeError),
+    #[error("Could not process a `{0}` request")]
+    FailedRequest(&'static str, #[source] Box<Self>),
 }
 
-#[derive(Debug, Error)]
-enum ParseKeymapError {
-    #[error("Parsing failed")]
-    ParsingFailed,
+trait WithRequestName {
+    fn wrn(self, request: &'static str) -> Result<(), CphError>;
 }
 
-#[derive(Debug, Error)]
-enum SetSeatError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
+impl WithRequestName for Result<(), CphError> {
+    fn wrn(self, request: &'static str) -> Result<(), CphError> {
+        self.map_err(move |e| CphError::FailedRequest(request, Box::new(e)))
+    }
 }
-efrom!(SetSeatError, CphError);
-
-#[derive(Debug, Error)]
-enum SetLeftHandedError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SetLeftHandedError, CphError);
-
-#[derive(Debug, Error)]
-enum SetAccelProfileError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-    #[error("Tried to set an unknown accel profile: {}", (.0).0)]
-    UnknownAccelProfile(AccelProfile),
-}
-efrom!(SetAccelProfileError, CphError);
-
-#[derive(Debug, Error)]
-enum SetAccelSpeedError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SetAccelSpeedError, CphError);
-
-#[derive(Debug, Error)]
-enum SetTransformMatrixError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SetTransformMatrixError, CphError);
-
-#[derive(Debug, Error)]
-enum GetDeviceNameError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(GetDeviceNameError, CphError);
-
-#[derive(Debug, Error)]
-enum ShowWorkspaceError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(ShowWorkspaceError, CphError);
-
-#[derive(Debug, Error)]
-enum HasCapabilityError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-    #[error("Queried unknown capability: {}", (.0).0)]
-    UnknownCapability(Capability),
-}
-efrom!(HasCapabilityError, CphError);
-
-#[derive(Debug, Error)]
-enum AddShortcutError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(AddShortcutError, CphError);
-
-#[derive(Debug, Error)]
-enum RemoveShortcutError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(RemoveShortcutError, CphError);
-
-#[derive(Debug, Error)]
-enum SeatSetKeymapError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SeatSetKeymapError, CphError);
-
-#[derive(Debug, Error)]
-enum SeatSetRepeatRateError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-    #[error("Rate is negative")]
-    NegativeRate,
-    #[error("Delay is negative")]
-    NegativeDelay,
-}
-efrom!(SeatSetRepeatRateError, CphError);
-
-#[derive(Debug, Error)]
-enum SeatGetRepeatRateError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SeatGetRepeatRateError, CphError);
-
-#[derive(Debug, Error)]
-enum FocusError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(FocusError, CphError);
-
-#[derive(Debug, Error)]
-enum MoveError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(MoveError, CphError);
-
-#[derive(Debug, Error)]
-enum SetMonoError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SetMonoError, CphError);
-
-#[derive(Debug, Error)]
-enum GetMonoError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(GetMonoError, CphError);
-
-#[derive(Debug, Error)]
-enum SetSplitError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(SetSplitError, CphError);
-
-#[derive(Debug, Error)]
-enum GetSplitError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(GetSplitError, CphError);
-
-#[derive(Debug, Error)]
-enum RunError {
-    #[error("The ol' forker is not available")]
-    NoForker,
-}
-
-#[derive(Debug, Error)]
-enum GrabError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(GrabError, CphError);
-
-#[derive(Debug, Error)]
-enum SetTitleHeightError {
-    #[error("The height {0} is negative")]
-    Negative(i32),
-    #[error("The height {0} is larger than the maximum 1000")]
-    Excessive(i32),
-}
-
-#[derive(Debug, Error)]
-enum SetBorderWidthError {
-    #[error("The width {0} is negative")]
-    Negative(i32),
-    #[error("The width {0} is larger than the maximum 1000")]
-    Excessive(i32),
-}
-
-#[derive(Debug, Error)]
-enum CreateSplitError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(CreateSplitError, CphError);
-
-#[derive(Debug, Error)]
-enum FocusParentError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(FocusParentError, CphError);
-
-#[derive(Debug, Error)]
-enum ToggleFloatingError {
-    #[error(transparent)]
-    CphError(#[from] Box<CphError>),
-}
-efrom!(ToggleFloatingError, CphError);

@@ -1,6 +1,7 @@
+use jay_config::drm::{get_connector, on_connector_connected, on_new_connector};
 use jay_config::embedded::grab_input_device;
 use jay_config::input::capability::{CAP_KEYBOARD, CAP_POINTER};
-use jay_config::input::InputDevice;
+use jay_config::input::{create_seat, input_devices, on_new_input_device, InputDevice, Seat};
 use jay_config::keyboard::mods::{Modifiers, ALT, CTRL, SHIFT};
 use jay_config::keyboard::syms::{
     SYM_Super_L, SYM_b, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p, SYM_q, SYM_t,
@@ -10,10 +11,7 @@ use jay_config::keyboard::syms::{
 };
 use jay_config::Axis::{Horizontal, Vertical};
 use jay_config::Direction::{Down, Left, Right, Up};
-use jay_config::{
-    config, create_seat, get_workspace, input_devices, on_new_input_device, quit, switch_to_vt,
-    Command, Seat,
-};
+use jay_config::{config, get_workspace, quit, switch_to_vt, Command};
 
 const MOD: Modifiers = ALT;
 
@@ -96,6 +94,18 @@ pub fn configure() {
     };
     input_devices().into_iter().for_each(handle_input_device);
     on_new_input_device(handle_input_device);
+
+    let connectors_changed = || {
+        let left = get_connector("HDMI-A-1");
+        let right = get_connector("DP-1");
+        if left.connected() && right.connected() {
+            left.set_position(0, 0);
+            right.set_position(left.width(), 0);
+        }
+    };
+    on_new_connector(move |_| connectors_changed());
+    on_connector_connected(move |_| connectors_changed());
+    connectors_changed();
 }
 
 config!(configure);

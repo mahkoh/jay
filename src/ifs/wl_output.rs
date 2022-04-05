@@ -192,7 +192,6 @@ impl WlOutput {
 
     fn send_mode(&self) {
         let mode = self.global.mode.get();
-        let pos = self.global.pos.get();
         let event = Mode {
             self_id: self.id,
             flags: MODE_CURRENT,

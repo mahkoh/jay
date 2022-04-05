@@ -1,3 +1,4 @@
+use crate::utils::clonecell::UnsafeCellCloneSafe;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
 use std::cell::{Cell, RefCell};
@@ -42,6 +43,8 @@ struct Entry {
     fd: Option<i32>,
     dispatcher: Rc<dyn EventLoopDispatcher>,
 }
+
+unsafe impl UnsafeCellCloneSafe for Entry {}
 
 pub struct EventLoop {
     destroyed: Cell<bool>,

@@ -22,7 +22,7 @@ impl Connector for DummyOutput {
     fn kernel_id(&self) -> ConnectorKernelId {
         ConnectorKernelId {
             ty: ConnectorType::Unknown(0),
-            id: 0,
+            idx: 0,
         }
     }
 

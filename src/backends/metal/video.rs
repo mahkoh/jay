@@ -1,5 +1,7 @@
 use crate::async_engine::{AsyncFd, SpawnedFuture};
-use crate::backend::{BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo};
+use crate::backend::{
+    BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo,
+};
 use crate::backends::metal::{DrmId, MetalBackend, MetalError};
 use crate::drm::drm::{
     drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc,
@@ -9,11 +11,13 @@ use crate::drm::drm::{
 };
 use crate::drm::gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT};
 use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
+use crate::edid::Descriptor;
 use crate::format::{Format, XRGB8888};
 use crate::render::{Framebuffer, RenderContext};
 use crate::state::State;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::debug_fn::debug_fn;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
@@ -25,7 +29,6 @@ use std::ffi::CString;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use uapi::c;
-use crate::edid::Descriptor;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -126,7 +129,7 @@ impl Connector for MetalConnector {
     fn kernel_id(&self) -> ConnectorKernelId {
         ConnectorKernelId {
             ty: self.connector_type,
-            id: self.connector_type_id,
+            idx: self.connector_type_id,
         }
     }
 
@@ -224,11 +227,12 @@ fn create_connector(
         }
     }
     let props = collect_properties(&dev.master, connector)?;
-    let connection = ConnectorStatus::from(info.connection);
-    let connector_type = ConnectorType::from(info.connector_type);
+    let connection = ConnectorStatus::from_drm(info.connection);
+    let connector_type = ConnectorType::from_drm(info.connector_type);
     let mut name = String::new();
     let mut manufacturer = String::new();
     let mut serial_number = String::new();
+    let connector_name = debug_fn(|f| write!(f, "{}-{}", connector_type, info.connector_type_id));
     'fetch_edid: {
         if connection != ConnectorStatus::Connected {
             break 'fetch_edid;
@@ -236,21 +240,32 @@ fn create_connector(
         let edid = match props.get("EDID") {
             Ok(e) => e,
             _ => {
-                log::warn!("Connector {}-{} is connected but has no EDID blob", connector_type, info.connector_type_id);
+                log::warn!(
+                    "Connector {} is connected but has no EDID blob",
+                    connector_name,
+                );
                 break 'fetch_edid;
             }
         };
         let blob = match dev.master.getblob_vec::<u8>(DrmBlob(edid.value.get() as _)) {
             Ok(b) => b,
             Err(e) => {
-                log::error!("Could not fetch edid property of connector {}-{}: {}", connector_type, info.connector_type_id, ErrorFmt(e));
+                log::error!(
+                    "Could not fetch edid property of connector {}: {}",
+                    connector_name,
+                    ErrorFmt(e)
+                );
                 break 'fetch_edid;
             }
         };
         let edid = match crate::edid::parse(&blob) {
             Ok(e) => e,
             Err(e) => {
-                log::error!("Could not parse edid property of connector {}-{}: {}", connector_type, info.connector_type_id, ErrorFmt(e));
+                log::error!(
+                    "Could not parse edid property of connector {}: {}",
+                    connector_name,
+                    ErrorFmt(e)
+                );
                 break 'fetch_edid;
             }
         };
@@ -264,14 +279,21 @@ fn create_connector(
                     Descriptor::DisplayProductName(s) => {
                         name = s.to_string();
                     }
-                    _ => { },
+                    _ => {}
                 }
             }
         }
         if name.is_empty() {
-            log::warn!("The display attached to connector {}-{} does not have a product name descriptor", connector_type, info.connector_type_id);
+            log::warn!(
+                "The display attached to connector {} does not have a product name descriptor",
+                connector_name,
+            );
         }
         if serial_number.is_empty() {
+            log::warn!(
+                "The display attached to connector {} does not have a serial number descriptor",
+                connector_name,
+            );
             serial_number = edid.base_block.id_serial_number.to_string();
         }
     }
@@ -547,25 +569,31 @@ impl MetalBackend {
                 .push(BackendEvent::NewConnector(connector.clone()));
             if connector.connection == ConnectorStatus::Connected {
                 if connector.primary_plane.get().is_none() {
-                    log::error!("Connector {}-{} is connected but does not have a primary plane", connector.connector_type, connector.connector_type_id);
+                    log::error!(
+                        "Connector {}-{} is connected but does not have a primary plane",
+                        connector.connector_type,
+                        connector.connector_type_id
+                    );
                     continue;
                 }
                 let mut prev_mode = None;
-                let mut modes = vec!();
+                let mut modes = vec![];
                 for mode in connector.modes.iter().map(|m| m.to_backend()) {
                     if prev_mode.replace(mode) != Some(mode) {
                         modes.push(mode);
                     }
                 }
-                connector.events.push(ConnectorEvent::Connected(MonitorInfo {
-                    modes,
-                    manufacturer: connector.monitor_manufacturer.clone(),
-                    product: connector.monitor_name.clone(),
-                    serial_number: connector.monitor_serial_number.clone(),
-                    initial_mode: connector.mode.get().unwrap().to_backend(),
-                    width_mm: connector.mm_width as _,
-                    height_mm: connector.mm_height as _,
-                }));
+                connector
+                    .events
+                    .push(ConnectorEvent::Connected(MonitorInfo {
+                        modes,
+                        manufacturer: connector.monitor_manufacturer.clone(),
+                        product: connector.monitor_name.clone(),
+                        serial_number: connector.monitor_serial_number.clone(),
+                        initial_mode: connector.mode.get().unwrap().to_backend(),
+                        width_mm: connector.mm_width as _,
+                        height_mm: connector.mm_height as _,
+                    }));
                 self.start_connector(connector);
             }
         }

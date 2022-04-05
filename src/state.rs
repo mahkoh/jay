@@ -1,5 +1,8 @@
 use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice, InputDeviceId, InputDeviceIds, MonitorInfo};
+use crate::backend::{
+    Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice, InputDeviceId,
+    InputDeviceIds, MonitorInfo,
+};
 use crate::client::{Client, Clients};
 use crate::config::ConfigProxy;
 use crate::cursor::ServerCursors;
@@ -83,6 +86,7 @@ pub struct ConnectorData {
     pub monitor_info: CloneCell<Option<Rc<MonitorInfo>>>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub node: CloneCell<Option<Rc<OutputNode>>>,
+    pub connected: Cell<bool>,
 }
 
 impl State {

@@ -17,10 +17,8 @@ use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
 use crate::ifs::zxdg_output_manager_v1::ZxdgOutputManagerV1Global;
 use crate::object::{Interface, ObjectId};
 use crate::state::State;
-use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::{CopyHashMap, Locked};
 use crate::utils::numcell::NumCell;
-use ahash::AHashMap;
-use std::cell::RefMut;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -153,7 +151,7 @@ impl Globals {
         Ok(())
     }
 
-    pub fn lock_seats(&self) -> RefMut<AHashMap<GlobalName, Rc<WlSeatGlobal>>> {
+    pub fn lock_seats(&self) -> Locked<GlobalName, Rc<WlSeatGlobal>> {
         self.seats.lock()
     }
 

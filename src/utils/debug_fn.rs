@@ -1,17 +1,26 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
-pub fn debug_fn<F>(f: F) -> impl Debug
+pub fn debug_fn<F>(f: F) -> Printable<F>
 where
     F: Fn(&mut Formatter<'_>) -> std::fmt::Result,
 {
-    DebugFn { f }
+    Printable { f }
 }
 
-struct DebugFn<F> {
+pub struct Printable<F> {
     f: F,
 }
 
-impl<F> Debug for DebugFn<F>
+impl<F> Debug for Printable<F>
+where
+    F: Fn(&mut Formatter<'_>) -> std::fmt::Result,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        (self.f)(f)
+    }
+}
+
+impl<F> Display for Printable<F>
 where
     F: Fn(&mut Formatter<'_>) -> std::fmt::Result,
 {

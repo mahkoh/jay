@@ -2,13 +2,14 @@
 
 use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
 use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
-use crate::drm::Connector;
+use crate::drm::connector_type::{ConnectorType, CON_UNKNOWN};
+use crate::drm::{Connector, Mode};
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
-use crate::input::InputDevice;
+use crate::input::{InputDevice, Seat};
 use crate::keyboard::keymap::Keymap;
 use crate::theme::Color;
-use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Seat, Workspace};
+use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Workspace};
 use std::cell::{Cell, RefCell};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -127,6 +128,18 @@ pub unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize
     });
 }
 
+macro_rules! get_response {
+    ($res:expr, $def:expr, $ty:ident, $($field:ident),+) => {
+        let ($($field,)+) = match $res {
+            Response::$ty { $($field,)+ } => ($($field,)+),
+            _ => {
+                log::error!("Server did not send a response to a {} request", stringify!($ty));
+                return $def;
+            }
+        };
+    }
+}
+
 impl Client {
     fn send(&self, msg: &ClientMessage) {
         let mut buf = self.bufs.borrow_mut().pop().unwrap_or_default();
@@ -136,6 +149,10 @@ impl Client {
             (self.srv_handler)(self.srv_data, buf.as_ptr(), buf.len());
         }
         self.bufs.borrow_mut().push(buf);
+    }
+
+    fn send_with_response(&self, msg: &ClientMessage) -> Response {
+        self.with_response(|| self.send(msg))
     }
 
     pub fn spawn(&self, command: &Command) {
@@ -185,36 +202,27 @@ impl Client {
     }
 
     pub fn seats(&self) -> Vec<Seat> {
-        let response = self.with_response(|| self.send(&ClientMessage::GetSeats));
-        match response {
-            Response::GetSeats { seats } => seats,
-            _ => {
-                log::error!("Server did not send a response to a get_seats request");
-                vec![]
-            }
-        }
+        let res = self.with_response(|| self.send(&ClientMessage::GetSeats));
+        get_response!(res, vec![], GetSeats, seats);
+        seats
     }
 
     pub fn mono(&self, seat: Seat) -> bool {
         let res = self.with_response(|| self.send(&ClientMessage::GetMono { seat }));
-        match res {
-            Response::GetMono { mono } => mono,
-            _ => {
-                log::error!("Server did not send a response to a get_mono request");
-                false
-            }
-        }
+        get_response!(res, false, GetMono, mono);
+        mono
     }
 
     pub fn get_workspace(&self, name: &str) -> Workspace {
         let res = self.with_response(|| self.send(&ClientMessage::GetWorkspace { name }));
-        match res {
-            Response::GetWorkspace { workspace } => workspace,
-            _ => {
-                log::error!("Server did not send a response to a get_workspace request");
-                Workspace(0)
-            }
-        }
+        get_response!(res, Workspace(0), GetWorkspace, workspace);
+        workspace
+    }
+
+    pub fn get_connector(&self, ty: ConnectorType, idx: u32) -> Connector {
+        let res = self.with_response(|| self.send(&ClientMessage::GetConnector { ty, idx }));
+        get_response!(res, Connector(0), GetConnector, connector);
+        connector
     }
 
     pub fn show_workspace(&self, seat: Seat, workspace: Workspace) {
@@ -223,13 +231,8 @@ impl Client {
 
     pub fn split(&self, seat: Seat) -> Axis {
         let res = self.with_response(|| self.send(&ClientMessage::GetSplit { seat }));
-        match res {
-            Response::GetSplit { axis } => axis,
-            _ => {
-                log::error!("Server did not send a response to a get_split request");
-                Axis::Horizontal
-            }
-        }
+        get_response!(res, Axis::Horizontal, GetSplit, axis);
+        axis
     }
 
     pub fn toggle_floating(&self, seat: Seat) {
@@ -253,25 +256,15 @@ impl Client {
     }
 
     pub fn get_title_height(&self) -> i32 {
-        let resp = self.with_response(|| self.send(&ClientMessage::GetTitleHeight));
-        match resp {
-            Response::GetTitleHeight { height } => height,
-            _ => {
-                log::warn!("Server did not reply to a get_title_height request");
-                0
-            }
-        }
+        let res = self.with_response(|| self.send(&ClientMessage::GetTitleHeight));
+        get_response!(res, 0, GetTitleHeight, height);
+        height
     }
 
     pub fn get_border_width(&self) -> i32 {
-        let resp = self.with_response(|| self.send(&ClientMessage::GetBorderWidth));
-        match resp {
-            Response::GetBorderWidth { width } => width,
-            _ => {
-                log::warn!("Server did not reply to a get_border_width request");
-                0
-            }
-        }
+        let res = self.with_response(|| self.send(&ClientMessage::GetBorderWidth));
+        get_response!(res, 0, GetBorderWidth, width);
+        width
     }
 
     pub fn set_title_height(&self, height: i32) {
@@ -299,25 +292,15 @@ impl Client {
     }
 
     pub fn create_seat(&self, name: &str) -> Seat {
-        let response = self.with_response(|| self.send(&ClientMessage::CreateSeat { name }));
-        match response {
-            Response::CreateSeat { seat } => seat,
-            _ => {
-                log::error!("Server did not send a response to a create_seat request");
-                Seat(0)
-            }
-        }
+        let res = self.with_response(|| self.send(&ClientMessage::CreateSeat { name }));
+        get_response!(res, Seat(0), CreateSeat, seat);
+        seat
     }
 
     pub fn get_input_devices(&self, seat: Option<Seat>) -> Vec<InputDevice> {
         let res = self.with_response(|| self.send(&ClientMessage::GetInputDevices { seat }));
-        match res {
-            Response::GetInputDevices { devices } => devices,
-            _ => {
-                log::error!("Server did not send a response to a get_input_devices request");
-                vec![]
-            }
-        }
+        get_response!(res, vec!(), GetInputDevices, devices);
+        devices
     }
 
     pub fn on_new_seat<F: Fn(Seat) + 'static>(&self, f: F) {
@@ -334,6 +317,47 @@ impl Client {
 
     pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(&self, f: F) {
         *self.on_new_input_device.borrow_mut() = Some(Rc::new(f));
+    }
+
+    pub fn connector_set_position(&self, connector: Connector, x: i32, y: i32) {
+        self.send(&ClientMessage::ConnectorSetPosition { connector, x, y });
+    }
+
+    pub fn connector_connected(&self, connector: Connector) -> bool {
+        let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
+        get_response!(res, false, ConnectorConnected, connected);
+        connected
+    }
+
+    pub fn connector_type(&self, connector: Connector) -> ConnectorType {
+        let res = self.send_with_response(&ClientMessage::ConnectorType { connector });
+        get_response!(res, CON_UNKNOWN, ConnectorType, ty);
+        ty
+    }
+
+    pub fn connector_mode(&self, connector: Connector) -> Mode {
+        let res = self.send_with_response(&ClientMessage::ConnectorMode { connector });
+        get_response!(
+            res,
+            Mode::zeroed(),
+            ConnectorMode,
+            width,
+            height,
+            refresh_millihz
+        );
+        Mode {
+            width,
+            height,
+            refresh_millihz,
+        }
+    }
+
+    pub fn on_new_connector<F: Fn(Connector) + 'static>(&self, f: F) {
+        *self.on_new_connector.borrow_mut() = Some(Rc::new(f));
+    }
+
+    pub fn on_connector_connected<F: Fn(Connector) + 'static>(&self, f: F) {
+        *self.on_connector_connected.borrow_mut() = Some(Rc::new(f));
     }
 
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
@@ -361,24 +385,14 @@ impl Client {
 
     pub fn device_name(&self, device: InputDevice) -> String {
         let res = self.with_response(|| self.send(&ClientMessage::GetDeviceName { device }));
-        match res {
-            Response::GetDeviceName { name } => name,
-            _ => {
-                log::error!("Server did not send a response to a get_device_name request");
-                String::new()
-            }
-        }
+        get_response!(res, String::new(), GetDeviceName, name);
+        name
     }
 
     pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {
         let res = self.with_response(|| self.send(&ClientMessage::HasCapability { device, cap }));
-        match res {
-            Response::HasCapability { has } => has,
-            _ => {
-                log::error!("Server did not send a response to a has_capability request");
-                false
-            }
-        }
+        get_response!(res, false, HasCapability, has);
+        has
     }
 
     pub fn seat_set_keymap(&self, seat: Seat, keymap: Keymap) {
@@ -391,24 +405,14 @@ impl Client {
 
     pub fn seat_get_repeat_rate(&self, seat: Seat) -> (i32, i32) {
         let res = self.with_response(|| self.send(&ClientMessage::SeatGetRepeatRate { seat }));
-        match res {
-            Response::GetRepeatRate { rate, delay } => (rate, delay),
-            _ => {
-                log::error!("Server did not send a response to a get_repeat_rate request");
-                (25, 250)
-            }
-        }
+        get_response!(res, (25, 250), GetRepeatRate, rate, delay);
+        (rate, delay)
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
         let res = self.with_response(|| self.send(&ClientMessage::ParseKeymap { keymap }));
-        match res {
-            Response::ParseKeymap { keymap } => keymap,
-            _ => {
-                log::error!("Server did not send a response to a parse_keymap request");
-                Keymap(0)
-            }
-        }
+        get_response!(res, Keymap(0), ParseKeymap, keymap);
+        keymap
     }
 
     pub fn bind<T: Into<ModifiedKeySym>, F: Fn() + 'static>(&self, seat: Seat, mod_sym: T, f: F) {

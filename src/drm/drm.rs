@@ -23,6 +23,7 @@ use std::rc::{Rc, Weak};
 use thiserror::Error;
 use uapi::{c, Errno, OwnedFd, Pod, Ustring};
 
+use crate::backend;
 use crate::drm::dma::DmaBuf;
 use crate::drm::INVALID_MODIFIER;
 use crate::utils::errorfmt::ErrorFmt;
@@ -33,7 +34,6 @@ pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
 };
-use crate::backend;
 
 #[derive(Debug, Error)]
 pub enum DrmError {
@@ -737,6 +737,90 @@ pub enum ConnectorType {
     EmbeddedWindow,
 }
 
+impl ConnectorType {
+    pub fn from_drm(v: u32) -> Self {
+        match v {
+            sys::DRM_MODE_CONNECTOR_VGA => Self::VGA,
+            sys::DRM_MODE_CONNECTOR_DVII => Self::DVII,
+            sys::DRM_MODE_CONNECTOR_DVID => Self::DVID,
+            sys::DRM_MODE_CONNECTOR_DVIA => Self::DVIA,
+            sys::DRM_MODE_CONNECTOR_Composite => Self::Composite,
+            sys::DRM_MODE_CONNECTOR_SVIDEO => Self::SVIDEO,
+            sys::DRM_MODE_CONNECTOR_LVDS => Self::LVDS,
+            sys::DRM_MODE_CONNECTOR_Component => Self::Component,
+            sys::DRM_MODE_CONNECTOR_9PinDIN => Self::_9PinDIN,
+            sys::DRM_MODE_CONNECTOR_DisplayPort => Self::DisplayPort,
+            sys::DRM_MODE_CONNECTOR_HDMIA => Self::HDMIA,
+            sys::DRM_MODE_CONNECTOR_HDMIB => Self::HDMIB,
+            sys::DRM_MODE_CONNECTOR_TV => Self::TV,
+            sys::DRM_MODE_CONNECTOR_eDP => Self::eDP,
+            sys::DRM_MODE_CONNECTOR_VIRTUAL => Self::VIRTUAL,
+            sys::DRM_MODE_CONNECTOR_DSI => Self::DSI,
+            sys::DRM_MODE_CONNECTOR_DPI => Self::DPI,
+            sys::DRM_MODE_CONNECTOR_WRITEBACK => Self::WRITEBACK,
+            sys::DRM_MODE_CONNECTOR_SPI => Self::SPI,
+            sys::DRM_MODE_CONNECTOR_USB => Self::USB,
+            _ => Self::Unknown(v),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn to_drm(self) -> u32 {
+        match self {
+            Self::Unknown(n) => n,
+            Self::VGA => sys::DRM_MODE_CONNECTOR_VGA,
+            Self::DVII => sys::DRM_MODE_CONNECTOR_DVII,
+            Self::DVID => sys::DRM_MODE_CONNECTOR_DVID,
+            Self::DVIA => sys::DRM_MODE_CONNECTOR_DVIA,
+            Self::Composite => sys::DRM_MODE_CONNECTOR_Composite,
+            Self::SVIDEO => sys::DRM_MODE_CONNECTOR_SVIDEO,
+            Self::LVDS => sys::DRM_MODE_CONNECTOR_LVDS,
+            Self::Component => sys::DRM_MODE_CONNECTOR_Component,
+            Self::_9PinDIN => sys::DRM_MODE_CONNECTOR_9PinDIN,
+            Self::DisplayPort => sys::DRM_MODE_CONNECTOR_DisplayPort,
+            Self::HDMIA => sys::DRM_MODE_CONNECTOR_HDMIA,
+            Self::HDMIB => sys::DRM_MODE_CONNECTOR_HDMIB,
+            Self::TV => sys::DRM_MODE_CONNECTOR_TV,
+            Self::eDP => sys::DRM_MODE_CONNECTOR_eDP,
+            Self::VIRTUAL => sys::DRM_MODE_CONNECTOR_VIRTUAL,
+            Self::DSI => sys::DRM_MODE_CONNECTOR_DSI,
+            Self::DPI => sys::DRM_MODE_CONNECTOR_DPI,
+            Self::WRITEBACK => sys::DRM_MODE_CONNECTOR_WRITEBACK,
+            Self::SPI => sys::DRM_MODE_CONNECTOR_SPI,
+            Self::USB => sys::DRM_MODE_CONNECTOR_USB,
+            Self::EmbeddedWindow => sys::DRM_MODE_CONNECTOR_Unknown,
+        }
+    }
+
+    pub fn to_config(self) -> jay_config::drm::connector_type::ConnectorType {
+        use jay_config::drm::connector_type::*;
+        match self {
+            Self::Unknown(_) => CON_UNKNOWN,
+            Self::VGA => CON_VGA,
+            Self::DVII => CON_DVII,
+            Self::DVID => CON_DVID,
+            Self::DVIA => CON_DVIA,
+            Self::Composite => CON_COMPOSITE,
+            Self::SVIDEO => CON_SVIDEO,
+            Self::LVDS => CON_LVDS,
+            Self::Component => CON_COMPONENT,
+            Self::_9PinDIN => CON_9PIN_DIN,
+            Self::DisplayPort => CON_DISPLAY_PORT,
+            Self::HDMIA => CON_HDMIA,
+            Self::HDMIB => CON_HDMIB,
+            Self::TV => CON_TV,
+            Self::eDP => CON_EDP,
+            Self::VIRTUAL => CON_VIRTUAL,
+            Self::DSI => CON_DSI,
+            Self::DPI => CON_DPI,
+            Self::WRITEBACK => CON_WRITEBACK,
+            Self::SPI => CON_SPI,
+            Self::USB => CON_USB,
+            Self::EmbeddedWindow => CON_EMBEDDED_WINDOW,
+        }
+    }
+}
+
 impl Display for ConnectorType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -767,63 +851,6 @@ impl Display for ConnectorType {
     }
 }
 
-impl From<u32> for ConnectorType {
-    fn from(v: u32) -> Self {
-        match v {
-            sys::DRM_MODE_CONNECTOR_VGA => Self::VGA,
-            sys::DRM_MODE_CONNECTOR_DVII => Self::DVII,
-            sys::DRM_MODE_CONNECTOR_DVID => Self::DVID,
-            sys::DRM_MODE_CONNECTOR_DVIA => Self::DVIA,
-            sys::DRM_MODE_CONNECTOR_Composite => Self::Composite,
-            sys::DRM_MODE_CONNECTOR_SVIDEO => Self::SVIDEO,
-            sys::DRM_MODE_CONNECTOR_LVDS => Self::LVDS,
-            sys::DRM_MODE_CONNECTOR_Component => Self::Component,
-            sys::DRM_MODE_CONNECTOR_9PinDIN => Self::_9PinDIN,
-            sys::DRM_MODE_CONNECTOR_DisplayPort => Self::DisplayPort,
-            sys::DRM_MODE_CONNECTOR_HDMIA => Self::HDMIA,
-            sys::DRM_MODE_CONNECTOR_HDMIB => Self::HDMIB,
-            sys::DRM_MODE_CONNECTOR_TV => Self::TV,
-            sys::DRM_MODE_CONNECTOR_eDP => Self::eDP,
-            sys::DRM_MODE_CONNECTOR_VIRTUAL => Self::VIRTUAL,
-            sys::DRM_MODE_CONNECTOR_DSI => Self::DSI,
-            sys::DRM_MODE_CONNECTOR_DPI => Self::DPI,
-            sys::DRM_MODE_CONNECTOR_WRITEBACK => Self::WRITEBACK,
-            sys::DRM_MODE_CONNECTOR_SPI => Self::SPI,
-            sys::DRM_MODE_CONNECTOR_USB => Self::USB,
-            _ => Self::Unknown(v),
-        }
-    }
-}
-
-impl Into<u32> for ConnectorType {
-    fn into(self) -> u32 {
-        match self {
-            Self::Unknown(n) => n,
-            Self::VGA => sys::DRM_MODE_CONNECTOR_VGA,
-            Self::DVII => sys::DRM_MODE_CONNECTOR_DVII,
-            Self::DVID => sys::DRM_MODE_CONNECTOR_DVID,
-            Self::DVIA => sys::DRM_MODE_CONNECTOR_DVIA,
-            Self::Composite => sys::DRM_MODE_CONNECTOR_Composite,
-            Self::SVIDEO => sys::DRM_MODE_CONNECTOR_SVIDEO,
-            Self::LVDS => sys::DRM_MODE_CONNECTOR_LVDS,
-            Self::Component => sys::DRM_MODE_CONNECTOR_Component,
-            Self::_9PinDIN => sys::DRM_MODE_CONNECTOR_9PinDIN,
-            Self::DisplayPort => sys::DRM_MODE_CONNECTOR_DisplayPort,
-            Self::HDMIA => sys::DRM_MODE_CONNECTOR_HDMIA,
-            Self::HDMIB => sys::DRM_MODE_CONNECTOR_HDMIB,
-            Self::TV => sys::DRM_MODE_CONNECTOR_TV,
-            Self::eDP => sys::DRM_MODE_CONNECTOR_eDP,
-            Self::VIRTUAL => sys::DRM_MODE_CONNECTOR_VIRTUAL,
-            Self::DSI => sys::DRM_MODE_CONNECTOR_DSI,
-            Self::DPI => sys::DRM_MODE_CONNECTOR_DPI,
-            Self::WRITEBACK => sys::DRM_MODE_CONNECTOR_WRITEBACK,
-            Self::SPI => sys::DRM_MODE_CONNECTOR_SPI,
-            Self::USB => sys::DRM_MODE_CONNECTOR_USB,
-            Self::EmbeddedWindow => sys::DRM_MODE_CONNECTOR_Unknown,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ConnectorStatus {
     Connected,
@@ -832,8 +859,8 @@ pub enum ConnectorStatus {
     Other(u32),
 }
 
-impl From<u32> for ConnectorStatus {
-    fn from(v: u32) -> Self {
+impl ConnectorStatus {
+    pub fn from_drm(v: u32) -> Self {
         match v {
             sys::CONNECTOR_STATUS_CONNECTED => Self::Connected,
             sys::CONNECTOR_STATUS_DISCONNECTED => Self::Disconnected,

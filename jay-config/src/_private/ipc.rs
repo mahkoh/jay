@@ -1,12 +1,13 @@
+use crate::drm::connector_type::ConnectorType;
 use crate::drm::Connector;
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
-use crate::input::InputDevice;
+use crate::input::{InputDevice, Seat};
 use crate::keyboard::keymap::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::theme::Color;
-use crate::{Axis, Direction, LogLevel, Seat, Workspace};
+use crate::{Axis, Direction, LogLevel, Workspace};
 use bincode::{BorrowDecode, Decode, Encode};
 
 #[derive(Encode, BorrowDecode, Debug)]
@@ -178,6 +179,24 @@ pub enum ClientMessage<'a> {
     GetWorkspace {
         name: &'a str,
     },
+    GetConnector {
+        ty: ConnectorType,
+        idx: u32,
+    },
+    ConnectorConnected {
+        connector: Connector,
+    },
+    ConnectorType {
+        connector: Connector,
+    },
+    ConnectorMode {
+        connector: Connector,
+    },
+    ConnectorSetPosition {
+        connector: Connector,
+        x: i32,
+        y: i32,
+    },
     ShowWorkspace {
         seat: Seat,
         workspace: Workspace,
@@ -187,18 +206,57 @@ pub enum ClientMessage<'a> {
 #[derive(Encode, Decode, Debug)]
 pub enum Response {
     None,
-    GetSeats { seats: Vec<Seat> },
-    GetSplit { axis: Axis },
-    GetMono { mono: bool },
-    GetRepeatRate { rate: i32, delay: i32 },
-    ParseKeymap { keymap: Keymap },
-    CreateSeat { seat: Seat },
-    GetInputDevices { devices: Vec<InputDevice> },
-    GetTitleHeight { height: i32 },
-    GetBorderWidth { width: i32 },
-    HasCapability { has: bool },
-    GetDeviceName { name: String },
-    GetWorkspace { workspace: Workspace },
+    GetSeats {
+        seats: Vec<Seat>,
+    },
+    GetSplit {
+        axis: Axis,
+    },
+    GetMono {
+        mono: bool,
+    },
+    GetRepeatRate {
+        rate: i32,
+        delay: i32,
+    },
+    ParseKeymap {
+        keymap: Keymap,
+    },
+    CreateSeat {
+        seat: Seat,
+    },
+    GetInputDevices {
+        devices: Vec<InputDevice>,
+    },
+    GetTitleHeight {
+        height: i32,
+    },
+    GetBorderWidth {
+        width: i32,
+    },
+    HasCapability {
+        has: bool,
+    },
+    GetDeviceName {
+        name: String,
+    },
+    GetWorkspace {
+        workspace: Workspace,
+    },
+    GetConnector {
+        connector: Connector,
+    },
+    ConnectorConnected {
+        connected: bool,
+    },
+    ConnectorType {
+        ty: ConnectorType,
+    },
+    ConnectorMode {
+        width: i32,
+        height: i32,
+        refresh_millihz: u32,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

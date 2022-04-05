@@ -5,7 +5,7 @@ use crate::state::{ConnectorData, State};
 use crate::tree::{OutputNode, OutputRenderData};
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::clonecell::CloneCell;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
@@ -15,6 +15,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         monitor_info: Default::default(),
         handler: Default::default(),
         node: Default::default(),
+        connected: Cell::new(false),
     });
     let oh = ConnectorHandler {
         id,
@@ -60,7 +61,12 @@ impl ConnectorHandler {
     }
 
     async fn handle_connected(&self, ae: &Rc<AsyncEvent>, info: MonitorInfo) {
-        log::info!("Connector {} connected: {:#?}", self.data.connector.kernel_id(), info);
+        log::info!(
+            "Connector {} connected: {:#?}",
+            self.data.connector.kernel_id(),
+            info
+        );
+        self.data.connected.set(true);
         self.data.monitor_info.set(Some(Rc::new(info.clone())));
         let name = self.state.globals.name();
         let x1 = self
@@ -124,5 +130,6 @@ impl ConnectorHandler {
         global.node.set(None);
         let _ = self.state.remove_global(&*global);
         self.state.root.outputs.remove(&self.id);
+        self.data.connected.set(false);
     }
 }

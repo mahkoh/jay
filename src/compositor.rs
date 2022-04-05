@@ -33,6 +33,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use thiserror::Error;
 
+pub const MAX_EXTENTS: i32 = (1 << 24) - 1;
+
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let forker = match ForkerProxy::create() {
         Ok(f) => Rc::new(f),
@@ -120,10 +122,13 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
             global: Rc::new(WlOutputGlobal::new(
                 state.globals.name(),
                 &Rc::new(ConnectorData {
-                    connector: Rc::new(DummyOutput { id: state.connector_ids.next() }),
+                    connector: Rc::new(DummyOutput {
+                        id: state.connector_ids.next(),
+                    }),
                     monitor_info: Default::default(),
                     handler: Cell::new(None),
-                    node: Default::default()
+                    node: Default::default(),
+                    connected: Cell::new(true),
                 }),
                 0,
                 &backend::Mode {
