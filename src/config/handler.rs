@@ -354,6 +354,17 @@ impl ConfigProxyHandler {
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
+        let old_pos = connector.node.global.pos.get();
+        let seats = self.state.globals.seats.lock();
+        for seat in seats.values() {
+            if seat.get_output().id == connector.node.id {
+                let seat_pos = seat.position();
+                seat.set_position(
+                    seat_pos.0.round_down() + x - old_pos.x1(),
+                    seat_pos.1.round_down() + y - old_pos.y1(),
+                );
+            }
+        }
         connector.node.set_position(x, y);
         Ok(())
     }

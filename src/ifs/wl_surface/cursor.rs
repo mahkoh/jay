@@ -46,7 +46,7 @@ impl CursorSurface {
     }
 
     pub fn handle_surface_destroy(&self) {
-        self.seat.set_cursor(None);
+        self.seat.set_app_cursor(None);
     }
 
     pub fn handle_buffer_change(&self) {

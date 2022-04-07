@@ -26,7 +26,7 @@ use {
     jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
-        ops::{Deref, Not},
+        ops::{Deref},
         rc::Rc,
     },
     thiserror::Error,
@@ -273,7 +273,7 @@ impl Xwindow {
 
     pub fn map_status_changed(self: &Rc<Self>) {
         match self.map_change() {
-            Change::None => {}
+            Change::None => return,
             Change::Unmap => self.destroy_node(true),
             Change::Map if self.data.info.override_redirect.get() => {
                 *self.display_link.borrow_mut() =
@@ -304,6 +304,7 @@ impl Xwindow {
                 self.data.title_changed();
             }
         }
+        self.data.state.tree_changed();
     }
 }
 
@@ -447,7 +448,7 @@ impl ToplevelNode for Xwindow {
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
-        self.data.info.never_focus.get().not() && self.data.info.icccm_hints.input.get()
+        self.data.info.input_model.get() != XInputModel::None
     }
 
     fn default_surface(&self) -> Rc<WlSurface> {

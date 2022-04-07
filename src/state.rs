@@ -130,6 +130,11 @@ impl State {
             }
         }
         self.root.clone().visit(&mut Walker);
+
+        let seats = self.globals.seats.lock();
+        for seat in seats.values() {
+            seat.render_ctx_changed();
+        }
     }
 
     pub fn add_global<T: WaylandGlobal>(&self, global: &Rc<T>) {

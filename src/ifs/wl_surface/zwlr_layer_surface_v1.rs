@@ -375,11 +375,6 @@ impl Node for ZwlrLayerSurfaceV1 {
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        tree.push(FoundNode {
-            node: self.surface.clone(),
-            x,
-            y,
-        });
         self.surface.find_tree_at_(x, y, tree)
     }
 

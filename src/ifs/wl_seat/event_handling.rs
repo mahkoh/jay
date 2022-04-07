@@ -452,8 +452,9 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn enter_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
         if n.accepts_keyboard_focus() {
-            self.focus_toplevel(n);
+            log::info!("does not accept input focus");
         }
+        self.focus_toplevel(n);
     }
 
     pub fn enter_popup(self: &Rc<Self>, _n: &Rc<XdgPopup>) {

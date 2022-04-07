@@ -79,18 +79,8 @@ impl Node for DisplayNode {
                     x,
                     y,
                 });
-                let len = tree.len();
-                for layer in [OVERLAY, TOP] {
-                    for surface in output.layers[layer as usize].rev_iter() {
-                        let pos = surface.absolute_position();
-                        if pos.contains(x, y) {
-                            let (x, y) = pos.translate(x, y);
-                            if surface.find_tree_at(x, y, tree) == FindTreeResult::AcceptsInput {
-                                return FindTreeResult::AcceptsInput;
-                            }
-                            tree.truncate(len);
-                        }
-                    }
+                if output.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree) == FindTreeResult::AcceptsInput {
+                    return FindTreeResult::AcceptsInput;
                 }
                 tree.pop();
                 break;

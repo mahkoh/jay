@@ -23,6 +23,7 @@ use {
         rc::Rc,
     },
 };
+use crate::ifs::zwlr_layer_shell_v1::{BACKGROUND, BOTTOM};
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
@@ -163,6 +164,23 @@ impl OutputNode {
         }
         self.global.send_mode();
     }
+
+    pub fn find_layer_surface_at(&self, x: i32, y: i32, layers: &[u32], tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        let len = tree.len();
+        for layer in layers.iter().copied() {
+            for surface in self.layers[layer as usize].rev_iter() {
+                let pos = surface.absolute_position();
+                if pos.contains(x, y) {
+                    let (x, y) = pos.translate(x, y);
+                    if surface.find_tree_at(x, y, tree) == FindTreeResult::AcceptsInput {
+                        return FindTreeResult::AcceptsInput;
+                    }
+                    tree.truncate(len);
+                }
+            }
+        }
+        FindTreeResult::Other
+    }
 }
 
 pub struct OutputTitle {
@@ -228,6 +246,7 @@ impl Node for OutputNode {
         let th = self.state.theme.title_height.get();
         if y > th {
             y -= th;
+            let len = tree.len();
             if let Some(ws) = self.workspace.get() {
                 tree.push(FoundNode {
                     node: ws.clone(),
@@ -235,6 +254,9 @@ impl Node for OutputNode {
                     y,
                 });
                 ws.find_tree_at(x, y, tree);
+            }
+            if tree.len() == len {
+                self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree);
             }
         }
         FindTreeResult::AcceptsInput

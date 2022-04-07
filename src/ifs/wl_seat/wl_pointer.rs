@@ -144,7 +144,7 @@ impl WlPointer {
         if pointer_node.client_id() != Some(self.seat.client.id) {
             return Ok(());
         }
-        self.seat.global.set_cursor(cursor_opt);
+        self.seat.global.set_app_cursor(cursor_opt);
         Ok(())
     }
 

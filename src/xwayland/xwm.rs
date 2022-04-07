@@ -460,7 +460,6 @@ impl Wm {
             return;
         }
         let accepts_input = window.info.icccm_hints.input.get();
-        log::info!("{:?} ai {}", window.info.title, accepts_input);
         let mask = if accepts_input {
             EVENT_MASK_SUBSTRUCTURE_REDIRECT
         } else {

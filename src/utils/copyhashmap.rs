@@ -78,6 +78,10 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
     pub fn is_empty(&self) -> bool {
         unsafe { self.map.get().deref().is_empty() }
     }
+
+    pub fn len(&self) -> usize {
+        unsafe { self.map.get().deref().len() }
+    }
 }
 
 pub struct Locked<'a, K, V> {

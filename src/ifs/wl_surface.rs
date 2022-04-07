@@ -253,7 +253,7 @@ impl WlSurface {
 
     pub fn accepts_kb_focus(&self) -> bool {
         match self.toplevel.get() {
-            Some(tl) => tl.accepts_keyboard_focus(),
+            Some(tl) => true,
             _ => self.ext.get().accepts_kb_focus(),
         }
     }

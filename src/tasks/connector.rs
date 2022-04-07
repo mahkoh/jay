@@ -101,12 +101,19 @@ impl ConnectorHandler {
             state: self.state.clone(),
             is_dummy: false,
         });
+        let mode = info.initial_mode;
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: info,
             node: on.clone(),
         });
         self.state.outputs.set(self.id, output_data);
+        if self.state.outputs.len() == 1 {
+            let seats = self.state.globals.seats.lock();
+            for seat in seats.values() {
+                seat.set_position(x1 + mode.width / 2, mode.height / 2);
+            }
+        }
         global.node.set(Some(on.clone()));
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);

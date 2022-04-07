@@ -132,6 +132,7 @@ pub struct WlSeatGlobal {
     queue_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     output: CloneCell<Rc<OutputNode>>,
+    desired_known_cursor: Cell<Option<KnownCursor>>,
 }
 
 impl WlSeatGlobal {
@@ -168,6 +169,7 @@ impl WlSeatGlobal {
             queue_link: Cell::new(None),
             tree_changed_handler: Cell::new(None),
             output: CloneCell::new(state.dummy_output.get().unwrap()),
+            desired_known_cursor: Cell::new(None),
         });
         let seat = slf.clone();
         let future = state.eng.spawn(async move {
@@ -207,6 +209,21 @@ impl WlSeatGlobal {
                     kb.send_keymap(wl_keyboard::XKB_V1, fd, keymap.map_len as _);
                 }
             }
+        }
+    }
+
+    pub fn set_position(&self, x: i32, y: i32) {
+        self.pos.set((Fixed::from_int(x), Fixed::from_int(y)));
+        self.trigger_tree_changed();
+    }
+
+    pub fn position(&self) -> (Fixed, Fixed) {
+        self.pos.get()
+    }
+
+    pub fn render_ctx_changed(&self) {
+        if let Some(cursor) = self.desired_known_cursor.get() {
+            self.set_known_cursor(cursor);
         }
     }
 
@@ -326,10 +343,11 @@ impl WlSeatGlobal {
     }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
+        self.desired_known_cursor.set(Some(cursor));
         let cursors = match self.state.cursors.get() {
             Some(c) => c,
             None => {
-                self.set_cursor(None);
+                self.set_cursor2(None);
                 return;
             }
         };
@@ -342,10 +360,15 @@ impl WlSeatGlobal {
             KnownCursor::ResizeBottomLeft => &cursors.resize_bottom_left,
             KnownCursor::ResizeBottomRight => &cursors.resize_bottom_right,
         };
-        self.set_cursor(Some(tpl.instantiate()));
+        self.set_cursor2(Some(tpl.instantiate()));
     }
 
-    pub fn set_cursor(&self, cursor: Option<Rc<dyn Cursor>>) {
+    pub fn set_app_cursor(&self, cursor: Option<Rc<dyn Cursor>>) {
+        self.set_cursor2(cursor);
+        self.desired_known_cursor.set(None);
+    }
+
+    fn set_cursor2(&self, cursor: Option<Rc<dyn Cursor>>) {
         if let Some(old) = self.cursor.get() {
             if let Some(new) = cursor.as_ref() {
                 if rc_eq(&old, new) {
