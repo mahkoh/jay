@@ -69,21 +69,31 @@ impl Renderer<'_> {
         if let Some(ws) = output.workspace.get() {
             self.render_workspace(&ws, x, y + th);
         }
-        render_layer!(output.layers[2]);
-        render_layer!(output.layers[3]);
+        for stacked in self.state.root.stacked.iter() {
+            if let Some(ws) = stacked.get_workspace() {
+                if ws.visible.get() {
+                    let pos = stacked.absolute_position();
+                    if pos.intersects(&opos) {
+                        let (x, y) = opos.translate(pos.x1(), pos.y1());
+                        stacked.render(self, x, y);
+                    }
+                }
+            }
+        }
         for stacked in self.state.root.xstacked.iter() {
             let pos = stacked.absolute_position();
-            stacked.render(self, x + pos.x1(), y + pos.y1());
+            if pos.intersects(&opos) {
+                let (x, y) = opos.translate(pos.x1(), pos.y1());
+                stacked.render(self, x, y);
+            }
         }
+        render_layer!(output.layers[2]);
+        render_layer!(output.layers[3]);
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
         if let Some(node) = workspace.container.get() {
             self.render_container(&node, x, y)
-        }
-        for stacked in workspace.stacked.iter() {
-            let pos = stacked.absolute_position();
-            stacked.render(self, pos.x1(), pos.y1());
         }
     }
 

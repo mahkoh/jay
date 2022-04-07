@@ -322,6 +322,8 @@ xkb_keymap {
         key <94> { [ equal   , asterisk   ] };
         key <124> { [ at         , asciicircum ] };
         key <92> { [ numbersign , grave       ] };
+
+        modifier_map Mod1 { Alt_L, Alt_R };
     };
 
 };

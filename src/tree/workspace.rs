@@ -27,6 +27,7 @@ pub struct WorkspaceNode {
     pub seat_state: NodeSeatState,
     pub name: String,
     pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
+    pub visible: Cell<bool>,
 }
 
 impl WorkspaceNode {

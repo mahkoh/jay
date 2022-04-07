@@ -677,6 +677,7 @@ impl Wm {
                 log::error!("Could not retrieve WM_HINTS property: {}", ErrorFmt(e));
             }
             data.info.icccm_hints.input.set(true);
+            self.compute_input_model(data);
             return;
         }
         let mut values = [0; 9];

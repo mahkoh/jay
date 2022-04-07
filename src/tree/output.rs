@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use {
     crate::{
         backend::Mode,
@@ -106,6 +107,7 @@ impl OutputNode {
             seat_state: Default::default(),
             name: name.clone(),
             output_link: Default::default(),
+            visible: Cell::new(false),
         });
         self.state.workspaces.set(name, workspace.clone());
         workspace
@@ -117,7 +119,12 @@ impl OutputNode {
     }
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) {
-        self.workspace.set(Some(ws.clone()));
+        ws.visible.set(true);
+        if let Some(old) = self.workspace.set(Some(ws.clone())) {
+            if old.id != ws.id {
+                old.visible.set(false);
+            }
+        }
         ws.clone().change_extents(&self.workspace_rect());
     }
 

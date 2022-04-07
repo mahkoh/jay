@@ -160,6 +160,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
             seat_state: Default::default(),
             name: "dummy".to_string(),
             output_link: Default::default(),
+            visible: Cell::new(false),
         });
         dummy_workspace.output_link.set(Some(
             dummy_output.workspaces.add_last(dummy_workspace.clone()),

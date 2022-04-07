@@ -1,3 +1,4 @@
+use std::ops::Not;
 use {
     crate::{
         client::Client,
@@ -448,7 +449,7 @@ impl ToplevelNode for Xwindow {
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
-        self.data.info.input_model.get() != XInputModel::None
+        self.data.info.never_focus.get().not() && self.data.info.input_model.get() != XInputModel::None
     }
 
     fn default_surface(&self) -> Rc<WlSurface> {

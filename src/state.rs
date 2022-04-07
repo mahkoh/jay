@@ -248,6 +248,7 @@ impl State {
                     seat_state: Default::default(),
                     name: name.to_string(),
                     output_link: Cell::new(None),
+                    visible: Cell::new(false),
                 });
                 workspace
                     .output_link
