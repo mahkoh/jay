@@ -1,7 +1,11 @@
-use crate::backend::InputDevice;
-use crate::state::{DeviceHandlerData, InputDeviceData, State};
-use crate::utils::asyncevent::AsyncEvent;
-use std::rc::Rc;
+use {
+    crate::{
+        backend::InputDevice,
+        state::{DeviceHandlerData, InputDeviceData, State},
+        utils::asyncevent::AsyncEvent,
+    },
+    std::rc::Rc,
+};
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
     let data = Rc::new(DeviceHandlerData {

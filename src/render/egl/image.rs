@@ -1,7 +1,11 @@
-use crate::render::egl::display::EglDisplay;
-use crate::render::egl::sys::{EGLImageKHR, EGL_FALSE};
-use crate::render::egl::PROCS;
-use std::rc::Rc;
+use {
+    crate::render::egl::{
+        display::EglDisplay,
+        sys::{EGLImageKHR, EGL_FALSE},
+        PROCS,
+    },
+    std::rc::Rc,
+};
 
 pub struct EglImage {
     pub dpy: Rc<EglDisplay>,

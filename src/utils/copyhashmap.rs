@@ -1,12 +1,18 @@
-use crate::utils::clonecell::UnsafeCellCloneSafe;
-use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-use ahash::AHashMap;
-use std::borrow::Borrow;
-use std::cell::UnsafeCell;
-use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
-use std::mem;
-use std::ops::{Deref, DerefMut};
+use {
+    crate::utils::{
+        clonecell::UnsafeCellCloneSafe,
+        ptr_ext::{MutPtrExt, PtrExt},
+    },
+    ahash::AHashMap,
+    std::{
+        borrow::Borrow,
+        cell::UnsafeCell,
+        fmt::{Debug, Formatter},
+        hash::Hash,
+        mem,
+        ops::{Deref, DerefMut},
+    },
+};
 
 pub struct CopyHashMap<K, V> {
     map: UnsafeCell<AHashMap<K, V>>,

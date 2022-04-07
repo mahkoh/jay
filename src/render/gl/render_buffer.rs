@@ -1,14 +1,19 @@
-use crate::render::egl::context::EglContext;
-use crate::render::egl::image::EglImage;
-use crate::render::egl::PROCS;
-use crate::render::gl::frame_buffer::GlFrameBuffer;
-use crate::render::gl::sys::{
-    glBindFramebuffer, glBindRenderbuffer, glCheckFramebufferStatus, glDeleteRenderbuffers,
-    glFramebufferRenderbuffer, glGenFramebuffers, glGenRenderbuffers, GLeglImageOES, GLuint,
-    GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER, GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+use {
+    crate::render::{
+        egl::{context::EglContext, image::EglImage, PROCS},
+        gl::{
+            frame_buffer::GlFrameBuffer,
+            sys::{
+                glBindFramebuffer, glBindRenderbuffer, glCheckFramebufferStatus,
+                glDeleteRenderbuffers, glFramebufferRenderbuffer, glGenFramebuffers,
+                glGenRenderbuffers, GLeglImageOES, GLuint, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
+                GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+            },
+        },
+        RenderError,
+    },
+    std::rc::Rc,
 };
-use crate::render::RenderError;
-use std::rc::Rc;
 
 pub struct GlRenderBuffer {
     pub img: Rc<EglImage>,

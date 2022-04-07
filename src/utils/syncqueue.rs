@@ -1,7 +1,7 @@
-use crate::utils::ptr_ext::MutPtrExt;
-use std::cell::UnsafeCell;
-use std::collections::VecDeque;
-use std::mem;
+use {
+    crate::utils::ptr_ext::MutPtrExt,
+    std::{cell::UnsafeCell, collections::VecDeque, mem},
+};
 
 #[derive(Debug)]
 pub struct SyncQueue<T> {

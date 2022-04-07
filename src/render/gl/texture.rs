@@ -1,20 +1,25 @@
-use crate::format::Format;
-use crate::render::egl::context::EglContext;
-use crate::render::egl::image::EglImage;
-use crate::render::egl::PROCS;
-use crate::render::gl::frame_buffer::GlFrameBuffer;
-use crate::render::gl::sys::{
-    glBindFramebuffer, glBindTexture, glCheckFramebufferStatus, glDeleteTextures,
-    glFramebufferTexture2D, glGenFramebuffers, glGenTextures, glPixelStorei, glTexImage2D,
-    glTexParameteri, GLint, GLuint, GL_CLAMP_TO_EDGE, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
-    GL_FRAMEBUFFER_COMPLETE, GL_LINEAR, GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-    GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
+use {
+    crate::{
+        format::Format,
+        render::{
+            egl::{context::EglContext, image::EglImage, PROCS},
+            gl::{
+                frame_buffer::GlFrameBuffer,
+                sys::{
+                    glBindFramebuffer, glBindTexture, glCheckFramebufferStatus, glDeleteTextures,
+                    glFramebufferTexture2D, glGenFramebuffers, glGenTextures, glPixelStorei,
+                    glTexImage2D, glTexParameteri, GLint, GLuint, GL_CLAMP_TO_EDGE,
+                    GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER, GL_FRAMEBUFFER_COMPLETE, GL_LINEAR,
+                    GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S,
+                    GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
+                },
+            },
+            sys::GLeglImageOES,
+            RenderError,
+        },
+    },
+    std::{cell::Cell, ptr, rc::Rc},
 };
-use crate::render::sys::GLeglImageOES;
-use crate::render::RenderError;
-use std::cell::Cell;
-use std::ptr;
-use std::rc::Rc;
 
 pub struct GlTexture {
     pub(super) ctx: Rc<EglContext>,

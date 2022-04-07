@@ -5,53 +5,62 @@ pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
 
-use crate::async_engine::SpawnedFuture;
-use crate::client::{Client, ClientError, ClientId};
-use crate::cursor::{Cursor, KnownCursor};
-use crate::fixed::Fixed;
-use crate::globals::{Global, GlobalName};
-use crate::ifs::ipc;
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
-use crate::ifs::ipc::IpcError;
-use crate::ifs::wl_seat::kb_owner::KbOwnerHolder;
-use crate::ifs::wl_seat::pointer_owner::PointerOwnerHolder;
-use crate::ifs::wl_seat::wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE};
-use crate::ifs::wl_seat::wl_pointer::WlPointer;
-use crate::ifs::wl_seat::wl_touch::WlTouch;
-use crate::ifs::wl_surface::WlSurface;
-use crate::leaks::Tracker;
-use crate::object::{Object, ObjectId};
-use crate::state::State;
-use crate::tree::toplevel::ToplevelNode;
-use crate::tree::{ContainerSplit, FloatNode, FoundNode, Node, OutputNode};
-use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::linkedlist::{LinkedList, LinkedNode};
-use crate::utils::numcell::NumCell;
-use crate::utils::rc_eq::rc_eq;
-use crate::wire::wl_seat::*;
-use crate::wire::{
-    WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId, ZwpPrimarySelectionDeviceV1Id,
-};
-use crate::xkbcommon::{XkbKeymap, XkbState};
-use ahash::{AHashMap, AHashSet};
 pub use event_handling::NodeSeatState;
-use jay_config::keyboard::mods::Modifiers;
-use jay_config::Direction;
-use std::cell::{Cell, RefCell};
-use std::collections::hash_map::Entry;
-use std::mem;
-use std::ops::DerefMut;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, Errno, OwnedFd};
+use {
+    crate::{
+        async_engine::SpawnedFuture,
+        client::{Client, ClientError, ClientId},
+        cursor::{Cursor, KnownCursor},
+        fixed::Fixed,
+        globals::{Global, GlobalName},
+        ifs::{
+            ipc,
+            ipc::{
+                wl_data_device::WlDataDevice, wl_data_source::WlDataSource,
+                zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, IpcError,
+            },
+            wl_seat::{
+                kb_owner::KbOwnerHolder,
+                pointer_owner::PointerOwnerHolder,
+                wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
+                wl_pointer::WlPointer,
+                wl_touch::WlTouch,
+            },
+            wl_surface::WlSurface,
+        },
+        leaks::Tracker,
+        object::{Object, ObjectId},
+        state::State,
+        tree::{ContainerSplit, FloatNode, FoundNode, Node, OutputNode, ToplevelNode},
+        utils::{
+            asyncevent::AsyncEvent,
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            linkedlist::{LinkedList, LinkedNode},
+            numcell::NumCell,
+            rc_eq::rc_eq,
+        },
+        wire::{
+            wl_seat::*, WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
+            ZwpPrimarySelectionDeviceV1Id,
+        },
+        xkbcommon::{XkbKeymap, XkbState},
+    },
+    ahash::{AHashMap, AHashSet},
+    jay_config::{keyboard::mods::Modifiers, Direction},
+    std::{
+        cell::{Cell, RefCell},
+        collections::hash_map::Entry,
+        mem,
+        ops::DerefMut,
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::{c, Errno, OwnedFd},
+};
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;

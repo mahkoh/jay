@@ -1,32 +1,40 @@
 mod clone3;
 mod io;
 
-use crate::async_engine::{AsyncEngine, AsyncFd, SpawnedFuture};
-use crate::event_loop::EventLoop;
-use crate::forker::clone3::{fork_with_pidfd, Forked};
-use crate::forker::io::{IoIn, IoOut};
-use crate::state::State;
-use crate::utils::buffd::BufFdError;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::queue::AsyncQueue;
-use crate::wheel::Wheel;
-use crate::xwayland;
-use bincode::error::{DecodeError, EncodeError};
-use bincode::{Decode, Encode};
-use jay_config::_private::bincode_ops;
-use log::Level;
-use std::cell::{Cell, RefCell};
-use std::env;
-use std::ffi::OsStr;
-use std::io::Read;
-use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
-use std::rc::{Rc, Weak};
-use std::task::{Poll, Waker};
-use thiserror::Error;
-use uapi::{c, pipe2, Errno, Fd, IntoUstr, OwnedFd, UstrPtr};
+use {
+    crate::{
+        async_engine::{AsyncEngine, AsyncFd, SpawnedFuture},
+        event_loop::EventLoop,
+        forker::{
+            clone3::{fork_with_pidfd, Forked},
+            io::{IoIn, IoOut},
+        },
+        state::State,
+        utils::{
+            buffd::BufFdError, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
+            queue::AsyncQueue,
+        },
+        wheel::Wheel,
+        xwayland,
+    },
+    bincode::{
+        error::{DecodeError, EncodeError},
+        Decode, Encode,
+    },
+    jay_config::_private::bincode_ops,
+    log::Level,
+    std::{
+        cell::{Cell, RefCell},
+        env,
+        ffi::OsStr,
+        io::{Read, Write},
+        os::unix::ffi::OsStrExt,
+        rc::{Rc, Weak},
+        task::{Poll, Waker},
+    },
+    thiserror::Error,
+    uapi::{c, pipe2, Errno, Fd, IntoUstr, OwnedFd, UstrPtr},
+};
 
 pub struct ForkerProxy {
     pidfd: Rc<OwnedFd>,

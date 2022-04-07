@@ -1,13 +1,19 @@
-use crate::async_engine::FdStatus;
-use crate::backend::{InputEvent, KeyState, ScrollAxis};
-use crate::backends::metal::MetalBackend;
-use crate::libinput::consts::{
-    LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
-    LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
+use {
+    crate::{
+        async_engine::FdStatus,
+        backend::{InputEvent, KeyState, ScrollAxis},
+        backends::metal::MetalBackend,
+        libinput::{
+            consts::{
+                LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
+                LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
+            },
+            event::LibInputEvent,
+        },
+        utils::errorfmt::ErrorFmt,
+    },
+    std::rc::Rc,
 };
-use crate::libinput::event::LibInputEvent;
-use crate::utils::errorfmt::ErrorFmt;
-use std::rc::Rc;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{

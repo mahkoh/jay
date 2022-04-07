@@ -18,10 +18,11 @@ macro_rules! egl_transparent {
     };
 }
 
-use crate::drm::drm::DrmError;
-use crate::drm::gbm::GbmError;
 pub use renderer::*;
-use thiserror::Error;
+use {
+    crate::video::{drm::DrmError, gbm::GbmError},
+    thiserror::Error,
+};
 
 mod egl;
 mod ext;
@@ -30,8 +31,7 @@ mod proc;
 mod renderer;
 
 pub mod sys {
-    pub use super::egl::sys::*;
-    pub use super::gl::sys::*;
+    pub use super::{egl::sys::*, gl::sys::*};
 }
 
 pub fn init() -> Result<(), RenderError> {

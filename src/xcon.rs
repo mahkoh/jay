@@ -1,40 +1,52 @@
-use crate::async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture};
-use crate::utils::bufio::{BufIo, BufIoError, BufIoMessage};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsError;
-use crate::utils::queue::AsyncQueue;
-use crate::utils::vec_ext::VecExt;
-use crate::wire_xcon::{
-    CreateGC, CreatePixmap, Extension, FreeGC, FreePixmap, GetInputFocus, GetProperty,
-    ListExtensions, PutImage, QueryExtension, RenderCreateCursor, RenderCreatePicture,
-    RenderQueryPictFormats, Setup, EXTENSIONS,
+pub use crate::xcon::{
+    formatter::Formatter,
+    parser::Parser,
+    wire_type::{Message, Request, XEvent},
 };
-use crate::xcon::consts::{IMAGE_FORMAT_Z_PIXMAP, RENDER_PICT_TYPE_DIRECT};
-pub use crate::xcon::formatter::Formatter;
-use crate::xcon::incoming::handle_incoming;
-use crate::xcon::outgoing::handle_outgoing;
-pub use crate::xcon::parser::Parser;
-use crate::xcon::wire_type::SendEvent;
-pub use crate::xcon::wire_type::{Message, Request, XEvent};
-use crate::xcon::xauthority::{XAuthority, LOCAL, MIT_MAGIC_COOKIE};
-use ahash::AHashMap;
-use bstr::{BString, ByteSlice};
-use std::any::TypeId;
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::future::Future;
-use std::io::Write;
-use std::mem::MaybeUninit;
-use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
-use std::task::{Context, Poll, Waker};
-use std::{mem, ptr};
-use thiserror::Error;
-use uapi::{c, OwnedFd};
+use {
+    crate::{
+        async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture},
+        utils::{
+            bufio::{BufIo, BufIoError, BufIoMessage},
+            clonecell::CloneCell,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            oserror::OsError,
+            queue::AsyncQueue,
+            vec_ext::VecExt,
+        },
+        wire_xcon::{
+            CreateGC, CreatePixmap, Extension, FreeGC, FreePixmap, GetInputFocus, GetProperty,
+            ListExtensions, PutImage, QueryExtension, RenderCreateCursor, RenderCreatePicture,
+            RenderQueryPictFormats, Setup, EXTENSIONS,
+        },
+        xcon::{
+            consts::{IMAGE_FORMAT_Z_PIXMAP, RENDER_PICT_TYPE_DIRECT},
+            incoming::handle_incoming,
+            outgoing::handle_outgoing,
+            wire_type::SendEvent,
+            xauthority::{XAuthority, LOCAL, MIT_MAGIC_COOKIE},
+        },
+    },
+    ahash::AHashMap,
+    bstr::{BString, ByteSlice},
+    std::{
+        any::TypeId,
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        fmt::Debug,
+        future::Future,
+        io::Write,
+        mem::{self, MaybeUninit},
+        ops::{Deref, DerefMut},
+        pin::Pin,
+        ptr,
+        rc::{Rc, Weak},
+        task::{Context, Poll, Waker},
+    },
+    thiserror::Error,
+    uapi::{c, OwnedFd},
+};
 
 pub mod consts;
 mod formatter;

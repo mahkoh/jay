@@ -1,8 +1,11 @@
-use once_cell::sync::Lazy;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-use uapi::c::c_int;
-use uapi::{c, Errno};
+use {
+    once_cell::sync::Lazy,
+    std::{
+        error::Error,
+        fmt::{Display, Formatter},
+    },
+    uapi::{c, c::c_int, Errno},
+};
 
 static ERRORS: Lazy<&'static [Option<&'static str>]> = Lazy::new(|| {
     static MSGS: &[(c::c_int, &str)] = &[

@@ -1,16 +1,21 @@
-use super::{
-    HDR_DESTINATION, HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL,
-    HDR_SENDER, HDR_SIGNATURE, HDR_UNIX_FDS,
+use {
+    super::{
+        HDR_DESTINATION, HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL,
+        HDR_SENDER, HDR_SIGNATURE, HDR_UNIX_FDS,
+    },
+    crate::{
+        dbus::{
+            CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN,
+            MSG_SIGNAL,
+        },
+        utils::{
+            bufio::BufIoIncoming,
+            errorfmt::ErrorFmt,
+            ptr_ext::{MutPtrExt, PtrExt},
+        },
+    },
+    std::{cell::UnsafeCell, ops::Deref, rc::Rc},
 };
-use crate::dbus::{
-    CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN, MSG_SIGNAL,
-};
-use crate::utils::bufio::BufIoIncoming;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-use std::cell::UnsafeCell;
-use std::ops::Deref;
-use std::rc::Rc;
 
 pub async fn handle_incoming(socket: Rc<DbusSocket>) {
     let mut incoming = Incoming {

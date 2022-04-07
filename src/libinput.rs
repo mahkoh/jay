@@ -5,28 +5,36 @@ pub mod device;
 pub mod event;
 mod sys;
 
-use crate::libinput::consts::{
-    LogPriority, LIBINPUT_LOG_PRIORITY_DEBUG, LIBINPUT_LOG_PRIORITY_ERROR,
-    LIBINPUT_LOG_PRIORITY_INFO,
+use {
+    crate::{
+        libinput::{
+            consts::{
+                LogPriority, LIBINPUT_LOG_PRIORITY_DEBUG, LIBINPUT_LOG_PRIORITY_ERROR,
+                LIBINPUT_LOG_PRIORITY_INFO,
+            },
+            device::RegisteredDevice,
+            event::LibInputEvent,
+            sys::{
+                libinput, libinput_device_ref, libinput_dispatch, libinput_get_event,
+                libinput_get_fd, libinput_interface, libinput_log_priority,
+                libinput_log_set_handler, libinput_log_set_priority, libinput_path_add_device,
+                libinput_path_create_context, libinput_unref,
+            },
+        },
+        udev::UdevError,
+        utils::{
+            errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, trim::AsciiTrim,
+            vasprintf::vasprintf_,
+        },
+    },
+    bstr::ByteSlice,
+    std::{
+        ffi::{CStr, VaList},
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::{c, Errno, IntoUstr, OwnedFd},
 };
-use crate::libinput::device::RegisteredDevice;
-use crate::libinput::event::LibInputEvent;
-use crate::libinput::sys::{
-    libinput, libinput_device_ref, libinput_dispatch, libinput_get_event, libinput_get_fd,
-    libinput_interface, libinput_log_priority, libinput_log_set_handler, libinput_log_set_priority,
-    libinput_path_add_device, libinput_path_create_context, libinput_unref,
-};
-use crate::udev::UdevError;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsError;
-use crate::utils::ptr_ext::PtrExt;
-use crate::utils::trim::AsciiTrim;
-use crate::utils::vasprintf::vasprintf_;
-use bstr::ByteSlice;
-use std::ffi::{CStr, VaList};
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, Errno, IntoUstr, OwnedFd};
 
 static INTERFACE: libinput_interface = libinput_interface {
     open_restricted,

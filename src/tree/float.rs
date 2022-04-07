@@ -1,23 +1,26 @@
-use crate::backend::KeyState;
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
-use crate::rect::Rect;
-use crate::render::{Renderer, Texture};
-use crate::state::State;
-use crate::text;
-use crate::theme::Color;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::linkedlist::LinkedNode;
-use ahash::AHashMap;
-use std::cell::{Cell, RefCell};
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::ops::Deref;
-use std::rc::Rc;
+use {
+    crate::{
+        backend::KeyState,
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
+        rect::Rect,
+        render::{Renderer, Texture},
+        state::State,
+        text,
+        theme::Color,
+        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
+        utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedNode},
+    },
+    ahash::AHashMap,
+    std::{
+        cell::{Cell, RefCell},
+        fmt::{Debug, Formatter},
+        mem,
+        ops::Deref,
+        rc::Rc,
+    },
+};
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {

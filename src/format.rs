@@ -1,8 +1,12 @@
-use crate::render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE};
-use crate::utils::debug_fn::debug_fn;
-use ahash::AHashMap;
-use once_cell::sync::Lazy;
-use std::fmt::{Debug, Write};
+use {
+    crate::{
+        render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE},
+        utils::debug_fn::debug_fn,
+    },
+    ahash::AHashMap,
+    once_cell::sync::Lazy,
+    std::fmt::{Debug, Write},
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Format {

@@ -1,25 +1,35 @@
-use crate::format::{Format, ARGB8888};
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
-use crate::ifs::wl_surface::WlSurface;
-use crate::rect::Rect;
-use crate::render::gl::frame_buffer::{with_scissor, GlFrameBuffer};
-use crate::render::gl::sys::{
-    glActiveTexture, glBindTexture, glDisableVertexAttribArray, glDrawArrays,
-    glEnableVertexAttribArray, glTexParameteri, glUniform1i, glUniform4f, glUseProgram,
-    glVertexAttribPointer, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_2D,
-    GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
+use {
+    crate::{
+        format::{Format, ARGB8888},
+        ifs::{
+            wl_buffer::WlBuffer,
+            wl_surface::{
+                xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
+            },
+        },
+        rect::Rect,
+        render::{
+            gl::{
+                frame_buffer::{with_scissor, GlFrameBuffer},
+                sys::{
+                    glActiveTexture, glBindTexture, glDisableVertexAttribArray, glDrawArrays,
+                    glEnableVertexAttribArray, glTexParameteri, glUniform1i, glUniform4f,
+                    glUseProgram, glVertexAttribPointer, GL_FALSE, GL_FLOAT, GL_LINEAR,
+                    GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES,
+                    GL_TRIANGLE_STRIP,
+                },
+            },
+            renderer::context::RenderContext,
+            sys::{glDisable, glEnable, GL_BLEND},
+            Texture,
+        },
+        state::State,
+        theme::Color,
+        tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode},
+        utils::rc_eq::rc_eq,
+    },
+    std::{ops::Deref, rc::Rc},
 };
-use crate::render::renderer::context::RenderContext;
-use crate::render::sys::{glDisable, glEnable, GL_BLEND};
-use crate::render::Texture;
-use crate::state::State;
-use crate::theme::Color;
-use crate::tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode};
-use crate::utils::rc_eq::rc_eq;
-use std::ops::Deref;
-use std::rc::Rc;
 
 pub struct Renderer<'a> {
     pub(super) ctx: &'a Rc<RenderContext>,

@@ -3,10 +3,12 @@ mod log;
 mod quit;
 mod set_log_level;
 
-use crate::compositor::start_compositor;
-use ::log::Level;
-use clap::{ArgEnum, Args, Parser, Subcommand};
-use clap_complete::Shell;
+use {
+    crate::compositor::start_compositor,
+    ::log::Level,
+    clap::{ArgEnum, Args, Parser, Subcommand},
+    clap_complete::Shell,
+};
 
 /// A wayland compositor.
 #[derive(Parser, Debug)]

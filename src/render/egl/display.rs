@@ -1,30 +1,36 @@
-use crate::drm::dma::DmaBuf;
-use crate::drm::drm::Drm;
-use crate::drm::gbm::GbmDevice;
-use crate::drm::INVALID_MODIFIER;
-use crate::format::{formats, Format};
-use crate::render::egl::context::EglContext;
-use crate::render::egl::image::EglImage;
-use crate::render::egl::sys::{
-    eglCreateContext, eglTerminate, EGLClientBuffer, EGLConfig, EGLContext, EGLDisplay, EGLint,
-    EGL_CONTEXT_CLIENT_VERSION, EGL_DMA_BUF_PLANE0_FD_EXT, EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT,
-    EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE0_OFFSET_EXT,
-    EGL_DMA_BUF_PLANE0_PITCH_EXT, EGL_DMA_BUF_PLANE1_FD_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT,
-    EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE1_OFFSET_EXT,
-    EGL_DMA_BUF_PLANE1_PITCH_EXT, EGL_DMA_BUF_PLANE2_FD_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT,
-    EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE2_OFFSET_EXT,
-    EGL_DMA_BUF_PLANE2_PITCH_EXT, EGL_DMA_BUF_PLANE3_FD_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT,
-    EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE3_OFFSET_EXT,
-    EGL_DMA_BUF_PLANE3_PITCH_EXT, EGL_HEIGHT, EGL_IMAGE_PRESERVED_KHR, EGL_LINUX_DMA_BUF_EXT,
-    EGL_LINUX_DRM_FOURCC_EXT, EGL_NONE, EGL_TRUE, EGL_WIDTH,
+use {
+    crate::{
+        video::{dma::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER},
+        format::{formats, Format},
+        render::{
+            egl::{
+                context::EglContext,
+                image::EglImage,
+                sys::{
+                    eglCreateContext, eglTerminate, EGLClientBuffer, EGLConfig, EGLContext,
+                    EGLDisplay, EGLint, EGL_CONTEXT_CLIENT_VERSION, EGL_DMA_BUF_PLANE0_FD_EXT,
+                    EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT,
+                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, EGL_DMA_BUF_PLANE0_PITCH_EXT,
+                    EGL_DMA_BUF_PLANE1_FD_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT,
+                    EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE1_OFFSET_EXT,
+                    EGL_DMA_BUF_PLANE1_PITCH_EXT, EGL_DMA_BUF_PLANE2_FD_EXT,
+                    EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT,
+                    EGL_DMA_BUF_PLANE2_OFFSET_EXT, EGL_DMA_BUF_PLANE2_PITCH_EXT,
+                    EGL_DMA_BUF_PLANE3_FD_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT,
+                    EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE3_OFFSET_EXT,
+                    EGL_DMA_BUF_PLANE3_PITCH_EXT, EGL_HEIGHT, EGL_IMAGE_PRESERVED_KHR,
+                    EGL_LINUX_DMA_BUF_EXT, EGL_LINUX_DRM_FOURCC_EXT, EGL_NONE, EGL_TRUE, EGL_WIDTH,
+                },
+                PROCS,
+            },
+            ext::{get_display_ext, get_gl_ext, DisplayExt, GlExt},
+            sys::{eglInitialize, EGL_PLATFORM_GBM_KHR},
+            RenderError,
+        },
+    },
+    ahash::AHashMap,
+    std::{ptr, rc::Rc},
 };
-use crate::render::egl::PROCS;
-use crate::render::ext::{get_display_ext, get_gl_ext, DisplayExt, GlExt};
-use crate::render::sys::{eglInitialize, EGL_PLATFORM_GBM_KHR};
-use crate::render::RenderError;
-use ahash::AHashMap;
-use std::ptr;
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct EglDisplay {

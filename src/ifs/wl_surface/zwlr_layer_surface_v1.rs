@@ -1,26 +1,29 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::wl_seat::NodeSeatState;
-use crate::ifs::wl_surface::{
-    CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::{
+            wl_seat::NodeSeatState,
+            wl_surface::{
+                CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+            },
+            zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY},
+        },
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        render::Renderer,
+        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
+        utils::{
+            bitflags::BitflagsExt,
+            buffd::{MsgParser, MsgParserError},
+            linkedlist::LinkedNode,
+            numcell::NumCell,
+        },
+        wire::{zwlr_layer_surface_v1::*, WlSurfaceId, ZwlrLayerSurfaceV1Id},
+    },
+    std::{cell::Cell, ops::Deref, rc::Rc},
+    thiserror::Error,
 };
-use crate::ifs::zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::render::Renderer;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::linkedlist::LinkedNode;
-use crate::utils::numcell::NumCell;
-use crate::wire::zwlr_layer_surface_v1::*;
-use crate::wire::{WlSurfaceId, ZwlrLayerSurfaceV1Id};
-use std::cell::Cell;
-use std::ops::Deref;
-use std::rc::Rc;
-use thiserror::Error;
 
 const KI_NONE: u32 = 0;
 #[allow(dead_code)]
@@ -65,6 +68,7 @@ struct Pending {
     margin: Cell<Option<(i32, i32, i32, i32)>>,
     keyboard_interactivity: Cell<Option<u32>>,
     layer: Cell<Option<u32>>,
+    any: Cell<bool>,
 }
 
 impl ZwlrLayerSurfaceV1 {
@@ -132,6 +136,7 @@ impl ZwlrLayerSurfaceV1 {
         self.pending
             .size
             .set(Some((req.width as _, req.height as _)));
+        self.pending.any.set(true);
         Ok(())
     }
 
@@ -141,12 +146,14 @@ impl ZwlrLayerSurfaceV1 {
             return Err(SetAnchorError::UnknownAnchor(req.anchor));
         }
         self.pending.anchor.set(Some(req.anchor));
+        self.pending.any.set(true);
         Ok(())
     }
 
     fn set_exclusive_zone(&self, parser: MsgParser<'_, '_>) -> Result<(), SetExclusiveZoneError> {
         let req: SetExclusiveZone = self.client.parse(self, parser)?;
         self.pending.exclusive_zone.set(Some(req.zone));
+        self.pending.any.set(true);
         Ok(())
     }
 
@@ -155,6 +162,7 @@ impl ZwlrLayerSurfaceV1 {
         self.pending
             .margin
             .set(Some((req.top, req.right, req.bottom, req.left)));
+        self.pending.any.set(true);
         Ok(())
     }
 
@@ -171,6 +179,7 @@ impl ZwlrLayerSurfaceV1 {
         self.pending
             .keyboard_interactivity
             .set(Some(req.keyboard_interactivity));
+        self.pending.any.set(true);
         Ok(())
     }
 
@@ -199,11 +208,12 @@ impl ZwlrLayerSurfaceV1 {
             return Err(SetLayerError::UnknownLayer(req.layer));
         }
         self.pending.layer.set(Some(req.layer));
+        self.pending.any.set(true);
         Ok(())
     }
 
     fn pre_commit(&self) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let mut send_configure = false;
+        let mut send_configure = self.pending.any.replace(false);
         if let Some(size) = self.pending.size.take() {
             self.size.set(size);
         }
@@ -370,7 +380,7 @@ impl Node for ZwlrLayerSurfaceV1 {
             x,
             y,
         });
-        self.surface.find_tree_at(x, y, tree)
+        self.surface.find_tree_at_(x, y, tree)
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {

@@ -1,8 +1,11 @@
-use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::tree::{Node, OutputNode};
-use crate::utils::clonecell::CloneCell;
-use std::ops::Deref;
-use std::rc::Rc;
+use {
+    crate::{
+        ifs::wl_seat::WlSeatGlobal,
+        tree::{Node, OutputNode},
+        utils::clonecell::CloneCell,
+    },
+    std::{ops::Deref, rc::Rc},
+};
 
 pub struct KbOwnerHolder {
     default: Rc<DefaultKbOwner>,

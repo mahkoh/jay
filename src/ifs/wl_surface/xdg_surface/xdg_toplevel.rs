@@ -1,33 +1,43 @@
-use crate::bugs;
-use crate::bugs::Bugs;
-use crate::client::{Client, ClientError};
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
-use crate::ifs::wl_surface::WlSurface;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::render::Renderer;
-use crate::tree::toplevel::{ToplevelData, ToplevelNode};
-use crate::tree::walker::NodeVisitor;
-use crate::tree::FindTreeResult;
-use crate::tree::{FoundNode, Node, NodeId, ToplevelNodeId, WorkspaceNode};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::wire::xdg_toplevel::*;
-use crate::wire::XdgToplevelId;
-use ahash::{AHashMap, AHashSet};
-use jay_config::Direction;
-use num_derive::FromPrimitive;
-use std::cell::{Cell, RefCell};
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::ops::Deref;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        bugs,
+        bugs::Bugs,
+        client::{Client, ClientError},
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::{
+            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_surface::{
+                xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+                WlSurface,
+            },
+        },
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        render::Renderer,
+        tree::{
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode,
+            ToplevelNodeId, WorkspaceNode,
+        },
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+        },
+        wire::{xdg_toplevel::*, XdgToplevelId},
+    },
+    ahash::{AHashMap, AHashSet},
+    jay_config::Direction,
+    num_derive::FromPrimitive,
+    std::{
+        cell::{Cell, RefCell},
+        fmt::{Debug, Formatter},
+        mem,
+        ops::Deref,
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {

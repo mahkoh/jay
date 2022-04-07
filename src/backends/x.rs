@@ -1,49 +1,59 @@
-use crate::async_engine::{Phase, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, InputDevice,
-    InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode,
-    MonitorInfo, ScrollAxis,
+use {
+    crate::{
+        async_engine::{Phase, SpawnedFuture},
+        backend::{
+            Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
+            InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
+            KeyState, Mode, MonitorInfo, ScrollAxis,
+        },
+        video::{
+            drm::{ConnectorType, Drm, DrmError},
+            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
+            ModifiedFormat, INVALID_MODIFIER,
+        },
+        fixed::Fixed,
+        format::XRGB8888,
+        render::{Framebuffer, RenderContext, RenderError},
+        state::State,
+        utils::{
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
+            queue::AsyncQueue, syncqueue::SyncQueue,
+        },
+        wire_xcon::{
+            ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
+            CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffer,
+            Dri3QueryVersion, Extension, FreePixmap, MapWindow, PresentCompleteNotify,
+            PresentIdleNotify, PresentPixmap, PresentQueryVersion, PresentSelectInput,
+            XiButtonPress, XiButtonRelease, XiDeviceInfo, XiEnter, XiEventMask,
+            XiGetDeviceButtonMapping, XiGrabDevice, XiHierarchy, XiKeyPress, XiKeyRelease,
+            XiMotion, XiQueryDevice, XiQueryVersion, XiSelectEvents, XiUngrabDevice,
+            XkbPerClientFlags, XkbUseExtension,
+        },
+        xcon::{
+            consts::{
+                ATOM_STRING, ATOM_WM_CLASS, EVENT_MASK_EXPOSURE, EVENT_MASK_STRUCTURE_NOTIFY,
+                EVENT_MASK_VISIBILITY_CHANGE, GRAB_MODE_ASYNC, GRAB_STATUS_SUCCESS,
+                INPUT_DEVICE_ALL, INPUT_DEVICE_ALL_MASTER, INPUT_DEVICE_TYPE_MASTER_KEYBOARD,
+                INPUT_HIERARCHY_MASK_MASTER_ADDED, INPUT_HIERARCHY_MASK_MASTER_REMOVED,
+                PRESENT_EVENT_MASK_COMPLETE_NOTIFY, PRESENT_EVENT_MASK_IDLE_NOTIFY,
+                PROP_MODE_REPLACE, WINDOW_CLASS_INPUT_OUTPUT, XI_EVENT_MASK_BUTTON_PRESS,
+                XI_EVENT_MASK_BUTTON_RELEASE, XI_EVENT_MASK_ENTER, XI_EVENT_MASK_FOCUS_IN,
+                XI_EVENT_MASK_FOCUS_OUT, XI_EVENT_MASK_HIERARCHY, XI_EVENT_MASK_KEY_PRESS,
+                XI_EVENT_MASK_KEY_RELEASE, XI_EVENT_MASK_LEAVE, XI_EVENT_MASK_MOTION,
+                XI_EVENT_MASK_TOUCH_BEGIN, XI_EVENT_MASK_TOUCH_END, XI_EVENT_MASK_TOUCH_UPDATE,
+                XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
+            },
+            Event, XEvent, Xcon, XconError,
+        },
+    },
+    std::{
+        borrow::Cow,
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        rc::Rc,
+    },
+    thiserror::Error,
 };
-use crate::drm::drm::{ConnectorType, Drm, DrmError};
-use crate::drm::gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING};
-use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
-use crate::fixed::Fixed;
-use crate::format::XRGB8888;
-use crate::render::{Framebuffer, RenderContext, RenderError};
-use crate::state::State;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::queue::AsyncQueue;
-use crate::utils::syncqueue::SyncQueue;
-use crate::wire_xcon::{
-    ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
-    CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffer,
-    Dri3QueryVersion, Extension, FreePixmap, MapWindow, PresentCompleteNotify, PresentIdleNotify,
-    PresentPixmap, PresentQueryVersion, PresentSelectInput, XiButtonPress, XiButtonRelease,
-    XiDeviceInfo, XiEnter, XiEventMask, XiGetDeviceButtonMapping, XiGrabDevice, XiHierarchy,
-    XiKeyPress, XiKeyRelease, XiMotion, XiQueryDevice, XiQueryVersion, XiSelectEvents,
-    XiUngrabDevice, XkbPerClientFlags, XkbUseExtension,
-};
-use crate::xcon::consts::{
-    ATOM_STRING, ATOM_WM_CLASS, EVENT_MASK_EXPOSURE, EVENT_MASK_STRUCTURE_NOTIFY,
-    EVENT_MASK_VISIBILITY_CHANGE, GRAB_MODE_ASYNC, GRAB_STATUS_SUCCESS, INPUT_DEVICE_ALL,
-    INPUT_DEVICE_ALL_MASTER, INPUT_DEVICE_TYPE_MASTER_KEYBOARD, INPUT_HIERARCHY_MASK_MASTER_ADDED,
-    INPUT_HIERARCHY_MASK_MASTER_REMOVED, PRESENT_EVENT_MASK_COMPLETE_NOTIFY,
-    PRESENT_EVENT_MASK_IDLE_NOTIFY, PROP_MODE_REPLACE, WINDOW_CLASS_INPUT_OUTPUT,
-    XI_EVENT_MASK_BUTTON_PRESS, XI_EVENT_MASK_BUTTON_RELEASE, XI_EVENT_MASK_ENTER,
-    XI_EVENT_MASK_FOCUS_IN, XI_EVENT_MASK_FOCUS_OUT, XI_EVENT_MASK_HIERARCHY,
-    XI_EVENT_MASK_KEY_PRESS, XI_EVENT_MASK_KEY_RELEASE, XI_EVENT_MASK_LEAVE, XI_EVENT_MASK_MOTION,
-    XI_EVENT_MASK_TOUCH_BEGIN, XI_EVENT_MASK_TOUCH_END, XI_EVENT_MASK_TOUCH_UPDATE,
-    XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
-};
-use crate::xcon::{Event, XEvent, Xcon, XconError};
-use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
-use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {

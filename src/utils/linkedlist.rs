@@ -1,10 +1,13 @@
-use crate::utils::numcell::NumCell;
-use crate::utils::ptr_ext::PtrExt;
-use std::cell::Cell;
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::ops::Deref;
-use std::ptr::NonNull;
+use {
+    crate::utils::{numcell::NumCell, ptr_ext::PtrExt},
+    std::{
+        cell::Cell,
+        fmt::{Debug, Formatter},
+        mem,
+        ops::Deref,
+        ptr::NonNull,
+    },
+};
 
 pub struct LinkedList<T> {
     root: LinkedNode<T>,
@@ -52,6 +55,7 @@ impl<T> LinkedList<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.last().is_none()
     }

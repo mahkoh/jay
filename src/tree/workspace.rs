@@ -1,15 +1,20 @@
-use crate::cursor::KnownCursor;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
-use crate::rect::Rect;
-use crate::render::Renderer;
-use crate::tree::container::ContainerNode;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, OutputNode};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::linkedlist::{LinkedList, LinkedNode};
-use std::cell::Cell;
-use std::fmt::Debug;
-use std::rc::Rc;
+use {
+    crate::{
+        cursor::KnownCursor,
+        ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
+        rect::Rect,
+        render::Renderer,
+        tree::{
+            container::ContainerNode, walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId,
+            OutputNode,
+        },
+        utils::{
+            clonecell::CloneCell,
+            linkedlist::{LinkedList, LinkedNode},
+        },
+    },
+    std::{cell::Cell, fmt::Debug, rc::Rc},
+};
 
 tree_id!(WorkspaceNodeId);
 

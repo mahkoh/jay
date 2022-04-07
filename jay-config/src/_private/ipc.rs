@@ -1,14 +1,13 @@
-use crate::drm::connector_type::ConnectorType;
-use crate::drm::Connector;
-use crate::input::acceleration::AccelProfile;
-use crate::input::capability::Capability;
-use crate::input::{InputDevice, Seat};
-use crate::keyboard::keymap::Keymap;
-use crate::keyboard::mods::Modifiers;
-use crate::keyboard::syms::KeySym;
-use crate::theme::Color;
-use crate::{Axis, Direction, LogLevel, Workspace};
-use bincode::{BorrowDecode, Decode, Encode};
+use {
+    crate::{
+        drm::{connector_type::ConnectorType, Connector},
+        input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
+        keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
+        theme::Color,
+        Axis, Direction, LogLevel, Workspace,
+    },
+    bincode::{BorrowDecode, Decode, Encode},
+};
 
 #[derive(Encode, BorrowDecode, Debug)]
 pub enum ServerMessage {

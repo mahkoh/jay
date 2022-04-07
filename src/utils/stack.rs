@@ -1,5 +1,7 @@
-use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-use std::cell::UnsafeCell;
+use {
+    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
+    std::cell::UnsafeCell,
+};
 
 pub struct Stack<T> {
     vec: UnsafeCell<Vec<T>>,

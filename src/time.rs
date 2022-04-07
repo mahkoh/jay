@@ -1,9 +1,13 @@
-use std::cmp::Ordering;
-use std::fmt::{Debug, Formatter};
-use std::ops::{Add, Sub};
-use std::time::Duration;
-use thiserror::Error;
-use uapi::c;
+use {
+    std::{
+        cmp::Ordering,
+        fmt::{Debug, Formatter},
+        ops::{Add, Sub},
+        time::Duration,
+    },
+    thiserror::Error,
+    uapi::c,
+};
 
 #[derive(Debug, Error)]
 pub enum TimeError {

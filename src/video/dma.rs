@@ -1,6 +1,4 @@
-use crate::format::Format;
-use std::rc::Rc;
-use uapi::OwnedFd;
+use {crate::format::Format, std::rc::Rc, uapi::OwnedFd};
 
 pub struct DmaBufPlane {
     pub offset: u32,

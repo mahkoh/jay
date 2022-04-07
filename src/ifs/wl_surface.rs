@@ -4,39 +4,49 @@ pub mod xdg_surface;
 pub mod xwindow;
 pub mod zwlr_layer_surface_v1;
 
-use crate::backend::{KeyState, ScrollAxis};
-use crate::client::{Client, ClientError, RequestParser};
-use crate::fixed::Fixed;
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal};
-use crate::ifs::wl_surface::cursor::CursorSurface;
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::{Rect, Region};
-use crate::render::Renderer;
-use crate::tree::toplevel::ToplevelNode;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{ContainerNode, ContainerSplit, Node, NodeId, WorkspaceNode};
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::linkedlist::LinkedList;
-use crate::utils::numcell::NumCell;
-use crate::utils::smallmap::SmallMap;
-use crate::wire::wl_surface::*;
-use crate::wire::{WlOutputId, WlSurfaceId};
-use crate::xkbcommon::ModifierState;
-use ahash::AHashMap;
-use jay_config::Direction;
-use std::cell::{Cell, RefCell};
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        backend::{KeyState, ScrollAxis},
+        client::{Client, ClientError, RequestParser},
+        fixed::Fixed,
+        ifs::{
+            wl_buffer::WlBuffer,
+            wl_callback::WlCallback,
+            wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal},
+            wl_surface::{
+                cursor::CursorSurface, wl_subsurface::WlSubsurface, xdg_surface::XdgSurfaceError,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
+            },
+        },
+        leaks::Tracker,
+        object::Object,
+        rect::{Rect, Region},
+        render::Renderer,
+        tree::{
+            ContainerNode, ContainerSplit, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor,
+            ToplevelNode, WorkspaceNode,
+        },
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+            linkedlist::LinkedList,
+            numcell::NumCell,
+            smallmap::SmallMap,
+        },
+        wire::{wl_surface::*, WlOutputId, WlSurfaceId},
+        xkbcommon::ModifierState,
+    },
+    ahash::AHashMap,
+    jay_config::Direction,
+    std::{
+        cell::{Cell, RefCell},
+        fmt::{Debug, Formatter},
+        mem,
+        ops::{Deref, DerefMut},
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -365,7 +375,11 @@ impl WlSurface {
             }
             *children = None;
         }
-        self.buffer.set(None);
+        if let Some(buffer) = self.buffer.set(None) {
+            if !buffer.destroyed() {
+                buffer.send_release();
+            }
+        }
         self.frame_requests.borrow_mut().clear();
         self.toplevel.set(None);
         self.client.remove_obj(self)?;
@@ -557,6 +571,16 @@ impl WlSurface {
             return Some(res);
         }
         None
+    }
+
+    fn find_tree_at_(self: &Rc<Self>, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        match self.find_surface_at(x, y) {
+            Some((node, x, y)) => {
+                tree.push(FoundNode { node, x, y });
+                FindTreeResult::AcceptsInput
+            }
+            _ => FindTreeResult::Other,
+        }
     }
 }
 

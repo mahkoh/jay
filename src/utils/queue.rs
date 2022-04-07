@@ -1,9 +1,11 @@
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
-use std::future::Future;
-use std::mem;
-use std::pin::Pin;
-use std::task::{Context, Poll, Waker};
+use std::{
+    cell::{Cell, RefCell},
+    collections::VecDeque,
+    future::Future,
+    mem,
+    pin::Pin,
+    task::{Context, Poll, Waker},
+};
 
 pub struct AsyncQueue<T> {
     data: RefCell<VecDeque<T>>,

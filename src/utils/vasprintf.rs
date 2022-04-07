@@ -1,7 +1,11 @@
-use std::ffi::{CStr, VaList};
-use std::ops::Deref;
-use std::ptr;
-use uapi::c;
+use {
+    std::{
+        ffi::{CStr, VaList},
+        ops::Deref,
+        ptr,
+    },
+    uapi::c,
+};
 
 extern "C" {
     fn vasprintf(strp: *mut *mut c::c_char, fmt: *const c::c_char, ap: VaList) -> c::c_int;

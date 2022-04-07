@@ -1,14 +1,16 @@
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::zxdg_output_manager_v1::*;
-use crate::wire::ZxdgOutputManagerV1Id;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::zxdg_output_v1::ZxdgOutputV1,
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zxdg_output_manager_v1::*, ZxdgOutputManagerV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct ZxdgOutputManagerV1Global {
     name: GlobalName,

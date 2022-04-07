@@ -1,10 +1,14 @@
-use crate::client::ClientError;
-use crate::event_loop::{EventLoopDispatcher, EventLoopError, EventLoopId};
-use crate::state::State;
-use crate::utils::errorfmt::ErrorFmt;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, format_ustr, Errno, OwnedFd, Ustring};
+use {
+    crate::{
+        client::ClientError,
+        event_loop::{EventLoopDispatcher, EventLoopError, EventLoopId},
+        state::State,
+        utils::errorfmt::ErrorFmt,
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::{c, format_ustr, Errno, OwnedFd, Ustring},
+};
 
 #[derive(Debug, Error)]
 pub enum AcceptorError {

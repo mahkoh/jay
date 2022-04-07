@@ -1,6 +1,8 @@
-use crate::xcon::Message;
-use std::rc::Rc;
-use uapi::{AssertPacked, OwnedFd, Packed};
+use {
+    crate::xcon::Message,
+    std::rc::Rc,
+    uapi::{AssertPacked, OwnedFd, Packed},
+};
 
 pub struct Formatter<'a> {
     fds: &'a mut Vec<Rc<OwnedFd>>,

@@ -1,19 +1,22 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::wl_data_device_manager::DND_ALL;
-use crate::ifs::ipc::{
-    break_offer_loops, destroy_offer, receive, OfferData, Role, OFFER_STATE_ACCEPTED,
-    OFFER_STATE_DROPPED, OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::ipc::{
+            break_offer_loops, destroy_offer, receive, wl_data_device::WlDataDevice,
+            wl_data_device_manager::DND_ALL, OfferData, Role, OFFER_STATE_ACCEPTED,
+            OFFER_STATE_DROPPED, OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
+        },
+        leaks::Tracker,
+        object::Object,
+        utils::{
+            bitflags::BitflagsExt,
+            buffd::{MsgParser, MsgParserError},
+        },
+        wire::{wl_data_offer::*, WlDataOfferId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
 };
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_data_offer::*;
-use crate::wire::WlDataOfferId;
-use std::rc::Rc;
-use thiserror::Error;
 
 #[allow(dead_code)]
 const INVALID_FINISH: u32 = 0;

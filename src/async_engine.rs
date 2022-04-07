@@ -1,19 +1,26 @@
-pub use crate::async_engine::yield_::Yield;
-use crate::event_loop::{EventLoop, EventLoopError};
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::numcell::NumCell;
-use crate::wheel::{Wheel, WheelError};
-use fd::AsyncFdData;
-pub use fd::{AsyncFd, FdStatus};
-use queue::{DispatchQueue, Dispatcher};
-use std::cell::{Cell, RefCell};
-use std::future::Future;
-use std::rc::Rc;
-pub use task::SpawnedFuture;
-use thiserror::Error;
-pub use timeout::Timeout;
-use timeout::TimeoutData;
-use uapi::OwnedFd;
+pub use {
+    crate::async_engine::yield_::Yield,
+    fd::{AsyncFd, FdStatus},
+    task::SpawnedFuture,
+    timeout::Timeout,
+};
+use {
+    crate::{
+        event_loop::{EventLoop, EventLoopError},
+        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
+        wheel::{Wheel, WheelError},
+    },
+    fd::AsyncFdData,
+    queue::{DispatchQueue, Dispatcher},
+    std::{
+        cell::{Cell, RefCell},
+        future::Future,
+        rc::Rc,
+    },
+    thiserror::Error,
+    timeout::TimeoutData,
+    uapi::OwnedFd,
+};
 
 #[derive(Debug, Error)]
 pub enum AsyncError {
@@ -110,11 +117,15 @@ impl AsyncEngine {
 }
 
 mod yield_ {
-    use crate::async_engine::queue::DispatchQueue;
-    use std::future::Future;
-    use std::pin::Pin;
-    use std::rc::Rc;
-    use std::task::{Context, Poll};
+    use {
+        crate::async_engine::queue::DispatchQueue,
+        std::{
+            future::Future,
+            pin::Pin,
+            rc::Rc,
+            task::{Context, Poll},
+        },
+    };
 
     pub struct Yield {
         pub(super) iteration: u64,
@@ -136,13 +147,17 @@ mod yield_ {
 }
 
 mod timeout {
-    use crate::wheel::{Wheel, WheelDispatcher, WheelId};
-    use std::cell::{Cell, RefCell};
-    use std::error::Error;
-    use std::future::Future;
-    use std::pin::Pin;
-    use std::rc::Rc;
-    use std::task::{Context, Poll, Waker};
+    use {
+        crate::wheel::{Wheel, WheelDispatcher, WheelId},
+        std::{
+            cell::{Cell, RefCell},
+            error::Error,
+            future::Future,
+            pin::Pin,
+            rc::Rc,
+            task::{Context, Poll, Waker},
+        },
+    };
 
     pub(super) struct TimeoutData {
         pub expired: Cell<bool>,
@@ -186,17 +201,24 @@ mod timeout {
 }
 
 mod task {
-    use crate::async_engine::queue::DispatchQueue;
-    use crate::async_engine::Phase;
-    use crate::utils::numcell::NumCell;
-    use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-    use std::cell::{Cell, UnsafeCell};
-    use std::future::Future;
-    use std::mem::ManuallyDrop;
-    use std::pin::Pin;
-    use std::ptr;
-    use std::rc::Rc;
-    use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+    use {
+        crate::{
+            async_engine::{queue::DispatchQueue, Phase},
+            utils::{
+                numcell::NumCell,
+                ptr_ext::{MutPtrExt, PtrExt},
+            },
+        },
+        std::{
+            cell::{Cell, UnsafeCell},
+            future::Future,
+            mem::ManuallyDrop,
+            pin::Pin,
+            ptr,
+            rc::Rc,
+            task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+        },
+    };
 
     #[must_use]
     pub struct SpawnedFuture<T: 'static> {
@@ -430,17 +452,20 @@ mod task {
 }
 
 mod queue {
-    use crate::async_engine::task::Runnable;
-    use crate::async_engine::{AsyncError, Phase, NUM_PHASES};
-    use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopId};
-    use crate::utils::array;
-    use crate::utils::numcell::NumCell;
-    use crate::utils::syncqueue::SyncQueue;
-    use std::cell::{Cell, RefCell};
-    use std::collections::VecDeque;
-    use std::error::Error;
-    use std::rc::Rc;
-    use std::task::Waker;
+    use {
+        crate::{
+            async_engine::{task::Runnable, AsyncError, Phase, NUM_PHASES},
+            event_loop::{EventLoop, EventLoopDispatcher, EventLoopId},
+            utils::{array, numcell::NumCell, syncqueue::SyncQueue},
+        },
+        std::{
+            cell::{Cell, RefCell},
+            collections::VecDeque,
+            error::Error,
+            rc::Rc,
+            task::Waker,
+        },
+    };
 
     pub(super) struct Dispatcher {
         queue: Rc<DispatchQueue>,
@@ -538,17 +563,23 @@ mod queue {
 }
 
 mod fd {
-    use crate::async_engine::{AsyncEngine, AsyncError};
-    use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId};
-    use crate::utils::numcell::NumCell;
-    use std::cell::{Cell, RefCell};
-    use std::error::Error;
-    use std::fmt::{Debug, Formatter};
-    use std::future::Future;
-    use std::pin::Pin;
-    use std::rc::Rc;
-    use std::task::{Context, Poll, Waker};
-    use uapi::{c, OwnedFd};
+    use {
+        crate::{
+            async_engine::{AsyncEngine, AsyncError},
+            event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId},
+            utils::numcell::NumCell,
+        },
+        std::{
+            cell::{Cell, RefCell},
+            error::Error,
+            fmt::{Debug, Formatter},
+            future::Future,
+            pin::Pin,
+            rc::Rc,
+            task::{Context, Poll, Waker},
+        },
+        uapi::{c, OwnedFd},
+    };
 
     type Queue = RefCell<Vec<(Waker, Rc<Cell<Option<FdStatus>>>)>>;
 

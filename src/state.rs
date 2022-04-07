@@ -1,37 +1,43 @@
-use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::backend::{
-    Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice, InputDeviceId,
-    InputDeviceIds, MonitorInfo,
+use {
+    crate::{
+        async_engine::{AsyncEngine, SpawnedFuture},
+        backend::{
+            Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice,
+            InputDeviceId, InputDeviceIds, MonitorInfo,
+        },
+        client::{Client, Clients},
+        config::ConfigProxy,
+        cursor::ServerCursors,
+        dbus::Dbus,
+        event_loop::EventLoop,
+        forker::ForkerProxy,
+        globals::{Globals, GlobalsError, WaylandGlobal},
+        ifs::{
+            wl_seat::{SeatIds, WlSeatGlobal},
+            wl_surface::NoneSurfaceExt,
+        },
+        logger::Logger,
+        rect::Rect,
+        render::RenderContext,
+        theme::Theme,
+        tree::{
+            ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, NodeVisitorBase,
+            OutputNode, WorkspaceNode,
+        },
+        utils::{
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
+            linkedlist::LinkedList, queue::AsyncQueue,
+        },
+        wheel::Wheel,
+        xkbcommon::{XkbContext, XkbKeymap},
+    },
+    ahash::AHashMap,
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+        sync::Arc,
+    },
 };
-use crate::client::{Client, Clients};
-use crate::config::ConfigProxy;
-use crate::cursor::ServerCursors;
-use crate::dbus::Dbus;
-use crate::event_loop::EventLoop;
-use crate::forker::ForkerProxy;
-use crate::globals::{Globals, GlobalsError, WaylandGlobal};
-use crate::ifs::wl_seat::{SeatIds, WlSeatGlobal};
-use crate::ifs::wl_surface::NoneSurfaceExt;
-use crate::logger::Logger;
-use crate::rect::Rect;
-use crate::render::RenderContext;
-use crate::theme::Theme;
-use crate::tree::walker::NodeVisitorBase;
-use crate::tree::{
-    ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, OutputNode, WorkspaceNode,
-};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::fdcloser::FdCloser;
-use crate::utils::linkedlist::LinkedList;
-use crate::utils::queue::AsyncQueue;
-use crate::wheel::Wheel;
-use crate::xkbcommon::{XkbContext, XkbKeymap};
-use ahash::AHashMap;
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
-use std::sync::Arc;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -68,6 +74,7 @@ pub struct State {
     pub fdcloser: Arc<FdCloser>,
     pub logger: Arc<Logger>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
+    pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
 }
 
 pub struct InputDeviceData {
@@ -83,10 +90,14 @@ pub struct DeviceHandlerData {
 
 pub struct ConnectorData {
     pub connector: Rc<dyn Connector>,
-    pub monitor_info: CloneCell<Option<Rc<MonitorInfo>>>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
-    pub node: CloneCell<Option<Rc<OutputNode>>>,
     pub connected: Cell<bool>,
+}
+
+pub struct OutputData {
+    pub connector: Rc<ConnectorData>,
+    pub monitor_info: MonitorInfo,
+    pub node: Rc<OutputNode>,
 }
 
 impl State {
@@ -160,22 +171,19 @@ impl State {
             Some(output) => output,
             _ => self.dummy_output.get().unwrap(),
         };
-        if let Some(workspace) = output.workspace.get() {
-            if let Some(container) = workspace.container.get() {
-                container.append_child(node);
-            } else {
-                let container = ContainerNode::new(
-                    self,
-                    &workspace,
-                    workspace.clone(),
-                    node,
-                    ContainerSplit::Horizontal,
-                );
-                workspace.set_container(&container);
-            };
-            return;
-        }
-        log::warn!("Output has no workspace set");
+        let workspace = output.ensure_workspace();
+        if let Some(container) = workspace.container.get() {
+            container.append_child(node);
+        } else {
+            let container = ContainerNode::new(
+                self,
+                &workspace,
+                workspace.clone(),
+                node,
+                ContainerSplit::Horizontal,
+            );
+            workspace.set_container(&container);
+        };
     }
 
     pub fn map_floating(

@@ -1,29 +1,35 @@
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use crate::client::ClientError;
-use crate::ifs::wl_seat::NodeSeatState;
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::{XdgPopup, XdgPopupError};
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::{
-    CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+use {
+    crate::{
+        client::ClientError,
+        ifs::{
+            wl_seat::NodeSeatState,
+            wl_surface::{
+                xdg_surface::{
+                    xdg_popup::{XdgPopup, XdgPopupError},
+                    xdg_toplevel::XdgToplevel,
+                },
+                CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+            },
+            xdg_wm_base::XdgWmBase,
+        },
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        tree::{FindTreeResult, FoundNode, Node, WorkspaceNode},
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            numcell::NumCell,
+        },
+        wire::{xdg_surface::*, WlSurfaceId, XdgPopupId, XdgSurfaceId},
+    },
+    std::{cell::Cell, fmt::Debug, rc::Rc},
+    thiserror::Error,
 };
-use crate::ifs::xdg_wm_base::XdgWmBase;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::tree::{FindTreeResult, FoundNode, Node, WorkspaceNode};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::numcell::NumCell;
-use crate::wire::xdg_surface::*;
-use crate::wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId};
-use std::cell::Cell;
-use std::fmt::Debug;
-use std::rc::Rc;
-use thiserror::Error;
 
 #[allow(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;
@@ -284,13 +290,7 @@ impl XdgSurface {
             x = xt;
             y = yt;
         }
-        match self.surface.find_surface_at(x, y) {
-            Some((node, x, y)) => {
-                tree.push(FoundNode { node, x, y });
-                FindTreeResult::AcceptsInput
-            }
-            _ => FindTreeResult::Other,
-        }
+        self.surface.find_tree_at_(x, y, tree)
     }
 
     fn update_popup_positions(&self) {

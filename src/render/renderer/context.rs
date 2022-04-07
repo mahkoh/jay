@@ -1,21 +1,28 @@
-use crate::drm::dma::DmaBuf;
-use crate::drm::drm::{Drm, NodeType};
-use crate::format::{Format, XRGB8888};
-use crate::render::egl::context::EglContext;
-use crate::render::egl::display::EglDisplay;
-use crate::render::gl::program::GlProgram;
-use crate::render::gl::render_buffer::GlRenderBuffer;
-use crate::render::gl::sys::GLint;
-use crate::render::gl::texture::GlTexture;
-use crate::render::renderer::framebuffer::Framebuffer;
-use crate::render::renderer::image::Image;
-use crate::render::{RenderError, Texture};
-use ahash::AHashMap;
-use std::cell::Cell;
-use std::ffi::CString;
-use std::fmt::{Debug, Formatter};
-use std::rc::Rc;
-use uapi::ustr;
+use {
+    crate::{
+        video::{
+            dma::DmaBuf,
+            drm::{Drm, NodeType},
+        },
+        format::{Format, XRGB8888},
+        render::{
+            egl::{context::EglContext, display::EglDisplay},
+            gl::{
+                program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
+            },
+            renderer::{framebuffer::Framebuffer, image::Image},
+            RenderError, Texture,
+        },
+    },
+    ahash::AHashMap,
+    std::{
+        cell::Cell,
+        ffi::CString,
+        fmt::{Debug, Formatter},
+        rc::Rc,
+    },
+    uapi::ustr,
+};
 
 pub(super) struct TexProg {
     pub(super) prog: GlProgram,

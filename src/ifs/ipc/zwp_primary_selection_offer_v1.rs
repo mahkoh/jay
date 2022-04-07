@@ -1,13 +1,18 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::ipc::{break_offer_loops, destroy_offer, receive, OfferData};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::zwp_primary_selection_offer_v1::*;
-use crate::wire::ZwpPrimarySelectionOfferV1Id;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::ipc::{
+            break_offer_loops, destroy_offer, receive,
+            zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1, OfferData,
+        },
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zwp_primary_selection_offer_v1::*, ZwpPrimarySelectionOfferV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct ZwpPrimarySelectionOfferV1 {
     pub id: ZwpPrimarySelectionOfferV1Id,

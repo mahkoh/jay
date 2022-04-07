@@ -1,12 +1,15 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::zxdg_toplevel_decoration_v1::*;
-use crate::wire::ZxdgToplevelDecorationV1Id;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zxdg_toplevel_decoration_v1::*, ZxdgToplevelDecorationV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 const CLIENT_SIDE: u32 = 1;
 const SERVER_SIDE: u32 = 2;

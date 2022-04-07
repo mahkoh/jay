@@ -1,22 +1,25 @@
-use crate::client::{Client, ClientError, ClientId};
-use crate::fixed::Fixed;
-use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManager;
-use crate::ifs::ipc::wl_data_offer::WlDataOffer;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::ipc::{
-    break_device_loops, destroy_device, DeviceData, OfferData, Role, SourceData, Vtable,
+use {
+    crate::{
+        client::{Client, ClientError, ClientId},
+        fixed::Fixed,
+        ifs::{
+            ipc::{
+                break_device_loops, destroy_device, wl_data_device_manager::WlDataDeviceManager,
+                wl_data_offer::WlDataOffer, wl_data_source::WlDataSource, DeviceData, OfferData,
+                Role, SourceData, Vtable,
+            },
+            wl_seat::{WlSeat, WlSeatError, WlSeatGlobal},
+            wl_surface::{SurfaceRole, WlSurfaceError},
+        },
+        leaks::Tracker,
+        object::{Object, ObjectId},
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_data_device::*, WlDataDeviceId, WlDataOfferId, WlSurfaceId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::OwnedFd,
 };
-use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
-use crate::ifs::wl_surface::{SurfaceRole, WlSurfaceError};
-use crate::leaks::Tracker;
-use crate::object::{Object, ObjectId};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_data_device::*;
-use crate::wire::{WlDataDeviceId, WlDataOfferId, WlSurfaceId};
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::OwnedFd;
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;

@@ -1,27 +1,36 @@
-use crate::backend::KeyState;
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT};
-use crate::rect::Rect;
-use crate::render::{Renderer, Texture};
-use crate::theme::Color;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::linkedlist::{LinkedList, LinkedNode, NodeRef};
-use ahash::AHashMap;
-use jay_config::{Axis, Direction};
-use std::cell::{Cell, RefCell};
+use {
+    crate::{
+        backend::KeyState,
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
+        rect::Rect,
+        render::{Renderer, Texture},
+        theme::Color,
+        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
+        utils::{
+            clonecell::CloneCell,
+            linkedlist::{LinkedList, LinkedNode, NodeRef},
+        },
+    },
+    ahash::AHashMap,
+    jay_config::{Axis, Direction},
+    std::cell::{Cell, RefCell},
+};
 
-use crate::state::State;
-use crate::text;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::rc_eq::rc_eq;
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::ops::{Deref, DerefMut, Sub};
-use std::rc::Rc;
+use {
+    crate::{
+        state::State,
+        text,
+        utils::{errorfmt::ErrorFmt, numcell::NumCell, rc_eq::rc_eq},
+    },
+    std::{
+        fmt::{Debug, Formatter},
+        mem,
+        ops::{Deref, DerefMut, Sub},
+        rc::Rc,
+    },
+};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

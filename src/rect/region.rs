@@ -1,12 +1,12 @@
-use crate::rect::{Container, Rect, Region};
-use crate::utils::windows::WindowsExt;
-use once_cell::unsync::Lazy;
-use smallvec::SmallVec;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
-use std::mem;
-use std::ops::Deref;
-use std::rc::Rc;
+use {
+    crate::{
+        rect::{Container, Rect, Region},
+        utils::windows::WindowsExt,
+    },
+    once_cell::unsync::Lazy,
+    smallvec::SmallVec,
+    std::{cmp::Ordering, collections::BinaryHeap, mem, ops::Deref, rc::Rc},
+};
 
 #[thread_local]
 static EMPTY: Lazy<Rc<Region>> = Lazy::new(|| {

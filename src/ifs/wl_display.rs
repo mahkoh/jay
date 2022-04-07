@@ -1,15 +1,16 @@
-use crate::client::{Client, ClientError};
-use crate::globals::GlobalsError;
-use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_registry::WlRegistry;
-use crate::leaks::Tracker;
-use crate::object::{Object, ObjectId, WL_DISPLAY_ID};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_display::*;
-use crate::wire::WlDisplayId;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::GlobalsError,
+        ifs::{wl_callback::WlCallback, wl_registry::WlRegistry},
+        leaks::Tracker,
+        object::{Object, ObjectId, WL_DISPLAY_ID},
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_display::*, WlDisplayId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;

@@ -1,8 +1,4 @@
-pub use context::*;
-pub use framebuffer::*;
-pub use image::*;
-pub use renderer::*;
-pub use texture::*;
+pub use {context::*, framebuffer::*, image::*, renderer::*, texture::*};
 
 mod context;
 mod framebuffer;

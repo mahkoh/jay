@@ -8,8 +8,7 @@ macro_rules! track {
 
 #[cfg(not(feature = "rc_tracking"))]
 mod leaks {
-    use crate::client::ClientId;
-    use std::marker::PhantomData;
+    use {crate::client::ClientId, std::marker::PhantomData};
 
     pub fn init() {
         // nothing
@@ -40,14 +39,21 @@ mod leaks {
 
 #[cfg(feature = "rc_tracking")]
 mod leaks {
-    use crate::client::ClientId;
-    use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-    use ahash::{AHashMap, AHashSet};
-    use backtrace::Backtrace;
-    use std::alloc::{GlobalAlloc, Layout};
-    use std::marker::PhantomData;
-    use std::{any, mem, ptr};
-    use uapi::c;
+    use {
+        crate::{
+            client::ClientId,
+            utils::ptr_ext::{MutPtrExt, PtrExt},
+        },
+        ahash::{AHashMap, AHashSet},
+        backtrace::Backtrace,
+        std::{
+            alloc::{GlobalAlloc, Layout},
+            any,
+            marker::PhantomData,
+            mem, ptr,
+        },
+        uapi::c,
+    };
 
     #[thread_local]
     static mut MAP: *mut AHashMap<u64, Tracked> = ptr::null_mut();

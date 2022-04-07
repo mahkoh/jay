@@ -1,13 +1,19 @@
-use crate::render::egl::context::EglContext;
-use crate::render::gl::shader::GlShader;
-use crate::render::gl::sys::{
-    glAttachShader, glCreateProgram, glDeleteProgram, glDetachShader, glGetAttribLocation,
-    glGetProgramiv, glGetUniformLocation, glLinkProgram, GLint, GLuint, GL_FALSE, GL_LINK_STATUS,
+use {
+    crate::render::{
+        egl::context::EglContext,
+        gl::{
+            shader::GlShader,
+            sys::{
+                glAttachShader, glCreateProgram, glDeleteProgram, glDetachShader,
+                glGetAttribLocation, glGetProgramiv, glGetUniformLocation, glLinkProgram, GLint,
+                GLuint, GL_FALSE, GL_FRAGMENT_SHADER, GL_LINK_STATUS, GL_VERTEX_SHADER,
+            },
+        },
+        RenderError,
+    },
+    std::rc::Rc,
+    uapi::Ustr,
 };
-use crate::render::gl::sys::{GL_FRAGMENT_SHADER, GL_VERTEX_SHADER};
-use crate::render::RenderError;
-use std::rc::Rc;
-use uapi::Ustr;
 
 pub struct GlProgram {
     pub _ctx: Rc<EglContext>,

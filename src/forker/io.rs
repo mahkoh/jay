@@ -1,13 +1,20 @@
-use bincode::{Decode, Encode};
-use std::mem;
-use std::rc::Rc;
+use {
+    bincode::{Decode, Encode},
+    std::{mem, rc::Rc},
+};
 
-use crate::async_engine::AsyncFd;
-use crate::forker::ForkerError;
-use crate::utils::buffd::{BufFdIn, BufFdOut};
-use crate::utils::vec_ext::VecExt;
-use jay_config::_private::bincode_ops;
-use uapi::OwnedFd;
+use {
+    crate::{
+        async_engine::AsyncFd,
+        forker::ForkerError,
+        utils::{
+            buffd::{BufFdIn, BufFdOut},
+            vec_ext::VecExt,
+        },
+    },
+    jay_config::_private::bincode_ops,
+    uapi::OwnedFd,
+};
 
 pub struct IoIn {
     incoming: BufFdIn,

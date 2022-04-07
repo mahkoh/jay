@@ -1,29 +1,34 @@
-use crate::async_engine::{AsyncFd, SpawnedFuture};
-use crate::client::error::LookupError;
-use crate::client::objects::Objects;
-use crate::ifs::wl_callback::WlCallback;
-use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_registry::WlRegistry;
-use crate::leaks::Tracker;
-use crate::object::{Interface, Object, ObjectId, WL_DISPLAY_ID};
-use crate::state::State;
-use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain};
-use crate::utils::copyhashmap::Locked;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::queue::AsyncQueue;
-use crate::wire::WlRegistryId;
-use crate::xwayland::XWaylandEvent;
-use ahash::AHashMap;
 pub use error::{ClientError, ObjectError};
-use std::cell::{Cell, RefCell};
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::mem;
-use std::ops::DerefMut;
-use std::rc::Rc;
-use uapi::{c, OwnedFd};
+use {
+    crate::{
+        async_engine::{AsyncFd, SpawnedFuture},
+        client::{error::LookupError, objects::Objects},
+        ifs::{wl_callback::WlCallback, wl_display::WlDisplay, wl_registry::WlRegistry},
+        leaks::Tracker,
+        object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
+        state::State,
+        utils::{
+            asyncevent::AsyncEvent,
+            buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
+            copyhashmap::Locked,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            queue::AsyncQueue,
+        },
+        wire::WlRegistryId,
+        xwayland::XWaylandEvent,
+    },
+    ahash::AHashMap,
+    std::{
+        cell::{Cell, RefCell},
+        error::Error,
+        fmt::{Debug, Display, Formatter},
+        mem,
+        ops::DerefMut,
+        rc::Rc,
+    },
+    uapi::{c, OwnedFd},
+};
 
 mod error;
 mod objects;

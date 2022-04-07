@@ -1,5 +1,7 @@
-use anyhow::{bail, Context, Result};
-use bstr::{BStr, BString, ByteSlice};
+use {
+    anyhow::{bail, Context, Result},
+    bstr::{BStr, BString, ByteSlice},
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TreeDelim {

@@ -1,15 +1,18 @@
-use crate::backend::{KeyState, ScrollAxis};
-use crate::fixed::Fixed;
-use crate::ifs::ipc;
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::wl_seat::{Dnd, DroppedDnd, WlSeatError, WlSeatGlobal};
-use crate::ifs::wl_surface::WlSurface;
-use crate::tree::{FoundNode, Node};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::smallmap::SmallMap;
-use std::cell::Cell;
-use std::rc::Rc;
+use {
+    crate::{
+        backend::{KeyState, ScrollAxis},
+        fixed::Fixed,
+        ifs::{
+            ipc,
+            ipc::{wl_data_device::WlDataDevice, wl_data_source::WlDataSource},
+            wl_seat::{Dnd, DroppedDnd, WlSeatError, WlSeatGlobal},
+            wl_surface::WlSurface,
+        },
+        tree::{FoundNode, Node},
+        utils::{clonecell::CloneCell, smallmap::SmallMap},
+    },
+    std::{cell::Cell, rc::Rc},
+};
 
 pub struct PointerOwnerHolder {
     default: Rc<DefaultPointerOwner>,

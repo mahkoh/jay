@@ -1,9 +1,12 @@
-use crate::utils::bufio::BufIoIncoming;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::xcon::consts::XGE_EVENT;
-use crate::xcon::{Event, ExtensionData, ExtensionIdRange, Parser, XconData, XconError};
-use std::mem;
-use std::rc::Rc;
+use {
+    crate::{
+        utils::{bufio::BufIoIncoming, errorfmt::ErrorFmt},
+        xcon::{
+            consts::XGE_EVENT, Event, ExtensionData, ExtensionIdRange, Parser, XconData, XconError,
+        },
+    },
+    std::{mem, rc::Rc},
+};
 
 pub(super) async fn handle_incoming(xorg: Rc<XconData>, incoming: BufIoIncoming) {
     let mut incoming = Incoming {

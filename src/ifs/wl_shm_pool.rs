@@ -1,17 +1,21 @@
-use crate::client::{Client, ClientError};
-use crate::clientmem::{ClientMem, ClientMemError};
-use crate::format::{formats, map_wayland_format_id};
-use crate::ifs::wl_buffer::{WlBuffer, WlBufferError};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::wire::wl_shm_pool::*;
-use crate::wire::WlShmPoolId;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::OwnedFd;
+use {
+    crate::{
+        client::{Client, ClientError},
+        clientmem::{ClientMem, ClientMemError},
+        format::{formats, map_wayland_format_id},
+        ifs::wl_buffer::{WlBuffer, WlBufferError},
+        leaks::Tracker,
+        object::Object,
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+        },
+        wire::{wl_shm_pool::*, WlShmPoolId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::OwnedFd,
+};
 
 pub struct WlShmPool {
     id: WlShmPoolId,

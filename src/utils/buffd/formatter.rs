@@ -1,10 +1,12 @@
-use crate::fixed::Fixed;
-use crate::object::ObjectId;
-use crate::utils::buffd::buf_out::{MsgFds, OutBuffer};
-use std::mem;
-use std::mem::MaybeUninit;
-use std::rc::Rc;
-use uapi::OwnedFd;
+use {
+    crate::{
+        fixed::Fixed,
+        object::ObjectId,
+        utils::buffd::buf_out::{MsgFds, OutBuffer},
+    },
+    std::{mem, mem::MaybeUninit, rc::Rc},
+    uapi::OwnedFd,
+};
 
 pub struct MsgFormatter<'a> {
     buf: &'a mut OutBuffer,

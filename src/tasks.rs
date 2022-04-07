@@ -4,11 +4,14 @@ mod input_device;
 mod slow_clients;
 mod start_backend;
 
-use crate::state::State;
-use crate::tasks::backend::BackendEventHandler;
-use crate::tasks::slow_clients::SlowClientHandler;
 pub use start_backend::start_backend;
-use std::rc::Rc;
+use {
+    crate::{
+        state::State,
+        tasks::{backend::BackendEventHandler, slow_clients::SlowClientHandler},
+    },
+    std::rc::Rc,
+};
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };

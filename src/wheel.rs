@@ -1,15 +1,20 @@
-use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId};
-use crate::time::{Time, TimeError};
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::numcell::NumCell;
-use std::cell::{Cell, RefCell};
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-use std::error::Error;
-use std::rc::Rc;
-use std::time::Duration;
-use thiserror::Error;
-use uapi::{c, OwnedFd};
+use {
+    crate::{
+        event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId},
+        time::{Time, TimeError},
+        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
+    },
+    std::{
+        cell::{Cell, RefCell},
+        cmp::Reverse,
+        collections::BinaryHeap,
+        error::Error,
+        rc::Rc,
+        time::Duration,
+    },
+    thiserror::Error,
+    uapi::{c, OwnedFd},
+};
 
 #[derive(Debug, Error)]
 pub enum WheelError {

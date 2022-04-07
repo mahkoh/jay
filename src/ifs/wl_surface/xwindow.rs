@@ -1,28 +1,36 @@
-use crate::client::Client;
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal};
-use crate::ifs::wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError};
-use crate::rect::Rect;
-use crate::render::Renderer;
-use crate::state::State;
-use crate::tree::toplevel::{ToplevelData, ToplevelNode};
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::linkedlist::LinkedNode;
-use crate::utils::queue::AsyncQueue;
-use crate::utils::smallmap::SmallMap;
-use crate::wire::WlSurfaceId;
-use crate::wire_xcon::CreateNotify;
-use crate::xwayland::XWaylandEvent;
-use bstr::BString;
-use jay_config::Direction;
-use std::cell::{Cell, RefCell};
-use std::ops::{Deref, Not};
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::Client,
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::{
+            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
+            wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
+        },
+        rect::Rect,
+        render::Renderer,
+        state::State,
+        tree::{
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode,
+            WorkspaceNode,
+        },
+        utils::{
+            clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode,
+            queue::AsyncQueue, smallmap::SmallMap,
+        },
+        wire::WlSurfaceId,
+        wire_xcon::CreateNotify,
+        xwayland::XWaylandEvent,
+    },
+    bstr::BString,
+    jay_config::Direction,
+    std::{
+        cell::{Cell, RefCell},
+        ops::{Deref, Not},
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum XInputModel {
@@ -275,20 +283,16 @@ impl Xwindow {
                 self.data.state.tree_changed();
             }
             Change::Map if self.data.info.wants_floating.get() => {
-                let ws = self
-                    .data
-                    .state
-                    .root
-                    .outputs
-                    .lock()
-                    .iter()
-                    .next()
-                    .unwrap()
-                    .1
-                    .workspace
-                    .get()
-                    .unwrap();
-                // todo
+                let ws = match self.data.state.root.outputs.lock().values().cloned().next() {
+                    Some(output) => output.ensure_workspace(),
+                    _ => self
+                        .data
+                        .state
+                        .dummy_output
+                        .get()
+                        .unwrap()
+                        .ensure_workspace(),
+                };
                 let ext = self.data.info.extents.get();
                 self.data
                     .state

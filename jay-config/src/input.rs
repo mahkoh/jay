@@ -1,10 +1,13 @@
 pub mod acceleration;
 pub mod capability;
 
-use crate::input::acceleration::AccelProfile;
-use crate::input::capability::Capability;
-use crate::{Axis, Direction, Keymap, ModifiedKeySym, Workspace};
-use bincode::{Decode, Encode};
+use {
+    crate::{
+        input::{acceleration::AccelProfile, capability::Capability},
+        Axis, Direction, Keymap, ModifiedKeySym, Workspace,
+    },
+    bincode::{Decode, Encode},
+};
 
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct InputDevice(pub u64);

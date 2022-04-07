@@ -1,10 +1,14 @@
-use crate::render::egl::display::EglDisplay;
-use crate::render::egl::sys::{
-    eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE,
+use {
+    crate::render::{
+        egl::{
+            display::EglDisplay,
+            sys::{eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE},
+        },
+        ext::GlExt,
+        RenderError,
+    },
+    std::rc::Rc,
 };
-use crate::render::ext::GlExt;
-use crate::render::RenderError;
-use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct EglContext {

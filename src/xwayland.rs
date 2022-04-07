@@ -1,25 +1,26 @@
 mod xsocket;
 mod xwm;
 
-use crate::async_engine::AsyncError;
-use crate::client::ClientError;
-use crate::forker::{ForkerError, ForkerProxy};
-use crate::ifs::wl_surface::xwindow::{Xwindow, XwindowData};
-use crate::ifs::wl_surface::WlSurface;
-use crate::state::State;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsError;
-use crate::utils::queue::AsyncQueue;
-use crate::utils::tri::Try;
-use crate::wire::WlSurfaceId;
-use crate::xcon::XconError;
-use crate::xwayland::xsocket::allocate_socket;
-use crate::xwayland::xwm::Wm;
-use bstr::ByteSlice;
-use std::num::ParseIntError;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, pipe2, Errno, OwnedFd};
+use {
+    crate::{
+        async_engine::AsyncError,
+        client::ClientError,
+        forker::{ForkerError, ForkerProxy},
+        ifs::wl_surface::{
+            xwindow::{Xwindow, XwindowData},
+            WlSurface,
+        },
+        state::State,
+        utils::{errorfmt::ErrorFmt, oserror::OsError, queue::AsyncQueue, tri::Try},
+        wire::WlSurfaceId,
+        xcon::XconError,
+        xwayland::{xsocket::allocate_socket, xwm::Wm},
+    },
+    bstr::ByteSlice,
+    std::{num::ParseIntError, rc::Rc},
+    thiserror::Error,
+    uapi::{c, pipe2, Errno, OwnedFd},
+};
 
 #[derive(Debug, Error)]
 enum XWaylandError {

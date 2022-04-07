@@ -1,11 +1,13 @@
-use crate::ifs::wl_seat::SeatId;
-use crate::ifs::wl_surface::WlSurface;
-use crate::tree::Node;
-use crate::utils::linkedlist::LinkedNode;
-use crate::utils::numcell::NumCell;
-use crate::utils::smallmap::SmallMap;
-use std::rc::Rc;
+use {
+    crate::{
+        ifs::{wl_seat::SeatId, wl_surface::WlSurface},
+        tree::Node,
+        utils::{linkedlist::LinkedNode, numcell::NumCell, smallmap::SmallMap},
+    },
+    std::rc::Rc,
+};
 
+tree_id!(ToplevelNodeId);
 pub trait ToplevelNode {
     fn data(&self) -> &ToplevelData;
     fn parent(&self) -> Option<Rc<dyn Node>>;

@@ -1,28 +1,40 @@
-use crate::client::Client;
-use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManagerGlobal;
-use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
-use crate::ifs::jay_compositor::JayCompositorGlobal;
-use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
-use crate::ifs::wl_compositor::WlCompositorGlobal;
-use crate::ifs::wl_drm::WlDrmGlobal;
-use crate::ifs::wl_output::WlOutputGlobal;
-use crate::ifs::wl_registry::WlRegistry;
-use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::ifs::wl_shm::WlShmGlobal;
-use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
-use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
-use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1Global;
-use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global;
-use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
-use crate::ifs::zxdg_output_manager_v1::ZxdgOutputManagerV1Global;
-use crate::object::{Interface, ObjectId};
-use crate::state::State;
-use crate::utils::copyhashmap::{CopyHashMap, Locked};
-use crate::utils::numcell::NumCell;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::Client,
+        ifs::{
+            ipc::{
+                wl_data_device_manager::WlDataDeviceManagerGlobal,
+                zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
+            },
+            jay_compositor::JayCompositorGlobal,
+            org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
+            wl_compositor::WlCompositorGlobal,
+            wl_drm::WlDrmGlobal,
+            wl_output::WlOutputGlobal,
+            wl_registry::WlRegistry,
+            wl_seat::WlSeatGlobal,
+            wl_shm::WlShmGlobal,
+            wl_subcompositor::WlSubcompositorGlobal,
+            xdg_wm_base::XdgWmBaseGlobal,
+            zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
+            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
+            zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
+            zxdg_output_manager_v1::ZxdgOutputManagerV1Global,
+        },
+        object::{Interface, ObjectId},
+        state::State,
+        utils::{
+            copyhashmap::{CopyHashMap, Locked},
+            numcell::NumCell,
+        },
+    },
+    std::{
+        error::Error,
+        fmt::{Display, Formatter},
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 #[derive(Debug, Error)]
 pub enum GlobalsError {

@@ -1,9 +1,9 @@
-use crate::open;
-use anyhow::{bail, Context, Result};
-use bstr::{BStr, BString, ByteSlice};
-use std::fs::DirEntry;
-use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
+use {
+    crate::open,
+    anyhow::{bail, Context, Result},
+    bstr::{BStr, BString, ByteSlice},
+    std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum TreeDelim {

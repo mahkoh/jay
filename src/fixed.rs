@@ -1,5 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    ops::{Add, AddAssign, Sub, SubAssign},
+};
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(transparent)]

@@ -1,6 +1,8 @@
-use std::cell::Cell;
-use std::fmt::{Debug, Formatter};
-use std::ops::{Add, BitAnd, BitOr, Sub};
+use std::{
+    cell::Cell,
+    fmt::{Debug, Formatter},
+    ops::{Add, BitAnd, BitOr, Sub},
+};
 
 #[derive(Default)]
 pub struct NumCell<T> {

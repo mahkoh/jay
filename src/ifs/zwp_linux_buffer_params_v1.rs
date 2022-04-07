@@ -1,20 +1,27 @@
-use crate::client::ClientError;
-use crate::drm::dma::{DmaBuf, DmaBufPlane};
-use crate::drm::INVALID_MODIFIER;
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::render::RenderError;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::wire::zwp_linux_buffer_params_v1::*;
-use crate::wire::{WlBufferId, ZwpLinuxBufferParamsV1Id};
-use ahash::AHashMap;
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::ClientError,
+        video::{
+            dma::{DmaBuf, DmaBufPlane},
+            INVALID_MODIFIER,
+        },
+        ifs::{wl_buffer::WlBuffer, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1},
+        leaks::Tracker,
+        object::Object,
+        render::RenderError,
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            errorfmt::ErrorFmt,
+        },
+        wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
+    },
+    ahash::AHashMap,
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 const Y_INVERT: u32 = 1;

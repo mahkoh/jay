@@ -1,11 +1,14 @@
-use std::cell::{Cell, UnsafeCell};
-use std::mem::MaybeUninit;
-use std::ptr;
-use std::rc::Rc;
-use std::sync::atomic::{compiler_fence, Ordering};
-use thiserror::Error;
-use uapi::c;
-use uapi::c::raise;
+use {
+    std::{
+        cell::{Cell, UnsafeCell},
+        mem::MaybeUninit,
+        ptr,
+        rc::Rc,
+        sync::atomic::{compiler_fence, Ordering},
+    },
+    thiserror::Error,
+    uapi::{c, c::raise},
+};
 
 #[derive(Debug, Error)]
 pub enum ClientMemError {

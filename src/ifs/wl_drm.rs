@@ -1,19 +1,22 @@
-use crate::client::{Client, ClientError};
-use crate::drm::dma::{DmaBuf, DmaBufPlane};
-use crate::drm::INVALID_MODIFIER;
-use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::render::RenderError;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_drm::*;
-use crate::wire::WlDrmId;
-use bstr::ByteSlice;
-use std::ffi::CString;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        video::{
+            dma::{DmaBuf, DmaBufPlane},
+            INVALID_MODIFIER,
+        },
+        globals::{Global, GlobalName},
+        ifs::wl_buffer::WlBuffer,
+        leaks::Tracker,
+        object::Object,
+        render::RenderError,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_drm::*, WlDrmId},
+    },
+    bstr::ByteSlice,
+    std::{ffi::CString, rc::Rc},
+    thiserror::Error,
+};
 
 const PRIME: u32 = 1;
 

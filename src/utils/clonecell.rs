@@ -1,10 +1,16 @@
-use crate::utils::linkedlist::NodeRef;
-use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-use jay_config::keyboard::mods::Modifiers;
-use std::cell::UnsafeCell;
-use std::fmt::{Debug, Formatter};
-use std::mem;
-use std::rc::{Rc, Weak};
+use {
+    crate::utils::{
+        linkedlist::NodeRef,
+        ptr_ext::{MutPtrExt, PtrExt},
+    },
+    jay_config::keyboard::mods::Modifiers,
+    std::{
+        cell::UnsafeCell,
+        fmt::{Debug, Formatter},
+        mem,
+        rc::{Rc, Weak},
+    },
+};
 
 pub struct CloneCell<T: UnsafeCellCloneSafe> {
     data: UnsafeCell<T>,

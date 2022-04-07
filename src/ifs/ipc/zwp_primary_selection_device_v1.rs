@@ -1,19 +1,28 @@
-use crate::client::{Client, ClientError, ClientId};
-use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1;
-use crate::ifs::ipc::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
-use crate::ifs::ipc::{
-    break_device_loops, destroy_device, DeviceData, OfferData, Role, SourceData, Vtable,
+use {
+    crate::{
+        client::{Client, ClientError, ClientId},
+        ifs::{
+            ipc::{
+                break_device_loops, destroy_device,
+                zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1,
+                zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DeviceData,
+                OfferData, Role, SourceData, Vtable,
+            },
+            wl_seat::{WlSeat, WlSeatError, WlSeatGlobal},
+        },
+        leaks::Tracker,
+        object::{Object, ObjectId},
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{
+            zwp_primary_selection_device_v1::*, ZwpPrimarySelectionDeviceV1Id,
+            ZwpPrimarySelectionOfferV1Id,
+        },
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::OwnedFd,
 };
-use crate::ifs::wl_seat::{WlSeat, WlSeatError, WlSeatGlobal};
-use crate::leaks::Tracker;
-use crate::object::{Object, ObjectId};
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::zwp_primary_selection_device_v1::*;
-use crate::wire::{ZwpPrimarySelectionDeviceV1Id, ZwpPrimarySelectionOfferV1Id};
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::OwnedFd;
 
 pub struct ZwpPrimarySelectionDeviceV1 {
     pub id: ZwpPrimarySelectionDeviceV1Id,

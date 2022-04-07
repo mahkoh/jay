@@ -1,7 +1,8 @@
-use crate::keyboard::mods::Modifiers;
-use crate::keyboard::syms::KeySym;
-use bincode::{Decode, Encode};
-use std::ops::{BitOr, BitOrAssign};
+use {
+    crate::keyboard::{mods::Modifiers, syms::KeySym},
+    bincode::{Decode, Encode},
+    std::ops::{BitOr, BitOrAssign},
+};
 
 pub mod keymap;
 pub mod mods;

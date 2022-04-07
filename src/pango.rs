@@ -1,12 +1,14 @@
 #![allow(non_camel_case_types)]
 
-use crate::pango::consts::{CairoFormat, CairoOperator, PangoEllipsizeMode};
-use crate::rect::Rect;
-use std::cell::Cell;
-use std::ptr;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, IntoUstr};
+use {
+    crate::{
+        pango::consts::{CairoFormat, CairoOperator, PangoEllipsizeMode},
+        rect::Rect,
+    },
+    std::{cell::Cell, ptr, rc::Rc},
+    thiserror::Error,
+    uapi::{c, IntoUstr},
+};
 
 pub mod consts;
 

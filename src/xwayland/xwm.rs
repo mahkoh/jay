@@ -1,43 +1,54 @@
-use crate::client::Client;
-use crate::ifs::wl_surface::xwindow::{XInputModel, Xwindow, XwindowData};
-use crate::ifs::wl_surface::WlSurface;
-use crate::rect::Rect;
-use crate::state::State;
-use crate::tree::Node;
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::linkedlist::LinkedList;
-use crate::utils::queue::AsyncQueue;
-use crate::wire::WlSurfaceId;
-use crate::wire_xcon::{
-    ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
-    ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues, CreateNotify,
-    CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetAtomName, GetGeometry, InternAtom,
-    KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify, ResClientIdSpec,
-    ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify,
+use {
+    crate::{
+        client::Client,
+        ifs::wl_surface::{
+            xwindow::{XInputModel, Xwindow, XwindowData},
+            WlSurface,
+        },
+        rect::Rect,
+        state::State,
+        tree::Node,
+        utils::{
+            bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList, queue::AsyncQueue,
+        },
+        wire::WlSurfaceId,
+        wire_xcon::{
+            ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
+            ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues,
+            CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetAtomName,
+            GetGeometry, InternAtom, KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify,
+            ResClientIdSpec, ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify,
+        },
+        xcon::{
+            consts::{
+                ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME,
+                ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL,
+                CONFIG_WINDOW_HEIGHT, CONFIG_WINDOW_WIDTH, CONFIG_WINDOW_X, CONFIG_WINDOW_Y,
+                EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE,
+                EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT,
+                ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL,
+                ICCCM_WM_STATE_WITHDRAWN, INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD,
+                MWM_HINTS_FLAGS_FIELD, NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB,
+                PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, STACK_MODE_ABOVE,
+                STACK_MODE_BELOW, WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD,
+                _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE,
+            },
+            Event, XEvent, Xcon, XconError,
+        },
+        xwayland::{XWaylandError, XWaylandEvent},
+    },
+    ahash::{AHashMap, AHashSet},
+    bstr::ByteSlice,
+    futures_util::{select, FutureExt},
+    smallvec::SmallVec,
+    std::{
+        borrow::Cow,
+        mem,
+        ops::{Deref, DerefMut},
+        rc::Rc,
+    },
+    uapi::OwnedFd,
 };
-use crate::xcon::consts::{
-    ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME, ATOM_WM_SIZE_HINTS,
-    ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL, CONFIG_WINDOW_HEIGHT, CONFIG_WINDOW_WIDTH,
-    CONFIG_WINDOW_X, CONFIG_WINDOW_Y, EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE,
-    EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT, ICCCM_WM_HINT_INPUT,
-    ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL, ICCCM_WM_STATE_WITHDRAWN,
-    INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD, MWM_HINTS_FLAGS_FIELD,
-    NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB, PROP_MODE_REPLACE,
-    RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, STACK_MODE_ABOVE, STACK_MODE_BELOW,
-    WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE,
-};
-use crate::xcon::{Event, XEvent, Xcon, XconError};
-use crate::xwayland::{XWaylandError, XWaylandEvent};
-use ahash::{AHashMap, AHashSet};
-use bstr::ByteSlice;
-use futures_util::{select, FutureExt};
-use smallvec::SmallVec;
-use std::borrow::Cow;
-use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
-use uapi::OwnedFd;
 
 atoms! {
     Atoms;

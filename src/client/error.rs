@@ -1,10 +1,14 @@
-use crate::async_engine::AsyncError;
-use crate::client::ClientId;
-use crate::object::{Interface, ObjectId};
-use crate::utils::buffd::{BufFdError, MsgParserError};
-use crate::wire::WlDisplayId;
-use std::error::Error;
-use thiserror::Error;
+use {
+    crate::{
+        async_engine::AsyncError,
+        client::ClientId,
+        object::{Interface, ObjectId},
+        utils::buffd::{BufFdError, MsgParserError},
+        wire::WlDisplayId,
+    },
+    std::error::Error,
+    thiserror::Error,
+};
 
 #[derive(Debug, Error)]
 pub enum ClientError {

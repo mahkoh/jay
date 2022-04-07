@@ -1,23 +1,29 @@
-use crate::backend;
-use crate::client::{Client, ClientError, ClientId};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::state::ConnectorData;
-use crate::tree::OutputNode;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::wire::wl_output::*;
-use crate::wire::{WlOutputId, ZxdgOutputV1Id};
-use ahash::AHashMap;
-use std::cell::{Cell, RefCell};
-use std::collections::hash_map::Entry;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        backend,
+        client::{Client, ClientError, ClientId},
+        globals::{Global, GlobalName},
+        ifs::zxdg_output_v1::ZxdgOutputV1,
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        state::ConnectorData,
+        tree::OutputNode,
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+        },
+        wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
+    },
+    ahash::AHashMap,
+    std::{
+        cell::{Cell, RefCell},
+        collections::hash_map::Entry,
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 const SP_UNKNOWN: i32 = 0;
 #[allow(dead_code)]

@@ -1,10 +1,12 @@
-use crate::dbus::types::{Bool, ObjectPath, Signature, Variant, FALSE, TRUE};
-use crate::dbus::{DbusError, DbusType, DynamicType, Parser};
-use bstr::ByteSlice;
-use std::borrow::Cow;
-use std::mem;
-use std::rc::Rc;
-use uapi::{OwnedFd, Pod};
+use {
+    crate::dbus::{
+        types::{Bool, ObjectPath, Signature, Variant, FALSE, TRUE},
+        DbusError, DbusType, DynamicType, Parser,
+    },
+    bstr::ByteSlice,
+    std::{borrow::Cow, mem, rc::Rc},
+    uapi::{OwnedFd, Pod},
+};
 
 impl<'a> Parser<'a> {
     pub fn new(buf: &'a [u8], fds: &'a [Rc<OwnedFd>]) -> Self {

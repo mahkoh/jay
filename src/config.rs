@@ -1,21 +1,27 @@
 mod handler;
 
-use crate::backend::{ConnectorId, InputDeviceId};
-use crate::config::handler::ConfigProxyHandler;
-use crate::ifs::wl_seat::SeatId;
-use crate::state::State;
-use crate::utils::numcell::NumCell;
-use crate::utils::ptr_ext::PtrExt;
-use jay_config::_private::ipc::{InitMessage, ServerMessage, V1InitMessage};
-use jay_config::_private::{bincode_ops, ConfigEntry, VERSION};
-use jay_config::drm::Connector;
-use jay_config::input::{InputDevice, Seat};
-use jay_config::keyboard::ModifiedKeySym;
-use libloading::Library;
-use std::cell::Cell;
-use std::ptr;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        backend::{ConnectorId, InputDeviceId},
+        config::handler::ConfigProxyHandler,
+        ifs::wl_seat::SeatId,
+        state::State,
+        utils::{numcell::NumCell, ptr_ext::PtrExt},
+    },
+    jay_config::{
+        _private::{
+            bincode_ops,
+            ipc::{InitMessage, ServerMessage, V1InitMessage},
+            ConfigEntry, VERSION,
+        },
+        drm::Connector,
+        input::{InputDevice, Seat},
+        keyboard::ModifiedKeySym,
+    },
+    libloading::Library,
+    std::{cell::Cell, ptr, rc::Rc},
+    thiserror::Error,
+};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {

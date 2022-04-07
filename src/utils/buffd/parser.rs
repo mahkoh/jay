@@ -1,12 +1,10 @@
-use crate::fixed::Fixed;
-use crate::globals::GlobalName;
-use crate::object::ObjectId;
-use crate::utils::buffd::BufFdIn;
-use bstr::{BStr, ByteSlice};
-use std::rc::Rc;
-use std::{mem, ptr};
-use thiserror::Error;
-use uapi::{OwnedFd, Pod};
+use {
+    crate::{fixed::Fixed, globals::GlobalName, object::ObjectId, utils::buffd::BufFdIn},
+    bstr::{BStr, ByteSlice},
+    std::{mem, ptr, rc::Rc},
+    thiserror::Error,
+    uapi::{OwnedFd, Pod},
+};
 
 #[derive(Debug, Error)]
 pub enum MsgParserError {

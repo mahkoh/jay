@@ -1,9 +1,11 @@
-use crate::backends::metal;
-use crate::backends::x::XBackend;
-use crate::state::State;
-use crate::utils::errorfmt::ErrorFmt;
-use std::future::pending;
-use std::rc::Rc;
+use {
+    crate::{
+        backends::{metal, x::XBackend},
+        state::State,
+        utils::errorfmt::ErrorFmt,
+    },
+    std::{future::pending, rc::Rc},
+};
 
 pub async fn start_backend(state: Rc<State>) {
     log::info!("Trying to start X backend");

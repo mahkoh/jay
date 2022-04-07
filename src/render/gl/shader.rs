@@ -1,11 +1,15 @@
-use crate::render::egl::context::EglContext;
-use crate::render::gl::sys::{
-    glCompileShader, glCreateShader, glDeleteShader, glGetShaderiv, glShaderSource, GLenum, GLuint,
-    GL_COMPILE_STATUS, GL_FALSE,
+use {
+    crate::render::{
+        egl::context::EglContext,
+        gl::sys::{
+            glCompileShader, glCreateShader, glDeleteShader, glGetShaderiv, glShaderSource, GLenum,
+            GLuint, GL_COMPILE_STATUS, GL_FALSE,
+        },
+        sys::GLint,
+        RenderError,
+    },
+    std::rc::Rc,
 };
-use crate::render::sys::GLint;
-use crate::render::RenderError;
-use std::rc::Rc;
 
 pub struct GlShader {
     pub ctx: Rc<EglContext>,

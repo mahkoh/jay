@@ -1,7 +1,11 @@
-use crate::backend::BackendEvent;
-use crate::state::State;
-use crate::tasks::{connector, input_device};
-use std::rc::Rc;
+use {
+    crate::{
+        backend::BackendEvent,
+        state::State,
+        tasks::{connector, input_device},
+    },
+    std::rc::Rc,
+};
 
 pub struct BackendEventHandler {
     pub state: Rc<State>,

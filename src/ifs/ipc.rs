@@ -1,16 +1,21 @@
-use crate::client::{Client, ClientId, WaylandObject};
-use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::object::ObjectId;
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::numcell::NumCell;
-use crate::utils::smallmap::SmallMap;
-use ahash::AHashSet;
-use std::cell::{Cell, RefCell};
-use std::ops::Deref;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::OwnedFd;
+use {
+    crate::{
+        client::{Client, ClientId, WaylandObject},
+        ifs::wl_seat::WlSeatGlobal,
+        object::ObjectId,
+        utils::{
+            bitflags::BitflagsExt, clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap,
+        },
+    },
+    ahash::AHashSet,
+    std::{
+        cell::{Cell, RefCell},
+        ops::Deref,
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::OwnedFd,
+};
 
 pub mod wl_data_device;
 pub mod wl_data_device_manager;

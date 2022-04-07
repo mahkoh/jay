@@ -1,14 +1,19 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::ipc::{add_mime_type, break_source_loops, destroy_source, SourceData};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::zwp_primary_selection_source_v1::*;
-use crate::wire::ZwpPrimarySelectionSourceV1Id;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::OwnedFd;
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::ipc::{
+            add_mime_type, break_source_loops, destroy_source,
+            zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1, SourceData,
+        },
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zwp_primary_selection_source_v1::*, ZwpPrimarySelectionSourceV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::OwnedFd,
+};
 
 pub struct ZwpPrimarySelectionSourceV1 {
     pub id: ZwpPrimarySelectionSourceV1Id,

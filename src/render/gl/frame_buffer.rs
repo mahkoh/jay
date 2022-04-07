@@ -1,12 +1,19 @@
-use crate::rect::Rect;
-use crate::render::egl::context::EglContext;
-use crate::render::gl::render_buffer::GlRenderBuffer;
-use crate::render::gl::sys::{glDeleteFramebuffers, GLuint};
-use crate::render::gl::texture::GlTexture;
-use crate::render::sys::{glDisable, glEnable, glScissor, GL_SCISSOR_TEST};
-use crate::utils::ptr_ext::PtrExt;
-use std::ptr;
-use std::rc::Rc;
+use {
+    crate::{
+        rect::Rect,
+        render::{
+            egl::context::EglContext,
+            gl::{
+                render_buffer::GlRenderBuffer,
+                sys::{glDeleteFramebuffers, GLuint},
+                texture::GlTexture,
+            },
+            sys::{glDisable, glEnable, glScissor, GL_SCISSOR_TEST},
+        },
+        utils::ptr_ext::PtrExt,
+    },
+    std::{ptr, rc::Rc},
+};
 
 pub struct GlFrameBuffer {
     pub _rb: Option<Rc<GlRenderBuffer>>,

@@ -1,34 +1,40 @@
-use crate::async_engine::{AsyncFd, SpawnedFuture};
-use crate::backend::{
-    BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo,
+use {
+    crate::{
+        async_engine::{AsyncFd, SpawnedFuture},
+        backend::{
+            BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo,
+        },
+        backends::metal::{DrmId, MetalBackend, MetalError},
+        video::{
+            drm::{
+                drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector,
+                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmMaster, DrmModeInfo,
+                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, PropBlob,
+                DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
+                DRM_MODE_PAGE_FLIP_EVENT,
+            },
+            gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
+            ModifiedFormat, INVALID_MODIFIER,
+        },
+        edid::Descriptor,
+        format::{Format, XRGB8888},
+        render::{Framebuffer, RenderContext},
+        state::State,
+        utils::{
+            bitflags::BitflagsExt, clonecell::CloneCell, debug_fn::debug_fn, errorfmt::ErrorFmt,
+            numcell::NumCell, oserror::OsError, syncqueue::SyncQueue,
+        },
+    },
+    ahash::{AHashMap, AHashSet},
+    bstr::{BString, ByteSlice},
+    std::{
+        cell::Cell,
+        ffi::CString,
+        fmt::{Debug, Formatter},
+        rc::Rc,
+    },
+    uapi::c,
 };
-use crate::backends::metal::{DrmId, MetalBackend, MetalError};
-use crate::drm::drm::{
-    drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector, DrmCrtc,
-    DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmMaster, DrmModeInfo, DrmObject, DrmPlane,
-    DrmProperty, DrmPropertyDefinition, DrmPropertyType, PropBlob, DRM_CLIENT_CAP_ATOMIC,
-    DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
-};
-use crate::drm::gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT};
-use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
-use crate::edid::Descriptor;
-use crate::format::{Format, XRGB8888};
-use crate::render::{Framebuffer, RenderContext};
-use crate::state::State;
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::debug_fn::debug_fn;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsError;
-use crate::utils::syncqueue::SyncQueue;
-use ahash::{AHashMap, AHashSet};
-use bstr::{BString, ByteSlice};
-use std::cell::Cell;
-use std::ffi::CString;
-use std::fmt::{Debug, Formatter};
-use std::rc::Rc;
-use uapi::c;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,

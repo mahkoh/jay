@@ -1,13 +1,15 @@
-use crate::client::Client;
-use crate::globals::{Global, GlobalName, GlobalsError};
-use crate::leaks::Tracker;
-use crate::object::{Interface, Object};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_registry::*;
-use crate::wire::WlRegistryId;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::Client,
+        globals::{Global, GlobalName, GlobalsError},
+        leaks::Tracker,
+        object::{Interface, Object},
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_registry::*, WlRegistryId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct WlRegistry {
     id: WlRegistryId,

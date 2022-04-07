@@ -1,12 +1,18 @@
-use crate::dbus::{DbusError, DbusSocket, SignalHandler, FALSE};
-use crate::wire_dbus::org;
-use crate::wire_dbus::org::freedesktop::login1::seat::SwitchToReply;
-use crate::wire_dbus::org::freedesktop::login1::session::{
-    PauseDevice, ResumeDevice, TakeDeviceReply,
+use {
+    crate::{
+        dbus::{DbusError, DbusSocket, SignalHandler, FALSE},
+        wire_dbus::{
+            org,
+            org::freedesktop::login1::{
+                seat::SwitchToReply,
+                session::{PauseDevice, ResumeDevice, TakeDeviceReply},
+            },
+        },
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::c,
 };
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::c;
 
 const LOGIND_NAME: &str = "org.freedesktop.login1";
 const MANAGER_PATH: &str = "/org/freedesktop/login1";

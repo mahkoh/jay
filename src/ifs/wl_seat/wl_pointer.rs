@@ -1,16 +1,17 @@
-use crate::client::ClientError;
-use crate::cursor::Cursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::WlSeat;
-use crate::ifs::wl_surface::WlSurfaceError;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_pointer::*;
-use crate::wire::{WlPointerId, WlSurfaceId};
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::ClientError,
+        cursor::Cursor,
+        fixed::Fixed,
+        ifs::{wl_seat::WlSeat, wl_surface::WlSurfaceError},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 const ROLE: u32 = 0;

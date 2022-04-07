@@ -1,13 +1,12 @@
-use crate::open;
-use crate::tokens::{tokenize, Symbol, Token, TokenKind, TreeDelim};
-use anyhow::{bail, Context, Result};
-use bstr::{BStr, BString, ByteSlice};
-use std::cell::Cell;
-use std::collections::HashMap;
-use std::io::Write;
-use std::mem;
-use std::os::unix::ffi::OsStrExt;
-use std::rc::Rc;
+use {
+    crate::{
+        open,
+        tokens::{tokenize, Symbol, Token, TokenKind, TreeDelim},
+    },
+    anyhow::{bail, Context, Result},
+    bstr::{BStr, BString, ByteSlice},
+    std::{cell::Cell, collections::HashMap, io::Write, mem, os::unix::ffi::OsStrExt, rc::Rc},
+};
 
 struct Parser<'a> {
     pos: usize,

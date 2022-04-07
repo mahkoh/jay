@@ -1,7 +1,9 @@
-use crate::render::egl::image::EglImage;
-use crate::render::gl::texture::GlTexture;
-use crate::render::{RenderContext, RenderError, Texture};
-use std::rc::Rc;
+use {
+    crate::render::{
+        egl::image::EglImage, gl::texture::GlTexture, RenderContext, RenderError, Texture,
+    },
+    std::rc::Rc,
+};
 
 pub struct Image {
     pub(super) ctx: Rc<RenderContext>,

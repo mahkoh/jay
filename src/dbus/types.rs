@@ -1,12 +1,12 @@
-use crate::dbus::{
-    DbusError, DbusType, DynamicType, Formatter, Parser, TY_ARRAY, TY_BOOLEAN, TY_BYTE, TY_DOUBLE,
-    TY_INT16, TY_INT32, TY_INT64, TY_OBJECT_PATH, TY_SIGNATURE, TY_STRING, TY_UINT16, TY_UINT32,
-    TY_UINT64, TY_UNIX_FD, TY_VARIANT,
+use {
+    crate::dbus::{
+        DbusError, DbusType, DynamicType, Formatter, Parser, TY_ARRAY, TY_BOOLEAN, TY_BYTE,
+        TY_DOUBLE, TY_INT16, TY_INT32, TY_INT64, TY_OBJECT_PATH, TY_SIGNATURE, TY_STRING,
+        TY_UINT16, TY_UINT32, TY_UINT64, TY_UNIX_FD, TY_VARIANT,
+    },
+    std::{borrow::Cow, ops::Deref, rc::Rc},
+    uapi::{OwnedFd, Packed, Pod},
 };
-use std::borrow::Cow;
-use std::ops::Deref;
-use std::rc::Rc;
-use uapi::{OwnedFd, Packed, Pod};
 
 macro_rules! consume_signature_body {
     ($s:expr, $ty:expr) => {{

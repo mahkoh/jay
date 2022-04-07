@@ -1,16 +1,17 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::xdg_wm_base::XdgWmBase;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::xdg_positioner::*;
-use crate::wire::XdgPositionerId;
-use bitflags::bitflags;
-use std::cell::RefCell;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::xdg_wm_base::XdgWmBase,
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{xdg_positioner::*, XdgPositionerId},
+    },
+    bitflags::bitflags,
+    std::{cell::RefCell, rc::Rc},
+    thiserror::Error,
+};
 
 const INVALID_INPUT: u32 = 0;
 

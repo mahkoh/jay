@@ -1,6 +1,10 @@
-use crate::async_engine::{AsyncEngine, SpawnedFuture};
-use crate::utils::queue::AsyncQueue;
-use std::rc::Rc;
+use {
+    crate::{
+        async_engine::{AsyncEngine, SpawnedFuture},
+        utils::queue::AsyncQueue,
+    },
+    std::rc::Rc,
+};
 
 pub struct RunToplevelFuture {
     _future: SpawnedFuture<()>,

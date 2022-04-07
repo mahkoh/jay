@@ -1,8 +1,11 @@
-use crate::utils::errorfmt::ErrorFmt;
-use crate::xwayland::XWaylandError;
-use std::io::{Read, Write};
-use std::rc::Rc;
-use uapi::{c, format_ustr, Errno, OwnedFd, Ustring};
+use {
+    crate::{utils::errorfmt::ErrorFmt, xwayland::XWaylandError},
+    std::{
+        io::{Read, Write},
+        rc::Rc,
+    },
+    uapi::{c, format_ustr, Errno, OwnedFd, Ustring},
+};
 
 const SOCK_DIR: &str = "/tmp/.X11-unix";
 

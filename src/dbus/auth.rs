@@ -1,11 +1,11 @@
-use crate::dbus::incoming::handle_incoming;
-use crate::dbus::outgoing::handle_outgoing;
-use crate::dbus::{DbusError, DbusSocket};
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::hex;
-use std::io::Write;
-use std::rc::Rc;
-use uapi::{c, Errno};
+use {
+    crate::{
+        dbus::{incoming::handle_incoming, outgoing::handle_outgoing, DbusError, DbusSocket},
+        utils::{errorfmt::ErrorFmt, hex},
+    },
+    std::{io::Write, rc::Rc},
+    uapi::{c, Errno},
+};
 
 pub(super) async fn handle_auth(socket: Rc<DbusSocket>) {
     let mut auth = Auth {

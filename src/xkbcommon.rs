@@ -4,18 +4,23 @@ mod consts;
 
 include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 
-use bstr::{BStr, ByteSlice};
 pub use consts::*;
-use std::ffi::{CStr, VaList};
-use std::io::Write;
-use std::ops::Deref;
-use std::ptr;
-use std::rc::Rc;
+use {
+    bstr::{BStr, ByteSlice},
+    std::{
+        ffi::{CStr, VaList},
+        io::Write,
+        ops::Deref,
+        ptr,
+        rc::Rc,
+    },
+};
 
-use crate::utils::ptr_ext::PtrExt;
-use crate::utils::trim::AsciiTrim;
-use thiserror::Error;
-use uapi::{c, OwnedFd};
+use {
+    crate::utils::{ptr_ext::PtrExt, trim::AsciiTrim},
+    thiserror::Error,
+    uapi::{c, OwnedFd},
+};
 
 #[derive(Debug, Error)]
 pub enum XkbCommonError {

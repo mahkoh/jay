@@ -1,29 +1,38 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
-use crate::ifs::wl_buffer::WlBuffer;
-use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_output::WlOutput;
-use crate::ifs::wl_region::WlRegion;
-use crate::ifs::wl_registry::WlRegistry;
-use crate::ifs::wl_seat::WlSeat;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
-use crate::ifs::wl_surface::WlSurface;
-use crate::ifs::xdg_positioner::XdgPositioner;
-use crate::ifs::xdg_wm_base::XdgWmBase;
-use crate::object::{Object, ObjectId};
-use crate::tree::Node;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::{CopyHashMap, Locked};
-use crate::wire::{
-    WlBufferId, WlDataSourceId, WlOutputId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId,
-    XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::{
+            ipc::{
+                wl_data_source::WlDataSource,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
+            },
+            wl_buffer::WlBuffer,
+            wl_display::WlDisplay,
+            wl_output::WlOutput,
+            wl_region::WlRegion,
+            wl_registry::WlRegistry,
+            wl_seat::WlSeat,
+            wl_surface::{
+                xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
+                WlSurface,
+            },
+            xdg_positioner::XdgPositioner,
+            xdg_wm_base::XdgWmBase,
+        },
+        object::{Object, ObjectId},
+        tree::Node,
+        utils::{
+            clonecell::CloneCell,
+            copyhashmap::{CopyHashMap, Locked},
+        },
+        wire::{
+            WlBufferId, WlDataSourceId, WlOutputId, WlRegionId, WlRegistryId, WlSeatId,
+            WlSurfaceId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
+            ZwpPrimarySelectionSourceV1Id,
+        },
+    },
+    std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},
 };
-use std::cell::RefCell;
-use std::mem;
-use std::ops::DerefMut;
-use std::rc::Rc;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

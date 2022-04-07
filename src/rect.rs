@@ -4,8 +4,10 @@ mod region;
 mod tests;
 
 pub use region::RegionBuilder;
-use smallvec::SmallVec;
-use std::fmt::{Debug, Formatter};
+use {
+    smallvec::SmallVec,
+    std::fmt::{Debug, Formatter},
+};
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub struct Rect {

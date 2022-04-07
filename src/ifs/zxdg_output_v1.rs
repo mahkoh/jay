@@ -1,12 +1,15 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::wl_output::{WlOutput, SEND_DONE_SINCE};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::zxdg_output_v1::*;
-use crate::wire::ZxdgOutputV1Id;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::wl_output::{WlOutput, SEND_DONE_SINCE},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zxdg_output_v1::*, ZxdgOutputV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 pub const NAME_SINCE: u32 = 2;

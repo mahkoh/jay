@@ -1,8 +1,10 @@
-use crate::client::ClientError;
-use crate::utils::buffd::MsgParser;
-use crate::wire::WlDisplayId;
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+use {
+    crate::{client::ClientError, utils::buffd::MsgParser, wire::WlDisplayId},
+    std::{
+        fmt::{Display, Formatter},
+        rc::Rc,
+    },
+};
 
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 

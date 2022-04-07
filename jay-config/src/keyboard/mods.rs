@@ -1,7 +1,8 @@
-use crate::keyboard::syms::KeySym;
-use crate::ModifiedKeySym;
-use bincode::{Decode, Encode};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
+use {
+    crate::{keyboard::syms::KeySym, ModifiedKeySym},
+    bincode::{Decode, Encode},
+    std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
+};
 
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Default, Hash, Debug)]
 pub struct Modifiers(pub u32);

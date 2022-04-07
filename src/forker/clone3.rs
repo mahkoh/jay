@@ -1,6 +1,8 @@
-use crate::forker::ForkerError;
-use std::mem;
-use uapi::{c, OwnedFd};
+use {
+    crate::forker::ForkerError,
+    std::mem,
+    uapi::{c, OwnedFd},
+};
 
 #[derive(Default, Copy, Clone)]
 #[allow(non_camel_case_types, dead_code)]

@@ -8,10 +8,11 @@
     clippy::unnecessary_cast
 )]
 
-use crate::xcon::{Formatter, Message, Parser, Request, XEvent, XconError};
-use bstr::BStr;
-use std::borrow::Cow;
-use std::rc::Rc;
-use uapi::OwnedFd;
+use {
+    crate::xcon::{Formatter, Message, Parser, Request, XEvent, XconError},
+    bstr::BStr,
+    std::{borrow::Cow, rc::Rc},
+    uapi::OwnedFd,
+};
 
 include!(concat!(env!("OUT_DIR"), "/wire_xcon.rs"));

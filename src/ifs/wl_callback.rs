@@ -1,10 +1,13 @@
-use crate::client::Client;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::wire::wl_callback::*;
-use crate::wire::WlCallbackId;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::Client,
+        leaks::Tracker,
+        object::Object,
+        wire::{wl_callback::*, WlCallbackId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct WlCallback {
     client: Rc<Client>,

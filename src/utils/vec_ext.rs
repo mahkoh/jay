@@ -1,6 +1,4 @@
-use std::mem::MaybeUninit;
-use std::ops::Range;
-use std::slice;
+use std::{mem::MaybeUninit, ops::Range, slice};
 
 pub trait VecExt<T> {
     fn split_at_spare_mut_ext(&mut self) -> (&mut [T], &mut [MaybeUninit<T>]);

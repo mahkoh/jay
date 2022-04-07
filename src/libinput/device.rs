@@ -1,15 +1,18 @@
-use crate::libinput::consts::{AccelProfile, DeviceCapability};
-use crate::libinput::sys::{
-    libinput_device, libinput_device_config_accel_set_profile,
-    libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
-    libinput_device_get_name, libinput_device_get_user_data, libinput_device_has_capability,
-    libinput_device_set_user_data, libinput_device_unref, libinput_path_remove_device,
+use {
+    crate::libinput::{
+        consts::{AccelProfile, DeviceCapability},
+        sys::{
+            libinput_device, libinput_device_config_accel_set_profile,
+            libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
+            libinput_device_get_name, libinput_device_get_user_data,
+            libinput_device_has_capability, libinput_device_set_user_data, libinput_device_unref,
+            libinput_path_remove_device,
+        },
+        LibInput,
+    },
+    bstr::ByteSlice,
+    std::{ffi::CStr, marker::PhantomData, rc::Rc},
 };
-use crate::libinput::LibInput;
-use bstr::ByteSlice;
-use std::ffi::CStr;
-use std::marker::PhantomData;
-use std::rc::Rc;
 
 pub struct LibInputDevice<'a> {
     pub(super) dev: *mut libinput_device,

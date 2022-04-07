@@ -1,21 +1,27 @@
-use crate::client::ClientError;
-use crate::ifs::wl_surface::{
-    CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-    WlSurfaceId,
+use {
+    crate::{
+        client::ClientError,
+        ifs::wl_surface::{
+            CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface,
+            WlSurfaceError, WlSurfaceId,
+        },
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            linkedlist::LinkedNode,
+            numcell::NumCell,
+        },
+        wire::{wl_subsurface::*, WlSubsurfaceId},
+    },
+    std::{
+        cell::{Cell, RefCell},
+        ops::Deref,
+        rc::Rc,
+    },
+    thiserror::Error,
 };
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::linkedlist::LinkedNode;
-use crate::utils::numcell::NumCell;
-use crate::wire::wl_subsurface::*;
-use crate::wire::WlSubsurfaceId;
-use std::cell::{Cell, RefCell};
-use std::ops::Deref;
-use std::rc::Rc;
-use thiserror::Error;
 
 #[allow(dead_code)]
 const BAD_SURFACE: u32 = 0;

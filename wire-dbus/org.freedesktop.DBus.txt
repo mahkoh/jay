@@ -5,3 +5,5 @@ fn Hello() {
 fn AddMatch(rule: string) { }
 
 fn RemoveMatch(rule: string) { }
+
+fn UpdateActivationEnvironment(environment: array(dict(string, string))) { }

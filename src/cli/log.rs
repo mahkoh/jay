@@ -1,16 +1,21 @@
-use crate::cli::{GlobalArgs, LogArgs};
-use crate::tools::tool_client::{Handle, ToolClient};
-use crate::utils::errorfmt::ErrorFmt;
-use crate::wire::{jay_compositor, jay_log_file};
-use bstr::{BString, ByteSlice};
-use jay_compositor::GetLogFile;
-use jay_log_file::Path;
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::os::unix::process::CommandExt;
-use std::process;
-use std::process::Command;
-use std::rc::Rc;
+use {
+    crate::{
+        cli::{GlobalArgs, LogArgs},
+        tools::tool_client::{Handle, ToolClient},
+        utils::errorfmt::ErrorFmt,
+        wire::{jay_compositor, jay_log_file},
+    },
+    bstr::{BString, ByteSlice},
+    jay_compositor::GetLogFile,
+    jay_log_file::Path,
+    std::{
+        cell::RefCell,
+        ops::Deref,
+        os::unix::process::CommandExt,
+        process::{self, Command},
+        rc::Rc,
+    },
+};
 
 pub fn main(global: GlobalArgs, args: LogArgs) {
     let tc = ToolClient::new(global.log_level.into());

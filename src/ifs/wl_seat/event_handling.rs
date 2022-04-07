@@ -1,27 +1,31 @@
-use crate::backend::{ConnectorId, InputEvent, KeyState, ScrollAxis};
-use crate::client::{Client, ClientId};
-use crate::fixed::Fixed;
-use crate::ifs::ipc;
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
-use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
-use crate::ifs::wl_seat::wl_pointer::{WlPointer, POINTER_FRAME_SINCE_VERSION};
-use crate::ifs::wl_seat::{wl_keyboard, wl_pointer, Dnd, SeatId, WlSeat, WlSeatGlobal};
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
-use crate::ifs::wl_surface::WlSurface;
-use crate::object::ObjectId;
-use crate::tree::toplevel::ToplevelNode;
-use crate::tree::{FloatNode, Node, OutputNode};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::smallmap::SmallMap;
-use crate::wire::WlDataOfferId;
-use crate::xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP};
-use jay_config::keyboard::mods::Modifiers;
-use jay_config::keyboard::syms::KeySym;
-use jay_config::keyboard::ModifiedKeySym;
-use smallvec::SmallVec;
-use std::ops::Deref;
-use std::rc::Rc;
+use {
+    crate::{
+        backend::{ConnectorId, InputEvent, KeyState, ScrollAxis},
+        client::{Client, ClientId},
+        fixed::Fixed,
+        ifs::{
+            ipc,
+            ipc::{
+                wl_data_device::WlDataDevice,
+                zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
+            },
+            wl_seat::{
+                wl_keyboard::{self, WlKeyboard},
+                wl_pointer::{self, WlPointer, POINTER_FRAME_SINCE_VERSION},
+                Dnd, SeatId, WlSeat, WlSeatGlobal,
+            },
+            wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
+        },
+        object::ObjectId,
+        tree::{FloatNode, Node, OutputNode, ToplevelNode},
+        utils::{clonecell::CloneCell, smallmap::SmallMap},
+        wire::WlDataOfferId,
+        xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
+    },
+    jay_config::keyboard::{mods::Modifiers, syms::KeySym, ModifiedKeySym},
+    smallvec::SmallVec,
+    std::{ops::Deref, rc::Rc},
+};
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -126,23 +130,47 @@ impl WlSeatGlobal {
         mut x: Fixed,
         mut y: Fixed,
     ) {
-        let output = match self.state.connectors.get(&connector) {
+        let output = match self.state.outputs.get(&connector) {
             Some(o) => o,
             _ => return,
         };
-        let node = match output.node.get() {
-            Some(n) => n,
-            _ => return,
-        };
-        let pos = node.global.pos.get();
+        let pos = output.node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
         self.set_new_position(x, y);
     }
 
     fn motion_event(self: &Rc<Self>, dx: Fixed, dy: Fixed) {
-        let (x, y) = self.pos.get();
-        self.set_new_position(x + dx, y + dy);
+        let (mut x, mut y) = self.pos.get();
+        x += dx;
+        y += dy;
+        let output = self.output.get();
+        let pos = output.global.pos.get();
+        let mut x_int = x.round_down();
+        let mut y_int = y.round_down();
+        if !pos.contains(x_int, y_int) {
+            'warp: {
+                let outputs = self.state.outputs.lock();
+                for output in outputs.values() {
+                    if output.node.global.pos.get().contains(x_int, y_int) {
+                        break 'warp;
+                    }
+                }
+                if x_int < pos.x1() {
+                    x_int = pos.x1();
+                } else if x_int >= pos.x2() {
+                    x_int = pos.x2() - 1;
+                }
+                if y_int < pos.y1() {
+                    y_int = pos.y1();
+                } else if y_int >= pos.y2() {
+                    y_int = pos.y2() - 1;
+                }
+                x = x.apply_fract(x_int);
+                y = y.apply_fract(y_int);
+            }
+        }
+        self.set_new_position(x, y);
     }
 
     fn key_event(&self, key: u32, state: KeyState) {
@@ -201,8 +229,10 @@ impl WlSeatGlobal {
     }
 
     pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<dyn ToplevelNode>> {
-        let output = self.output.get();
-        let workspace = output.workspace.get().unwrap();
+        let workspace = match self.output.get().workspace.get() {
+            Some(ws) => ws,
+            _ => return None,
+        };
         let is_container = new.is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
             match tl.as_node().get_workspace() {
@@ -447,10 +477,6 @@ impl WlSeatGlobal {
         let serial = self.serial.fetch_add(1);
         self.surface_pointer_event(0, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
-    }
-
-    pub fn leave_output(&self) {
-        self.output.set(self.state.dummy_output.get().unwrap());
     }
 }
 

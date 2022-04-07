@@ -1,6 +1,7 @@
-use crate::render::gl::texture::GlTexture;
-use crate::render::renderer::context::RenderContext;
-use std::rc::Rc;
+use {
+    crate::render::{gl::texture::GlTexture, renderer::context::RenderContext},
+    std::rc::Rc,
+};
 
 pub struct Texture {
     pub(super) ctx: Rc<RenderContext>,

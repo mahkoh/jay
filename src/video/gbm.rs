@@ -1,12 +1,20 @@
-use crate::drm::dma::{DmaBuf, DmaBufPlane};
-use crate::drm::drm::{Drm, DrmError};
-use crate::drm::{ModifiedFormat, INVALID_MODIFIER};
-use crate::format::formats;
-use std::fmt::{Debug, Formatter};
-use std::ptr;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, OwnedFd};
+use {
+    crate::{
+        video::{
+            dma::{DmaBuf, DmaBufPlane},
+            drm::{Drm, DrmError},
+            ModifiedFormat, INVALID_MODIFIER,
+        },
+        format::formats,
+    },
+    std::{
+        fmt::{Debug, Formatter},
+        ptr,
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::{c, OwnedFd},
+};
 
 #[derive(Debug, Error)]
 pub enum GbmError {

@@ -1,20 +1,21 @@
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::zwlr_layer_shell_v1::*;
-use crate::wire::ZwlrLayerShellV1Id;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zwlr_layer_shell_v1::*, ZwlrLayerShellV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 pub const BACKGROUND: u32 = 0;
 #[allow(dead_code)]
 pub const BOTTOM: u32 = 1;
-#[allow(dead_code)]
 pub const TOP: u32 = 2;
 pub const OVERLAY: u32 = 3;
 
@@ -75,16 +76,13 @@ impl ZwlrLayerShellV1 {
                         break 'get_output output;
                     }
                 }
-                let outputs = self.client.state.connectors.lock();
-                for output in outputs.values() {
-                    if let Some(node) = output.node.get() {
-                        break 'get_output node;
-                    }
+                let outputs = self.client.state.outputs.lock();
+                if let Some(output) = outputs.values().next() {
+                    break 'get_output output.node.clone();
                 }
                 return Err(GetLayerSurfaceError::NoOutputs);
             }
         };
-        log::info!("output = {:?}", output.global.pos.get());
         if req.layer > OVERLAY {
             return Err(GetLayerSurfaceError::UnknownLayer(req.layer));
         }

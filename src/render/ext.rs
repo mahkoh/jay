@@ -1,12 +1,16 @@
-use crate::render::egl::sys::{eglQueryString, EGLDisplay, EGL_EXTENSIONS};
-use crate::render::gl::sys::{glGetString, GL_EXTENSIONS};
-use crate::utils::trim::AsciiTrim;
-use ahash::AHashSet;
-use bstr::ByteSlice;
-use std::ffi::CStr;
-use std::ops::BitOrAssign;
-use std::str;
-use uapi::c;
+use {
+    crate::{
+        render::{
+            egl::sys::{eglQueryString, EGLDisplay, EGL_EXTENSIONS},
+            gl::sys::{glGetString, GL_EXTENSIONS},
+        },
+        utils::trim::AsciiTrim,
+    },
+    ahash::AHashSet,
+    bstr::ByteSlice,
+    std::{ffi::CStr, ops::BitOrAssign, str},
+    uapi::c,
+};
 
 unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
     if ext.is_null() {

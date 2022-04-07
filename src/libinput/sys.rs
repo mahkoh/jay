@@ -1,5 +1,4 @@
-use std::ffi::VaList;
-use uapi::c;
+use {std::ffi::VaList, uapi::c};
 
 include!(concat!(env!("OUT_DIR"), "/libinput_tys.rs"));
 

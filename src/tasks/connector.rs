@@ -1,20 +1,23 @@
-use crate::backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo};
-use crate::ifs::wl_output::WlOutputGlobal;
-use crate::rect::Rect;
-use crate::state::{ConnectorData, State};
-use crate::tree::{OutputNode, OutputRenderData};
-use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::clonecell::CloneCell;
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use {
+    crate::{
+        backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
+        ifs::wl_output::WlOutputGlobal,
+        rect::Rect,
+        state::{ConnectorData, OutputData, State},
+        tree::{OutputNode, OutputRenderData},
+        utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
+    },
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    },
+};
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     let id = connector.id();
     let data = Rc::new(ConnectorData {
         connector: connector.clone(),
-        monitor_info: Default::default(),
         handler: Default::default(),
-        node: Default::default(),
         connected: Cell::new(false),
     });
     let oh = ConnectorHandler {
@@ -61,13 +64,8 @@ impl ConnectorHandler {
     }
 
     async fn handle_connected(&self, ae: &Rc<AsyncEvent>, info: MonitorInfo) {
-        log::info!(
-            "Connector {} connected: {:#?}",
-            self.data.connector.kernel_id(),
-            info
-        );
+        log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
-        self.data.monitor_info.set(Some(Rc::new(info.clone())));
         let name = self.state.globals.name();
         let x1 = self
             .state
@@ -103,12 +101,16 @@ impl ConnectorHandler {
             state: self.state.clone(),
             is_dummy: false,
         });
-        self.data.node.set(Some(on.clone()));
+        let output_data = Rc::new(OutputData {
+            connector: self.data.clone(),
+            monitor_info: info,
+            node: on.clone(),
+        });
+        self.state.outputs.set(self.id, output_data);
         global.node.set(Some(on.clone()));
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
-        on.ensure_workspace();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.add_global(&global);
         'outer: loop {
@@ -123,13 +125,14 @@ impl ConnectorHandler {
             }
             ae.triggered().await;
         }
+        log::info!("Connector {} disconnected", self.data.connector.kernel_id());
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);
         }
-        self.data.node.take();
         global.node.set(None);
         let _ = self.state.remove_global(&*global);
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
+        self.state.outputs.remove(&self.id);
     }
 }

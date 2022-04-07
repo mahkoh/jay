@@ -1,22 +1,28 @@
-use crate::format::ARGB8888;
-use crate::rect::Rect;
-use crate::render::{RenderContext, RenderError, Renderer, Texture};
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use ahash::AHashSet;
-use bstr::{BStr, BString, ByteSlice, ByteVec};
-use byteorder::{LittleEndian, ReadBytesExt};
-use isnt::std_1::primitive::IsntSliceExt;
-use std::cell::Cell;
-use std::convert::TryInto;
-use std::fmt::{Debug, Formatter};
-use std::fs::File;
-use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::mem::MaybeUninit;
-use std::rc::Rc;
-use std::{env, io, slice, str};
-use thiserror::Error;
-use uapi::c;
+use {
+    crate::{
+        format::ARGB8888,
+        rect::Rect,
+        render::{RenderContext, RenderError, Renderer, Texture},
+        utils::{errorfmt::ErrorFmt, numcell::NumCell},
+    },
+    ahash::AHashSet,
+    bstr::{BStr, BString, ByteSlice, ByteVec},
+    byteorder::{LittleEndian, ReadBytesExt},
+    isnt::std_1::primitive::IsntSliceExt,
+    std::{
+        cell::Cell,
+        convert::TryInto,
+        env,
+        fmt::{Debug, Formatter},
+        fs::File,
+        io::{self, BufRead, BufReader, Seek, SeekFrom},
+        mem::MaybeUninit,
+        rc::Rc,
+        slice, str,
+    },
+    thiserror::Error,
+    uapi::c,
+};
 
 const XCURSOR_MAGIC: u32 = 0x72756358;
 const XCURSOR_IMAGE_TYPE: u32 = 0xfffd0002;

@@ -1,15 +1,17 @@
-use crate::client::{Client, ClientError};
-use crate::drm::INVALID_MODIFIER;
-use crate::globals::{Global, GlobalName};
-use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::zwp_linux_dmabuf_v1::*;
-use crate::wire::ZwpLinuxDmabufV1Id;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        video::INVALID_MODIFIER,
+        globals::{Global, GlobalName},
+        ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct ZwpLinuxDmabufV1Global {
     name: GlobalName,

@@ -1,7 +1,10 @@
-use crate::drm::drm::ConnectorType;
-use crate::fixed::Fixed;
-use std::fmt::{Debug, Display, Formatter};
-use std::rc::Rc;
+use {
+    crate::{video::drm::ConnectorType, fixed::Fixed},
+    std::{
+        fmt::{Debug, Display, Formatter},
+        rc::Rc,
+    },
+};
 
 linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);

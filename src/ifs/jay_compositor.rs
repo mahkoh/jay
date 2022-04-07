@@ -1,15 +1,18 @@
-use crate::cli::CliLogLevel;
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::jay_log_file::JayLogFile;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::jay_compositor::*;
-use crate::wire::JayCompositorId;
-use log::Level;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        cli::CliLogLevel,
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::jay_log_file::JayLogFile,
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{jay_compositor::*, JayCompositorId},
+    },
+    log::Level,
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct JayCompositorGlobal {
     name: GlobalName,

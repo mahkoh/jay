@@ -1,11 +1,13 @@
-use crate::cursor::Cursor;
-use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::ifs::wl_surface::WlSurface;
-use crate::leaks::Tracker;
-use crate::rect::Rect;
-use crate::render::Renderer;
-use std::cell::Cell;
-use std::rc::Rc;
+use {
+    crate::{
+        cursor::Cursor,
+        ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
+        leaks::Tracker,
+        rect::Rect,
+        render::Renderer,
+    },
+    std::{cell::Cell, rc::Rc},
+};
 
 pub struct CursorSurface {
     seat: Rc<WlSeatGlobal>,

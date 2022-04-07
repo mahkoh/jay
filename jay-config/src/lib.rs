@@ -1,7 +1,8 @@
-use crate::keyboard::keymap::Keymap;
-use crate::keyboard::ModifiedKeySym;
-use bincode::{Decode, Encode};
-use std::collections::HashMap;
+use {
+    crate::keyboard::{keymap::Keymap, ModifiedKeySym},
+    bincode::{Decode, Encode},
+    std::collections::HashMap,
+};
 
 #[macro_use]
 mod macros;

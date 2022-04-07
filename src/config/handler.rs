@@ -1,37 +1,40 @@
-use crate::backend;
-use crate::backend::{
-    ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, Mode,
+use {
+    crate::{
+        backend,
+        backend::{ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId},
+        compositor::MAX_EXTENTS,
+        ifs::wl_seat::{SeatId, WlSeatGlobal},
+        state::{ConnectorData, DeviceHandlerData, OutputData, State},
+        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
+        utils::{
+            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
+            stack::Stack,
+        },
+        xkbcommon::{XkbCommonError, XkbKeymap},
+    },
+    bincode::error::DecodeError,
+    jay_config::{
+        _private::{
+            bincode_ops,
+            ipc::{ClientMessage, Response, ServerMessage},
+        },
+        drm::Connector,
+        input::{
+            acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
+            capability::{
+                Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
+                CAP_TABLET_TOOL, CAP_TOUCH,
+            },
+            InputDevice, Seat,
+        },
+        keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
+        Axis, Direction, LogLevel, Workspace,
+    },
+    libloading::Library,
+    log::Level,
+    std::{cell::Cell, rc::Rc},
+    thiserror::Error,
 };
-use crate::compositor::MAX_EXTENTS;
-use crate::ifs::wl_seat::{SeatId, WlSeatGlobal};
-use crate::state::{ConnectorData, DeviceHandlerData, State};
-use crate::tree::walker::NodeVisitorBase;
-use crate::tree::{ContainerNode, ContainerSplit, FloatNode, Node};
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::debug_fn::debug_fn;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::stack::Stack;
-use crate::xkbcommon::{XkbCommonError, XkbKeymap};
-use bincode::error::DecodeError;
-use jay_config::_private::bincode_ops;
-use jay_config::_private::ipc::{ClientMessage, Response, ServerMessage};
-use jay_config::drm::Connector;
-use jay_config::input::acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT};
-use jay_config::input::capability::{
-    Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
-    CAP_TABLET_TOOL, CAP_TOUCH,
-};
-use jay_config::input::{InputDevice, Seat};
-use jay_config::keyboard::keymap::Keymap;
-use jay_config::keyboard::mods::Modifiers;
-use jay_config::keyboard::syms::KeySym;
-use jay_config::{Axis, Direction, LogLevel, Workspace};
-use libloading::Library;
-use log::Level;
-use std::cell::Cell;
-use std::rc::Rc;
-use thiserror::Error;
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,
@@ -194,6 +197,17 @@ impl ConfigProxyHandler {
         }
     }
 
+    fn get_output(&self, connector: Connector) -> Result<Rc<OutputData>, CphError> {
+        let data = self
+            .state
+            .outputs
+            .get(&ConnectorId::from_raw(connector.0 as _));
+        match data {
+            Some(d) => Ok(d),
+            _ => Err(CphError::OutputDoesNotExist(connector)),
+        }
+    }
+
     fn get_seat(&self, seat: Seat) -> Result<Rc<WlSeatGlobal>, CphError> {
         let seats = self.state.globals.seats.lock();
         for seat_global in seats.values() {
@@ -320,11 +334,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_mode(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_connector(connector)?;
-        let mut mode = Mode::default();
-        if let Some(node) = connector.node.get() {
-            mode = node.global.mode.get();
-        }
+        let connector = self.get_output(connector)?;
+        let mode = connector.node.global.mode.get();
         self.respond(Response::ConnectorMode {
             width: mode.width,
             height: mode.height,
@@ -339,13 +350,11 @@ impl ConfigProxyHandler {
         x: i32,
         y: i32,
     ) -> Result<(), CphError> {
-        let connector = self.get_connector(connector)?;
+        let connector = self.get_output(connector)?;
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
-        if let Some(node) = connector.node.get() {
-            node.set_position(x, y);
-        }
+        connector.node.set_position(x, y);
         Ok(())
     }
 
@@ -774,6 +783,8 @@ enum CphError {
     DeviceDoesNotExist(InputDevice),
     #[error("Connector {0:?} does not exist")]
     ConnectorDoesNotExist(Connector),
+    #[error("Connector {0:?} does not exist or is not connected")]
+    OutputDoesNotExist(Connector),
     #[error("{0}x{1} is not a valid connector position")]
     InvalidConnectorPosition(i32, i32),
     #[error("Keymap {0:?} does not exist")]

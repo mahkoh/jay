@@ -1,6 +1,10 @@
-use crate::backend::{Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId};
-use crate::drm::drm::ConnectorType;
-use std::rc::Rc;
+use {
+    crate::{
+        backend::{Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId},
+        video::drm::ConnectorType,
+    },
+    std::rc::Rc,
+};
 
 pub struct DummyBackend {}
 

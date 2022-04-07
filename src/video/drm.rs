@@ -1,35 +1,39 @@
 mod sys;
 
-use crate::drm::drm::sys::{
-    create_lease, drm_event, drm_event_vblank, gem_close, get_cap, get_device_name_from_fd2,
-    get_minor_name_from_fd, get_node_type_from_fd, get_nodes, mode_addfb2, mode_atomic,
-    mode_create_blob, mode_destroy_blob, mode_get_resources, mode_getconnector, mode_getencoder,
-    mode_getplane, mode_getplaneresources, mode_getprobblob, mode_getproperty,
-    mode_obj_getproperties, mode_rmfb, prime_fd_to_handle, set_client_cap, DRM_DISPLAY_MODE_LEN,
-    DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS, DRM_MODE_OBJECT_BLOB,
-    DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB,
-    DRM_MODE_OBJECT_MODE, DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY,
+use {
+    crate::{
+        video::drm::sys::{
+            create_lease, drm_event, drm_event_vblank, gem_close, get_cap,
+            get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes,
+            mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob, mode_get_resources,
+            mode_getconnector, mode_getencoder, mode_getplane, mode_getplaneresources,
+            mode_getprobblob, mode_getproperty, mode_obj_getproperties, mode_rmfb,
+            prime_fd_to_handle, set_client_cap, DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY,
+            DRM_MODE_FB_MODIFIERS, DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR,
+            DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB,
+            DRM_MODE_OBJECT_MODE, DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY,
+        },
+        utils::oserror::OsError,
+    },
+    ahash::AHashMap,
+    bstr::{BString, ByteSlice},
+    std::{
+        cell::RefCell,
+        ffi::CString,
+        fmt::{Debug, Display, Formatter},
+        mem::{self, MaybeUninit},
+        ops::Deref,
+        rc::{Rc, Weak},
+    },
+    thiserror::Error,
+    uapi::{c, Errno, OwnedFd, Pod, Ustring},
 };
-use crate::utils::oserror::OsError;
-use ahash::AHashMap;
-use bstr::{BString, ByteSlice};
-use std::cell::RefCell;
-use std::ffi::CString;
-use std::fmt::{Debug, Display, Formatter};
-use std::mem;
-use std::mem::MaybeUninit;
-use std::ops::Deref;
-use std::rc::{Rc, Weak};
-use thiserror::Error;
-use uapi::{c, Errno, OwnedFd, Pod, Ustring};
 
-use crate::backend;
-use crate::drm::dma::DmaBuf;
-use crate::drm::INVALID_MODIFIER;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::stack::Stack;
-use crate::utils::syncqueue::SyncQueue;
-use crate::utils::vec_ext::VecExt;
+use crate::{
+    backend,
+    video::{dma::DmaBuf, INVALID_MODIFIER},
+    utils::{errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
+};
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,

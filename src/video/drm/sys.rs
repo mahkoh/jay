@@ -1,20 +1,25 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-use crate::drm::drm::{
-    DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder, DrmEncoderInfo,
-    DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty, DrmPropertyDefinition,
-    DrmPropertyEnumValue, DrmPropertyType, DrmPropertyValue, NodeType,
+use {
+    crate::{
+        video::drm::{
+            DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
+            DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
+            DrmPropertyDefinition, DrmPropertyEnumValue, DrmPropertyType, DrmPropertyValue,
+            NodeType,
+        },
+        utils::{bitflags::BitflagsExt, oserror::OsError, trim::AsciiTrim},
+    },
+    ahash::AHashMap,
+    bstr::ByteSlice,
+    std::{
+        ffi::CString,
+        io::{BufRead, BufReader},
+        mem,
+    },
+    uapi::{c, OwnedFd, Pod, Ustring},
 };
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::oserror::OsError;
-use crate::utils::trim::AsciiTrim;
-use ahash::AHashMap;
-use bstr::ByteSlice;
-use std::ffi::CString;
-use std::io::{BufRead, BufReader};
-use std::mem;
-use uapi::{c, OwnedFd, Pod, Ustring};
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
     let mut ret;

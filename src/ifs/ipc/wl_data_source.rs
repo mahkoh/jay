@@ -1,21 +1,25 @@
-use crate::client::{Client, ClientError};
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::wl_data_device_manager::{DND_ALL, DND_NONE};
-use crate::ifs::ipc::wl_data_offer::WlDataOffer;
-use crate::ifs::ipc::{
-    add_mime_type, break_source_loops, cancel_offers, destroy_source, SharedState, SourceData,
-    OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
+use {
+    crate::{
+        client::{Client, ClientError},
+        ifs::ipc::{
+            add_mime_type, break_source_loops, cancel_offers, destroy_source,
+            wl_data_device::WlDataDevice,
+            wl_data_device_manager::{DND_ALL, DND_NONE},
+            wl_data_offer::WlDataOffer,
+            SharedState, SourceData, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
+        },
+        leaks::Tracker,
+        object::Object,
+        utils::{
+            bitflags::BitflagsExt,
+            buffd::{MsgParser, MsgParserError},
+        },
+        wire::{wl_data_source::*, WlDataSourceId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+    uapi::OwnedFd,
 };
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::bitflags::BitflagsExt;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_data_source::*;
-use crate::wire::WlDataSourceId;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::OwnedFd;
 
 #[allow(dead_code)]
 const INVALID_ACTION_MASK: u32 = 0;

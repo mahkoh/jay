@@ -1,21 +1,30 @@
 #![allow(clippy::declare_interior_mutable_const, clippy::type_complexity)]
 
-use crate::_private::ipc::{ClientMessage, InitMessage, Response, ServerMessage};
-use crate::_private::{bincode_ops, logging, Config, ConfigEntry, ConfigEntryGen, VERSION};
-use crate::drm::connector_type::{ConnectorType, CON_UNKNOWN};
-use crate::drm::{Connector, Mode};
-use crate::input::acceleration::AccelProfile;
-use crate::input::capability::Capability;
-use crate::input::{InputDevice, Seat};
-use crate::keyboard::keymap::Keymap;
-use crate::theme::Color;
-use crate::{Axis, Command, Direction, LogLevel, ModifiedKeySym, Workspace};
-use std::cell::{Cell, RefCell};
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::ops::Deref;
-use std::rc::Rc;
-use std::{ptr, slice};
+use {
+    crate::{
+        _private::{
+            bincode_ops,
+            ipc::{ClientMessage, InitMessage, Response, ServerMessage},
+            logging, Config, ConfigEntry, ConfigEntryGen, VERSION,
+        },
+        drm::{
+            connector_type::{ConnectorType, CON_UNKNOWN},
+            Connector, Mode,
+        },
+        input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
+        keyboard::keymap::Keymap,
+        theme::Color,
+        Axis, Command, Direction, LogLevel, ModifiedKeySym, Workspace,
+    },
+    std::{
+        cell::{Cell, RefCell},
+        collections::{hash_map::Entry, HashMap},
+        ops::Deref,
+        ptr,
+        rc::Rc,
+        slice,
+    },
+};
 
 pub(crate) struct Client {
     configure: extern "C" fn(),

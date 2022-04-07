@@ -1,9 +1,15 @@
-use crate::utils::clonecell::UnsafeCellCloneSafe;
-use crate::utils::ptr_ext::{MutPtrExt, PtrExt};
-use smallvec::SmallVec;
-use std::cell::UnsafeCell;
-use std::fmt::{Debug, Formatter};
-use std::mem;
+use {
+    crate::utils::{
+        clonecell::UnsafeCellCloneSafe,
+        ptr_ext::{MutPtrExt, PtrExt},
+    },
+    smallvec::SmallVec,
+    std::{
+        cell::UnsafeCell,
+        fmt::{Debug, Formatter},
+        mem,
+    },
+};
 
 pub struct SmallMap<K, V, const N: usize> {
     m: UnsafeCell<SmallVec<[(K, V); N]>>,

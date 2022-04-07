@@ -1,11 +1,13 @@
-use crate::utils::clonecell::UnsafeCellCloneSafe;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::numcell::NumCell;
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, Errno, OwnedFd};
+use {
+    crate::utils::{clonecell::UnsafeCellCloneSafe, copyhashmap::CopyHashMap, numcell::NumCell},
+    std::{
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::{c, Errno, OwnedFd},
+};
 
 #[derive(Debug, Error)]
 pub enum EventLoopError {

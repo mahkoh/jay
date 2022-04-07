@@ -2,40 +2,50 @@ mod input;
 mod monitor;
 mod video;
 
-use crate::async_engine::{AsyncError, AsyncFd};
-use crate::backend::{
-    Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
-    InputEvent, KeyState,
+use {
+    crate::{
+        async_engine::{AsyncError, AsyncFd},
+        backend::{
+            Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
+            InputEvent, KeyState,
+        },
+        backends::metal::video::{MetalDrmDevice, PendingDrmDevice},
+        dbus::DbusError,
+        video::{drm::DrmError, gbm::GbmError},
+        libinput::{
+            consts::{
+                AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_DEVICE_CAP_GESTURE,
+                LIBINPUT_DEVICE_CAP_KEYBOARD, LIBINPUT_DEVICE_CAP_POINTER,
+                LIBINPUT_DEVICE_CAP_SWITCH, LIBINPUT_DEVICE_CAP_TABLET_PAD,
+                LIBINPUT_DEVICE_CAP_TABLET_TOOL, LIBINPUT_DEVICE_CAP_TOUCH,
+            },
+            device::RegisteredDevice,
+            LibInput, LibInputAdapter, LibInputError,
+        },
+        logind::{LogindError, Session},
+        render::RenderError,
+        state::State,
+        udev::{Udev, UdevError, UdevMonitor},
+        utils::{
+            clonecell::{CloneCell, UnsafeCellCloneSafe},
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            oserror::OsError,
+            smallmap::SmallMap,
+            syncqueue::SyncQueue,
+        },
+    },
+    std::{
+        cell::{Cell, RefCell},
+        ffi::{CStr, CString},
+        future::pending,
+        mem,
+        rc::Rc,
+    },
+    thiserror::Error,
+    uapi::{c, OwnedFd},
 };
-use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
-use crate::dbus::DbusError;
-use crate::drm::drm::DrmError;
-use crate::drm::gbm::GbmError;
-use crate::libinput::consts::{
-    AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
-    LIBINPUT_DEVICE_CAP_GESTURE, LIBINPUT_DEVICE_CAP_KEYBOARD, LIBINPUT_DEVICE_CAP_POINTER,
-    LIBINPUT_DEVICE_CAP_SWITCH, LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL,
-    LIBINPUT_DEVICE_CAP_TOUCH,
-};
-use crate::libinput::device::RegisteredDevice;
-use crate::libinput::{LibInput, LibInputAdapter, LibInputError};
-use crate::logind::{LogindError, Session};
-use crate::render::RenderError;
-use crate::state::State;
-use crate::udev::{Udev, UdevError, UdevMonitor};
-use crate::utils::clonecell::{CloneCell, UnsafeCellCloneSafe};
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsError;
-use crate::utils::smallmap::SmallMap;
-use crate::utils::syncqueue::SyncQueue;
-use std::cell::{Cell, RefCell};
-use std::ffi::{CStr, CString};
-use std::future::pending;
-use std::mem;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, OwnedFd};
 
 #[derive(Debug, Error)]
 pub enum MetalError {

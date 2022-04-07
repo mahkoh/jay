@@ -1,5 +1,7 @@
-use crate::LogLevel;
-use log::{Level, LevelFilter, Log, Metadata, Record};
+use {
+    crate::LogLevel,
+    log::{Level, LevelFilter, Log, Metadata, Record},
+};
 
 pub fn init() {
     log::set_logger(&Logger).unwrap();

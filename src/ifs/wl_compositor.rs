@@ -1,16 +1,17 @@
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_region::WlRegion;
-use crate::ifs::wl_surface::WlSurface;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_compositor::*;
-use crate::wire::WlCompositorId;
-use crate::xwayland::XWaylandEvent;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::{wl_region::WlRegion, wl_surface::WlSurface},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_compositor::*, WlCompositorId},
+        xwayland::XWaylandEvent,
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct WlCompositorGlobal {
     name: GlobalName,

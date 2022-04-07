@@ -1,11 +1,9 @@
-use crate::xcon::formatter::Formatter;
-use crate::xcon::parser::Parser;
-use crate::xcon::XconError;
-use bstr::{BStr, ByteSlice};
-use std::borrow::Cow;
-use std::fmt::Debug;
-use std::rc::Rc;
-use uapi::OwnedFd;
+use {
+    crate::xcon::{formatter::Formatter, parser::Parser, XconError},
+    bstr::{BStr, ByteSlice},
+    std::{borrow::Cow, fmt::Debug, rc::Rc},
+    uapi::OwnedFd,
+};
 
 #[cold]
 fn unimplemented() -> ! {

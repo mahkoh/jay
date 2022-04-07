@@ -1,23 +1,23 @@
-use crate::dbus::property::Get;
-use crate::dbus::types::{ObjectPath, Signature, Variant};
-use crate::dbus::{
-    AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusSocket, DbusType, Formatter, Headers,
-    InterfaceSignalHandlers, Message, MethodCall, Parser, Property, Reply, ReplyHandler, Signal,
-    SignalHandler, SignalHandlerApi, SignalHandlerData, BUS_DEST, BUS_PATH, HDR_DESTINATION,
-    HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_SIGNATURE, HDR_UNIX_FDS, MSG_METHOD_CALL,
-    NO_REPLY_EXPECTED,
+use {
+    crate::{
+        dbus::{
+            property::Get,
+            types::{ObjectPath, Signature, Variant},
+            AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusSocket, DbusType, Formatter,
+            Headers, InterfaceSignalHandlers, Message, MethodCall, Parser, Property, Reply,
+            ReplyHandler, Signal, SignalHandler, SignalHandlerApi, SignalHandlerData, BUS_DEST,
+            BUS_PATH, HDR_DESTINATION, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_SIGNATURE,
+            HDR_UNIX_FDS, MSG_METHOD_CALL, NO_REPLY_EXPECTED,
+        },
+        utils::{bufio::BufIoMessage, errorfmt::ErrorFmt},
+        wire_dbus::org,
+    },
+    std::{
+        cell::Cell, collections::hash_map::Entry, fmt::Write, marker::PhantomData, mem,
+        ops::DerefMut, rc::Rc,
+    },
+    uapi::c,
 };
-use crate::utils::bufio::BufIoMessage;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::wire_dbus::org;
-use std::cell::Cell;
-use std::collections::hash_map::Entry;
-use std::fmt::Write;
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::DerefMut;
-use std::rc::Rc;
-use uapi::c;
 
 impl DbusSocket {
     pub(super) fn kill(self: &Rc<Self>) {

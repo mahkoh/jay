@@ -1,7 +1,8 @@
-use crate::open;
-use repc::layout::{Type, TypeVariant};
-use std::env;
-use std::io::Write;
+use {
+    crate::open,
+    repc::layout::{Type, TypeVariant},
+    std::{env, io::Write},
+};
 
 #[allow(unused_macros)]
 #[macro_use]

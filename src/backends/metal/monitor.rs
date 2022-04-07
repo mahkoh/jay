@@ -1,17 +1,21 @@
-use crate::async_engine::FdStatus;
-use crate::backend::BackendEvent;
-use crate::backends::metal::video::{MetalDrmDevice, PendingDrmDevice};
-use crate::backends::metal::{MetalBackend, MetalDevice, MetalError, MetalInputDevice};
-use crate::dbus::TRUE;
-use crate::drm::drm::DrmMaster;
-use crate::udev::UdevDevice;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::nonblock::set_nonblock;
-use crate::wire_dbus::org::freedesktop::login1::session::{PauseDevice, ResumeDevice};
-use bstr::ByteSlice;
-use std::cell::Cell;
-use std::rc::Rc;
-use uapi::{c, OwnedFd};
+use {
+    crate::{
+        async_engine::FdStatus,
+        backend::BackendEvent,
+        backends::metal::{
+            video::{MetalDrmDevice, PendingDrmDevice},
+            MetalBackend, MetalDevice, MetalError, MetalInputDevice,
+        },
+        dbus::TRUE,
+        video::drm::DrmMaster,
+        udev::UdevDevice,
+        utils::{errorfmt::ErrorFmt, nonblock::set_nonblock},
+        wire_dbus::org::freedesktop::login1::session::{PauseDevice, ResumeDevice},
+    },
+    bstr::ByteSlice,
+    std::{cell::Cell, rc::Rc},
+    uapi::{c, OwnedFd},
+};
 
 const DRM: &[u8] = b"drm";
 const INPUT: &[u8] = b"input";

@@ -1,22 +1,26 @@
-use crate::render::egl::sys::{
-    eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
-    EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
-    EGL_OPENGL_ES_API, EGL_TRUE,
+use {
+    crate::render::{
+        egl::sys::{
+            eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
+            EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
+            EGL_OPENGL_ES_API, EGL_TRUE,
+        },
+        ext::{get_client_ext, ClientExt},
+        proc::ExtProc,
+        RenderError,
+    },
+    bstr::ByteSlice,
+    log::Level,
+    once_cell::sync::Lazy,
+    std::ffi::CStr,
+    sys::{
+        EGL_BAD_ACCESS, EGL_BAD_ALLOC, EGL_BAD_ATTRIBUTE, EGL_BAD_CONFIG, EGL_BAD_CONTEXT,
+        EGL_BAD_CURRENT_SURFACE, EGL_BAD_DEVICE_EXT, EGL_BAD_DISPLAY, EGL_BAD_MATCH,
+        EGL_BAD_NATIVE_PIXMAP, EGL_BAD_NATIVE_WINDOW, EGL_BAD_PARAMETER, EGL_BAD_SURFACE,
+        EGL_CONTEXT_LOST, EGL_NOT_INITIALIZED, EGL_SUCCESS,
+    },
+    uapi::c,
 };
-use crate::render::ext::{get_client_ext, ClientExt};
-use crate::render::proc::ExtProc;
-use crate::render::RenderError;
-use bstr::ByteSlice;
-use log::Level;
-use once_cell::sync::Lazy;
-use std::ffi::CStr;
-use sys::{
-    EGL_BAD_ACCESS, EGL_BAD_ALLOC, EGL_BAD_ATTRIBUTE, EGL_BAD_CONFIG, EGL_BAD_CONTEXT,
-    EGL_BAD_CURRENT_SURFACE, EGL_BAD_DEVICE_EXT, EGL_BAD_DISPLAY, EGL_BAD_MATCH,
-    EGL_BAD_NATIVE_PIXMAP, EGL_BAD_NATIVE_WINDOW, EGL_BAD_PARAMETER, EGL_BAD_SURFACE,
-    EGL_CONTEXT_LOST, EGL_NOT_INITIALIZED, EGL_SUCCESS,
-};
-use uapi::c;
 
 pub mod context;
 pub mod display;

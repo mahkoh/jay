@@ -1,9 +1,8 @@
-use std::ffi::CStr;
-use std::marker::PhantomData;
-use std::ptr;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, Errno, IntoUstr};
+use {
+    std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
+    thiserror::Error,
+    uapi::{c, Errno, IntoUstr},
+};
 
 #[link(name = "udev")]
 extern "C" {

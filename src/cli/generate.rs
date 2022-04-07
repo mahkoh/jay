@@ -1,6 +1,8 @@
-use crate::cli::{GenerateArgs, Jay};
-use clap::CommandFactory;
-use std::io::stdout;
+use {
+    crate::cli::{GenerateArgs, Jay},
+    clap::CommandFactory,
+    std::io::stdout,
+};
 
 pub fn main(args: GenerateArgs) {
     let stdout = stdout();

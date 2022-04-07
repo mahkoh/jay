@@ -1,13 +1,15 @@
-use crate::client::ClientError;
-use crate::ifs::wl_seat::WlSeat;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_touch::*;
-use crate::wire::WlTouchId;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::ClientError,
+        ifs::wl_seat::WlSeat,
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_touch::*, WlTouchId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 const DOWN: u32 = 0;

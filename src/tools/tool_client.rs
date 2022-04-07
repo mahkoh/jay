@@ -1,35 +1,43 @@
-use crate::async_engine::{AsyncEngine, AsyncError, SpawnedFuture};
-use crate::client::{EventFormatter, RequestParser};
-use crate::event_loop::{EventLoop, EventLoopError};
-use crate::logger::Logger;
-use crate::object::{ObjectId, WL_DISPLAY_ID};
-use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::bitfield::Bitfield;
-use crate::utils::buffd::{
-    BufFdError, BufFdIn, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
-    OutBufferSwapchain,
+use {
+    crate::{
+        async_engine::{AsyncEngine, AsyncError, SpawnedFuture},
+        client::{EventFormatter, RequestParser},
+        event_loop::{EventLoop, EventLoopError},
+        logger::Logger,
+        object::{ObjectId, WL_DISPLAY_ID},
+        utils::{
+            asyncevent::AsyncEvent,
+            bitfield::Bitfield,
+            buffd::{
+                BufFdError, BufFdIn, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
+                OutBufferSwapchain,
+            },
+            clonecell::CloneCell,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            oserror::OsError,
+            stack::Stack,
+            vec_ext::VecExt,
+        },
+        wheel::{Wheel, WheelError},
+        wire::{
+            wl_callback, wl_display, wl_registry, JayCompositor, JayCompositorId, WlCallbackId,
+            WlRegistryId,
+        },
+    },
+    ahash::AHashMap,
+    log::Level,
+    std::{
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        future::{Future, Pending},
+        mem,
+        rc::Rc,
+        sync::Arc,
+    },
+    thiserror::Error,
+    uapi::{c, format_ustr},
 };
-use crate::utils::clonecell::CloneCell;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsError;
-use crate::utils::stack::Stack;
-use crate::utils::vec_ext::VecExt;
-use crate::wheel::{Wheel, WheelError};
-use crate::wire::{
-    wl_callback, wl_display, wl_registry, JayCompositor, JayCompositorId, WlCallbackId,
-    WlRegistryId,
-};
-use ahash::AHashMap;
-use log::Level;
-use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
-use std::future::{Future, Pending};
-use std::mem;
-use std::rc::Rc;
-use std::sync::Arc;
-use thiserror::Error;
-use uapi::{c, format_ustr};
 
 #[derive(Debug, Error)]
 pub enum ToolClientError {

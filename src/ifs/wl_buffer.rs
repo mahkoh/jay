@@ -1,18 +1,21 @@
-use crate::client::{Client, ClientError};
-use crate::clientmem::{ClientMem, ClientMemError, ClientMemOffset};
-use crate::format::Format;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::render::{Image, RenderError, Texture};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::wire::wl_buffer::*;
-use crate::wire::WlBufferId;
-use std::cell::Cell;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        clientmem::{ClientMem, ClientMemError, ClientMemOffset},
+        format::Format,
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        render::{Image, RenderError, Texture},
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+        },
+        wire::{wl_buffer::*, WlBufferId},
+    },
+    std::{cell::Cell, rc::Rc},
+    thiserror::Error,
+};
 
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },

@@ -1,5 +1,4 @@
-use ahash::AHashMap;
-use once_cell::sync::Lazy;
+use {ahash::AHashMap, once_cell::sync::Lazy};
 
 static BUGS: Lazy<AHashMap<&'static str, Bugs>> = Lazy::new(|| {
     let mut map = AHashMap::new();

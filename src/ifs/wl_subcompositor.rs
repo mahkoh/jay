@@ -1,14 +1,16 @@
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_subcompositor::*;
-use crate::wire::WlSubcompositorId;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_subcompositor::*, WlSubcompositorId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 const BAD_SURFACE: u32 = 0;

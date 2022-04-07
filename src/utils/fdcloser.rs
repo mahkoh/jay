@@ -1,7 +1,11 @@
-use std::mem;
-use std::rc::Rc;
-use std::sync::{Arc, Condvar, Mutex};
-use uapi::OwnedFd;
+use {
+    std::{
+        mem,
+        rc::Rc,
+        sync::{Arc, Condvar, Mutex},
+    },
+    uapi::OwnedFd,
+};
 
 pub struct FdCloser {
     fds: Mutex<Vec<OwnedFd>>,

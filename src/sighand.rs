@@ -1,8 +1,9 @@
-use crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId};
-use std::error::Error;
-use std::rc::Rc;
-use thiserror::Error;
-use uapi::{c, Errno, OwnedFd};
+use {
+    crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId},
+    std::{error::Error, rc::Rc},
+    thiserror::Error,
+    uapi::{c, Errno, OwnedFd},
+};
 
 #[derive(Debug, Error)]
 pub enum SighandError {

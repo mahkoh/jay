@@ -1,23 +1,28 @@
-use crate::backend::Mode;
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_output::WlOutputGlobal;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
-use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
-use crate::rect::Rect;
-use crate::render::{Renderer, Texture};
-use crate::state::State;
-use crate::text;
-use crate::theme::Color;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::linkedlist::LinkedList;
-use std::cell::RefCell;
-use std::fmt::{Debug, Formatter};
-use std::ops::{Deref, Sub};
-use std::rc::Rc;
+use {
+    crate::{
+        backend::Mode,
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::{
+            wl_output::WlOutputGlobal,
+            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+        },
+        rect::Rect,
+        render::{Renderer, Texture},
+        state::State,
+        text,
+        theme::Color,
+        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
+        utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList},
+    },
+    std::{
+        cell::RefCell,
+        fmt::{Debug, Formatter},
+        ops::{Deref, Sub},
+        rc::Rc,
+    },
+};
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
@@ -78,9 +83,9 @@ impl OutputNode {
         }
     }
 
-    pub fn ensure_workspace(self: &Rc<Self>) {
-        if !self.workspaces.is_empty() {
-            return;
+    pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
+        if let Some(ws) = self.workspace.get() {
+            return ws;
         }
         let name = 'name: {
             for i in 1.. {
@@ -107,6 +112,7 @@ impl OutputNode {
             .set(Some(self.workspaces.add_last(workspace.clone())));
         self.show_workspace(&workspace);
         self.update_render_data();
+        workspace
     }
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -236,10 +242,6 @@ impl Node for OutputNode {
 
     fn remove_child(self: Rc<Self>, _child: &dyn Node) {
         unimplemented!();
-    }
-
-    fn leave(&self, seat: &WlSeatGlobal) {
-        seat.leave_output();
     }
 
     fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {

@@ -1,7 +1,7 @@
-use crate::cli::GlobalArgs;
-use crate::tools::tool_client::ToolClient;
-use crate::wire::jay_compositor::Quit;
-use std::rc::Rc;
+use {
+    crate::{cli::GlobalArgs, tools::tool_client::ToolClient, wire::jay_compositor::Quit},
+    std::rc::Rc,
+};
 
 pub fn main(global: GlobalArgs) {
     let tc = ToolClient::new(global.log_level.into());

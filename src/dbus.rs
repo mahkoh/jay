@@ -1,25 +1,35 @@
-use crate::async_engine::{AsyncEngine, AsyncError, AsyncFd, SpawnedFuture};
-use crate::dbus::property::GetReply;
-use crate::dbus::types::{ObjectPath, Signature, Variant};
-use crate::utils::bufio::{BufIo, BufIoError};
-use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::numcell::NumCell;
-use crate::utils::run_toplevel::RunToplevel;
-use crate::utils::vecstorage::VecStorage;
-use ahash::AHashMap;
-use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
-use std::fmt::{Debug, Display};
-use std::future::Future;
-use std::marker::PhantomData;
-use std::mem;
-use std::pin::Pin;
-use std::rc::Rc;
-use std::task::{Context, Poll, Waker};
-use thiserror::Error;
 pub use types::*;
-use uapi::OwnedFd;
+use {
+    crate::{
+        async_engine::{AsyncEngine, AsyncError, AsyncFd, SpawnedFuture},
+        dbus::{
+            property::GetReply,
+            types::{ObjectPath, Signature, Variant},
+        },
+        utils::{
+            bufio::{BufIo, BufIoError},
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            numcell::NumCell,
+            run_toplevel::RunToplevel,
+            vecstorage::VecStorage,
+        },
+    },
+    ahash::AHashMap,
+    std::{
+        borrow::Cow,
+        cell::{Cell, RefCell},
+        fmt::{Debug, Display},
+        future::Future,
+        marker::PhantomData,
+        mem,
+        pin::Pin,
+        rc::Rc,
+        task::{Context, Poll, Waker},
+    },
+    thiserror::Error,
+    uapi::OwnedFd,
+};
 
 mod auth;
 mod dynamic_type;
@@ -468,11 +478,12 @@ struct InterfaceSignalHandlers {
 }
 
 pub mod prelude {
-    pub use super::{
-        types::{Bool, DictEntry, ObjectPath, Signature, Variant},
-        DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property, Signal,
+    pub use {
+        super::{
+            types::{Bool, DictEntry, ObjectPath, Signature, Variant},
+            DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property, Signal,
+        },
+        std::{borrow::Cow, rc::Rc},
+        uapi::OwnedFd,
     };
-    pub use std::borrow::Cow;
-    pub use std::rc::Rc;
-    pub use uapi::OwnedFd;
 }

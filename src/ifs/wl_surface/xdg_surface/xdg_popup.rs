@@ -1,25 +1,32 @@
-use crate::client::{Client, ClientError};
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
-use crate::ifs::wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt};
-use crate::ifs::xdg_positioner::{XdgPositioned, XdgPositioner, CA};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::rect::Rect;
-use crate::render::Renderer;
-use crate::tree::walker::NodeVisitor;
-use crate::tree::{FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode};
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::utils::clonecell::CloneCell;
-use crate::utils::linkedlist::LinkedNode;
-use crate::wire::xdg_popup::*;
-use crate::wire::XdgPopupId;
-use std::cell::{Cell, RefCell};
-use std::fmt::{Debug, Formatter};
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::{
+            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+            xdg_positioner::{XdgPositioned, XdgPositioner, CA},
+        },
+        leaks::Tracker,
+        object::Object,
+        rect::Rect,
+        render::Renderer,
+        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, WorkspaceNode},
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+            linkedlist::LinkedNode,
+        },
+        wire::{xdg_popup::*, XdgPopupId},
+    },
+    std::{
+        cell::{Cell, RefCell},
+        fmt::{Debug, Formatter},
+        rc::Rc,
+    },
+    thiserror::Error,
+};
 
 #[allow(dead_code)]
 const INVALID_GRAB: u32 = 1;

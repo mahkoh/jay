@@ -1,37 +1,40 @@
-use crate::acceptor::{Acceptor, AcceptorError};
-use crate::async_engine::{AsyncEngine, AsyncError, Phase};
-use crate::backends::dummy::DummyOutput;
-use crate::cli::{GlobalArgs, RunArgs};
-use crate::client::Clients;
-use crate::clientmem::ClientMemError;
-use crate::config::ConfigProxy;
-use crate::dbus::Dbus;
-use crate::event_loop::{EventLoop, EventLoopError};
-use crate::globals::Globals;
-use crate::ifs::wl_output::WlOutputGlobal;
-use crate::ifs::wl_surface::NoneSurfaceExt;
-use crate::logger::Logger;
-use crate::render::RenderError;
-use crate::sighand::SighandError;
-use crate::state::{ConnectorData, State};
-use crate::tree::{
-    container_layout, container_render_data, float_layout, float_titles, DisplayNode, NodeIds,
-    OutputNode, WorkspaceNode,
+use {
+    crate::{
+        acceptor::{Acceptor, AcceptorError},
+        async_engine::{AsyncEngine, AsyncError, Phase},
+        backend,
+        backends::dummy::DummyOutput,
+        cli::{GlobalArgs, RunArgs},
+        client::Clients,
+        clientmem::{self, ClientMemError},
+        config::ConfigProxy,
+        dbus::Dbus,
+        event_loop::{EventLoop, EventLoopError},
+        forker,
+        globals::Globals,
+        ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
+        leaks,
+        logger::Logger,
+        render::{self, RenderError},
+        sighand::{self, SighandError},
+        state::{ConnectorData, State},
+        tasks,
+        tree::{
+            container_layout, container_render_data, float_layout, float_titles, DisplayNode,
+            NodeIds, OutputNode, WorkspaceNode,
+        },
+        utils::{
+            clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, queue::AsyncQueue,
+            run_toplevel::RunToplevel,
+        },
+        wheel::{Wheel, WheelError},
+        xkbcommon::XkbContext,
+        xwayland,
+    },
+    forker::ForkerProxy,
+    std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc},
+    thiserror::Error,
 };
-use crate::utils::clonecell::CloneCell;
-use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::fdcloser::FdCloser;
-use crate::utils::queue::AsyncQueue;
-use crate::utils::run_toplevel::RunToplevel;
-use crate::wheel::{Wheel, WheelError};
-use crate::xkbcommon::XkbContext;
-use crate::{backend, clientmem, forker, leaks, render, sighand, tasks, xwayland};
-use forker::ForkerProxy;
-use std::cell::Cell;
-use std::ops::Deref;
-use std::rc::Rc;
-use std::sync::Arc;
-use thiserror::Error;
 
 pub const MAX_EXTENTS: i32 = (1 << 24) - 1;
 
@@ -115,6 +118,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
         fdcloser: FdCloser::new(),
         logger,
         connectors: Default::default(),
+        outputs: Default::default(),
     });
     {
         let dummy_output = Rc::new(OutputNode {
@@ -125,9 +129,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
                     connector: Rc::new(DummyOutput {
                         id: state.connector_ids.next(),
                     }),
-                    monitor_info: Default::default(),
                     handler: Cell::new(None),
-                    node: Default::default(),
                     connected: Cell::new(true),
                 }),
                 0,

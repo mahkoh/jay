@@ -1,15 +1,16 @@
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::ipc::wl_data_device::WlDataDevice;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
-use crate::wire::wl_data_device_manager::*;
-use crate::wire::WlDataDeviceManagerId;
-use std::rc::Rc;
-use thiserror::Error;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::ipc::{wl_data_device::WlDataDevice, wl_data_source::WlDataSource},
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{wl_data_device_manager::*, WlDataDeviceManagerId},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub(super) const DND_NONE: u32 = 0;
 #[allow(dead_code)]
