@@ -1,5 +1,5 @@
 use {
-    crate::{video::drm::ConnectorType, fixed::Fixed},
+    crate::{fixed::Fixed, video::drm::ConnectorType},
     std::{
         fmt::{Debug, Display, Formatter},
         rc::Rc,

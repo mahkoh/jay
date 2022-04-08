@@ -1,4 +1,3 @@
-use std::ops::Not;
 use {
     crate::{
         client::Client,
@@ -27,7 +26,7 @@ use {
     jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
-        ops::{Deref},
+        ops::{Deref, Not},
         rc::Rc,
     },
     thiserror::Error,
@@ -142,7 +141,6 @@ pub struct Xwindow {
     pub events: Rc<AsyncQueue<XWaylandEvent>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
-    pub display_xlink: RefCell<Option<LinkedNode<Rc<Xwindow>>>>,
     pub toplevel_data: ToplevelData,
 }
 
@@ -219,7 +217,6 @@ impl Xwindow {
             events: events.clone(),
             workspace: Default::default(),
             display_link: Default::default(),
-            display_xlink: Default::default(),
             toplevel_data: Default::default(),
         }
     }
@@ -279,8 +276,6 @@ impl Xwindow {
             Change::Map if self.data.info.override_redirect.get() => {
                 *self.display_link.borrow_mut() =
                     Some(self.data.state.root.stacked.add_last(self.clone()));
-                *self.display_xlink.borrow_mut() =
-                    Some(self.data.state.root.xstacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
             Change::Map if self.data.info.wants_floating.get() => {
@@ -334,13 +329,21 @@ impl Node for Xwindow {
         self.id.into()
     }
 
+    fn visible(&self) -> bool {
+        self.surface.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.surface.set_visible(visible);
+        self.seat_state.set_visible(self, visible);
+    }
+
     fn seat_state(&self) -> &NodeSeatState {
         &self.seat_state
     }
 
     fn destroy_node(&self, _detach: bool) {
         self.toplevel_data.clear();
-        self.display_xlink.borrow_mut().take();
         self.display_link.borrow_mut().take();
         self.workspace.take();
         self.focus_history.clear();
@@ -449,7 +452,8 @@ impl ToplevelNode for Xwindow {
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
-        self.data.info.never_focus.get().not() && self.data.info.input_model.get() != XInputModel::None
+        self.data.info.never_focus.get().not()
+            && self.data.info.input_model.get() != XInputModel::None
     }
 
     fn default_surface(&self) -> Rc<WlSurface> {
@@ -481,6 +485,10 @@ impl ToplevelNode for Xwindow {
                 .state
                 .map_floating(self.clone(), extents.width(), extents.height(), &ws);
         }
+    }
+
+    fn close(&self) {
+        self.events.push(XWaylandEvent::Close(self.data.clone()));
     }
 }
 

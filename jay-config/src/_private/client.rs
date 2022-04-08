@@ -296,6 +296,10 @@ impl Client {
         self.send(&ClientMessage::CreateSplit { seat, axis });
     }
 
+    pub fn close(&self, seat: Seat) {
+        self.send(&ClientMessage::Close { seat });
+    }
+
     pub fn focus_parent(&self, seat: Seat) {
         self.send(&ClientMessage::FocusParent { seat });
     }

@@ -1,16 +1,16 @@
 use {
     crate::{
         client::{Client, ClientError},
-        video::{
-            dma::{DmaBuf, DmaBufPlane},
-            INVALID_MODIFIER,
-        },
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
         object::Object,
         render::RenderError,
         utils::buffd::{MsgParser, MsgParserError},
+        video::{
+            dma::{DmaBuf, DmaBufPlane},
+            INVALID_MODIFIER,
+        },
         wire::{wl_drm::*, WlDrmId},
     },
     bstr::ByteSlice,

@@ -1,11 +1,11 @@
 use {
     crate::{
+        format::formats,
         video::{
             dma::{DmaBuf, DmaBufPlane},
             drm::{Drm, DrmError},
             ModifiedFormat, INVALID_MODIFIER,
         },
-        format::formats,
     },
     std::{
         fmt::{Debug, Formatter},

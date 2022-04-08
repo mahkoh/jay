@@ -3,13 +3,13 @@
 
 use {
     crate::{
+        utils::{bitflags::BitflagsExt, oserror::OsError, trim::AsciiTrim},
         video::drm::{
             DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
             DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
             DrmPropertyDefinition, DrmPropertyEnumValue, DrmPropertyType, DrmPropertyValue,
             NodeType,
         },
-        utils::{bitflags::BitflagsExt, oserror::OsError, trim::AsciiTrim},
     },
     ahash::AHashMap,
     bstr::ByteSlice,

@@ -18,6 +18,7 @@ pub trait ToplevelNode {
     fn set_active(&self, active: bool);
     fn activate(&self);
     fn toggle_floating(self: Rc<Self>);
+    fn close(&self);
 }
 
 #[derive(Default)]

@@ -274,6 +274,11 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn close(self: &Rc<Self>) {
+        let kb_node = self.keyboard_node.get();
+        kb_node.close();
+    }
+
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
         kb_node.move_focus(self, direction);

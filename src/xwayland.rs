@@ -271,4 +271,5 @@ pub enum XWaylandEvent {
     SurfaceDestroyed(WlSurfaceId),
     Configure(Rc<Xwindow>),
     Activate(Rc<XwindowData>),
+    Close(Rc<XwindowData>),
 }

@@ -74,6 +74,11 @@ pub trait Node {
     fn destroy_node(&self, detach: bool);
     fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn visit_children(&self, visitor: &mut dyn NodeVisitor);
+    fn visible(&self) -> bool;
+
+    fn set_visible(&self, visible: bool) {
+        let _ = visible;
+    }
 
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
@@ -134,6 +139,10 @@ pub trait Node {
         let _ = direction;
     }
 
+    fn close(&self) {
+        // nothing
+    }
+
     fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let _ = seat;
         let _ = direction;
@@ -144,7 +153,7 @@ pub trait Node {
     }
 
     fn move_focus_from_child(
-        &self,
+        self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
         child: &dyn Node,
         direction: Direction,

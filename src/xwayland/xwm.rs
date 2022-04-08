@@ -55,6 +55,7 @@ atoms! {
 
     CLIPBOARD,
     CLIPBOARD_MANAGER,
+    COMPOUND_TEXT,
     DELETE,
     INCR,
     _MOTIF_WM_HINTS,
@@ -370,6 +371,7 @@ impl Wm {
             XWaylandEvent::Configure(event) => self.handle_xwayland_configure(event).await,
             XWaylandEvent::SurfaceDestroyed(event) => self.handle_xwayland_surface_destroyed(event),
             XWaylandEvent::Activate(window) => self.activate_window(Some(&window)).await,
+            XWaylandEvent::Close(window) => self.close_window(&window).await,
         }
     }
 
@@ -534,7 +536,7 @@ impl Wm {
             Ok(ty) if ty == ATOM_STRING => {}
             Ok(ty) if ty == self.atoms.UTF8_STRING => {}
             Ok(ty) => {
-                log::error!("WM_WINDOW_ROLE property has unexpected type {}", ty);
+                self.unexpected_type(data.window_id, "WM_WINDOW_ROLE", ty).await;
                 return;
             }
             Err(XconError::PropertyUnavailable) => {
@@ -563,7 +565,7 @@ impl Wm {
             Ok(ty) if ty == ATOM_STRING => {}
             Ok(ty) if ty == self.atoms.UTF8_STRING => {}
             Ok(ty) => {
-                log::error!("WM_CLASS property has unexpected type {}", ty);
+                self.unexpected_type(data.window_id, "WM_CLASS", ty).await;
                 return;
             }
             Err(XconError::PropertyUnavailable) => {
@@ -590,11 +592,12 @@ impl Wm {
         {
             Ok(ty) if ty == ATOM_STRING && data.info.utf8_title.get() => return,
             Ok(ty) if ty == ATOM_STRING => {}
+            Ok(ty) if ty == self.atoms.COMPOUND_TEXT => {} // used by java. assume utf-8.
             Ok(ty) if ty == self.atoms.UTF8_STRING => {
                 data.info.utf8_title.set(true);
             }
             Ok(ty) => {
-                log::error!("{} property has unexpected type {}", name, ty);
+                self.unexpected_type(data.window_id, name, ty).await;
                 return;
             }
             Err(XconError::PropertyUnavailable) => return,
@@ -605,6 +608,15 @@ impl Wm {
         }
         *data.info.title.borrow_mut() = Some(buf.as_bstr().to_string());
         data.title_changed();
+    }
+
+    async fn unexpected_type(&self, window: u32, prop: &str, ty: u32) {
+        let mut ty_name = "unknown".as_bytes().as_bstr();
+        let res = self.c.call(&GetAtomName { atom: ty }).await;
+        if let Ok(res) = &res {
+            ty_name = res.get().name;
+        }
+        log::error!("Property {} of window {} has unexpected type {} ({})", prop, window, ty_name, ty);
     }
 
     async fn load_window_wm_name(&self, data: &Rc<XwindowData>) {
@@ -786,7 +798,7 @@ impl Wm {
             Ok(ty) if ty == ATOM_STRING => {}
             Ok(ty) if ty == self.atoms.UTF8_STRING => {}
             Ok(ty) => {
-                log::error!("_NET_STARTUP_ID property has unexpected type {}", ty);
+                self.unexpected_type(data.window_id, "_NET_STARTUP_ID", ty).await;
                 return;
             }
             Err(XconError::PropertyUnavailable) => return,

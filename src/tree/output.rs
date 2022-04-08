@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use {
     crate::{
         backend::Mode,
@@ -8,6 +7,7 @@ use {
             wl_output::WlOutputGlobal,
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+            zwlr_layer_shell_v1::{BACKGROUND, BOTTOM},
         },
         rect::Rect,
         render::{Renderer, Texture},
@@ -18,13 +18,12 @@ use {
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList},
     },
     std::{
-        cell::RefCell,
+        cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
         ops::{Deref, Sub},
         rc::Rc,
     },
 };
-use crate::ifs::zwlr_layer_shell_v1::{BACKGROUND, BOTTOM};
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
@@ -119,12 +118,13 @@ impl OutputNode {
     }
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) {
-        ws.visible.set(true);
         if let Some(old) = self.workspace.set(Some(ws.clone())) {
-            if old.id != ws.id {
-                old.visible.set(false);
+            if old.id == ws.id {
+                return;
             }
+            old.visible.set(false);
         }
+        ws.visible.set(true);
         ws.clone().change_extents(&self.workspace_rect());
     }
 
@@ -172,7 +172,13 @@ impl OutputNode {
         self.global.send_mode();
     }
 
-    pub fn find_layer_surface_at(&self, x: i32, y: i32, layers: &[u32], tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    pub fn find_layer_surface_at(
+        &self,
+        x: i32,
+        y: i32,
+        layers: &[u32],
+        tree: &mut Vec<FoundNode>,
+    ) -> FindTreeResult {
         let len = tree.len();
         for layer in layers.iter().copied() {
             for surface in self.layers[layer as usize].rev_iter() {
@@ -216,6 +222,10 @@ impl Node for OutputNode {
 
     fn seat_state(&self) -> &NodeSeatState {
         &self.seat_state
+    }
+
+    fn visible(&self) -> bool {
+        true
     }
 
     fn destroy_node(&self, detach: bool) {

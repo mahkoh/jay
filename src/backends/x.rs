@@ -6,11 +6,6 @@ use {
             InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
             KeyState, Mode, MonitorInfo, ScrollAxis,
         },
-        video::{
-            drm::{ConnectorType, Drm, DrmError},
-            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
-            ModifiedFormat, INVALID_MODIFIER,
-        },
         fixed::Fixed,
         format::XRGB8888,
         render::{Framebuffer, RenderContext, RenderError},
@@ -18,6 +13,11 @@ use {
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             queue::AsyncQueue, syncqueue::SyncQueue,
+        },
+        video::{
+            drm::{ConnectorType, Drm, DrmError},
+            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
+            ModifiedFormat, INVALID_MODIFIER,
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,

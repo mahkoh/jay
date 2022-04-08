@@ -5,6 +5,14 @@ use {
             BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo,
         },
         backends::metal::{DrmId, MetalBackend, MetalError},
+        edid::Descriptor,
+        format::{Format, XRGB8888},
+        render::{Framebuffer, RenderContext},
+        state::State,
+        utils::{
+            bitflags::BitflagsExt, clonecell::CloneCell, debug_fn::debug_fn, errorfmt::ErrorFmt,
+            numcell::NumCell, oserror::OsError, syncqueue::SyncQueue,
+        },
         video::{
             drm::{
                 drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector,
@@ -15,14 +23,6 @@ use {
             },
             gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             ModifiedFormat, INVALID_MODIFIER,
-        },
-        edid::Descriptor,
-        format::{Format, XRGB8888},
-        render::{Framebuffer, RenderContext},
-        state::State,
-        utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, debug_fn::debug_fn, errorfmt::ErrorFmt,
-            numcell::NumCell, oserror::OsError, syncqueue::SyncQueue,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -280,10 +280,10 @@ fn create_connector(
             if let Some(d) = descriptor {
                 match d {
                     Descriptor::DisplayProductSerialNumber(s) => {
-                        serial_number = s.to_string();
+                        serial_number = s.clone();
                     }
                     Descriptor::DisplayProductName(s) => {
-                        name = s.to_string();
+                        name = s.clone();
                     }
                     _ => {}
                 }

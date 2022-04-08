@@ -84,6 +84,7 @@ pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
     pub client: Rc<Client>,
+    visible: Cell<bool>,
     role: Cell<SurfaceRole>,
     pending: PendingState,
     input_region: Cell<Option<Rc<Region>>>,
@@ -199,6 +200,7 @@ impl WlSurface {
             id,
             node_id: client.state.node_ids.next(),
             client: client.clone(),
+            visible: Cell::new(false),
             role: Cell::new(SurfaceRole::None),
             pending: Default::default(),
             input_region: Cell::new(None),
@@ -622,6 +624,27 @@ tree_id!(SurfaceNodeId);
 impl Node for WlSurface {
     fn id(&self) -> NodeId {
         self.node_id.into()
+    }
+
+    fn close(&self) {
+        if let Some(tl) = self.toplevel.get() {
+            tl.close();
+        }
+    }
+
+    fn visible(&self) -> bool {
+        self.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        let children = self.children.borrow_mut();
+        if let Some(children) = children.deref() {
+            for child in children.subsurfaces.values() {
+                child.surface.set_visible(visible);
+            }
+        }
+        self.seat_state.set_visible(self, visible);
     }
 
     fn seat_state(&self) -> &NodeSeatState {

@@ -370,6 +370,10 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.surface.clone().visit(visitor);
     }
 
+    fn visible(&self) -> bool {
+        true
+    }
+
     fn absolute_position(&self) -> Rect {
         self.pos.get()
     }

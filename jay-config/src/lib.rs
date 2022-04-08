@@ -25,6 +25,7 @@ pub enum LogLevel {
 
 #[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Direction {
+    Unspecified,
     Left,
     Down,
     Up,

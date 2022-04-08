@@ -143,6 +143,12 @@ impl XdgToplevel {
         self.send_configure(width, height)
     }
 
+    fn send_close(&self) {
+        self.xdg.surface.client.event(Close {
+            self_id: self.id,
+        });
+    }
+
     fn send_configure(&self, width: i32, height: i32) {
         let states: Vec<_> = self.states.borrow().iter().copied().collect();
         self.xdg.surface.client.event(Configure {
@@ -384,6 +390,15 @@ impl Node for XdgToplevel {
         visitor.visit_surface(&self.xdg.surface);
     }
 
+    fn visible(&self) -> bool {
+        self.xdg.surface.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.xdg.surface.set_visible(visible);
+        self.xdg.seat_state.set_visible(self, visible);
+    }
+
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.xdg.workspace.get()
     }
@@ -508,6 +523,10 @@ impl ToplevelNode for XdgToplevel {
             self.map_floating(&ws);
         }
     }
+
+    fn close(&self) {
+        self.send_close();
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
@@ -546,12 +565,12 @@ impl XdgSurfaceExt for XdgToplevel {
                     }
                 }
             }
-            {
-                let seats = surface.client.state.globals.lock_seats();
-                for seat in seats.values() {
-                    seat.focus_toplevel(self.clone());
-                }
-            }
+            // {
+            //     let seats = surface.client.state.globals.lock_seats();
+            //     for seat in seats.values() {
+            //         seat.focus_toplevel(self.clone());
+            //     }
+            // }
             surface.client.state.tree_changed();
         }
     }

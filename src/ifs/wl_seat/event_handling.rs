@@ -81,16 +81,32 @@ impl NodeSeatState {
     }
 
     pub fn release_kb_focus(&self) {
+        self.release_kb_focus2(true);
+    }
+
+    fn release_kb_focus2(&self, focus_last: bool) {
         while let Some((_, seat)) = self.kb_foci.pop() {
             seat.ungrab_kb();
             seat.keyboard_node.set(seat.state.root.clone());
-            if let Some(tl) = seat.toplevel_focus_history.last() {
-                seat.focus_node(tl.focus_surface(seat.id));
+            if focus_last {
+                if let Some(tl) = seat.toplevel_focus_history.last() {
+                    seat.focus_node(tl.focus_surface(seat.id));
+                }
             }
         }
     }
 
+    pub fn for_each_kb_focus<F: FnMut(Rc<WlSeatGlobal>)>(&self, mut f: F) {
+        self.kb_foci.iter().for_each(|(_, s)| f(s));
+    }
+
     pub fn destroy_node(&self, node: &dyn Node) {
+        self.destroy_node2(node, true);
+    }
+
+    fn destroy_node2(&self, node: &dyn Node, focus_last: bool) {
+        // NOTE: Also called by set_visible(false)
+
         while let Some((_, seat)) = self.grabs.pop() {
             seat.pointer_owner.revert_to_default(&seat);
         }
@@ -109,7 +125,16 @@ impl NodeSeatState {
             }
             seat.state.tree_changed();
         }
-        self.release_kb_focus();
+        self.release_kb_focus2(focus_last);
+    }
+
+    pub fn set_visible(&self, node: &dyn Node, visible: bool) {
+        if !visible {
+            if !self.kb_foci.is_empty() {
+                node.active_changed(false);
+            }
+            self.destroy_node2(node, false);
+        }
     }
 }
 

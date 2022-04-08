@@ -347,9 +347,9 @@ pub struct DetailedTimingDescriptor {
 pub enum Descriptor {
     Unknown(u8),
     DetailedTimingDescriptor(DetailedTimingDescriptor),
-    DisplayProductSerialNumber(BString),
-    AlphanumericDataString(BString),
-    DisplayProductName(BString),
+    DisplayProductSerialNumber(String),
+    AlphanumericDataString(String),
+    DisplayProductName(String),
     DisplayRangeLimitsAndAdditionalTiming(DisplayRangeLimitsAndAdditionalTiming),
     EstablishedTimings3(EstablishedTimings3),
     ColorManagementData(ColorManagementData),
@@ -880,11 +880,15 @@ impl<'a> EdidParser<'a> {
         let _ctx = self.push_ctx(EdidParseContext::Descriptor);
         let b = self.read_n::<18>()?;
         let str = || {
-            let s = &b[5..];
-            match s.find_byte(b'\n') {
-                Some(n) => s[..n].as_bstr().to_owned(),
-                _ => s.as_bstr().to_owned(),
+            let mut s = &b[5..];
+            if let Some(n) = s.find_byte(b'\n') {
+                s = &s[..n];
+            };
+            let mut res = String::new();
+            for &b in s {
+                res.push_str(CP437[b as usize]);
             }
+            res
         };
         let res = if (b[0], b[1]) == (0, 0) {
             match b[3] {
@@ -1079,3 +1083,20 @@ pub fn parse(data: &[u8]) -> Result<EdidFile, EdidError> {
     };
     parser.parse()
 }
+
+const CP437: &[&str] = &[
+    "\u{0}", "☺", "☻", "♥", "♦", "♣", "♠", "•", "◘", "○", "◙", "♂", "♀", "♪", "♫", "☼", "►", "◄",
+    "↕", "‼", "¶", "§", "▬", "↨", "↑", "↓", "→", "←", "∟", "↔", "▲", "▼", " ", "!", "\"", "#", "$",
+    "%", "&", "'", "(", ")", "*", "+", ",", "-", ".", "/", "0", "1", "2", "3", "4", "5", "6", "7",
+    "8", "9", ":", ";", "<", "=", ">", "?", "@", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+    "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "[", "\\", "]",
+    "^", "_", "`", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
+    "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "{", "|", "}", "~", "⌂", "Ç", "ü", "é", "â",
+    "ä", "à", "å", "ç", "ê", "ë", "è", "ï", "î", "ì", "Ä", "Å", "É", "æ", "Æ", "ô", "ö", "ò", "û",
+    "ù", "ÿ", "Ö", "Ü", "¢", "£", "¥", "₧", "ƒ", "á", "í", "ó", "ú", "ñ", "Ñ", "ª", "º", "¿", "⌐",
+    "¬", "½", "¼", "¡", "«", "»", "░", "▒", "▓", "│", "┤", "╡", "╢", "╖", "╕", "╣", "║", "╗", "╝",
+    "╜", "╛", "┐", "└", "┴", "┬", "├", "─", "┼", "╞", "╟", "╚", "╔", "╩", "╦", "╠", "═", "╬", "╧",
+    "╨", "╤", "╥", "╙", "╘", "╒", "╓", "╫", "╪", "┘", "┌", "█", "▄", "▌", "▐", "▀", "α", "ß", "Γ",
+    "π", "Σ", "σ", "µ", "τ", "Φ", "Θ", "Ω", "δ", "∞", "φ", "ε", "∩", "≡", "±", "≥", "≤", "⌠", "⌡",
+    "÷", "≈", "°", "∙", "·", "√", "ⁿ", "²", "■", "\u{a0}",
+];

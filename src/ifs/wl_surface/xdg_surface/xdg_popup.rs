@@ -288,6 +288,15 @@ impl Node for XdgPopup {
         visitor.visit_surface(&self.xdg.surface);
     }
 
+    fn visible(&self) -> bool {
+        self.xdg.surface.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.xdg.surface.set_visible(visible);
+        self.xdg.seat_state.set_visible(self, visible);
+    }
+
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.xdg.workspace.get()
     }

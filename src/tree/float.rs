@@ -327,6 +327,18 @@ impl Node for FloatNode {
         &self.seat_state
     }
 
+    fn visible(&self) -> bool {
+        self.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        if let Some(child) = self.child.get() {
+            child.set_visible(visible);
+        }
+        self.seat_state.set_visible(self, visible);
+    }
+
     fn destroy_node(&self, _detach: bool) {
         let _v = self.display_link.take();
         let _v = self.workspace_link.take();

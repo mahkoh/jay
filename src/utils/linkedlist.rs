@@ -9,6 +9,8 @@ use {
     },
 };
 
+const LINKED_NODE_REF_COUNT: usize = !(!0 >> 1);
+
 pub struct LinkedList<T> {
     root: LinkedNode<T>,
 }
@@ -28,7 +30,7 @@ impl<T> Default for LinkedList<T> {
 impl<T> LinkedList<T> {
     pub fn new() -> Self {
         let node = Box::into_raw(Box::new(NodeData {
-            rc: NumCell::new(1),
+            rc: NumCell::new(LINKED_NODE_REF_COUNT),
             prev: Cell::new(NonNull::dangling()),
             next: Cell::new(NonNull::dangling()),
             data: None,
@@ -226,6 +228,14 @@ impl<T> NodeRef<T> {
         unsafe { append(self.data, t) }
     }
 
+    pub fn prepend_existing(&self, t: &NodeRef<T>) {
+        unsafe { prepend_existing(self.data, t) }
+    }
+
+    pub fn append_existing(&self, t: &NodeRef<T>) {
+        unsafe { append_existing(self.data, t) }
+    }
+
     fn peer<F>(&self, peer: F) -> Option<NodeRef<T>>
     where
         F: FnOnce(&NodeData<T>) -> &Cell<NonNull<NodeData<T>>>,
@@ -249,6 +259,14 @@ impl<T> NodeRef<T> {
     pub fn next(&self) -> Option<NodeRef<T>> {
         self.peer(|d| &d.next)
     }
+
+    unsafe fn detach(&self) {
+        let data = self.data.as_ref();
+        data.prev.get().as_ref().next.set(data.next.get());
+        data.next.get().as_ref().prev.set(data.prev.get());
+        data.prev.set(self.data);
+        data.next.set(self.data);
+    }
 }
 
 struct NodeData<T> {
@@ -267,27 +285,13 @@ unsafe fn dec_ref_count<T>(slf: NonNull<NodeData<T>>, n: usize) {
 impl<T> Drop for LinkedNode<T> {
     fn drop(&mut self) {
         unsafe {
-            {
-                let data = self.data.as_ref();
-                data.prev.get().as_ref().next.set(data.next.get());
-                data.next.get().as_ref().prev.set(data.prev.get());
-                data.prev.set(self.data);
-                data.next.set(self.data);
-            }
-            dec_ref_count(self.data, 1);
+            self.detach();
+            dec_ref_count(self.data, LINKED_NODE_REF_COUNT);
         }
     }
 }
 
 impl<T> LinkedNode<T> {
-    pub fn prepend(&self, t: T) -> LinkedNode<T> {
-        unsafe { prepend(self.data, t) }
-    }
-
-    pub fn append(&self, t: T) -> LinkedNode<T> {
-        unsafe { append(self.data, t) }
-    }
-
     pub fn to_ref(&self) -> NodeRef<T> {
         unsafe {
             self.data.as_ref().rc.fetch_add(1);
@@ -296,10 +300,24 @@ impl<T> LinkedNode<T> {
     }
 }
 
+unsafe fn prepend_existing<T>(data: NonNull<NodeData<T>>, t: &NodeRef<T>) {
+    let dref = data.as_ref();
+    let tref = t.data.as_ref();
+    if tref.rc.get() < LINKED_NODE_REF_COUNT {
+        log::error!("Trying to prepend a node whose linked node has already been dropped");
+        return;
+    }
+    t.detach();
+    tref.prev.set(dref.prev.get());
+    tref.next.set(data);
+    dref.prev.get().as_ref().next.set(t.data);
+    dref.prev.set(t.data);
+}
+
 unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     let dref = data.as_ref();
     let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-        rc: NumCell::new(1),
+        rc: NumCell::new(LINKED_NODE_REF_COUNT),
         prev: Cell::new(dref.prev.get()),
         next: Cell::new(data),
         data: Some(t),
@@ -309,10 +327,24 @@ unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     LinkedNode { data: node }
 }
 
+unsafe fn append_existing<T>(data: NonNull<NodeData<T>>, t: &NodeRef<T>) {
+    let dref = data.as_ref();
+    let tref = t.data.as_ref();
+    if tref.rc.get() < LINKED_NODE_REF_COUNT {
+        log::error!("Trying to append a node whose linked node has already been dropped");
+        return;
+    }
+    t.detach();
+    tref.prev.set(data);
+    tref.next.set(dref.next.get());
+    dref.next.get().as_ref().prev.set(t.data);
+    dref.next.set(t.data);
+}
+
 unsafe fn append<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     let dref = data.as_ref();
     let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
-        rc: NumCell::new(1),
+        rc: NumCell::new(LINKED_NODE_REF_COUNT),
         prev: Cell::new(data),
         next: Cell::new(dref.next.get()),
         data: Some(t),

@@ -132,6 +132,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_close(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.close();
+        Ok(())
+    }
+
     fn handle_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focus(direction);
@@ -763,6 +769,9 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetPosition { connector, x, y } => self
                 .handle_connector_set_position(connector, x, y)
                 .wrn("connector_set_position")?,
+            ClientMessage::Close { seat } => self
+                .handle_close(seat)
+                .wrn("close")?,
         }
         Ok(())
     }

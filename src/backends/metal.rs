@@ -11,7 +11,6 @@ use {
         },
         backends::metal::video::{MetalDrmDevice, PendingDrmDevice},
         dbus::DbusError,
-        video::{drm::DrmError, gbm::GbmError},
         libinput::{
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
@@ -35,6 +34,7 @@ use {
             smallmap::SmallMap,
             syncqueue::SyncQueue,
         },
+        video::{drm::DrmError, gbm::GbmError},
     },
     std::{
         cell::{Cell, RefCell},

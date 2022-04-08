@@ -48,6 +48,18 @@ impl Node for WorkspaceNode {
         &self.seat_state
     }
 
+    fn visible(&self) -> bool {
+        self.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        if let Some(container) = self.container.get() {
+            container.set_visible(visible);
+        }
+        self.seat_state.set_visible(self, visible);
+    }
+
     fn destroy_node(&self, detach: bool) {
         if detach {
             self.output.get().remove_child(self);

@@ -4,7 +4,6 @@ use {
         cursor::KnownCursor,
         ifs::{
             wl_seat::{NodeSeatState, WlSeatGlobal},
-            wl_surface::xwindow::Xwindow,
             zwlr_layer_shell_v1::{OVERLAY, TOP},
         },
         tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode},
@@ -17,7 +16,6 @@ pub struct DisplayNode {
     pub id: NodeId,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
-    pub xstacked: LinkedList<Rc<Xwindow>>,
     pub seat_state: NodeSeatState,
 }
 
@@ -27,7 +25,6 @@ impl DisplayNode {
             id,
             outputs: Default::default(),
             stacked: Default::default(),
-            xstacked: Default::default(),
             seat_state: Default::default(),
         }
     }
@@ -40,6 +37,10 @@ impl Node for DisplayNode {
 
     fn seat_state(&self) -> &NodeSeatState {
         &self.seat_state
+    }
+
+    fn visible(&self) -> bool {
+        true
     }
 
     fn destroy_node(&self, _detach: bool) {
@@ -79,7 +80,9 @@ impl Node for DisplayNode {
                     x,
                     y,
                 });
-                if output.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree) == FindTreeResult::AcceptsInput {
+                if output.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree)
+                    == FindTreeResult::AcceptsInput
+                {
                     return FindTreeResult::AcceptsInput;
                 }
                 tree.pop();

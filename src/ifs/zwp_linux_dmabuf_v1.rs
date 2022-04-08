@@ -1,12 +1,12 @@
 use {
     crate::{
         client::{Client, ClientError},
-        video::INVALID_MODIFIER,
         globals::{Global, GlobalName},
         ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
+        video::INVALID_MODIFIER,
         wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufV1Id},
     },
     std::rc::Rc,

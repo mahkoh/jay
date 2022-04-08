@@ -117,6 +117,10 @@ impl Seat {
         get!().focus_parent(self);
     }
 
+    pub fn close(self) {
+        get!().close(self);
+    }
+
     pub fn toggle_floating(self) {
         get!().toggle_floating(self);
     }

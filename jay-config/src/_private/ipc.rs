@@ -146,6 +146,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         axis: Axis,
     },
+    Close {
+        seat: Seat,
+    },
     FocusParent {
         seat: Seat,
     },

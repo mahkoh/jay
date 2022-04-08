@@ -21,6 +21,7 @@ use jay_config::{
     Command,
     Direction::{Down, Left, Right, Up},
 };
+use jay_config::keyboard::syms::SYM_c;
 
 const MOD: Modifiers = ALT;
 
@@ -43,6 +44,8 @@ fn configure_seat(s: Seat) {
     s.bind(MOD | SYM_m, move || s.set_mono(!s.mono()));
 
     s.bind(MOD | SYM_f, move || s.focus_parent());
+
+    s.bind(MOD | SHIFT | SYM_c, move || s.close());
 
     s.bind(MOD | SHIFT | SYM_f, move || s.toggle_floating());
 

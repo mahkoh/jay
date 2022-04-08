@@ -31,6 +31,8 @@ use {
         rc::Rc,
     },
 };
+use crate::tree::{generic_node_visitor};
+use crate::utils::smallmap::SmallMap;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -102,12 +104,14 @@ pub struct ContainerNode {
     compute_render_data_scheduled: Cell<bool>,
     num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
+    focus_history: LinkedList<NodeRef<ContainerChild>>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
     seat_state: NodeSeatState,
     workspace: CloneCell<Rc<WorkspaceNode>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
+    visible: Cell<bool>,
 }
 
 impl Debug for ContainerNode {
@@ -116,14 +120,17 @@ impl Debug for ContainerNode {
     }
 }
 
-#[derive(Clone)]
 pub struct ContainerChild {
     pub node: Rc<dyn Node>,
     pub active: Cell<bool>,
+    title: RefCell<String>,
+    pub title_rect: Cell<Rect>,
+    focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
+
+    // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
     factor: Cell<f64>,
-    title: RefCell<String>,
 }
 
 struct SeatState {
@@ -166,11 +173,13 @@ impl ContainerNode {
             child.id(),
             children.add_last(ContainerChild {
                 node: child.clone(),
-                active: Cell::new(false),
-                body: Cell::new(Default::default()),
-                content: Cell::new(Default::default()),
+                active: Default::default(),
+                body: Default::default(),
+                content: Default::default(),
                 factor: Cell::new(1.0),
                 title: Default::default(),
+                title_rect: Default::default(),
+                focus_history: Default::default(),
             }),
         );
         let slf = Rc::new(Self {
@@ -193,12 +202,14 @@ impl ContainerNode {
             compute_render_data_scheduled: Cell::new(false),
             num_children: NumCell::new(1),
             children,
+            focus_history: Default::default(),
             child_nodes: RefCell::new(child_nodes),
             seat_state: Default::default(),
             workspace: CloneCell::new(workspace.clone()),
             seats: RefCell::new(Default::default()),
             state: state.clone(),
             render_data: Default::default(),
+            visible: Cell::new(false),
         });
         child.set_parent(slf.clone());
         slf
@@ -254,24 +265,26 @@ impl ContainerNode {
     where
         F: FnOnce(ContainerChild) -> LinkedNode<ContainerChild>,
     {
-        {
+        let new_ref = {
             let mut links = self.child_nodes.borrow_mut();
             if links.contains_key(&new.id()) {
                 log::error!("Tried to add a child to a container that already contains the child");
                 return;
             }
-            links.insert(
-                new.id(),
-                f(ContainerChild {
-                    node: new.clone(),
-                    active: Cell::new(false),
-                    body: Default::default(),
-                    content: Default::default(),
-                    factor: Cell::new(0.0),
-                    title: Default::default(),
-                }),
-            );
-        }
+            let link = f(ContainerChild {
+                node: new.clone(),
+                active: Default::default(),
+                body: Default::default(),
+                content: Default::default(),
+                factor: Default::default(),
+                title: Default::default(),
+                title_rect: Default::default(),
+                focus_history: Default::default(),
+            });
+            let r = link.to_ref();
+            links.insert( new.id(), link, );
+            r
+        };
         new.clone().set_workspace(&self.workspace.get());
         new.clone().set_parent(self.clone());
         let num_children = self.num_children.fetch_add(1) + 1;
@@ -288,6 +301,9 @@ impl ContainerNode {
             sum_factors += factor;
         }
         self.sum_factors.set(sum_factors);
+        if self.mono_child.get().is_some() {
+            self.activate_child(&new_ref);
+        }
         self.schedule_layout();
         self.cancel_seat_ops();
     }
@@ -332,6 +348,25 @@ impl ContainerNode {
             .change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
+
+        let th = self.state.theme.title_height.get();
+        let bw = self.state.theme.border_width.get();
+        let num_children = self.num_children.get() as i32;
+        let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
+        let width_per_child = content_width / num_children;
+        let mut rem = content_width % num_children;
+        let mut pos = 0;
+        for child in self.children.iter() {
+            let mut width = width_per_child;
+            if rem > 0 {
+                width += 1;
+                rem -= 1;
+            }
+            child
+                .title_rect
+                .set(Rect::new_sized(pos, 0, width, th).unwrap());
+            pos += width + bw;
+        }
     }
 
     fn perform_split_layout(self: &Rc<Self>) {
@@ -402,7 +437,17 @@ impl ContainerNode {
         }
         self.sum_factors.set(1.0);
         for child in self.children.iter() {
-            let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
+            let body = child.body.get();
+            child.title_rect.set(
+                Rect::new_sized(
+                    body.x1(),
+                    body.y1() - title_height - 1,
+                    body.width(),
+                    title_height,
+                )
+                .unwrap(),
+            );
+            let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
             child.node.clone().change_extents(&body);
             child.position_content();
         }
@@ -567,77 +612,79 @@ impl ContainerNode {
         let font = theme.font.borrow_mut();
         let cwidth = self.width.get();
         let cheight = self.height.get();
-        let num_children = self.num_children.get() as i32;
         let ctx = self.state.render_ctx.get();
         rd.titles.clear();
         rd.title_rects.clear();
         rd.active_title_rects.clear();
         rd.border_rects.clear();
         rd.underline_rects.clear();
-        let mut render_title = |title: &str, width: i32, x: i32, y: i32| {
-            if th == 0 || width == 0 || title.is_empty() {
-                return;
+        let mono = self.mono_child.get().is_some();
+        let split = self.split.get();
+        for (i, child) in self.children.iter().enumerate() {
+            let rect = child.title_rect.get();
+            if i > 0 {
+                let rect = if mono {
+                    Rect::new_sized(rect.x1() - bw, 0, bw, th)
+                } else if split == ContainerSplit::Horizontal {
+                    Rect::new_sized(rect.x1() - bw, 0, bw, cheight)
+                } else {
+                    Rect::new_sized(0, rect.y1() - bw, cwidth, bw)
+                };
+                rd.border_rects.push(rect.unwrap());
             }
-            if let Some(ctx) = &ctx {
-                match text::render(ctx, width, th, &font, title, Color::GREY) {
-                    Ok(t) => rd.titles.push(ContainerTitle { x, y, tex: t }),
-                    Err(e) => {
-                        log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+            if child.active.get() {
+                rd.active_title_rects.push(rect);
+            } else {
+                rd.title_rects.push(rect);
+            }
+            if !mono {
+                let rect = Rect::new_sized(rect.x1(), rect.y2(), rect.width(), 1).unwrap();
+                rd.underline_rects.push(rect);
+            }
+            'render_title: {
+                let title = child.title.borrow_mut();
+                if th == 0 || rect.width() == 0 || title.is_empty() {
+                    break 'render_title;
+                }
+                if let Some(ctx) = &ctx {
+                    match text::render(ctx, rect.width(), th, &font, title.deref(), Color::GREY) {
+                        Ok(t) => rd.titles.push(ContainerTitle {
+                            x: rect.x1(),
+                            y: rect.y1(),
+                            tex: t,
+                        }),
+                        Err(e) => {
+                            log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                        }
                     }
                 }
             }
-        };
-        if self.mono_child.get().is_some() {
-            let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
-            let space_per_child = content_width / num_children;
-            let mut rem = content_width % num_children;
-            let mut pos = 0;
-            for (i, c) in self.children.iter().enumerate() {
-                if i > 0 {
-                    rd.border_rects
-                        .push(Rect::new_sized(pos - bw, 0, bw, th).unwrap());
-                }
-                let mut width = space_per_child;
-                if rem > 0 {
-                    rem -= 1;
-                    width += 1;
-                }
-                let rect = Rect::new_sized(pos, 0, width, th).unwrap();
-                if c.active.get() {
-                    rd.active_title_rects.push(rect);
-                } else {
-                    rd.title_rects.push(rect);
-                }
-                let title = c.title.borrow_mut();
-                render_title(&title, width, pos, 0);
-                pos += width + bw;
-            }
+        }
+        if mono {
             rd.underline_rects
                 .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
-        } else {
-            let split = self.split.get();
-            for (i, c) in self.children.iter().enumerate() {
-                let body = c.body.get();
-                if i > 0 {
-                    let rect = if split == ContainerSplit::Horizontal {
-                        Rect::new_sized(body.x1() - bw, 0, bw, cheight).unwrap()
-                    } else {
-                        Rect::new_sized(0, body.y1() - th - 1 - bw, cwidth, bw).unwrap()
-                    };
-                    rd.border_rects.push(rect);
-                }
-                let rect =
-                    Rect::new_sized(body.x1(), body.y1() - th - 1, body.width(), th).unwrap();
-                if c.active.get() {
-                    rd.active_title_rects.push(rect);
-                } else {
-                    rd.title_rects.push(rect);
-                }
-                let rect = Rect::new_sized(body.x1(), body.y1() - 1, body.width(), 1).unwrap();
-                rd.underline_rects.push(rect);
-                let title = c.title.borrow_mut();
-                render_title(&title, body.width(), body.x1(), body.y1() - th - 1);
+        }
+    }
+
+    fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        if let Some(mc) = self.mono_child.get() {
+            if mc.node.id() == child.node.id() {
+                return;
             }
+            let seats = SmallMap::<SeatId, Rc<WlSeatGlobal>, 3>::new();
+            mc.node.visit_children(&mut generic_node_visitor(|node| {
+                node.seat_state().for_each_kb_focus(|s| {
+                    seats.insert(s.id(), s);
+                });
+            }));
+            mc.node.set_visible(false);
+            for (_, seat) in seats.take() {
+                child.node.clone().do_focus(&seat, Direction::Unspecified);
+            }
+            self.mono_child.set(Some(child.clone()));
+            self.schedule_layout();
+        } else {
+
         }
     }
 }
@@ -674,6 +721,18 @@ pub async fn container_render_data(state: Rc<State>) {
 impl Node for ContainerNode {
     fn id(&self) -> NodeId {
         self.id.into()
+    }
+
+    fn visible(&self) -> bool {
+        self.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        for child in self.children.iter() {
+            child.node.set_visible(visible);
+        }
+        self.seat_state.set_visible(self, visible);
     }
 
     fn seat_state(&self) -> &NodeSeatState {
@@ -771,11 +830,16 @@ impl Node for ContainerNode {
         let node = if let Some(cn) = self.mono_child.get() {
             Some(cn)
         } else {
-            match direction {
-                Direction::Left => self.children.last(),
-                Direction::Down => self.children.first(),
-                Direction::Up => self.children.last(),
-                Direction::Right => self.children.first(),
+            let split = self.split.get();
+            match (direction, split) {
+                (Direction::Left, ContainerSplit::Horizontal) => self.children.last(),
+                (Direction::Down, ContainerSplit::Vertical) => self.children.first(),
+                (Direction::Up, ContainerSplit::Vertical) => self.children.last(),
+                (Direction::Right, ContainerSplit::Horizontal) => self.children.first(),
+                _ => match self.focus_history.last() {
+                    Some(n) => Some(n.deref().clone()),
+                    None => self.children.last(),
+                }
             }
         };
         if let Some(node) = node {
@@ -798,7 +862,7 @@ impl Node for ContainerNode {
     }
 
     fn move_focus_from_child(
-        &self,
+        self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
         child: &dyn Node,
         direction: Direction,
@@ -821,7 +885,7 @@ impl Node for ContainerNode {
         if !in_line {
             self.parent
                 .get()
-                .move_focus_from_child(seat, self, direction);
+                .move_focus_from_child(seat, &*self, direction);
             return;
         }
         let prev = match direction {
@@ -829,6 +893,7 @@ impl Node for ContainerNode {
             Direction::Down => false,
             Direction::Up => true,
             Direction::Right => false,
+            Direction::Unspecified => true,
         };
         let sibling = match prev {
             true => child.prev(),
@@ -839,21 +904,15 @@ impl Node for ContainerNode {
             None => {
                 self.parent
                     .get()
-                    .move_focus_from_child(seat, self, direction);
+                    .move_focus_from_child(seat, &*self, direction);
                 return;
             }
         };
         if mc.is_some() {
-            self.mono_child.set(Some(sibling.clone()));
-            let body = self.mono_body.get();
-            self.mono_content
-                .set(sibling.content.get().at_point(body.x1(), body.y1()));
-            sibling
-                .node
-                .clone()
-                .change_extents(&body.move_(self.abs_x1.get(), self.abs_y1.get()));
+            self.activate_child(&sibling);
+        } else {
+            sibling.node.clone().do_focus(seat, direction);
         }
-        sibling.node.clone().do_focus(seat, direction);
     }
     //
     fn move_child(self: Rc<Self>, child: Rc<dyn Node>, direction: Direction) {
@@ -882,12 +941,10 @@ impl Node for ContainerNode {
                     neighbor.node.clone().insert_child(child, direction);
                     return;
                 }
-                let cc = cc.deref().clone();
-                let link = match prev {
-                    true => neighbor.prepend(cc),
-                    false => neighbor.append(cc),
-                };
-                self.child_nodes.borrow_mut().insert(child.id(), link);
+                match prev {
+                    true => neighbor.prepend_existing(&cc),
+                    false => neighbor.append_existing(&cc),
+                }
                 self.schedule_layout();
                 return;
             }
@@ -932,7 +989,6 @@ impl Node for ContainerNode {
         if button != BTN_LEFT {
             return;
         }
-        let title_height = self.state.theme.title_height.get();
         let mut seat_datas = self.seats.borrow_mut();
         let seat_data = match seat_datas.get_mut(&seat.id()) {
             Some(s) => s,
@@ -943,51 +999,38 @@ impl Node for ContainerNode {
                 return;
             }
             let (kind, child) = 'res: {
-                if self.mono_child.get().is_some() {
-                    let width_per_child = self.width.get() / self.num_children.get() as i32;
-                    let mut width_per_child_rem = self.width.get() % self.num_children.get() as i32;
-                    let mut pos = 0;
-                    for child in self.children.iter() {
-                        pos += width_per_child;
-                        if width_per_child_rem > 0 {
-                            pos += 1;
-                            width_per_child_rem -= 1;
-                        }
-                        if pos > seat_data.x {
-                            break 'res (SeatOpKind::Move, child);
-                        }
-                    }
-                } else if self.split.get() == ContainerSplit::Horizontal {
-                    for child in self.children.iter() {
-                        let body = child.body.get();
-                        if seat_data.x < body.x2() {
-                            let op = if seat_data.x < body.x1() {
-                                SeatOpKind::Resize {
-                                    dist_left: seat_data.x - child.prev().unwrap().body.get().x2(),
-                                    dist_right: body.x1() - seat_data.x,
-                                }
-                            } else {
-                                SeatOpKind::Move
-                            };
-                            break 'res (op, child);
-                        }
-                    }
-                } else {
-                    for child in self.children.iter() {
-                        let body = child.body.get();
-                        if seat_data.y < body.y1() {
-                            let op = if seat_data.y < body.y1() - title_height - 1 {
-                                SeatOpKind::Resize {
-                                    dist_left: seat_data.y - child.prev().unwrap().body.get().y2(),
-                                    dist_right: body.y1() - seat_data.y,
-                                }
-                            } else {
-                                SeatOpKind::Move
-                            };
-                            break 'res (op, child);
+                let mono = self.mono_child.get().is_some();
+                for child in self.children.iter() {
+                    let rect = child.title_rect.get();
+                    if rect.contains(seat_data.x, seat_data.y) {
+                        self.activate_child(&child);
+                        break 'res (SeatOpKind::Move, child);
+                    } else if !mono {
+                        if self.split.get() == ContainerSplit::Horizontal {
+                            if seat_data.x < rect.x1() {
+                                break 'res (
+                                    SeatOpKind::Resize {
+                                        dist_left: seat_data.x
+                                            - child.prev().unwrap().body.get().x2(),
+                                        dist_right: child.body.get().x1() - seat_data.x,
+                                    },
+                                    child,
+                                );
+                            }
+                        } else {
+                            if seat_data.y < rect.y1() {
+                                break 'res (
+                                    SeatOpKind::Resize {
+                                        dist_left: seat_data.y
+                                            - child.prev().unwrap().body.get().y2(),
+                                        dist_right: child.body.get().y1() - seat_data.y,
+                                    },
+                                    child,
+                                );
+                            }
                         }
                     }
-                };
+                }
                 return;
             };
             seat_data.op = Some(SeatOp { child, kind })
@@ -1049,6 +1092,7 @@ impl Node for ContainerNode {
             Some(c) => c,
             None => return,
         };
+        node.focus_history.set(None);
         let link = node.append(ContainerChild {
             node: new.clone(),
             active: Cell::new(false),
@@ -1056,6 +1100,8 @@ impl Node for ContainerNode {
             content: Cell::new(node.content.get()),
             factor: Cell::new(node.factor.get()),
             title: Default::default(),
+            title_rect: Cell::new(node.title_rect.get()),
+            focus_history: Cell::new(None),
         });
         let body = link.body.get();
         drop(node);
@@ -1083,6 +1129,7 @@ impl Node for ContainerNode {
         }
         let node = {
             let node = node;
+            node.focus_history.set(None);
             node.to_ref()
         };
         let num_children = self.num_children.fetch_sub(1) - 1;
@@ -1137,6 +1184,7 @@ impl Node for ContainerNode {
             None => return,
         };
         node.active.set(active);
+        node.focus_history.set(Some(self.focus_history.add_last(node.clone())));
         self.schedule_compute_render_data();
     }
 
@@ -1242,5 +1290,6 @@ fn direction_to_split(dir: Direction) -> (ContainerSplit, bool) {
         Direction::Down => (ContainerSplit::Vertical, false),
         Direction::Up => (ContainerSplit::Vertical, true),
         Direction::Right => (ContainerSplit::Horizontal, false),
+        Direction::Unspecified => (ContainerSplit::Horizontal, true),
     }
 }

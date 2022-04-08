@@ -1,10 +1,6 @@
 use {
     crate::{
         client::ClientError,
-        video::{
-            dma::{DmaBuf, DmaBufPlane},
-            INVALID_MODIFIER,
-        },
         ifs::{wl_buffer::WlBuffer, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1},
         leaks::Tracker,
         object::Object,
@@ -12,6 +8,10 @@ use {
         utils::{
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,
+        },
+        video::{
+            dma::{DmaBuf, DmaBufPlane},
+            INVALID_MODIFIER,
         },
         wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
     },

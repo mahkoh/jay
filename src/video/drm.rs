@@ -2,6 +2,7 @@ mod sys;
 
 use {
     crate::{
+        utils::oserror::OsError,
         video::drm::sys::{
             create_lease, drm_event, drm_event_vblank, gem_close, get_cap,
             get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes,
@@ -13,7 +14,6 @@ use {
             DRM_MODE_OBJECT_CRTC, DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB,
             DRM_MODE_OBJECT_MODE, DRM_MODE_OBJECT_PLANE, DRM_MODE_OBJECT_PROPERTY,
         },
-        utils::oserror::OsError,
     },
     ahash::AHashMap,
     bstr::{BString, ByteSlice},
@@ -31,8 +31,8 @@ use {
 
 use crate::{
     backend,
-    video::{dma::DmaBuf, INVALID_MODIFIER},
     utils::{errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
+    video::{dma::DmaBuf, INVALID_MODIFIER},
 };
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,

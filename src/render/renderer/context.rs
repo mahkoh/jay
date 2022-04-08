@@ -1,9 +1,5 @@
 use {
     crate::{
-        video::{
-            dma::DmaBuf,
-            drm::{Drm, NodeType},
-        },
         format::{Format, XRGB8888},
         render::{
             egl::{context::EglContext, display::EglDisplay},
@@ -12,6 +8,10 @@ use {
             },
             renderer::{framebuffer::Framebuffer, image::Image},
             RenderError, Texture,
+        },
+        video::{
+            dma::DmaBuf,
+            drm::{Drm, NodeType},
         },
     },
     ahash::AHashMap,

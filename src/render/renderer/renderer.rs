@@ -25,7 +25,7 @@ use {
         },
         state::State,
         theme::Color,
-        tree::{ContainerNode, FloatNode, Node, OutputNode, WorkspaceNode},
+        tree::{ContainerNode, FloatNode, OutputNode, WorkspaceNode},
         utils::rc_eq::rc_eq,
     },
     std::{ops::Deref, rc::Rc},
@@ -70,21 +70,12 @@ impl Renderer<'_> {
             self.render_workspace(&ws, x, y + th);
         }
         for stacked in self.state.root.stacked.iter() {
-            if let Some(ws) = stacked.get_workspace() {
-                if ws.visible.get() {
-                    let pos = stacked.absolute_position();
-                    if pos.intersects(&opos) {
-                        let (x, y) = opos.translate(pos.x1(), pos.y1());
-                        stacked.render(self, x, y);
-                    }
+            if stacked.visible() {
+                let pos = stacked.absolute_position();
+                if pos.intersects(&opos) {
+                    let (x, y) = opos.translate(pos.x1(), pos.y1());
+                    stacked.render(self, x, y);
                 }
-            }
-        }
-        for stacked in self.state.root.xstacked.iter() {
-            let pos = stacked.absolute_position();
-            if pos.intersects(&opos) {
-                let (x, y) = opos.translate(pos.x1(), pos.y1());
-                stacked.render(self, x, y);
             }
         }
         render_layer!(output.layers[2]);
