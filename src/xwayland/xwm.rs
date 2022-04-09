@@ -536,7 +536,8 @@ impl Wm {
             Ok(ty) if ty == ATOM_STRING => {}
             Ok(ty) if ty == self.atoms.UTF8_STRING => {}
             Ok(ty) => {
-                self.unexpected_type(data.window_id, "WM_WINDOW_ROLE", ty).await;
+                self.unexpected_type(data.window_id, "WM_WINDOW_ROLE", ty)
+                    .await;
                 return;
             }
             Err(XconError::PropertyUnavailable) => {
@@ -616,7 +617,13 @@ impl Wm {
         if let Ok(res) = &res {
             ty_name = res.get().name;
         }
-        log::error!("Property {} of window {} has unexpected type {} ({})", prop, window, ty_name, ty);
+        log::error!(
+            "Property {} of window {} has unexpected type {} ({})",
+            prop,
+            window,
+            ty_name,
+            ty
+        );
     }
 
     async fn load_window_wm_name(&self, data: &Rc<XwindowData>) {
@@ -798,7 +805,8 @@ impl Wm {
             Ok(ty) if ty == ATOM_STRING => {}
             Ok(ty) if ty == self.atoms.UTF8_STRING => {}
             Ok(ty) => {
-                self.unexpected_type(data.window_id, "_NET_STARTUP_ID", ty).await;
+                self.unexpected_type(data.window_id, "_NET_STARTUP_ID", ty)
+                    .await;
                 return;
             }
             Err(XconError::PropertyUnavailable) => return,

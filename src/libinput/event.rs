@@ -9,8 +9,9 @@ use {
             libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec,
             libinput_event_pointer, libinput_event_pointer_get_button,
             libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
-            libinput_event_pointer_get_dy, libinput_event_pointer_get_scroll_value_v120,
-            libinput_event_pointer_get_time_usec, libinput_event_pointer_has_axis,
+            libinput_event_pointer_get_dy, libinput_event_pointer_get_scroll_value,
+            libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
+            libinput_event_pointer_has_axis,
         },
     },
     std::marker::PhantomData,
@@ -106,6 +107,10 @@ impl<'a> LibInputEventPointer<'a> {
 
     pub fn button_state(&self) -> ButtonState {
         unsafe { ButtonState(libinput_event_pointer_get_button_state(self.event)) }
+    }
+
+    pub fn scroll_value(&self, axis: PointerAxis) -> f64 {
+        unsafe { libinput_event_pointer_get_scroll_value(self.event, axis.raw() as _) }
     }
 
     pub fn scroll_value_v120(&self, axis: PointerAxis) -> f64 {

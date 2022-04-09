@@ -10,10 +10,10 @@ use jay_config::{
     keyboard::{
         mods::{Modifiers, ALT, CTRL, SHIFT},
         syms::{
-            SYM_Super_L, SYM_b, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p, SYM_q,
-            SYM_t, SYM_v, SYM_y, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F13, SYM_F14, SYM_F15,
-            SYM_F16, SYM_F17, SYM_F18, SYM_F19, SYM_F2, SYM_F20, SYM_F21, SYM_F22, SYM_F23,
-            SYM_F24, SYM_F25, SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
+            SYM_Super_L, SYM_b, SYM_c, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p,
+            SYM_q, SYM_t, SYM_v, SYM_y, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F13, SYM_F14,
+            SYM_F15, SYM_F16, SYM_F17, SYM_F18, SYM_F19, SYM_F2, SYM_F20, SYM_F21, SYM_F22,
+            SYM_F23, SYM_F24, SYM_F25, SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
         },
     },
     quit, switch_to_vt,
@@ -21,7 +21,6 @@ use jay_config::{
     Command,
     Direction::{Down, Left, Right, Up},
 };
-use jay_config::keyboard::syms::SYM_c;
 
 const MOD: Modifiers = ALT;
 

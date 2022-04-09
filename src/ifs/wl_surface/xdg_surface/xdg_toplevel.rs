@@ -144,9 +144,8 @@ impl XdgToplevel {
     }
 
     fn send_close(&self) {
-        self.xdg.surface.client.event(Close {
-            self_id: self.id,
-        });
+        self.xdg.surface.client.event(Close { self_id: self.id });
+        self.xdg.surface.client.flush();
     }
 
     fn send_configure(&self, width: i32, height: i32) {
@@ -366,6 +365,10 @@ impl Node for XdgToplevel {
         self.node_id.into()
     }
 
+    fn close(&self) {
+        self.send_close();
+    }
+
     fn seat_state(&self) -> &NodeSeatState {
         &self.xdg.seat_state
     }
@@ -395,7 +398,7 @@ impl Node for XdgToplevel {
     }
 
     fn set_visible(&self, visible: bool) {
-        self.xdg.surface.set_visible(visible);
+        self.xdg.set_visible(visible);
         self.xdg.seat_state.set_visible(self, visible);
     }
 

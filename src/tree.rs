@@ -1,10 +1,10 @@
 use {
     crate::{
-        backend::{KeyState, ScrollAxis},
+        backend::KeyState,
         client::{Client, ClientId},
         fixed::Fixed,
         ifs::{
-            wl_seat::{Dnd, NodeSeatState, WlSeatGlobal},
+            wl_seat::{wl_pointer::PendingScroll, Dnd, NodeSeatState, WlSeatGlobal},
             wl_surface::WlSurface,
         },
         rect::Rect,
@@ -197,10 +197,9 @@ pub trait Node {
         let _ = state;
     }
 
-    fn scroll(&self, seat: &WlSeatGlobal, delta: i32, axis: ScrollAxis) {
+    fn axis_event(&self, seat: &WlSeatGlobal, event: &PendingScroll) {
         let _ = seat;
-        let _ = delta;
-        let _ = axis;
+        let _ = event;
     }
 
     fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {

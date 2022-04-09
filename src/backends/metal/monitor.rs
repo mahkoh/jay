@@ -286,8 +286,6 @@ impl MetalBackend {
             removed: Cell::new(false),
             events: Default::default(),
             cb: Default::default(),
-            hscroll: Cell::new(0.0),
-            vscroll: Cell::new(0.0),
             name: Default::default(),
             pressed_keys: Default::default(),
             pressed_buttons: Default::default(),

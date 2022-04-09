@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{ConnectorId, InputEvent, KeyState, ScrollAxis},
+        backend::{ConnectorId, InputEvent, KeyState},
         client::{Client, ClientId},
         fixed::Fixed,
         ifs::{
@@ -11,7 +11,11 @@ use {
             },
             wl_seat::{
                 wl_keyboard::{self, WlKeyboard},
-                wl_pointer::{self, WlPointer, POINTER_FRAME_SINCE_VERSION},
+                wl_pointer::{
+                    self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
+                    AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
+                    POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
+                },
                 Dnd, SeatId, WlSeat, WlSeatGlobal,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
@@ -100,6 +104,10 @@ impl NodeSeatState {
         self.kb_foci.iter().for_each(|(_, s)| f(s));
     }
 
+    pub fn for_each_pointer_focus<F: FnMut(Rc<WlSeatGlobal>)>(&self, mut f: F) {
+        self.pointer_foci.iter().for_each(|(_, s)| f(s));
+    }
+
     pub fn destroy_node(&self, node: &dyn Node) {
         self.destroy_node2(node, true);
     }
@@ -145,7 +153,12 @@ impl WlSeatGlobal {
             InputEvent::ConnectorPosition(o, x, y) => self.connector_position_event(o, x, y),
             InputEvent::Motion(dx, dy) => self.motion_event(dx, dy),
             InputEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
-            InputEvent::Scroll(d, a) => self.pointer_owner.scroll(self, d, a),
+
+            InputEvent::AxisSource(s) => self.pointer_owner.axis_source(s),
+            InputEvent::AxisDiscrete(d, a) => self.pointer_owner.axis_discrete(d, a),
+            InputEvent::Axis(d, a) => self.pointer_owner.axis(d, a),
+            InputEvent::AxisStop(d) => self.pointer_owner.axis_stop(d),
+            InputEvent::Frame => self.pointer_owner.frame(self),
         }
     }
 
@@ -200,6 +213,7 @@ impl WlSeatGlobal {
 
     fn key_event(&self, key: u32, state: KeyState) {
         let (state, xkb_dir) = {
+            log::info!("{} {:?}", key, state);
             let mut pk = self.pressed_keys.borrow_mut();
             match state {
                 KeyState::Released => {
@@ -455,12 +469,30 @@ impl WlSeatGlobal {
 
 // Scroll callbacks
 impl WlSeatGlobal {
-    pub fn scroll_surface(&self, surface: &WlSurface, delta: i32, axis: ScrollAxis) {
-        let axis = match axis {
-            ScrollAxis::Horizontal => wl_pointer::HORIZONTAL_SCROLL,
-            ScrollAxis::Vertical => wl_pointer::VERTICAL_SCROLL,
-        };
-        self.surface_pointer_event(0, surface, |p| p.send_axis(0, axis, Fixed::from_int(delta)));
+    pub fn scroll_surface(&self, surface: &WlSurface, event: &PendingScroll) {
+        if let Some(source) = event.source.get() {
+            let since = if source >= WHEEL_TILT {
+                WHEEL_TILT_SINCE_VERSION
+            } else {
+                AXIS_SOURCE_SINCE_VERSION
+            };
+            self.surface_pointer_event(since, surface, |p| p.send_axis_source(source));
+        }
+        for i in 0..1 {
+            if let Some(delta) = event.discrete[i].get() {
+                self.surface_pointer_event(AXIS_DISCRETE_SINCE_VERSION, surface, |p| {
+                    p.send_axis_discrete(i as _, delta)
+                });
+            }
+            if let Some(delta) = event.axis[i].get() {
+                self.surface_pointer_event(0, surface, |p| p.send_axis(0, i as _, delta));
+            }
+            if event.stop[i].get() {
+                self.surface_pointer_event(AXIS_STOP_SINCE_VERSION, surface, |p| {
+                    p.send_axis_stop(0, i as _)
+                });
+            }
+        }
         self.surface_pointer_frame(surface);
     }
 }

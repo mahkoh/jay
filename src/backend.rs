@@ -1,5 +1,9 @@
 use {
-    crate::{fixed::Fixed, video::drm::ConnectorType},
+    crate::{
+        fixed::Fixed,
+        ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
+        video::drm::ConnectorType,
+    },
     std::{
         fmt::{Debug, Display, Formatter},
         rc::Rc,
@@ -101,8 +105,15 @@ pub enum KeyState {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ScrollAxis {
-    Horizontal,
-    Vertical,
+    Horizontal = HORIZONTAL_SCROLL as _,
+    Vertical = VERTICAL_SCROLL as _,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum AxisSource {
+    Wheel = WHEEL as _,
+    Finger = FINGER as _,
+    Continuous = CONTINUOUS as _,
 }
 
 #[derive(Debug)]
@@ -112,5 +123,10 @@ pub enum InputEvent {
     #[allow(dead_code)]
     Motion(Fixed, Fixed),
     Button(u32, KeyState),
-    Scroll(i32, ScrollAxis),
+
+    Axis(Fixed, ScrollAxis),
+    AxisSource(AxisSource),
+    AxisStop(ScrollAxis),
+    AxisDiscrete(i32, ScrollAxis),
+    Frame,
 }

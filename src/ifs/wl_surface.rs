@@ -6,13 +6,13 @@ pub mod zwlr_layer_surface_v1;
 
 use {
     crate::{
-        backend::{KeyState, ScrollAxis},
+        backend::KeyState,
         client::{Client, ClientError, RequestParser},
         fixed::Fixed,
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
-            wl_seat::{Dnd, NodeSeatState, SeatId, WlSeatGlobal},
+            wl_seat::{wl_pointer::PendingScroll, Dnd, NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{
                 cursor::CursorSurface, wl_subsurface::WlSubsurface, xdg_surface::XdgSurfaceError,
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
@@ -584,6 +584,13 @@ impl WlSurface {
             _ => FindTreeResult::Other,
         }
     }
+
+    fn send_seat_release_events(&self) {
+        self.seat_state
+            .for_each_pointer_focus(|s| s.leave_surface(self));
+        self.seat_state
+            .for_each_kb_focus(|s| s.unfocus_surface(self));
+    }
 }
 
 object_base! {
@@ -644,6 +651,9 @@ impl Node for WlSurface {
                 child.surface.set_visible(visible);
             }
         }
+        if !visible {
+            self.send_seat_release_events();
+        }
         self.seat_state.set_visible(self, visible);
     }
 
@@ -673,6 +683,7 @@ impl Node for WlSurface {
                 tl.surface_active_changed(false);
             }
         }
+        self.send_seat_release_events();
         self.seat_state.destroy_node(self);
     }
 
@@ -788,8 +799,8 @@ impl Node for WlSurface {
         seat.button_surface(&self, button, state);
     }
 
-    fn scroll(&self, seat: &WlSeatGlobal, delta: i32, axis: ScrollAxis) {
-        seat.scroll_surface(self, delta, axis);
+    fn axis_event(&self, seat: &WlSeatGlobal, event: &PendingScroll) {
+        seat.scroll_surface(self, event);
     }
 
     fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {

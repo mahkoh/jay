@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::FdStatus,
-        backend::{InputEvent, KeyState, ScrollAxis},
+        backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
         libinput::{
             consts::{
@@ -81,7 +81,15 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_KEYBOARD_KEY => self.handle_keyboard_key(event),
             c::LIBINPUT_EVENT_POINTER_MOTION => self.handle_pointer_motion(event),
             c::LIBINPUT_EVENT_POINTER_BUTTON => self.handle_pointer_button(event),
-            c::LIBINPUT_EVENT_POINTER_SCROLL_WHEEL => self.handle_pointer_scroll_wheel(event),
+            c::LIBINPUT_EVENT_POINTER_SCROLL_WHEEL => {
+                self.handle_pointer_axis(event, AxisSource::Wheel)
+            }
+            c::LIBINPUT_EVENT_POINTER_SCROLL_FINGER => {
+                self.handle_pointer_axis(event, AxisSource::Finger)
+            }
+            c::LIBINPUT_EVENT_POINTER_SCROLL_CONTINUOUS => {
+                self.handle_pointer_axis(event, AxisSource::Continuous)
+            }
             _ => {}
         }
     }
@@ -112,33 +120,38 @@ impl MetalBackend {
         dev.event(InputEvent::Key(event.key(), state));
     }
 
-    fn handle_pointer_scroll_wheel(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_pointer_axis(self: &Rc<Self>, event: LibInputEvent, source: AxisSource) {
         const PX_PER_SCROLL: f64 = 15.0;
         const ONE_TWENTRY: f64 = 120.0;
         let (event, dev) = unpack!(self, event, pointer_event);
         let axes = [
             (
                 LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL,
-                &dev.hscroll,
                 ScrollAxis::Horizontal,
             ),
-            (
-                LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
-                &dev.vscroll,
-                ScrollAxis::Vertical,
-            ),
+            (LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL, ScrollAxis::Vertical),
         ];
-        for (axis, val, sa) in axes {
+        dev.event(InputEvent::AxisSource(source));
+        for (axis, sa) in axes {
             if !event.has_axis(axis) {
                 continue;
             }
-            let scroll = event.scroll_value_v120(axis) / ONE_TWENTRY + val.get();
-            let scroll_used = (PX_PER_SCROLL * scroll).round();
-            val.set(scroll - scroll_used / PX_PER_SCROLL);
-            if scroll_used != 0.0 {
-                dev.event(InputEvent::Scroll(scroll_used as i32, sa));
+            let mut scroll = match source {
+                AxisSource::Wheel => event.scroll_value_v120(axis),
+                _ => event.scroll_value(axis),
+            };
+            if scroll == 0.0 {
+                dev.event(InputEvent::AxisStop(sa));
+            } else {
+                if source == AxisSource::Wheel {
+                    let scroll_discrete = scroll / ONE_TWENTRY;
+                    dev.event(InputEvent::AxisDiscrete(scroll_discrete as _, sa));
+                    scroll = PX_PER_SCROLL * scroll_discrete;
+                }
+                dev.event(InputEvent::Axis(scroll.into(), sa));
             }
         }
+        dev.event(InputEvent::Frame);
     }
 
     fn handle_pointer_button(self: &Rc<Self>, event: LibInputEvent) {

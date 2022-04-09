@@ -9,7 +9,7 @@ use {
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -19,19 +19,48 @@ const ROLE: u32 = 0;
 pub(super) const RELEASED: u32 = 0;
 pub(super) const PRESSED: u32 = 1;
 
-pub(super) const VERTICAL_SCROLL: u32 = 0;
-pub(super) const HORIZONTAL_SCROLL: u32 = 1;
+pub const VERTICAL_SCROLL: u32 = 0;
+pub const HORIZONTAL_SCROLL: u32 = 1;
 
+pub const WHEEL: u32 = 0;
+pub const FINGER: u32 = 1;
+pub const CONTINUOUS: u32 = 2;
 #[allow(dead_code)]
-const WHEEL: u32 = 0;
-#[allow(dead_code)]
-const FINGER: u32 = 1;
-#[allow(dead_code)]
-const CONTINUOUS: u32 = 2;
-#[allow(dead_code)]
-const WHEEL_TILT: u32 = 3;
+pub const WHEEL_TILT: u32 = 3;
 
 pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
+pub const AXIS_SOURCE_SINCE_VERSION: u32 = 5;
+pub const AXIS_DISCRETE_SINCE_VERSION: u32 = 5;
+pub const AXIS_STOP_SINCE_VERSION: u32 = 5;
+pub const WHEEL_TILT_SINCE_VERSION: u32 = 6;
+
+#[derive(Default)]
+pub struct PendingScroll {
+    pub discrete: [Cell<Option<i32>>; 2],
+    pub axis: [Cell<Option<Fixed>>; 2],
+    pub stop: [Cell<bool>; 2],
+    pub source: Cell<Option<u32>>,
+}
+
+impl PendingScroll {
+    pub fn take(&self) -> Self {
+        Self {
+            discrete: [
+                Cell::new(self.discrete[0].take()),
+                Cell::new(self.discrete[1].take()),
+            ],
+            axis: [
+                Cell::new(self.axis[0].take()),
+                Cell::new(self.axis[1].take()),
+            ],
+            stop: [
+                Cell::new(self.stop[0].take()),
+                Cell::new(self.stop[1].take()),
+            ],
+            source: Cell::new(self.source.take()),
+        }
+    }
+}
 
 pub struct WlPointer {
     id: WlPointerId,

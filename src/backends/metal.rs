@@ -207,8 +207,6 @@ struct MetalInputDevice {
     removed: Cell<bool>,
     events: SyncQueue<InputEvent>,
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
-    hscroll: Cell<f64>,
-    vscroll: Cell<f64>,
     name: CloneCell<Rc<String>>,
 
     // state

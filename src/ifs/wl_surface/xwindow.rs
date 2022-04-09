@@ -270,7 +270,8 @@ impl Xwindow {
     }
 
     pub fn map_status_changed(self: &Rc<Self>) {
-        match self.map_change() {
+        let map_change = self.map_change();
+        match map_change {
             Change::None => return,
             Change::Unmap => self.destroy_node(true),
             Change::Map if self.data.info.override_redirect.get() => {
@@ -300,6 +301,11 @@ impl Xwindow {
                 self.data.title_changed();
             }
         }
+        match map_change {
+            Change::Unmap => self.set_visible(false),
+            Change::Map => self.set_visible(true),
+            Change::None => {}
+        }
         self.data.state.tree_changed();
     }
 }
@@ -327,6 +333,10 @@ impl SurfaceExt for Xwindow {
 impl Node for Xwindow {
     fn id(&self) -> NodeId {
         self.id.into()
+    }
+
+    fn close(&self) {
+        self.events.push(XWaylandEvent::Close(self.data.clone()));
     }
 
     fn visible(&self) -> bool {

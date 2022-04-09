@@ -78,6 +78,10 @@ extern "C" {
     pub fn libinput_event_pointer_get_button_state(
         event: *mut libinput_event_pointer,
     ) -> libinput_button_state;
+    pub fn libinput_event_pointer_get_scroll_value(
+        event: *mut libinput_event_pointer,
+        axis: libinput_pointer_axis,
+    ) -> f64;
     pub fn libinput_event_pointer_get_scroll_value_v120(
         event: *mut libinput_event_pointer,
         axis: libinput_pointer_axis,
@@ -86,6 +90,13 @@ extern "C" {
         event: *mut libinput_event_pointer,
         axis: libinput_pointer_axis,
     ) -> c::c_int;
+    // pub fn libinput_event_pointer_get_axis_source(
+    //     event: *mut libinput_event_pointer,
+    // ) -> libinput_pointer_axis_source;
+    // pub fn libinput_event_pointer_get_axis_value_discrete(
+    //     event: *mut libinput_event_pointer,
+    //     axis: libinput_pointer_axis,
+    // ) -> f64;
 }
 
 #[repr(C)]

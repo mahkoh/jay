@@ -6,33 +6,32 @@ use {
         ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
         rect::Rect,
         render::{Renderer, Texture},
+        state::State,
+        text,
         theme::Color,
-        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
+        tree::{
+            generic_node_visitor, walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId,
+            WorkspaceNode,
+        },
         utils::{
             clonecell::CloneCell,
+            errorfmt::ErrorFmt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
+            numcell::NumCell,
+            rc_eq::rc_eq,
         },
     },
     ahash::AHashMap,
     jay_config::{Axis, Direction},
-    std::cell::{Cell, RefCell},
-};
-
-use {
-    crate::{
-        state::State,
-        text,
-        utils::{errorfmt::ErrorFmt, numcell::NumCell, rc_eq::rc_eq},
-    },
+    smallvec::SmallVec,
     std::{
+        cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
         mem,
         ops::{Deref, DerefMut, Sub},
         rc::Rc,
     },
 };
-use crate::tree::{generic_node_visitor};
-use crate::utils::smallmap::SmallMap;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -282,7 +281,7 @@ impl ContainerNode {
                 focus_history: Default::default(),
             });
             let r = link.to_ref();
-            links.insert( new.id(), link, );
+            links.insert(new.id(), link);
             r
         };
         new.clone().set_workspace(&self.workspace.get());
@@ -379,6 +378,9 @@ impl ContainerNode {
             ContainerSplit::Vertical => (self.content_height.get(), self.content_width.get()),
         };
         let num_children = self.num_children.get();
+        if num_children == 0 {
+            return;
+        }
         let mut pos = 0;
         let mut remaining_content_size = content_size;
         for child in self.children.iter() {
@@ -671,20 +673,19 @@ impl ContainerNode {
             if mc.node.id() == child.node.id() {
                 return;
             }
-            let seats = SmallMap::<SeatId, Rc<WlSeatGlobal>, 3>::new();
+            let mut seats = SmallVec::<[_; 3]>::new();
             mc.node.visit_children(&mut generic_node_visitor(|node| {
                 node.seat_state().for_each_kb_focus(|s| {
-                    seats.insert(s.id(), s);
+                    seats.push(s);
                 });
             }));
             mc.node.set_visible(false);
-            for (_, seat) in seats.take() {
+            for seat in seats {
                 child.node.clone().do_focus(&seat, Direction::Unspecified);
             }
             self.mono_child.set(Some(child.clone()));
             self.schedule_layout();
         } else {
-
         }
     }
 }
@@ -839,7 +840,7 @@ impl Node for ContainerNode {
                 _ => match self.focus_history.last() {
                     Some(n) => Some(n.deref().clone()),
                     None => self.children.last(),
-                }
+                },
             }
         };
         if let Some(node) = node {
@@ -1184,7 +1185,8 @@ impl Node for ContainerNode {
             None => return,
         };
         node.active.set(active);
-        node.focus_history.set(Some(self.focus_history.add_last(node.clone())));
+        node.focus_history
+            .set(Some(self.focus_history.add_last(node.clone())));
         self.schedule_compute_render_data();
     }
 
@@ -1281,6 +1283,12 @@ impl Node for ContainerNode {
         parent
             .clone()
             .child_title_changed(&*self, self.title.borrow_mut().deref());
+    }
+
+    fn close(&self) {
+        for child in self.children.iter() {
+            child.node.close();
+        }
     }
 }
 

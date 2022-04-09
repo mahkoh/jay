@@ -1,11 +1,11 @@
 use {
     crate::{
-        backend::{KeyState, ScrollAxis},
+        backend::{AxisSource, KeyState, ScrollAxis},
         fixed::Fixed,
         ifs::{
             ipc,
             ipc::{wl_data_device::WlDataDevice, wl_data_source::WlDataSource},
-            wl_seat::{Dnd, DroppedDnd, WlSeatError, WlSeatGlobal},
+            wl_seat::{wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal},
             wl_surface::WlSurface,
         },
         tree::{FoundNode, Node},
@@ -17,6 +17,7 @@ use {
 pub struct PointerOwnerHolder {
     default: Rc<DefaultPointerOwner>,
     owner: CloneCell<Rc<dyn PointerOwner>>,
+    pending_scroll: PendingScroll,
 }
 
 impl Default for PointerOwnerHolder {
@@ -24,6 +25,7 @@ impl Default for PointerOwnerHolder {
         Self {
             default: Rc::new(DefaultPointerOwner),
             owner: CloneCell::new(Rc::new(DefaultPointerOwner)),
+            pending_scroll: Default::default(),
         }
     }
 }
@@ -33,8 +35,27 @@ impl PointerOwnerHolder {
         self.owner.get().button(seat, button, state)
     }
 
-    pub fn scroll(&self, seat: &Rc<WlSeatGlobal>, delta: i32, axis: ScrollAxis) {
-        self.owner.get().scroll(seat, delta, axis)
+    pub fn axis_source(&self, axis_source: AxisSource) {
+        self.pending_scroll.source.set(Some(axis_source as _));
+    }
+
+    pub fn axis_discrete(&self, delta: i32, axis: ScrollAxis) {
+        self.pending_scroll.discrete[axis as usize].set(Some(delta));
+    }
+
+    pub fn axis(&self, delta: Fixed, axis: ScrollAxis) {
+        self.pending_scroll.axis[axis as usize].set(Some(delta));
+    }
+
+    pub fn axis_stop(&self, axis: ScrollAxis) {
+        self.pending_scroll.stop[axis as usize].set(true);
+    }
+
+    pub fn frame(&self, seat: &Rc<WlSeatGlobal>) {
+        let pending = self.pending_scroll.take();
+        if let Some(node) = self.owner.get().axis_node(seat) {
+            node.axis_event(seat, &pending);
+        }
     }
 
     pub fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
@@ -74,7 +95,7 @@ impl PointerOwnerHolder {
 
 trait PointerOwner {
     fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState);
-    fn scroll(&self, seat: &Rc<WlSeatGlobal>, delta: i32, axis: ScrollAxis);
+    fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>>;
     fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>);
     fn start_drag(
         &self,
@@ -123,10 +144,8 @@ impl PointerOwner for DefaultPointerOwner {
         pn.button(seat, button, state);
     }
 
-    fn scroll(&self, seat: &Rc<WlSeatGlobal>, delta: i32, axis: ScrollAxis) {
-        if let Some(pn) = seat.pointer_node() {
-            pn.scroll(seat, delta, axis);
-        }
+    fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
+        seat.pointer_node()
     }
 
     fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
@@ -244,8 +263,8 @@ impl PointerOwner for GrabPointerOwner {
         self.node.clone().button(seat, button, state);
     }
 
-    fn scroll(&self, seat: &Rc<WlSeatGlobal>, delta: i32, axis: ScrollAxis) {
-        self.node.scroll(seat, delta, axis);
+    fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
+        Some(self.node.clone())
     }
 
     fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
@@ -367,8 +386,8 @@ impl PointerOwner for DndPointerOwner {
         seat.tree_changed.trigger();
     }
 
-    fn scroll(&self, _seat: &Rc<WlSeatGlobal>, _delta: i32, _axis: ScrollAxis) {
-        // nothing
+    fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
+        None
     }
 
     fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {

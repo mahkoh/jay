@@ -769,9 +769,7 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetPosition { connector, x, y } => self
                 .handle_connector_set_position(connector, x, y)
                 .wrn("connector_set_position")?,
-            ClientMessage::Close { seat } => self
-                .handle_close(seat)
-                .wrn("close")?,
+            ClientMessage::Close { seat } => self.handle_close(seat).wrn("close")?,
         }
         Ok(())
     }

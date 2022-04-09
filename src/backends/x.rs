@@ -2,9 +2,9 @@ use {
     crate::{
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
-            InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
-            KeyState, Mode, MonitorInfo, ScrollAxis,
+            AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
+            ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis,
         },
         fixed::Fixed,
         format::XRGB8888,
@@ -721,13 +721,16 @@ impl XBackendData {
             if matches!(button, 4..=7) {
                 if state == KeyState::Pressed {
                     let (axis, val) = match button {
-                        4 => (ScrollAxis::Vertical, -15),
-                        5 => (ScrollAxis::Vertical, 15),
-                        6 => (ScrollAxis::Horizontal, -15),
-                        7 => (ScrollAxis::Horizontal, 15),
+                        4 => (ScrollAxis::Vertical, -1),
+                        5 => (ScrollAxis::Vertical, 1),
+                        6 => (ScrollAxis::Horizontal, -1),
+                        7 => (ScrollAxis::Horizontal, 1),
                         _ => unreachable!(),
                     };
-                    seat.mouse_event(InputEvent::Scroll(val, axis));
+                    seat.mouse_event(InputEvent::AxisSource(AxisSource::Wheel));
+                    seat.mouse_event(InputEvent::AxisDiscrete(val, axis));
+                    seat.mouse_event(InputEvent::Axis(Fixed::from_int(val * 15), axis));
+                    seat.mouse_event(InputEvent::Frame);
                 }
             } else {
                 const BTN_LEFT: u32 = 0x110;

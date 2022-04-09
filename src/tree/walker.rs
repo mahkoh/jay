@@ -112,10 +112,8 @@ pub struct GenericNodeVisitor<F> {
     f: F,
 }
 
-pub fn generic_node_visitor<F: FnMut(Rc<dyn Node>)>(f: F)  -> GenericNodeVisitor<F> {
-    GenericNodeVisitor {
-        f,
-    }
+pub fn generic_node_visitor<F: FnMut(Rc<dyn Node>)>(f: F) -> GenericNodeVisitor<F> {
+    GenericNodeVisitor { f }
 }
 
 impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {

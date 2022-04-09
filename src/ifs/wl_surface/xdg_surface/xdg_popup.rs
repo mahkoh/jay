@@ -293,7 +293,7 @@ impl Node for XdgPopup {
     }
 
     fn set_visible(&self, visible: bool) {
-        self.xdg.surface.set_visible(visible);
+        self.xdg.set_visible(visible);
         self.xdg.seat_state.set_visible(self, visible);
     }
 

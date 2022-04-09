@@ -299,6 +299,13 @@ impl XdgSurface {
             popup.update_absolute_position();
         }
     }
+
+    fn set_visible(&self, visible: bool) {
+        self.surface.set_visible(visible);
+        for popup in self.popups.lock().values() {
+            popup.set_visible(visible);
+        }
+    }
 }
 
 object_base! {
