@@ -799,8 +799,8 @@ impl Node for WlSurface {
         seat.button_surface(&self, button, state);
     }
 
-    fn axis_event(&self, seat: &WlSeatGlobal, event: &PendingScroll) {
-        seat.scroll_surface(self, event);
+    fn axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+        seat.scroll_surface(&*self, event);
     }
 
     fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {

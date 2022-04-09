@@ -197,7 +197,7 @@ pub trait Node {
         let _ = state;
     }
 
-    fn axis_event(&self, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
         let _ = seat;
         let _ = event;
     }

@@ -32,6 +32,8 @@ use {
         rc::Rc,
     },
 };
+use crate::ifs::wl_seat::PX_PER_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::{PendingScroll, VERTICAL_SCROLL};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -111,6 +113,7 @@ pub struct ContainerNode {
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
     visible: Cell<bool>,
+    scroll: Cell<f64>,
 }
 
 impl Debug for ContainerNode {
@@ -209,6 +212,7 @@ impl ContainerNode {
             state: state.clone(),
             render_data: Default::default(),
             visible: Cell::new(false),
+            scroll: Cell::new(0.0),
         });
         child.set_parent(slf.clone());
         slf
@@ -1042,6 +1046,43 @@ impl Node for ContainerNode {
                 // todo
             }
         }
+    }
+
+    fn axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+        let mut seat_datas = self.seats.borrow_mut();
+        let seat_data = match seat_datas.get_mut(&seat.id()) {
+            Some(s) => s,
+            _ => return,
+        };
+        if seat_data.y > self.state.theme.title_height.get() {
+            return;
+        }
+        let cur_mc = match self.mono_child.get() {
+            Some(mc) => mc,
+            _ => return,
+        };
+        let scroll = match event.axis[VERTICAL_SCROLL as usize].get() {
+            Some(s) => s,
+            _ => return,
+        };
+        let mut scroll = self.scroll.get() + f64::from(scroll);
+        let discrete = (scroll / PX_PER_SCROLL).round();
+        scroll -= discrete * PX_PER_SCROLL;
+        self.scroll.set(scroll);
+        let discrete = discrete as i32;
+        let mut new_mc = cur_mc.clone();
+        for _ in 0..discrete.abs() {
+            let new = if discrete < 0 {
+                new_mc.prev()
+            } else {
+                new_mc.next()
+            };
+            new_mc = match new {
+                Some(n) => n,
+                None => break,
+            };
+        }
+        self.activate_child(&new_mc);
     }
 
     fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {

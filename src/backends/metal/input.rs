@@ -14,6 +14,7 @@ use {
     },
     std::rc::Rc,
 };
+use crate::ifs::wl_seat::PX_PER_SCROLL;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{
@@ -121,7 +122,6 @@ impl MetalBackend {
     }
 
     fn handle_pointer_axis(self: &Rc<Self>, event: LibInputEvent, source: AxisSource) {
-        const PX_PER_SCROLL: f64 = 15.0;
         const ONE_TWENTRY: f64 = 120.0;
         let (event, dev) = unpack!(self, event, pointer_event);
         let axes = [

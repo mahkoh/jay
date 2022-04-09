@@ -74,6 +74,8 @@ pub const BTN_LEFT: u32 = 0x110;
 
 pub const SEAT_NAME_SINCE: u32 = 2;
 
+pub const PX_PER_SCROLL: f64 = 15.0;
+
 #[derive(Clone)]
 pub struct Dnd {
     pub seat: Rc<WlSeatGlobal>,

@@ -54,6 +54,7 @@ use {
     },
     thiserror::Error,
 };
+use crate::ifs::wl_seat::PX_PER_SCROLL;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {
@@ -729,7 +730,7 @@ impl XBackendData {
                     };
                     seat.mouse_event(InputEvent::AxisSource(AxisSource::Wheel));
                     seat.mouse_event(InputEvent::AxisDiscrete(val, axis));
-                    seat.mouse_event(InputEvent::Axis(Fixed::from_int(val * 15), axis));
+                    seat.mouse_event(InputEvent::Axis((val as f64 * PX_PER_SCROLL).into(), axis));
                     seat.mouse_event(InputEvent::Frame);
                 }
             } else {
