@@ -3,7 +3,10 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
-        ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
+        ifs::wl_seat::{
+            wl_pointer::{PendingScroll, VERTICAL_SCROLL},
+            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, PX_PER_SCROLL,
+        },
         rect::Rect,
         render::{Renderer, Texture},
         state::State,
@@ -32,8 +35,6 @@ use {
         rc::Rc,
     },
 };
-use crate::ifs::wl_seat::PX_PER_SCROLL;
-use crate::ifs::wl_seat::wl_pointer::{PendingScroll, VERTICAL_SCROLL};
 
 #[allow(dead_code)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -290,6 +291,7 @@ impl ContainerNode {
         };
         new.clone().set_workspace(&self.workspace.get());
         new.clone().set_parent(self.clone());
+        new.set_visible(self.visible.get());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -1134,24 +1136,36 @@ impl Node for ContainerNode {
             Some(c) => c,
             None => return,
         };
+        let (have_mc, was_mc) = match self.mono_child.get() {
+            None => (false, false),
+            Some(mc) => (true, mc.node.id() == old.id()),
+        };
         node.focus_history.set(None);
         let link = node.append(ContainerChild {
             node: new.clone(),
             active: Cell::new(false),
             body: Cell::new(node.body.get()),
-            content: Cell::new(node.content.get()),
+            content: Default::default(),
             factor: Cell::new(node.factor.get()),
             title: Default::default(),
             title_rect: Cell::new(node.title_rect.get()),
             focus_history: Cell::new(None),
         });
-        let body = link.body.get();
         drop(node);
+        let mut body = None;
+        if was_mc {
+            self.mono_child.set(Some(link.to_ref()));
+            body = Some(self.mono_body.get());
+        } else if !have_mc {
+            body = Some(link.body.get());
+        };
         self.child_nodes.borrow_mut().insert(new.id(), link);
         new.clone().set_parent(self.clone());
         new.clone().set_workspace(&self.workspace.get());
-        let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
-        new.clone().change_extents(&body);
+        if let Some(body) = body {
+            let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
+            new.clone().change_extents(&body);
+        }
     }
 
     fn remove_child(self: Rc<Self>, child: &dyn Node) {

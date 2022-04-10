@@ -19,7 +19,7 @@ use {
         keyboard::ModifiedKeySym,
     },
     libloading::Library,
-    std::{cell::Cell, ptr, rc::Rc},
+    std::{cell::Cell, mem, ptr, rc::Rc},
     thiserror::Error,
 };
 
@@ -84,7 +84,7 @@ impl ConfigProxy {
 impl Drop for ConfigProxy {
     fn drop(&mut self) {
         unsafe {
-            self.handler.dropped.set(true);
+            self.handler.do_drop();
             (self.handler.unref)(self.handler.client_data.get());
         }
     }
@@ -120,6 +120,9 @@ impl ConfigProxy {
             workspace_ids: NumCell::new(1),
             workspaces_by_name: Default::default(),
             workspaces_by_id: Default::default(),
+            timer_ids: NumCell::new(1),
+            timers_by_name: Default::default(),
+            timers_by_id: Default::default(),
         });
         let init_msg =
             bincode::encode_to_vec(&InitMessage::V1(V1InitMessage {}), bincode_ops()).unwrap();
@@ -172,6 +175,8 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
     if server.dropped.get() {
         return;
     }
+    let rc = Rc::from_raw(server);
     let msg = std::slice::from_raw_parts(msg, size);
-    server.handle_request(msg);
+    rc.handle_request(msg);
+    mem::forget(rc);
 }

@@ -3,6 +3,7 @@ use {
         async_engine::FdStatus,
         backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
+        ifs::wl_seat::PX_PER_SCROLL,
         libinput::{
             consts::{
                 LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
@@ -14,7 +15,6 @@ use {
     },
     std::rc::Rc,
 };
-use crate::ifs::wl_seat::PX_PER_SCROLL;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{

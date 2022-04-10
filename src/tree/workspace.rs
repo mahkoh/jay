@@ -35,6 +35,7 @@ impl WorkspaceNode {
         let pos = self.position.get();
         container.clone().change_extents(&pos);
         container.clone().set_workspace(self);
+        container.set_visible(self.visible.get());
         self.container.set(Some(container.clone()));
     }
 }

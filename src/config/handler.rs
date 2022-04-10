@@ -1,7 +1,9 @@
 use {
     crate::{
-        backend,
-        backend::{ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId},
+        async_engine::{AsyncError, SpawnedFuture, Timer},
+        backend::{
+            self, ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
+        },
         compositor::MAX_EXTENTS,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, OutputData, State},
@@ -32,8 +34,9 @@ use {
     },
     libloading::Library,
     log::Level,
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, rc::Rc, time::Duration},
     thiserror::Error,
+    uapi::c,
 };
 
 pub(super) struct ConfigProxyHandler {
@@ -47,12 +50,31 @@ pub(super) struct ConfigProxyHandler {
     pub next_id: NumCell<u64>,
     pub keymaps: CopyHashMap<Keymap, Rc<XkbKeymap>>,
     pub bufs: Stack<Vec<u8>>,
+
     pub workspace_ids: NumCell<u64>,
     pub workspaces_by_name: CopyHashMap<Rc<String>, u64>,
     pub workspaces_by_id: CopyHashMap<u64, Rc<String>>,
+
+    pub timer_ids: NumCell<u64>,
+    pub timers_by_name: CopyHashMap<Rc<String>, Rc<TimerData>>,
+    pub timers_by_id: CopyHashMap<u64, Rc<TimerData>>,
+}
+
+pub(super) struct TimerData {
+    timer: Timer,
+    id: u64,
+    name: Rc<String>,
+    _handler: SpawnedFuture<()>,
 }
 
 impl ConfigProxyHandler {
+    pub fn do_drop(&self) {
+        self.dropped.set(true);
+
+        self.timers_by_name.clear();
+        self.timers_by_id.clear();
+    }
+
     pub fn send(&self, msg: &ServerMessage) {
         let mut buf = self.bufs.pop().unwrap_or_default();
         buf.clear();
@@ -129,6 +151,79 @@ impl ConfigProxyHandler {
             self.get_keymap(keymap)?
         };
         seat.set_keymap(&keymap);
+        Ok(())
+    }
+
+    fn handle_set_status(&self, status: &str) {
+        self.state.set_status(status);
+    }
+
+    fn get_timer(&self, timer: jay_config::Timer) -> Result<Rc<TimerData>, CphError> {
+        match self.timers_by_id.get(&timer.0) {
+            Some(t) => Ok(t),
+            _ => Err(CphError::TimerDoesNotExist(timer)),
+        }
+    }
+
+    fn handle_remove_timer(&self, timer: jay_config::Timer) -> Result<(), CphError> {
+        let timer = self.get_timer(timer)?;
+        self.timers_by_id.remove(&timer.id);
+        self.timers_by_name.remove(&timer.name);
+        Ok(())
+    }
+
+    fn handle_program_timer(
+        &self,
+        timer: jay_config::Timer,
+        initial: Option<Duration>,
+        periodic: Option<Duration>,
+    ) -> Result<(), CphError> {
+        let timer = self.get_timer(timer)?;
+        timer.timer.program(initial, periodic)?;
+        Ok(())
+    }
+
+    fn handle_get_timer(self: &Rc<Self>, name: &str) -> Result<(), CphError> {
+        let name = Rc::new(name.to_owned());
+        if let Some(t) = self.timers_by_name.get(&name) {
+            self.respond(Response::GetTimer {
+                timer: jay_config::Timer(t.id),
+            });
+            return Ok(());
+        }
+        let id = self.timer_ids.fetch_add(1);
+        let timer = self.state.eng.timer(c::CLOCK_BOOTTIME)?;
+        let handler = {
+            let timer = timer.clone();
+            let slf = self.clone();
+            self.state.eng.spawn(async move {
+                loop {
+                    match timer.expired().await {
+                        Ok(_) => slf.send(&ServerMessage::TimerExpired {
+                            timer: jay_config::Timer(id),
+                        }),
+                        Err(e) => {
+                            log::error!("Could not wait for timer expiration: {}", ErrorFmt(e));
+                            if let Some(timer) = slf.timers_by_id.remove(&id) {
+                                slf.timers_by_name.remove(&timer.name);
+                            }
+                            return;
+                        }
+                    }
+                }
+            })
+        };
+        let td = Rc::new(TimerData {
+            timer,
+            id,
+            name: name.clone(),
+            _handler: handler,
+        });
+        self.timers_by_name.set(name.clone(), td.clone());
+        self.timers_by_id.set(id, td.clone());
+        self.respond(Response::GetTimer {
+            timer: jay_config::Timer(id),
+        });
         Ok(())
     }
 
@@ -361,6 +456,7 @@ impl ConfigProxyHandler {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
         let old_pos = connector.node.global.pos.get();
+        connector.node.set_position(x, y);
         let seats = self.state.globals.seats.lock();
         for seat in seats.values() {
             if seat.get_output().id == connector.node.id {
@@ -371,7 +467,6 @@ impl ConfigProxyHandler {
                 );
             }
         }
-        connector.node.set_position(x, y);
         Ok(())
     }
 
@@ -642,13 +737,13 @@ impl ConfigProxyHandler {
         self.state.theme.underline_color.set(color.into());
     }
 
-    pub fn handle_request(&self, msg: &[u8]) {
+    pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
         }
     }
 
-    fn handle_request_(&self, msg: &[u8]) -> Result<(), CphError> {
+    fn handle_request_(self: &Rc<Self>, msg: &[u8]) -> Result<(), CphError> {
         let (request, _) = match bincode::decode_from_slice::<ClientMessage, _>(msg, bincode_ops())
         {
             Ok(msg) => msg,
@@ -770,6 +865,18 @@ impl ConfigProxyHandler {
                 .handle_connector_set_position(connector, x, y)
                 .wrn("connector_set_position")?,
             ClientMessage::Close { seat } => self.handle_close(seat).wrn("close")?,
+            ClientMessage::SetStatus { status } => self.handle_set_status(status),
+            ClientMessage::GetTimer { name } => self.handle_get_timer(name).wrn("get_timer")?,
+            ClientMessage::RemoveTimer { timer } => {
+                self.handle_remove_timer(timer).wrn("remove_timer")?
+            }
+            ClientMessage::ProgramTimer {
+                timer,
+                initial,
+                periodic,
+            } => self
+                .handle_program_timer(timer, initial, periodic)
+                .wrn("program_timer")?,
         }
         Ok(())
     }
@@ -801,6 +908,8 @@ enum CphError {
     DeviceDoesNotExist(InputDevice),
     #[error("Connector {0:?} does not exist")]
     ConnectorDoesNotExist(Connector),
+    #[error("Timer {0:?} does not exist")]
+    TimerDoesNotExist(jay_config::Timer),
     #[error("Connector {0:?} does not exist or is not connected")]
     OutputDoesNotExist(Connector),
     #[error("{0}x{1} is not a valid connector position")]
@@ -817,6 +926,8 @@ enum CphError {
     ParsingFailed(#[source] DecodeError),
     #[error("Could not process a `{0}` request")]
     FailedRequest(&'static str, #[source] Box<Self>),
+    #[error(transparent)]
+    AsyncError(#[from] AsyncError),
 }
 
 trait WithRequestName {

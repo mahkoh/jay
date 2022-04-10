@@ -217,6 +217,16 @@ impl WlSeatGlobal {
     pub fn set_position(&self, x: i32, y: i32) {
         self.pos.set((Fixed::from_int(x), Fixed::from_int(y)));
         self.trigger_tree_changed();
+        'set_output: {
+            let outputs = self.state.outputs.lock();
+            for output in outputs.values() {
+                if output.node.global.pos.get().contains(x, y) {
+                    self.output.set(output.node.clone());
+                    break 'set_output;
+                }
+            }
+            self.output.set(self.state.dummy_output.get().unwrap());
+        }
     }
 
     pub fn position(&self) -> (Fixed, Fixed) {

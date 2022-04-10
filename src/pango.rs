@@ -72,6 +72,7 @@ extern "C" {
         desc: *const PangoFontDescription_,
     );
     fn pango_layout_set_text(layout: *mut PangoLayout_, text: *const c::c_char, length: c::c_int);
+    fn pango_layout_set_markup(layout: *mut PangoLayout_, text: *const c::c_char, length: c::c_int);
     fn pango_layout_get_pixel_size(
         layout: *mut PangoLayout_,
         width: *mut c::c_int,
@@ -292,6 +293,12 @@ impl PangoLayout {
     pub fn set_text(&self, text: &str) {
         unsafe {
             pango_layout_set_text(self.l, text.as_ptr() as _, text.len() as _);
+        }
+    }
+
+    pub fn set_markup(&self, text: &str) {
+        unsafe {
+            pango_layout_set_markup(self.l, text.as_ptr() as _, text.len() as _);
         }
     }
 

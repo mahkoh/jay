@@ -75,6 +75,7 @@ pub struct State {
     pub logger: Arc<Logger>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
+    pub status: CloneCell<Rc<String>>,
 }
 
 pub struct InputDeviceData {
@@ -263,6 +264,28 @@ impl State {
         let seats = self.globals.seats.lock();
         for seat in seats.values() {
             seat.workspace_changed(&output);
+        }
+    }
+
+    pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
+        if let Some(seat) = self.seat_queue.last() {
+            let output = seat.get_output();
+            if !output.is_dummy {
+                return output.ensure_workspace();
+            }
+        }
+        if let Some(output) = self.root.outputs.lock().values().cloned().next() {
+            return output.ensure_workspace();
+        }
+        self.dummy_output.get().unwrap().ensure_workspace()
+    }
+
+    pub fn set_status(&self, status: &str) {
+        let status = Rc::new(status.to_owned());
+        self.status.set(status.clone());
+        let outputs = self.root.outputs.lock();
+        for output in outputs.values() {
+            output.set_status(&status);
         }
     }
 }

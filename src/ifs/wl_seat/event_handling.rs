@@ -21,7 +21,7 @@ use {
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
         object::ObjectId,
-        tree::{FloatNode, Node, OutputNode, ToplevelNode},
+        tree::{FloatNode, Node, ToplevelNode},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
@@ -172,6 +172,7 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
+        self.output.set(output.node.clone());
         let pos = output.node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
@@ -191,6 +192,7 @@ impl WlSeatGlobal {
                 let outputs = self.state.outputs.lock();
                 for output in outputs.values() {
                     if output.node.global.pos.get().contains(x_int, y_int) {
+                        self.output.set(output.node.clone());
                         break 'warp;
                     }
                 }
@@ -515,10 +517,6 @@ impl WlSeatGlobal {
 
     pub fn enter_popup(self: &Rc<Self>, _n: &Rc<XdgPopup>) {
         // self.focus_xdg_surface(&n.xdg);
-    }
-
-    pub fn enter_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
-        self.output.set(output.clone());
     }
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {

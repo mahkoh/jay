@@ -1,7 +1,7 @@
 use {
     crate::keyboard::{keymap::Keymap, ModifiedKeySym},
     bincode::{Decode, Encode},
-    std::collections::HashMap,
+    std::{collections::HashMap, time::Duration},
 };
 
 #[macro_use]
@@ -12,6 +12,7 @@ pub mod drm;
 pub mod embedded;
 pub mod input;
 pub mod keyboard;
+pub mod status;
 pub mod theme;
 
 #[derive(Encode, Decode, Copy, Clone, Debug)]
@@ -90,4 +91,29 @@ pub struct Workspace(pub u64);
 
 pub fn get_workspace(name: &str) -> Workspace {
     get!(Workspace(0)).get_workspace(name)
+}
+
+#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct Timer(pub u64);
+
+pub fn get_timer(name: &str) -> Timer {
+    get!(Timer(0)).get_timer(name)
+}
+
+impl Timer {
+    pub fn program(self, initial: Duration, periodic: Option<Duration>) {
+        get!().program_timer(self, Some(initial), periodic);
+    }
+
+    pub fn cancel(self) {
+        get!().program_timer(self, None, None);
+    }
+
+    pub fn remove(self) {
+        get!().remove_timer(self);
+    }
+
+    pub fn on_tick<F: Fn() + 'static>(self, f: F) {
+        get!().on_timer_tick(self, f);
+    }
 }

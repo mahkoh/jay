@@ -119,6 +119,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
         logger,
         connectors: Default::default(),
         outputs: Default::default(),
+        status: Default::default(),
     });
     {
         let dummy_output = Rc::new(OutputNode {
@@ -150,6 +151,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
             render_data: Default::default(),
             state: state.clone(),
             is_dummy: true,
+            status: Default::default(),
         });
         let dummy_workspace = Rc::new(WorkspaceNode {
             id: state.node_ids.next(),

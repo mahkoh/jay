@@ -14,7 +14,7 @@ use {
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::keymap::Keymap,
         theme::Color,
-        Axis, Command, Direction, LogLevel, ModifiedKeySym, Workspace,
+        Axis, Command, Direction, LogLevel, ModifiedKeySym, Timer, Workspace,
     },
     std::{
         cell::{Cell, RefCell},
@@ -23,6 +23,7 @@ use {
         ptr,
         rc::Rc,
         slice,
+        time::Duration,
     },
 };
 
@@ -32,6 +33,7 @@ pub(crate) struct Client {
     srv_unref: unsafe extern "C" fn(data: *const u8),
     srv_handler: unsafe extern "C" fn(data: *const u8, msg: *const u8, size: usize),
     key_handlers: RefCell<HashMap<(Seat, ModifiedKeySym), Rc<dyn Fn()>>>,
+    timer_handlers: RefCell<HashMap<Timer, Rc<dyn Fn()>>>,
     response: RefCell<Vec<Response>>,
     on_new_seat: RefCell<Option<Rc<dyn Fn(Seat)>>>,
     on_new_input_device: RefCell<Option<Rc<dyn Fn(InputDevice)>>>,
@@ -113,6 +115,7 @@ pub unsafe extern "C" fn init(
         srv_unref,
         srv_handler,
         key_handlers: Default::default(),
+        timer_handlers: Default::default(),
         response: Default::default(),
         on_new_seat: Default::default(),
         on_new_input_device: Default::default(),
@@ -222,6 +225,33 @@ impl Client {
         mono
     }
 
+    pub fn get_timer(&self, name: &str) -> Timer {
+        let res = self.with_response(|| self.send(&ClientMessage::GetTimer { name }));
+        get_response!(res, Timer(0), GetTimer, timer);
+        timer
+    }
+
+    pub fn remove_timer(&self, timer: Timer) {
+        self.send(&ClientMessage::RemoveTimer { timer });
+    }
+
+    pub fn program_timer(
+        &self,
+        timer: Timer,
+        initial: Option<Duration>,
+        periodic: Option<Duration>,
+    ) {
+        self.send(&ClientMessage::ProgramTimer {
+            timer,
+            initial,
+            periodic,
+        });
+    }
+
+    pub fn on_timer_tick<F: Fn() + 'static>(&self, timer: Timer, f: F) {
+        self.timer_handlers.borrow_mut().insert(timer, Rc::new(f));
+    }
+
     pub fn get_workspace(&self, name: &str) -> Workspace {
         let res = self.with_response(|| self.send(&ClientMessage::GetWorkspace { name }));
         get_response!(res, Workspace(0), GetWorkspace, workspace);
@@ -286,6 +316,10 @@ impl Client {
 
     pub fn set_mono(&self, seat: Seat, mono: bool) {
         self.send(&ClientMessage::SetMono { seat, mono });
+    }
+
+    pub fn set_status(&self, status: &str) {
+        self.send(&ClientMessage::SetStatus { status });
     }
 
     pub fn set_split(&self, seat: Seat, axis: Axis) {
@@ -507,6 +541,12 @@ impl Client {
                 }
             }
             ServerMessage::DelConnector { .. } => {}
+            ServerMessage::TimerExpired { timer } => {
+                let handler = self.timer_handlers.borrow_mut().get(&timer).cloned();
+                if let Some(handler) = handler {
+                    handler();
+                }
+            }
         }
     }
 

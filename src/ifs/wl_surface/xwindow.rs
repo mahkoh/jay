@@ -280,16 +280,7 @@ impl Xwindow {
                 self.data.state.tree_changed();
             }
             Change::Map if self.data.info.wants_floating.get() => {
-                let ws = match self.data.state.root.outputs.lock().values().cloned().next() {
-                    Some(output) => output.ensure_workspace(),
-                    _ => self
-                        .data
-                        .state
-                        .dummy_output
-                        .get()
-                        .unwrap()
-                        .ensure_workspace(),
-                };
+                let ws = self.data.state.float_map_ws();
                 let ext = self.data.info.extents.get();
                 self.data
                     .state

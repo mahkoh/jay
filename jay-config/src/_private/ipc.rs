@@ -4,9 +4,10 @@ use {
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
         theme::Color,
-        Axis, Direction, LogLevel, Workspace,
+        Axis, Direction, LogLevel, Timer, Workspace,
     },
     bincode::{BorrowDecode, Decode, Encode},
+    std::time::Duration,
 };
 
 #[derive(Encode, BorrowDecode, Debug)]
@@ -37,6 +38,9 @@ pub enum ServerMessage {
         seat: Seat,
         mods: Modifiers,
         sym: KeySym,
+    },
+    TimerExpired {
+        timer: Timer,
     },
 }
 
@@ -76,6 +80,9 @@ pub enum ClientMessage<'a> {
     },
     GetSplit {
         seat: Seat,
+    },
+    SetStatus {
+        status: &'a str,
     },
     SetSplit {
         seat: Seat,
@@ -203,6 +210,17 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         workspace: Workspace,
     },
+    GetTimer {
+        name: &'a str,
+    },
+    RemoveTimer {
+        timer: Timer,
+    },
+    ProgramTimer {
+        timer: Timer,
+        initial: Option<Duration>,
+        periodic: Option<Duration>,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -241,6 +259,9 @@ pub enum Response {
     },
     GetDeviceName {
         name: String,
+    },
+    GetTimer {
+        timer: Timer,
     },
     GetWorkspace {
         workspace: Workspace,

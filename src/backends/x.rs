@@ -8,6 +8,7 @@ use {
         },
         fixed::Fixed,
         format::XRGB8888,
+        ifs::wl_seat::PX_PER_SCROLL,
         render::{Framebuffer, RenderContext, RenderError},
         state::State,
         utils::{
@@ -54,7 +55,6 @@ use {
     },
     thiserror::Error,
 };
-use crate::ifs::wl_seat::PX_PER_SCROLL;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {

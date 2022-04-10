@@ -68,9 +68,13 @@ fn create_data(font: &str, width: i32, height: i32) -> Result<Data, TextError> {
     })
 }
 
-pub fn measure(font: &str, text: &str) -> Result<Rect, TextError> {
+pub fn measure(font: &str, text: &str, markup: bool) -> Result<Rect, TextError> {
     let data = create_data(font, 1, 1)?;
-    data.layout.set_text(text);
+    if markup {
+        data.layout.set_markup(text);
+    } else {
+        data.layout.set_text(text);
+    }
     Ok(data.layout.inc_pixel_rect())
 }
 
@@ -82,7 +86,7 @@ pub fn render(
     text: &str,
     color: Color,
 ) -> Result<Rc<Texture>, TextError> {
-    render2(ctx, 1, width, height, 1, font, text, color, true)
+    render2(ctx, 1, width, height, 1, font, text, color, true, false)
 }
 
 pub fn render2(
@@ -95,6 +99,7 @@ pub fn render2(
     text: &str,
     color: Color,
     ellipsize: bool,
+    markup: bool,
 ) -> Result<Rc<Texture>, TextError> {
     let data = create_data(font, width, height)?;
     if ellipsize {
@@ -102,7 +107,11 @@ pub fn render2(
             .set_width((width - 2 * padding).max(0) * PANGO_SCALE);
         data.layout.set_ellipsize(PANGO_ELLIPSIZE_END);
     }
-    data.layout.set_text(text);
+    if markup {
+        data.layout.set_markup(text);
+    } else {
+        data.layout.set_text(text);
+    }
     let font_height = data.layout.pixel_size().1;
     data.cctx.set_operator(CAIRO_OPERATOR_SOURCE);
     data.cctx
@@ -127,8 +136,9 @@ pub fn render_fitting(
     font: &str,
     text: &str,
     color: Color,
+    markup: bool,
 ) -> Result<Rc<Texture>, TextError> {
-    let rect = measure(font, text)?;
+    let rect = measure(font, text, markup)?;
     render2(
         ctx,
         rect.x1().neg(),
@@ -139,5 +149,6 @@ pub fn render_fitting(
         text,
         color,
         false,
+        markup,
     )
 }

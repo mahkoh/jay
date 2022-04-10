@@ -65,6 +65,9 @@ impl Renderer<'_> {
             for title in &rd.titles {
                 self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
             }
+            if let Some(status) = &rd.status {
+                self.render_texture(&status.tex, x + status.x, y + status.y, ARGB8888);
+            }
         }
         if let Some(ws) = output.workspace.get() {
             self.render_workspace(&ws, x, y + th);

@@ -97,9 +97,11 @@ impl ConnectorHandler {
                 active_workspace: Rect::new_empty(0, 0),
                 inactive_workspaces: Default::default(),
                 titles: Default::default(),
+                status: None,
             }),
             state: self.state.clone(),
             is_dummy: false,
+            status: self.state.status.clone(),
         });
         let mode = info.initial_mode;
         let output_data = Rc::new(OutputData {

@@ -2,7 +2,6 @@ use {
     crate::{
         backend::Mode,
         cursor::KnownCursor,
-        fixed::Fixed,
         ifs::{
             wl_output::WlOutputGlobal,
             wl_seat::{NodeSeatState, WlSeatGlobal},
@@ -36,6 +35,7 @@ pub struct OutputNode {
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
     pub is_dummy: bool,
+    pub status: CloneCell<Rc<String>>,
 }
 
 impl OutputNode {
@@ -43,6 +43,7 @@ impl OutputNode {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
         rd.inactive_workspaces.clear();
+        rd.status = None;
         let mut pos = 0;
         let font = self.state.theme.font.borrow_mut();
         let th = self.state.theme.title_height.get();
@@ -54,13 +55,14 @@ impl OutputNode {
                     if th == 0 || ws.name.is_empty() {
                         break 'create_texture;
                     }
-                    let title = match text::render_fitting(&ctx, th, &font, &ws.name, Color::GREY) {
-                        Ok(t) => t,
-                        Err(e) => {
-                            log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
-                            break 'create_texture;
-                        }
-                    };
+                    let title =
+                        match text::render_fitting(&ctx, th, &font, &ws.name, Color::GREY, false) {
+                            Ok(t) => t,
+                            Err(e) => {
+                                log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
+                                break 'create_texture;
+                            }
+                        };
                     let mut x = pos + 1;
                     if title.width() + 2 > title_width {
                         title_width = title.width() + 2;
@@ -81,6 +83,29 @@ impl OutputNode {
                 rd.inactive_workspaces.push(rect);
             }
             pos += title_width;
+        }
+        'set_status: {
+            let ctx = match self.state.render_ctx.get() {
+                Some(ctx) => ctx,
+                _ => break 'set_status,
+            };
+            let status = self.status.get();
+            if status.is_empty() {
+                break 'set_status;
+            }
+            let title = match text::render_fitting(&ctx, th, &font, &status, Color::GREY, true) {
+                Ok(t) => t,
+                Err(e) => {
+                    log::error!("Could not render status {}: {}", status, ErrorFmt(e));
+                    break 'set_status;
+                }
+            };
+            let pos = self.global.pos.get().width() - title.width() - 1;
+            rd.status = Some(OutputTitle {
+                x: pos,
+                y: 0,
+                tex: title,
+            });
         }
     }
 
@@ -106,7 +131,7 @@ impl OutputNode {
             seat_state: Default::default(),
             name: name.clone(),
             output_link: Default::default(),
-            visible: Cell::new(false),
+            visible: Cell::new(true),
         });
         self.state.workspaces.set(name, workspace.clone());
         workspace
@@ -122,9 +147,9 @@ impl OutputNode {
             if old.id == ws.id {
                 return;
             }
-            old.visible.set(false);
+            old.set_visible(false);
         }
-        ws.visible.set(true);
+        ws.set_visible(true);
         ws.clone().change_extents(&self.workspace_rect());
     }
 
@@ -161,6 +186,7 @@ impl OutputNode {
 
     fn change_extents_(&self, rect: &Rect) {
         self.global.pos.set(*rect);
+        self.update_render_data();
         if let Some(c) = self.workspace.get() {
             c.change_extents(&self.workspace_rect());
         }
@@ -194,6 +220,11 @@ impl OutputNode {
         }
         FindTreeResult::Other
     }
+
+    pub fn set_status(&self, status: &Rc<String>) {
+        self.status.set(status.clone());
+        self.update_render_data();
+    }
 }
 
 pub struct OutputTitle {
@@ -207,6 +238,7 @@ pub struct OutputRenderData {
     pub active_workspace: Rect,
     pub inactive_workspaces: Vec<Rect>,
     pub titles: Vec<OutputTitle>,
+    pub status: Option<OutputTitle>,
 }
 
 impl Debug for OutputNode {
@@ -281,10 +313,6 @@ impl Node for OutputNode {
 
     fn remove_child(self: Rc<Self>, _child: &dyn Node) {
         unimplemented!();
-    }
-
-    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.enter_output(&self)
     }
 
     fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {

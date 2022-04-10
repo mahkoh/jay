@@ -1,11 +1,9 @@
 # todo
 
 - Container moving (mouse)
-- Workspaces
 - presentation time
 - viewporter
 - session lock
-- xwayland
 
 # done
 
@@ -21,3 +19,5 @@
 - Config
 - Highlighting active
 - Toplevel splitting
+- Workspaces
+- xwayland
