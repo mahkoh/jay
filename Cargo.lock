@@ -700,9 +700,9 @@ dependencies = [
 
 [[package]]
 name = "uapi"
-version = "0.2.7"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea2a608d845b3ddcf7769250f94124d29e346c0f8fdb935756c6b758ac5d9b59"
+checksum = "7e1cab2fc800ded6ae4bc579e8c563a7dba3e1691510c1a82375409e44aa5b58"
 dependencies = [
  "cc",
  "cfg-if 0.1.10",

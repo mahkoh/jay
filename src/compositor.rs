@@ -1,3 +1,4 @@
+use uapi::c;
 use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
@@ -35,6 +36,8 @@ use {
     std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc},
     thiserror::Error,
 };
+use crate::utils::oserror::OsError;
+use crate::utils::tri::Try;
 
 pub const MAX_EXTENTS: i32 = (1 << 24) - 1;
 
@@ -51,6 +54,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         eprintln!("See {} for more details.", logger.path());
         std::process::exit(1);
     }
+    log::info!("Exit");
 }
 
 #[derive(Debug, Error)]
@@ -72,6 +76,7 @@ enum MainError {
 }
 
 fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
+    init_fd_limit();
     leaks::init();
     render::init()?;
     clientmem::init()?;
@@ -194,4 +199,19 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
     }
     leaks::log_leaked();
     Ok(())
+}
+
+fn init_fd_limit() {
+    let res = OsError::tri(|| {
+        let mut cur = uapi::getrlimit(c::RLIMIT_NOFILE as _)?;
+        if cur.rlim_cur < cur.rlim_max {
+            log::info!("Increasing file descriptor limit from {} to {}", cur.rlim_cur, cur.rlim_max);
+            cur.rlim_cur = cur.rlim_max;
+            uapi::setrlimit(c::RLIMIT_NOFILE as _, &cur)?;
+        }
+        Ok(())
+    });
+    if let Err(e) = res {
+        log::warn!("Could not increase file descriptor limit: {}", ErrorFmt(e));
+    }
 }
