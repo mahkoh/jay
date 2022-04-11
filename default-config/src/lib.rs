@@ -145,6 +145,8 @@ pub fn configure() {
         );
         timer.on_tick(update_status);
     }
+
+    Command::new("mako").spawn();
 }
 
 config!(configure);

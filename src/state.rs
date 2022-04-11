@@ -93,6 +93,7 @@ pub struct ConnectorData {
     pub connector: Rc<dyn Connector>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connected: Cell<bool>,
+    pub name: String,
 }
 
 pub struct OutputData {

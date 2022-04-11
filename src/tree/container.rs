@@ -690,6 +690,7 @@ impl ContainerNode {
                 child.node.clone().do_focus(&seat, Direction::Unspecified);
             }
             self.mono_child.set(Some(child.clone()));
+            child.node.set_visible(true);
             self.schedule_layout();
         } else {
         }

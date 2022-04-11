@@ -282,11 +282,19 @@ impl XdgToplevel {
 
     fn set_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), SetFullscreenError> {
         let _req: SetFullscreen = self.xdg.surface.client.parse(self, parser)?;
+        self.states.borrow_mut().insert(STATE_FULLSCREEN);
+        let rect = self.xdg.absolute_desired_extents.get();
+        self.send_configure_checked(rect.width(), rect.height());
+        self.xdg.do_send_configure();
         Ok(())
     }
 
     fn unset_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), UnsetFullscreenError> {
         let _req: UnsetFullscreen = self.xdg.surface.client.parse(self, parser)?;
+        self.states.borrow_mut().remove(&STATE_FULLSCREEN);
+        let rect = self.xdg.absolute_desired_extents.get();
+        self.send_configure_checked(rect.width(), rect.height());
+        self.xdg.do_send_configure();
         Ok(())
     }
 

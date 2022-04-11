@@ -107,11 +107,11 @@ impl WlOutputGlobal {
                 binding.send_mode();
                 binding.send_scale();
                 binding.send_done();
-                binding.client.flush();
                 let xdg = binding.xdg_outputs.lock();
                 for xdg in xdg.values() {
                     xdg.send_updates();
                 }
+                binding.client.flush();
             }
         }
     }

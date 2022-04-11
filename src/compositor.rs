@@ -132,6 +132,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
                     }),
                     handler: Cell::new(None),
                     connected: Cell::new(true),
+                    name: "Dummy".to_string(),
                 }),
                 0,
                 &backend::Mode {

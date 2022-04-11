@@ -19,6 +19,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         connector: connector.clone(),
         handler: Default::default(),
         connected: Cell::new(false),
+        name: connector.kernel_id().to_string(),
     });
     let oh = ConnectorHandler {
         id,
@@ -120,6 +121,7 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        on.update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.add_global(&global);
         'outer: loop {

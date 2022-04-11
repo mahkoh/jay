@@ -112,10 +112,7 @@ impl Logger {
 fn create_log_dir() -> BString {
     let mut log_dir = match dirs::data_local_dir() {
         Some(d) => d,
-        None => {
-            eprintln!("Error: $HOME is not set");
-            std::process::exit(1);
-        }
+        None => fatal!("Error: $HOME is not set"),
     };
     log_dir.push("jay");
     let res = DirBuilder::new()
@@ -123,12 +120,11 @@ fn create_log_dir() -> BString {
         .mode(0o755)
         .create(&log_dir);
     if let Err(e) = res {
-        eprintln!(
+        fatal!(
             "Error: Could not create log directory {}: {}",
             log_dir.display(),
             ErrorFmt(e)
         );
-        std::process::exit(1);
     }
     log_dir.into_os_string().into_vec().into()
 }

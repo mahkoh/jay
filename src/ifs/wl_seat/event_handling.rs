@@ -215,7 +215,6 @@ impl WlSeatGlobal {
 
     fn key_event(&self, key: u32, state: KeyState) {
         let (state, xkb_dir) = {
-            log::info!("{} {:?}", key, state);
             let mut pk = self.pressed_keys.borrow_mut();
             match state {
                 KeyState::Released => {

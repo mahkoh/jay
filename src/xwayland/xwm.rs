@@ -593,7 +593,7 @@ impl Wm {
         {
             Ok(ty) if ty == ATOM_STRING && data.info.utf8_title.get() => return,
             Ok(ty) if ty == ATOM_STRING => {}
-            Ok(ty) if ty == self.atoms.COMPOUND_TEXT => {} // used by java. assume utf-8.
+            Ok(ty) if ty == self.atoms.COMPOUND_TEXT => return, // used by java.
             Ok(ty) if ty == self.atoms.UTF8_STRING => {
                 data.info.utf8_title.set(true);
             }

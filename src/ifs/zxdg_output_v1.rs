@@ -11,7 +11,6 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
 pub const NAME_SINCE: u32 = 2;
 #[allow(dead_code)]
 pub const DESCRIPTION_SINCE: u32 = 2;
@@ -46,7 +45,6 @@ impl ZxdgOutputV1 {
         self.client.event(Done { self_id: self.id });
     }
 
-    #[allow(dead_code)]
     pub fn send_name(&self, name: &str) {
         self.client.event(Name {
             self_id: self.id,
@@ -66,7 +64,10 @@ impl ZxdgOutputV1 {
         let pos = self.output.global.position();
         self.send_logical_position(pos.x1(), pos.y1());
         self.send_logical_size(pos.width(), pos.height());
-        if self.version >= NO_DONE_SINCE || self.output.version < SEND_DONE_SINCE {
+        if self.version >= NAME_SINCE {
+            self.send_name(&self.output.global.connector.name);
+        }
+        if self.version >= NO_DONE_SINCE && self.output.version >= SEND_DONE_SINCE {
             self.output.send_done();
         } else {
             self.send_done();
