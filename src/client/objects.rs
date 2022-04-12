@@ -20,7 +20,7 @@ use {
             xdg_wm_base::XdgWmBase,
         },
         object::{Object, ObjectId},
-        tree::Node,
+        tree::SizedNode,
         utils::{
             clonecell::CloneCell,
             copyhashmap::{CopyHashMap, Locked},

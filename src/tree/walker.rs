@@ -13,43 +13,43 @@ use {
 
 pub trait NodeVisitorBase: Sized {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_popup(&mut self, node: &Rc<XdgPopup>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_display(&mut self, node: &Rc<DisplayNode>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 }
 
@@ -119,52 +119,52 @@ pub fn generic_node_visitor<F: FnMut(Rc<dyn Node>)>(f: F) -> GenericNodeVisitor<
 impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_popup(&mut self, node: &Rc<XdgPopup>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_display(&mut self, node: &Rc<DisplayNode>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
         (self.f)(node.clone());
-        node.visit_children(self);
+        node.node_visit_children(self);
     }
 }
 

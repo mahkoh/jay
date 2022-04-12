@@ -1,4 +1,3 @@
-use uapi::c;
 use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
@@ -25,8 +24,8 @@ use {
             NodeIds, OutputNode, WorkspaceNode,
         },
         utils::{
-            clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, queue::AsyncQueue,
-            run_toplevel::RunToplevel,
+            clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, oserror::OsError,
+            queue::AsyncQueue, run_toplevel::RunToplevel, tri::Try,
         },
         wheel::{Wheel, WheelError},
         xkbcommon::XkbContext,
@@ -35,9 +34,8 @@ use {
     forker::ForkerProxy,
     std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc},
     thiserror::Error,
+    uapi::c,
 };
-use crate::utils::oserror::OsError;
-use crate::utils::tri::Try;
 
 pub const MAX_EXTENTS: i32 = (1 << 24) - 1;
 
@@ -177,8 +175,6 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
         state.dummy_output.set(Some(dummy_output));
     }
     forker.install(&state);
-    let config = ConfigProxy::default(&state);
-    state.config.set(Some(Rc::new(config)));
     let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
     let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
     let _container_do_layout = engine.spawn2(Phase::Layout, container_layout(state.clone()));
@@ -191,6 +187,8 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
     forker.setenv(b"_JAVA_AWT_WM_NONREPARENTING", b"1");
     let _xwayland = engine.spawn(xwayland::manage(state.clone()));
     let _backend = engine.spawn(tasks::start_backend(state.clone()));
+    let config = ConfigProxy::default(&state);
+    state.config.set(Some(Rc::new(config)));
     el.run()?;
     drop(_xwayland);
     state.clients.clear();
@@ -205,7 +203,11 @@ fn init_fd_limit() {
     let res = OsError::tri(|| {
         let mut cur = uapi::getrlimit(c::RLIMIT_NOFILE as _)?;
         if cur.rlim_cur < cur.rlim_max {
-            log::info!("Increasing file descriptor limit from {} to {}", cur.rlim_cur, cur.rlim_max);
+            log::info!(
+                "Increasing file descriptor limit from {} to {}",
+                cur.rlim_cur,
+                cur.rlim_max
+            );
             cur.rlim_cur = cur.rlim_max;
             uapi::setrlimit(c::RLIMIT_NOFILE as _, &cur)?;
         }

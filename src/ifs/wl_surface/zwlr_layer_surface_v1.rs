@@ -12,7 +12,7 @@ use {
         object::Object,
         rect::Rect,
         render::Renderer,
-        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
+        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode, SizedNode},
         utils::{
             bitflags::BitflagsExt,
             buffd::{MsgParser, MsgParserError},
@@ -45,6 +45,7 @@ pub struct ZwlrLayerSurfaceV1 {
     pub output: Rc<OutputNode>,
     pub namespace: String,
     pub tracker: Tracker<Self>,
+    output_pos: Cell<Rect>,
     pos: Cell<Rect>,
     mapped: Cell<bool>,
     layer: Cell<u32>,
@@ -89,7 +90,8 @@ impl ZwlrLayerSurfaceV1 {
             output: output.clone(),
             namespace: namespace.to_string(),
             tracker: Default::default(),
-            pos: Cell::new(Default::default()),
+            output_pos: Default::default(),
+            pos: Default::default(),
             mapped: Cell::new(false),
             layer: Cell::new(layer),
             pending: Default::default(),
@@ -196,7 +198,7 @@ impl ZwlrLayerSurfaceV1 {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        self.destroy_node(true);
+        self.node_destroy(true);
         self.client.remove_obj(self)?;
         self.surface.unset_ext();
         Ok(())
@@ -262,6 +264,10 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
+    pub fn output_position(&self) -> Rect {
+        self.output_pos.get()
+    }
+
     pub fn position(&self) -> Rect {
         self.pos.get()
     }
@@ -273,8 +279,8 @@ impl ZwlrLayerSurfaceV1 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
         let opos = self.output.global.pos.get();
-        let mut x1 = opos.x1();
-        let mut y1 = opos.y1();
+        let mut x1 = 0;
+        let mut y1 = 0;
         if anchor.contains(LEFT) {
             if anchor.contains(RIGHT) {
                 x1 += (opos.width() - width) / 2;
@@ -289,8 +295,9 @@ impl ZwlrLayerSurfaceV1 {
         } else if anchor.contains(BOTTOM) {
             y1 += opos.height() - height;
         }
-        self.pos
-            .set(Rect::new_sized(x1, y1, width, height).unwrap());
+        let rect = Rect::new_sized(x1, y1, width, height).unwrap();
+        self.output_pos.set(rect);
+        self.pos.set(rect.move_(opos.x1(), opos.y1()));
         self.surface.set_absolute_position(x1, y1);
         self.client.state.tree_changed();
     }
@@ -306,7 +313,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         let buffer = self.surface.buffer.get();
         if self.mapped.get() {
             if buffer.is_none() {
-                self.destroy_node(true);
+                self.node_destroy(true);
             } else {
                 let pos = self.pos.get();
                 let (width, height) = self.size.get();
@@ -326,7 +333,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                     let was_active = self.surface.seat_state.is_active();
                     self.surface.seat_state.release_kb_focus();
                     if was_active {
-                        self.surface.active_changed(false);
+                        self.surface.node_active_changed(false);
                     }
                 }
                 KI_ON_DEMAND => self.surface.seat_state.release_kb_grab(),
@@ -346,7 +353,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     }
 }
 
-impl Node for ZwlrLayerSurfaceV1 {
+impl SizedNode for ZwlrLayerSurfaceV1 {
     fn id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -358,16 +365,16 @@ impl Node for ZwlrLayerSurfaceV1 {
     fn destroy_node(&self, _detach: bool) {
         self.link.set(None);
         self.mapped.set(false);
-        self.surface.destroy_node(false);
+        self.surface.node_destroy(false);
         self.seat_state.destroy_node(self);
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_layer_surface(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_layer_surface(self);
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        self.surface.clone().visit(visitor);
+        self.surface.clone().node_visit(visitor);
     }
 
     fn visible(&self) -> bool {
@@ -386,7 +393,7 @@ impl Node for ZwlrLayerSurfaceV1 {
         renderer.render_layer_surface(self, x, y);
     }
 
-    fn change_extents(self: Rc<Self>, _rect: &Rect) {
+    fn change_extents(self: &Rc<Self>, _rect: &Rect) {
         self.compute_position();
     }
 }
@@ -415,7 +422,7 @@ impl Object for ZwlrLayerSurfaceV1 {
     }
 
     fn break_loops(&self) {
-        self.destroy_node(true);
+        self.node_destroy(true);
         self.link.set(None);
     }
 }

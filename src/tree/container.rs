@@ -14,7 +14,7 @@ use {
         theme::Color,
         tree::{
             generic_node_visitor, walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId,
-            WorkspaceNode,
+            SizedNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -169,11 +169,11 @@ impl ContainerNode {
         child: Rc<dyn Node>,
         split: ContainerSplit,
     ) -> Rc<Self> {
-        child.clone().set_workspace(workspace);
+        child.clone().node_set_workspace(workspace);
         let children = LinkedList::new();
         let mut child_nodes = AHashMap::new();
         child_nodes.insert(
-            child.id(),
+            child.node_id(),
             children.add_last(ContainerChild {
                 node: child.clone(),
                 active: Default::default(),
@@ -215,7 +215,7 @@ impl ContainerNode {
             visible: Cell::new(false),
             scroll: Cell::new(0.0),
         });
-        child.set_parent(slf.clone());
+        child.node_set_parent(slf.clone());
         slf
     }
 
@@ -246,7 +246,7 @@ impl ContainerNode {
         let node = self
             .child_nodes
             .borrow()
-            .get(&prev.id())
+            .get(&prev.node_id())
             .map(|n| n.to_ref());
         if let Some(node) = node {
             f(&node, new);
@@ -271,7 +271,7 @@ impl ContainerNode {
     {
         let new_ref = {
             let mut links = self.child_nodes.borrow_mut();
-            if links.contains_key(&new.id()) {
+            if links.contains_key(&new.node_id()) {
                 log::error!("Tried to add a child to a container that already contains the child");
                 return;
             }
@@ -286,12 +286,12 @@ impl ContainerNode {
                 focus_history: Default::default(),
             });
             let r = link.to_ref();
-            links.insert(new.id(), link);
+            links.insert(new.node_id(), link);
             r
         };
-        new.clone().set_workspace(&self.workspace.get());
-        new.clone().set_parent(self.clone());
-        new.set_visible(self.visible.get());
+        new.clone().node_set_workspace(&self.workspace.get());
+        new.clone().node_set_parent(self.clone());
+        new.node_set_visible(self.visible.get());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -350,7 +350,7 @@ impl ContainerNode {
         child
             .node
             .clone()
-            .change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
+            .node_change_extents(&mb.move_(self.abs_x1.get(), self.abs_y1.get()));
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
 
@@ -456,7 +456,7 @@ impl ContainerNode {
                 .unwrap(),
             );
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
-            child.node.clone().change_extents(&body);
+            child.node.clone().node_change_extents(&body);
             child.position_content();
         }
     }
@@ -601,7 +601,7 @@ impl ContainerNode {
             }
             title.push_str("]");
         }
-        self.parent.get().child_title_changed(&**self, &title);
+        self.parent.get().node_child_title_changed(&**self, &title);
     }
 
     pub fn schedule_compute_render_data(self: &Rc<Self>) {
@@ -676,21 +676,25 @@ impl ContainerNode {
 
     fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
         if let Some(mc) = self.mono_child.get() {
-            if mc.node.id() == child.node.id() {
+            if mc.node.node_id() == child.node.node_id() {
                 return;
             }
             let mut seats = SmallVec::<[_; 3]>::new();
-            mc.node.visit_children(&mut generic_node_visitor(|node| {
-                node.seat_state().for_each_kb_focus(|s| {
-                    seats.push(s);
-                });
-            }));
-            mc.node.set_visible(false);
+            mc.node
+                .node_visit_children(&mut generic_node_visitor(|node| {
+                    node.node_seat_state().for_each_kb_focus(|s| {
+                        seats.push(s);
+                    });
+                }));
+            mc.node.node_set_visible(false);
             for seat in seats {
-                child.node.clone().do_focus(&seat, Direction::Unspecified);
+                child
+                    .node
+                    .clone()
+                    .node_do_focus(&seat, Direction::Unspecified);
             }
             self.mono_child.set(Some(child.clone()));
-            child.node.set_visible(true);
+            child.node.node_set_visible(true);
             self.schedule_layout();
         } else {
         }
@@ -726,9 +730,35 @@ pub async fn container_render_data(state: Rc<State>) {
     }
 }
 
-impl Node for ContainerNode {
+impl SizedNode for ContainerNode {
     fn id(&self) -> NodeId {
         self.id.into()
+    }
+
+    fn seat_state(&self) -> &NodeSeatState {
+        &self.seat_state
+    }
+
+    fn destroy_node(&self, detach: bool) {
+        if detach {
+            self.parent.get().node_remove_child(self);
+        }
+        mem::take(self.seats.borrow_mut().deref_mut());
+        let mut cn = self.child_nodes.borrow_mut();
+        for (_, n) in cn.drain() {
+            n.node.node_destroy(false);
+        }
+        self.seat_state.destroy_node(self);
+    }
+
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_container(self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        for child in self.children.iter() {
+            child.node.clone().node_visit(visitor);
+        }
     }
 
     fn visible(&self) -> bool {
@@ -738,35 +768,9 @@ impl Node for ContainerNode {
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
         for child in self.children.iter() {
-            child.node.set_visible(visible);
+            child.node.node_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
-    }
-
-    fn seat_state(&self) -> &NodeSeatState {
-        &self.seat_state
-    }
-
-    fn destroy_node(&self, detach: bool) {
-        if detach {
-            self.parent.get().remove_child(self);
-        }
-        mem::take(self.seats.borrow_mut().deref_mut());
-        let mut cn = self.child_nodes.borrow_mut();
-        for (_, n) in cn.drain() {
-            n.node.destroy_node(false);
-        }
-        self.seat_state.destroy_node(self);
-    }
-
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_container(&self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        for child in self.children.iter() {
-            child.node.clone().visit(visitor);
-        }
     }
 
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -775,14 +779,14 @@ impl Node for ContainerNode {
 
     fn is_contained_in(&self, other: NodeId) -> bool {
         let parent = self.parent.get();
-        if parent.id() == other {
+        if parent.node_id() == other {
             return true;
         }
-        parent.is_contained_in(other)
+        parent.node_is_contained_in(other)
     }
 
-    fn child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
-        let child = match self.child_nodes.borrow_mut().get(&child.id()) {
+    fn child_title_changed(self: &Rc<Self>, child: &dyn Node, title: &str) {
+        let child = match self.child_nodes.borrow_mut().get(&child.node_id()) {
             Some(cn) => cn.to_ref(),
             _ => return,
         };
@@ -806,23 +810,57 @@ impl Node for ContainerNode {
         Some(self.split.get())
     }
 
-    fn set_mono(self: Rc<Self>, child: Option<&dyn Node>) {
-        if self.mono_child.get().is_some() != child.is_some() {
+    fn set_mono(self: &Rc<Self>, child: Option<&dyn Node>) {
+        if self.mono_child.get().is_some() == child.is_some() {
+            return;
+        }
+        let child = {
             let children = self.child_nodes.borrow_mut();
-            let child = match child {
-                Some(c) => match children.get(&c.id()) {
+            match child {
+                Some(c) => match children.get(&c.node_id()) {
                     Some(c) => Some(c.to_ref()),
-                    _ => return,
+                    _ => {
+                        log::warn!("set_mono called with a node that is not a child");
+                        return;
+                    }
                 },
                 _ => None,
-            };
-            self.mono_child.set(child);
-            self.schedule_layout();
-            self.update_title();
+            }
+        };
+        if self.visible.get() {
+            if let Some(child) = &child {
+                let child_id = child.node.node_id();
+                let mut seats = SmallVec::<[_; 3]>::new();
+                for other in self.children.iter() {
+                    if other.node.node_id() != child_id {
+                        other
+                            .node
+                            .node_visit_children(&mut generic_node_visitor(|node| {
+                                node.node_seat_state().for_each_kb_focus(|s| {
+                                    seats.push(s);
+                                });
+                            }));
+                        other.node.node_set_visible(false);
+                    }
+                }
+                for seat in seats {
+                    child
+                        .node
+                        .clone()
+                        .node_do_focus(&seat, Direction::Unspecified);
+                }
+            } else {
+                for child in self.children.iter() {
+                    child.node.node_set_visible(true);
+                }
+            }
         }
+        self.mono_child.set(child);
+        self.schedule_layout();
+        self.update_title();
     }
 
-    fn set_split(self: Rc<Self>, split: ContainerSplit) {
+    fn set_split(self: &Rc<Self>, split: ContainerSplit) {
         if self.split.replace(split) != split {
             self.update_content_size();
             self.schedule_layout();
@@ -830,11 +868,11 @@ impl Node for ContainerNode {
         }
     }
 
-    fn focus_self(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        seat.focus_node(self);
+    fn focus_self(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        seat.focus_node(self.clone());
     }
 
-    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let node = if let Some(cn) = self.mono_child.get() {
             Some(cn)
         } else {
@@ -851,31 +889,37 @@ impl Node for ContainerNode {
             }
         };
         if let Some(node) = node {
-            node.node.clone().do_focus(seat, direction);
+            node.node.clone().node_do_focus(seat, direction);
         }
     }
 
-    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn close(&self) {
+        for child in self.children.iter() {
+            child.node.node_close();
+        }
+    }
+
+    fn move_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if direction == Direction::Down {
             self.do_focus(seat, direction);
             return;
         }
         self.parent
             .get()
-            .move_focus_from_child(seat, &*self, direction);
+            .node_move_focus_from_child(seat, &**self, direction);
     }
 
-    fn move_self(self: Rc<Self>, direction: Direction) {
-        self.parent.get().move_child(self, direction);
+    fn move_self(self: &Rc<Self>, direction: Direction) {
+        self.parent.get().node_move_child(self.clone(), direction);
     }
 
     fn move_focus_from_child(
-        self: Rc<Self>,
+        self: &Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
         child: &dyn Node,
         direction: Direction,
     ) {
-        let child = match self.child_nodes.borrow_mut().get(&child.id()) {
+        let child = match self.child_nodes.borrow_mut().get(&child.node_id()) {
             Some(c) => c.to_ref(),
             _ => return,
         };
@@ -893,7 +937,7 @@ impl Node for ContainerNode {
         if !in_line {
             self.parent
                 .get()
-                .move_focus_from_child(seat, &*self, direction);
+                .node_move_focus_from_child(seat, &**self, direction);
             return;
         }
         let prev = match direction {
@@ -912,30 +956,31 @@ impl Node for ContainerNode {
             None => {
                 self.parent
                     .get()
-                    .move_focus_from_child(seat, &*self, direction);
+                    .node_move_focus_from_child(seat, &**self, direction);
                 return;
             }
         };
         if mc.is_some() {
             self.activate_child(&sibling);
         } else {
-            sibling.node.clone().do_focus(seat, direction);
+            sibling.node.clone().node_do_focus(seat, direction);
         }
     }
+
     //
-    fn move_child(self: Rc<Self>, child: Rc<dyn Node>, direction: Direction) {
+    fn move_child(self: &Rc<Self>, child: Rc<dyn Node>, direction: Direction) {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
             let parent = self.parent.get();
-            if parent.accepts_child(&*child) {
-                parent.replace_child(&*self, child.clone());
+            if parent.node_accepts_child(&*child) {
+                parent.node_replace_child(&**self, child.clone());
             }
             return;
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
         if split == self.split.get() {
-            let cc = match self.child_nodes.borrow_mut().get(&child.id()) {
+            let cc = match self.child_nodes.borrow_mut().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
                 None => return,
             };
@@ -944,9 +989,9 @@ impl Node for ContainerNode {
                 false => cc.next(),
             };
             if let Some(neighbor) = neighbor {
-                if neighbor.node.accepts_child(&*child) {
+                if neighbor.node.node_accepts_child(&*child) {
                     self.remove_child(&*child);
-                    neighbor.node.clone().insert_child(child, direction);
+                    neighbor.node.clone().node_insert_child(child, direction);
                     return;
                 }
                 match prev {
@@ -959,19 +1004,19 @@ impl Node for ContainerNode {
         }
         // CASE 3: We're moving the child out of the container.
         let mut neighbor = self.clone();
-        let mut parent_opt = self.parent.get().into_container();
+        let mut parent_opt = self.parent.get().node_into_container();
         while let Some(parent) = &parent_opt {
             if parent.split.get() == split {
                 break;
             }
             neighbor = parent.clone();
-            parent_opt = parent.parent.get().into_container();
+            parent_opt = parent.parent.get().node_into_container();
         }
         let parent = match parent_opt {
             Some(p) => p,
             _ => return,
         };
-        self.clone().remove_child(&*child);
+        self.clone().node_remove_child(&*child);
         match prev {
             true => parent.add_child_before(&*neighbor, child.clone()),
             false => parent.add_child_after(&*neighbor, child.clone()),
@@ -990,10 +1035,10 @@ impl Node for ContainerNode {
 
     fn active_changed(&self, active: bool) {
         self.active.set(active);
-        self.parent.get().child_active_changed(self, active);
+        self.parent.get().node_child_active_changed(self, active);
     }
 
-    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
         if button != BTN_LEFT {
             return;
         }
@@ -1051,7 +1096,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn axis_event(self: &Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
         let mut seat_datas = self.seats.borrow_mut();
         let seat_data = match seat_datas.get_mut(&seat.id()) {
             Some(s) => s,
@@ -1089,13 +1134,13 @@ impl Node for ContainerNode {
     }
 
     fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        self.parent.get().focus_self(seat);
+        self.parent.get().node_focus_self(seat);
     }
 
-    fn toggle_floating(self: Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+    fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
         let parent = self.parent.get();
-        parent.clone().remove_child(&*self);
-        if parent.is_float() {
+        parent.clone().node_remove_child(self.deref());
+        if parent.node_is_float() {
             self.state.map_tiled(self.clone());
         } else {
             self.state.map_floating(
@@ -1116,7 +1161,7 @@ impl Node for ContainerNode {
                     x,
                     y,
                 });
-                child.node.find_tree_at(x, y, tree);
+                child.node.node_find_tree_at(x, y, tree);
             }
         };
         if let Some(child) = self.mono_child.get() {
@@ -1132,14 +1177,14 @@ impl Node for ContainerNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn Node>) {
-        let node = match self.child_nodes.borrow_mut().remove(&old.id()) {
+    fn replace_child(self: &Rc<Self>, old: &dyn Node, new: Rc<dyn Node>) {
+        let node = match self.child_nodes.borrow_mut().remove(&old.node_id()) {
             Some(c) => c,
             None => return,
         };
         let (have_mc, was_mc) = match self.mono_child.get() {
             None => (false, false),
-            Some(mc) => (true, mc.node.id() == old.id()),
+            Some(mc) => (true, mc.node.node_id() == old.node_id()),
         };
         node.focus_history.set(None);
         let link = node.append(ContainerChild {
@@ -1160,27 +1205,32 @@ impl Node for ContainerNode {
         } else if !have_mc {
             body = Some(link.body.get());
         };
-        self.child_nodes.borrow_mut().insert(new.id(), link);
-        new.clone().set_parent(self.clone());
-        new.clone().set_workspace(&self.workspace.get());
+        self.child_nodes.borrow_mut().insert(new.node_id(), link);
+        new.clone().node_set_parent(self.clone());
+        new.clone().node_set_workspace(&self.workspace.get());
         if let Some(body) = body {
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
-            new.clone().change_extents(&body);
+            new.clone().node_change_extents(&body);
         }
     }
 
-    fn remove_child(self: Rc<Self>, child: &dyn Node) {
-        let node = match self.child_nodes.borrow_mut().remove(&child.id()) {
+    fn remove_child(self: &Rc<Self>, child: &dyn Node) {
+        let node = match self.child_nodes.borrow_mut().remove(&child.node_id()) {
             Some(c) => c,
             None => return,
         };
-        let mut mono_child = None;
+        node.focus_history.set(None);
         if let Some(mono) = self.mono_child.get() {
-            if mono.node.id() == child.id() {
-                self.mono_child.take();
-                mono_child = node.next();
-                if mono_child.is_none() {
-                    mono_child = node.prev();
+            if mono.node.node_id() == child.node_id() {
+                let mut new = self.focus_history.last().map(|n| n.deref().clone());
+                if new.is_none() {
+                    new = node.next();
+                    if new.is_none() {
+                        new = node.prev();
+                    }
+                }
+                if let Some(child) = &new {
+                    self.activate_child(child);
                 }
             }
         }
@@ -1192,7 +1242,7 @@ impl Node for ContainerNode {
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
             self.seats.borrow_mut().clear();
-            self.parent.get().remove_child(&*self);
+            self.parent.get().node_remove_child(self.deref());
             return;
         }
         self.update_content_size();
@@ -1211,9 +1261,6 @@ impl Node for ContainerNode {
                 sum += factor;
             }
         }
-        if mono_child.is_some() {
-            self.mono_child.set(mono_child);
-        }
         self.sum_factors.set(sum);
         self.update_title();
         self.schedule_layout();
@@ -1222,12 +1269,12 @@ impl Node for ContainerNode {
 
     fn child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
         let cn = self.child_nodes.borrow();
-        if let Some(node) = cn.get(&child.id()) {
+        if let Some(node) = cn.get(&child.node_id()) {
             let rect = Rect::new(0, 0, width, height).unwrap();
             node.content.set(rect);
             node.position_content();
             if let Some(mono) = self.mono_child.get() {
-                if mono.node.id() == node.node.id() {
+                if mono.node.node_id() == node.node.node_id() {
                     let body = self.mono_body.get();
                     self.mono_content.set(rect.at_point(body.x1(), body.y1()));
                 }
@@ -1235,8 +1282,8 @@ impl Node for ContainerNode {
         }
     }
 
-    fn child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool) {
-        let node = match self.child_nodes.borrow_mut().get(&child.id()) {
+    fn child_active_changed(self: &Rc<Self>, child: &dyn Node, active: bool) {
+        let node = match self.child_nodes.borrow_mut().get(&child.node_id()) {
             Some(l) => l.to_ref(),
             None => return,
         };
@@ -1246,7 +1293,7 @@ impl Node for ContainerNode {
         self.schedule_compute_render_data();
     }
 
-    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
@@ -1265,7 +1312,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_motion(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
@@ -1273,8 +1320,8 @@ impl Node for ContainerNode {
         renderer.render_container(self, x, y);
     }
 
-    fn into_container(self: Rc<Self>) -> Option<Rc<ContainerNode>> {
-        Some(self)
+    fn into_container(self: &Rc<Self>) -> Option<Rc<ContainerNode>> {
+        Some(self.clone())
     }
 
     fn is_container(&self) -> bool {
@@ -1285,7 +1332,7 @@ impl Node for ContainerNode {
         true
     }
 
-    fn insert_child(self: Rc<Self>, node: Rc<dyn Node>, direction: Direction) {
+    fn insert_child(self: &Rc<Self>, node: Rc<dyn Node>, direction: Direction) {
         let (split, right) = direction_to_split(direction);
         if split != self.split.get() || right {
             self.append_child(node);
@@ -1294,7 +1341,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn change_extents(self: Rc<Self>, rect: &Rect) {
+    fn change_extents(self: &Rc<Self>, rect: &Rect) {
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
         let mut size_changed = false;
@@ -1306,45 +1353,39 @@ impl Node for ContainerNode {
             self.cancel_seat_ops();
             self.parent
                 .get()
-                .child_size_changed(&*self, rect.width(), rect.height());
+                .node_child_size_changed(self.deref(), rect.width(), rect.height());
         } else {
             if let Some(c) = self.mono_child.get() {
                 let body = self
                     .mono_body
                     .get()
                     .move_(self.abs_x1.get(), self.abs_y1.get());
-                c.node.clone().change_extents(&body);
+                c.node.clone().node_change_extents(&body);
             } else {
                 for child in self.children.iter() {
                     let body = child.body.get().move_(self.abs_x1.get(), self.abs_y1.get());
-                    child.node.clone().change_extents(&body);
+                    child.node.clone().node_change_extents(&body);
                 }
             }
         }
     }
 
-    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
         for child in self.children.iter() {
-            child.node.clone().set_workspace(ws);
+            child.node.clone().node_set_workspace(ws);
         }
         self.workspace.set(ws.clone());
     }
 
-    fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
+    fn set_parent(self: &Rc<Self>, parent: Rc<dyn Node>) {
         self.parent.set(parent.clone());
         parent
             .clone()
-            .child_active_changed(&*self, self.active.get());
-        parent.child_size_changed(&*self, self.width.get(), self.height.get());
+            .node_child_active_changed(self.deref(), self.active.get());
+        parent.node_child_size_changed(self.deref(), self.width.get(), self.height.get());
         parent
             .clone()
-            .child_title_changed(&*self, self.title.borrow_mut().deref());
-    }
-
-    fn close(&self) {
-        for child in self.children.iter() {
-            child.node.close();
-        }
+            .node_child_title_changed(self.deref(), self.title.borrow_mut().deref());
     }
 }
 

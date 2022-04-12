@@ -12,7 +12,7 @@ use {
         object::Object,
         rect::Rect,
         render::Renderer,
-        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, WorkspaceNode},
+        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, SizedNode, WorkspaceNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -201,7 +201,7 @@ impl XdgPopup {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
-        self.destroy_node(true);
+        self.node_destroy(true);
         {
             if let Some(parent) = self.parent.take() {
                 parent.popups.remove(&self.id);
@@ -255,7 +255,7 @@ impl Object for XdgPopup {
     }
 
     fn break_loops(&self) {
-        self.destroy_node(true);
+        self.node_destroy(true);
         self.parent.set(None);
         *self.display_link.borrow_mut() = None;
         *self.workspace_link.borrow_mut() = None;
@@ -264,7 +264,7 @@ impl Object for XdgPopup {
 
 simple_add_obj!(XdgPopup);
 
-impl Node for XdgPopup {
+impl SizedNode for XdgPopup {
     fn id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -280,8 +280,8 @@ impl Node for XdgPopup {
         self.xdg.seat_state.destroy_node(self);
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_popup(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_popup(self);
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
@@ -314,7 +314,7 @@ impl Node for XdgPopup {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.enter_popup(&self);
     }
 
@@ -326,7 +326,7 @@ impl Node for XdgPopup {
         renderer.render_xdg_surface(&self.xdg, x, y)
     }
 
-    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
         self.xdg.set_workspace(ws);
     }
 
@@ -363,7 +363,7 @@ impl XdgSurfaceExt for XdgPopup {
                 *wl = Some(ws.stacked.add_last(self.clone()));
                 *dl = Some(state.root.stacked.add_last(self.clone()));
                 state.tree_changed();
-                self.set_visible(
+                self.node_set_visible(
                     self.parent
                         .get()
                         .map(|p| p.surface.visible.get())
@@ -374,8 +374,8 @@ impl XdgSurfaceExt for XdgPopup {
             if wl.take().is_some() {
                 drop(wl);
                 drop(dl);
-                self.set_visible(false);
-                self.destroy_node(true);
+                self.node_set_visible(false);
+                self.node_destroy(true);
                 self.send_popup_done();
             }
         }

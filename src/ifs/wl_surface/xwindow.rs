@@ -11,8 +11,8 @@ use {
         render::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode,
-            WorkspaceNode,
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, SizedNode, ToplevelData,
+            ToplevelNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode,
@@ -189,7 +189,7 @@ impl XwindowData {
         let title = self.info.title.borrow_mut();
         if let Some(w) = self.window.get() {
             if let Some(p) = w.parent_node.get() {
-                p.child_title_changed(w.deref(), title.as_deref().unwrap_or(""));
+                p.node_child_title_changed(w.deref(), title.as_deref().unwrap_or(""));
             }
         }
     }
@@ -227,7 +227,7 @@ impl Xwindow {
     }
 
     pub fn break_loops(&self) {
-        self.destroy_node(true);
+        self.node_destroy(true);
         self.surface.set_toplevel(None);
     }
 
@@ -249,7 +249,7 @@ impl Xwindow {
         let extents = self.surface.extents.get();
         // let extents = self.xdg.extents.get();
         // parent.child_active_changed(self, self.active_surfaces.get() > 0);
-        parent.child_size_changed(self, extents.width(), extents.height());
+        parent.node_child_size_changed(self, extents.width(), extents.height());
         // parent.child_title_changed(self, self.title.borrow_mut().deref());
     }
 
@@ -273,7 +273,7 @@ impl Xwindow {
         let map_change = self.map_change();
         match map_change {
             Change::None => return,
-            Change::Unmap => self.destroy_node(true),
+            Change::Unmap => self.node_destroy(true),
             Change::Map if self.data.info.override_redirect.get() => {
                 *self.display_link.borrow_mut() =
                     Some(self.data.state.root.stacked.add_last(self.clone()));
@@ -293,8 +293,8 @@ impl Xwindow {
             }
         }
         match map_change {
-            Change::Unmap => self.set_visible(false),
-            Change::Map => self.set_visible(true),
+            Change::Unmap => self.node_set_visible(false),
+            Change::Map => self.node_set_visible(true),
             Change::None => {}
         }
         self.data.state.tree_changed();
@@ -307,7 +307,7 @@ impl SurfaceExt for Xwindow {
     }
 
     fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
-        self.destroy_node(true);
+        self.node_destroy(true);
         self.surface.unset_ext();
         self.data.window.set(None);
         self.data.surface_id.set(None);
@@ -321,22 +321,9 @@ impl SurfaceExt for Xwindow {
     }
 }
 
-impl Node for Xwindow {
+impl SizedNode for Xwindow {
     fn id(&self) -> NodeId {
         self.id.into()
-    }
-
-    fn close(&self) {
-        self.events.push(XWaylandEvent::Close(self.data.clone()));
-    }
-
-    fn visible(&self) -> bool {
-        self.surface.visible.get()
-    }
-
-    fn set_visible(&self, visible: bool) {
-        self.surface.set_visible(visible);
-        self.seat_state.set_visible(self, visible);
     }
 
     fn seat_state(&self) -> &NodeSeatState {
@@ -349,18 +336,27 @@ impl Node for Xwindow {
         self.workspace.take();
         self.focus_history.clear();
         if let Some(parent) = self.parent_node.take() {
-            parent.remove_child(self);
+            parent.node_remove_child(self);
         }
-        self.surface.destroy_node(false);
+        self.surface.node_destroy(false);
         self.seat_state.destroy_node(self);
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_xwindow(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_xwindow(self);
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         visitor.visit_surface(&self.surface);
+    }
+
+    fn visible(&self) -> bool {
+        self.surface.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.surface.node_set_visible(visible);
+        self.seat_state.set_visible(self, visible);
     }
 
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -369,16 +365,20 @@ impl Node for Xwindow {
 
     fn is_contained_in(&self, other: NodeId) -> bool {
         if let Some(parent) = self.parent_node.get() {
-            if parent.id() == other {
+            if parent.node_id() == other {
                 return true;
             }
-            return parent.is_contained_in(other);
+            return parent.node_is_contained_in(other);
         }
         false
     }
 
-    fn do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
-        seat.focus_toplevel(self);
+    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+        seat.focus_toplevel(self.clone());
+    }
+
+    fn close(&self) {
+        self.events.push(XWaylandEvent::Close(self.data.clone()));
     }
 
     fn absolute_position(&self) -> Rect {
@@ -399,8 +399,8 @@ impl Node for Xwindow {
         FindTreeResult::Other
     }
 
-    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.enter_toplevel(self);
+    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+        seat.enter_toplevel(self.clone());
     }
 
     fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -411,7 +411,7 @@ impl Node for Xwindow {
         renderer.render_surface(&self.surface, x, y)
     }
 
-    fn change_extents(self: Rc<Self>, rect: &Rect) {
+    fn change_extents(self: &Rc<Self>, rect: &Rect) {
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
             self.events.push(XWaylandEvent::Configure(self.clone()));
@@ -421,11 +421,11 @@ impl Node for Xwindow {
         }
     }
 
-    fn set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(Some(ws.clone()));
     }
 
-    fn set_parent(self: Rc<Self>, parent: Rc<dyn Node>) {
+    fn set_parent(self: &Rc<Self>, parent: Rc<dyn Node>) {
         self.parent_node.set(Some(parent));
         self.notify_parent();
     }
@@ -463,7 +463,7 @@ impl ToplevelNode for Xwindow {
 
     fn set_active(&self, active: bool) {
         if let Some(pn) = self.parent_node.get() {
-            pn.child_active_changed(self, active);
+            pn.node_child_active_changed(self, active);
         }
     }
 
@@ -476,11 +476,11 @@ impl ToplevelNode for Xwindow {
             Some(p) => p,
             _ => return,
         };
-        if parent.is_float() {
-            parent.remove_child(&*self);
+        if parent.node_is_float() {
+            parent.node_remove_child(&*self);
             self.data.state.map_tiled(self.clone());
         } else if let Some(ws) = self.workspace.get() {
-            parent.remove_child(&*self);
+            parent.node_remove_child(&*self);
             let extents = self.data.info.extents.get();
             self.data
                 .state

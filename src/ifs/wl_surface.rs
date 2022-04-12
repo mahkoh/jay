@@ -24,7 +24,7 @@ use {
         render::Renderer,
         tree::{
             ContainerNode, ContainerSplit, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor,
-            ToplevelNode, WorkspaceNode,
+            SizedNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -367,7 +367,7 @@ impl WlSurface {
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
-        self.destroy_node(true);
+        self.node_destroy(true);
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -616,7 +616,7 @@ impl Object for WlSurface {
     fn break_loops(&self) {
         self.unset_dnd_icons();
         self.unset_cursors();
-        self.destroy_node(true);
+        self.node_destroy(true);
         *self.children.borrow_mut() = None;
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
@@ -628,33 +628,9 @@ impl Object for WlSurface {
 dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
-impl Node for WlSurface {
+impl SizedNode for WlSurface {
     fn id(&self) -> NodeId {
         self.node_id.into()
-    }
-
-    fn close(&self) {
-        if let Some(tl) = self.toplevel.get() {
-            tl.close();
-        }
-    }
-
-    fn visible(&self) -> bool {
-        self.visible.get()
-    }
-
-    fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
-        let children = self.children.borrow_mut();
-        if let Some(children) = children.deref() {
-            for child in children.subsurfaces.values() {
-                child.surface.set_visible(visible);
-            }
-        }
-        if !visible {
-            self.send_seat_release_events();
-        }
-        self.seat_state.set_visible(self, visible);
     }
 
     fn seat_state(&self) -> &NodeSeatState {
@@ -665,7 +641,7 @@ impl Node for WlSurface {
         let children = self.children.borrow();
         if let Some(ch) = children.deref() {
             for ss in ch.subsurfaces.values() {
-                ss.surface.destroy_node(false);
+                ss.surface.node_destroy(false);
             }
         }
         if let Some(tl) = self.toplevel.get() {
@@ -687,8 +663,8 @@ impl Node for WlSurface {
         self.seat_state.destroy_node(self);
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_surface(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_surface(self);
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
@@ -700,9 +676,27 @@ impl Node for WlSurface {
         }
     }
 
+    fn visible(&self) -> bool {
+        self.visible.get()
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        let children = self.children.borrow_mut();
+        if let Some(children) = children.deref() {
+            for child in children.subsurfaces.values() {
+                child.surface.node_set_visible(visible);
+            }
+        }
+        if !visible {
+            self.send_seat_release_events();
+        }
+        self.seat_state.set_visible(self, visible);
+    }
+
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         if let Some(tl) = self.toplevel.get() {
-            return tl.as_node().get_workspace();
+            return tl.as_node().node_get_workspace();
         }
         None
     }
@@ -711,21 +705,21 @@ impl Node for WlSurface {
         self.toplevel
             .get()
             .and_then(|t| t.parent())
-            .and_then(|p| p.get_mono())
+            .and_then(|p| p.node_get_mono())
     }
 
     fn get_parent_split(&self) -> Option<ContainerSplit> {
         self.toplevel
             .get()
             .and_then(|t| t.parent())
-            .and_then(|p| p.get_split())
+            .and_then(|p| p.node_get_split())
     }
 
     fn set_parent_mono(&self, mono: bool) {
         if let Some(tl) = self.toplevel.get() {
             if let Some(pn) = tl.parent() {
                 let node = if mono { Some(tl.as_node()) } else { None };
-                pn.set_mono(node)
+                pn.node_set_mono(node)
             }
         }
     }
@@ -733,17 +727,17 @@ impl Node for WlSurface {
     fn set_parent_split(&self, split: ContainerSplit) {
         if let Some(tl) = self.toplevel.get() {
             if let Some(pn) = tl.parent() {
-                pn.set_split(split);
+                pn.node_set_split(split);
             }
         }
     }
 
-    fn create_split(self: Rc<Self>, split: ContainerSplit) {
+    fn create_split(self: &Rc<Self>, split: ContainerSplit) {
         let tl = match self.toplevel.get() {
             Some(tl) => tl,
             _ => return,
         };
-        let ws = match tl.as_node().get_workspace() {
+        let ws = match tl.as_node().node_get_workspace() {
             Some(ws) => ws,
             _ => return,
         };
@@ -758,21 +752,27 @@ impl Node for WlSurface {
             tl.clone().into_node(),
             split,
         );
-        pn.replace_child(tl.as_node(), cn);
+        pn.node_replace_child(tl.as_node(), cn);
     }
 
-    fn move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn close(&self) {
+        if let Some(tl) = self.toplevel.get() {
+            tl.close();
+        }
+    }
+
+    fn move_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(tl) = self.toplevel.get() {
             if let Some(pn) = tl.parent() {
-                pn.move_focus_from_child(seat, tl.as_node(), direction);
+                pn.node_move_focus_from_child(seat, tl.as_node(), direction);
             }
         }
     }
 
-    fn move_self(self: Rc<Self>, direction: Direction) {
+    fn move_self(self: &Rc<Self>, direction: Direction) {
         if let Some(tl) = self.toplevel.get() {
             if let Some(pn) = tl.parent() {
-                pn.move_child(tl.into_node(), direction);
+                pn.node_move_child(tl.into_node(), direction);
             }
         }
     }
@@ -795,15 +795,15 @@ impl Node for WlSurface {
         seat.mods_surface(self, mods);
     }
 
-    fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
         seat.button_surface(&self, button, state);
     }
 
-    fn axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn axis_event(self: &Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
         seat.scroll_surface(&*self, event);
     }
 
-    fn focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+    fn focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         if let Some(tl) = self.toplevel.get() {
             tl.data().focus_surface.insert(seat.id(), self.clone());
             tl.activate();
@@ -813,11 +813,11 @@ impl Node for WlSurface {
 
     fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
         if let Some(tl) = self.toplevel.get() {
-            tl.parent().map(|p| p.focus_self(seat));
+            tl.parent().map(|p| p.node_focus_self(seat));
         }
     }
 
-    fn toggle_floating(self: Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+    fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
         if let Some(tl) = self.toplevel.get() {
             tl.toggle_floating();
         }
@@ -831,11 +831,11 @@ impl Node for WlSurface {
         seat.leave_surface(self);
     }
 
-    fn pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.enter_surface(&self, x, y)
     }
 
-    fn pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn pointer_motion(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.motion_surface(&*self, x, y)
     }
 
@@ -847,8 +847,8 @@ impl Node for WlSurface {
         Some(self.client.clone())
     }
 
-    fn into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
-        Some(self)
+    fn into_surface(self: &Rc<Self>) -> Option<Rc<WlSurface>> {
+        Some(self.clone())
     }
 
     fn dnd_drop(&self, dnd: &Dnd) {

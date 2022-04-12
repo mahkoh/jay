@@ -63,18 +63,18 @@ impl KbOwner for DefaultKbOwner {
 
     fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) {
         let old = seat.keyboard_node.get();
-        if old.id() == node.id() {
+        if old.node_id() == node.node_id() {
             return;
         }
-        old.unfocus(seat);
-        if old.seat_state().unfocus(seat) {
-            old.active_changed(false);
+        old.node_unfocus(seat);
+        if old.node_seat_state().unfocus(seat) {
+            old.node_active_changed(false);
         }
 
-        if node.seat_state().focus(seat) {
-            node.active_changed(true);
+        if node.node_seat_state().focus(seat) {
+            node.node_active_changed(true);
         }
-        node.clone().focus(seat);
+        node.clone().node_focus(seat);
         seat.keyboard_node.set(node.clone());
     }
 
@@ -84,7 +84,7 @@ impl KbOwner for DefaultKbOwner {
             _ => return,
         };
         let node = seat.keyboard_node.get();
-        let ws = match node.get_workspace() {
+        let ws = match node.node_get_workspace() {
             None => return,
             Some(ws) => ws,
         };
@@ -93,7 +93,7 @@ impl KbOwner for DefaultKbOwner {
             return;
         }
         for tl in seat.toplevel_focus_history.rev_iter() {
-            if let Some(tl_ws) = tl.as_node().get_workspace() {
+            if let Some(tl_ws) = tl.as_node().node_get_workspace() {
                 if tl_ws.id == new_ws.id {
                     self.set_kb_node(seat, tl.deref().clone().into_node());
                     return;

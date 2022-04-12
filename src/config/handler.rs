@@ -7,7 +7,7 @@ use {
         compositor::MAX_EXTENTS,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, OutputData, State},
-        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
+        tree::{ContainerNode, ContainerSplit, FloatNode, NodeVisitorBase, SizedNode},
         utils::{
             copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
             stack::Stack,

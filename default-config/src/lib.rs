@@ -127,10 +127,7 @@ pub fn configure() {
     {
         let time_format: Vec<_> = StrftimeItems::new("%Y-%m-%d %H:%M:%S").collect();
         let update_status = move || {
-            let status = format!(
-                "{}",
-                Local::now().format_with_items(time_format.iter()),
-            );
+            let status = format!("{}", Local::now().format_with_items(time_format.iter()),);
             set_status(&status);
         };
         update_status();

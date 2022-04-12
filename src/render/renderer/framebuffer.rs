@@ -59,7 +59,7 @@ impl Framebuffer {
                 fb: &self.gl,
                 state,
             };
-            node.render(&mut renderer, 0, 0);
+            node.node_render(&mut renderer, 0, 0);
             if let Some(rect) = cursor_rect {
                 let seats = state.globals.lock_seats();
                 for seat in seats.values() {

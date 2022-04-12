@@ -6,7 +6,7 @@ use {
         render::Renderer,
         tree::{
             container::ContainerNode, walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId,
-            OutputNode,
+            OutputNode, SizedNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -33,20 +33,41 @@ pub struct WorkspaceNode {
 impl WorkspaceNode {
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
         let pos = self.position.get();
-        container.clone().change_extents(&pos);
-        container.clone().set_workspace(self);
-        container.set_visible(self.visible.get());
+        container.clone().node_change_extents(&pos);
+        container.clone().node_set_workspace(self);
+        container.node_set_visible(self.visible.get());
         self.container.set(Some(container.clone()));
     }
 }
 
-impl Node for WorkspaceNode {
+impl SizedNode for WorkspaceNode {
     fn id(&self) -> NodeId {
         self.id.into()
     }
 
     fn seat_state(&self) -> &NodeSeatState {
         &self.seat_state
+    }
+
+    fn destroy_node(&self, detach: bool) {
+        if detach {
+            self.output.get().node_remove_child(self);
+        }
+        self.output_link.set(None);
+        if let Some(container) = self.container.take() {
+            container.node_destroy(false);
+        }
+        self.seat_state.destroy_node(self);
+    }
+
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_workspace(self);
+    }
+
+    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        if let Some(c) = self.container.get() {
+            visitor.visit_container(&c);
+        }
     }
 
     fn visible(&self) -> bool {
@@ -56,30 +77,9 @@ impl Node for WorkspaceNode {
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
         if let Some(container) = self.container.get() {
-            container.set_visible(visible);
+            container.node_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
-    }
-
-    fn destroy_node(&self, detach: bool) {
-        if detach {
-            self.output.get().remove_child(self);
-        }
-        self.output_link.set(None);
-        if let Some(container) = self.container.take() {
-            container.destroy_node(false);
-        }
-        self.seat_state.destroy_node(self);
-    }
-
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_workspace(&self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        if let Some(c) = self.container.get() {
-            visitor.visit_container(&c);
-        }
     }
 
     fn absolute_position(&self) -> Rect {
@@ -93,12 +93,12 @@ impl Node for WorkspaceNode {
                 x,
                 y,
             });
-            n.find_tree_at(x, y, tree);
+            n.node_find_tree_at(x, y, tree);
         }
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(self: Rc<Self>, _child: &dyn Node) {
+    fn remove_child(self: &Rc<Self>, _child: &dyn Node) {
         self.container.set(None);
     }
 
@@ -111,17 +111,17 @@ impl Node for WorkspaceNode {
     }
 
     fn accepts_child(&self, node: &dyn Node) -> bool {
-        node.is_container()
+        node.node_is_container()
     }
 
     fn is_workspace(&self) -> bool {
         true
     }
 
-    fn change_extents(self: Rc<Self>, rect: &Rect) {
+    fn change_extents(self: &Rc<Self>, rect: &Rect) {
         self.position.set(*rect);
         if let Some(c) = self.container.get() {
-            c.change_extents(rect);
+            c.node_change_extents(rect);
         }
     }
 }

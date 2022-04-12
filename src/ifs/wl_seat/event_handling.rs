@@ -118,18 +118,18 @@ impl NodeSeatState {
         while let Some((_, seat)) = self.grabs.pop() {
             seat.pointer_owner.revert_to_default(&seat);
         }
-        let node_id = node.id();
+        let node_id = node.node_id();
         while let Some((_, seat)) = self.dnd_targets.pop() {
             seat.pointer_owner.dnd_target_removed(&seat);
         }
         while let Some((_, seat)) = self.pointer_foci.pop() {
             let mut ps = seat.pointer_stack.borrow_mut();
             while let Some(last) = ps.pop() {
-                if last.id() == node_id {
+                if last.node_id() == node_id {
                     break;
                 }
-                last.seat_state().leave(&seat);
-                last.leave(&seat);
+                last.node_seat_state().leave(&seat);
+                last.node_leave(&seat);
             }
             seat.state.tree_changed();
         }
@@ -139,7 +139,7 @@ impl NodeSeatState {
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
         if !visible {
             if !self.kb_foci.is_empty() {
-                node.active_changed(false);
+                node.node_active_changed(false);
             }
             self.destroy_node2(node, false);
         }
@@ -251,14 +251,14 @@ impl WlSeatGlobal {
         }
         let node = self.keyboard_node.get();
         if shortcuts.is_empty() {
-            node.key(self, key, state);
+            node.node_key(self, key, state);
         } else if let Some(config) = self.state.config.get() {
             for shortcut in shortcuts {
                 config.invoke_shortcut(self.id(), &shortcut);
             }
         }
         if let Some(mods) = new_mods {
-            node.mods(self, mods);
+            node.node_mods(self, mods);
         }
     }
 }
@@ -273,17 +273,19 @@ impl WlSeatGlobal {
             Some(ws) => ws,
             _ => return None,
         };
-        let is_container = new.is_container();
+        let is_container = new.node_is_container();
         for tl in self.toplevel_focus_history.rev_iter() {
-            match tl.as_node().get_workspace() {
+            match tl.as_node().node_get_workspace() {
                 Some(ws) if ws.id == workspace.id => {}
                 _ => continue,
             };
             let parent_is_float = match tl.parent() {
-                Some(pn) => pn.is_float(),
+                Some(pn) => pn.node_is_float(),
                 _ => false,
             };
-            if !parent_is_float && (!is_container || !tl.as_node().is_contained_in(new.id())) {
+            if !parent_is_float
+                && (!is_container || !tl.as_node().node_is_contained_in(new.node_id()))
+            {
                 return Some(tl.deref().clone());
             }
         }
@@ -561,7 +563,7 @@ impl WlSeatGlobal {
             k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
 
-        if self.keyboard_node.get().client_id() != Some(surface.client.id) {
+        if self.keyboard_node.get().node_client_id() != Some(surface.client.id) {
             self.offer_selection::<WlDataDevice>(&self.selection, &surface.client);
             self.offer_selection::<ZwpPrimarySelectionDeviceV1>(
                 &self.primary_selection,

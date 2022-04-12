@@ -73,11 +73,11 @@ impl Renderer<'_> {
             self.render_workspace(&ws, x, y + th);
         }
         for stacked in self.state.root.stacked.iter() {
-            if stacked.visible() {
-                let pos = stacked.absolute_position();
+            if stacked.node_visible() {
+                let pos = stacked.node_absolute_position();
                 if pos.intersects(&opos) {
                     let (x, y) = opos.translate(pos.x1(), pos.y1());
-                    stacked.render(self, x, y);
+                    stacked.node_render(self, x, y);
                 }
             }
         }
@@ -161,7 +161,9 @@ impl Renderer<'_> {
                 let body = container.mono_body.get().move_(x, y);
                 with_scissor(&body, || {
                     let content = container.mono_content.get();
-                    child.node.render(self, x + content.x1(), y + content.y1());
+                    child
+                        .node
+                        .node_render(self, x + content.x1(), y + content.y1());
                 });
             }
         } else {
@@ -174,7 +176,9 @@ impl Renderer<'_> {
                 unsafe {
                     with_scissor(&body, || {
                         let content = child.content.get();
-                        child.node.render(self, x + content.x1(), y + content.y1());
+                        child
+                            .node
+                            .node_render(self, x + content.x1(), y + content.y1());
                     });
                 }
             }
@@ -333,7 +337,7 @@ impl Renderer<'_> {
         .unwrap();
         unsafe {
             with_scissor(&body, || {
-                child.render(self, body.x1(), body.y1());
+                child.node_render(self, body.x1(), body.y1());
             });
         }
     }

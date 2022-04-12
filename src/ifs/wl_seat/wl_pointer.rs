@@ -170,7 +170,7 @@ impl WlPointer {
                 return Ok(());
             }
         };
-        if pointer_node.client_id() != Some(self.seat.client.id) {
+        if pointer_node.node_client_id() != Some(self.seat.client.id) {
             return Ok(());
         }
         self.seat.global.set_app_cursor(cursor_opt);

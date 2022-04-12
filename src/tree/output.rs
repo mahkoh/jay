@@ -13,7 +13,9 @@ use {
         state::State,
         text,
         theme::Color,
-        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
+        tree::{
+            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, SizedNode, WorkspaceNode,
+        },
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList},
     },
     std::{
@@ -147,10 +149,10 @@ impl OutputNode {
             if old.id == ws.id {
                 return;
             }
-            old.set_visible(false);
+            old.node_set_visible(false);
         }
-        ws.set_visible(true);
-        ws.clone().change_extents(&self.workspace_rect());
+        ws.node_set_visible(true);
+        ws.clone().node_change_extents(&self.workspace_rect());
     }
 
     fn workspace_rect(&self) -> Rect {
@@ -188,11 +190,11 @@ impl OutputNode {
         self.global.pos.set(*rect);
         self.update_render_data();
         if let Some(c) = self.workspace.get() {
-            c.change_extents(&self.workspace_rect());
+            c.node_change_extents(&self.workspace_rect());
         }
         for layer in &self.layers {
             for surface in layer.iter() {
-                surface.deref().clone().change_extents(&rect);
+                surface.deref().clone().node_change_extents(&rect);
             }
         }
         self.global.send_mode();
@@ -208,10 +210,10 @@ impl OutputNode {
         let len = tree.len();
         for layer in layers.iter().copied() {
             for surface in self.layers[layer as usize].rev_iter() {
-                let pos = surface.absolute_position();
+                let pos = surface.output_position();
                 if pos.contains(x, y) {
                     let (x, y) = pos.translate(x, y);
-                    if surface.find_tree_at(x, y, tree) == FindTreeResult::AcceptsInput {
+                    if surface.node_find_tree_at(x, y, tree) == FindTreeResult::AcceptsInput {
                         return FindTreeResult::AcceptsInput;
                     }
                     tree.truncate(len);
@@ -247,7 +249,7 @@ impl Debug for OutputNode {
     }
 }
 
-impl Node for OutputNode {
+impl SizedNode for OutputNode {
     fn id(&self) -> NodeId {
         self.id.into()
     }
@@ -256,24 +258,20 @@ impl Node for OutputNode {
         &self.seat_state
     }
 
-    fn visible(&self) -> bool {
-        true
-    }
-
     fn destroy_node(&self, detach: bool) {
         if detach {
-            self.state.root.clone().remove_child(self);
+            self.state.root.clone().node_remove_child(self);
         }
         self.workspace.set(None);
         let workspaces: Vec<_> = self.workspaces.iter().map(|e| e.deref().clone()).collect();
         for workspace in workspaces {
-            workspace.destroy_node(false);
+            workspace.node_destroy(false);
         }
         self.seat_state.destroy_node(self);
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_output(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_output(self);
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
@@ -285,6 +283,10 @@ impl Node for OutputNode {
                 visitor.visit_layer_surface(surface.deref());
             }
         }
+    }
+
+    fn visible(&self) -> bool {
+        true
     }
 
     fn absolute_position(&self) -> Rect {
@@ -302,7 +304,7 @@ impl Node for OutputNode {
                     x,
                     y,
                 });
-                ws.find_tree_at(x, y, tree);
+                ws.node_find_tree_at(x, y, tree);
             }
             if tree.len() == len {
                 self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree);
@@ -311,7 +313,7 @@ impl Node for OutputNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(self: Rc<Self>, _child: &dyn Node) {
+    fn remove_child(self: &Rc<Self>, _child: &dyn Node) {
         unimplemented!();
     }
 
@@ -327,7 +329,7 @@ impl Node for OutputNode {
         true
     }
 
-    fn into_output(self: Rc<Self>) -> Option<Rc<OutputNode>> {
-        Some(self)
+    fn into_output(self: &Rc<Self>) -> Option<Rc<OutputNode>> {
+        Some(self.clone())
     }
 }

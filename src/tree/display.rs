@@ -6,7 +6,9 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal},
             zwlr_layer_shell_v1::{OVERLAY, TOP},
         },
-        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode},
+        tree::{
+            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, SizedNode,
+        },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
     std::{ops::Deref, rc::Rc},
@@ -30,7 +32,7 @@ impl DisplayNode {
     }
 }
 
-impl Node for DisplayNode {
+impl SizedNode for DisplayNode {
     fn id(&self) -> NodeId {
         self.id
     }
@@ -39,24 +41,20 @@ impl Node for DisplayNode {
         &self.seat_state
     }
 
-    fn visible(&self) -> bool {
-        true
-    }
-
     fn destroy_node(&self, _detach: bool) {
         let mut outputs = self.outputs.lock();
         for output in outputs.values() {
-            output.destroy_node(false);
+            output.node_destroy(false);
         }
         outputs.clear();
         for stacked in self.stacked.iter() {
-            stacked.destroy_node(false);
+            stacked.node_destroy(false);
         }
         self.seat_state.destroy_node(self);
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_display(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_display(self);
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
@@ -65,8 +63,12 @@ impl Node for DisplayNode {
             visitor.visit_output(output);
         }
         for stacked in self.stacked.iter() {
-            stacked.deref().clone().visit(visitor);
+            stacked.deref().clone().node_visit(visitor);
         }
+    }
+
+    fn visible(&self) -> bool {
+        true
     }
 
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -90,8 +92,8 @@ impl Node for DisplayNode {
             }
         }
         for stacked in self.stacked.rev_iter() {
-            let ext = stacked.absolute_position();
-            if stacked.absolute_position_constrains_input() && !ext.contains(x, y) {
+            let ext = stacked.node_absolute_position();
+            if stacked.node_absolute_position_constrains_input() && !ext.contains(x, y) {
                 // TODO: make constrain always true
                 continue;
             }
@@ -102,7 +104,7 @@ impl Node for DisplayNode {
                 x,
                 y,
             });
-            match stacked.find_tree_at(x, y, tree) {
+            match stacked.node_find_tree_at(x, y, tree) {
                 FindTreeResult::AcceptsInput => {
                     return FindTreeResult::AcceptsInput;
                 }
@@ -120,7 +122,7 @@ impl Node for DisplayNode {
                     x,
                     y,
                 });
-                output.find_tree_at(x, y, tree);
+                output.node_find_tree_at(x, y, tree);
                 break;
             }
         }

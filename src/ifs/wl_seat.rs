@@ -240,31 +240,31 @@ impl WlSeatGlobal {
     }
 
     pub fn get_mono(&self) -> Option<bool> {
-        self.keyboard_node.get().get_parent_mono()
+        self.keyboard_node.get().node_get_parent_mono()
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.keyboard_node.get().get_parent_split()
+        self.keyboard_node.get().node_get_parent_split()
     }
 
     pub fn set_mono(&self, mono: bool) {
-        self.keyboard_node.get().set_parent_mono(mono)
+        self.keyboard_node.get().node_set_parent_mono(mono)
     }
 
     pub fn set_split(&self, axis: ContainerSplit) {
-        self.keyboard_node.get().set_parent_split(axis)
+        self.keyboard_node.get().node_set_parent_split(axis)
     }
 
     pub fn create_split(&self, axis: ContainerSplit) {
-        self.keyboard_node.get().create_split(axis)
+        self.keyboard_node.get().node_create_split(axis)
     }
 
     pub fn focus_parent(self: &Rc<Self>) {
-        self.keyboard_node.get().focus_parent(self);
+        self.keyboard_node.get().node_focus_parent(self);
     }
 
     pub fn toggle_floating(self: &Rc<Self>) {
-        self.keyboard_node.get().toggle_floating(self);
+        self.keyboard_node.get().node_toggle_floating(self);
     }
 
     pub fn get_rate(&self) -> (i32, i32) {
@@ -288,17 +288,17 @@ impl WlSeatGlobal {
 
     pub fn close(self: &Rc<Self>) {
         let kb_node = self.keyboard_node.get();
-        kb_node.close();
+        kb_node.node_close();
     }
 
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
-        kb_node.move_focus(self, direction);
+        kb_node.node_move_focus(self, direction);
     }
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
-        kb_node.move_self(direction);
+        kb_node.node_move_self(direction);
     }
 
     fn set_selection_<T: ipc::Vtable>(
@@ -312,7 +312,7 @@ impl WlSeatGlobal {
         if let Some(old) = field.set(src.clone()) {
             ipc::detach_seat::<T>(&old);
         }
-        if let Some(client) = self.keyboard_node.get().client() {
+        if let Some(client) = self.keyboard_node.get().node_client() {
             match src {
                 Some(src) => ipc::offer_source_to::<T>(&src, &client),
                 _ => T::for_each_device(self, client.id, |device| {

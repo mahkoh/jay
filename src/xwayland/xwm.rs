@@ -1229,7 +1229,7 @@ impl Wm {
         let or = or != 0;
         if data.info.override_redirect.replace(or) != or {
             if let Some(window) = data.window.get() {
-                window.destroy_node(true);
+                window.node_destroy(true);
                 window.map_status_changed();
             }
         }

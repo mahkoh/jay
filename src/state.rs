@@ -118,20 +118,20 @@ impl State {
         impl NodeVisitorBase for Walker {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.schedule_compute_render_data();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
 
             fn visit_output(&mut self, node: &Rc<OutputNode>) {
                 node.update_render_data();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
 
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
                 node.schedule_render_titles();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
         }
-        self.root.clone().visit(&mut Walker);
+        self.root.clone().node_visit(&mut Walker);
 
         let seats = self.globals.seats.lock();
         for seat in seats.values() {
@@ -162,7 +162,7 @@ impl State {
         if let Some(seat) = &seat {
             if let Some(prev) = seat.last_tiled_keyboard_toplevel(&*node) {
                 if let Some(container) = prev.parent() {
-                    if let Some(container) = container.into_container() {
+                    if let Some(container) = container.node_into_container() {
                         container.add_child_after(prev.as_node(), node);
                         return;
                     }
@@ -200,7 +200,7 @@ impl State {
         mut height: i32,
         workspace: &Rc<WorkspaceNode>,
     ) {
-        node.clone().set_workspace(workspace);
+        node.clone().node_set_workspace(workspace);
         width += 2 * self.theme.border_width.get();
         height += 2 * self.theme.border_width.get() + self.theme.title_height.get();
         let output = workspace.output.get();

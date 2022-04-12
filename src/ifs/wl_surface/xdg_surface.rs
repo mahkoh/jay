@@ -18,7 +18,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        tree::{FindTreeResult, FoundNode, Node, WorkspaceNode},
+        tree::{FindTreeResult, FoundNode, Node, SizedNode, WorkspaceNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -301,9 +301,9 @@ impl XdgSurface {
     }
 
     fn set_visible(&self, visible: bool) {
-        self.surface.set_visible(visible);
+        self.surface.node_set_visible(visible);
         for popup in self.popups.lock().values() {
-            popup.set_visible(visible);
+            popup.node_set_visible(visible);
         }
     }
 }
