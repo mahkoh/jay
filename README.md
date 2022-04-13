@@ -2,6 +2,8 @@
 
 Jay is a wayland compositor written in rust.
 
+![screetshot.png](static/screetshot.png)
+
 This project is in very early development and not yet ready for serious use.
 
 For now this repository serves purely as a code backup.
