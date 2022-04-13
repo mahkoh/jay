@@ -7,6 +7,7 @@ pub trait WindowsExt<T> {
         T: 'a;
 
     fn array_windows_ext<'a, const N: usize>(&'a self) -> Self::Windows<'a, N>;
+    fn array_chunks_ext<'a, const N: usize>(&'a self) -> &'a [[T; N]];
 }
 
 impl<T> WindowsExt<T> for [T] {
@@ -17,6 +18,11 @@ impl<T> WindowsExt<T> for [T] {
 
     fn array_windows_ext<'a, const N: usize>(&'a self) -> Self::Windows<'a, N> {
         WindowsIter { slice: self }
+    }
+
+    fn array_chunks_ext<'a, const N: usize>(&'a self) -> &'a [[T; N]] {
+        let len = self.len() / N;
+        unsafe { std::slice::from_raw_parts(self.as_ptr() as _, len) }
     }
 }
 

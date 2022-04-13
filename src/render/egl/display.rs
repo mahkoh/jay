@@ -36,7 +36,7 @@ use {
 pub struct EglDisplay {
     pub exts: DisplayExt,
     pub formats: Rc<AHashMap<u32, &'static Format>>,
-    pub gbm: GbmDevice,
+    pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
 }
 
@@ -58,7 +58,7 @@ impl EglDisplay {
             let mut dpy = EglDisplay {
                 exts: DisplayExt::empty(),
                 formats: Rc::new(AHashMap::new()),
-                gbm,
+                gbm: Rc::new(gbm),
                 dpy,
             };
             let mut major = 0;

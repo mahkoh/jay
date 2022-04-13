@@ -5,7 +5,7 @@ edition = "2021"
 build = "build/build.rs"
 
 [workspace]
-members = ["jay-config", "default-config"]
+members = ["jay-config", "default-config", "qoi"]
 
 [profile.release]
 panic = "abort"
@@ -32,12 +32,14 @@ byteorder = "1.4.3"
 bincode = "2.0.0-rc.1"
 jay-config = { path = "jay-config" }
 default-config = { path = "default-config" }
+qoi = { path = "qoi" }
 pin-project = "1.0.10"
 clap = { version = "3.1.6", features = ["derive", "wrap_help"] }
 clap_complete = "3.1.1"
 humantime = "2.1.0"
 dirs = "4.0.0"
 backtrace = "0.3.64"
+chrono = "0.4.19"
 
 [build-dependencies]
 repc = "0.1.1"
@@ -46,6 +48,9 @@ bstr = { version = "0.2.17", default-features = false, features = ["std"] }
 
 #[profile.dev.build-override]
 #opt-level = 3
+
+[profile.dev.package."qoi"]
+opt-level = 3
 
 [features]
 rc_tracking = []

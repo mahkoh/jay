@@ -200,6 +200,7 @@ impl OutputNode {
 
     fn change_extents_(&self, rect: &Rect) {
         self.global.pos.set(*rect);
+        self.state.root.update_extents();
         self.update_render_data();
         if let Some(c) = self.workspace.get() {
             c.node_change_extents(&self.workspace_rect());

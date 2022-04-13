@@ -1,0 +1,108 @@
+use {
+    crate::{
+        cli::{GlobalArgs, ScreenshotArgs},
+        format::XRGB8888,
+        tools::tool_client::{Handle, ToolClient},
+        utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
+        video::{
+            dmabuf::{DmaBuf, DmaBufPlane},
+            drm::Drm,
+            gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            INVALID_MODIFIER,
+        },
+        wire::{
+            jay_compositor::TakeScreenshot,
+            jay_screenshot::{Dmabuf, Error},
+        },
+    },
+    chrono::Local,
+    qoi::xrgb8888_encode_qoi,
+    std::rc::Rc,
+};
+
+pub fn main(global: GlobalArgs, args: ScreenshotArgs) {
+    let tc = ToolClient::new(global.log_level.into());
+    let screenshot = Rc::new(Screenshot {
+        tc: tc.clone(),
+        args,
+    });
+    tc.run(run(screenshot));
+}
+
+struct Screenshot {
+    tc: Rc<ToolClient>,
+    args: ScreenshotArgs,
+}
+
+async fn run(screenshot: Rc<Screenshot>) {
+    let tc = &screenshot.tc;
+    let comp = tc.jay_compositor().await;
+    let sid = tc.id();
+    tc.send(TakeScreenshot {
+        self_id: comp,
+        id: sid,
+    });
+    let result = Rc::new(AsyncQueue::new());
+    Error::handle(&tc, sid, result.clone(), |res, err| {
+        res.push(Err(err.msg.to_owned()));
+    });
+    Dmabuf::handle(&tc, sid, result.clone(), |res, buf| {
+        res.push(Ok(buf));
+    });
+    let buf = match result.pop().await {
+        Ok(b) => b,
+        Err(e) => {
+            fatal!("Could not take a screenshot: {}", e);
+        }
+    };
+    let data = buf_to_qoi(&buf);
+    let filename = screenshot
+        .args
+        .filename
+        .as_deref()
+        .unwrap_or("jay-%Y-%m-%d-%H:%M:%S.qoi");
+    let filename = Local::now().format(filename).to_string();
+    if let Err(e) = std::fs::write(&filename, &data) {
+        fatal!("Could not write `{}`: {}", filename, ErrorFmt(e));
+    }
+}
+
+fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
+    let drm = match Drm::reopen(buf.drm_dev.raw(), false) {
+        Ok(drm) => drm,
+        Err(e) => {
+            fatal!("Could not open the drm device: {}", ErrorFmt(e));
+        }
+    };
+    let gbm = match GbmDevice::new(&drm) {
+        Ok(g) => g,
+        Err(e) => {
+            fatal!("Could not create a gbm device: {}", ErrorFmt(e));
+        }
+    };
+    let dmabuf = DmaBuf {
+        width: buf.width as _,
+        height: buf.height as _,
+        format: XRGB8888,
+        modifier: INVALID_MODIFIER,
+        planes: vec![DmaBufPlane {
+            offset: buf.offset,
+            stride: buf.stride,
+            fd: buf.fd.clone(),
+        }],
+    };
+    let bo = match gbm.import_dmabuf(&dmabuf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {
+        Ok(bo) => Rc::new(bo),
+        Err(e) => {
+            fatal!("Could not import screenshot dmabuf: {}", ErrorFmt(e));
+        }
+    };
+    let bo_map = match bo.map() {
+        Ok(map) => map,
+        Err(e) => {
+            fatal!("Could not map dmabuf: {}", ErrorFmt(e));
+        }
+    };
+    let data = unsafe { bo_map.data() };
+    xrgb8888_encode_qoi(data, buf.width, buf.height, buf.stride)
+}

@@ -346,7 +346,7 @@ impl XBackendData {
             let bo = self
                 .gbm
                 .create_bo(width, height, &format, GBM_BO_USE_RENDERING)?;
-            let dma = bo.dma();
+            let dma = bo.dmabuf();
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();
             let size = plane.stride * dma.height as u32;

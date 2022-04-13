@@ -25,7 +25,7 @@ use {
         },
         state::State,
         theme::Color,
-        tree::{ContainerNode, FloatNode, OutputNode, WorkspaceNode},
+        tree::{ContainerNode, DisplayNode, FloatNode, OutputNode, WorkspaceNode},
         utils::rc_eq::rc_eq,
     },
     std::{ops::Deref, rc::Rc, slice},
@@ -38,6 +38,16 @@ pub struct Renderer<'a> {
 }
 
 impl Renderer<'_> {
+    pub fn render_display(&mut self, display: &DisplayNode, x: i32, y: i32) {
+        let ext = display.extents.get();
+        let outputs = display.outputs.lock();
+        for output in outputs.values() {
+            let opos = output.global.pos.get();
+            let (ox, oy) = ext.translate(opos.x1(), opos.y1());
+            self.render_output(output, x + ox, y + oy);
+        }
+    }
+
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
         let opos = output.global.pos.get();
         macro_rules! render_layer {
@@ -57,15 +67,22 @@ impl Renderer<'_> {
         let theme = &self.state.theme;
         let th = theme.title_height.get();
         {
+            let c = Color::BLACK;
+            self.fill_boxes2(
+                slice::from_ref(&Rect::new_sized(0, 0, opos.width(), th).unwrap()),
+                &c,
+                x,
+                y,
+            );
             let rd = output.render_data.borrow_mut();
             if let Some(aw) = &rd.active_workspace {
                 let c = theme.active_title_color.get();
-                self.fill_boxes(slice::from_ref(aw), &c);
+                self.fill_boxes2(slice::from_ref(aw), &c, x, y);
             }
             let c = theme.underline_color.get();
-            self.fill_boxes(slice::from_ref(&rd.underline), &c);
+            self.fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
             let c = theme.title_color.get();
-            self.fill_boxes(&rd.inactive_workspaces, &c);
+            self.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
             for title in &rd.titles {
                 self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
             }

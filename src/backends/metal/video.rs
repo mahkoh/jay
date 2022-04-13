@@ -869,11 +869,11 @@ impl MetalBackend {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
         };
-        let drm_fb = match dev.dev.master.add_fb(bo.dma()) {
+        let drm_fb = match dev.dev.master.add_fb(bo.dmabuf()) {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let egl_fb = match dev.dev.egl.dmabuf_fb(bo.dma()) {
+        let egl_fb = match dev.dev.egl.dmabuf_fb(bo.dmabuf()) {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
         };

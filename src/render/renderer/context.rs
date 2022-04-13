@@ -12,6 +12,7 @@ use {
         video::{
             dmabuf::DmaBuf,
             drm::{Drm, NodeType},
+            gbm::GbmDevice,
         },
     },
     ahash::AHashMap,
@@ -44,6 +45,7 @@ impl TexProg {
 
 pub struct RenderContext {
     pub(super) ctx: Rc<EglContext>,
+    pub gbm: Rc<GbmDevice>,
 
     pub(super) render_node: Rc<CString>,
 
@@ -97,6 +99,7 @@ impl RenderContext {
         )?;
         Ok(Self {
             ctx: ctx.clone(),
+            gbm: ctx.dpy.gbm.clone(),
 
             render_node: node.clone(),
 

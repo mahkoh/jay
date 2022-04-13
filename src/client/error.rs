@@ -58,6 +58,14 @@ impl ClientError {
 }
 
 #[derive(Debug, Error)]
+#[error("Could not process a `{method}` request")]
+pub struct MethodError {
+    pub method: &'static str,
+    #[source]
+    pub error: Box<dyn Error + 'static>,
+}
+
+#[derive(Debug, Error)]
 #[error("An error occurred in a `{}`", .interface.name())]
 pub struct ObjectError {
     pub interface: Interface,

@@ -59,6 +59,7 @@ mod object;
 mod pango;
 mod rect;
 mod render;
+mod screenshoter;
 mod sighand;
 mod state;
 mod tasks;

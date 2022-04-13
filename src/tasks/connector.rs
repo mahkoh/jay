@@ -123,6 +123,7 @@ impl ConnectorHandler {
         }
         on.update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
+        self.state.root.update_extents();
         self.state.add_global(&global);
         'outer: loop {
             while let Some(event) = self.data.connector.event() {

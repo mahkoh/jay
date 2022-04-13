@@ -187,6 +187,12 @@ impl From<std::io::Error> for OsError {
     }
 }
 
+impl Default for OsError {
+    fn default() -> Self {
+        Errno::default().into()
+    }
+}
+
 impl Error for OsError {}
 
 impl Display for OsError {

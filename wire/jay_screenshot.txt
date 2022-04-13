@@ -1,0 +1,14 @@
+# events
+
+msg dmabuf = 0 {
+    drm_dev: fd,
+    fd: fd,
+    width: u32,
+    height: u32,
+    offset: u32,
+    stride: u32,
+}
+
+msg error = 1 {
+    msg: str,
+}

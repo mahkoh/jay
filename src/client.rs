@@ -1,4 +1,4 @@
-pub use error::{ClientError, ObjectError};
+pub use error::{ClientError, MethodError, ObjectError};
 use {
     crate::{
         async_engine::{AsyncFd, SpawnedFuture},

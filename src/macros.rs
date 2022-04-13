@@ -11,6 +11,44 @@ macro_rules! efrom {
     };
 }
 
+macro_rules! object_base2 {
+    ($oname:ident; $($code:ident => $f:ident,)*) => {
+        impl crate::object::ObjectBase for $oname {
+            fn id(&self) -> crate::object::ObjectId {
+                self.id.into()
+            }
+
+            #[allow(unused_variables, unreachable_code)]
+            fn handle_request(
+                self: std::rc::Rc<Self>,
+                request: u32,
+                parser: crate::utils::buffd::MsgParser<'_, '_>,
+            ) -> Result<(), crate::client::ClientError> {
+                let res: Result<(), crate::client::MethodError> = match request {
+                    $(
+                        $code => $oname::$f(&self, parser).map_err(|e| crate::client::MethodError {
+                            method: stringify!($f),
+                            error: Box::new(e),
+                        }),
+                    )*
+                    _ => unreachable!(),
+                };
+                if let Err(e) = res {
+                    return Err(crate::client::ClientError::ObjectError(crate::client::ObjectError {
+                        interface: crate::wire::$oname,
+                        error: Box::new(e),
+                    }));
+                }
+                Ok(())
+            }
+
+            fn interface(&self) -> crate::object::Interface {
+                crate::wire::$oname
+            }
+        }
+    };
+}
+
 macro_rules! object_base {
     ($oname:ident, $ename:ty; $($code:ident => $f:ident,)*) => {
         impl crate::object::ObjectBase for $oname {

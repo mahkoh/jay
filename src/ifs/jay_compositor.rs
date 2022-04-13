@@ -3,14 +3,18 @@ use {
         cli::CliLogLevel,
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::jay_log_file::JayLogFile,
+        ifs::{jay_log_file::JayLogFile, jay_screenshot::JayScreenshot},
         leaks::Tracker,
         object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        screenshoter::take_screenshot,
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            errorfmt::ErrorFmt,
+        },
         wire::{jay_compositor::*, JayCompositorId},
     },
     log::Level,
-    std::rc::Rc,
+    std::{ops::Deref, rc::Rc},
     thiserror::Error,
 };
 
@@ -65,13 +69,13 @@ pub struct JayCompositor {
 }
 
 impl JayCompositor {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_log_file(&self, parser: MsgParser<'_, '_>) -> Result<(), GetLogFileError> {
+    fn get_log_file(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
         let req: GetLogFile = self.client.parse(self, parser)?;
         let log_file = Rc::new(JayLogFile::new(req.id, &self.client));
         track!(self.client, log_file);
@@ -80,14 +84,14 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn quit(&self, parser: MsgParser<'_, '_>) -> Result<(), QuitError> {
+    fn quit(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
         let _req: Quit = self.client.parse(self, parser)?;
         log::info!("Quitting");
         self.client.state.el.stop();
         Ok(())
     }
 
-    fn set_log_level(&self, parser: MsgParser<'_, '_>) -> Result<(), SetLogLevelError> {
+    fn set_log_level(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
         let req: SetLogLevel = self.client.parse(self, parser)?;
         const ERROR: u32 = CliLogLevel::Error as u32;
         const WARN: u32 = CliLogLevel::Warn as u32;
@@ -100,25 +104,57 @@ impl JayCompositor {
             INFO => Level::Info,
             DEBUG => Level::Debug,
             TRACE => Level::Trace,
-            _ => return Err(SetLogLevelError::UnknownLogLevel(req.level)),
+            _ => return Err(JayCompositorError::UnknownLogLevel(req.level)),
         };
         self.client.state.logger.set_level(level);
         Ok(())
     }
+
+    fn take_screenshot(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: TakeScreenshot = self.client.parse(self, parser)?;
+        let ss = Rc::new(JayScreenshot {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, ss);
+        self.client.add_client_obj(&ss)?;
+        match take_screenshot(&self.client.state) {
+            Ok(s) => {
+                let dmabuf = s.bo.dmabuf();
+                let plane = &dmabuf.planes[0];
+                ss.send_dmabuf(
+                    &s.drm,
+                    &plane.fd,
+                    dmabuf.width,
+                    dmabuf.height,
+                    plane.offset,
+                    plane.stride,
+                );
+            }
+            Err(e) => {
+                let msg = ErrorFmt(e).to_string();
+                ss.send_error(&msg);
+            }
+        }
+        self.client.remove_obj(ss.deref())?;
+        Ok(())
+    }
 }
 
-object_base! {
-    JayCompositor, JayCompositorError;
+object_base2! {
+    JayCompositor;
 
     DESTROY => destroy,
     GET_LOG_FILE => get_log_file,
     QUIT => quit,
     SET_LOG_LEVEL => set_log_level,
+    TAKE_SCREENSHOT => take_screenshot,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        SET_LOG_LEVEL + 1
+        TAKE_SCREENSHOT + 1
     }
 }
 
@@ -126,51 +162,12 @@ simple_add_obj!(JayCompositor);
 
 #[derive(Debug, Error)]
 pub enum JayCompositorError {
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `get_log_file` request")]
-    GetLogFileError(#[from] GetLogFileError),
-    #[error("Could not process a `quit` request")]
-    QuitError(#[from] QuitError),
-    #[error("Could not process a `set_log_level` request")]
-    SetLogLevelError(#[from] SetLogLevelError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayCompositorError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum GetLogFileError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetLogFileError, ClientError);
-efrom!(GetLogFileError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum QuitError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-}
-efrom!(QuitError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum SetLogLevelError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Unknown log level {0}")]
     UnknownLogLevel(u32),
 }
-efrom!(SetLogLevelError, MsgParserError);
+efrom!(JayCompositorError, ClientError);
+efrom!(JayCompositorError, MsgParserError);

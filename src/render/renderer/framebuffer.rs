@@ -47,10 +47,11 @@ impl Framebuffer {
 
     pub fn render(&self, node: &dyn Node, state: &State, cursor_rect: Option<Rect>) {
         let _ = self.ctx.ctx.with_current(|| {
+            let c = state.theme.background_color.get();
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
                 glViewport(0, 0, self.gl.width, self.gl.height);
-                glClearColor(0.0, 0.0, 0.0, 1.0);
+                glClearColor(c.r, c.g, c.b, 1.0);
                 glClear(GL_COLOR_BUFFER_BIT);
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }

@@ -1,6 +1,7 @@
 mod generate;
 mod log;
 mod quit;
+mod screenshot;
 mod set_log_level;
 
 use {
@@ -38,6 +39,19 @@ pub enum Cmd {
     SetLogLevel(SetLogArgs),
     /// Stop the compositor.
     Quit,
+    /// Take a screenshot.
+    Screenshot(ScreenshotArgs),
+}
+
+#[derive(Args, Debug)]
+pub struct ScreenshotArgs {
+    /// The filename of the saved screenshot
+    ///
+    /// If no filename is given, the screenshot will be saved under jay-%Y-%m-%d-%H:%M:%S.qoi
+    /// in the current directory.
+    ///
+    /// The filename can contain the usual strftime parameters.
+    pub filename: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -121,5 +135,6 @@ pub fn main() {
         Cmd::Log(a) => log::main(cli.global, a),
         Cmd::Quit => quit::main(cli.global),
         Cmd::SetLogLevel(a) => set_log_level::main(cli.global, a),
+        Cmd::Screenshot(a) => screenshot::main(cli.global, a),
     }
 }

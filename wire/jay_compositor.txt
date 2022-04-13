@@ -14,3 +14,7 @@ msg quit = 2 {
 msg set_log_level = 3 {
     level: u32,
 }
+
+msg take_screenshot = 4 {
+    id: id(jay_screenshot),
+}

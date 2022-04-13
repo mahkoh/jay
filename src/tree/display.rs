@@ -6,16 +6,19 @@ use {
             wl_seat::{NodeSeatState, WlSeatGlobal},
             zwlr_layer_shell_v1::{OVERLAY, TOP},
         },
+        rect::Rect,
+        render::Renderer,
         tree::{
             walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, SizedNode,
         },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
-    std::{ops::Deref, rc::Rc},
+    std::{cell::Cell, ops::Deref, rc::Rc},
 };
 
 pub struct DisplayNode {
     pub id: NodeId,
+    pub extents: Cell<Rect>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: LinkedList<Rc<dyn Node>>,
     pub seat_state: NodeSeatState,
@@ -25,10 +28,35 @@ impl DisplayNode {
     pub fn new(id: NodeId) -> Self {
         Self {
             id,
+            extents: Default::default(),
             outputs: Default::default(),
             stacked: Default::default(),
             seat_state: Default::default(),
         }
+    }
+
+    pub fn update_extents(&self) {
+        let outputs = self.outputs.lock();
+        let mut x1 = i32::MAX;
+        let mut y1 = i32::MAX;
+        let mut x2 = i32::MIN;
+        let mut y2 = i32::MIN;
+        for output in outputs.values() {
+            let pos = output.global.pos.get();
+            x1 = x1.min(pos.x1());
+            y1 = y1.min(pos.y1());
+            x2 = x2.max(pos.x2());
+            y2 = y2.max(pos.y2());
+        }
+        if x1 >= x2 {
+            x1 = 0;
+            x2 = 0;
+        }
+        if y1 >= y2 {
+            y1 = 0;
+            y2 = 0;
+        }
+        self.extents.set(Rect::new(x1, y1, x2, y2).unwrap());
     }
 }
 
@@ -131,5 +159,9 @@ impl SizedNode for DisplayNode {
 
     fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         seat.set_known_cursor(KnownCursor::Default);
+    }
+
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_display(self, x, y);
     }
 }

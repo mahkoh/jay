@@ -1,6 +1,9 @@
+#![allow(non_camel_case_types)]
+
 use {
     crate::{
         format::formats,
+        utils::oserror::OsError,
         video::{
             dmabuf::{DmaBuf, DmaBufPlane},
             drm::{Drm, DrmError},
@@ -11,6 +14,7 @@ use {
         fmt::{Debug, Formatter},
         ptr,
         rc::Rc,
+        slice,
     },
     thiserror::Error,
     uapi::{c, OwnedFd},
@@ -28,6 +32,8 @@ pub enum GbmError {
     UnknownFormat,
     #[error("Could not retrieve a drm-buf fd")]
     DrmFd,
+    #[error("Could not map bo")]
+    MapBo(#[source] OsError),
 }
 
 pub type Device = u8;
@@ -39,16 +45,42 @@ pub const GBM_BO_USE_CURSOR: u32 = 1 << 1;
 pub const GBM_BO_USE_RENDERING: u32 = 1 << 2;
 #[allow(dead_code)]
 pub const GBM_BO_USE_WRITE: u32 = 1 << 3;
-#[allow(dead_code)]
 pub const GBM_BO_USE_LINEAR: u32 = 1 << 4;
 #[allow(dead_code)]
 pub const GBM_BO_USE_PROTECTED: u32 = 1 << 5;
+
+#[allow(dead_code)]
+const GBM_BO_IMPORT_WL_BUFFER: u32 = 0x5501;
+#[allow(dead_code)]
+const GBM_BO_IMPORT_EGL_IMAGE: u32 = 0x5502;
+#[allow(dead_code)]
+const GBM_BO_IMPORT_FD: u32 = 0x5503;
+const GBM_BO_IMPORT_FD_MODIFIER: u32 = 0x5504;
+
+const GBM_BO_TRANSFER_READ: u32 = 1 << 0;
+#[allow(dead_code)]
+const GBM_BO_TRANSFER_WRITE: u32 = 1 << 1;
+#[allow(dead_code)]
+const GBM_BO_TRANSFER_READ_WRITE: u32 = GBM_BO_TRANSFER_READ | GBM_BO_TRANSFER_WRITE;
+
+#[repr(C)]
+struct gbm_import_fd_modifier_data {
+    width: u32,
+    height: u32,
+    format: u32,
+    num_fds: u32,
+    fds: [c::c_int; 4],
+    strides: [c::c_int; 4],
+    offsets: [c::c_int; 4],
+    modifier: u64,
+}
 
 #[link(name = "gbm")]
 extern "C" {
     fn gbm_create_device(fd: c::c_int) -> *mut Device;
     fn gbm_device_destroy(dev: *mut Device);
 
+    fn gbm_bo_import(dev: *mut Device, ty: u32, buffer: *mut u8, flags: u32) -> *mut Bo;
     fn gbm_bo_create_with_modifiers2(
         dev: *mut Device,
         width: u32,
@@ -71,10 +103,21 @@ extern "C" {
     fn gbm_bo_get_format(bo: *mut Bo) -> u32;
     #[allow(dead_code)]
     fn gbm_bo_get_bpp(bo: *mut Bo) -> u32;
+    fn gbm_bo_map(
+        bo: *mut Bo,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+        flags: u32,
+        strid: *mut u32,
+        map_data: *mut *mut u8,
+    ) -> *mut u8;
+    fn gbm_bo_unmap(bo: *mut Bo, map_data: *mut u8);
 }
 
 pub struct GbmDevice {
-    _drm: Drm,
+    pub drm: Drm,
     dev: *mut Device,
 }
 
@@ -89,8 +132,20 @@ struct BoHolder {
 }
 
 pub struct GbmBo {
-    _bo: BoHolder,
-    dma: DmaBuf,
+    bo: BoHolder,
+    dmabuf: DmaBuf,
+}
+
+pub struct GbmBoMap {
+    bo: Rc<GbmBo>,
+    data: *mut [u8],
+    opaque: *mut u8,
+}
+
+impl GbmBoMap {
+    pub unsafe fn data(&self) -> &[u8] {
+        &*self.data
+    }
 }
 
 unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
@@ -132,7 +187,7 @@ impl GbmDevice {
         if dev.is_null() {
             Err(GbmError::CreateDevice)
         } else {
-            Ok(Self { _drm: drm, dev })
+            Ok(Self { drm: drm, dev })
         }
     }
 
@@ -167,7 +222,44 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
-            Ok(GbmBo { _bo: bo, dma })
+            Ok(GbmBo {
+                bo: bo,
+                dmabuf: dma,
+            })
+        }
+    }
+
+    pub fn import_dmabuf(&self, dmabuf: &DmaBuf, usage: u32) -> Result<GbmBo, GbmError> {
+        let mut import = gbm_import_fd_modifier_data {
+            width: dmabuf.width as _,
+            height: dmabuf.height as _,
+            format: dmabuf.format.drm as _,
+            num_fds: dmabuf.planes.len() as _,
+            fds: [0; 4],
+            strides: [0; 4],
+            offsets: [0; 4],
+            modifier: dmabuf.modifier,
+        };
+        for (i, plane) in dmabuf.planes.iter().enumerate() {
+            import.fds[i] = plane.fd.raw();
+            import.strides[i] = plane.stride as _;
+            import.offsets[i] = plane.offset as _;
+        }
+        unsafe {
+            let bo = gbm_bo_import(
+                self.dev,
+                GBM_BO_IMPORT_FD_MODIFIER,
+                &mut import as *const _ as _,
+                usage,
+            );
+            if bo.is_null() {
+                return Err(GbmError::CreateBo);
+            }
+            let bo = BoHolder { bo };
+            Ok(GbmBo {
+                bo: bo,
+                dmabuf: dmabuf.clone(),
+            })
         }
     }
 }
@@ -181,8 +273,42 @@ impl Drop for GbmDevice {
 }
 
 impl GbmBo {
-    pub fn dma(&self) -> &DmaBuf {
-        &self.dma
+    pub fn dmabuf(&self) -> &DmaBuf {
+        &self.dmabuf
+    }
+
+    pub fn map(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
+        let mut stride = 0;
+        let mut map_data = ptr::null_mut();
+        unsafe {
+            let map = gbm_bo_map(
+                self.bo.bo,
+                0,
+                0,
+                self.dmabuf.width as _,
+                self.dmabuf.height as _,
+                GBM_BO_TRANSFER_READ,
+                &mut stride,
+                &mut map_data,
+            );
+            if map.is_null() {
+                return Err(GbmError::MapBo(OsError::default()));
+            }
+            let map = slice::from_raw_parts_mut(map, (stride * self.dmabuf.height as u32) as usize);
+            Ok(GbmBoMap {
+                bo: self.clone(),
+                data: map,
+                opaque: map_data,
+            })
+        }
+    }
+}
+
+impl Drop for GbmBoMap {
+    fn drop(&mut self) {
+        unsafe {
+            gbm_bo_unmap(self.bo.bo.bo, self.opaque);
+        }
     }
 }
 
