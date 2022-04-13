@@ -463,7 +463,7 @@ impl ToplevelNode for Xwindow {
 
     fn set_active(&self, active: bool) {
         if let Some(pn) = self.parent_node.get() {
-            pn.node_child_active_changed(self, active);
+            pn.node_child_active_changed(self, active, 1);
         }
     }
 

@@ -22,7 +22,7 @@ use {
         theme::Theme,
         tree::{
             ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, NodeVisitorBase,
-            OutputNode, WorkspaceNode,
+            OutputNode, SizedNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
@@ -32,6 +32,7 @@ use {
         xkbcommon::{XkbContext, XkbKeymap},
     },
     ahash::AHashMap,
+    jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -131,7 +132,7 @@ impl State {
                 node.node_visit_children(self);
             }
         }
-        self.root.clone().node_visit(&mut Walker);
+        self.root.visit(&mut Walker);
 
         let seats = self.globals.seats.lock();
         for seat in seats.values() {
@@ -227,12 +228,12 @@ impl State {
         let output = match self.workspaces.get(name) {
             Some(ws) => {
                 let output = ws.output.get();
-                if let Some(old) = output.workspace.get() {
-                    if old.id == ws.id {
-                        return;
-                    }
+                let did_change = output.show_workspace(&ws);
+                ws.last_active_child()
+                    .node_do_focus(seat, Direction::Unspecified);
+                if !did_change {
+                    return;
                 }
-                output.show_workspace(&ws);
                 output
             }
             _ => {
@@ -262,10 +263,10 @@ impl State {
         };
         output.update_render_data();
         self.tree_changed();
-        let seats = self.globals.seats.lock();
-        for seat in seats.values() {
-            seat.workspace_changed(&output);
-        }
+        // let seats = self.globals.seats.lock();
+        // for seat in seats.values() {
+        //     seat.workspace_changed(&output);
+        // }
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {

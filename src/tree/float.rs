@@ -461,7 +461,7 @@ impl SizedNode for FloatNode {
         self.workspace_link.set(None);
     }
 
-    fn child_active_changed(self: &Rc<Self>, _child: &dyn Node, active: bool) {
+    fn child_active_changed(self: &Rc<Self>, _child: &dyn Node, active: bool, _depth: u32) {
         self.active.set(active);
     }
 

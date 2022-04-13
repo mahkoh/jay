@@ -8,7 +8,7 @@ use {
         render::RenderError,
         utils::buffd::{MsgParser, MsgParserError},
         video::{
-            dma::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane},
             INVALID_MODIFIER,
         },
         wire::{wl_drm::*, WlDrmId},

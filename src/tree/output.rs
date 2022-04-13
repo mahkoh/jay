@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         ifs::{
             wl_output::WlOutputGlobal,
-            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_seat::{collect_kb_foci2, NodeSeatState, WlSeatGlobal},
             wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM},
         },
@@ -18,6 +18,8 @@ use {
         },
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList},
     },
+    jay_config::Direction,
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -45,11 +47,14 @@ impl OutputNode {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
         rd.inactive_workspaces.clear();
+        rd.active_workspace = None;
         rd.status = None;
         let mut pos = 0;
         let font = self.state.theme.font.borrow_mut();
         let th = self.state.theme.title_height.get();
         let active_id = self.workspace.get().map(|w| w.id);
+        let width = self.global.pos.get().width();
+        rd.underline = Rect::new_sized(0, th, width, 1).unwrap();
         for ws in self.workspaces.iter() {
             let mut title_width = th;
             'create_texture: {
@@ -80,7 +85,7 @@ impl OutputNode {
             }
             let rect = Rect::new_sized(pos, 0, title_width, th).unwrap();
             if Some(ws.id) == active_id {
-                rd.active_workspace = rect;
+                rd.active_workspace = Some(rect);
             } else {
                 rd.inactive_workspaces.push(rect);
             }
@@ -102,7 +107,7 @@ impl OutputNode {
                     break 'set_status;
                 }
             };
-            let pos = self.global.pos.get().width() - title.width() - 1;
+            let pos = width - title.width() - 1;
             rd.status = Some(OutputTitle {
                 x: pos,
                 y: 0,
@@ -144,15 +149,22 @@ impl OutputNode {
         workspace
     }
 
-    pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) {
+    pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
+        let mut seats = SmallVec::new();
         if let Some(old) = self.workspace.set(Some(ws.clone())) {
             if old.id == ws.id {
-                return;
+                return false;
             }
+            collect_kb_foci2(old.clone(), &mut seats);
             old.node_set_visible(false);
         }
         ws.node_set_visible(true);
-        ws.clone().node_change_extents(&self.workspace_rect());
+        ws.change_extents(&self.workspace_rect());
+        let node = ws.last_active_child();
+        for seat in seats {
+            node.clone().node_do_focus(&seat, Direction::Unspecified);
+        }
+        true
     }
 
     fn workspace_rect(&self) -> Rect {
@@ -160,9 +172,9 @@ impl OutputNode {
         let th = self.state.theme.title_height.get();
         Rect::new_sized(
             rect.x1(),
-            rect.y1() + th,
+            rect.y1() + th + 1,
             rect.width(),
-            rect.height().sub(th).max(0),
+            rect.height().sub(th + 1).max(0),
         )
         .unwrap()
     }
@@ -237,7 +249,8 @@ pub struct OutputTitle {
 
 #[derive(Default)]
 pub struct OutputRenderData {
-    pub active_workspace: Rect,
+    pub active_workspace: Option<Rect>,
+    pub underline: Rect,
     pub inactive_workspaces: Vec<Rect>,
     pub titles: Vec<OutputTitle>,
     pub status: Option<OutputTitle>,
@@ -260,7 +273,7 @@ impl SizedNode for OutputNode {
 
     fn destroy_node(&self, detach: bool) {
         if detach {
-            self.state.root.clone().node_remove_child(self);
+            self.state.root.remove_child(self);
         }
         self.workspace.set(None);
         let workspaces: Vec<_> = self.workspaces.iter().map(|e| e.deref().clone()).collect();
@@ -289,14 +302,21 @@ impl SizedNode for OutputNode {
         true
     }
 
+    fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
+        if let Some(ws) = self.workspace.get() {
+            return ws.last_active_child();
+        }
+        self.clone()
+    }
+
     fn absolute_position(&self) -> Rect {
         self.global.pos.get()
     }
 
     fn find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        let th = self.state.theme.title_height.get();
-        if y > th {
-            y -= th;
+        let bar_height = self.state.theme.title_height.get() + 1;
+        if y > bar_height {
+            y -= bar_height;
             let len = tree.len();
             if let Some(ws) = self.workspace.get() {
                 tree.push(FoundNode {

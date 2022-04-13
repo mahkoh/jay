@@ -49,6 +49,7 @@ pub struct Theme {
     pub active_title_color: Cell<Color>,
     pub underline_color: Cell<Color>,
     pub border_color: Cell<Color>,
+    pub last_active_color: Cell<Color>,
     pub title_height: Cell<i32>,
     pub border_width: Cell<i32>,
     pub font: RefCell<String>,
@@ -57,11 +58,12 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            background_color: Cell::new(Color::from_rgba(0, 0, 0, 255)),
-            title_color: Cell::new(Color::from_rgba(0x46, 0x04, 0x17, 255)),
-            active_title_color: Cell::new(Color::from_rgba(0x17, 0x04, 0x46, 255)),
-            underline_color: Cell::new(Color::from_rgba(0x66, 0x24, 0x37, 255)),
-            border_color: Cell::new(Color::from_rgba(0x36, 0x00, 0x07, 255)),
+            background_color: Cell::new(Color::from_rgba(0x00, 0x10, 0x19, 255)),
+            last_active_color: Cell::new(Color::from_rgba(0x5f, 0x67, 0x6a, 255)),
+            title_color: Cell::new(Color::from_rgba(0x22, 0x22, 0x22, 255)),
+            active_title_color: Cell::new(Color::from_rgba(0x28, 0x55, 0x77, 255)),
+            underline_color: Cell::new(Color::from_rgba(0x33, 0x33, 0x33, 255)),
+            border_color: Cell::new(Color::from_rgba(0x3f, 0x47, 0x4a, 255)),
             title_height: Cell::new(17),
             border_width: Cell::new(4),
             font: RefCell::new("monospace 8".to_string()),

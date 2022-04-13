@@ -32,7 +32,7 @@ use {
 use crate::{
     backend,
     utils::{errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
-    video::{dma::DmaBuf, INVALID_MODIFIER},
+    video::{dmabuf::DmaBuf, INVALID_MODIFIER},
 };
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,

@@ -10,7 +10,7 @@ use {
             errorfmt::ErrorFmt,
         },
         video::{
-            dma::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane},
             INVALID_MODIFIER,
         },
         wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},

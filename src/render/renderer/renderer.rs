@@ -28,7 +28,7 @@ use {
         tree::{ContainerNode, FloatNode, OutputNode, WorkspaceNode},
         utils::rc_eq::rc_eq,
     },
-    std::{ops::Deref, rc::Rc},
+    std::{ops::Deref, rc::Rc, slice},
 };
 
 pub struct Renderer<'a> {
@@ -58,8 +58,12 @@ impl Renderer<'_> {
         let th = theme.title_height.get();
         {
             let rd = output.render_data.borrow_mut();
-            let c = theme.active_title_color.get();
-            self.fill_boxes(std::slice::from_ref(&rd.active_workspace), &c);
+            if let Some(aw) = &rd.active_workspace {
+                let c = theme.active_title_color.get();
+                self.fill_boxes(slice::from_ref(aw), &c);
+            }
+            let c = theme.underline_color.get();
+            self.fill_boxes(slice::from_ref(&rd.underline), &c);
             let c = theme.title_color.get();
             self.fill_boxes(&rd.inactive_workspaces, &c);
             for title in &rd.titles {
@@ -70,7 +74,7 @@ impl Renderer<'_> {
             }
         }
         if let Some(ws) = output.workspace.get() {
-            self.render_workspace(&ws, x, y + th);
+            self.render_workspace(&ws, x, y + th + 1);
         }
         for stacked in self.state.root.stacked.iter() {
             if stacked.node_visible() {
@@ -152,6 +156,10 @@ impl Renderer<'_> {
             self.fill_boxes2(&rd.underline_rects, &c, x, y);
             let c = self.state.theme.border_color.get();
             self.fill_boxes2(&rd.border_rects, &c, x, y);
+            if let Some(lar) = &rd.last_active_rect {
+                let c = self.state.theme.last_active_color.get();
+                self.fill_boxes2(std::slice::from_ref(lar), &c, x, y);
+            }
             for title in &rd.titles {
                 self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
             }

@@ -4,6 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::wl_seat::{
+            collect_kb_foci, collect_kb_foci2,
             wl_pointer::{PendingScroll, VERTICAL_SCROLL},
             NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, PX_PER_SCROLL,
         },
@@ -13,8 +14,7 @@ use {
         text,
         theme::Color,
         tree::{
-            generic_node_visitor, walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId,
-            SizedNode, WorkspaceNode,
+            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, SizedNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -25,6 +25,7 @@ use {
         },
     },
     ahash::AHashMap,
+    isnt::std_1::vec::IsntVecExt,
     jay_config::{Axis, Direction},
     smallvec::SmallVec,
     std::{
@@ -81,6 +82,7 @@ pub struct ContainerTitle {
 pub struct ContainerRenderData {
     pub title_rects: Vec<Rect>,
     pub active_title_rects: Vec<Rect>,
+    pub last_active_rect: Option<Rect>,
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
     pub titles: Vec<ContainerTitle>,
@@ -336,6 +338,9 @@ impl ContainerNode {
     }
 
     fn perform_layout(self: &Rc<Self>) {
+        if self.num_children.get() == 0 {
+            return;
+        }
         self.layout_scheduled.set(false);
         if let Some(child) = self.mono_child.get() {
             self.perform_mono_layout(&child);
@@ -582,25 +587,20 @@ impl ContainerNode {
     fn update_title(self: &Rc<Self>) {
         let mut title = self.title.borrow_mut();
         title.clear();
-        if let Some(mc) = self.mono_child.get() {
-            title.push_str("M[");
-            title.push_str(mc.title.borrow_mut().deref());
-            title.push_str("]");
-        } else {
-            let split = match self.split.get() {
-                ContainerSplit::Horizontal => "H",
-                ContainerSplit::Vertical => "V",
-            };
-            title.push_str(split);
-            title.push_str("[");
-            for (i, c) in self.children.iter().enumerate() {
-                if i > 0 {
-                    title.push_str(", ");
-                }
-                title.push_str(c.title.borrow_mut().deref());
+        let split = match (self.mono_child.get().is_some(), self.split.get()) {
+            (true, _) => "T",
+            (_, ContainerSplit::Horizontal) => "H",
+            (_, ContainerSplit::Vertical) => "V",
+        };
+        title.push_str(split);
+        title.push_str("[");
+        for (i, c) in self.children.iter().enumerate() {
+            if i > 0 {
+                title.push_str(", ");
             }
-            title.push_str("]");
+            title.push_str(c.title.borrow_mut().deref());
         }
+        title.push_str("]");
         self.parent.get().node_child_title_changed(&**self, &title);
     }
 
@@ -626,6 +626,7 @@ impl ContainerNode {
         rd.active_title_rects.clear();
         rd.border_rects.clear();
         rd.underline_rects.clear();
+        let last_active = self.focus_history.last().map(|v| v.node.node_id());
         let mono = self.mono_child.get().is_some();
         let split = self.split.get();
         for (i, child) in self.children.iter().enumerate() {
@@ -644,6 +645,9 @@ impl ContainerNode {
                 rd.active_title_rects.push(rect);
             } else {
                 rd.title_rects.push(rect);
+            }
+            if last_active == Some(child.node.node_id()) {
+                rd.last_active_rect = Some(rect);
             }
             if !mono {
                 let rect = Rect::new_sized(rect.x1(), rect.y2(), rect.width(), 1).unwrap();
@@ -672,6 +676,9 @@ impl ContainerNode {
             rd.underline_rects
                 .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
         }
+        if rd.active_title_rects.is_not_empty() {
+            rd.last_active_rect.take();
+        }
     }
 
     fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
@@ -679,13 +686,7 @@ impl ContainerNode {
             if mc.node.node_id() == child.node.node_id() {
                 return;
             }
-            let mut seats = SmallVec::<[_; 3]>::new();
-            mc.node
-                .node_visit_children(&mut generic_node_visitor(|node| {
-                    node.node_seat_state().for_each_kb_focus(|s| {
-                        seats.push(s);
-                    });
-                }));
+            let seats = collect_kb_foci(mc.node.clone());
             mc.node.node_set_visible(false);
             for seat in seats {
                 child
@@ -765,6 +766,13 @@ impl SizedNode for ContainerNode {
         self.visible.get()
     }
 
+    fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
+        if let Some(last) = self.focus_history.last() {
+            return last.node.clone().node_last_active_child();
+        }
+        self.clone()
+    }
+
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
         for child in self.children.iter() {
@@ -833,13 +841,7 @@ impl SizedNode for ContainerNode {
                 let mut seats = SmallVec::<[_; 3]>::new();
                 for other in self.children.iter() {
                     if other.node.node_id() != child_id {
-                        other
-                            .node
-                            .node_visit_children(&mut generic_node_visitor(|node| {
-                                node.node_seat_state().for_each_kb_focus(|s| {
-                                    seats.push(s);
-                                });
-                            }));
+                        collect_kb_foci2(other.node.clone(), &mut seats);
                         other.node.node_set_visible(false);
                     }
                 }
@@ -906,7 +908,7 @@ impl SizedNode for ContainerNode {
         }
         self.parent
             .get()
-            .node_move_focus_from_child(seat, &**self, direction);
+            .node_move_focus_from_child(seat, self.deref(), direction);
     }
 
     fn move_self(self: &Rc<Self>, direction: Direction) {
@@ -1035,7 +1037,7 @@ impl SizedNode for ContainerNode {
 
     fn active_changed(&self, active: bool) {
         self.active.set(active);
-        self.parent.get().node_child_active_changed(self, active);
+        self.parent.get().node_child_active_changed(self, active, 1);
     }
 
     fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
@@ -1282,15 +1284,22 @@ impl SizedNode for ContainerNode {
         }
     }
 
-    fn child_active_changed(self: &Rc<Self>, child: &dyn Node, active: bool) {
+    fn child_active_changed(self: &Rc<Self>, child: &dyn Node, active: bool, depth: u32) {
         let node = match self.child_nodes.borrow_mut().get(&child.node_id()) {
             Some(l) => l.to_ref(),
             None => return,
         };
-        node.active.set(active);
-        node.focus_history
-            .set(Some(self.focus_history.add_last(node.clone())));
+        if depth == 1 {
+            node.active.set(active);
+        }
+        if active {
+            node.focus_history
+                .set(Some(self.focus_history.add_last(node.clone())));
+        }
         self.schedule_compute_render_data();
+        self.parent
+            .get()
+            .node_child_active_changed(self.deref(), active, depth + 1);
     }
 
     fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
@@ -1381,7 +1390,7 @@ impl SizedNode for ContainerNode {
         self.parent.set(parent.clone());
         parent
             .clone()
-            .node_child_active_changed(self.deref(), self.active.get());
+            .node_child_active_changed(self.deref(), self.active.get(), 1);
         parent.node_child_size_changed(self.deref(), self.width.get(), self.height.get());
         parent
             .clone()

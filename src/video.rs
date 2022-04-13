@@ -1,6 +1,6 @@
 use crate::format::Format;
 
-pub mod dma;
+pub mod dmabuf;
 pub mod drm;
 pub mod gbm;
 

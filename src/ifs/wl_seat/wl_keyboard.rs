@@ -46,7 +46,6 @@ impl WlKeyboard {
     }
 
     pub fn send_enter(self: &Rc<Self>, serial: u32, surface: WlSurfaceId, keys: &[u32]) {
-        log::info!("enter with {:?}", keys);
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,

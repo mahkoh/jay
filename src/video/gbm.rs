@@ -2,7 +2,7 @@ use {
     crate::{
         format::formats,
         video::{
-            dma::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane},
             drm::{Drm, DrmError},
             ModifiedFormat, INVALID_MODIFIER,
         },

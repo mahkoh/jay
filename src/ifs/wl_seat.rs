@@ -32,7 +32,10 @@ use {
         leaks::Tracker,
         object::{Object, ObjectId},
         state::State,
-        tree::{ContainerSplit, FloatNode, FoundNode, Node, OutputNode, ToplevelNode},
+        tree::{
+            generic_node_visitor, ContainerSplit, FloatNode, FoundNode, Node, OutputNode,
+            ToplevelNode,
+        },
         utils::{
             asyncevent::AsyncEvent,
             buffd::{MsgParser, MsgParserError},
@@ -51,6 +54,7 @@ use {
     },
     ahash::{AHashMap, AHashSet},
     jay_config::{keyboard::mods::Modifiers, Direction},
+    smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -422,10 +426,6 @@ impl WlSeatGlobal {
         self.id
     }
 
-    pub fn workspace_changed(self: &Rc<Self>, output: &Rc<OutputNode>) {
-        self.kb_owner.workspace_changed(self, output);
-    }
-
     fn bind_(
         self: Rc<Self>,
         id: WlSeatId,
@@ -708,3 +708,15 @@ pub enum ReleaseError {
 }
 efrom!(ReleaseError, ClientError, ClientError);
 efrom!(ReleaseError, ParseError, MsgParserError);
+
+pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {
+    node.node_visit(&mut generic_node_visitor(|node| {
+        node.node_seat_state().for_each_kb_focus(|s| seats.push(s));
+    }));
+}
+
+pub fn collect_kb_foci(node: Rc<dyn Node>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
+    let mut res = SmallVec::new();
+    collect_kb_foci2(node, &mut res);
+    res
+}

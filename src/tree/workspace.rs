@@ -33,9 +33,9 @@ pub struct WorkspaceNode {
 impl WorkspaceNode {
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
         let pos = self.position.get();
-        container.clone().node_change_extents(&pos);
-        container.clone().node_set_workspace(self);
-        container.node_set_visible(self.visible.get());
+        container.change_extents(&pos);
+        container.set_workspace(self);
+        container.set_visible(self.visible.get());
         self.container.set(Some(container.clone()));
     }
 }
@@ -72,6 +72,13 @@ impl SizedNode for WorkspaceNode {
 
     fn visible(&self) -> bool {
         self.visible.get()
+    }
+
+    fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
+        if let Some(c) = self.container.get() {
+            return c.last_active_child();
+        }
+        self.clone()
     }
 
     fn set_visible(&self, visible: bool) {

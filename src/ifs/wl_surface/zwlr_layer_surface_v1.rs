@@ -374,7 +374,7 @@ impl SizedNode for ZwlrLayerSurfaceV1 {
     }
 
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        self.surface.clone().node_visit(visitor);
+        self.surface.visit(visitor);
     }
 
     fn visible(&self) -> bool {

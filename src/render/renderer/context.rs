@@ -10,7 +10,7 @@ use {
             RenderError, Texture,
         },
         video::{
-            dma::DmaBuf,
+            dmabuf::DmaBuf,
             drm::{Drm, NodeType},
         },
     },

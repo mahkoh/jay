@@ -2,7 +2,6 @@ use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         ifs::wl_output::WlOutputGlobal,
-        rect::Rect,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, OutputRenderData},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
@@ -95,7 +94,8 @@ impl ConnectorHandler {
             global: global.clone(),
             layers: Default::default(),
             render_data: RefCell::new(OutputRenderData {
-                active_workspace: Rect::new_empty(0, 0),
+                active_workspace: None,
+                underline: Default::default(),
                 inactive_workspaces: Default::default(),
                 titles: Default::default(),
                 status: None,

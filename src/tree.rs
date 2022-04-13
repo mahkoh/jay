@@ -242,8 +242,8 @@ pub trait SizedNode: Sized + 'static {
         let _ = (child, width, height);
     }
 
-    fn child_active_changed(self: &Rc<Self>, child: &dyn Node, active: bool) {
-        let _ = (child, active);
+    fn child_active_changed(self: &Rc<Self>, child: &dyn Node, active: bool, depth: u32) {
+        let _ = (child, active, depth);
     }
 
     fn leave(&self, seat: &WlSeatGlobal) {
@@ -407,7 +407,7 @@ pub trait Node {
     fn node_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn Node>);
     fn node_remove_child(self: Rc<Self>, child: &dyn Node);
     fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32);
-    fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool);
+    fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool, depth: u32);
     fn node_leave(&self, seat: &WlSeatGlobal);
     fn node_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed);
     fn node_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>);
@@ -567,8 +567,8 @@ impl<T: SizedNode> Node for T {
     fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
         <Self as SizedNode>::child_size_changed(self, child, width, height)
     }
-    fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool) {
-        <Self as SizedNode>::child_active_changed(&self, child, active)
+    fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool, depth: u32) {
+        <Self as SizedNode>::child_active_changed(&self, child, active, depth)
     }
     fn node_leave(&self, seat: &WlSeatGlobal) {
         <Self as SizedNode>::leave(self, seat)

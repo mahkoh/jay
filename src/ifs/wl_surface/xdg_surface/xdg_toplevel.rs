@@ -309,9 +309,11 @@ impl XdgToplevel {
             _ => return,
         };
         let extents = self.xdg.extents.get();
-        parent
-            .clone()
-            .node_child_active_changed(self, self.toplevel_data.active_surfaces.get() > 0);
+        parent.clone().node_child_active_changed(
+            self,
+            self.toplevel_data.active_surfaces.get() > 0,
+            1,
+        );
         parent.node_child_size_changed(self, extents.width(), extents.height());
         parent.node_child_title_changed(self, self.title.borrow_mut().deref());
     }
@@ -501,7 +503,7 @@ impl ToplevelNode for XdgToplevel {
 
     fn set_active(&self, active: bool) {
         if let Some(parent) = self.parent_node.get() {
-            parent.node_child_active_changed(self, active);
+            parent.node_child_active_changed(self, active, 1);
         }
         let changed = {
             let mut states = self.states.borrow_mut();
