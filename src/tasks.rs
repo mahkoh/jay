@@ -1,10 +1,10 @@
 mod backend;
 mod connector;
+mod idle;
 mod input_device;
 mod slow_clients;
 mod start_backend;
 
-pub use start_backend::start_backend;
 use {
     crate::{
         state::State,
@@ -12,6 +12,7 @@ use {
     },
     std::rc::Rc,
 };
+pub use {idle::idle, start_backend::start_backend};
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };

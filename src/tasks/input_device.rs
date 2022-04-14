@@ -56,6 +56,7 @@ impl DeviceHandler {
                 }
                 if any_events {
                     seat.mark_last_active();
+                    self.state.input_occurred();
                 }
             } else {
                 while self.dev.event().is_some() {

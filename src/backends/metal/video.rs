@@ -1002,7 +1002,14 @@ impl MetalBackend {
         self.present(connector);
     }
 
-    fn present(&self, connector: &Rc<MetalConnector>) {
+    pub fn present(&self, connector: &Rc<MetalConnector>) {
+        let crtc = match connector.crtc.get() {
+            Some(crtc) => crtc,
+            _ => return,
+        };
+        if !crtc.active.value.get() {
+            return;
+        }
         let buffers = match connector.buffers.get() {
             None => return,
             Some(b) => b,

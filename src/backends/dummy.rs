@@ -8,11 +8,7 @@ use {
 
 pub struct DummyBackend {}
 
-impl Backend for DummyBackend {
-    fn switch_to(&self, vtnr: u32) {
-        let _ = vtnr;
-    }
-}
+impl Backend for DummyBackend {}
 
 pub struct DummyOutput {
     pub id: ConnectorId,

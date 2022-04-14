@@ -14,7 +14,13 @@ linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
 
 pub trait Backend {
-    fn switch_to(&self, vtnr: u32);
+    fn switch_to(&self, vtnr: u32) {
+        let _ = vtnr;
+    }
+
+    fn set_idle(&self, idle: bool) {
+        let _ = idle;
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]

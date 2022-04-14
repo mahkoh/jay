@@ -17,7 +17,7 @@ use {
         logger::Logger,
         render::{self, RenderError},
         sighand::{self, SighandError},
-        state::{ConnectorData, State},
+        state::{ConnectorData, IdleState, State},
         tasks,
         tree::{
             container_layout, container_render_data, float_layout, float_titles, DisplayNode,
@@ -32,12 +32,12 @@ use {
         xwayland,
     },
     forker::ForkerProxy,
-    std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc},
+    std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
 };
 
-pub const MAX_EXTENTS: i32 = (1 << 24) - 1;
+pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let forker = match ForkerProxy::create() {
@@ -123,6 +123,12 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
         connectors: Default::default(),
         outputs: Default::default(),
         status: Default::default(),
+        idle: IdleState {
+            input: Default::default(),
+            change: Default::default(),
+            timeout: Cell::new(Duration::from_secs(10)),
+            timeout_changed: Default::default(),
+        },
     });
     {
         let dummy_output = Rc::new(OutputNode {

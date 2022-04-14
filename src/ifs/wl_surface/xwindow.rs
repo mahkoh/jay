@@ -247,10 +247,12 @@ impl Xwindow {
             _ => return,
         };
         let extents = self.surface.extents.get();
-        // let extents = self.xdg.extents.get();
         // parent.child_active_changed(self, self.active_surfaces.get() > 0);
         parent.node_child_size_changed(self, extents.width(), extents.height());
-        // parent.child_title_changed(self, self.title.borrow_mut().deref());
+        parent.node_child_title_changed(
+            self,
+            self.data.info.title.borrow_mut().as_deref().unwrap_or(""),
+        );
     }
 
     pub fn is_mapped(&self) -> bool {
@@ -414,7 +416,9 @@ impl SizedNode for Xwindow {
     fn change_extents(self: &Rc<Self>, rect: &Rect) {
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
-            self.events.push(XWaylandEvent::Configure(self.clone()));
+            if !self.data.info.override_redirect.get() {
+                self.events.push(XWaylandEvent::Configure(self.clone()));
+            }
             if old.position() != rect.position() {
                 self.surface.set_absolute_position(rect.x1(), rect.y1());
             }

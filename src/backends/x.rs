@@ -113,11 +113,7 @@ pub struct XBackend {
     _grab: SpawnedFuture<()>,
 }
 
-impl Backend for XBackend {
-    fn switch_to(&self, _vtnr: u32) {
-        log::error!("X backend cannot switch vts");
-    }
-}
+impl Backend for XBackend {}
 
 struct XBackendData {
     state: Rc<State>,

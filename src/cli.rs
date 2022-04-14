@@ -47,7 +47,7 @@ pub enum Cmd {
 pub struct ScreenshotArgs {
     /// The filename of the saved screenshot
     ///
-    /// If no filename is given, the screenshot will be saved under jay-%Y-%m-%d-%H:%M:%S.qoi
+    /// If no filename is given, the screenshot will be saved under %Y-%m-%d-%H%M%S_jay.qoi
     /// in the current directory.
     ///
     /// The filename can contain the usual strftime parameters.

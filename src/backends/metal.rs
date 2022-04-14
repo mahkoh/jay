@@ -4,7 +4,7 @@ mod video;
 
 use {
     crate::{
-        async_engine::{AsyncError, AsyncFd},
+        async_engine::{AsyncError, AsyncFd, Phase},
         backend::{
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
             InputEvent, KeyState,
@@ -25,6 +25,7 @@ use {
         logind::{LogindError, Session},
         render::RenderError,
         state::State,
+        tasks::idle,
         udev::{Udev, UdevError, UdevMonitor},
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -34,7 +35,10 @@ use {
             smallmap::SmallMap,
             syncqueue::SyncQueue,
         },
-        video::{drm::DrmError, gbm::GbmError},
+        video::{
+            drm::{DrmError, DRM_MODE_ATOMIC_ALLOW_MODESET},
+            gbm::GbmError,
+        },
     },
     std::{
         cell::{Cell, RefCell},
@@ -128,6 +132,34 @@ impl Backend for MetalBackend {
             }
         })
     }
+
+    fn set_idle(&self, idle: bool) {
+        let devices = self.device_holder.drm_devices.lock();
+        for device in devices.values() {
+            let mut change = device.dev.master.change();
+            for connector in device.connectors.values() {
+                if let Some(crtc) = connector.crtc.get() {
+                    if idle == crtc.active.value.get() {
+                        crtc.active.value.set(!idle);
+                        change.change_object(crtc.id, |c| {
+                            c.change(crtc.active.id, (!idle) as _);
+                        });
+                    }
+                }
+            }
+            if let Err(e) = change.commit(DRM_MODE_ATOMIC_ALLOW_MODESET, 0) {
+                log::error!("Could not set monitors idle/not idle: {}", ErrorFmt(e));
+                return;
+            }
+        }
+        if !idle {
+            for device in devices.values() {
+                for connector in device.connectors.values() {
+                    self.present(connector);
+                }
+            }
+        }
+    }
 }
 
 async fn run_(state: Rc<State>) -> Result<(), MetalError> {
@@ -193,6 +225,9 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
         return Err(MetalError::Enumerate(Box::new(e)));
     }
     state.backend.set(Some(metal.clone()));
+    let _idle = state
+        .eng
+        .spawn2(Phase::PostLayout, idle(state.clone(), metal.clone()));
     pending().await
 }
 

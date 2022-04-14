@@ -25,8 +25,8 @@ use {
             OutputNode, SizedNode, WorkspaceNode,
         },
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            linkedlist::LinkedList, queue::AsyncQueue,
+            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, queue::AsyncQueue,
         },
         wheel::Wheel,
         xkbcommon::{XkbContext, XkbKeymap},
@@ -37,6 +37,7 @@ use {
         cell::{Cell, RefCell},
         rc::Rc,
         sync::Arc,
+        time::Duration,
     },
 };
 
@@ -77,6 +78,14 @@ pub struct State {
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
     pub status: CloneCell<Rc<String>>,
+    pub idle: IdleState,
+}
+
+pub struct IdleState {
+    pub input: Cell<bool>,
+    pub change: AsyncEvent,
+    pub timeout: Cell<Duration>,
+    pub timeout_changed: Cell<bool>,
 }
 
 pub struct InputDeviceData {
@@ -288,6 +297,12 @@ impl State {
         let outputs = self.root.outputs.lock();
         for output in outputs.values() {
             output.set_status(&status);
+        }
+    }
+
+    pub fn input_occurred(&self) {
+        if !self.idle.input.replace(true) {
+            self.idle.change.trigger();
         }
     }
 }

@@ -7,7 +7,7 @@ use {
         },
         rect::Rect,
         state::State,
-        tree::Node,
+        tree::{Node, SizedNode},
         utils::{
             bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList, queue::AsyncQueue,
         },
@@ -1344,15 +1344,15 @@ impl Wm {
         };
         self.update_override_redirect(data, event.override_redirect);
         if data.info.override_redirect.get() {
-            let extents = Rect::new_sized(
-                event.x as _,
-                event.y as _,
-                event.width as _,
-                event.height as _,
-            )
-            .unwrap();
-            let changed = data.info.extents.replace(extents) != extents;
-            if changed {
+            if let Some(window) = data.window.get() {
+                let extents = Rect::new_sized(
+                    event.x as _,
+                    event.y as _,
+                    event.width as _,
+                    event.height as _,
+                )
+                .unwrap();
+                window.change_extents(&extents);
                 self.state.tree_changed();
             }
         }
