@@ -35,6 +35,7 @@ use {
     thiserror::Error,
     uapi::{c, pipe2, Errno, Fd, IntoUstr, OwnedFd, UstrPtr},
 };
+use crate::compositor::{DISPLAY, WAYLAND_DISPLAY};
 
 pub struct ForkerProxy {
     pidfd: Rc<OwnedFd>,
@@ -297,8 +298,8 @@ struct Forker {
 impl Forker {
     fn handle(ppid: c::pid_t, socket: OwnedFd) -> ! {
         env::set_var("XDG_SESSION_TYPE", "wayland");
-        env::remove_var("DISPLAY");
-        env::remove_var("WAYLAND_DISPLAY");
+        env::remove_var(DISPLAY);
+        env::remove_var(WAYLAND_DISPLAY);
         setup_name("the ol' forker");
         setup_deathsig(ppid);
         reset_signals();

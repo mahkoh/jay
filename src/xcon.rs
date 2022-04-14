@@ -47,6 +47,7 @@ use {
     thiserror::Error,
     uapi::{c, OwnedFd},
 };
+use crate::compositor::DISPLAY;
 
 pub mod consts;
 mod formatter;
@@ -885,7 +886,7 @@ impl XconData {
 }
 
 fn parse_display() -> Result<u32, XconError> {
-    let display = match std::env::var("DISPLAY") {
+    let display = match std::env::var(DISPLAY) {
         Ok(d) => d,
         _ => return Err(XconError::DisplayNotSet),
     };

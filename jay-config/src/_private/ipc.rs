@@ -221,6 +221,10 @@ pub enum ClientMessage<'a> {
         initial: Option<Duration>,
         periodic: Option<Duration>,
     },
+    SetEnv {
+        key: &'a str,
+        val: &'a str,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

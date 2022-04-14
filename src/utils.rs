@@ -27,3 +27,4 @@ pub mod vasprintf;
 pub mod vec_ext;
 pub mod vecstorage;
 pub mod windows;
+pub mod xrd;

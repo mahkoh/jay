@@ -30,6 +30,7 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
+use crate::utils::xrd::{xrd, XRD};
 
 mod auth;
 mod dynamic_type;
@@ -108,6 +109,8 @@ pub enum DbusError {
     InvalidBoolValue,
     #[error("Signature is empty")]
     EmptySignature,
+    #[error("The session bus address is not set")]
+    SessionBusAddressNotSet,
     #[error("Server does not support FD passing")]
     UnixFd,
     #[error("Server message has a different endianess than ourselves")]
@@ -128,19 +131,40 @@ efrom!(DbusError, AsyncError);
 pub struct Dbus {
     eng: Rc<AsyncEngine>,
     system: Rc<DbusHolder>,
+    session: Rc<DbusHolder>,
+    user_path: Option<String>,
 }
 
 impl Dbus {
     pub fn new(eng: &Rc<AsyncEngine>, run_toplevel: &Rc<RunToplevel>) -> Self {
+        let user_path = match xrd() {
+            Some(path) => Some(format!("{}/bus", path)),
+            _ => {
+                log::warn!("{} is not set", XRD);
+                None
+            }
+        };
+        log::info!("dbus path = {:?}", user_path);
         Self {
             eng: eng.clone(),
             system: Rc::new(DbusHolder::new(run_toplevel)),
+            session: Rc::new(DbusHolder::new(run_toplevel)),
+            user_path,
         }
     }
 
     pub fn system(&self) -> Result<Rc<DbusSocket>, DbusError> {
         self.system
             .get(&self.eng, "/var/run/dbus/system_bus_socket", "System bus")
+    }
+
+    pub fn session(&self) -> Result<Rc<DbusSocket>, DbusError> {
+        let sba = match self.user_path.as_deref() {
+            None => return Err(DbusError::SessionBusAddressNotSet),
+            Some(sba) => sba,
+        };
+        self.session
+            .get(&self.eng, sba, "Session bus")
     }
 }
 
@@ -211,7 +235,7 @@ const NO_AUTO_START: u8 = 0x2;
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
 
 pub const BUS_DEST: &str = "org.freedesktop.DBus";
-pub const BUS_PATH: &str = "/org/freedesktop/dbus";
+pub const BUS_PATH: &str = "/org/freedesktop/DBus";
 
 #[derive(Default, Debug)]
 struct Headers<'a> {

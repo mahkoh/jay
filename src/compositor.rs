@@ -1,10 +1,10 @@
 use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
-        async_engine::{AsyncEngine, AsyncError, Phase},
-        backend,
-        backends::dummy::DummyOutput,
-        cli::{GlobalArgs, RunArgs},
+        async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture},
+        backend::{self, Backend},
+        backends::{dummy::DummyOutput, metal, x},
+        cli::{CliBackend, GlobalArgs, RunArgs},
         client::Clients,
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
@@ -29,13 +29,17 @@ use {
         },
         wheel::{Wheel, WheelError},
         xkbcommon::XkbContext,
-        xwayland,
     },
+    ahash::AHashSet,
     forker::ForkerProxy,
     std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
 };
+use crate::backends::dummy::DummyBackend;
+use crate::state::XWaylandState;
+use crate::tasks::idle;
+use crate::user_session::import_environment;
 
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
@@ -45,7 +49,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         Err(e) => fatal!("Could not create a forker process: {}", ErrorFmt(e)),
     };
     let logger = Logger::install_compositor(global.log_level.into());
-    if let Err(e) = main_(forker, logger.clone(), &args) {
+    if let Err(e) = start_compositor2(forker, logger.clone(), args) {
         let e = ErrorFmt(e);
         log::error!("A fatal error occurred: {}", e);
         eprintln!("A fatal error occurred: {}", e);
@@ -73,7 +77,14 @@ enum MainError {
     RenderError(#[from] RenderError),
 }
 
-fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Result<(), MainError> {
+pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
+pub const DISPLAY: &str = "DISPLAY";
+
+fn start_compositor2(
+    forker: Rc<ForkerProxy>,
+    logger: Arc<Logger>,
+    run_args: RunArgs,
+) -> Result<(), MainError> {
     init_fd_limit();
     leaks::init();
     render::init()?;
@@ -88,7 +99,7 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
         xkb_ctx,
-        backend: Default::default(),
+        backend: CloneCell::new(Rc::new(DummyBackend)),
         forker: Default::default(),
         default_keymap: xkb_keymap,
         eng: engine.clone(),
@@ -126,83 +137,106 @@ fn main_(forker: Rc<ForkerProxy>, logger: Arc<Logger>, _args: &RunArgs) -> Resul
         idle: IdleState {
             input: Default::default(),
             change: Default::default(),
-            timeout: Cell::new(Duration::from_secs(10)),
+            timeout: Cell::new(Duration::from_secs(10 * 60)),
             timeout_changed: Default::default(),
         },
+        run_args,
+        xwayland: XWaylandState {
+            enabled: Cell::new(true),
+            handler: Default::default(),
+        },
+        socket_path: Default::default(),
     });
-    {
-        let dummy_output = Rc::new(OutputNode {
-            id: state.node_ids.next(),
-            global: Rc::new(WlOutputGlobal::new(
-                state.globals.name(),
-                &Rc::new(ConnectorData {
-                    connector: Rc::new(DummyOutput {
-                        id: state.connector_ids.next(),
-                    }),
-                    handler: Cell::new(None),
-                    connected: Cell::new(true),
-                    name: "Dummy".to_string(),
-                }),
-                0,
-                &backend::Mode {
-                    width: 0,
-                    height: 0,
-                    refresh_rate_millihz: 0,
-                },
-                "none",
-                "none",
-                0,
-                0,
-            )),
-            workspaces: Default::default(),
-            workspace: Default::default(),
-            seat_state: Default::default(),
-            layers: Default::default(),
-            render_data: Default::default(),
-            state: state.clone(),
-            is_dummy: true,
-            status: Default::default(),
-        });
-        let dummy_workspace = Rc::new(WorkspaceNode {
-            id: state.node_ids.next(),
-            output: CloneCell::new(dummy_output.clone()),
-            position: Default::default(),
-            container: Default::default(),
-            stacked: Default::default(),
-            seat_state: Default::default(),
-            name: "dummy".to_string(),
-            output_link: Default::default(),
-            visible: Cell::new(false),
-        });
-        dummy_workspace.output_link.set(Some(
-            dummy_output.workspaces.add_last(dummy_workspace.clone()),
-        ));
-        dummy_output.show_workspace(&dummy_workspace);
-        state.dummy_output.set(Some(dummy_output));
-    }
-    forker.install(&state);
-    let _global_event_handler = engine.spawn(tasks::handle_backend_events(state.clone()));
-    let _slow_client_handler = engine.spawn(tasks::handle_slow_clients(state.clone()));
-    let _container_do_layout = engine.spawn2(Phase::Layout, container_layout(state.clone()));
-    let _container_render_titles =
-        engine.spawn2(Phase::PostLayout, container_render_data(state.clone()));
-    let _float_do_layout = engine.spawn2(Phase::Layout, float_layout(state.clone()));
-    let _float_render_titles = engine.spawn2(Phase::PostLayout, float_titles(state.clone()));
+    create_dummy_output(&state);
     let socket_path = Acceptor::install(&state)?;
-    forker.setenv(b"WAYLAND_DISPLAY", socket_path.as_bytes());
+    forker.install(&state);
+    forker.setenv(WAYLAND_DISPLAY.as_bytes(), socket_path.as_bytes());
     forker.setenv(b"_JAVA_AWT_WM_NONREPARENTING", b"1");
-    let _xwayland = engine.spawn(xwayland::manage(state.clone()));
-    let _backend = engine.spawn(tasks::start_backend(state.clone()));
-    let config = ConfigProxy::default(&state);
-    state.config.set(Some(Rc::new(config)));
+    let _compositor = engine.spawn(start_compositor3(state.clone()));
     el.run()?;
-    drop(_xwayland);
     state.clients.clear();
     for (_, seat) in state.globals.seats.lock().deref() {
         seat.clear();
     }
     leaks::log_leaked();
     Ok(())
+}
+
+async fn start_compositor3(state: Rc<State>) {
+    let backend = match create_backend(&state).await {
+        Some(b) => b,
+        _ => {
+            log::error!("Could not create a backend");
+            state.el.stop();
+            return;
+        }
+    };
+    state.backend.set(backend.clone());
+
+    if backend.is_freestanding() {
+        import_environment(&state, WAYLAND_DISPLAY, &state.socket_path.get());
+    }
+
+    let config = ConfigProxy::default(&state);
+    state.config.set(Some(Rc::new(config)));
+
+    let _geh = start_global_event_handlers(&state, &backend);
+    state.start_xwayland();
+
+    match backend.run().await {
+        Err(e) => log::error!("Backend failed: {}", ErrorFmt(e.deref())),
+        _ => log::error!("Backend stopped without an error"),
+    }
+    state.el.stop();
+}
+
+fn start_global_event_handlers(state: &Rc<State>, backend: &Rc<dyn Backend>) -> Vec<SpawnedFuture<()>> {
+    let eng = &state.eng;
+    let mut res = vec![];
+
+    res.push(eng.spawn(tasks::handle_backend_events(state.clone())));
+    res.push(eng.spawn(tasks::handle_slow_clients(state.clone())));
+    res.push(eng.spawn2(Phase::Layout, container_layout(state.clone())));
+    res.push(eng.spawn2(Phase::PostLayout, container_render_data(state.clone())));
+    res.push(eng.spawn2(Phase::Layout, float_layout(state.clone())));
+    res.push(eng.spawn2(Phase::PostLayout, float_titles(state.clone())));
+    res.push(eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())));
+
+    res
+}
+
+async fn create_backend(state: &Rc<State>) -> Option<Rc<dyn Backend>> {
+    let mut backends = &state.run_args.backends[..];
+    if backends.is_empty() {
+        backends = &[CliBackend::X11, CliBackend::Metal];
+    }
+    let mut tried_backends = AHashSet::new();
+    for &backend in backends {
+        if !tried_backends.insert(backend) {
+            continue;
+        }
+        match backend {
+            CliBackend::X11 => {
+                log::info!("Trying to create X backend");
+                match x::create(state).await {
+                    Ok(b) => return Some(b),
+                    Err(e) => {
+                        log::error!("Could not create X backend: {}", ErrorFmt(e));
+                    }
+                }
+            }
+            CliBackend::Metal => {
+                log::info!("Trying to create metal backend");
+                match metal::create(state).await {
+                    Ok(b) => return Some(b),
+                    Err(e) => {
+                        log::error!("Could not create metal backend: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 fn init_fd_limit() {
@@ -222,4 +256,55 @@ fn init_fd_limit() {
     if let Err(e) = res {
         log::warn!("Could not increase file descriptor limit: {}", ErrorFmt(e));
     }
+}
+
+fn create_dummy_output(state: &Rc<State>) {
+    let dummy_output = Rc::new(OutputNode {
+        id: state.node_ids.next(),
+        global: Rc::new(WlOutputGlobal::new(
+            state.globals.name(),
+            &Rc::new(ConnectorData {
+                connector: Rc::new(DummyOutput {
+                    id: state.connector_ids.next(),
+                }),
+                handler: Cell::new(None),
+                connected: Cell::new(true),
+                name: "Dummy".to_string(),
+            }),
+            0,
+            &backend::Mode {
+                width: 0,
+                height: 0,
+                refresh_rate_millihz: 0,
+            },
+            "none",
+            "none",
+            0,
+            0,
+        )),
+        workspaces: Default::default(),
+        workspace: Default::default(),
+        seat_state: Default::default(),
+        layers: Default::default(),
+        render_data: Default::default(),
+        state: state.clone(),
+        is_dummy: true,
+        status: Default::default(),
+    });
+    let dummy_workspace = Rc::new(WorkspaceNode {
+        id: state.node_ids.next(),
+        output: CloneCell::new(dummy_output.clone()),
+        position: Default::default(),
+        container: Default::default(),
+        stacked: Default::default(),
+        seat_state: Default::default(),
+        name: "dummy".to_string(),
+        output_link: Default::default(),
+        visible: Cell::new(false),
+    });
+    dummy_workspace.output_link.set(Some(
+        dummy_output.workspaces.add_last(dummy_workspace.clone()),
+    ));
+    dummy_output.show_workspace(&dummy_workspace);
+    state.dummy_output.set(Some(dummy_output));
 }

@@ -38,6 +38,8 @@ use {
     thiserror::Error,
     uapi::{c, format_ustr},
 };
+use crate::compositor::WAYLAND_DISPLAY;
+use crate::utils::xrd::xrd;
 
 #[derive(Debug, Error)]
 pub enum ToolClientError {
@@ -133,11 +135,11 @@ impl ToolClient {
             Ok(e) => e,
             Err(e) => return Err(ToolClientError::CreateEngine(e)),
         };
-        let xrd = match std::env::var("XDG_RUNTIME_DIR") {
-            Ok(d) => d,
-            Err(_) => return Err(ToolClientError::XrdNotSet),
+        let xrd = match xrd() {
+            Some(d) => d,
+            _ => return Err(ToolClientError::XrdNotSet),
         };
-        let wd = match std::env::var("WAYLAND_DISPLAY") {
+        let wd = match std::env::var(WAYLAND_DISPLAY) {
             Ok(d) => d,
             Err(_) => return Err(ToolClientError::WaylandDisplayNotSet),
         };

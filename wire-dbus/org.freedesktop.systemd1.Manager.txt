@@ -1,0 +1,4 @@
+fn SetEnvironment(
+    names: array(string),
+) {
+}

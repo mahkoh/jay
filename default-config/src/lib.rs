@@ -18,7 +18,7 @@ use {
                 SYM_F23, SYM_F24, SYM_F25, SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
             },
         },
-        quit,
+        quit, set_env,
         status::set_status,
         switch_to_vt,
         Axis::{Horizontal, Vertical},
@@ -143,6 +143,7 @@ pub fn configure() {
         timer.on_tick(update_status);
     }
 
+    set_env("GTK_THEME", "Adwaita:dark");
     Command::new("mako").spawn();
 }
 

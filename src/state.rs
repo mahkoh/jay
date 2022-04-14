@@ -5,6 +5,7 @@ use {
             Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice,
             InputDeviceId, InputDeviceIds, MonitorInfo,
         },
+        cli::RunArgs,
         client::{Client, Clients},
         config::ConfigProxy,
         cursor::ServerCursors,
@@ -30,6 +31,7 @@ use {
         },
         wheel::Wheel,
         xkbcommon::{XkbContext, XkbKeymap},
+        xwayland,
     },
     ahash::AHashMap,
     jay_config::Direction,
@@ -43,7 +45,7 @@ use {
 
 pub struct State {
     pub xkb_ctx: XkbContext,
-    pub backend: CloneCell<Option<Rc<dyn Backend>>>,
+    pub backend: CloneCell<Rc<dyn Backend>>,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
@@ -79,6 +81,14 @@ pub struct State {
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
     pub status: CloneCell<Rc<String>>,
     pub idle: IdleState,
+    pub run_args: RunArgs,
+    pub xwayland: XWaylandState,
+    pub socket_path: CloneCell<Rc<String>>,
+}
+
+pub struct XWaylandState {
+    pub enabled: Cell<bool>,
+    pub handler: RefCell<Option<SpawnedFuture<()>>>,
 }
 
 pub struct IdleState {
@@ -303,6 +313,16 @@ impl State {
     pub fn input_occurred(&self) {
         if !self.idle.input.replace(true) {
             self.idle.change.trigger();
+        }
+    }
+
+    pub fn start_xwayland(self: &Rc<Self>) {
+        if !self.xwayland.enabled.get() {
+            return;
+        }
+        let mut handler = self.xwayland.handler.borrow_mut();
+        if handler.is_none() {
+            *handler = Some(self.eng.spawn(xwayland::manage(self.clone())));
         }
     }
 }

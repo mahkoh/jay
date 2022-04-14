@@ -318,6 +318,10 @@ impl Client {
         self.send(&ClientMessage::SetMono { seat, mono });
     }
 
+    pub fn set_env(&self, key: &str, val: &str) {
+        self.send(&ClientMessage::SetEnv { key, val });
+    }
+
     pub fn set_status(&self, status: &str) {
         self.send(&ClientMessage::SetStatus { status });
     }

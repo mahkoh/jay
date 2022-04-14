@@ -1,10 +1,12 @@
 use {
     crate::{
+        async_engine::SpawnedFuture,
         fixed::Fixed,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         video::drm::ConnectorType,
     },
     std::{
+        error::Error,
         fmt::{Debug, Display, Formatter},
         rc::Rc,
     },
@@ -14,12 +16,22 @@ linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
 
 pub trait Backend {
+    fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>>;
+
     fn switch_to(&self, vtnr: u32) {
         let _ = vtnr;
     }
 
     fn set_idle(&self, idle: bool) {
         let _ = idle;
+    }
+
+    fn supports_idle(&self) -> bool {
+        false
+    }
+
+    fn is_freestanding(&self) -> bool {
+        false
     }
 }
 

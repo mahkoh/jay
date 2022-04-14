@@ -9,6 +9,7 @@ use {
     thiserror::Error,
     uapi::{c, format_ustr, Errno, OwnedFd, Ustring},
 };
+use crate::utils::xrd::xrd;
 
 #[derive(Debug, Error)]
 pub enum AcceptorError {
@@ -115,9 +116,9 @@ fn bind_socket(
 }
 
 fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
-    let xrd = match std::env::var("XDG_RUNTIME_DIR") {
-        Ok(d) => d,
-        Err(_) => return Err(AcceptorError::XrdNotSet),
+    let xrd = match xrd() {
+        Some(d) => d,
+        _ => return Err(AcceptorError::XrdNotSet),
     };
     let mut fds = [None, None];
     for fd in &mut fds {
@@ -145,7 +146,7 @@ fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
 }
 
 impl Acceptor {
-    pub fn install(state: &Rc<State>) -> Result<Ustring, AcceptorError> {
+    pub fn install(state: &Rc<State>) -> Result<Rc<String>, AcceptorError> {
         let socket = allocate_socket()?;
         log::info!("bound to socket {}", socket.path.display());
         for fd in [&socket.secure, &socket.insecure] {
@@ -170,6 +171,8 @@ impl Acceptor {
         state
             .el
             .insert(id2, Some(acc.socket.secure.raw()), c::EPOLLIN, acc)?;
+        let name = Rc::new(name.display().to_string());
+        state.socket_path.set(name.clone());
         Ok(name)
     }
 }

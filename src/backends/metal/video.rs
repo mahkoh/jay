@@ -540,7 +540,7 @@ impl MetalBackend {
         };
         let async_fd = match self.state.eng.fd(master.fd()) {
             Ok(f) => f,
-            Err(e) => return Err(MetalError::CreateDrmAsyncFd(e)),
+            Err(e) => return Err(MetalError::CreateAsyncFd(e)),
         };
 
         let dev = Rc::new(MetalDrmDeviceStatic {

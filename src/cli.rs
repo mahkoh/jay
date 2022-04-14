@@ -87,7 +87,7 @@ pub struct SetLogArgs {
     level: CliLogLevel,
 }
 
-#[derive(ArgEnum, Debug, Copy, Clone, Hash)]
+#[derive(ArgEnum, Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum CliBackend {
     X11,
     Metal,

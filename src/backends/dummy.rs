@@ -1,14 +1,20 @@
+use std::error::Error;
 use {
     crate::{
+        async_engine::SpawnedFuture,
         backend::{Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId},
         video::drm::ConnectorType,
     },
     std::rc::Rc,
 };
 
-pub struct DummyBackend {}
+pub struct DummyBackend;
 
-impl Backend for DummyBackend {}
+impl Backend for DummyBackend {
+    fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
+        unreachable!();
+    }
+}
 
 pub struct DummyOutput {
     pub id: ConnectorId,

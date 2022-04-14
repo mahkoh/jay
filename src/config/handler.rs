@@ -172,6 +172,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_env(&self, key: &str, val: &str) {
+        if let Some(f) = self.state.forker.get() {
+            f.setenv(key.as_bytes(), val.as_bytes());
+        }
+    }
+
     fn handle_program_timer(
         &self,
         timer: jay_config::Timer,
@@ -654,10 +660,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_switch_to(&self, vtnr: u32) {
-        match self.state.backend.get() {
-            Some(b) => b.switch_to(vtnr),
-            _ => log::warn!("Cannot switch to VT {}: Backend has not yet started", vtnr),
-        }
+        self.state.backend.get().switch_to(vtnr);
     }
 
     fn handle_toggle_floating(&self, seat: Seat) -> Result<(), CphError> {
@@ -877,6 +880,7 @@ impl ConfigProxyHandler {
             } => self
                 .handle_program_timer(timer, initial, periodic)
                 .wrn("program_timer")?,
+            ClientMessage::SetEnv { key, val } => self.handle_set_env(key, val),
         }
         Ok(())
     }

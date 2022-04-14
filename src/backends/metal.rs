@@ -4,13 +4,13 @@ mod video;
 
 use {
     crate::{
-        async_engine::{AsyncError, AsyncFd, Phase},
+        async_engine::{AsyncError, AsyncFd, SpawnedFuture},
         backend::{
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
             InputEvent, KeyState,
         },
         backends::metal::video::{MetalDrmDevice, PendingDrmDevice},
-        dbus::DbusError,
+        dbus::{DbusError, SignalHandler},
         libinput::{
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
@@ -25,7 +25,6 @@ use {
         logind::{LogindError, Session},
         render::RenderError,
         state::State,
-        tasks::idle,
         udev::{Udev, UdevError, UdevMonitor},
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -42,6 +41,7 @@ use {
     },
     std::{
         cell::{Cell, RefCell},
+        error::Error,
         ffi::{CStr, CString},
         future::pending,
         mem,
@@ -67,8 +67,6 @@ pub enum MetalError {
     LibInput(#[from] LibInputError),
     #[error("Dupfd failed")]
     Dup(#[source] crate::utils::oserror::OsError),
-    #[error("Metal backend terminated unexpectedly")]
-    UnexpectedTermination,
     #[error("Could not create GBM device")]
     GbmDevice(#[source] GbmError),
     #[error("Could not update the drm properties")]
@@ -99,20 +97,17 @@ pub enum MetalError {
     CreateEncoder(#[source] DrmError),
     #[error(transparent)]
     DrmError(#[from] DrmError),
-    #[error("Could not create an async fd for the drm fd")]
-    CreateDrmAsyncFd(#[source] AsyncError),
-}
-
-pub async fn run(state: Rc<State>) -> MetalError {
-    match run_(state).await {
-        Err(e) => e,
-        _ => MetalError::UnexpectedTermination,
-    }
+    #[error("Could not create an async fd")]
+    CreateAsyncFd(#[source] AsyncError),
+    #[error("Could not create device-paused signal handler")]
+    DevicePauseSignalHandler(#[source] DbusError),
+    #[error("Could not create device-resumed signal handler")]
+    DeviceResumeSignalHandler(#[source] DbusError),
 }
 
 linear_ids!(DrmIds, DrmId);
 
-struct MetalBackend {
+pub struct MetalBackend {
     state: Rc<State>,
     udev: Rc<Udev>,
     monitor: Rc<UdevMonitor>,
@@ -122,9 +117,30 @@ struct MetalBackend {
     device_holder: Rc<DeviceHolder>,
     session: Session,
     drm_ids: DrmIds,
+    pause_handler: Cell<Option<SignalHandler>>,
+    resume_handler: Cell<Option<SignalHandler>>,
+}
+
+impl MetalBackend {
+    async fn run(self: Rc<Self>) -> Result<(), MetalError> {
+        let _monitor = self.state.eng.spawn(self.clone().monitor_devices());
+        let _events = self.state.eng.spawn(self.clone().handle_libinput_events());
+        if let Err(e) = self.enumerate_devices() {
+            return Err(MetalError::Enumerate(Box::new(e)));
+        }
+        pending().await
+    }
 }
 
 impl Backend for MetalBackend {
+    fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
+        let slf = self.clone();
+        self.state.eng.spawn(async move {
+            slf.run().await?;
+            Ok(())
+        })
+    }
+
     fn switch_to(&self, vtnr: u32) {
         self.session.switch_to(vtnr, move |res| {
             if let Err(e) = res {
@@ -160,9 +176,27 @@ impl Backend for MetalBackend {
             }
         }
     }
+
+    fn supports_idle(&self) -> bool {
+        true
+    }
+
+    fn is_freestanding(&self) -> bool {
+        true
+    }
 }
 
-async fn run_(state: Rc<State>) -> Result<(), MetalError> {
+fn dup_async_fd(state: &Rc<State>, fd: c::c_int) -> Result<AsyncFd, MetalError> {
+    match uapi::fcntl_dupfd_cloexec(fd, 0) {
+        Ok(m) => match state.eng.fd(&Rc::new(m)) {
+            Ok(fd) => Ok(fd),
+            Err(e) => Err(MetalError::CreateAsyncFd(e)),
+        },
+        Err(e) => Err(MetalError::Dup(e.into())),
+    }
+}
+
+pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
     let socket = match state.dbus.system() {
         Ok(s) => s,
         Err(e) => return Err(MetalError::DbusSystemSocket(e)),
@@ -186,14 +220,8 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
     monitor.add_match_subsystem_devtype(Some("drm"), None)?;
     monitor.enable_receiving()?;
     let libinput = Rc::new(LibInput::new(device_holder.clone())?);
-    let monitor_fd = match uapi::fcntl_dupfd_cloexec(monitor.fd(), 0) {
-        Ok(m) => state.eng.fd(&Rc::new(m)).unwrap(),
-        Err(e) => return Err(MetalError::Dup(e.into())),
-    };
-    let libinput_fd = match uapi::fcntl_dupfd_cloexec(libinput.fd(), 0) {
-        Ok(m) => state.eng.fd(&Rc::new(m)).unwrap(),
-        Err(e) => return Err(MetalError::Dup(e.into())),
-    };
+    let monitor_fd = dup_async_fd(&state, monitor.fd())?;
+    let libinput_fd = dup_async_fd(&state, libinput.fd())?;
     let metal = Rc::new(MetalBackend {
         state: state.clone(),
         udev,
@@ -204,31 +232,28 @@ async fn run_(state: Rc<State>) -> Result<(), MetalError> {
         device_holder,
         session,
         drm_ids: Default::default(),
+        pause_handler: Default::default(),
+        resume_handler: Default::default(),
     });
-    let _pause_handler = {
+    metal.pause_handler.set(Some({
         let mtl = metal.clone();
-        metal
-            .session
-            .on_pause(move |p| mtl.handle_device_pause(p))
-            .unwrap()
-    };
-    let _resume_handler = {
+        let sh = metal.session.on_pause(move |p| mtl.handle_device_pause(p));
+        match sh {
+            Ok(sh) => sh,
+            Err(e) => return Err(MetalError::DevicePauseSignalHandler(e)),
+        }
+    }));
+    metal.resume_handler.set(Some({
         let mtl = metal.clone();
-        metal
+        let sh = metal
             .session
-            .on_resume(move |p| mtl.handle_device_resume(p))
-            .unwrap()
-    };
-    let _monitor = state.eng.spawn(metal.clone().monitor_devices());
-    let _events = state.eng.spawn(metal.clone().handle_libinput_events());
-    if let Err(e) = metal.enumerate_devices() {
-        return Err(MetalError::Enumerate(Box::new(e)));
-    }
-    state.backend.set(Some(metal.clone()));
-    let _idle = state
-        .eng
-        .spawn2(Phase::PostLayout, idle(state.clone(), metal.clone()));
-    pending().await
+            .on_resume(move |p| mtl.handle_device_resume(p));
+        match sh {
+            Ok(sh) => sh,
+            Err(e) => return Err(MetalError::DeviceResumeSignalHandler(e)),
+        }
+    }));
+    Ok(metal)
 }
 
 struct MetalInputDevice {

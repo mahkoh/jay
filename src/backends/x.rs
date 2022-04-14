@@ -1,3 +1,4 @@
+use std::error::Error;
 use {
     crate::{
         async_engine::{Phase, SpawnedFuture},
@@ -51,6 +52,7 @@ use {
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::VecDeque,
+        future::pending,
         rc::Rc,
     },
     thiserror::Error,
@@ -106,16 +108,137 @@ pub enum XBackendError {
     QueryDevice(#[source] XconError),
 }
 
-pub struct XBackend {
-    _data: Rc<XBackendData>,
-    _events: SpawnedFuture<()>,
-    _present: SpawnedFuture<()>,
-    _grab: SpawnedFuture<()>,
+pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
+    let c = match Xcon::connect(state.eng.clone()).await {
+        Ok(c) => c,
+        Err(e) => return Err(XBackendError::CannotConnect(e)),
+    };
+    if let Err(e) = c
+        .call(&XiQueryVersion {
+            major_version: 2,
+            minor_version: 2,
+        })
+        .await
+    {
+        return Err(XBackendError::EnableXinput(e));
+    }
+    if let Err(e) = c
+        .call(&Dri3QueryVersion {
+            major_version: 1,
+            minor_version: 0,
+        })
+        .await
+    {
+        return Err(XBackendError::EnableDri3(e));
+    }
+    if let Err(e) = c
+        .call(&PresentQueryVersion {
+            major_version: 1,
+            minor_version: 0,
+        })
+        .await
+    {
+        return Err(XBackendError::EnablePresent(e));
+    }
+    if let Err(e) = c
+        .call(&XkbUseExtension {
+            wanted_major: 1,
+            wanted_minor: 0,
+        })
+        .await
+    {
+        return Err(XBackendError::EnableXkb(e));
+    }
+    let root = c.setup().screens[0].root;
+    let drm = {
+        let res = c
+            .call(&Dri3Open {
+                drawable: root,
+                provider: 0,
+            })
+            .await;
+        match res {
+            Ok(r) => Drm::reopen(r.get().device_fd.raw(), false)?,
+            Err(e) => return Err(XBackendError::DriOpen(e)),
+        }
+    };
+    let gbm = GbmDevice::new(&drm)?;
+    let ctx = match RenderContext::from_drm_device(&drm) {
+        Ok(r) => Rc::new(r),
+        Err(e) => return Err(XBackendError::CreateEgl(e)),
+    };
+    let cursor = {
+        let cp = CreatePixmap {
+            depth: 1,
+            pid: c.generate_id()?,
+            drawable: root,
+            width: 1,
+            height: 1,
+        };
+        if let Err(e) = c.call(&cp).await {
+            return Err(XBackendError::CreatePixmap(e));
+        }
+        let cc = CreateCursor {
+            cid: c.generate_id()?,
+            source: cp.pid,
+            mask: cp.pid,
+            fore_red: 0,
+            fore_green: 0,
+            fore_blue: 0,
+            back_red: 0,
+            back_green: 0,
+            back_blue: 0,
+            x: 0,
+            y: 0,
+        };
+        if let Err(e) = c.call(&cc).await {
+            return Err(XBackendError::CreateCursor(e));
+        }
+        c.call(&FreePixmap { pixmap: cp.pid });
+        cc.cid
+    };
+    {
+        let se = XiSelectEvents {
+            window: c.setup().screens[0].root,
+            masks: Cow::Borrowed(&[XiEventMask {
+                deviceid: INPUT_DEVICE_ALL,
+                mask: &[XI_EVENT_MASK_HIERARCHY],
+            }]),
+        };
+        if let Err(e) = c.call(&se).await {
+            return Err(XBackendError::SelectHierarchyEvents(e));
+        }
+    }
+
+    let data = Rc::new(XBackend {
+        state: state.clone(),
+        c,
+        outputs: Default::default(),
+        seats: Default::default(),
+        mouse_seats: Default::default(),
+        ctx: ctx.clone(),
+        gbm,
+        cursor,
+        root,
+        scheduled_present: Default::default(),
+        grab_requests: Default::default(),
+    });
+    data.add_output().await?;
+
+    Ok(data)
 }
 
-impl Backend for XBackend {}
+impl Backend for XBackend {
+    fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
+        let slf = self.clone();
+        self.state.eng.spawn(async move {
+            slf.run().await?;
+            Ok(())
+        })
+    }
+}
 
-struct XBackendData {
+pub struct XBackend {
     state: Rc<State>,
     c: Rc<Xcon>,
     outputs: CopyHashMap<u32, Rc<XOutput>>,
@@ -130,141 +253,21 @@ struct XBackendData {
 }
 
 impl XBackend {
-    pub async fn run(state: &Rc<State>) -> Result<Rc<Self>, XBackendError> {
-        let c = match Xcon::connect(state.eng.clone()).await {
-            Ok(c) => c,
-            Err(e) => return Err(XBackendError::CannotConnect(e)),
-        };
-        if let Err(e) = c
-            .call(&XiQueryVersion {
-                major_version: 2,
-                minor_version: 2,
-            })
-            .await
-        {
-            return Err(XBackendError::EnableXinput(e));
-        }
-        if let Err(e) = c
-            .call(&Dri3QueryVersion {
-                major_version: 1,
-                minor_version: 0,
-            })
-            .await
-        {
-            return Err(XBackendError::EnableDri3(e));
-        }
-        if let Err(e) = c
-            .call(&PresentQueryVersion {
-                major_version: 1,
-                minor_version: 0,
-            })
-            .await
-        {
-            return Err(XBackendError::EnablePresent(e));
-        }
-        if let Err(e) = c
-            .call(&XkbUseExtension {
-                wanted_major: 1,
-                wanted_minor: 0,
-            })
-            .await
-        {
-            return Err(XBackendError::EnableXkb(e));
-        }
-        let root = c.setup().screens[0].root;
-        let drm = {
-            let res = c
-                .call(&Dri3Open {
-                    drawable: root,
-                    provider: 0,
-                })
-                .await;
-            match res {
-                Ok(r) => Drm::reopen(r.get().device_fd.raw(), false)?,
-                Err(e) => return Err(XBackendError::DriOpen(e)),
-            }
-        };
-        let gbm = GbmDevice::new(&drm)?;
-        let ctx = match RenderContext::from_drm_device(&drm) {
-            Ok(r) => Rc::new(r),
-            Err(e) => return Err(XBackendError::CreateEgl(e)),
-        };
-        let cursor = {
-            let cp = CreatePixmap {
-                depth: 1,
-                pid: c.generate_id()?,
-                drawable: root,
-                width: 1,
-                height: 1,
-            };
-            if let Err(e) = c.call(&cp).await {
-                return Err(XBackendError::CreatePixmap(e));
-            }
-            let cc = CreateCursor {
-                cid: c.generate_id()?,
-                source: cp.pid,
-                mask: cp.pid,
-                fore_red: 0,
-                fore_green: 0,
-                fore_blue: 0,
-                back_red: 0,
-                back_green: 0,
-                back_blue: 0,
-                x: 0,
-                y: 0,
-            };
-            if let Err(e) = c.call(&cc).await {
-                return Err(XBackendError::CreateCursor(e));
-            }
-            c.call(&FreePixmap { pixmap: cp.pid });
-            cc.cid
-        };
-        {
-            let se = XiSelectEvents {
-                window: c.setup().screens[0].root,
-                masks: Cow::Borrowed(&[XiEventMask {
-                    deviceid: INPUT_DEVICE_ALL,
-                    mask: &[XI_EVENT_MASK_HIERARCHY],
-                }]),
-            };
-            if let Err(e) = c.call(&se).await {
-                return Err(XBackendError::SelectHierarchyEvents(e));
-            }
-        }
+    async fn run(self: Rc<Self>) -> Result<(), XBackendError> {
+        self.query_devices(INPUT_DEVICE_ALL_MASTER).await?;
 
-        let data = Rc::new(XBackendData {
-            state: state.clone(),
-            c,
-            outputs: Default::default(),
-            seats: Default::default(),
-            mouse_seats: Default::default(),
-            ctx: ctx.clone(),
-            gbm,
-            cursor,
-            root,
-            scheduled_present: Default::default(),
-            grab_requests: Default::default(),
-        });
-        data.add_output().await?;
-        data.query_devices(INPUT_DEVICE_ALL_MASTER).await?;
+        let _events = self.state.eng.spawn(self.clone().event_handler());
+        let _grab = self.state.eng.spawn(self.clone().grab_handler());
+        let _present = self
+            .state
+            .eng
+            .spawn2(Phase::Present, self.clone().present_handler());
 
-        let slf = Rc::new(Self {
-            _events: state.eng.spawn(data.clone().event_handler()),
-            _grab: state.eng.spawn(data.clone().grab_handler()),
-            _present: state
-                .eng
-                .spawn2(Phase::Present, data.clone().present_handler()),
-            _data: data,
-        });
+        self.state.set_render_ctx(&self.ctx);
 
-        state.set_render_ctx(&ctx);
-        state.backend.set(Some(slf.clone()));
-
-        Ok(slf)
+        pending().await
     }
-}
 
-impl XBackendData {
     async fn event_handler(self: Rc<Self>) {
         loop {
             let event = self.c.event().await;
@@ -856,7 +859,7 @@ impl XBackendData {
 
 struct XOutput {
     id: ConnectorId,
-    _backend: Rc<XBackendData>,
+    _backend: Rc<XBackend>,
     window: u32,
     events: SyncQueue<ConnectorEvent>,
     width: Cell<i32>,
@@ -908,7 +911,7 @@ impl Connector for XOutput {
 struct XSeat {
     kb_id: InputDeviceId,
     mouse_id: InputDeviceId,
-    backend: Rc<XBackendData>,
+    backend: Rc<XBackend>,
     kb: u16,
     mouse: u16,
     removed: Cell<bool>,

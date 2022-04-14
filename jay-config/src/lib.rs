@@ -56,6 +56,10 @@ pub fn switch_to_vt(n: u32) {
     get!().switch_to_vt(n)
 }
 
+pub fn set_env(key: &str, val: &str) {
+    get!().set_env(key, val);
+}
+
 pub struct Command {
     prog: String,
     args: Vec<String>,

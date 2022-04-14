@@ -21,6 +21,8 @@ use {
     thiserror::Error,
     uapi::{c, pipe2, Errno, OwnedFd},
 };
+use crate::compositor::DISPLAY;
+use crate::user_session::import_environment;
 
 #[derive(Debug, Error)]
 enum XWaylandError {
@@ -92,10 +94,15 @@ pub async fn manage(state: Rc<State>) {
         };
         if let Err(e) = uapi::listen(socket.raw(), 4096) {
             log::error!("Could not listen on the Xwayland socket: {}", ErrorFmt(e));
+            return;
         }
-        forker.setenv(b"DISPLAY", format!(":{}", xsocket.id).as_bytes());
+        let display = format!(":{}", xsocket.id);
+        forker.setenv(DISPLAY.as_bytes(), display.as_bytes());
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
+        if state.backend.get().is_freestanding() {
+            import_environment(&state, DISPLAY, &display);
+        }
         let res = XWaylandError::tria(async {
             state.eng.fd(&socket)?.readable().await?;
             Ok(())
@@ -111,7 +118,7 @@ pub async fn manage(state: Rc<State>) {
         } else {
             log::warn!("Xwayland exited unexpectedly");
         }
-        forker.unsetenv(b"DISPLAY");
+        forker.unsetenv(DISPLAY.as_bytes());
     }
 }
 
