@@ -190,6 +190,7 @@ pub fn detach_seat<T: Vtable>(src: &T::Source) {
     if !data.state.get().contains(SOURCE_STATE_FINISHED) {
         T::send_cancelled(src);
     }
+    data.client.flush();
 }
 
 pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
