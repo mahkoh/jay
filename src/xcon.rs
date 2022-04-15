@@ -6,6 +6,7 @@ pub use crate::xcon::{
 use {
     crate::{
         async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture},
+        compositor::DISPLAY,
         utils::{
             bufio::{BufIo, BufIoError, BufIoMessage},
             clonecell::CloneCell,
@@ -47,7 +48,6 @@ use {
     thiserror::Error,
     uapi::{c, OwnedFd},
 };
-use crate::compositor::DISPLAY;
 
 pub mod consts;
 mod formatter;
@@ -229,7 +229,7 @@ impl Event {
         let mut parser = Parser::new(&self.buf, vec![]);
         let res = M::deserialize(&mut parser);
         if let Ok(res) = &res {
-            log::info!("event {:?}", res);
+            log::trace!("event {:?}", res);
         }
         res
     }
@@ -313,7 +313,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
                 return Err(XconError::XconError(e));
             }
         };
-        log::info!("result {:?}", msg);
+        log::trace!("result {:?}", msg);
         let reply = Reply {
             bufio: bufio.clone(),
             buf,
@@ -517,7 +517,7 @@ impl Xcon {
     }
 
     pub fn call<'a, T: Request<'a>>(self: &Rc<Self>, t: &T) -> AsyncReply<T::Reply> {
-        log::info!("send {:?}", t);
+        log::trace!("send {:?}", t);
         self.data.call_with_serial(t, &self.extensions).0
     }
 
@@ -525,7 +525,7 @@ impl Xcon {
         self: &Rc<Self>,
         t: &T,
     ) -> (AsyncReply<T::Reply>, u64) {
-        log::info!("send {:?}", t);
+        log::trace!("send {:?}", t);
         self.data.call_with_serial(t, &self.extensions)
     }
 
@@ -536,7 +536,7 @@ impl Xcon {
         event_mask: u32,
         t: &T,
     ) -> AsyncReply<()> {
-        log::info!("send {:?}", t);
+        log::trace!("send {:?}", t);
         self.data
             .send_event(t, &self.extensions, propagate, destination, event_mask)
     }

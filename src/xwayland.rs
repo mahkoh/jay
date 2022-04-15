@@ -5,12 +5,14 @@ use {
     crate::{
         async_engine::AsyncError,
         client::ClientError,
+        compositor::DISPLAY,
         forker::{ForkerError, ForkerProxy},
         ifs::wl_surface::{
             xwindow::{Xwindow, XwindowData},
             WlSurface,
         },
         state::State,
+        user_session::import_environment,
         utils::{errorfmt::ErrorFmt, oserror::OsError, queue::AsyncQueue, tri::Try},
         wire::WlSurfaceId,
         xcon::XconError,
@@ -21,8 +23,6 @@ use {
     thiserror::Error,
     uapi::{c, pipe2, Errno, OwnedFd},
 };
-use crate::compositor::DISPLAY;
-use crate::user_session::import_environment;
 
 #[derive(Debug, Error)]
 enum XWaylandError {

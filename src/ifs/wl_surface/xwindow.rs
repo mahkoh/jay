@@ -92,6 +92,7 @@ pub struct XwindowInfo {
     pub has_alpha: Cell<bool>,
     pub override_redirect: Cell<bool>,
     pub extents: Cell<Rect>,
+    pub pending_extents: Cell<Rect>,
     pub instance: RefCell<Option<BString>>,
     pub class: RefCell<Option<BString>>,
     pub title: RefCell<Option<String>>,
@@ -153,6 +154,7 @@ impl XwindowData {
             event.height as _,
         )
         .unwrap();
+        // log::info!("xwin {} new {:?} or {}", event.window, extents, event.override_redirect);
         Self {
             state: state.clone(),
             window_id: event.window,
@@ -161,7 +163,7 @@ impl XwindowData {
             window: Default::default(),
             info: XwindowInfo {
                 override_redirect: Cell::new(event.override_redirect != 0),
-                extents: Cell::new(extents),
+                pending_extents: Cell::new(extents),
                 ..Default::default()
             },
             children: Default::default(),
@@ -275,15 +277,19 @@ impl Xwindow {
         let map_change = self.map_change();
         match map_change {
             Change::None => return,
-            Change::Unmap => self.node_destroy(true),
+            Change::Unmap => {
+                self.data.info.pending_extents.set(self.data.info.extents.take());
+                self.node_destroy(true);
+            },
             Change::Map if self.data.info.override_redirect.get() => {
+                self.change_extents(&self.data.info.pending_extents.get());
                 *self.display_link.borrow_mut() =
                     Some(self.data.state.root.stacked.add_last(self.clone()));
                 self.data.state.tree_changed();
             }
             Change::Map if self.data.info.wants_floating.get() => {
                 let ws = self.data.state.float_map_ws();
-                let ext = self.data.info.extents.get();
+                let ext = self.data.info.pending_extents.get();
                 self.data
                     .state
                     .map_floating(self.clone(), ext.width(), ext.height(), &ws);
@@ -414,6 +420,7 @@ impl SizedNode for Xwindow {
     }
 
     fn change_extents(self: &Rc<Self>, rect: &Rect) {
+        // log::info!("xwin {} change_extents {:?}", self.data.window_id, rect);
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
             if !self.data.info.override_redirect.get() {

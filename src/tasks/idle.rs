@@ -51,6 +51,7 @@ impl Idle {
                 _ = self.state.idle.change.triggered().fuse() => self.handle_idle_changes(),
             }
         }
+        log::error!("Due to the above error, monitors will no longer be (de)activated.")
     }
 
     fn handle_expired(&mut self, res: Result<u64, AsyncError>) {
@@ -78,6 +79,7 @@ impl Idle {
             if self.idle {
                 self.backend.set_idle(false);
                 self.idle = false;
+                self.program_timer(self.state.idle.timeout.get());
             }
         }
     }
@@ -98,7 +100,11 @@ fn now() -> c::timespec {
 
 fn duration_since(start: c::timespec) -> Duration {
     let now = now();
-    let nanos =
-        (now.tv_sec as i64 - start.tv_sec as i64) * 1_000_000_000 + (now.tv_nsec - start.tv_nsec);
+    let mut nanos =
+        (now.tv_sec as i64 - start.tv_sec as i64) * 1_000_000_000 + (now.tv_nsec as i64 - start.tv_nsec as i64);
+    if nanos < 0 {
+        log::error!("Time has gone backwards.");
+        nanos = 0;
+    }
     Duration::from_nanos(nanos as u64)
 }

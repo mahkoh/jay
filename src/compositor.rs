@@ -3,7 +3,10 @@ use {
         acceptor::{Acceptor, AcceptorError},
         async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture},
         backend::{self, Backend},
-        backends::{dummy::DummyOutput, metal, x},
+        backends::{
+            dummy::{DummyBackend, DummyOutput},
+            metal, x,
+        },
         cli::{CliBackend, GlobalArgs, RunArgs},
         client::Clients,
         clientmem::{self, ClientMemError},
@@ -17,12 +20,13 @@ use {
         logger::Logger,
         render::{self, RenderError},
         sighand::{self, SighandError},
-        state::{ConnectorData, IdleState, State},
-        tasks,
+        state::{ConnectorData, IdleState, State, XWaylandState},
+        tasks::{self, idle},
         tree::{
             container_layout, container_render_data, float_layout, float_titles, DisplayNode,
             NodeIds, OutputNode, WorkspaceNode,
         },
+        user_session::import_environment,
         utils::{
             clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, oserror::OsError,
             queue::AsyncQueue, run_toplevel::RunToplevel, tri::Try,
@@ -36,10 +40,6 @@ use {
     thiserror::Error,
     uapi::c,
 };
-use crate::backends::dummy::DummyBackend;
-use crate::state::XWaylandState;
-use crate::tasks::idle;
-use crate::user_session::import_environment;
 
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
@@ -85,6 +85,7 @@ fn start_compositor2(
     logger: Arc<Logger>,
     run_args: RunArgs,
 ) -> Result<(), MainError> {
+    log::info!("pid = {}", uapi::getpid());
     init_fd_limit();
     leaks::init();
     render::init()?;
@@ -154,6 +155,7 @@ fn start_compositor2(
     forker.setenv(b"_JAVA_AWT_WM_NONREPARENTING", b"1");
     let _compositor = engine.spawn(start_compositor3(state.clone()));
     el.run()?;
+    state.xwayland.handler.borrow_mut().take();
     state.clients.clear();
     for (_, seat) in state.globals.seats.lock().deref() {
         seat.clear();
@@ -190,7 +192,10 @@ async fn start_compositor3(state: Rc<State>) {
     state.el.stop();
 }
 
-fn start_global_event_handlers(state: &Rc<State>, backend: &Rc<dyn Backend>) -> Vec<SpawnedFuture<()>> {
+fn start_global_event_handlers(
+    state: &Rc<State>,
+    backend: &Rc<dyn Backend>,
+) -> Vec<SpawnedFuture<()>> {
     let eng = &state.eng;
     let mut res = vec![];
 

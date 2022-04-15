@@ -384,6 +384,7 @@ impl Wm {
 
     async fn send_configure(&mut self, window: Rc<Xwindow>) {
         let extents = window.data.info.extents.get();
+        // log::info!("xwin {} send_configure {:?}", window.data.window_id, extents);
         let cw = ConfigureWindow {
             window: window.data.window_id,
             values: ConfigureWindowValues {
@@ -438,7 +439,9 @@ impl Wm {
     }
 
     async fn focus_window(&mut self, window: Option<&Rc<XwindowData>>) {
+        log::info!("xwm focus_window {:?}", window.map(|w| w.window_id));
         if let Some(old) = mem::replace(&mut self.focus_window, window.cloned()) {
+            log::info!("xwm unfocus {:?}", old.window_id);
             self.set_net_wm_state(&old).await;
         }
         let window = match window {
@@ -459,7 +462,14 @@ impl Wm {
             }
         };
         if window.info.override_redirect.get() {
+            log::info!("xwm or => return");
             return;
+        }
+        if let Some(window) = window.window.get() {
+            let seats = self.state.globals.seats.lock();
+            for seat in seats.values() {
+                seat.focus_toplevel(window.clone());
+            }
         }
         let accepts_input = window.info.icccm_hints.input.get();
         let mask = if accepts_input {
@@ -989,10 +999,13 @@ impl Wm {
 
     async fn handle_focus_in(&mut self, revent: &Event) -> Result<(), XWaylandError> {
         let event: FocusIn = revent.parse()?;
+        log::info!("xwm focus_in {}", event.event);
         if matches!(event.mode, NOTIFY_MODE_GRAB | NOTIFY_MODE_UNGRAB) {
+            log::info!("xwm GRAB/UNGRAB");
             return Ok(());
         }
         if matches!(event.detail, NOTIFY_DETAIL_POINTER) {
+            log::info!("xwm POINTER");
             return Ok(());
         }
         let new_window = self.windows.get(&event.event);
@@ -1005,6 +1018,7 @@ impl Wm {
                     && prev_pid == new_pid
                     && revent.serial() >= self.last_input_serial
                 {
+                    log::info!("xwm ACCEPT");
                     focus_window = new_window;
                 }
             }
@@ -1026,6 +1040,7 @@ impl Wm {
     }
 
     async fn activate_window(&mut self, window: Option<&Rc<XwindowData>>) {
+        log::info!("xwm activate_window {:?}", window.map(|w| w.window_id));
         if self.focus_window.as_ref().map(|w| w.window_id) == window.map(|w| w.window_id) {
             return;
         }
@@ -1061,10 +1076,10 @@ impl Wm {
 
     async fn handle_property_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: PropertyNotify = event.parse()?;
-        let name = self.c.call(&GetAtomName { atom: event.atom }).await;
-        if let Ok(name) = name {
-            log::info!("{}", name.get().name);
-        }
+        // let name = self.c.call(&GetAtomName { atom: event.atom }).await;
+        // if let Ok(name) = name {
+        //     log::info!("{}", name.get().name);
+        // }
         let data = match self.windows.get(&event.window) {
             Some(w) => w,
             _ => return Ok(()),
@@ -1115,6 +1130,7 @@ impl Wm {
             Some(w) => w,
             _ => return Ok(()),
         };
+        log::info!("xwm destroy_notify {}", event.window);
         data.destroyed.set(true);
         if let Some(sid) = data.surface_id.take() {
             self.windows_by_surface_id.remove(&sid);
@@ -1228,6 +1244,7 @@ impl Wm {
     fn update_override_redirect(&self, data: &Rc<XwindowData>, or: u8) {
         let or = or != 0;
         if data.info.override_redirect.replace(or) != or {
+            // log::info!("xwin {} or {}", data.window_id, or);
             if let Some(window) = data.window.get() {
                 window.node_destroy(true);
                 window.map_status_changed();
@@ -1342,18 +1359,28 @@ impl Wm {
             Some(d) => d,
             _ => return Ok(()),
         };
+        let extents = Rect::new_sized(
+            event.x as _,
+            event.y as _,
+            event.width as _,
+            event.height as _,
+        )
+            .unwrap();
+        // log::info!("xwin {} configure_notify {:?}", data.window_id, extents);
         self.update_override_redirect(data, event.override_redirect);
         if data.info.override_redirect.get() {
-            if let Some(window) = data.window.get() {
-                let extents = Rect::new_sized(
-                    event.x as _,
-                    event.y as _,
-                    event.width as _,
-                    event.height as _,
-                )
+            let extents = Rect::new_sized(
+                event.x as _,
+                event.y as _,
+                event.width as _,
+                event.height as _,
+            )
                 .unwrap();
+            if let Some(window) = data.window.get() {
                 window.change_extents(&extents);
                 self.state.tree_changed();
+            } else {
+                data.info.pending_extents.set(extents);
             }
         }
         Ok(())
@@ -1370,7 +1397,7 @@ impl Wm {
                 return Ok(());
             }
         }
-        let de = data.info.extents.get();
+        let de = data.info.pending_extents.get();
         let mut x1 = de.x1();
         let mut y1 = de.y1();
         let mut width = de.width();
@@ -1388,7 +1415,7 @@ impl Wm {
             height = event.height as _;
         }
         data.info
-            .extents
+            .pending_extents
             .set(Rect::new_sized(x1, y1, width, height).unwrap());
         Ok(())
     }

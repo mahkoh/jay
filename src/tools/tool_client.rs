@@ -2,6 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, AsyncError, SpawnedFuture},
         client::{EventFormatter, RequestParser},
+        compositor::WAYLAND_DISPLAY,
         event_loop::{EventLoop, EventLoopError},
         logger::Logger,
         object::{ObjectId, WL_DISPLAY_ID},
@@ -18,6 +19,7 @@ use {
             oserror::OsError,
             stack::Stack,
             vec_ext::VecExt,
+            xrd::xrd,
         },
         wheel::{Wheel, WheelError},
         wire::{
@@ -38,8 +40,6 @@ use {
     thiserror::Error,
     uapi::{c, format_ustr},
 };
-use crate::compositor::WAYLAND_DISPLAY;
-use crate::utils::xrd::xrd;
 
 #[derive(Debug, Error)]
 pub enum ToolClientError {

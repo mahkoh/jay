@@ -1,4 +1,3 @@
-use std::error::Error;
 use {
     crate::{
         async_engine::{Phase, SpawnedFuture},
@@ -52,6 +51,7 @@ use {
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::VecDeque,
+        error::Error,
         future::pending,
         rc::Rc,
     },

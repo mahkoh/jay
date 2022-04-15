@@ -102,11 +102,12 @@ impl WlBuffer {
         match &self.storage {
             WlBufferStorage::Shm { mem, stride } => {
                 self.texture.set(None);
-                let ctx = self.client.state.render_ctx.get().unwrap();
-                let tex = mem.access(|mem| {
-                    ctx.shmem_texture(mem, self.format, self.width, self.height, *stride)
-                })??;
-                self.texture.set(Some(tex));
+                if let Some(ctx) = self.client.state.render_ctx.get() {
+                    let tex = mem.access(|mem| {
+                        ctx.shmem_texture(mem, self.format, self.width, self.height, *stride)
+                    })??;
+                    self.texture.set(Some(tex));
+                }
             }
             WlBufferStorage::Dmabuf(img) => {
                 if self.texture.get().is_none() {

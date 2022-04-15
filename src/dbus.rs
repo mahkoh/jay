@@ -13,6 +13,7 @@ use {
             numcell::NumCell,
             run_toplevel::RunToplevel,
             vecstorage::VecStorage,
+            xrd::{xrd, XRD},
         },
     },
     ahash::AHashMap,
@@ -30,7 +31,6 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
-use crate::utils::xrd::{xrd, XRD};
 
 mod auth;
 mod dynamic_type;
@@ -163,8 +163,7 @@ impl Dbus {
             None => return Err(DbusError::SessionBusAddressNotSet),
             Some(sba) => sba,
         };
-        self.session
-            .get(&self.eng, sba, "Session bus")
+        self.session.get(&self.eng, sba, "Session bus")
     }
 }
 

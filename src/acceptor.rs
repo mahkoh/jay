@@ -3,13 +3,12 @@ use {
         client::ClientError,
         event_loop::{EventLoopDispatcher, EventLoopError, EventLoopId},
         state::State,
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
     },
     std::rc::Rc,
     thiserror::Error,
     uapi::{c, format_ustr, Errno, OwnedFd, Ustring},
 };
-use crate::utils::xrd::xrd;
 
 #[derive(Debug, Error)]
 pub enum AcceptorError {
@@ -18,23 +17,23 @@ pub enum AcceptorError {
     #[error("XDG_RUNTIME_DIR ({0:?}) is too long to form a unix socket address")]
     XrdTooLong(String),
     #[error("Could not create a wayland socket")]
-    SocketFailed(#[source] crate::utils::oserror::OsError),
+    SocketFailed(#[source] OsError),
     #[error("Could not stat the existing socket")]
-    SocketStat(#[source] crate::utils::oserror::OsError),
+    SocketStat(#[source] OsError),
     #[error("Could not start listening for incoming connections")]
-    ListenFailed(#[source] crate::utils::oserror::OsError),
+    ListenFailed(#[source] OsError),
     #[error("Could not open the lock file")]
-    OpenLockFile(#[source] crate::utils::oserror::OsError),
+    OpenLockFile(#[source] OsError),
     #[error("Could not lock the lock file")]
-    LockLockFile(#[source] crate::utils::oserror::OsError),
+    LockLockFile(#[source] OsError),
     #[error("The wayland socket is in an error state")]
     ErrorEvent,
     #[error("Could not accept new connections")]
-    AcceptFailed(#[source] crate::utils::oserror::OsError),
+    AcceptFailed(#[source] OsError),
     #[error("Could not spawn an event handler for a new connection")]
     SpawnFailed(#[source] ClientError),
     #[error("Could not bind the socket to an address")]
-    BindFailed(#[source] crate::utils::oserror::OsError),
+    BindFailed(#[source] OsError),
     #[error("All wayland addresses in the range 0..1000 are already in use")]
     AddressesInUse,
     #[error("The event loop caused an error")]

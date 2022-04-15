@@ -4,6 +4,7 @@ mod io;
 use {
     crate::{
         async_engine::{AsyncEngine, AsyncFd, SpawnedFuture},
+        compositor::{DISPLAY, WAYLAND_DISPLAY},
         event_loop::EventLoop,
         forker::{
             clone3::{fork_with_pidfd, Forked},
@@ -35,7 +36,6 @@ use {
     thiserror::Error,
     uapi::{c, pipe2, Errno, Fd, IntoUstr, OwnedFd, UstrPtr},
 };
-use crate::compositor::{DISPLAY, WAYLAND_DISPLAY};
 
 pub struct ForkerProxy {
     pidfd: Rc<OwnedFd>,

@@ -57,6 +57,7 @@ impl KbOwner for DefaultKbOwner {
         if old.node_id() == node.node_id() {
             return;
         }
+        log::info!("unfocus {}", old.node_id());
         old.node_unfocus(seat);
         if old.node_seat_state().unfocus(seat) {
             old.node_active_changed(false);
@@ -65,6 +66,7 @@ impl KbOwner for DefaultKbOwner {
         if node.node_seat_state().focus(seat) {
             node.node_active_changed(true);
         }
+        log::info!("focus {}", node.node_id());
         node.clone().node_focus(seat);
         seat.keyboard_node.set(node.clone());
     }

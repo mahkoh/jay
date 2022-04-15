@@ -1,11 +1,10 @@
-use std::error::Error;
 use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId},
         video::drm::ConnectorType,
     },
-    std::rc::Rc,
+    std::{error::Error, rc::Rc},
 };
 
 pub struct DummyBackend;

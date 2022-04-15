@@ -69,6 +69,7 @@ mod time;
 mod tools;
 mod tree;
 mod udev;
+mod user_session;
 mod utils;
 mod video;
 mod wheel;
@@ -78,7 +79,6 @@ mod wire_xcon;
 mod xcon;
 mod xkbcommon;
 mod xwayland;
-mod user_session;
 
 fn main() {
     cli::main();

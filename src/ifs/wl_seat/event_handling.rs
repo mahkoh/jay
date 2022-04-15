@@ -92,6 +92,7 @@ impl NodeSeatState {
         while let Some((_, seat)) = self.kb_foci.pop() {
             seat.ungrab_kb();
             seat.keyboard_node.set(seat.state.root.clone());
+            log::info!("keyboard_node = root");
             if focus_last {
                 if let Some(tl) = seat.toplevel_focus_history.last() {
                     seat.focus_node(tl.focus_surface(seat.id));
