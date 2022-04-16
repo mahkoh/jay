@@ -68,8 +68,11 @@ impl PointerOwnerHolder {
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<WlSurface>>,
+        serial: u32,
     ) -> Result<(), WlSeatError> {
-        self.owner.get().start_drag(seat, origin, source, icon)
+        self.owner
+            .get()
+            .start_drag(seat, origin, source, icon, serial)
     }
 
     pub fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
@@ -103,6 +106,7 @@ trait PointerOwner {
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<WlSurface>>,
+        serial: u32,
     ) -> Result<(), WlSeatError>;
     fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>);
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>);
@@ -116,6 +120,7 @@ struct DefaultPointerOwner;
 struct GrabPointerOwner {
     buttons: SmallMap<u32, (), 1>,
     node: Rc<dyn Node>,
+    serial: u32,
 }
 
 struct DndPointerOwner {
@@ -136,12 +141,14 @@ impl PointerOwner for DefaultPointerOwner {
             Some(n) => n,
             _ => return,
         };
+        let serial = seat.state.next_serial(pn.node_client().as_deref());
         seat.pointer_owner.owner.set(Rc::new(GrabPointerOwner {
             buttons: SmallMap::new_with(button, ()),
             node: pn.clone(),
+            serial,
         }));
         pn.node_seat_state().add_pointer_grab(seat);
-        pn.node_button(seat, button, state);
+        pn.node_button(seat, button, state, serial);
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -217,6 +224,7 @@ impl PointerOwner for DefaultPointerOwner {
         _origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         _icon: Option<Rc<WlSurface>>,
+        _serial: u32,
     ) -> Result<(), WlSeatError> {
         if let Some(src) = source {
             src.send_cancelled();
@@ -262,7 +270,8 @@ impl PointerOwner for GrabPointerOwner {
                 self.buttons.insert(button, ());
             }
         }
-        self.node.clone().node_button(seat, button, state);
+        let serial = seat.state.next_serial(self.node.node_client().as_deref());
+        self.node.clone().node_button(seat, button, state, serial);
     }
 
     fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -284,12 +293,16 @@ impl PointerOwner for GrabPointerOwner {
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
         icon: Option<Rc<WlSurface>>,
+        serial: u32,
     ) -> Result<(), WlSeatError> {
         let button = match self.buttons.iter().next() {
             Some((b, _)) => b,
             None => return Ok(()),
         };
         if self.buttons.len() != 1 {
+            return Ok(());
+        }
+        if serial != self.serial {
             return Ok(());
         }
         if self.node.node_id() != origin.node_id {
@@ -413,7 +426,7 @@ impl PointerOwner for DndPointerOwner {
             target.node_dnd_leave(&self.dnd);
             target.node_seat_state().remove_dnd_target(seat);
             target = node;
-            target.node_dnd_enter(&self.dnd, x, y);
+            target.node_dnd_enter(&self.dnd, x, y, seat.state.next_serial(target.node_client().as_deref()));
             target.node_seat_state().add_dnd_target(seat);
             self.target.set(target);
         } else if (self.pos_x.get(), self.pos_y.get()) != (x, y) {
@@ -429,6 +442,7 @@ impl PointerOwner for DndPointerOwner {
         _origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         _icon: Option<Rc<WlSurface>>,
+        _serial: u32,
     ) -> Result<(), WlSeatError> {
         if let Some(src) = source {
             src.send_cancelled();

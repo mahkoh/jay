@@ -1359,14 +1359,6 @@ impl Wm {
             Some(d) => d,
             _ => return Ok(()),
         };
-        let extents = Rect::new_sized(
-            event.x as _,
-            event.y as _,
-            event.width as _,
-            event.height as _,
-        )
-            .unwrap();
-        // log::info!("xwin {} configure_notify {:?}", data.window_id, extents);
         self.update_override_redirect(data, event.override_redirect);
         if data.info.override_redirect.get() {
             let extents = Rect::new_sized(
@@ -1375,7 +1367,7 @@ impl Wm {
                 event.width as _,
                 event.height as _,
             )
-                .unwrap();
+            .unwrap();
             if let Some(window) = data.window.get() {
                 window.change_extents(&extents);
                 self.state.tree_changed();

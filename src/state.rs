@@ -27,7 +27,8 @@ use {
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, queue::AsyncQueue,
+            errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, numcell::NumCell,
+            queue::AsyncQueue,
         },
         wheel::Wheel,
         xkbcommon::{XkbContext, XkbKeymap},
@@ -37,6 +38,7 @@ use {
     jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
+        num::Wrapping,
         rc::Rc,
         sync::Arc,
         time::Duration,
@@ -84,6 +86,7 @@ pub struct State {
     pub run_args: RunArgs,
     pub xwayland: XWaylandState,
     pub socket_path: CloneCell<Rc<String>>,
+    pub serial: NumCell<Wrapping<u32>>,
 }
 
 pub struct XWaylandState {
@@ -324,5 +327,13 @@ impl State {
         if handler.is_none() {
             *handler = Some(self.eng.spawn(xwayland::manage(self.clone())));
         }
+    }
+
+    pub fn next_serial(&self, client: Option<&Client>) -> u32 {
+        let serial = self.serial.fetch_add(Wrapping(1)).0;
+        if let Some(client) = client {
+            client.last_serial.set(serial);
+        }
+        serial
     }
 }

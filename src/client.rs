@@ -127,6 +127,8 @@ impl Clients {
             tracker: Default::default(),
             xwayland_queue,
             secure,
+            last_serial: Cell::new(0),
+            last_enter_serial: Cell::new(0),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -224,6 +226,8 @@ pub struct Client {
     pub tracker: Tracker<Client>,
     pub xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
     pub secure: bool,
+    pub last_serial: Cell<u32>,
+    pub last_enter_serial: Cell<u32>,
 }
 
 impl Client {
@@ -249,6 +253,18 @@ impl Client {
                 self.state.clients.kill(self.id);
             }
         }
+    }
+
+    pub fn validate_serial(&self, serial: u32) -> Result<(), ClientError> {
+        if serial > self.last_serial.get() {
+            Err(ClientError::InvalidSerial)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn next_serial(&self) -> u32 {
+        self.state.next_serial(Some(self))
     }
 
     pub fn new_id<T: From<ObjectId>>(&self) -> Result<T, ClientError> {

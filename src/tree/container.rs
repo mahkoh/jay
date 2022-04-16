@@ -1040,7 +1040,13 @@ impl SizedNode for ContainerNode {
         self.parent.get().node_child_active_changed(self, active, 1);
     }
 
-    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(
+        self: &Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        state: KeyState,
+        _serial: u32,
+    ) {
         if button != BTN_LEFT {
             return;
         }

@@ -457,12 +457,17 @@ impl WlSeatGlobal {
 
 // Button callbacks
 impl WlSeatGlobal {
-    pub fn button_surface(self: &Rc<Self>, surface: &Rc<WlSurface>, button: u32, state: KeyState) {
+    pub fn button_surface(
+        self: &Rc<Self>,
+        surface: &Rc<WlSurface>,
+        button: u32,
+        state: KeyState,
+        serial: u32,
+    ) {
         let (state, pressed) = match state {
             KeyState::Released => (wl_pointer::RELEASED, false),
             KeyState::Pressed => (wl_pointer::PRESSED, true),
         };
-        let serial = self.serial.fetch_add(1);
         self.surface_pointer_event(0, surface, |p| p.send_button(serial, 0, button, state));
         self.surface_pointer_frame(surface);
         if pressed && surface.accepts_kb_focus() {
@@ -522,7 +527,8 @@ impl WlSeatGlobal {
     }
 
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        let serial = self.serial.fetch_add(1);
+        let serial = n.client.next_serial();
+        n.client.last_enter_serial.set(serial);
         self.surface_pointer_event(0, n, |p| p.send_enter(serial, n.id, x, y));
         self.surface_pointer_frame(n);
     }
@@ -531,7 +537,7 @@ impl WlSeatGlobal {
 // Leave callbacks
 impl WlSeatGlobal {
     pub fn leave_surface(&self, n: &WlSurface) {
-        let serial = self.serial.fetch_add(1);
+        let serial = n.client.next_serial();
         self.surface_pointer_event(0, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
     }
@@ -540,7 +546,8 @@ impl WlSeatGlobal {
 // Unfocus callbacks
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
-        self.surface_kb_event(0, surface, |k| k.send_leave(0, surface.id))
+        let serial = surface.client.next_serial();
+        self.surface_kb_event(0, surface, |k| k.send_leave(serial, surface.id))
     }
 }
 
@@ -548,7 +555,7 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn focus_surface(&self, surface: &WlSurface) {
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
-        let serial = self.serial.fetch_add(1);
+        let serial = surface.client.next_serial();
         self.surface_kb_event(0, surface, |k| {
             k.send_enter(serial, surface.id, &pressed_keys)
         });
@@ -559,7 +566,7 @@ impl WlSeatGlobal {
             group,
             ..
         } = self.kb_state.borrow().mods();
-        let serial = self.serial.fetch_add(1);
+        let serial = surface.client.next_serial();
         self.surface_kb_event(0, surface, |k| {
             k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
@@ -577,7 +584,7 @@ impl WlSeatGlobal {
 // Key callbacks
 impl WlSeatGlobal {
     pub fn key_surface(&self, surface: &WlSurface, key: u32, state: u32) {
-        let serial = self.serial.fetch_add(1);
+        let serial = surface.client.next_serial();
         self.surface_kb_event(0, surface, |k| k.send_key(serial, 0, key, state));
     }
 }
@@ -585,7 +592,7 @@ impl WlSeatGlobal {
 // Modifiers callbacks
 impl WlSeatGlobal {
     pub fn mods_surface(&self, surface: &WlSurface, mods: ModifierState) {
-        let serial = self.serial.fetch_add(1);
+        let serial = surface.client.next_serial();
         self.surface_kb_event(0, surface, |k| {
             k.send_modifiers(
                 serial,
@@ -624,16 +631,16 @@ impl WlSeatGlobal {
         surface.client.flush();
     }
 
-    pub fn dnd_surface_enter(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed) {
+    pub fn dnd_surface_enter(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
         if let Some(src) = &dnd.src {
             ipc::offer_source_to::<WlDataDevice>(src, &surface.client);
             src.for_each_data_offer(|offer| {
-                offer.device.send_enter(surface.id, x, y, offer.id);
+                offer.device.send_enter(surface.id, x, y, offer.id, serial);
                 offer.send_source_actions();
             })
         } else if surface.client.id == dnd.client.id {
             self.for_each_data_device(0, dnd.client.id, |dd| {
-                dd.send_enter(surface.id, x, y, WlDataOfferId::NONE);
+                dd.send_enter(surface.id, x, y, WlDataOfferId::NONE, serial);
             })
         }
         surface.client.flush();

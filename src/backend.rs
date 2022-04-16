@@ -111,6 +111,7 @@ pub enum InputDeviceAccelProfile {
 }
 
 pub enum BackendEvent {
+    GraphicsInitialized,
     NewConnector(Rc<dyn Connector>),
     NewInputDevice(Rc<dyn InputDevice>),
 }

@@ -254,6 +254,10 @@ pub struct XBackend {
 
 impl XBackend {
     async fn run(self: Rc<Self>) -> Result<(), XBackendError> {
+        self.state
+            .backend_events
+            .push(BackendEvent::GraphicsInitialized);
+
         self.query_devices(INPUT_DEVICE_ALL_MASTER).await?;
 
         let _events = self.state.eng.spawn(self.clone().event_handler());

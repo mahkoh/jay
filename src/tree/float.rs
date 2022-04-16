@@ -377,7 +377,13 @@ impl SizedNode for FloatNode {
         self.position.get()
     }
 
-    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(
+        self: &Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        state: KeyState,
+        _serial: u32,
+    ) {
         if button != BTN_LEFT {
             return;
         }

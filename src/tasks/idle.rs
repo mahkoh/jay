@@ -100,8 +100,8 @@ fn now() -> c::timespec {
 
 fn duration_since(start: c::timespec) -> Duration {
     let now = now();
-    let mut nanos =
-        (now.tv_sec as i64 - start.tv_sec as i64) * 1_000_000_000 + (now.tv_nsec as i64 - start.tv_nsec as i64);
+    let mut nanos = (now.tv_sec as i64 - start.tv_sec as i64) * 1_000_000_000
+        + (now.tv_nsec as i64 - start.tv_nsec as i64);
     if nanos < 0 {
         log::error!("Time has gone backwards.");
         nanos = 0;

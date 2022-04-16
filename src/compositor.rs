@@ -147,6 +147,7 @@ fn start_compositor2(
             handler: Default::default(),
         },
         socket_path: Default::default(),
+        serial: Default::default(),
     });
     create_dummy_output(&state);
     let socket_path = Acceptor::install(&state)?;

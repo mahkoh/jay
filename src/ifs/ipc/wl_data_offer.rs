@@ -63,6 +63,7 @@ impl WlDataOffer {
 
     fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), AcceptError> {
         let req: Accept = self.client.parse(self, parser)?;
+        let _ = req.serial; // unused
         let mut state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
             return Err(AcceptError::AlreadyFinished);

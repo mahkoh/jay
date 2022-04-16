@@ -12,6 +12,8 @@ use {
 
 #[derive(Debug, Error)]
 pub enum ClientError {
+    #[error("Client sent an invalid serial")]
+    InvalidSerial,
     #[error("An error occurred in the async engine")]
     Async(#[from] AsyncError),
     #[error("An error occurred reading from/writing to the client")]

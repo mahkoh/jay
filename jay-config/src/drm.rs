@@ -96,6 +96,10 @@ pub fn on_connector_connected<F: Fn(Connector) + 'static>(f: F) {
     get!().on_connector_connected(f)
 }
 
+pub fn on_graphics_initialized<F: FnOnce() + 'static>(f: F) {
+    get!().on_graphics_initialized(f)
+}
+
 pub fn get_connector(id: impl ToConnectorId) -> Connector {
     let (ty, idx) = match id.to_connector_id() {
         Ok(id) => id,

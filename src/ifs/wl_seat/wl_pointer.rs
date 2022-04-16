@@ -156,6 +156,7 @@ impl WlPointer {
 
     fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
         let req: SetCursor = self.seat.client.parse(self, parser)?;
+        self.seat.client.validate_serial(req.serial)?;
         let mut cursor_opt = None;
         if req.surface.is_some() {
             let surface = self.seat.client.lookup(req.surface)?;
@@ -163,7 +164,7 @@ impl WlPointer {
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
             cursor_opt = Some(cursor as Rc<dyn Cursor>);
         }
-        let pointer_node = match self.seat.global.pointer_stack.borrow().last().cloned() {
+        let pointer_node = match self.seat.global.pointer_node() {
             Some(n) => n,
             _ => {
                 // cannot happen
@@ -171,6 +172,9 @@ impl WlPointer {
             }
         };
         if pointer_node.node_client_id() != Some(self.seat.client.id) {
+            return Ok(());
+        }
+        if req.serial != self.seat.client.last_enter_serial.get() {
             return Ok(());
         }
         self.seat.global.set_app_cursor(cursor_opt);

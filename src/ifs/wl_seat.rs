@@ -43,7 +43,6 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             linkedlist::{LinkedList, LinkedNode},
-            numcell::NumCell,
             rc_eq::rc_eq,
         },
         wire::{
@@ -127,10 +126,11 @@ pub struct WlSeatGlobal {
     kb_map: CloneCell<Rc<XkbKeymap>>,
     kb_state: RefCell<XkbState>,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
-    serial: NumCell<u32>,
     tree_changed: Rc<AsyncEvent>,
     selection: CloneCell<Option<Rc<WlDataSource>>>,
+    selection_serial: Cell<u32>,
     primary_selection: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
+    primary_selection_serial: Cell<u32>,
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
@@ -164,10 +164,11 @@ impl WlSeatGlobal {
             kb_map: CloneCell::new(state.default_keymap.clone()),
             kb_state: RefCell::new(state.default_keymap.state().unwrap()),
             cursor: Default::default(),
-            serial: Default::default(),
             tree_changed: Default::default(),
             selection: Default::default(),
+            selection_serial: Cell::new(0),
             primary_selection: Default::default(),
+            primary_selection_serial: Cell::new(0),
             pointer_owner: Default::default(),
             kb_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
@@ -333,8 +334,9 @@ impl WlSeatGlobal {
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<WlSurface>>,
+        serial: u32,
     ) -> Result<(), WlSeatError> {
-        self.pointer_owner.start_drag(self, origin, source, icon)
+        self.pointer_owner.start_drag(self, origin, source, icon, serial)
     }
 
     pub fn cancel_dnd(self: &Rc<Self>) {
@@ -342,24 +344,49 @@ impl WlSeatGlobal {
     }
 
     pub fn unset_selection(self: &Rc<Self>) {
-        let _ = self.set_selection(None);
+        let _ = self.set_selection(None, None);
     }
 
     pub fn set_selection(
         self: &Rc<Self>,
         selection: Option<Rc<WlDataSource>>,
+        serial: Option<u32>,
     ) -> Result<(), WlSeatError> {
+        if let Some(serial) = serial {
+            self.selection_serial.set(serial);
+        }
         self.set_selection_::<WlDataDevice>(&self.selection, selection)
     }
 
+    pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
+        let dist = serial.wrapping_sub(self.selection_serial.get()) as i32;
+        if dist < 0 {
+            return false;
+        }
+        self.keyboard_node.get().node_client_id() == Some(client.id)
+    }
+
+    pub fn may_modify_primary_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
+        let dist = serial.wrapping_sub(self.primary_selection_serial.get()) as i32;
+        if dist < 0 {
+            return false;
+        }
+        self.keyboard_node.get().node_client_id() == Some(client.id)
+            || self.pointer_node().and_then(|n| n.node_client_id()) == Some(client.id)
+    }
+
     pub fn unset_primary_selection(self: &Rc<Self>) {
-        let _ = self.set_primary_selection(None);
+        let _ = self.set_primary_selection(None, None);
     }
 
     pub fn set_primary_selection(
         self: &Rc<Self>,
         selection: Option<Rc<ZwpPrimarySelectionSourceV1>>,
+        serial: Option<u32>,
     ) -> Result<(), WlSeatError> {
+        if let Some(serial) = serial {
+            self.primary_selection_serial.set(serial);
+        }
         self.set_selection_::<ZwpPrimarySelectionDeviceV1>(&self.primary_selection, selection)
     }
 

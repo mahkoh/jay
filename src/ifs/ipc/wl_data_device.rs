@@ -61,10 +61,10 @@ impl WlDataDevice {
         self.manager.client.event(Leave { self_id: self.id })
     }
 
-    pub fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, offer: WlDataOfferId) {
+    pub fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, offer: WlDataOfferId, serial: u32) {
         self.manager.client.event(Enter {
             self_id: self.id,
-            serial: 0,
+            serial,
             surface,
             x,
             y,
@@ -87,6 +87,7 @@ impl WlDataDevice {
 
     fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
         let req: StartDrag = self.manager.client.parse(self, parser)?;
+        self.manager.client.validate_serial(req.serial)?;
         let origin = self.manager.client.lookup(req.origin)?;
         let source = if req.source.is_some() {
             Some(self.manager.client.lookup(req.source)?)
@@ -100,18 +101,29 @@ impl WlDataDevice {
         } else {
             None
         };
-        self.seat.global.start_drag(&origin, source, icon)?;
+        self.seat
+            .global
+            .start_drag(&origin, source, icon, req.serial)?;
         Ok(())
     }
 
     fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
         let req: SetSelection = self.manager.client.parse(self, parser)?;
+        self.manager.client.validate_serial(req.serial)?;
+        if !self
+            .seat
+            .global
+            .may_modify_selection(&self.seat.client, req.serial)
+        {
+            log::warn!("Ignoring disallowed set_selection request");
+            return Ok(());
+        }
         let src = if req.source.is_none() {
             None
         } else {
             Some(self.manager.client.lookup(req.source)?)
         };
-        self.seat.global.set_selection(src)?;
+        self.seat.global.set_selection(src, Some(req.serial))?;
         Ok(())
     }
 

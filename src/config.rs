@@ -79,6 +79,10 @@ impl ConfigProxy {
             device: InputDevice(dev.raw() as _),
         });
     }
+
+    pub fn graphics_initialized(&self) {
+        self.handler.send(&ServerMessage::GraphicsInitialized);
+    }
 }
 
 impl Drop for ConfigProxy {

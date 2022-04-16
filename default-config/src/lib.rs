@@ -2,7 +2,7 @@ use {
     chrono::{format::StrftimeItems, Local, Timelike},
     jay_config::{
         config,
-        drm::{get_connector, on_connector_connected, on_new_connector},
+        drm::{get_connector, on_connector_connected, on_graphics_initialized, on_new_connector},
         embedded::grab_input_device,
         get_timer, get_workspace,
         input::{
@@ -144,7 +144,10 @@ pub fn configure() {
     }
 
     set_env("GTK_THEME", "Adwaita:dark");
-    Command::new("mako").spawn();
+
+    on_graphics_initialized(|| {
+        Command::new("mako").spawn();
+    });
 }
 
 config!(configure);

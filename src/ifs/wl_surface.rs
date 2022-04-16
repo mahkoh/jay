@@ -795,8 +795,8 @@ impl SizedNode for WlSurface {
         seat.mods_surface(self, mods);
     }
 
-    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
-        seat.button_surface(&self, button, state);
+    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState, serial: u32) {
+        seat.button_surface(&self, button, state, serial);
     }
 
     fn axis_event(self: &Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
@@ -859,8 +859,8 @@ impl SizedNode for WlSurface {
         dnd.seat.dnd_surface_leave(self, dnd);
     }
 
-    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
-        dnd.seat.dnd_surface_enter(self, dnd, x, y);
+    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
+        dnd.seat.dnd_surface_enter(self, dnd, x, y, serial);
     }
 
     fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {

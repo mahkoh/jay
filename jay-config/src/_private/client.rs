@@ -38,6 +38,7 @@ pub(crate) struct Client {
     on_new_seat: RefCell<Option<Rc<dyn Fn(Seat)>>>,
     on_new_input_device: RefCell<Option<Rc<dyn Fn(InputDevice)>>>,
     on_connector_connected: RefCell<Option<Rc<dyn Fn(Connector)>>>,
+    on_graphics_initialized: Cell<Option<Box<dyn FnOnce()>>>,
     on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
 }
@@ -120,6 +121,7 @@ pub unsafe extern "C" fn init(
         on_new_seat: Default::default(),
         on_new_input_device: Default::default(),
         on_connector_connected: Default::default(),
+        on_graphics_initialized: Default::default(),
         on_new_connector: Default::default(),
         bufs: Default::default(),
     });
@@ -411,6 +413,10 @@ impl Client {
         *self.on_connector_connected.borrow_mut() = Some(Rc::new(f));
     }
 
+    pub fn on_graphics_initialized<F: FnOnce() + 'static>(&self, f: F) {
+        self.on_graphics_initialized.set(Some(Box::new(f)));
+    }
+
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
         self.send(&ClientMessage::SetSeat { device, seat })
     }
@@ -548,6 +554,11 @@ impl Client {
             ServerMessage::TimerExpired { timer } => {
                 let handler = self.timer_handlers.borrow_mut().get(&timer).cloned();
                 if let Some(handler) = handler {
+                    handler();
+                }
+            }
+            ServerMessage::GraphicsInitialized => {
+                if let Some(handler) = self.on_graphics_initialized.take() {
                     handler();
                 }
             }

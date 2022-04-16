@@ -195,10 +195,11 @@ pub trait SizedNode: Sized + 'static {
         let _ = mods;
     }
 
-    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState, serial: u32) {
         let _ = seat;
         let _ = button;
         let _ = state;
+        let _ = serial;
     }
 
     fn axis_event(self: &Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
@@ -346,10 +347,11 @@ pub trait SizedNode: Sized + 'static {
         let _ = dnd;
     }
 
-    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
         let _ = dnd;
         let _ = x;
         let _ = y;
+        let _ = serial;
     }
 
     fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
@@ -397,7 +399,13 @@ pub trait Node {
     fn node_active_changed(&self, active: bool);
     fn node_key(&self, seat: &WlSeatGlobal, key: u32, state: u32);
     fn node_mods(&self, seat: &WlSeatGlobal, mods: ModifierState);
-    fn node_button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState);
+    fn node_button(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        state: KeyState,
+        serial: u32,
+    );
     fn node_axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll);
     fn node_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>);
     fn node_focus_parent(&self, seat: &Rc<WlSeatGlobal>);
@@ -431,7 +439,7 @@ pub trait Node {
     fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>>;
     fn node_dnd_drop(&self, dnd: &Dnd);
     fn node_dnd_leave(&self, dnd: &Dnd);
-    fn node_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed);
+    fn node_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32);
     fn node_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed);
 }
 
@@ -537,8 +545,14 @@ impl<T: SizedNode> Node for T {
     fn node_mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
         <Self as SizedNode>::mods(self, seat, mods)
     }
-    fn node_button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
-        <Self as SizedNode>::button(&self, seat, button, state)
+    fn node_button(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        state: KeyState,
+        serial: u32,
+    ) {
+        <Self as SizedNode>::button(&self, seat, button, state, serial)
     }
     fn node_axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
         <Self as SizedNode>::axis_event(&self, seat, event)
@@ -639,8 +653,8 @@ impl<T: SizedNode> Node for T {
     fn node_dnd_leave(&self, dnd: &Dnd) {
         <Self as SizedNode>::dnd_leave(self, dnd)
     }
-    fn node_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
-        <Self as SizedNode>::dnd_enter(self, dnd, x, y)
+    fn node_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
+        <Self as SizedNode>::dnd_enter(self, dnd, x, y, serial)
     }
     fn node_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
         <Self as SizedNode>::dnd_motion(self, dnd, x, y)

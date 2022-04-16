@@ -6,8 +6,8 @@ use {
     crate::{
         async_engine::{AsyncError, AsyncFd, SpawnedFuture},
         backend::{
-            Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
-            InputEvent, KeyState,
+            Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceId, InputEvent, KeyState,
         },
         backends::metal::video::{MetalDrmDevice, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
@@ -128,6 +128,9 @@ impl MetalBackend {
         if let Err(e) = self.enumerate_devices() {
             return Err(MetalError::Enumerate(Box::new(e)));
         }
+        self.state
+            .backend_events
+            .push(BackendEvent::GraphicsInitialized);
         pending().await
     }
 }

@@ -13,6 +13,7 @@ use {
 #[derive(Encode, BorrowDecode, Debug)]
 pub enum ServerMessage {
     Configure,
+    GraphicsInitialized,
     Response {
         response: Response,
     },

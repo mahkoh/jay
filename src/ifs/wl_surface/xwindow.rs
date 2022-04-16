@@ -278,9 +278,12 @@ impl Xwindow {
         match map_change {
             Change::None => return,
             Change::Unmap => {
-                self.data.info.pending_extents.set(self.data.info.extents.take());
+                self.data
+                    .info
+                    .pending_extents
+                    .set(self.data.info.extents.take());
                 self.node_destroy(true);
-            },
+            }
             Change::Map if self.data.info.override_redirect.get() => {
                 self.change_extents(&self.data.info.pending_extents.get());
                 *self.display_link.borrow_mut() =
