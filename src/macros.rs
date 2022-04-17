@@ -180,8 +180,11 @@ macro_rules! id {
 
 macro_rules! linear_ids {
     ($ids:ident, $id:ident) => {
+        linear_ids!($ids, $id, u32);
+    };
+    ($ids:ident, $id:ident, $ty:ty) => {
         pub struct $ids {
-            next: crate::utils::numcell::NumCell<u32>,
+            next: crate::utils::numcell::NumCell<$ty>,
         }
 
         impl Default for $ids {
@@ -199,16 +202,16 @@ macro_rules! linear_ids {
         }
 
         #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-        pub struct $id(u32);
+        pub struct $id($ty);
 
         impl $id {
             #[allow(dead_code)]
-            pub fn raw(&self) -> u32 {
+            pub fn raw(&self) -> $ty {
                 self.0
             }
 
             #[allow(dead_code)]
-            pub fn from_raw(id: u32) -> Self {
+            pub fn from_raw(id: $ty) -> Self {
                 Self(id)
             }
         }

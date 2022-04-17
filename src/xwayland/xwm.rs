@@ -8,9 +8,7 @@ use {
         rect::Rect,
         state::State,
         tree::{Node, SizedNode},
-        utils::{
-            bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList,
-        },
+        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList},
         wire::WlSurfaceId,
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,

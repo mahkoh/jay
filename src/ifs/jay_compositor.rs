@@ -3,7 +3,7 @@ use {
         cli::CliLogLevel,
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::{jay_log_file::JayLogFile, jay_screenshot::JayScreenshot},
+        ifs::{jay_idle::JayIdle, jay_log_file::JayLogFile, jay_screenshot::JayScreenshot},
         leaks::Tracker,
         object::Object,
         screenshoter::take_screenshot,
@@ -17,7 +17,6 @@ use {
     std::{ops::Deref, rc::Rc},
     thiserror::Error,
 };
-use crate::ifs::jay_idle::JayIdle;
 
 pub struct JayCompositorGlobal {
     name: GlobalName,

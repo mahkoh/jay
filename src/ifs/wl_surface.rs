@@ -3,6 +3,7 @@ pub mod wl_subsurface;
 pub mod xdg_surface;
 pub mod xwindow;
 pub mod zwlr_layer_surface_v1;
+pub mod zwp_idle_inhibitor_v1;
 
 use {
     crate::{
@@ -46,6 +47,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
+    zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
 };
 
 #[allow(dead_code)]
@@ -103,6 +105,7 @@ pub struct WlSurface {
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
     pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
+    idle_inhibitor: CloneCell<Option<Rc<ZwpIdleInhibitorV1>>>,
 }
 
 impl Debug for WlSurface {
@@ -200,25 +203,26 @@ impl WlSurface {
             id,
             node_id: client.state.node_ids.next(),
             client: client.clone(),
-            visible: Cell::new(false),
+            visible: Default::default(),
             role: Cell::new(SurfaceRole::None),
             pending: Default::default(),
-            input_region: Cell::new(None),
-            opaque_region: Cell::new(None),
+            input_region: Default::default(),
+            opaque_region: Default::default(),
             extents: Default::default(),
             buffer_abs_pos: Cell::new(Default::default()),
-            need_extents_update: Cell::new(false),
-            buffer: CloneCell::new(None),
+            need_extents_update: Default::default(),
+            buffer: Default::default(),
             buf_x: Default::default(),
             buf_y: Default::default(),
             children: Default::default(),
             ext: CloneCell::new(client.state.none_surface_ext.clone()),
-            frame_requests: RefCell::new(vec![]),
+            frame_requests: Default::default(),
             seat_state: Default::default(),
             toplevel: Default::default(),
             cursors: Default::default(),
             dnd_icons: Default::default(),
             tracker: Default::default(),
+            idle_inhibitor: Default::default(),
         }
     }
 
@@ -367,7 +371,7 @@ impl WlSurface {
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
-        self.node_destroy(true);
+        self.destroy_node(true);
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -385,6 +389,7 @@ impl WlSurface {
         self.frame_requests.borrow_mut().clear();
         self.toplevel.set(None);
         self.client.remove_obj(self)?;
+        self.idle_inhibitor.take();
         Ok(())
     }
 
@@ -622,6 +627,7 @@ impl Object for WlSurface {
         mem::take(self.frame_requests.borrow_mut().deref_mut());
         self.buffer.set(None);
         self.toplevel.set(None);
+        self.idle_inhibitor.take();
     }
 }
 
@@ -638,6 +644,9 @@ impl SizedNode for WlSurface {
     }
 
     fn destroy_node(&self, _detach: bool) {
+        if let Some(inhibitor) = self.idle_inhibitor.get() {
+            inhibitor.deactivate();
+        }
         let children = self.children.borrow();
         if let Some(ch) = children.deref() {
             for ss in ch.subsurfaces.values() {
@@ -682,6 +691,13 @@ impl SizedNode for WlSurface {
 
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
+        if let Some(inhibitor) = self.idle_inhibitor.get() {
+            if visible {
+                inhibitor.activate();
+            } else {
+                inhibitor.deactivate();
+            }
+        }
         let children = self.children.borrow_mut();
         if let Some(children) = children.deref() {
             for child in children.subsurfaces.values() {

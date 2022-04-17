@@ -1,17 +1,14 @@
-use std::time::Duration;
-use thiserror::Error;
 use {
     crate::{
-        client::Client,
+        client::{Client, ClientError},
         leaks::Tracker,
         object::Object,
-        wire::{jay_idle::*},
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{jay_idle::*, JayIdleId},
     },
-    std::rc::Rc,
+    std::{rc::Rc, time::Duration},
+    thiserror::Error,
 };
-use crate::client::ClientError;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::JayIdleId;
 
 pub struct JayIdle {
     pub id: JayIdleId,

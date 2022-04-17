@@ -1,9 +1,9 @@
 mod generate;
+mod idle;
 mod log;
 mod quit;
 mod screenshot;
 mod set_log_level;
-mod idle;
 
 use {
     crate::compositor::start_compositor,

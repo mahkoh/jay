@@ -168,15 +168,9 @@ async fn run(
         Err(e) => return Err(XWaylandError::ExecFailed(e)),
     };
     let client_id = state.clients.id();
-    let client = state.clients.spawn2(
-        client_id,
-        state,
-        client1,
-        9999,
-        9999,
-        true,
-        true,
-    );
+    let client = state
+        .clients
+        .spawn2(client_id, state, client1, 9999, 9999, true, true);
     let client = match client {
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),

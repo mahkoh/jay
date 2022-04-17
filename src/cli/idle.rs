@@ -1,17 +1,16 @@
-use std::cell::Cell;
-use std::collections::VecDeque;
-use std::rc::Rc;
-use std::str::FromStr;
-use crate::cli::{GlobalArgs, IdleArgs, IdleCmd, IdleSetArgs};
-use crate::tools::tool_client::{Handle, ToolClient};
-use crate::utils::errorfmt::ErrorFmt;
-use crate::wire::{jay_compositor, jay_idle, JayIdleId};
+use {
+    crate::{
+        cli::{GlobalArgs, IdleArgs, IdleCmd, IdleSetArgs},
+        tools::tool_client::{Handle, ToolClient},
+        utils::errorfmt::ErrorFmt,
+        wire::{jay_compositor, jay_idle, JayIdleId},
+    },
+    std::{cell::Cell, collections::VecDeque, rc::Rc, str::FromStr},
+};
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
     let tc = ToolClient::new(global.log_level.into());
-    let idle = Idle {
-        tc: tc.clone(),
-    };
+    let idle = Idle { tc: tc.clone() };
     tc.run(idle.run(args));
 }
 
@@ -36,9 +35,7 @@ impl Idle {
 
     async fn status(self, idle: JayIdleId) {
         let tc = &self.tc;
-        tc.send(jay_idle::GetStatus {
-            self_id: idle,
-        });
+        tc.send(jay_idle::GetStatus { self_id: idle });
         let interval = Rc::new(Cell::new(0u64));
         jay_idle::Interval::handle(tc, idle, interval.clone(), |iv, msg| {
             iv.set(msg.interval);
@@ -65,15 +62,25 @@ impl Idle {
             let mut pending_num = None;
             for comp in comp {
                 match comp {
-                    Component::Number(_) if pending_num.is_some() => fatal!("missing number unit after {}", pending_num.unwrap()),
+                    Component::Number(_) if pending_num.is_some() => {
+                        fatal!("missing number unit after {}", pending_num.unwrap())
+                    }
                     Component::Number(n) => pending_num = Some(n),
 
-                    Component::Minutes(n) if pending_num.is_none() => fatal!("`{}` must be preceded by a number", n),
-                    Component::Minutes(_) if minutes.is_some() => fatal!("minutes specified multiple times"),
+                    Component::Minutes(n) if pending_num.is_none() => {
+                        fatal!("`{}` must be preceded by a number", n)
+                    }
+                    Component::Minutes(_) if minutes.is_some() => {
+                        fatal!("minutes specified multiple times")
+                    }
                     Component::Minutes(_) => minutes = pending_num.take(),
 
-                    Component::Seconds(n) if pending_num.is_none() => fatal!("`{}` must be preceded by a number", n),
-                    Component::Seconds(_) if seconds.is_some() => fatal!("seconds specified multiple times"),
+                    Component::Seconds(n) if pending_num.is_none() => {
+                        fatal!("`{}` must be preceded by a number", n)
+                    }
+                    Component::Seconds(_) if seconds.is_some() => {
+                        fatal!("seconds specified multiple times")
+                    }
                     Component::Seconds(_) => seconds = pending_num.take(),
                 }
             }

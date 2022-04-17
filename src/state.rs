@@ -15,7 +15,10 @@ use {
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             wl_seat::{SeatIds, WlSeatGlobal},
-            wl_surface::NoneSurfaceExt,
+            wl_surface::{
+                zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
+                NoneSurfaceExt,
+            },
         },
         logger::Logger,
         rect::Rect,
@@ -32,7 +35,7 @@ use {
         },
         wheel::Wheel,
         xkbcommon::{XkbContext, XkbKeymap},
-        xwayland,
+        xwayland::{self, XWaylandEvent},
     },
     ahash::AHashMap,
     jay_config::Direction,
@@ -44,7 +47,6 @@ use {
         time::Duration,
     },
 };
-use crate::xwayland::XWaylandEvent;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -60,6 +62,7 @@ pub struct State {
     pub globals: Globals,
     pub connector_ids: ConnectorIds,
     pub seat_ids: SeatIds,
+    pub idle_inhibitor_ids: IdleInhibitorIds,
     pub input_device_ids: InputDeviceIds,
     pub node_ids: NodeIds,
     pub root: Rc<DisplayNode>,
@@ -101,12 +104,26 @@ pub struct IdleState {
     pub change: AsyncEvent,
     pub timeout: Cell<Duration>,
     pub timeout_changed: Cell<bool>,
+    pub inhibitors: CopyHashMap<IdleInhibitorId, Rc<ZwpIdleInhibitorV1>>,
+    pub inhibitors_changed: Cell<bool>,
 }
 
 impl IdleState {
     pub fn set_timeout(&self, timeout: Duration) {
         self.timeout.set(timeout);
         self.timeout_changed.set(true);
+        self.change.trigger();
+    }
+
+    pub fn add_inhibitor(&self, inhibitor: &Rc<ZwpIdleInhibitorV1>) {
+        self.inhibitors.set(inhibitor.inhibit_id, inhibitor.clone());
+        self.inhibitors_changed.set(true);
+        self.change.trigger();
+    }
+
+    pub fn remove_inhibitor(&self, inhibitor: &ZwpIdleInhibitorV1) {
+        self.inhibitors.remove(&inhibitor.inhibit_id);
+        self.inhibitors_changed.set(true);
         self.change.trigger();
     }
 }

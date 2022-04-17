@@ -1,8 +1,10 @@
 use {
-    crate::{ifs::wl_seat::WlSeatGlobal, tree::Node, utils::clonecell::CloneCell},
+    crate::{
+        ifs::wl_seat::WlSeatGlobal, tree::Node, utils::clonecell::CloneCell,
+        xwayland::XWaylandEvent,
+    },
     std::rc::Rc,
 };
-use crate::xwayland::XWaylandEvent;
 
 pub struct KbOwnerHolder {
     default: Rc<DefaultKbOwner>,

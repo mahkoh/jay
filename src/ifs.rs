@@ -1,5 +1,6 @@
 pub mod ipc;
 pub mod jay_compositor;
+pub mod jay_idle;
 pub mod jay_log_file;
 pub mod jay_screenshot;
 pub mod org_kde_kwin_server_decoration;
@@ -20,10 +21,10 @@ pub mod wl_surface;
 pub mod xdg_positioner;
 pub mod xdg_wm_base;
 pub mod zwlr_layer_shell_v1;
+pub mod zwp_idle_inhibit_manager_v1;
 pub mod zwp_linux_buffer_params_v1;
 pub mod zwp_linux_dmabuf_v1;
 pub mod zxdg_decoration_manager_v1;
 pub mod zxdg_output_manager_v1;
 pub mod zxdg_output_v1;
 pub mod zxdg_toplevel_decoration_v1;
-pub mod jay_idle;

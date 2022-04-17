@@ -54,7 +54,11 @@ impl WlCompositor {
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         if self.client.is_xwayland {
-            self.client.state.xwayland.queue.push(XWaylandEvent::SurfaceCreated(surface.clone()));
+            self.client
+                .state
+                .xwayland
+                .queue
+                .push(XWaylandEvent::SurfaceCreated(surface.clone()));
         }
         Ok(())
     }

@@ -140,6 +140,8 @@ fn start_compositor2(
             change: Default::default(),
             timeout: Cell::new(Duration::from_secs(10 * 60)),
             timeout_changed: Default::default(),
+            inhibitors: Default::default(),
+            inhibitors_changed: Default::default(),
         },
         run_args,
         xwayland: XWaylandState {
@@ -149,6 +151,7 @@ fn start_compositor2(
         },
         socket_path: Default::default(),
         serial: Default::default(),
+        idle_inhibitor_ids: Default::default(),
     });
     create_dummy_output(&state);
     let socket_path = Acceptor::install(&state)?;
@@ -176,6 +179,7 @@ async fn start_compositor3(state: Rc<State>) {
         }
     };
     state.backend.set(backend.clone());
+    state.globals.add_singletons(&backend);
 
     if backend.is_freestanding() {
         import_environment(&state, WAYLAND_DISPLAY, &state.socket_path.get());

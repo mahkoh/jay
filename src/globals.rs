@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::Backend,
         client::Client,
         ifs::{
             ipc::{
@@ -17,6 +18,7 @@ use {
             wl_subcompositor::WlSubcompositorGlobal,
             xdg_wm_base::XdgWmBaseGlobal,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
+            zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
             zxdg_output_manager_v1::ZxdgOutputManagerV1Global,
@@ -102,15 +104,18 @@ pub struct Globals {
 
 impl Globals {
     pub fn new() -> Self {
-        let slf = Self {
+        Self {
             next_name: NumCell::new(1),
             registry: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
-        };
+        }
+    }
+
+    pub fn add_singletons(&self, backend: &Rc<dyn Backend>) {
         macro_rules! add_singleton {
             ($name:ident) => {
-                slf.add_global_no_broadcast(&Rc::new($name::new(slf.name())));
+                self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
             };
         }
         add_singleton!(WlCompositorGlobal);
@@ -126,7 +131,10 @@ impl Globals {
         add_singleton!(ZwlrLayerShellV1Global);
         add_singleton!(ZxdgOutputManagerV1Global);
         add_singleton!(JayCompositorGlobal);
-        slf
+
+        if backend.supports_idle() {
+            add_singleton!(ZwpIdleInhibitManagerV1Global);
+        }
     }
 
     pub fn name(&self) -> GlobalName {

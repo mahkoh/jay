@@ -29,6 +29,7 @@ pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
         timer,
         idle: false,
         dead: false,
+        is_inhibited: false,
         last_input: now(),
     };
     idle.run().await;
@@ -40,6 +41,7 @@ struct Idle {
     timer: Timer,
     idle: bool,
     dead: bool,
+    is_inhibited: bool,
     last_input: c::timespec,
 }
 
@@ -63,28 +65,43 @@ impl Idle {
         let timeout = self.state.idle.timeout.get();
         let since = duration_since(self.last_input);
         if since >= timeout {
-            self.backend.set_idle(true);
-            self.idle = true;
+            if !timeout.is_zero() && !self.is_inhibited {
+                self.backend.set_idle(true);
+                self.idle = true;
+            }
         } else {
-            self.program_timer(timeout - since);
+            self.program_timer2(timeout - since);
         }
     }
 
     fn handle_idle_changes(&mut self) {
+        if self.state.idle.inhibitors_changed.replace(false) {
+            let is_inhibited = self.state.idle.inhibitors.len() > 0;
+            if self.is_inhibited != is_inhibited {
+                self.is_inhibited = is_inhibited;
+                if !self.is_inhibited {
+                    self.program_timer();
+                }
+            }
+        }
         if self.state.idle.timeout_changed.replace(false) {
-            self.program_timer(self.state.idle.timeout.get());
+            self.program_timer();
         }
         if self.state.idle.input.replace(false) {
             self.last_input = now();
             if self.idle {
                 self.backend.set_idle(false);
                 self.idle = false;
-                self.program_timer(self.state.idle.timeout.get());
+                self.program_timer();
             }
         }
     }
 
-    fn program_timer(&mut self, timeout: Duration) {
+    fn program_timer(&mut self) {
+        self.program_timer2(self.state.idle.timeout.get());
+    }
+
+    fn program_timer2(&mut self, timeout: Duration) {
         if let Err(e) = self.timer.program(Some(timeout), None) {
             log::error!("Could not program idle timer: {}", ErrorFmt(e));
             self.dead = true;
