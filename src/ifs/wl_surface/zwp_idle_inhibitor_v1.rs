@@ -25,17 +25,14 @@ impl ZwpIdleInhibitorV1 {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpIdleInhibitorV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
-        if self.surface.idle_inhibitor.take().is_some() {
+        if self.surface.idle_inhibitors.remove(&self.id).is_some() {
             self.deactivate();
         }
         Ok(())
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), ZwpIdleInhibitorV1Error> {
-        if self.surface.idle_inhibitor.get().is_some() {
-            return Err(ZwpIdleInhibitorV1Error::MultipleInhibitors(self.surface.id));
-        }
-        self.surface.idle_inhibitor.set(Some(self.clone()));
+        self.surface.idle_inhibitors.set(self.id, self.clone());
         if self.surface.visible.get() {
             self.activate();
         }
@@ -75,8 +72,6 @@ pub enum ZwpIdleInhibitorV1Error {
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("The surface {0} already has an inhibitor attached")]
-    MultipleInhibitors(WlSurfaceId),
 }
 efrom!(ZwpIdleInhibitorV1Error, ClientError);
 efrom!(ZwpIdleInhibitorV1Error, MsgParserError);

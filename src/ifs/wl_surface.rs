@@ -49,6 +49,8 @@ use {
     thiserror::Error,
     zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
 };
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::ZwpIdleInhibitorV1Id;
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -105,7 +107,7 @@ pub struct WlSurface {
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
     pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
-    idle_inhibitor: CloneCell<Option<Rc<ZwpIdleInhibitorV1>>>,
+    idle_inhibitors: CopyHashMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>>,
 }
 
 impl Debug for WlSurface {
@@ -222,7 +224,7 @@ impl WlSurface {
             cursors: Default::default(),
             dnd_icons: Default::default(),
             tracker: Default::default(),
-            idle_inhibitor: Default::default(),
+            idle_inhibitors: Default::default(),
         }
     }
 
@@ -389,7 +391,7 @@ impl WlSurface {
         self.frame_requests.borrow_mut().clear();
         self.toplevel.set(None);
         self.client.remove_obj(self)?;
-        self.idle_inhibitor.take();
+        self.idle_inhibitors.clear();
         Ok(())
     }
 
@@ -627,7 +629,7 @@ impl Object for WlSurface {
         mem::take(self.frame_requests.borrow_mut().deref_mut());
         self.buffer.set(None);
         self.toplevel.set(None);
-        self.idle_inhibitor.take();
+        self.idle_inhibitors.clear();
     }
 }
 
@@ -644,7 +646,7 @@ impl SizedNode for WlSurface {
     }
 
     fn destroy_node(&self, _detach: bool) {
-        if let Some(inhibitor) = self.idle_inhibitor.get() {
+        for (_, inhibitor) in self.idle_inhibitors.lock().drain() {
             inhibitor.deactivate();
         }
         let children = self.children.borrow();
@@ -691,7 +693,7 @@ impl SizedNode for WlSurface {
 
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
-        if let Some(inhibitor) = self.idle_inhibitor.get() {
+        for inhibitor in self.idle_inhibitors.lock().values() {
             if visible {
                 inhibitor.activate();
             } else {
