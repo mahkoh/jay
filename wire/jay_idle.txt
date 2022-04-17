@@ -1,0 +1,18 @@
+# requests
+
+msg get_status = 0 {
+}
+
+msg set_interval = 1 {
+    interval: pod(u64),
+}
+
+# events
+
+msg interval = 0 {
+    interval: pod(u64),
+}
+
+msg inhibitor = 1 {
+    name: str,
+}

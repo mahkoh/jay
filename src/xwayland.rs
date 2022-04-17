@@ -13,7 +13,7 @@ use {
         },
         state::State,
         user_session::import_environment,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, queue::AsyncQueue, tri::Try},
+        utils::{errorfmt::ErrorFmt, oserror::OsError, tri::Try},
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{xsocket::allocate_socket, xwm::Wm},
@@ -168,7 +168,6 @@ async fn run(
         Err(e) => return Err(XWaylandError::ExecFailed(e)),
     };
     let client_id = state.clients.id();
-    let queue = Rc::new(AsyncQueue::new());
     let client = state.clients.spawn2(
         client_id,
         state,
@@ -176,21 +175,22 @@ async fn run(
         9999,
         9999,
         true,
-        Some(queue.clone()),
+        true,
     );
     let client = match client {
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),
     };
     state.eng.fd(&Rc::new(dfdread))?.readable().await?;
-    let wm = match Wm::get(state, client, wm1, queue.clone()).await {
+    state.xwayland.queue.clear();
+    let wm = match Wm::get(state, client, wm1).await {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
     };
     let wm = state.eng.spawn(wm.run());
     state.eng.fd(&Rc::new(pidfd))?.readable().await?;
     drop(wm);
-    queue.clear();
+    state.xwayland.queue.clear();
     stderr_read.await;
     Ok(())
 }
@@ -278,5 +278,6 @@ pub enum XWaylandEvent {
     SurfaceDestroyed(WlSurfaceId),
     Configure(Rc<Xwindow>),
     Activate(Rc<XwindowData>),
+    ActivateRoot,
     Close(Rc<XwindowData>),
 }

@@ -61,7 +61,14 @@ impl WlDataDevice {
         self.manager.client.event(Leave { self_id: self.id })
     }
 
-    pub fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, offer: WlDataOfferId, serial: u32) {
+    pub fn send_enter(
+        &self,
+        surface: WlSurfaceId,
+        x: Fixed,
+        y: Fixed,
+        offer: WlDataOfferId,
+        serial: u32,
+    ) {
         self.manager.client.event(Enter {
             self_id: self.id,
             serial,

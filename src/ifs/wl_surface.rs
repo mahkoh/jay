@@ -866,6 +866,10 @@ impl SizedNode for WlSurface {
     fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
         dnd.seat.dnd_surface_motion(self, dnd, x, y);
     }
+
+    fn is_xwayland_surface(&self) -> bool {
+        self.client.is_xwayland
+    }
 }
 
 #[derive(Debug, Error)]

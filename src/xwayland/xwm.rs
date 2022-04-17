@@ -9,7 +9,7 @@ use {
         state::State,
         tree::{Node, SizedNode},
         utils::{
-            bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList, queue::AsyncQueue,
+            bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList,
         },
         wire::WlSurfaceId,
         wire_xcon::{
@@ -136,7 +136,6 @@ pub struct Wm {
     client: Rc<Client>,
     windows: AHashMap<u32, Rc<XwindowData>>,
     windows_by_surface_id: AHashMap<WlSurfaceId, Rc<XwindowData>>,
-    queue: Rc<AsyncQueue<XWaylandEvent>>,
     focus_window: Option<Rc<XwindowData>>,
     last_input_serial: u64,
 
@@ -162,7 +161,6 @@ impl Wm {
         state: &Rc<State>,
         client: Rc<Client>,
         socket: OwnedFd,
-        queue: Rc<AsyncQueue<XWaylandEvent>>,
     ) -> Result<Self, XWaylandError> {
         let c = match Xcon::connect_to_fd(&state.eng, &Rc::new(socket), &[], &[]).await {
             Ok(c) => c,
@@ -344,7 +342,6 @@ impl Wm {
             client,
             windows: Default::default(),
             windows_by_surface_id: Default::default(),
-            queue,
             focus_window: Default::default(),
             last_input_serial: 0,
             stack_list: Default::default(),
@@ -357,7 +354,7 @@ impl Wm {
     pub async fn run(mut self) {
         loop {
             select! {
-                e = self.queue.pop().fuse() => self.handle_xwayland_event(e).await,
+                e = self.state.xwayland.queue.pop().fuse() => self.handle_xwayland_event(e).await,
                 e = self.c.event().fuse() => self.handle_event(&e).await,
             }
         }
@@ -371,6 +368,7 @@ impl Wm {
             XWaylandEvent::Configure(event) => self.handle_xwayland_configure(event).await,
             XWaylandEvent::SurfaceDestroyed(event) => self.handle_xwayland_surface_destroyed(event),
             XWaylandEvent::Activate(window) => self.activate_window(Some(&window)).await,
+            XWaylandEvent::ActivateRoot => self.activate_window(None).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
         }
     }
@@ -896,7 +894,7 @@ impl Wm {
             log::error!("The xwindow has already been constructed");
             return;
         }
-        let window = Rc::new(Xwindow::new(data, &surface, &self.queue));
+        let window = Rc::new(Xwindow::new(data, &surface));
         if let Err(e) = window.install() {
             log::error!(
                 "Could not attach the xwindow to the surface: {}",

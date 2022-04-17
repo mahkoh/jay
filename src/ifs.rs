@@ -26,3 +26,4 @@ pub mod zxdg_decoration_manager_v1;
 pub mod zxdg_output_manager_v1;
 pub mod zxdg_output_v1;
 pub mod zxdg_toplevel_decoration_v1;
+pub mod jay_idle;

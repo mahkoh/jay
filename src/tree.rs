@@ -359,6 +359,10 @@ pub trait SizedNode: Sized + 'static {
         let _ = x;
         let _ = y;
     }
+
+    fn is_xwayland_surface(&self) -> bool {
+        false
+    }
 }
 
 pub trait Node {
@@ -436,6 +440,7 @@ pub trait Node {
     fn node_set_parent(self: Rc<Self>, parent: Rc<dyn Node>);
     fn node_client(&self) -> Option<Rc<Client>>;
     fn node_client_id(&self) -> Option<ClientId>;
+    fn node_is_xwayland_surface(&self) -> bool;
     fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>>;
     fn node_dnd_drop(&self, dnd: &Dnd);
     fn node_dnd_leave(&self, dnd: &Dnd);
@@ -644,6 +649,10 @@ impl<T: SizedNode> Node for T {
     fn node_client_id(&self) -> Option<ClientId> {
         <Self as SizedNode>::client_id(self)
     }
+    fn node_is_xwayland_surface(&self) -> bool {
+        <Self as SizedNode>::is_xwayland_surface(self)
+    }
+
     fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
         <Self as SizedNode>::into_surface(&self)
     }

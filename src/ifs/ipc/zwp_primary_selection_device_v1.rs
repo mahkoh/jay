@@ -64,7 +64,11 @@ impl ZwpPrimarySelectionDeviceV1 {
     fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
         let req: SetSelection = self.manager.client.parse(self, parser)?;
         self.seat.client.validate_serial(req.serial)?;
-        if !self.seat.global.may_modify_primary_selection(&self.seat.client, req.serial) {
+        if !self
+            .seat
+            .global
+            .may_modify_primary_selection(&self.seat.client, req.serial)
+        {
             log::warn!("Ignoring disallowed set_selection request");
             return Ok(());
         }
@@ -73,7 +77,9 @@ impl ZwpPrimarySelectionDeviceV1 {
         } else {
             Some(self.manager.client.lookup(req.source)?)
         };
-        self.seat.global.set_primary_selection(src, Some(req.serial))?;
+        self.seat
+            .global
+            .set_primary_selection(src, Some(req.serial))?;
         Ok(())
     }
 

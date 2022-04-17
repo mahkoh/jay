@@ -426,7 +426,12 @@ impl PointerOwner for DndPointerOwner {
             target.node_dnd_leave(&self.dnd);
             target.node_seat_state().remove_dnd_target(seat);
             target = node;
-            target.node_dnd_enter(&self.dnd, x, y, seat.state.next_serial(target.node_client().as_deref()));
+            target.node_dnd_enter(
+                &self.dnd,
+                x,
+                y,
+                seat.state.next_serial(target.node_client().as_deref()),
+            );
             target.node_seat_state().add_dnd_target(seat);
             self.target.set(target);
         } else if (self.pos_x.get(), self.pos_y.get()) != (x, y) {

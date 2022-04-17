@@ -16,7 +16,7 @@ use {
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode,
-            queue::AsyncQueue, smallmap::SmallMap,
+            smallmap::SmallMap,
         },
         wire::WlSurfaceId,
         wire_xcon::CreateNotify,
@@ -139,7 +139,6 @@ pub struct Xwindow {
     pub surface: Rc<WlSurface>,
     pub parent_node: CloneCell<Option<Rc<dyn Node>>>,
     pub focus_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
-    pub events: Rc<AsyncQueue<XWaylandEvent>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
     pub toplevel_data: ToplevelData,
@@ -207,7 +206,6 @@ impl Xwindow {
     pub fn new(
         data: &Rc<XwindowData>,
         surface: &Rc<WlSurface>,
-        events: &Rc<AsyncQueue<XWaylandEvent>>,
     ) -> Self {
         Self {
             id: data.state.node_ids.next(),
@@ -216,7 +214,6 @@ impl Xwindow {
             surface: surface.clone(),
             parent_node: Default::default(),
             focus_history: Default::default(),
-            events: events.clone(),
             workspace: Default::default(),
             display_link: Default::default(),
             toplevel_data: Default::default(),
@@ -249,7 +246,11 @@ impl Xwindow {
             _ => return,
         };
         let extents = self.surface.extents.get();
-        // parent.child_active_changed(self, self.active_surfaces.get() > 0);
+        parent.clone().node_child_active_changed(
+            self,
+            self.toplevel_data.active_surfaces.get() > 0,
+            1,
+        );
         parent.node_child_size_changed(self, extents.width(), extents.height());
         parent.node_child_title_changed(
             self,
@@ -322,8 +323,7 @@ impl SurfaceExt for Xwindow {
         self.surface.unset_ext();
         self.data.window.set(None);
         self.data.surface_id.set(None);
-        self.events
-            .push(XWaylandEvent::SurfaceDestroyed(self.surface.id));
+        self.data.state.xwayland.queue.push(XWaylandEvent::SurfaceDestroyed(self.surface.id));
         Ok(())
     }
 
@@ -389,7 +389,7 @@ impl SizedNode for Xwindow {
     }
 
     fn close(&self) {
-        self.events.push(XWaylandEvent::Close(self.data.clone()));
+        self.data.state.xwayland.queue.push(XWaylandEvent::Close(self.data.clone()));
     }
 
     fn absolute_position(&self) -> Rect {
@@ -427,7 +427,7 @@ impl SizedNode for Xwindow {
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
             if !self.data.info.override_redirect.get() {
-                self.events.push(XWaylandEvent::Configure(self.clone()));
+                self.data.state.xwayland.queue.push(XWaylandEvent::Configure(self.clone()));
             }
             if old.position() != rect.position() {
                 self.surface.set_absolute_position(rect.x1(), rect.y1());
@@ -482,7 +482,7 @@ impl ToplevelNode for Xwindow {
     }
 
     fn activate(&self) {
-        self.events.push(XWaylandEvent::Activate(self.data.clone()));
+        self.data.state.xwayland.queue.push(XWaylandEvent::Activate(self.data.clone()));
     }
 
     fn toggle_floating(self: Rc<Self>) {
@@ -503,7 +503,7 @@ impl ToplevelNode for Xwindow {
     }
 
     fn close(&self) {
-        self.events.push(XWaylandEvent::Close(self.data.clone()));
+        self.data.state.xwayland.queue.push(XWaylandEvent::Close(self.data.clone()));
     }
 }
 

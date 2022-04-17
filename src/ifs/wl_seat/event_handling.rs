@@ -35,7 +35,7 @@ use {
 pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
-    grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
 
@@ -59,11 +59,11 @@ impl NodeSeatState {
     }
 
     pub(super) fn add_pointer_grab(&self, seat: &Rc<WlSeatGlobal>) {
-        self.grabs.insert(seat.id, seat.clone());
+        self.pointer_grabs.insert(seat.id, seat.clone());
     }
 
     pub(super) fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
-        self.grabs.remove(&seat.id);
+        self.pointer_grabs.remove(&seat.id);
     }
 
     pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
@@ -89,10 +89,10 @@ impl NodeSeatState {
     }
 
     fn release_kb_focus2(&self, focus_last: bool) {
+        self.release_kb_grab();
         while let Some((_, seat)) = self.kb_foci.pop() {
-            seat.ungrab_kb();
             seat.keyboard_node.set(seat.state.root.clone());
-            log::info!("keyboard_node = root");
+            // log::info!("keyboard_node = root");
             if focus_last {
                 if let Some(tl) = seat.toplevel_focus_history.last() {
                     seat.focus_node(tl.focus_surface(seat.id));
@@ -116,7 +116,7 @@ impl NodeSeatState {
     fn destroy_node2(&self, node: &dyn Node, focus_last: bool) {
         // NOTE: Also called by set_visible(false)
 
-        while let Some((_, seat)) = self.grabs.pop() {
+        while let Some((_, seat)) = self.pointer_grabs.pop() {
             seat.pointer_owner.revert_to_default(&seat);
         }
         let node_id = node.node_id();
@@ -631,7 +631,14 @@ impl WlSeatGlobal {
         surface.client.flush();
     }
 
-    pub fn dnd_surface_enter(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
+    pub fn dnd_surface_enter(
+        &self,
+        surface: &WlSurface,
+        dnd: &Dnd,
+        x: Fixed,
+        y: Fixed,
+        serial: u32,
+    ) {
         if let Some(src) = &dnd.src {
             ipc::offer_source_to::<WlDataDevice>(src, &surface.client);
             src.for_each_data_offer(|offer| {

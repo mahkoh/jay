@@ -2,6 +2,7 @@ use {
     crate::{ifs::wl_seat::WlSeatGlobal, tree::Node, utils::clonecell::CloneCell},
     std::rc::Rc,
 };
+use crate::xwayland::XWaylandEvent;
 
 pub struct KbOwnerHolder {
     default: Rc<DefaultKbOwner>,
@@ -58,6 +59,9 @@ impl KbOwner for DefaultKbOwner {
             return;
         }
         log::info!("unfocus {}", old.node_id());
+        if old.node_is_xwayland_surface() && !node.node_is_xwayland_surface() {
+            seat.state.xwayland.queue.push(XWaylandEvent::ActivateRoot);
+        }
         old.node_unfocus(seat);
         if old.node_seat_state().unfocus(seat) {
             old.node_active_changed(false);

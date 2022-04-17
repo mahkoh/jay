@@ -145,6 +145,7 @@ fn start_compositor2(
         xwayland: XWaylandState {
             enabled: Cell::new(true),
             handler: Default::default(),
+            queue: Default::default(),
         },
         socket_path: Default::default(),
         serial: Default::default(),

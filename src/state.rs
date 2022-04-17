@@ -44,6 +44,7 @@ use {
         time::Duration,
     },
 };
+use crate::xwayland::XWaylandEvent;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -92,6 +93,7 @@ pub struct State {
 pub struct XWaylandState {
     pub enabled: Cell<bool>,
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
+    pub queue: Rc<AsyncQueue<XWaylandEvent>>,
 }
 
 pub struct IdleState {
@@ -99,6 +101,14 @@ pub struct IdleState {
     pub change: AsyncEvent,
     pub timeout: Cell<Duration>,
     pub timeout_changed: Cell<bool>,
+}
+
+impl IdleState {
+    pub fn set_timeout(&self, timeout: Duration) {
+        self.timeout.set(timeout);
+        self.timeout_changed.set(true);
+        self.change.trigger();
+    }
 }
 
 pub struct InputDeviceData {

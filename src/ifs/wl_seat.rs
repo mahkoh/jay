@@ -336,7 +336,8 @@ impl WlSeatGlobal {
         icon: Option<Rc<WlSurface>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
-        self.pointer_owner.start_drag(self, origin, source, icon, serial)
+        self.pointer_owner
+            .start_drag(self, origin, source, icon, serial)
     }
 
     pub fn cancel_dnd(self: &Rc<Self>) {

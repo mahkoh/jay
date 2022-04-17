@@ -27,6 +27,7 @@ use {
     },
     std::time::Duration,
 };
+use jay_config::keyboard::syms::{SYM_a, SYM_e, SYM_o};
 
 const MOD: Modifiers = ALT;
 
@@ -76,6 +77,10 @@ fn configure_seat(s: Seat) {
         let ws = get_workspace(&format!("{}", i + 1));
         s.bind(MOD | sym, move || s.show_workspace(ws));
     }
+
+    s.bind(MOD | SYM_a, || Command::new("spotify-remote").arg("a").spawn());
+    s.bind(MOD | SYM_o, || Command::new("spotify-remote").arg("o").spawn());
+    s.bind(MOD | SYM_e, || Command::new("spotify-remote").arg("e").spawn());
 
     fn do_grab(s: Seat, grab: bool) {
         for device in s.input_devices() {

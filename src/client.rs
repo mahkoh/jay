@@ -16,7 +16,6 @@ use {
             queue::AsyncQueue,
         },
         wire::WlRegistryId,
-        xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
     std::{
@@ -100,7 +99,7 @@ impl Clients {
                 }
             }
         };
-        self.spawn2(id, global, socket, uid, pid, secure, None)?;
+        self.spawn2(id, global, socket, uid, pid, secure, false)?;
         Ok(())
     }
 
@@ -112,7 +111,7 @@ impl Clients {
         uid: c::uid_t,
         pid: c::pid_t,
         secure: bool,
-        xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
+        is_xwayland: bool,
     ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new(Client {
             id,
@@ -125,7 +124,7 @@ impl Clients {
             shutdown: Default::default(),
             dispatch_frame_requests: AsyncQueue::new(),
             tracker: Default::default(),
-            xwayland_queue,
+            is_xwayland,
             secure,
             last_serial: Cell::new(0),
             last_enter_serial: Cell::new(0),
@@ -224,7 +223,7 @@ pub struct Client {
     shutdown: AsyncEvent,
     pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
     pub tracker: Tracker<Client>,
-    pub xwayland_queue: Option<Rc<AsyncQueue<XWaylandEvent>>>,
+    pub is_xwayland: bool,
     pub secure: bool,
     pub last_serial: Cell<u32>,
     pub last_enter_serial: Cell<u32>,

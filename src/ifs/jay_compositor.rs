@@ -17,6 +17,7 @@ use {
     std::{ops::Deref, rc::Rc},
     thiserror::Error,
 };
+use crate::ifs::jay_idle::JayIdle;
 
 pub struct JayCompositorGlobal {
     name: GlobalName,
@@ -140,6 +141,18 @@ impl JayCompositor {
         self.client.remove_obj(ss.deref())?;
         Ok(())
     }
+
+    fn get_idle(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetIdle = self.client.parse(self, parser)?;
+        let idle = Rc::new(JayIdle {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, idle);
+        self.client.add_client_obj(&idle)?;
+        Ok(())
+    }
 }
 
 object_base2! {
@@ -150,11 +163,12 @@ object_base2! {
     QUIT => quit,
     SET_LOG_LEVEL => set_log_level,
     TAKE_SCREENSHOT => take_screenshot,
+    GET_IDLE => get_idle,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        TAKE_SCREENSHOT + 1
+        GET_IDLE + 1
     }
 }
 
