@@ -1,3 +1,4 @@
+use std::mem;
 use {
     crate::utils::ptr_ext::{MutPtrExt, PtrExt},
     std::cell::UnsafeCell,
@@ -33,6 +34,12 @@ impl<T> Stack<T> {
         unsafe {
             let v = self.vec.get().deref();
             (*v).clone()
+        }
+    }
+
+    pub fn take(&self) -> Vec<T> {
+        unsafe {
+            mem::take(self.vec.get().deref_mut())
         }
     }
 }

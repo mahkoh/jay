@@ -14,5 +14,8 @@ msg interval = 0 {
 }
 
 msg inhibitor = 1 {
-    name: str,
+    surface: id(wl_surface),
+    client_id: pod(u64),
+    pid: pod(u64),
+    comm: str,
 }

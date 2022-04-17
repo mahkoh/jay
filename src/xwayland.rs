@@ -163,14 +163,14 @@ async fn run(
             Rc::new(client2),
         )
         .await;
-    let pidfd = match pidfd {
+    let (pidfd, pid) = match pidfd {
         Ok(p) => p,
         Err(e) => return Err(XWaylandError::ExecFailed(e)),
     };
     let client_id = state.clients.id();
     let client = state
         .clients
-        .spawn2(client_id, state, client1, 9999, 9999, true, true);
+        .spawn2(client_id, state, client1, uapi::getuid(), pid, true, true);
     let client = match client {
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),

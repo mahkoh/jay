@@ -9,6 +9,7 @@ use {
     std::{rc::Rc, time::Duration},
     thiserror::Error,
 };
+use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 
 pub struct JayIdle {
     pub id: JayIdleId,
@@ -25,9 +26,26 @@ impl JayIdle {
         });
     }
 
+    fn send_inhibitor(&self, surface: &ZwpIdleInhibitorV1) {
+        let surface = &surface.surface;
+        self.client.event(Inhibitor {
+            self_id: self.id,
+            surface: surface.id,
+            client_id: surface.client.id.raw(),
+            pid: surface.client.pid_info.pid as _,
+            comm: &surface.client.pid_info.comm,
+        });
+    }
+
     fn get_status(&self, parser: MsgParser<'_, '_>) -> Result<(), JayIdleError> {
         let _req: GetStatus = self.client.parse(self, parser)?;
         self.send_interval();
+        {
+            let inhibitors = self.client.state.idle.inhibitors.lock();
+            for inhibitor in inhibitors.values() {
+                self.send_inhibitor(inhibitor);
+            }
+        }
         Ok(())
     }
 

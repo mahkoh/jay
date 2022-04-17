@@ -1,3 +1,4 @@
+use bstr::ByteSlice;
 pub use error::{ClientError, MethodError, ObjectError};
 use {
     crate::{
@@ -28,6 +29,7 @@ use {
     },
     uapi::{c, OwnedFd},
 };
+use crate::utils::trim::AsciiTrim;
 
 mod error;
 mod objects;
@@ -35,6 +37,12 @@ mod tasks;
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ClientId(u64);
+
+impl ClientId {
+    pub fn raw(self) -> u64 {
+        self.0
+    }
+}
 
 impl Display for ClientId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -128,6 +136,7 @@ impl Clients {
             secure,
             last_serial: Cell::new(0),
             last_enter_serial: Cell::new(0),
+            pid_info: get_pid_info(uid, pid),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -139,12 +148,13 @@ impl Clients {
             data: data.clone(),
         };
         log::info!(
-            "Client {} connected, pid: {}, uid: {}, fd: {}, secure: {}",
+            "Client {} connected, pid: {}, uid: {}, fd: {}, secure: {}, comm: {:?}",
             id,
             pid,
             uid,
             client.data.socket.raw(),
             secure,
+            data.pid_info.comm,
         );
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
@@ -212,6 +222,12 @@ pub trait RequestParser<'a>: Debug + Sized {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
 }
 
+pub struct PidInfo {
+    pub uid: c::uid_t,
+    pub pid: c::pid_t,
+    pub comm: String,
+}
+
 pub struct Client {
     pub id: ClientId,
     pub state: Rc<State>,
@@ -227,6 +243,7 @@ pub struct Client {
     pub secure: bool,
     pub last_serial: Cell<u32>,
     pub last_enter_serial: Cell<u32>,
+    pub pid_info: PidInfo,
 }
 
 impl Client {
@@ -419,4 +436,19 @@ pub trait WaylandObjectLookup: Copy + Into<ObjectId> {
     const INTERFACE: Interface;
 
     fn lookup(client: &Client, id: Self) -> Option<Rc<Self::Object>>;
+}
+
+fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
+    let comm = match std::fs::read(format!("/proc/{}/comm", pid)) {
+        Ok(name) => name.trim().as_bstr().to_string(),
+        Err(e) => {
+            log::warn!("Could not read `comm` of pid {}: {}", pid, ErrorFmt(e));
+            "Unknown".to_string()
+        }
+    };
+    PidInfo {
+        uid,
+        pid,
+        comm,
+    }
 }

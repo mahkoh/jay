@@ -7,6 +7,8 @@ use {
     },
     std::{cell::Cell, collections::VecDeque, rc::Rc, str::FromStr},
 };
+use crate::utils::stack::Stack;
+use crate::wire::WlSurfaceId;
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
     let tc = ToolClient::new(global.log_level.into());
@@ -40,13 +42,50 @@ impl Idle {
         jay_idle::Interval::handle(tc, idle, interval.clone(), |iv, msg| {
             iv.set(msg.interval);
         });
+        struct Inhibitor {
+            surface: WlSurfaceId,
+            _client_id: u64,
+            pid: u64,
+            comm: String,
+        }
+        let inhibitors = Rc::new(Stack::default());
+        jay_idle::Inhibitor::handle(tc, idle, inhibitors.clone(), |iv, msg| {
+            iv.push(Inhibitor {
+                surface: msg.surface,
+                _client_id: msg.client_id,
+                pid: msg.pid,
+                comm: msg.comm.to_string(),
+            });
+        });
         tc.round_trip().await;
         let minutes = interval.get() / 60;
         let seconds = interval.get() % 60;
+        print!("Interval:");
         if minutes == 0 && seconds == 0 {
-            println!("Interval: disabled");
+            print!(" disabled");
         } else {
-            println!("Interval: {} minutes {} seconds", minutes, seconds);
+            if minutes > 0 {
+                print!(" {} minute", minutes);
+                if minutes > 1 {
+                    print!("s");
+                }
+            }
+            if seconds > 0 {
+                print!(" {} second", seconds);
+                if seconds > 1 {
+                    print!("s");
+                }
+            }
+        }
+        println!();
+        let mut inhibitors = inhibitors.take();
+        inhibitors.sort_by_key(|i| i.pid);
+        inhibitors.sort_by_key(|i| i.surface);
+        if inhibitors.len() > 0{
+            println!("Inhibitors:");
+            for inhibitor in inhibitors {
+                println!("  {}, surface {}, pid {}", inhibitor.comm, inhibitor.surface, inhibitor.pid);
+            }
         }
     }
 

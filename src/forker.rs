@@ -51,7 +51,7 @@ pub struct ForkerProxy {
 }
 
 struct PidfdHandoff {
-    pidfd: Cell<Option<Result<OwnedFd, ForkerError>>>,
+    pidfd: Cell<Option<Result<(OwnedFd, c::pid_t), ForkerError>>>,
     waiter: Cell<Option<Waker>>,
 }
 
@@ -130,7 +130,7 @@ impl ForkerProxy {
         })
     }
 
-    async fn pidfd(&self, id: u32) -> Result<OwnedFd, ForkerError> {
+    async fn pidfd(&self, id: u32) -> Result<(OwnedFd, c::pid_t), ForkerError> {
         let handoff = Rc::new(PidfdHandoff {
             pidfd: Cell::new(None),
             waiter: Cell::new(None),
@@ -154,7 +154,7 @@ impl ForkerProxy {
         listenfd: Rc<OwnedFd>,
         wmfd: Rc<OwnedFd>,
         waylandfd: Rc<OwnedFd>,
-    ) -> Result<OwnedFd, ForkerError> {
+    ) -> Result<(OwnedFd, c::pid_t), ForkerError> {
         self.fds
             .borrow_mut()
             .extend([stderr, dfd, listenfd, wmfd, waylandfd]);
@@ -200,13 +200,13 @@ impl ForkerProxy {
     fn handle_msg(&self, msg: ForkerMessage, io: &mut IoIn) {
         match msg {
             ForkerMessage::Log { level, msg } => self.handle_log(level, &msg),
-            ForkerMessage::PidFd { id, success } => self.handle_pidfd(id, success, io),
+            ForkerMessage::PidFd { id, success, pid } => self.handle_pidfd(id, success, io, pid),
         }
     }
 
-    fn handle_pidfd(&self, id: u32, success: bool, io: &mut IoIn) {
+    fn handle_pidfd(&self, id: u32, success: bool, io: &mut IoIn, pid: c::pid_t) {
         let res = match success {
-            true => Ok(io.pop_fd().unwrap()),
+            true => Ok((io.pop_fd().unwrap(), pid)),
             _ => Err(ForkerError::PidfdForkFailed),
         };
         if let Some(handoff) = self.pending_pidfds.remove(&id) {
@@ -284,7 +284,7 @@ enum ServerMessage {
 #[derive(Encode, Decode)]
 enum ForkerMessage {
     Log { level: usize, msg: String },
-    PidFd { id: u32, success: bool },
+    PidFd { id: u32, success: bool, pid: c::pid_t },
 }
 
 struct Forker {
@@ -414,7 +414,7 @@ impl Forker {
             Err(e) => {
                 if let Some(id) = pidfd_id {
                     self.outgoing
-                        .push(ForkerMessage::PidFd { id, success: false });
+                        .push(ForkerMessage::PidFd { id, success: false, pid: 0 });
                 }
                 self.outgoing.push(ForkerMessage::Log {
                     level: log::Level::Error as usize,
@@ -428,7 +428,7 @@ impl Forker {
                 if let Some(id) = pidfd_id {
                     self.fds.borrow_mut().push(Rc::new(pidfd));
                     self.outgoing
-                        .push(ForkerMessage::PidFd { id, success: true });
+                        .push(ForkerMessage::PidFd { id, success: true, pid });
                 }
                 drop(write);
                 let slf = self.clone();
