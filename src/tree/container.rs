@@ -766,6 +766,10 @@ impl SizedNode for ContainerNode {
         self.visible.get()
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        Some(self.parent.get())
+    }
+
     fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
         if let Some(last) = self.focus_history.last() {
             return last.node.clone().node_last_active_child();

@@ -30,11 +30,12 @@ use {
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
             linkedlist::LinkedList,
             numcell::NumCell,
             smallmap::SmallMap,
         },
-        wire::{wl_surface::*, WlOutputId, WlSurfaceId},
+        wire::{wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id},
         xkbcommon::ModifierState,
     },
     ahash::AHashMap,
@@ -49,8 +50,6 @@ use {
     thiserror::Error,
     zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
 };
-use crate::utils::copyhashmap::CopyHashMap;
-use crate::wire::ZwpIdleInhibitorV1Id;
 
 #[allow(dead_code)]
 const INVALID_SCALE: u32 = 0;
@@ -689,6 +688,10 @@ impl SizedNode for WlSurface {
 
     fn visible(&self) -> bool {
         self.visible.get()
+    }
+
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        self.toplevel.get().map(|tl| tl.into_node())
     }
 
     fn set_visible(&self, visible: bool) {

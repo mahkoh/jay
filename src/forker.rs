@@ -283,8 +283,15 @@ enum ServerMessage {
 
 #[derive(Encode, Decode)]
 enum ForkerMessage {
-    Log { level: usize, msg: String },
-    PidFd { id: u32, success: bool, pid: c::pid_t },
+    Log {
+        level: usize,
+        msg: String,
+    },
+    PidFd {
+        id: u32,
+        success: bool,
+        pid: c::pid_t,
+    },
 }
 
 struct Forker {
@@ -413,8 +420,11 @@ impl Forker {
             Ok(o) => o,
             Err(e) => {
                 if let Some(id) = pidfd_id {
-                    self.outgoing
-                        .push(ForkerMessage::PidFd { id, success: false, pid: 0 });
+                    self.outgoing.push(ForkerMessage::PidFd {
+                        id,
+                        success: false,
+                        pid: 0,
+                    });
                 }
                 self.outgoing.push(ForkerMessage::Log {
                     level: log::Level::Error as usize,
@@ -427,8 +437,11 @@ impl Forker {
             Forked::Parent { pid, pidfd } => {
                 if let Some(id) = pidfd_id {
                     self.fds.borrow_mut().push(Rc::new(pidfd));
-                    self.outgoing
-                        .push(ForkerMessage::PidFd { id, success: true, pid });
+                    self.outgoing.push(ForkerMessage::PidFd {
+                        id,
+                        success: true,
+                        pid,
+                    });
                 }
                 drop(write);
                 let slf = self.clone();

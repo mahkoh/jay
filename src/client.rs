@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-use bstr::ByteSlice;
 pub use error::{ClientError, MethodError, ObjectError};
 use {
     crate::{
@@ -16,12 +14,15 @@ use {
             errorfmt::ErrorFmt,
             numcell::NumCell,
             queue::AsyncQueue,
+            trim::AsciiTrim,
         },
         wire::WlRegistryId,
     },
     ahash::AHashMap,
+    bstr::ByteSlice,
     std::{
         cell::{Cell, RefCell},
+        collections::VecDeque,
         error::Error,
         fmt::{Debug, Display, Formatter},
         mem,
@@ -30,7 +31,6 @@ use {
     },
     uapi::{c, OwnedFd},
 };
-use crate::utils::trim::AsciiTrim;
 
 mod error;
 mod objects;
@@ -459,9 +459,5 @@ fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
             "Unknown".to_string()
         }
     };
-    PidInfo {
-        uid,
-        pid,
-        comm,
-    }
+    PidInfo { uid, pid, comm }
 }

@@ -34,7 +34,6 @@ use {
         state::State,
         tree::{
             generic_node_visitor, ContainerSplit, FloatNode, FoundNode, Node, OutputNode,
-            ToplevelNode,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -42,7 +41,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
-            linkedlist::{LinkedList, LinkedNode},
+            linkedlist::{LinkedNode},
             rc_eq::rc_eq,
         },
         wire::{
@@ -111,7 +110,6 @@ pub struct WlSeatGlobal {
     pos: Cell<(Fixed, Fixed)>,
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
     found_tree: RefCell<Vec<FoundNode>>,
-    toplevel_focus_history: LinkedList<Rc<dyn ToplevelNode>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
@@ -154,7 +152,6 @@ impl WlSeatGlobal {
             pos: Cell::new((Fixed(0), Fixed(0))),
             pointer_stack: RefCell::new(vec![]),
             found_tree: RefCell::new(vec![]),
-            toplevel_focus_history: Default::default(),
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),

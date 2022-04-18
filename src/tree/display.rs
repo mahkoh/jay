@@ -99,6 +99,10 @@ impl SizedNode for DisplayNode {
         true
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        None
+    }
+
     fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         let outputs = self.outputs.lock();
         for output in outputs.values() {

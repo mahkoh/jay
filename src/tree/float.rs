@@ -352,6 +352,10 @@ impl SizedNode for FloatNode {
         self.visible.get()
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        Some(self.workspace.get())
+    }
+
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
         if let Some(child) = self.child.get() {

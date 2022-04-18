@@ -1,7 +1,6 @@
-use std::mem;
 use {
     crate::utils::ptr_ext::{MutPtrExt, PtrExt},
-    std::cell::UnsafeCell,
+    std::{cell::UnsafeCell, mem},
 };
 
 pub struct Stack<T> {
@@ -38,8 +37,6 @@ impl<T> Stack<T> {
     }
 
     pub fn take(&self) -> Vec<T> {
-        unsafe {
-            mem::take(self.vec.get().deref_mut())
-        }
+        unsafe { mem::take(self.vec.get().deref_mut()) }
     }
 }

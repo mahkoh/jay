@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
@@ -9,7 +10,6 @@ use {
     std::{rc::Rc, time::Duration},
     thiserror::Error,
 };
-use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 
 pub struct JayIdle {
     pub id: JayIdleId,

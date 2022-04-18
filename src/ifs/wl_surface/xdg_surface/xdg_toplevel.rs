@@ -403,6 +403,10 @@ impl SizedNode for XdgToplevel {
         self.xdg.surface.visible.get()
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        self.parent_node.get()
+    }
+
     fn set_visible(&self, visible: bool) {
         self.xdg.set_visible(visible);
         self.xdg.seat_state.set_visible(self, visible);
@@ -479,10 +483,6 @@ impl SizedNode for XdgToplevel {
 impl ToplevelNode for XdgToplevel {
     fn data(&self) -> &ToplevelData {
         &self.toplevel_data
-    }
-
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.parent_node.get()
     }
 
     fn as_node(&self) -> &dyn Node {

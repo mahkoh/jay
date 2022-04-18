@@ -2,13 +2,11 @@ use {
     crate::{
         cli::{GlobalArgs, IdleArgs, IdleCmd, IdleSetArgs},
         tools::tool_client::{Handle, ToolClient},
-        utils::errorfmt::ErrorFmt,
-        wire::{jay_compositor, jay_idle, JayIdleId},
+        utils::{errorfmt::ErrorFmt, stack::Stack},
+        wire::{jay_compositor, jay_idle, JayIdleId, WlSurfaceId},
     },
     std::{cell::Cell, collections::VecDeque, rc::Rc, str::FromStr},
 };
-use crate::utils::stack::Stack;
-use crate::wire::WlSurfaceId;
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
     let tc = ToolClient::new(global.log_level.into());
@@ -81,10 +79,13 @@ impl Idle {
         let mut inhibitors = inhibitors.take();
         inhibitors.sort_by_key(|i| i.pid);
         inhibitors.sort_by_key(|i| i.surface);
-        if inhibitors.len() > 0{
+        if inhibitors.len() > 0 {
             println!("Inhibitors:");
             for inhibitor in inhibitors {
-                println!("  {}, surface {}, pid {}", inhibitor.comm, inhibitor.surface, inhibitor.pid);
+                println!(
+                    "  {}, surface {}, pid {}",
+                    inhibitor.comm, inhibitor.surface, inhibitor.pid
+                );
             }
         }
     }

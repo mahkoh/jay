@@ -6,7 +6,7 @@ use {
             InputDeviceId, InputDeviceIds, MonitorInfo,
         },
         cli::RunArgs,
-        client::{Client, Clients},
+        client::{Client, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
         config::ConfigProxy,
         cursor::ServerCursors,
         dbus::Dbus,
@@ -42,12 +42,12 @@ use {
     std::{
         cell::{Cell, RefCell},
         num::Wrapping,
+        ops::Deref,
         rc::Rc,
         sync::Arc,
         time::Duration,
     },
 };
-use crate::client::{NUM_CACHED_SERIAL_RANGES, SerialRange};
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -209,39 +209,44 @@ impl State {
     }
 
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn Node>) {
-        let seat = self.seat_queue.last();
-        if let Some(seat) = &seat {
-            if let Some(prev) = seat.last_tiled_keyboard_toplevel(&*node) {
-                if let Some(container) = prev.parent() {
-                    if let Some(container) = container.node_into_container() {
-                        container.add_child_after(prev.as_node(), node);
-                        return;
-                    }
-                }
+        let output = self
+            .seat_queue
+            .last()
+            .map(|s| s.get_output())
+            .or_else(|| self.root.outputs.lock().values().next().cloned())
+            .or_else(|| self.dummy_output.get())
+            .unwrap();
+        let last_active = output.last_active_child();
+        let last_active_parent = last_active.node_parent();
+        if let Some(lap) = last_active_parent {
+            if lap.node_is_container() {
+                let container = lap.node_into_container().unwrap();
+                container.add_child_after(last_active.deref(), node);
+                return;
+            }
+            if lap.node_is_workspace() {
+                let workspace = lap.node_into_workspace().unwrap();
+                let container = ContainerNode::new(
+                    self,
+                    &workspace,
+                    workspace.clone(),
+                    last_active.clone(),
+                    ContainerSplit::Horizontal,
+                );
+                workspace.set_container(&container);
+                container.add_child_after(last_active.deref(), node);
+                return;
             }
         }
-        let mut output = seat.map(|s| s.get_output());
-        if output.is_none() {
-            let outputs = self.root.outputs.lock();
-            output = outputs.values().next().cloned();
-        }
-        let output = match output {
-            Some(output) => output,
-            _ => self.dummy_output.get().unwrap(),
-        };
         let workspace = output.ensure_workspace();
-        if let Some(container) = workspace.container.get() {
-            container.append_child(node);
-        } else {
-            let container = ContainerNode::new(
-                self,
-                &workspace,
-                workspace.clone(),
-                node,
-                ContainerSplit::Horizontal,
-            );
-            workspace.set_container(&container);
-        };
+        let container = ContainerNode::new(
+            self,
+            &workspace,
+            workspace.clone(),
+            node,
+            ContainerSplit::Horizontal,
+        );
+        workspace.set_container(&container);
     }
 
     pub fn map_floating(

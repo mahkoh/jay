@@ -13,6 +13,7 @@ use {
             linkedlist::{LinkedList, LinkedNode},
         },
     },
+    jay_config::Direction,
     std::{cell::Cell, fmt::Debug, rc::Rc},
 };
 
@@ -74,6 +75,10 @@ impl SizedNode for WorkspaceNode {
         self.visible.get()
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        Some(self.output.get())
+    }
+
     fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
         if let Some(c) = self.container.get() {
             return c.last_active_child();
@@ -87,6 +92,12 @@ impl SizedNode for WorkspaceNode {
             container.node_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
+    }
+
+    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(container) = self.container.get() {
+            container.do_focus(seat, direction);
+        }
     }
 
     fn absolute_position(&self) -> Rect {
@@ -115,6 +126,10 @@ impl SizedNode for WorkspaceNode {
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_workspace(self, x, y);
+    }
+
+    fn into_workspace(self: &Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        Some(self.clone())
     }
 
     fn accepts_child(&self, node: &dyn Node) -> bool {

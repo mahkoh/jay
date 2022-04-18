@@ -75,6 +75,7 @@ pub trait SizedNode: Sized + 'static {
     fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn visible(&self) -> bool;
+    fn parent(&self) -> Option<Rc<dyn Node>>;
 
     fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
         self.clone()
@@ -285,6 +286,10 @@ pub trait SizedNode: Sized + 'static {
         None
     }
 
+    fn into_workspace(self: &Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        None
+    }
+
     fn is_container(&self) -> bool {
         false
     }
@@ -372,6 +377,7 @@ pub trait Node {
     fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn node_visible(&self) -> bool;
+    fn node_parent(&self) -> Option<Rc<dyn Node>>;
     fn node_last_active_child(self: Rc<Self>) -> Rc<dyn Node>;
     fn node_set_visible(&self, visible: bool);
     fn node_get_workspace(&self) -> Option<Rc<WorkspaceNode>>;
@@ -428,6 +434,7 @@ pub trait Node {
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32);
     fn node_into_float(self: Rc<Self>) -> Option<Rc<FloatNode>>;
     fn node_into_container(self: Rc<Self>) -> Option<Rc<ContainerNode>>;
+    fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>>;
     fn node_is_container(&self) -> bool;
     fn node_is_output(&self) -> bool;
     fn node_into_output(self: Rc<Self>) -> Option<Rc<OutputNode>>;
@@ -466,6 +473,9 @@ impl<T: SizedNode> Node for T {
     }
     fn node_visible(&self) -> bool {
         <Self as SizedNode>::visible(self)
+    }
+    fn node_parent(&self) -> Option<Rc<dyn Node>> {
+        <Self as SizedNode>::parent(self)
     }
     fn node_last_active_child(self: Rc<Self>) -> Rc<dyn Node> {
         <Self as SizedNode>::last_active_child(&self)
@@ -612,6 +622,9 @@ impl<T: SizedNode> Node for T {
     }
     fn node_into_container(self: Rc<Self>) -> Option<Rc<ContainerNode>> {
         <Self as SizedNode>::into_container(&self)
+    }
+    fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        <Self as SizedNode>::into_workspace(&self)
     }
     fn node_is_container(&self) -> bool {
         <Self as SizedNode>::is_container(self)

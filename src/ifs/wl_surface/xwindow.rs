@@ -366,6 +366,10 @@ impl SizedNode for Xwindow {
         self.surface.visible.get()
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        self.parent_node.get()
+    }
+
     fn set_visible(&self, visible: bool) {
         self.surface.node_set_visible(visible);
         self.seat_state.set_visible(self, visible);
@@ -461,10 +465,6 @@ impl SizedNode for Xwindow {
 impl ToplevelNode for Xwindow {
     fn data(&self) -> &ToplevelData {
         &self.toplevel_data
-    }
-
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.parent_node.get()
     }
 
     fn as_node(&self) -> &dyn Node {

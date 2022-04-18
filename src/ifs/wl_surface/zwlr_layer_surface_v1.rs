@@ -381,6 +381,10 @@ impl SizedNode for ZwlrLayerSurfaceV1 {
         true
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        Some(self.output.clone())
+    }
+
     fn absolute_position(&self) -> Rect {
         self.pos.get()
     }

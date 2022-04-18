@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::{wl_seat::SeatId, wl_surface::WlSurface},
         tree::Node,
-        utils::{linkedlist::LinkedNode, numcell::NumCell, smallmap::SmallMap},
+        utils::{numcell::NumCell, smallmap::SmallMap},
     },
     std::rc::Rc,
 };
@@ -10,7 +10,6 @@ use {
 tree_id!(ToplevelNodeId);
 pub trait ToplevelNode {
     fn data(&self) -> &ToplevelData;
-    fn parent(&self) -> Option<Rc<dyn Node>>;
     fn as_node(&self) -> &dyn Node;
     fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
     fn accepts_keyboard_focus(&self) -> bool;
@@ -25,13 +24,11 @@ pub trait ToplevelNode {
 pub struct ToplevelData {
     pub active_surfaces: NumCell<u32>,
     pub focus_surface: SmallMap<SeatId, Rc<WlSurface>, 1>,
-    pub toplevel_history: SmallMap<SeatId, LinkedNode<Rc<dyn ToplevelNode>>, 1>,
 }
 
 impl ToplevelData {
     pub fn clear(&self) {
         self.focus_surface.clear();
-        self.toplevel_history.clear();
     }
 }
 
@@ -53,5 +50,9 @@ impl<'a> dyn ToplevelNode + 'a {
             .focus_surface
             .get(&seat)
             .unwrap_or_else(|| self.default_surface())
+    }
+
+    pub fn parent(&self) -> Option<Rc<dyn Node>> {
+        self.as_node().node_parent()
     }
 }

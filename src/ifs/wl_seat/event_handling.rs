@@ -21,14 +21,17 @@ use {
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
         object::ObjectId,
-        tree::{FloatNode, Node, ToplevelNode},
+        tree::{FloatNode, Node, SizedNode, ToplevelNode},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
-    jay_config::keyboard::{mods::Modifiers, syms::KeySym, ModifiedKeySym},
+    jay_config::{
+        keyboard::{mods::Modifiers, syms::KeySym, ModifiedKeySym},
+        Direction,
+    },
     smallvec::SmallVec,
-    std::{ops::Deref, rc::Rc},
+    std::rc::Rc,
 };
 
 #[derive(Default)]
@@ -94,9 +97,7 @@ impl NodeSeatState {
             seat.keyboard_node.set(seat.state.root.clone());
             // log::info!("keyboard_node = root");
             if focus_last {
-                if let Some(tl) = seat.toplevel_focus_history.last() {
-                    seat.focus_node(tl.focus_surface(seat.id));
-                }
+                seat.output.get().do_focus(&seat, Direction::Unspecified);
             }
         }
     }
@@ -269,30 +270,6 @@ impl WlSeatGlobal {
         self.pointer_stack.borrow().last().cloned()
     }
 
-    pub fn last_tiled_keyboard_toplevel(&self, new: &dyn Node) -> Option<Rc<dyn ToplevelNode>> {
-        let workspace = match self.output.get().workspace.get() {
-            Some(ws) => ws,
-            _ => return None,
-        };
-        let is_container = new.node_is_container();
-        for tl in self.toplevel_focus_history.rev_iter() {
-            match tl.as_node().node_get_workspace() {
-                Some(ws) if ws.id == workspace.id => {}
-                _ => continue,
-            };
-            let parent_is_float = match tl.parent() {
-                Some(pn) => pn.node_is_float(),
-                _ => false,
-            };
-            if !parent_is_float
-                && (!is_container || !tl.as_node().node_is_contained_in(new.node_id()))
-            {
-                return Some(tl.deref().clone());
-            }
-        }
-        None
-    }
-
     pub fn move_(&self, node: &Rc<FloatNode>) {
         self.move_.set(true);
         self.move_start_pos.set(self.pos.get());
@@ -301,8 +278,6 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        let node = self.toplevel_focus_history.add_last(n.clone());
-        n.data().toplevel_history.insert(self.id, node);
         self.focus_node(n.focus_surface(self.id));
     }
 

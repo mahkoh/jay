@@ -303,11 +303,21 @@ impl SizedNode for OutputNode {
         true
     }
 
+    fn parent(&self) -> Option<Rc<dyn Node>> {
+        Some(self.state.root.clone())
+    }
+
     fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
         if let Some(ws) = self.workspace.get() {
             return ws.last_active_child();
         }
         self.clone()
+    }
+
+    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(ws) = self.workspace.get() {
+            ws.do_focus(seat, direction);
+        }
     }
 
     fn absolute_position(&self) -> Rect {
