@@ -60,7 +60,7 @@ impl KbOwner for DefaultKbOwner {
         if old.node_id() == node.node_id() {
             return;
         }
-        log::info!("unfocus {}", old.node_id());
+        // log::info!("unfocus {}", old.node_id());
         if old.node_is_xwayland_surface() && !node.node_is_xwayland_surface() {
             seat.state.xwayland.queue.push(XWaylandEvent::ActivateRoot);
         }
@@ -72,7 +72,7 @@ impl KbOwner for DefaultKbOwner {
         if node.node_seat_state().focus(seat) {
             node.node_active_changed(true);
         }
-        log::info!("focus {}", node.node_id());
+        // log::info!("focus {}", node.node_id());
         node.clone().node_focus(seat);
         seat.keyboard_node.set(node.clone());
     }

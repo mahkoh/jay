@@ -156,7 +156,10 @@ impl WlPointer {
 
     fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
         let req: SetCursor = self.seat.client.parse(self, parser)?;
-        self.seat.client.validate_serial(req.serial)?;
+        if !self.seat.client.valid_serial(req.serial) {
+            log::warn!("Client tried to set_cursor with an invalid serial");
+            return Ok(());
+        }
         let mut cursor_opt = None;
         if req.surface.is_some() {
             let surface = self.seat.client.lookup(req.surface)?;

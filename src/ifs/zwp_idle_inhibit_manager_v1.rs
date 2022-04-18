@@ -80,6 +80,7 @@ impl ZwpIdleInhibitManagerV1 {
     ) -> Result<(), ZwpIdleInhibitManagerV1Error> {
         let req: CreateInhibitor = self.client.parse(self, parser)?;
         let surface = self.client.lookup(req.surface)?;
+        log::info!("create {}", req.id);
         let inhibit = Rc::new(ZwpIdleInhibitorV1 {
             id: req.id,
             inhibit_id: self.client.state.idle_inhibitor_ids.next(),

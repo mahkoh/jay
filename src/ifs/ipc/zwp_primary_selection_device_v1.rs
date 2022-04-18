@@ -63,7 +63,10 @@ impl ZwpPrimarySelectionDeviceV1 {
 
     fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
         let req: SetSelection = self.manager.client.parse(self, parser)?;
-        self.seat.client.validate_serial(req.serial)?;
+        if !self.manager.client.valid_serial(req.serial) {
+            log::warn!("Client tried to set_selection with an invalid serial");
+            return Ok(());
+        }
         if !self
             .seat
             .global

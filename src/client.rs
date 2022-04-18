@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use bstr::ByteSlice;
 pub use error::{ClientError, MethodError, ObjectError};
 use {
@@ -134,9 +135,9 @@ impl Clients {
             tracker: Default::default(),
             is_xwayland,
             secure,
-            last_serial: Cell::new(0),
             last_enter_serial: Cell::new(0),
             pid_info: get_pid_info(uid, pid),
+            serials: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -241,9 +242,16 @@ pub struct Client {
     pub tracker: Tracker<Client>,
     pub is_xwayland: bool,
     pub secure: bool,
-    pub last_serial: Cell<u32>,
     pub last_enter_serial: Cell<u32>,
     pub pid_info: PidInfo,
+    pub serials: RefCell<VecDeque<SerialRange>>,
+}
+
+pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
+
+pub struct SerialRange {
+    pub lo: u32,
+    pub hi: u32,
 }
 
 impl Client {
@@ -271,12 +279,17 @@ impl Client {
         }
     }
 
-    pub fn validate_serial(&self, serial: u32) -> Result<(), ClientError> {
-        if serial > self.last_serial.get() {
-            Err(ClientError::InvalidSerial)
-        } else {
-            Ok(())
+    pub fn valid_serial(&self, serial: u32) -> bool {
+        let serials = self.serials.borrow_mut();
+        for range in serials.iter().rev() {
+            if serial.wrapping_sub(range.hi) as i32 > 0 {
+                return false;
+            }
+            if serial.wrapping_sub(range.lo) as i32 >= 0 {
+                return true;
+            }
         }
+        serials.len() == NUM_CACHED_SERIAL_RANGES
     }
 
     pub fn next_serial(&self) -> u32 {

@@ -1,0 +1,16 @@
+- wayland
+  - wl_compositor
+    - todo: version 5
+  - wl_shm
+    - support for more formats
+  - wl_surface
+    - set_input_region
+    - damage
+    - transform
+    - scale
+    - offset
+  - wl_touch
+    - todo
+
+- xdg-shell
+  - oeuo.e

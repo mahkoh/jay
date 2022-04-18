@@ -7,6 +7,7 @@
 
 # done
 
+- idle inhibit
 - layer shell
 - Float moving
 - Float toggle

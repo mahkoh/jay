@@ -47,6 +47,7 @@ use {
         time::Duration,
     },
 };
+use crate::client::{NUM_CACHED_SERIAL_RANGES, SerialRange};
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -359,8 +360,23 @@ impl State {
     pub fn next_serial(&self, client: Option<&Client>) -> u32 {
         let serial = self.serial.fetch_add(Wrapping(1)).0;
         if let Some(client) = client {
-            client.last_serial.set(serial);
+            'update_range: {
+                let mut serials = client.serials.borrow_mut();
+                if let Some(last) = serials.back_mut() {
+                    if last.hi.wrapping_add(1) == serial {
+                        last.hi = serial;
+                        break 'update_range;
+                    }
+                }
+                if serials.len() >= NUM_CACHED_SERIAL_RANGES {
+                    serials.pop_front();
+                }
+                serials.push_back(SerialRange {
+                    lo: serial,
+                    hi: serial,
+                });
+            }
         }
-        serial
+        serial as _
     }
 }

@@ -435,9 +435,9 @@ impl Wm {
     }
 
     async fn focus_window(&mut self, window: Option<&Rc<XwindowData>>) {
-        log::info!("xwm focus_window {:?}", window.map(|w| w.window_id));
+        // log::info!("xwm focus_window {:?}", window.map(|w| w.window_id));
         if let Some(old) = mem::replace(&mut self.focus_window, window.cloned()) {
-            log::info!("xwm unfocus {:?}", old.window_id);
+            // log::info!("xwm unfocus {:?}", old.window_id);
             self.set_net_wm_state(&old).await;
         }
         let window = match window {
@@ -458,7 +458,7 @@ impl Wm {
             }
         };
         if window.info.override_redirect.get() {
-            log::info!("xwm or => return");
+            // log::info!("xwm or => return");
             return;
         }
         if let Some(window) = window.window.get() {
@@ -558,7 +558,7 @@ impl Wm {
                 return;
             }
         }
-        log::info!("{} role {}", data.window_id, buf.as_bstr());
+        // log::info!("{} role {}", data.window_id, buf.as_bstr());
         *data.info.role.borrow_mut() = Some(buf.into());
     }
 
@@ -995,13 +995,13 @@ impl Wm {
 
     async fn handle_focus_in(&mut self, revent: &Event) -> Result<(), XWaylandError> {
         let event: FocusIn = revent.parse()?;
-        log::info!("xwm focus_in {}", event.event);
+        // log::info!("xwm focus_in {}", event.event);
         if matches!(event.mode, NOTIFY_MODE_GRAB | NOTIFY_MODE_UNGRAB) {
-            log::info!("xwm GRAB/UNGRAB");
+            // log::info!("xwm GRAB/UNGRAB");
             return Ok(());
         }
         if matches!(event.detail, NOTIFY_DETAIL_POINTER) {
-            log::info!("xwm POINTER");
+            // log::info!("xwm POINTER");
             return Ok(());
         }
         let new_window = self.windows.get(&event.event);
@@ -1014,7 +1014,7 @@ impl Wm {
                     && prev_pid == new_pid
                     && revent.serial() >= self.last_input_serial
                 {
-                    log::info!("xwm ACCEPT");
+                    // log::info!("xwm ACCEPT");
                     focus_window = new_window;
                 }
             }
@@ -1036,7 +1036,7 @@ impl Wm {
     }
 
     async fn activate_window(&mut self, window: Option<&Rc<XwindowData>>) {
-        log::info!("xwm activate_window {:?}", window.map(|w| w.window_id));
+        // log::info!("xwm activate_window {:?}", window.map(|w| w.window_id));
         if self.focus_window.as_ref().map(|w| w.window_id) == window.map(|w| w.window_id) {
             return;
         }
@@ -1126,7 +1126,7 @@ impl Wm {
             Some(w) => w,
             _ => return Ok(()),
         };
-        log::info!("xwm destroy_notify {}", event.window);
+        // log::info!("xwm destroy_notify {}", event.window);
         data.destroyed.set(true);
         if let Some(sid) = data.surface_id.take() {
             self.windows_by_surface_id.remove(&sid);

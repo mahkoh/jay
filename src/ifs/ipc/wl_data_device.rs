@@ -94,7 +94,10 @@ impl WlDataDevice {
 
     fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
         let req: StartDrag = self.manager.client.parse(self, parser)?;
-        self.manager.client.validate_serial(req.serial)?;
+        if !self.manager.client.valid_serial(req.serial) {
+            log::warn!("Client tried to start_drag with an invalid serial");
+            return Ok(());
+        }
         let origin = self.manager.client.lookup(req.origin)?;
         let source = if req.source.is_some() {
             Some(self.manager.client.lookup(req.source)?)
@@ -116,7 +119,10 @@ impl WlDataDevice {
 
     fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
         let req: SetSelection = self.manager.client.parse(self, parser)?;
-        self.manager.client.validate_serial(req.serial)?;
+        if !self.manager.client.valid_serial(req.serial) {
+            log::warn!("Client tried to set_selection with an invalid serial");
+            return Ok(());
+        }
         if !self
             .seat
             .global
