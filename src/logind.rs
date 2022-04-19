@@ -1,6 +1,7 @@
 use {
     crate::{
         dbus::{DbusError, DbusSocket, SignalHandler, FALSE},
+        utils::errorfmt::ErrorFmt,
         wire_dbus::{
             org,
             org::freedesktop::login1::{
@@ -81,10 +82,22 @@ impl Session {
                 org::freedesktop::login1::session::TakeControl { force: FALSE },
             )
             .await;
-        match res {
-            Ok(_) => Ok(()),
-            Err(e) => Err(LogindError::TakeControl(e)),
+        if let Err(e) = res {
+            return Err(LogindError::TakeControl(e));
         }
+        self.socket.call(
+            LOGIND_NAME,
+            &self.session_path,
+            org::freedesktop::login1::session::SetType {
+                ty: "wayland".into(),
+            },
+            |res| {
+                if let Err(e) = res {
+                    log::warn!("Could not change session type to wayland: {}", ErrorFmt(e));
+                }
+            },
+        );
+        Ok(())
     }
 
     pub fn get_device<F>(&self, dev: c::dev_t, f: F)

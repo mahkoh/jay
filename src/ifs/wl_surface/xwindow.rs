@@ -435,6 +435,10 @@ impl SizedNode for Xwindow {
         // log::info!("xwin {} change_extents {:?}", self.data.window_id, rect);
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
+            if self.toplevel_data.is_floating.get() {
+                self.toplevel_data.float_width.set(rect.width());
+                self.toplevel_data.float_height.set(rect.height());
+            }
             if !self.data.info.override_redirect.get() {
                 self.data
                     .state
@@ -453,6 +457,7 @@ impl SizedNode for Xwindow {
     }
 
     fn set_parent(self: &Rc<Self>, parent: Rc<dyn Node>) {
+        self.toplevel_data.is_floating.set(parent.node_is_float());
         self.parent_node.set(Some(parent));
         self.notify_parent();
     }
@@ -508,10 +513,10 @@ impl ToplevelNode for Xwindow {
             self.data.state.map_tiled(self.clone());
         } else if let Some(ws) = self.workspace.get() {
             parent.node_remove_child(&*self);
-            let extents = self.data.info.extents.get();
+            let (width, height) = self.toplevel_data.float_size(&ws);
             self.data
                 .state
-                .map_floating(self.clone(), extents.width(), extents.height(), &ws);
+                .map_floating(self.clone(), width, height, &ws);
         }
     }
 

@@ -32,16 +32,15 @@ use {
         leaks::Tracker,
         object::{Object, ObjectId},
         state::State,
-        tree::{
-            generic_node_visitor, ContainerSplit, FloatNode, FoundNode, Node, OutputNode,
-        },
+        tree::{generic_node_visitor, ContainerSplit, FloatNode, FoundNode, Node, OutputNode},
         utils::{
             asyncevent::AsyncEvent,
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
-            linkedlist::{LinkedNode},
+            linkedlist::LinkedNode,
+            numcell::NumCell,
             rc_eq::rc_eq,
         },
         wire::{
@@ -137,7 +136,11 @@ pub struct WlSeatGlobal {
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     output: CloneCell<Rc<OutputNode>>,
     desired_known_cursor: Cell<Option<KnownCursor>>,
+    changes: NumCell<u32>,
 }
+
+const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
+const CHANGE_TREE: u32 = 1 << 1;
 
 impl WlSeatGlobal {
     pub fn new(name: GlobalName, seat_name: &str, state: &Rc<State>) -> Rc<Self> {
@@ -174,13 +177,15 @@ impl WlSeatGlobal {
             tree_changed_handler: Cell::new(None),
             output: CloneCell::new(state.dummy_output.get().unwrap()),
             desired_known_cursor: Cell::new(None),
+            changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
         });
         let seat = slf.clone();
         let future = state.eng.spawn(async move {
             loop {
                 seat.tree_changed.triggered().await;
                 seat.state.tree_changed_sent.set(false);
-                seat.tree_changed();
+                seat.changes.or_assign(CHANGE_TREE);
+                seat.apply_changes();
             }
         });
         slf.tree_changed_handler.set(Some(future));

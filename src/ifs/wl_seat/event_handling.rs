@@ -16,13 +16,13 @@ use {
                     AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
                     POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
                 },
-                Dnd, SeatId, WlSeat, WlSeatGlobal,
+                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
         object::ObjectId,
         tree::{FloatNode, Node, SizedNode, ToplevelNode},
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
+        utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
@@ -400,7 +400,11 @@ impl WlSeatGlobal {
 
     fn set_new_position(self: &Rc<Self>, x: Fixed, y: Fixed) {
         self.pos.set((x, y));
-        self.handle_new_position(true);
+        if let Some(cursor) = self.cursor.get() {
+            cursor.set_position(x.round_down(), y.round_down());
+        }
+        self.changes.or_assign(CHANGE_CURSOR_MOVED);
+        self.apply_changes();
     }
 
     pub fn add_shortcut(&self, mods: Modifiers, keysym: KeySym) {
@@ -415,18 +419,9 @@ impl WlSeatGlobal {
         self.tree_changed.trigger();
     }
 
-    pub(super) fn tree_changed(self: &Rc<Self>) {
-        self.handle_new_position(false);
-    }
-
-    fn handle_new_position(self: &Rc<Self>, pos_changed: bool) {
-        let (x, y) = self.pos.get();
-        if pos_changed {
-            if let Some(cursor) = self.cursor.get() {
-                cursor.set_position(x.round_down(), y.round_down());
-            }
-        }
-        self.pointer_owner.handle_pointer_position(self);
+    pub(super) fn apply_changes(self: &Rc<Self>) {
+        self.pointer_owner.apply_changes(self);
+        self.changes.set(0);
     }
 }
 
@@ -492,7 +487,7 @@ impl WlSeatGlobal {
 // Enter callbacks
 impl WlSeatGlobal {
     pub fn enter_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        if n.accepts_keyboard_focus() {
+        if n.accepts_keyboard_focus() && self.changes.get().contains(CHANGE_CURSOR_MOVED) {
             self.focus_toplevel(n);
         }
     }

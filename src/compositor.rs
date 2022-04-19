@@ -80,6 +80,12 @@ enum MainError {
 pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
 pub const DISPLAY: &str = "DISPLAY";
 
+const STATIC_VARS: &[(&str, &str)] = &[
+    ("XDG_CURRENT_DESKTOP", "jay"),
+    ("XDG_SESSION_TYPE", "wayland"),
+    ("_JAVA_AWT_WM_NONREPARENTING", "1"),
+];
+
 fn start_compositor2(
     forker: Rc<ForkerProxy>,
     logger: Arc<Logger>,
@@ -157,7 +163,9 @@ fn start_compositor2(
     let socket_path = Acceptor::install(&state)?;
     forker.install(&state);
     forker.setenv(WAYLAND_DISPLAY.as_bytes(), socket_path.as_bytes());
-    forker.setenv(b"_JAVA_AWT_WM_NONREPARENTING", b"1");
+    for (key, val) in STATIC_VARS {
+        forker.setenv(key.as_bytes(), val.as_bytes());
+    }
     let _compositor = engine.spawn(start_compositor3(state.clone()));
     el.run()?;
     state.xwayland.handler.borrow_mut().take();
@@ -183,6 +191,9 @@ async fn start_compositor3(state: Rc<State>) {
 
     if backend.is_freestanding() {
         import_environment(&state, WAYLAND_DISPLAY, &state.socket_path.get());
+        for (key, val) in STATIC_VARS {
+            import_environment(&state, key, val);
+        }
     }
 
     let config = ConfigProxy::default(&state);

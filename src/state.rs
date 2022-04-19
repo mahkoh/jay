@@ -209,9 +209,15 @@ impl State {
     }
 
     pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn Node>) {
-        let output = self
-            .seat_queue
-            .last()
+        let seat = self.seat_queue.last();
+        self.do_map_tiled(seat.as_deref(), node.clone());
+        if let Some(seat) = seat {
+            node.node_do_focus(&seat, Direction::Unspecified);
+        }
+    }
+
+    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn Node>) {
+        let output = seat
             .map(|s| s.get_output())
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())

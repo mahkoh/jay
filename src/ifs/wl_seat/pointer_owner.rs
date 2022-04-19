@@ -58,8 +58,8 @@ impl PointerOwnerHolder {
         }
     }
 
-    pub fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().handle_pointer_position(seat)
+    pub fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
+        self.owner.get().apply_changes(seat)
     }
 
     pub fn start_drag(
@@ -99,7 +99,7 @@ impl PointerOwnerHolder {
 trait PointerOwner {
     fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState);
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>>;
-    fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>);
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>);
     fn start_drag(
         &self,
         seat: &Rc<WlSeatGlobal>,
@@ -155,7 +155,7 @@ impl PointerOwner for DefaultPointerOwner {
         seat.pointer_node()
     }
 
-    fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pos.get();
         let mut found_tree = seat.found_tree.borrow_mut();
         let mut stack = seat.pointer_stack.borrow_mut();
@@ -278,7 +278,7 @@ impl PointerOwner for GrabPointerOwner {
         Some(self.node.clone())
     }
 
-    fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pos.get();
         let pos = self.node.node_absolute_position();
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
@@ -341,7 +341,7 @@ impl PointerOwner for GrabPointerOwner {
         //     old.unfocus(seat);
         // }
         seat.pointer_owner.owner.set(pointer_owner.clone());
-        pointer_owner.handle_pointer_position(seat);
+        pointer_owner.apply_changes(seat);
         Ok(())
     }
 
@@ -405,7 +405,7 @@ impl PointerOwner for DndPointerOwner {
         None
     }
 
-    fn handle_pointer_position(&self, seat: &Rc<WlSeatGlobal>) {
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pos.get();
         let (x_int, y_int) = (x.round_down(), y.round_down());
         let (node, x_int, y_int) = {

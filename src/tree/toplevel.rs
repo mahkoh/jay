@@ -1,10 +1,10 @@
 use {
     crate::{
         ifs::{wl_seat::SeatId, wl_surface::WlSurface},
-        tree::Node,
+        tree::{Node, WorkspaceNode},
         utils::{numcell::NumCell, smallmap::SmallMap},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
 };
 
 tree_id!(ToplevelNodeId);
@@ -24,11 +24,27 @@ pub trait ToplevelNode {
 pub struct ToplevelData {
     pub active_surfaces: NumCell<u32>,
     pub focus_surface: SmallMap<SeatId, Rc<WlSurface>, 1>,
+    pub is_floating: Cell<bool>,
+    pub float_width: Cell<i32>,
+    pub float_height: Cell<i32>,
 }
 
 impl ToplevelData {
     pub fn clear(&self) {
         self.focus_surface.clear();
+    }
+
+    pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
+        let output = ws.output.get().global.pos.get();
+        let mut width = self.float_width.get();
+        let mut height = self.float_height.get();
+        if width == 0 {
+            width = output.width() / 2;
+        }
+        if height == 0 {
+            height = output.height() / 2;
+        }
+        (width, height)
     }
 }
 

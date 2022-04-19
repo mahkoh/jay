@@ -319,9 +319,9 @@ impl XdgToplevel {
     }
 
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
-        let extents = self.xdg.extents.get();
+        let (width, height) = self.toplevel_data.float_size(workspace);
         let state = &self.xdg.surface.client.state;
-        state.map_floating(self.clone(), extents.width(), extents.height(), workspace);
+        state.map_floating(self.clone(), width, height, workspace);
     }
 
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
@@ -459,6 +459,10 @@ impl SizedNode for XdgToplevel {
         let nh = rect.height();
         let de = self.xdg.absolute_desired_extents.get();
         if de.width() != nw || de.height() != nh {
+            if self.toplevel_data.is_floating.get() {
+                self.toplevel_data.float_width.set(rect.width());
+                self.toplevel_data.float_height.set(rect.height());
+            }
             self.send_configure_checked(nw, nh);
             self.xdg.do_send_configure();
             self.xdg.surface.client.flush();
@@ -471,6 +475,7 @@ impl SizedNode for XdgToplevel {
     }
 
     fn set_parent(self: &Rc<Self>, parent: Rc<dyn Node>) {
+        self.toplevel_data.is_floating.set(parent.node_is_float());
         self.parent_node.set(Some(parent));
         self.notify_parent();
     }

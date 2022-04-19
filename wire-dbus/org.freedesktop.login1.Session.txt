@@ -8,6 +8,9 @@ fn TakeDevice(major: u32, minor: u32) {
 
 fn PauseDeviceComplete(major: u32, minor: u32) { }
 
+fn SetType(ty: string) {
+}
+
 prop Seat = struct(string, object_path)
 
 sig PauseDevice {

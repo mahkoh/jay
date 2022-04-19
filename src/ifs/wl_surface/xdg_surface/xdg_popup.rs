@@ -293,7 +293,9 @@ impl SizedNode for XdgPopup {
     }
 
     fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.parent.get().and_then(|x| x.workspace.get().map(|w| w as Rc<dyn Node>))
+        self.parent
+            .get()
+            .and_then(|x| x.workspace.get().map(|w| w as Rc<dyn Node>))
     }
 
     fn set_visible(&self, visible: bool) {
