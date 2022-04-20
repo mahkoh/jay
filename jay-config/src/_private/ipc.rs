@@ -226,6 +226,13 @@ pub enum ClientMessage<'a> {
         key: &'a str,
         val: &'a str,
     },
+    SetFullscreen {
+        seat: Seat,
+        fullscreen: bool,
+    },
+    GetFullscreen {
+        seat: Seat,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -284,6 +291,9 @@ pub enum Response {
         width: i32,
         height: i32,
         refresh_millihz: u32,
+    },
+    GetFullscreen {
+        fullscreen: bool,
     },
 }
 

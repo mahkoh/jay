@@ -2,9 +2,7 @@ use {
     crate::{
         backend::ConnectorId,
         cursor::KnownCursor,
-        ifs::{
-            wl_seat::{NodeSeatState, WlSeatGlobal},
-        },
+        ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
         render::Renderer,
         tree::{

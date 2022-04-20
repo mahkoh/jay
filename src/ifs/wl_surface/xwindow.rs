@@ -11,8 +11,8 @@ use {
         render::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, SizedNode, ToplevelData,
-            ToplevelNode, WorkspaceNode,
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, SizedNode, SizedToplevelNode,
+            ToplevelData, ToplevelNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode,
@@ -474,17 +474,9 @@ impl SizedNode for Xwindow {
     }
 }
 
-impl ToplevelNode for Xwindow {
+impl SizedToplevelNode for Xwindow {
     fn data(&self) -> &ToplevelData {
         &self.toplevel_data
-    }
-
-    fn as_node(&self) -> &dyn Node {
-        self
-    }
-
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
@@ -508,6 +500,14 @@ impl ToplevelNode for Xwindow {
             .xwayland
             .queue
             .push(XWaylandEvent::Activate(self.data.clone()));
+    }
+
+    fn set_fullscreen(self: &Rc<Self>, _fullscreen: bool) {
+        // nothing
+    }
+
+    fn fullscreen(&self) -> bool {
+        false
     }
 }
 

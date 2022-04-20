@@ -1,16 +1,27 @@
-use std::cell::{Cell, RefCell};
-use std::ops::Deref;
-use std::rc::Rc;
-use jay_config::Direction;
-use crate::client::{Client};
-use crate::cursor::KnownCursor;
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{NodeSeatState, WlSeatGlobal};
-use crate::ifs::wl_surface::WlSurface;
-use crate::rect::Rect;
-use crate::state::State;
-use crate::tree::{FindTreeResult, FoundNode, FullscreenNode, Node, NodeId, NodeVisitor, SizedNode, ToplevelData, ToplevelNode, WorkspaceNode};
-use crate::utils::clonecell::CloneCell;
+use {
+    crate::{
+        client::Client,
+        cursor::KnownCursor,
+        fixed::Fixed,
+        ifs::{
+            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_surface::WlSurface,
+        },
+        rect::Rect,
+        state::State,
+        tree::{
+            FindTreeResult, FoundNode, FullscreenNode, Node, NodeId, NodeVisitor, SizedNode,
+            SizedToplevelNode, ToplevelData, WorkspaceNode,
+        },
+        utils::clonecell::CloneCell,
+    },
+    jay_config::Direction,
+    std::{
+        cell::{Cell, RefCell},
+        ops::Deref,
+        rc::Rc,
+    },
+};
 
 tree_id!(DetachedNodeId);
 pub struct PlaceholderNode {
@@ -152,17 +163,9 @@ impl SizedNode for PlaceholderNode {
     }
 }
 
-impl ToplevelNode for PlaceholderNode {
+impl SizedToplevelNode for PlaceholderNode {
     fn data(&self) -> &ToplevelData {
         &self.toplevel
-    }
-
-    fn as_node(&self) -> &dyn Node {
-        self
-    }
-
-    fn into_node(self: Rc<Self>) -> Rc<dyn Node> {
-        self
     }
 
     fn accepts_keyboard_focus(&self) -> bool {
@@ -179,5 +182,13 @@ impl ToplevelNode for PlaceholderNode {
 
     fn activate(&self) {
         // nothing
+    }
+
+    fn set_fullscreen(self: &Rc<Self>, _fullscreen: bool) {
+        // nothing
+    }
+
+    fn fullscreen(&self) -> bool {
+        false
     }
 }

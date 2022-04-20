@@ -216,19 +216,19 @@ impl Client {
     }
 
     pub fn seats(&self) -> Vec<Seat> {
-        let res = self.with_response(|| self.send(&ClientMessage::GetSeats));
+        let res = self.send_with_response(&ClientMessage::GetSeats);
         get_response!(res, vec![], GetSeats, seats);
         seats
     }
 
     pub fn mono(&self, seat: Seat) -> bool {
-        let res = self.with_response(|| self.send(&ClientMessage::GetMono { seat }));
+        let res = self.send_with_response(&ClientMessage::GetMono { seat });
         get_response!(res, false, GetMono, mono);
         mono
     }
 
     pub fn get_timer(&self, name: &str) -> Timer {
-        let res = self.with_response(|| self.send(&ClientMessage::GetTimer { name }));
+        let res = self.send_with_response(&ClientMessage::GetTimer { name });
         get_response!(res, Timer(0), GetTimer, timer);
         timer
     }
@@ -255,13 +255,13 @@ impl Client {
     }
 
     pub fn get_workspace(&self, name: &str) -> Workspace {
-        let res = self.with_response(|| self.send(&ClientMessage::GetWorkspace { name }));
+        let res = self.send_with_response(&ClientMessage::GetWorkspace { name });
         get_response!(res, Workspace(0), GetWorkspace, workspace);
         workspace
     }
 
     pub fn get_connector(&self, ty: ConnectorType, idx: u32) -> Connector {
-        let res = self.with_response(|| self.send(&ClientMessage::GetConnector { ty, idx }));
+        let res = self.send_with_response(&ClientMessage::GetConnector { ty, idx });
         get_response!(res, Connector(0), GetConnector, connector);
         connector
     }
@@ -271,9 +271,19 @@ impl Client {
     }
 
     pub fn split(&self, seat: Seat) -> Axis {
-        let res = self.with_response(|| self.send(&ClientMessage::GetSplit { seat }));
+        let res = self.send_with_response(&ClientMessage::GetSplit { seat });
         get_response!(res, Axis::Horizontal, GetSplit, axis);
         axis
+    }
+
+    pub fn set_fullscreen(&self, seat: Seat, fullscreen: bool) {
+        self.send(&ClientMessage::SetFullscreen { seat, fullscreen });
+    }
+
+    pub fn get_fullscreen(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetFullscreen { seat });
+        get_response!(res, false, GetFullscreen, fullscreen);
+        fullscreen
     }
 
     pub fn toggle_floating(&self, seat: Seat) {
@@ -297,13 +307,13 @@ impl Client {
     }
 
     pub fn get_title_height(&self) -> i32 {
-        let res = self.with_response(|| self.send(&ClientMessage::GetTitleHeight));
+        let res = self.send_with_response(&ClientMessage::GetTitleHeight);
         get_response!(res, 0, GetTitleHeight, height);
         height
     }
 
     pub fn get_border_width(&self) -> i32 {
-        let res = self.with_response(|| self.send(&ClientMessage::GetBorderWidth));
+        let res = self.send_with_response(&ClientMessage::GetBorderWidth);
         get_response!(res, 0, GetBorderWidth, width);
         width
     }
@@ -345,13 +355,13 @@ impl Client {
     }
 
     pub fn create_seat(&self, name: &str) -> Seat {
-        let res = self.with_response(|| self.send(&ClientMessage::CreateSeat { name }));
+        let res = self.send_with_response(&ClientMessage::CreateSeat { name });
         get_response!(res, Seat(0), CreateSeat, seat);
         seat
     }
 
     pub fn get_input_devices(&self, seat: Option<Seat>) -> Vec<InputDevice> {
-        let res = self.with_response(|| self.send(&ClientMessage::GetInputDevices { seat }));
+        let res = self.send_with_response(&ClientMessage::GetInputDevices { seat });
         get_response!(res, vec!(), GetInputDevices, devices);
         devices
     }
@@ -441,13 +451,13 @@ impl Client {
     }
 
     pub fn device_name(&self, device: InputDevice) -> String {
-        let res = self.with_response(|| self.send(&ClientMessage::GetDeviceName { device }));
+        let res = self.send_with_response(&ClientMessage::GetDeviceName { device });
         get_response!(res, String::new(), GetDeviceName, name);
         name
     }
 
     pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {
-        let res = self.with_response(|| self.send(&ClientMessage::HasCapability { device, cap }));
+        let res = self.send_with_response(&ClientMessage::HasCapability { device, cap });
         get_response!(res, false, HasCapability, has);
         has
     }
@@ -461,13 +471,13 @@ impl Client {
     }
 
     pub fn seat_get_repeat_rate(&self, seat: Seat) -> (i32, i32) {
-        let res = self.with_response(|| self.send(&ClientMessage::SeatGetRepeatRate { seat }));
+        let res = self.send_with_response(&ClientMessage::SeatGetRepeatRate { seat });
         get_response!(res, (25, 250), GetRepeatRate, rate, delay);
         (rate, delay)
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
-        let res = self.with_response(|| self.send(&ClientMessage::ParseKeymap { keymap }));
+        let res = self.send_with_response(&ClientMessage::ParseKeymap { keymap });
         get_response!(res, Keymap(0), ParseKeymap, keymap);
         keymap
     }

@@ -5,8 +5,8 @@ use {
         rect::Rect,
         render::Renderer,
         tree::{
-            container::ContainerNode, walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId,
-            OutputNode, SizedNode,
+            container::ContainerNode, walker::NodeVisitor, FindTreeResult, FoundNode,
+            FullscreenNode, Node, NodeId, OutputNode, SizedNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -16,7 +16,6 @@ use {
     jay_config::Direction,
     std::{cell::Cell, fmt::Debug, rc::Rc},
 };
-use crate::tree::FullscreenNode;
 
 tree_id!(WorkspaceNodeId);
 

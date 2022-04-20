@@ -143,6 +143,20 @@ impl ConfigProxyHandler {
         res
     }
 
+    fn handle_get_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetFullscreen {
+            fullscreen: seat.get_fullscreen(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_fullscreen(&self, seat: Seat, fullscreen: bool) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_fullscreen(fullscreen);
+        Ok(())
+    }
+
     fn handle_set_keymap(&self, seat: Seat, keymap: Keymap) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let keymap = if keymap.is_invalid() {
@@ -881,6 +895,12 @@ impl ConfigProxyHandler {
                 .handle_program_timer(timer, initial, periodic)
                 .wrn("program_timer")?,
             ClientMessage::SetEnv { key, val } => self.handle_set_env(key, val),
+            ClientMessage::SetFullscreen { seat, fullscreen } => self
+                .handle_set_fullscreen(seat, fullscreen)
+                .wrn("set_fullscreen")?,
+            ClientMessage::GetFullscreen { seat } => {
+                self.handle_get_fullscreen(seat).wrn("get_fullscreen")?
+            }
         }
         Ok(())
     }

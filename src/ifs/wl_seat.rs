@@ -201,6 +201,14 @@ impl WlSeatGlobal {
             .set(Some(self.state.seat_queue.add_last(self.clone())));
     }
 
+    pub fn set_fullscreen(&self, fullscreen: bool) {
+        self.keyboard_node.get().node_set_fullscreen(fullscreen);
+    }
+
+    pub fn get_fullscreen(&self) -> bool {
+        self.keyboard_node.get().node_fullscreen()
+    }
+
     pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
         self.kb_map.set(keymap.clone());
         let bindings = self.bindings.borrow_mut();

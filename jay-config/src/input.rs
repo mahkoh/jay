@@ -128,6 +128,19 @@ impl Seat {
     pub fn show_workspace(self, workspace: Workspace) {
         get!().show_workspace(self, workspace)
     }
+
+    pub fn toggle_fullscreen(self) {
+        let c = get!();
+        c.set_fullscreen(self, !c.get_fullscreen(self));
+    }
+
+    pub fn fullscreen(self) -> bool {
+        get!(false).get_fullscreen(self)
+    }
+
+    pub fn set_fullscreen(self, fullscreen: bool) {
+        get!().set_fullscreen(self, fullscreen)
+    }
 }
 
 pub fn get_seats() -> Vec<Seat> {

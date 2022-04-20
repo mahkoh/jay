@@ -6,7 +6,7 @@ use {
             wl_output::WlOutputGlobal,
             wl_seat::{collect_kb_foci2, NodeSeatState, WlSeatGlobal},
             wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-            zwlr_layer_shell_v1::{BACKGROUND, BOTTOM},
+            zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
         rect::Rect,
         render::{Renderer, Texture},
@@ -27,7 +27,6 @@ use {
         rc::Rc,
     },
 };
-use crate::ifs::zwlr_layer_shell_v1::{OVERLAY, TOP};
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
@@ -348,7 +347,8 @@ impl SizedNode for OutputNode {
         {
             for stacked in self.state.root.stacked.rev_iter() {
                 let ext = stacked.node_absolute_position();
-                if stacked.node_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
+                if stacked.node_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs)
+                {
                     // TODO: make constrain always true
                     continue;
                 }

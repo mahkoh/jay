@@ -891,6 +891,16 @@ impl SizedNode for WlSurface {
     fn is_xwayland_surface(&self) -> bool {
         self.client.is_xwayland
     }
+
+    fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
+        if let Some(tl) = self.toplevel.get() {
+            tl.set_fullscreen(fullscreen);
+        }
+    }
+
+    fn fullscreen(&self) -> bool {
+        self.toplevel.get().map(|tl| tl.fullscreen()).unwrap_or(false)
+    }
 }
 
 #[derive(Debug, Error)]

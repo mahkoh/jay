@@ -6,11 +6,12 @@ use {
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             WlSurface,
         },
-        tree::{ContainerNode, DisplayNode, FloatNode, Node, OutputNode, WorkspaceNode},
+        tree::{
+            ContainerNode, DisplayNode, FloatNode, Node, OutputNode, PlaceholderNode, WorkspaceNode,
+        },
     },
     std::rc::Rc,
 };
-use crate::tree::PlaceholderNode;
 
 pub trait NodeVisitorBase: Sized {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {

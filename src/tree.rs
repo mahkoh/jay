@@ -18,17 +18,20 @@ use {
         rc::Rc,
     },
 };
-pub use {container::*, display::*, float::*, output::*, toplevel::*, walker::*, workspace::*, fullscreen::*, placeholder::*};
+pub use {
+    container::*, display::*, float::*, fullscreen::*, output::*, placeholder::*, toplevel::*,
+    walker::*, workspace::*,
+};
 
 mod container;
 mod display;
 mod float;
+mod fullscreen;
 mod output;
+mod placeholder;
 mod toplevel;
 mod walker;
 mod workspace;
-mod fullscreen;
-mod placeholder;
 
 pub struct NodeIds {
     next: NumCell<u32>,
@@ -370,6 +373,14 @@ pub trait SizedNode: Sized + 'static {
     fn is_xwayland_surface(&self) -> bool {
         false
     }
+
+    fn fullscreen(&self) -> bool {
+        false
+    }
+
+    fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
+        let _ = fullscreen;
+    }
 }
 
 pub trait Node {
@@ -455,6 +466,8 @@ pub trait Node {
     fn node_dnd_leave(&self, dnd: &Dnd);
     fn node_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32);
     fn node_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed);
+    fn node_set_fullscreen(self: Rc<Self>, fullscreen: bool);
+    fn node_fullscreen(&self) -> bool;
 }
 
 impl<T: SizedNode> Node for T {
@@ -682,6 +695,12 @@ impl<T: SizedNode> Node for T {
     }
     fn node_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
         <Self as SizedNode>::dnd_motion(self, dnd, x, y)
+    }
+    fn node_set_fullscreen(self: Rc<Self>, fullscreen: bool) {
+        <Self as SizedNode>::set_fullscreen(&self, fullscreen)
+    }
+    fn node_fullscreen(&self) -> bool {
+        <Self as SizedNode>::fullscreen(self)
     }
 }
 

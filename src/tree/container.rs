@@ -983,7 +983,9 @@ impl SizedNode for ContainerNode {
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
-        if split == self.split.get() || (split == ContainerSplit::Horizontal && self.mono_child.get().is_some()) {
+        if split == self.split.get()
+            || (split == ContainerSplit::Horizontal && self.mono_child.get().is_some())
+        {
             let cc = match self.child_nodes.borrow_mut().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
                 None => return,
@@ -1192,8 +1194,8 @@ impl SizedNode for ContainerNode {
             Some(c) => c,
             None => {
                 log::error!("Trying to replace a node that isn't a child of this container");
-                return
-            },
+                return;
+            }
         };
         let (have_mc, was_mc) = match self.mono_child.get() {
             None => (false, false),
@@ -1407,6 +1409,14 @@ impl SizedNode for ContainerNode {
         parent
             .clone()
             .node_child_title_changed(self.deref(), self.title.borrow_mut().deref());
+    }
+
+    fn set_fullscreen(self: &Rc<Self>, _fullscreen: bool) {
+        // todo
+    }
+
+    fn fullscreen(&self) -> bool {
+        false
     }
 }
 
