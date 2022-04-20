@@ -38,6 +38,7 @@ use {
     },
     thiserror::Error,
 };
+use crate::tree::{FullscreenData, SizedFullscreenNode};
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {
@@ -88,6 +89,7 @@ pub struct XdgToplevel {
     title: RefCell<String>,
     pub tracker: Tracker<Self>,
     toplevel_data: ToplevelData,
+    fullscreen_data: FullscreenData,
 }
 
 impl Debug for XdgToplevel {
@@ -120,7 +122,14 @@ impl XdgToplevel {
             title: RefCell::new("".to_string()),
             tracker: Default::default(),
             toplevel_data: Default::default(),
+            fullscreen_data: Default::default(),
         }
+    }
+
+    fn send_current_configure(&self) {
+        let rect = self.xdg.absolute_desired_extents.get();
+        self.send_configure_checked(rect.width(), rect.height());
+        self.xdg.do_send_configure();
     }
 
     fn send_configure_checked(&self, mut width: i32, mut height: i32) {
@@ -204,6 +213,7 @@ impl XdgToplevel {
         if let Some(parent) = self.parent_node.get() {
             parent.node_child_title_changed(self, &title);
         }
+        self.fullscreen_data.set_title(&title);
         Ok(())
     }
 
@@ -280,21 +290,34 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), SetFullscreenError> {
-        let _req: SetFullscreen = self.xdg.surface.client.parse(self, parser)?;
-        self.states.borrow_mut().insert(STATE_FULLSCREEN);
-        let rect = self.xdg.absolute_desired_extents.get();
-        self.send_configure_checked(rect.width(), rect.height());
-        self.xdg.do_send_configure();
+    fn set_fullscreen(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), SetFullscreenError> {
+        let client = &self.xdg.surface.client;
+        let req: SetFullscreen = client.parse(self.deref(), parser)?;
+        'set_fullscreen: {
+            let output = if req.output.is_some() {
+                match client.lookup(req.output)?.global.node.get() {
+                    Some(node) => node,
+                    _ => {
+                        log::error!("Output global has no node attached");
+                        break 'set_fullscreen;
+                    },
+                }
+            } else if let Some(ws) = self.xdg.workspace.get() {
+                ws.output.get()
+            } else {
+                break 'set_fullscreen;
+            };
+            client.state.set_fullscreen(self.clone(), &output);
+        }
+        self.send_current_configure();
         Ok(())
     }
 
-    fn unset_fullscreen(&self, parser: MsgParser<'_, '_>) -> Result<(), UnsetFullscreenError> {
-        let _req: UnsetFullscreen = self.xdg.surface.client.parse(self, parser)?;
+    fn unset_fullscreen(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), UnsetFullscreenError> {
+        let _req: UnsetFullscreen = self.xdg.surface.client.parse(self.deref(), parser)?;
         self.states.borrow_mut().remove(&STATE_FULLSCREEN);
-        let rect = self.xdg.absolute_desired_extents.get();
-        self.send_configure_checked(rect.width(), rect.height());
-        self.xdg.do_send_configure();
+        self.xdg.surface.client.state.unset_fullscreen(self.clone());
+        self.send_current_configure();
         Ok(())
     }
 
@@ -408,6 +431,10 @@ impl SizedNode for XdgToplevel {
     }
 
     fn set_visible(&self, visible: bool) {
+        // log::info!("set_visible {}", visible);
+        // if !visible {
+        //     log::info!("\n{:?}", Backtrace::new());
+        // }
         self.xdg.set_visible(visible);
         self.xdg.seat_state.set_visible(self, visible);
     }
@@ -416,21 +443,11 @@ impl SizedNode for XdgToplevel {
         self.xdg.workspace.get()
     }
 
-    fn is_contained_in(&self, other: NodeId) -> bool {
-        if let Some(parent) = self.parent_node.get() {
-            if parent.node_id() == other {
-                return true;
-            }
-            return parent.node_is_contained_in(other);
-        }
-        false
-    }
-
     fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
-    fn close(&self) {
+    fn close(self: &Rc<Self>) {
         self.send_close();
     }
 
@@ -483,6 +500,20 @@ impl SizedNode for XdgToplevel {
     fn client(&self) -> Option<Rc<Client>> {
         Some(self.xdg.surface.client.clone())
     }
+
+    fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+        let parent = match self.parent_node.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        if parent.node_is_float() {
+            parent.node_remove_child2(self.deref(), true);
+            self.map_tiled();
+        } else if let Some(ws) = self.xdg.workspace.get() {
+            parent.node_remove_child2(self.deref(), true);
+            self.map_floating(&ws);
+        }
+    }
 }
 
 impl ToplevelNode for XdgToplevel {
@@ -502,8 +533,8 @@ impl ToplevelNode for XdgToplevel {
         true
     }
 
-    fn default_surface(&self) -> Rc<WlSurface> {
-        self.xdg.surface.clone()
+    fn default_surface(&self) -> Option<Rc<WlSurface>> {
+        Some(self.xdg.surface.clone())
     }
 
     fn set_active(&self, active: bool) {
@@ -526,24 +557,6 @@ impl ToplevelNode for XdgToplevel {
 
     fn activate(&self) {
         // nothing
-    }
-
-    fn toggle_floating(self: Rc<Self>) {
-        let parent = match self.parent_node.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        if parent.node_is_float() {
-            parent.node_remove_child(&*self);
-            self.map_tiled();
-        } else if let Some(ws) = self.xdg.workspace.get() {
-            parent.node_remove_child(&*self);
-            self.map_floating(&ws);
-        }
-    }
-
-    fn close(&self) {
-        self.send_close();
     }
 }
 
@@ -598,6 +611,24 @@ impl XdgSurfaceExt for XdgToplevel {
         if self.parent_node.get().is_some() {
             self.xdg.surface.client.state.tree_changed();
         }
+    }
+}
+
+impl SizedFullscreenNode for XdgToplevel {
+    fn data(&self) -> &FullscreenData {
+        &self.fullscreen_data
+    }
+
+    fn on_set_fullscreen(&self, _workspace: &Rc<WorkspaceNode>) {
+        self.states.borrow_mut().insert(STATE_FULLSCREEN);
+    }
+
+    fn on_unset_fullscreen(&self) {
+        // nothing
+    }
+
+    fn title(&self) -> String {
+        self.title.borrow_mut().clone()
     }
 }
 

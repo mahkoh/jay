@@ -158,6 +158,7 @@ fn start_compositor2(
         socket_path: Default::default(),
         serial: Default::default(),
         idle_inhibitor_ids: Default::default(),
+        run_toplevel,
     });
     create_dummy_output(&state);
     let socket_path = Acceptor::install(&state)?;
@@ -322,7 +323,8 @@ fn create_dummy_output(state: &Rc<State>) {
         seat_state: Default::default(),
         name: "dummy".to_string(),
         output_link: Default::default(),
-        visible: Cell::new(false),
+        visible: Default::default(),
+        fullscreen: Default::default(),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),

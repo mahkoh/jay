@@ -366,8 +366,8 @@ impl Client {
                     self.state.slow_clients.push(self.clone());
                 }
             }
-            self.flush_request.trigger();
         }
+        self.flush_request.trigger();
     }
 
     pub fn flush(&self) {

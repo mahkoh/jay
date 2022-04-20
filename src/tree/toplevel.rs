@@ -13,11 +13,9 @@ pub trait ToplevelNode {
     fn as_node(&self) -> &dyn Node;
     fn into_node(self: Rc<Self>) -> Rc<dyn Node>;
     fn accepts_keyboard_focus(&self) -> bool;
-    fn default_surface(&self) -> Rc<WlSurface>;
+    fn default_surface(&self) -> Option<Rc<WlSurface>>;
     fn set_active(&self, active: bool);
     fn activate(&self);
-    fn toggle_floating(self: Rc<Self>);
-    fn close(&self);
 }
 
 #[derive(Default)]
@@ -61,11 +59,11 @@ impl<'a> dyn ToplevelNode + 'a {
         }
     }
 
-    pub fn focus_surface(&self, seat: SeatId) -> Rc<WlSurface> {
+    pub fn focus_surface(&self, seat: SeatId) -> Option<Rc<WlSurface>> {
         self.data()
             .focus_surface
             .get(&seat)
-            .unwrap_or_else(|| self.default_surface())
+            .or_else(|| self.default_surface())
     }
 
     pub fn parent(&self) -> Option<Rc<dyn Node>> {

@@ -16,6 +16,7 @@ use {
     jay_config::Direction,
     std::{cell::Cell, fmt::Debug, rc::Rc},
 };
+use crate::tree::FullscreenNode;
 
 tree_id!(WorkspaceNodeId);
 
@@ -29,6 +30,7 @@ pub struct WorkspaceNode {
     pub name: String,
     pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
+    pub fullscreen: CloneCell<Option<Rc<dyn FullscreenNode>>>,
 }
 
 impl WorkspaceNode {
@@ -68,6 +70,9 @@ impl SizedNode for WorkspaceNode {
     fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.container.get() {
             visitor.visit_container(&c);
+        }
+        if let Some(fs) = self.fullscreen.get() {
+            fs.into_node().node_visit(visitor);
         }
     }
 
@@ -116,7 +121,7 @@ impl SizedNode for WorkspaceNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(self: &Rc<Self>, _child: &dyn Node) {
+    fn remove_child2(self: &Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
         self.container.set(None);
     }
 

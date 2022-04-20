@@ -776,9 +776,9 @@ impl SizedNode for WlSurface {
         pn.node_replace_child(tl.as_node(), cn);
     }
 
-    fn close(&self) {
+    fn close(self: &Rc<Self>) {
         if let Some(tl) = self.toplevel.get() {
-            tl.close();
+            tl.into_node().node_close();
         }
     }
 
@@ -838,9 +838,9 @@ impl SizedNode for WlSurface {
         }
     }
 
-    fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+    fn toggle_floating(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         if let Some(tl) = self.toplevel.get() {
-            tl.toggle_floating();
+            tl.into_node().node_toggle_floating(seat);
         }
     }
 

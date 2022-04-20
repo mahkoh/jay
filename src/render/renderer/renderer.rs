@@ -49,6 +49,12 @@ impl Renderer<'_> {
     }
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
+        if let Some(ws) = output.workspace.get() {
+            if let Some(fs) = ws.fullscreen.get() {
+                fs.as_node().node_render(self, x, y);
+                return;
+            }
+        }
         let opos = output.global.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {

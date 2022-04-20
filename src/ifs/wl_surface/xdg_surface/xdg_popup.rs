@@ -299,7 +299,7 @@ impl SizedNode for XdgPopup {
     }
 
     fn set_visible(&self, visible: bool) {
-        log::info!("set visible = {}", visible);
+        // log::info!("set visible = {}", visible);
         self.xdg.set_visible(visible);
         self.xdg.seat_state.set_visible(self, visible);
     }
@@ -369,7 +369,7 @@ impl XdgSurfaceExt for XdgPopup {
                 *wl = Some(ws.stacked.add_last(self.clone()));
                 *dl = Some(state.root.stacked.add_last(self.clone()));
                 state.tree_changed();
-                self.node_set_visible(
+                self.set_visible(
                     self.parent
                         .get()
                         .map(|p| p.surface.visible.get())
@@ -380,8 +380,8 @@ impl XdgSurfaceExt for XdgPopup {
             if wl.take().is_some() {
                 drop(wl);
                 drop(dl);
-                self.node_set_visible(false);
-                self.node_destroy(true);
+                self.set_visible(false);
+                self.destroy_node(true);
                 self.send_popup_done();
             }
         }

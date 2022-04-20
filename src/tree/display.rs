@@ -4,7 +4,6 @@ use {
         cursor::KnownCursor,
         ifs::{
             wl_seat::{NodeSeatState, WlSeatGlobal},
-            zwlr_layer_shell_v1::{OVERLAY, TOP},
         },
         rect::Rect,
         render::Renderer,
@@ -114,47 +113,7 @@ impl SizedNode for DisplayNode {
                     x,
                     y,
                 });
-                if output.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree)
-                    == FindTreeResult::AcceptsInput
-                {
-                    return FindTreeResult::AcceptsInput;
-                }
-                tree.pop();
-                break;
-            }
-        }
-        for stacked in self.stacked.rev_iter() {
-            let ext = stacked.node_absolute_position();
-            if stacked.node_absolute_position_constrains_input() && !ext.contains(x, y) {
-                // TODO: make constrain always true
-                continue;
-            }
-            let (x, y) = ext.translate(x, y);
-            let idx = tree.len();
-            tree.push(FoundNode {
-                node: stacked.deref().clone(),
-                x,
-                y,
-            });
-            match stacked.node_find_tree_at(x, y, tree) {
-                FindTreeResult::AcceptsInput => {
-                    return FindTreeResult::AcceptsInput;
-                }
-                FindTreeResult::Other => {
-                    tree.drain(idx..);
-                }
-            }
-        }
-        for output in outputs.values() {
-            let pos = output.global.pos.get();
-            if pos.contains(x, y) {
-                let (x, y) = pos.translate(x, y);
-                tree.push(FoundNode {
-                    node: output.clone(),
-                    x,
-                    y,
-                });
-                output.node_find_tree_at(x, y, tree);
+                output.find_tree_at(x, y, tree);
                 break;
             }
         }

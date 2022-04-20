@@ -27,6 +27,7 @@ use {
         rc::Rc,
     },
 };
+use crate::ifs::zwlr_layer_shell_v1::{OVERLAY, TOP};
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
@@ -139,6 +140,7 @@ impl OutputNode {
             name: name.clone(),
             output_link: Default::default(),
             visible: Cell::new(true),
+            fullscreen: Default::default(),
         });
         self.state.workspaces.set(name, workspace.clone());
         workspace
@@ -325,6 +327,48 @@ impl SizedNode for OutputNode {
     }
 
     fn find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        if let Some(ws) = self.workspace.get() {
+            if let Some(fs) = ws.fullscreen.get() {
+                tree.push(FoundNode {
+                    node: fs.clone().into_node(),
+                    x,
+                    y,
+                });
+                return fs.as_node().node_find_tree_at(x, y, tree);
+            }
+        }
+        let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
+        {
+            if self.find_layer_surface_at(x_abs, y_abs, &[OVERLAY, TOP], tree)
+                == FindTreeResult::AcceptsInput
+            {
+                return FindTreeResult::AcceptsInput;
+            }
+        }
+        {
+            for stacked in self.state.root.stacked.rev_iter() {
+                let ext = stacked.node_absolute_position();
+                if stacked.node_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
+                    // TODO: make constrain always true
+                    continue;
+                }
+                let (x, y) = ext.translate(x_abs, y_abs);
+                let idx = tree.len();
+                tree.push(FoundNode {
+                    node: stacked.deref().clone(),
+                    x,
+                    y,
+                });
+                match stacked.node_find_tree_at(x, y, tree) {
+                    FindTreeResult::AcceptsInput => {
+                        return FindTreeResult::AcceptsInput;
+                    }
+                    FindTreeResult::Other => {
+                        tree.truncate(idx);
+                    }
+                }
+            }
+        }
         let bar_height = self.state.theme.title_height.get() + 1;
         if y > bar_height {
             y -= bar_height;
@@ -344,7 +388,7 @@ impl SizedNode for OutputNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child(self: &Rc<Self>, _child: &dyn Node) {
+    fn remove_child2(self: &Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
         unimplemented!();
     }
 

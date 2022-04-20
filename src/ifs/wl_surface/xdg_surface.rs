@@ -114,7 +114,7 @@ impl XdgSurface {
 
     fn set_absolute_desired_extents(&self, ext: &Rect) {
         let prev = self.absolute_desired_extents.replace(*ext);
-        if ext.x1() != prev.x1() || ext.y1() != prev.y1() {
+        if ext.position() != prev.position() {
             let (mut x1, mut y1) = (ext.x1(), ext.y1());
             if let Some(geo) = self.geometry.get() {
                 x1 -= geo.x1();
@@ -303,7 +303,7 @@ impl XdgSurface {
     fn set_visible(&self, visible: bool) {
         self.surface.node_set_visible(visible);
         for popup in self.popups.lock().values() {
-            popup.node_set_visible(visible);
+            popup.set_visible(visible);
         }
     }
 }

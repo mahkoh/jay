@@ -48,6 +48,9 @@ use {
         time::Duration,
     },
 };
+use crate::ifs::wl_seat::collect_kb_foci;
+use crate::tree::{PlaceholderNode, FullscreenNode, FullscreenedData, ToplevelNode};
+use crate::utils::run_toplevel::RunToplevel;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -92,6 +95,7 @@ pub struct State {
     pub xwayland: XWaylandState,
     pub socket_path: CloneCell<Rc<String>>,
     pub serial: NumCell<Wrapping<u32>>,
+    pub run_toplevel: Rc<RunToplevel>,
 }
 
 pub struct XWaylandState {
@@ -313,6 +317,7 @@ impl State {
                     name: name.to_string(),
                     output_link: Cell::new(None),
                     visible: Cell::new(false),
+                    fullscreen: Default::default(),
                 });
                 workspace
                     .output_link
@@ -389,5 +394,87 @@ impl State {
             }
         }
         serial as _
+    }
+
+    pub fn set_fullscreen(self: &Rc<Self>, node: Rc<dyn FullscreenNode>, output: &Rc<OutputNode>) {
+        let ws = output.ensure_workspace();
+        if ws.fullscreen.get().is_some() {
+            log::info!("Cannot fullscreen a node on a workspace that already has a fullscreen node attached");
+            return;
+        }
+        let mut data = node.data().data.borrow_mut();
+        if data.is_some() {
+            log::info!("Cannot fullscreen a node that is already fullscreen");
+            return;
+        }
+        let parent = match node.as_node().node_parent() {
+            None => {
+                log::warn!("Cannot fullscreen a node without a parent");
+                return;
+            }
+            Some(p) => p,
+        };
+        let placeholder = Rc::new(PlaceholderNode::new_for(self, node.clone()));
+        parent.node_replace_child(node.as_node(), placeholder.clone());
+        let mut kb_foci = Default::default();
+        if let Some(container) = ws.container.get() {
+            kb_foci = collect_kb_foci(container.clone());
+            container.set_visible(false);
+        }
+        *data = Some(FullscreenedData {
+            placeholder,
+            workspace: ws.clone(),
+        });
+        node.data().is_fullscreen.set(true);
+        ws.fullscreen.set(Some(node.clone()));
+        node.clone().into_node().node_set_parent(ws.clone());
+        node.clone().into_node().node_set_workspace(&ws);
+        node.clone().into_node().node_change_extents(&output.global.pos.get());
+        for seat in kb_foci {
+            node.clone().into_node().node_do_focus(&seat, Direction::Unspecified);
+        }
+        node.on_set_fullscreen(&ws);
+    }
+
+    pub fn unset_fullscreen(self: &Rc<Self>, node: Rc<dyn FullscreenNode>) {
+        if !node.data().is_fullscreen.get() {
+            log::warn!("Cannot unset fullscreen on a node that is not fullscreen");
+        }
+        let fd = match node.data().data.borrow_mut().take() {
+            Some(fd) => fd,
+            _ => {
+                log::error!("is_fullscreen = true but data is None");
+                return;
+            }
+        };
+        match fd.workspace.fullscreen.get() {
+            None => {
+                log::error!("Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node.");
+                return;
+            }
+            Some(f) if f.as_node().node_id() != node.as_node().node_id() => {
+                log::error!("Node is supposed to be fullscreened on a workspace but the workspace has a different node attached.");
+                return;
+            }
+            _ => { },
+        }
+        fd.workspace.fullscreen.take();
+        if let Some(container) = fd.workspace.container.get() {
+            container.set_visible(true);
+        }
+        if fd.placeholder.is_destroyed() {
+            self.map_tiled(node.into_node());
+            return;
+        }
+        let parent = fd.placeholder.parent().unwrap();
+        parent.node_replace_child(fd.placeholder.deref(), node.clone().into_node());
+        if node.as_node().node_visible() {
+            let kb_foci = collect_kb_foci(fd.placeholder.clone());
+            for seat in kb_foci {
+                node.clone().into_node().node_do_focus(&seat, Direction::Unspecified);
+            }
+        }
+        fd.placeholder.as_node().node_seat_state().destroy_node(fd.placeholder.as_node());
+        node.on_unset_fullscreen();
     }
 }

@@ -18,7 +18,7 @@ use {
         rc::Rc,
     },
 };
-pub use {container::*, display::*, float::*, output::*, toplevel::*, walker::*, workspace::*};
+pub use {container::*, display::*, float::*, output::*, toplevel::*, walker::*, workspace::*, fullscreen::*, placeholder::*};
 
 mod container;
 mod display;
@@ -27,6 +27,8 @@ mod output;
 mod toplevel;
 mod walker;
 mod workspace;
+mod fullscreen;
+mod placeholder;
 
 pub struct NodeIds {
     next: NumCell<u32>,
@@ -89,11 +91,6 @@ pub trait SizedNode: Sized + 'static {
         None
     }
 
-    fn is_contained_in(&self, other: NodeId) -> bool {
-        let _ = other;
-        false
-    }
-
     fn child_title_changed(self: &Rc<Self>, child: &dyn Node, title: &str) {
         let _ = child;
         let _ = title;
@@ -144,7 +141,7 @@ pub trait SizedNode: Sized + 'static {
         let _ = direction;
     }
 
-    fn close(&self) {
+    fn close(self: &Rc<Self>) {
         // nothing
     }
 
@@ -237,7 +234,12 @@ pub trait SizedNode: Sized + 'static {
     }
 
     fn remove_child(self: &Rc<Self>, child: &dyn Node) {
+        self.remove_child2(child, false);
+    }
+
+    fn remove_child2(self: &Rc<Self>, child: &dyn Node, preserve_focus: bool) {
         let _ = child;
+        let _ = preserve_focus;
     }
 
     fn child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
@@ -381,7 +383,6 @@ pub trait Node {
     fn node_last_active_child(self: Rc<Self>) -> Rc<dyn Node>;
     fn node_set_visible(&self, visible: bool);
     fn node_get_workspace(&self) -> Option<Rc<WorkspaceNode>>;
-    fn node_is_contained_in(&self, other: NodeId) -> bool;
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str);
     fn node_get_parent_mono(&self) -> Option<bool>;
     fn node_get_parent_split(&self) -> Option<ContainerSplit>;
@@ -394,7 +395,7 @@ pub trait Node {
     fn node_create_split(self: Rc<Self>, split: ContainerSplit);
     fn node_focus_self(self: Rc<Self>, seat: &Rc<WlSeatGlobal>);
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction);
-    fn node_close(&self);
+    fn node_close(self: Rc<Self>);
     fn node_move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction);
     fn node_move_self(self: Rc<Self>, direction: Direction);
     fn node_move_focus_from_child(
@@ -424,6 +425,7 @@ pub trait Node {
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult;
     fn node_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn Node>);
     fn node_remove_child(self: Rc<Self>, child: &dyn Node);
+    fn node_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool);
     fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32);
     fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool, depth: u32);
     fn node_leave(&self, seat: &WlSeatGlobal);
@@ -486,9 +488,6 @@ impl<T: SizedNode> Node for T {
     fn node_get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         <Self as SizedNode>::get_workspace(self)
     }
-    fn node_is_contained_in(&self, other: NodeId) -> bool {
-        <Self as SizedNode>::is_contained_in(self, other)
-    }
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         <Self as SizedNode>::child_title_changed(&self, child, title)
     }
@@ -525,8 +524,8 @@ impl<T: SizedNode> Node for T {
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         <Self as SizedNode>::do_focus(&self, seat, direction)
     }
-    fn node_close(&self) {
-        <Self as SizedNode>::close(self)
+    fn node_close(self: Rc<Self>) {
+        <Self as SizedNode>::close(&self)
     }
     fn node_move_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         <Self as SizedNode>::move_focus(&self, seat, direction)
@@ -592,6 +591,9 @@ impl<T: SizedNode> Node for T {
     }
     fn node_remove_child(self: Rc<Self>, child: &dyn Node) {
         <Self as SizedNode>::remove_child(&self, child)
+    }
+    fn node_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool) {
+        <Self as SizedNode>::remove_child2(&self, child, preserve_focus)
     }
     fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
         <Self as SizedNode>::child_size_changed(self, child, width, height)

@@ -682,17 +682,23 @@ impl ContainerNode {
     }
 
     fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        self.activate_child2(child, false);
+    }
+
+    fn activate_child2(self: &Rc<Self>, child: &NodeRef<ContainerChild>, preserve_focus: bool) {
         if let Some(mc) = self.mono_child.get() {
             if mc.node.node_id() == child.node.node_id() {
                 return;
             }
-            let seats = collect_kb_foci(mc.node.clone());
-            mc.node.node_set_visible(false);
-            for seat in seats {
-                child
-                    .node
-                    .clone()
-                    .node_do_focus(&seat, Direction::Unspecified);
+            if !preserve_focus {
+                let seats = collect_kb_foci(mc.node.clone());
+                mc.node.node_set_visible(false);
+                for seat in seats {
+                    child
+                        .node
+                        .clone()
+                        .node_do_focus(&seat, Direction::Unspecified);
+                }
             }
             self.mono_child.set(Some(child.clone()));
             child.node.node_set_visible(true);
@@ -787,14 +793,6 @@ impl SizedNode for ContainerNode {
 
     fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         Some(self.workspace.get())
-    }
-
-    fn is_contained_in(&self, other: NodeId) -> bool {
-        let parent = self.parent.get();
-        if parent.node_id() == other {
-            return true;
-        }
-        parent.node_is_contained_in(other)
     }
 
     fn child_title_changed(self: &Rc<Self>, child: &dyn Node, title: &str) {
@@ -899,9 +897,9 @@ impl SizedNode for ContainerNode {
         }
     }
 
-    fn close(&self) {
+    fn close(self: &Rc<Self>) {
         for child in self.children.iter() {
-            child.node.node_close();
+            child.node.clone().node_close();
         }
     }
 
@@ -985,7 +983,7 @@ impl SizedNode for ContainerNode {
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
-        if split == self.split.get() {
+        if split == self.split.get() || (split == ContainerSplit::Horizontal && self.mono_child.get().is_some()) {
             let cc = match self.child_nodes.borrow_mut().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
                 None => return,
@@ -996,7 +994,7 @@ impl SizedNode for ContainerNode {
             };
             if let Some(neighbor) = neighbor {
                 if neighbor.node.node_accepts_child(&*child) {
-                    self.remove_child(&*child);
+                    self.remove_child2(&*child, true);
                     neighbor.node.clone().node_insert_child(child, direction);
                     return;
                 }
@@ -1022,7 +1020,7 @@ impl SizedNode for ContainerNode {
             Some(p) => p,
             _ => return,
         };
-        self.clone().node_remove_child(&*child);
+        self.remove_child2(&*child, true);
         match prev {
             true => parent.add_child_before(&*neighbor, child.clone()),
             false => parent.add_child_after(&*neighbor, child.clone()),
@@ -1151,7 +1149,7 @@ impl SizedNode for ContainerNode {
 
     fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
         let parent = self.parent.get();
-        parent.clone().node_remove_child(self.deref());
+        parent.clone().node_remove_child2(self.deref(), true);
         if parent.node_is_float() {
             self.state.map_tiled(self.clone());
         } else {
@@ -1192,7 +1190,10 @@ impl SizedNode for ContainerNode {
     fn replace_child(self: &Rc<Self>, old: &dyn Node, new: Rc<dyn Node>) {
         let node = match self.child_nodes.borrow_mut().remove(&old.node_id()) {
             Some(c) => c,
-            None => return,
+            None => {
+                log::error!("Trying to replace a node that isn't a child of this container");
+                return
+            },
         };
         let (have_mc, was_mc) = match self.mono_child.get() {
             None => (false, false),
@@ -1209,6 +1210,7 @@ impl SizedNode for ContainerNode {
             title_rect: Cell::new(node.title_rect.get()),
             focus_history: Cell::new(None),
         });
+        new.node_set_visible(node.node.node_visible());
         drop(node);
         let mut body = None;
         if was_mc {
@@ -1226,7 +1228,7 @@ impl SizedNode for ContainerNode {
         }
     }
 
-    fn remove_child(self: &Rc<Self>, child: &dyn Node) {
+    fn remove_child2(self: &Rc<Self>, child: &dyn Node, preserve_focus: bool) {
         let node = match self.child_nodes.borrow_mut().remove(&child.node_id()) {
             Some(c) => c,
             None => return,
@@ -1242,7 +1244,7 @@ impl SizedNode for ContainerNode {
                     }
                 }
                 if let Some(child) = &new {
-                    self.activate_child(child);
+                    self.activate_child2(child, preserve_focus);
                 }
             }
         }

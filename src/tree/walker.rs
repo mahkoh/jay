@@ -10,6 +10,7 @@ use {
     },
     std::rc::Rc,
 };
+use crate::tree::PlaceholderNode;
 
 pub trait NodeVisitorBase: Sized {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
@@ -51,6 +52,10 @@ pub trait NodeVisitorBase: Sized {
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
         node.node_visit_children(self);
     }
+
+    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        node.node_visit_children(self);
+    }
 }
 
 pub trait NodeVisitor {
@@ -64,6 +69,7 @@ pub trait NodeVisitor {
     fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>);
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>);
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>);
+    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>);
 }
 
 impl<T: NodeVisitorBase> NodeVisitor for T {
@@ -105,6 +111,10 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
 
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
         <T as NodeVisitorBase>::visit_xwindow(self, node)
+    }
+
+    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        <T as NodeVisitorBase>::visit_placeholder(self, node)
     }
 }
 
@@ -163,6 +173,11 @@ impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {
     }
 
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
+        (self.f)(node.clone());
+        node.node_visit_children(self);
+    }
+
+    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
         (self.f)(node.clone());
         node.node_visit_children(self);
     }

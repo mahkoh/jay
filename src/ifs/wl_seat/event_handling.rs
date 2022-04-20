@@ -278,7 +278,11 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        self.focus_node(n.focus_surface(self.id));
+        let node = match n.focus_surface(self.id) {
+            Some(n) => n,
+            _ => n.into_node(),
+        };
+        self.focus_node(node);
     }
 
     fn ungrab_kb(self: &Rc<Self>) {

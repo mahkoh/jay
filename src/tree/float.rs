@@ -430,6 +430,8 @@ impl SizedNode for FloatNode {
             }
         } else if state == KeyState::Released {
             seat_data.op_active = false;
+            let ws = seat.get_output().ensure_workspace();
+            self.set_workspace(&ws);
         }
     }
 
@@ -465,7 +467,7 @@ impl SizedNode for FloatNode {
         self.schedule_layout();
     }
 
-    fn remove_child(self: &Rc<Self>, _child: &dyn Node) {
+    fn remove_child2(self: &Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
         self.child.set(None);
         self.display_link.set(None);
         self.workspace_link.set(None);

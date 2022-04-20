@@ -379,21 +379,11 @@ impl SizedNode for Xwindow {
         self.workspace.get()
     }
 
-    fn is_contained_in(&self, other: NodeId) -> bool {
-        if let Some(parent) = self.parent_node.get() {
-            if parent.node_id() == other {
-                return true;
-            }
-            return parent.node_is_contained_in(other);
-        }
-        false
-    }
-
     fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
-    fn close(&self) {
+    fn close(self: &Rc<Self>) {
         self.data
             .state
             .xwayland
@@ -465,6 +455,23 @@ impl SizedNode for Xwindow {
     fn client(&self) -> Option<Rc<Client>> {
         Some(self.data.client.clone())
     }
+
+    fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+        let parent = match self.parent_node.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        if parent.node_is_float() {
+            parent.node_remove_child2(self.deref(), true);
+            self.data.state.map_tiled(self.clone());
+        } else if let Some(ws) = self.workspace.get() {
+            parent.node_remove_child2(self.deref(), true);
+            let (width, height) = self.toplevel_data.float_size(&ws);
+            self.data
+                .state
+                .map_floating(self.clone(), width, height, &ws);
+        }
+    }
 }
 
 impl ToplevelNode for Xwindow {
@@ -485,8 +492,8 @@ impl ToplevelNode for Xwindow {
             && self.data.info.input_model.get() != XInputModel::None
     }
 
-    fn default_surface(&self) -> Rc<WlSurface> {
-        self.surface.clone()
+    fn default_surface(&self) -> Option<Rc<WlSurface>> {
+        Some(self.surface.clone())
     }
 
     fn set_active(&self, active: bool) {
@@ -501,31 +508,6 @@ impl ToplevelNode for Xwindow {
             .xwayland
             .queue
             .push(XWaylandEvent::Activate(self.data.clone()));
-    }
-
-    fn toggle_floating(self: Rc<Self>) {
-        let parent = match self.parent_node.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        if parent.node_is_float() {
-            parent.node_remove_child(&*self);
-            self.data.state.map_tiled(self.clone());
-        } else if let Some(ws) = self.workspace.get() {
-            parent.node_remove_child(&*self);
-            let (width, height) = self.toplevel_data.float_size(&ws);
-            self.data
-                .state
-                .map_floating(self.clone(), width, height, &ws);
-        }
-    }
-
-    fn close(&self) {
-        self.data
-            .state
-            .xwayland
-            .queue
-            .push(XWaylandEvent::Close(self.data.clone()));
     }
 }
 
