@@ -177,7 +177,6 @@ impl Renderer<'_> {
         if let Some(tex) = placeholder.texture() {
             let x = x + (pos.width() - tex.width()) / 2;
             let y = y + (pos.height() - tex.height()) / 2;
-            log::info!("render at {}x{}", x, y);
             self.render_texture(&tex, x, y, &ARGB8888);
         }
     }

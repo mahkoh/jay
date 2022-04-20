@@ -160,6 +160,9 @@ impl OutputNode {
             old.node_set_visible(false);
         }
         ws.node_set_visible(true);
+        if let Some(fs) = ws.fullscreen.get() {
+            fs.into_node().node_change_extents(&self.global.pos.get());
+        }
         ws.change_extents(&self.workspace_rect());
         let node = ws.last_active_child();
         for seat in seats {
@@ -204,6 +207,9 @@ impl OutputNode {
         self.state.root.update_extents();
         self.update_render_data();
         if let Some(c) = self.workspace.get() {
+            if let Some(fs) = c.fullscreen.get() {
+                fs.into_node().node_change_extents(rect);
+            }
             c.node_change_extents(&self.workspace_rect());
         }
         for layer in &self.layers {

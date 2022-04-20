@@ -31,6 +31,7 @@ use {
     },
     thiserror::Error,
 };
+use crate::tree::{FullscreenData, SizedFullscreenNode};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum XInputModel {
@@ -142,6 +143,7 @@ pub struct Xwindow {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn Node>>>>,
     pub toplevel_data: ToplevelData,
+    pub fullscreen_data: FullscreenData,
 }
 
 impl XwindowData {
@@ -214,6 +216,7 @@ impl Xwindow {
             workspace: Default::default(),
             display_link: Default::default(),
             toplevel_data: Default::default(),
+            fullscreen_data: Default::default(),
         }
     }
 
@@ -502,12 +505,40 @@ impl SizedToplevelNode for Xwindow {
             .push(XWaylandEvent::Activate(self.data.clone()));
     }
 
-    fn set_fullscreen(self: &Rc<Self>, _fullscreen: bool) {
-        // nothing
+    fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
+        if fullscreen {
+            if let Some(ws) = self.workspace.get() {
+                self.fullscreen_data.set_fullscreen(&self.data.state, self.clone(), &ws.output.get());
+            }
+        } else {
+            self.fullscreen_data.unset_fullscreen(&self.data.state, self.clone());
+        }
     }
 
     fn fullscreen(&self) -> bool {
-        false
+        self.fullscreen_data.is_fullscreen.get()
+    }
+}
+
+impl SizedFullscreenNode for Xwindow {
+    fn on_set_fullscreen(&self, _workspace: &Rc<WorkspaceNode>) {
+        self.data
+            .state
+            .xwayland
+            .queue
+            .push(XWaylandEvent::SetFullscreen(self.data.clone(), true));
+    }
+
+    fn on_unset_fullscreen(&self) {
+        self.data
+            .state
+            .xwayland
+            .queue
+            .push(XWaylandEvent::SetFullscreen(self.data.clone(), false));
+    }
+
+    fn title(&self) -> String {
+        self.data.info.title.borrow_mut().clone().unwrap_or_default()
     }
 }
 

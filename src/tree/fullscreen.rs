@@ -152,7 +152,7 @@ impl FullscreenData {
         }
         fd.workspace.fullscreen.take();
         if let Some(container) = fd.workspace.container.get() {
-            container.set_visible(true);
+            container.set_visible(node.as_node().node_visible());
         }
         if fd.placeholder.is_destroyed() {
             state.map_tiled(node.into_node());

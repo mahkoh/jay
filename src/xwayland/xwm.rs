@@ -47,6 +47,7 @@ use {
     },
     uapi::OwnedFd,
 };
+use crate::tree::{ToplevelNode};
 
 atoms! {
     Atoms;
@@ -368,6 +369,7 @@ impl Wm {
             XWaylandEvent::Activate(window) => self.activate_window(Some(&window)).await,
             XWaylandEvent::ActivateRoot => self.activate_window(None).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
+            XWaylandEvent::SetFullscreen(window, fullscreen) => self.set_fullscreen(&window, fullscreen).await,
         }
     }
 
@@ -407,6 +409,7 @@ impl Wm {
         self.set_net_wm_state(data).await;
     }
 
+    #[allow(dead_code)]
     async fn set_maximized(&self, data: &Rc<XwindowData>, maximized: bool) {
         data.info.maximized_vert.set(maximized);
         data.info.maximized_horz.set(maximized);
@@ -1548,6 +1551,11 @@ impl Wm {
         if minimized != data.info.minimized.get() {
             if minimized {
                 minimized = self.handle_minimize_requested(data).await;
+            }
+        }
+        if fullscreen != data.info.fullscreen.get() {
+            if let Some(w) = data.window.get() {
+                w.set_fullscreen(fullscreen);
             }
         }
         data.info.fullscreen.set(fullscreen);

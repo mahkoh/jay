@@ -56,6 +56,9 @@ impl SizedNode for WorkspaceNode {
             self.output.get().node_remove_child(self);
         }
         self.output_link.set(None);
+        if let Some(fs) = self.fullscreen.take() {
+            fs.into_node().node_destroy(false);
+        }
         if let Some(container) = self.container.take() {
             container.node_destroy(false);
         }
@@ -84,6 +87,9 @@ impl SizedNode for WorkspaceNode {
     }
 
     fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
+        if let Some(fs) = self.fullscreen.get() {
+            return fs.into_node().node_last_active_child();
+        }
         if let Some(c) = self.container.get() {
             return c.last_active_child();
         }
@@ -92,14 +98,18 @@ impl SizedNode for WorkspaceNode {
 
     fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
-        if let Some(container) = self.container.get() {
+        if let Some(fs) = self.fullscreen.get() {
+            fs.as_node().node_set_visible(visible);
+        } else if let Some(container) = self.container.get() {
             container.node_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
     }
 
     fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(container) = self.container.get() {
+        if let Some(fs) = self.fullscreen.get() {
+            fs.into_node().node_do_focus(seat, direction);
+        } else if let Some(container) = self.container.get() {
             container.do_focus(seat, direction);
         }
     }

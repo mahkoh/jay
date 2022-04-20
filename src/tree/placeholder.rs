@@ -16,7 +16,7 @@ use {
             FindTreeResult, FoundNode, FullscreenNode, Node, NodeId, NodeVisitor, SizedNode,
             SizedToplevelNode, ToplevelData, WorkspaceNode,
         },
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
     },
     jay_config::Direction,
     std::{
@@ -25,7 +25,6 @@ use {
         rc::Rc,
     },
 };
-use crate::utils::errorfmt::ErrorFmt;
 
 tree_id!(DetachedNodeId);
 pub struct PlaceholderNode {
@@ -139,6 +138,18 @@ impl SizedNode for PlaceholderNode {
         });
     }
 
+    fn move_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(parent) = self.parent.get() {
+            parent.node_move_focus_from_child(seat, self.deref(), direction);
+        }
+    }
+
+    fn move_self(self: &Rc<Self>, direction: Direction) {
+        if let Some(parent) = self.parent.get() {
+            parent.node_move_child(self.clone(), direction);
+        }
+    }
+
     fn absolute_position(&self) -> Rect {
         self.pos.get()
     }
@@ -159,8 +170,11 @@ impl SizedNode for PlaceholderNode {
         seat.enter_toplevel(self.clone());
     }
 
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_placeholder(self, x, y);
+    }
+
     fn change_extents(self: &Rc<Self>, rect: &Rect) {
-        log::info!("{:?}", rect);
         self.pos.set(*rect);
         if let Some(p) = self.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
@@ -179,7 +193,7 @@ impl SizedNode for PlaceholderNode {
                 ) {
                     Ok(t) => {
                         self.texture.set(Some(t));
-                    },
+                    }
                     Err(e) => {
                         log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
                     }
@@ -199,10 +213,6 @@ impl SizedNode for PlaceholderNode {
 
     fn client(&self) -> Option<Rc<Client>> {
         self.client.clone()
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_placeholder(self, x, y);
     }
 }
 
