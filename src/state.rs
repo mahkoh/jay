@@ -25,9 +25,8 @@ use {
         render::RenderContext,
         theme::Theme,
         tree::{
-            ContainerNode, ContainerSplit, DisplayNode, FloatNode,
-            Node, NodeIds, NodeVisitorBase, OutputNode,
-            SizedNode, WorkspaceNode,
+            ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, NodeVisitorBase,
+            OutputNode, SizedNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,

@@ -16,6 +16,7 @@ use {
         object::Object,
         rect::Rect,
         render::Renderer,
+        state::State,
         tree::{
             FindTreeResult, FoundNode, FullscreenData, Node, NodeId, NodeVisitor,
             SizedFullscreenNode, SizedNode, SizedToplevelNode, ToplevelData, ToplevelNodeId,
@@ -39,7 +40,6 @@ use {
     },
     thiserror::Error,
 };
-use crate::state::State;
 
 #[derive(Copy, Clone, Debug, FromPrimitive)]
 pub enum ResizeEdge {
@@ -313,7 +313,8 @@ impl XdgToplevel {
             } else {
                 break 'set_fullscreen;
             };
-            self.fullscreen_data.set_fullscreen(&client.state, self.clone(), &output);
+            self.fullscreen_data
+                .set_fullscreen(&client.state, self.clone(), &output);
         }
         self.send_current_configure();
         Ok(())
@@ -325,7 +326,8 @@ impl XdgToplevel {
     ) -> Result<(), UnsetFullscreenError> {
         let _req: UnsetFullscreen = self.xdg.surface.client.parse(self.deref(), parser)?;
         self.states.borrow_mut().remove(&STATE_FULLSCREEN);
-        self.fullscreen_data.unset_fullscreen(&self.state, self.clone());
+        self.fullscreen_data
+            .unset_fullscreen(&self.state, self.clone());
         self.send_current_configure();
         Ok(())
     }
@@ -352,7 +354,8 @@ impl XdgToplevel {
 
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
-        self.state.map_floating(self.clone(), width, height, workspace);
+        self.state
+            .map_floating(self.clone(), width, height, workspace);
     }
 
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
@@ -563,7 +566,8 @@ impl SizedToplevelNode for XdgToplevel {
         let state = &self.state;
         if fullscreen {
             if let Some(ws) = self.xdg.workspace.get() {
-                self.fullscreen_data.set_fullscreen(state, self.clone(), &ws.output.get());
+                self.fullscreen_data
+                    .set_fullscreen(state, self.clone(), &ws.output.get());
             }
         } else {
             self.fullscreen_data.unset_fullscreen(state, self.clone());

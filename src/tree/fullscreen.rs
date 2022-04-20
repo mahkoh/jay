@@ -1,15 +1,16 @@
 use {
-    crate::tree::{Node, PlaceholderNode, SizedNode, WorkspaceNode},
+    crate::{
+        ifs::wl_seat::collect_kb_foci,
+        state::State,
+        tree::{Node, OutputNode, PlaceholderNode, SizedNode, WorkspaceNode},
+    },
+    jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
         rc::Rc,
     },
 };
-use jay_config::Direction;
-use crate::ifs::wl_seat::collect_kb_foci;
-use crate::state::State;
-use crate::tree::OutputNode;
 
 pub trait SizedFullscreenNode: SizedNode {
     fn on_set_fullscreen(&self, workspace: &Rc<WorkspaceNode>);
@@ -76,7 +77,12 @@ impl FullscreenData {
 }
 
 impl FullscreenData {
-    pub fn set_fullscreen(&self, state: &Rc<State>, node: Rc<dyn FullscreenNode>, output: &Rc<OutputNode>) {
+    pub fn set_fullscreen(
+        &self,
+        state: &Rc<State>,
+        node: Rc<dyn FullscreenNode>,
+        output: &Rc<OutputNode>,
+    ) {
         let ws = output.ensure_workspace();
         if ws.fullscreen.get().is_some() {
             log::info!("Cannot fullscreen a node on a workspace that already has a fullscreen node attached");

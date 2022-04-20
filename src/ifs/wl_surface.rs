@@ -899,7 +899,10 @@ impl SizedNode for WlSurface {
     }
 
     fn fullscreen(&self) -> bool {
-        self.toplevel.get().map(|tl| tl.fullscreen()).unwrap_or(false)
+        self.toplevel
+            .get()
+            .map(|tl| tl.fullscreen())
+            .unwrap_or(false)
     }
 }
 

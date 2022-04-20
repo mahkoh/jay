@@ -8,7 +8,10 @@ use {
             wl_surface::WlSurface,
         },
         rect::Rect,
+        render::{Renderer, Texture},
         state::State,
+        text,
+        theme::Color,
         tree::{
             FindTreeResult, FoundNode, FullscreenNode, Node, NodeId, NodeVisitor, SizedNode,
             SizedToplevelNode, ToplevelData, WorkspaceNode,
@@ -22,6 +25,7 @@ use {
         rc::Rc,
     },
 };
+use crate::utils::errorfmt::ErrorFmt;
 
 tree_id!(DetachedNodeId);
 pub struct PlaceholderNode {
@@ -37,6 +41,7 @@ pub struct PlaceholderNode {
     toplevel: ToplevelData,
     active: Cell<bool>,
     destroyed: Cell<bool>,
+    texture: CloneCell<Option<Rc<Texture>>>,
 }
 
 impl PlaceholderNode {
@@ -54,7 +59,12 @@ impl PlaceholderNode {
             toplevel: Default::default(),
             active: Default::default(),
             destroyed: Default::default(),
+            texture: Default::default(),
         }
+    }
+
+    pub fn texture(&self) -> Option<Rc<Texture>> {
+        self.texture.get()
     }
 
     pub fn set_title(&self, title: &str) {
@@ -66,6 +76,10 @@ impl PlaceholderNode {
 
     pub fn is_destroyed(&self) -> bool {
         self.destroyed.get()
+    }
+
+    pub fn position(&self) -> Rect {
+        self.pos.get()
     }
 }
 
@@ -146,7 +160,32 @@ impl SizedNode for PlaceholderNode {
     }
 
     fn change_extents(self: &Rc<Self>, rect: &Rect) {
+        log::info!("{:?}", rect);
         self.pos.set(*rect);
+        if let Some(p) = self.parent.get() {
+            p.node_child_size_changed(self.deref(), rect.width(), rect.height());
+        }
+        self.texture.set(None);
+        if let Some(ctx) = self.state.render_ctx.get() {
+            if rect.width() != 0 && rect.height() != 0 {
+                let font = format!("monospace {}", rect.width() / 10);
+                match text::render_fitting(
+                    &ctx,
+                    rect.height(),
+                    &font,
+                    "Fullscreen",
+                    Color::GREY,
+                    false,
+                ) {
+                    Ok(t) => {
+                        self.texture.set(Some(t));
+                    },
+                    Err(e) => {
+                        log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
     }
 
     fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
@@ -160,6 +199,10 @@ impl SizedNode for PlaceholderNode {
 
     fn client(&self) -> Option<Rc<Client>> {
         self.client.clone()
+    }
+
+    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_placeholder(self, x, y);
     }
 }
 

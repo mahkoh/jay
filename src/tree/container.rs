@@ -14,7 +14,8 @@ use {
         text,
         theme::Color,
         tree::{
-            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, SizedNode, WorkspaceNode,
+            walker::NodeVisitor, FindTreeResult, FoundNode, FullscreenData, Node, NodeId,
+            SizedFullscreenNode, SizedNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -117,6 +118,7 @@ pub struct ContainerNode {
     pub render_data: RefCell<ContainerRenderData>,
     visible: Cell<bool>,
     scroll: Cell<f64>,
+    fullscreen_data: FullscreenData,
 }
 
 impl Debug for ContainerNode {
@@ -216,6 +218,7 @@ impl ContainerNode {
             render_data: Default::default(),
             visible: Cell::new(false),
             scroll: Cell::new(0.0),
+            fullscreen_data: Default::default(),
         });
         child.node_set_parent(slf.clone());
         slf
@@ -602,6 +605,7 @@ impl ContainerNode {
         }
         title.push_str("]");
         self.parent.get().node_child_title_changed(&**self, &title);
+        self.fullscreen_data.set_title(&title);
     }
 
     pub fn schedule_compute_render_data(self: &Rc<Self>) {
@@ -747,6 +751,7 @@ impl SizedNode for ContainerNode {
     }
 
     fn destroy_node(&self, detach: bool) {
+        self.fullscreen_data.destroy_node();
         if detach {
             self.parent.get().node_remove_child(self);
         }
@@ -1257,8 +1262,7 @@ impl SizedNode for ContainerNode {
         };
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
-            self.seats.borrow_mut().clear();
-            self.parent.get().node_remove_child(self.deref());
+            self.destroy_node(true);
             return;
         }
         self.update_content_size();
@@ -1411,12 +1415,35 @@ impl SizedNode for ContainerNode {
             .node_child_title_changed(self.deref(), self.title.borrow_mut().deref());
     }
 
-    fn set_fullscreen(self: &Rc<Self>, _fullscreen: bool) {
-        // todo
+    fn fullscreen(&self) -> bool {
+        self.fullscreen_data.is_fullscreen.get()
     }
 
-    fn fullscreen(&self) -> bool {
-        false
+    fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
+        if fullscreen {
+            self.fullscreen_data.set_fullscreen(
+                &self.state,
+                self.clone(),
+                &self.workspace.get().output.get().clone(),
+            );
+        } else {
+            self.fullscreen_data
+                .unset_fullscreen(&self.state, self.clone());
+        }
+    }
+}
+
+impl SizedFullscreenNode for ContainerNode {
+    fn on_set_fullscreen(&self, _workspace: &Rc<WorkspaceNode>) {
+        // nothing
+    }
+
+    fn on_unset_fullscreen(&self) {
+        // nothing
+    }
+
+    fn title(&self) -> String {
+        self.title.borrow_mut().clone()
     }
 }
 

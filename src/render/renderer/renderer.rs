@@ -25,7 +25,7 @@ use {
         },
         state::State,
         theme::Color,
-        tree::{ContainerNode, DisplayNode, FloatNode, OutputNode, WorkspaceNode},
+        tree::{ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, WorkspaceNode},
         utils::rc_eq::rc_eq,
     },
     std::{ops::Deref, rc::Rc, slice},
@@ -165,6 +165,20 @@ impl Renderer<'_> {
             glEnableVertexAttribArray(self.ctx.fill_prog_pos as _);
             glDrawArrays(GL_TRIANGLES, 0, (boxes.len() * 6) as _);
             glDisableVertexAttribArray(self.ctx.fill_prog_pos as _);
+        }
+    }
+
+    pub fn render_placeholder(&mut self, placeholder: &PlaceholderNode, x: i32, y: i32) {
+        let pos = placeholder.position();
+        self.fill_boxes(
+            std::slice::from_ref(&pos.at_point(x, y)),
+            &Color::from_rgba(20, 20, 20, 255),
+        );
+        if let Some(tex) = placeholder.texture() {
+            let x = x + (pos.width() - tex.width()) / 2;
+            let y = y + (pos.height() - tex.height()) / 2;
+            log::info!("render at {}x{}", x, y);
+            self.render_texture(&tex, x, y, &ARGB8888);
         }
     }
 

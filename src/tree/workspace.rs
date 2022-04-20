@@ -120,8 +120,20 @@ impl SizedNode for WorkspaceNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child2(self: &Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
-        self.container.set(None);
+    fn remove_child2(self: &Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
+        if let Some(container) = self.container.get() {
+            if container.node_id() == child.node_id() {
+                self.container.set(None);
+                return;
+            }
+        }
+        if let Some(fs) = self.fullscreen.get() {
+            if fs.as_node().node_id() == child.node_id() {
+                self.fullscreen.set(None);
+                return;
+            }
+        }
+        log::error!("Trying to remove child that's not a child");
     }
 
     fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
