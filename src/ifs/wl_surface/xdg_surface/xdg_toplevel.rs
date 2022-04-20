@@ -299,6 +299,7 @@ impl XdgToplevel {
     ) -> Result<(), SetFullscreenError> {
         let client = &self.xdg.surface.client;
         let req: SetFullscreen = client.parse(self.deref(), parser)?;
+        self.states.borrow_mut().insert(STATE_FULLSCREEN);
         'set_fullscreen: {
             let output = if req.output.is_some() {
                 match client.lookup(req.output)?.global.node.get() {
@@ -636,7 +637,7 @@ impl XdgSurfaceExt for XdgToplevel {
 
 impl SizedFullscreenNode for XdgToplevel {
     fn on_set_fullscreen(&self, _workspace: &Rc<WorkspaceNode>) {
-        self.states.borrow_mut().insert(STATE_FULLSCREEN);
+        // nothing
     }
 
     fn on_unset_fullscreen(&self) {

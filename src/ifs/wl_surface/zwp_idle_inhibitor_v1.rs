@@ -23,7 +23,6 @@ pub struct ZwpIdleInhibitorV1 {
 
 impl ZwpIdleInhibitorV1 {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpIdleInhibitorV1Error> {
-        log::info!("destroy {}", self.id);
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         if self.surface.idle_inhibitors.remove(&self.id).is_some() {

@@ -342,15 +342,14 @@ impl SizedNode for OutputNode {
                 return fs.as_node().node_find_tree_at(x, y, tree);
             }
         }
-        let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
         {
-            if self.find_layer_surface_at(x_abs, y_abs, &[OVERLAY, TOP], tree)
-                == FindTreeResult::AcceptsInput
-            {
-                return FindTreeResult::AcceptsInput;
+            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree);
+            if res.accepts_input() {
+                return res;
             }
         }
         {
+            let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
             for stacked in self.state.root.stacked.rev_iter() {
                 let ext = stacked.node_absolute_position();
                 if stacked.node_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs)

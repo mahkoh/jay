@@ -417,8 +417,13 @@ impl Wm {
     }
 
     async fn set_fullscreen(&self, data: &Rc<XwindowData>, fullscreen: bool) {
-        data.info.fullscreen.set(fullscreen);
-        self.set_net_wm_state(data).await;
+        if false {
+            // NOTE: We do not want to inform the program if the user changes the fullscreen
+            // status of the window. Programs usually provide an in-program way to enter/exit
+            // fullscreen mode.
+            data.info.fullscreen.set(fullscreen);
+            self.set_net_wm_state(data).await;
+        }
     }
 
     async fn send_wm_message(&self, window: &Rc<XwindowData>, event_mask: u32, data: &[u32]) {

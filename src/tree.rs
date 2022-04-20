@@ -73,6 +73,12 @@ pub enum FindTreeResult {
     Other,
 }
 
+impl FindTreeResult {
+    pub fn accepts_input(self) -> bool {
+        self == Self::AcceptsInput
+    }
+}
+
 pub trait SizedNode: Sized + 'static {
     fn id(&self) -> NodeId;
     fn seat_state(&self) -> &NodeSeatState;

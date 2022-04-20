@@ -42,6 +42,5 @@
 - xdg-shell
   - xdg_positioner
     - set_reactive
-  - xdg_toplevel
-    - set_fullscreen
-    - unset_fullscreen
+  - xdg_popup
+    - grab

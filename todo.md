@@ -4,6 +4,7 @@
 - presentation time
 - viewporter
 - session lock
+- stacked restacking
 
 # done
 
