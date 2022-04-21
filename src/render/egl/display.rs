@@ -28,7 +28,7 @@ use {
         },
         video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER, LINEAR_MODIFIER},
     },
-    ahash::{AHashMap},
+    ahash::AHashMap,
     std::{ptr, rc::Rc},
 };
 
@@ -230,10 +230,13 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
     let formats = formats();
     for fmt in vec {
         if let Some(format) = formats.get(&(fmt as u32)) {
-            res.insert(format.drm, EglFormat {
-                format: *format,
-                modifiers: query_modifiers(dpy, fmt)?,
-            });
+            res.insert(
+                format.drm,
+                EglFormat {
+                    format: *format,
+                    modifiers: query_modifiers(dpy, fmt)?,
+                },
+            );
         }
     }
     Ok(res)

@@ -9,9 +9,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,
         },
-        video::{
-            dmabuf::{DmaBuf, DmaBufPlane},
-        },
+        video::dmabuf::{DmaBuf, DmaBufPlane},
         wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
     },
     ahash::AHashMap,

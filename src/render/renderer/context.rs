@@ -2,7 +2,10 @@ use {
     crate::{
         format::{Format, XRGB8888},
         render::{
-            egl::{context::EglContext, display::EglDisplay},
+            egl::{
+                context::EglContext,
+                display::{EglDisplay, EglFormat},
+            },
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
             },
@@ -24,7 +27,6 @@ use {
     },
     uapi::ustr,
 };
-use crate::render::egl::display::EglFormat;
 
 pub(super) struct TexProg {
     pub(super) prog: GlProgram,
