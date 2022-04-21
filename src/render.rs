@@ -80,6 +80,8 @@ pub enum RenderError {
     SurfacelessContext,
     #[error("`eglQueryDmaBufFormatsEXT` failed")]
     QueryDmaBufFormats,
+    #[error("`eglQueryDmaBufModifiersEXT` failed")]
+    QueryDmaBufModifiers,
     #[error(transparent)]
     DrmError(#[from] DrmError),
     #[error("The GLES driver does not support the XRGB8888 format")]

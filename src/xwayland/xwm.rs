@@ -7,7 +7,7 @@ use {
         },
         rect::Rect,
         state::State,
-        tree::{Node, SizedNode},
+        tree::{Node, SizedNode, ToplevelNode},
         utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList},
         wire::WlSurfaceId,
         wire_xcon::{
@@ -47,7 +47,6 @@ use {
     },
     uapi::OwnedFd,
 };
-use crate::tree::{ToplevelNode};
 
 atoms! {
     Atoms;
@@ -369,7 +368,9 @@ impl Wm {
             XWaylandEvent::Activate(window) => self.activate_window(Some(&window)).await,
             XWaylandEvent::ActivateRoot => self.activate_window(None).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
-            XWaylandEvent::SetFullscreen(window, fullscreen) => self.set_fullscreen(&window, fullscreen).await,
+            XWaylandEvent::SetFullscreen(window, fullscreen) => {
+                self.set_fullscreen(&window, fullscreen).await
+            }
         }
     }
 

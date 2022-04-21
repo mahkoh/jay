@@ -24,6 +24,7 @@ use {
     },
     uapi::ustr,
 };
+use crate::render::egl::display::EglFormat;
 
 pub(super) struct TexProg {
     pub(super) prog: GlProgram,
@@ -116,7 +117,7 @@ impl RenderContext {
         self.render_node.clone()
     }
 
-    pub fn formats(&self) -> Rc<AHashMap<u32, &'static Format>> {
+    pub fn formats(&self) -> Rc<AHashMap<u32, EglFormat>> {
         self.ctx.dpy.formats.clone()
     }
 

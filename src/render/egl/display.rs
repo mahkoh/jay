@@ -26,16 +26,28 @@ use {
             sys::{eglInitialize, EGL_PLATFORM_GBM_KHR},
             RenderError,
         },
-        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER},
+        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER, LINEAR_MODIFIER},
     },
-    ahash::AHashMap,
+    ahash::{AHashMap},
     std::{ptr, rc::Rc},
 };
 
 #[derive(Debug)]
+pub struct EglFormat {
+    pub format: &'static Format,
+    pub modifiers: AHashMap<u64, EglModifier>,
+}
+
+#[derive(Debug)]
+pub struct EglModifier {
+    pub modifier: u64,
+    pub external_only: bool,
+}
+
+#[derive(Debug)]
 pub struct EglDisplay {
     pub exts: DisplayExt,
-    pub formats: Rc<AHashMap<u32, &'static Format>>,
+    pub formats: Rc<AHashMap<u32, EglFormat>>,
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
 }
@@ -201,7 +213,7 @@ impl Drop for EglDisplay {
     }
 }
 
-unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, &'static Format>, RenderError> {
+unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, RenderError> {
     let mut vec = vec![];
     let mut num = 0;
     let res = PROCS.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num);
@@ -218,8 +230,73 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, &'static Format
     let formats = formats();
     for fmt in vec {
         if let Some(format) = formats.get(&(fmt as u32)) {
-            res.insert(format.drm, *format);
+            res.insert(format.drm, EglFormat {
+                format: *format,
+                modifiers: query_modifiers(dpy, fmt)?,
+            });
         }
+    }
+    Ok(res)
+}
+
+unsafe fn query_modifiers(
+    dpy: EGLDisplay,
+    format: EGLint,
+) -> Result<AHashMap<u64, EglModifier>, RenderError> {
+    let mut mods = vec![];
+    let mut ext_only = vec![];
+    let mut num = 0;
+    let res = PROCS.eglQueryDmaBufModifiersEXT(
+        dpy,
+        format,
+        num,
+        ptr::null_mut(),
+        ptr::null_mut(),
+        &mut num,
+    );
+    if res != EGL_TRUE {
+        return Err(RenderError::QueryDmaBufModifiers);
+    }
+    mods.reserve_exact(num as usize);
+    ext_only.reserve_exact(num as usize);
+    let res = PROCS.eglQueryDmaBufModifiersEXT(
+        dpy,
+        format,
+        num,
+        mods.as_mut_ptr(),
+        ext_only.as_mut_ptr(),
+        &mut num,
+    );
+    if res != EGL_TRUE {
+        return Err(RenderError::QueryDmaBufModifiers);
+    }
+    mods.set_len(num as usize);
+    ext_only.set_len(num as usize);
+    let mut res = AHashMap::new();
+    res.insert(
+        INVALID_MODIFIER,
+        EglModifier {
+            modifier: INVALID_MODIFIER,
+            external_only: false,
+        },
+    );
+    if mods.is_empty() {
+        res.insert(
+            LINEAR_MODIFIER,
+            EglModifier {
+                modifier: LINEAR_MODIFIER,
+                external_only: false,
+            },
+        );
+    }
+    for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
+        res.insert(
+            modifier as _,
+            EglModifier {
+                modifier: modifier as _,
+                external_only: ext_only == EGL_TRUE,
+            },
+        );
     }
     Ok(res)
 }

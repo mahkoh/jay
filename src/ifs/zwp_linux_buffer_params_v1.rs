@@ -11,7 +11,6 @@ use {
         },
         video::{
             dmabuf::{DmaBuf, DmaBufPlane},
-            INVALID_MODIFIER,
         },
         wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
     },
@@ -37,6 +36,7 @@ pub struct ZwpLinuxBufferParamsV1 {
     pub parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<AHashMap<u32, Add>>,
     used: Cell<bool>,
+    modifier: Cell<Option<u64>>,
     pub tracker: Tracker<Self>,
 }
 
@@ -47,6 +47,7 @@ impl ZwpLinuxBufferParamsV1 {
             parent: parent.clone(),
             planes: RefCell::new(Default::default()),
             used: Cell::new(false),
+            modifier: Cell::new(None),
             tracker: Default::default(),
         }
     }
@@ -71,8 +72,9 @@ impl ZwpLinuxBufferParamsV1 {
     fn add(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AddError> {
         let req: Add = self.parent.client.parse(&**self, parser)?;
         let modifier = ((req.modifier_hi as u64) << 32) | req.modifier_lo as u64;
-        if modifier != INVALID_MODIFIER {
-            return Err(AddError::InvalidModifier(modifier));
+        match self.modifier.get() {
+            Some(m) if m != modifier => return Err(AddError::MixedModifiers(modifier, m)),
+            _ => self.modifier.set(Some(modifier)),
         }
         let plane = req.plane_idx;
         if plane > MAX_PLANE {
@@ -98,14 +100,21 @@ impl ZwpLinuxBufferParamsV1 {
         };
         let formats = ctx.formats();
         let format = match formats.get(&format) {
-            Some(f) => *f,
+            Some(f) => f,
             None => return Err(DoCreateError::InvalidFormat(format)),
         };
+        let modifier = match self.modifier.get() {
+            Some(m) => m,
+            _ => return Err(DoCreateError::NoPlanes),
+        };
+        if !format.modifiers.contains_key(&modifier) {
+            return Err(DoCreateError::InvalidModifier(modifier));
+        }
         let mut dmabuf = DmaBuf {
             width,
             height,
-            format,
-            modifier: INVALID_MODIFIER,
+            format: format.format,
+            modifier,
             planes: vec![],
         };
         let mut planes: Vec<_> = self.planes.borrow_mut().drain().map(|v| v.1).collect();
@@ -128,7 +137,7 @@ impl ZwpLinuxBufferParamsV1 {
         let buffer = Rc::new(WlBuffer::new_dmabuf(
             buffer_id,
             &self.parent.client,
-            format,
+            format.format,
             &img,
         ));
         track!(self.parent.client, buffer);
@@ -223,8 +232,8 @@ pub enum AddError {
     MaxPlane,
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("The modifier {0} is not supported")]
-    InvalidModifier(u64),
+    #[error("Tried to add a plane with modifier {0} that differs from a previous modifier {1}")]
+    MixedModifiers(u64, u64),
     #[error("The plane {0} was already set")]
     AlreadySet(u32),
 }
@@ -239,6 +248,10 @@ pub enum DoCreateError {
     NoRenderContext,
     #[error("The format {0} is not supported")]
     InvalidFormat(u32),
+    #[error("No planes were added")]
+    NoPlanes,
+    #[error("The modifier {0} is not supported")]
+    InvalidModifier(u64),
     #[error("Plane {0} was not set")]
     MissingPlane(usize),
     #[error("Could not import the buffer")]

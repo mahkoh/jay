@@ -11,8 +11,9 @@ use {
         render::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, SizedNode, SizedToplevelNode,
-            ToplevelData, ToplevelNode, WorkspaceNode,
+            FindTreeResult, FoundNode, FullscreenData, Node, NodeId, NodeVisitor,
+            SizedFullscreenNode, SizedNode, SizedToplevelNode, ToplevelData, ToplevelNode,
+            WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode,
@@ -31,7 +32,6 @@ use {
     },
     thiserror::Error,
 };
-use crate::tree::{FullscreenData, SizedFullscreenNode};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum XInputModel {
@@ -508,10 +508,15 @@ impl SizedToplevelNode for Xwindow {
     fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
         if fullscreen {
             if let Some(ws) = self.workspace.get() {
-                self.fullscreen_data.set_fullscreen(&self.data.state, self.clone(), &ws.output.get());
+                self.fullscreen_data.set_fullscreen(
+                    &self.data.state,
+                    self.clone(),
+                    &ws.output.get(),
+                );
             }
         } else {
-            self.fullscreen_data.unset_fullscreen(&self.data.state, self.clone());
+            self.fullscreen_data
+                .unset_fullscreen(&self.data.state, self.clone());
         }
     }
 
@@ -538,7 +543,12 @@ impl SizedFullscreenNode for Xwindow {
     }
 
     fn title(&self) -> String {
-        self.data.info.title.borrow_mut().clone().unwrap_or_default()
+        self.data
+            .info
+            .title
+            .borrow_mut()
+            .clone()
+            .unwrap_or_default()
     }
 }
 

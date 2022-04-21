@@ -6,7 +6,6 @@ use {
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
-        video::INVALID_MODIFIER,
         wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufV1Id},
     },
     std::rc::Rc,
@@ -39,9 +38,11 @@ impl ZwpLinuxDmabufV1Global {
         if let Some(ctx) = client.state.render_ctx.get() {
             let formats = ctx.formats();
             for format in formats.values() {
-                obj.send_format(format.drm);
+                obj.send_format(format.format.drm);
                 if version >= MODIFIERS_SINCE_VERSION {
-                    obj.send_modifier(format.drm, INVALID_MODIFIER);
+                    for modifier in format.modifiers.values() {
+                        obj.send_modifier(format.format.drm, modifier.modifier);
+                    }
                 }
             }
         }

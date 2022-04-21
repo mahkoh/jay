@@ -121,7 +121,7 @@ impl WlDrm {
         };
         let formats = ctx.formats();
         let format = match formats.get(&req.format) {
-            Some(f) => *f,
+            Some(f) => f.format,
             None => return Err(CreatePrimeBufferError::InvalidFormat(req.format)),
         };
         let mut dmabuf = DmaBuf {
