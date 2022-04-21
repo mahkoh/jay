@@ -935,7 +935,7 @@ struct drm_mode_fb_cmd2 {
     handles: [u32; 4],
     pitches: [u32; 4],
     offsets: [u32; 4],
-    modifier: [u64; 4],
+    modifiers: [u64; 4],
 }
 
 #[allow(dead_code)]
@@ -953,7 +953,7 @@ pub fn mode_addfb2(
     handles: [u32; 4],
     strides: [u32; 4],
     offsets: [u32; 4],
-    modifier: u64,
+    modifiers: [u64; 4],
 ) -> Result<DrmFb, OsError> {
     let mut res = drm_mode_fb_cmd2 {
         fb_id: 0,
@@ -964,7 +964,7 @@ pub fn mode_addfb2(
         handles,
         pitches: strides,
         offsets,
-        modifier: [modifier; 4],
+        modifiers,
     };
     log::info!("{:#?}", res);
 

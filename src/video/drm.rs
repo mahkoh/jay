@@ -272,11 +272,13 @@ impl DrmMaster {
         }
         let mut strides = [0; 4];
         let mut offsets = [0; 4];
+        let mut modifiers = [0; 4];
         let mut handles = [0; 4];
         let mut handles_ = vec![];
         for (idx, plane) in dma.planes.iter().enumerate() {
             strides[idx] = plane.stride;
             offsets[idx] = plane.offset;
+            modifiers[idx] = modifier;
             let handle = self.gem_handle(plane.fd.raw())?;
             handles[idx] = handle.handle();
             handles_.push(handle);
@@ -290,7 +292,7 @@ impl DrmMaster {
             handles,
             strides,
             offsets,
-            modifier,
+            modifiers,
         ) {
             Ok(fb) => Ok(DrmFramebuffer {
                 master: self.clone(),
