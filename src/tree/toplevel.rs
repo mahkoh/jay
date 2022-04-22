@@ -71,10 +71,6 @@ pub trait ToplevelNode: Node {
         }
     }
 
-    fn tl_title(&self) -> String {
-        self.tl_data().title.borrow_mut().clone()
-    }
-
     fn tl_title_changed(&self) {
         let data = self.tl_data();
         let title = data.title.borrow_mut();

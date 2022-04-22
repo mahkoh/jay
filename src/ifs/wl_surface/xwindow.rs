@@ -134,7 +134,6 @@ pub struct Xwindow {
     pub seat_state: NodeSeatState,
     pub data: Rc<XwindowData>,
     pub surface: Rc<WlSurface>,
-    pub parent_node: CloneCell<Option<Rc<dyn Node>>>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub toplevel_data: ToplevelData,
 }
@@ -184,7 +183,7 @@ impl XwindowData {
     pub fn title_changed(&self) {
         let title = self.info.title.borrow_mut();
         if let Some(w) = self.window.get() {
-            if let Some(p) = w.parent_node.get() {
+            if let Some(p) = w.toplevel_data.parent.get() {
                 p.node_child_title_changed(w.deref(), title.as_deref().unwrap_or(""));
             }
         }
@@ -204,7 +203,6 @@ impl Xwindow {
             seat_state: Default::default(),
             data: data.clone(),
             surface: surface.clone(),
-            parent_node: Default::default(),
             display_link: Default::default(),
             toplevel_data: ToplevelData::new(
                 &data.state,
@@ -234,26 +232,8 @@ impl Xwindow {
         Ok(())
     }
 
-    fn notify_parent(&self) {
-        let parent = match self.parent_node.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        let extents = self.surface.extents.get();
-        parent.clone().node_child_active_changed(
-            self,
-            self.toplevel_data.active_children.get() > 0,
-            1,
-        );
-        parent.node_child_size_changed(self, extents.width(), extents.height());
-        parent.node_child_title_changed(
-            self,
-            self.data.info.title.borrow_mut().as_deref().unwrap_or(""),
-        );
-    }
-
     pub fn is_mapped(&self) -> bool {
-        self.parent_node.get().is_some() || self.display_link.borrow_mut().is_some()
+        self.toplevel_data.parent.get().is_some() || self.display_link.borrow_mut().is_some()
     }
 
     pub fn may_be_mapped(&self) -> bool {
@@ -327,7 +307,7 @@ impl SurfaceExt for Xwindow {
     }
 
     fn extents_changed(&self) {
-        self.notify_parent();
+        self.tl_notify_parent();
     }
 }
 
@@ -412,7 +392,7 @@ impl ToplevelNode for Xwindow {
     }
 
     fn tl_set_active(&self, active: bool) {
-        if let Some(pn) = self.parent_node.get() {
+        if let Some(pn) = self.toplevel_data.parent.get() {
             pn.node_child_active_changed(self, active, 1);
         }
     }

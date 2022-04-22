@@ -26,7 +26,6 @@ use {
         },
     },
     ahash::AHashMap,
-    backtrace::Backtrace,
     isnt::std_1::vec::IsntVecExt,
     jay_config::{Axis, Direction},
     smallvec::SmallVec,
@@ -280,7 +279,6 @@ impl ContainerNode {
             let mut links = self.child_nodes.borrow_mut();
             if links.contains_key(&new.node_id()) {
                 log::error!("Tried to add a child to a container that already contains the child");
-                log::error!("\n{:?}", Backtrace::new());
                 return;
             }
             let link = f(ContainerChild {
@@ -942,6 +940,16 @@ impl Node for ContainerNode {
         self.toplevel_data.visible.get()
     }
 
+    fn node_absolute_position(&self) -> Rect {
+        Rect::new_sized(
+            self.abs_x1.get(),
+            self.abs_y1.get(),
+            self.width.get(),
+            self.height.get(),
+        )
+        .unwrap()
+    }
+
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
         let child = match self.child_nodes.borrow_mut().get(&child.node_id()) {
             Some(cn) => cn.to_ref(),
@@ -978,16 +986,6 @@ impl Node for ContainerNode {
         if let Some(node) = node {
             node.node.clone().node_do_focus(seat, direction);
         }
-    }
-
-    fn node_absolute_position(&self) -> Rect {
-        Rect::new_sized(
-            self.abs_x1.get(),
-            self.abs_y1.get(),
-            self.width.get(),
-            self.height.get(),
-        )
-        .unwrap()
     }
 
     fn node_active_changed(&self, active: bool) {
@@ -1316,6 +1314,10 @@ impl ToplevelNode for ContainerNode {
             .map(|tl| tl.tl_into_node())
     }
 
+    fn tl_after_parent_set(&self, parent: Rc<dyn ContainingNode>) {
+        self.parent.set(parent);
+    }
+
     fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         self.toplevel_data.workspace.set(Some(ws.clone()));
         for child in self.children.iter() {
@@ -1380,10 +1382,6 @@ impl ToplevelNode for ContainerNode {
             return last.node.clone().tl_last_active_child();
         }
         self
-    }
-
-    fn tl_after_parent_set(&self, parent: Rc<dyn ContainingNode>) {
-        self.parent.set(parent);
     }
 }
 
