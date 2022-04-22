@@ -274,5 +274,4 @@ pub enum XWaylandEvent {
     Activate(Rc<XwindowData>),
     ActivateRoot,
     Close(Rc<XwindowData>),
-    SetFullscreen(Rc<XwindowData>, bool),
 }

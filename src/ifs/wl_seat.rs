@@ -32,7 +32,10 @@ use {
         leaks::Tracker,
         object::{Object, ObjectId},
         state::State,
-        tree::{generic_node_visitor, ContainerSplit, FloatNode, FoundNode, Node, OutputNode},
+        tree::{
+            generic_node_visitor, ContainerNode, ContainerSplit, FloatNode, FoundNode, Node,
+            OutputNode, WorkspaceNode,
+        },
         utils::{
             asyncevent::AsyncEvent,
             buffd::{MsgParser, MsgParserError},
@@ -56,7 +59,7 @@ use {
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
         mem,
-        ops::DerefMut,
+        ops::{Deref, DerefMut},
         rc::Rc,
     },
     thiserror::Error,
@@ -196,17 +199,24 @@ impl WlSeatGlobal {
         self.output.get()
     }
 
+    pub fn set_workspace(&self, _ws: &Rc<WorkspaceNode>) {}
+
     pub fn mark_last_active(self: &Rc<Self>) {
         self.queue_link
             .set(Some(self.state.seat_queue.add_last(self.clone())));
     }
 
     pub fn set_fullscreen(&self, fullscreen: bool) {
-        self.keyboard_node.get().node_set_fullscreen(fullscreen);
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            tl.tl_set_fullscreen(fullscreen);
+        }
     }
 
     pub fn get_fullscreen(&self) -> bool {
-        self.keyboard_node.get().node_fullscreen()
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            return tl.tl_data().is_fullscreen.get();
+        }
+        false
     }
 
     pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
@@ -254,32 +264,96 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn kb_parent_container(&self) -> Option<Rc<ContainerNode>> {
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            if let Some(parent) = tl.tl_data().parent.get() {
+                if let Some(container) = parent.node_into_container() {
+                    return Some(container);
+                }
+            }
+        }
+        None
+    }
+
     pub fn get_mono(&self) -> Option<bool> {
-        self.keyboard_node.get().node_get_parent_mono()
+        self.kb_parent_container()
+            .map(|c| c.mono_child.get().is_some())
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.keyboard_node.get().node_get_parent_split()
+        self.kb_parent_container().map(|c| c.split.get())
     }
 
     pub fn set_mono(&self, mono: bool) {
-        self.keyboard_node.get().node_set_parent_mono(mono)
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            if let Some(parent) = tl.tl_data().parent.get() {
+                if let Some(container) = parent.node_into_container() {
+                    let node = if mono { Some(tl.deref()) } else { None };
+                    container.set_mono(node);
+                }
+            }
+        }
     }
 
     pub fn set_split(&self, axis: ContainerSplit) {
-        self.keyboard_node.get().node_set_parent_split(axis)
+        if let Some(c) = self.kb_parent_container() {
+            c.set_split(axis);
+        }
     }
 
     pub fn create_split(&self, axis: ContainerSplit) {
-        self.keyboard_node.get().node_create_split(axis)
+        let tl = match self.keyboard_node.get().node_toplevel() {
+            Some(tl) => tl,
+            _ => return,
+        };
+        if tl.tl_data().is_fullscreen.get() {
+            return;
+        }
+        let ws = match tl.tl_data().workspace.get() {
+            Some(ws) => ws,
+            _ => return,
+        };
+        let pn = match tl.tl_data().parent.get() {
+            Some(pn) => pn,
+            _ => return,
+        };
+        if let Some(pn) = pn.node_into_containing_node() {
+            let cn = ContainerNode::new(&self.state, &ws, pn.clone(), tl.clone(), axis);
+            pn.cnode_replace_child(tl.tl_as_node(), cn);
+        }
     }
 
     pub fn focus_parent(self: &Rc<Self>) {
-        self.keyboard_node.get().node_focus_parent(self);
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            if let Some(parent) = tl.tl_data().parent.get() {
+                self.focus_node(parent.cnode_into_node());
+            }
+        }
     }
 
     pub fn toggle_floating(self: &Rc<Self>) {
-        self.keyboard_node.get().node_toggle_floating(self);
+        let tl = match self.keyboard_node.get().node_toplevel() {
+            Some(tl) => tl,
+            _ => return,
+        };
+        let data = tl.tl_data();
+        if data.is_fullscreen.get() {
+            return;
+        }
+        let parent = match data.parent.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        if let Some(cn) = parent.clone().node_into_containing_node() {
+            if parent.node_is_float() {
+                cn.cnode_remove_child2(tl.tl_as_node(), true);
+                self.state.map_tiled(tl);
+            } else if let Some(ws) = data.workspace.get() {
+                cn.cnode_remove_child2(tl.tl_as_node(), true);
+                let (width, height) = data.float_size(&ws);
+                self.state.map_floating(tl, width, height, &ws);
+            }
+        }
     }
 
     pub fn get_rate(&self) -> (i32, i32) {
@@ -303,17 +377,34 @@ impl WlSeatGlobal {
 
     pub fn close(self: &Rc<Self>) {
         let kb_node = self.keyboard_node.get();
-        kb_node.node_close();
+        if let Some(tl) = kb_node.node_toplevel() {
+            tl.tl_close();
+        }
     }
 
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
-        let kb_node = self.keyboard_node.get();
-        kb_node.node_move_focus(self, direction);
+        let tl = match self.keyboard_node.get().node_toplevel() {
+            Some(tl) => tl,
+            _ => return,
+        };
+        if direction == Direction::Down && tl.node_is_container() {
+            tl.node_do_focus(self, direction);
+        } else if let Some(p) = tl.tl_data().parent.get() {
+            if let Some(c) = p.node_into_container() {
+                c.move_focus_from_child(self, tl.deref(), direction);
+            }
+        }
     }
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
         let kb_node = self.keyboard_node.get();
-        kb_node.node_move_self(direction);
+        if let Some(tl) = kb_node.node_toplevel() {
+            if let Some(parent) = tl.tl_data().parent.get() {
+                if let Some(c) = parent.node_into_container() {
+                    c.move_child(tl, direction);
+                }
+            }
+        }
     }
 
     fn set_selection_<T: ipc::Vtable>(

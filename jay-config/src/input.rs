@@ -129,6 +129,10 @@ impl Seat {
         get!().show_workspace(self, workspace)
     }
 
+    pub fn set_workspace(self, workspace: Workspace) {
+        get!().set_workspace(self, workspace)
+    }
+
     pub fn toggle_fullscreen(self) {
         let c = get!();
         c.set_fullscreen(self, !c.get_fullscreen(self));

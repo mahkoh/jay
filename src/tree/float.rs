@@ -10,7 +10,8 @@ use {
         text,
         theme::Color,
         tree::{
-            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, SizedNode, WorkspaceNode,
+            walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
+            StackedNode, ToplevelNode, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedNode},
     },
@@ -30,10 +31,10 @@ pub struct FloatNode {
     pub state: Rc<State>,
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
-    pub display_link: Cell<Option<LinkedNode<Rc<dyn Node>>>>,
-    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn Node>>>>,
+    pub display_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
-    pub child: CloneCell<Option<Rc<dyn Node>>>,
+    pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub active: Cell<bool>,
     pub seat_state: NodeSeatState,
     pub layout_scheduled: Cell<bool>,
@@ -90,7 +91,7 @@ impl FloatNode {
         state: &Rc<State>,
         ws: &Rc<WorkspaceNode>,
         position: Rect,
-        child: Rc<dyn Node>,
+        child: Rc<dyn ToplevelNode>,
     ) -> Rc<Self> {
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
@@ -115,8 +116,8 @@ impl FloatNode {
         floater
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
-        child.clone().node_set_workspace(ws);
-        child.clone().node_set_parent(floater.clone());
+        child.clone().tl_set_workspace(ws);
+        child.tl_set_parent(floater.clone());
         floater.schedule_layout();
         floater
     }
@@ -151,7 +152,7 @@ impl FloatNode {
             (pos.height() - 2 * bw - th - 1).max(0),
         )
         .unwrap();
-        child.clone().node_change_extents(&cpos);
+        child.clone().tl_change_extents(&cpos);
         self.layout_scheduled.set(false);
         self.schedule_render_titles();
     }
@@ -312,6 +313,23 @@ impl FloatNode {
             }
         }
     }
+
+    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        if let Some(c) = self.child.get() {
+            c.tl_set_workspace(ws);
+        }
+        self.workspace_link
+            .set(Some(ws.stacked.add_last(self.clone())));
+        self.workspace.set(ws.clone());
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        if let Some(child) = self.child.get() {
+            child.tl_set_visible(visible);
+        }
+        self.seat_state.set_visible(self, visible);
+    }
 }
 
 impl Debug for FloatNode {
@@ -320,55 +338,34 @@ impl Debug for FloatNode {
     }
 }
 
-impl SizedNode for FloatNode {
-    fn id(&self) -> NodeId {
+impl Node for FloatNode {
+    fn node_id(&self) -> NodeId {
         self.id.into()
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
+    fn node_seat_state(&self) -> &NodeSeatState {
         &self.seat_state
     }
 
-    fn destroy_node(&self, _detach: bool) {
-        let _v = self.display_link.take();
-        let _v = self.workspace_link.take();
-        if let Some(child) = self.child.get() {
-            child.node_destroy(false);
-        }
-        self.seat_state.destroy_node(self);
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_float(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_float(self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.child.get() {
             c.node_visit(visitor);
         }
     }
 
-    fn visible(&self) -> bool {
+    fn node_visible(&self) -> bool {
         self.visible.get()
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        Some(self.workspace.get())
+    fn node_absolute_position(&self) -> Rect {
+        self.position.get()
     }
 
-    fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
-        if let Some(child) = self.child.get() {
-            child.node_set_visible(visible);
-        }
-        self.seat_state.set_visible(self, visible);
-    }
-
-    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        Some(self.workspace.get())
-    }
-
-    fn child_title_changed(self: &Rc<Self>, _child: &dyn Node, title: &str) {
+    fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
         let mut t = self.title.borrow_mut();
         if t.deref() != title {
             t.clear();
@@ -377,12 +374,41 @@ impl SizedNode for FloatNode {
         }
     }
 
-    fn absolute_position(&self) -> Rect {
-        self.position.get()
+    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        let theme = &self.state.theme;
+        let th = theme.title_height.get();
+        let bw = theme.border_width.get();
+        let pos = self.position.get();
+        if x < bw || x >= pos.width() - bw {
+            return FindTreeResult::AcceptsInput;
+        }
+        if y < bw + th + 1 || y >= pos.height() - bw {
+            return FindTreeResult::AcceptsInput;
+        }
+        let child = match self.child.get() {
+            Some(c) => c,
+            _ => return FindTreeResult::Other,
+        };
+        let x = x - bw;
+        let y = y - bw - th - 1;
+        tree.push(FoundNode {
+            node: child.clone().tl_into_node(),
+            x,
+            y,
+        });
+        child.node_find_tree_at(x, y, tree)
     }
 
-    fn button(
-        self: &Rc<Self>,
+    fn node_child_active_changed(self: Rc<Self>, _child: &dyn Node, active: bool, _depth: u32) {
+        self.active.set(active);
+    }
+
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_floating(self, x, y)
+    }
+
+    fn node_on_button(
+        self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
         button: u32,
         state: KeyState,
@@ -435,60 +461,18 @@ impl SizedNode for FloatNode {
         }
     }
 
-    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        let theme = &self.state.theme;
-        let th = theme.title_height.get();
-        let bw = theme.border_width.get();
-        let pos = self.position.get();
-        if x < bw || x >= pos.width() - bw {
-            return FindTreeResult::AcceptsInput;
-        }
-        if y < bw + th + 1 || y >= pos.height() - bw {
-            return FindTreeResult::AcceptsInput;
-        }
-        let child = match self.child.get() {
-            Some(c) => c,
-            _ => return FindTreeResult::Other,
-        };
-        let x = x - bw;
-        let y = y - bw - th - 1;
-        tree.push(FoundNode {
-            node: child.clone(),
-            x,
-            y,
-        });
-        child.node_find_tree_at(x, y, tree)
-    }
-
-    fn replace_child(self: &Rc<Self>, _old: &dyn Node, new: Rc<dyn Node>) {
-        self.child.set(Some(new.clone()));
-        new.clone().node_set_parent(self.clone());
-        new.clone().node_set_workspace(&self.workspace.get());
-        self.schedule_layout();
-    }
-
-    fn remove_child2(self: &Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
-        self.child.set(None);
-        self.display_link.set(None);
-        self.workspace_link.set(None);
-    }
-
-    fn child_active_changed(self: &Rc<Self>, _child: &dyn Node, active: bool, _depth: u32) {
-        self.active.set(active);
-    }
-
-    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
-    fn pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
+    fn node_on_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = false;
         }
     }
 
-    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+    fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = true;
@@ -496,32 +480,44 @@ impl SizedNode for FloatNode {
         }
     }
 
-    fn pointer_motion(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_floating(self, x, y)
-    }
-
-    fn into_float(self: &Rc<Self>) -> Option<Rc<FloatNode>> {
+    fn node_into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
         Some(self.clone())
     }
 
-    fn accepts_child(&self, _node: &dyn Node) -> bool {
-        true
+    fn node_into_containing_node(self: Rc<Self>) -> Option<Rc<dyn ContainingNode>> {
+        Some(self)
     }
 
-    fn is_float(&self) -> bool {
+    fn node_is_float(&self) -> bool {
         true
     }
+}
 
-    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        if let Some(c) = self.child.get() {
-            c.node_set_workspace(ws);
-        }
-        self.workspace_link
-            .set(Some(ws.stacked.add_last(self.clone())));
-        self.workspace.set(ws.clone());
+impl ContainingNode for FloatNode {
+    containing_node_impl!();
+
+    fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+        self.child.set(Some(new.clone()));
+        new.tl_set_parent(self.clone());
+        new.clone().tl_set_workspace(&self.workspace.get());
+        self.schedule_layout();
     }
+
+    fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
+        self.child.set(None);
+        self.display_link.set(None);
+        self.workspace_link.set(None);
+    }
+
+    fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
+        true
+    }
+}
+
+impl StackedNode for FloatNode {
+    stacked_node_impl!();
 }

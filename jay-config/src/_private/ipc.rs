@@ -211,6 +211,10 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         workspace: Workspace,
     },
+    SetWorkspace {
+        seat: Seat,
+        workspace: Workspace,
+    },
     GetTimer {
         name: &'a str,
     },

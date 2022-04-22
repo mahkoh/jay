@@ -20,7 +20,7 @@ use {
             xdg_wm_base::XdgWmBase,
         },
         object::{Object, ObjectId},
-        tree::SizedNode,
+        tree::ToplevelNode,
         utils::{
             clonecell::CloneCell,
             copyhashmap::{CopyHashMap, Locked},
@@ -81,7 +81,7 @@ impl Objects {
         {
             let mut toplevel = self.xdg_toplevel.lock();
             for obj in toplevel.values_mut() {
-                obj.destroy_node(true);
+                obj.tl_destroy();
             }
             mem::take(toplevel.deref_mut());
         }

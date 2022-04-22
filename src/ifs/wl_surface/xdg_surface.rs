@@ -5,7 +5,6 @@ use {
     crate::{
         client::ClientError,
         ifs::{
-            wl_seat::NodeSeatState,
             wl_surface::{
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError},
@@ -18,7 +17,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        tree::{FindTreeResult, FoundNode, Node, SizedNode, WorkspaceNode},
+        tree::{FindTreeResult, FoundNode, WorkspaceNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -67,7 +66,6 @@ pub struct XdgSurface {
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
     pending: PendingXdgSurfaceData,
-    seat_state: NodeSeatState,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
 }
@@ -106,7 +104,6 @@ impl XdgSurface {
             ext: Default::default(),
             popups: Default::default(),
             pending: Default::default(),
-            seat_state: Default::default(),
             workspace: Default::default(),
             tracker: Default::default(),
         }
@@ -152,10 +149,10 @@ impl XdgSurface {
 
     fn destroy_node(&self) {
         self.workspace.set(None);
-        self.surface.destroy_node(false);
+        self.surface.destroy_node();
         let popups = self.popups.lock();
         for popup in popups.values() {
-            popup.destroy_node(true);
+            popup.destroy_node();
         }
     }
 
@@ -301,7 +298,7 @@ impl XdgSurface {
     }
 
     fn set_visible(&self, visible: bool) {
-        self.surface.node_set_visible(visible);
+        self.surface.set_visible(visible);
         for popup in self.popups.lock().values() {
             popup.set_visible(visible);
         }

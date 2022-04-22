@@ -21,7 +21,7 @@ use {
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
         object::ObjectId,
-        tree::{FloatNode, Node, SizedNode, ToplevelNode},
+        tree::{FloatNode, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
@@ -97,7 +97,9 @@ impl NodeSeatState {
             seat.keyboard_node.set(seat.state.root.clone());
             // log::info!("keyboard_node = root");
             if focus_last {
-                seat.output.get().do_focus(&seat, Direction::Unspecified);
+                seat.output
+                    .get()
+                    .node_do_focus(&seat, Direction::Unspecified);
             }
         }
     }
@@ -131,7 +133,7 @@ impl NodeSeatState {
                     break;
                 }
                 last.node_seat_state().leave(&seat);
-                last.node_leave(&seat);
+                last.node_on_leave(&seat);
             }
             seat.state.tree_changed();
         }
@@ -253,14 +255,14 @@ impl WlSeatGlobal {
         }
         let node = self.keyboard_node.get();
         if shortcuts.is_empty() {
-            node.node_key(self, key, state);
+            node.node_on_key(self, key, state);
         } else if let Some(config) = self.state.config.get() {
             for shortcut in shortcuts {
                 config.invoke_shortcut(self.id(), &shortcut);
             }
         }
         if let Some(mods) = new_mods {
-            node.node_mods(self, mods);
+            node.node_on_mods(self, mods);
         }
     }
 }
@@ -278,9 +280,9 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        let node = match n.focus_surface(self.id) {
+        let node = match n.tl_focus_child(self.id) {
             Some(n) => n,
-            _ => n.into_node(),
+            _ => n.tl_into_node(),
         };
         self.focus_node(node);
     }
@@ -491,7 +493,7 @@ impl WlSeatGlobal {
 // Enter callbacks
 impl WlSeatGlobal {
     pub fn enter_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        if n.accepts_keyboard_focus() && self.changes.get().contains(CHANGE_CURSOR_MOVED) {
+        if n.tl_accepts_keyboard_focus() && self.changes.get().contains(CHANGE_CURSOR_MOVED) {
             self.focus_toplevel(n);
         }
     }

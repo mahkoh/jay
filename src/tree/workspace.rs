@@ -5,8 +5,8 @@ use {
         rect::Rect,
         render::Renderer,
         tree::{
-            container::ContainerNode, walker::NodeVisitor, FindTreeResult, FoundNode,
-            FullscreenNode, Node, NodeId, OutputNode, SizedNode,
+            container::ContainerNode, walker::NodeVisitor, ContainingNode, FindTreeResult,
+            FoundNode, Node, NodeId, OutputNode, StackedNode, ToplevelNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -24,101 +24,81 @@ pub struct WorkspaceNode {
     pub output: CloneCell<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
-    pub stacked: LinkedList<Rc<dyn Node>>,
+    pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
     pub name: String,
     pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
-    pub fullscreen: CloneCell<Option<Rc<dyn FullscreenNode>>>,
+    pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
 }
 
 impl WorkspaceNode {
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
         let pos = self.position.get();
-        container.change_extents(&pos);
-        container.set_workspace(self);
-        container.set_visible(self.visible.get());
+        container.clone().tl_change_extents(&pos);
+        container.clone().tl_set_workspace(self);
+        container.tl_set_parent(self.clone());
+        container.tl_set_visible(self.visible.get() && self.fullscreen.get().is_none());
         self.container.set(Some(container.clone()));
+    }
+
+    pub fn change_extents(&self, rect: &Rect) {
+        self.position.set(*rect);
+        if let Some(c) = self.container.get() {
+            c.tl_change_extents(rect);
+        }
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        if let Some(fs) = self.fullscreen.get() {
+            fs.tl_set_visible(visible);
+        } else if let Some(container) = self.container.get() {
+            container.tl_set_visible(visible);
+        }
+        self.seat_state.set_visible(self, visible);
     }
 }
 
-impl SizedNode for WorkspaceNode {
-    fn id(&self) -> NodeId {
+impl Node for WorkspaceNode {
+    fn node_id(&self) -> NodeId {
         self.id.into()
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
+    fn node_seat_state(&self) -> &NodeSeatState {
         &self.seat_state
     }
 
-    fn destroy_node(&self, detach: bool) {
-        if detach {
-            self.output.get().node_remove_child(self);
-        }
-        self.output_link.set(None);
-        if let Some(fs) = self.fullscreen.take() {
-            fs.into_node().node_destroy(false);
-        }
-        if let Some(container) = self.container.take() {
-            container.node_destroy(false);
-        }
-        self.seat_state.destroy_node(self);
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_workspace(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_workspace(self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.container.get() {
             visitor.visit_container(&c);
         }
         if let Some(fs) = self.fullscreen.get() {
-            fs.into_node().node_visit(visitor);
+            fs.tl_into_node().node_visit(visitor);
         }
     }
 
-    fn visible(&self) -> bool {
+    fn node_visible(&self) -> bool {
         self.visible.get()
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        Some(self.output.get())
-    }
-
-    fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
-        if let Some(fs) = self.fullscreen.get() {
-            return fs.into_node().node_last_active_child();
-        }
-        if let Some(c) = self.container.get() {
-            return c.last_active_child();
-        }
-        self.clone()
-    }
-
-    fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
-        if let Some(fs) = self.fullscreen.get() {
-            fs.as_node().node_set_visible(visible);
-        } else if let Some(container) = self.container.get() {
-            container.node_set_visible(visible);
-        }
-        self.seat_state.set_visible(self, visible);
-    }
-
-    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(fs) = self.fullscreen.get() {
-            fs.into_node().node_do_focus(seat, direction);
-        } else if let Some(container) = self.container.get() {
-            container.do_focus(seat, direction);
-        }
-    }
-
-    fn absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self) -> Rect {
         self.position.get()
     }
 
-    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(fs) = self.fullscreen.get() {
+            fs.tl_into_node().node_do_focus(seat, direction);
+        } else if let Some(container) = self.container.get() {
+            container.node_do_focus(seat, direction);
+        }
+    }
+
+    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         if let Some(n) = self.container.get() {
             tree.push(FoundNode {
                 node: n.clone(),
@@ -130,7 +110,48 @@ impl SizedNode for WorkspaceNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child2(self: &Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_workspace(self, x, y);
+    }
+
+    fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
+    }
+
+    fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        Some(self.clone())
+    }
+
+    fn node_into_containing_node(self: Rc<Self>) -> Option<Rc<dyn ContainingNode>> {
+        Some(self)
+    }
+
+    fn node_is_workspace(&self) -> bool {
+        true
+    }
+}
+
+impl ContainingNode for WorkspaceNode {
+    containing_node_impl!();
+
+    fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+        if let Some(container) = self.container.get() {
+            if container.node_id() == old.node_id() {
+                let new = match new.tl_into_node().node_into_container() {
+                    Some(c) => c,
+                    _ => {
+                        log::error!("cnode_replace_child called with non-container new");
+                        return;
+                    }
+                };
+                self.set_container(&new);
+                return;
+            }
+        }
+        log::error!("Trying to replace child that's not a child");
+    }
+
+    fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
         if let Some(container) = self.container.get() {
             if container.node_id() == child.node_id() {
                 self.container.set(None);
@@ -138,7 +159,7 @@ impl SizedNode for WorkspaceNode {
             }
         }
         if let Some(fs) = self.fullscreen.get() {
-            if fs.as_node().node_id() == child.node_id() {
+            if fs.tl_as_node().node_id() == child.node_id() {
                 self.fullscreen.set(None);
                 return;
             }
@@ -146,30 +167,7 @@ impl SizedNode for WorkspaceNode {
         log::error!("Trying to remove child that's not a child");
     }
 
-    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_workspace(self, x, y);
-    }
-
-    fn into_workspace(self: &Rc<Self>) -> Option<Rc<WorkspaceNode>> {
-        Some(self.clone())
-    }
-
-    fn accepts_child(&self, node: &dyn Node) -> bool {
+    fn cnode_accepts_child(&self, node: &dyn Node) -> bool {
         node.node_is_container()
-    }
-
-    fn is_workspace(&self) -> bool {
-        true
-    }
-
-    fn change_extents(self: &Rc<Self>, rect: &Rect) {
-        self.position.set(*rect);
-        if let Some(c) = self.container.get() {
-            c.node_change_extents(rect);
-        }
     }
 }

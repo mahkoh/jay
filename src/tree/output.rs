@@ -13,9 +13,7 @@ use {
         state::State,
         text,
         theme::Color,
-        tree::{
-            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, SizedNode, WorkspaceNode,
-        },
+        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList},
     },
     jay_config::Direction,
@@ -157,16 +155,15 @@ impl OutputNode {
                 return false;
             }
             collect_kb_foci2(old.clone(), &mut seats);
-            old.node_set_visible(false);
+            old.set_visible(false);
         }
-        ws.node_set_visible(true);
+        ws.set_visible(true);
         if let Some(fs) = ws.fullscreen.get() {
-            fs.into_node().node_change_extents(&self.global.pos.get());
+            fs.tl_change_extents(&self.global.pos.get());
         }
         ws.change_extents(&self.workspace_rect());
-        let node = ws.last_active_child();
         for seat in seats {
-            node.clone().node_do_focus(&seat, Direction::Unspecified);
+            ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
         true
     }
@@ -208,13 +205,13 @@ impl OutputNode {
         self.update_render_data();
         if let Some(c) = self.workspace.get() {
             if let Some(fs) = c.fullscreen.get() {
-                fs.into_node().node_change_extents(rect);
+                fs.tl_change_extents(rect);
             }
-            c.node_change_extents(&self.workspace_rect());
+            c.change_extents(&self.workspace_rect());
         }
         for layer in &self.layers {
             for surface in layer.iter() {
-                surface.deref().clone().node_change_extents(&rect);
+                surface.compute_position();
             }
         }
         self.global.send_mode();
@@ -270,32 +267,20 @@ impl Debug for OutputNode {
     }
 }
 
-impl SizedNode for OutputNode {
-    fn id(&self) -> NodeId {
+impl Node for OutputNode {
+    fn node_id(&self) -> NodeId {
         self.id.into()
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
+    fn node_seat_state(&self) -> &NodeSeatState {
         &self.seat_state
     }
 
-    fn destroy_node(&self, detach: bool) {
-        if detach {
-            self.state.root.remove_child(self);
-        }
-        self.workspace.set(None);
-        let workspaces: Vec<_> = self.workspaces.iter().map(|e| e.deref().clone()).collect();
-        for workspace in workspaces {
-            workspace.node_destroy(false);
-        }
-        self.seat_state.destroy_node(self);
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_output(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_output(self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         for ws in self.workspaces.iter() {
             visitor.visit_workspace(ws.deref());
         }
@@ -306,40 +291,29 @@ impl SizedNode for OutputNode {
         }
     }
 
-    fn visible(&self) -> bool {
+    fn node_visible(&self) -> bool {
         true
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        Some(self.state.root.clone())
-    }
-
-    fn last_active_child(self: &Rc<Self>) -> Rc<dyn Node> {
-        if let Some(ws) = self.workspace.get() {
-            return ws.last_active_child();
-        }
-        self.clone()
-    }
-
-    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(ws) = self.workspace.get() {
-            ws.do_focus(seat, direction);
-        }
-    }
-
-    fn absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self) -> Rect {
         self.global.pos.get()
     }
 
-    fn find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if let Some(ws) = self.workspace.get() {
+            ws.node_do_focus(seat, direction);
+        }
+    }
+
+    fn node_find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         if let Some(ws) = self.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
                 tree.push(FoundNode {
-                    node: fs.clone().into_node(),
+                    node: fs.clone().tl_into_node(),
                     x,
                     y,
                 });
-                return fs.as_node().node_find_tree_at(x, y, tree);
+                return fs.tl_as_node().node_find_tree_at(x, y, tree);
             }
         }
         {
@@ -352,7 +326,8 @@ impl SizedNode for OutputNode {
             let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
             for stacked in self.state.root.stacked.rev_iter() {
                 let ext = stacked.node_absolute_position();
-                if stacked.node_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs)
+                if stacked.stacked_absolute_position_constrains_input()
+                    && !ext.contains(x_abs, y_abs)
                 {
                     // TODO: make constrain always true
                     continue;
@@ -360,7 +335,7 @@ impl SizedNode for OutputNode {
                 let (x, y) = ext.translate(x_abs, y_abs);
                 let idx = tree.len();
                 tree.push(FoundNode {
-                    node: stacked.deref().clone(),
+                    node: stacked.deref().clone().stacked_into_node(),
                     x,
                     y,
                 });
@@ -393,23 +368,19 @@ impl SizedNode for OutputNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn remove_child2(self: &Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
-        unimplemented!();
-    }
-
-    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_output(self, x, y);
     }
 
-    fn is_output(&self) -> bool {
-        true
+    fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 
-    fn into_output(self: &Rc<Self>) -> Option<Rc<OutputNode>> {
+    fn node_into_output(self: Rc<Self>) -> Option<Rc<OutputNode>> {
         Some(self.clone())
+    }
+
+    fn node_is_output(&self) -> bool {
+        true
     }
 }

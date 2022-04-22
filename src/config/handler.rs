@@ -7,10 +7,10 @@ use {
         compositor::MAX_EXTENTS,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, OutputData, State},
-        tree::{ContainerNode, ContainerSplit, FloatNode, NodeVisitorBase, SizedNode},
+        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, WorkspaceNode},
         utils::{
-            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
-            stack::Stack,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt,
+            numcell::NumCell, stack::Stack,
         },
         xkbcommon::{XkbCommonError, XkbKeymap},
     },
@@ -34,7 +34,7 @@ use {
     },
     libloading::Library,
     log::Level,
-    std::{cell::Cell, rc::Rc, time::Duration},
+    std::{cell::Cell, ops::Deref, rc::Rc, time::Duration},
     thiserror::Error,
     uapi::c,
 };
@@ -429,6 +429,36 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let name = self.get_workspace(ws)?;
+        let workspace = match self.state.workspaces.get(name.deref()) {
+            Some(ws) => ws,
+            _ => {
+                let output = seat.get_output();
+                let ws = Rc::new(WorkspaceNode {
+                    id: self.state.node_ids.next(),
+                    output: CloneCell::new(output.clone()),
+                    position: Cell::new(Default::default()),
+                    container: Default::default(),
+                    stacked: Default::default(),
+                    seat_state: Default::default(),
+                    name: name.to_string(),
+                    output_link: Cell::new(None),
+                    visible: Cell::new(false),
+                    fullscreen: Default::default(),
+                });
+                ws.output_link
+                    .set(Some(output.workspaces.add_last(ws.clone())));
+                self.state.workspaces.set(name.to_string(), ws.clone());
+                output.update_render_data();
+                ws
+            }
+        };
+        seat.set_workspace(&workspace);
+        Ok(())
+    }
+
     fn handle_get_device_name(&self, device: InputDevice) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
         let name = dev.device.name();
@@ -688,14 +718,14 @@ impl ConfigProxyHandler {
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.on_spaces_changed();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
                 node.on_spaces_changed();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
         }
-        self.state.root.clone().visit(&mut V);
+        self.state.root.clone().node_visit(&mut V);
     }
 
     fn colors_change(&self) {
@@ -703,14 +733,14 @@ impl ConfigProxyHandler {
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.on_colors_changed();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
                 node.on_colors_changed();
-                node.visit_children(self);
+                node.node_visit_children(self);
             }
         }
-        self.state.root.clone().visit(&mut V);
+        self.state.root.clone().node_visit(&mut V);
     }
 
     fn handle_set_title_height(&self, height: i32) -> Result<(), CphError> {
@@ -866,6 +896,9 @@ impl ConfigProxyHandler {
             ClientMessage::ShowWorkspace { seat, workspace } => self
                 .handle_show_workspace(seat, workspace)
                 .wrn("show_workspace")?,
+            ClientMessage::SetWorkspace { seat, workspace } => self
+                .handle_set_workspace(seat, workspace)
+                .wrn("set_workspace")?,
             ClientMessage::GetConnector { ty, idx } => {
                 self.handle_get_connector(ty, idx).wrn("get_connector")?
             }

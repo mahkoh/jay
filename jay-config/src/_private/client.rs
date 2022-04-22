@@ -270,6 +270,10 @@ impl Client {
         self.send(&ClientMessage::ShowWorkspace { seat, workspace });
     }
 
+    pub fn set_workspace(&self, seat: Seat, workspace: Workspace) {
+        self.send(&ClientMessage::SetWorkspace { seat, workspace });
+    }
+
     pub fn split(&self, seat: Seat) -> Axis {
         let res = self.send_with_response(&ClientMessage::GetSplit { seat });
         get_response!(res, Axis::Horizontal, GetSplit, axis);

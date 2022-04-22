@@ -25,7 +25,10 @@ use {
         },
         state::State,
         theme::Color,
-        tree::{ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, WorkspaceNode},
+        tree::{
+            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelNode,
+            WorkspaceNode,
+        },
         utils::rc_eq::rc_eq,
     },
     std::{ops::Deref, rc::Rc, slice},
@@ -51,7 +54,7 @@ impl Renderer<'_> {
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
         if let Some(ws) = output.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
-                fs.as_node().node_render(self, x, y);
+                fs.tl_as_node().node_render(self, x, y);
                 return;
             }
         }
@@ -169,7 +172,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_placeholder(&mut self, placeholder: &PlaceholderNode, x: i32, y: i32) {
-        let pos = placeholder.position();
+        let pos = placeholder.tl_data().pos.get();
         self.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_rgba(20, 20, 20, 255),

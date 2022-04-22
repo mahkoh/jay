@@ -8,7 +8,7 @@ use {
             wl_seat::{wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal},
             wl_surface::WlSurface,
         },
-        tree::{FoundNode, Node, SizedNode},
+        tree::{FoundNode, Node},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::{cell::Cell, rc::Rc},
@@ -54,7 +54,7 @@ impl PointerOwnerHolder {
     pub fn frame(&self, seat: &Rc<WlSeatGlobal>) {
         let pending = self.pending_scroll.take();
         if let Some(node) = self.owner.get().axis_node(seat) {
-            node.node_axis_event(seat, &pending);
+            node.node_on_axis_event(seat, &pending);
         }
     }
 
@@ -148,7 +148,7 @@ impl PointerOwner for DefaultPointerOwner {
             serial,
         }));
         pn.node_seat_state().add_pointer_grab(seat);
-        pn.node_button(seat, button, state, serial);
+        pn.node_on_button(seat, button, state, serial);
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -178,7 +178,7 @@ impl PointerOwner for DefaultPointerOwner {
         }
         if (stack.len(), found_tree.len()) == (divergence, divergence) {
             if let Some(node) = found_tree.last() {
-                node.node.clone().node_pointer_motion(
+                node.node.clone().node_on_pointer_motion(
                     seat,
                     x.apply_fract(node.x),
                     y.apply_fract(node.y),
@@ -186,15 +186,15 @@ impl PointerOwner for DefaultPointerOwner {
             }
         } else {
             if let Some(last) = stack.last() {
-                last.node_pointer_unfocus(seat);
+                last.node_on_pointer_unfocus(seat);
             }
             for old in stack.drain(divergence..).rev() {
-                old.node_leave(seat);
+                old.node_on_leave(seat);
                 old.node_seat_state().leave(seat);
             }
             if found_tree.len() == divergence {
                 if let Some(node) = found_tree.last() {
-                    node.node.clone().node_pointer_motion(
+                    node.node.clone().node_on_pointer_motion(
                         seat,
                         x.apply_fract(node.x),
                         y.apply_fract(node.y),
@@ -203,7 +203,7 @@ impl PointerOwner for DefaultPointerOwner {
             } else {
                 for new in found_tree.drain(divergence..) {
                     new.node.node_seat_state().enter(seat);
-                    new.node.clone().node_pointer_enter(
+                    new.node.clone().node_on_pointer_enter(
                         seat,
                         x.apply_fract(new.x),
                         y.apply_fract(new.y),
@@ -212,7 +212,7 @@ impl PointerOwner for DefaultPointerOwner {
                 }
             }
             if let Some(node) = stack.last() {
-                node.node_pointer_focus(seat);
+                node.node_on_pointer_focus(seat);
             }
         }
         found_tree.clear();
@@ -271,7 +271,9 @@ impl PointerOwner for GrabPointerOwner {
             }
         }
         let serial = seat.state.next_serial(self.node.node_client().as_deref());
-        self.node.clone().node_button(seat, button, state, serial);
+        self.node
+            .clone()
+            .node_on_button(seat, button, state, serial);
     }
 
     fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -284,7 +286,7 @@ impl PointerOwner for GrabPointerOwner {
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
         self.node
             .clone()
-            .node_pointer_motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
+            .node_on_pointer_motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
     }
 
     fn start_drag(
@@ -330,7 +332,7 @@ impl PointerOwner for GrabPointerOwner {
         {
             let mut stack = seat.pointer_stack.borrow_mut();
             for node in stack.drain(1..).rev() {
-                node.node_leave(seat);
+                node.node_on_leave(seat);
                 node.node_seat_state().leave(seat);
             }
         }
@@ -380,12 +382,12 @@ impl PointerOwner for DndPointerOwner {
         };
         let target = self.target.get();
         if should_drop {
-            self.target.get().node_dnd_drop(&self.dnd);
+            self.target.get().node_on_dnd_drop(&self.dnd);
             *seat.dropped_dnd.borrow_mut() = Some(DroppedDnd {
                 dnd: self.dnd.clone(),
             });
         }
-        target.node_dnd_leave(&self.dnd);
+        target.node_on_dnd_leave(&self.dnd);
         target.node_seat_state().remove_dnd_target(seat);
         if !should_drop {
             if let Some(src) = &self.dnd.src {
@@ -415,7 +417,9 @@ impl PointerOwner for DndPointerOwner {
                 x: x_int,
                 y: y_int,
             });
-            seat.state.root.find_tree_at(x_int, y_int, &mut found_tree);
+            seat.state
+                .root
+                .node_find_tree_at(x_int, y_int, &mut found_tree);
             let FoundNode { node, x, y } = found_tree.pop().unwrap();
             found_tree.clear();
             (node, x, y)
@@ -423,10 +427,10 @@ impl PointerOwner for DndPointerOwner {
         let (x, y) = (x.apply_fract(x_int), y.apply_fract(y_int));
         let mut target = self.target.get();
         if node.node_id() != target.node_id() {
-            target.node_dnd_leave(&self.dnd);
+            target.node_on_dnd_leave(&self.dnd);
             target.node_seat_state().remove_dnd_target(seat);
             target = node;
-            target.node_dnd_enter(
+            target.node_on_dnd_enter(
                 &self.dnd,
                 x,
                 y,
@@ -435,7 +439,7 @@ impl PointerOwner for DndPointerOwner {
             target.node_seat_state().add_dnd_target(seat);
             self.target.set(target);
         } else if (self.pos_x.get(), self.pos_y.get()) != (x, y) {
-            node.node_dnd_motion(&self.dnd, x, y);
+            node.node_on_dnd_motion(&self.dnd, x, y);
         }
         self.pos_x.set(x);
         self.pos_y.set(y);
@@ -457,7 +461,7 @@ impl PointerOwner for DndPointerOwner {
 
     fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
         let target = self.target.get();
-        target.node_dnd_leave(&self.dnd);
+        target.node_on_dnd_leave(&self.dnd);
         target.node_seat_state().remove_dnd_target(seat);
         if let Some(src) = &self.dnd.src {
             ipc::detach_seat::<WlDataDevice>(src);
@@ -476,7 +480,7 @@ impl PointerOwner for DndPointerOwner {
     }
 
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
-        self.target.get().node_dnd_leave(&self.dnd);
+        self.target.get().node_on_dnd_leave(&self.dnd);
         self.target.set(seat.state.root.clone());
         seat.state.tree_changed();
     }

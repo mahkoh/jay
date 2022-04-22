@@ -7,10 +7,7 @@ use {
         fixed::Fixed,
         ifs::{
             wl_seat::{NodeSeatState, WlSeatGlobal},
-            wl_surface::{
-                xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
-                WlSurface,
-            },
+            wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
         },
         leaks::Tracker,
         object::Object,
@@ -18,9 +15,8 @@ use {
         render::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, FullscreenData, Node, NodeId, NodeVisitor,
-            SizedFullscreenNode, SizedNode, SizedToplevelNode, ToplevelData, ToplevelNodeId,
-            WorkspaceNode,
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode,
+            ToplevelNodeId, WorkspaceNode,
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -78,7 +74,6 @@ pub struct XdgToplevel {
     pub state: Rc<State>,
     pub xdg: Rc<XdgSurface>,
     pub node_id: ToplevelNodeId,
-    pub parent_node: CloneCell<Option<Rc<dyn Node>>>,
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
     pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
     states: RefCell<AHashSet<u32>>,
@@ -88,10 +83,8 @@ pub struct XdgToplevel {
     min_height: Cell<Option<i32>>,
     max_width: Cell<Option<i32>>,
     max_height: Cell<Option<i32>>,
-    title: RefCell<String>,
     pub tracker: Tracker<Self>,
     toplevel_data: ToplevelData,
-    fullscreen_data: FullscreenData,
 }
 
 impl Debug for XdgToplevel {
@@ -107,12 +100,12 @@ impl XdgToplevel {
         states.insert(STATE_TILED_RIGHT);
         states.insert(STATE_TILED_TOP);
         states.insert(STATE_TILED_BOTTOM);
+        let state = &surface.surface.client.state;
         Self {
             id,
-            state: surface.surface.client.state.clone(),
+            state: state.clone(),
             xdg: surface.clone(),
-            node_id: surface.surface.client.state.node_ids.next(),
-            parent_node: Default::default(),
+            node_id: state.node_ids.next(),
             parent: Default::default(),
             children: RefCell::new(Default::default()),
             states: RefCell::new(states),
@@ -122,10 +115,12 @@ impl XdgToplevel {
             min_height: Cell::new(None),
             max_width: Cell::new(None),
             max_height: Cell::new(None),
-            title: RefCell::new("".to_string()),
             tracker: Default::default(),
-            toplevel_data: Default::default(),
-            fullscreen_data: Default::default(),
+            toplevel_data: ToplevelData::new(
+                state,
+                String::new(),
+                Some(surface.surface.client.clone()),
+            ),
         }
     }
 
@@ -172,7 +167,7 @@ impl XdgToplevel {
 
     fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
         let _req: Destroy = self.xdg.surface.client.parse(self.deref(), parser)?;
-        self.node_destroy(true);
+        self.tl_destroy();
         self.xdg.ext.set(None);
         {
             let mut children = self.children.borrow_mut();
@@ -210,13 +205,8 @@ impl XdgToplevel {
 
     fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), SetTitleError> {
         let req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
-        let mut title = self.title.borrow_mut();
-        title.clear();
-        title.push_str(req.title);
-        if let Some(parent) = self.parent_node.get() {
-            parent.node_child_title_changed(self, &title);
-        }
-        self.fullscreen_data.set_title(&title);
+        *self.toplevel_data.title.borrow_mut() = req.title.to_string();
+        self.tl_title_changed();
         Ok(())
     }
 
@@ -234,7 +224,7 @@ impl XdgToplevel {
     fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), MoveError> {
         let req: Move = self.xdg.surface.client.parse(self, parser)?;
         let seat = self.xdg.surface.client.lookup(req.seat)?;
-        if let Some(parent) = self.parent_node.get() {
+        if let Some(parent) = self.toplevel_data.parent.get() {
             if let Some(float) = parent.node_into_float() {
                 seat.move_(&float);
             }
@@ -314,7 +304,7 @@ impl XdgToplevel {
             } else {
                 break 'set_fullscreen;
             };
-            self.fullscreen_data
+            self.toplevel_data
                 .set_fullscreen(&client.state, self.clone(), &output);
         }
         self.send_current_configure();
@@ -327,7 +317,7 @@ impl XdgToplevel {
     ) -> Result<(), UnsetFullscreenError> {
         let _req: UnsetFullscreen = self.xdg.surface.client.parse(self.deref(), parser)?;
         self.states.borrow_mut().remove(&STATE_FULLSCREEN);
-        self.fullscreen_data
+        self.toplevel_data
             .unset_fullscreen(&self.state, self.clone());
         self.send_current_configure();
         Ok(())
@@ -339,18 +329,18 @@ impl XdgToplevel {
     }
 
     fn notify_parent(&self) {
-        let parent = match self.parent_node.get() {
+        let parent = match self.toplevel_data.parent.get() {
             Some(p) => p,
             _ => return,
         };
         let extents = self.xdg.extents.get();
         parent.clone().node_child_active_changed(
             self,
-            self.toplevel_data.active_surfaces.get() > 0,
+            self.toplevel_data.active_children.get() > 0,
             1,
         );
         parent.node_child_size_changed(self, extents.width(), extents.height());
-        parent.node_child_title_changed(self, self.title.borrow_mut().deref());
+        parent.node_child_title_changed(self, self.toplevel_data.title.borrow_mut().deref());
     }
 
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
@@ -396,7 +386,7 @@ impl Object for XdgToplevel {
     }
 
     fn break_loops(&self) {
-        self.node_destroy(true);
+        self.tl_destroy();
         self.parent.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
     }
@@ -404,145 +394,73 @@ impl Object for XdgToplevel {
 
 dedicated_add_obj!(XdgToplevel, XdgToplevelId, xdg_toplevel);
 
-impl SizedNode for XdgToplevel {
-    fn id(&self) -> NodeId {
+impl Node for XdgToplevel {
+    fn node_id(&self) -> NodeId {
         self.node_id.into()
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
-        &self.xdg.seat_state
+    fn node_seat_state(&self) -> &NodeSeatState {
+        &self.toplevel_data.seat_state
     }
 
-    fn destroy_node(&self, detach: bool) {
-        self.fullscreen_data.destroy_node();
-        if let Some(parent) = self.parent_node.take() {
-            if detach {
-                parent.node_remove_child(self);
-                self.state.tree_changed();
-            }
-        }
-        self.toplevel_data.clear();
-        self.xdg.destroy_node();
-        self.xdg.seat_state.destroy_node(self)
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_toplevel(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_toplevel(self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         visitor.visit_surface(&self.xdg.surface);
     }
 
-    fn visible(&self) -> bool {
+    fn node_visible(&self) -> bool {
         self.xdg.surface.visible.get()
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.parent_node.get()
-    }
-
-    fn set_visible(&self, visible: bool) {
-        // log::info!("set_visible {}", visible);
-        // if !visible {
-        //     log::info!("\n{:?}", Backtrace::new());
-        // }
-        self.xdg.set_visible(visible);
-        self.xdg.seat_state.set_visible(self, visible);
-    }
-
-    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.xdg.workspace.get()
-    }
-
-    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
-        seat.focus_toplevel(self.clone());
-    }
-
-    fn close(self: &Rc<Self>) {
-        self.send_close();
-    }
-
-    fn absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self) -> Rect {
         self.xdg.absolute_desired_extents.get()
     }
 
-    fn toggle_floating(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
-        let parent = match self.parent_node.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        if parent.node_is_float() {
-            parent.node_remove_child2(self.deref(), true);
-            self.map_tiled();
-        } else if let Some(ws) = self.xdg.workspace.get() {
-            parent.node_remove_child2(self.deref(), true);
-            self.map_floating(&ws);
-        }
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+        seat.focus_toplevel(self.clone());
     }
 
-    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.enter_toplevel(self.clone());
-    }
-
-    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_xdg_surface(&self.xdg, x, y)
     }
 
-    fn change_extents(self: &Rc<Self>, rect: &Rect) {
-        let nw = rect.width();
-        let nh = rect.height();
-        let de = self.xdg.absolute_desired_extents.get();
-        if de.width() != nw || de.height() != nh {
-            if self.toplevel_data.is_floating.get() {
-                self.toplevel_data.float_width.set(rect.width());
-                self.toplevel_data.float_height.set(rect.height());
-            }
-            self.send_configure_checked(nw, nh);
-            self.xdg.do_send_configure();
-            self.xdg.surface.client.flush();
-        }
-        self.xdg.set_absolute_desired_extents(rect);
-    }
-
-    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        self.xdg.set_workspace(ws);
-    }
-
-    fn set_parent(self: &Rc<Self>, parent: Rc<dyn Node>) {
-        self.toplevel_data.is_floating.set(parent.node_is_float());
-        self.parent_node.set(Some(parent));
-        self.notify_parent();
-    }
-
-    fn client(&self) -> Option<Rc<Client>> {
+    fn node_client(&self) -> Option<Rc<Client>> {
         Some(self.xdg.surface.client.clone())
+    }
+
+    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
+        Some(self)
+    }
+
+    fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+        seat.enter_toplevel(self.clone());
+    }
+
+    fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 }
 
-impl SizedToplevelNode for XdgToplevel {
-    fn data(&self) -> &ToplevelData {
+impl ToplevelNode for XdgToplevel {
+    tl_node_impl!();
+
+    fn tl_data(&self) -> &ToplevelData {
         &self.toplevel_data
     }
 
-    fn accepts_keyboard_focus(&self) -> bool {
-        true
-    }
-
-    fn default_surface(&self) -> Option<Rc<WlSurface>> {
+    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
         Some(self.xdg.surface.clone())
     }
 
-    fn set_active(&self, active: bool) {
-        if let Some(parent) = self.parent_node.get() {
+    fn tl_set_active(&self, active: bool) {
+        if let Some(parent) = self.toplevel_data.parent.get() {
             parent.node_child_active_changed(self, active, 1);
         }
         let changed = {
@@ -559,26 +477,67 @@ impl SizedToplevelNode for XdgToplevel {
         }
     }
 
-    fn activate(&self) {
-        // nothing
+    fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        self.toplevel_data.workspace.set(Some(ws.clone()));
+        self.xdg.set_workspace(ws);
     }
 
-    fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
-        let state = &self.state;
-        if fullscreen {
-            if let Some(ws) = self.xdg.workspace.get() {
-                self.fullscreen_data
-                    .set_fullscreen(state, self.clone(), &ws.output.get());
+    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+        let nw = rect.width();
+        let nh = rect.height();
+        let de = self.xdg.absolute_desired_extents.get();
+        if de.width() != nw || de.height() != nh {
+            if self.toplevel_data.is_floating.get() {
+                self.toplevel_data.float_width.set(rect.width());
+                self.toplevel_data.float_height.set(rect.height());
             }
-        } else {
-            self.fullscreen_data.unset_fullscreen(state, self.clone());
+            self.send_configure_checked(nw, nh);
+            self.xdg.do_send_configure();
+            self.xdg.surface.client.flush();
         }
-        self.send_current_configure();
+        self.xdg.set_absolute_desired_extents(rect);
     }
 
-    fn fullscreen(&self) -> bool {
-        self.fullscreen_data.is_fullscreen.get()
+    fn tl_close(self: Rc<Self>) {
+        self.send_close();
     }
+
+    fn tl_set_visible(&self, visible: bool) {
+        // log::info!("set_visible {}", visible);
+        // if !visible {
+        //     log::info!("\n{:?}", Backtrace::new());
+        // }
+        self.xdg.set_visible(visible);
+        self.toplevel_data.set_visible(self, visible);
+    }
+
+    fn tl_destroy(&self) {
+        self.toplevel_data.destroy_node(self);
+        self.xdg.destroy_node();
+    }
+
+    // fn move_to_workspace(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
+    //     let parent = match self.parent_node.get() {
+    //         Some(p) => p,
+    //         _ => return,
+    //     };
+    //     if self.fullscreen_data.is_fullscreen.get() {
+    //         if workspace.fullscreen.get().is_some() {
+    //             log::info!("Not moving fullscreen node to workspace {} because that workspace already contains a fullscreen node", workspace.name);
+    //             return;
+    //         }
+    //         parent.node_remove_child2(self.deref(), workspace.visible());
+    //         workspace.fullscreen.set(Some(self.clone()));
+    //         self.state.tree_changed();
+    //         return;
+    //     }
+    //     parent.node_remove_child2(self.deref(), workspace.visible());
+    //     if self.toplevel_data.is_floating.get() {
+    //         self.map_floating(workspace);
+    //     } else {
+    //         self.map_tiled()
+    //     }
+    // }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
@@ -589,9 +548,9 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn post_commit(self: Rc<Self>) {
         let surface = &self.xdg.surface;
-        if let Some(parent) = self.parent_node.get() {
+        if self.toplevel_data.parent.get().is_some() {
             if surface.buffer.get().is_none() {
-                parent.node_remove_child(&*self);
+                self.tl_destroy();
                 {
                     let new_parent = self.parent.get();
                     let mut children = self.children.borrow_mut();
@@ -629,23 +588,9 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn extents_changed(&self) {
         self.notify_parent();
-        if self.parent_node.get().is_some() {
+        if self.toplevel_data.parent.get().is_some() {
             self.state.tree_changed();
         }
-    }
-}
-
-impl SizedFullscreenNode for XdgToplevel {
-    fn on_set_fullscreen(&self, _workspace: &Rc<WorkspaceNode>) {
-        // nothing
-    }
-
-    fn on_unset_fullscreen(&self) {
-        // nothing
-    }
-
-    fn title(&self) -> String {
-        self.title.borrow_mut().clone()
     }
 }
 

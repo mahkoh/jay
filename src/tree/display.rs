@@ -6,7 +6,7 @@ use {
         rect::Rect,
         render::Renderer,
         tree::{
-            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, SizedNode,
+            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, StackedNode,
         },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
@@ -17,7 +17,7 @@ pub struct DisplayNode {
     pub id: NodeId,
     pub extents: Cell<Rect>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
-    pub stacked: LinkedList<Rc<dyn Node>>,
+    pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
 }
 
@@ -57,32 +57,20 @@ impl DisplayNode {
     }
 }
 
-impl SizedNode for DisplayNode {
-    fn id(&self) -> NodeId {
+impl Node for DisplayNode {
+    fn node_id(&self) -> NodeId {
         self.id
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
+    fn node_seat_state(&self) -> &NodeSeatState {
         &self.seat_state
     }
 
-    fn destroy_node(&self, _detach: bool) {
-        let mut outputs = self.outputs.lock();
-        for output in outputs.values() {
-            output.node_destroy(false);
-        }
-        outputs.clear();
-        for stacked in self.stacked.iter() {
-            stacked.node_destroy(false);
-        }
-        self.seat_state.destroy_node(self);
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_display(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_display(self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         let outputs = self.outputs.lock();
         for (_, output) in outputs.deref() {
             visitor.visit_output(output);
@@ -92,15 +80,15 @@ impl SizedNode for DisplayNode {
         }
     }
 
-    fn visible(&self) -> bool {
+    fn node_visible(&self) -> bool {
         true
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        None
+    fn node_absolute_position(&self) -> Rect {
+        self.extents.get()
     }
 
-    fn find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         let outputs = self.outputs.lock();
         for output in outputs.values() {
             let pos = output.global.pos.get();
@@ -111,18 +99,18 @@ impl SizedNode for DisplayNode {
                     x,
                     y,
                 });
-                output.find_tree_at(x, y, tree);
+                output.node_find_tree_at(x, y, tree);
                 break;
             }
         }
         FindTreeResult::AcceptsInput
     }
 
-    fn pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.set_known_cursor(KnownCursor::Default);
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_display(self, x, y);
     }
 
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_display(self, x, y);
+    fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.set_known_cursor(KnownCursor::Default);
     }
 }

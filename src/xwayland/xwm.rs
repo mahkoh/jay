@@ -7,7 +7,7 @@ use {
         },
         rect::Rect,
         state::State,
-        tree::{Node, SizedNode, ToplevelNode},
+        tree::ToplevelNode,
         utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList},
         wire::WlSurfaceId,
         wire_xcon::{
@@ -368,9 +368,6 @@ impl Wm {
             XWaylandEvent::Activate(window) => self.activate_window(Some(&window)).await,
             XWaylandEvent::ActivateRoot => self.activate_window(None).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
-            XWaylandEvent::SetFullscreen(window, fullscreen) => {
-                self.set_fullscreen(&window, fullscreen).await
-            }
         }
     }
 
@@ -417,6 +414,7 @@ impl Wm {
         self.set_net_wm_state(data).await;
     }
 
+    #[allow(dead_code)]
     async fn set_fullscreen(&self, data: &Rc<XwindowData>, fullscreen: bool) {
         if false {
             // NOTE: We do not want to inform the program if the user changes the fullscreen
@@ -622,7 +620,12 @@ impl Wm {
                 return;
             }
         }
-        *data.info.title.borrow_mut() = Some(buf.as_bstr().to_string());
+        let title = buf.as_bstr().to_string();
+        if let Some(window) = data.window.get() {
+            *window.toplevel_data.title.borrow_mut() = title.clone();
+            window.tl_title_changed();
+        }
+        *data.info.title.borrow_mut() = Some(title);
         data.title_changed();
     }
 
@@ -1251,7 +1254,7 @@ impl Wm {
         if data.info.override_redirect.replace(or) != or {
             // log::info!("xwin {} or {}", data.window_id, or);
             if let Some(window) = data.window.get() {
-                window.node_destroy(true);
+                window.tl_destroy();
                 window.map_status_changed();
             }
         }
@@ -1374,7 +1377,7 @@ impl Wm {
             )
             .unwrap();
             if let Some(window) = data.window.get() {
-                window.change_extents(&extents);
+                window.tl_change_extents(&extents);
                 self.state.tree_changed();
             } else {
                 data.info.pending_extents.set(extents);
@@ -1449,7 +1452,7 @@ impl Wm {
 
     async fn handle_minimize_requested(&self, data: &Rc<XwindowData>) -> bool {
         if let Some(w) = data.window.get() {
-            if w.toplevel_data.active_surfaces.get() > 0 {
+            if w.toplevel_data.active_children.get() > 0 {
                 self.set_wm_state(data, ICCCM_WM_STATE_NORMAL).await;
                 return false;
             }
@@ -1561,7 +1564,7 @@ impl Wm {
         }
         if fullscreen != data.info.fullscreen.get() {
             if let Some(w) = data.window.get() {
-                w.set_fullscreen(fullscreen);
+                w.tl_set_fullscreen(fullscreen);
             }
         }
         data.info.fullscreen.set(fullscreen);

@@ -3,60 +3,33 @@ use {
         client::Client,
         cursor::KnownCursor,
         fixed::Fixed,
-        ifs::{
-            wl_seat::{NodeSeatState, WlSeatGlobal},
-            wl_surface::WlSurface,
-        },
+        ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
         render::{Renderer, Texture},
         state::State,
         text,
         theme::Color,
-        tree::{
-            FindTreeResult, FoundNode, FullscreenNode, Node, NodeId, NodeVisitor, SizedNode,
-            SizedToplevelNode, ToplevelData, WorkspaceNode,
-        },
+        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
     },
     jay_config::Direction,
-    std::{
-        cell::{Cell, RefCell},
-        ops::Deref,
-        rc::Rc,
-    },
+    std::{cell::Cell, ops::Deref, rc::Rc},
 };
 
-tree_id!(DetachedNodeId);
+tree_id!(PlaceholderNodeId);
+
 pub struct PlaceholderNode {
-    id: DetachedNodeId,
-    state: Rc<State>,
-    seat_state: NodeSeatState,
-    parent: CloneCell<Option<Rc<dyn Node>>>,
-    workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
-    title: RefCell<String>,
-    visible: Cell<bool>,
-    pos: Cell<Rect>,
-    client: Option<Rc<Client>>,
+    id: PlaceholderNodeId,
     toplevel: ToplevelData,
-    active: Cell<bool>,
     destroyed: Cell<bool>,
     texture: CloneCell<Option<Rc<Texture>>>,
 }
 
 impl PlaceholderNode {
-    pub fn new_for(state: &Rc<State>, node: Rc<dyn FullscreenNode>) -> Self {
+    pub fn new_for(state: &Rc<State>, node: Rc<dyn ToplevelNode>) -> Self {
         Self {
             id: state.node_ids.next(),
-            state: state.clone(),
-            seat_state: Default::default(),
-            parent: Default::default(),
-            workspace: Default::default(),
-            title: RefCell::new(node.title()),
-            visible: Default::default(),
-            pos: Default::default(),
-            client: node.as_node().node_client(),
-            toplevel: Default::default(),
-            active: Default::default(),
+            toplevel: ToplevelData::new(state, node.tl_title(), node.node_client()),
             destroyed: Default::default(),
             texture: Default::default(),
         }
@@ -66,121 +39,91 @@ impl PlaceholderNode {
         self.texture.get()
     }
 
-    pub fn set_title(&self, title: &str) {
-        *self.title.borrow_mut() = title.to_string();
-        if let Some(parent) = self.parent.get() {
-            parent.node_child_title_changed(self, title);
-        }
-    }
-
     pub fn is_destroyed(&self) -> bool {
         self.destroyed.get()
     }
-
-    pub fn position(&self) -> Rect {
-        self.pos.get()
-    }
 }
 
-impl SizedNode for PlaceholderNode {
-    fn id(&self) -> NodeId {
+impl Node for PlaceholderNode {
+    fn node_id(&self) -> NodeId {
         self.id.into()
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
-        &self.seat_state
+    fn node_seat_state(&self) -> &NodeSeatState {
+        &self.toplevel.seat_state
     }
 
-    fn destroy_node(&self, detach: bool) {
-        if detach {
-            if let Some(parent) = self.parent.get() {
-                parent.node_remove_child(self);
-            }
-        }
-        self.parent.take();
-        self.workspace.take();
-        self.seat_state.destroy_node(self);
-        self.destroyed.set(true);
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_placeholder(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_placeholder(self);
-    }
-
-    fn visit_children(&self, _visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, _visitor: &mut dyn NodeVisitor) {
         // nothing
     }
 
-    fn visible(&self) -> bool {
-        self.visible.get()
+    fn node_visible(&self) -> bool {
+        self.toplevel.visible.get()
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.parent.get()
+    fn node_absolute_position(&self) -> Rect {
+        self.toplevel.pos.get()
     }
 
-    fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
-    }
-
-    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.workspace.get()
-    }
-
-    fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
-    fn close(self: &Rc<Self>) {
-        let slf = self.clone();
-        self.state.run_toplevel.schedule(move || {
-            slf.destroy_node(true);
-        });
-    }
-
-    fn move_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(parent) = self.parent.get() {
-            parent.node_move_focus_from_child(seat, self.deref(), direction);
-        }
-    }
-
-    fn move_self(self: &Rc<Self>, direction: Direction) {
-        if let Some(parent) = self.parent.get() {
-            parent.node_move_child(self.clone(), direction);
-        }
-    }
-
-    fn absolute_position(&self) -> Rect {
-        self.pos.get()
-    }
-
-    fn active_changed(&self, active: bool) {
-        self.active.set(active);
-        if let Some(parent) = self.parent.get() {
+    fn node_active_changed(&self, active: bool) {
+        self.toplevel.active.set(active);
+        if let Some(parent) = self.toplevel.parent.get() {
             parent.node_child_active_changed(self, active, 1);
         }
     }
 
-    fn find_tree_at(&self, _x: i32, _y: i32, _tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(&self, _x: i32, _y: i32, _tree: &mut Vec<FoundNode>) -> FindTreeResult {
         FindTreeResult::AcceptsInput
     }
 
-    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_placeholder(self, x, y);
+    }
+
+    fn node_client(&self) -> Option<Rc<Client>> {
+        self.toplevel.client.clone()
+    }
+
+    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        Some(self)
+    }
+
+    fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.set_known_cursor(KnownCursor::Default);
         seat.enter_toplevel(self.clone());
     }
 
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_placeholder(self, x, y);
+    fn node_is_placeholder(&self) -> bool {
+        true
+    }
+}
+
+impl ToplevelNode for PlaceholderNode {
+    tl_node_impl!();
+
+    fn tl_data(&self) -> &ToplevelData {
+        &self.toplevel
     }
 
-    fn change_extents(self: &Rc<Self>, rect: &Rect) {
-        self.pos.set(*rect);
-        if let Some(p) = self.parent.get() {
+    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
+        None
+    }
+
+    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+        self.toplevel.pos.set(*rect);
+        if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
         }
         self.texture.set(None);
-        if let Some(ctx) = self.state.render_ctx.get() {
+        if let Some(ctx) = self.toplevel.state.render_ctx.get() {
             if rect.width() != 0 && rect.height() != 0 {
                 let font = format!("monospace {}", rect.width() / 10);
                 match text::render_fitting(
@@ -202,46 +145,19 @@ impl SizedNode for PlaceholderNode {
         }
     }
 
-    fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        self.workspace.set(Some(ws.clone()));
+    fn tl_close(self: Rc<Self>) {
+        let slf = self.clone();
+        self.toplevel.state.run_toplevel.schedule(move || {
+            slf.tl_destroy();
+        });
     }
 
-    fn set_parent(self: &Rc<Self>, parent: Rc<dyn Node>) {
-        self.parent.set(Some(parent.clone()));
-        parent.node_child_title_changed(self.deref(), self.title.borrow_mut().deref());
+    fn tl_set_visible(&self, visible: bool) {
+        self.toplevel.visible.set(visible);
     }
 
-    fn client(&self) -> Option<Rc<Client>> {
-        self.client.clone()
-    }
-}
-
-impl SizedToplevelNode for PlaceholderNode {
-    fn data(&self) -> &ToplevelData {
-        &self.toplevel
-    }
-
-    fn accepts_keyboard_focus(&self) -> bool {
-        true
-    }
-
-    fn default_surface(&self) -> Option<Rc<WlSurface>> {
-        None
-    }
-
-    fn set_active(&self, _active: bool) {
-        // nothing
-    }
-
-    fn activate(&self) {
-        // nothing
-    }
-
-    fn set_fullscreen(self: &Rc<Self>, _fullscreen: bool) {
-        // nothing
-    }
-
-    fn fullscreen(&self) -> bool {
-        false
+    fn tl_destroy(&self) {
+        self.toplevel.destroy_node(self);
+        self.destroyed.set(true);
     }
 }

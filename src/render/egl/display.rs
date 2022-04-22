@@ -26,7 +26,7 @@ use {
             sys::{eglInitialize, EGL_PLATFORM_GBM_KHR},
             RenderError,
         },
-        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER, LINEAR_MODIFIER},
+        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER},
     },
     ahash::AHashMap,
     std::{ptr, rc::Rc},
@@ -283,15 +283,6 @@ unsafe fn query_modifiers(
             external_only: false,
         },
     );
-    if mods.is_empty() {
-        res.insert(
-            LINEAR_MODIFIER,
-            EglModifier {
-                modifier: LINEAR_MODIFIER,
-                external_only: false,
-            },
-        );
-    }
     for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
         res.insert(
             modifier as _,

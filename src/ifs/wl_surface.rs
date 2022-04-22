@@ -23,10 +23,7 @@ use {
         object::Object,
         rect::{Rect, Region},
         render::Renderer,
-        tree::{
-            ContainerNode, ContainerSplit, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor,
-            SizedNode, ToplevelNode, WorkspaceNode,
-        },
+        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -39,7 +36,6 @@ use {
         xkbcommon::ModifierState,
     },
     ahash::AHashMap,
-    jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -260,7 +256,7 @@ impl WlSurface {
 
     pub fn accepts_kb_focus(&self) -> bool {
         match self.toplevel.get() {
-            Some(tl) => tl.accepts_keyboard_focus(),
+            Some(tl) => tl.tl_accepts_keyboard_focus(),
             _ => self.ext.get().accepts_kb_focus(),
         }
     }
@@ -281,7 +277,7 @@ impl WlSurface {
         }
         if self.seat_state.is_active() {
             if let Some(tl) = &tl {
-                tl.surface_active_changed(true);
+                tl.tl_surface_active_changed(true);
             }
         }
         self.toplevel.set(tl);
@@ -372,7 +368,7 @@ impl WlSurface {
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
-        self.destroy_node(true);
+        self.destroy_node();
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -597,6 +593,56 @@ impl WlSurface {
         self.seat_state
             .for_each_kb_focus(|s| s.unfocus_surface(self));
     }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
+        for inhibitor in self.idle_inhibitors.lock().values() {
+            if visible {
+                inhibitor.activate();
+            } else {
+                inhibitor.deactivate();
+            }
+        }
+        let children = self.children.borrow_mut();
+        if let Some(children) = children.deref() {
+            for child in children.subsurfaces.values() {
+                child.surface.set_visible(visible);
+            }
+        }
+        if !visible {
+            self.send_seat_release_events();
+        }
+        self.seat_state.set_visible(self, visible);
+    }
+
+    pub fn destroy_node(&self) {
+        for (_, inhibitor) in self.idle_inhibitors.lock().drain() {
+            inhibitor.deactivate();
+        }
+        let children = self.children.borrow();
+        if let Some(ch) = children.deref() {
+            for ss in ch.subsurfaces.values() {
+                ss.surface.destroy_node();
+            }
+        }
+        if let Some(tl) = self.toplevel.get() {
+            let data = tl.tl_data();
+            let mut remove = vec![];
+            for (seat, s) in data.focus_node.iter() {
+                if s.node_id() == self.node_id() {
+                    remove.push(seat);
+                }
+            }
+            for seat in remove {
+                data.focus_node.remove(&seat);
+            }
+            if self.seat_state.is_active() {
+                tl.tl_surface_active_changed(false);
+            }
+        }
+        self.send_seat_release_events();
+        self.seat_state.destroy_node(self);
+    }
 }
 
 object_base! {
@@ -622,7 +668,7 @@ impl Object for WlSurface {
     fn break_loops(&self) {
         self.unset_dnd_icons();
         self.unset_cursors();
-        self.node_destroy(true);
+        self.destroy_node();
         *self.children.borrow_mut() = None;
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
@@ -635,49 +681,20 @@ impl Object for WlSurface {
 dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
-impl SizedNode for WlSurface {
-    fn id(&self) -> NodeId {
+impl Node for WlSurface {
+    fn node_id(&self) -> NodeId {
         self.node_id.into()
     }
 
-    fn seat_state(&self) -> &NodeSeatState {
+    fn node_seat_state(&self) -> &NodeSeatState {
         &self.seat_state
     }
 
-    fn destroy_node(&self, _detach: bool) {
-        for (_, inhibitor) in self.idle_inhibitors.lock().drain() {
-            inhibitor.deactivate();
-        }
-        let children = self.children.borrow();
-        if let Some(ch) = children.deref() {
-            for ss in ch.subsurfaces.values() {
-                ss.surface.node_destroy(false);
-            }
-        }
-        if let Some(tl) = self.toplevel.get() {
-            let data = tl.data();
-            let mut remove = vec![];
-            for (seat, s) in data.focus_surface.iter() {
-                if s.id == self.id {
-                    remove.push(seat);
-                }
-            }
-            for seat in remove {
-                data.focus_surface.remove(&seat);
-            }
-            if self.seat_state.is_active() {
-                tl.surface_active_changed(false);
-            }
-        }
-        self.send_seat_release_events();
-        self.seat_state.destroy_node(self);
+    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_surface(&self);
     }
 
-    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_surface(self);
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
+    fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         let children = self.children.borrow_mut();
         if let Some(c) = children.deref() {
             for child in c.subsurfaces.values() {
@@ -686,223 +703,100 @@ impl SizedNode for WlSurface {
         }
     }
 
-    fn visible(&self) -> bool {
+    fn node_visible(&self) -> bool {
         self.visible.get()
     }
 
-    fn parent(&self) -> Option<Rc<dyn Node>> {
-        self.toplevel.get().map(|tl| tl.into_node())
-    }
-
-    fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
-        for inhibitor in self.idle_inhibitors.lock().values() {
-            if visible {
-                inhibitor.activate();
-            } else {
-                inhibitor.deactivate();
-            }
-        }
-        let children = self.children.borrow_mut();
-        if let Some(children) = children.deref() {
-            for child in children.subsurfaces.values() {
-                child.surface.node_set_visible(visible);
-            }
-        }
-        if !visible {
-            self.send_seat_release_events();
-        }
-        self.seat_state.set_visible(self, visible);
-    }
-
-    fn get_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        if let Some(tl) = self.toplevel.get() {
-            return tl.as_node().node_get_workspace();
-        }
-        None
-    }
-
-    fn get_parent_mono(&self) -> Option<bool> {
-        self.toplevel
-            .get()
-            .and_then(|t| t.parent())
-            .and_then(|p| p.node_get_mono())
-    }
-
-    fn get_parent_split(&self) -> Option<ContainerSplit> {
-        self.toplevel
-            .get()
-            .and_then(|t| t.parent())
-            .and_then(|p| p.node_get_split())
-    }
-
-    fn set_parent_mono(&self, mono: bool) {
-        if let Some(tl) = self.toplevel.get() {
-            if let Some(pn) = tl.parent() {
-                let node = if mono { Some(tl.as_node()) } else { None };
-                pn.node_set_mono(node)
-            }
-        }
-    }
-
-    fn set_parent_split(&self, split: ContainerSplit) {
-        if let Some(tl) = self.toplevel.get() {
-            if let Some(pn) = tl.parent() {
-                pn.node_set_split(split);
-            }
-        }
-    }
-
-    fn create_split(self: &Rc<Self>, split: ContainerSplit) {
-        let tl = match self.toplevel.get() {
-            Some(tl) => tl,
-            _ => return,
-        };
-        let ws = match tl.as_node().node_get_workspace() {
-            Some(ws) => ws,
-            _ => return,
-        };
-        let pn = match tl.parent() {
-            Some(pn) => pn,
-            _ => return,
-        };
-        let cn = ContainerNode::new(
-            &self.client.state,
-            &ws,
-            pn.clone(),
-            tl.clone().into_node(),
-            split,
-        );
-        pn.node_replace_child(tl.as_node(), cn);
-    }
-
-    fn close(self: &Rc<Self>) {
-        if let Some(tl) = self.toplevel.get() {
-            tl.into_node().node_close();
-        }
-    }
-
-    fn move_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if let Some(tl) = self.toplevel.get() {
-            if let Some(pn) = tl.parent() {
-                pn.node_move_focus_from_child(seat, tl.as_node(), direction);
-            }
-        }
-    }
-
-    fn move_self(self: &Rc<Self>, direction: Direction) {
-        if let Some(tl) = self.toplevel.get() {
-            if let Some(pn) = tl.parent() {
-                pn.node_move_child(tl.into_node(), direction);
-            }
-        }
-    }
-
-    fn absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self) -> Rect {
         self.buffer_abs_pos.get()
     }
 
-    fn active_changed(&self, active: bool) {
+    fn node_active_changed(&self, active: bool) {
         if let Some(tl) = self.toplevel.get() {
-            tl.surface_active_changed(active);
+            tl.tl_surface_active_changed(active);
         }
     }
 
-    fn key(&self, seat: &WlSeatGlobal, key: u32, state: u32) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+        renderer.render_surface(self, x, y);
+    }
+
+    fn node_client(&self) -> Option<Rc<Client>> {
+        Some(self.client.clone())
+    }
+
+    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        self.toplevel.get()
+    }
+
+    fn node_on_key(&self, seat: &WlSeatGlobal, key: u32, state: u32) {
         seat.key_surface(self, key, state);
     }
 
-    fn mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
+    fn node_on_mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
         seat.mods_surface(self, mods);
     }
 
-    fn button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState, serial: u32) {
+    fn node_on_button(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        state: KeyState,
+        serial: u32,
+    ) {
         seat.button_surface(&self, button, state, serial);
     }
 
-    fn axis_event(self: &Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn node_on_axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
         seat.scroll_surface(&*self, event);
     }
 
-    fn focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+    fn node_on_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         if let Some(tl) = self.toplevel.get() {
-            tl.data().focus_surface.insert(seat.id(), self.clone());
-            tl.activate();
+            tl.tl_data().focus_node.insert(seat.id(), self.clone());
+            tl.tl_on_activate();
         }
         seat.focus_surface(&self);
     }
 
-    fn focus_parent(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(tl) = self.toplevel.get() {
-            tl.parent().map(|p| p.node_focus_self(seat));
-        }
-    }
-
-    fn toggle_floating(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        if let Some(tl) = self.toplevel.get() {
-            tl.into_node().node_toggle_floating(seat);
-        }
-    }
-
-    fn unfocus(&self, seat: &WlSeatGlobal) {
+    fn node_on_unfocus(&self, seat: &WlSeatGlobal) {
         seat.unfocus_surface(self);
     }
 
-    fn leave(&self, seat: &WlSeatGlobal) {
+    fn node_on_leave(&self, seat: &WlSeatGlobal) {
         seat.leave_surface(self);
     }
 
-    fn pointer_enter(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.enter_surface(&self, x, y)
     }
 
-    fn pointer_motion(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+    fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         seat.motion_surface(&*self, x, y)
     }
 
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_surface(self, x, y);
-    }
-
-    fn client(&self) -> Option<Rc<Client>> {
-        Some(self.client.clone())
-    }
-
-    fn into_surface(self: &Rc<Self>) -> Option<Rc<WlSurface>> {
-        Some(self.clone())
-    }
-
-    fn dnd_drop(&self, dnd: &Dnd) {
+    fn node_on_dnd_drop(&self, dnd: &Dnd) {
         dnd.seat.dnd_surface_drop(self, dnd);
     }
 
-    fn dnd_leave(&self, dnd: &Dnd) {
+    fn node_on_dnd_leave(&self, dnd: &Dnd) {
         dnd.seat.dnd_surface_leave(self, dnd);
     }
 
-    fn dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
+    fn node_on_dnd_enter(&self, dnd: &Dnd, x: Fixed, y: Fixed, serial: u32) {
         dnd.seat.dnd_surface_enter(self, dnd, x, y, serial);
     }
 
-    fn dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+    fn node_on_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
         dnd.seat.dnd_surface_motion(self, dnd, x, y);
     }
 
-    fn is_xwayland_surface(&self) -> bool {
+    fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
+        Some(self.clone())
+    }
+
+    fn node_is_xwayland_surface(&self) -> bool {
         self.client.is_xwayland
-    }
-
-    fn set_fullscreen(self: &Rc<Self>, fullscreen: bool) {
-        if let Some(tl) = self.toplevel.get() {
-            tl.set_fullscreen(fullscreen);
-        }
-    }
-
-    fn fullscreen(&self) -> bool {
-        self.toplevel
-            .get()
-            .map(|tl| tl.fullscreen())
-            .unwrap_or(false)
     }
 }
 

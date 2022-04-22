@@ -26,7 +26,7 @@ use {
         theme::Theme,
         tree::{
             ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, NodeVisitorBase,
-            OutputNode, SizedNode, WorkspaceNode,
+            OutputNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -42,7 +42,6 @@ use {
     std::{
         cell::{Cell, RefCell},
         num::Wrapping,
-        ops::Deref,
         rc::Rc,
         sync::Arc,
         time::Duration,
@@ -172,18 +171,16 @@ impl State {
                 node.schedule_compute_render_data();
                 node.node_visit_children(self);
             }
-
             fn visit_output(&mut self, node: &Rc<OutputNode>) {
                 node.update_render_data();
                 node.node_visit_children(self);
             }
-
             fn visit_float(&mut self, node: &Rc<FloatNode>) {
                 node.schedule_render_titles();
                 node.node_visit_children(self);
             }
         }
-        self.root.visit(&mut Walker);
+        Walker.visit_display(&self.root);
 
         let seats = self.globals.seats.lock();
         for seat in seats.values() {
@@ -209,61 +206,48 @@ impl State {
         }
     }
 
-    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn Node>) {
+    pub fn map_tiled(self: &Rc<Self>, node: Rc<dyn ToplevelNode>) {
         let seat = self.seat_queue.last();
         self.do_map_tiled(seat.as_deref(), node.clone());
-        if let Some(seat) = seat {
-            node.node_do_focus(&seat, Direction::Unspecified);
+        if node.node_visible() {
+            if let Some(seat) = seat {
+                node.node_do_focus(&seat, Direction::Unspecified);
+            }
         }
     }
 
-    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn Node>) {
+    fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
         let output = seat
             .map(|s| s.get_output())
             .or_else(|| self.root.outputs.lock().values().next().cloned())
             .or_else(|| self.dummy_output.get())
             .unwrap();
-        let last_active = output.last_active_child();
-        let last_active_parent = last_active.node_parent();
-        if let Some(lap) = last_active_parent {
-            if lap.node_is_container() {
-                let container = lap.node_into_container().unwrap();
-                container.add_child_after(last_active.deref(), node);
-                return;
-            }
-            if lap.node_is_workspace() {
-                let workspace = lap.node_into_workspace().unwrap();
-                let container = ContainerNode::new(
-                    self,
-                    &workspace,
-                    workspace.clone(),
-                    last_active.clone(),
-                    ContainerSplit::Horizontal,
-                );
-                workspace.set_container(&container);
-                container.add_child_after(last_active.deref(), node);
-                return;
-            }
+        let ws = output.ensure_workspace();
+        if let Some(c) = ws.container.get() {
+            let la = c.tl_last_active_child();
+            let lap = la
+                .tl_data()
+                .parent
+                .get()
+                .unwrap()
+                .node_into_container()
+                .unwrap();
+            lap.add_child_after(la.tl_as_node(), node);
+        } else {
+            let container =
+                ContainerNode::new(self, &ws, ws.clone(), node, ContainerSplit::Horizontal);
+            ws.set_container(&container);
         }
-        let workspace = output.ensure_workspace();
-        let container = ContainerNode::new(
-            self,
-            &workspace,
-            workspace.clone(),
-            node,
-            ContainerSplit::Horizontal,
-        );
-        workspace.set_container(&container);
     }
 
     pub fn map_floating(
         self: &Rc<Self>,
-        node: Rc<dyn Node>,
+        node: Rc<dyn ToplevelNode>,
         mut width: i32,
         mut height: i32,
         workspace: &Rc<WorkspaceNode>,
     ) {
-        node.clone().node_set_workspace(workspace);
+        node.clone().tl_set_workspace(workspace);
         width += 2 * self.theme.border_width.get();
         height += 2 * self.theme.border_width.get() + self.theme.title_height.get();
         let output = workspace.output.get();
@@ -291,8 +275,7 @@ impl State {
             Some(ws) => {
                 let output = ws.output.get();
                 let did_change = output.show_workspace(&ws);
-                ws.last_active_child()
-                    .node_do_focus(seat, Direction::Unspecified);
+                ws.node_do_focus(seat, Direction::Unspecified);
                 if !did_change {
                     return;
                 }
