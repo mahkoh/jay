@@ -7,9 +7,9 @@ use {
         compositor::MAX_EXTENTS,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, OutputData, State},
-        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, WorkspaceNode},
+        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt,
+            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt,
             numcell::NumCell, stack::Stack,
         },
         xkbcommon::{XkbCommonError, XkbKeymap},
@@ -434,26 +434,7 @@ impl ConfigProxyHandler {
         let name = self.get_workspace(ws)?;
         let workspace = match self.state.workspaces.get(name.deref()) {
             Some(ws) => ws,
-            _ => {
-                let output = seat.get_output();
-                let ws = Rc::new(WorkspaceNode {
-                    id: self.state.node_ids.next(),
-                    output: CloneCell::new(output.clone()),
-                    position: Cell::new(Default::default()),
-                    container: Default::default(),
-                    stacked: Default::default(),
-                    seat_state: Default::default(),
-                    name: name.to_string(),
-                    output_link: Cell::new(None),
-                    visible: Cell::new(false),
-                    fullscreen: Default::default(),
-                });
-                ws.output_link
-                    .set(Some(output.workspaces.add_last(ws.clone())));
-                self.state.workspaces.set(name.to_string(), ws.clone());
-                output.update_render_data();
-                ws
-            }
+            _ => seat.get_output().create_workspace(name.deref()),
         };
         seat.set_workspace(&workspace);
         Ok(())

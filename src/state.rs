@@ -223,6 +223,10 @@ impl State {
             .or_else(|| self.dummy_output.get())
             .unwrap();
         let ws = output.ensure_workspace();
+        self.map_tiled_on(node, &ws);
+    }
+
+    pub fn map_tiled_on(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
         if let Some(c) = ws.container.get() {
             let la = c.tl_last_active_child();
             let lap = la

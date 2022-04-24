@@ -78,6 +78,7 @@ fn configure_seat(s: Seat) {
     for (i, sym) in fnkeys2.into_iter().enumerate() {
         let ws = get_workspace(&format!("{}", i + 1));
         s.bind(MOD | sym, move || s.show_workspace(ws));
+        s.bind(MOD | SHIFT | sym, move || s.set_workspace(ws));
     }
 
     s.bind(MOD | SYM_a, || {

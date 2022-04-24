@@ -168,6 +168,29 @@ impl OutputNode {
         true
     }
 
+    pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
+        let ws = Rc::new(WorkspaceNode {
+            id: self.state.node_ids.next(),
+            output: CloneCell::new(self.clone()),
+            position: Cell::new(Default::default()),
+            container: Default::default(),
+            stacked: Default::default(),
+            seat_state: Default::default(),
+            name: name.to_string(),
+            output_link: Cell::new(None),
+            visible: Cell::new(false),
+            fullscreen: Default::default(),
+        });
+        ws.output_link
+            .set(Some(self.workspaces.add_last(ws.clone())));
+        self.state.workspaces.set(name.to_string(), ws.clone());
+        if self.workspace.get().is_none() {
+            self.show_workspace(&ws);
+        }
+        self.update_render_data();
+        ws
+    }
+
     fn workspace_rect(&self) -> Rect {
         let rect = self.global.pos.get();
         let th = self.state.theme.title_height.get();
