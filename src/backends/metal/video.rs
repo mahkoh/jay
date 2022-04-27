@@ -35,6 +35,8 @@ use {
     },
     uapi::c,
 };
+use crate::async_engine::Phase;
+use crate::utils::asyncevent::AsyncEvent;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -75,12 +77,14 @@ impl Debug for HandleEvents {
 pub struct MetalDrmDevice {
     pub dev: Rc<MetalDrmDeviceStatic>,
     pub connectors: AHashMap<DrmConnector, Rc<MetalConnector>>,
+    pub futures: Vec<ConnectorFutures>,
 }
 
 #[derive(Debug)]
 pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
+    pub state: Rc<State>,
 
     pub connector_id: ConnectorId,
 
@@ -97,6 +101,9 @@ pub struct MetalConnector {
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub next_buffer: NumCell<usize>,
 
+    pub can_present: Cell<bool>,
+    pub has_damage: Cell<bool>,
+
     pub connector_type: ConnectorType,
     pub connector_type_id: u32,
 
@@ -111,6 +118,18 @@ pub struct MetalConnector {
     pub crtc: CloneCell<Option<Rc<MetalCrtc>>>,
 
     pub on_change: OnChange,
+
+    pub present_trigger: AsyncEvent,
+}
+
+pub struct ConnectorFutures {
+    pub present: SpawnedFuture<()>,
+}
+
+impl Debug for ConnectorFutures {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConnectorFutures").finish_non_exhaustive()
+    }
 }
 
 #[derive(Default)]
@@ -124,6 +143,60 @@ impl Debug for OnChange {
             None => f.write_str("None"),
             Some(_) => f.write_str("Some"),
         }
+    }
+}
+
+impl MetalConnector {
+    async fn present_loop(self: Rc<Self>) {
+        loop {
+            self.present_trigger.triggered().await;
+            self.present();
+        }
+    }
+
+    pub fn schedule_present(&self) {
+        self.present_trigger.trigger();
+    }
+
+    pub fn present(&self) {
+        let crtc = match self.crtc.get() {
+            Some(crtc) => crtc,
+            _ => return,
+        };
+        if !self.has_damage.get() || !self.can_present.get() {
+            return;
+        }
+        if !crtc.active.value.get() {
+            return;
+        }
+        let buffers = match self.buffers.get() {
+            None => return,
+            Some(b) => b,
+        };
+        let plane = match self.primary_plane.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
+        if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
+            buffer
+                .egl
+                .render(&*node, &self.state, Some(node.global.pos.get()));
+        }
+        let mut changes = self.master.change();
+        changes.change_object(plane.id, |c| {
+            c.change(plane.fb_id, buffer.drm.id().0 as _);
+        });
+        if let Err(e) = changes.commit(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT, 0) {
+            match e {
+                DrmError::Atomic(OsError(c::EACCES)) => {
+                    log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
+                }
+                _ => log::error!("Could not set plane framebuffer: {}", ErrorFmt(e)),
+            }
+        }
+        self.can_present.set(false);
+        self.has_damage.set(false);
     }
 }
 
@@ -145,6 +218,13 @@ impl Connector for MetalConnector {
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
         self.on_change.on_change.set(Some(cb));
+    }
+
+    fn damage(&self) {
+        self.has_damage.set(true);
+        if self.can_present.get() {
+            self.schedule_present();
+        }
     }
 }
 
@@ -202,27 +282,29 @@ pub struct MetalPlane {
 }
 
 fn get_connectors(
-    state: &State,
-    dev: &MetalDrmDeviceStatic,
+    state: &Rc<State>,
+    dev: &Rc<MetalDrmDeviceStatic>,
     ids: &[DrmConnector],
-) -> Result<AHashMap<DrmConnector, Rc<MetalConnector>>, DrmError> {
+) -> Result<(AHashMap<DrmConnector, Rc<MetalConnector>>, Vec<ConnectorFutures>), DrmError> {
     let mut connectors = AHashMap::new();
+    let mut futures = vec![];
     for connector in ids {
         match create_connector(state, *connector, dev) {
-            Ok(e) => {
-                connectors.insert(e.id, Rc::new(e));
+            Ok((con, fut)) => {
+                connectors.insert(con.id, con);
+                futures.push(fut);
             }
             Err(e) => return Err(DrmError::CreateConnector(Box::new(e))),
         }
     }
-    Ok(connectors)
+    Ok((connectors, futures))
 }
 
 fn create_connector(
-    state: &State,
+    state: &Rc<State>,
     connector: DrmConnector,
-    dev: &MetalDrmDeviceStatic,
-) -> Result<MetalConnector, DrmError> {
+    dev: &Rc<MetalDrmDeviceStatic>,
+) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
     let info = dev.master.get_connector_info(connector, true)?;
     let mut crtcs = AHashMap::new();
     for encoder in info.encoders {
@@ -303,9 +385,10 @@ fn create_connector(
             serial_number = edid.base_block.id_serial_number.to_string();
         }
     }
-    Ok(MetalConnector {
+    let slf = Rc::new(MetalConnector {
         id: connector,
         master: dev.master.clone(),
+        state: state.clone(),
         connector_id: state.connector_ids.next(),
         crtcs,
         mode: CloneCell::new(info.modes.first().cloned().map(Rc::new)),
@@ -316,6 +399,8 @@ fn create_connector(
         modes: info.modes,
         buffers: Default::default(),
         next_buffer: Default::default(),
+        can_present: Cell::new(true),
+        has_damage: Cell::new(true),
         connector_type,
         connector_type_id: info.connector_type_id,
         connection,
@@ -326,7 +411,12 @@ fn create_connector(
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtc: Default::default(),
         on_change: Default::default(),
-    })
+        present_trigger: Default::default()
+    });
+    let futures = ConnectorFutures {
+        present: state.eng.spawn2(Phase::Present, slf.clone().present_loop()),
+    };
+    Ok((slf, futures))
 }
 
 fn create_encoder(
@@ -563,9 +653,9 @@ impl MetalBackend {
             },
         });
 
-        let connectors = get_connectors(&self.state, &dev, &resources.connectors)?;
+        let (connectors, futures) = get_connectors(&self.state, &dev, &resources.connectors)?;
 
-        let slf = Rc::new(MetalDrmDevice { dev, connectors });
+        let slf = Rc::new(MetalDrmDevice { dev, connectors, futures });
 
         self.init_drm_device(&slf)?;
 
@@ -604,11 +694,11 @@ impl MetalBackend {
             }
         }
 
-        let handler = self
+        let drm_handler = self
             .state
             .eng
             .spawn(self.clone().handle_drm_events(slf.clone()));
-        slf.dev.handle_events.handle_events.set(Some(handler));
+        slf.dev.handle_events.handle_events.set(Some(drm_handler));
 
         self.state.set_render_ctx(&egl);
 
@@ -650,7 +740,9 @@ impl MetalBackend {
         self.init_drm_device(dev)?;
         for connector in dev.connectors.values() {
             if connector.primary_plane.get().is_some() {
-                self.present(connector);
+                connector.can_present.set(true);
+                connector.has_damage.set(true);
+                connector.schedule_present();
             }
         }
         Ok(())
@@ -702,7 +794,10 @@ impl MetalBackend {
             Some(c) => c,
             _ => return,
         };
-        self.present(&connector);
+        connector.can_present.set(true);
+        if connector.has_damage.get() {
+            connector.schedule_present();
+        }
     }
 
     fn reset_planes(&self, dev: &MetalDrmDevice, changes: &mut Change) {
@@ -999,43 +1094,7 @@ impl MetalBackend {
             connector.connector_type_id,
             mode
         );
-        self.present(connector);
-    }
-
-    pub fn present(&self, connector: &Rc<MetalConnector>) {
-        let crtc = match connector.crtc.get() {
-            Some(crtc) => crtc,
-            _ => return,
-        };
-        if !crtc.active.value.get() {
-            return;
-        }
-        let buffers = match connector.buffers.get() {
-            None => return,
-            Some(b) => b,
-        };
-        let plane = match connector.primary_plane.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        let buffer = &buffers[connector.next_buffer.fetch_add(1) % buffers.len()];
-        if let Some(node) = self.state.root.outputs.get(&connector.connector_id) {
-            buffer
-                .egl
-                .render(&*node, &self.state, Some(node.global.pos.get()));
-        }
-        let mut changes = connector.master.change();
-        changes.change_object(plane.id, |c| {
-            c.change(plane.fb_id, buffer.drm.id().0 as _);
-        });
-        if let Err(e) = changes.commit(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT, 0) {
-            match e {
-                DrmError::Atomic(OsError(c::EACCES)) => {
-                    log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
-                }
-                _ => log::error!("Could not set plane framebuffer: {}", ErrorFmt(e)),
-            }
-        }
+        connector.schedule_present();
     }
 }
 

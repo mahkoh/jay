@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use {
     crate::utils::numcell::NumCell,
     std::{
@@ -12,6 +13,12 @@ use {
 pub struct AsyncEvent {
     triggers: NumCell<u32>,
     waker: Cell<Option<Waker>>,
+}
+
+impl Debug for AsyncEvent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AsyncEvent").field("triggers", &self.triggers.get()).finish_non_exhaustive()
+    }
 }
 
 impl AsyncEvent {

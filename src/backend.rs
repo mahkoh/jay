@@ -69,6 +69,7 @@ pub trait Connector {
     fn kernel_id(&self) -> ConnectorKernelId;
     fn event(&self) -> Option<ConnectorEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
+    fn damage(&self);
 }
 
 #[derive(Debug)]

@@ -29,7 +29,11 @@ impl PlaceholderNode {
     pub fn new_for(state: &Rc<State>, node: Rc<dyn ToplevelNode>) -> Self {
         Self {
             id: state.node_ids.next(),
-            toplevel: ToplevelData::new(state, node.tl_data().title.borrow_mut().clone(), node.node_client()),
+            toplevel: ToplevelData::new(
+                state,
+                node.tl_data().title.borrow_mut().clone(),
+                node.node_client(),
+            ),
             destroyed: Default::default(),
             texture: Default::default(),
         }

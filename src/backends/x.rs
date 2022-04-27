@@ -910,6 +910,10 @@ impl Connector for XOutput {
     fn on_change(&self, cb: Rc<dyn Fn()>) {
         self.cb.set(Some(cb));
     }
+
+    fn damage(&self) {
+        // nothing
+    }
 }
 
 struct XSeat {

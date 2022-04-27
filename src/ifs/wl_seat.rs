@@ -214,7 +214,12 @@ impl WlSeatGlobal {
         if old_ws.id == ws.id {
             return;
         }
-        let cn = match tl.tl_data().parent.get().and_then(|p| p.node_into_containing_node()) {
+        let cn = match tl
+            .tl_data()
+            .parent
+            .get()
+            .and_then(|p| p.node_into_containing_node())
+        {
             Some(cn) => cn,
             _ => return,
         };
@@ -226,7 +231,12 @@ impl WlSeatGlobal {
             }
         }
         if tl.tl_data().is_floating.get() {
-            self.state.map_floating(tl.clone(), tl.tl_data().float_width.get(), tl.tl_data().float_height.get(), ws);
+            self.state.map_floating(
+                tl.clone(),
+                tl.tl_data().float_width.get(),
+                tl.tl_data().float_height.get(),
+                ws,
+            );
         } else {
             self.state.map_tiled_on(tl, ws);
         }

@@ -174,7 +174,7 @@ impl Backend for MetalBackend {
         if !idle {
             for device in devices.values() {
                 for connector in device.connectors.values() {
-                    self.present(connector);
+                    connector.schedule_present();
                 }
             }
         }

@@ -426,6 +426,7 @@ impl WlSeatGlobal {
     }
 
     pub(super) fn apply_changes(self: &Rc<Self>) {
+        self.state.damage();
         self.pointer_owner.apply_changes(self);
         self.changes.set(0);
     }

@@ -60,11 +60,7 @@ pub trait ToplevelNode: Node {
         let data = self.tl_data();
         if fullscreen {
             if let Some(ws) = data.workspace.get() {
-                data.set_fullscreen2(
-                    &data.state,
-                    self.clone().tl_into_dyn(),
-                    &ws,
-                );
+                data.set_fullscreen2(&data.state, self.clone().tl_into_dyn(), &ws);
             }
         } else {
             data.unset_fullscreen(&data.state, self.clone().tl_into_dyn());

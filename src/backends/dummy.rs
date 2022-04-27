@@ -38,4 +38,8 @@ impl Connector for DummyOutput {
     fn on_change(&self, _cb: Rc<dyn Fn()>) {
         // nothing
     }
+
+    fn damage(&self) {
+        // nothing
+    }
 }

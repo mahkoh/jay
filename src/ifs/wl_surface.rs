@@ -180,6 +180,7 @@ struct PendingState {
     opaque_region: Cell<Option<Option<Rc<Region>>>>,
     input_region: Cell<Option<Option<Rc<Region>>>>,
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
+    damage: Cell<bool>,
 }
 
 #[derive(Default)]
@@ -403,6 +404,7 @@ impl WlSurface {
 
     fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
         let _req: Damage = self.parse(parser)?;
+        self.pending.damage.set(true);
         Ok(())
     }
 
@@ -507,6 +509,7 @@ impl WlSurface {
             self.calculate_extents();
         }
         ext.post_commit();
+        self.client.state.damage();
         Ok(())
     }
 
@@ -531,6 +534,7 @@ impl WlSurface {
 
     fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
         let _req: DamageBuffer = self.parse(parser)?;
+        self.pending.damage.set(true);
         Ok(())
     }
 

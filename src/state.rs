@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
@@ -92,6 +93,12 @@ pub struct State {
     pub socket_path: CloneCell<Rc<String>>,
     pub serial: NumCell<Wrapping<u32>>,
     pub run_toplevel: Rc<RunToplevel>,
+}
+
+impl Debug for State {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("State").finish_non_exhaustive()
+    }
 }
 
 pub struct XWaylandState {
@@ -378,5 +385,13 @@ impl State {
             }
         }
         serial as _
+    }
+
+    pub fn damage(&self) {
+        for connector in self.connectors.lock().values() {
+            if connector.connected.get() {
+                connector.connector.damage();
+            }
+        }
     }
 }

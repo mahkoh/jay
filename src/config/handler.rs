@@ -9,8 +9,8 @@ use {
         state::{ConnectorData, DeviceHandlerData, OutputData, State},
         tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
         utils::{
-            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt,
-            numcell::NumCell, stack::Stack,
+            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
+            stack::Stack,
         },
         xkbcommon::{XkbCommonError, XkbKeymap},
     },
