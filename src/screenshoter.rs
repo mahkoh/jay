@@ -53,7 +53,13 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR,
     )?;
     let fb = ctx.dmabuf_fb(bo.dmabuf())?;
-    fb.render(state.root.deref(), state, Some(state.root.extents.get()));
+    fb.render(
+        state.root.deref(),
+        state,
+        Some(state.root.extents.get()),
+        false,
+        &mut Default::default(),
+    );
     let drm = ctx.gbm.drm.dup_render()?.fd().clone();
     Ok(Screenshot { drm, bo })
 }

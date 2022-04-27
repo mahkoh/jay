@@ -1,4 +1,3 @@
-use std::fmt::{Debug, Formatter};
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
@@ -42,6 +41,7 @@ use {
     jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
+        fmt::{Debug, Formatter},
         num::Wrapping,
         rc::Rc,
         sync::Arc,

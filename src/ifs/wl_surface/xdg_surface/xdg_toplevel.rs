@@ -328,21 +328,6 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn notify_parent(&self) {
-        let parent = match self.toplevel_data.parent.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        let extents = self.xdg.extents.get();
-        parent.clone().node_child_active_changed(
-            self,
-            self.toplevel_data.active_children.get() > 0,
-            1,
-        );
-        parent.node_child_size_changed(self, extents.width(), extents.height());
-        parent.node_child_title_changed(self, self.toplevel_data.title.borrow_mut().deref());
-    }
-
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
@@ -460,9 +445,6 @@ impl ToplevelNode for XdgToplevel {
     }
 
     fn tl_set_active(&self, active: bool) {
-        if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.node_child_active_changed(self, active, 1);
-        }
         let changed = {
             let mut states = self.states.borrow_mut();
             match active {
@@ -587,10 +569,8 @@ impl XdgSurfaceExt for XdgToplevel {
     }
 
     fn extents_changed(&self) {
-        self.notify_parent();
-        if self.toplevel_data.parent.get().is_some() {
-            self.state.tree_changed();
-        }
+        self.toplevel_data.pos.set(self.xdg.extents.get());
+        self.tl_extents_changed();
     }
 }
 

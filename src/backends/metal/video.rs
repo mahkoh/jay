@@ -1,17 +1,19 @@
 use {
     crate::{
-        async_engine::{AsyncFd, SpawnedFuture},
+        async_engine::{AsyncFd, Phase, SpawnedFuture},
         backend::{
             BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo,
         },
         backends::metal::{DrmId, MetalBackend, MetalError},
         edid::Descriptor,
         format::{Format, XRGB8888},
-        render::{Framebuffer, RenderContext},
+        ifs::wp_presentation_feedback::ExecutedPresentation,
+        render::{Framebuffer, RenderContext, RenderResult},
         state::State,
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, debug_fn::debug_fn, errorfmt::ErrorFmt,
-            numcell::NumCell, oserror::OsError, syncqueue::SyncQueue,
+            asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
+            debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError,
+            syncqueue::SyncQueue,
         },
         video::{
             drm::{
@@ -28,15 +30,13 @@ use {
     ahash::{AHashMap, AHashSet},
     bstr::{BString, ByteSlice},
     std::{
-        cell::Cell,
+        cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
         rc::Rc,
     },
     uapi::c,
 };
-use crate::async_engine::Phase;
-use crate::utils::asyncevent::AsyncEvent;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
@@ -91,6 +91,7 @@ pub struct MetalConnector {
     pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
     pub modes: Vec<DrmModeInfo>,
     pub mode: CloneCell<Option<Rc<DrmModeInfo>>>,
+    pub refresh: Cell<u32>,
 
     pub monitor_manufacturer: String,
     pub monitor_name: String,
@@ -120,6 +121,8 @@ pub struct MetalConnector {
     pub on_change: OnChange,
 
     pub present_trigger: AsyncEvent,
+
+    pub render_result: RefCell<RenderResult>,
 }
 
 pub struct ConnectorFutures {
@@ -179,9 +182,17 @@ impl MetalConnector {
         };
         let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
         if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
-            buffer
-                .egl
-                .render(&*node, &self.state, Some(node.global.pos.get()));
+            let mut rr = self.render_result.borrow_mut();
+            buffer.egl.render(
+                &*node,
+                &self.state,
+                Some(node.global.pos.get()),
+                true,
+                &mut rr,
+            );
+            for fr in rr.frame_requests.drain(..) {
+                fr.client.dispatch_frame_requests.push(fr.clone());
+            }
         }
         let mut changes = self.master.change();
         changes.change_object(plane.id, |c| {
@@ -285,7 +296,13 @@ fn get_connectors(
     state: &Rc<State>,
     dev: &Rc<MetalDrmDeviceStatic>,
     ids: &[DrmConnector],
-) -> Result<(AHashMap<DrmConnector, Rc<MetalConnector>>, Vec<ConnectorFutures>), DrmError> {
+) -> Result<
+    (
+        AHashMap<DrmConnector, Rc<MetalConnector>>,
+        Vec<ConnectorFutures>,
+    ),
+    DrmError,
+> {
     let mut connectors = AHashMap::new();
     let mut futures = vec![];
     for connector in ids {
@@ -385,13 +402,19 @@ fn create_connector(
             serial_number = edid.base_block.id_serial_number.to_string();
         }
     }
+    let mode = info.modes.first().cloned().map(Rc::new);
+    let refresh = mode
+        .as_ref()
+        .map(|m| 1_000_000_000_000u64 / (m.refresh_rate_millihz() as u64))
+        .unwrap_or(0) as u32;
     let slf = Rc::new(MetalConnector {
         id: connector,
         master: dev.master.clone(),
         state: state.clone(),
         connector_id: state.connector_ids.next(),
         crtcs,
-        mode: CloneCell::new(info.modes.first().cloned().map(Rc::new)),
+        mode: CloneCell::new(mode),
+        refresh: Cell::new(refresh),
         monitor_manufacturer: manufacturer,
         monitor_name: name,
         monitor_serial_number: serial_number,
@@ -411,7 +434,8 @@ fn create_connector(
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtc: Default::default(),
         on_change: Default::default(),
-        present_trigger: Default::default()
+        present_trigger: Default::default(),
+        render_result: RefCell::new(Default::default()),
     });
     let futures = ConnectorFutures {
         present: state.eng.spawn2(Phase::Present, slf.clone().present_loop()),
@@ -655,7 +679,11 @@ impl MetalBackend {
 
         let (connectors, futures) = get_connectors(&self.state, &dev, &resources.connectors)?;
 
-        let slf = Rc::new(MetalDrmDevice { dev, connectors, futures });
+        let slf = Rc::new(MetalDrmDevice {
+            dev,
+            connectors,
+            futures,
+        });
 
         self.init_drm_device(&slf)?;
 
@@ -782,9 +810,9 @@ impl MetalBackend {
         self: &Rc<Self>,
         dev: &Rc<MetalDrmDevice>,
         crtc_id: DrmCrtc,
-        _tv_sec: u32,
-        _tv_usec: u32,
-        _sequence: u32,
+        tv_sec: u32,
+        tv_usec: u32,
+        sequence: u32,
     ) {
         let crtc = match dev.dev.crtcs.get(&crtc_id) {
             Some(c) => c,
@@ -797,6 +825,27 @@ impl MetalBackend {
         connector.can_present.set(true);
         if connector.has_damage.get() {
             connector.schedule_present();
+        }
+        {
+            let global = self.state.outputs.get(&connector.connector_id);
+            let mut rr = connector.render_result.borrow_mut();
+            for fb in rr.presentation_feedbacks.drain(..) {
+                match &global {
+                    Some(g) => {
+                        fb.client
+                            .dispatch_presentation_feedback
+                            .push(ExecutedPresentation {
+                                feedback: fb.clone(),
+                                output: g.node.global.clone(),
+                                tv_sec: tv_sec as _,
+                                tv_nsec: tv_usec * 1000,
+                                seq: sequence as _,
+                                refresh: connector.refresh.get(),
+                            })
+                    }
+                    _ => fb.client.discard_presentation_feedback.push(fb.clone()),
+                }
+            }
         }
     }
 

@@ -18,6 +18,7 @@ use {
                 cursor::CursorSurface, wl_subsurface::WlSubsurface, xdg_surface::XdgSurfaceError,
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
+            wp_presentation_feedback::WpPresentationFeedback,
         },
         leaks::Tracker,
         object::Object,
@@ -97,6 +98,7 @@ pub struct WlSurface {
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
     pub frame_requests: RefCell<Vec<Rc<WlCallback>>>,
+    pub presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
@@ -181,6 +183,7 @@ struct PendingState {
     input_region: Cell<Option<Option<Rc<Region>>>>,
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
     damage: Cell<bool>,
+    presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
 }
 
 #[derive(Default)]
@@ -215,6 +218,7 @@ impl WlSurface {
             children: Default::default(),
             ext: CloneCell::new(client.state.none_surface_ext.clone()),
             frame_requests: Default::default(),
+            presentation_feedback: Default::default(),
             seat_state: Default::default(),
             toplevel: Default::default(),
             cursors: Default::default(),
@@ -234,6 +238,13 @@ impl WlSurface {
                     .set_absolute_position(x1 + pos.x1(), y1 + pos.y1());
             }
         }
+    }
+
+    pub fn add_presentation_feedback(&self, fb: &Rc<WpPresentationFeedback>) {
+        self.pending
+            .presentation_feedback
+            .borrow_mut()
+            .push(fb.clone());
     }
 
     pub fn is_cursor(&self) -> bool {
@@ -496,6 +507,15 @@ impl WlSurface {
         {
             let mut pfr = self.pending.frame_request.borrow_mut();
             self.frame_requests.borrow_mut().extend(pfr.drain(..));
+        }
+        {
+            let mut fbs = self.presentation_feedback.borrow_mut();
+            for fb in fbs.drain(..) {
+                fb.send_discarded();
+                let _ = self.client.remove_obj(&*fb);
+            }
+            let mut pfbs = self.pending.presentation_feedback.borrow_mut();
+            mem::swap(fbs.deref_mut(), pfbs.deref_mut());
         }
         {
             if let Some(region) = self.pending.input_region.take() {

@@ -9,7 +9,7 @@ use {
         fixed::Fixed,
         format::XRGB8888,
         ifs::wl_seat::PX_PER_SCROLL,
-        render::{Framebuffer, RenderContext, RenderError},
+        render::{Framebuffer, RenderContext, RenderError, RenderResult},
         state::State,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
@@ -53,6 +53,7 @@ use {
         collections::VecDeque,
         error::Error,
         future::pending,
+        ops::DerefMut,
         rc::Rc,
     },
     thiserror::Error,
@@ -222,6 +223,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         root,
         scheduled_present: Default::default(),
         grab_requests: Default::default(),
+        render_result: Default::default(),
     });
     data.add_output().await?;
 
@@ -250,6 +252,7 @@ pub struct XBackend {
     root: u32,
     scheduled_present: AsyncQueue<Rc<XOutput>>,
     grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
+    render_result: RefCell<RenderResult>,
 }
 
 impl XBackend {
@@ -673,8 +676,18 @@ impl XBackend {
         image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
+            let mut rr = self.render_result.borrow_mut();
             let fb = image.fb.get();
-            fb.render(&*node, &self.state, Some(node.global.pos.get()));
+            fb.render(
+                &*node,
+                &self.state,
+                Some(node.global.pos.get()),
+                true,
+                rr.deref_mut(),
+            );
+            for fr in rr.frame_requests.drain(..) {
+                fr.client.dispatch_frame_requests.push(fr.clone());
+            }
         }
 
         let pp = PresentPixmap {

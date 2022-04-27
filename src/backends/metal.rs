@@ -187,6 +187,10 @@ impl Backend for MetalBackend {
     fn is_freestanding(&self) -> bool {
         true
     }
+
+    fn supports_presentation_feedback(&self) -> bool {
+        true
+    }
 }
 
 fn dup_async_fd(state: &Rc<State>, fd: c::c_int) -> Result<AsyncFd, MetalError> {

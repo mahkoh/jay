@@ -3,9 +3,11 @@ use {
         format::{Format, ARGB8888},
         ifs::{
             wl_buffer::WlBuffer,
+            wl_callback::WlCallback,
             wl_surface::{
                 xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
             },
+            wp_presentation_feedback::WpPresentationFeedback,
         },
         rect::Rect,
         render::{
@@ -31,13 +33,32 @@ use {
         },
         utils::rc_eq::rc_eq,
     },
-    std::{ops::Deref, rc::Rc, slice},
+    std::{
+        fmt::{Debug, Formatter},
+        ops::Deref,
+        rc::Rc,
+        slice,
+    },
 };
+
+#[derive(Default)]
+pub struct RenderResult {
+    pub frame_requests: Vec<Rc<WlCallback>>,
+    pub presentation_feedbacks: Vec<Rc<WpPresentationFeedback>>,
+}
+
+impl Debug for RenderResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RenderResult").finish_non_exhaustive()
+    }
+}
 
 pub struct Renderer<'a> {
     pub(super) ctx: &'a Rc<RenderContext>,
     pub(super) fb: &'a GlFrameBuffer,
     pub(super) state: &'a State,
+    pub(super) on_output: bool,
+    pub(super) result: &'a mut RenderResult,
 }
 
 impl Renderer<'_> {
@@ -271,9 +292,15 @@ impl Renderer<'_> {
         } else {
             self.render_buffer(&buffer, x, y);
         }
-        let mut fr = surface.frame_requests.borrow_mut();
-        for cb in fr.drain(..) {
-            surface.client.dispatch_frame_requests.push(cb);
+        if self.on_output {
+            {
+                let mut fr = surface.frame_requests.borrow_mut();
+                self.result.frame_requests.extend(fr.drain(..));
+            }
+            {
+                let mut fbs = surface.presentation_feedback.borrow_mut();
+                self.result.presentation_feedbacks.extend(fbs.drain(..));
+            }
         }
     }
 

@@ -1,0 +1,15 @@
+# requests
+
+msg destroy = 0 {
+}
+
+msg feedback = 1 {
+    surface: id(wl_surface),
+    callback: id(wp_presentation_feedback),
+}
+
+# events
+
+msg clock_id = 0 {
+    clk_id: u32,
+}

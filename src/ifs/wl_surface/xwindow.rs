@@ -307,7 +307,8 @@ impl SurfaceExt for Xwindow {
     }
 
     fn extents_changed(&self) {
-        self.tl_notify_parent();
+        self.toplevel_data.pos.set(self.surface.extents.get());
+        self.tl_extents_changed();
     }
 }
 
@@ -389,12 +390,6 @@ impl ToplevelNode for Xwindow {
     fn tl_accepts_keyboard_focus(&self) -> bool {
         self.data.info.never_focus.get().not()
             && self.data.info.input_model.get() != XInputModel::None
-    }
-
-    fn tl_set_active(&self, active: bool) {
-        if let Some(pn) = self.toplevel_data.parent.get() {
-            pn.node_child_active_changed(self, active, 1);
-        }
     }
 
     fn tl_on_activate(&self) {

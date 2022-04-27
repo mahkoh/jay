@@ -10,8 +10,8 @@ use {
 };
 
 pub struct WlCallback {
-    client: Rc<Client>,
-    id: WlCallbackId,
+    pub client: Rc<Client>,
+    pub id: WlCallbackId,
     pub tracker: Tracker<Self>,
 }
 

@@ -11,6 +11,7 @@ use {
             },
             renderer::{context::RenderContext, renderer::Renderer},
             sys::{glBlendFunc, glFlush, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
+            RenderResult,
         },
         state::State,
         tree::Node,
@@ -45,7 +46,14 @@ impl Framebuffer {
         });
     }
 
-    pub fn render(&self, node: &dyn Node, state: &State, cursor_rect: Option<Rect>) {
+    pub fn render(
+        &self,
+        node: &dyn Node,
+        state: &State,
+        cursor_rect: Option<Rect>,
+        on_output: bool,
+        result: &mut RenderResult,
+    ) {
         let _ = self.ctx.ctx.with_current(|| {
             let c = state.theme.background_color.get();
             unsafe {
@@ -59,6 +67,8 @@ impl Framebuffer {
                 ctx: &self.ctx,
                 fb: &self.gl,
                 state,
+                on_output,
+                result,
             };
             node.node_render(&mut renderer, 0, 0);
             if let Some(rect) = cursor_rect {

@@ -16,6 +16,7 @@ use {
             wl_seat::WlSeatGlobal,
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
+            wp_presentation::WpPresentationGlobal,
             xdg_wm_base::XdgWmBaseGlobal,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
@@ -134,6 +135,10 @@ impl Globals {
 
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);
+        }
+
+        if backend.supports_presentation_feedback() {
+            add_singleton!(WpPresentationGlobal);
         }
     }
 

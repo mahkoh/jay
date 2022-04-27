@@ -1,0 +1,19 @@
+# events
+
+msg sync_output = 0 {
+    output: id(wl_output),
+}
+
+msg presented = 1 {
+    tv_sec_hi   : u32,
+    tv_sec_lo   : u32,
+    tv_nsec     : u32,
+    refresh     : u32,
+    seq_hi      : u32,
+    seq_lo      : u32,
+    flags       : u32,
+}
+
+msg discarded = 2 {
+
+}

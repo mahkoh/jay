@@ -351,6 +351,7 @@ impl ContainerNode {
         } else {
             self.perform_split_layout();
         }
+        self.state.tree_changed();
         self.schedule_compute_render_data();
     }
 

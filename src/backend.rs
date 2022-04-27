@@ -33,6 +33,10 @@ pub trait Backend {
     fn is_freestanding(&self) -> bool {
         false
     }
+
+    fn supports_presentation_feedback(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]

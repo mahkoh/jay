@@ -38,13 +38,20 @@ pub trait ToplevelNode: Node {
     }
 
     fn tl_surface_active_changed(&self, active: bool) {
+        let data = self.tl_data();
         if active {
-            if self.tl_data().active_children.fetch_add(1) == 0 {
+            if data.active_children.fetch_add(1) == 0 {
                 self.tl_set_active(true);
+                if let Some(parent) = data.parent.get() {
+                    parent.node_child_active_changed(self.tl_as_node(), true, 1);
+                }
             }
         } else {
-            if self.tl_data().active_children.fetch_sub(1) == 1 {
+            if data.active_children.fetch_sub(1) == 1 {
                 self.tl_set_active(false);
+                if let Some(parent) = data.parent.get() {
+                    parent.node_child_active_changed(self.tl_as_node(), false, 1);
+                }
             }
         }
     }
@@ -83,7 +90,9 @@ pub trait ToplevelNode: Node {
         let data = self.tl_data();
         data.parent.set(Some(parent.clone()));
         data.is_floating.set(parent.node_is_float());
-        self.tl_notify_parent();
+        self.tl_extents_changed();
+        self.tl_title_changed();
+        self.tl_active_changed();
         self.tl_after_parent_set(parent);
     }
 
@@ -91,14 +100,13 @@ pub trait ToplevelNode: Node {
         let _ = parent;
     }
 
-    fn tl_notify_parent(&self) {
+    fn tl_active_changed(&self) {
         let data = self.tl_data();
         let parent = match data.parent.get() {
             Some(p) => p,
             _ => return,
         };
         let node = self.tl_as_node();
-        let pos = data.pos.get();
         let depth = if data.active.get() {
             1
         } else if data.active_children.get() > 0 {
@@ -109,10 +117,18 @@ pub trait ToplevelNode: Node {
         if depth > 0 {
             parent.clone().node_child_active_changed(node, true, depth);
         }
+    }
+
+    fn tl_extents_changed(&self) {
+        let data = self.tl_data();
+        let parent = match data.parent.get() {
+            Some(p) => p,
+            _ => return,
+        };
+        let node = self.tl_as_node();
+        let pos = data.pos.get();
         parent.node_child_size_changed(node, pos.width(), pos.height());
-        parent
-            .clone()
-            .node_child_title_changed(node, data.title.borrow_mut().deref());
+        data.state.tree_changed();
     }
 
     fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
@@ -253,6 +269,7 @@ impl ToplevelData {
             placeholder,
             workspace: ws.clone(),
         });
+        drop(data);
         self.is_fullscreen.set(true);
         ws.fullscreen.set(Some(node.clone()));
         node.tl_set_parent(ws.clone());

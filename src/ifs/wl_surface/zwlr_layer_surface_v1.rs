@@ -307,6 +307,7 @@ impl ZwlrLayerSurfaceV1 {
         self.mapped.set(false);
         self.surface.destroy_node();
         self.seat_state.destroy_node(self);
+        self.client.state.tree_changed();
     }
 }
 
