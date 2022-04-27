@@ -10,10 +10,10 @@
 - wlr-layer-shell
 - kde-server-decoration
 - mesa-drm
+- presentation-time
 
 # planned
 
-- presentation-time
 - viewporter
 - xdg-activation
 - drm-lease

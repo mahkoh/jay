@@ -1,13 +1,13 @@
 # todo
 
 - Container moving (mouse)
-- presentation time
 - viewporter
 - session lock
 - stacked restacking
 
 # done
 
+- presentation time
 - idle inhibit
 - layer shell
 - Float moving
