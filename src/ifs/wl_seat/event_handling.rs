@@ -422,6 +422,7 @@ impl WlSeatGlobal {
     }
 
     pub fn trigger_tree_changed(&self) {
+        // log::info!("trigger_tree_changed");
         self.tree_changed.trigger();
     }
 

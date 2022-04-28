@@ -175,6 +175,7 @@ impl State {
         struct Walker;
         impl NodeVisitorBase for Walker {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                // log::info!("set_render_ctx");
                 node.schedule_compute_render_data();
                 node.node_visit_children(self);
             }
@@ -204,6 +205,7 @@ impl State {
     }
 
     pub fn tree_changed(&self) {
+        // log::info!("state.tree_changed\n{:?}", Backtrace::new());
         if self.tree_changed_sent.replace(true) {
             return;
         }

@@ -260,6 +260,7 @@ impl PointerOwner for GrabPointerOwner {
                 self.buttons.remove(&button);
                 if self.buttons.is_empty() {
                     self.node.node_seat_state().remove_pointer_grab(seat);
+                    // log::info!("button");
                     seat.tree_changed.trigger();
                     seat.pointer_owner
                         .owner
@@ -284,6 +285,7 @@ impl PointerOwner for GrabPointerOwner {
         let (x, y) = seat.pos.get();
         let pos = self.node.node_absolute_position();
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
+        // log::info!("apply_changes");
         self.node
             .clone()
             .node_on_pointer_motion(seat, x.apply_fract(x_int), y.apply_fract(y_int));
@@ -400,6 +402,7 @@ impl PointerOwner for DndPointerOwner {
         seat.pointer_owner
             .owner
             .set(seat.pointer_owner.default.clone());
+        // log::info!("button2");
         seat.tree_changed.trigger();
     }
 
@@ -472,6 +475,7 @@ impl PointerOwner for DndPointerOwner {
         seat.pointer_owner
             .owner
             .set(seat.pointer_owner.default.clone());
+        // log::info!("cancel_dnd");
         seat.tree_changed.trigger();
     }
 

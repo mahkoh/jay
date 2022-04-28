@@ -78,6 +78,7 @@ impl ConnectorHandler {
             .unwrap_or(0);
         let global = Rc::new(WlOutputGlobal::new(
             name,
+            &self.state,
             &self.data,
             x1,
             &info.initial_mode,

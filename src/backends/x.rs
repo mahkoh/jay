@@ -9,7 +9,7 @@ use {
         fixed::Fixed,
         format::XRGB8888,
         ifs::wl_seat::PX_PER_SCROLL,
-        render::{Framebuffer, RenderContext, RenderError, RenderResult},
+        render::{Framebuffer, RenderContext, RenderError, RenderResult, Texture},
         state::State,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
@@ -87,8 +87,12 @@ pub enum XBackendError {
     ImportBuffer(#[source] XconError),
     #[error("Could not create an EGL context")]
     CreateEgl(#[source] RenderError),
-    #[error("Could not create a framebuffer from a dma-buf")]
+    #[error("Could not create an EGL image from a dma-buf")]
+    CreateImage(#[source] RenderError),
+    #[error("Could not create a framebuffer from an EGL image")]
     CreateFramebuffer(#[source] RenderError),
+    #[error("Could not create a texture from an EGL image")]
+    CreateTexture(#[source] RenderError),
     #[error("Could not select input events")]
     CannotSelectInputEvents(#[source] XconError),
     #[error("Could not select present events")]
@@ -356,9 +360,17 @@ impl XBackend {
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();
             let size = plane.stride * dma.height as u32;
-            let fb = match self.ctx.dmabuf_fb(dma) {
+            let img = match self.ctx.dmabuf_img(dma) {
+                Ok(f) => f,
+                Err(e) => return Err(XBackendError::CreateImage(e)),
+            };
+            let fb = match img.to_framebuffer() {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateFramebuffer(e)),
+            };
+            let tex = match img.to_texture() {
+                Ok(f) => f,
+                Err(e) => return Err(XBackendError::CreateTexture(e)),
             };
             let pixmap = {
                 let pfb = Dri3PixmapFromBuffer {
@@ -380,6 +392,7 @@ impl XBackend {
             *image = Some(XImage {
                 pixmap: Cell::new(pixmap),
                 fb: CloneCell::new(fb),
+                tex: CloneCell::new(tex),
                 idle: Cell::new(true),
                 render_on_idle: Cell::new(false),
                 last_serial: Cell::new(0),
@@ -689,6 +702,7 @@ impl XBackend {
                 fr.send_done();
                 let _ = fr.client.remove_obj(&*fr);
             }
+            node.global.perform_screencopies(&fb, &image.tex.get());
         }
 
         let pp = PresentPixmap {
@@ -862,6 +876,7 @@ impl XBackend {
                     pixmap: old.pixmap.get(),
                 });
                 old.fb.set(new.fb.get());
+                old.tex.set(new.tex.get());
                 old.pixmap.set(new.pixmap.get());
             }
             output.events.push(ConnectorEvent::ModeChanged(Mode {
@@ -892,6 +907,7 @@ struct XOutput {
 struct XImage {
     pixmap: Cell<u32>,
     fb: CloneCell<Rc<Framebuffer>>,
+    tex: CloneCell<Rc<Texture>>,
     idle: Cell<bool>,
     render_on_idle: Cell<bool>,
     last_serial: Cell<u32>,

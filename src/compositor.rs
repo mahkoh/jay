@@ -286,6 +286,7 @@ fn create_dummy_output(state: &Rc<State>) {
         id: state.node_ids.next(),
         global: Rc::new(WlOutputGlobal::new(
             state.globals.name(),
+            state,
             &Rc::new(ConnectorData {
                 connector: Rc::new(DummyOutput {
                     id: state.connector_ids.next(),

@@ -188,6 +188,7 @@ impl WlSeatGlobal {
                 seat.tree_changed.triggered().await;
                 seat.state.tree_changed_sent.set(false);
                 seat.changes.or_assign(CHANGE_TREE);
+                // log::info!("tree_changed");
                 seat.apply_changes();
             }
         });

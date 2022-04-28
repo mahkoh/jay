@@ -315,6 +315,7 @@ impl ContainerNode {
         if self.mono_child.get().is_some() {
             self.activate_child(&new_ref);
         }
+        // log::info!("add_child");
         self.schedule_layout();
         self.cancel_seat_ops();
     }
@@ -328,10 +329,12 @@ impl ContainerNode {
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
         self.update_content_size();
+        // log::info!("on_spaces_changed");
         self.schedule_layout();
     }
 
     pub fn on_colors_changed(self: &Rc<Self>) {
+        // log::info!("on_colors_changed");
         self.schedule_compute_render_data();
     }
 
@@ -352,6 +355,7 @@ impl ContainerNode {
             self.perform_split_layout();
         }
         self.state.tree_changed();
+        // log::info!("perform_layout");
         self.schedule_compute_render_data();
     }
 
@@ -513,8 +517,12 @@ impl ContainerNode {
             y,
             op: None,
         });
-        seat_state.x = x;
-        seat_state.y = y;
+        let mut changed = false;
+        changed |= mem::replace(&mut seat_state.x, x) != x;
+        changed |= mem::replace(&mut seat_state.y, y) != y;
+        if !changed {
+            return;
+        }
         if let Some(op) = &seat_state.op {
             match op.kind {
                 SeatOpKind::Move => {
@@ -556,6 +564,7 @@ impl ContainerNode {
                     prev.factor.set(prev_factor);
                     op.child.factor.set(child_factor);
                     self.sum_factors.set(sum_factors);
+                    // log::info!("pointer_move");
                     self.schedule_layout();
                 }
             }
@@ -708,6 +717,7 @@ impl ContainerNode {
             }
             self.mono_child.set(Some(child.clone()));
             child.node.tl_set_visible(true);
+            // log::info!("activate_child2");
             self.schedule_layout();
         } else {
         }
@@ -753,6 +763,7 @@ impl ContainerNode {
             }
         }
         self.mono_child.set(child);
+        // log::info!("set_mono");
         self.schedule_layout();
         self.update_title();
     }
@@ -760,6 +771,7 @@ impl ContainerNode {
     pub fn set_split(self: &Rc<Self>, split: ContainerSplit) {
         if self.split.replace(split) != split {
             self.update_content_size();
+            // log::info!("set_split");
             self.schedule_layout();
             self.update_title();
         }
@@ -856,6 +868,7 @@ impl ContainerNode {
                     true => neighbor.prepend_existing(&cc),
                     false => neighbor.append_existing(&cc),
                 }
+                // log::info!("move_child");
                 self.schedule_layout();
                 return;
             }
@@ -967,6 +980,7 @@ impl Node for ContainerNode {
             ct.push_str(title);
         }
         self.update_title();
+        // log::info!("node_child_title_changed");
         self.schedule_compute_render_data();
     }
 
@@ -1048,6 +1062,7 @@ impl Node for ContainerNode {
             node.focus_history
                 .set(Some(self.focus_history.add_last(node.clone())));
         }
+        // log::info!("node_child_active_changed");
         self.schedule_compute_render_data();
         self.parent
             .get()
@@ -1164,6 +1179,7 @@ impl Node for ContainerNode {
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        // log::info!("node_on_pointer_enter");
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
@@ -1183,6 +1199,7 @@ impl Node for ContainerNode {
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        // log::info!("node_on_pointer_motion");
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
@@ -1293,6 +1310,7 @@ impl ContainingNode for ContainerNode {
         }
         self.sum_factors.set(sum);
         self.update_title();
+        // log::info!("cnode_remove_child2");
         self.schedule_layout();
         self.cancel_seat_ops();
     }
@@ -1336,6 +1354,7 @@ impl ToplevelNode for ContainerNode {
         size_changed |= self.height.replace(rect.height()) != rect.height();
         if size_changed {
             self.update_content_size();
+            // log::info!("tl_change_extents");
             self.perform_layout();
             self.cancel_seat_ops();
             self.parent

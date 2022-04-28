@@ -2,12 +2,18 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
+        format::XRGB8888,
         globals::{Global, GlobalName},
-        ifs::{zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zxdg_output_v1::ZxdgOutputV1},
+        ifs::{
+            wl_buffer::WlBufferStorage, zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
+            zxdg_output_v1::ZxdgOutputV1,
+        },
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        state::ConnectorData,
+        render::{Framebuffer, Texture},
+        state::{ConnectorData, State},
+        time::Time,
         tree::OutputNode,
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -21,6 +27,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
+        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -59,7 +66,8 @@ const MODE_CURRENT: u32 = 1;
 const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {
-    name: GlobalName,
+    pub name: GlobalName,
+    pub state: Rc<State>,
     pub connector: Rc<ConnectorData>,
     pub pos: Cell<Rect>,
     pub manufacturer: String,
@@ -76,6 +84,7 @@ pub struct WlOutputGlobal {
 impl WlOutputGlobal {
     pub fn new(
         name: GlobalName,
+        state: &Rc<State>,
         connector: &Rc<ConnectorData>,
         x1: i32,
         mode: &backend::Mode,
@@ -86,6 +95,7 @@ impl WlOutputGlobal {
     ) -> Self {
         Self {
             name,
+            state: state.clone(),
             connector: connector.clone(),
             pos: Cell::new(Rect::new_sized(x1, 0, mode.width, mode.height).unwrap()),
             manufacturer: manufacturer.to_string(),
@@ -151,6 +161,63 @@ impl WlOutputGlobal {
             obj.send_done();
         }
         Ok(())
+    }
+
+    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+        if self.pending_captures.is_empty() {
+            return;
+        }
+        let now = Time::now().unwrap();
+        let mut captures = vec![];
+        for capture in self.pending_captures.iter() {
+            captures.push(capture.deref().clone());
+            let wl_buffer = match capture.buffer.take() {
+                Some(b) => b,
+                _ => {
+                    log::warn!("Capture frame is pending but has no buffer attached");
+                    capture.send_failed();
+                    continue;
+                }
+            };
+            if wl_buffer.destroyed() {
+                capture.send_failed();
+                continue;
+            }
+            let rect = capture.rect;
+            if let WlBufferStorage::Shm { mem, .. } = &wl_buffer.storage {
+                let res = mem.access(|mem| {
+                    fb.copy_to_shm(
+                        rect.x1(),
+                        rect.y1(),
+                        rect.width(),
+                        rect.height(),
+                        XRGB8888,
+                        mem,
+                    );
+                });
+                if let Err(e) = res {
+                    capture.client.error(e);
+                }
+                // capture.send_flags(FLAGS_Y_INVERT);
+            } else {
+                let fb = match wl_buffer.famebuffer.get() {
+                    Some(fb) => fb,
+                    _ => {
+                        log::warn!("Capture buffer has no framebuffer");
+                        capture.send_failed();
+                        continue;
+                    }
+                };
+                fb.copy_texture(&self.state, tex, -capture.rect.x1(), -capture.rect.y1());
+            }
+            if capture.with_damage.get() {
+                capture.send_damage();
+            }
+            capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
+        }
+        for capture in captures {
+            capture.output_link.take();
+        }
     }
 }
 
