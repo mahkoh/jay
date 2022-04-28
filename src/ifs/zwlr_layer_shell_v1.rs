@@ -12,9 +12,7 @@ use {
     thiserror::Error,
 };
 
-#[allow(dead_code)]
 pub const BACKGROUND: u32 = 0;
-#[allow(dead_code)]
 pub const BOTTOM: u32 = 1;
 pub const TOP: u32 = 2;
 pub const OVERLAY: u32 = 3;
