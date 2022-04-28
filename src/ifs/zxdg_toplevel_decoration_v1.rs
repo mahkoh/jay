@@ -57,13 +57,19 @@ impl ZxdgToplevelDecorationV1 {
         Ok(())
     }
 
-    fn set_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
+    fn set_mode(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZxdgToplevelDecorationV1Error> {
         let _req: SetMode = self.client.parse(&**self, parser)?;
         self.do_send_configure();
         Ok(())
     }
 
-    fn unset_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
+    fn unset_mode(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZxdgToplevelDecorationV1Error> {
         let _req: UnsetMode = self.client.parse(&**self, parser)?;
         self.do_send_configure();
         Ok(())

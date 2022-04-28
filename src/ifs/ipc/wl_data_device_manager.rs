@@ -56,7 +56,10 @@ impl WlDataDeviceManagerGlobal {
 }
 
 impl WlDataDeviceManager {
-    fn create_data_source(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceManagerError> {
+    fn create_data_source(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), WlDataDeviceManagerError> {
         let req: CreateDataSource = self.client.parse(self, parser)?;
         let res = Rc::new(WlDataSource::new(req.id, &self.client));
         track!(self.client, res);

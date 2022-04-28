@@ -4,14 +4,16 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            oserror::OsError,
+        },
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
     },
     std::rc::Rc,
     thiserror::Error,
     uapi::OwnedFd,
 };
-use crate::utils::oserror::OsError;
 
 pub const REPEAT_INFO_SINCE: u32 = 4;
 

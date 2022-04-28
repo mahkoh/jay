@@ -1,0 +1,20 @@
+# requests
+
+msg capture_output = 0 {
+    frame: id(zwlr_screencopy_frame_v1),
+    overlay_cursor: i32,
+    output: id(wl_output),
+}
+
+msg capture_output_region = 1 {
+    frame: id(zwlr_screencopy_frame_v1),
+    overlay_cursor: i32,
+    output: id(wl_output),
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+msg destroy = 2 {
+}

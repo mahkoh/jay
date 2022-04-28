@@ -7,9 +7,13 @@ use {
         backends::metal::{DrmId, MetalBackend, MetalError},
         edid::Descriptor,
         format::{Format, XRGB8888},
-        ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
-        render::{Framebuffer, RenderContext, RenderResult},
+        ifs::{
+            wl_buffer::WlBufferStorage,
+            wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
+        },
+        render::{Framebuffer, RenderContext, RenderResult, Texture},
         state::State,
+        time::Time,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
             debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError,
@@ -33,6 +37,7 @@ use {
         cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
+        ops::Deref,
         rc::Rc,
     },
     uapi::c,
@@ -183,7 +188,7 @@ impl MetalConnector {
         let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
         if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
             let mut rr = self.render_result.borrow_mut();
-            buffer.egl.render(
+            buffer.fb.render(
                 &*node,
                 &self.state,
                 Some(node.global.pos.get()),
@@ -193,6 +198,64 @@ impl MetalConnector {
             for fr in rr.frame_requests.drain(..) {
                 fr.send_done();
                 let _ = fr.client.remove_obj(&*fr);
+            }
+            if !node.global.pending_captures.is_empty() {
+                let now = Time::now().unwrap();
+                let mut captures = vec![];
+                for capture in node.global.pending_captures.iter() {
+                    captures.push(capture.deref().clone());
+                    let wl_buffer = match capture.buffer.take() {
+                        Some(b) => b,
+                        _ => {
+                            log::warn!("Capture frame is pending but has no buffer attached");
+                            capture.send_failed();
+                            continue;
+                        }
+                    };
+                    if wl_buffer.destroyed() {
+                        capture.send_failed();
+                        continue;
+                    }
+                    let rect = capture.rect;
+                    if let WlBufferStorage::Shm { mem, .. } = &wl_buffer.storage {
+                        let res = mem.access(|mem| {
+                            buffer.fb.copy_to_shm(
+                                rect.x1(),
+                                rect.y1(),
+                                rect.width(),
+                                rect.height(),
+                                XRGB8888,
+                                mem,
+                            );
+                        });
+                        if let Err(e) = res {
+                            capture.client.error(e);
+                        }
+                        // capture.send_flags(FLAGS_Y_INVERT);
+                    } else {
+                        let fb = match wl_buffer.famebuffer.get() {
+                            Some(fb) => fb,
+                            _ => {
+                                log::warn!("Capture buffer has no framebuffer");
+                                capture.send_failed();
+                                continue;
+                            }
+                        };
+                        fb.copy_texture(
+                            &self.state,
+                            &buffer.tex,
+                            -capture.rect.x1(),
+                            -capture.rect.y1(),
+                        );
+                    }
+                    if capture.with_damage.get() {
+                        capture.send_damage();
+                    }
+                    capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
+                }
+                for capture in captures {
+                    capture.output_link.take();
+                }
             }
         }
         let mut changes = self.master.change();
@@ -1025,14 +1088,23 @@ impl MetalBackend {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let egl_fb = match dev.dev.egl.dmabuf_fb(bo.dmabuf()) {
+        let egl_img = match dev.dev.egl.dmabuf_img(bo.dmabuf()) {
+            Ok(img) => img,
+            Err(e) => return Err(MetalError::ImportImage(e)),
+        };
+        let egl_fb = match egl_img.to_framebuffer() {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
+        };
+        let egl_tex = match egl_img.to_texture() {
+            Ok(fb) => fb,
+            Err(e) => return Err(MetalError::ImportTexture(e)),
         };
         egl_fb.clear();
         Ok(RenderBuffer {
             drm: drm_fb,
-            egl: egl_fb,
+            fb: egl_fb,
+            tex: egl_tex,
         })
     }
 
@@ -1158,7 +1230,8 @@ impl MetalBackend {
 #[derive(Debug)]
 pub struct RenderBuffer {
     drm: Rc<DrmFramebuffer>,
-    egl: Rc<Framebuffer>,
+    fb: Rc<Framebuffer>,
+    tex: Rc<Texture>,
 }
 
 fn modes_equal(a: &DrmModeInfo, b: &DrmModeInfo) -> bool {

@@ -100,7 +100,10 @@ impl ZwpLinuxDmabufV1 {
         Ok(())
     }
 
-    fn create_params(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxDmabufV1Error> {
+    fn create_params(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpLinuxDmabufV1Error> {
         let req: CreateParams = self.client.parse(&**self, parser)?;
         let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, self));
         track!(self.client, params);

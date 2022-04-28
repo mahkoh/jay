@@ -2,7 +2,9 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration,
+        ifs::org_kde_kwin_server_decoration::{
+            OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError,
+        },
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
@@ -11,7 +13,6 @@ use {
     std::rc::Rc,
     thiserror::Error,
 };
-use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecorationError;
 
 #[allow(dead_code)]
 const NONE: u32 = 0;

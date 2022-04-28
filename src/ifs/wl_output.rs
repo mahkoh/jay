@@ -3,7 +3,7 @@ use {
         backend,
         client::{Client, ClientError, ClientId},
         globals::{Global, GlobalName},
-        ifs::zxdg_output_v1::ZxdgOutputV1,
+        ifs::{zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zxdg_output_v1::ZxdgOutputV1},
         leaks::Tracker,
         object::Object,
         rect::Rect,
@@ -13,6 +13,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            linkedlist::LinkedList,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
@@ -68,6 +69,8 @@ pub struct WlOutputGlobal {
     pub width_mm: i32,
     pub height_mm: i32,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
+    pub unused_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
+    pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
 }
 
 impl WlOutputGlobal {
@@ -92,6 +95,8 @@ impl WlOutputGlobal {
             width_mm,
             height_mm,
             bindings: Default::default(),
+            unused_captures: Default::default(),
+            pending_captures: Default::default(),
         }
     }
 

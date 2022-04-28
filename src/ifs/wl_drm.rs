@@ -102,18 +102,12 @@ impl WlDrm {
         Err(WlDrmError::Unsupported)
     }
 
-    fn create_planar_buffer(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDrmError> {
+    fn create_planar_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
         let _req: CreatePlanarBuffer = self.client.parse(&**self, parser)?;
         Err(WlDrmError::Unsupported)
     }
 
-    fn create_prime_buffer(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDrmError> {
+    fn create_prime_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
         let req: CreatePrimeBuffer = self.client.parse(&**self, parser)?;
         let ctx = match self.client.state.render_ctx.get() {
             Some(ctx) => ctx,

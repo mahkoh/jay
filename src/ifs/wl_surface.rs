@@ -539,10 +539,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn set_buffer_transform(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlSurfaceError> {
+    fn set_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: SetBufferTransform = self.parse(parser)?;
         Ok(())
     }

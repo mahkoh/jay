@@ -19,6 +19,7 @@ use {
             wp_presentation::WpPresentationGlobal,
             xdg_wm_base::XdgWmBaseGlobal,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
+            zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
@@ -132,6 +133,7 @@ impl Globals {
         add_singleton!(ZwlrLayerShellV1Global);
         add_singleton!(ZxdgOutputManagerV1Global);
         add_singleton!(JayCompositorGlobal);
+        add_singleton!(ZwlrScreencopyManagerV1Global);
 
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);

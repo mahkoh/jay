@@ -84,10 +84,7 @@ impl XdgWmBase {
         Ok(())
     }
 
-    fn create_positioner(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgWmBaseError> {
+    fn create_positioner(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
         let req: CreatePositioner = self.client.parse(&**self, parser)?;
         let pos = Rc::new(XdgPositioner::new(self, req.id, &self.client));
         track!(self.client, pos);
@@ -95,10 +92,7 @@ impl XdgWmBase {
         Ok(())
     }
 
-    fn get_xdg_surface(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgWmBaseError> {
+    fn get_xdg_surface(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
         let req: GetXdgSurface = self.client.parse(&**self, parser)?;
         let surface = self.client.lookup(req.surface)?;
         let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface));

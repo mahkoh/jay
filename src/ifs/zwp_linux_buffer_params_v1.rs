@@ -61,7 +61,10 @@ impl ZwpLinuxBufferParamsV1 {
         self.parent.client.event(Failed { self_id: self.id })
     }
 
-    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxBufferParamsV1Error> {
+    fn destroy(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpLinuxBufferParamsV1Error> {
         let _req: Destroy = self.parent.client.parse(&**self, parser)?;
         self.parent.client.remove_obj(&**self)?;
         Ok(())
@@ -71,7 +74,9 @@ impl ZwpLinuxBufferParamsV1 {
         let req: Add = self.parent.client.parse(&**self, parser)?;
         let modifier = ((req.modifier_hi as u64) << 32) | req.modifier_lo as u64;
         match self.modifier.get() {
-            Some(m) if m != modifier => return Err(ZwpLinuxBufferParamsV1Error::MixedModifiers(modifier, m)),
+            Some(m) if m != modifier => {
+                return Err(ZwpLinuxBufferParamsV1Error::MixedModifiers(modifier, m))
+            }
             _ => self.modifier.set(Some(modifier)),
         }
         let plane = req.plane_idx;

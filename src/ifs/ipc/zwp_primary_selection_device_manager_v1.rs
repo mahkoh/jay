@@ -50,7 +50,10 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
 }
 
 impl ZwpPrimarySelectionDeviceManagerV1 {
-    fn create_source(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
+    fn create_source(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let req: CreateSource = self.client.parse(self, parser)?;
         let res = Rc::new(ZwpPrimarySelectionSourceV1::new(req.id, &self.client));
         track!(self.client, res);
@@ -58,7 +61,10 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
         Ok(())
     }
 
-    fn get_data_device(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
+    fn get_data_device(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let req: GetDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(ZwpPrimarySelectionDeviceV1::new(req.id, self, &seat));
@@ -68,7 +74,10 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
+    fn destroy(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())

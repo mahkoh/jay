@@ -221,11 +221,7 @@ impl XdgPositioner {
         let req: SetConstraintAdjustment = self.client.parse(self, parser)?;
         let ca = match CA::from_bits(req.constraint_adjustment) {
             Some(c) => c,
-            _ => {
-                return Err(XdgPositionerError::UnknownCa(
-                    req.constraint_adjustment,
-                ))
-            }
+            _ => return Err(XdgPositionerError::UnknownCa(req.constraint_adjustment)),
         };
         self.position.borrow_mut().ca = ca;
         Ok(())
@@ -261,10 +257,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    fn set_parent_configure(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgPositionerError> {
+    fn set_parent_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
         let req: SetParentConfigure = self.client.parse(self, parser)?;
         self.position.borrow_mut().parent_serial = req.serial;
         Ok(())

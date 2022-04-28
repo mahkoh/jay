@@ -1,5 +1,6 @@
 use {
     crate::{
+        format::{Format, XRGB8888},
         rect::Rect,
         render::{
             gl::{
@@ -10,13 +11,14 @@ use {
                 },
             },
             renderer::{context::RenderContext, renderer::Renderer},
-            sys::{glBlendFunc, glFlush, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
-            RenderResult,
+            sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
+            RenderResult, Texture,
         },
         state::State,
         tree::Node,
     },
     std::{
+        cell::Cell,
         fmt::{Debug, Formatter},
         rc::Rc,
     },
@@ -41,6 +43,57 @@ impl Framebuffer {
                 glViewport(0, 0, self.gl.width, self.gl.height);
                 glClearColor(0.0, 0.0, 0.0, 0.0);
                 glClear(GL_COLOR_BUFFER_BIT);
+            }
+            Ok(())
+        });
+    }
+
+    pub fn copy_texture(&self, state: &State, texture: &Texture, x: i32, y: i32) {
+        let _ = self.ctx.ctx.with_current(|| {
+            unsafe {
+                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
+                glViewport(0, 0, self.gl.width, self.gl.height);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            }
+            let mut renderer = Renderer {
+                ctx: &self.ctx,
+                fb: &self.gl,
+                state,
+                on_output: false,
+                result: &mut RenderResult::default(),
+            };
+            renderer.render_texture(texture, x, y, XRGB8888);
+            unsafe {
+                glFlush();
+            }
+            Ok(())
+        });
+    }
+
+    pub fn copy_to_shm(
+        &self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        format: &Format,
+        shm: &[Cell<u8>],
+    ) {
+        let y = self.gl.height - y - height;
+        let _ = self.ctx.ctx.with_current(|| {
+            unsafe {
+                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
+                glViewport(0, 0, self.gl.width, self.gl.height);
+                glReadnPixels(
+                    x,
+                    y,
+                    width,
+                    height,
+                    format.gl_format as _,
+                    format.gl_type as _,
+                    shm.len() as _,
+                    shm.as_ptr() as _,
+                );
             }
             Ok(())
         });

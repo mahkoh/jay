@@ -53,7 +53,10 @@ impl ZxdgOutputManagerV1 {
         Ok(())
     }
 
-    fn get_xdg_output(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZxdgOutputManagerV1Error> {
+    fn get_xdg_output(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZxdgOutputManagerV1Error> {
         let req: GetXdgOutput = self.client.parse(&**self, parser)?;
         let output = self.client.lookup(req.output)?;
         let xdg_output = Rc::new(ZxdgOutputV1 {

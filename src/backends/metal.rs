@@ -85,6 +85,10 @@ pub enum MetalError {
     Framebuffer(#[source] DrmError),
     #[error("Could not import a framebuffer into EGL")]
     ImportFb(#[source] RenderError),
+    #[error("Could not import a texture into EGL")]
+    ImportTexture(#[source] RenderError),
+    #[error("Could not import an image into EGL")]
+    ImportImage(#[source] RenderError),
     #[error("Could not perform modeset")]
     Modeset(#[source] DrmError),
     #[error("Could not enable atomic modesetting")]

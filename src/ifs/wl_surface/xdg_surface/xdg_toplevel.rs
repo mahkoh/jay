@@ -283,10 +283,7 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_fullscreen(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgToplevelError> {
+    fn set_fullscreen(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let client = &self.xdg.surface.client;
         let req: SetFullscreen = client.parse(self.deref(), parser)?;
         self.states.borrow_mut().insert(STATE_FULLSCREEN);

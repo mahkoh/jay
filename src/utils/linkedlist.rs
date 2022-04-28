@@ -79,6 +79,15 @@ impl<T> LinkedList<T> {
         self.root.append(t)
     }
 
+    pub fn add_last_existing(&self, t: &NodeRef<T>) {
+        self.root.prepend_existing(t)
+    }
+
+    #[allow(dead_code)]
+    pub fn add_first_existing(&self, t: &NodeRef<T>) {
+        self.root.append_existing(t)
+    }
+
     pub fn iter(&self) -> LinkedListIter<T> {
         unsafe {
             let root = self.root.data.as_ref();

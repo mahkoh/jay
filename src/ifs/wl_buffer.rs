@@ -6,7 +6,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::{Image, RenderError, Texture},
+        render::{Framebuffer, Image, RenderError, Texture},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -28,8 +28,9 @@ pub struct WlBuffer {
     pub client: Rc<Client>,
     pub rect: Rect,
     pub format: &'static Format,
-    storage: WlBufferStorage,
+    pub storage: WlBufferStorage,
     pub texture: CloneCell<Option<Rc<Texture>>>,
+    pub famebuffer: CloneCell<Option<Rc<Framebuffer>>>,
     width: i32,
     height: i32,
     pub tracker: Tracker<Self>,
@@ -58,6 +59,7 @@ impl WlBuffer {
             width,
             height,
             texture: CloneCell::new(None),
+            famebuffer: Default::default(),
             storage: WlBufferStorage::Dmabuf(img.clone()),
             tracker: Default::default(),
         }
@@ -95,6 +97,7 @@ impl WlBuffer {
             height,
             texture: CloneCell::new(None),
             tracker: Default::default(),
+            famebuffer: Default::default(),
         })
     }
 
@@ -112,6 +115,20 @@ impl WlBuffer {
             WlBufferStorage::Dmabuf(img) => {
                 if self.texture.get().is_none() {
                     self.texture.set(Some(img.to_texture()?));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn update_framebuffer(&self) -> Result<(), WlBufferError> {
+        match &self.storage {
+            WlBufferStorage::Shm { .. } => {
+                // nothing
+            }
+            WlBufferStorage::Dmabuf(img) => {
+                if self.famebuffer.get().is_none() {
+                    self.famebuffer.set(Some(img.to_framebuffer()?));
                 }
             }
         }

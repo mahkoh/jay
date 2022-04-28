@@ -46,7 +46,10 @@ impl OrgKdeKwinServerDecoration {
         Ok(())
     }
 
-    fn request_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), OrgKdeKwinServerDecorationError> {
+    fn request_mode(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), OrgKdeKwinServerDecorationError> {
         let req: RequestMode = self.client.parse(&**self, parser)?;
         if req.mode > SERVER {
             return Err(OrgKdeKwinServerDecorationError::InvalidMode(req.mode));

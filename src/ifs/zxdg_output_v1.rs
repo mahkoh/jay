@@ -67,8 +67,10 @@ impl ZxdgOutputV1 {
         if self.version >= NAME_SINCE {
             self.send_name(&self.output.global.connector.name);
         }
-        if self.version >= NO_DONE_SINCE && self.output.version >= SEND_DONE_SINCE {
-            self.output.send_done();
+        if self.version >= NO_DONE_SINCE {
+            if self.output.version >= SEND_DONE_SINCE {
+                self.output.send_done();
+            }
         } else {
             self.send_done();
         }
