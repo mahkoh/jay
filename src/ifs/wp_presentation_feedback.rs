@@ -1,10 +1,7 @@
 use {
     crate::{
         client::Client,
-        ifs::{
-            wl_output::{WlOutput, WlOutputGlobal},
-            wl_surface::WlSurface,
-        },
+        ifs::{wl_output::WlOutput, wl_surface::WlSurface},
         leaks::Tracker,
         object::Object,
         wire::{wp_presentation_feedback::*, WpPresentationFeedbackId},
@@ -18,15 +15,6 @@ pub struct WpPresentationFeedback {
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
-}
-
-pub struct ExecutedPresentation {
-    pub feedback: Rc<WpPresentationFeedback>,
-    pub output: Rc<WlOutputGlobal>,
-    pub tv_sec: u64,
-    pub tv_nsec: u32,
-    pub seq: u64,
-    pub refresh: u32,
 }
 
 pub const KIND_VSYNC: u32 = 0x1;

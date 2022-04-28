@@ -2,7 +2,6 @@ use {
     crate::{
         async_engine::Phase,
         client::{Client, ClientError},
-        ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         object::ObjectId,
         utils::{
             buffd::{BufFdIn, BufFdOut, MsgParser},
@@ -16,20 +15,13 @@ use {
 
 pub async fn client(data: Rc<Client>) {
     let mut recv = data.state.eng.spawn(receive(data.clone())).fuse();
-    let mut dispatch_fr = data.state.eng.spawn(dispatch_fr(data.clone())).fuse();
-    let discard_fb = data.state.eng.spawn(discard_fb(data.clone())).fuse();
-    let dispatch_fb = data.state.eng.spawn(dispatch_fb(data.clone())).fuse();
     let mut shutdown = data.shutdown.triggered().fuse();
     let _send = data.state.eng.spawn2(Phase::PostLayout, send(data.clone()));
     select! {
         _ = recv => { },
-        _ = dispatch_fr => { },
         _ = shutdown => { },
     }
     drop(recv);
-    drop(dispatch_fr);
-    drop(discard_fb);
-    drop(dispatch_fb);
     data.flush_request.trigger();
     match data.state.eng.timeout(5000) {
         Ok(timeout) => {
@@ -41,56 +33,6 @@ pub async fn client(data: Rc<Client>) {
         }
     }
     data.state.clients.kill(data.id);
-}
-
-async fn dispatch_fr(data: Rc<Client>) {
-    loop {
-        let mut fr = data.dispatch_frame_requests.pop().await;
-        loop {
-            fr.send_done();
-            if let Err(e) = data.remove_obj(&*fr) {
-                log::error!("Could not remove frame object: {}", ErrorFmt(e));
-                return;
-            }
-            fr = match data.dispatch_frame_requests.try_pop() {
-                Some(f) => f,
-                _ => break,
-            };
-        }
-        data.flush();
-    }
-}
-
-async fn discard_fb(data: Rc<Client>) {
-    loop {
-        data.discard_presentation_feedback.non_empty().await;
-        while let Some(fr) = data.discard_presentation_feedback.try_pop() {
-            fr.send_discarded();
-            let _ = data.remove_obj(&*fr);
-        }
-    }
-}
-
-async fn dispatch_fb(data: Rc<Client>) {
-    loop {
-        data.dispatch_presentation_feedback.non_empty().await;
-        while let Some(fr) = data.dispatch_presentation_feedback.try_pop() {
-            let bindings = fr.output.bindings.borrow_mut();
-            if let Some(bindings) = bindings.get(&data.id) {
-                for binding in bindings.values() {
-                    fr.feedback.send_sync_output(binding);
-                }
-            }
-            fr.feedback.send_presented(
-                fr.tv_sec,
-                fr.tv_nsec,
-                fr.refresh,
-                fr.seq,
-                KIND_VSYNC | KIND_HW_COMPLETION,
-            );
-            let _ = data.remove_obj(&*fr.feedback);
-        }
-    }
 }
 
 async fn receive(data: Rc<Client>) {

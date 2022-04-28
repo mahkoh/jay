@@ -7,7 +7,7 @@ use {
         backends::metal::{DrmId, MetalBackend, MetalError},
         edid::Descriptor,
         format::{Format, XRGB8888},
-        ifs::wp_presentation_feedback::ExecutedPresentation,
+        ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         render::{Framebuffer, RenderContext, RenderResult},
         state::State,
         utils::{
@@ -191,7 +191,8 @@ impl MetalConnector {
                 &mut rr,
             );
             for fr in rr.frame_requests.drain(..) {
-                fr.client.dispatch_frame_requests.push(fr.clone());
+                fr.send_done();
+                let _ = fr.client.remove_obj(&*fr);
             }
         }
         let mut changes = self.master.change();
@@ -829,21 +830,28 @@ impl MetalBackend {
         {
             let global = self.state.outputs.get(&connector.connector_id);
             let mut rr = connector.render_result.borrow_mut();
-            for fb in rr.presentation_feedbacks.drain(..) {
-                match &global {
-                    Some(g) => {
-                        fb.client
-                            .dispatch_presentation_feedback
-                            .push(ExecutedPresentation {
-                                feedback: fb.clone(),
-                                output: g.node.global.clone(),
-                                tv_sec: tv_sec as _,
-                                tv_nsec: tv_usec * 1000,
-                                seq: sequence as _,
-                                refresh: connector.refresh.get(),
-                            })
+            if let Some(g) = &global {
+                let refresh = connector.refresh.get();
+                let bindings = g.node.global.bindings.borrow_mut();
+                for fb in rr.presentation_feedbacks.drain(..) {
+                    if let Some(bindings) = bindings.get(&fb.client.id) {
+                        for binding in bindings.values() {
+                            fb.send_sync_output(binding);
+                        }
                     }
-                    _ => fb.client.discard_presentation_feedback.push(fb.clone()),
+                    fb.send_presented(
+                        tv_sec as _,
+                        tv_usec * 1000,
+                        refresh,
+                        sequence as _,
+                        KIND_VSYNC | KIND_HW_COMPLETION,
+                    );
+                    let _ = fb.client.remove_obj(&*fb);
+                }
+            } else {
+                for fb in rr.presentation_feedbacks.drain(..) {
+                    fb.send_discarded();
+                    let _ = fb.client.remove_obj(&*fb);
                 }
             }
         }

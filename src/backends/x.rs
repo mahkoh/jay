@@ -686,7 +686,8 @@ impl XBackend {
                 rr.deref_mut(),
             );
             for fr in rr.frame_requests.drain(..) {
-                fr.client.dispatch_frame_requests.push(fr.clone());
+                fr.send_done();
+                let _ = fr.client.remove_obj(&*fr);
             }
         }
 

@@ -3,12 +3,7 @@ use {
     crate::{
         async_engine::{AsyncFd, SpawnedFuture},
         client::{error::LookupError, objects::Objects},
-        ifs::{
-            wl_callback::WlCallback,
-            wl_display::WlDisplay,
-            wl_registry::WlRegistry,
-            wp_presentation_feedback::{ExecutedPresentation, WpPresentationFeedback},
-        },
+        ifs::{wl_display::WlDisplay, wl_registry::WlRegistry},
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
         state::State,
@@ -18,7 +13,6 @@ use {
             copyhashmap::Locked,
             errorfmt::ErrorFmt,
             numcell::NumCell,
-            queue::AsyncQueue,
             trim::AsciiTrim,
         },
         wire::WlRegistryId,
@@ -136,9 +130,6 @@ impl Clients {
             swapchain: Default::default(),
             flush_request: Default::default(),
             shutdown: Default::default(),
-            dispatch_frame_requests: AsyncQueue::new(),
-            discard_presentation_feedback: Default::default(),
-            dispatch_presentation_feedback: Default::default(),
             tracker: Default::default(),
             is_xwayland,
             secure,
@@ -212,7 +203,6 @@ pub struct ClientHolder {
 impl Drop for ClientHolder {
     fn drop(&mut self) {
         self.data.objects.destroy();
-        self.data.dispatch_frame_requests.clear();
         self.data.flush_request.clear();
         self.data.shutdown.clear();
     }
@@ -245,9 +235,6 @@ pub struct Client {
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
     shutdown: AsyncEvent,
-    pub dispatch_frame_requests: AsyncQueue<Rc<WlCallback>>,
-    pub discard_presentation_feedback: AsyncQueue<Rc<WpPresentationFeedback>>,
-    pub dispatch_presentation_feedback: AsyncQueue<ExecutedPresentation>,
     pub tracker: Tracker<Client>,
     pub is_xwayland: bool,
     pub secure: bool,
