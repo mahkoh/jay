@@ -5,6 +5,8 @@ Jay is a wayland compositor written in rust.
 ![screenshot.png](static/screenshot.png)
 
 This project is in very early development and not yet ready for serious use.
+I have been using it as a daily driver for several weeks but regressions happen often and
+can go unnoticed for multiple days.
 
 For now this repository serves purely as a code backup.
 Do not expect any kind of structured commit history.
