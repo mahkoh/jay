@@ -1,7 +1,6 @@
 use {
     crate::{
         client::{Client, ClientError},
-        globals::GlobalsError,
         ifs::{wl_callback::WlCallback, wl_registry::WlRegistry},
         leaks::Tracker,
         object::{Object, ObjectId, WL_DISPLAY_ID},
@@ -33,7 +32,7 @@ impl WlDisplay {
         }
     }
 
-    fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SyncError> {
+    fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDisplayError> {
         let sync: Sync = self.client.parse(self, parser)?;
         let cb = Rc::new(WlCallback::new(sync.callback, &self.client));
         track!(self.client, cb);
@@ -43,7 +42,7 @@ impl WlDisplay {
         Ok(())
     }
 
-    fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), GetRegistryError> {
+    fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDisplayError> {
         let gr: GetRegistry = self.client.parse(self, parser)?;
         let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
         track!(self.client, registry);
@@ -90,7 +89,7 @@ impl WlDisplay {
 }
 
 object_base! {
-    WlDisplay, WlDisplayError;
+    WlDisplay;
 
     SYNC => sync,
     GET_REGISTRY => get_registry,
@@ -104,36 +103,10 @@ impl Object for WlDisplay {
 
 #[derive(Debug, Error)]
 pub enum WlDisplayError {
-    #[error("Could not process a get_registry request")]
-    GetRegistryError(#[source] Box<GetRegistryError>),
-    #[error("A client error occurred")]
-    SyncError(#[source] Box<SyncError>),
-}
-
-efrom!(WlDisplayError, GetRegistryError);
-efrom!(WlDisplayError, SyncError);
-
-#[derive(Debug, Error)]
-pub enum GetRegistryError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("An error occurred while processing globals")]
-    GlobalsError(#[source] Box<GlobalsError>),
-}
-
-efrom!(GetRegistryError, ParseFailed, MsgParserError);
-efrom!(GetRegistryError, GlobalsError);
-efrom!(GetRegistryError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SyncError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-
-efrom!(SyncError, ParseFailed, MsgParserError);
-efrom!(SyncError, ClientError);
+efrom!(WlDisplayError, MsgParserError);
+efrom!(WlDisplayError, ClientError);

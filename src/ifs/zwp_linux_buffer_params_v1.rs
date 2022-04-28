@@ -61,25 +61,25 @@ impl ZwpLinuxBufferParamsV1 {
         self.parent.client.event(Failed { self_id: self.id })
     }
 
-    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxBufferParamsV1Error> {
         let _req: Destroy = self.parent.client.parse(&**self, parser)?;
         self.parent.client.remove_obj(&**self)?;
         Ok(())
     }
 
-    fn add(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AddError> {
+    fn add(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxBufferParamsV1Error> {
         let req: Add = self.parent.client.parse(&**self, parser)?;
         let modifier = ((req.modifier_hi as u64) << 32) | req.modifier_lo as u64;
         match self.modifier.get() {
-            Some(m) if m != modifier => return Err(AddError::MixedModifiers(modifier, m)),
+            Some(m) if m != modifier => return Err(ZwpLinuxBufferParamsV1Error::MixedModifiers(modifier, m)),
             _ => self.modifier.set(Some(modifier)),
         }
         let plane = req.plane_idx;
         if plane > MAX_PLANE {
-            return Err(AddError::MaxPlane);
+            return Err(ZwpLinuxBufferParamsV1Error::MaxPlane);
         }
         if self.planes.borrow_mut().insert(plane, req).is_some() {
-            return Err(AddError::AlreadySet(plane));
+            return Err(ZwpLinuxBufferParamsV1Error::AlreadySet(plane));
         }
         Ok(())
     }
@@ -91,22 +91,22 @@ impl ZwpLinuxBufferParamsV1 {
         height: i32,
         format: u32,
         _flags: u32,
-    ) -> Result<WlBufferId, DoCreateError> {
+    ) -> Result<WlBufferId, ZwpLinuxBufferParamsV1Error> {
         let ctx = match self.parent.client.state.render_ctx.get() {
             Some(ctx) => ctx,
-            None => return Err(DoCreateError::NoRenderContext),
+            None => return Err(ZwpLinuxBufferParamsV1Error::NoRenderContext),
         };
         let formats = ctx.formats();
         let format = match formats.get(&format) {
             Some(f) => f,
-            None => return Err(DoCreateError::InvalidFormat(format)),
+            None => return Err(ZwpLinuxBufferParamsV1Error::InvalidFormat(format)),
         };
         let modifier = match self.modifier.get() {
             Some(m) => m,
-            _ => return Err(DoCreateError::NoPlanes),
+            _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
         };
         if !format.modifiers.contains_key(&modifier) {
-            return Err(DoCreateError::InvalidModifier(modifier));
+            return Err(ZwpLinuxBufferParamsV1Error::InvalidModifier(modifier));
         }
         let mut dmabuf = DmaBuf {
             width,
@@ -119,7 +119,7 @@ impl ZwpLinuxBufferParamsV1 {
         planes.sort_by_key(|a| a.plane_idx);
         for (i, p) in planes.into_iter().enumerate() {
             if p.plane_idx as usize != i {
-                return Err(DoCreateError::MissingPlane(i));
+                return Err(ZwpLinuxBufferParamsV1Error::MissingPlane(i));
             }
             dmabuf.planes.push(DmaBufPlane {
                 offset: p.offset,
@@ -147,27 +147,27 @@ impl ZwpLinuxBufferParamsV1 {
         Ok(buffer_id)
     }
 
-    fn create(self: &Rc<Self>, parser: MsgParser) -> Result<(), CreateError> {
+    fn create(self: &Rc<Self>, parser: MsgParser) -> Result<(), ZwpLinuxBufferParamsV1Error> {
         let req: Create = self.parent.client.parse(&**self, parser)?;
         if self.used.replace(true) {
-            return Err(CreateError::AlreadyUsed);
+            return Err(ZwpLinuxBufferParamsV1Error::AlreadyUsed);
         }
         match self.do_create(None, req.width, req.height, req.format, req.flags) {
             Ok(id) => {
                 self.send_created(id);
             }
             Err(e) => {
-                log::debug!("Could not create a dmabuf buffer: {}", ErrorFmt(e));
+                log::warn!("Could not create a dmabuf buffer: {}", ErrorFmt(e));
                 self.send_failed();
             }
         }
         Ok(())
     }
 
-    fn create_immed(self: &Rc<Self>, parser: MsgParser) -> Result<(), CreateImmedError> {
+    fn create_immed(self: &Rc<Self>, parser: MsgParser) -> Result<(), ZwpLinuxBufferParamsV1Error> {
         let req: CreateImmed = self.parent.client.parse(&**self, parser)?;
         if self.used.replace(true) {
-            return Err(CreateImmedError::AlreadyUsed);
+            return Err(ZwpLinuxBufferParamsV1Error::AlreadyUsed);
         }
         self.do_create(
             Some(req.buffer_id),
@@ -181,7 +181,7 @@ impl ZwpLinuxBufferParamsV1 {
 }
 
 object_base! {
-    ZwpLinuxBufferParamsV1, ZwpLinuxBufferParamsV1Error;
+    ZwpLinuxBufferParamsV1;
 
     DESTROY => destroy,
     ADD => add,
@@ -199,49 +199,18 @@ simple_add_obj!(ZwpLinuxBufferParamsV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpLinuxBufferParamsV1Error {
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `add` request")]
-    AddError(#[from] AddError),
-    #[error("Could not process a `create` request")]
-    Create(#[from] CreateError),
-    #[error("Could not process a `create_immed` request")]
-    CreateImmed(#[from] CreateImmedError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-}
-efrom!(ZwpLinuxBufferParamsV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
+    #[error("The params object has already been used")]
+    AlreadyUsed,
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum AddError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error("A buffer can contain at most 4 planes")]
     MaxPlane,
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Tried to add a plane with modifier {0} that differs from a previous modifier {1}")]
     MixedModifiers(u64, u64),
     #[error("The plane {0} was already set")]
     AlreadySet(u32),
-}
-efrom!(AddError, ClientError);
-efrom!(AddError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum DoCreateError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The compositor has no render context attached")]
     NoRenderContext,
     #[error("The format {0} is not supported")]
@@ -255,30 +224,5 @@ pub enum DoCreateError {
     #[error("Could not import the buffer")]
     ImportError(#[from] RenderError),
 }
-efrom!(DoCreateError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CreateError {
-    #[error("The params object has already been used")]
-    AlreadyUsed,
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CreateError, ClientError, ClientError);
-efrom!(CreateError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum CreateImmedError {
-    #[error("The params object has already been used")]
-    AlreadyUsed,
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    DoCreateError(#[from] DoCreateError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CreateImmedError, ClientError, ClientError);
-efrom!(CreateImmedError, ParseError, MsgParserError);
+efrom!(ZwpLinuxBufferParamsV1Error, ClientError);
+efrom!(ZwpLinuxBufferParamsV1Error, MsgParserError);

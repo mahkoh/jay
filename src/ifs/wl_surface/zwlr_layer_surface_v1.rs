@@ -130,10 +130,10 @@ impl ZwlrLayerSurfaceV1 {
         self.client.event(Closed { self_id: self.id });
     }
 
-    fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSizeError> {
+    fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetSize = self.client.parse(self, parser)?;
         if req.width > u16::MAX as u32 || req.height > u16::MAX as u32 {
-            return Err(SetSizeError::ExcessiveSize);
+            return Err(ZwlrLayerSurfaceV1Error::ExcessiveSize);
         }
         self.pending
             .size
@@ -142,24 +142,24 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn set_anchor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAnchorError> {
+    fn set_anchor(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetAnchor = self.client.parse(self, parser)?;
         if req.anchor & !(LEFT | RIGHT | TOP | BOTTOM) != 0 {
-            return Err(SetAnchorError::UnknownAnchor(req.anchor));
+            return Err(ZwlrLayerSurfaceV1Error::UnknownAnchor(req.anchor));
         }
         self.pending.anchor.set(Some(req.anchor));
         self.pending.any.set(true);
         Ok(())
     }
 
-    fn set_exclusive_zone(&self, parser: MsgParser<'_, '_>) -> Result<(), SetExclusiveZoneError> {
+    fn set_exclusive_zone(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetExclusiveZone = self.client.parse(self, parser)?;
         self.pending.exclusive_zone.set(Some(req.zone));
         self.pending.any.set(true);
         Ok(())
     }
 
-    fn set_margin(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMarginError> {
+    fn set_margin(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetMargin = self.client.parse(self, parser)?;
         self.pending
             .margin
@@ -171,10 +171,10 @@ impl ZwlrLayerSurfaceV1 {
     fn set_keyboard_interactivity(
         &self,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), SetKeyboardInteractivityError> {
+    ) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetKeyboardInteractivity = self.client.parse(self, parser)?;
         if req.keyboard_interactivity > KI_ON_DEMAND {
-            return Err(SetKeyboardInteractivityError::UnknownKi(
+            return Err(ZwlrLayerSurfaceV1Error::UnknownKi(
                 req.keyboard_interactivity,
             ));
         }
@@ -185,18 +185,18 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn get_popup(&self, parser: MsgParser<'_, '_>) -> Result<(), GetPopupError> {
+    fn get_popup(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let _req: GetPopup = self.client.parse(self, parser)?;
         Ok(())
     }
 
-    fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), AckConfigureError> {
+    fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: AckConfigure = self.client.parse(self, parser)?;
         self.acked_serial.set(Some(req.serial));
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.destroy_node();
         self.client.remove_obj(self)?;
@@ -204,10 +204,10 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn set_layer(&self, parser: MsgParser<'_, '_>) -> Result<(), SetLayerError> {
+    fn set_layer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetLayer = self.client.parse(self, parser)?;
         if req.layer > OVERLAY {
-            return Err(SetLayerError::UnknownLayer(req.layer));
+            return Err(ZwlrLayerSurfaceV1Error::UnknownLayer(req.layer));
         }
         self.pending.layer.set(Some(req.layer));
         self.pending.any.set(true);
@@ -396,7 +396,7 @@ impl Node for ZwlrLayerSurfaceV1 {
 }
 
 object_base! {
-    ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error;
+    ZwlrLayerSurfaceV1;
 
     SET_SIZE                   => set_size,
     SET_ANCHOR                 => set_anchor,
@@ -428,24 +428,6 @@ simple_add_obj!(ZwlrLayerSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerSurfaceV1Error {
-    #[error("Could not process `set_size` request")]
-    SetSizeError(#[from] SetSizeError),
-    #[error("Could not process `set_anchor` request")]
-    SetAnchorError(#[from] SetAnchorError),
-    #[error("Could not process `set_exclusive_zone` request")]
-    SetExclusiveZoneError(#[from] SetExclusiveZoneError),
-    #[error("Could not process `set_margin` request")]
-    SetMarginError(#[from] SetMarginError),
-    #[error("Could not process `set_keyboard_interactivity` request")]
-    SetKeyboardInteractivityError(#[from] SetKeyboardInteractivityError),
-    #[error("Could not process `get_popup` request")]
-    GetPopupError(#[from] GetPopupError),
-    #[error("Could not process `ack_configure` request")]
-    AckConfigureError(#[from] AckConfigureError),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `set_layer` request")]
-    SetLayerError(#[from] SetLayerError),
     #[error("Surface {0} cannot be turned into a zwlr_layer_surface because it already has an attached zwlr_layer_surface")]
     AlreadyAttached(WlSurfaceId),
     #[error("Width was set to 0 but anchor did not contain LEFT and RIGHT")]
@@ -454,103 +436,19 @@ pub enum ZwlrLayerSurfaceV1Error {
     HeightZero,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-}
-efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum SetSizeError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Surface size must not be larger than 65535x65535")]
-    ExcessiveSize,
-}
-efrom!(SetSizeError, MsgParserError);
-efrom!(SetSizeError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetAnchorError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Unknown anchor {0}")]
-    UnknownAnchor(u32),
-}
-efrom!(SetAnchorError, MsgParserError);
-efrom!(SetAnchorError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetExclusiveZoneError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetExclusiveZoneError, MsgParserError);
-efrom!(SetExclusiveZoneError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetMarginError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetMarginError, MsgParserError);
-efrom!(SetMarginError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetKeyboardInteractivityError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Unknown keyboard interactivity {0}")]
-    UnknownKi(u32),
-}
-efrom!(SetKeyboardInteractivityError, MsgParserError);
-efrom!(SetKeyboardInteractivityError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetPopupError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetPopupError, MsgParserError);
-efrom!(GetPopupError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum AckConfigureError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(AckConfigureError, MsgParserError);
-efrom!(AckConfigureError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetLayerError {
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Unknown layer {0}")]
     UnknownLayer(u32),
+    #[error("Surface size must not be larger than 65535x65535")]
+    ExcessiveSize,
+    #[error("Unknown anchor {0}")]
+    UnknownAnchor(u32),
+    #[error("Unknown keyboard interactivity {0}")]
+    UnknownKi(u32),
 }
-efrom!(SetLayerError, MsgParserError);
-efrom!(SetLayerError, ClientError);
+efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
+efrom!(ZwlrLayerSurfaceV1Error, MsgParserError);
+efrom!(ZwlrLayerSurfaceV1Error, ClientError);

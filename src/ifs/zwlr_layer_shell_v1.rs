@@ -54,7 +54,7 @@ impl ZwlrLayerShellV1Global {
 }
 
 impl ZwlrLayerShellV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
@@ -63,7 +63,7 @@ impl ZwlrLayerShellV1 {
     fn get_layer_surface(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetLayerSurfaceError> {
+    ) -> Result<(), ZwlrLayerShellV1Error> {
         let req: GetLayerSurface = self.client.parse(&**self, parser)?;
         let surface = self.client.lookup(req.surface)?;
         let output = 'get_output: {
@@ -80,11 +80,11 @@ impl ZwlrLayerShellV1 {
                 if let Some(output) = outputs.values().next() {
                     break 'get_output output.node.clone();
                 }
-                return Err(GetLayerSurfaceError::NoOutputs);
+                return Err(ZwlrLayerShellV1Error::NoOutputs);
             }
         };
         if req.layer > OVERLAY {
-            return Err(GetLayerSurfaceError::UnknownLayer(req.layer));
+            return Err(ZwlrLayerShellV1Error::UnknownLayer(req.layer));
         }
         let surface = Rc::new(ZwlrLayerSurfaceV1::new(
             req.id,
@@ -120,7 +120,7 @@ impl Global for ZwlrLayerShellV1Global {
 simple_add_global!(ZwlrLayerShellV1Global);
 
 object_base! {
-    ZwlrLayerShellV1, ZwlrLayerShellV1Error;
+    ZwlrLayerShellV1;
 
     GET_LAYER_SURFACE => get_layer_surface,
     DESTROY => destroy,
@@ -141,29 +141,8 @@ impl Object for ZwlrLayerShellV1 {
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerShellV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `get_layer_surface` request")]
-    GetLayerSurfaceError(#[from] GetLayerSurfaceError),
-}
-efrom!(ZwlrLayerShellV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseError, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetLayerSurfaceError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Unknown layer {0}")]
@@ -173,6 +152,6 @@ pub enum GetLayerSurfaceError {
     #[error(transparent)]
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
 }
-efrom!(GetLayerSurfaceError, ParseError, MsgParserError);
-efrom!(GetLayerSurfaceError, ClientError);
-efrom!(GetLayerSurfaceError, ZwlrLayerSurfaceV1Error);
+efrom!(ZwlrLayerShellV1Error, ClientError);
+efrom!(ZwlrLayerShellV1Error, MsgParserError);
+efrom!(ZwlrLayerShellV1Error, ZwlrLayerSurfaceV1Error);

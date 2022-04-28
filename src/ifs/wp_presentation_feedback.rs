@@ -50,7 +50,7 @@ impl WpPresentationFeedback {
     }
 }
 
-object_base2! {
+object_base! {
     WpPresentationFeedback;
 }
 

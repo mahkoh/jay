@@ -375,7 +375,7 @@ impl WlSurface {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Destroy = self.parse(parser)?;
         self.unset_dnd_icons();
         self.unset_cursors();
@@ -402,7 +402,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AttachError> {
+    fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Attach = self.parse(parser)?;
         let buf = if req.buffer.is_some() {
             Some((req.x, req.y, self.client.lookup(req.buffer)?))
@@ -413,13 +413,13 @@ impl WlSurface {
         Ok(())
     }
 
-    fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageError> {
+    fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Damage = self.parse(parser)?;
         self.pending.damage.set(true);
         Ok(())
     }
 
-    fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), FrameError> {
+    fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Frame = self.parse(parser)?;
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
@@ -428,7 +428,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn set_opaque_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetOpaqueRegionError> {
+    fn set_opaque_region(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let region: SetOpaqueRegion = self.parse(parser)?;
         let region = if region.region.is_some() {
             Some(self.client.lookup(region.region)?.region())
@@ -439,7 +439,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), SetInputRegionError> {
+    fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: SetInputRegion = self.parse(parser)?;
         let region = if req.region.is_some() {
             Some(self.client.lookup(req.region)?.region())
@@ -533,7 +533,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn commit(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CommitError> {
+    fn commit(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Commit = self.parse(parser)?;
         self.do_commit(CommitContext::RootCommit)?;
         Ok(())
@@ -542,17 +542,17 @@ impl WlSurface {
     fn set_buffer_transform(
         &self,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), SetBufferTransformError> {
+    ) -> Result<(), WlSurfaceError> {
         let _req: SetBufferTransform = self.parse(parser)?;
         Ok(())
     }
 
-    fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), SetBufferScaleError> {
+    fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: SetBufferScale = self.parse(parser)?;
         Ok(())
     }
 
-    fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), DamageBufferError> {
+    fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: DamageBuffer = self.parse(parser)?;
         self.pending.damage.set(true);
         Ok(())
@@ -670,7 +670,7 @@ impl WlSurface {
 }
 
 object_base! {
-    WlSurface, WlSurfaceError;
+    WlSurface;
 
     DESTROY => destroy,
     ATTACH => attach,
@@ -832,26 +832,6 @@ pub enum WlSurfaceError {
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
     #[error(transparent)]
     XdgSurfaceError(Box<XdgSurfaceError>),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[source] Box<DestroyError>),
-    #[error("Could not process `attach` request")]
-    AttachError(#[source] Box<AttachError>),
-    #[error("Could not process `damage` request")]
-    DamageError(#[source] Box<DamageError>),
-    #[error("Could not process `frame` request")]
-    FrameError(#[source] Box<FrameError>),
-    #[error("Could not process `set_opaque_region` request")]
-    SetOpaqueRegionError(#[source] Box<SetOpaqueRegionError>),
-    #[error("Could not process `set_input_region` request")]
-    SetInputRegionError(#[source] Box<SetInputRegionError>),
-    #[error("Could not process `commit` request")]
-    CommitError(#[source] Box<CommitError>),
-    #[error("Could not process `set_buffer_transform` request")]
-    SetBufferTransformError(#[source] Box<SetBufferTransformError>),
-    #[error("Could not process `set_buffer_scale_error` request")]
-    SetBufferScaleError(#[source] Box<SetBufferScaleError>),
-    #[error("Could not process `damage_buffer` request")]
-    DamageBufferError(#[source] Box<DamageBufferError>),
     #[error("Surface {} cannot be assigned the role {} because it already has the role {}", .id, .new.name(), .old.name())]
     IncompatibleRole {
         id: WlSurfaceId,
@@ -860,111 +840,10 @@ pub enum WlSurfaceError {
     },
     #[error("Cannot destroy a `wl_surface` before its role object")]
     ReloObjectStillExists,
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
-efrom!(WlSurfaceError, DestroyError);
-efrom!(WlSurfaceError, AttachError);
-efrom!(WlSurfaceError, DamageError);
-efrom!(WlSurfaceError, FrameError);
-efrom!(WlSurfaceError, SetOpaqueRegionError);
-efrom!(WlSurfaceError, SetInputRegionError);
-efrom!(WlSurfaceError, CommitError);
-efrom!(WlSurfaceError, SetBufferTransformError);
-efrom!(WlSurfaceError, SetBufferScaleError);
-efrom!(WlSurfaceError, DamageBufferError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
-    WlSurfaceError(Box<WlSurfaceError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, WlSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum AttachError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(AttachError, ParseFailed, MsgParserError);
-efrom!(AttachError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DamageError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(DamageError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum FrameError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(FrameError, ParseFailed, MsgParserError);
-efrom!(FrameError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetOpaqueRegionError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetOpaqueRegionError, ParseFailed, MsgParserError);
-efrom!(SetOpaqueRegionError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetInputRegionError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetInputRegionError, ParseFailed, MsgParserError);
-efrom!(SetInputRegionError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CommitError {
-    #[error(transparent)]
-    WlSurfaceError(Box<WlSurfaceError>),
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CommitError, WlSurfaceError);
-efrom!(CommitError, ParseFailed, MsgParserError);
-efrom!(CommitError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetBufferTransformError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(SetBufferTransformError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum SetBufferScaleError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(SetBufferScaleError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum DamageBufferError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(DamageBufferError, ParseFailed, MsgParserError);
+efrom!(WlSurfaceError, MsgParserError);

@@ -165,7 +165,7 @@ impl XdgToplevel {
         })
     }
 
-    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let _req: Destroy = self.xdg.surface.client.parse(self.deref(), parser)?;
         self.tl_destroy();
         self.xdg.ext.set(None);
@@ -193,7 +193,7 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_parent(&self, parser: MsgParser<'_, '_>) -> Result<(), SetParentError> {
+    fn set_parent(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetParent = self.xdg.surface.client.parse(self, parser)?;
         let mut parent = None;
         if req.parent.is_some() {
@@ -203,25 +203,25 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), SetTitleError> {
+    fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
         *self.toplevel_data.title.borrow_mut() = req.title.to_string();
         self.tl_title_changed();
         Ok(())
     }
 
-    fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), SetAppIdError> {
+    fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
         self.bugs.set(bugs::get(req.app_id));
         Ok(())
     }
 
-    fn show_window_menu(&self, parser: MsgParser<'_, '_>) -> Result<(), ShowWindowMenuError> {
+    fn show_window_menu(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let _req: ShowWindowMenu = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), MoveError> {
+    fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: Move = self.xdg.surface.client.parse(self, parser)?;
         let seat = self.xdg.surface.client.lookup(req.seat)?;
         if let Some(parent) = self.toplevel_data.parent.get() {
@@ -232,15 +232,15 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
+    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let _req: Resize = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    fn set_max_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaxSizeError> {
+    fn set_max_size(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetMaxSize = self.xdg.surface.client.parse(self, parser)?;
         if req.height < 0 || req.width < 0 {
-            return Err(SetMaxSizeError::NonNegative);
+            return Err(XdgToplevelError::NonNegative);
         }
         self.max_width.set(if req.width == 0 {
             None
@@ -255,10 +255,10 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_min_size(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinSizeError> {
+    fn set_min_size(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetMinSize = self.xdg.surface.client.parse(self, parser)?;
         if req.height < 0 || req.width < 0 {
-            return Err(SetMinSizeError::NonNegative);
+            return Err(XdgToplevelError::NonNegative);
         }
         self.min_width.set(if req.width == 0 {
             None
@@ -273,12 +273,12 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMaximizedError> {
+    fn set_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let _req: SetMaximized = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    fn unset_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), UnsetMaximizedError> {
+    fn unset_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let _req: UnsetMaximized = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
@@ -286,7 +286,7 @@ impl XdgToplevel {
     fn set_fullscreen(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), SetFullscreenError> {
+    ) -> Result<(), XdgToplevelError> {
         let client = &self.xdg.surface.client;
         let req: SetFullscreen = client.parse(self.deref(), parser)?;
         self.states.borrow_mut().insert(STATE_FULLSCREEN);
@@ -314,7 +314,7 @@ impl XdgToplevel {
     fn unset_fullscreen(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), UnsetFullscreenError> {
+    ) -> Result<(), XdgToplevelError> {
         let _req: UnsetFullscreen = self.xdg.surface.client.parse(self.deref(), parser)?;
         self.states.borrow_mut().remove(&STATE_FULLSCREEN);
         self.toplevel_data
@@ -323,7 +323,7 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_minimized(&self, parser: MsgParser<'_, '_>) -> Result<(), SetMinimizedError> {
+    fn set_minimized(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let _req: SetMinimized = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
@@ -347,7 +347,7 @@ impl XdgToplevel {
 }
 
 object_base! {
-    XdgToplevel, XdgToplevelError;
+    XdgToplevel;
 
     DESTROY => destroy,
     SET_PARENT => set_parent,
@@ -576,176 +576,12 @@ impl XdgSurfaceExt for XdgToplevel {
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelError {
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `set_parent` request")]
-    SetParentError(#[from] SetParentError),
-    #[error("Could not process `set_title` request")]
-    SetTitleError(#[from] SetTitleError),
-    #[error("Could not process `set_app_id` request")]
-    SetAppIdError(#[from] SetAppIdError),
-    #[error("Could not process `show_window_menu` request")]
-    ShowWindowMenuError(#[from] ShowWindowMenuError),
-    #[error("Could not process `move` request")]
-    MoveError(#[from] MoveError),
-    #[error("Could not process `resize` request")]
-    ResizeError(#[from] ResizeError),
-    #[error("Could not process `set_max_size` request")]
-    SetMaxSizeError(#[from] SetMaxSizeError),
-    #[error("Could not process `set_min_size` request")]
-    SetMinSizeError(#[from] SetMinSizeError),
-    #[error("Could not process `set_maximized` request")]
-    SetMaximizedError(#[from] SetMaximizedError),
-    #[error("Could not process `unset_maximized` request")]
-    UnsetMaximizedError(#[from] UnsetMaximizedError),
-    #[error("Could not process `set_fullscreen` request")]
-    SetFullscreenError(#[from] SetFullscreenError),
-    #[error("Could not process `unset_fullscreen` request")]
-    UnsetFullscreenError(#[from] UnsetFullscreenError),
-    #[error("Could not process `set_minimized` request")]
-    SetMinimizedError(#[from] SetMinimizedError),
-}
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetParentError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetParentError, ParseFailed, MsgParserError);
-efrom!(SetParentError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetTitleError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetTitleError, ParseFailed, MsgParserError);
-efrom!(SetTitleError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetAppIdError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetAppIdError, ParseFailed, MsgParserError);
-efrom!(SetAppIdError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ShowWindowMenuError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ShowWindowMenuError, ParseFailed, MsgParserError);
-efrom!(ShowWindowMenuError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum MoveError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(MoveError, ParseFailed, MsgParserError);
-efrom!(MoveError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ResizeError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ResizeError, ParseFailed, MsgParserError);
-efrom!(ResizeError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetMaxSizeError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("width/height must be non-negative")]
     NonNegative,
 }
-efrom!(SetMaxSizeError, ParseFailed, MsgParserError);
-efrom!(SetMaxSizeError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetMinSizeError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("width/height must be non-negative")]
-    NonNegative,
-}
-efrom!(SetMinSizeError, ParseFailed, MsgParserError);
-efrom!(SetMinSizeError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetMaximizedError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetMaximizedError, ParseFailed, MsgParserError);
-efrom!(SetMaximizedError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum UnsetMaximizedError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(UnsetMaximizedError, ParseFailed, MsgParserError);
-efrom!(UnsetMaximizedError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetFullscreenError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetFullscreenError, ParseFailed, MsgParserError);
-efrom!(SetFullscreenError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum UnsetFullscreenError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(UnsetFullscreenError, ParseFailed, MsgParserError);
-efrom!(UnsetFullscreenError, ClientError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetMinimizedError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(SetMinimizedError, ParseFailed, MsgParserError);
-efrom!(SetMinimizedError, ClientError, ClientError);
+efrom!(XdgToplevelError, MsgParserError);
+efrom!(XdgToplevelError, ClientError);

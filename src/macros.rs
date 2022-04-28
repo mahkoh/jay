@@ -11,7 +11,7 @@ macro_rules! efrom {
     };
 }
 
-macro_rules! object_base2 {
+macro_rules! object_base {
     ($oname:ident; $($code:ident => $f:ident,)*) => {
         impl crate::object::ObjectBase for $oname {
             fn id(&self) -> crate::object::ObjectId {
@@ -44,54 +44,6 @@ macro_rules! object_base2 {
 
             fn interface(&self) -> crate::object::Interface {
                 crate::wire::$oname
-            }
-        }
-    };
-}
-
-macro_rules! object_base {
-    ($oname:ident, $ename:ty; $($code:ident => $f:ident,)*) => {
-        impl crate::object::ObjectBase for $oname {
-            fn id(&self) -> crate::object::ObjectId {
-                self.id.into()
-            }
-
-            #[allow(unused_variables, unreachable_code)]
-            fn handle_request(
-                self: std::rc::Rc<Self>,
-                request: u32,
-                parser: crate::utils::buffd::MsgParser<'_, '_>,
-            ) -> Result<(), crate::client::ClientError> {
-                fn handle_request(
-                    slf: std::rc::Rc<$oname>,
-                    request: u32,
-                    parser: crate::utils::buffd::MsgParser<'_, '_>,
-                ) -> Result<(), $ename> {
-                    match request {
-                        $(
-                            $code => $oname::$f(&slf, parser)?,
-                        )*
-                        _ => unreachable!(),
-                    }
-                    Ok(())
-                }
-                if let Err(e) = handle_request(self, request, parser) {
-                    return Err(crate::client::ClientError::ObjectError(e.into()));
-                }
-                Ok(())
-            }
-
-            fn interface(&self) -> crate::object::Interface {
-                crate::wire::$oname
-            }
-        }
-
-        impl From<$ename> for crate::client::ObjectError {
-            fn from(v: $ename) -> Self {
-                Self {
-                    interface: crate::wire::$oname,
-                    error: Box::new(v),
-                }
             }
         }
     };

@@ -94,7 +94,7 @@ impl ZwpIdleInhibitManagerV1 {
     }
 }
 
-object_base2! {
+object_base! {
     ZwpIdleInhibitManagerV1;
 
     DESTROY => destroy,

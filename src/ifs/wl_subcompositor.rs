@@ -48,13 +48,13 @@ impl WlSubcompositorGlobal {
 }
 
 impl WlSubcompositor {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubcompositorError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_subsurface(&self, parser: MsgParser<'_, '_>) -> Result<(), GetSubsurfaceError> {
+    fn get_subsurface(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubcompositorError> {
         let req: GetSubsurface = self.client.parse(self, parser)?;
         let surface = self.client.lookup(req.surface)?;
         let parent = self.client.lookup(req.parent)?;
@@ -81,7 +81,7 @@ impl Global for WlSubcompositorGlobal {
 simple_add_global!(WlSubcompositorGlobal);
 
 object_base! {
-    WlSubcompositor, WlSubcompositorError;
+    WlSubcompositor;
 
     DESTROY => destroy,
     GET_SUBSURFACE => get_subsurface,
@@ -99,32 +99,11 @@ simple_add_obj!(WlSubcompositor);
 pub enum WlSubcompositorError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `get_subsurface` request")]
-    GetSubsurfaceError(#[from] GetSubsurfaceError),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    WlSubsurfaceError(Box<WlSubsurfaceError>),
 }
 efrom!(WlSubcompositorError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetSubsurfaceError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
-    SubsurfaceError(Box<WlSubsurfaceError>),
-}
-efrom!(GetSubsurfaceError, ParseFailed, MsgParserError);
-efrom!(GetSubsurfaceError, ClientError);
-efrom!(GetSubsurfaceError, SubsurfaceError, WlSubsurfaceError);
+efrom!(WlSubcompositorError, MsgParserError);
+efrom!(WlSubcompositorError, WlSubsurfaceError);

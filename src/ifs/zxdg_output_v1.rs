@@ -74,7 +74,7 @@ impl ZxdgOutputV1 {
         }
     }
 
-    pub fn destroy(&self, msg: MsgParser) -> Result<(), DestroyError> {
+    pub fn destroy(&self, msg: MsgParser) -> Result<(), ZxdgOutputV1Error> {
         let _req: Destroy = self.client.parse(self, msg)?;
         self.output.xdg_outputs.remove(&self.id);
         self.client.remove_obj(self)?;
@@ -83,7 +83,7 @@ impl ZxdgOutputV1 {
 }
 
 object_base! {
-    ZxdgOutputV1, ZxdgOutputV1Error;
+    ZxdgOutputV1;
 
     DESTROY => destroy,
 }
@@ -98,16 +98,10 @@ simple_add_obj!(ZxdgOutputV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgOutputV1Error {
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-}
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, MsgParserError);
-efrom!(DestroyError, ClientError);
+efrom!(ZxdgOutputV1Error, MsgParserError);
+efrom!(ZxdgOutputV1Error, ClientError);

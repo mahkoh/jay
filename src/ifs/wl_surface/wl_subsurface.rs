@@ -136,7 +136,7 @@ impl WlSubsurface {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
         self.surface.unset_ext();
         *self.node.borrow_mut() = None;
@@ -160,15 +160,15 @@ impl WlSubsurface {
         Ok(())
     }
 
-    fn set_position(&self, parser: MsgParser<'_, '_>) -> Result<(), SetPositionError> {
+    fn set_position(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let req: SetPosition = self.surface.client.parse(self, parser)?;
         self.pending.position.set(Some((req.x, req.y)));
         Ok(())
     }
 
-    fn place(self: &Rc<Self>, sibling: WlSurfaceId, above: bool) -> Result<(), PlacementError> {
+    fn place(self: &Rc<Self>, sibling: WlSurfaceId, above: bool) -> Result<(), WlSubsurfaceError> {
         if sibling == self.surface.id {
-            return Err(PlacementError::AboveSelf(sibling));
+            return Err(WlSubsurfaceError::AboveSelf(sibling));
         }
         let pdata = self.parent.children.borrow();
         if let Some(pdata) = &*pdata {
@@ -184,7 +184,7 @@ impl WlSubsurface {
             } else {
                 let sibling = match pdata.subsurfaces.get(&sibling) {
                     Some(s) => s,
-                    _ => return Err(PlacementError::NotASibling(sibling, self.surface.id)),
+                    _ => return Err(WlSubsurfaceError::NotASibling(sibling, self.surface.id)),
                 };
                 let node = match sibling.pending.node.borrow().deref() {
                     Some(n) => n.to_ref(),
@@ -203,13 +203,13 @@ impl WlSubsurface {
         Ok(())
     }
 
-    fn place_above(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), PlaceAboveError> {
+    fn place_above(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let req: PlaceAbove = self.surface.client.parse(self.deref(), parser)?;
         self.place(req.sibling, true)?;
         Ok(())
     }
 
-    fn place_below(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), PlaceBelowError> {
+    fn place_below(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let req: PlaceBelow = self.surface.client.parse(self.deref(), parser)?;
         self.place(req.sibling, false)?;
         Ok(())
@@ -228,13 +228,13 @@ impl WlSubsurface {
         }
     }
 
-    fn set_sync(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSyncError> {
+    fn set_sync(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let _req: SetSync = self.surface.client.parse(self, parser)?;
         self.update_sync(true);
         Ok(())
     }
 
-    fn set_desync(&self, parser: MsgParser<'_, '_>) -> Result<(), SetDesyncError> {
+    fn set_desync(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let _req: SetDesync = self.surface.client.parse(self, parser)?;
         self.update_sync(false);
         Ok(())
@@ -242,7 +242,7 @@ impl WlSubsurface {
 }
 
 object_base! {
-    WlSubsurface, WlSubsurfaceError;
+    WlSubsurface;
 
     DESTROY => destroy,
     SET_POSITION => set_position,
@@ -303,18 +303,6 @@ impl SurfaceExt for WlSubsurface {
 
 #[derive(Debug, Error)]
 pub enum WlSubsurfaceError {
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `set_position` request")]
-    SetPosition(#[from] SetPositionError),
-    #[error("Could not process `place_above` request")]
-    PlaceAbove(#[from] PlaceAboveError),
-    #[error("Could not process `place_below` request")]
-    PlaceBelow(#[from] PlaceBelowError),
-    #[error("Could not process `set_sync` request")]
-    SetSync(#[from] SetSyncError),
-    #[error("Could not process `set_desync` request")]
-    SetDesync(#[from] SetDesyncError),
     #[error("Surface {0} already has an attached `wl_subsurface`")]
     AlreadyAttached(WlSurfaceId),
     #[error("Surface {0} cannot be made its own parent")]
@@ -325,62 +313,15 @@ pub enum WlSubsurfaceError {
     MaxDepthExceeded,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-}
-efrom!(WlSubsurfaceError, WlSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetPositionError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(SetPositionError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum PlaceAboveError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    PlacementError(#[from] PlacementError),
-}
-efrom!(PlaceAboveError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum PlacementError {
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Cannot place {0} above/below itself")]
     AboveSelf(WlSurfaceId),
     #[error("{0} is not a sibling of {1}")]
     NotASibling(WlSurfaceId, WlSurfaceId),
 }
-
-#[derive(Debug, Error)]
-pub enum PlaceBelowError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    PlacementError(#[from] PlacementError),
-}
-efrom!(PlaceBelowError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum SetSyncError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(SetSyncError, ParseFailed, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum SetDesyncError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-}
-efrom!(SetDesyncError, ParseFailed, MsgParserError);
+efrom!(WlSubsurfaceError, WlSurfaceError);
+efrom!(WlSubsurfaceError, MsgParserError);
+efrom!(WlSubsurfaceError, ClientError);

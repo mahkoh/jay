@@ -44,7 +44,7 @@ impl JayScreenshot {
     }
 }
 
-object_base2! {
+object_base! {
     JayScreenshot;
 }
 

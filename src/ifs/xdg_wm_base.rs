@@ -67,7 +67,7 @@ impl XdgWmBaseGlobal {
 }
 
 impl XdgWmBase {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         if !self.surfaces.is_empty() {
             self.client.protocol_error(
@@ -78,7 +78,7 @@ impl XdgWmBase {
                     self.id
                 ),
             );
-            return Err(DestroyError::DefunctSurfaces);
+            return Err(XdgWmBaseError::DefunctSurfaces);
         }
         self.client.remove_obj(self)?;
         Ok(())
@@ -87,7 +87,7 @@ impl XdgWmBase {
     fn create_positioner(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), CreatePositionerError> {
+    ) -> Result<(), XdgWmBaseError> {
         let req: CreatePositioner = self.client.parse(&**self, parser)?;
         let pos = Rc::new(XdgPositioner::new(self, req.id, &self.client));
         track!(self.client, pos);
@@ -98,7 +98,7 @@ impl XdgWmBase {
     fn get_xdg_surface(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetXdgSurfaceError> {
+    ) -> Result<(), XdgWmBaseError> {
         let req: GetXdgSurface = self.client.parse(&**self, parser)?;
         let surface = self.client.lookup(req.surface)?;
         let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface));
@@ -109,7 +109,7 @@ impl XdgWmBase {
         Ok(())
     }
 
-    fn pong(&self, parser: MsgParser<'_, '_>) -> Result<(), PongError> {
+    fn pong(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
         let _req: Pong = self.client.parse(self, parser)?;
         Ok(())
     }
@@ -130,7 +130,7 @@ impl Global for XdgWmBaseGlobal {
 simple_add_global!(XdgWmBaseGlobal);
 
 object_base! {
-    XdgWmBase, XdgWmBaseError;
+    XdgWmBase;
 
     DESTROY => destroy,
     CREATE_POSITIONER => create_positioner,
@@ -154,55 +154,13 @@ impl Object for XdgWmBase {
 pub enum XdgWmBaseError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `create_positioner` request")]
-    CreatePositionerError(#[from] CreatePositionerError),
-    #[error("Could not process a `get_xdg_surface` request")]
-    GetXdgSurfaceError(#[from] GetXdgSurfaceError),
-    #[error("Could not process a `pong` request")]
-    PongError(#[from] PongError),
-}
-efrom!(XdgWmBaseError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Tried to destroy xdg_wm_base object before destroying its surfaces")]
     DefunctSurfaces,
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseError, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CreatePositionerError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CreatePositionerError, ParseError, MsgParserError);
-efrom!(CreatePositionerError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetXdgSurfaceError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     XdgSurfaceError(Box<XdgSurfaceError>),
 }
-efrom!(GetXdgSurfaceError, ParseError, MsgParserError);
-efrom!(GetXdgSurfaceError, ClientError);
-efrom!(GetXdgSurfaceError, XdgSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum PongError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-}
-efrom!(PongError, ParseError, MsgParserError);
+efrom!(XdgWmBaseError, ClientError);
+efrom!(XdgWmBaseError, MsgParserError);
+efrom!(XdgWmBaseError, XdgSurfaceError);

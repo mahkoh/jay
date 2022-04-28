@@ -29,13 +29,13 @@ impl ZwpPrimarySelectionOfferV1 {
         })
     }
 
-    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
+    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionOfferV1Error> {
         let req: Receive = self.client.parse(self, parser)?;
         receive::<ZwpPrimarySelectionDeviceV1>(self, req.mime_type, req.fd);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionOfferV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         destroy_offer::<ZwpPrimarySelectionDeviceV1>(self);
         self.client.remove_obj(self)?;
@@ -44,7 +44,7 @@ impl ZwpPrimarySelectionOfferV1 {
 }
 
 object_base! {
-    ZwpPrimarySelectionOfferV1, ZwpPrimarySelectionOfferV1Error;
+    ZwpPrimarySelectionOfferV1;
 
     RECEIVE => receive,
     DESTROY => destroy,
@@ -64,31 +64,10 @@ simple_add_obj!(ZwpPrimarySelectionOfferV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPrimarySelectionOfferV1Error {
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `receive` request")]
-    ReceiveError(#[from] ReceiveError),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
 }
 efrom!(ZwpPrimarySelectionOfferV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ReceiveError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ReceiveError, ParseFailed, MsgParserError);
-efrom!(ReceiveError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
+efrom!(ZwpPrimarySelectionOfferV1Error, MsgParserError);

@@ -33,7 +33,7 @@ impl WlCallback {
 }
 
 object_base! {
-    WlCallback, WlCallbackError;
+    WlCallback;
 }
 
 impl Object for WlCallback {

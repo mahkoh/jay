@@ -94,13 +94,13 @@ impl ZwpLinuxDmabufV1 {
         })
     }
 
-    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxDmabufV1Error> {
         let _req: Destroy = self.client.parse(&**self, parser)?;
         self.client.remove_obj(&**self)?;
         Ok(())
     }
 
-    fn create_params(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CreateParamsError> {
+    fn create_params(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxDmabufV1Error> {
         let req: CreateParams = self.client.parse(&**self, parser)?;
         let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, self));
         track!(self.client, params);
@@ -110,7 +110,7 @@ impl ZwpLinuxDmabufV1 {
 }
 
 object_base! {
-    ZwpLinuxDmabufV1, ZwpLinuxDmabufV1Error;
+    ZwpLinuxDmabufV1;
 
     DESTROY => destroy,
     CREATE_PARAMS => create_params,
@@ -126,31 +126,10 @@ simple_add_obj!(ZwpLinuxDmabufV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpLinuxDmabufV1Error {
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `create_params` request")]
-    CreateParamsError(#[from] CreateParamsError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwpLinuxDmabufV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum CreateParamsError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CreateParamsError, ClientError);
-efrom!(CreateParamsError, ParseError, MsgParserError);
+efrom!(ZwpLinuxDmabufV1Error, MsgParserError);

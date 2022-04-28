@@ -118,7 +118,7 @@ impl WlBuffer {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlBufferError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         self.destroyed.set(true);
@@ -131,7 +131,7 @@ impl WlBuffer {
 }
 
 object_base! {
-    WlBuffer, WlBufferError;
+    WlBuffer;
 
     DESTROY => destroy,
 }
@@ -150,22 +150,16 @@ pub enum WlBufferError {
     OutOfBounds,
     #[error("The stride does not fit all pixels in a row")]
     StrideTooSmall,
-    #[error("Could not handle a `destroy` request")]
-    DestroyError(#[from] DestroyError),
     #[error("Could not access the client memory")]
     ClientMemError(#[source] Box<ClientMemError>),
     #[error("GLES could not import the client image")]
-    GlesError(#[source] Box<RenderError>),
-}
-efrom!(WlBufferError, ClientMemError);
-efrom!(WlBufferError, GlesError, RenderError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
+    RenderError(#[source] Box<RenderError>),
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
+efrom!(WlBufferError, ClientMemError);
+efrom!(WlBufferError, RenderError);
+efrom!(WlBufferError, MsgParserError);
+efrom!(WlBufferError, ClientError);

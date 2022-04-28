@@ -65,7 +65,7 @@ pub struct ZxdgDecorationManagerV1 {
 }
 
 impl ZxdgDecorationManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgDecorationManagerV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
@@ -74,7 +74,7 @@ impl ZxdgDecorationManagerV1 {
     fn get_toplevel_decoration(
         &self,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetToplevelDecorationError> {
+    ) -> Result<(), ZxdgDecorationManagerV1Error> {
         let req: GetToplevelDecoration = self.client.parse(self, parser)?;
         let tl = self.client.lookup(req.toplevel)?;
         let obj = Rc::new(ZxdgToplevelDecorationV1::new(req.id, &self.client, &tl));
@@ -86,7 +86,7 @@ impl ZxdgDecorationManagerV1 {
 }
 
 object_base! {
-    ZxdgDecorationManagerV1, ZxdgDecorationManagerV1Error;
+    ZxdgDecorationManagerV1;
 
     DESTROY => destroy,
     GET_TOPLEVEL_DECORATION => get_toplevel_decoration,
@@ -102,31 +102,10 @@ simple_add_obj!(ZxdgDecorationManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgDecorationManagerV1Error {
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `get_toplevel_decoration` request")]
-    GetToplevelDecorationError(#[from] GetToplevelDecorationError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZxdgDecorationManagerV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum GetToplevelDecorationError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetToplevelDecorationError, ClientError);
-efrom!(GetToplevelDecorationError, MsgParserError);
+efrom!(ZxdgDecorationManagerV1Error, MsgParserError);

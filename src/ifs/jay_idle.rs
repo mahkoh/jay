@@ -57,7 +57,7 @@ impl JayIdle {
     }
 }
 
-object_base2! {
+object_base! {
     JayIdle;
 
     GET_STATUS => get_status,

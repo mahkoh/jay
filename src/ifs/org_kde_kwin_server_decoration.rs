@@ -40,16 +40,16 @@ impl OrgKdeKwinServerDecoration {
         })
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), OrgKdeKwinServerDecorationError> {
         let _req: Release = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn request_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), RequestModeError> {
+    fn request_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), OrgKdeKwinServerDecorationError> {
         let req: RequestMode = self.client.parse(&**self, parser)?;
         if req.mode > SERVER {
-            return Err(RequestModeError::InvalidMode(req.mode));
+            return Err(OrgKdeKwinServerDecorationError::InvalidMode(req.mode));
         }
         let mode = if self.requested.replace(true) {
             req.mode
@@ -62,7 +62,7 @@ impl OrgKdeKwinServerDecoration {
 }
 
 object_base! {
-    OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError;
+    OrgKdeKwinServerDecoration;
 
     RELEASE => release,
     REQUEST_MODE => request_mode,
@@ -78,33 +78,12 @@ simple_add_obj!(OrgKdeKwinServerDecoration);
 
 #[derive(Debug, Error)]
 pub enum OrgKdeKwinServerDecorationError {
-    #[error("Could not process a `release` request")]
-    ReleaseError(#[from] ReleaseError),
-    #[error("Could not process a `request_mode` request")]
-    RequestModeError(#[from] RequestModeError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-}
-efrom!(OrgKdeKwinServerDecorationError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-}
-efrom!(ReleaseError, ClientError);
-efrom!(ReleaseError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum RequestModeError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
     #[error("Mode {0} does not exist")]
     InvalidMode(u32),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
-efrom!(RequestModeError, ClientError);
-efrom!(RequestModeError, ParseError, MsgParserError);
+efrom!(OrgKdeKwinServerDecorationError, ClientError);
+efrom!(OrgKdeKwinServerDecorationError, MsgParserError);

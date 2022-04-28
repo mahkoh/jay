@@ -48,7 +48,7 @@ impl ZwpIdleInhibitorV1 {
     }
 }
 
-object_base2! {
+object_base! {
     ZwpIdleInhibitorV1;
 
     DESTROY => destroy,

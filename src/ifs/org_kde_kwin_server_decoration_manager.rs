@@ -11,6 +11,7 @@ use {
     std::rc::Rc,
     thiserror::Error,
 };
+use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecorationError;
 
 #[allow(dead_code)]
 const NONE: u32 = 0;
@@ -78,7 +79,7 @@ impl OrgKdeKwinServerDecorationManager {
         })
     }
 
-    fn create(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateError> {
+    fn create(&self, parser: MsgParser<'_, '_>) -> Result<(), OrgKdeKwinServerDecorationError> {
         let req: Create = self.client.parse(self, parser)?;
         let _ = self.client.lookup(req.surface)?;
         let obj = Rc::new(OrgKdeKwinServerDecoration::new(req.id, &self.client));
@@ -90,7 +91,7 @@ impl OrgKdeKwinServerDecorationManager {
 }
 
 object_base! {
-    OrgKdeKwinServerDecorationManager, OrgKdeKwinServerDecorationManagerError;
+    OrgKdeKwinServerDecorationManager;
 
     CREATE => create,
 }
@@ -105,23 +106,10 @@ simple_add_obj!(OrgKdeKwinServerDecorationManager);
 
 #[derive(Debug, Error)]
 pub enum OrgKdeKwinServerDecorationManagerError {
-    #[error("Could not process a `create` request")]
-    CreateError(#[from] CreateError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(
-    OrgKdeKwinServerDecorationManagerError,
-    ClientError,
-    ClientError
-);
-
-#[derive(Debug, Error)]
-pub enum CreateError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
 }
-efrom!(CreateError, ClientError);
-efrom!(CreateError, ParseError, MsgParserError);
+efrom!(OrgKdeKwinServerDecorationManagerError, ClientError);
+efrom!(OrgKdeKwinServerDecorationManagerError, MsgParserError);

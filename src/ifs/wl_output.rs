@@ -230,7 +230,7 @@ impl WlOutput {
         }
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlOutputError> {
         let _req: Release = self.client.parse(self, parser)?;
         self.xdg_outputs.clear();
         self.remove_binding();
@@ -240,7 +240,7 @@ impl WlOutput {
 }
 
 object_base! {
-    WlOutput, WlOutputError;
+    WlOutput;
 
     RELEASE => release,
 }
@@ -264,19 +264,10 @@ dedicated_add_obj!(WlOutput, WlOutputId, outputs);
 
 #[derive(Debug, Error)]
 pub enum WlOutputError {
-    #[error("Could not handle `release` request")]
-    ReleaseError(#[from] ReleaseError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlOutputError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ReleaseError, ClientError);
-efrom!(ReleaseError, ParseError, MsgParserError);
+efrom!(WlOutputError, MsgParserError);

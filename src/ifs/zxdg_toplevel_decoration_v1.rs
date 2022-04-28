@@ -51,19 +51,19 @@ impl ZxdgToplevelDecorationV1 {
         self.toplevel.xdg.do_send_configure();
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), SetModeError> {
+    fn set_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
         let _req: SetMode = self.client.parse(&**self, parser)?;
         self.do_send_configure();
         Ok(())
     }
 
-    fn unset_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), UnsetModeError> {
+    fn unset_mode(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
         let _req: UnsetMode = self.client.parse(&**self, parser)?;
         self.do_send_configure();
         Ok(())
@@ -71,7 +71,7 @@ impl ZxdgToplevelDecorationV1 {
 }
 
 object_base! {
-    ZxdgToplevelDecorationV1, ZxdgToplevelDecorationV1Error;
+    ZxdgToplevelDecorationV1;
 
     DESTROY => destroy,
     SET_MODE => set_mode,
@@ -88,34 +88,10 @@ simple_add_obj!(ZxdgToplevelDecorationV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgToplevelDecorationV1Error {
-    #[error("Could not process a `destroy` request")]
-    DestoryError(#[from] DestroyError),
-    #[error("Could not process a `set_mode` request")]
-    SetModeError(#[from] SetModeError),
-    #[error("Could not process a `unset_mode` request")]
-    UnsetModeError(#[from] UnsetModeError),
-}
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum SetModeError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-}
-efrom!(SetModeError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum UnsetModeError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
-}
-efrom!(UnsetModeError, MsgParserError);
+efrom!(ZxdgToplevelDecorationV1Error, ClientError);
+efrom!(ZxdgToplevelDecorationV1Error, MsgParserError);

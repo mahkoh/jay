@@ -61,7 +61,7 @@ impl ZwpPrimarySelectionDeviceV1 {
         })
     }
 
-    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
+    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceV1Error> {
         let req: SetSelection = self.manager.client.parse(self, parser)?;
         if !self.manager.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_selection with an invalid serial");
@@ -86,7 +86,7 @@ impl ZwpPrimarySelectionDeviceV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceV1Error> {
         let _req: Destroy = self.manager.client.parse(self, parser)?;
         destroy_device::<Self>(self);
         self.seat.remove_primary_selection_device(self);
@@ -171,7 +171,7 @@ impl Vtable for ZwpPrimarySelectionDeviceV1 {
 }
 
 object_base! {
-    ZwpPrimarySelectionDeviceV1, ZwpPrimarySelectionDeviceV1Error;
+    ZwpPrimarySelectionDeviceV1;
 
     SET_SELECTION => set_selection,
     DESTROY => destroy,
@@ -194,32 +194,11 @@ simple_add_obj!(ZwpPrimarySelectionDeviceV1);
 pub enum ZwpPrimarySelectionDeviceV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `set_selection` request")]
-    SetSelectionError(#[from] SetSelectionError),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-}
-efrom!(ZwpPrimarySelectionDeviceV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetSelectionError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlSeatError(Box<WlSeatError>),
 }
-efrom!(SetSelectionError, ParseFailed, MsgParserError);
-efrom!(SetSelectionError, ClientError);
-efrom!(SetSelectionError, WlSeatError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
+efrom!(ZwpPrimarySelectionDeviceV1Error, ClientError);
+efrom!(ZwpPrimarySelectionDeviceV1Error, MsgParserError);
+efrom!(ZwpPrimarySelectionDeviceV1Error, WlSeatError);

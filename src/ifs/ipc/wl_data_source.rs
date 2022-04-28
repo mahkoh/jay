@@ -138,26 +138,26 @@ impl WlDataSource {
             .event(DndDropPerformed { self_id: self.id })
     }
 
-    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {
+    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
         let req: Offer = self.data.client.parse(self, parser)?;
         add_mime_type::<WlDataDevice>(self, req.mime_type);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
         let _req: Destroy = self.data.client.parse(self, parser)?;
         destroy_source::<WlDataDevice>(self);
         self.data.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), SetActionsError> {
+    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
         let req: SetActions = self.data.client.parse(self, parser)?;
         if self.data.actions.get().is_some() {
-            return Err(SetActionsError::AlreadySet);
+            return Err(WlDataSourceError::AlreadySet);
         }
         if req.dnd_actions & !DND_ALL != 0 {
-            return Err(SetActionsError::InvalidActions);
+            return Err(WlDataSourceError::InvalidActions);
         }
         self.data.actions.set(Some(req.dnd_actions));
         Ok(())
@@ -165,7 +165,7 @@ impl WlDataSource {
 }
 
 object_base! {
-    WlDataSource, WlDataSourceError;
+    WlDataSource;
 
     OFFER => offer,
     DESTROY => destroy,
@@ -186,41 +186,8 @@ dedicated_add_obj!(WlDataSource, WlDataSourceId, wl_data_source);
 
 #[derive(Debug, Error)]
 pub enum WlDataSourceError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Could not process `offer` request")]
-    OfferError(#[from] OfferError),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `set_actions` request")]
-    SetActionsError(#[from] SetActionsError),
-}
-efrom!(WlDataSourceError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum OfferError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(OfferError, ParseFailed, MsgParserError);
-efrom!(OfferError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetActionsError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("The set of actions is invalid")]
@@ -228,5 +195,5 @@ pub enum SetActionsError {
     #[error("The actions have already been set")]
     AlreadySet,
 }
-efrom!(SetActionsError, ParseFailed, MsgParserError);
-efrom!(SetActionsError, ClientError);
+efrom!(WlDataSourceError, ClientError);
+efrom!(WlDataSourceError, MsgParserError);

@@ -201,7 +201,7 @@ impl XdgPopup {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPopupError> {
         let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
         self.destroy_node();
         {
@@ -216,12 +216,12 @@ impl XdgPopup {
         Ok(())
     }
 
-    fn grab(&self, parser: MsgParser<'_, '_>) -> Result<(), GrabError> {
+    fn grab(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPopupError> {
         let _req: Grab = self.xdg.surface.client.parse(self, parser)?;
         Ok(())
     }
 
-    fn reposition(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), RepositionError> {
+    fn reposition(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgPopupError> {
         let req: Reposition = self.xdg.surface.client.parse(&**self, parser)?;
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
@@ -253,7 +253,7 @@ impl XdgPopup {
 }
 
 object_base! {
-    XdgPopup, XdgPopupError;
+    XdgPopup;
 
     DESTROY => destroy,
     GRAB => grab,
@@ -386,48 +386,12 @@ impl XdgSurfaceExt for XdgPopup {
 
 #[derive(Debug, Error)]
 pub enum XdgPopupError {
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `grab` request")]
-    GrabError(#[from] GrabError),
-    #[error("Could not process `reposition` request")]
-    RepositionError(#[from] RepositionError),
     #[error("The `xdg_positioner` is incomplete")]
     Incomplete,
-    #[error("The anchor rectangle of the `xdg_positioner` extends outside the parent")]
-    #[allow(dead_code)]
-    AnchorRectOutside,
-}
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GrabError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GrabError, ParseFailed, MsgParserError);
-efrom!(GrabError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum RepositionError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
-    XdgPopupError(Box<XdgPopupError>),
-}
-efrom!(RepositionError, ParseFailed, MsgParserError);
-efrom!(RepositionError, ClientError);
-efrom!(RepositionError, XdgPopupError);
+efrom!(XdgPopupError, MsgParserError);
+efrom!(XdgPopupError, ClientError);

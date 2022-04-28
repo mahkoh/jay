@@ -61,12 +61,12 @@ impl WlDataOffer {
         })
     }
 
-    fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), AcceptError> {
+    fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
         let req: Accept = self.client.parse(self, parser)?;
         let _ = req.serial; // unused
         let mut state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
-            return Err(AcceptError::AlreadyFinished);
+            return Err(WlDataOfferError::AlreadyFinished);
         }
         if req.mime_type.is_some() {
             state |= OFFER_STATE_ACCEPTED;
@@ -80,36 +80,36 @@ impl WlDataOffer {
         Ok(())
     }
 
-    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ReceiveError> {
+    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
         let req: Receive = self.client.parse(self, parser)?;
         if self.data.shared.state.get().contains(OFFER_STATE_FINISHED) {
-            return Err(ReceiveError::AlreadyFinished);
+            return Err(WlDataOfferError::AlreadyFinished);
         }
         receive::<WlDataDevice>(self, req.mime_type, req.fd);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         destroy_offer::<WlDataDevice>(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn finish(&self, parser: MsgParser<'_, '_>) -> Result<(), FinishError> {
+    fn finish(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
         let _req: Finish = self.client.parse(self, parser)?;
         if self.data.shared.role.get() != Role::Dnd {
-            return Err(FinishError::NotDnd);
+            return Err(WlDataOfferError::NotDnd);
         }
         let mut state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
-            return Err(FinishError::AlreadyFinished);
+            return Err(WlDataOfferError::AlreadyFinished);
         }
         if !state.contains(OFFER_STATE_DROPPED) {
-            return Err(FinishError::StillDragging);
+            return Err(WlDataOfferError::StillDragging);
         }
         if !state.contains(OFFER_STATE_ACCEPTED) {
-            return Err(FinishError::NoMimeTypeAccepted);
+            return Err(WlDataOfferError::NoMimeTypeAccepted);
         }
         state |= OFFER_STATE_FINISHED;
         if let Some(src) = self.data.source.get() {
@@ -122,17 +122,17 @@ impl WlDataOffer {
         Ok(())
     }
 
-    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), SetActionsError> {
+    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
         let req: SetActions = self.client.parse(self, parser)?;
         let state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
-            return Err(SetActionsError::AlreadyFinished);
+            return Err(WlDataOfferError::AlreadyFinished);
         }
         if (req.dnd_actions & !DND_ALL, req.preferred_action & !DND_ALL) != (0, 0) {
-            return Err(SetActionsError::InvalidActions);
+            return Err(WlDataOfferError::InvalidActions);
         }
         if req.preferred_action.count_ones() > 1 {
-            return Err(SetActionsError::MultiplePreferred);
+            return Err(WlDataOfferError::MultiplePreferred);
         }
         self.data.shared.receiver_actions.set(req.dnd_actions);
         self.data
@@ -147,7 +147,7 @@ impl WlDataOffer {
 }
 
 object_base! {
-    WlDataOffer, WlDataOfferError;
+    WlDataOffer;
 
     ACCEPT => accept,
     RECEIVE => receive,
@@ -172,59 +172,8 @@ simple_add_obj!(WlDataOffer);
 pub enum WlDataOfferError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `accept` request")]
-    AcceptError(#[from] AcceptError),
-    #[error("Could not process `receive` request")]
-    ReceiveError(#[from] ReceiveError),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `finish` request")]
-    FinishError(#[from] FinishError),
-    #[error("Could not process `set_actions` request")]
-    SetActionsError(#[from] SetActionsError),
-}
-efrom!(WlDataOfferError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum AcceptError {
     #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("`finish` was already called")]
-    AlreadyFinished,
-}
-efrom!(AcceptError, ParseFailed, MsgParserError);
-efrom!(AcceptError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ReceiveError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("`finish` was already called")]
-    AlreadyFinished,
-}
-efrom!(ReceiveError, ParseFailed, MsgParserError);
-efrom!(ReceiveError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum FinishError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error("`finish` was already called")]
     AlreadyFinished,
     #[error("The drag operation is still ongoing")]
@@ -233,22 +182,10 @@ pub enum FinishError {
     NoMimeTypeAccepted,
     #[error("This is not a drag-and-drop offer")]
     NotDnd,
-}
-efrom!(FinishError, ParseFailed, MsgParserError);
-efrom!(FinishError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetActionsError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("`finish` was already called")]
-    AlreadyFinished,
     #[error("The set of actions is invalid")]
     InvalidActions,
     #[error("Multiple preferred actions were specified")]
     MultiplePreferred,
 }
-efrom!(SetActionsError, ParseFailed, MsgParserError);
-efrom!(SetActionsError, ClientError);
+efrom!(WlDataOfferError, ClientError);
+efrom!(WlDataOfferError, MsgParserError);

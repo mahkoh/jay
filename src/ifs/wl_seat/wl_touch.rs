@@ -41,7 +41,7 @@ impl WlTouch {
         }
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlTouchError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
         self.seat.client.remove_obj(self)?;
         Ok(())
@@ -49,7 +49,7 @@ impl WlTouch {
 }
 
 object_base! {
-    WlTouch, WlTouchError;
+    WlTouch;
 
     RELEASE => release,
 }
@@ -66,17 +66,8 @@ simple_add_obj!(WlTouch);
 pub enum WlTouchError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `release` request")]
-    ReleaseError(#[from] ReleaseError),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlTouchError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ReleaseError, ParseError, MsgParserError);
-efrom!(ReleaseError, ClientError);
+efrom!(WlTouchError, MsgParserError);

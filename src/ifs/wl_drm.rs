@@ -91,38 +91,38 @@ impl WlDrm {
         })
     }
 
-    fn authenticate(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), AuthenticateError> {
+    fn authenticate(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
         let _req: Authenticate = self.client.parse(&**self, parser)?;
         self.send_authenticated();
         Ok(())
     }
 
-    fn create_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
+    fn create_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
         let _req: CreateBuffer = self.client.parse(&**self, parser)?;
-        Err(CreateBufferError::Unsupported)
+        Err(WlDrmError::Unsupported)
     }
 
     fn create_planar_buffer(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), CreatePlanarBufferError> {
+    ) -> Result<(), WlDrmError> {
         let _req: CreatePlanarBuffer = self.client.parse(&**self, parser)?;
-        Err(CreatePlanarBufferError::Unsupported)
+        Err(WlDrmError::Unsupported)
     }
 
     fn create_prime_buffer(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), CreatePrimeBufferError> {
+    ) -> Result<(), WlDrmError> {
         let req: CreatePrimeBuffer = self.client.parse(&**self, parser)?;
         let ctx = match self.client.state.render_ctx.get() {
             Some(ctx) => ctx,
-            None => return Err(CreatePrimeBufferError::NoRenderContext),
+            None => return Err(WlDrmError::NoRenderContext),
         };
         let formats = ctx.formats();
         let format = match formats.get(&req.format) {
             Some(f) => f.format,
-            None => return Err(CreatePrimeBufferError::InvalidFormat(req.format)),
+            None => return Err(WlDrmError::InvalidFormat(req.format)),
         };
         let mut dmabuf = DmaBuf {
             width: req.width,
@@ -161,7 +161,7 @@ impl WlDrm {
 }
 
 object_base! {
-    WlDrm, WlDrmError;
+    WlDrm;
 
     AUTHENTICATE => authenticate,
     CREATE_BUFFER => create_buffer,
@@ -179,56 +179,18 @@ simple_add_obj!(WlDrm);
 
 #[derive(Debug, Error)]
 pub enum WlDrmError {
-    #[error("Could not process a `authenticate` request")]
-    AuthenticateError(#[from] AuthenticateError),
-    #[error("Could not process a `create_buffer` request")]
-    CreateBufferError(#[from] CreateBufferError),
-    #[error("Could not process a `create_planar_buffer` request")]
-    CreatePlanarBufferError(#[from] CreatePlanarBufferError),
-    #[error("Could not process a `create_prime_buffer` request")]
-    CreatePrimeBufferError(#[from] CreatePrimeBufferError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlDrmError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum AuthenticateError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-}
-efrom!(AuthenticateError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum CreateBufferError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error("This api is not supported")]
-    Unsupported,
-}
-efrom!(CreateBufferError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum CreatePlanarBufferError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error("This api is not supported")]
-    Unsupported,
-}
-efrom!(CreatePlanarBufferError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum CreatePrimeBufferError {
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    ClientError(Box<ClientError>),
+    #[error("This api is not supported")]
+    Unsupported,
     #[error("The compositor has no render context attached")]
     NoRenderContext,
     #[error("The format {0} is not supported")]
     InvalidFormat(u32),
     #[error("Could not import the buffer")]
     ImportError(#[from] RenderError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
 }
-efrom!(CreatePrimeBufferError, MsgParserError);
-efrom!(CreatePrimeBufferError, ClientError);
+efrom!(WlDrmError, ClientError);
+efrom!(WlDrmError, MsgParserError);

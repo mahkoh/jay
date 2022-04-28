@@ -48,7 +48,7 @@ impl WlCompositorGlobal {
 }
 
 impl WlCompositor {
-    fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSurfaceError> {
+    fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), WlCompositorError> {
         let surface: CreateSurface = self.client.parse(self, parser)?;
         let surface = Rc::new(WlSurface::new(surface.id, &self.client));
         track!(self.client, surface);
@@ -63,7 +63,7 @@ impl WlCompositor {
         Ok(())
     }
 
-    fn create_region(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateRegionError> {
+    fn create_region(&self, parser: MsgParser<'_, '_>) -> Result<(), WlCompositorError> {
         let region: CreateRegion = self.client.parse(self, parser)?;
         let region = Rc::new(WlRegion::new(region.id, &self.client));
         track!(self.client, region);
@@ -87,7 +87,7 @@ impl Global for WlCompositorGlobal {
 simple_add_global!(WlCompositorGlobal);
 
 object_base! {
-    WlCompositor, WlCompositorError;
+    WlCompositor;
 
     CREATE_SURFACE => create_surface,
     CREATE_REGION => create_region,
@@ -105,34 +105,9 @@ simple_add_obj!(WlCompositor);
 pub enum WlCompositorError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `create_surface` request")]
-    CreateSurfaceError(#[source] Box<CreateSurfaceError>),
-    #[error("Could not process `create_region` request")]
-    CreateRegionError(#[source] Box<CreateRegionError>),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 
 efrom!(WlCompositorError, ClientError);
-efrom!(WlCompositorError, CreateSurfaceError);
-efrom!(WlCompositorError, CreateRegionError);
-
-#[derive(Debug, Error)]
-pub enum CreateSurfaceError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-
-efrom!(CreateSurfaceError, ParseFailed, MsgParserError);
-efrom!(CreateSurfaceError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CreateRegionError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-
-efrom!(CreateRegionError, ParseFailed, MsgParserError);
-efrom!(CreateRegionError, ClientError, ClientError);
+efrom!(WlCompositorError, MsgParserError);

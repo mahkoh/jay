@@ -711,7 +711,7 @@ impl WlSeat {
         self.global.move_(node);
     }
 
-    fn get_pointer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPointerError> {
+    fn get_pointer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
         let req: GetPointer = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlPointer::new(req.id, self));
         track!(self.client, p);
@@ -720,7 +720,7 @@ impl WlSeat {
         Ok(())
     }
 
-    fn get_keyboard(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetKeyboardError> {
+    fn get_keyboard(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
         let req: GetKeyboard = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlKeyboard::new(req.id, self));
         track!(self.client, p);
@@ -760,7 +760,7 @@ impl WlSeat {
         Ok(Rc::new(fd))
     }
 
-    fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetTouchError> {
+    fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
         let req: GetTouch = self.client.parse(&**self, parser)?;
         let p = Rc::new(WlTouch::new(req.id, self));
         track!(self.client, p);
@@ -768,7 +768,7 @@ impl WlSeat {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
         let _req: Release = self.client.parse(self, parser)?;
         {
             let mut bindings = self.global.bindings.borrow_mut();
@@ -785,7 +785,7 @@ impl WlSeat {
 }
 
 object_base! {
-    WlSeat, WlSeatError;
+    WlSeat;
 
     GET_POINTER => get_pointer,
     GET_KEYBOARD => get_keyboard,
@@ -821,63 +821,18 @@ dedicated_add_obj!(WlSeat, WlSeatId, seats);
 
 #[derive(Debug, Error)]
 pub enum WlSeatError {
-    #[error("Could not handle `get_pointer` request")]
-    GetPointerError(#[from] GetPointerError),
-    #[error("Could not handle `get_keyboard` request")]
-    GetKeyboardError(#[from] GetKeyboardError),
-    #[error("Could not handle `get_touch` request")]
-    GetTouchError(#[from] GetTouchError),
-    #[error("Could not handle `release` request")]
-    ReleaseError(#[from] ReleaseError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
     IpcError(#[from] IpcError),
-}
-efrom!(WlSeatError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetPointerError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetPointerError, ClientError);
-efrom!(GetPointerError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum GetKeyboardError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
 }
-efrom!(GetKeyboardError, ClientError);
-efrom!(GetKeyboardError, ParseError, MsgParserError);
-efrom!(GetKeyboardError, WlKeyboardError, WlKeyboardError);
-
-#[derive(Debug, Error)]
-pub enum GetTouchError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetTouchError, ClientError, ClientError);
-efrom!(GetTouchError, ParseError, MsgParserError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ReleaseError, ClientError, ClientError);
-efrom!(ReleaseError, ParseError, MsgParserError);
+efrom!(WlSeatError, ClientError);
+efrom!(WlSeatError, MsgParserError);
+efrom!(WlSeatError, WlKeyboardError);
 
 pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {
     node.node_visit(&mut generic_node_visitor(|node| {

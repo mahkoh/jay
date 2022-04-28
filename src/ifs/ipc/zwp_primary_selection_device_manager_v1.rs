@@ -50,7 +50,7 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
 }
 
 impl ZwpPrimarySelectionDeviceManagerV1 {
-    fn create_source(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateSourceError> {
+    fn create_source(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let req: CreateSource = self.client.parse(self, parser)?;
         let res = Rc::new(ZwpPrimarySelectionSourceV1::new(req.id, &self.client));
         track!(self.client, res);
@@ -58,7 +58,7 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
         Ok(())
     }
 
-    fn get_data_device(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetDeviceError> {
+    fn get_data_device(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let req: GetDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(ZwpPrimarySelectionDeviceV1::new(req.id, self, &seat));
@@ -68,7 +68,7 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
@@ -94,7 +94,7 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
 simple_add_global!(ZwpPrimarySelectionDeviceManagerV1Global);
 
 object_base! {
-    ZwpPrimarySelectionDeviceManagerV1, ZwpPrimarySelectionDeviceManagerV1Error;
+    ZwpPrimarySelectionDeviceManagerV1;
 
     CREATE_SOURCE => create_source,
     GET_DEVICE => get_data_device,
@@ -111,43 +111,10 @@ simple_add_obj!(ZwpPrimarySelectionDeviceManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPrimarySelectionDeviceManagerV1Error {
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `create_source` request")]
-    CreateSourceError(#[from] CreateSourceError),
-    #[error("Could not process `get_device` request")]
-    GetDeviceError(#[from] GetDeviceError),
 }
 efrom!(ZwpPrimarySelectionDeviceManagerV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CreateSourceError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CreateSourceError, ParseFailed, MsgParserError);
-efrom!(CreateSourceError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetDeviceError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetDeviceError, ParseFailed, MsgParserError);
-efrom!(GetDeviceError, ClientError);
+efrom!(ZwpPrimarySelectionDeviceManagerV1Error, MsgParserError);

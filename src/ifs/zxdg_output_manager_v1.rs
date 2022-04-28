@@ -47,13 +47,13 @@ impl ZxdgOutputManagerV1Global {
 }
 
 impl ZxdgOutputManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgOutputManagerV1Error> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_xdg_output(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetXdgOutputError> {
+    fn get_xdg_output(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZxdgOutputManagerV1Error> {
         let req: GetXdgOutput = self.client.parse(&**self, parser)?;
         let output = self.client.lookup(req.output)?;
         let xdg_output = Rc::new(ZxdgOutputV1 {
@@ -90,7 +90,7 @@ impl Global for ZxdgOutputManagerV1Global {
 simple_add_global!(ZxdgOutputManagerV1Global);
 
 object_base! {
-    ZxdgOutputManagerV1, ZxdgOutputManagerV1Error;
+    ZxdgOutputManagerV1;
 
     DESTROY => destroy,
     GET_XDG_OUTPUT => get_xdg_output,
@@ -108,29 +108,8 @@ impl Object for ZxdgOutputManagerV1 {
 pub enum ZxdgOutputManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `get_xdg_output` request")]
-    GetXdgOutputError(#[from] GetXdgOutputError),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZxdgOutputManagerV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseError, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetXdgOutputError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetXdgOutputError, ParseError, MsgParserError);
-efrom!(GetXdgOutputError, ClientError);
+efrom!(ZxdgOutputManagerV1Error, MsgParserError);

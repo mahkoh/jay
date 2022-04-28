@@ -56,7 +56,7 @@ impl WlDataDeviceManagerGlobal {
 }
 
 impl WlDataDeviceManager {
-    fn create_data_source(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateDataSourceError> {
+    fn create_data_source(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceManagerError> {
         let req: CreateDataSource = self.client.parse(self, parser)?;
         let res = Rc::new(WlDataSource::new(req.id, &self.client));
         track!(self.client, res);
@@ -67,7 +67,7 @@ impl WlDataDeviceManager {
     fn get_data_device(
         self: &Rc<Self>,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), GetDataDeviceError> {
+    ) -> Result<(), WlDataDeviceManagerError> {
         let req: GetDataDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(WlDataDevice::new(req.id, self, &seat));
@@ -97,7 +97,7 @@ impl Global for WlDataDeviceManagerGlobal {
 simple_add_global!(WlDataDeviceManagerGlobal);
 
 object_base! {
-    WlDataDeviceManager, WlDataDeviceManagerError;
+    WlDataDeviceManager;
 
     CREATE_DATA_SOURCE => create_data_source,
     GET_DATA_DEVICE => get_data_device,
@@ -115,29 +115,8 @@ simple_add_obj!(WlDataDeviceManager);
 pub enum WlDataDeviceManagerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `create_data_source` request")]
-    CreateDataSourceError(#[from] CreateDataSourceError),
-    #[error("Could not process `get_data_device` request")]
-    GetDataDeviceError(#[from] GetDataDeviceError),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlDataDeviceManagerError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CreateDataSourceError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(CreateDataSourceError, ParseFailed, MsgParserError);
-efrom!(CreateDataSourceError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetDataDeviceError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(GetDataDeviceError, ParseFailed, MsgParserError);
-efrom!(GetDataDeviceError, ClientError);
+efrom!(WlDataDeviceManagerError, MsgParserError);

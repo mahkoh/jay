@@ -92,7 +92,7 @@ impl WlDataDevice {
         self.manager.client.event(Drop { self_id: self.id })
     }
 
-    fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), StartDragError> {
+    fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
         let req: StartDrag = self.manager.client.parse(self, parser)?;
         if !self.manager.client.valid_serial(req.serial) {
             log::warn!("Client tried to start_drag with an invalid serial");
@@ -117,7 +117,7 @@ impl WlDataDevice {
         Ok(())
     }
 
-    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), SetSelectionError> {
+    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
         let req: SetSelection = self.manager.client.parse(self, parser)?;
         if !self.manager.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_selection with an invalid serial");
@@ -140,7 +140,7 @@ impl WlDataDevice {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
         let _req: Release = self.manager.client.parse(self, parser)?;
         destroy_device::<Self>(self);
         self.seat.remove_data_device(self);
@@ -229,7 +229,7 @@ impl Vtable for WlDataDevice {
 }
 
 object_base! {
-    WlDataDevice, WlDataDeviceError;
+    WlDataDevice;
 
     START_DRAG => start_drag,
     SET_SELECTION => set_selection,
@@ -251,52 +251,16 @@ simple_add_obj!(WlDataDevice);
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceError {
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `start_drag` request")]
-    StartDragError(#[from] StartDragError),
-    #[error("Could not process `set_selection` request")]
-    SetSelectionError(#[from] SetSelectionError),
-    #[error("Could not process `release` request")]
-    ReleaseError(#[from] ReleaseError),
-}
-efrom!(WlDataDeviceError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum StartDragError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
+    #[error(transparent)]
+    WlSeatError(Box<WlSeatError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
-    WlSeatError(Box<WlSeatError>),
 }
-efrom!(StartDragError, ParseFailed, MsgParserError);
-efrom!(StartDragError, ClientError);
-efrom!(StartDragError, WlSeatError);
-efrom!(StartDragError, WlSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum SetSelectionError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
-    WlSeatError(Box<WlSeatError>),
-}
-efrom!(SetSelectionError, ParseFailed, MsgParserError);
-efrom!(SetSelectionError, ClientError);
-efrom!(SetSelectionError, WlSeatError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ReleaseError, ParseFailed, MsgParserError);
-efrom!(ReleaseError, ClientError);
+efrom!(WlDataDeviceError, MsgParserError);
+efrom!(WlDataDeviceError, ClientError);
+efrom!(WlDataDeviceError, WlSeatError);
+efrom!(WlDataDeviceError, WlSurfaceError);

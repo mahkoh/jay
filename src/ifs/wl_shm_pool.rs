@@ -41,15 +41,15 @@ impl WlShmPool {
         })
     }
 
-    fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), CreateBufferError> {
+    fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmPoolError> {
         let req: CreateBuffer = self.client.parse(self, parser)?;
         let drm_format = map_wayland_format_id(req.format);
         let format = match formats().get(&drm_format) {
             Some(f) => *f,
-            _ => return Err(CreateBufferError::InvalidFormat(req.format)),
+            _ => return Err(WlShmPoolError::InvalidFormat(req.format)),
         };
         if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
-            return Err(CreateBufferError::NegativeParameters);
+            return Err(WlShmPoolError::NegativeParameters);
         }
         let buffer = Rc::new(WlBuffer::new_shm(
             req.id,
@@ -66,19 +66,19 @@ impl WlShmPool {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmPoolError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), ResizeError> {
+    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmPoolError> {
         let req: Resize = self.client.parse(self, parser)?;
         if req.size < 0 {
-            return Err(ResizeError::NegativeSize);
+            return Err(WlShmPoolError::NegativeSize);
         }
         if (req.size as usize) < self.mem.get().len() {
-            return Err(ResizeError::CannotShrink);
+            return Err(WlShmPoolError::CannotShrink);
         }
         self.mem
             .set(Rc::new(ClientMem::new(self.fd.raw(), req.size as usize)?));
@@ -87,7 +87,7 @@ impl WlShmPool {
 }
 
 object_base! {
-    WlShmPool, WlShmPoolError;
+    WlShmPool;
 
     CREATE_BUFFER => create_buffer,
     DESTROY => destroy,
@@ -106,24 +106,14 @@ simple_add_obj!(WlShmPool);
 pub enum WlShmPoolError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `create_buffer` request")]
-    CreateBufferError(#[from] CreateBufferError),
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process a `resize` request")]
-    ResizeError(#[from] ResizeError),
     #[error(transparent)]
     ClientMemError(Box<ClientMemError>),
-}
-efrom!(WlShmPoolError, ClientError);
-efrom!(WlShmPoolError, ClientMemError);
-
-#[derive(Debug, Error)]
-pub enum CreateBufferError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
+    MsgParserError(#[source] Box<MsgParserError>),
+    #[error("Tried to shrink the pool")]
+    CannotShrink,
+    #[error("Requested size is negative")]
+    NegativeSize,
     #[error("Format {0} is not supported")]
     InvalidFormat(u32),
     #[error("All parameters in a create_buffer request must be non-negative")]
@@ -131,30 +121,7 @@ pub enum CreateBufferError {
     #[error(transparent)]
     WlBufferError(Box<WlBufferError>),
 }
-efrom!(CreateBufferError, ParseError, MsgParserError);
-efrom!(CreateBufferError, ClientError);
-efrom!(CreateBufferError, WlBufferError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseError, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ResizeError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error("Tried to shrink the pool")]
-    CannotShrink,
-    #[error("Requested size is negative")]
-    NegativeSize,
-    #[error(transparent)]
-    ClientMemError(Box<ClientMemError>),
-}
-efrom!(ResizeError, ParseError, MsgParserError);
-efrom!(ResizeError, ClientMemError);
+efrom!(WlShmPoolError, ClientError);
+efrom!(WlShmPoolError, ClientMemError);
+efrom!(WlShmPoolError, WlBufferError);
+efrom!(WlShmPoolError, MsgParserError);

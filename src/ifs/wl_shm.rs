@@ -54,10 +54,10 @@ impl WlShmGlobal {
 }
 
 impl WlShm {
-    fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), CreatePoolError> {
+    fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmError> {
         let create: CreatePool = self.client.parse(self, parser)?;
         if create.size < 0 {
-            return Err(CreatePoolError::NegativeSize);
+            return Err(WlShmError::NegativeSize);
         }
         let pool = Rc::new(WlShmPool::new(
             create.id,
@@ -86,7 +86,7 @@ impl Global for WlShmGlobal {
 simple_add_global!(WlShmGlobal);
 
 object_base! {
-    WlShm, WlShmError;
+    WlShm;
 
     CREATE_POOL => create_pool,
 }
@@ -103,22 +103,13 @@ simple_add_obj!(WlShm);
 pub enum WlShmError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `create_pool` request")]
-    CreatePoolError(#[from] CreatePoolError),
-}
-efrom!(WlShmError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum CreatePoolError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The passed size is negative")]
     NegativeSize,
     #[error(transparent)]
     WlShmPoolError(Box<WlShmPoolError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
 }
-efrom!(CreatePoolError, ParseError, MsgParserError);
-efrom!(CreatePoolError, WlShmPoolError);
-efrom!(CreatePoolError, ClientError);
+efrom!(WlShmError, ClientError);
+efrom!(WlShmError, MsgParserError);
+efrom!(WlShmError, WlShmPoolError);

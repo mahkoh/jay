@@ -154,7 +154,7 @@ impl JayCompositor {
     }
 }
 
-object_base2! {
+object_base! {
     JayCompositor;
 
     DESTROY => destroy,

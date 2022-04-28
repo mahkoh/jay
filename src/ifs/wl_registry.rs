@@ -42,7 +42,7 @@ impl WlRegistry {
         })
     }
 
-    fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), BindError> {
+    fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), WlRegistryError> {
         let bind: Bind = self.client.parse(self, parser)?;
         let global = self
             .client
@@ -50,14 +50,14 @@ impl WlRegistry {
             .globals
             .get(GlobalName::from_raw(bind.name))?;
         if global.interface().name() != bind.interface {
-            return Err(BindError::InvalidInterface(InterfaceError {
+            return Err(WlRegistryError::InvalidInterface(InterfaceError {
                 name: global.name(),
                 interface: global.interface(),
                 actual: bind.interface.to_string(),
             }));
         }
         if bind.version > global.version() {
-            return Err(BindError::InvalidVersion(VersionError {
+            return Err(WlRegistryError::InvalidVersion(VersionError {
                 name: global.name(),
                 interface: global.interface(),
                 version: global.version(),
@@ -70,7 +70,7 @@ impl WlRegistry {
 }
 
 object_base! {
-    WlRegistry, WlRegistryError;
+    WlRegistry;
 
     BIND => bind,
 }
@@ -85,16 +85,8 @@ simple_add_obj!(WlRegistry);
 
 #[derive(Debug, Error)]
 pub enum WlRegistryError {
-    #[error("Could not process bind request")]
-    BindError(#[source] Box<BindError>),
-}
-
-efrom!(WlRegistryError, BindError);
-
-#[derive(Debug, Error)]
-pub enum BindError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     GlobalsError(Box<GlobalsError>),
     #[error("Tried to bind to global {} of type {} using interface {}", .0.name, .0.interface.name(), .0.actual)]
@@ -102,8 +94,8 @@ pub enum BindError {
     #[error("Tried to bind to global {} of type {} and version {} using version {}", .0.name, .0.interface.name(), .0.version, .0.actual)]
     InvalidVersion(VersionError),
 }
-efrom!(BindError, ParseError, MsgParserError);
-efrom!(BindError, GlobalsError);
+efrom!(WlRegistryError, MsgParserError);
+efrom!(WlRegistryError, GlobalsError);
 
 #[derive(Debug)]
 pub struct InterfaceError {

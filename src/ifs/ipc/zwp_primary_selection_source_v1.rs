@@ -42,13 +42,13 @@ impl ZwpPrimarySelectionSourceV1 {
         })
     }
 
-    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), OfferError> {
+    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
         let req: Offer = self.data.client.parse(self, parser)?;
         add_mime_type::<ZwpPrimarySelectionDeviceV1>(self, req.mime_type);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
         let _req: Destroy = self.data.client.parse(self, parser)?;
         destroy_source::<ZwpPrimarySelectionDeviceV1>(self);
         self.data.client.remove_obj(self)?;
@@ -57,7 +57,7 @@ impl ZwpPrimarySelectionSourceV1 {
 }
 
 object_base! {
-    ZwpPrimarySelectionSourceV1, ZwpPrimarySelectionSourceV1Error;
+    ZwpPrimarySelectionSourceV1;
 
     OFFER => offer,
     DESTROY => destroy,
@@ -83,29 +83,8 @@ dedicated_add_obj!(
 pub enum ZwpPrimarySelectionSourceV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process `offer` request")]
-    OfferError(#[from] OfferError),
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwpPrimarySelectionSourceV1Error, ClientError);
-
-#[derive(Debug, Error)]
-pub enum OfferError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(OfferError, ParseFailed, MsgParserError);
-efrom!(OfferError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
+efrom!(ZwpPrimarySelectionSourceV1Error, MsgParserError);

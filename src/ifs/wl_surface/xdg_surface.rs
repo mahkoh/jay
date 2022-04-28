@@ -181,15 +181,15 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
         if self.ext.get().is_some() {
-            return Err(DestroyError::RoleNotYetDestroyed(self.id));
+            return Err(XdgSurfaceError::RoleNotYetDestroyed(self.id));
         }
         {
             let children = self.popups.lock();
             if !children.is_empty() {
-                return Err(DestroyError::PopupsNotYetDestroyed);
+                return Err(XdgSurfaceError::PopupsNotYetDestroyed);
             }
         }
         self.surface.unset_ext();
@@ -198,7 +198,7 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn get_toplevel(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetToplevelError> {
+    fn get_toplevel(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: GetToplevel = self.surface.client.parse(&**self, parser)?;
         self.set_role(XdgSurfaceRole::XdgToplevel)?;
         if self.ext.get().is_some() {
@@ -210,7 +210,7 @@ impl XdgSurface {
                     self.surface.id
                 ),
             );
-            return Err(GetToplevelError::AlreadyConstructed);
+            return Err(XdgSurfaceError::AlreadyConstructed);
         }
         let toplevel = Rc::new(XdgToplevel::new(req.id, self));
         track!(self.surface.client, toplevel);
@@ -220,7 +220,7 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn get_popup(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), GetPopupError> {
+    fn get_popup(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: GetPopup = self.surface.client.parse(&**self, parser)?;
         self.set_role(XdgSurfaceRole::XdgPopup)?;
         let mut parent = None;
@@ -237,7 +237,7 @@ impl XdgSurface {
                     self.surface.id
                 ),
             );
-            return Err(GetPopupError::AlreadyConstructed);
+            return Err(XdgSurfaceError::AlreadyConstructed);
         }
         let popup = Rc::new(XdgPopup::new(req.id, self, parent.as_ref(), &positioner)?);
         track!(self.surface.client, popup);
@@ -249,17 +249,17 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn set_window_geometry(&self, parser: MsgParser<'_, '_>) -> Result<(), SetWindowGeometryError> {
+    fn set_window_geometry(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: SetWindowGeometry = self.surface.client.parse(self, parser)?;
         if req.height <= 0 || req.width <= 0 {
-            return Err(SetWindowGeometryError::NonPositiveWidthHeight);
+            return Err(XdgSurfaceError::NonPositiveWidthHeight);
         }
         let extents = Rect::new_sized(req.x, req.y, req.width, req.height).unwrap();
         self.pending.geometry.set(Some(extents));
         Ok(())
     }
 
-    fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), AckConfigureError> {
+    fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: AckConfigure = self.surface.client.parse(self, parser)?;
         if self.requested_serial.get() == req.serial {
             self.acked_serial.set(Some(req.serial));
@@ -306,7 +306,7 @@ impl XdgSurface {
 }
 
 object_base! {
-    XdgSurface, XdgSurfaceError;
+    XdgSurface;
 
     DESTROY => destroy,
     GET_TOPLEVEL => get_toplevel,
@@ -368,20 +368,8 @@ impl SurfaceExt for XdgSurface {
 
 #[derive(Debug, Error)]
 pub enum XdgSurfaceError {
-    #[error("Could not process `destroy` request")]
-    DestroyError(#[from] DestroyError),
-    #[error("Could not process `get_toplevel` request")]
-    GetToplevelError(#[from] GetToplevelError),
-    #[error("Could not process `get_popup` request")]
-    GetPopupError(#[from] GetPopupError),
-    #[error("Could not process `set_window_geometry` request")]
-    SetWindowGeometryError(#[from] SetWindowGeometryError),
-    #[error("Could not process `ack_configure` request")]
-    AckConfigureError(#[from] AckConfigureError),
     #[error("Surface {0} cannot be turned into a xdg_surface because it already has an attached xdg_surface")]
     AlreadyAttached(WlSurfaceId),
-    #[error(transparent)]
-    WlSurfaceError(Box<WlSurfaceError>),
     #[error(transparent)]
     XdgPopupError(#[from] XdgPopupError),
     #[error("Surface {} cannot be assigned the role {} because it already has the role {}", .id, .new.name(), .old.name())]
@@ -390,80 +378,21 @@ pub enum XdgSurfaceError {
         old: XdgSurfaceRole,
         new: XdgSurfaceRole,
     },
-}
-efrom!(XdgSurfaceError, WlSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Parsing failed")]
+    MsgParserError(#[source] Box<MsgParserError>),
+    #[error("Tried no set a non-positive width/height")]
+    NonPositiveWidthHeight,
     #[error("Cannot destroy xdg_surface {0} because it's associated xdg_toplevel/popup is not yet destroyed")]
     RoleNotYetDestroyed(XdgSurfaceId),
     #[error("The surface still has popups attached")]
     PopupsNotYetDestroyed,
-}
-efrom!(DestroyError, ParseFailed, MsgParserError);
-efrom!(DestroyError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum GetToplevelError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The surface already has an assigned xdg_toplevel")]
     AlreadyConstructed,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-    #[error(transparent)]
-    XdgSurfaceError(Box<XdgSurfaceError>),
 }
-efrom!(GetToplevelError, ParseFailed, MsgParserError);
-efrom!(GetToplevelError, ClientError);
-efrom!(GetToplevelError, WlSurfaceError);
-efrom!(GetToplevelError, XdgSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum GetPopupError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("The surface already has an assigned xdg_popup")]
-    AlreadyConstructed,
-    #[error(transparent)]
-    WlSurfaceError(Box<WlSurfaceError>),
-    #[error(transparent)]
-    XdgPopupError(Box<XdgPopupError>),
-    #[error(transparent)]
-    XdgSurfaceError(Box<XdgSurfaceError>),
-}
-efrom!(GetPopupError, ParseFailed, MsgParserError);
-efrom!(GetPopupError, ClientError);
-efrom!(GetPopupError, XdgPopupError);
-efrom!(GetPopupError, WlSurfaceError);
-efrom!(GetPopupError, XdgSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum SetWindowGeometryError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error("Tried no set a non-positive width/height")]
-    NonPositiveWidthHeight,
-}
-efrom!(SetWindowGeometryError, ParseFailed, MsgParserError);
-efrom!(SetWindowGeometryError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum AckConfigureError {
-    #[error("Parsing failed")]
-    ParseFailed(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(AckConfigureError, ParseFailed, MsgParserError);
-efrom!(AckConfigureError, ClientError);
+efrom!(XdgSurfaceError, WlSurfaceError);
+efrom!(XdgSurfaceError, ClientError);
+efrom!(XdgSurfaceError, MsgParserError);

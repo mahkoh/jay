@@ -11,6 +11,7 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
+use crate::utils::oserror::OsError;
 
 pub const REPEAT_INFO_SINCE: u32 = 4;
 
@@ -98,7 +99,7 @@ impl WlKeyboard {
         })
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlKeyboardError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
         self.seat.keyboards.remove(&self.id);
         self.seat.client.remove_obj(self)?;
@@ -107,7 +108,7 @@ impl WlKeyboard {
 }
 
 object_base! {
-    WlKeyboard, WlKeyboardError;
+    WlKeyboard;
 
     RELEASE => release,
 }
@@ -124,21 +125,12 @@ simple_add_obj!(WlKeyboard);
 pub enum WlKeyboardError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `release` request")]
-    ReleaseError(#[from] ReleaseError),
     #[error("Could not create a keymap memfd")]
-    KeymapMemfd(#[source] crate::utils::oserror::OsError),
+    KeymapMemfd(#[source] OsError),
     #[error("Could not copy the keymap")]
-    KeymapCopy(#[source] crate::utils::oserror::OsError),
-}
-efrom!(WlKeyboardError, ClientError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
+    KeymapCopy(#[source] OsError),
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
+    MsgParserError(#[source] Box<MsgParserError>),
 }
-efrom!(ReleaseError, ParseError, MsgParserError);
-efrom!(ReleaseError, ClientError, ClientError);
+efrom!(WlKeyboardError, ClientError);
+efrom!(WlKeyboardError, MsgParserError);

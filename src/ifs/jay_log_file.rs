@@ -26,7 +26,7 @@ impl JayLogFile {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), DestroyError> {
+    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayLogFileError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.client.remove_obj(self)?;
         Ok(())
@@ -41,7 +41,7 @@ impl JayLogFile {
 }
 
 object_base! {
-    JayLogFile, JayLogFileError;
+    JayLogFile;
 
     DESTROY => destroy,
 }
@@ -56,16 +56,10 @@ simple_add_obj!(JayLogFile);
 
 #[derive(Debug, Error)]
 pub enum JayLogFileError {
-    #[error("Could not process a `destroy` request")]
-    DestroyError(#[from] DestroyError),
-}
-
-#[derive(Debug, Error)]
-pub enum DestroyError {
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(DestroyError, ClientError);
-efrom!(DestroyError, MsgParserError);
+efrom!(JayLogFileError, ClientError);
+efrom!(JayLogFileError, MsgParserError);

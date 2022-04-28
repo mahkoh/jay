@@ -90,7 +90,7 @@ impl WpPresentation {
     }
 }
 
-object_base2! {
+object_base! {
     WpPresentation;
 
     DESTROY => destroy,

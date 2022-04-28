@@ -154,7 +154,7 @@ impl WlPointer {
         })
     }
 
-    fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), SetCursorError> {
+    fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), WlPointerError> {
         let req: SetCursor = self.seat.client.parse(self, parser)?;
         if !self.seat.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_cursor with an invalid serial");
@@ -184,7 +184,7 @@ impl WlPointer {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), ReleaseError> {
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlPointerError> {
         let _req: Release = self.seat.client.parse(self, parser)?;
         self.seat.pointers.remove(&self.id);
         self.seat.client.remove_obj(self)?;
@@ -193,7 +193,7 @@ impl WlPointer {
 }
 
 object_base! {
-    WlPointer, WlPointerError;
+    WlPointer;
 
     SET_CURSOR => set_cursor,
     RELEASE => release,
@@ -211,32 +211,11 @@ simple_add_obj!(WlPointer);
 pub enum WlPointerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not process a `set_cursor` request")]
-    SetCursorError(#[from] SetCursorError),
-    #[error("Could not process a `release` request")]
-    ReleaseError(#[from] ReleaseError),
-}
-efrom!(WlPointerError, ClientError);
-
-#[derive(Debug, Error)]
-pub enum SetCursorError {
     #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
+    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(SetCursorError, ParseError, MsgParserError);
-efrom!(SetCursorError, ClientError);
-efrom!(SetCursorError, WlSurfaceError);
-
-#[derive(Debug, Error)]
-pub enum ReleaseError {
-    #[error("Parsing failed")]
-    ParseError(#[source] Box<MsgParserError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ReleaseError, ParseError, MsgParserError);
-efrom!(ReleaseError, ClientError, ClientError);
+efrom!(WlPointerError, ClientError);
+efrom!(WlPointerError, MsgParserError);
+efrom!(WlPointerError, WlSurfaceError);
