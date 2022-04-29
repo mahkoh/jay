@@ -14,6 +14,7 @@ use {
         rc::Rc,
     },
 };
+use crate::ifs::wl_seat::collect_kb_foci2;
 
 tree_id!(ToplevelNodeId);
 
@@ -265,6 +266,10 @@ impl ToplevelData {
             kb_foci = collect_kb_foci(container.clone());
             container.tl_set_visible(false);
         }
+        for stacked in ws.stacked.iter() {
+            collect_kb_foci2(stacked.deref().clone().stacked_into_node(), &mut kb_foci);
+            stacked.stacked_set_visible(false);
+        }
         *data = Some(FullscreenedData {
             placeholder,
             workspace: ws.clone(),
@@ -308,8 +313,8 @@ impl ToplevelData {
             _ => {}
         }
         fd.workspace.fullscreen.take();
-        if let Some(container) = fd.workspace.container.get() {
-            container.tl_set_visible(node.tl_as_node().node_visible());
+        if node.node_visible() {
+            fd.workspace.set_visible(true);
         }
         if fd.placeholder.is_destroyed() {
             state.map_tiled(node);

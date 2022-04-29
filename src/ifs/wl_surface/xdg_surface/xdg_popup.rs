@@ -328,6 +328,10 @@ impl Node for XdgPopup {
 impl StackedNode for XdgPopup {
     stacked_node_impl!();
 
+    fn stacked_set_visible(&self, visible: bool) {
+        self.xdg.set_visible(visible);
+    }
+
     fn stacked_absolute_position_constrains_input(&self) -> bool {
         false
     }

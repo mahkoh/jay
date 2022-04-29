@@ -38,8 +38,12 @@ impl WorkspaceNode {
         container.clone().tl_change_extents(&pos);
         container.clone().tl_set_workspace(self);
         container.tl_set_parent(self.clone());
-        container.tl_set_visible(self.visible.get() && self.fullscreen.get().is_none());
+        container.tl_set_visible(self.stacked_visible());
         self.container.set(Some(container.clone()));
+    }
+
+    pub fn stacked_visible(&self) -> bool {
+        self.visible.get() && self.fullscreen.get().is_none()
     }
 
     pub fn change_extents(&self, rect: &Rect) {
@@ -53,8 +57,13 @@ impl WorkspaceNode {
         self.visible.set(visible);
         if let Some(fs) = self.fullscreen.get() {
             fs.tl_set_visible(visible);
-        } else if let Some(container) = self.container.get() {
-            container.tl_set_visible(visible);
+        } else {
+            if let Some(container) = self.container.get() {
+                container.tl_set_visible(visible);
+            }
+            for stacked in self.stacked.iter() {
+                stacked.stacked_set_visible(visible);
+            }
         }
         self.seat_state.set_visible(self, visible);
     }

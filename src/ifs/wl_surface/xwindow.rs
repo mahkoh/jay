@@ -443,6 +443,10 @@ impl ToplevelNode for Xwindow {
 
 impl StackedNode for Xwindow {
     stacked_node_impl!();
+
+    fn stacked_set_visible(&self, visible: bool) {
+        self.tl_set_visible(visible);
+    }
 }
 
 #[derive(Debug, Error)]
