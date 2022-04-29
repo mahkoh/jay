@@ -1,6 +1,6 @@
 use {
     std::{
-        cell::{Cell, UnsafeCell},
+        cell::Cell,
         mem::MaybeUninit,
         ptr,
         rc::Rc,
@@ -82,21 +82,19 @@ impl ClientMemOffset {
             if self.mem.sigbus_impossible {
                 return Ok(f(&*self.data));
             }
-            MEM.with(|m| {
-                let mref = MemRef {
-                    mem: &*self.mem,
-                    outer: *m.get(),
-                };
-                *m.get() = &mref;
-                compiler_fence(Ordering::SeqCst);
-                let res = f(&*self.data);
-                *m.get() = mref.outer;
-                compiler_fence(Ordering::SeqCst);
-                match self.mem.failed.get() {
-                    true => Err(ClientMemError::Sigbus),
-                    _ => Ok(res),
-                }
-            })
+            let mref = MemRef {
+                mem: &*self.mem,
+                outer: MEM,
+            };
+            MEM = &mref;
+            compiler_fence(Ordering::SeqCst);
+            let res = f(&*self.data);
+            MEM = mref.outer;
+            compiler_fence(Ordering::SeqCst);
+            match self.mem.failed.get() {
+                true => Err(ClientMemError::Sigbus),
+                _ => Ok(res),
+            }
         }
     }
 }
@@ -114,9 +112,8 @@ struct MemRef {
     outer: *const MemRef,
 }
 
-thread_local! {
-    static MEM: UnsafeCell<*const MemRef> = UnsafeCell::new(ptr::null());
-}
+#[thread_local]
+static mut MEM: *const MemRef = ptr::null();
 
 unsafe fn kill() -> ! {
     c::signal(c::SIGBUS, c::SIG_DFL);
@@ -126,7 +123,7 @@ unsafe fn kill() -> ! {
 
 unsafe extern "C" fn sigbus(sig: i32, info: &c::siginfo_t, _ucontext: *mut c::c_void) {
     assert_eq!(sig, c::SIGBUS);
-    let mut memr_ptr = MEM.with(|m| ptr::read(m.get()));
+    let mut memr_ptr = MEM;
     while !memr_ptr.is_null() {
         let memr = &*memr_ptr;
         let mem = &*memr.mem;

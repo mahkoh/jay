@@ -1,10 +1,9 @@
 use {
-    crate::utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::MutPtrExt},
+    crate::utils::{errorfmt::ErrorFmt, oserror::OsError},
     backtrace::Backtrace,
     bstr::{BStr, BString, ByteSlice},
     log::{Level, Log, Metadata, Record},
     std::{
-        cell::UnsafeCell,
         fs::DirBuilder,
         io::Write,
         os::unix::{ffi::OsStringExt, fs::DirBuilderExt},
@@ -18,7 +17,7 @@ use {
 };
 
 #[thread_local]
-static BUFFER: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
+static mut BUFFER: Vec<u8> = Vec::new();
 
 pub struct Logger {
     level: AtomicU32,
@@ -142,7 +141,7 @@ impl Log for LogWrapper {
         if record.level() as u32 > self.logger.level.load(Relaxed) {
             return;
         }
-        let buffer = unsafe { BUFFER.get().deref_mut() };
+        let buffer = unsafe { &mut BUFFER };
         buffer.clear();
         let now = SystemTime::now();
         let _ = if let Some(mp) = record.module_path() {
