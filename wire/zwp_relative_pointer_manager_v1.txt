@@ -1,0 +1,10 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg get_relative_pointer = 1 {
+    id: id(zwp_relative_pointer_v1),
+    pointer: id(wl_pointer),
+}

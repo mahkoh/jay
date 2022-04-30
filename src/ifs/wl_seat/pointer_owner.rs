@@ -58,6 +58,12 @@ impl PointerOwnerHolder {
         }
     }
 
+    pub fn relative_motion(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+        if let Some(n) = self.owner.get().axis_node(seat) {
+            n.node_on_pointer_relative_motion(seat, time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated);
+        }
+    }
+
     pub fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         self.owner.get().apply_changes(seat)
     }

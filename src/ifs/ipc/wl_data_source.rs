@@ -78,10 +78,10 @@ impl WlDataSource {
         if shared.selected_action.replace(action) != action {
             for (_, offer) in &self.data.offers {
                 offer.send_action(action);
-                offer.client.flush();
+                // offer.client.flush();
             }
             self.send_action(action);
-            self.data.client.flush();
+            // self.data.client.flush();
         }
     }
 

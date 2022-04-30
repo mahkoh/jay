@@ -198,6 +198,15 @@ pub trait Node: 'static {
         let _ = y;
     }
 
+    fn node_on_pointer_relative_motion(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = dx;
+        let _ = dy;
+        let _ = dx_unaccelerated;
+        let _ = dy_unaccelerated;
+    }
+
     fn node_on_dnd_drop(&self, dnd: &Dnd) {
         let _ = dnd;
     }

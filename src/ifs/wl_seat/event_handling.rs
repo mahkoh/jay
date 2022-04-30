@@ -33,6 +33,7 @@ use {
     smallvec::SmallVec,
     std::rc::Rc,
 };
+use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -155,7 +156,7 @@ impl WlSeatGlobal {
         match event {
             InputEvent::Key(k, s) => self.key_event(k, s),
             InputEvent::ConnectorPosition(o, x, y) => self.connector_position_event(o, x, y),
-            InputEvent::Motion(dx, dy) => self.motion_event(dx, dy),
+            InputEvent::Motion { dx, dy, dx_unaccelerated, dy_unaccelerated, time_usec } => self.motion_event(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated),
             InputEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
 
             InputEvent::AxisSource(s) => self.pointer_owner.axis_source(s),
@@ -183,7 +184,8 @@ impl WlSeatGlobal {
         self.set_new_position(x, y);
     }
 
-    fn motion_event(self: &Rc<Self>, dx: Fixed, dy: Fixed) {
+    fn motion_event(self: &Rc<Self>, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+        self.pointer_owner.relative_motion(self, time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated);
         let (mut x, mut y) = self.pos.get();
         x += dx;
         y += dy;
@@ -327,11 +329,23 @@ impl WlSeatGlobal {
     }
 
     fn for_each_pointer<C>(&self, ver: u32, client: ClientId, mut f: C)
-    where
-        C: FnMut(&Rc<WlPointer>),
+        where
+            C: FnMut(&Rc<WlPointer>),
     {
         self.for_each_seat(ver, client, |seat| {
             let pointers = seat.pointers.lock();
+            for pointer in pointers.values() {
+                f(pointer);
+            }
+        })
+    }
+
+    fn for_each_relative_pointer<C>(&self, client: ClientId, mut f: C)
+    where
+        C: FnMut(&Rc<ZwpRelativePointerV1>),
+    {
+        self.for_each_seat(0, client, |seat| {
+            let pointers = seat.relative_pointers.lock();
             for pointer in pointers.values() {
                 f(pointer);
             }
@@ -383,14 +397,24 @@ impl WlSeatGlobal {
     }
 
     fn surface_pointer_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-    where
-        F: FnMut(&Rc<WlPointer>),
+        where
+            F: FnMut(&Rc<WlPointer>),
     {
         let client = &surface.client;
         self.for_each_pointer(ver, client.id, |p| {
             f(p);
         });
-        client.flush();
+        // client.flush();
+    }
+
+    fn surface_relative_pointer_event<F>(&self, surface: &WlSurface, mut f: F)
+    where
+        F: FnMut(&Rc<ZwpRelativePointerV1>),
+    {
+        let client = &surface.client;
+        self.for_each_relative_pointer(client.id, |p| {
+            f(p);
+        });
     }
 
     fn surface_kb_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
@@ -401,7 +425,7 @@ impl WlSeatGlobal {
         self.for_each_kb(ver, client.id, |p| {
             f(p);
         });
-        client.flush();
+        // client.flush();
     }
 
     fn set_new_position(self: &Rc<Self>, x: Fixed, y: Fixed) {
@@ -489,6 +513,15 @@ impl WlSeatGlobal {
     pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
         self.surface_pointer_event(0, n, |p| p.send_motion(0, x, y));
         self.surface_pointer_frame(n);
+    }
+}
+
+// Relative motion callbacks
+impl WlSeatGlobal {
+    pub fn relative_motion_surface(&self, surface: &WlSurface, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+        self.surface_relative_pointer_event(surface, |p| {
+            p.send_relative_motion(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated);
+        });
     }
 }
 
@@ -594,7 +627,7 @@ impl WlSeatGlobal {
         if let Some(src) = &dnd.src {
             src.on_leave();
         }
-        surface.client.flush();
+        // surface.client.flush();
     }
 
     pub fn dnd_surface_drop(&self, surface: &WlSurface, dnd: &Dnd) {
@@ -606,7 +639,7 @@ impl WlSeatGlobal {
         if let Some(src) = &dnd.src {
             src.on_drop();
         }
-        surface.client.flush();
+        // surface.client.flush();
     }
 
     pub fn dnd_surface_enter(
@@ -628,7 +661,7 @@ impl WlSeatGlobal {
                 dd.send_enter(surface.id, x, y, WlDataOfferId::NONE, serial);
             })
         }
-        surface.client.flush();
+        // surface.client.flush();
     }
 
     pub fn dnd_surface_motion(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed) {
@@ -637,6 +670,6 @@ impl WlSeatGlobal {
                 dd.send_motion(x, y);
             })
         }
-        surface.client.flush();
+        // surface.client.flush();
     }
 }

@@ -126,7 +126,7 @@ impl WlOutputGlobal {
                 for xdg in xdg.values() {
                     xdg.send_updates();
                 }
-                binding.client.flush();
+                // binding.client.flush();
             }
         }
     }

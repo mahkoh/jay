@@ -761,7 +761,7 @@ impl XBackend {
                     };
                     seat.mouse_event(InputEvent::AxisSource(AxisSource::Wheel));
                     seat.mouse_event(InputEvent::AxisDiscrete(val, axis));
-                    seat.mouse_event(InputEvent::Axis((val as f64 * PX_PER_SCROLL).into(), axis));
+                    seat.mouse_event(InputEvent::Axis(Fixed::from_f64(val as f64 * PX_PER_SCROLL), axis));
                     seat.mouse_event(InputEvent::Frame);
                 }
             } else {

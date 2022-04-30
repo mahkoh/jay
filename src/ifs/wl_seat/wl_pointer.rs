@@ -64,7 +64,7 @@ impl PendingScroll {
 
 pub struct WlPointer {
     id: WlPointerId,
-    seat: Rc<WlSeat>,
+    pub seat: Rc<WlSeat>,
     pub tracker: Tracker<Self>,
 }
 
@@ -205,7 +205,7 @@ impl Object for WlPointer {
     }
 }
 
-simple_add_obj!(WlPointer);
+dedicated_add_obj!(WlPointer, WlPointerId, pointers);
 
 #[derive(Debug, Error)]
 pub enum WlPointerError {

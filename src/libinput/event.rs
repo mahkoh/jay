@@ -16,6 +16,7 @@ use {
     },
     std::marker::PhantomData,
 };
+use crate::libinput::sys::{libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy_unaccelerated};
 
 pub struct LibInputEvent<'a> {
     pub(super) event: *mut libinput_event,
@@ -101,6 +102,14 @@ impl<'a> LibInputEventPointer<'a> {
         unsafe { libinput_event_pointer_get_dy(self.event) }
     }
 
+    pub fn dx_unaccelerated(&self) -> f64 {
+        unsafe { libinput_event_pointer_get_dx_unaccelerated(self.event) }
+    }
+
+    pub fn dy_unaccelerated(&self) -> f64 {
+        unsafe { libinput_event_pointer_get_dy_unaccelerated(self.event) }
+    }
+
     pub fn button(&self) -> u32 {
         unsafe { libinput_event_pointer_get_button(self.event) }
     }
@@ -121,7 +130,6 @@ impl<'a> LibInputEventPointer<'a> {
         unsafe { libinput_event_pointer_has_axis(self.event, axis.raw() as _) != 0 }
     }
 
-    #[allow(dead_code)]
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_pointer_get_time_usec(self.event) }
     }

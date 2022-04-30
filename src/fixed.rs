@@ -8,6 +8,14 @@ use std::{
 pub struct Fixed(pub i32);
 
 impl Fixed {
+    pub fn from_f64(f: f64) -> Self {
+        Self((f * 256.0) as i32)
+    }
+
+    pub fn to_f64(self) -> f64 {
+        self.0 as f64 / 256.0
+    }
+
     pub fn from_1616(i: i32) -> Self {
         Self(i >> 8)
     }
@@ -25,27 +33,15 @@ impl Fixed {
     }
 }
 
-impl From<f64> for Fixed {
-    fn from(v: f64) -> Self {
-        Self((v * 256.0) as i32)
-    }
-}
-
-impl From<Fixed> for f64 {
-    fn from(v: Fixed) -> Self {
-        v.0 as f64 / 256.0
-    }
-}
-
 impl Debug for Fixed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&f64::from(*self), f)
+        Debug::fmt(&self.to_f64(), f)
     }
 }
 
 impl Display for Fixed {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&f64::from(*self), f)
+        Display::fmt(&self.to_f64(), f)
     }
 }
 

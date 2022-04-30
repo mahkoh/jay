@@ -4,6 +4,8 @@ mod pointer_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
+pub mod zwp_relative_pointer_manager_v1;
+pub mod zwp_relative_pointer_v1;
 
 pub use event_handling::NodeSeatState;
 use {
@@ -65,6 +67,8 @@ use {
     thiserror::Error,
     uapi::{c, Errno, OwnedFd},
 };
+use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
+use crate::wire::ZwpRelativePointerV1Id;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -467,7 +471,7 @@ impl WlSeatGlobal {
                     T::send_selection(device, ObjectId::NONE.into());
                 }),
             }
-            client.flush();
+            // client.flush();
         }
         Ok(())
     }
@@ -608,6 +612,7 @@ impl WlSeatGlobal {
             id,
             client: client.clone(),
             pointers: Default::default(),
+            relative_pointers: Default::default(),
             keyboards: Default::default(),
             version,
             tracker: Default::default(),
@@ -652,6 +657,7 @@ pub struct WlSeat {
     pub id: WlSeatId,
     pub client: Rc<Client>,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
+    relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
     version: u32,
     tracker: Tracker<Self>,
@@ -814,6 +820,7 @@ impl Object for WlSeat {
             }
         }
         self.pointers.clear();
+        self.relative_pointers.clear();
         self.keyboards.clear();
     }
 }

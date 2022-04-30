@@ -796,6 +796,10 @@ impl Node for WlSurface {
         seat.motion_surface(&*self, x, y)
     }
 
+    fn node_on_pointer_relative_motion(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+        seat.relative_motion_surface(self, time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated);
+    }
+
     fn node_on_dnd_drop(&self, dnd: &Dnd) {
         dnd.seat.dnd_surface_drop(self, dnd);
     }

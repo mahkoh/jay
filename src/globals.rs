@@ -39,6 +39,7 @@ use {
     },
     thiserror::Error,
 };
+use crate::ifs::wl_seat::zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global;
 
 #[derive(Debug, Error)]
 pub enum GlobalsError {
@@ -134,6 +135,7 @@ impl Globals {
         add_singleton!(ZxdgOutputManagerV1Global);
         add_singleton!(JayCompositorGlobal);
         add_singleton!(ZwlrScreencopyManagerV1Global);
+        add_singleton!(ZwpRelativePointerManagerV1Global);
 
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);
@@ -206,7 +208,7 @@ impl Globals {
             for registry in registries.values() {
                 f(registry);
             }
-            c.flush();
+            // c.flush();
         });
     }
 

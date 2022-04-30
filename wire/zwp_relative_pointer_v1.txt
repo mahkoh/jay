@@ -1,0 +1,16 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+# events
+
+msg relative_motion = 0 {
+    utime_hi: u32,
+    utime_lo: u32,
+    dx: fixed,
+    dy: fixed,
+    dx_unaccelerated: fixed,
+    dy_unaccelerated: fixed,
+}

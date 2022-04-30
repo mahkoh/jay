@@ -152,7 +152,7 @@ impl XdgToplevel {
 
     fn send_close(&self) {
         self.xdg.surface.client.event(Close { self_id: self.id });
-        self.xdg.surface.client.flush();
+        // self.xdg.surface.client.flush();
     }
 
     fn send_configure(&self, width: i32, height: i32) {
@@ -472,7 +472,7 @@ impl ToplevelNode for XdgToplevel {
             }
             self.send_configure_checked(nw, nh);
             self.xdg.do_send_configure();
-            self.xdg.surface.client.flush();
+            // self.xdg.surface.client.flush();
         }
         self.xdg.set_absolute_desired_extents(rect);
     }

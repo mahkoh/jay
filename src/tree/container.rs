@@ -1158,7 +1158,7 @@ impl Node for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        let mut scroll = self.scroll.get() + f64::from(scroll);
+        let mut scroll = self.scroll.get() + scroll.to_f64();
         let discrete = (scroll / PX_PER_SCROLL).round();
         scroll -= discrete * PX_PER_SCROLL;
         self.scroll.set(scroll);

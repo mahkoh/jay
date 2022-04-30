@@ -79,7 +79,6 @@ impl<T: Vtable> Default for DeviceData<T> {
 pub struct OfferData<T: Vtable> {
     device: CloneCell<Option<Rc<T::Device>>>,
     source: CloneCell<Option<Rc<T::Source>>>,
-    client: Rc<Client>,
     shared: Rc<SharedState>,
 }
 
@@ -190,7 +189,7 @@ pub fn detach_seat<T: Vtable>(src: &T::Source) {
     if !data.state.get().contains(SOURCE_STATE_FINISHED) {
         T::send_cancelled(src);
     }
-    data.client.flush();
+    // data.client.flush();
 }
 
 pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
@@ -218,7 +217,6 @@ pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
         let offer_data = OfferData {
             device: CloneCell::new(Some(dd.clone())),
             source: CloneCell::new(Some(src.clone())),
-            client: client.clone(),
             shared: shared.clone(),
         };
         let offer = T::create_offer(client, dd, offer_data, id);
@@ -246,8 +244,8 @@ fn add_mime_type<T: Vtable>(src: &T::Source, mime_type: &str) {
     if data.mime_types.borrow_mut().insert(mime_type.to_string()) {
         for (_, offer) in &data.offers {
             T::send_mime_type(&offer, mime_type);
-            let data = T::get_offer_data(&offer);
-            data.client.flush();
+            // let data = T::get_offer_data(&offer);
+            // data.client.flush();
         }
     }
 }
@@ -321,7 +319,7 @@ fn receive<T: Vtable>(offer: &T::Offer, mime_type: &str, fd: Rc<OwnedFd>) {
     let data = T::get_offer_data(offer);
     if let Some(src) = data.source.get() {
         T::send_send(&src, mime_type, fd);
-        let data = T::get_source_data(&src);
-        data.client.flush();
+        // let data = T::get_source_data(&src);
+        // data.client.flush();
     }
 }

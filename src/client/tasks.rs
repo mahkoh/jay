@@ -78,7 +78,7 @@ async fn receive(data: Rc<Client>) {
             if let Err(e) = obj.handle_request(request, parser) {
                 return Err(ClientError::RequestError(Box::new(e)));
             }
-            data.flush();
+            // data.flush();
         }
     };
     let res: Result<(), ClientError> = recv.await;

@@ -144,8 +144,13 @@ pub enum AxisSource {
 pub enum InputEvent {
     Key(u32, KeyState),
     ConnectorPosition(ConnectorId, Fixed, Fixed),
-    #[allow(dead_code)]
-    Motion(Fixed, Fixed),
+    Motion {
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    },
     Button(u32, KeyState),
 
     Axis(Fixed, ScrollAxis),

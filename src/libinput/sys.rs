@@ -74,6 +74,8 @@ extern "C" {
     pub fn libinput_event_pointer_get_time_usec(event: *mut libinput_event_pointer) -> u64;
     pub fn libinput_event_pointer_get_dx(event: *mut libinput_event_pointer) -> f64;
     pub fn libinput_event_pointer_get_dy(event: *mut libinput_event_pointer) -> f64;
+    pub fn libinput_event_pointer_get_dx_unaccelerated(event: *mut libinput_event_pointer) -> f64;
+    pub fn libinput_event_pointer_get_dy_unaccelerated(event: *mut libinput_event_pointer) -> f64;
     pub fn libinput_event_pointer_get_button(event: *mut libinput_event_pointer) -> u32;
     pub fn libinput_event_pointer_get_button_state(
         event: *mut libinput_event_pointer,

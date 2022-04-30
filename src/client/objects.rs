@@ -33,6 +33,8 @@ use {
     },
     std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},
 };
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::wire::WlPointerId;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
@@ -48,6 +50,7 @@ pub struct Objects {
     pub xdg_positioners: CopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
+    pub pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
     pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
     ids: RefCell<Vec<usize>>,
@@ -71,6 +74,7 @@ impl Objects {
             xdg_positioners: Default::default(),
             regions: Default::default(),
             buffers: Default::default(),
+            pointers: Default::default(),
             xdg_wm_bases: Default::default(),
             seats: Default::default(),
             ids: RefCell::new(vec![]),
@@ -104,6 +108,7 @@ impl Objects {
         self.buffers.clear();
         self.xdg_wm_bases.clear();
         self.seats.clear();
+        self.pointers.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

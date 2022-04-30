@@ -366,9 +366,9 @@ impl Client {
         self.flush_request.trigger();
     }
 
-    pub fn flush(&self) {
-        self.flush_request.trigger();
-    }
+    // pub fn flush(&self) {
+    //     self.flush_request.trigger();
+    // }
 
     pub async fn check_queue_size(&self) {
         if self.swapchain.borrow_mut().exceeds_limit() {

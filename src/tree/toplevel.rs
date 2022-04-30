@@ -262,13 +262,15 @@ impl ToplevelData {
         let placeholder = Rc::new(PlaceholderNode::new_for(state, node.clone()));
         parent.cnode_replace_child(node.tl_as_node(), placeholder.clone());
         let mut kb_foci = Default::default();
-        if let Some(container) = ws.container.get() {
-            kb_foci = collect_kb_foci(container.clone());
-            container.tl_set_visible(false);
-        }
-        for stacked in ws.stacked.iter() {
-            collect_kb_foci2(stacked.deref().clone().stacked_into_node(), &mut kb_foci);
-            stacked.stacked_set_visible(false);
+        if ws.visible.get() {
+            if let Some(container) = ws.container.get() {
+                kb_foci = collect_kb_foci(container.clone());
+                container.tl_set_visible(false);
+            }
+            for stacked in ws.stacked.iter() {
+                collect_kb_foci2(stacked.deref().clone().stacked_into_node(), &mut kb_foci);
+                stacked.stacked_set_visible(false);
+            }
         }
         *data = Some(FullscreenedData {
             placeholder,
