@@ -3,6 +3,7 @@ use {
         async_engine::FdStatus,
         backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
+        fixed::Fixed,
         ifs::wl_seat::PX_PER_SCROLL,
         libinput::{
             consts::{
@@ -15,7 +16,6 @@ use {
     },
     std::rc::Rc,
 };
-use crate::fixed::Fixed;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{

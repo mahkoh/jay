@@ -13,7 +13,9 @@ use {
             wl_drm::WlDrmGlobal,
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
-            wl_seat::WlSeatGlobal,
+            wl_seat::{
+                zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global, WlSeatGlobal,
+            },
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
             wp_presentation::WpPresentationGlobal,
@@ -39,7 +41,6 @@ use {
     },
     thiserror::Error,
 };
-use crate::ifs::wl_seat::zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global;
 
 #[derive(Debug, Error)]
 pub enum GlobalsError {

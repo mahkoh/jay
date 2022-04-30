@@ -16,6 +16,7 @@ use {
                     AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
                     POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
                 },
+                zwp_relative_pointer_v1::ZwpRelativePointerV1,
                 Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
@@ -33,7 +34,6 @@ use {
     smallvec::SmallVec,
     std::rc::Rc,
 };
-use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
 
 #[derive(Default)]
 pub struct NodeSeatState {
@@ -156,7 +156,13 @@ impl WlSeatGlobal {
         match event {
             InputEvent::Key(k, s) => self.key_event(k, s),
             InputEvent::ConnectorPosition(o, x, y) => self.connector_position_event(o, x, y),
-            InputEvent::Motion { dx, dy, dx_unaccelerated, dy_unaccelerated, time_usec } => self.motion_event(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated),
+            InputEvent::Motion {
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+                time_usec,
+            } => self.motion_event(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated),
             InputEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
 
             InputEvent::AxisSource(s) => self.pointer_owner.axis_source(s),
@@ -184,8 +190,22 @@ impl WlSeatGlobal {
         self.set_new_position(x, y);
     }
 
-    fn motion_event(self: &Rc<Self>, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
-        self.pointer_owner.relative_motion(self, time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated);
+    fn motion_event(
+        self: &Rc<Self>,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    ) {
+        self.pointer_owner.relative_motion(
+            self,
+            time_usec,
+            dx,
+            dy,
+            dx_unaccelerated,
+            dy_unaccelerated,
+        );
         let (mut x, mut y) = self.pos.get();
         x += dx;
         y += dy;
@@ -329,8 +349,8 @@ impl WlSeatGlobal {
     }
 
     fn for_each_pointer<C>(&self, ver: u32, client: ClientId, mut f: C)
-        where
-            C: FnMut(&Rc<WlPointer>),
+    where
+        C: FnMut(&Rc<WlPointer>),
     {
         self.for_each_seat(ver, client, |seat| {
             let pointers = seat.pointers.lock();
@@ -397,8 +417,8 @@ impl WlSeatGlobal {
     }
 
     fn surface_pointer_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
-        where
-            F: FnMut(&Rc<WlPointer>),
+    where
+        F: FnMut(&Rc<WlPointer>),
     {
         let client = &surface.client;
         self.for_each_pointer(ver, client.id, |p| {
@@ -518,7 +538,15 @@ impl WlSeatGlobal {
 
 // Relative motion callbacks
 impl WlSeatGlobal {
-    pub fn relative_motion_surface(&self, surface: &WlSurface, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+    pub fn relative_motion_surface(
+        &self,
+        surface: &WlSurface,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    ) {
         self.surface_relative_pointer_event(surface, |p| {
             p.send_relative_motion(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated);
         });

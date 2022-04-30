@@ -1,13 +1,16 @@
-use std::rc::Rc;
-use thiserror::Error;
-use crate::client::{Client, ClientError};
-use crate::globals::{Global, GlobalName};
-use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::ZwpRelativePointerManagerV1Id;
-use crate::wire::zwp_relative_pointer_manager_v1::*;
+use {
+    crate::{
+        client::{Client, ClientError},
+        globals::{Global, GlobalName},
+        ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1,
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zwp_relative_pointer_manager_v1::*, ZwpRelativePointerManagerV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct ZwpRelativePointerManagerV1Global {
     pub name: GlobalName,
@@ -41,7 +44,11 @@ impl ZwpRelativePointerManagerV1Global {
     }
 }
 
-global_base!(ZwpRelativePointerManagerV1Global, ZwpRelativePointerManagerV1, ZwpRelativePointerManagerV1Error);
+global_base!(
+    ZwpRelativePointerManagerV1Global,
+    ZwpRelativePointerManagerV1,
+    ZwpRelativePointerManagerV1Error
+);
 
 impl Global for ZwpRelativePointerManagerV1Global {
     fn singleton(&self) -> bool {
@@ -62,7 +69,10 @@ impl ZwpRelativePointerManagerV1 {
         Ok(())
     }
 
-    fn get_relative_pointer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpRelativePointerManagerV1Error> {
+    fn get_relative_pointer(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpRelativePointerManagerV1Error> {
         let req: GetRelativePointer = self.client.parse(self, parser)?;
         let pointer = self.client.lookup(req.pointer)?;
         let rp = Rc::new(ZwpRelativePointerV1 {

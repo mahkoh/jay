@@ -28,6 +28,7 @@ use {
                 wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
+                zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
             wl_surface::WlSurface,
         },
@@ -50,7 +51,7 @@ use {
         },
         wire::{
             wl_seat::*, WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
-            ZwpPrimarySelectionDeviceV1Id,
+            ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
         },
         xkbcommon::{XkbKeymap, XkbState},
     },
@@ -67,8 +68,6 @@ use {
     thiserror::Error,
     uapi::{c, Errno, OwnedFd},
 };
-use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
-use crate::wire::ZwpRelativePointerV1Id;
 
 const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;

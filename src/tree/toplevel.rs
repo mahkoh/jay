@@ -1,7 +1,7 @@
 use {
     crate::{
         client::Client,
-        ifs::wl_seat::{collect_kb_foci, NodeSeatState, SeatId},
+        ifs::wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
         rect::Rect,
         state::State,
         tree::{ContainingNode, Node, OutputNode, PlaceholderNode, WorkspaceNode},
@@ -14,7 +14,6 @@ use {
         rc::Rc,
     },
 };
-use crate::ifs::wl_seat::collect_kb_foci2;
 
 tree_id!(ToplevelNodeId);
 

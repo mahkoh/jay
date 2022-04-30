@@ -1,13 +1,16 @@
-use std::rc::Rc;
-use thiserror::Error;
-use crate::client::{Client, ClientError};
-use crate::fixed::Fixed;
-use crate::ifs::wl_seat::{WlSeat};
-use crate::leaks::Tracker;
-use crate::object::Object;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::ZwpRelativePointerV1Id;
-use crate::wire::zwp_relative_pointer_v1::*;
+use {
+    crate::{
+        client::{Client, ClientError},
+        fixed::Fixed,
+        ifs::wl_seat::WlSeat,
+        leaks::Tracker,
+        object::Object,
+        utils::buffd::{MsgParser, MsgParserError},
+        wire::{zwp_relative_pointer_v1::*, ZwpRelativePointerV1Id},
+    },
+    std::rc::Rc,
+    thiserror::Error,
+};
 
 pub struct ZwpRelativePointerV1 {
     pub id: ZwpRelativePointerV1Id,
@@ -17,7 +20,14 @@ pub struct ZwpRelativePointerV1 {
 }
 
 impl ZwpRelativePointerV1 {
-    pub fn send_relative_motion(&self, time_usec: u64, dx: Fixed, dy: Fixed, dx_unaccelerated: Fixed, dy_unaccelerated: Fixed) {
+    pub fn send_relative_motion(
+        &self,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    ) {
         self.client.event(RelativeMotion {
             self_id: self.id,
             utime_hi: (time_usec >> 32) as u32,

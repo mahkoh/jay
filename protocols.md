@@ -11,6 +11,7 @@
 - kde-server-decoration
 - mesa-drm
 - presentation-time
+- relative-pointer
 
 # planned
 
@@ -20,7 +21,6 @@
 - session-lock
 - linux-explicit-synchronization
 - pointer-constraints
-- relative-pointer
 - tablet
 - xwayland-keyboard-grabbing
 

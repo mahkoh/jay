@@ -11,7 +11,7 @@ use {
             wl_output::WlOutput,
             wl_region::WlRegion,
             wl_registry::WlRegistry,
-            wl_seat::WlSeat,
+            wl_seat::{wl_pointer::WlPointer, WlSeat},
             wl_surface::{
                 xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
@@ -26,15 +26,13 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            WlBufferId, WlDataSourceId, WlOutputId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
+            WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId,
+            WlSeatId, WlSurfaceId, XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId,
             ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},
 };
-use crate::ifs::wl_seat::wl_pointer::WlPointer;
-use crate::wire::WlPointerId;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

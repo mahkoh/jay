@@ -9,14 +9,14 @@ use {
             libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec,
             libinput_event_pointer, libinput_event_pointer_get_button,
             libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
-            libinput_event_pointer_get_dy, libinput_event_pointer_get_scroll_value,
+            libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy,
+            libinput_event_pointer_get_dy_unaccelerated, libinput_event_pointer_get_scroll_value,
             libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
             libinput_event_pointer_has_axis,
         },
     },
     std::marker::PhantomData,
 };
-use crate::libinput::sys::{libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy_unaccelerated};
 
 pub struct LibInputEvent<'a> {
     pub(super) event: *mut libinput_event,
