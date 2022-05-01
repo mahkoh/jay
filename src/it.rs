@@ -1,5 +1,3 @@
-#![cfg(feature = "it")]
-
 use {
     crate::it::{test_backend::TestBackend, testrun::TestRun, tests::TestCase},
     ahash::AHashMap,
