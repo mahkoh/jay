@@ -241,15 +241,17 @@ impl State {
 
     pub fn map_tiled_on(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
         if let Some(c) = ws.container.get() {
-            let la = c.tl_last_active_child();
+            let la = c.clone().tl_last_active_child();
             let lap = la
                 .tl_data()
                 .parent
                 .get()
-                .unwrap()
-                .node_into_container()
-                .unwrap();
-            lap.add_child_after(la.tl_as_node(), node);
+                .and_then(|n| n.node_into_container());
+            if let Some(lap) = lap {
+                lap.add_child_after(la.tl_as_node(), node);
+            } else {
+                c.append_child(node);
+            }
         } else {
             let container =
                 ContainerNode::new(self, &ws, ws.clone(), node, ContainerSplit::Horizontal);

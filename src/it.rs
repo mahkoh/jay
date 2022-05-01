@@ -26,6 +26,7 @@ mod test_ifs;
 mod test_logger;
 mod test_mem;
 mod test_transport;
+mod test_utils;
 mod testrun;
 mod tests;
 
@@ -64,6 +65,7 @@ struct ItRun {
 }
 
 fn run_test(it_run: &ItRun, test: &'static dyn TestCase) {
+    log::info!("Running {}", test.name());
     let dir = format!("{}/{}", it_run.path, test.name());
     std::fs::create_dir_all(&dir).unwrap();
     let log_path = format!("{}/log", dir);

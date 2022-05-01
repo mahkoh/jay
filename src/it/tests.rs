@@ -55,6 +55,7 @@ macro_rules! tassert_eq {
 
 mod t0001_shm_formats;
 mod t0002_window;
+mod t0003_multi_window;
 
 pub trait TestCase {
     fn name(&self) -> &'static str;
@@ -62,5 +63,18 @@ pub trait TestCase {
 }
 
 pub fn tests() -> Vec<&'static dyn TestCase> {
-    vec![&t0001_shm_formats::Test, &t0002_window::Test]
+    macro_rules! tests {
+        ($($module:ident,)*) => {
+            vec![
+                $(
+                    &$module::Test,
+                )*
+            ]
+        }
+    }
+    tests! {
+        t0001_shm_formats,
+        t0002_window,
+        t0003_multi_window,
+    }
 }
