@@ -22,3 +22,13 @@ msg take_screenshot = 4 {
 msg get_idle = 5 {
     id: id(jay_idle),
 }
+
+msg get_client_id = 6 {
+
+}
+
+# events
+
+msg client_id = 0 {
+    client_id: pod(u64),
+}

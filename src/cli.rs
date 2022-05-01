@@ -44,6 +44,8 @@ pub enum Cmd {
     Screenshot(ScreenshotArgs),
     /// Inspect/modify the idle (screensaver) settings.
     Idle(IdleArgs),
+    #[cfg(feature = "it")]
+    RunTests,
 }
 
 #[derive(Args, Debug)]
@@ -101,7 +103,7 @@ pub struct ScreenshotArgs {
     pub filename: Option<String>,
 }
 
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Default)]
 pub struct RunArgs {
     /// The backends to try.
     ///
@@ -184,5 +186,7 @@ pub fn main() {
         Cmd::SetLogLevel(a) => set_log_level::main(cli.global, a),
         Cmd::Screenshot(a) => screenshot::main(cli.global, a),
         Cmd::Idle(a) => idle::main(cli.global, a),
+        #[cfg(feature = "it")]
+        Cmd::RunTests => crate::it::run_tests(),
     }
 }

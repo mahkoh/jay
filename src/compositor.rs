@@ -1,3 +1,5 @@
+#[cfg(feature = "it")]
+use crate::it::test_backend::TestBackend;
 use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
@@ -36,7 +38,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    std::{cell::Cell, ops::Deref, rc::Rc, sync::Arc, time::Duration},
+    std::{cell::Cell, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
 };
@@ -44,12 +46,9 @@ use {
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
-    let forker = match ForkerProxy::create() {
-        Ok(f) => Rc::new(f),
-        Err(e) => fatal!("Could not create a forker process: {}", ErrorFmt(e)),
-    };
+    let forker = create_forker();
     let logger = Logger::install_compositor(global.log_level.into());
-    if let Err(e) = start_compositor2(forker, logger.clone(), args) {
+    if let Err(e) = start_compositor2(forker, Some(logger.clone()), args, None) {
         let e = ErrorFmt(e);
         log::error!("A fatal error occurred: {}", e);
         eprintln!("A fatal error occurred: {}", e);
@@ -59,8 +58,21 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     log::info!("Exit");
 }
 
+#[cfg(feature = "it")]
+pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
+    let forker = create_forker();
+    start_compositor2(forker, None, RunArgs::default(), Some(future))
+}
+
+fn create_forker() -> Rc<ForkerProxy> {
+    match ForkerProxy::create() {
+        Ok(f) => Rc::new(f),
+        Err(e) => fatal!("Could not create a forker process: {}", ErrorFmt(e)),
+    }
+}
+
 #[derive(Debug, Error)]
-enum MainError {
+pub enum CompositorError {
     #[error("The client acceptor caused an error")]
     AcceptorError(#[from] AcceptorError),
     #[error("The event loop caused an error")]
@@ -86,11 +98,14 @@ const STATIC_VARS: &[(&str, &str)] = &[
     ("_JAVA_AWT_WM_NONREPARENTING", "1"),
 ];
 
+pub type TestFuture = Box<dyn Fn(&Rc<State>) -> Box<dyn Future<Output = ()>>>;
+
 fn start_compositor2(
     forker: Rc<ForkerProxy>,
-    logger: Arc<Logger>,
+    logger: Option<Arc<Logger>>,
     run_args: RunArgs,
-) -> Result<(), MainError> {
+    test_future: Option<TestFuture>,
+) -> Result<(), CompositorError> {
     log::info!("pid = {}", uapi::getpid());
     init_fd_limit();
     leaks::init();
@@ -155,19 +170,22 @@ fn start_compositor2(
             handler: Default::default(),
             queue: Default::default(),
         },
-        socket_path: Default::default(),
+        acceptor: Default::default(),
         serial: Default::default(),
         idle_inhibitor_ids: Default::default(),
         run_toplevel,
     });
     create_dummy_output(&state);
-    let socket_path = Acceptor::install(&state)?;
+    let acceptor = Acceptor::install(&state)?;
     forker.install(&state);
-    forker.setenv(WAYLAND_DISPLAY.as_bytes(), socket_path.as_bytes());
+    forker.setenv(
+        WAYLAND_DISPLAY.as_bytes(),
+        acceptor.socket_name().as_bytes(),
+    );
     for (key, val) in STATIC_VARS {
         forker.setenv(key.as_bytes(), val.as_bytes());
     }
-    let _compositor = engine.spawn(start_compositor3(state.clone()));
+    let _compositor = engine.spawn(start_compositor3(state.clone(), test_future));
     el.run()?;
     state.xwayland.handler.borrow_mut().take();
     state.clients.clear();
@@ -178,8 +196,8 @@ fn start_compositor2(
     Ok(())
 }
 
-async fn start_compositor3(state: Rc<State>) {
-    let backend = match create_backend(&state).await {
+async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
+    let backend = match create_backend(&state, test_future).await {
         Some(b) => b,
         _ => {
             log::error!("Could not create a backend");
@@ -190,8 +208,10 @@ async fn start_compositor3(state: Rc<State>) {
     state.backend.set(backend.clone());
     state.globals.add_singletons(&backend);
 
-    if backend.is_freestanding() {
-        import_environment(&state, WAYLAND_DISPLAY, &state.socket_path.get());
+    if backend.import_environment() {
+        if let Some(acc) = state.acceptor.get() {
+            import_environment(&state, WAYLAND_DISPLAY, acc.socket_name());
+        }
         for (key, val) in STATIC_VARS {
             import_environment(&state, key, val);
         }
@@ -228,7 +248,17 @@ fn start_global_event_handlers(
     res
 }
 
-async fn create_backend(state: &Rc<State>) -> Option<Rc<dyn Backend>> {
+async fn create_backend(
+    state: &Rc<State>,
+    #[allow(unused_variables)] test_future: Option<TestFuture>,
+) -> Option<Rc<dyn Backend>> {
+    #[cfg(feature = "it")]
+    if let Some(tf) = test_future {
+        return Some(Rc::new(TestBackend {
+            state: state.clone(),
+            test_future: tf,
+        }));
+    }
     let mut backends = &state.run_args.backends[..];
     if backends.is_empty() {
         backends = &[CliBackend::X11, CliBackend::Metal];

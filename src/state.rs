@@ -1,5 +1,6 @@
 use {
     crate::{
+        acceptor::Acceptor,
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
             Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice,
@@ -83,14 +84,14 @@ pub struct State {
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
-    pub logger: Arc<Logger>,
+    pub logger: Option<Arc<Logger>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
     pub status: CloneCell<Rc<String>>,
     pub idle: IdleState,
     pub run_args: RunArgs,
     pub xwayland: XWaylandState,
-    pub socket_path: CloneCell<Rc<String>>,
+    pub acceptor: CloneCell<Option<Rc<Acceptor>>>,
     pub serial: NumCell<Wrapping<u32>>,
     pub run_toplevel: Rc<RunToplevel>,
 }

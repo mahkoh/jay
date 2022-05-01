@@ -100,7 +100,7 @@ pub async fn manage(state: Rc<State>) {
         forker.setenv(DISPLAY.as_bytes(), display.as_bytes());
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
-        if state.backend.get().is_freestanding() {
+        if state.backend.get().import_environment() {
             import_environment(&state, DISPLAY, &display);
         }
         let res = XWaylandError::tria(async {

@@ -13,6 +13,7 @@ use {
         },
         wire::{jay_compositor::*, JayCompositorId},
     },
+    bstr::ByteSlice,
     log::Level,
     std::{ops::Deref, rc::Rc},
     thiserror::Error,
@@ -80,7 +81,11 @@ impl JayCompositor {
         let log_file = Rc::new(JayLogFile::new(req.id, &self.client));
         track!(self.client, log_file);
         self.client.add_client_obj(&log_file)?;
-        log_file.send_path(self.client.state.logger.path());
+        let path = match &self.client.state.logger {
+            Some(logger) => logger.path(),
+            _ => "".as_bytes().as_bstr(),
+        };
+        log_file.send_path(path);
         Ok(())
     }
 
@@ -106,7 +111,9 @@ impl JayCompositor {
             TRACE => Level::Trace,
             _ => return Err(JayCompositorError::UnknownLogLevel(req.level)),
         };
-        self.client.state.logger.set_level(level);
+        if let Some(logger) = &self.client.state.logger {
+            logger.set_level(level);
+        }
         Ok(())
     }
 
@@ -152,6 +159,15 @@ impl JayCompositor {
         self.client.add_client_obj(&idle)?;
         Ok(())
     }
+
+    fn get_client_id(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let _req: GetClientId = self.client.parse(self, parser)?;
+        self.client.event(ClientId {
+            self_id: self.id,
+            client_id: self.client.id.raw(),
+        });
+        Ok(())
+    }
 }
 
 object_base! {
@@ -163,11 +179,12 @@ object_base! {
     SET_LOG_LEVEL => set_log_level,
     TAKE_SCREENSHOT => take_screenshot,
     GET_IDLE => get_idle,
+    GET_CLIENT_ID => get_client_id,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        GET_IDLE + 1
+        GET_CLIENT_ID + 1
     }
 }
 

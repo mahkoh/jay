@@ -37,10 +37,8 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         Self::default()
     }
 
-    pub fn set(&self, k: K, v: V) {
-        unsafe {
-            self.map.get().deref_mut().insert(k, v);
-        }
+    pub fn set(&self, k: K, v: V) -> Option<V> {
+        unsafe { self.map.get().deref_mut().insert(k, v) }
     }
 
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<V>

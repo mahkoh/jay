@@ -6,6 +6,7 @@ use {
         video::drm::ConnectorType,
     },
     std::{
+        any::Any,
         error::Error,
         fmt::{Debug, Display, Formatter},
         rc::Rc,
@@ -17,6 +18,7 @@ linear_ids!(InputDeviceIds, InputDeviceId);
 
 pub trait Backend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>>;
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 
     fn switch_to(&self, vtnr: u32) {
         let _ = vtnr;
@@ -30,7 +32,7 @@ pub trait Backend {
         false
     }
 
-    fn is_freestanding(&self) -> bool {
+    fn import_environment(&self) -> bool {
         false
     }
 
@@ -57,6 +59,7 @@ pub struct MonitorInfo {
     pub height_mm: i32,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub struct ConnectorKernelId {
     pub ty: ConnectorType,
     pub idx: u32,
@@ -84,6 +87,8 @@ pub enum ConnectorEvent {
     ModeChanged(Mode),
 }
 
+pub type TransformMatrix = [[f64; 2]; 2];
+
 pub trait InputDevice {
     fn id(&self) -> InputDeviceId;
     fn removed(&self) -> bool;
@@ -94,11 +99,11 @@ pub trait InputDevice {
     fn set_left_handed(&self, left_handed: bool);
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile);
     fn set_accel_speed(&self, speed: f64);
-    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]);
+    fn set_transform_matrix(&self, matrix: TransformMatrix);
     fn name(&self) -> Rc<String>;
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum InputDeviceCapability {
     Keyboard,
     Pointer,

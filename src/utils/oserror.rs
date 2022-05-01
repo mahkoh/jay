@@ -204,3 +204,17 @@ impl Display for OsError {
         write!(f, "{} (os error {})", msg, self.0)
     }
 }
+
+pub trait OsErrorExt {
+    type Container;
+
+    fn to_os_error(self) -> Self::Container;
+}
+
+impl<T> OsErrorExt for Result<T, Errno> {
+    type Container = Result<T, OsError>;
+
+    fn to_os_error(self) -> Self::Container {
+        self.map_err(|e| e.into())
+    }
+}

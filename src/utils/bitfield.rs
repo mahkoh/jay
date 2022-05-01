@@ -14,7 +14,7 @@ impl Bitfield {
         let idx = val as usize / SEG_SIZE;
         let pos = val as usize % SEG_SIZE;
         while self.vals.len() <= idx {
-            self.vals.push(0);
+            self.vals.push(!0);
         }
         self.vals[idx] &= !(1 << pos);
     }

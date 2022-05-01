@@ -7,7 +7,7 @@ use {
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::{c, format_ustr, Errno, OwnedFd, Ustring},
+    uapi::{c, format_ustr, Errno, OwnedFd, Ustr, Ustring},
 };
 
 #[derive(Debug, Error)]
@@ -48,7 +48,7 @@ pub struct Acceptor {
 
 struct AllocatedSocket {
     // wayland-x
-    name: Ustring,
+    name: String,
     // /run/user/1000/wayland-x
     path: Ustring,
     insecure: Rc<OwnedFd>,
@@ -56,6 +56,8 @@ struct AllocatedSocket {
     lock_path: Ustring,
     _lock_fd: OwnedFd,
     // /run/user/1000/wayland-x.jay
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    secure_path: Ustring,
     secure: Rc<OwnedFd>,
 }
 
@@ -74,8 +76,8 @@ fn bind_socket(
 ) -> Result<AllocatedSocket, AcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
-    let name = format_ustr!("wayland-{}", id);
-    let path = format_ustr!("{}/{}", xrd, name.display());
+    let name = format!("wayland-{}", id);
+    let path = format_ustr!("{}/{}", xrd, name);
     let jay_path = format_ustr!("{}.jay", path.display());
     let lock_path = format_ustr!("{}.lock", path.display());
     if jay_path.len() + 1 > addr.sun_path.len() {
@@ -110,6 +112,7 @@ fn bind_socket(
         insecure: insecure.clone(),
         lock_path,
         _lock_fd: lock_fd,
+        secure_path: jay_path,
         secure: secure.clone(),
     })
 }
@@ -145,7 +148,7 @@ fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
 }
 
 impl Acceptor {
-    pub fn install(state: &Rc<State>) -> Result<Rc<String>, AcceptorError> {
+    pub fn install(state: &Rc<State>) -> Result<Rc<Acceptor>, AcceptorError> {
         let socket = allocate_socket()?;
         log::info!("bound to socket {}", socket.path.display());
         for fd in [&socket.secure, &socket.insecure] {
@@ -155,7 +158,6 @@ impl Acceptor {
         }
         let id1 = state.el.id();
         let id2 = state.el.id();
-        let name = socket.name.to_owned();
         let acc = Rc::new(Acceptor {
             ids: [id1, id2],
             socket,
@@ -169,10 +171,18 @@ impl Acceptor {
         )?;
         state
             .el
-            .insert(id2, Some(acc.socket.secure.raw()), c::EPOLLIN, acc)?;
-        let name = Rc::new(name.display().to_string());
-        state.socket_path.set(name.clone());
-        Ok(name)
+            .insert(id2, Some(acc.socket.secure.raw()), c::EPOLLIN, acc.clone())?;
+        state.acceptor.set(Some(acc.clone()));
+        Ok(acc)
+    }
+
+    pub fn socket_name(&self) -> &str {
+        &self.socket.name
+    }
+
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    pub fn secure_path(&self) -> &Ustr {
+        self.socket.secure_path.as_ustr()
     }
 }
 

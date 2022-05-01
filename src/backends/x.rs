@@ -4,7 +4,7 @@ use {
         backend::{
             AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
             ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis,
+            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
         },
         fixed::Fixed,
         format::XRGB8888,
@@ -48,6 +48,7 @@ use {
         },
     },
     std::{
+        any::Any,
         borrow::Cow,
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -241,6 +242,10 @@ impl Backend for XBackend {
             slf.run().await?;
             Ok(())
         })
+    }
+
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+        self
     }
 }
 
@@ -1054,7 +1059,7 @@ impl InputDevice for XSeatKeyboard {
         let _ = speed;
     }
 
-    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
+    fn set_transform_matrix(&self, matrix: TransformMatrix) {
         let _ = matrix;
     }
 
@@ -1103,7 +1108,7 @@ impl InputDevice for XSeatMouse {
         let _ = speed;
     }
 
-    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
+    fn set_transform_matrix(&self, matrix: TransformMatrix) {
         let _ = matrix;
     }
 

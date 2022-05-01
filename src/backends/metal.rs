@@ -7,7 +7,7 @@ use {
         async_engine::{AsyncError, AsyncFd, SpawnedFuture},
         backend::{
             Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceId, InputEvent, KeyState,
+            InputDeviceId, InputEvent, KeyState, TransformMatrix,
         },
         backends::metal::video::{MetalDrmDevice, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
@@ -40,6 +40,7 @@ use {
         },
     },
     std::{
+        any::Any,
         cell::{Cell, RefCell},
         error::Error,
         ffi::{CStr, CString},
@@ -148,6 +149,10 @@ impl Backend for MetalBackend {
         })
     }
 
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+        self
+    }
+
     fn switch_to(&self, vtnr: u32) {
         self.session.switch_to(vtnr, move |res| {
             if let Err(e) = res {
@@ -188,7 +193,7 @@ impl Backend for MetalBackend {
         true
     }
 
-    fn is_freestanding(&self) -> bool {
+    fn import_environment(&self) -> bool {
         true
     }
 
@@ -288,7 +293,7 @@ struct MetalInputDevice {
     left_handed: Cell<Option<bool>>,
     accel_profile: Cell<Option<AccelProfile>>,
     accel_speed: Cell<Option<f64>>,
-    transform_matrix: Cell<Option<[[f64; 2]; 2]>>,
+    transform_matrix: Cell<Option<TransformMatrix>>,
 }
 
 impl Drop for MetalInputDevice {
@@ -419,7 +424,7 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
-    fn set_transform_matrix(&self, matrix: [[f64; 2]; 2]) {
+    fn set_transform_matrix(&self, matrix: TransformMatrix) {
         self.transform_matrix.set(Some(matrix));
     }
 

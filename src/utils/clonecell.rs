@@ -12,7 +12,7 @@ use {
     },
 };
 
-pub struct CloneCell<T: UnsafeCellCloneSafe> {
+pub struct CloneCell<T> {
     data: UnsafeCell<T>,
 }
 
@@ -26,19 +26,22 @@ impl<T: UnsafeCellCloneSafe> Clone for CloneCell<T> {
 
 impl<T: UnsafeCellCloneSafe + Debug> Debug for CloneCell<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        unsafe { self.data.get().deref().fmt(f) }
+        self.get().fmt(f)
     }
 }
 
-impl<T: UnsafeCellCloneSafe> CloneCell<T> {
-    pub fn new(t: T) -> Self {
+impl<T> CloneCell<T> {
+    pub const fn new(t: T) -> Self {
         Self {
             data: UnsafeCell::new(t),
         }
     }
 
     #[inline(always)]
-    pub fn get(&self) -> T {
+    pub fn get(&self) -> T
+    where
+        T: UnsafeCellCloneSafe,
+    {
         unsafe { self.data.get().deref().clone() }
     }
 
@@ -52,7 +55,7 @@ impl<T: UnsafeCellCloneSafe> CloneCell<T> {
     where
         T: Default,
     {
-        unsafe { mem::take(self.data.get().deref_mut()) }
+        self.set(T::default())
     }
 }
 

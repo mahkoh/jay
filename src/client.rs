@@ -42,6 +42,11 @@ impl ClientId {
     pub fn raw(self) -> u64 {
         self.0
     }
+
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    pub fn from_raw(val: u64) -> Self {
+        Self(val)
+    }
 }
 
 impl Display for ClientId {
