@@ -46,6 +46,9 @@ impl Deref for TestMem {
 }
 
 fn map(fd: c::c_int, size: usize) -> Result<*const [Cell<u8>], TestError> {
+    if size == 0 {
+        return Ok(&[]);
+    }
     unsafe {
         let res = c::mmap(
             ptr::null_mut(),

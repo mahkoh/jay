@@ -149,6 +149,13 @@ impl NodeSeatState {
             self.destroy_node2(node, false);
         }
     }
+
+    pub fn on_seat_remove(&self, seat: &WlSeatGlobal) {
+        self.kb_foci.remove(&seat.id);
+        self.pointer_foci.remove(&seat.id);
+        self.dnd_targets.remove(&seat.id);
+        self.pointer_grabs.remove(&seat.id);
+    }
 }
 
 impl WlSeatGlobal {

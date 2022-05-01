@@ -4,7 +4,8 @@ use {
             test_error::TestError, test_mem::TestMem, test_object::TestObject,
             test_transport::TestTransport, testrun::ParseFull,
         },
-        utils::buffd::MsgParser,
+        theme::Color,
+        utils::{buffd::MsgParser, windows::WindowsExt},
         wire::{wl_buffer::*, WlBufferId},
     },
     std::{
@@ -16,7 +17,7 @@ use {
 
 pub struct TestShmBuffer {
     pub id: WlBufferId,
-    pub transport: Rc<TestTransport>,
+    pub tran: Rc<TestTransport>,
     pub range: Range<usize>,
     pub mem: Rc<TestMem>,
     pub released: Cell<bool>,
@@ -24,11 +25,21 @@ pub struct TestShmBuffer {
 }
 
 impl TestShmBuffer {
+    pub fn fill(&self, color: Color) {
+        let [cr, cg, cb, ca] = color.to_rgba_premultiplied();
+        for [b, g, r, a] in self.deref().array_chunks_ext::<4>() {
+            r.set(cr);
+            g.set(cg);
+            b.set(cb);
+            a.set(ca);
+        }
+    }
+
     pub fn destroy(&self) {
         if self.destroyed.replace(true) {
             return;
         }
-        self.transport.send(Destroy { self_id: self.id });
+        self.tran.send(Destroy { self_id: self.id });
     }
 
     fn handle_release(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {

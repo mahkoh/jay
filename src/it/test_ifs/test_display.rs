@@ -12,7 +12,7 @@ use {
 };
 
 pub struct TestDisplay {
-    pub transport: Rc<TestTransport>,
+    pub tran: Rc<TestTransport>,
     pub id: WlDisplayId,
 }
 
@@ -20,25 +20,25 @@ impl TestDisplay {
     fn handle_error(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = Error::parse_full(parser)?;
         let msg = format!("Compositor sent an error: {}", ev.message);
-        self.transport.error(&msg);
-        self.transport.kill();
+        self.tran.error(&msg);
+        self.tran.kill();
         Ok(())
     }
 
     fn handle_delete_id(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = DeleteId::parse_full(parser)?;
-        match self.transport.objects.remove(&ObjectId::from_raw(ev.id)) {
+        match self.tran.objects.remove(&ObjectId::from_raw(ev.id)) {
             None => {
                 let msg = format!(
                     "Compositor sent delete_id for object {} which does not exist",
                     ev.id
                 );
-                self.transport.error(&msg);
-                self.transport.kill();
+                self.tran.error(&msg);
+                self.tran.kill();
             }
             Some(obj) => {
-                obj.on_remove(&self.transport);
-                self.transport.obj_ids.borrow_mut().release(ev.id);
+                obj.on_remove(&self.tran);
+                self.tran.obj_ids.borrow_mut().release(ev.id);
             }
         }
         Ok(())

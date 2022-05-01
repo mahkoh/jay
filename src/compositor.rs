@@ -185,10 +185,10 @@ fn start_compositor2(
     for (key, val) in STATIC_VARS {
         forker.setenv(key.as_bytes(), val.as_bytes());
     }
-    let _compositor = engine.spawn(start_compositor3(state.clone(), test_future));
+    let compositor = engine.spawn(start_compositor3(state.clone(), test_future));
     el.run()?;
-    state.xwayland.handler.borrow_mut().take();
-    state.clients.clear();
+    drop(compositor);
+    state.clear();
     for (_, seat) in state.globals.seats.lock().deref() {
         seat.clear();
     }
@@ -254,10 +254,7 @@ async fn create_backend(
 ) -> Option<Rc<dyn Backend>> {
     #[cfg(feature = "it")]
     if let Some(tf) = test_future {
-        return Some(Rc::new(TestBackend {
-            state: state.clone(),
-            test_future: tf,
-        }));
+        return Some(Rc::new(TestBackend::new(state, tf)));
     }
     let mut backends = &state.run_args.backends[..];
     if backends.is_empty() {

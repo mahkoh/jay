@@ -135,6 +135,10 @@ pub struct Drm {
 }
 
 impl Drm {
+    pub fn open_existing(fd: OwnedFd) -> Self {
+        Self { fd: Rc::new(fd) }
+    }
+
     pub fn reopen(fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {
         Ok(Self {
             fd: reopen(fd, need_primary)?,

@@ -24,6 +24,7 @@ pub struct TestRun {
     pub backend: Rc<TestBackend>,
     pub errors: Stack<String>,
     pub server_addr: c::sockaddr_un,
+    pub dir: String,
 }
 
 impl TestRun {
@@ -53,7 +54,7 @@ impl TestRun {
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);
         obj_ids.take(1);
-        let transport = Rc::new(TestTransport {
+        let tran = Rc::new(TestTransport {
             run: self.clone(),
             fd,
             client_id: Cell::new(ClientId::from_raw(0)),
@@ -66,22 +67,23 @@ impl TestRun {
             obj_ids: RefCell::new(obj_ids),
             killed: Cell::new(false),
         });
-        transport.add_obj(Rc::new(TestDisplay {
-            transport: transport.clone(),
+        tran.add_obj(Rc::new(TestDisplay {
+            tran: tran.clone(),
             id: WL_DISPLAY_ID,
         }))?;
-        transport.init();
-        let registry = transport.get_registry();
+        tran.init();
+        let registry = tran.get_registry();
         let jc = registry.get_jay_compositor().await?;
         let client_id = jc.get_client_id().await?;
         let client = self.state.clients.get(client_id)?;
         Ok(Rc::new(TestClient {
             run: self.clone(),
             server: client,
-            transport,
+            tran,
             jc,
             comp: registry.get_compositor().await?,
             shm: registry.get_shm().await?,
+            xdg: registry.get_xdg().await?,
             registry,
         }))
     }

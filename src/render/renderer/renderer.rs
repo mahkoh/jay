@@ -196,7 +196,7 @@ impl Renderer<'_> {
         let pos = placeholder.tl_data().pos.get();
         self.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
-            &Color::from_rgba(20, 20, 20, 255),
+            &Color::from_rgba_straight(20, 20, 20, 255),
         );
         if let Some(tex) = placeholder.texture() {
             let x = x + (pos.width() - tex.width()) / 2;

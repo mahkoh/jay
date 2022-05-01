@@ -230,7 +230,7 @@ mod leaks {
             res
         }
 
-        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
             if INITIALIZED {
                 ALLOCATIONS.deref_mut().remove(&ptr);
             }

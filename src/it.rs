@@ -1,5 +1,8 @@
 use {
-    crate::it::{test_backend::TestBackend, testrun::TestRun, tests::TestCase},
+    crate::{
+        it::{test_backend::TestBackend, testrun::TestRun, tests::TestCase},
+        utils::errorfmt::ErrorFmt,
+    },
     ahash::AHashMap,
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
@@ -86,6 +89,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase) {
             backend,
             errors: Default::default(),
             server_addr,
+            dir: dir.clone(),
         });
         let errors = errors2.clone();
         Box::new(async move {
@@ -98,7 +102,10 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase) {
             pending().await
         })
     }));
-    let errors = errors.take();
+    let mut errors = errors.take();
+    if let Err(e) = res {
+        errors.push(format!("The compositor failed: {}", ErrorFmt(e)));
+    }
     if errors.len() > 0 {
         log::error!("The following errors occurred:");
         for e in &errors {
@@ -107,5 +114,4 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase) {
         it_run.failed.borrow_mut().insert(test.name(), errors);
     }
     test_logger::unset_file();
-    let _ = res;
 }

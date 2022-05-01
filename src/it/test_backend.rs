@@ -2,26 +2,139 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, InputDevice,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
-            TransformMatrix,
+            Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
+            InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
+            Mode, MonitorInfo, TransformMatrix,
         },
         compositor::TestFuture,
+        render::{RenderContext, RenderError},
         state::State,
-        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, syncqueue::SyncQueue},
+        utils::{
+            clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
+        },
+        video::drm::{ConnectorType, Drm},
     },
-    std::{any::Any, cell::Cell, error::Error, pin::Pin, rc::Rc},
+    bstr::ByteSlice,
+    std::{any::Any, cell::Cell, io, os::unix::ffi::OsStrExt, pin::Pin, rc::Rc},
+    thiserror::Error,
+    uapi::c,
 };
+
+#[derive(Debug, Error)]
+pub enum TestBackendError {
+    #[error("Could not read /dev/dri")]
+    ReadDri(#[source] io::Error),
+    #[error("There are no drm nodes in /dev/dri")]
+    NoDrmNode,
+    #[error("Could not open drm node {0}")]
+    OpenDrmNode(String, #[source] OsError),
+    #[error("Could not create a render context")]
+    RenderContext(#[source] RenderError),
+}
 
 pub struct TestBackend {
     pub state: Rc<State>,
     pub test_future: TestFuture,
+    pub default_connector: Rc<TestConnector>,
+}
+
+impl TestBackend {
+    pub fn new(state: &Rc<State>, future: TestFuture) -> Self {
+        let connector = Rc::new(TestConnector {
+            id: state.connector_ids.next(),
+            kernel_id: ConnectorKernelId {
+                ty: ConnectorType::VGA,
+                idx: 1,
+            },
+            events: Default::default(),
+            on_change: Default::default(),
+        });
+        Self {
+            state: state.clone(),
+            test_future: future,
+            default_connector: connector,
+        }
+    }
+
+    pub fn install_default(&self) {
+        self.state
+            .backend_events
+            .push(BackendEvent::NewConnector(self.default_connector.clone()));
+        let mode = Mode {
+            width: 800,
+            height: 600,
+            refresh_rate_millihz: 60_000,
+        };
+        self.default_connector
+            .events
+            .push(ConnectorEvent::Connected(MonitorInfo {
+                modes: vec![mode],
+                manufacturer: "jay".to_string(),
+                product: "TestConnector".to_string(),
+                serial_number: self.default_connector.id.to_string(),
+                initial_mode: mode,
+                width_mm: 80,
+                height_mm: 60,
+            }));
+    }
+
+    fn create_render_context(&self) -> Result<(), TestBackendError> {
+        let dri = match std::fs::read_dir("/dev/dri") {
+            Ok(d) => d,
+            Err(e) => return Err(TestBackendError::ReadDri(e)),
+        };
+        let mut files = vec![];
+        for f in dri {
+            let f = match f {
+                Ok(f) => f,
+                Err(e) => return Err(TestBackendError::ReadDri(e)),
+            };
+            files.push(f.path());
+        }
+        let node = 'node: {
+            for f in &files {
+                if let Some(file) = f.file_name() {
+                    if file.as_bytes().starts_with_str("renderD") {
+                        break 'node f;
+                    }
+                }
+            }
+            for f in &files {
+                if let Some(file) = f.file_name() {
+                    if file.as_bytes().starts_with_str("card") {
+                        break 'node f;
+                    }
+                }
+            }
+            return Err(TestBackendError::NoDrmNode);
+        };
+        let file = match uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0) {
+            Ok(f) => f,
+            Err(e) => {
+                return Err(TestBackendError::OpenDrmNode(
+                    node.as_os_str().as_bytes().as_bstr().to_string(),
+                    e.into(),
+                ))
+            }
+        };
+        let drm = Drm::open_existing(file);
+        let ctx = match RenderContext::from_drm_device(&drm) {
+            Ok(ctx) => ctx,
+            Err(e) => return Err(TestBackendError::RenderContext(e)),
+        };
+        self.state.set_render_ctx(&Rc::new(ctx));
+        Ok(())
+    }
 }
 
 impl Backend for TestBackend {
-    fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {
+    fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn std::error::Error>>> {
         let future = (self.test_future)(&self.state);
+        let slf = self.clone();
         self.state.eng.spawn(async move {
+            if let Err(e) = slf.create_render_context() {
+                return Err(Box::new(e) as Box<_>);
+            }
             let future: Pin<_> = future.into();
             future.await;
             Ok(())
@@ -72,7 +185,7 @@ impl Connector for TestConnector {
     }
 
     fn damage(&self) {
-        todo!()
+        // nothing
     }
 }
 

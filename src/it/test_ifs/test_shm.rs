@@ -12,7 +12,7 @@ use {
 
 pub struct TestShm {
     pub id: WlShmId,
-    pub transport: Rc<TestTransport>,
+    pub tran: Rc<TestTransport>,
     pub formats: CopyHashMap<u32, ()>,
     pub formats_awaited: Cell<bool>,
 }
@@ -20,7 +20,7 @@ pub struct TestShm {
 impl TestShm {
     pub async fn formats(&self) -> &CopyHashMap<u32, ()> {
         if !self.formats_awaited.replace(true) {
-            self.transport.sync().await;
+            self.tran.sync().await;
         }
         &self.formats
     }
@@ -28,18 +28,18 @@ impl TestShm {
     pub fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
         let mem = TestMem::new(size)?;
         let pool = Rc::new(TestShmPool {
-            id: self.transport.id(),
-            transport: self.transport.clone(),
+            id: self.tran.id(),
+            tran: self.tran.clone(),
             mem: CloneCell::new(mem.clone()),
             destroyed: Cell::new(false),
         });
-        self.transport.send(CreatePool {
+        self.tran.send(CreatePool {
             self_id: self.id,
             id: pool.id,
             fd: mem.fd.clone(),
             size: size as _,
         });
-        self.transport.add_obj(pool.clone())?;
+        self.tran.add_obj(pool.clone())?;
         Ok(pool)
     }
 

@@ -67,7 +67,7 @@ async fn run(screenshot: Rc<Screenshot>) {
     }
 }
 
-fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
+pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
     let drm = match Drm::reopen(buf.drm_dev.raw(), false) {
         Ok(drm) => drm,
         Err(e) => {

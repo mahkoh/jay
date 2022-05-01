@@ -4,7 +4,7 @@ use {
             test_error::TestError,
             test_ifs::{
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_shm::TestShm,
+                test_shm::TestShm, test_xdg_base::TestXdgWmBase,
             },
             test_object::TestObject,
             test_transport::TestTransport,
@@ -26,16 +26,18 @@ pub struct TestRegistrySingletons {
     pub jay_compositor: u32,
     pub wl_compositor: u32,
     pub wl_shm: u32,
+    pub xdg_wm_base: u32,
 }
 
 pub struct TestRegistry {
     pub id: WlRegistryId,
-    pub transport: Rc<TestTransport>,
+    pub tran: Rc<TestTransport>,
     pub globals: CopyHashMap<u32, Rc<TestGlobal>>,
     pub singletons: CloneCell<Option<Rc<TestRegistrySingletons>>>,
     pub jay_compositor: CloneCell<Option<Rc<TestJayCompositor>>>,
     pub compositor: CloneCell<Option<Rc<TestCompositor>>>,
     pub shm: CloneCell<Option<Rc<TestShm>>>,
+    pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
 }
 
 macro_rules! singleton {
@@ -49,22 +51,22 @@ macro_rules! singleton {
 impl TestRegistry {
     pub async fn get_singletons(&self) -> Result<Rc<TestRegistrySingletons>, TestError> {
         singleton!(self.singletons);
-        self.transport.sync().await;
+        self.tran.sync().await;
         singleton!(self.singletons);
-        let mut jay_compositor = 0;
-        let mut wl_compositor = 0;
-        let mut wl_shm = 0;
-        for global in self.globals.lock().values() {
-            match global.interface.as_str() {
-                "jay_compositor" => jay_compositor = global.name,
-                "wl_compositor" => wl_compositor = global.name,
-                "wl_shm" => wl_shm = global.name,
-                _ => {}
-            }
-        }
         macro_rules! singleton {
-            ($($name:ident,)*) => {
-                TestRegistrySingletons {
+            ($($name:ident,)*) => {{
+                $(
+                    let mut $name = 0;
+                )*
+                for global in self.globals.lock().values() {
+                    match global.interface.as_str() {
+                        $(
+                            stringify!($name) => $name = global.name,
+                        )*
+                        _ => {}
+                    }
+                }
+                Rc::new(TestRegistrySingletons {
                     $(
                         $name: {
                             if $name == 0 {
@@ -73,14 +75,15 @@ impl TestRegistry {
                             $name
                         },
                     )*
-                }
-            }
+                })
+            }}
         }
-        let singletons = Rc::new(singleton! {
+        let singletons = singleton! {
             jay_compositor,
             wl_compositor,
             wl_shm,
-        });
+            xdg_wm_base,
+        };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
     }
@@ -90,8 +93,8 @@ impl TestRegistry {
         let singletons = self.get_singletons().await?;
         singleton!(self.jay_compositor);
         let jc = Rc::new(TestJayCompositor {
-            id: self.transport.id(),
-            transport: self.transport.clone(),
+            id: self.tran.id(),
+            tran: self.tran.clone(),
             client_id: Default::default(),
         });
         self.bind(&jc, singletons.jay_compositor, 1)?;
@@ -104,8 +107,8 @@ impl TestRegistry {
         let singletons = self.get_singletons().await?;
         singleton!(self.compositor);
         let jc = Rc::new(TestCompositor {
-            id: self.transport.id(),
-            transport: self.transport.clone(),
+            id: self.tran.id(),
+            tran: self.tran.clone(),
         });
         self.bind(&jc, singletons.wl_compositor, 4)?;
         self.compositor.set(Some(jc.clone()));
@@ -117,13 +120,27 @@ impl TestRegistry {
         let singletons = self.get_singletons().await?;
         singleton!(self.shm);
         let jc = Rc::new(TestShm {
-            id: self.transport.id(),
-            transport: self.transport.clone(),
+            id: self.tran.id(),
+            tran: self.tran.clone(),
             formats: Default::default(),
             formats_awaited: Cell::new(false),
         });
         self.bind(&jc, singletons.wl_shm, 1)?;
         self.shm.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_xdg(&self) -> Result<Rc<TestXdgWmBase>, TestError> {
+        singleton!(self.xdg);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.xdg);
+        let jc = Rc::new(TestXdgWmBase {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+            destroyed: Cell::new(false),
+        });
+        self.bind(&jc, singletons.xdg_wm_base, 3)?;
+        self.xdg.set(Some(jc.clone()));
         Ok(jc)
     }
 
@@ -133,14 +150,14 @@ impl TestRegistry {
         name: u32,
         version: u32,
     ) -> Result<(), TestError> {
-        self.transport.send(Bind {
+        self.tran.send(Bind {
             self_id: self.id,
             name,
             interface: obj.interface().name(),
             version,
             id: obj.id().into(),
         });
-        self.transport.add_obj(obj.clone())?;
+        self.tran.add_obj(obj.clone())?;
         Ok(())
     }
 
@@ -155,7 +172,7 @@ impl TestRegistry {
             }),
         );
         if prev.is_some() {
-            self.transport.error(&format!(
+            self.tran.error(&format!(
                 "Compositor sent global {} multiple times",
                 ev.name
             ));
@@ -166,7 +183,7 @@ impl TestRegistry {
     fn handle_global_remove(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = GlobalRemove::parse_full(parser)?;
         if self.globals.remove(&ev.name).is_none() {
-            self.transport.error(&format!(
+            self.tran.error(&format!(
                 "Compositor sent global_remove for {} which does not exist",
                 ev.name
             ));

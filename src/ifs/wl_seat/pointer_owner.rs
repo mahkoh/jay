@@ -115,6 +115,10 @@ impl PointerOwnerHolder {
     pub fn remove_dnd_icon(&self) {
         self.owner.get().remove_dnd_icon()
     }
+
+    pub fn clear(&self) {
+        self.owner.set(self.default.clone());
+    }
 }
 
 trait PointerOwner {

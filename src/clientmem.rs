@@ -42,19 +42,23 @@ impl ClientMem {
                 }
             }
         }
-        let data = unsafe {
-            let data = c::mmap64(
-                ptr::null_mut(),
-                len,
-                c::PROT_READ | c::PROT_WRITE,
-                c::MAP_SHARED,
-                fd,
-                0,
-            );
-            if data == c::MAP_FAILED {
-                return Err(ClientMemError::MmapFailed(uapi::Errno::default().into()));
+        let data = if len == 0 {
+            &mut [][..]
+        } else {
+            unsafe {
+                let data = c::mmap64(
+                    ptr::null_mut(),
+                    len,
+                    c::PROT_READ | c::PROT_WRITE,
+                    c::MAP_SHARED,
+                    fd,
+                    0,
+                );
+                if data == c::MAP_FAILED {
+                    return Err(ClientMemError::MmapFailed(uapi::Errno::default().into()));
+                }
+                std::slice::from_raw_parts_mut(data as *mut Cell<u8>, len)
             }
-            std::slice::from_raw_parts_mut(data as *mut Cell<u8>, len)
         };
         Ok(Self {
             failed: Cell::new(false),

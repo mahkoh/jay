@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncFd, SpawnedFuture},
-        client::{ClientId, EventFormatter},
+        client::{Client, ClientId, EventFormatter},
         it::{
             test_error::{StdError, TestError},
             test_ifs::{test_callback::TestCallback, test_registry::TestRegistry},
@@ -47,12 +47,13 @@ impl TestTransport {
     pub fn get_registry(self: &Rc<Self>) -> Rc<TestRegistry> {
         let reg = Rc::new(TestRegistry {
             id: self.id(),
-            transport: self.clone(),
+            tran: self.clone(),
             globals: Default::default(),
             singletons: Default::default(),
             jay_compositor: Default::default(),
             compositor: Default::default(),
             shm: Default::default(),
+            xdg: Default::default(),
         });
         self.send(wl_display::GetRegistry {
             self_id: WL_DISPLAY_ID,
@@ -60,6 +61,14 @@ impl TestTransport {
         });
         let _ = self.add_obj(reg.clone());
         reg
+    }
+
+    pub fn get_client(&self) -> Result<Rc<Client>, TestError> {
+        self.run
+            .state
+            .clients
+            .get(self.client_id.get())
+            .map_err(|e| e.into())
     }
 
     pub fn add_obj(&self, obj: Rc<dyn TestObject>) -> Result<(), TestError> {
@@ -84,7 +93,7 @@ impl TestTransport {
     pub fn sync(self: &Rc<Self>) -> impl Future<Output = ()> {
         let cb = Rc::new(TestCallback {
             id: self.id(),
-            transport: self.clone(),
+            tran: self.clone(),
             handler: Cell::new(None),
             done: Cell::new(self.killed.get()),
         });

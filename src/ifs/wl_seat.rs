@@ -591,9 +591,28 @@ impl WlSeatGlobal {
         self.cursor.get()
     }
 
-    pub fn clear(&self) {
+    pub fn clear(self: &Rc<Self>) {
         mem::take(self.pointer_stack.borrow_mut().deref_mut());
         mem::take(self.found_tree.borrow_mut().deref_mut());
+        self.keyboard_node.set(self.state.root.clone());
+        self.state
+            .root
+            .clone()
+            .node_visit(&mut generic_node_visitor(|node| {
+                node.node_seat_state().on_seat_remove(self);
+            }));
+        self.bindings.borrow_mut().clear();
+        self.data_devices.borrow_mut().clear();
+        self.primary_selection_devices.borrow_mut().clear();
+        self.cursor.set(None);
+        self.selection.set(None);
+        self.primary_selection.set(None);
+        self.pointer_owner.clear();
+        self.kb_owner.clear();
+        *self.dropped_dnd.borrow_mut() = None;
+        self.queue_link.set(None);
+        self.tree_changed_handler.set(None);
+        self.output.set(self.state.dummy_output.get().unwrap());
     }
 
     pub fn id(&self) -> SeatId {

@@ -32,6 +32,10 @@ impl KbOwnerHolder {
     pub fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>) {
         self.owner.get().set_kb_node(seat, node);
     }
+
+    pub fn clear(&self) {
+        self.owner.set(self.default.clone());
+    }
 }
 
 struct DefaultKbOwner;

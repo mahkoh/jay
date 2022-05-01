@@ -28,14 +28,23 @@ fn to_f32(c: u8) -> f32 {
     c as f32 / 255f32
 }
 
+fn to_u8(c: f32) -> u8 {
+    (c * 255f32) as u8
+}
+
 impl Color {
-    pub fn from_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+    pub fn from_rgba_straight(r: u8, g: u8, b: u8, a: u8) -> Self {
+        let alpha = to_f32(a);
         Self {
-            r: to_f32(r),
-            g: to_f32(g),
-            b: to_f32(b),
-            a: to_f32(a),
+            r: to_f32(r) * alpha,
+            g: to_f32(g) * alpha,
+            b: to_f32(b) * alpha,
+            a: alpha,
         }
+    }
+
+    pub fn to_rgba_premultiplied(self) -> [u8; 4] {
+        [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
     }
 }
 
@@ -65,12 +74,12 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            background_color: Cell::new(Color::from_rgba(0x00, 0x10, 0x19, 255)),
-            last_active_color: Cell::new(Color::from_rgba(0x5f, 0x67, 0x6a, 255)),
-            title_color: Cell::new(Color::from_rgba(0x22, 0x22, 0x22, 255)),
-            active_title_color: Cell::new(Color::from_rgba(0x28, 0x55, 0x77, 255)),
-            underline_color: Cell::new(Color::from_rgba(0x33, 0x33, 0x33, 255)),
-            border_color: Cell::new(Color::from_rgba(0x3f, 0x47, 0x4a, 255)),
+            background_color: Cell::new(Color::from_rgba_straight(0x00, 0x10, 0x19, 255)),
+            last_active_color: Cell::new(Color::from_rgba_straight(0x5f, 0x67, 0x6a, 255)),
+            title_color: Cell::new(Color::from_rgba_straight(0x22, 0x22, 0x22, 255)),
+            active_title_color: Cell::new(Color::from_rgba_straight(0x28, 0x55, 0x77, 255)),
+            underline_color: Cell::new(Color::from_rgba_straight(0x33, 0x33, 0x33, 255)),
+            border_color: Cell::new(Color::from_rgba_straight(0x3f, 0x47, 0x4a, 255)),
             title_height: Cell::new(17),
             border_width: Cell::new(4),
             font: RefCell::new("monospace 8".to_string()),

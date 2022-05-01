@@ -2,7 +2,7 @@ mod generate;
 mod idle;
 mod log;
 mod quit;
-mod screenshot;
+pub mod screenshot;
 mod set_log_level;
 
 use {

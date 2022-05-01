@@ -35,7 +35,26 @@ macro_rules! tassert {
     };
 }
 
+macro_rules! tassert_eq {
+    ($left:expr, $right:expr) => {{
+        let left = $left;
+        let right = $right;
+        if left != right {
+            bail!(
+                "Assert `{} = {:?} = {:?} = {}` failed ({}:{})",
+                stringify!($left),
+                left,
+                right,
+                stringify!($right),
+                file!(),
+                line!()
+            );
+        }
+    }};
+}
+
 mod t0001_shm_formats;
+mod t0002_window;
 
 pub trait TestCase {
     fn name(&self) -> &'static str;
@@ -43,5 +62,5 @@ pub trait TestCase {
 }
 
 pub fn tests() -> Vec<&'static dyn TestCase> {
-    vec![&t0001_shm_formats::Test]
+    vec![&t0001_shm_formats::Test, &t0002_window::Test]
 }

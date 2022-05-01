@@ -25,7 +25,7 @@ macro_rules! test_object {
                     $(
                         $code => $oname::$f(&self, parser).with_context(|| format!("While handling a `{}` event", stringify!($f))),
                     )*
-                    _ => Err(crate::it::test_error::TestError::new("Unknown event {}")),
+                    _ => Err(crate::it::test_error::TestError::new(format!("Unknown event {}", request))),
                 };
                 res.with_context(|| format!("In object {} of type `{}`", self.id(), self.interface().name()))
             }

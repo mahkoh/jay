@@ -6,6 +6,7 @@ use {
             Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice,
             InputDeviceId, InputDeviceIds, MonitorInfo,
         },
+        backends::dummy::DummyBackend,
         cli::RunArgs,
         client::{Client, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
         config::ConfigProxy,
@@ -43,7 +44,9 @@ use {
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
+        mem,
         num::Wrapping,
+        ops::DerefMut,
         rc::Rc,
         sync::Arc,
         time::Duration,
@@ -394,6 +397,19 @@ impl State {
         for connector in self.connectors.lock().values() {
             if connector.connected.get() {
                 connector.connector.damage();
+            }
+        }
+    }
+
+    pub fn clear(&self) {
+        self.xwayland.handler.borrow_mut().take();
+        self.clients.clear();
+        self.config.set(None);
+        self.backend.set(Rc::new(DummyBackend));
+        {
+            let seats = mem::take(self.globals.seats.lock().deref_mut());
+            for seat in seats.values() {
+                seat.clear();
             }
         }
     }
