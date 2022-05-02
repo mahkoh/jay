@@ -238,7 +238,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
 fn load_config(state: &Rc<State>, #[allow(unused_variables)] for_test: bool) -> ConfigProxy {
     #[cfg(feature = "it")]
     if for_test {
-        // todo
+        return ConfigProxy::for_test(state);
     }
     match ConfigProxy::from_config_dir(state) {
         Ok(c) => c,

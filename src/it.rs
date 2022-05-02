@@ -1,9 +1,15 @@
 use {
     crate::{
-        it::{test_backend::TestBackend, testrun::TestRun, tests::TestCase},
+        it::{
+            test_backend::TestBackend,
+            test_config::{with_test_config, TestConfig},
+            testrun::TestRun,
+            tests::TestCase,
+        },
         utils::errorfmt::ErrorFmt,
     },
     ahash::AHashMap,
+    futures_util::{future, future::Either},
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     std::{
@@ -22,6 +28,7 @@ mod test_error;
 mod test_object;
 pub mod test_backend;
 mod test_client;
+pub mod test_config;
 mod test_ifs;
 mod test_logger;
 mod test_mem;
@@ -42,7 +49,9 @@ pub fn run_tests() {
         failed: Default::default(),
     };
     for test in tests::tests() {
-        run_test(&it_run, test);
+        with_test_config(|cfg| {
+            run_test(&it_run, test, cfg);
+        })
     }
     let failed = it_run.failed.borrow_mut();
     if failed.is_not_empty() {
@@ -64,7 +73,7 @@ struct ItRun {
     failed: RefCell<AHashMap<&'static str, Vec<String>>>,
 }
 
-fn run_test(it_run: &ItRun, test: &'static dyn TestCase) {
+fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
     log::info!("Running {}", test.name());
     let dir = format!("{}/{}", it_run.path, test.name());
     std::fs::create_dir_all(&dir).unwrap();
@@ -92,12 +101,20 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase) {
             errors: Default::default(),
             server_addr,
             dir: dir.clone(),
+            cfg: cfg.clone(),
         });
         let errors = errors2.clone();
         Box::new(async move {
             let future: Pin<_> = test.run(testrun.clone()).into();
-            if let Err(e) = future.await {
-                testrun.errors.push(e.to_string());
+            let timeout = state.eng.timeout(5000).unwrap();
+            match future::select(future, timeout).await {
+                Either::Left((Ok(..), _)) => {}
+                Either::Left((Err(e), _)) => {
+                    testrun.errors.push(e.to_string());
+                }
+                Either::Right(..) => {
+                    testrun.errors.push("Test timed out".to_string());
+                }
             }
             errors.set(testrun.errors.take());
             state.el.stop();

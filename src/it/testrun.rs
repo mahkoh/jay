@@ -4,6 +4,7 @@ use {
         it::{
             test_backend::TestBackend,
             test_client::TestClient,
+            test_config::TestConfig,
             test_error::{TestError, TestErrorExt},
             test_ifs::test_display::TestDisplay,
             test_transport::TestTransport,
@@ -25,6 +26,7 @@ pub struct TestRun {
     pub errors: Stack<String>,
     pub server_addr: c::sockaddr_un,
     pub dir: String,
+    pub cfg: Rc<TestConfig>,
 }
 
 impl TestRun {

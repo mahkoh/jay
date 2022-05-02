@@ -5,6 +5,7 @@ use {
         backend::{ConnectorId, InputDeviceId},
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
+        it::test_config::TEST_CONFIG_ENTRY,
         state::State,
         utils::{
             clonecell::CloneCell, numcell::NumCell, oserror::OsError, ptr_ext::PtrExt,
@@ -178,6 +179,11 @@ impl ConfigProxy {
             handle_msg: jay_config::_private::client::handle_msg,
         };
         Self::new(None, &entry, state)
+    }
+
+    #[cfg(feature = "it")]
+    pub fn for_test(state: &Rc<State>) -> Self {
+        Self::new(None, &TEST_CONFIG_ENTRY, state)
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
