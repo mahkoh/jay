@@ -40,13 +40,11 @@ fn configure_seat(s: Seat) {
     s.bind(MOD | SYM_d, move || s.create_split(Horizontal));
     s.bind(MOD | SYM_v, move || s.create_split(Vertical));
 
-    s.bind(MOD | SYM_t, move || s.set_split(s.split().other()));
-
-    s.bind(MOD | SYM_m, move || s.set_mono(!s.mono()));
+    s.bind(MOD | SYM_t, move || s.toggle_split());
+    s.bind(MOD | SYM_m, move || s.toggle_mono());
+    s.bind(MOD | SYM_u, move || s.toggle_fullscreen());
 
     s.bind(MOD | SYM_f, move || s.focus_parent());
-
-    s.bind(MOD | SYM_u, move || s.toggle_fullscreen());
 
     s.bind(MOD | SHIFT | SYM_c, move || s.close());
 

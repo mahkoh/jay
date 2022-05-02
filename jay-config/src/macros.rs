@@ -17,7 +17,7 @@ macro_rules! config {
 
 macro_rules! get {
     () => {{
-        get!(())
+        get!(Default::default())
     }};
     ($def:expr) => {{
         #[allow(unused_unsafe)]

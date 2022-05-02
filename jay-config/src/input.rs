@@ -84,29 +84,31 @@ impl Seat {
     }
 
     pub fn mono(self) -> bool {
-        let mut res = false;
-        (|| res = get!().mono(self))();
-        res
+        get!(false).mono(self)
     }
 
     pub fn set_mono(self, mono: bool) {
         get!().set_mono(self, mono)
     }
 
+    pub fn toggle_mono(self) {
+        self.set_mono(!self.mono());
+    }
+
     pub fn split(self) -> Axis {
-        let mut res = Axis::Horizontal;
-        (|| res = get!().split(self))();
-        res
+        get!(Axis::Horizontal).split(self)
     }
 
     pub fn set_split(self, axis: Axis) {
         get!().set_split(self, axis)
     }
 
+    pub fn toggle_split(self) {
+        self.set_split(self.split().other());
+    }
+
     pub fn input_devices(self) -> Vec<InputDevice> {
-        let mut res = vec![];
-        (|| res = get!().get_input_devices(Some(self)))();
-        res
+        get!().get_input_devices(Some(self))
     }
 
     pub fn create_split(self, axis: Axis) {
