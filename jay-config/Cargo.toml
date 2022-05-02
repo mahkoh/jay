@@ -2,7 +2,9 @@
 name = "jay-config"
 version = "0.1.0"
 edition = "2021"
+license = "GPL-3.0-only"
+description = "Configuration crate for the Jay compositor"
 
 [dependencies]
-bincode = "2.0.0-beta.3"
+bincode = "2.0.0-rc.1"
 log = "0.4.14"
