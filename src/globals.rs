@@ -116,6 +116,12 @@ impl Globals {
         }
     }
 
+    pub fn clear(&self) {
+        self.registry.clear();
+        self.outputs.clear();
+        self.seats.clear();
+    }
+
     pub fn add_singletons(&self, backend: &Rc<dyn Backend>) {
         macro_rules! add_singleton {
             ($name:ident) => {

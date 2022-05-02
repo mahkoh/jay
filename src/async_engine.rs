@@ -82,6 +82,14 @@ impl AsyncEngine {
         Timer::new(self, clock_id)
     }
 
+    pub fn clear(&self) {
+        for (_, fd) in self.fds.lock().drain() {
+            fd.readers.take();
+            fd.writers.take();
+        }
+        self.queue.clear();
+    }
+
     pub fn spawn<T, F: Future<Output = T> + 'static>(&self, f: F) -> SpawnedFuture<T> {
         self.queue.spawn(Phase::EventHandling, f)
     }
@@ -607,6 +615,13 @@ mod queue {
     }
 
     impl DispatchQueue {
+        pub fn clear(&self) {
+            self.yields.take();
+            for queue in &self.queues {
+                queue.take();
+            }
+        }
+
         pub fn push(&self, runnable: Runnable, phase: Phase) {
             self.queues[phase as usize].push(runnable);
             self.num_queued.fetch_add(1);

@@ -108,6 +108,10 @@ impl ConfigProxy {
     pub fn graphics_initialized(&self) {
         self.send(&ServerMessage::GraphicsInitialized);
     }
+
+    pub fn clear(&self) {
+        self.send(&ServerMessage::Clear);
+    }
 }
 
 impl Drop for ConfigProxy {

@@ -32,6 +32,10 @@ impl DisplayNode {
         }
     }
 
+    pub fn clear(&self) {
+        self.outputs.clear();
+    }
+
     pub fn update_extents(&self) {
         let outputs = self.outputs.lock();
         let mut x1 = i32::MAX;

@@ -45,6 +45,7 @@ pub enum ServerMessage {
     TimerExpired {
         timer: Timer,
     },
+    Clear,
 }
 
 #[derive(Encode, BorrowDecode, Debug)]

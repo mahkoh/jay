@@ -27,7 +27,9 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     };
     let future = state.eng.spawn(oh.handle());
     data.handler.set(Some(future));
-    state.connectors.set(id, data);
+    if state.connectors.set(id, data).is_some() {
+        panic!("Connector id has been reused");
+    }
 }
 
 struct ConnectorHandler {

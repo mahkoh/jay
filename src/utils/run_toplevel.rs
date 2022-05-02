@@ -36,6 +36,10 @@ impl RunToplevel {
         self.schedule_dyn(Box::new(f));
     }
 
+    pub fn clear(&self) {
+        self.queue.clear();
+    }
+
     fn schedule_dyn(&self, f: Box<dyn FnOnce()>) {
         self.queue.push(f);
     }

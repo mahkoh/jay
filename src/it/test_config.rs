@@ -61,7 +61,7 @@ unsafe extern "C" fn unref(data: *const u8) {
 }
 
 unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
-    let _tc = &*data.cast::<TestConfig>();
+    let tc = &*data.cast::<TestConfig>();
     let msg = std::slice::from_raw_parts(msg, size);
     let res = bincode::decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
     let (msg, _) = match res {
@@ -83,6 +83,7 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::DelConnector { .. } => {}
         ServerMessage::TimerExpired { .. } => {}
         ServerMessage::GraphicsInitialized => {}
+        ServerMessage::Clear => tc.clear(),
     }
 }
 
@@ -114,14 +115,18 @@ impl TestConfig {
     pub fn quit(&self) -> Result<(), TestError> {
         self.send(ClientMessage::Quit)
     }
-}
 
-impl Drop for TestConfig {
-    fn drop(&mut self) {
+    fn clear(&self) {
         unsafe {
             if let Some(srv) = self.srv.take() {
                 (srv.srv_unref)(srv.srv_data);
             }
         }
+    }
+}
+
+impl Drop for TestConfig {
+    fn drop(&mut self) {
+        self.clear();
     }
 }

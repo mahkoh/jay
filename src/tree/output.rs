@@ -41,6 +41,15 @@ pub struct OutputNode {
 }
 
 impl OutputNode {
+    pub fn clear(&self) {
+        self.global.clear();
+        self.workspace.set(None);
+        let workspaces: Vec<_> = self.workspaces.iter().collect();
+        for workspace in workspaces {
+            workspace.clear();
+        }
+    }
+
     pub fn update_render_data(&self) {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();

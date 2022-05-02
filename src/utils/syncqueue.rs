@@ -36,4 +36,10 @@ impl<T> SyncQueue<T> {
             mem::swap(self.el.get().deref_mut(), queue);
         }
     }
+
+    pub fn take(&self) -> VecDeque<T> {
+        let mut res = VecDeque::new();
+        self.swap(&mut res);
+        res
+    }
 }

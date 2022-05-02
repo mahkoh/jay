@@ -22,6 +22,7 @@ use {
                 NoneSurfaceExt,
             },
         },
+        leaks::Tracker,
         logger::Logger,
         rect::Rect,
         render::RenderContext,
@@ -99,7 +100,14 @@ pub struct State {
     pub run_toplevel: Rc<RunToplevel>,
     pub config_dir: Option<String>,
     pub config_file_id: NumCell<u64>,
+    pub tracker: Tracker<Self>,
 }
+
+// impl Drop for State {
+//     fn drop(&mut self) {
+//         log::info!("drop state");
+//     }
+// }
 
 impl Debug for State {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -408,8 +416,39 @@ impl State {
     pub fn clear(&self) {
         self.xwayland.handler.borrow_mut().take();
         self.clients.clear();
-        self.config.set(None);
+        if let Some(config) = self.config.set(None) {
+            config.clear();
+        }
+        if let Some(forker) = self.forker.set(None) {
+            forker.clear();
+        }
+        if let Some(output) = self.dummy_output.set(None) {
+            output.clear();
+        }
+        self.acceptor.set(None);
         self.backend.set(Rc::new(DummyBackend));
+        self.run_toplevel.clear();
+        self.xwayland.handler.borrow_mut().take();
+        self.xwayland.queue.clear();
+        self.idle.inhibitors.clear();
+        for (_, connector) in self.connectors.lock().drain() {
+            connector.handler.take();
+        }
+        for (_, output) in self.outputs.lock().drain() {
+            output.node.clear();
+        }
+        self.dbus.clear();
+        self.pending_container_layout.clear();
+        self.pending_container_render_data.clear();
+        self.pending_float_layout.clear();
+        self.pending_float_titles.clear();
+        self.slow_clients.clear();
+        self.input_device_handlers.borrow_mut().clear();
+        self.backend_events.clear();
+        self.workspaces.clear();
+        self.globals.clear();
+        self.render_ctx.set(None);
+        self.root.clear();
         {
             let seats = mem::take(self.globals.seats.lock().deref_mut());
             for seat in seats.values() {

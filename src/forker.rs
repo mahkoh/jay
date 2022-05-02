@@ -74,6 +74,12 @@ pub enum ForkerError {
 }
 
 impl ForkerProxy {
+    pub fn clear(&self) {
+        self.task_in.take();
+        self.task_out.take();
+        self.task_proc.take();
+    }
+
     pub fn create() -> Result<Self, ForkerError> {
         let (parent, child) = match uapi::socketpair(
             c::AF_UNIX,
@@ -240,8 +246,8 @@ impl ForkerProxy {
             }
             if let Err(e) = io.write_msg(msg).await {
                 log::error!("Could not write to the ol' forker: {}", ErrorFmt(e));
+                self.clear();
                 state.forker.set(None);
-                self.task_out.take();
                 return;
             }
         }
@@ -258,9 +264,8 @@ impl ForkerProxy {
             let _ = uapi::waitpid(self.pid, 0);
         }
         log::error!("The ol' forker died. Cannot spawn further processes.");
+        self.clear();
         state.forker.set(None);
-        self.task_out.take();
-        self.task_proc.take();
     }
 }
 

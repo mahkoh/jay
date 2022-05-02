@@ -153,6 +153,11 @@ impl Dbus {
         }
     }
 
+    pub fn clear(&self) {
+        self.system.clear();
+        self.session.clear();
+    }
+
     pub fn system(&self) -> Result<Rc<DbusSocket>, DbusError> {
         self.system
             .get(&self.eng, "/var/run/dbus/system_bus_socket", "System bus")
@@ -259,6 +264,12 @@ impl DbusHolder {
         Self {
             socket: Default::default(),
             run_toplevel: run_toplevel.clone(),
+        }
+    }
+
+    pub fn clear(&self) {
+        if let Some(socket) = self.socket.take() {
+            socket.clear();
         }
     }
 }

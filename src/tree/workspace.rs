@@ -33,6 +33,12 @@ pub struct WorkspaceNode {
 }
 
 impl WorkspaceNode {
+    pub fn clear(&self) {
+        self.container.set(None);
+        self.output_link.set(None);
+        self.fullscreen.set(None);
+    }
+
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
         let pos = self.position.get();
         container.clone().tl_change_extents(&pos);

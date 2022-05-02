@@ -82,6 +82,11 @@ pub struct WlOutputGlobal {
 }
 
 impl WlOutputGlobal {
+    pub fn clear(&self) {
+        self.node.take();
+        self.bindings.borrow_mut().clear();
+    }
+
     pub fn new(
         name: GlobalName,
         state: &Rc<State>,

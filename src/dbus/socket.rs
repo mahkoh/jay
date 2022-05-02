@@ -20,6 +20,14 @@ use {
 };
 
 impl DbusSocket {
+    pub fn clear(&self) {
+        self.auth.take();
+        self.incoming.take();
+        self.outgoing_.take();
+        self.reply_handlers.clear();
+        self.signal_handlers.borrow_mut().clear();
+    }
+
     pub(super) fn kill(self: &Rc<Self>) {
         self.dead.set(true);
         self.auth.take();

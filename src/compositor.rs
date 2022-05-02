@@ -10,7 +10,7 @@ use {
             metal, x,
         },
         cli::{CliBackend, GlobalArgs, RunArgs},
-        client::Clients,
+        client::{ClientId, Clients},
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
         dbus::Dbus,
@@ -176,7 +176,9 @@ fn start_compositor2(
         run_toplevel,
         config_dir: config_dir(),
         config_file_id: NumCell::new(1),
+        tracker: Default::default(),
     });
+    state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
     let acceptor = Acceptor::install(&state)?;
     forker.install(&state);
@@ -190,10 +192,14 @@ fn start_compositor2(
     let compositor = engine.spawn(start_compositor3(state.clone(), test_future));
     el.run()?;
     drop(compositor);
+    drop(acceptor);
+    drop(forker);
+    engine.clear();
     state.clear();
     for (_, seat) in state.globals.seats.lock().deref() {
         seat.clear();
     }
+    drop(state);
     leaks::log_leaked();
     Ok(())
 }

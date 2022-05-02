@@ -588,6 +588,9 @@ impl Client {
                     handler();
                 }
             }
+            ServerMessage::Clear => {
+                // only used by test config
+            }
         }
     }
 
