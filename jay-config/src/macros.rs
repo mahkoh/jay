@@ -3,7 +3,7 @@ macro_rules! config {
     ($f:path) => {
         #[no_mangle]
         #[used]
-        pub static mut JAY_CONFIG_ENTRY: $crate::_private::ConfigEntry = {
+        pub static mut JAY_CONFIG_ENTRY_V1: $crate::_private::ConfigEntry = {
             struct X;
             impl $crate::_private::Config for X {
                 extern "C" fn configure() {

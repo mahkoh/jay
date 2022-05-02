@@ -5,7 +5,6 @@ use {
         backend::{ConnectorId, InputDeviceId},
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
-        it::test_config::TEST_CONFIG_ENTRY,
         state::State,
         utils::{
             clonecell::CloneCell, numcell::NumCell, oserror::OsError, ptr_ext::PtrExt,
@@ -26,6 +25,8 @@ use {
     std::{cell::Cell, mem, ptr, rc::Rc},
     thiserror::Error,
 };
+#[cfg(feature = "it")]
+use crate::it::test_config::TEST_CONFIG_ENTRY;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -231,7 +232,7 @@ impl ConfigProxy {
             Ok(l) => l,
             Err(e) => return Err(ConfigError::CouldNotLoadLibrary(e)),
         };
-        let entry = lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY\0");
+        let entry = lib.get::<&'static ConfigEntry>(b"JAY_CONFIG_ENTRY_V1\0");
         let entry = match entry {
             Ok(e) => *e,
             Err(e) => return Err(ConfigError::LibraryDoesNotContainEntry(e)),
