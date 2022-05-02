@@ -87,10 +87,6 @@ xkb_keymap {
          <83> =  91; # KPDOT
          <87> =  95; # F11
          <88> =  96; # F12
-         <89> =  97; # RO
-         <92> = 100; # HENKAN
-         <93> = 101; # KATAKANAHIRAGANA
-         <94> = 102; # MUHENKAN
          <96> = 104; # KPENTER
          <97> = 105; # RIGHTCTRL
          <98> = 106; # KPSLASH
@@ -107,22 +103,9 @@ xkb_keymap {
         <111> = 119; # DELETE
         <117> = 125; # KPEQUAL
         <119> = 127; # PAUSE
-        <124> = 132; # YEN
         <125> = 133; # LEFTMETA
         <126> = 134; # RIGHTMETA
         <139> = 147; # MENU
-        <183> = 191; # F13
-        <184> = 192; # F14
-        <185> = 193; # F15
-        <186> = 194; # F16
-        <187> = 195; # F17
-        <188> = 196; # F18
-        <189> = 197; # F19
-        <190> = 198; # F20
-        <191> = 199; # F21
-        <192> = 200; # F22
-        <193> = 201; # F23
-        <194> = 202; # F24
         <210> = 218; # PRINT
 
         # We must include at least one indicator here. Otherwise Xwayland segfaults.
@@ -205,18 +188,6 @@ xkb_keymap {
         key  <68> { [ F10         ] };
         key  <87> { [ F11         ] };
         key  <88> { [ F12         ] };
-        key <183> { [ F13         ] };
-        key <184> { [ F14         ] };
-        key <185> { [ F15         ] };
-        key <186> { [ F16         ] };
-        key <187> { [ F17         ] };
-        key <188> { [ F18         ] };
-        key <189> { [ F19         ] };
-        key <190> { [ F20         ] };
-        key <191> { [ F21         ] };
-        key <192> { [ F22         ] };
-        key <193> { [ F23         ] };
-        key <194> { [ F24         ] };
         key <210> { [ Print       ] };
         key  <70> { [ Scroll_Lock ] };
         key <119> { [ Pause       ] };
@@ -316,12 +287,6 @@ xkb_keymap {
         key  <9> { [ 8, asterisk    ] };
         key <10> { [ 9, parenleft   ] };
         key <11> { [ 0, parenright  ] };
-
-        key <89> { [ dollar     , asciitilde  ] };
-        key <93> { [ ampersand  , percent     ] };
-        key <94> { [ equal   , asterisk   ] };
-        key <124> { [ at         , asciicircum ] };
-        key <92> { [ numbersign , grave       ] };
 
         modifier_map Mod1 { Alt_L, Alt_R };
     };
