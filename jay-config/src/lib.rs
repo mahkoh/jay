@@ -121,3 +121,11 @@ impl Timer {
         get!().on_timer_tick(self, f);
     }
 }
+
+pub fn reload() {
+    get!().reload()
+}
+
+pub fn is_reload() -> bool {
+    get!(false).is_reload()
+}

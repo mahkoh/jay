@@ -4,17 +4,17 @@ use {
         config,
         drm::on_graphics_initialized,
         get_timer, get_workspace,
-        input::{create_seat, input_devices, on_new_input_device, InputDevice, Seat},
+        input::{get_seat, input_devices, on_new_input_device, InputDevice, Seat},
         keyboard::{
             mods::{Modifiers, ALT, CTRL, SHIFT},
             syms::{
                 SYM_Super_L, SYM_c, SYM_d, SYM_f, SYM_h, SYM_j, SYM_k, SYM_l, SYM_m, SYM_p, SYM_q,
-                SYM_t, SYM_u, SYM_v, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F13, SYM_F14, SYM_F15,
-                SYM_F16, SYM_F17, SYM_F18, SYM_F19, SYM_F2, SYM_F20, SYM_F21, SYM_F22, SYM_F23,
-                SYM_F24, SYM_F25, SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
+                SYM_r, SYM_t, SYM_u, SYM_v, SYM_F1, SYM_F10, SYM_F11, SYM_F12, SYM_F13, SYM_F14,
+                SYM_F15, SYM_F16, SYM_F17, SYM_F18, SYM_F19, SYM_F2, SYM_F20, SYM_F21, SYM_F22,
+                SYM_F23, SYM_F24, SYM_F25, SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9,
             },
         },
-        quit,
+        quit, reload,
         status::set_status,
         switch_to_vt,
         Axis::{Horizontal, Vertical},
@@ -58,6 +58,8 @@ fn configure_seat(s: Seat) {
 
     s.bind(MOD | SYM_q, quit);
 
+    s.bind(MOD | SHIFT | SYM_r, reload);
+
     let fnkeys = [
         SYM_F1, SYM_F2, SYM_F3, SYM_F4, SYM_F5, SYM_F6, SYM_F7, SYM_F8, SYM_F9, SYM_F10, SYM_F11,
         SYM_F12,
@@ -78,7 +80,7 @@ fn configure_seat(s: Seat) {
 }
 
 pub fn configure() {
-    let seat = create_seat("default");
+    let seat = get_seat("default");
     configure_seat(seat);
     let handle_input_device = move |device: InputDevice| {
         device.set_seat(seat);

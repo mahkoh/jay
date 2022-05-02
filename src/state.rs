@@ -97,6 +97,8 @@ pub struct State {
     pub acceptor: CloneCell<Option<Rc<Acceptor>>>,
     pub serial: NumCell<Wrapping<u32>>,
     pub run_toplevel: Rc<RunToplevel>,
+    pub config_dir: Option<String>,
+    pub config_file_id: NumCell<u64>,
 }
 
 impl Debug for State {

@@ -619,6 +619,10 @@ impl WlSeatGlobal {
         self.id
     }
 
+    pub fn seat_name(&self) -> &str {
+        &self.seat_name
+    }
+
     fn bind_(
         self: Rc<Self>,
         id: WlSeatId,

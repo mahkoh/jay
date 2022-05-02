@@ -12,7 +12,9 @@ use {
 
 #[derive(Encode, BorrowDecode, Debug)]
 pub enum ServerMessage {
-    Configure,
+    Configure {
+        reload: bool,
+    },
     GraphicsInitialized,
     Response {
         response: Response,
@@ -53,7 +55,7 @@ pub enum ClientMessage<'a> {
         file: Option<&'a str>,
         line: Option<u32>,
     },
-    CreateSeat {
+    GetSeat {
         name: &'a str,
     },
     Quit,
@@ -237,6 +239,7 @@ pub enum ClientMessage<'a> {
     GetFullscreen {
         seat: Seat,
     },
+    Reload,
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -258,7 +261,7 @@ pub enum Response {
     ParseKeymap {
         keymap: Keymap,
     },
-    CreateSeat {
+    GetSeat {
         seat: Seat,
     },
     GetInputDevices {

@@ -4,7 +4,7 @@ use {
 };
 
 pub fn init() {
-    log::set_logger(&Logger).unwrap();
+    let _ = log::set_logger(&Logger);
     log::set_max_level(LevelFilter::Trace);
 }
 

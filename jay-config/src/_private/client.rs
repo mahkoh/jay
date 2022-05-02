@@ -41,6 +41,7 @@ pub(crate) struct Client {
     on_graphics_initialized: Cell<Option<Box<dyn FnOnce()>>>,
     on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
+    reload: Cell<bool>,
 }
 
 impl Drop for Client {
@@ -124,6 +125,7 @@ pub unsafe extern "C" fn init(
         on_graphics_initialized: Default::default(),
         on_new_connector: Default::default(),
         bufs: Default::default(),
+        reload: Cell::new(false),
     });
     let init = slice::from_raw_parts(init, size);
     client.handle_init_msg(init);
@@ -167,6 +169,14 @@ impl Client {
 
     fn send_with_response(&self, msg: &ClientMessage) -> Response {
         self.with_response(|| self.send(msg))
+    }
+
+    pub fn reload(&self) {
+        self.send(&ClientMessage::Reload);
+    }
+
+    pub fn is_reload(&self) -> bool {
+        self.reload.get()
     }
 
     pub fn spawn(&self, command: &Command) {
@@ -358,9 +368,9 @@ impl Client {
         self.send(&ClientMessage::FocusParent { seat });
     }
 
-    pub fn create_seat(&self, name: &str) -> Seat {
-        let res = self.send_with_response(&ClientMessage::CreateSeat { name });
-        get_response!(res, Seat(0), CreateSeat, seat);
+    pub fn get_seat(&self, name: &str) -> Seat {
+        let res = self.send_with_response(&ClientMessage::GetSeat { name });
+        get_response!(res, Seat(0), GetSeat, seat);
         seat
     }
 
@@ -531,8 +541,10 @@ impl Client {
             }
         };
         match msg {
-            ServerMessage::Configure => {
+            ServerMessage::Configure { reload } => {
+                self.reload.set(reload);
                 (self.configure)();
+                self.reload.set(false);
             }
             ServerMessage::Response { response } => {
                 self.response.borrow_mut().push(response);

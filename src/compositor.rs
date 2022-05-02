@@ -30,8 +30,8 @@ use {
         },
         user_session::import_environment,
         utils::{
-            clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, oserror::OsError,
-            queue::AsyncQueue, run_toplevel::RunToplevel, tri::Try,
+            clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, numcell::NumCell,
+            oserror::OsError, queue::AsyncQueue, run_toplevel::RunToplevel, tri::Try,
         },
         wheel::{Wheel, WheelError},
         xkbcommon::XkbContext,
@@ -174,6 +174,8 @@ fn start_compositor2(
         serial: Default::default(),
         idle_inhibitor_ids: Default::default(),
         run_toplevel,
+        config_dir: config_dir(),
+        config_file_id: NumCell::new(1),
     });
     create_dummy_output(&state);
     let acceptor = Acceptor::install(&state)?;
@@ -220,6 +222,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     }
 
     let config = load_config(&state, is_test);
+    config.configure(false);
     state.config.set(Some(Rc::new(config)));
 
     let _geh = start_global_event_handlers(&state, &backend);
@@ -237,19 +240,10 @@ fn load_config(state: &Rc<State>, #[allow(unused_variables)] for_test: bool) -> 
     if for_test {
         // todo
     }
-    let config_dir = if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
-        format!("{}/jay", xdg)
-    } else if let Ok(home) = env::var("HOME") {
-        format!("{}/.config/jay", home)
-    } else {
-        log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
-        return ConfigProxy::default(state);
-    };
-    let config_path = format!("{}/config.so", config_dir);
-    match unsafe { ConfigProxy::from_file(&config_path, state) } {
+    match ConfigProxy::from_config_dir(state) {
         Ok(c) => c,
         Err(e) => {
-            log::warn!("Could not load {}: {}", config_path, ErrorFmt(e));
+            log::warn!("Could not load config.so: {}", ErrorFmt(e));
             log::warn!("Using default config");
             ConfigProxy::default(state)
         }
@@ -385,4 +379,15 @@ fn create_dummy_output(state: &Rc<State>) {
     ));
     dummy_output.show_workspace(&dummy_workspace);
     state.dummy_output.set(Some(dummy_output));
+}
+
+fn config_dir() -> Option<String> {
+    if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
+        Some(format!("{}/jay", xdg))
+    } else if let Ok(home) = env::var("HOME") {
+        Some(format!("{}/.config/jay", home))
+    } else {
+        log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
+        None
+    }
 }

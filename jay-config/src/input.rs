@@ -161,9 +161,9 @@ pub fn input_devices() -> Vec<InputDevice> {
 
 pub fn remove_all_seats() {}
 
-pub fn create_seat(name: &str) -> Seat {
+pub fn get_seat(name: &str) -> Seat {
     let mut res = Seat(0);
-    (|| res = get!().create_seat(name))();
+    (|| res = get!().get_seat(name))();
     res
 }
 

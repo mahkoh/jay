@@ -464,6 +464,10 @@ impl WlSeatGlobal {
         self.apply_changes();
     }
 
+    pub fn clear_shortcuts(&self) {
+        self.shortcuts.clear();
+    }
+
     pub fn add_shortcut(&self, mods: Modifiers, keysym: KeySym) {
         self.shortcuts.set((mods.0, keysym.0), mods);
     }

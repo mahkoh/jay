@@ -5,6 +5,7 @@ use {
             self, ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
         },
         compositor::MAX_EXTENTS,
+        config::ConfigProxy,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, OutputData, State},
         tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
@@ -121,11 +122,19 @@ impl ConfigProxyHandler {
         log::log!(level, "{:?}", debug);
     }
 
-    fn handle_create_seat(&self, name: &str) {
+    fn handle_get_seat(&self, name: &str) {
+        for seat in self.state.globals.seats.lock().values() {
+            if seat.seat_name() == name {
+                self.respond(Response::GetSeat {
+                    seat: Seat(seat.id().raw() as _),
+                });
+                return;
+            }
+        }
         let global_name = self.state.globals.name();
         let seat = WlSeatGlobal::new(global_name, name, &self.state);
         self.state.globals.add_global(&self.state, &seat);
-        self.respond(Response::CreateSeat {
+        self.respond(Response::GetSeat {
             seat: Seat(seat.id().raw() as _),
         });
     }
@@ -141,6 +150,25 @@ impl ConfigProxyHandler {
         };
         self.respond(Response::ParseKeymap { keymap });
         res
+    }
+
+    fn handle_reload(&self) {
+        log::info!("Reloading config");
+        let config = match ConfigProxy::from_config_dir(&self.state) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Cannot reload config: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        if let Some(config) = self.state.config.take() {
+            config.destroy();
+            for seat in self.state.globals.seats.lock().values() {
+                seat.clear_shortcuts();
+            }
+        }
+        config.configure(true);
+        self.state.config.set(Some(Rc::new(config)));
     }
 
     fn handle_get_fullscreen(&self, seat: Seat) -> Result<(), CphError> {
@@ -784,7 +812,7 @@ impl ConfigProxyHandler {
                 file,
                 line,
             } => self.handle_log_request(level, msg, file, line),
-            ClientMessage::CreateSeat { name } => self.handle_create_seat(name),
+            ClientMessage::GetSeat { name } => self.handle_get_seat(name),
             ClientMessage::ParseKeymap { keymap } => {
                 self.handle_parse_keymap(keymap).wrn("parse_keymap")?
             }
@@ -915,6 +943,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetFullscreen { seat } => {
                 self.handle_get_fullscreen(seat).wrn("get_fullscreen")?
             }
+            ClientMessage::Reload => self.handle_reload(),
         }
         Ok(())
     }

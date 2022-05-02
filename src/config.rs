@@ -6,7 +6,10 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
-        utils::{numcell::NumCell, ptr_ext::PtrExt},
+        utils::{
+            clonecell::CloneCell, numcell::NumCell, oserror::OsError, ptr_ext::PtrExt,
+            unlink_on_drop::UnlinkOnDrop, xrd::xrd,
+        },
     },
     jay_config::{
         _private::{
@@ -29,15 +32,36 @@ pub enum ConfigError {
     CouldNotLoadLibrary(#[source] libloading::Error),
     #[error("Config library does not contain the entry symbol")]
     LibraryDoesNotContainEntry(#[source] libloading::Error),
+    #[error("Could not determine the config directory")]
+    ConfigDirNotSet,
+    #[error("Could not link the config file")]
+    LinkConfigFile(#[source] OsError),
+    #[error("XDG_RUNTIME_DIR is not set")]
+    XrdNotSet,
 }
 
 pub struct ConfigProxy {
-    handler: Rc<ConfigProxyHandler>,
+    handler: CloneCell<Option<Rc<ConfigProxyHandler>>>,
 }
 
 impl ConfigProxy {
+    fn send(&self, msg: &ServerMessage) {
+        if let Some(handler) = self.handler.get() {
+            handler.send(msg);
+        }
+    }
+
+    pub fn destroy(&self) {
+        if let Some(handler) = self.handler.take() {
+            unsafe {
+                handler.do_drop();
+                (handler.unref)(handler.client_data.get());
+            }
+        }
+    }
+
     pub fn invoke_shortcut(&self, seat: SeatId, modsym: &ModifiedKeySym) {
-        self.handler.send(&ServerMessage::InvokeShortcut {
+        self.send(&ServerMessage::InvokeShortcut {
             seat: Seat(seat.raw() as _),
             mods: modsym.mods,
             sym: modsym.sym,
@@ -45,52 +69,49 @@ impl ConfigProxy {
     }
 
     pub fn new_connector(&self, connector: ConnectorId) {
-        self.handler.send(&ServerMessage::NewConnector {
+        self.send(&ServerMessage::NewConnector {
             device: Connector(connector.raw() as _),
         });
     }
 
     pub fn del_connector(&self, connector: ConnectorId) {
-        self.handler.send(&ServerMessage::DelConnector {
+        self.send(&ServerMessage::DelConnector {
             device: Connector(connector.raw() as _),
         });
     }
 
     pub fn connector_connected(&self, connector: ConnectorId) {
-        self.handler.send(&ServerMessage::ConnectorConnect {
+        self.send(&ServerMessage::ConnectorConnect {
             device: Connector(connector.raw() as _),
         });
     }
 
     pub fn connector_disconnected(&self, connector: ConnectorId) {
-        self.handler.send(&ServerMessage::ConnectorDisconnect {
+        self.send(&ServerMessage::ConnectorDisconnect {
             device: Connector(connector.raw() as _),
         });
     }
 
     pub fn new_input_device(&self, dev: InputDeviceId) {
-        self.handler.send(&ServerMessage::NewInputDevice {
+        self.send(&ServerMessage::NewInputDevice {
             device: InputDevice(dev.raw() as _),
         });
     }
 
     pub fn del_input_device(&self, dev: InputDeviceId) {
-        self.handler.send(&ServerMessage::DelInputDevice {
+        self.send(&ServerMessage::DelInputDevice {
             device: InputDevice(dev.raw() as _),
         });
     }
 
     pub fn graphics_initialized(&self) {
-        self.handler.send(&ServerMessage::GraphicsInitialized);
+        self.send(&ServerMessage::GraphicsInitialized);
     }
 }
 
 impl Drop for ConfigProxy {
     fn drop(&mut self) {
-        unsafe {
-            self.handler.do_drop();
-            (self.handler.unref)(self.handler.client_data.get());
-        }
+        self.destroy();
     }
 }
 
@@ -140,8 +161,13 @@ impl ConfigProxy {
             );
             data.client_data.set(client_data);
         }
-        data.send(&ServerMessage::Configure);
-        Self { handler: data }
+        Self {
+            handler: CloneCell::new(Some(data)),
+        }
+    }
+
+    pub fn configure(&self, reload: bool) {
+        self.send(&ServerMessage::Configure { reload });
     }
 
     pub fn default(state: &Rc<State>) -> Self {
@@ -154,9 +180,44 @@ impl ConfigProxy {
         Self::new(None, &entry, state)
     }
 
-    #[allow(dead_code)]
+    pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
+        let dir = match state.config_dir.as_deref() {
+            Some(d) => d,
+            _ => return Err(ConfigError::ConfigDirNotSet),
+        };
+        let file = format!("{}/config.so", dir);
+        unsafe { Self::from_file(&file, state) }
+    }
+
     pub unsafe fn from_file(path: &str, state: &Rc<State>) -> Result<Self, ConfigError> {
-        let lib = match Library::new(path) {
+        // Here we have to do a bit of a dance to support reloading. glibc will
+        // never load a library twice unless it has been unloaded in between.
+        // glibc identifies libraries by their file path and by their inode
+        // number. If either of those match, glibc considers the libraries
+        // identical.  If the inode has not changed then this is not a problem
+        // for us since we don't want glibc to do any unnecessary work.
+        // However, if the user has created a new config with a new inode, then
+        // glibc will still not reload the library if we try to load it from
+        // the canonical location ~/.config/jay/config.so since it already has
+        // a library with that path loaded. To work around this, create a
+        // temporary symlink with an incrementing number and load the library
+        // from there.
+        let xrd = match xrd() {
+            Some(x) => x,
+            _ => return Err(ConfigError::XrdNotSet),
+        };
+        let link = format!(
+            "{}/.jay_config.so.{}.{}",
+            xrd,
+            uapi::getpid(),
+            state.config_file_id.fetch_add(1)
+        );
+        let _ = uapi::unlink(link.as_str());
+        if let Err(e) = uapi::symlink(path, link.as_str()) {
+            return Err(ConfigError::LinkConfigFile(e.into()));
+        }
+        let _unlink = UnlinkOnDrop(&link);
+        let lib = match Library::new(&link) {
             Ok(l) => l,
             Err(e) => return Err(ConfigError::CouldNotLoadLibrary(e)),
         };
