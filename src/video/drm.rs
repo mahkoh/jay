@@ -135,6 +135,7 @@ pub struct Drm {
 }
 
 impl Drm {
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn open_existing(fd: OwnedFd) -> Self {
         Self { fd: Rc::new(fd) }
     }

@@ -43,6 +43,7 @@ impl Color {
         }
     }
 
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn to_rgba_premultiplied(self) -> [u8; 4] {
         [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
     }
