@@ -38,7 +38,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    std::{cell::Cell, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
+    std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
 };
@@ -197,6 +197,8 @@ fn start_compositor2(
 }
 
 async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
+    let is_test = test_future.is_some();
+
     let backend = match create_backend(&state, test_future).await {
         Some(b) => b,
         _ => {
@@ -217,7 +219,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
         }
     }
 
-    let config = ConfigProxy::default(&state);
+    let config = load_config(&state, is_test);
     state.config.set(Some(Rc::new(config)));
 
     let _geh = start_global_event_handlers(&state, &backend);
@@ -228,6 +230,30 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
         _ => log::error!("Backend stopped without an error"),
     }
     state.el.stop();
+}
+
+fn load_config(state: &Rc<State>, #[allow(unused_variables)] for_test: bool) -> ConfigProxy {
+    #[cfg(feature = "it")]
+    if for_test {
+        // todo
+    }
+    let config_dir = if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
+        format!("{}/jay", xdg)
+    } else if let Ok(home) = env::var("HOME") {
+        format!("{}/.config/jay", home)
+    } else {
+        log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
+        return ConfigProxy::default(state);
+    };
+    let config_path = format!("{}/config.so", config_dir);
+    match unsafe { ConfigProxy::from_file(&config_path, state) } {
+        Ok(c) => c,
+        Err(e) => {
+            log::warn!("Could not load {}: {}", config_path, ErrorFmt(e));
+            log::warn!("Using default config");
+            ConfigProxy::default(state)
+        }
+    }
 }
 
 fn start_global_event_handlers(
