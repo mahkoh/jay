@@ -1,5 +1,7 @@
 mod handler;
 
+#[cfg(feature = "it")]
+use crate::it::test_config::TEST_CONFIG_ENTRY;
 use {
     crate::{
         backend::{ConnectorId, InputDeviceId},
@@ -25,8 +27,6 @@ use {
     std::{cell::Cell, mem, ptr, rc::Rc},
     thiserror::Error,
 };
-#[cfg(feature = "it")]
-use crate::it::test_config::TEST_CONFIG_ENTRY;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
