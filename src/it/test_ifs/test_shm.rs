@@ -1,12 +1,8 @@
 use {
     crate::{
         it::{
-            test_error::TestError,
-            test_ifs::test_shm_pool::TestShmPool,
-            test_mem::TestMem,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
-            testrun::ParseFull,
+            test_error::TestError, test_ifs::test_shm_pool::TestShmPool, test_mem::TestMem,
+            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
         wire::{wl_shm::*, WlShmId},
@@ -19,7 +15,6 @@ pub struct TestShm {
     pub tran: Rc<TestTransport>,
     pub formats: CopyHashMap<u32, ()>,
     pub formats_awaited: Cell<bool>,
-    pub deleted: Deleted,
 }
 
 impl TestShm {
@@ -37,15 +32,13 @@ impl TestShm {
             tran: self.tran.clone(),
             mem: CloneCell::new(mem.clone()),
             destroyed: Cell::new(false),
-            deleted: Default::default(),
         });
-        self.deleted.check()?;
         self.tran.send(CreatePool {
             self_id: self.id,
             id: pool.id,
             fd: mem.fd.clone(),
             size: size as _,
-        });
+        })?;
         self.tran.add_obj(pool.clone())?;
         Ok(pool)
     }

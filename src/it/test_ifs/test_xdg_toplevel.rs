@@ -2,9 +2,7 @@ use {
     crate::{
         ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
         it::{
-            test_error::TestError,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
+            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
@@ -22,7 +20,6 @@ pub struct TestXdgToplevel {
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
     pub server: Rc<XdgToplevel>,
-    pub deleted: Deleted,
 
     pub width: Cell<i32>,
     pub height: Cell<i32>,
@@ -34,8 +31,7 @@ pub struct TestXdgToplevel {
 impl TestXdgToplevel {
     pub fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
-            self.deleted.check()?;
-            self.tran.send(Destroy { self_id: self.id });
+            self.tran.send(Destroy { self_id: self.id })?;
         }
         Ok(())
     }

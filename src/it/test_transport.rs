@@ -55,12 +55,12 @@ impl TestTransport {
             shm: Default::default(),
             xdg: Default::default(),
             seats: Default::default(),
-            deleted: Default::default(),
         });
         self.send(wl_display::GetRegistry {
             self_id: WL_DISPLAY_ID,
             registry: reg.id,
-        });
+        })
+        .unwrap();
         let _ = self.add_obj(reg.clone());
         reg
     }
@@ -98,12 +98,12 @@ impl TestTransport {
             tran: self.clone(),
             handler: Cell::new(None),
             done: Cell::new(self.killed.get()),
-            deleted: Default::default(),
         });
         self.send(wl_display::Sync {
             self_id: WL_DISPLAY_ID,
             callback: cb.id,
-        });
+        })
+        .unwrap();
         let _ = self.add_obj(cb.clone());
         futures_util::future::poll_fn(move |ctx| {
             if cb.done.get() {
@@ -147,9 +147,16 @@ impl TestTransport {
         ));
     }
 
-    pub fn send<M: EventFormatter>(&self, msg: M) {
+    pub fn send<M: EventFormatter>(&self, msg: M) -> Result<(), TestError> {
         if self.killed.get() {
-            return;
+            return Ok(());
+        }
+        let obj = match self.objects.get(&msg.id()) {
+            Some(obj) => obj,
+            _ => bail!("Object with id {} has already been deleted", msg.id()),
+        };
+        if obj.interface().name() != msg.interface().name() {
+            bail!("Object with id {} has an incompatible interface", msg.id());
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();
@@ -160,6 +167,7 @@ impl TestTransport {
             swapchain.commit();
         }
         self.flush_request.trigger();
+        Ok(())
     }
 }
 

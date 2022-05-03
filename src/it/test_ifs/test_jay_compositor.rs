@@ -2,11 +2,8 @@ use {
     crate::{
         client::ClientId,
         it::{
-            test_error::TestError,
-            test_ifs::test_screenshot::TestJayScreenshot,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
-            testrun::ParseFull,
+            test_error::TestError, test_ifs::test_screenshot::TestJayScreenshot,
+            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{
@@ -22,14 +19,12 @@ pub struct TestJayCompositor {
     pub id: JayCompositorId,
     pub tran: Rc<TestTransport>,
     pub client_id: Cell<Option<ClientId>>,
-    pub deleted: Deleted,
 }
 
 impl TestJayCompositor {
     pub async fn get_client_id(&self) -> Result<ClientId, TestError> {
         if self.client_id.get().is_none() {
-            self.deleted.check()?;
-            self.tran.send(GetClientId { self_id: self.id });
+            self.tran.send(GetClientId { self_id: self.id })?;
         }
         self.tran.sync().await;
         match self.client_id.get() {
@@ -42,13 +37,11 @@ impl TestJayCompositor {
         let js = Rc::new(TestJayScreenshot {
             id: self.tran.id(),
             result: Cell::new(None),
-            deleted: Default::default(),
         });
-        self.deleted.check()?;
         self.tran.send(TakeScreenshot {
             self_id: self.id,
             id: js.id,
-        });
+        })?;
         self.tran.add_obj(js.clone())?;
         self.tran.sync().await;
         match js.result.take() {

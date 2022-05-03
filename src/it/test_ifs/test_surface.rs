@@ -2,9 +2,7 @@ use {
     crate::{
         ifs::wl_surface::WlSurface,
         it::{
-            test_error::TestError,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
+            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
@@ -18,32 +16,28 @@ pub struct TestSurface {
     pub tran: Rc<TestTransport>,
     pub server: Rc<WlSurface>,
     pub destroyed: Cell<bool>,
-    pub deleted: Deleted,
 }
 
 impl TestSurface {
     pub fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
-            self.deleted.check()?;
-            self.tran.send(Destroy { self_id: self.id });
+            self.tran.send(Destroy { self_id: self.id })?;
         }
         Ok(())
     }
 
     pub fn attach(&self, buffer_id: WlBufferId) -> Result<(), TestError> {
-        self.deleted.check()?;
         self.tran.send(Attach {
             self_id: self.id,
             buffer: buffer_id,
             x: 0,
             y: 0,
-        });
+        })?;
         Ok(())
     }
 
     pub fn commit(&self) -> Result<(), TestError> {
-        self.deleted.check()?;
-        self.tran.send(Commit { self_id: self.id });
+        self.tran.send(Commit { self_id: self.id })?;
         Ok(())
     }
 

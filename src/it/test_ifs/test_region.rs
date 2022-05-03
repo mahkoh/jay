@@ -1,11 +1,7 @@
 use {
     crate::{
         ifs::wl_region::WlRegion,
-        it::{
-            test_error::TestError,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
-        },
+        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
         rect::{Rect, RegionBuilder},
         wire::{wl_region::*, WlRegionId},
     },
@@ -19,22 +15,19 @@ pub struct TestRegion {
     pub id: WlRegionId,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
-    pub deleted: Deleted,
     pub server: Rc<WlRegion>,
     pub expected: RefCell<RegionBuilder>,
 }
 
 impl TestRegion {
     pub fn destroy(&self) -> Result<(), TestError> {
-        self.deleted.check()?;
         if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id });
+            self.tran.send(Destroy { self_id: self.id })?;
         }
         Ok(())
     }
 
     pub fn add(&self, rect: Rect) -> Result<(), TestError> {
-        self.deleted.check()?;
         self.expected.borrow_mut().add(rect);
         self.tran.send(Add {
             self_id: self.id,
@@ -42,12 +35,11 @@ impl TestRegion {
             y: rect.y1(),
             width: rect.width(),
             height: rect.height(),
-        });
+        })?;
         Ok(())
     }
 
     pub fn subtract(&self, rect: Rect) -> Result<(), TestError> {
-        self.deleted.check()?;
         self.expected.borrow_mut().sub(rect);
         self.tran.send(Subtract {
             self_id: self.id,
@@ -55,7 +47,7 @@ impl TestRegion {
             y: rect.y1(),
             width: rect.width(),
             height: rect.height(),
-        });
+        })?;
         Ok(())
     }
 

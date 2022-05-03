@@ -1,11 +1,8 @@
 use {
     crate::{
         it::{
-            test_error::TestError,
-            test_mem::TestMem,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
-            testrun::ParseFull,
+            test_error::TestError, test_mem::TestMem, test_object::TestObject,
+            test_transport::TestTransport, testrun::ParseFull,
         },
         theme::Color,
         utils::{buffd::MsgParser, windows::WindowsExt},
@@ -25,7 +22,6 @@ pub struct TestShmBuffer {
     pub mem: Rc<TestMem>,
     pub released: Cell<bool>,
     pub destroyed: Cell<bool>,
-    pub deleted: Deleted,
 }
 
 impl TestShmBuffer {
@@ -43,8 +39,7 @@ impl TestShmBuffer {
         if self.destroyed.replace(true) {
             return Ok(());
         }
-        self.deleted.check()?;
-        self.tran.send(Destroy { self_id: self.id });
+        self.tran.send(Destroy { self_id: self.id })?;
         Ok(())
     }
 

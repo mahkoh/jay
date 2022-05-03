@@ -1,9 +1,7 @@
 use {
     crate::{
         it::{
-            test_error::TestError,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
+            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
             testrun::ParseFull,
         },
         object::ObjectId,
@@ -16,7 +14,6 @@ use {
 pub struct TestDisplay {
     pub tran: Rc<TestTransport>,
     pub id: WlDisplayId,
-    pub deleted: Deleted,
 }
 
 impl TestDisplay {
@@ -38,7 +35,6 @@ impl TestDisplay {
                 );
             }
             Some(obj) => {
-                obj.deleted().set();
                 obj.on_remove(&self.tran);
                 self.tran.obj_ids.borrow_mut().release(ev.id);
             }

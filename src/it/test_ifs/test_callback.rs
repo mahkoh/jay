@@ -1,9 +1,7 @@
 use {
     crate::{
         it::{
-            test_error::TestError,
-            test_object::{Deleted, TestObject},
-            test_transport::TestTransport,
+            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
@@ -17,7 +15,6 @@ pub struct TestCallback {
     pub tran: Rc<TestTransport>,
     pub handler: Cell<Option<Box<dyn FnOnce()>>>,
     pub done: Cell<bool>,
-    pub deleted: Deleted,
 }
 
 impl TestCallback {
