@@ -1,5 +1,6 @@
 use {
     crate::{
+        async_engine::Phase,
         it::{
             test_backend::TestBackend,
             test_config::{with_test_config, TestConfig},
@@ -132,12 +133,14 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
             backend,
             errors: Default::default(),
             server_addr,
-            dir: dir.clone(),
+            out_dir: dir.clone(),
+            in_dir: format!("{}/{}", env!("CARGO_MANIFEST_DIR"), test.dir()),
             cfg: cfg.clone(),
         });
         let errors = errors2.clone();
         Box::new(async move {
             let future: Pin<_> = test.run(testrun.clone()).into();
+            let future = state.eng.spawn2(Phase::Present, future);
             let timeout = state.eng.timeout(5000).unwrap();
             match future::select(future, timeout).await {
                 Either::Left((Ok(..), _)) => {}

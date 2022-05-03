@@ -12,6 +12,10 @@ macro_rules! testcase {
                 module_path!().strip_prefix("jay::it::tests::").unwrap()
             }
 
+            fn dir(&self) -> &'static str {
+                file!().strip_suffix(".rs").unwrap()
+            }
+
             fn run(
                 &self,
                 testrun: std::rc::Rc<crate::it::testrun::TestRun>,
@@ -28,9 +32,11 @@ mod t0003_multi_window;
 mod t0004_quit;
 mod t0005_create_seat;
 mod t0006_region;
+mod t0007_subsurface;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
+    fn dir(&self) -> &'static str;
     fn run(&self, testrun: Rc<TestRun>) -> Box<dyn Future<Output = Result<(), TestError>>>;
 }
 
@@ -51,5 +57,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0004_quit,
         t0005_create_seat,
         t0006_region,
+        t0007_subsurface,
     }
 }

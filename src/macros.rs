@@ -18,6 +18,10 @@ macro_rules! object_base {
                 self.id.into()
             }
 
+            fn into_any(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn std::any::Any> {
+                self
+            }
+
             #[allow(unused_variables, unreachable_code)]
             fn handle_request(
                 self: std::rc::Rc<Self>,

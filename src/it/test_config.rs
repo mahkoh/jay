@@ -1,10 +1,13 @@
 use {
     crate::{ifs::wl_seat::SeatId, it::test_error::TestError, utils::stack::Stack},
     isnt::std_1::primitive::IsntConstPtrExt,
-    jay_config::_private::{
-        bincode_ops,
-        ipc::{ClientMessage, Response, ServerMessage},
-        ConfigEntry, VERSION,
+    jay_config::{
+        _private::{
+            bincode_ops,
+            ipc::{ClientMessage, Response, ServerMessage},
+            ConfigEntry, VERSION,
+        },
+        input::Seat,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
 };
@@ -147,6 +150,15 @@ impl TestConfig {
         let reply = self.send_with_reply(ClientMessage::GetSeat { name })?;
         get_response!(reply, GetSeat { seat });
         Ok(SeatId::from_raw(seat.0 as _))
+    }
+
+    pub fn show_workspace(&self, seat: SeatId, name: &str) -> Result<(), TestError> {
+        let reply = self.send_with_reply(ClientMessage::GetWorkspace { name })?;
+        get_response!(reply, GetWorkspace { workspace });
+        self.send(ClientMessage::ShowWorkspace {
+            seat: Seat(seat.raw() as _),
+            workspace,
+        })
     }
 
     fn clear(&self) {

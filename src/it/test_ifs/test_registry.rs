@@ -6,7 +6,8 @@ use {
             test_error::TestError,
             test_ifs::{
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_shm::TestShm, test_xdg_base::TestXdgWmBase,
+                test_shm::TestShm, test_subcompositor::TestSubcompositor,
+                test_xdg_base::TestXdgWmBase,
             },
             test_object::TestObject,
             test_transport::TestTransport,
@@ -27,6 +28,7 @@ pub struct TestGlobal {
 pub struct TestRegistrySingletons {
     pub jay_compositor: u32,
     pub wl_compositor: u32,
+    pub wl_subcompositor: u32,
     pub wl_shm: u32,
     pub xdg_wm_base: u32,
 }
@@ -38,6 +40,7 @@ pub struct TestRegistry {
     pub singletons: CloneCell<Option<Rc<TestRegistrySingletons>>>,
     pub jay_compositor: CloneCell<Option<Rc<TestJayCompositor>>>,
     pub compositor: CloneCell<Option<Rc<TestCompositor>>>,
+    pub subcompositor: CloneCell<Option<Rc<TestSubcompositor>>>,
     pub shm: CloneCell<Option<Rc<TestShm>>>,
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
@@ -84,6 +87,7 @@ impl TestRegistry {
         let singletons = singleton! {
             jay_compositor,
             wl_compositor,
+            wl_subcompositor,
             wl_shm,
             xdg_wm_base,
         };
@@ -115,6 +119,20 @@ impl TestRegistry {
         });
         self.bind(&jc, singletons.wl_compositor, 4)?;
         self.compositor.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_subcompositor(&self) -> Result<Rc<TestSubcompositor>, TestError> {
+        singleton!(self.subcompositor);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.subcompositor);
+        let jc = Rc::new(TestSubcompositor {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+            destroyed: Cell::new(false),
+        });
+        self.bind(&jc, singletons.wl_subcompositor, 1)?;
+        self.subcompositor.set(Some(jc.clone()));
         Ok(jc)
     }
 

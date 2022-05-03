@@ -1,6 +1,7 @@
 use {
     crate::{client::ClientError, utils::buffd::MsgParser, wire::WlDisplayId},
     std::{
+        any::Any,
         fmt::{Display, Formatter},
         rc::Rc,
     },
@@ -31,6 +32,7 @@ impl Display for ObjectId {
 
 pub trait ObjectBase {
     fn id(&self) -> ObjectId;
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
     fn handle_request(
         self: Rc<Self>,
         request: u32,

@@ -26,7 +26,8 @@ pub struct TestRun {
     pub backend: Rc<TestBackend>,
     pub errors: Stack<String>,
     pub server_addr: c::sockaddr_un,
-    pub dir: String,
+    pub out_dir: String,
+    pub in_dir: String,
     pub cfg: Rc<TestConfig>,
 }
 
@@ -85,6 +86,7 @@ impl TestRun {
             tran,
             jc,
             comp: registry.get_compositor().await?,
+            sub: registry.get_subcompositor().await?,
             shm: registry.get_shm().await?,
             xdg: registry.get_xdg().await?,
             registry,

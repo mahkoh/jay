@@ -6,6 +6,7 @@ use {
             test_error::{StdError, TestError},
             test_ifs::{test_callback::TestCallback, test_registry::TestRegistry},
             test_object::TestObject,
+            test_utils::test_object_ext::TestObjectExt,
             testrun::TestRun,
         },
         object::{ObjectId, WL_DISPLAY_ID},
@@ -52,6 +53,7 @@ impl TestTransport {
             singletons: Default::default(),
             jay_compositor: Default::default(),
             compositor: Default::default(),
+            subcompositor: Default::default(),
             shm: Default::default(),
             xdg: Default::default(),
             seats: Default::default(),
@@ -168,6 +170,11 @@ impl TestTransport {
         }
         self.flush_request.trigger();
         Ok(())
+    }
+
+    pub fn get_object<I: Into<ObjectId>, T: 'static>(&self, id: I) -> Result<Rc<T>, TestError> {
+        let client = self.get_client()?;
+        client.objects.get_obj(id.into())?.downcast()
     }
 }
 
