@@ -33,9 +33,9 @@ impl TestWindow {
         self.shm.resize(size)?;
         let buffer = self.shm.create_buffer(0, width, height, stride, ARGB8888)?;
         buffer.fill(self.color.get());
-        self.surface.attach(buffer.id);
-        self.xdg.ack_configure(self.xdg.last_serial.get());
-        self.surface.commit();
+        self.surface.attach(buffer.id)?;
+        self.xdg.ack_configure(self.xdg.last_serial.get())?;
+        self.surface.commit()?;
         self.buffer.set(buffer);
         self.surface.tran.sync().await;
         Ok(())

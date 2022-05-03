@@ -2,8 +2,11 @@ use {
     crate::{
         ifs::wl_surface::xdg_surface::XdgSurface,
         it::{
-            test_error::TestError, test_ifs::test_xdg_toplevel::TestXdgToplevel,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
+            test_error::TestError,
+            test_ifs::test_xdg_toplevel::TestXdgToplevel,
+            test_object::{Deleted, TestObject},
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{xdg_surface::*, XdgSurfaceId},
@@ -17,17 +20,21 @@ pub struct TestXdgSurface {
     pub server: Rc<XdgSurface>,
     pub destroyed: Cell<bool>,
     pub last_serial: Cell<u32>,
+    pub deleted: Deleted,
 }
 
 impl TestXdgSurface {
-    pub fn destroy(&self) {
+    pub fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
+            self.deleted.check()?;
             self.tran.send(Destroy { self_id: self.id });
         }
+        Ok(())
     }
 
     pub async fn create_toplevel(&self) -> Result<Rc<TestXdgToplevel>, TestError> {
         let id = self.tran.id();
+        self.deleted.check()?;
         self.tran.send(GetToplevel {
             self_id: self.id,
             id,
@@ -40,6 +47,7 @@ impl TestXdgSurface {
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
             server,
+            deleted: Default::default(),
             width: Cell::new(0),
             height: Cell::new(0),
             states: Default::default(),
@@ -49,11 +57,13 @@ impl TestXdgSurface {
         Ok(tl)
     }
 
-    pub fn ack_configure(&self, serial: u32) {
+    pub fn ack_configure(&self, serial: u32) -> Result<(), TestError> {
+        self.deleted.check()?;
         self.tran.send(AckConfigure {
             self_id: self.id,
             serial,
         });
+        Ok(())
     }
 
     fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
@@ -65,7 +75,7 @@ impl TestXdgSurface {
 
 impl Drop for TestXdgSurface {
     fn drop(&mut self) {
-        self.destroy();
+        let _ = self.destroy();
     }
 }
 

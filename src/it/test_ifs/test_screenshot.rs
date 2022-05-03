@@ -1,6 +1,10 @@
 use {
     crate::{
-        it::{test_error::TestError, test_object::TestObject, testrun::ParseFull},
+        it::{
+            test_error::TestError,
+            test_object::{Deleted, TestObject},
+            testrun::ParseFull,
+        },
         utils::buffd::MsgParser,
         wire::{jay_screenshot::*, JayScreenshotId},
     },
@@ -10,6 +14,7 @@ use {
 pub struct TestJayScreenshot {
     pub id: JayScreenshotId,
     pub result: Cell<Option<Result<Dmabuf, String>>>,
+    pub deleted: Deleted,
 }
 
 impl TestJayScreenshot {

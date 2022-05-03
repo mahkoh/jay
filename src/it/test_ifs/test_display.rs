@@ -1,7 +1,9 @@
 use {
     crate::{
         it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
+            test_error::TestError,
+            test_object::{Deleted, TestObject},
+            test_transport::TestTransport,
             testrun::ParseFull,
         },
         object::ObjectId,
@@ -14,6 +16,7 @@ use {
 pub struct TestDisplay {
     pub tran: Rc<TestTransport>,
     pub id: WlDisplayId,
+    pub deleted: Deleted,
 }
 
 impl TestDisplay {
@@ -29,14 +32,13 @@ impl TestDisplay {
         let ev = DeleteId::parse_full(parser)?;
         match self.tran.objects.remove(&ObjectId::from_raw(ev.id)) {
             None => {
-                let msg = format!(
+                bail!(
                     "Compositor sent delete_id for object {} which does not exist",
                     ev.id
                 );
-                self.tran.error(&msg);
-                self.tran.kill();
             }
             Some(obj) => {
+                obj.deleted().set();
                 obj.on_remove(&self.tran);
                 self.tran.obj_ids.borrow_mut().release(ev.id);
             }

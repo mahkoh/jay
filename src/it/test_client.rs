@@ -53,7 +53,7 @@ impl TestClient {
         let buffer = shm.create_buffer(0, 0, 0, 0, ARGB8888)?;
         let xdg = self.xdg.create_xdg_surface(surface.id).await?;
         let tl = xdg.create_toplevel().await?;
-        surface.commit();
+        surface.commit()?;
         self.sync().await;
         Ok(Rc::new(TestWindow {
             surface,

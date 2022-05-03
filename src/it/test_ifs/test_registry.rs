@@ -8,7 +8,7 @@ use {
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
                 test_shm::TestShm, test_xdg_base::TestXdgWmBase,
             },
-            test_object::TestObject,
+            test_object::{Deleted, TestObject},
             test_transport::TestTransport,
             testrun::ParseFull,
         },
@@ -41,6 +41,7 @@ pub struct TestRegistry {
     pub shm: CloneCell<Option<Rc<TestShm>>>,
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
+    pub deleted: Deleted,
 }
 
 macro_rules! singleton {
@@ -99,6 +100,7 @@ impl TestRegistry {
             id: self.tran.id(),
             tran: self.tran.clone(),
             client_id: Default::default(),
+            deleted: Default::default(),
         });
         self.bind(&jc, singletons.jay_compositor, 1)?;
         self.jay_compositor.set(Some(jc.clone()));
@@ -112,6 +114,7 @@ impl TestRegistry {
         let jc = Rc::new(TestCompositor {
             id: self.tran.id(),
             tran: self.tran.clone(),
+            deleted: Default::default(),
         });
         self.bind(&jc, singletons.wl_compositor, 4)?;
         self.compositor.set(Some(jc.clone()));
@@ -127,6 +130,7 @@ impl TestRegistry {
             tran: self.tran.clone(),
             formats: Default::default(),
             formats_awaited: Cell::new(false),
+            deleted: Default::default(),
         });
         self.bind(&jc, singletons.wl_shm, 1)?;
         self.shm.set(Some(jc.clone()));
@@ -141,6 +145,7 @@ impl TestRegistry {
             id: self.tran.id(),
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
+            deleted: Default::default(),
         });
         self.bind(&jc, singletons.xdg_wm_base, 3)?;
         self.xdg.set(Some(jc.clone()));
@@ -153,6 +158,7 @@ impl TestRegistry {
         name: u32,
         version: u32,
     ) -> Result<(), TestError> {
+        self.deleted.check()?;
         self.tran.send(Bind {
             self_id: self.id,
             name,

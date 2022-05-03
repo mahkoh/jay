@@ -141,6 +141,7 @@ impl Clients {
             last_enter_serial: Cell::new(0),
             pid_info: get_pid_info(uid, pid),
             serials: Default::default(),
+            symmetric_delete: Cell::new(false),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -246,6 +247,7 @@ pub struct Client {
     pub last_enter_serial: Cell<u32>,
     pub pid_info: PidInfo,
     pub serials: RefCell<VecDeque<SerialRange>>,
+    pub symmetric_delete: Cell<bool>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

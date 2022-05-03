@@ -1,7 +1,9 @@
 use {
     crate::{
         it::{
-            test_error::TestError, test_ifs::test_surface::TestSurface, test_object::TestObject,
+            test_error::TestError,
+            test_ifs::test_surface::TestSurface,
+            test_object::{Deleted, TestObject},
             test_transport::TestTransport,
         },
         wire::{wl_compositor::CreateSurface, WlCompositorId},
@@ -12,11 +14,13 @@ use {
 pub struct TestCompositor {
     pub id: WlCompositorId,
     pub tran: Rc<TestTransport>,
+    pub deleted: Deleted,
 }
 
 impl TestCompositor {
     pub async fn create_surface(&self) -> Result<Rc<TestSurface>, TestError> {
         let id = self.tran.id();
+        self.deleted.check()?;
         self.tran.send(CreateSurface {
             self_id: self.id,
             id,
@@ -29,6 +33,7 @@ impl TestCompositor {
             tran: self.tran.clone(),
             server,
             destroyed: Cell::new(false),
+            deleted: Default::default(),
         });
         self.tran.add_obj(surface.clone())?;
         Ok(surface)

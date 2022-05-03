@@ -27,6 +27,10 @@ msg get_client_id = 6 {
 
 }
 
+msg enable_symmetric_delete = 7 {
+
+}
+
 # events
 
 msg client_id = 0 {

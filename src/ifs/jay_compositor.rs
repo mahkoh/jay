@@ -168,6 +168,12 @@ impl JayCompositor {
         });
         Ok(())
     }
+
+    fn enable_symmetric_delete(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let _req: EnableSymmetricDelete = self.client.parse(self, parser)?;
+        self.client.symmetric_delete.set(true);
+        Ok(())
+    }
 }
 
 object_base! {
@@ -180,6 +186,7 @@ object_base! {
     TAKE_SCREENSHOT => take_screenshot,
     GET_IDLE => get_idle,
     GET_CLIENT_ID => get_client_id,
+    ENABLE_SYMMETRIC_DELETE => enable_symmetric_delete,
 }
 
 impl Object for JayCompositor {

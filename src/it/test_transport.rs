@@ -55,6 +55,7 @@ impl TestTransport {
             shm: Default::default(),
             xdg: Default::default(),
             seats: Default::default(),
+            deleted: Default::default(),
         });
         self.send(wl_display::GetRegistry {
             self_id: WL_DISPLAY_ID,
@@ -97,6 +98,7 @@ impl TestTransport {
             tran: self.clone(),
             handler: Cell::new(None),
             done: Cell::new(self.killed.get()),
+            deleted: Default::default(),
         });
         self.send(wl_display::Sync {
             self_id: WL_DISPLAY_ID,

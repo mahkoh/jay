@@ -1,8 +1,11 @@
 use {
     crate::{
         it::{
-            test_error::TestError, test_ifs::test_xdg_surface::TestXdgSurface,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
+            test_error::TestError,
+            test_ifs::test_xdg_surface::TestXdgSurface,
+            test_object::{Deleted, TestObject},
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{xdg_wm_base::*, WlSurfaceId, XdgWmBaseId},
@@ -14,13 +17,16 @@ pub struct TestXdgWmBase {
     pub id: XdgWmBaseId,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
+    pub deleted: Deleted,
 }
 
 impl TestXdgWmBase {
-    pub fn destroy(&self) {
+    pub fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
+            self.deleted.check()?;
             self.tran.send(Destroy { self_id: self.id });
         }
+        Ok(())
     }
 
     pub async fn create_xdg_surface(
@@ -28,6 +34,7 @@ impl TestXdgWmBase {
         surface: WlSurfaceId,
     ) -> Result<Rc<TestXdgSurface>, TestError> {
         let id = self.tran.id();
+        self.deleted.check()?;
         self.tran.send(GetXdgSurface {
             self_id: self.id,
             id,
@@ -42,6 +49,7 @@ impl TestXdgWmBase {
             server,
             destroyed: Cell::new(false),
             last_serial: Cell::new(0),
+            deleted: Default::default(),
         });
         self.tran.add_obj(xdg.clone())?;
         Ok(xdg)
@@ -63,6 +71,6 @@ impl TestObject for TestXdgWmBase {}
 
 impl Drop for TestXdgWmBase {
     fn drop(&mut self) {
-        self.destroy();
+        let _ = self.destroy();
     }
 }

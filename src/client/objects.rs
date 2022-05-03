@@ -163,6 +163,7 @@ impl Objects {
             Some(o) => o,
             _ => return Err(ClientError::UnknownId),
         };
+        let mut send_delete = true;
         if id.raw() >= MIN_SERVER_ID {
             let offset = (id.raw() - MIN_SERVER_ID) as usize;
             let pos = offset / SEG_SIZE;
@@ -172,7 +173,9 @@ impl Objects {
                 return Err(ClientError::ServerIdOutOfBounds);
             }
             ids[pos] |= 1 << seg_offset;
-        } else {
+            send_delete = client_data.symmetric_delete.get();
+        }
+        if send_delete {
             client_data.display()?.send_delete_id(id);
         }
         Ok(())

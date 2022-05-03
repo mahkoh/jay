@@ -2,8 +2,11 @@ use {
     crate::{
         format::Format,
         it::{
-            test_error::TestError, test_ifs::test_shm_buffer::TestShmBuffer, test_mem::TestMem,
-            test_object::TestObject, test_transport::TestTransport,
+            test_error::TestError,
+            test_ifs::test_shm_buffer::TestShmBuffer,
+            test_mem::TestMem,
+            test_object::{Deleted, TestObject},
+            test_transport::TestTransport,
         },
         utils::clonecell::CloneCell,
         wire::{wl_shm_pool::*, WlShmPoolId},
@@ -16,6 +19,7 @@ pub struct TestShmPool {
     pub tran: Rc<TestTransport>,
     pub mem: CloneCell<Rc<TestMem>>,
     pub destroyed: Cell<bool>,
+    pub deleted: Deleted,
 }
 
 impl TestShmPool {
@@ -41,8 +45,10 @@ impl TestShmPool {
             mem,
             released: Cell::new(true),
             destroyed: Cell::new(false),
+            deleted: Default::default(),
         });
         self.tran.add_obj(buffer.clone())?;
+        self.deleted.check()?;
         self.tran.send(CreateBuffer {
             self_id: self.id,
             id: buffer.id,
@@ -58,6 +64,7 @@ impl TestShmPool {
     pub fn resize(&self, size: usize) -> Result<(), TestError> {
         let mem = self.mem.get().grow(size)?;
         self.mem.set(mem);
+        self.deleted.check()?;
         self.tran.send(Resize {
             self_id: self.id,
             size: size as _,
@@ -65,17 +72,19 @@ impl TestShmPool {
         Ok(())
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(&self) -> Result<(), TestError> {
         if self.destroyed.replace(true) {
-            return;
+            return Ok(());
         }
+        self.deleted.check()?;
         self.tran.send(Destroy { self_id: self.id });
+        Ok(())
     }
 }
 
 impl Drop for TestShmPool {
     fn drop(&mut self) {
-        self.destroy()
+        let _ = self.destroy();
     }
 }
 

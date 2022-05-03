@@ -73,6 +73,7 @@ impl TestRun {
         tran.add_obj(Rc::new(TestDisplay {
             tran: tran.clone(),
             id: WL_DISPLAY_ID,
+            deleted: Default::default(),
         }))?;
         tran.init();
         let registry = tran.get_registry();

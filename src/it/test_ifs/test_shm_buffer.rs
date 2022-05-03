@@ -1,8 +1,11 @@
 use {
     crate::{
         it::{
-            test_error::TestError, test_mem::TestMem, test_object::TestObject,
-            test_transport::TestTransport, testrun::ParseFull,
+            test_error::TestError,
+            test_mem::TestMem,
+            test_object::{Deleted, TestObject},
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         theme::Color,
         utils::{buffd::MsgParser, windows::WindowsExt},
@@ -22,6 +25,7 @@ pub struct TestShmBuffer {
     pub mem: Rc<TestMem>,
     pub released: Cell<bool>,
     pub destroyed: Cell<bool>,
+    pub deleted: Deleted,
 }
 
 impl TestShmBuffer {
@@ -35,11 +39,13 @@ impl TestShmBuffer {
         }
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(&self) -> Result<(), TestError> {
         if self.destroyed.replace(true) {
-            return;
+            return Ok(());
         }
+        self.deleted.check()?;
         self.tran.send(Destroy { self_id: self.id });
+        Ok(())
     }
 
     fn handle_release(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
@@ -59,7 +65,7 @@ impl Deref for TestShmBuffer {
 
 impl Drop for TestShmBuffer {
     fn drop(&mut self) {
-        self.destroy();
+        let _ = self.destroy();
     }
 }
 

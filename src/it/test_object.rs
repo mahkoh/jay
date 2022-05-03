@@ -4,7 +4,7 @@ use {
         object::{Interface, ObjectId},
         utils::buffd::MsgParser,
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
 };
 
 macro_rules! test_object {
@@ -12,6 +12,10 @@ macro_rules! test_object {
         impl crate::it::test_object::TestObjectBase for $oname {
             fn id(&self) -> crate::object::ObjectId {
                 self.id.into()
+            }
+
+            fn deleted(&self) -> &Deleted {
+                &self.deleted
             }
 
             #[allow(unused_variables, unreachable_code)]
@@ -37,8 +41,25 @@ macro_rules! test_object {
     };
 }
 
+#[derive(Default)]
+pub struct Deleted(Cell<bool>);
+
+impl Deleted {
+    pub fn set(&self) {
+        self.0.set(true);
+    }
+
+    pub fn check(&self) -> Result<(), TestError> {
+        match self.0.get() {
+            true => bail!("Object has already been deleted"),
+            _ => Ok(()),
+        }
+    }
+}
+
 pub trait TestObjectBase: 'static {
     fn id(&self) -> ObjectId;
+    fn deleted(&self) -> &Deleted;
     fn handle_request(
         self: Rc<Self>,
         request: u32,
