@@ -58,7 +58,7 @@ mod t0002_window;
 mod t0003_multi_window;
 mod t0004_quit;
 
-pub trait TestCase {
+pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
     fn run(&self, testrun: Rc<TestRun>) -> Box<dyn Future<Output = Result<(), TestError>>>;
 }

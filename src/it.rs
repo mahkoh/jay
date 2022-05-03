@@ -6,17 +6,19 @@ use {
             testrun::TestRun,
             tests::TestCase,
         },
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, num_cpus::num_cpus},
     },
     ahash::AHashMap,
     futures_util::{future, future::Either},
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     std::{
-        cell::{Cell, RefCell},
+        cell::Cell,
+        collections::VecDeque,
         future::pending,
         pin::Pin,
         rc::Rc,
+        sync::{Arc, Mutex},
         time::SystemTime,
     },
     uapi::c,
@@ -37,23 +39,51 @@ mod test_utils;
 mod testrun;
 mod tests;
 
+const SINGLE_THREAD: bool = false;
+
 pub fn run_tests() {
     test_logger::install();
     test_logger::set_level(Level::Trace);
-    let it_run = ItRun {
+    let it_run = Arc::new(ItRun {
         path: format!(
             "{}/testruns/{}",
             env!("CARGO_MANIFEST_DIR"),
             humantime::format_rfc3339_millis(SystemTime::now())
         ),
         failed: Default::default(),
-    };
-    for test in tests::tests() {
-        with_test_config(|cfg| {
-            run_test(&it_run, test, cfg);
-        })
+    });
+    if SINGLE_THREAD {
+        for test in tests::tests() {
+            with_test_config(|cfg| {
+                run_test(&it_run, test, cfg);
+            })
+        }
+    } else {
+        let queue = Arc::new(Mutex::new(VecDeque::from_iter(tests::tests())));
+        let mut threads = vec![];
+        let num_cpus = match num_cpus() {
+            Ok(n) => n,
+            Err(e) => fatal!("Could not determine the number of cpus: {}", ErrorFmt(e)),
+        };
+        log::info!("Running {} tests in parallel", num_cpus);
+        for _ in 0..num_cpus {
+            let queue = queue.clone();
+            let it_run = it_run.clone();
+            threads.push(std::thread::spawn(move || loop {
+                let test = match queue.lock().unwrap().pop_front() {
+                    Some(t) => t,
+                    _ => break,
+                };
+                with_test_config(|cfg| {
+                    run_test(&it_run, test, cfg);
+                })
+            }));
+        }
+        for thread in threads {
+            thread.join().unwrap();
+        }
     }
-    let failed = it_run.failed.borrow_mut();
+    let failed = it_run.failed.lock().unwrap();
     if failed.is_not_empty() {
         let mut failed: Vec<_> = failed.iter().collect();
         failed.sort_by_key(|f| f.0);
@@ -70,7 +100,7 @@ pub fn run_tests() {
 
 struct ItRun {
     path: String,
-    failed: RefCell<AHashMap<&'static str, Vec<String>>>,
+    failed: Mutex<AHashMap<&'static str, Vec<String>>>,
 }
 
 fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
@@ -130,7 +160,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
         for e in &errors {
             log::error!("    {}", e);
         }
-        it_run.failed.borrow_mut().insert(test.name(), errors);
+        it_run.failed.lock().unwrap().insert(test.name(), errors);
     }
     test_logger::unset_file();
 }
