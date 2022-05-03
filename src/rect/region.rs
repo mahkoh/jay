@@ -533,7 +533,7 @@ fn rects_to_bands(rects_tmp: &[Rect]) -> Container {
     merged
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum BuilderOp {
     Add,
     Sub,
@@ -545,6 +545,7 @@ impl Default for BuilderOp {
     }
 }
 
+#[derive(Debug)]
 pub struct RegionBuilder {
     base: Rc<Region>,
     op: BuilderOp,
@@ -599,5 +600,6 @@ impl RegionBuilder {
             BuilderOp::Add => self.base.union(&region),
             BuilderOp::Sub => self.base.subtract(&region),
         };
+        self.pending.clear();
     }
 }

@@ -28,6 +28,8 @@ use {
 mod test_error;
 #[macro_use]
 mod test_object;
+#[macro_use]
+mod test_macros;
 pub mod test_backend;
 mod test_client;
 pub mod test_config;

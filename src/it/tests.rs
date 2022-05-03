@@ -22,42 +22,12 @@ macro_rules! testcase {
     };
 }
 
-macro_rules! tassert {
-    ($cond:expr) => {
-        if !$cond {
-            bail!(
-                "Assert `{}` failed ({}:{})",
-                stringify!($cond),
-                file!(),
-                line!()
-            );
-        }
-    };
-}
-
-macro_rules! tassert_eq {
-    ($left:expr, $right:expr) => {{
-        let left = $left;
-        let right = $right;
-        if left != right {
-            bail!(
-                "Assert `{} = {:?} = {:?} = {}` failed ({}:{})",
-                stringify!($left),
-                left,
-                right,
-                stringify!($right),
-                file!(),
-                line!()
-            );
-        }
-    }};
-}
-
 mod t0001_shm_formats;
 mod t0002_window;
 mod t0003_multi_window;
 mod t0004_quit;
 mod t0005_create_seat;
+mod t0006_region;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -80,5 +50,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0003_multi_window,
         t0004_quit,
         t0005_create_seat,
+        t0006_region,
     }
 }
