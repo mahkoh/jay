@@ -1,12 +1,17 @@
 use {
     crate::utils::clonecell::CloneCell,
     log::{Level, LevelFilter, Log, Metadata, Record},
-    std::{cell::Cell, fmt::Write as FmtWrite, io::Write, rc::Rc, time::SystemTime},
+    std::{
+        fmt::Write as FmtWrite,
+        io::Write,
+        rc::Rc,
+        sync::atomic::{AtomicUsize, Ordering},
+        time::SystemTime,
+    },
     uapi::{Fd, OwnedFd},
 };
 
-#[thread_local]
-static LEVEL: Cell<Level> = Cell::new(Level::Info);
+static LEVEL: AtomicUsize = AtomicUsize::new(Level::Info as usize);
 
 #[thread_local]
 static FILE: CloneCell<Option<Rc<OwnedFd>>> = CloneCell::new(None);
@@ -17,7 +22,7 @@ pub fn install() {
 }
 
 pub fn set_level(level: Level) {
-    LEVEL.set(level);
+    LEVEL.store(level as usize, Ordering::Relaxed);
     log::set_max_level(level.to_level_filter());
 }
 
@@ -33,11 +38,11 @@ struct Logger;
 
 impl Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= LEVEL.get()
+        metadata.level() as usize <= LEVEL.load(Ordering::Relaxed)
     }
 
     fn log(&self, record: &Record) {
-        if record.level() > LEVEL.get() {
+        if record.level() as usize > LEVEL.load(Ordering::Relaxed) {
             return;
         }
         let mut buf = String::new();

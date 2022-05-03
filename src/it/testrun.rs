@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{ClientId, RequestParser},
+        ifs::wl_seat::WlSeatGlobal,
         it::{
             test_backend::TestBackend,
             test_client::TestClient,
@@ -88,6 +89,16 @@ impl TestRun {
             xdg: registry.get_xdg().await?,
             registry,
         }))
+    }
+
+    pub fn get_seat(&self, name: &str) -> Result<Rc<WlSeatGlobal>, TestError> {
+        let id = self.cfg.get_seat(name)?;
+        for seat in self.state.globals.seats.lock().values() {
+            if seat.id() == id {
+                return Ok(seat.clone());
+            }
+        }
+        bail!("Seat {} does not exist", id)
     }
 }
 

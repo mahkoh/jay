@@ -57,6 +57,7 @@ mod t0001_shm_formats;
 mod t0002_window;
 mod t0003_multi_window;
 mod t0004_quit;
+mod t0005_create_seat;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -78,5 +79,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0002_window,
         t0003_multi_window,
         t0004_quit,
+        t0005_create_seat,
     }
 }

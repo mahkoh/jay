@@ -1,5 +1,7 @@
 use {
     crate::{
+        globals::GlobalName,
+        ifs::wl_seat::WlSeatGlobal,
         it::{
             test_error::TestError,
             test_ifs::{
@@ -11,7 +13,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
-        wire::{wl_registry::*, WlRegistryId},
+        wire::{wl_registry::*, WlRegistryId, WlSeat},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -38,6 +40,7 @@ pub struct TestRegistry {
     pub compositor: CloneCell<Option<Rc<TestCompositor>>>,
     pub shm: CloneCell<Option<Rc<TestShm>>>,
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
+    pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
 macro_rules! singleton {
@@ -163,30 +166,38 @@ impl TestRegistry {
 
     fn handle_global(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = Global::parse_full(parser)?;
-        let prev = self.globals.set(
-            ev.name,
-            Rc::new(TestGlobal {
-                name: ev.name,
-                interface: ev.interface.to_string(),
-                version: ev.version,
-            }),
-        );
+        let global = Rc::new(TestGlobal {
+            name: ev.name,
+            interface: ev.interface.to_string(),
+            version: ev.version,
+        });
+        let prev = self.globals.set(ev.name, global.clone());
+        let name = GlobalName::from_raw(ev.name);
+        if ev.interface == WlSeat.name() {
+            let seat = match self.tran.run.state.globals.seats.get(&name) {
+                Some(s) => s,
+                _ => bail!("Compositor sent seat global but seat does not exist"),
+            };
+            self.seats.set(GlobalName::from_raw(ev.name), seat);
+        }
         if prev.is_some() {
-            self.tran.error(&format!(
-                "Compositor sent global {} multiple times",
-                ev.name
-            ));
+            bail!("Compositor sent global {} multiple times", ev.name);
         }
         Ok(())
     }
 
     fn handle_global_remove(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = GlobalRemove::parse_full(parser)?;
-        if self.globals.remove(&ev.name).is_none() {
-            self.tran.error(&format!(
+        let global = match self.globals.remove(&ev.name) {
+            Some(g) => g,
+            _ => bail!(
                 "Compositor sent global_remove for {} which does not exist",
                 ev.name
-            ));
+            ),
+        };
+        let name = GlobalName::from_raw(ev.name);
+        if global.interface == WlSeat.name() {
+            self.seats.remove(&name);
         }
         Ok(())
     }

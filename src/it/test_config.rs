@@ -1,9 +1,9 @@
 use {
-    crate::it::test_error::TestError,
+    crate::{ifs::wl_seat::SeatId, it::test_error::TestError, utils::stack::Stack},
     isnt::std_1::primitive::IsntConstPtrExt,
     jay_config::_private::{
         bincode_ops,
-        ipc::{ClientMessage, ServerMessage},
+        ipc::{ClientMessage, Response, ServerMessage},
         ConfigEntry, VERSION,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
@@ -26,6 +26,7 @@ where
     unsafe {
         let tc = Rc::new(TestConfig {
             srv: Cell::new(None),
+            responses: Default::default(),
         });
         let old = CONFIG;
         CONFIG = tc.deref();
@@ -73,7 +74,9 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
     };
     match msg {
         ServerMessage::Configure { .. } => {}
-        ServerMessage::Response { .. } => {}
+        ServerMessage::Response { response } => {
+            tc.responses.push(response);
+        }
         ServerMessage::InvokeShortcut { .. } => {}
         ServerMessage::NewInputDevice { .. } => {}
         ServerMessage::DelInputDevice { .. } => {}
@@ -96,10 +99,26 @@ struct ServerData {
 
 pub struct TestConfig {
     srv: Cell<Option<ServerData>>,
+    responses: Stack<Response>,
+}
+
+macro_rules! get_response {
+    ($res:expr, $ty:ident { $($field:ident),+ }) => {
+        let ($($field,)+) = match $res {
+            Response::$ty { $($field,)+ } => ($($field,)+),
+            _ => {
+                bail!("Server did not send a response to a {} request", stringify!($ty));
+            }
+        };
+    }
 }
 
 impl TestConfig {
     fn send(&self, msg: ClientMessage) -> Result<(), TestError> {
+        self.send_(&msg)
+    }
+
+    fn send_(&self, msg: &ClientMessage) -> Result<(), TestError> {
         let srv = match self.srv.get() {
             Some(srv) => srv,
             _ => bail!("srv not set"),
@@ -112,8 +131,22 @@ impl TestConfig {
         Ok(())
     }
 
+    fn send_with_reply(&self, msg: ClientMessage) -> Result<Response, TestError> {
+        self.send_(&msg)?;
+        match self.responses.pop() {
+            Some(r) => Ok(r),
+            _ => bail!("Compositor did not send a response to {:?}", msg),
+        }
+    }
+
     pub fn quit(&self) -> Result<(), TestError> {
         self.send(ClientMessage::Quit)
+    }
+
+    pub fn get_seat(&self, name: &str) -> Result<SeatId, TestError> {
+        let reply = self.send_with_reply(ClientMessage::GetSeat { name })?;
+        get_response!(reply, GetSeat { seat });
+        Ok(SeatId::from_raw(seat.0 as _))
     }
 
     fn clear(&self) {

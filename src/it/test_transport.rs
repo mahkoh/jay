@@ -54,6 +54,7 @@ impl TestTransport {
             compositor: Default::default(),
             shm: Default::default(),
             xdg: Default::default(),
+            seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {
             self_id: WL_DISPLAY_ID,

@@ -81,7 +81,7 @@ impl Object for WlRegistry {
     }
 }
 
-simple_add_obj!(WlRegistry);
+dedicated_add_obj!(WlRegistry, WlRegistryId, registries);
 
 #[derive(Debug, Error)]
 pub enum WlRegistryError {

@@ -37,7 +37,7 @@ use {
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
     registry: CopyHashMap<ObjectId, Rc<dyn Object>>,
-    registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
+    pub registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
     pub outputs: CopyHashMap<WlOutputId, Rc<WlOutput>>,
     pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
     pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
