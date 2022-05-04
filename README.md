@@ -148,6 +148,17 @@ configuration][personal].
 
 [personal]: https://github.com/mahkoh/my-jay-config
 
+## Screensharing
+
+Jay supports [xdg-desktop-portal-wlr][xdpw] but Jay is not currently listed in
+xdg-desktop-portal-wlr's wlr.portal file. To get screensharing to work, you have
+to manually edit `/usr/share/xdg-desktop-portal/portals/wlr.portal` and add
+`jay` to the `UseIn` list.
+
+In the future, Jay will provide a desktop portal itself.
+
+[xdpw]: https://github.com/emersion/xdg-desktop-portal-wlr
+
 ## License
 
 Jay is free software licensed under the GNU General Public License v3.0.
