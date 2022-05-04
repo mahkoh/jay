@@ -12,7 +12,8 @@ use {
         state::State,
         time::Time,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, oserror::OsError,
+            syncqueue::SyncQueue,
         },
         video::drm::{ConnectorType, Drm},
     },
@@ -177,7 +178,7 @@ impl Backend for TestBackend {
         let slf = self.clone();
         self.state.eng.spawn(async move {
             if let Err(e) = slf.create_render_context() {
-                return Err(Box::new(e) as Box<_>);
+                log::error!("Could not create render context: {}", ErrorFmt(e));
             }
             let future: Pin<_> = future.into();
             future.await;
