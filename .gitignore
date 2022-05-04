@@ -1,5 +1,6 @@
 .*
 !.gitignore
 !/.cargo
+!/.builds
 /target
 /testruns
