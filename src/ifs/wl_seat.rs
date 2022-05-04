@@ -265,7 +265,15 @@ impl WlSeatGlobal {
     }
 
     pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
+        let state = match keymap.state() {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("Could not create keymap state: {}", ErrorFmt(e));
+                return;
+            }
+        };
         self.kb_map.set(keymap.clone());
+        *self.kb_state.borrow_mut() = state;
         let bindings = self.bindings.borrow_mut();
         for (id, client) in bindings.iter() {
             for seat in client.values() {

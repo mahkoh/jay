@@ -3,7 +3,7 @@ use {
         backend::InputDeviceId,
         ifs::wl_seat::SeatId,
         it::test_error::{TestError, TestResult},
-        utils::stack::Stack,
+        utils::{copyhashmap::CopyHashMap, stack::Stack},
     },
     isnt::std_1::primitive::IsntConstPtrExt,
     jay_config::{
@@ -13,6 +13,7 @@ use {
             ConfigEntry, VERSION,
         },
         input::{InputDevice, Seat},
+        keyboard::{keymap::Keymap, ModifiedKeySym},
         Direction,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
@@ -36,6 +37,7 @@ where
         let tc = Rc::new(TestConfig {
             srv: Cell::new(None),
             responses: Default::default(),
+            invoked_shortcuts: Default::default(),
         });
         let old = CONFIG;
         CONFIG = tc.deref();
@@ -86,7 +88,10 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::Response { response } => {
             tc.responses.push(response);
         }
-        ServerMessage::InvokeShortcut { .. } => {}
+        ServerMessage::InvokeShortcut { seat, mods, sym } => {
+            tc.invoked_shortcuts
+                .set((SeatId::from_raw(seat.0 as _), mods | sym), ());
+        }
         ServerMessage::NewInputDevice { .. } => {}
         ServerMessage::DelInputDevice { .. } => {}
         ServerMessage::ConnectorConnect { .. } => {}
@@ -109,6 +114,7 @@ struct ServerData {
 pub struct TestConfig {
     srv: Cell<Option<ServerData>>,
     responses: Stack<Response>,
+    pub invoked_shortcuts: CopyHashMap<(SeatId, ModifiedKeySym), ()>,
 }
 
 macro_rules! get_response {
@@ -164,6 +170,35 @@ impl TestConfig {
         self.send(ClientMessage::ShowWorkspace {
             seat: Seat(seat.raw() as _),
             workspace,
+        })
+    }
+
+    pub fn parse_keymap(&self, keymap: &str) -> Result<Keymap, TestError> {
+        let reply = self.send_with_reply(ClientMessage::ParseKeymap { keymap })?;
+        get_response!(reply, ParseKeymap { keymap });
+        if keymap.is_invalid() {
+            bail!("Could not parse the keymap");
+        }
+        Ok(keymap)
+    }
+
+    pub fn set_keymap(&self, seat: SeatId, keymap: Keymap) -> TestResult {
+        self.send(ClientMessage::SeatSetKeymap {
+            seat: Seat(seat.raw() as _),
+            keymap,
+        })
+    }
+
+    pub fn add_shortcut<T: Into<ModifiedKeySym>>(
+        &self,
+        seat: SeatId,
+        key: T,
+    ) -> Result<(), TestError> {
+        let key = key.into();
+        self.send(ClientMessage::AddShortcut {
+            seat: Seat(seat.raw() as _),
+            mods: key.mods,
+            sym: key.sym,
         })
     }
 

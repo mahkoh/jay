@@ -8,7 +8,7 @@ pub mod keymap;
 pub mod mods;
 pub mod syms;
 
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ModifiedKeySym {
     pub mods: Modifiers,
     pub sym: KeySym,

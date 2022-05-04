@@ -4,7 +4,7 @@ use {
         backend::{
             Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
             InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
-            Mode, MonitorInfo, TransformMatrix,
+            KeyState, Mode, MonitorInfo, TransformMatrix,
         },
         compositor::TestFuture,
         fixed::Fixed,
@@ -256,6 +256,29 @@ impl TestBackendMouse {
 
 pub struct TestBackendKb {
     pub common: TestInputDeviceCommon,
+}
+
+pub struct PressedKey {
+    pub kb: Rc<TestBackendKb>,
+    pub key: u32,
+}
+
+impl Drop for PressedKey {
+    fn drop(&mut self) {
+        self.kb
+            .common
+            .event(InputEvent::Key(self.key, KeyState::Released));
+    }
+}
+
+impl TestBackendKb {
+    pub fn press(self: &Rc<Self>, key: u32) -> PressedKey {
+        self.common.event(InputEvent::Key(key, KeyState::Pressed));
+        PressedKey {
+            kb: self.clone(),
+            key,
+        }
+    }
 }
 
 impl TestInputDevice for TestBackendKb {

@@ -125,6 +125,10 @@ impl TestRun {
             seat,
         })
     }
+
+    pub async fn sync(&self) {
+        self.state.eng.yield_now().await;
+    }
 }
 
 pub trait ParseFull<'a>: Sized {
