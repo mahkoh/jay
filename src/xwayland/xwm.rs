@@ -1452,7 +1452,7 @@ impl Wm {
 
     async fn handle_minimize_requested(&self, data: &Rc<XwindowData>) -> bool {
         if let Some(w) = data.window.get() {
-            if w.toplevel_data.active_children.get() > 0 {
+            if w.toplevel_data.active_surfaces.get() > 0 {
                 self.set_wm_state(data, ICCCM_WM_STATE_NORMAL).await;
                 return false;
             }

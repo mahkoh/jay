@@ -40,14 +40,14 @@ pub trait ToplevelNode: Node {
     fn tl_surface_active_changed(&self, active: bool) {
         let data = self.tl_data();
         if active {
-            if data.active_children.fetch_add(1) == 0 {
+            if data.active_surfaces.fetch_add(1) == 0 {
                 self.tl_set_active(true);
                 if let Some(parent) = data.parent.get() {
                     parent.node_child_active_changed(self.tl_as_node(), true, 1);
                 }
             }
         } else {
-            if data.active_children.fetch_sub(1) == 1 {
+            if data.active_surfaces.fetch_sub(1) == 1 {
                 self.tl_set_active(false);
                 if let Some(parent) = data.parent.get() {
                     parent.node_child_active_changed(self.tl_as_node(), false, 1);
@@ -107,15 +107,8 @@ pub trait ToplevelNode: Node {
             _ => return,
         };
         let node = self.tl_as_node();
-        let depth = if data.active.get() {
-            1
-        } else if data.active_children.get() > 0 {
-            2
-        } else {
-            0
-        };
-        if depth > 0 {
-            parent.clone().node_child_active_changed(node, true, depth);
+        if data.active.get() || data.active_surfaces.get() > 0 {
+            parent.clone().node_child_active_changed(node, true, 1);
         }
     }
 
@@ -161,7 +154,7 @@ pub struct ToplevelData {
     pub active: Cell<bool>,
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
-    pub active_children: NumCell<u32>,
+    pub active_surfaces: NumCell<u32>,
     pub focus_node: SmallMap<SeatId, Rc<dyn Node>, 1>,
     pub visible: Cell<bool>,
     pub is_floating: Cell<bool>,
@@ -182,7 +175,7 @@ impl ToplevelData {
             active: Cell::new(false),
             client,
             state: state.clone(),
-            active_children: Default::default(),
+            active_surfaces: Default::default(),
             focus_node: Default::default(),
             visible: Cell::new(false),
             is_floating: Default::default(),

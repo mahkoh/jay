@@ -181,6 +181,13 @@ impl TestConfig {
         })
     }
 
+    pub fn set_fullscreen(&self, seat: SeatId, fs: bool) -> TestResult {
+        self.send(ClientMessage::SetFullscreen {
+            seat: Seat(seat.raw() as _),
+            fullscreen: fs,
+        })
+    }
+
     fn clear(&self) {
         unsafe {
             if let Some(srv) = self.srv.take() {
