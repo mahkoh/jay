@@ -3,11 +3,13 @@ use {
         cli::screenshot::buf_to_qoi,
         client::Client,
         format::ARGB8888,
+        globals::GlobalBase,
         it::{
-            test_error::TestError,
+            test_error::{TestError, TestResult},
             test_ifs::{
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_registry::TestRegistry, test_shm::TestShm,
+                test_keyboard::TestKeyboard, test_pointer::TestPointer,
+                test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
                 test_subcompositor::TestSubcompositor, test_xdg_base::TestXdgWmBase,
             },
             test_transport::TestTransport,
@@ -32,10 +34,48 @@ pub struct TestClient {
     pub xdg: Rc<TestXdgWmBase>,
 }
 
+pub struct DefaultSeat {
+    pub seat: Rc<TestSeat>,
+    pub kb: Rc<TestKeyboard>,
+    pub pointer: Rc<TestPointer>,
+}
+
 impl TestClient {
     #[allow(dead_code)]
     pub fn error(&self, msg: &str) {
         self.tran.error(msg)
+    }
+
+    pub async fn get_default_seat(&self) -> TestResult<DefaultSeat> {
+        self.tran.sync().await;
+        let seat = 'get_seat: {
+            for seat in self.tran.run.state.globals.seats.lock().values() {
+                if seat.seat_name() == "default" {
+                    break 'get_seat seat.clone();
+                }
+            }
+            bail!("Default seat not found");
+        };
+        let id = self.tran.id();
+        let tseat = Rc::new(TestSeat {
+            id,
+            tran: self.tran.clone(),
+            server: Default::default(),
+            destroyed: Default::default(),
+            caps: Cell::new(0),
+            name: Default::default(),
+        });
+        self.registry.bind(&tseat, seat.name().raw(), 7)?;
+        self.tran.sync().await;
+        let server = self.tran.get_server_obj(tseat.id)?;
+        tseat.server.set(Some(server));
+        let pointer = tseat.get_pointer().await?;
+        let tkb = tseat.get_keyboard().await?;
+        Ok(DefaultSeat {
+            seat: tseat,
+            kb: tkb,
+            pointer,
+        })
     }
 
     pub async fn sync(&self) {

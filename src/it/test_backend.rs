@@ -7,8 +7,10 @@ use {
             Mode, MonitorInfo, TransformMatrix,
         },
         compositor::TestFuture,
+        fixed::Fixed,
         render::{RenderContext, RenderError},
         state::State,
+        time::Time,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
         },
@@ -36,11 +38,13 @@ pub struct TestBackend {
     pub state: Rc<State>,
     pub test_future: TestFuture,
     pub default_connector: Rc<TestConnector>,
+    pub default_mouse: Rc<TestBackendMouse>,
+    pub default_kb: Rc<TestBackendKb>,
 }
 
 impl TestBackend {
     pub fn new(state: &Rc<State>, future: TestFuture) -> Self {
-        let connector = Rc::new(TestConnector {
+        let default_connector = Rc::new(TestConnector {
             id: state.connector_ids.next(),
             kernel_id: ConnectorKernelId {
                 ty: ConnectorType::VGA,
@@ -49,10 +53,44 @@ impl TestBackend {
             events: Default::default(),
             on_change: Default::default(),
         });
+        let default_mouse = Rc::new(TestBackendMouse {
+            common: TestInputDeviceCommon {
+                id: state.input_device_ids.next(),
+                removed: Cell::new(false),
+                events: Default::default(),
+                on_change: Default::default(),
+                capabilities: {
+                    let chm = CopyHashMap::new();
+                    chm.set(InputDeviceCapability::Pointer, ());
+                    chm
+                },
+                name: Rc::new("default-mouse".to_string()),
+            },
+            transform_matrix: Cell::new([[1.0, 0.0], [0.0, 1.0]]),
+            accel_speed: Cell::new(1.0),
+            accel_profile: Cell::new(InputDeviceAccelProfile::Flat),
+            left_handed: Cell::new(false),
+        });
+        let default_kb = Rc::new(TestBackendKb {
+            common: TestInputDeviceCommon {
+                id: state.input_device_ids.next(),
+                removed: Cell::new(false),
+                events: Default::default(),
+                on_change: Default::default(),
+                capabilities: {
+                    let chm = CopyHashMap::new();
+                    chm.set(InputDeviceCapability::Keyboard, ());
+                    chm
+                },
+                name: Rc::new("default-keyboard".to_string()),
+            },
+        });
         Self {
             state: state.clone(),
             test_future: future,
-            default_connector: connector,
+            default_connector,
+            default_mouse,
+            default_kb,
         }
     }
 
@@ -76,6 +114,12 @@ impl TestBackend {
                 width_mm: 80,
                 height_mm: 60,
             }));
+        self.state
+            .backend_events
+            .push(BackendEvent::NewInputDevice(self.default_kb.clone()));
+        self.state
+            .backend_events
+            .push(BackendEvent::NewInputDevice(self.default_mouse.clone()));
     }
 
     fn create_render_context(&self) -> Result<(), TestBackendError> {
@@ -189,50 +233,47 @@ impl Connector for TestConnector {
     }
 }
 
-pub struct TestInputDevice {
-    pub id: InputDeviceId,
-    pub remove: Cell<bool>,
-    pub events: SyncQueue<InputEvent>,
-    pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
-    pub capabilities: CopyHashMap<InputDeviceCapability, ()>,
+pub struct TestBackendMouse {
+    pub common: TestInputDeviceCommon,
     pub transform_matrix: Cell<TransformMatrix>,
-    pub name: Rc<String>,
     pub accel_speed: Cell<f64>,
     pub accel_profile: Cell<InputDeviceAccelProfile>,
     pub left_handed: Cell<bool>,
 }
 
-impl InputDevice for TestInputDevice {
-    fn id(&self) -> InputDeviceId {
-        self.id
+impl TestBackendMouse {
+    pub fn rel(&self, dx: f64, dy: f64) {
+        self.common.event(InputEvent::Motion {
+            time_usec: Time::now_unchecked().usec(),
+            dx: Fixed::from_f64(dx * self.accel_speed.get()),
+            dy: Fixed::from_f64(dy * self.accel_speed.get()),
+            dx_unaccelerated: Fixed::from_f64(dx),
+            dy_unaccelerated: Fixed::from_f64(dy),
+        })
     }
+}
 
-    fn removed(&self) -> bool {
-        self.remove.get()
+pub struct TestBackendKb {
+    pub common: TestInputDeviceCommon,
+}
+
+impl TestInputDevice for TestBackendKb {
+    fn common(&self) -> &TestInputDeviceCommon {
+        &self.common
     }
+}
 
-    fn event(&self) -> Option<InputEvent> {
-        self.events.pop()
-    }
-
-    fn on_change(&self, cb: Rc<dyn Fn()>) {
-        self.on_change.set(Some(cb));
-    }
-
-    fn grab(&self, _grab: bool) {
-        // nothing
-    }
-
-    fn has_capability(&self, cap: InputDeviceCapability) -> bool {
-        self.capabilities.contains(&cap)
+impl TestInputDevice for TestBackendMouse {
+    fn common(&self) -> &TestInputDeviceCommon {
+        &self.common
     }
 
     fn set_left_handed(&self, left_handed: bool) {
-        self.left_handed.set(left_handed);
+        self.left_handed.set(left_handed)
     }
 
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
-        self.accel_profile.set(profile);
+        self.accel_profile.set(profile)
     }
 
     fn set_accel_speed(&self, speed: f64) {
@@ -242,8 +283,88 @@ impl InputDevice for TestInputDevice {
     fn set_transform_matrix(&self, matrix: TransformMatrix) {
         self.transform_matrix.set(matrix);
     }
+}
+
+pub struct TestInputDeviceCommon {
+    pub id: InputDeviceId,
+    pub removed: Cell<bool>,
+    pub events: SyncQueue<InputEvent>,
+    pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
+    pub capabilities: CopyHashMap<InputDeviceCapability, ()>,
+    pub name: Rc<String>,
+}
+
+impl TestInputDeviceCommon {
+    pub fn event(&self, e: InputEvent) {
+        self.events.push(e);
+        if let Some(oc) = self.on_change.get() {
+            oc();
+        }
+    }
+}
+
+trait TestInputDevice: InputDevice {
+    fn common(&self) -> &TestInputDeviceCommon;
+
+    fn set_left_handed(&self, left_handed: bool) {
+        let _ = left_handed;
+    }
+
+    fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
+        let _ = profile;
+    }
+
+    fn set_accel_speed(&self, speed: f64) {
+        let _ = speed;
+    }
+
+    fn set_transform_matrix(&self, matrix: TransformMatrix) {
+        let _ = matrix;
+    }
+}
+
+impl<T: TestInputDevice> InputDevice for T {
+    fn id(&self) -> InputDeviceId {
+        self.common().id
+    }
+
+    fn removed(&self) -> bool {
+        self.common().removed.get()
+    }
+
+    fn event(&self) -> Option<InputEvent> {
+        self.common().events.pop()
+    }
+
+    fn on_change(&self, cb: Rc<dyn Fn()>) {
+        self.common().on_change.set(Some(cb));
+    }
+
+    fn grab(&self, _grab: bool) {
+        // nothing
+    }
+
+    fn has_capability(&self, cap: InputDeviceCapability) -> bool {
+        self.common().capabilities.contains(&cap)
+    }
+
+    fn set_left_handed(&self, left_handed: bool) {
+        <Self as TestInputDevice>::set_left_handed(self, left_handed)
+    }
+
+    fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
+        <Self as TestInputDevice>::set_accel_profile(self, profile)
+    }
+
+    fn set_accel_speed(&self, speed: f64) {
+        <Self as TestInputDevice>::set_accel_speed(self, speed)
+    }
+
+    fn set_transform_matrix(&self, matrix: TransformMatrix) {
+        <Self as TestInputDevice>::set_transform_matrix(self, matrix)
+    }
 
     fn name(&self) -> Rc<String> {
-        self.name.clone()
+        self.common().name.clone()
     }
 }

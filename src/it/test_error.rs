@@ -6,6 +6,8 @@ use {
     },
 };
 
+pub type TestResult<T = ()> = Result<T, TestError>;
+
 pub struct TestError {
     error: Box<dyn Error + 'static>,
     source: Option<Box<TestError>>,

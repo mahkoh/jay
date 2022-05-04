@@ -40,7 +40,7 @@ impl TestSubcompositor {
             id,
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
-            server: self.tran.get_object(id)?,
+            server: self.tran.get_server_obj(id)?,
         });
         self.tran.add_obj(ss.clone())?;
         Ok(ss)

@@ -36,6 +36,13 @@ impl Time {
         Ok(Self(time))
     }
 
+    #[allow(dead_code)]
+    pub fn now_unchecked() -> Time {
+        let mut time = uapi::pod_zeroed();
+        let _ = uapi::clock_gettime(c::CLOCK_MONOTONIC, &mut time);
+        Self(time)
+    }
+
     pub fn round_to_ms(self) -> Time {
         if self.0.tv_nsec > 999_000_000 {
             Time(c::timespec {
@@ -48,6 +55,13 @@ impl Time {
                 tv_nsec: (self.0.tv_nsec + 999_999) / 1_000_000 * 1_000_000,
             })
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn usec(self) -> u64 {
+        let sec = self.0.tv_sec as u64 * 1_000_000;
+        let nsec = self.0.tv_nsec as u64 / 1_000;
+        sec + nsec
     }
 }
 

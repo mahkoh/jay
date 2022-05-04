@@ -1,5 +1,8 @@
 use {
-    crate::{ifs::wl_seat::SeatId, it::test_error::TestError, utils::stack::Stack},
+    crate::{
+        backend::InputDeviceId, ifs::wl_seat::SeatId, it::test_error::TestError,
+        utils::stack::Stack,
+    },
     isnt::std_1::primitive::IsntConstPtrExt,
     jay_config::{
         _private::{
@@ -7,7 +10,7 @@ use {
             ipc::{ClientMessage, Response, ServerMessage},
             ConfigEntry, VERSION,
         },
-        input::Seat,
+        input::{InputDevice, Seat},
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
 };
@@ -158,6 +161,13 @@ impl TestConfig {
         self.send(ClientMessage::ShowWorkspace {
             seat: Seat(seat.raw() as _),
             workspace,
+        })
+    }
+
+    pub fn set_input_device_seat(&self, id: InputDeviceId, seat: SeatId) -> Result<(), TestError> {
+        self.send(ClientMessage::SetSeat {
+            device: InputDevice(id.raw() as _),
+            seat: Seat(seat.raw() as _),
         })
     }
 

@@ -172,7 +172,7 @@ impl TestTransport {
         Ok(())
     }
 
-    pub fn get_object<I: Into<ObjectId>, T: 'static>(&self, id: I) -> Result<Rc<T>, TestError> {
+    pub fn get_server_obj<I: Into<ObjectId>, T: 'static>(&self, id: I) -> Result<Rc<T>, TestError> {
         let client = self.get_client()?;
         client.objects.get_obj(id.into())?.downcast()
     }

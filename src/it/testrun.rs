@@ -3,7 +3,7 @@ use {
         client::{ClientId, RequestParser},
         ifs::wl_seat::WlSeatGlobal,
         it::{
-            test_backend::TestBackend,
+            test_backend::{TestBackend, TestBackendKb, TestBackendMouse, TestConnector},
             test_client::TestClient,
             test_config::TestConfig,
             test_error::{TestError, TestErrorExt},
@@ -12,6 +12,7 @@ use {
         },
         object::WL_DISPLAY_ID,
         state::State,
+        tree::OutputNode,
         utils::{bitfield::Bitfield, buffd::MsgParser, oserror::OsErrorExt, stack::Stack},
     },
     std::{
@@ -102,6 +103,28 @@ impl TestRun {
         }
         bail!("Seat {} does not exist", id)
     }
+
+    pub async fn create_default_setup(&self) -> Result<DefaultSetup, TestError> {
+        self.backend.install_default();
+        let seat = self.get_seat("default")?;
+        self.state.eng.yield_now().await;
+        let output = match self.state.outputs.lock().values().next() {
+            None => bail!("No output"),
+            Some(d) => d.node.clone(),
+        };
+        self.cfg
+            .set_input_device_seat(self.backend.default_kb.common.id, seat.id())?;
+        self.cfg
+            .set_input_device_seat(self.backend.default_mouse.common.id, seat.id())?;
+        self.state.eng.yield_now().await;
+        Ok(DefaultSetup {
+            connector: self.backend.default_connector.clone(),
+            output,
+            kb: self.backend.default_kb.clone(),
+            mouse: self.backend.default_mouse.clone(),
+            seat,
+        })
+    }
 }
 
 pub trait ParseFull<'a>: Sized {
@@ -114,4 +137,12 @@ impl<'a, T: RequestParser<'a>> ParseFull<'a> for T {
         parser.eof()?;
         Ok(res)
     }
+}
+
+pub struct DefaultSetup {
+    pub connector: Rc<TestConnector>,
+    pub output: Rc<OutputNode>,
+    pub kb: Rc<TestBackendKb>,
+    pub mouse: Rc<TestBackendMouse>,
+    pub seat: Rc<WlSeatGlobal>,
 }

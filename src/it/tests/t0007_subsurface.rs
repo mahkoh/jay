@@ -9,6 +9,7 @@ use {
 
 testcase!();
 
+/// Test subsurface positioning
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     run.backend.install_default();
 
