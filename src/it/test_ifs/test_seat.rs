@@ -43,6 +43,7 @@ impl TestSeat {
             server: Default::default(),
             destroyed: Default::default(),
             enter: Default::default(),
+            leave: Default::default(),
         });
         self.tran.add_obj(kb.clone())?;
         self.tran.sync().await;

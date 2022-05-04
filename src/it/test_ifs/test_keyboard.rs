@@ -23,6 +23,7 @@ pub struct TestKeyboard {
     pub server: CloneCell<Option<Rc<WlKeyboard>>>,
     pub destroyed: Once,
     pub enter: TEEH<TestEnterEvent>,
+    pub leave: TEEH<Leave>,
 }
 
 impl TestKeyboard {
@@ -49,7 +50,8 @@ impl TestKeyboard {
     }
 
     fn handle_leave(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Leave::parse_full(parser)?;
+        let ev = Leave::parse_full(parser)?;
+        self.leave.push(ev);
         Ok(())
     }
 

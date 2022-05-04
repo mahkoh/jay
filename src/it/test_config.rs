@@ -1,6 +1,8 @@
 use {
     crate::{
-        backend::InputDeviceId, ifs::wl_seat::SeatId, it::test_error::TestError,
+        backend::InputDeviceId,
+        ifs::wl_seat::SeatId,
+        it::test_error::{TestError, TestResult},
         utils::stack::Stack,
     },
     isnt::std_1::primitive::IsntConstPtrExt,
@@ -11,6 +13,7 @@ use {
             ConfigEntry, VERSION,
         },
         input::{InputDevice, Seat},
+        Direction,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
 };
@@ -168,6 +171,13 @@ impl TestConfig {
         self.send(ClientMessage::SetSeat {
             device: InputDevice(id.raw() as _),
             seat: Seat(seat.raw() as _),
+        })
+    }
+
+    pub fn focus(&self, seat: SeatId, direction: Direction) -> TestResult {
+        self.send(ClientMessage::Focus {
+            seat: Seat(seat.raw() as _),
+            direction,
         })
     }
 

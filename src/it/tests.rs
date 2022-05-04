@@ -34,6 +34,7 @@ mod t0005_create_seat;
 mod t0006_region;
 mod t0007_subsurface;
 mod t0008_map_focus;
+mod t0009_tab_focus;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -60,5 +61,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0006_region,
         t0007_subsurface,
         t0008_map_focus,
+        t0009_tab_focus,
     }
 }

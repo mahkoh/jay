@@ -1,5 +1,6 @@
 use {
     crate::{it::test_error::TestResult, utils::clonecell::CloneCell},
+    isnt::std_1::collections::IsntVecDequeExt,
     std::{cell::RefCell, collections::VecDeque, rc::Rc},
 };
 
@@ -21,6 +22,13 @@ impl<T> TestExpectedEvent<T> {
             Some(t) => Ok(t),
             _ => bail!("No event occurred"),
         }
+    }
+
+    pub fn none(&self) -> TestResult {
+        if self.data.events.borrow_mut().is_not_empty() {
+            bail!("There are unexpected events");
+        }
+        Ok(())
     }
 }
 

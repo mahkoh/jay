@@ -106,7 +106,7 @@ impl ForkerProxy {
             Forked::Child { .. } => {
                 drop(parent);
                 Forker::handle(pid, child)
-            },
+            }
         }
     }
 
