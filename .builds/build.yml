@@ -1,0 +1,11 @@
+image: archlinux
+sources:
+  - https://github.com/mahkoh/jay
+tasks:
+  - install: |
+      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon
+      rustup toolchain install stable
+  - build: |
+      cd jay
+      export RUSTC_BOOTSTRAP=1
+      cargo build

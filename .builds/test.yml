@@ -1,0 +1,19 @@
+image: archlinux
+sources:
+  - https://github.com/mahkoh/jay
+tasks:
+  - install: |
+      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon xorg-xwayland adwaita-icon-theme libxcursor
+      rustup toolchain install stable
+  - configure: |
+      sudo rmmod bochs
+      sudo modprobe vkms
+      sudo chmod o+rw /dev/dri/card*
+  - build: |
+      cd jay
+      export RUSTC_BOOTSTRAP=1
+      cargo build --features it
+  - test: |
+      cd jay
+      export RUST_BACKTRACE=1
+      ./target/debug/jay run-tests

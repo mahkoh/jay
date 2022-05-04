@@ -2,5 +2,6 @@
 !.gitignore
 !/.cargo
 !/.builds
+!/.github
 /target
 /testruns
