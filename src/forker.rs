@@ -103,7 +103,10 @@ impl ForkerProxy {
                 pending_pidfds: Default::default(),
                 fds: Default::default(),
             }),
-            Forked::Child { .. } => Forker::handle(pid, child),
+            Forked::Child { .. } => {
+                drop(parent);
+                Forker::handle(pid, child)
+            },
         }
     }
 
