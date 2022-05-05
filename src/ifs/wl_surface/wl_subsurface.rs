@@ -129,6 +129,7 @@ impl WlSubsurface {
             })
         };
         *self.pending.node.borrow_mut() = Some(node);
+        self.surface.set_toplevel(self.parent.toplevel.get());
         self.sync_ancestor.set(sync_ancestor);
         self.depth.set(depth);
         self.surface.ext.set(self.clone());
