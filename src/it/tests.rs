@@ -37,6 +37,7 @@ mod t0008_map_focus;
 mod t0009_tab_focus;
 mod t0010_fullscreen_focus;
 mod t0011_set_keymap;
+mod t0012_subsurface_focus;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -66,5 +67,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0009_tab_focus,
         t0010_fullscreen_focus,
         t0011_set_keymap,
+        t0012_subsurface_focus,
     }
 }

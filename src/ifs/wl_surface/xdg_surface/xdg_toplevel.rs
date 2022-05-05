@@ -6,7 +6,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
-            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
         },
         leaks::Tracker,
@@ -437,10 +437,6 @@ impl ToplevelNode for XdgToplevel {
         &self.toplevel_data
     }
 
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
-        Some(self.xdg.surface.clone())
-    }
-
     fn tl_set_active(&self, active: bool) {
         let changed = {
             let mut states = self.states.borrow_mut();
@@ -454,6 +450,10 @@ impl ToplevelNode for XdgToplevel {
             self.send_configure_checked(rect.width(), rect.height());
             self.xdg.do_send_configure();
         }
+    }
+
+    fn tl_focus_child(&self, _seat: SeatId) -> Option<Rc<dyn Node>> {
+        Some(self.xdg.surface.clone())
     }
 
     fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {

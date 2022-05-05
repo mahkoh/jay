@@ -234,6 +234,19 @@ impl Connector for TestConnector {
     }
 }
 
+pub struct TestMouseClick {
+    pub mouse: Rc<TestBackendMouse>,
+    pub button: u32,
+}
+
+impl Drop for TestMouseClick {
+    fn drop(&mut self) {
+        self.mouse
+            .common
+            .event(InputEvent::Button(self.button, KeyState::Released));
+    }
+}
+
 pub struct TestBackendMouse {
     pub common: TestInputDeviceCommon,
     pub transform_matrix: Cell<TransformMatrix>,
@@ -251,6 +264,15 @@ impl TestBackendMouse {
             dx_unaccelerated: Fixed::from_f64(dx),
             dy_unaccelerated: Fixed::from_f64(dy),
         })
+    }
+
+    pub fn click(self: &Rc<Self>, button: u32) -> TestMouseClick {
+        self.common
+            .event(InputEvent::Button(button, KeyState::Pressed));
+        TestMouseClick {
+            mouse: self.clone(),
+            button,
+        }
     }
 }
 

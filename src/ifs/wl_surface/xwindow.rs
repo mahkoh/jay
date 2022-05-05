@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
-            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
         },
         rect::Rect,
@@ -383,10 +383,6 @@ impl ToplevelNode for Xwindow {
         &self.toplevel_data
     }
 
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
-        Some(self.surface.clone())
-    }
-
     fn tl_accepts_keyboard_focus(&self) -> bool {
         self.data.info.never_focus.get().not()
             && self.data.info.input_model.get() != XInputModel::None
@@ -398,6 +394,10 @@ impl ToplevelNode for Xwindow {
             .xwayland
             .queue
             .push(XWaylandEvent::Activate(self.data.clone()));
+    }
+
+    fn tl_focus_child(&self, _seat: SeatId) -> Option<Rc<dyn Node>> {
+        Some(self.surface.clone())
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {

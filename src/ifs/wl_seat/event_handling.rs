@@ -503,8 +503,10 @@ impl WlSeatGlobal {
         };
         self.surface_pointer_event(0, surface, |p| p.send_button(serial, 0, button, state));
         self.surface_pointer_frame(surface);
-        if pressed && surface.accepts_kb_focus() {
-            self.focus_node(surface.clone());
+        if pressed {
+            if let Some(node) = surface.get_focus_node(self.id) {
+                self.focus_node(node);
+            }
         }
     }
 }

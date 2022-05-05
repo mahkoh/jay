@@ -1,8 +1,13 @@
 use {
     crate::{
+        format::ARGB8888,
         it::{
-            test_error::TestError, test_ifs::test_shm_pool::TestShmPool, test_mem::TestMem,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
+            test_error::{TestError, TestResult},
+            test_ifs::{test_shm_buffer::TestShmBuffer, test_shm_pool::TestShmPool},
+            test_mem::TestMem,
+            test_object::TestObject,
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
         wire::{wl_shm::*, WlShmId},
@@ -41,6 +46,11 @@ impl TestShm {
         })?;
         self.tran.add_obj(pool.clone())?;
         Ok(pool)
+    }
+
+    pub fn create_buffer(&self, width: i32, height: i32) -> TestResult<Rc<TestShmBuffer>> {
+        let pool = self.create_pool((width * height * 4) as _)?;
+        pool.create_buffer(0, width, height, width * 4, ARGB8888)
     }
 
     fn handle_format(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {

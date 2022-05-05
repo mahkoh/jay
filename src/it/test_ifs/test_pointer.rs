@@ -3,7 +3,7 @@ use {
         ifs::wl_seat::wl_pointer::WlPointer,
         it::{
             test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
+            test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell},
         wire::{wl_pointer::*, WlPointerId},
@@ -16,6 +16,9 @@ pub struct TestPointer {
     pub tran: Rc<TestTransport>,
     pub server: CloneCell<Option<Rc<WlPointer>>>,
     pub destroyed: Cell<bool>,
+    pub leave: TEEH<Leave>,
+    pub enter: TEEH<Enter>,
+    pub motion: TEEH<Motion>,
 }
 
 impl TestPointer {
@@ -27,17 +30,20 @@ impl TestPointer {
     }
 
     fn handle_enter(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Enter::parse_full(parser)?;
+        let ev = Enter::parse_full(parser)?;
+        self.enter.push(ev);
         Ok(())
     }
 
     fn handle_leave(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Leave::parse_full(parser)?;
+        let ev = Leave::parse_full(parser)?;
+        self.leave.push(ev);
         Ok(())
     }
 
     fn handle_motion(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Motion::parse_full(parser)?;
+        let ev = Motion::parse_full(parser)?;
+        self.motion.push(ev);
         Ok(())
     }
 

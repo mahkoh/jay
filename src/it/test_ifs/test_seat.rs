@@ -63,6 +63,9 @@ impl TestSeat {
             tran: self.tran.clone(),
             server: Default::default(),
             destroyed: Default::default(),
+            leave: Rc::new(Default::default()),
+            enter: Rc::new(Default::default()),
+            motion: Rc::new(Default::default()),
         });
         self.tran.add_obj(pointer.clone())?;
         self.tran.sync().await;

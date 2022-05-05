@@ -79,7 +79,8 @@ impl TestClient {
     }
 
     pub async fn sync(&self) {
-        self.tran.sync().await
+        self.run.sync().await;
+        self.tran.sync().await;
     }
 
     pub async fn take_screenshot(&self) -> Result<Vec<u8>, TestError> {

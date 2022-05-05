@@ -163,8 +163,8 @@ trait SurfaceExt {
         None
     }
 
-    fn accepts_kb_focus(&self) -> bool {
-        true
+    fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        None
     }
 }
 
@@ -266,10 +266,11 @@ impl WlSurface {
         Ok(cursor)
     }
 
-    pub fn accepts_kb_focus(&self) -> bool {
+    pub fn get_focus_node(&self, seat: SeatId) -> Option<Rc<dyn Node>> {
         match self.toplevel.get() {
-            Some(tl) => tl.tl_accepts_keyboard_focus(),
-            _ => self.ext.get().accepts_kb_focus(),
+            Some(tl) if tl.tl_accepts_keyboard_focus() => tl.tl_focus_child(seat),
+            Some(_) => None,
+            _ => self.ext.get().focus_node(),
         }
     }
 

@@ -23,7 +23,10 @@ pub trait ToplevelNode: Node {
     fn tl_into_dyn(self: Rc<Self>) -> Rc<dyn ToplevelNode>;
 
     fn tl_data(&self) -> &ToplevelData;
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>>;
+
+    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
+        None
+    }
 
     fn tl_accepts_keyboard_focus(&self) -> bool {
         true

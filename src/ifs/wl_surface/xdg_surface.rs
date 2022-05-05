@@ -360,10 +360,6 @@ impl SurfaceExt for XdgSurface {
     fn extents_changed(&self) {
         self.update_extents();
     }
-
-    fn accepts_kb_focus(&self) -> bool {
-        self.role.get() == XdgSurfaceRole::XdgToplevel
-    }
 }
 
 #[derive(Debug, Error)]
