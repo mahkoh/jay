@@ -34,6 +34,7 @@ pub struct WlBuffer {
     pub rect: Rect,
     pub format: &'static Format,
     dmabuf: Option<DmaBuf>,
+    render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     pub texture: CloneCell<Option<Rc<Texture>>>,
     pub famebuffer: CloneCell<Option<Rc<Framebuffer>>>,
@@ -68,6 +69,7 @@ impl WlBuffer {
             texture: CloneCell::new(None),
             famebuffer: Default::default(),
             dmabuf: Some(dmabuf),
+            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(Some(WlBufferStorage::Dmabuf(img.clone()))),
             tracker: Default::default(),
         }
@@ -101,6 +103,7 @@ impl WlBuffer {
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
             format,
             dmabuf: None,
+            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(Some(WlBufferStorage::Shm { mem, stride })),
             width,
             height,
@@ -111,6 +114,10 @@ impl WlBuffer {
     }
 
     pub fn handle_gfx_context_change(&self) {
+        let ctx_version = self.client.state.render_ctx_version.get();
+        if self.render_ctx_version.replace(ctx_version) == ctx_version {
+            return;
+        }
         self.texture.set(None);
         self.famebuffer.set(None);
         let mut storage = self.storage.borrow_mut();

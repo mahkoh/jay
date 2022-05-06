@@ -63,6 +63,7 @@ pub struct State {
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
     pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
+    pub render_ctx_version: NumCell<u32>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
@@ -178,6 +179,7 @@ pub struct OutputData {
 impl State {
     pub fn set_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
         self.render_ctx.set(ctx.cloned());
+        self.render_ctx_version.fetch_add(1);
 
         {
             struct Walker;
@@ -201,8 +203,7 @@ impl State {
                 }
                 fn visit_surface(&mut self, node: &Rc<WlSurface>) {
                     if let Some(buffer) = node.buffer.get() {
-                        buffer.texture.set(None);
-                        buffer.famebuffer.set(None);
+                        buffer.handle_gfx_context_change();
                     }
                     node.node_visit_children(self);
                 }
@@ -210,8 +211,7 @@ impl State {
             Walker.visit_display(&self.root);
             for client in self.clients.clients.borrow_mut().values() {
                 for buffer in client.data.objects.buffers.lock().values() {
-                    buffer.texture.set(None);
-                    buffer.famebuffer.set(None);
+                    buffer.handle_gfx_context_change();
                 }
             }
         }
