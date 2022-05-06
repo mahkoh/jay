@@ -36,6 +36,7 @@ The following features have been implemented and should work:
 - Notifications (via mako)
 - Video playback with synced audio (via presentation time)
 - Simple games that don't require cursor grabs
+- GPU reset recovery
 
 ### Missing Features
 
