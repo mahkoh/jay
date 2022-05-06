@@ -76,6 +76,7 @@ bitflags::bitflags! {
         const MESA_CONFIGLESS_CONTEXT            = 1 << 4;
         const KHR_SURFACELESS_CONTEXT            = 1 << 5;
         const IMG_CONTEXT_PRIORITY               = 1 << 6;
+        const EXT_CREATE_CONTEXT_ROBUSTNESS      = 1 << 7;
     }
 }
 
@@ -103,6 +104,10 @@ pub(super) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
             DisplayExt::KHR_SURFACELESS_CONTEXT,
         ),
         ("EGL_IMG_context_priority", DisplayExt::IMG_CONTEXT_PRIORITY),
+        (
+            "EGL_EXT_create_context_robustness",
+            DisplayExt::EXT_CREATE_CONTEXT_ROBUSTNESS,
+        ),
     ];
     match get_dpy_extensions(dpy) {
         Some(exts) => get_typed_ext(&exts, DisplayExt::empty(), &map),

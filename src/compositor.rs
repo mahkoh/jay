@@ -127,6 +127,7 @@ fn start_compositor2(
         eng: engine.clone(),
         el: el.clone(),
         render_ctx: Default::default(),
+        render_ctx_version: NumCell::new(1),
         cursors: Default::default(),
         wheel,
         clients: Clients::new(),

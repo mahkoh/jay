@@ -23,7 +23,10 @@ use {
                 PROCS,
             },
             ext::{get_display_ext, get_gl_ext, DisplayExt, GlExt},
-            sys::{eglInitialize, EGL_PLATFORM_GBM_KHR},
+            sys::{
+                eglInitialize, EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT,
+                EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR,
+            },
             RenderError,
         },
         video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER},
@@ -104,7 +107,17 @@ impl EglDisplay {
     }
 
     pub fn create_context(self: &Rc<Self>) -> Result<Rc<EglContext>, RenderError> {
-        let attrib = [EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE];
+        let mut attrib = vec![EGL_CONTEXT_CLIENT_VERSION, 2];
+        if self
+            .exts
+            .contains(DisplayExt::EXT_CREATE_CONTEXT_ROBUSTNESS)
+        {
+            attrib.push(EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT);
+            attrib.push(EGL_LOSE_CONTEXT_ON_RESET_EXT);
+        } else {
+            log::warn!("EGL display does not support gpu reset notifications");
+        }
+        attrib.push(EGL_NONE);
         unsafe {
             let ctx = eglCreateContext(
                 self.dpy,

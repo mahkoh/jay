@@ -29,7 +29,7 @@ use {
         theme::Theme,
         tree::{
             ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, NodeVisitorBase,
-            OutputNode, ToplevelNode, WorkspaceNode,
+            OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -53,6 +53,7 @@ use {
         time::Duration,
     },
 };
+use crate::ifs::wl_surface::WlSurface;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -62,6 +63,7 @@ pub struct State {
     pub eng: Rc<AsyncEngine>,
     pub el: Rc<EventLoop>,
     pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
+    pub render_ctx_version: NumCell<u32>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
@@ -175,34 +177,76 @@ pub struct OutputData {
 }
 
 impl State {
-    pub fn set_render_ctx(&self, ctx: &Rc<RenderContext>) {
-        let cursors = match ServerCursors::load(ctx) {
-            Ok(c) => Some(Rc::new(c)),
-            Err(e) => {
-                log::error!("Could not load the cursors: {}", ErrorFmt(e));
-                None
-            }
-        };
-        self.cursors.set(cursors);
-        self.render_ctx.set(Some(ctx.clone()));
+    pub fn set_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
+        self.render_ctx.set(ctx.cloned());
+        self.render_ctx_version.fetch_add(1);
 
-        struct Walker;
-        impl NodeVisitorBase for Walker {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                // log::info!("set_render_ctx");
-                node.schedule_compute_render_data();
-                node.node_visit_children(self);
+        {
+            struct Walker;
+            impl NodeVisitorBase for Walker {
+                fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                    node.render_data.borrow_mut().titles.clear();
+                    node.node_visit_children(self);
+                }
+                fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                    node.render_data.borrow_mut().titles.clear();
+                    node.render_data.borrow_mut().status.take();
+                    node.node_visit_children(self);
+                }
+                fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                    node.title_texture.set(None);
+                    node.node_visit_children(self);
+                }
+                fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+                    node.texture.set(None);
+                    node.node_visit_children(self);
+                }
+                fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+                    if let Some(buffer) = node.buffer.get() {
+                        buffer.handle_gfx_context_change();
+                    }
+                    node.node_visit_children(self);
+                }
             }
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.update_render_data();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
+            Walker.visit_display(&self.root);
+            for client in self.clients.clients.borrow_mut().values() {
+                for buffer in client.data.objects.buffers.lock().values() {
+                    buffer.handle_gfx_context_change();
+                }
             }
         }
-        Walker.visit_display(&self.root);
+
+        if let Some(ctx) = ctx {
+            let cursors = match ServerCursors::load(ctx) {
+                Ok(c) => Some(Rc::new(c)),
+                Err(e) => {
+                    log::error!("Could not load the cursors: {}", ErrorFmt(e));
+                    None
+                }
+            };
+            self.cursors.set(cursors);
+
+            struct Walker;
+            impl NodeVisitorBase for Walker {
+                fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                    node.schedule_compute_render_data();
+                    node.node_visit_children(self);
+                }
+                fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                    node.update_render_data();
+                    node.node_visit_children(self);
+                }
+                fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                    node.schedule_render_titles();
+                    node.node_visit_children(self);
+                }
+                fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+                    node.update_texture();
+                    node.node_visit_children(self);
+                }
+            }
+            Walker.visit_display(&self.root);
+        }
 
         let seats = self.globals.seats.lock();
         for seat in seats.values() {

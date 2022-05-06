@@ -189,7 +189,7 @@ impl WlOutputGlobal {
                 continue;
             }
             let rect = capture.rect;
-            if let WlBufferStorage::Shm { mem, .. } = &wl_buffer.storage {
+            if let Some(WlBufferStorage::Shm { mem, .. }) = wl_buffer.storage.borrow_mut().deref() {
                 let res = mem.access(|mem| {
                     fb.copy_to_shm(
                         rect.x1(),

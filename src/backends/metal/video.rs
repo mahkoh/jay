@@ -23,7 +23,7 @@ use {
                 DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
                 DRM_MODE_PAGE_FLIP_EVENT,
             },
-            gbm::{GbmDevice, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
+            gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             ModifiedFormat, INVALID_MODIFIER,
         },
     },
@@ -37,11 +37,17 @@ use {
     },
     uapi::c,
 };
+use crate::render::ResetStatus;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,
     pub devnum: c::dev_t,
     pub devnode: CString,
+}
+
+pub struct MetalRenderContext {
+    pub dev: Rc<MetalDrmDeviceStatic>,
+    pub egl: Rc<RenderContext>,
 }
 
 #[derive(Debug)]
@@ -58,7 +64,6 @@ pub struct MetalDrmDeviceStatic {
     pub min_height: u32,
     pub max_height: u32,
     pub gbm: GbmDevice,
-    pub egl: Rc<RenderContext>,
     pub async_fd: AsyncFd,
     pub handle_events: HandleEvents,
 }
@@ -85,6 +90,9 @@ pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
     pub state: Rc<State>,
+
+    pub dev: Rc<MetalDrmDeviceStatic>,
+    pub backend: Rc<MetalBackend>,
 
     pub connector_id: ConnectorId,
 
@@ -162,6 +170,9 @@ impl MetalConnector {
     }
 
     pub fn present(&self) {
+        if !self.backend.check_render_context() {
+            return;
+        }
         let crtc = match self.crtc.get() {
             Some(crtc) => crtc,
             _ => return,
@@ -172,12 +183,12 @@ impl MetalConnector {
         if !crtc.active.value.get() {
             return;
         }
-        let buffers = match self.buffers.get() {
-            None => return,
-            Some(b) => b,
-        };
         let plane = match self.primary_plane.get() {
             Some(p) => p,
+            _ => return,
+        };
+        let buffers = match self.buffers.get() {
+            Some(b) => b,
             _ => return,
         };
         let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
@@ -295,7 +306,7 @@ pub struct MetalPlane {
 }
 
 fn get_connectors(
-    state: &Rc<State>,
+    backend: &Rc<MetalBackend>,
     dev: &Rc<MetalDrmDeviceStatic>,
     ids: &[DrmConnector],
 ) -> Result<
@@ -308,7 +319,7 @@ fn get_connectors(
     let mut connectors = AHashMap::new();
     let mut futures = vec![];
     for connector in ids {
-        match create_connector(state, *connector, dev) {
+        match create_connector(backend, *connector, dev) {
             Ok((con, fut)) => {
                 connectors.insert(con.id, con);
                 futures.push(fut);
@@ -320,7 +331,7 @@ fn get_connectors(
 }
 
 fn create_connector(
-    state: &Rc<State>,
+    backend: &Rc<MetalBackend>,
     connector: DrmConnector,
     dev: &Rc<MetalDrmDeviceStatic>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
@@ -412,8 +423,10 @@ fn create_connector(
     let slf = Rc::new(MetalConnector {
         id: connector,
         master: dev.master.clone(),
-        state: state.clone(),
-        connector_id: state.connector_ids.next(),
+        state: backend.state.clone(),
+        dev: dev.clone(),
+        backend: backend.clone(),
+        connector_id: backend.state.connector_ids.next(),
         crtcs,
         mode: CloneCell::new(mode),
         refresh: Cell::new(refresh),
@@ -440,7 +453,10 @@ fn create_connector(
         render_result: RefCell::new(Default::default()),
     });
     let futures = ConnectorFutures {
-        present: state.eng.spawn2(Phase::Present, slf.clone().present_loop()),
+        present: backend
+            .state
+            .eng
+            .spawn2(Phase::Present, slf.clone().present_loop()),
     };
     Ok((slf, futures))
 }
@@ -606,6 +622,67 @@ impl<T: Copy> MutableProperty<T> {
 }
 
 impl MetalBackend {
+    fn check_render_context(&self) -> bool {
+        let ctx = match self.ctx.get() {
+            Some(ctx) => ctx,
+            None => return false,
+        };
+        let reset = match ctx.egl.reset_status() {
+            Some(r) => r,
+            None => return true,
+        };
+        log::error!("EGL context has been reset: {:?}", reset);
+        if reset != ResetStatus::Innocent {
+            fatal!("We are not innocent. Terminating.");
+        }
+        log::info!("Trying to create a new context");
+        self.state.set_render_ctx(None);
+        let mut old_buffers = vec![];
+        for dev in self.device_holder.drm_devices.lock().values() {
+            for connector in dev.connectors.values() {
+                old_buffers.push(connector.buffers.take());
+            }
+        }
+        if !self.install_render_context(&ctx.dev) {
+            return false;
+        }
+        for dev in self.device_holder.drm_devices.lock().values() {
+            if let Err(e) = self.init_drm_device(dev) {
+                log::error!("Could not re-initialize device: {}", ErrorFmt(e));
+            }
+        }
+        true
+    }
+
+    fn install_render_context(&self, dev: &Rc<MetalDrmDeviceStatic>) -> bool {
+        let ctx = match self.create_render_context(dev) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                log::error!("Could not create a render context: {}", ErrorFmt(e));
+                return false;
+            }
+        };
+        self.state.set_render_ctx(Some(&ctx.egl));
+        self.ctx.set(Some(ctx));
+        true
+    }
+
+    fn create_render_context(
+        &self,
+        dev: &Rc<MetalDrmDeviceStatic>,
+    ) -> Result<Rc<MetalRenderContext>, MetalError> {
+        let egl = match RenderContext::from_drm_device(&dev.master) {
+            Ok(r) => Rc::new(r),
+            Err(e) => return Err(MetalError::CreateRenderContex(e)),
+        };
+        let ctx = Rc::new(MetalRenderContext {
+            dev: dev.clone(),
+            egl,
+        });
+        self.ctx.set(Some(ctx.clone()));
+        Ok(ctx)
+    }
+
     pub fn create_drm_device(
         self: &Rc<Self>,
         pending: PendingDrmDevice,
@@ -650,10 +727,6 @@ impl MetalBackend {
             Ok(g) => g,
             Err(e) => return Err(MetalError::GbmDevice(e)),
         };
-        let egl = match RenderContext::from_drm_device(master) {
-            Ok(r) => Rc::new(r),
-            Err(e) => return Err(MetalError::CreateRenderContex(e)),
-        };
         let async_fd = match self.state.eng.fd(master.fd()) {
             Ok(f) => f,
             Err(e) => return Err(MetalError::CreateAsyncFd(e)),
@@ -672,14 +745,20 @@ impl MetalBackend {
             min_height: resources.min_height,
             max_height: resources.max_height,
             gbm,
-            egl: egl.clone(),
             async_fd,
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
             },
         });
 
-        let (connectors, futures) = get_connectors(&self.state, &dev, &resources.connectors)?;
+        if self.ctx.get().is_none() {
+            self.install_render_context(&dev);
+            for dev in self.device_holder.drm_devices.lock().values() {
+                let _ = self.init_drm_device(dev);
+            }
+        }
+
+        let (connectors, futures) = get_connectors(&self, &dev, &resources.connectors)?;
 
         let slf = Rc::new(MetalDrmDevice {
             dev,
@@ -729,8 +808,6 @@ impl MetalBackend {
             .eng
             .spawn(self.clone().handle_drm_events(slf.clone()));
         slf.dev.handle_events.handle_events.set(Some(drm_handler));
-
-        self.state.set_render_ctx(&egl);
 
         Ok(slf)
     }
@@ -891,6 +968,10 @@ impl MetalBackend {
     }
 
     fn init_drm_device(&self, dev: &Rc<MetalDrmDevice>) -> Result<(), MetalError> {
+        let ctx = match self.ctx.get() {
+            Some(ctx) => ctx,
+            _ => return Ok(()),
+        };
         let mut flags = 0;
         let mut changes = dev.dev.master.change();
         if !self.can_use_current_drm_mode(dev) {
@@ -905,7 +986,7 @@ impl MetalBackend {
         }
         self.reset_planes(dev, &mut changes);
         for connector in dev.connectors.values() {
-            if let Err(e) = self.assign_connector_plane(dev, connector, &mut changes) {
+            if let Err(e) = self.assign_connector_plane(connector, &mut changes, &ctx) {
                 log::error!("Could not assign a plane: {}", ErrorFmt(e));
             }
         }
@@ -996,37 +1077,38 @@ impl MetalBackend {
 
     fn create_scanout_buffers(
         &self,
-        dev: &Rc<MetalDrmDevice>,
+        dev: &Rc<MetalDrmDeviceStatic>,
         format: &ModifiedFormat,
         width: i32,
         height: i32,
+        ctx: &MetalRenderContext,
     ) -> Result<[RenderBuffer; 2], MetalError> {
-        let create = || self.create_scanout_buffer(dev, format, width, height);
+        let create = || self.create_scanout_buffer(dev, format, width, height, ctx);
         Ok([create()?, create()?])
     }
 
     fn create_scanout_buffer(
         &self,
-        dev: &Rc<MetalDrmDevice>,
+        dev: &Rc<MetalDrmDeviceStatic>,
         format: &ModifiedFormat,
         width: i32,
         height: i32,
+        ctx: &MetalRenderContext,
     ) -> Result<RenderBuffer, MetalError> {
-        let bo = dev.dev.gbm.create_bo(
-            width,
-            height,
-            format,
-            GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT,
-        );
+        let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
+        if ctx.dev.id != dev.id {
+            usage |= GBM_BO_USE_LINEAR;
+        };
+        let bo = dev.gbm.create_bo(width, height, format, usage);
         let bo = match bo {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
         };
-        let drm_fb = match dev.dev.master.add_fb(bo.dmabuf()) {
+        let drm_fb = match dev.master.add_fb(bo.dmabuf()) {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let egl_img = match dev.dev.egl.dmabuf_img(bo.dmabuf()) {
+        let egl_img = match ctx.egl.dmabuf_img(bo.dmabuf()) {
             Ok(img) => img,
             Err(e) => return Err(MetalError::ImportImage(e)),
         };
@@ -1085,9 +1167,9 @@ impl MetalBackend {
 
     fn assign_connector_plane(
         &self,
-        dev: &Rc<MetalDrmDevice>,
         connector: &Rc<MetalConnector>,
         changes: &mut Change,
+        ctx: &MetalRenderContext,
     ) -> Result<(), MetalError> {
         let crtc = match connector.crtc.get() {
             Some(c) => c,
@@ -1111,22 +1193,17 @@ impl MetalBackend {
             }
             return Err(MetalError::NoPrimaryPlaneForConnector);
         };
-        connector.buffers.set(None);
-        let buffers = match connector.buffers.get() {
-            Some(b) => b,
-            None => {
-                let format = ModifiedFormat {
-                    format: XRGB8888,
-                    modifier: INVALID_MODIFIER,
-                };
-                Rc::new(self.create_scanout_buffers(
-                    dev,
-                    &format,
-                    mode.hdisplay as _,
-                    mode.vdisplay as _,
-                )?)
-            }
+        let format = ModifiedFormat {
+            format: XRGB8888,
+            modifier: INVALID_MODIFIER,
         };
+        let buffers = Rc::new(self.create_scanout_buffers(
+            &connector.dev,
+            &format,
+            mode.hdisplay as _,
+            mode.vdisplay as _,
+            ctx,
+        )?);
         changes.change_object(primary_plane.id, |c| {
             c.change(primary_plane.fb_id, buffers[0].drm.id().0 as _);
             c.change(primary_plane.crtc_id.id, crtc.id.0 as _);

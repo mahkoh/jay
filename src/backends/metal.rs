@@ -9,7 +9,7 @@ use {
             Backend, BackendEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
             InputDeviceId, InputEvent, KeyState, TransformMatrix,
         },
-        backends::metal::video::{MetalDrmDevice, PendingDrmDevice},
+        backends::metal::video::{MetalDrmDevice, MetalRenderContext, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
         libinput::{
             consts::{
@@ -44,6 +44,7 @@ use {
         cell::{Cell, RefCell},
         error::Error,
         ffi::{CStr, CString},
+        fmt::{Debug, Formatter},
         future::pending,
         mem,
         rc::Rc,
@@ -82,7 +83,7 @@ pub enum MetalError {
     NoModeForConnector,
     #[error("Could not allocate scanout buffer")]
     ScanoutBuffer(#[source] GbmError),
-    #[error("Could not create a framebuffer")]
+    #[error("addfb2 failed")]
     Framebuffer(#[source] DrmError),
     #[error("Could not import a framebuffer into EGL")]
     ImportFb(#[source] RenderError),
@@ -124,6 +125,13 @@ pub struct MetalBackend {
     drm_ids: DrmIds,
     pause_handler: Cell<Option<SignalHandler>>,
     resume_handler: Cell<Option<SignalHandler>>,
+    ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
+}
+
+impl Debug for MetalBackend {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetalBackend").finish_non_exhaustive()
+    }
 }
 
 impl MetalBackend {
@@ -250,6 +258,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         drm_ids: Default::default(),
         pause_handler: Default::default(),
         resume_handler: Default::default(),
+        ctx: Default::default(),
     });
     metal.pause_handler.set(Some({
         let mtl = metal.clone();

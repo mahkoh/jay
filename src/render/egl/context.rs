@@ -3,9 +3,14 @@ use {
         egl::{
             display::EglDisplay,
             sys::{eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE},
+            PROCS,
         },
-        ext::GlExt,
-        RenderError,
+        ext::{DisplayExt, GlExt},
+        sys::{
+            GL_GUILTY_CONTEXT_RESET_ARB, GL_INNOCENT_CONTEXT_RESET_ARB,
+            GL_UNKNOWN_CONTEXT_RESET_ARB,
+        },
+        RenderError, ResetStatus,
     },
     std::rc::Rc,
 };
@@ -31,6 +36,27 @@ impl Drop for EglContext {
 static mut CURRENT: EGLContext = EGLContext::none();
 
 impl EglContext {
+    pub fn reset_status(&self) -> Option<ResetStatus> {
+        if !self
+            .dpy
+            .exts
+            .contains(DisplayExt::EXT_CREATE_CONTEXT_ROBUSTNESS)
+        {
+            return None;
+        }
+        let status = self.with_current(|| unsafe {
+            let status = match PROCS.glGetGraphicsResetStatusKHR() {
+                0 => return Ok(None),
+                GL_GUILTY_CONTEXT_RESET_ARB => ResetStatus::Guilty,
+                GL_INNOCENT_CONTEXT_RESET_ARB => ResetStatus::Innocent,
+                GL_UNKNOWN_CONTEXT_RESET_ARB => ResetStatus::Unknown,
+                n => ResetStatus::Other(n),
+            };
+            Ok(Some(status))
+        });
+        status.unwrap_or_default()
+    }
+
     #[inline]
     pub fn with_current<T, F: FnOnce() -> Result<T, RenderError>>(
         &self,

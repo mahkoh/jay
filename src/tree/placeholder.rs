@@ -22,7 +22,7 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    texture: CloneCell<Option<Rc<Texture>>>,
+    pub texture: CloneCell<Option<Rc<Texture>>>,
 }
 
 impl PlaceholderNode {
@@ -39,12 +39,33 @@ impl PlaceholderNode {
         }
     }
 
-    pub fn texture(&self) -> Option<Rc<Texture>> {
-        self.texture.get()
-    }
-
     pub fn is_destroyed(&self) -> bool {
         self.destroyed.get()
+    }
+
+    pub fn update_texture(&self) {
+        self.texture.set(None);
+        if let Some(ctx) = self.toplevel.state.render_ctx.get() {
+            let rect = self.toplevel.pos.get();
+            if rect.width() != 0 && rect.height() != 0 {
+                let font = format!("monospace {}", rect.width() / 10);
+                match text::render_fitting(
+                    &ctx,
+                    rect.height(),
+                    &font,
+                    "Fullscreen",
+                    Color::GREY,
+                    false,
+                ) {
+                    Ok(t) => {
+                        self.texture.set(Some(t));
+                    }
+                    Err(e) => {
+                        log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -126,27 +147,7 @@ impl ToplevelNode for PlaceholderNode {
         if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());
         }
-        self.texture.set(None);
-        if let Some(ctx) = self.toplevel.state.render_ctx.get() {
-            if rect.width() != 0 && rect.height() != 0 {
-                let font = format!("monospace {}", rect.width() / 10);
-                match text::render_fitting(
-                    &ctx,
-                    rect.height(),
-                    &font,
-                    "Fullscreen",
-                    Color::GREY,
-                    false,
-                ) {
-                    Ok(t) => {
-                        self.texture.set(Some(t));
-                    }
-                    Err(e) => {
-                        log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
-                    }
-                }
-            }
-        }
+        self.update_texture();
     }
 
     fn tl_close(self: Rc<Self>) {

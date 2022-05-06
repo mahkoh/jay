@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::ops::Deref;
 use {
     crate::{
         client::{Client, ClientError},
@@ -16,6 +18,9 @@ use {
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
+use crate::utils::errorfmt::ErrorFmt;
+use crate::video::dmabuf::DmaBuf;
+use crate::wire::jay_screenshot::Dmabuf;
 
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },
@@ -28,7 +33,9 @@ pub struct WlBuffer {
     pub client: Rc<Client>,
     pub rect: Rect,
     pub format: &'static Format,
-    pub storage: WlBufferStorage,
+    dmabuf: Option<DmaBuf>,
+    render_ctx_version: Cell<u32>,
+    pub storage: RefCell<Option<WlBufferStorage>>,
     pub texture: CloneCell<Option<Rc<Texture>>>,
     pub famebuffer: CloneCell<Option<Rc<Framebuffer>>>,
     width: i32,
@@ -46,6 +53,7 @@ impl WlBuffer {
         id: WlBufferId,
         client: &Rc<Client>,
         format: &'static Format,
+        dmabuf: DmaBuf,
         img: &Rc<Image>,
     ) -> Self {
         let width = img.width();
@@ -60,7 +68,9 @@ impl WlBuffer {
             height,
             texture: CloneCell::new(None),
             famebuffer: Default::default(),
-            storage: WlBufferStorage::Dmabuf(img.clone()),
+            dmabuf: Some(dmabuf),
+            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
+            storage: RefCell::new(Some(WlBufferStorage::Dmabuf(img.clone()))),
             tracker: Default::default(),
         }
     }
@@ -92,7 +102,9 @@ impl WlBuffer {
             client: client.clone(),
             rect: Rect::new_sized(0, 0, width, height).unwrap(),
             format,
-            storage: WlBufferStorage::Shm { mem, stride },
+            dmabuf: None,
+            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
+            storage: RefCell::new(Some(WlBufferStorage::Shm { mem, stride })),
             width,
             height,
             texture: CloneCell::new(None),
@@ -101,8 +113,43 @@ impl WlBuffer {
         })
     }
 
+    pub fn handle_gfx_context_change(&self) {
+        let ctx_version = self.client.state.render_ctx_version.get();
+        if self.render_ctx_version.replace(ctx_version) == ctx_version {
+            return;
+        }
+        self.texture.set(None);
+        self.famebuffer.set(None);
+        let mut storage = self.storage.borrow_mut();
+        if let Some(storage) = &mut *storage {
+            if let WlBufferStorage::Shm { .. } = storage {
+                return;
+            }
+        }
+        *storage = None;
+        let ctx = match self.client.state.render_ctx.get() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
+        if let Some(dmabuf) = &self.dmabuf {
+            let image = match ctx.dmabuf_img(dmabuf) {
+                Ok(image) => image,
+                Err(e) => {
+                    log::error!("Cannot re-import wl_buffer after graphics context reset: {}", ErrorFmt(e));
+                    return;
+                }
+            };
+            *storage = Some(WlBufferStorage::Dmabuf(image));
+        }
+    }
+
     pub fn update_texture(&self) -> Result<(), WlBufferError> {
-        match &self.storage {
+        let storage = self.storage.borrow_mut();
+        let storage = match storage.deref() {
+            Some(s) => s,
+            _ => return Ok(()),
+        };
+        match storage {
             WlBufferStorage::Shm { mem, stride } => {
                 self.texture.set(None);
                 if let Some(ctx) = self.client.state.render_ctx.get() {
@@ -122,7 +169,12 @@ impl WlBuffer {
     }
 
     pub fn update_framebuffer(&self) -> Result<(), WlBufferError> {
-        match &self.storage {
+        let storage = self.storage.borrow_mut();
+        let storage = match storage.deref() {
+            Some(s) => s,
+            _ => return Ok(()),
+        };
+        match storage {
             WlBufferStorage::Shm { .. } => {
                 // nothing
             }

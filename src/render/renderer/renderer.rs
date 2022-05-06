@@ -198,7 +198,7 @@ impl Renderer<'_> {
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_rgba_straight(20, 20, 20, 255),
         );
-        if let Some(tex) = placeholder.texture() {
+        if let Some(tex) = placeholder.texture.get() {
             let x = x + (pos.width() - tex.width()) / 2;
             let y = y + (pos.height() - tex.height()) / 2;
             self.render_texture(&tex, x, y, &ARGB8888);

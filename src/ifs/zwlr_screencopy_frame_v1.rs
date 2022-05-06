@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use {
     crate::{
         client::{Client, ClientError},
@@ -114,7 +115,7 @@ impl ZwlrScreencopyFrameV1 {
             return Err(ZwlrScreencopyFrameV1Error::InvalidBufferFormat);
         }
         buffer.update_framebuffer()?;
-        if let WlBufferStorage::Shm { stride, .. } = &buffer.storage {
+        if let Some(WlBufferStorage::Shm { stride, .. }) = buffer.storage.borrow_mut().deref() {
             if *stride != self.rect.width() * 4 {
                 return Err(ZwlrScreencopyFrameV1Error::InvalidBufferStride);
             }
