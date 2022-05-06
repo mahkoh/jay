@@ -13,7 +13,7 @@ use {
             errorfmt::ErrorFmt,
         },
         video::dmabuf::DmaBuf,
-        wire::{jay_screenshot::Dmabuf, wl_buffer::*, WlBufferId},
+        wire::{wl_buffer::*, WlBufferId},
     },
     std::{
         cell::{Cell, RefCell},

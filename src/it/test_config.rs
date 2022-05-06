@@ -38,6 +38,7 @@ where
             srv: Cell::new(None),
             responses: Default::default(),
             invoked_shortcuts: Default::default(),
+            graphics_initialized: Cell::new(false),
         });
         let old = CONFIG;
         CONFIG = tc.deref();
@@ -99,7 +100,7 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::NewConnector { .. } => {}
         ServerMessage::DelConnector { .. } => {}
         ServerMessage::TimerExpired { .. } => {}
-        ServerMessage::GraphicsInitialized => {}
+        ServerMessage::GraphicsInitialized => tc.graphics_initialized.set(true),
         ServerMessage::Clear => tc.clear(),
     }
 }
@@ -115,6 +116,7 @@ pub struct TestConfig {
     srv: Cell<Option<ServerData>>,
     responses: Stack<Response>,
     pub invoked_shortcuts: CopyHashMap<(SeatId, ModifiedKeySym), ()>,
+    pub graphics_initialized: Cell<bool>,
 }
 
 macro_rules! get_response {

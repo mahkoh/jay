@@ -8,12 +8,12 @@ use {
         },
         compositor::TestFuture,
         fixed::Fixed,
+        it::test_error::TestResult,
         render::{RenderContext, RenderError},
         state::State,
         time::Time,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, oserror::OsError,
-            syncqueue::SyncQueue,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
         },
         video::drm::{ConnectorType, Drm},
     },
@@ -41,6 +41,7 @@ pub struct TestBackend {
     pub default_connector: Rc<TestConnector>,
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
+    pub render_context_installed: Cell<bool>,
 }
 
 impl TestBackend {
@@ -92,10 +93,21 @@ impl TestBackend {
             default_connector,
             default_mouse,
             default_kb,
+            render_context_installed: Cell::new(false),
         }
     }
 
-    pub fn install_default(&self) {
+    pub fn install_render_context(&self) -> TestResult {
+        if self.render_context_installed.get() {
+            return Ok(());
+        }
+        self.create_render_context()?;
+        self.render_context_installed.set(true);
+        Ok(())
+    }
+
+    pub fn install_default(&self) -> TestResult {
+        self.install_render_context()?;
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(self.default_connector.clone()));
@@ -121,6 +133,7 @@ impl TestBackend {
         self.state
             .backend_events
             .push(BackendEvent::NewInputDevice(self.default_mouse.clone()));
+        Ok(())
     }
 
     fn create_render_context(&self) -> Result<(), TestBackendError> {
@@ -175,11 +188,7 @@ impl TestBackend {
 impl Backend for TestBackend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn std::error::Error>>> {
         let future = (self.test_future)(&self.state);
-        let slf = self.clone();
         self.state.eng.spawn(async move {
-            if let Err(e) = slf.create_render_context() {
-                log::error!("Could not create render context: {}", ErrorFmt(e));
-            }
             let future: Pin<_> = future.into();
             future.await;
             Ok(())

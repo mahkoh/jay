@@ -105,7 +105,7 @@ impl TestRun {
     }
 
     pub async fn create_default_setup(&self) -> Result<DefaultSetup, TestError> {
-        self.backend.install_default();
+        self.backend.install_default()?;
         let seat = self.get_seat("default")?;
         self.state.eng.yield_now().await;
         let output = match self.state.outputs.lock().values().next() {

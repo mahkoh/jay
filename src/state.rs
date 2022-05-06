@@ -63,6 +63,7 @@ pub struct State {
     pub el: Rc<EventLoop>,
     pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
     pub render_ctx_version: NumCell<u32>,
+    pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
@@ -250,6 +251,12 @@ impl State {
         let seats = self.globals.seats.lock();
         for seat in seats.values() {
             seat.render_ctx_changed();
+        }
+
+        if ctx.is_some() && !self.render_ctx_ever_initialized.replace(true) {
+            if let Some(config) = self.config.get() {
+                config.graphics_initialized();
+            }
         }
     }
 

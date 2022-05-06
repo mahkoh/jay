@@ -11,7 +11,7 @@ testcase!();
 
 /// Create and map a single surface
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
-    run.backend.install_default();
+    run.backend.install_default()?;
 
     let client = run.create_client().await?;
 

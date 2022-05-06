@@ -32,7 +32,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     run.cfg.set_fullscreen(ds.seat.id(), true)?;
     client.sync().await;
-    window.map().await;
+    window.map().await?;
 
     ds.mouse.rel(-1000.0, -1000.0);
 

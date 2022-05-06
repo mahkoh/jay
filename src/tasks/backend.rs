@@ -23,11 +23,6 @@ impl BackendEventHandler {
         match event {
             BackendEvent::NewConnector(connector) => connector::handle(&self.state, &connector),
             BackendEvent::NewInputDevice(s) => input_device::handle(&self.state, s),
-            BackendEvent::GraphicsInitialized => {
-                if let Some(config) = self.state.config.get() {
-                    config.graphics_initialized();
-                }
-            }
         }
     }
 }

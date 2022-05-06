@@ -11,7 +11,7 @@ testcase!();
 
 /// Test subsurface positioning
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
-    run.backend.install_default();
+    run.backend.install_default()?;
 
     let seat = run.get_seat("default")?;
 
