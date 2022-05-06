@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use {
     crate::{
         client::{Client, ClientError},
@@ -16,7 +15,7 @@ use {
         },
         wire::{zwlr_screencopy_frame_v1::*, WlBufferId, ZwlrScreencopyFrameV1Id},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, ops::Deref, rc::Rc},
     thiserror::Error,
 };
 

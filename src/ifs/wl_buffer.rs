@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::ops::Deref;
 use {
     crate::{
         client::{Client, ClientError},
@@ -12,15 +10,18 @@ use {
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
+            errorfmt::ErrorFmt,
         },
-        wire::{wl_buffer::*, WlBufferId},
+        video::dmabuf::DmaBuf,
+        wire::{jay_screenshot::Dmabuf, wl_buffer::*, WlBufferId},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        ops::Deref,
+        rc::Rc,
+    },
     thiserror::Error,
 };
-use crate::utils::errorfmt::ErrorFmt;
-use crate::video::dmabuf::DmaBuf;
-use crate::wire::jay_screenshot::Dmabuf;
 
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },
@@ -135,7 +136,10 @@ impl WlBuffer {
             let image = match ctx.dmabuf_img(dmabuf) {
                 Ok(image) => image,
                 Err(e) => {
-                    log::error!("Cannot re-import wl_buffer after graphics context reset: {}", ErrorFmt(e));
+                    log::error!(
+                        "Cannot re-import wl_buffer after graphics context reset: {}",
+                        ErrorFmt(e)
+                    );
                     return;
                 }
             };

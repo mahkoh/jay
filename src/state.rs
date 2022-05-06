@@ -19,7 +19,7 @@ use {
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
-                NoneSurfaceExt,
+                NoneSurfaceExt, WlSurface,
             },
         },
         leaks::Tracker,
@@ -53,7 +53,6 @@ use {
         time::Duration,
     },
 };
-use crate::ifs::wl_surface::WlSurface;
 
 pub struct State {
     pub xkb_ctx: XkbContext,

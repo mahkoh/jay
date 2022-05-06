@@ -8,7 +8,7 @@ use {
         edid::Descriptor,
         format::{Format, XRGB8888},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
-        render::{Framebuffer, RenderContext, RenderResult, Texture},
+        render::{Framebuffer, RenderContext, RenderResult, ResetStatus, Texture},
         state::State,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
@@ -37,7 +37,6 @@ use {
     },
     uapi::c,
 };
-use crate::render::ResetStatus;
 
 pub struct PendingDrmDevice {
     pub id: DrmId,

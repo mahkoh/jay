@@ -147,7 +147,13 @@ impl WlDrm {
             }
         }
         let img = ctx.dmabuf_img(&dmabuf)?;
-        let buffer = Rc::new(WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf, &img));
+        let buffer = Rc::new(WlBuffer::new_dmabuf(
+            req.id,
+            &self.client,
+            format,
+            dmabuf,
+            &img,
+        ));
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())
