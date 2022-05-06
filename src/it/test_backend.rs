@@ -167,7 +167,7 @@ impl TestBackend {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };
-        self.state.set_render_ctx(&Rc::new(ctx));
+        self.state.set_render_ctx(Some(&Rc::new(ctx)));
         Ok(())
     }
 }

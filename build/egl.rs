@@ -79,6 +79,7 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
             "()",
             &[("target", "GLenum"), ("image", "GLeglImageOES")][..],
         ),
+        ("glGetGraphicsResetStatusKHR", "GLenum", &[][..]),
     ];
 
     writeln!(f, "use std::ptr;")?;

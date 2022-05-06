@@ -279,7 +279,7 @@ impl XBackend {
             .eng
             .spawn2(Phase::Present, self.clone().present_handler());
 
-        self.state.set_render_ctx(&self.ctx);
+        self.state.set_render_ctx(Some(&self.ctx));
 
         pending().await
     }

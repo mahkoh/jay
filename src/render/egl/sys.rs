@@ -1,4 +1,4 @@
-use uapi::c;
+use {crate::render::sys::GLenum, uapi::c};
 
 pub type EGLint = i32;
 pub type EGLenum = c::c_uint;
@@ -51,6 +51,12 @@ pub const EGL_BAD_DEVICE_EXT: EGLint = 0x322B;
 pub const EGL_OPENGL_ES_API: EGLenum = 0x30A0;
 pub const EGL_PLATFORM_GBM_KHR: EGLint = 0x31D7;
 pub const EGL_CONTEXT_CLIENT_VERSION: EGLint = 0x3098;
+pub const EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT: EGLint = 0x3138;
+pub const EGL_LOSE_CONTEXT_ON_RESET_EXT: EGLint = 0x31BF;
+
+pub const GL_GUILTY_CONTEXT_RESET_ARB: GLenum = 0x8253;
+pub const GL_INNOCENT_CONTEXT_RESET_ARB: GLenum = 0x8254;
+pub const GL_UNKNOWN_CONTEXT_RESET_ARB: GLenum = 0x8255;
 
 pub const EGL_WIDTH: EGLint = 0x3057;
 pub const EGL_HEIGHT: EGLint = 0x3056;

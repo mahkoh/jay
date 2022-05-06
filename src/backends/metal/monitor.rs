@@ -235,8 +235,16 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_change(self: &Rc<Self>, _dev: UdevDevice) -> Option<()> {
-        // TODO: Handle monitor connections and connector hotplug
+    fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
+            Some(dev) => dev,
+            _ => return None,
+        };
+        for connector in dev.connectors.values() {
+            connector.can_present.set(true);
+            connector.has_damage.set(true);
+            connector.schedule_present();
+        }
         None
     }
 

@@ -66,7 +66,19 @@ impl Debug for RenderContext {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ResetStatus {
+    Guilty,
+    Innocent,
+    Unknown,
+    Other(u32),
+}
+
 impl RenderContext {
+    pub fn reset_status(&self) -> Option<ResetStatus> {
+        self.ctx.reset_status()
+    }
+
     pub fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
         let nodes = drm.get_nodes()?;
         let node = match nodes

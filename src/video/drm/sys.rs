@@ -966,7 +966,7 @@ pub fn mode_addfb2(
         offsets,
         modifiers,
     };
-    log::info!("{:#?}", res);
+    // log::info!("{:#?}", res);
 
     unsafe {
         ioctl(fd, DRM_IOCTL_MODE_ADDFB2, &mut res)?;
