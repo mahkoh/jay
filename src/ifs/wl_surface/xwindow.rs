@@ -198,17 +198,19 @@ pub enum Change {
 
 impl Xwindow {
     pub fn new(data: &Rc<XwindowData>, surface: &Rc<WlSurface>) -> Self {
+        let tld = ToplevelData::new(
+            &data.state,
+            data.info.title.borrow_mut().clone().unwrap_or_default(),
+            Some(surface.client.clone()),
+        );
+        tld.pos.set(surface.extents.get());
         Self {
             id: data.state.node_ids.next(),
             seat_state: Default::default(),
             data: data.clone(),
             surface: surface.clone(),
             display_link: Default::default(),
-            toplevel_data: ToplevelData::new(
-                &data.state,
-                data.info.title.borrow_mut().clone().unwrap_or_default(),
-                Some(surface.client.clone()),
-            ),
+            toplevel_data: tld,
         }
     }
 

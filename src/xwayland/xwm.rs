@@ -1063,7 +1063,8 @@ impl Wm {
         self.set_net_active_window(window).await;
         self.focus_window(window).await;
         if let Some(w) = window {
-            self.stack_window(w, None, true).await;
+            self.move_to_top_of_stack(w);
+            self.configure_stack_position(w).await;
         }
     }
 
@@ -1263,14 +1264,15 @@ impl Wm {
     async fn handle_map_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: MapNotify = event.parse()?;
         let data = match self.windows.get(&event.window) {
-            Some(d) => d,
+            Some(d) => d.clone(),
             _ => return Ok(()),
         };
-        self.update_override_redirect(data, event.override_redirect);
+        self.update_override_redirect(&data, event.override_redirect);
         data.info.mapped.set(true);
         if let Some(win) = data.window.get() {
             win.map_status_changed();
         }
+        self.configure_stack_position(&data).await;
         Ok(())
     }
 
@@ -1290,7 +1292,24 @@ impl Wm {
             self.num_mapped += 1;
         }
         self.set_net_client_list().await;
-        self.stack_window(&data, None, true).await;
+        let pending = data.info.pending_extents.get();
+        if pending.width() > 0 && pending.height() > 0 {
+            let dummy = Rect::new_sized(0, 0, 1, 1).unwrap();
+            for rect in [dummy, pending] {
+                let cw = ConfigureWindow {
+                    window: data.window_id,
+                    values: ConfigureWindowValues {
+                        x: Some(rect.x1()),
+                        y: Some(rect.y1()),
+                        width: Some(rect.width() as _),
+                        height: Some(rect.height() as _),
+                        ..Default::default()
+                    },
+                };
+                let _ = self.c.call(&cw).await;
+            }
+        }
+        self.move_to_top_of_stack(&data);
         let mw = MapWindow {
             window: event.window,
         };
@@ -1300,44 +1319,37 @@ impl Wm {
         Ok(())
     }
 
-    async fn stack_window(
+    fn move_to_top_of_stack(
         &mut self,
         window: &Rc<XwindowData>,
-        sibling: Option<&Rc<XwindowData>>,
-        above: bool,
     ) {
-        let link = 'link: {
-            if let Some(s) = sibling {
-                if s.window_id == window.window_id {
-                    log::warn!("trying to stack window above itself");
-                } else {
-                    let sl = s.stack_link.borrow_mut();
-                    if let Some(sl) = sl.deref() {
-                        break 'link if above {
-                            sl.append(window.clone())
-                        } else {
-                            sl.prepend(window.clone())
-                        };
-                    }
-                }
-            }
-            if above {
-                self.stack_list.add_last(window.clone())
-            } else {
-                self.stack_list.add_first(window.clone())
+        let link = self.stack_list.add_last(window.clone());
+        *window.stack_link.borrow_mut() = Some(link);
+    }
+
+    async fn configure_stack_position(
+        &mut self,
+        window: &Rc<XwindowData>,
+    ) {
+        let sl = window.stack_link.borrow_mut();
+        let sl = match sl.deref() {
+            Some(sl) => sl,
+            _ => return,
+        };
+        let (sibling, stack_mode) = match sl.prev() {
+            Some(n) => (Some(n), STACK_MODE_ABOVE),
+            _ => match sl.next() {
+                Some(n) => (Some(n), STACK_MODE_BELOW),
+                _ => (None, STACK_MODE_ABOVE),
             }
         };
-        *window.stack_link.borrow_mut() = Some(link);
         let res = self
             .c
             .call(&ConfigureWindow {
                 window: window.window_id,
                 values: ConfigureWindowValues {
                     sibling: sibling.map(|s| s.window_id),
-                    stack_mode: Some(match above {
-                        true => STACK_MODE_ABOVE,
-                        false => STACK_MODE_BELOW,
-                    }),
+                    stack_mode: Some(stack_mode),
                     ..Default::default()
                 },
             })
