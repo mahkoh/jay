@@ -632,9 +632,9 @@ impl MetalBackend {
             None => return true,
         };
         log::error!("EGL context has been reset: {:?}", reset);
-        if reset != ResetStatus::Innocent {
-            fatal!("We are not innocent. Terminating.");
-        }
+        // if reset != ResetStatus::Innocent {
+        //     fatal!("We are not innocent. Terminating.");
+        // }
         log::info!("Trying to create a new context");
         self.state.set_render_ctx(None);
         let mut old_buffers = vec![];

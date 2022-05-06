@@ -141,6 +141,7 @@ impl ZwpLinuxBufferParamsV1 {
             buffer_id,
             &self.parent.client,
             format.format,
+            dmabuf,
             &img,
         ));
         track!(self.parent.client, buffer);

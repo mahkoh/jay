@@ -53,6 +53,7 @@ use {
         time::Duration,
     },
 };
+use crate::ifs::wl_surface::WlSurface;
 
 pub struct State {
     pub xkb_ctx: XkbContext,
@@ -196,6 +197,13 @@ impl State {
                 }
                 fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
                     node.texture.set(None);
+                    node.node_visit_children(self);
+                }
+                fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+                    if let Some(buffer) = node.buffer.get() {
+                        buffer.texture.set(None);
+                        buffer.famebuffer.set(None);
+                    }
                     node.node_visit_children(self);
                 }
             }
