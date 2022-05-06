@@ -1319,18 +1319,12 @@ impl Wm {
         Ok(())
     }
 
-    fn move_to_top_of_stack(
-        &mut self,
-        window: &Rc<XwindowData>,
-    ) {
+    fn move_to_top_of_stack(&mut self, window: &Rc<XwindowData>) {
         let link = self.stack_list.add_last(window.clone());
         *window.stack_link.borrow_mut() = Some(link);
     }
 
-    async fn configure_stack_position(
-        &mut self,
-        window: &Rc<XwindowData>,
-    ) {
+    async fn configure_stack_position(&mut self, window: &Rc<XwindowData>) {
         let sl = window.stack_link.borrow_mut();
         let sl = match sl.deref() {
             Some(sl) => sl,
@@ -1341,7 +1335,7 @@ impl Wm {
             _ => match sl.next() {
                 Some(n) => (Some(n), STACK_MODE_BELOW),
                 _ => (None, STACK_MODE_ABOVE),
-            }
+            },
         };
         let res = self
             .c
