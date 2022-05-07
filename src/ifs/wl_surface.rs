@@ -769,7 +769,7 @@ impl Node for WlSurface {
         seat.button_surface(&self, button, state, serial);
     }
 
-    fn node_on_axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
         seat.scroll_surface(&*self, event);
     }
 

@@ -14,7 +14,7 @@ use {
         },
         input::{InputDevice, Seat},
         keyboard::{keymap::Keymap, ModifiedKeySym},
-        Direction,
+        Axis, Direction,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
 };
@@ -188,6 +188,20 @@ impl TestConfig {
         self.send(ClientMessage::SeatSetKeymap {
             seat: Seat(seat.raw() as _),
             keymap,
+        })
+    }
+
+    pub fn create_split(&self, seat: SeatId, axis: Axis) -> TestResult {
+        self.send(ClientMessage::CreateSplit {
+            seat: Seat(seat.raw() as _),
+            axis,
+        })
+    }
+
+    pub fn set_mono(&self, seat: SeatId, mono: bool) -> TestResult {
+        self.send(ClientMessage::SetMono {
+            seat: Seat(seat.raw() as _),
+            mono,
         })
     }
 

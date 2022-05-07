@@ -1141,7 +1141,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn node_on_axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
         let mut seat_datas = self.seats.borrow_mut();
         let seat_data = match seat_datas.get_mut(&seat.id()) {
             Some(s) => s,
@@ -1176,6 +1176,10 @@ impl Node for ContainerNode {
             };
         }
         self.activate_child(&new_mc);
+        new_mc
+            .node
+            .clone()
+            .node_do_focus(seat, Direction::Unspecified);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
@@ -1347,6 +1351,7 @@ impl ToplevelNode for ContainerNode {
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+        self.toplevel_data.pos.set(*rect);
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
         let mut size_changed = false;

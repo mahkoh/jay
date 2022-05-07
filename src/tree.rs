@@ -161,7 +161,7 @@ pub trait Node: 'static {
         let _ = serial;
     }
 
-    fn node_on_axis_event(self: Rc<Self>, seat: &WlSeatGlobal, event: &PendingScroll) {
+    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
         let _ = seat;
         let _ = event;
     }

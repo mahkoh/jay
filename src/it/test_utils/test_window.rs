@@ -2,7 +2,7 @@ use {
     crate::{
         format::ARGB8888,
         it::{
-            test_error::TestError,
+            test_error::{TestError, TestResult},
             test_ifs::{
                 test_shm_buffer::TestShmBuffer, test_shm_pool::TestShmPool,
                 test_surface::TestSurface, test_xdg_surface::TestXdgSurface,
@@ -39,6 +39,11 @@ impl TestWindow {
         self.buffer.set(buffer);
         self.surface.tran.sync().await;
         Ok(())
+    }
+
+    pub async fn map2(&self) -> TestResult {
+        self.map().await?;
+        self.map().await
     }
 
     #[allow(dead_code)]

@@ -2,9 +2,12 @@ use {
     crate::{
         ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
         it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
+            test_error::{TestError, TestResult},
+            test_object::TestObject,
+            test_transport::TestTransport,
             testrun::ParseFull,
         },
+        tree::{ContainerNode, ToplevelNode},
         utils::buffd::MsgParser,
         wire::{xdg_toplevel::*, XdgToplevelId},
     },
@@ -34,6 +37,17 @@ impl TestXdgToplevel {
             self.tran.send(Destroy { self_id: self.id })?;
         }
         Ok(())
+    }
+
+    pub fn container_parent(&self) -> TestResult<Rc<ContainerNode>> {
+        let parent = match self.server.tl_data().parent.get() {
+            Some(p) => p,
+            _ => bail!("toplevel has no parent"),
+        };
+        match parent.node_into_container() {
+            Some(p) => Ok(p),
+            _ => bail!("toplevel parent is not a container"),
+        }
     }
 
     fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {

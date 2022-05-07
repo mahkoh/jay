@@ -2,9 +2,9 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
-            InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent,
-            KeyState, Mode, MonitorInfo, TransformMatrix,
+            AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
+            ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
         },
         compositor::TestFuture,
         fixed::Fixed,
@@ -275,6 +275,14 @@ impl TestBackendMouse {
         })
     }
 
+    pub fn abs(&self, connector: &TestConnector, x: f64, y: f64) {
+        self.common.event(InputEvent::ConnectorPosition {
+            0: connector.id,
+            1: Fixed::from_f64(x),
+            2: Fixed::from_f64(y),
+        })
+    }
+
     pub fn click(self: &Rc<Self>, button: u32) -> TestMouseClick {
         self.common
             .event(InputEvent::Button(button, KeyState::Pressed));
@@ -282,6 +290,17 @@ impl TestBackendMouse {
             mouse: self.clone(),
             button,
         }
+    }
+
+    pub fn scroll(&self, dy: i32) {
+        self.common.event(InputEvent::AxisSource(AxisSource::Wheel));
+        self.common
+            .event(InputEvent::AxisDiscrete(dy, ScrollAxis::Vertical));
+        self.common.event(InputEvent::Axis(
+            Fixed::from_int(dy * 15),
+            ScrollAxis::Vertical,
+        ));
+        self.common.event(InputEvent::Frame);
     }
 }
 
