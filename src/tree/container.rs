@@ -1154,15 +1154,18 @@ impl Node for ContainerNode {
             Some(mc) => mc,
             _ => return,
         };
-        let scroll = match event.axis[VERTICAL_SCROLL as usize].get() {
-            Some(s) => s,
-            _ => return,
+        let discrete = if let Some(d) = event.discrete[VERTICAL_SCROLL as usize].get() {
+            self.scroll.set(0.0);
+            d
+        } else if let Some(scroll) = event.axis[VERTICAL_SCROLL as usize].get() {
+            let mut scroll = self.scroll.get() + scroll.to_f64();
+            let discrete = (scroll / PX_PER_SCROLL).round();
+            scroll -= discrete * PX_PER_SCROLL;
+            self.scroll.set(scroll);
+            discrete as i32
+        } else {
+            return;
         };
-        let mut scroll = self.scroll.get() + scroll.to_f64();
-        let discrete = (scroll / PX_PER_SCROLL).round();
-        scroll -= discrete * PX_PER_SCROLL;
-        self.scroll.set(scroll);
-        let discrete = discrete as i32;
         let mut new_mc = cur_mc.clone();
         for _ in 0..discrete.abs() {
             let new = if discrete < 0 {
