@@ -106,6 +106,7 @@ impl ConnectorHandler {
             state: self.state.clone(),
             is_dummy: false,
             status: self.state.status.clone(),
+            scroll: Default::default(),
         });
         let mode = info.initial_mode;
         let output_data = Rc::new(OutputData {

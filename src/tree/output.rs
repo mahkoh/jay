@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         ifs::{
             wl_output::WlOutputGlobal,
-            wl_seat::{collect_kb_foci2, NodeSeatState, WlSeatGlobal},
+            wl_seat::{collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, WlSeatGlobal},
             wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
@@ -14,7 +14,9 @@ use {
         text,
         theme::Color,
         tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
-        utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList},
+        utils::{
+            clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList, scroller::Scroller,
+        },
     },
     jay_config::Direction,
     smallvec::SmallVec,
@@ -38,6 +40,7 @@ pub struct OutputNode {
     pub state: Rc<State>,
     pub is_dummy: bool,
     pub status: CloneCell<Rc<String>>,
+    pub scroll: Scroller,
 }
 
 impl OutputNode {
@@ -402,6 +405,42 @@ impl Node for OutputNode {
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         renderer.render_output(self, x, y);
+    }
+
+    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
+        let steps = match self.scroll.handle(event) {
+            Some(e) => e,
+            _ => return,
+        };
+        if steps == 0 {
+            return;
+        }
+        let ws = match self.workspace.get() {
+            Some(ws) => ws,
+            _ => return,
+        };
+        let mut ws = 'ws: {
+            for r in self.workspaces.iter() {
+                if r.id == ws.id {
+                    break 'ws r;
+                }
+            }
+            return;
+        };
+        for _ in 0..steps.abs() {
+            let new = if steps < 0 { ws.prev() } else { ws.next() };
+            ws = match new {
+                Some(n) => n,
+                None => break,
+            };
+        }
+        if !self.show_workspace(&ws) {
+            return;
+        }
+        ws.deref()
+            .clone()
+            .node_do_focus(seat, Direction::Unspecified);
+        self.update_render_data();
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {

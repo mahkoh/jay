@@ -369,6 +369,7 @@ fn create_dummy_output(state: &Rc<State>) {
         state: state.clone(),
         is_dummy: true,
         status: Default::default(),
+        scroll: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
