@@ -382,7 +382,7 @@ impl Node for OutputNode {
             }
         }
         let bar_height = self.state.theme.title_height.get() + 1;
-        if y > bar_height {
+        if y >= bar_height {
             y -= bar_height;
             let len = tree.len();
             if let Some(ws) = self.workspace.get() {
@@ -405,6 +405,7 @@ impl Node for OutputNode {
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        // log::info!("output focus");
         seat.set_known_cursor(KnownCursor::Default);
     }
 

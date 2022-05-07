@@ -1159,7 +1159,7 @@ impl Node for ContainerNode {
             d
         } else if let Some(scroll) = event.axis[VERTICAL_SCROLL as usize].get() {
             let mut scroll = self.scroll.get() + scroll.to_f64();
-            let discrete = (scroll / PX_PER_SCROLL).round();
+            let discrete = (scroll / PX_PER_SCROLL).trunc();
             scroll -= discrete * PX_PER_SCROLL;
             self.scroll.set(scroll);
             discrete as i32
@@ -1191,6 +1191,7 @@ impl Node for ContainerNode {
     }
 
     fn node_on_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
+        // log::info!("unfocus");
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = false;
@@ -1198,6 +1199,7 @@ impl Node for ContainerNode {
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        // log::info!("container focus");
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = true;

@@ -302,6 +302,13 @@ impl TestBackendMouse {
         ));
         self.common.event(InputEvent::Frame);
     }
+
+    pub fn scroll_px(&self, dy: i32) {
+        self.common.event(InputEvent::AxisSource(AxisSource::Wheel));
+        self.common
+            .event(InputEvent::Axis(Fixed::from_int(dy), ScrollAxis::Vertical));
+        self.common.event(InputEvent::Frame);
+    }
 }
 
 pub struct TestBackendKb {

@@ -48,7 +48,6 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     let mono_container = w_mono2.tl.container_parent()?;
     let container_pos = mono_container.tl_data().pos.get();
-    log::info!("cp {:?}", container_pos);
     let w_mono1_title = mono_container.render_data.borrow_mut().title_rects[0]
         .move_(container_pos.x1(), container_pos.y1());
     ds.mouse.abs(
@@ -62,8 +61,6 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     ds.mouse.scroll(-1);
     client.sync().await;
-
-    client.save_screenshot("s2").await?;
 
     let enter = enters.next().with_context(|| "no enter event 2")?;
     tassert_eq!(enter.surface, w_mono1.surface.id);

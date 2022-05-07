@@ -34,7 +34,7 @@ pub const AXIS_DISCRETE_SINCE_VERSION: u32 = 5;
 pub const AXIS_STOP_SINCE_VERSION: u32 = 5;
 pub const WHEEL_TILT_SINCE_VERSION: u32 = 6;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct PendingScroll {
     pub discrete: [Cell<Option<i32>>; 2],
     pub axis: [Cell<Option<Fixed>>; 2],

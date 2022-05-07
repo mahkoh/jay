@@ -467,6 +467,7 @@ impl Node for FloatNode {
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        // log::info!("float focus");
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = true;

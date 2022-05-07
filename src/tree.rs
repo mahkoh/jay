@@ -189,6 +189,7 @@ pub trait Node: 'static {
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
+        // log::info!("{} focus", std::any::type_name::<Self>());
         let _ = seat;
     }
 

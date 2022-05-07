@@ -40,6 +40,7 @@ mod t0011_set_keymap;
 mod t0012_subsurface_focus;
 mod t0013_graphics_initialized;
 mod t0014_container_scroll_focus;
+mod t0015_scroll_partial;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -72,5 +73,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0012_subsurface_focus,
         t0013_graphics_initialized,
         t0014_container_scroll_focus,
+        t0015_scroll_partial,
     }
 }
