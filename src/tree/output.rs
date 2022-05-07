@@ -441,6 +441,7 @@ impl Node for OutputNode {
             .clone()
             .node_do_focus(seat, Direction::Unspecified);
         self.update_render_data();
+        self.state.tree_changed();
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
