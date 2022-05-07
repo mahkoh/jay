@@ -4,9 +4,8 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::wl_seat::{
-            collect_kb_foci, collect_kb_foci2,
-            wl_pointer::{PendingScroll, VERTICAL_SCROLL},
-            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT, PX_PER_SCROLL,
+            collect_kb_foci, collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId,
+            WlSeatGlobal, BTN_LEFT,
         },
         rect::Rect,
         render::{Renderer, Texture},
@@ -23,6 +22,7 @@ use {
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             rc_eq::rc_eq,
+            scroller::Scroller,
         },
     },
     ahash::AHashMap,
@@ -113,7 +113,7 @@ pub struct ContainerNode {
     seats: RefCell<AHashMap<SeatId, SeatState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
-    scroll: Cell<f64>,
+    scroller: Scroller,
     toplevel_data: ToplevelData,
 }
 
@@ -209,7 +209,7 @@ impl ContainerNode {
             seats: RefCell::new(Default::default()),
             state: state.clone(),
             render_data: Default::default(),
-            scroll: Cell::new(0.0),
+            scroller: Default::default(),
             toplevel_data: ToplevelData::new(state, Default::default(), None),
         });
         slf.tl_set_parent(parent);
@@ -1154,17 +1154,9 @@ impl Node for ContainerNode {
             Some(mc) => mc,
             _ => return,
         };
-        let discrete = if let Some(d) = event.discrete[VERTICAL_SCROLL as usize].get() {
-            self.scroll.set(0.0);
-            d
-        } else if let Some(scroll) = event.axis[VERTICAL_SCROLL as usize].get() {
-            let mut scroll = self.scroll.get() + scroll.to_f64();
-            let discrete = (scroll / PX_PER_SCROLL).trunc();
-            scroll -= discrete * PX_PER_SCROLL;
-            self.scroll.set(scroll);
-            discrete as i32
-        } else {
-            return;
+        let discrete = match self.scroller.handle(event) {
+            Some(d) => d,
+            _ => return,
         };
         let mut new_mc = cur_mc.clone();
         for _ in 0..discrete.abs() {
