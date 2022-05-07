@@ -174,8 +174,16 @@ impl Globals {
         self.broadcast(state, global.secure(), |r| r.send_global(&global));
     }
 
-    pub fn get(&self, name: GlobalName) -> Result<Rc<dyn Global>, GlobalsError> {
-        self.take(name, false)
+    pub fn get(
+        &self,
+        name: GlobalName,
+        allow_secure: bool,
+    ) -> Result<Rc<dyn Global>, GlobalsError> {
+        let global = self.take(name, false)?;
+        if global.secure() && !allow_secure {
+            return Err(GlobalsError::GlobalDoesNotExist(name));
+        }
+        Ok(global)
     }
 
     pub fn remove<T: WaylandGlobal>(&self, state: &State, global: &T) -> Result<(), GlobalsError> {
