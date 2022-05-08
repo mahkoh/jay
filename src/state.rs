@@ -16,11 +16,13 @@ use {
         forker::ForkerProxy,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
+            wl_drm::WlDrmGlobal,
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 NoneSurfaceExt, WlSurface,
             },
+            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
         leaks::Tracker,
         logger::Logger,
@@ -254,6 +256,8 @@ impl State {
         }
 
         if ctx.is_some() && !self.render_ctx_ever_initialized.replace(true) {
+            self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
+            self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
             if let Some(config) = self.config.get() {
                 config.graphics_initialized();
             }

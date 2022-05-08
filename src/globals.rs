@@ -10,7 +10,6 @@ use {
             jay_compositor::JayCompositorGlobal,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
             wl_compositor::WlCompositorGlobal,
-            wl_drm::WlDrmGlobal,
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
             wl_seat::{
@@ -23,7 +22,6 @@ use {
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
-            zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
             zxdg_output_manager_v1::ZxdgOutputManagerV1Global,
         },
@@ -133,8 +131,6 @@ impl Globals {
         add_singleton!(WlSubcompositorGlobal);
         add_singleton!(XdgWmBaseGlobal);
         add_singleton!(WlDataDeviceManagerGlobal);
-        add_singleton!(ZwpLinuxDmabufV1Global);
-        add_singleton!(WlDrmGlobal);
         add_singleton!(ZxdgDecorationManagerV1Global);
         add_singleton!(OrgKdeKwinServerDecorationManagerGlobal);
         add_singleton!(ZwpPrimarySelectionDeviceManagerV1Global);
