@@ -144,6 +144,12 @@ pub struct Wm {
     num_mapped: usize,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum Initiator {
+    X,
+    Wayland,
+}
+
 impl Drop for Wm {
     fn drop(&mut self) {
         for (_, window) in self.windows.drain() {
@@ -365,8 +371,11 @@ impl Wm {
             }
             XWaylandEvent::Configure(event) => self.handle_xwayland_configure(event).await,
             XWaylandEvent::SurfaceDestroyed(event) => self.handle_xwayland_surface_destroyed(event),
-            XWaylandEvent::Activate(window) => self.activate_window(Some(&window)).await,
-            XWaylandEvent::ActivateRoot => self.activate_window(None).await,
+            XWaylandEvent::Activate(window) => {
+                self.activate_window(Some(&window), Initiator::Wayland)
+                    .await
+            }
+            XWaylandEvent::ActivateRoot => self.activate_window(None, Initiator::Wayland).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
         }
     }
@@ -441,7 +450,7 @@ impl Wm {
         }
     }
 
-    async fn focus_window(&mut self, window: Option<&Rc<XwindowData>>) {
+    async fn focus_window(&mut self, window: Option<&Rc<XwindowData>>, initiator: Initiator) {
         // log::info!("xwm focus_window {:?}", window.map(|w| w.window_id));
         if let Some(old) = mem::replace(&mut self.focus_window, window.cloned()) {
             // log::info!("xwm unfocus {:?}", old.window_id);
@@ -468,10 +477,12 @@ impl Wm {
             // log::info!("xwm or => return");
             return;
         }
-        if let Some(window) = window.window.get() {
-            let seats = self.state.globals.seats.lock();
-            for seat in seats.values() {
-                seat.focus_toplevel(window.clone());
+        if initiator == Initiator::X {
+            if let Some(window) = window.window.get() {
+                let seats = self.state.globals.seats.lock();
+                for seat in seats.values() {
+                    seat.focus_toplevel(window.clone());
+                }
             }
         }
         let accepts_input = window.info.icccm_hints.input.get();
@@ -1032,7 +1043,7 @@ impl Wm {
             }
         }
         let fw = focus_window.cloned();
-        self.focus_window(fw.as_ref()).await;
+        self.focus_window(fw.as_ref(), Initiator::X).await;
         Ok(())
     }
 
@@ -1047,7 +1058,7 @@ impl Wm {
         }
     }
 
-    async fn activate_window(&mut self, window: Option<&Rc<XwindowData>>) {
+    async fn activate_window(&mut self, window: Option<&Rc<XwindowData>>, initiator: Initiator) {
         // log::info!("xwm activate_window {:?}", window.map(|w| w.window_id));
         if self.focus_window.as_ref().map(|w| w.window_id) == window.map(|w| w.window_id) {
             return;
@@ -1061,7 +1072,7 @@ impl Wm {
             }
         }
         self.set_net_active_window(window).await;
-        self.focus_window(window).await;
+        self.focus_window(window, initiator).await;
         if let Some(w) = window {
             self.move_to_top_of_stack(w);
             self.configure_stack_position(w).await;
@@ -1157,7 +1168,7 @@ impl Wm {
             }
         }
         if self.focus_window.as_ref().map(|w| w.window_id) == Some(event.window) {
-            self.activate_window(None).await;
+            self.activate_window(None, Initiator::X).await;
         }
         Ok(())
     }
