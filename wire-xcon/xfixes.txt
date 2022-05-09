@@ -1,0 +1,27 @@
+ext "XFIXES"
+
+request XfixesQueryVersion = 0 (
+    client_major_version: u32,
+    client_minor_version: u32,
+) {
+    @pad 1,
+    major_version: u32,
+    minor_version: u32,
+    @pad 16,
+}
+
+event XfixesSelectionNotify = 0 {
+    subtype: u8,
+    window: u32,
+    owner: u32,
+    selection: u32,
+    timestamp: u32,
+    selection_timestamp: u32,
+    @pad 8,
+}
+
+request SelectSelectionInput = 2 (
+    window: u32,
+    selection: u32,
+    event_mask: u32,
+);

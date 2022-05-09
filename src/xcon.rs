@@ -541,6 +541,24 @@ impl Xcon {
             .send_event(t, &self.extensions, propagate, destination, event_mask)
     }
 
+    pub async fn get_property3<T: PropertyType>(
+        self: &Rc<Self>,
+        window: u32,
+        property: u32,
+        ty: u32,
+        delete: bool,
+        buf: &mut Vec<T>,
+    ) -> Result<u32, XconError> {
+        let len = buf.len();
+        match self.get_property2(window, property, ty, delete, buf).await {
+            Ok(n) => Ok(n),
+            Err(e) => {
+                buf.truncate(len);
+                Err(e)
+            }
+        }
+    }
+
     pub async fn get_property<T: PropertyType>(
         self: &Rc<Self>,
         window: u32,
@@ -549,7 +567,7 @@ impl Xcon {
         buf: &mut Vec<T>,
     ) -> Result<u32, XconError> {
         let len = buf.len();
-        match self.get_property2(window, property, ty, buf).await {
+        match self.get_property2(window, property, ty, false, buf).await {
             Ok(n) => Ok(n),
             Err(e) => {
                 buf.truncate(len);
@@ -563,10 +581,11 @@ impl Xcon {
         window: u32,
         property: u32,
         ty: u32,
+        delete: bool,
         buf: &mut Vec<T>,
     ) -> Result<u32, XconError> {
         let mut gp = GetProperty {
-            delete: 0,
+            delete: delete as _,
             window,
             property,
             ty,

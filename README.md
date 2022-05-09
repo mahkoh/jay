@@ -43,7 +43,6 @@ The following features have been implemented and should work:
 The following features are known to be missing or broken and will be implemented
 later:
 
-- Copy/paste between X and Wayland applications
 - Games that require pointer grabs
 - Screen locking
 - Touch and tablet support

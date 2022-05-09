@@ -2,9 +2,11 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::ipc::{
-            break_offer_loops, destroy_offer, receive, wl_data_device::WlDataDevice,
-            wl_data_device_manager::DND_ALL, OfferData, Role, OFFER_STATE_ACCEPTED,
-            OFFER_STATE_DROPPED, OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
+            break_offer_loops, destroy_data_offer, receive_data_offer,
+            wl_data_device::{ClipboardIpc, WlDataDevice},
+            wl_data_device_manager::DND_ALL,
+            OfferData, Role, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED, OFFER_STATE_FINISHED,
+            SOURCE_STATE_FINISHED,
         },
         leaks::Tracker,
         object::Object,
@@ -13,6 +15,7 @@ use {
             buffd::{MsgParser, MsgParserError},
         },
         wire::{wl_data_offer::*, WlDataOfferId},
+        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -29,36 +32,54 @@ const INVALID_OFFER: u32 = 3;
 
 pub struct WlDataOffer {
     pub id: WlDataOfferId,
+    pub u64_id: u64,
     pub client: Rc<Client>,
     pub device: Rc<WlDataDevice>,
-    pub data: OfferData<WlDataDevice>,
+    pub data: OfferData<ClipboardIpc>,
     pub tracker: Tracker<Self>,
 }
 
 impl WlDataOffer {
-    pub fn send_offer(&self, mime_type: &str) {
-        self.client.event(Offer {
-            self_id: self.id,
-            mime_type,
-        })
+    pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
+        if self.data.is_xwm {
+            if let Some(src) = self.data.source.get() {
+                if !src.data.is_xwm {
+                    self.client.state.xwayland.queue.push(
+                        XWaylandEvent::ClipboardAddOfferMimeType(
+                            self.clone(),
+                            mime_type.to_string(),
+                        ),
+                    );
+                }
+            }
+        } else {
+            self.client.event(Offer {
+                self_id: self.id,
+                mime_type,
+            })
+        }
     }
 
     pub fn send_source_actions(&self) {
-        if let Some(src) = self.data.source.get() {
-            if let Some(source_actions) = src.data.actions.get() {
-                self.client.event(SourceActions {
-                    self_id: self.id,
-                    source_actions,
-                })
+        if !self.data.is_xwm {
+            if let Some(src) = self.data.source.get() {
+                if let Some(source_actions) = src.data.actions.get() {
+                    self.client.event(SourceActions {
+                        self_id: self.id,
+                        source_actions,
+                    })
+                }
             }
         }
     }
 
     pub fn send_action(&self, dnd_action: u32) {
-        self.client.event(Action {
-            self_id: self.id,
-            dnd_action,
-        })
+        if !self.data.is_xwm {
+            self.client.event(Action {
+                self_id: self.id,
+                dnd_action,
+            })
+        }
     }
 
     fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
@@ -85,13 +106,13 @@ impl WlDataOffer {
         if self.data.shared.state.get().contains(OFFER_STATE_FINISHED) {
             return Err(WlDataOfferError::AlreadyFinished);
         }
-        receive::<WlDataDevice>(self, req.mime_type, req.fd);
+        receive_data_offer::<ClipboardIpc>(self, req.mime_type, req.fd);
         Ok(())
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
         let _req: Destroy = self.client.parse(self, parser)?;
-        destroy_offer::<WlDataDevice>(self);
+        destroy_data_offer::<ClipboardIpc>(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -162,7 +183,7 @@ impl Object for WlDataOffer {
     }
 
     fn break_loops(&self) {
-        break_offer_loops::<WlDataDevice>(self);
+        break_offer_loops::<ClipboardIpc>(self);
     }
 }
 

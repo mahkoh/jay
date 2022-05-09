@@ -7,16 +7,27 @@ use {
         client::ClientError,
         compositor::DISPLAY,
         forker::{ForkerError, ForkerProxy},
-        ifs::wl_surface::{
-            xwindow::{Xwindow, XwindowData},
-            WlSurface,
+        ifs::{
+            ipc::{
+                wl_data_offer::WlDataOffer, wl_data_source::WlDataSource,
+                zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
+            },
+            wl_seat::SeatId,
+            wl_surface::{
+                xwindow::{Xwindow, XwindowData},
+                WlSurface,
+            },
         },
         state::State,
         user_session::import_environment,
         utils::{errorfmt::ErrorFmt, oserror::OsError, tri::Try},
         wire::WlSurfaceId,
         xcon::XconError,
-        xwayland::{xsocket::allocate_socket, xwm::Wm},
+        xwayland::{
+            xsocket::allocate_socket,
+            xwm::{Wm, XwmShared},
+        },
     },
     bstr::ByteSlice,
     std::{num::ParseIntError, rc::Rc},
@@ -74,6 +85,12 @@ enum XWaylandError {
     SpawnClient(#[source] ClientError),
     #[error("An unspecified XconError occurred")]
     XconError(#[from] XconError),
+    #[error("Could not create a window to manage a selection")]
+    CreateSelectionWindow(#[source] XconError),
+    #[error("Could not watch selection changes")]
+    WatchSelection(#[source] XconError),
+    #[error("Could not enable the xfixes extension")]
+    XfixesQueryVersion(#[source] XconError),
 }
 
 pub async fn manage(state: Rc<State>) {
@@ -177,13 +194,15 @@ async fn run(
     };
     state.eng.fd(&Rc::new(dfdread))?.readable().await?;
     state.xwayland.queue.clear();
-    let wm = match Wm::get(state, client, wm1).await {
-        Ok(w) => w,
-        Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
-    };
-    let wm = state.eng.spawn(wm.run());
-    state.eng.fd(&Rc::new(pidfd))?.readable().await?;
-    drop(wm);
+    {
+        let shared = Rc::new(XwmShared::default());
+        let wm = match Wm::get(state, client, wm1, &shared).await {
+            Ok(w) => w,
+            Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
+        };
+        let _wm = state.eng.spawn(wm.run());
+        state.eng.fd(&Rc::new(pidfd))?.readable().await?;
+    }
     state.xwayland.queue.clear();
     stderr_read.await;
     Ok(())
@@ -274,4 +293,17 @@ pub enum XWaylandEvent {
     Activate(Rc<XwindowData>),
     ActivateRoot,
     Close(Rc<XwindowData>),
+    SeatChanged,
+
+    PrimarySelectionCancelSource(Rc<ZwpPrimarySelectionSourceV1>),
+    PrimarySelectionSendSource(Rc<ZwpPrimarySelectionSourceV1>, String, Rc<OwnedFd>),
+    PrimarySelectionSetOffer(Rc<ZwpPrimarySelectionOfferV1>),
+    PrimarySelectionSetSelection(SeatId, Option<Rc<ZwpPrimarySelectionOfferV1>>),
+    PrimarySelectionAddOfferMimeType(Rc<ZwpPrimarySelectionOfferV1>, String),
+
+    ClipboardCancelSource(Rc<WlDataSource>),
+    ClipboardSendSource(Rc<WlDataSource>, String, Rc<OwnedFd>),
+    ClipboardSetOffer(Rc<WlDataOffer>),
+    ClipboardSetSelection(SeatId, Option<Rc<WlDataOffer>>),
+    ClipboardAddOfferMimeType(Rc<WlDataOffer>, String),
 }

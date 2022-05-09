@@ -2,8 +2,8 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::ipc::{
-            add_mime_type, break_source_loops, cancel_offers, destroy_source,
-            wl_data_device::WlDataDevice,
+            add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
+            wl_data_device::ClipboardIpc,
             wl_data_device_manager::{DND_ALL, DND_NONE},
             wl_data_offer::WlDataOffer,
             SharedState, SourceData, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
@@ -15,6 +15,7 @@ use {
             buffd::{MsgParser, MsgParserError},
         },
         wire::{wl_data_source::*, WlDataSourceId},
+        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -28,16 +29,16 @@ const INVALID_SOURCE: u32 = 1;
 
 pub struct WlDataSource {
     pub id: WlDataSourceId,
-    pub data: SourceData<WlDataDevice>,
+    pub data: SourceData<ClipboardIpc>,
     pub tracker: Tracker<Self>,
 }
 
 impl WlDataSource {
-    pub fn new(id: WlDataSourceId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlDataSourceId, client: &Rc<Client>, is_xwm: bool) -> Self {
         Self {
             id,
             tracker: Default::default(),
-            data: SourceData::new(client),
+            data: SourceData::new(client, is_xwm),
         }
     }
 
@@ -55,7 +56,7 @@ impl WlDataSource {
         self.data.shared.set(Rc::new(SharedState::default()));
         self.send_target(None);
         self.send_action(DND_NONE);
-        cancel_offers::<WlDataDevice>(self);
+        cancel_offers::<ClipboardIpc>(self);
     }
 
     pub fn update_selected_action(&self) {
@@ -102,51 +103,81 @@ impl WlDataSource {
         shared.state.or_assign(OFFER_STATE_DROPPED);
     }
 
-    pub fn send_cancelled(&self) {
-        self.data.client.event(Cancelled { self_id: self.id })
+    pub fn send_cancelled(self: &Rc<Self>) {
+        if self.data.is_xwm {
+            self.data
+                .client
+                .state
+                .xwayland
+                .queue
+                .push(XWaylandEvent::ClipboardCancelSource(self.clone()));
+        } else {
+            self.data.client.event(Cancelled { self_id: self.id })
+        }
     }
 
-    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
-        self.data.client.event(Send {
-            self_id: self.id,
-            mime_type,
-            fd,
-        })
+    pub fn send_send(self: &Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) {
+        if self.data.is_xwm {
+            self.data
+                .client
+                .state
+                .xwayland
+                .queue
+                .push(XWaylandEvent::ClipboardSendSource(
+                    self.clone(),
+                    mime_type.to_string(),
+                    fd,
+                ));
+        } else {
+            self.data.client.event(Send {
+                self_id: self.id,
+                mime_type,
+                fd,
+            })
+        }
     }
 
     pub fn send_target(&self, mime_type: Option<&str>) {
-        self.data.client.event(Target {
-            self_id: self.id,
-            mime_type,
-        })
+        if !self.data.is_xwm {
+            self.data.client.event(Target {
+                self_id: self.id,
+                mime_type,
+            })
+        }
     }
 
     pub fn send_dnd_finished(&self) {
-        self.data.client.event(DndFinished { self_id: self.id })
+        if !self.data.is_xwm {
+            self.data.client.event(DndFinished { self_id: self.id })
+        }
     }
 
     pub fn send_action(&self, dnd_action: u32) {
-        self.data.client.event(Action {
-            self_id: self.id,
-            dnd_action,
-        })
+        if !self.data.is_xwm {
+            self.data.client.event(Action {
+                self_id: self.id,
+                dnd_action,
+            })
+        }
     }
 
     pub fn send_dnd_drop_performed(&self) {
-        self.data
-            .client
-            .event(DndDropPerformed { self_id: self.id })
+        if !self.data.is_xwm {
+            self.data
+                .client
+                .event(DndDropPerformed { self_id: self.id })
+        }
     }
 
     fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
         let req: Offer = self.data.client.parse(self, parser)?;
-        add_mime_type::<WlDataDevice>(self, req.mime_type);
+        add_data_source_mime_type::<ClipboardIpc>(self, req.mime_type);
         Ok(())
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
         let _req: Destroy = self.data.client.parse(self, parser)?;
-        destroy_source::<WlDataDevice>(self);
+        destroy_data_source::<ClipboardIpc>(self);
         self.data.client.remove_obj(self)?;
         Ok(())
     }
@@ -178,7 +209,7 @@ impl Object for WlDataSource {
     }
 
     fn break_loops(&self) {
-        break_source_loops::<WlDataDevice>(self);
+        break_source_loops::<ClipboardIpc>(self);
     }
 }
 

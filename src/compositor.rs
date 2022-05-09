@@ -179,6 +179,7 @@ fn start_compositor2(
         config_dir: config_dir(),
         config_file_id: NumCell::new(1),
         tracker: Default::default(),
+        data_offer_ids: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

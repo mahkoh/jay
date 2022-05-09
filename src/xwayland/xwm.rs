@@ -1,25 +1,44 @@
 use {
     crate::{
+        async_engine::{AsyncFd, SpawnedFuture},
         client::Client,
-        ifs::wl_surface::{
-            xwindow::{XInputModel, Xwindow, XwindowData},
-            WlSurface,
+        ifs::{
+            ipc::{
+                add_data_source_mime_type, destroy_data_device, destroy_data_offer,
+                destroy_data_source, receive_data_offer,
+                wl_data_device::{ClipboardIpc, WlDataDevice},
+                zwp_primary_selection_device_v1::{
+                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
+                },
+                IpcVtable,
+            },
+            wl_seat::{SeatId, WlSeatGlobal},
+            wl_surface::{
+                xwindow::{XInputModel, Xwindow, XwindowData},
+                WlSurface,
+            },
         },
         rect::Rect,
         state::State,
         tree::ToplevelNode,
-        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, linkedlist::LinkedList},
-        wire::WlSurfaceId,
+        utils::{
+            bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell, oserror::OsError,
+            rc_eq::rc_eq, tri::Try,
+        },
+        wire::{WlDataDeviceId, WlSurfaceId, ZwpPrimarySelectionDeviceV1Id},
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
             ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues,
-            CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify, FocusIn, GetAtomName,
-            GetGeometry, InternAtom, KillClient, MapNotify, MapRequest, MapWindow, PropertyNotify,
-            ResClientIdSpec, ResQueryClientIds, SetInputFocus, SetSelectionOwner, UnmapNotify,
+            ConvertSelection, CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify,
+            Extension, FocusIn, GetAtomName, GetGeometry, InternAtom, KillClient, MapNotify,
+            MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds,
+            SelectSelectionInput, SelectionNotify, SelectionRequest, SetInputFocus,
+            SetSelectionOwner, UnmapNotify, XfixesQueryVersion, XfixesSelectionNotify,
         },
         xcon::{
             consts::{
-                ATOM_ATOM, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME,
+                ATOM_ATOM, ATOM_NONE, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME,
                 ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL,
                 CONFIG_WINDOW_HEIGHT, CONFIG_WINDOW_WIDTH, CONFIG_WINDOW_X, CONFIG_WINDOW_Y,
                 EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE,
@@ -27,9 +46,11 @@ use {
                 ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL,
                 ICCCM_WM_STATE_WITHDRAWN, INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD,
                 MWM_HINTS_FLAGS_FIELD, NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB,
-                PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID, STACK_MODE_ABOVE,
-                STACK_MODE_BELOW, WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD,
-                _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE,
+                PROP_MODE_APPEND, PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID,
+                SELECTION_CLIENT_CLOSE_MASK, SELECTION_WINDOW_DESTROY_MASK,
+                SET_SELECTION_OWNER_MASK, STACK_MODE_ABOVE, STACK_MODE_BELOW,
+                WINDOW_CLASS_INPUT_OUTPUT, _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE,
+                _NET_WM_STATE_TOGGLE,
             },
             Event, XEvent, Xcon, XconError,
         },
@@ -41,11 +62,12 @@ use {
     smallvec::SmallVec,
     std::{
         borrow::Cow,
-        mem,
+        cell::{Cell, RefCell},
+        mem::{self, MaybeUninit},
         ops::{Deref, DerefMut},
         rc::Rc,
     },
-    uapi::OwnedFd,
+    uapi::{c, Errno, OwnedFd},
 };
 
 atoms! {
@@ -124,6 +146,82 @@ atoms! {
     XdndTypeList,
 }
 
+struct EnhancedOffer<T: IpcVtable> {
+    offer: Rc<T::Offer>,
+    mime_types: RefCell<Vec<u32>>,
+    active: Cell<bool>,
+}
+
+struct SelectionData<T: IpcVtable> {
+    devices: CopyHashMap<SeatId, Rc<T::Device>>,
+    sources: CopyHashMap<SeatId, Rc<T::Source>>,
+    offers: CopyHashMap<SeatId, Rc<EnhancedOffer<T>>>,
+    active_offer: CloneCell<Option<Rc<EnhancedOffer<T>>>>,
+    win: Cell<u32>,
+    selection: Cell<u32>,
+    pending_transfers: RefCell<Vec<PendingTransfer>>,
+}
+
+impl<T: IpcVtable> Default for SelectionData<T> {
+    fn default() -> Self {
+        Self {
+            devices: Default::default(),
+            sources: Default::default(),
+            offers: Default::default(),
+            active_offer: Default::default(),
+            win: Cell::new(0),
+            selection: Cell::new(0),
+            pending_transfers: RefCell::new(vec![]),
+        }
+    }
+}
+
+impl<T: IpcVtable> SelectionData<T> {
+    fn destroy(&self) {
+        for (_, offer) in self.offers.lock().drain() {
+            destroy_data_offer::<T>(&offer.offer);
+        }
+        self.active_offer.take();
+        self.destroy_sources();
+        for (_, device) in self.devices.lock().drain() {
+            destroy_data_device::<T>(&device);
+            T::remove_from_seat(&device);
+        }
+    }
+
+    fn destroy_sources(&self) {
+        for (_, source) in self.sources.lock().drain() {
+            destroy_data_source::<T>(&source);
+        }
+    }
+
+    fn seat_removed(&self, id: SeatId) {
+        if let Some(offer) = self.active_offer.get() {
+            if T::get_offer_seat(&offer.offer).id() == id {
+                self.active_offer.take();
+            }
+        }
+        self.offers.remove(&id);
+        self.sources.remove(&id);
+        self.devices.remove(&id);
+    }
+}
+
+#[derive(Default)]
+pub struct XwmShared {
+    data: SelectionData<ClipboardIpc>,
+    primary_selection: SelectionData<PrimarySelectionIpc>,
+    transfers: CopyHashMap<u64, SpawnedFuture<()>>,
+}
+
+impl Drop for XwmShared {
+    fn drop(&mut self) {
+        self.data.destroy();
+        self.primary_selection.destroy();
+        self.transfers.clear();
+    }
+}
+
 pub struct Wm {
     state: Rc<State>,
     c: Rc<Xcon>,
@@ -136,6 +234,12 @@ pub struct Wm {
     windows_by_surface_id: AHashMap<WlSurfaceId, Rc<XwindowData>>,
     focus_window: Option<Rc<XwindowData>>,
     last_input_serial: u64,
+    atom_cache: AHashMap<String, u32>,
+    atom_name_cache: AHashMap<u32, String>,
+
+    transfer_ids: NumCell<u64>,
+    known_seats: AHashMap<SeatId, Rc<WlSeatGlobal>>,
+    shared: Rc<XwmShared>,
 
     stack_list: LinkedList<Rc<XwindowData>>,
     num_stacked: usize,
@@ -143,6 +247,14 @@ pub struct Wm {
     map_list: LinkedList<Rc<XwindowData>>,
     num_mapped: usize,
 }
+
+struct PendingTransfer {
+    mime_type: u32,
+    fd: AsyncFd,
+}
+
+const TEXT_PLAIN_UTF_8: &str = "text/plain;charset=utf-8";
+const TEXT_PLAIN: &str = "text/plain";
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Initiator {
@@ -165,6 +277,7 @@ impl Wm {
         state: &Rc<State>,
         client: Rc<Client>,
         socket: OwnedFd,
+        shared: &Rc<XwmShared>,
     ) -> Result<Self, XWaylandError> {
         let c = match Xcon::connect_to_fd(&state.eng, &Rc::new(socket), &[], &[]).await {
             Ok(c) => c,
@@ -336,6 +449,53 @@ impl Wm {
                 return Err(XWaylandError::SetCursor(e));
             }
         }
+        {
+            let qv = XfixesQueryVersion {
+                client_major_version: 1,
+                client_minor_version: 0,
+            };
+            if let Err(e) = c.call(&qv).await {
+                return Err(XWaylandError::XfixesQueryVersion(e));
+            }
+        }
+        let mut clipboard_wins = [0, 0];
+        for (idx, atom) in [atoms.CLIPBOARD, atoms.PRIMARY].into_iter().enumerate() {
+            let win = c.generate_id()?;
+            let cw = CreateWindow {
+                depth: 0,
+                wid: win,
+                parent: root,
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+                border_width: 0,
+                class: WINDOW_CLASS_INPUT_OUTPUT,
+                visual: 0,
+                values: CreateWindowValues {
+                    event_mask: None,
+                    ..Default::default()
+                },
+            };
+            if let Err(e) = c.call(&cw).await {
+                return Err(XWaylandError::CreateSelectionWindow(e));
+            }
+            let ssi = SelectSelectionInput {
+                window: win,
+                selection: atom,
+                event_mask: SET_SELECTION_OWNER_MASK
+                    | SELECTION_CLIENT_CLOSE_MASK
+                    | SELECTION_WINDOW_DESTROY_MASK,
+            };
+            if let Err(e) = c.call(&ssi).await {
+                return Err(XWaylandError::WatchSelection(e));
+            }
+            clipboard_wins[idx] = win;
+        }
+        shared.data.win.set(clipboard_wins[0]);
+        shared.data.selection.set(atoms.CLIPBOARD);
+        shared.primary_selection.win.set(clipboard_wins[1]);
+        shared.primary_selection.selection.set(atoms.PRIMARY);
         Ok(Self {
             state: state.clone(),
             c,
@@ -348,6 +508,11 @@ impl Wm {
             windows_by_surface_id: Default::default(),
             focus_window: Default::default(),
             last_input_serial: 0,
+            atom_cache: Default::default(),
+            atom_name_cache: Default::default(),
+            transfer_ids: Default::default(),
+            known_seats: Default::default(),
+            shared: shared.clone(),
             stack_list: Default::default(),
             num_stacked: 0,
             map_list: Default::default(),
@@ -355,7 +520,57 @@ impl Wm {
         })
     }
 
+    fn seats_changed(&mut self) {
+        let current_seats: AHashMap<_, _> = self
+            .state
+            .globals
+            .seats
+            .lock()
+            .values()
+            .map(|s| (s.id(), s.clone()))
+            .collect();
+        let mut new_seats = vec![];
+        let mut removed_seats = vec![];
+        for (id, seat) in &current_seats {
+            if !self.known_seats.contains_key(id) {
+                new_seats.push(seat.clone());
+            }
+        }
+        for id in self.known_seats.keys() {
+            if !current_seats.contains_key(id) {
+                removed_seats.push(*id);
+            }
+        }
+        for seat in removed_seats {
+            self.shared.data.seat_removed(seat);
+            self.shared.primary_selection.seat_removed(seat);
+        }
+        for seat in new_seats {
+            let dd = Rc::new(WlDataDevice::new(
+                WlDataDeviceId::NONE,
+                &self.client,
+                1,
+                &seat,
+                true,
+            ));
+            seat.add_data_device(&dd);
+            self.shared.data.devices.set(seat.id(), dd);
+
+            let dd = Rc::new(ZwpPrimarySelectionDeviceV1::new(
+                ZwpPrimarySelectionDeviceV1Id::NONE,
+                &self.client,
+                1,
+                &seat,
+                true,
+            ));
+            seat.add_primary_selection_device(&dd);
+            self.shared.primary_selection.devices.set(seat.id(), dd);
+        }
+        self.known_seats = current_seats;
+    }
+
     pub async fn run(mut self) {
+        self.seats_changed();
         loop {
             select! {
                 e = self.state.xwayland.queue.pop().fuse() => self.handle_xwayland_event(e).await,
@@ -377,6 +592,262 @@ impl Wm {
             }
             XWaylandEvent::ActivateRoot => self.activate_window(None, Initiator::Wayland).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
+            XWaylandEvent::SeatChanged => self.seats_changed(),
+            XWaylandEvent::PrimarySelectionCancelSource(src) => {
+                self.dd_cancel_source(&self.shared.clone().primary_selection, &src)
+            }
+            XWaylandEvent::PrimarySelectionSendSource(src, mime_type, fd) => {
+                self.dd_send_source(&self.shared.clone().primary_selection, &src, mime_type, fd)
+                    .await;
+            }
+            XWaylandEvent::PrimarySelectionSetOffer(offer) => {
+                self.dd_set_offer(&self.shared.clone().primary_selection, offer)
+                    .await;
+            }
+            XWaylandEvent::PrimarySelectionSetSelection(seat, offer) => {
+                self.dd_set_selection(&self.shared.clone().primary_selection, seat, offer)
+                    .await;
+            }
+            XWaylandEvent::PrimarySelectionAddOfferMimeType(offer, mt) => {
+                self.dd_add_offer_mime_type(&self.shared.clone().primary_selection, offer, mt)
+                    .await;
+            }
+            XWaylandEvent::ClipboardCancelSource(src) => {
+                self.dd_cancel_source(&self.shared.clone().data, &src)
+            }
+            XWaylandEvent::ClipboardSendSource(src, mime_type, fd) => {
+                self.dd_send_source(&self.shared.clone().data, &src, mime_type, fd)
+                    .await;
+            }
+            XWaylandEvent::ClipboardSetOffer(offer) => {
+                self.dd_set_offer(&self.shared.clone().data, offer).await;
+            }
+            XWaylandEvent::ClipboardSetSelection(seat, offer) => {
+                self.dd_set_selection(&self.shared.clone().data, seat, offer)
+                    .await;
+            }
+            XWaylandEvent::ClipboardAddOfferMimeType(offer, mt) => {
+                self.dd_add_offer_mime_type(&self.shared.clone().data, offer, mt)
+                    .await;
+            }
+        }
+    }
+
+    async fn dd_add_offer_mime_type<T: IpcVtable>(
+        &mut self,
+        sd: &SelectionData<T>,
+        offer: Rc<T::Offer>,
+        mt: String,
+    ) {
+        let seat = T::get_offer_seat(&offer);
+        let enhanced = match sd.offers.get(&seat.id()) {
+            Some(r) if !rc_eq(&r.offer, &offer) => {
+                return;
+            }
+            None => {
+                return;
+            }
+            Some(r) => r,
+        };
+        let name = mt.clone();
+        let mt = match self.mime_type_to_atom(mt).await {
+            Ok(mt) => mt,
+            Err(e) => {
+                log::error!("Could not get mime type atom: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        log::info!("push {} = {}", mt, name);
+        enhanced.mime_types.borrow_mut().push(mt);
+    }
+
+    async fn dd_set_offer<T: IpcVtable>(&mut self, sd: &SelectionData<T>, offer: Rc<T::Offer>) {
+        let seat = T::get_offer_seat(&offer);
+        let mut mime_types = vec![];
+        if let Some(offer) = sd.offers.remove(&seat.id()) {
+            destroy_data_offer::<T>(&offer.offer);
+            mime_types = mem::take(offer.mime_types.borrow_mut().deref_mut());
+        }
+        match T::get_offer_data(&offer).source() {
+            None => return,
+            Some(s) if T::get_source_data(&s).is_xwm => return,
+            _ => {}
+        }
+        sd.offers.set(
+            seat.id(),
+            Rc::new(EnhancedOffer {
+                offer,
+                mime_types: RefCell::new(mime_types),
+                active: Cell::new(false),
+            }),
+        );
+    }
+
+    async fn dd_set_selection<T: IpcVtable>(
+        &mut self,
+        sd: &SelectionData<T>,
+        seat: SeatId,
+        offer: Option<Rc<T::Offer>>,
+    ) {
+        let offer = match offer {
+            None => {
+                if let Some(offer) = sd.offers.remove(&seat) {
+                    destroy_data_offer::<T>(&offer.offer);
+                    if offer.active.get() {
+                        sd.active_offer.take();
+                    }
+                }
+                return;
+            }
+            Some(offer) => offer,
+        };
+        let enhanced = match sd.offers.get(&seat) {
+            None => {
+                destroy_data_offer::<T>(&offer);
+                return;
+            }
+            Some(e) => e,
+        };
+        if !rc_eq(&enhanced.offer, &offer) {
+            destroy_data_offer::<T>(&offer);
+            return;
+        }
+        if !enhanced.active.replace(true) {
+            if let Some(old) = sd.active_offer.set(Some(enhanced)) {
+                old.active.set(false);
+            }
+        }
+        let so = SetSelectionOwner {
+            owner: sd.win.get(),
+            selection: sd.selection.get(),
+            time: 0,
+        };
+        if let Err(err) = self.c.call(&so).await {
+            log::error!("Could not set primary selection owner: {}", ErrorFmt(err));
+        }
+    }
+
+    async fn get_atom_name(&mut self, atom: u32) -> Result<String, XconError> {
+        if let Some(name) = self.atom_name_cache.get(&atom) {
+            return Ok(name.clone());
+        }
+        let gan = GetAtomName { atom };
+        match self.c.call(&gan).await {
+            Ok(name) => {
+                let name = name.get().name.to_string();
+                self.atom_name_cache.insert(atom, name.clone());
+                Ok(name)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn get_atom(&mut self, name: String) -> Result<u32, XconError> {
+        if let Some(atom) = self.atom_cache.get(&name) {
+            return Ok(*atom);
+        }
+        let ia = InternAtom {
+            only_if_exists: 0,
+            name: name.as_bytes().as_bstr(),
+        };
+        match self.c.call(&ia).await {
+            Ok(id) => {
+                let atom = id.get().atom;
+                self.atom_cache.insert(name, atom);
+                Ok(atom)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn mime_type_to_atom(&mut self, mime_type: String) -> Result<u32, XconError> {
+        match mime_type.as_str() {
+            TEXT_PLAIN_UTF_8 => Ok(self.atoms.UTF8_STRING),
+            TEXT_PLAIN => Ok(ATOM_STRING),
+            _ => self.get_atom(mime_type).await,
+        }
+    }
+
+    async fn atom_to_mime_type(&mut self, atom: u32) -> Result<String, XconError> {
+        if atom == self.atoms.UTF8_STRING {
+            Ok(TEXT_PLAIN_UTF_8.to_string())
+        } else if atom == ATOM_STRING {
+            Ok(TEXT_PLAIN.to_string())
+        } else {
+            self.get_atom_name(atom).await
+        }
+    }
+
+    async fn dd_send_source<T: IpcVtable>(
+        &mut self,
+        sd: &SelectionData<T>,
+        src: &Rc<T::Source>,
+        mime_type: String,
+        fd: Rc<OwnedFd>,
+    ) {
+        let seat = match T::get_source_data(src).seat.get() {
+            Some(s) => s,
+            _ => return,
+        };
+        let actual_src = match sd.sources.get(&seat.id()) {
+            None => return,
+            Some(src) => src,
+        };
+        if !rc_eq(src, &actual_src) {
+            return;
+        }
+        let mime_type = match self.mime_type_to_atom(mime_type).await {
+            Ok(mt) => mt,
+            Err(e) => {
+                log::error!("Could not intern mime type: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        {
+            let res = OsError::tri(|| {
+                let fl = uapi::fcntl_getfl(fd.raw())?;
+                uapi::fcntl_setfl(fd.raw(), fl | c::O_NONBLOCK)?;
+                Ok(())
+            });
+            if let Err(e) = res {
+                log::error!("Could not set file description flags: {}", ErrorFmt(e));
+                return;
+            }
+        }
+        let fd = match self.state.eng.fd(&fd) {
+            Ok(afd) => afd,
+            Err(e) => {
+                log::error!("Could not create async fd: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        let cs = ConvertSelection {
+            requestor: sd.win.get(),
+            selection: sd.selection.get(),
+            target: mime_type,
+            property: self.atoms._WL_SELECTION,
+            time: 0,
+        };
+        if let Err(e) = self.c.call(&cs).await {
+            log::error!(
+                "Could not perform convert selection request: {}",
+                ErrorFmt(e)
+            );
+            return;
+        }
+        sd.pending_transfers
+            .borrow_mut()
+            .push(PendingTransfer { mime_type, fd });
+    }
+
+    fn dd_cancel_source<T: IpcVtable>(&mut self, sd: &SelectionData<T>, src: &Rc<T::Source>) {
+        if let Some(seat) = T::get_source_data(src).seat.get() {
+            if let Some(cur) = sd.sources.get(&seat.id()) {
+                if rc_eq(src, &cur) {
+                    sd.sources.remove(&seat.id());
+                    destroy_data_source::<T>(&cur);
+                }
+            }
         }
     }
 
@@ -973,14 +1444,71 @@ impl Wm {
     }
 
     async fn handle_event(&mut self, event: &Event) {
-        match event.ext() {
-            Some(_) => {}
+        let res = match event.ext() {
+            Some(ex) => self.handle_extension_event(ex, event).await,
             _ => self.handle_core_event(event).await,
+        };
+        if let Err(e) = res {
+            log::warn!("Could not handle an event: {}", ErrorFmt(e));
         }
     }
 
-    async fn handle_core_event(&mut self, event: &Event) {
-        let res = match event.code() {
+    async fn handle_extension_event(
+        &mut self,
+        ex: Extension,
+        event: &Event,
+    ) -> Result<(), XWaylandError> {
+        match ex {
+            Extension::XFIXES => self.handle_xfixes_event(event).await,
+            _ => Ok(()),
+        }
+    }
+
+    async fn handle_xfixes_event(&mut self, event: &Event) -> Result<(), XWaylandError> {
+        match event.code() {
+            XfixesSelectionNotify::OPCODE => self.handle_xfixes_selection_notify(event).await,
+            _ => Ok(()),
+        }
+    }
+
+    async fn handle_xfixes_selection_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
+        let event: XfixesSelectionNotify = event.parse()?;
+        let shared = self.shared.clone();
+        if event.selection == self.atoms.PRIMARY {
+            self.handle_xfixes_selection_notify_(&shared.primary_selection, &event)
+                .await
+        } else if event.selection == self.atoms.CLIPBOARD {
+            self.handle_xfixes_selection_notify_(&shared.data, &event)
+                .await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn handle_xfixes_selection_notify_<T: IpcVtable>(
+        &mut self,
+        sd: &SelectionData<T>,
+        event: &XfixesSelectionNotify,
+    ) -> Result<(), XWaylandError> {
+        if event.owner == sd.win.get() {
+            return Ok(());
+        }
+        sd.destroy_sources();
+        let cs = ConvertSelection {
+            requestor: sd.win.get(),
+            selection: sd.selection.get(),
+            target: self.atoms.TARGETS,
+            property: self.atoms._WL_SELECTION,
+            time: event.timestamp,
+        };
+        if let Err(e) = self.c.call(&cs).await {
+            log::error!("Could not convert selection: {}", ErrorFmt(e));
+        }
+        Ok(())
+    }
+
+    async fn handle_core_event(&mut self, event: &Event) -> Result<(), XWaylandError> {
+        match event.code() {
             MapRequest::OPCODE => self.handle_map_request(event).await,
             MapNotify::OPCODE => self.handle_map_notify(event).await,
             ConfigureRequest::OPCODE => self.handle_configure_request(event).await,
@@ -991,11 +1519,230 @@ impl Wm {
             PropertyNotify::OPCODE => self.handle_property_notify(event).await,
             FocusIn::OPCODE => self.handle_focus_in(event).await,
             UnmapNotify::OPCODE => self.handle_unmap_notify(event).await,
+            SelectionNotify::OPCODE => self.handle_selection_notify(event).await,
+            SelectionRequest::OPCODE => self.handle_selection_request(event).await,
             _ => Ok(()),
-        };
-        if let Err(e) = res {
-            log::warn!("Could not handle an event: {}", ErrorFmt(e));
         }
+    }
+
+    async fn handle_selection_request(&mut self, event: &Event) -> Result<(), XWaylandError> {
+        let event: SelectionRequest = event.parse()?;
+        let shared = self.shared.clone();
+        if event.selection == self.atoms.PRIMARY {
+            self.handle_selection_request_(&shared.primary_selection, &event)
+                .await
+        } else if event.selection == self.atoms.CLIPBOARD {
+            self.handle_selection_request_(&shared.data, &event).await
+        } else {
+            log::warn!("Unknown selection request");
+            Ok(())
+        }
+    }
+
+    async fn handle_selection_request_<T: IpcVtable>(
+        &mut self,
+        sd: &SelectionData<T>,
+        event: &SelectionRequest,
+    ) -> Result<(), XWaylandError> {
+        let mut success = Some(false);
+        if let Some(offer) = sd.active_offer.get() {
+            let mt = offer.mime_types.borrow_mut();
+            if event.target == self.atoms.TARGETS {
+                let cp = ChangeProperty {
+                    mode: PROP_MODE_REPLACE,
+                    window: event.requestor,
+                    property: event.property,
+                    ty: ATOM_ATOM,
+                    format: 32,
+                    data: uapi::as_bytes(&mt[..]),
+                };
+                match self.c.call(&cp).await {
+                    Ok(_) => success = Some(true),
+                    Err(e) => {
+                        log::error!("Could not set selection property: {}", ErrorFmt(e));
+                    }
+                }
+            } else {
+                'convert: {
+                    let present = mt.contains(&event.target);
+                    drop(mt);
+                    let mt = match self.atom_to_mime_type(event.target).await {
+                        Ok(mt) => mt,
+                        Err(e) => {
+                            log::error!("Could not get mime type name: {}", ErrorFmt(e));
+                            break 'convert;
+                        }
+                    };
+                    if !present {
+                        log::error!("Peer requested unavailable target {}", mt);
+                        break 'convert;
+                    }
+                    let (rx, tx) = match uapi::pipe2(c::O_CLOEXEC) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            log::error!("Could not create pipe: {}", OsError::from(e));
+                            break 'convert;
+                        }
+                    };
+                    let res = OsError::tri(|| {
+                        let fl = uapi::fcntl_getfl(rx.raw())?;
+                        uapi::fcntl_setfl(rx.raw(), fl | c::O_NONBLOCK)?;
+                        Ok(())
+                    });
+                    if let Err(e) = res {
+                        log::error!("Could not make pipe nonblocking: {}", e);
+                        break 'convert;
+                    }
+                    let fd = match self.state.eng.fd(&Rc::new(rx)) {
+                        Ok(afd) => afd,
+                        Err(e) => {
+                            log::error!("Could not create an async fd: {}", ErrorFmt(e));
+                            break 'convert;
+                        }
+                    };
+                    success = None;
+                    receive_data_offer::<T>(&offer.offer, &mt, Rc::new(tx));
+                    let id = self.transfer_ids.fetch_add(1);
+                    let wtx = WaylandToXTransfer {
+                        id,
+                        fd,
+                        c: self.c.clone(),
+                        window: event.requestor,
+                        time: event.time,
+                        property: event.property,
+                        ty: event.target,
+                        selection: sd.selection.get(),
+                        shared: self.shared.clone(),
+                    };
+                    self.shared
+                        .transfers
+                        .set(id, self.state.eng.spawn(wtx.run()));
+                }
+            }
+        }
+        if let Some(success) = success {
+            let target = match success {
+                true => event.target,
+                false => ATOM_NONE,
+            };
+            let sn = SelectionNotify {
+                time: event.time,
+                requestor: event.requestor,
+                selection: sd.selection.get(),
+                target,
+                property: event.property,
+            };
+            if let Err(e) = self.c.send_event(false, event.requestor, 0, &sn).await {
+                log::error!("Could not send event: {}", ErrorFmt(e));
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_selection_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
+        let event: SelectionNotify = event.parse()?;
+        if event.property != self.atoms._WL_SELECTION {
+            return Ok(());
+        }
+        let shared = self.shared.clone();
+        if event.selection == self.atoms.PRIMARY {
+            self.handle_selection_notify_(&shared.primary_selection, &event)
+                .await
+        } else if event.selection == self.atoms.CLIPBOARD {
+            self.handle_selection_notify_(&shared.data, &event).await
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn handle_selection_notify_<T: IpcVtable>(
+        &mut self,
+        sd: &SelectionData<T>,
+        event: &SelectionNotify,
+    ) -> Result<(), XWaylandError> {
+        if event.property != self.atoms._WL_SELECTION {
+            return Ok(());
+        }
+        if event.target == ATOM_NONE {
+            return Ok(());
+        }
+        if event.target == self.atoms.TARGETS {
+            let targets = self.get_selection_mime_types(sd.win.get()).await?;
+            for dev in sd.devices.lock().values() {
+                let seat = T::get_device_seat(dev);
+                if !seat.may_modify_primary_selection(&self.client, None) {
+                    continue;
+                }
+                let source = Rc::new(T::create_xwm_source(&self.client));
+                if let Err(e) = T::set_seat_selection(&seat, &source, None) {
+                    log::error!("Could not set selection: {}", ErrorFmt(e));
+                    return Ok(());
+                }
+                for target in &targets {
+                    add_data_source_mime_type::<T>(&source, target);
+                }
+                sd.sources.set(seat.id(), source);
+            }
+        } else {
+            let mut transfers = sd.pending_transfers.borrow_mut();
+            let transfers = transfers.drain(..);
+            let mut data = vec![];
+            let gp = self
+                .c
+                .get_property(
+                    sd.win.get(),
+                    self.atoms._WL_SELECTION,
+                    event.target,
+                    &mut data,
+                )
+                .await;
+            if let Err(e) = gp {
+                log::error!("Could not get converted property: {}", e);
+                return Ok(());
+            }
+            let data = Rc::new(data);
+            for transfer in transfers {
+                if event.target != transfer.mime_type {
+                    log::error!("Conversion yielded an incompatible mime type");
+                    continue;
+                }
+                let id = self.transfer_ids.fetch_add(1);
+                let transfer = XToWaylandTransfer {
+                    id,
+                    data: data.clone(),
+                    pos: 0,
+                    fd: transfer.fd,
+                    shared: self.shared.clone(),
+                };
+                self.shared
+                    .transfers
+                    .set(id, self.state.eng.spawn(transfer.run()));
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn get_selection_mime_types(
+        &mut self,
+        window: u32,
+    ) -> Result<Vec<String>, XWaylandError> {
+        let mut buf = vec![];
+        self.c
+            .get_property3::<u32>(window, self.atoms._WL_SELECTION, ATOM_ATOM, true, &mut buf)
+            .await?;
+        let mut res = vec![];
+        for atom in buf {
+            let name = match self.atom_to_mime_type(atom).await {
+                Ok(n) => n,
+                Err(e) => {
+                    log::error!("Could not get atom name: {}", ErrorFmt(e));
+                    continue;
+                }
+            };
+            res.push(name);
+        }
+        Ok(res)
     }
 
     async fn handle_unmap_notify(&mut self, revent: &Event) -> Result<(), XWaylandError> {
@@ -1642,5 +2389,100 @@ impl Wm {
                 max_w > 0 && max_h > 0 && max_w == min_w && max_h == min_h
             };
         data.info.wants_floating.set(res);
+    }
+}
+
+struct XToWaylandTransfer {
+    id: u64,
+    data: Rc<Vec<u8>>,
+    pos: usize,
+    fd: AsyncFd,
+    shared: Rc<XwmShared>,
+}
+
+impl XToWaylandTransfer {
+    async fn run(mut self) {
+        while self.pos < self.data.len() {
+            match uapi::write(self.fd.raw(), &self.data[self.pos..]) {
+                Ok(n) => self.pos += n,
+                Err(Errno(c::EAGAIN)) => {
+                    if let Err(e) = self.fd.writable().await {
+                        log::error!("Could not wait for fd to become writable: {}", ErrorFmt(e));
+                        break;
+                    }
+                }
+                Err(e) => {
+                    log::error!("Could not write to wayland client: {}", ErrorFmt(e));
+                    break;
+                }
+            }
+        }
+        self.shared.transfers.remove(&self.id);
+    }
+}
+
+struct WaylandToXTransfer {
+    id: u64,
+    fd: AsyncFd,
+    c: Rc<Xcon>,
+    window: u32,
+    time: u32,
+    property: u32,
+    ty: u32,
+    selection: u32,
+    shared: Rc<XwmShared>,
+}
+
+impl WaylandToXTransfer {
+    async fn run(self) {
+        let mut success = false;
+        let mut buf = Box::new([MaybeUninit::<u8>::uninit(); 1024]);
+        loop {
+            match uapi::read(self.fd.raw(), &mut buf[..]) {
+                Ok(n) if n.is_empty() => {
+                    success = true;
+                    break;
+                }
+                Ok(n) => {
+                    let cp = ChangeProperty {
+                        mode: PROP_MODE_APPEND,
+                        window: self.window,
+                        property: self.property,
+                        ty: self.ty,
+                        format: 8,
+                        data: n,
+                    };
+                    if let Err(e) = self.c.call(&cp).await {
+                        log::error!("Could not append data to property: {}", ErrorFmt(e));
+                        break;
+                    }
+                }
+                Err(Errno(c::EAGAIN)) => {
+                    if let Err(e) = self.fd.readable().await {
+                        log::error!("Could not wait for fd to become readable: {}", ErrorFmt(e));
+                        break;
+                    }
+                }
+                Err(e) => {
+                    log::error!("Could not read from wayland client: {}", ErrorFmt(e));
+                    break;
+                }
+            }
+        }
+        let target = match success {
+            true => self.ty,
+            false => ATOM_NONE,
+        };
+        let sn = SelectionNotify {
+            time: self.time,
+            requestor: self.window,
+            selection: self.selection,
+            target,
+            property: self.property,
+        };
+        if let Err(e) = self.c.send_event(false, self.window, 0, &sn).await {
+            log::error!("Could not send event: {}", ErrorFmt(e));
+        }
+        self.shared.transfers.remove(&self.id);
     }
 }

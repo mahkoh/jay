@@ -105,6 +105,7 @@ pub struct State {
     pub config_dir: Option<String>,
     pub config_file_id: NumCell<u64>,
     pub tracker: Tracker<Self>,
+    pub data_offer_ids: NumCell<u64>,
 }
 
 // impl Drop for State {

@@ -13,6 +13,7 @@ pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 pub struct ObjectId(u32);
 
 impl ObjectId {
+    #[allow(dead_code)]
     pub const NONE: Self = ObjectId(0);
 
     pub fn from_raw(raw: u32) -> Self {

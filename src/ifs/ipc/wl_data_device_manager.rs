@@ -61,7 +61,7 @@ impl WlDataDeviceManager {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlDataDeviceManagerError> {
         let req: CreateDataSource = self.client.parse(self, parser)?;
-        let res = Rc::new(WlDataSource::new(req.id, &self.client));
+        let res = Rc::new(WlDataSource::new(req.id, &self.client, false));
         track!(self.client, res);
         self.client.add_client_obj(&res)?;
         Ok(())
@@ -73,9 +73,15 @@ impl WlDataDeviceManager {
     ) -> Result<(), WlDataDeviceManagerError> {
         let req: GetDataDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
-        let dev = Rc::new(WlDataDevice::new(req.id, self, &seat));
+        let dev = Rc::new(WlDataDevice::new(
+            req.id,
+            &self.client,
+            self.version,
+            &seat.global,
+            false,
+        ));
         track!(self.client, dev);
-        seat.add_data_device(&dev);
+        seat.global.add_data_device(&dev);
         self.client.add_client_obj(&dev)?;
         Ok(())
     }

@@ -421,3 +421,31 @@ event MapNotify = 19 {
     override_redirect: u8,
     @pad 3,
 }
+
+request ConvertSelection = 24 (
+    @pad 1,
+    requestor: u32,
+    selection: u32,
+    target: u32,
+    property: u32,
+    time: u32,
+);
+
+event SelectionNotify = 31 {
+    @pad 1,
+    time: u32,
+    requestor: u32,
+    selection: u32,
+    target: u32,
+    property: u32,
+}
+
+event SelectionRequest = 30 {
+    @pad 1,
+    time: u32,
+    owner: u32,
+    requestor: u32,
+    selection: u32,
+    target: u32,
+    property: u32,
+}

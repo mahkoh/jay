@@ -1,8 +1,7 @@
 use {
     crate::{
-        client::{Client, ClientId, WaylandObject},
-        ifs::wl_seat::WlSeatGlobal,
-        object::ObjectId,
+        client::{Client, ClientError, ClientId, WaylandObject},
+        ifs::wl_seat::{WlSeatError, WlSeatGlobal},
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap,
         },
@@ -32,16 +31,19 @@ pub enum Role {
     Dnd,
 }
 
-pub trait Vtable: Sized {
-    type DeviceId: Eq + Copy;
-    type OfferId: Eq + Copy + From<ObjectId>;
-
+pub trait IpcVtable: Sized {
     type Device;
     type Source;
     type Offer: WaylandObject;
 
-    fn device_id(dd: &Self::Device) -> Self::DeviceId;
     fn get_device_data(dd: &Self::Device) -> &DeviceData<Self>;
+    fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal>;
+    fn create_xwm_source(client: &Rc<Client>) -> Self::Source;
+    fn set_seat_selection(
+        seat: &Rc<WlSeatGlobal>,
+        source: &Rc<Self::Source>,
+        serial: Option<u32>,
+    ) -> Result<(), WlSeatError>;
     fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self>;
     fn get_source_data(src: &Self::Source) -> &SourceData<Self>;
     fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
@@ -51,35 +53,35 @@ pub trait Vtable: Sized {
         client: &Rc<Client>,
         dd: &Rc<Self::Device>,
         data: OfferData<Self>,
-        id: ObjectId,
-    ) -> Rc<Self::Offer>;
-    fn send_selection(dd: &Self::Device, offer: Self::OfferId);
-    fn send_cancelled(source: &Self::Source);
-    fn get_offer_id(offer: &Self::Offer) -> Self::OfferId;
-    fn send_offer(dd: &Self::Device, offer: &Self::Offer);
-    fn send_mime_type(offer: &Self::Offer, mime_type: &str);
+    ) -> Result<Rc<Self::Offer>, ClientError>;
+    fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>);
+    fn send_cancelled(source: &Rc<Self::Source>);
+    fn get_offer_id(offer: &Self::Offer) -> u64;
+    fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>);
+    fn send_mime_type(offer: &Rc<Self::Offer>, mime_type: &str);
     fn unset(seat: &Rc<WlSeatGlobal>, role: Role);
-    fn send_send(src: &Self::Source, mime_type: &str, fd: Rc<OwnedFd>);
+    fn send_send(src: &Rc<Self::Source>, mime_type: &str, fd: Rc<OwnedFd>);
+    fn remove_from_seat(device: &Self::Device);
+    fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal>;
 }
 
-pub struct DeviceData<T: Vtable> {
+pub struct DeviceData<T: IpcVtable> {
     selection: CloneCell<Option<Rc<T::Offer>>>,
     dnd: CloneCell<Option<Rc<T::Offer>>>,
+    pub is_xwm: bool,
 }
 
-impl<T: Vtable> Default for DeviceData<T> {
-    fn default() -> Self {
-        Self {
-            selection: Default::default(),
-            dnd: Default::default(),
-        }
-    }
-}
-
-pub struct OfferData<T: Vtable> {
+pub struct OfferData<T: IpcVtable> {
     device: CloneCell<Option<Rc<T::Device>>>,
     source: CloneCell<Option<Rc<T::Source>>>,
     shared: Rc<SharedState>,
+    pub is_xwm: bool,
+}
+
+impl<T: IpcVtable> OfferData<T> {
+    pub fn source(&self) -> Option<Rc<T::Source>> {
+        self.source.get()
+    }
 }
 
 #[derive(Debug, Error)]
@@ -99,9 +101,9 @@ const OFFER_STATE_DROPPED: u32 = 1 << 2;
 const SOURCE_STATE_USED: u32 = 1 << 1;
 const SOURCE_STATE_FINISHED: u32 = 1 << 2;
 
-pub struct SourceData<T: Vtable> {
-    seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
-    offers: SmallMap<T::OfferId, Rc<T::Offer>, 1>,
+pub struct SourceData<T: IpcVtable> {
+    pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
+    offers: SmallMap<u64, Rc<T::Offer>, 1>,
     offer_client: Cell<ClientId>,
     mime_types: RefCell<AHashSet<String>>,
     client: Rc<Client>,
@@ -109,6 +111,7 @@ pub struct SourceData<T: Vtable> {
     actions: Cell<Option<u32>>,
     role: Cell<Role>,
     shared: CloneCell<Rc<SharedState>>,
+    pub is_xwm: bool,
 }
 
 struct SharedState {
@@ -131,8 +134,8 @@ impl Default for SharedState {
     }
 }
 
-impl<T: Vtable> SourceData<T> {
-    fn new(client: &Rc<Client>) -> Self {
+impl<T: IpcVtable> SourceData<T> {
+    fn new(client: &Rc<Client>, is_xwm: bool) -> Self {
         Self {
             seat: Default::default(),
             offers: Default::default(),
@@ -143,11 +146,12 @@ impl<T: Vtable> SourceData<T> {
             actions: Cell::new(None),
             role: Cell::new(Role::Selection),
             shared: Default::default(),
+            is_xwm,
         }
     }
 }
 
-pub fn attach_seat<T: Vtable>(
+pub fn attach_seat<T: IpcVtable>(
     src: &T::Source,
     seat: &Rc<WlSeatGlobal>,
     role: Role,
@@ -173,16 +177,16 @@ pub fn attach_seat<T: Vtable>(
     Ok(())
 }
 
-pub fn cancel_offers<T: Vtable>(src: &T::Source) {
+pub fn cancel_offers<T: IpcVtable>(src: &T::Source) {
     let data = T::get_source_data(src);
     while let Some((_, offer)) = data.offers.pop() {
         let data = T::get_offer_data(&offer);
         data.source.take();
-        destroy_offer::<T>(&offer);
+        destroy_data_offer::<T>(&offer);
     }
 }
 
-pub fn detach_seat<T: Vtable>(src: &T::Source) {
+pub fn detach_seat<T: IpcVtable>(src: &Rc<T::Source>) {
     let data = T::get_source_data(src);
     data.seat.set(None);
     cancel_offers::<T>(src);
@@ -192,7 +196,7 @@ pub fn detach_seat<T: Vtable>(src: &T::Source) {
     // data.client.flush();
 }
 
-pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
+pub fn offer_source_to<T: IpcVtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
     let data = T::get_source_data(src);
     let seat = match data.seat.get() {
         Some(a) => a,
@@ -206,21 +210,21 @@ pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
     let shared = data.shared.get();
     shared.role.set(data.role.get());
     T::for_each_device(&seat, client.id, |dd| {
-        let id = match client.new_id() {
-            Ok(id) => id,
-            Err(e) => {
-                client.error(e);
-                return;
-            }
-        };
         let device_data = T::get_device_data(dd);
         let offer_data = OfferData {
             device: CloneCell::new(Some(dd.clone())),
             source: CloneCell::new(Some(src.clone())),
             shared: shared.clone(),
+            is_xwm: device_data.is_xwm,
         };
-        let offer = T::create_offer(client, dd, offer_data, id);
-        data.offers.insert(id.into(), offer.clone());
+        let offer = match T::create_offer(client, dd, offer_data) {
+            Ok(o) => o,
+            Err(e) => {
+                client.error(e);
+                return;
+            }
+        };
+        data.offers.insert(T::get_offer_id(&offer), offer.clone());
         let mt = data.mime_types.borrow_mut();
         T::send_offer(dd, &offer);
         for mt in mt.deref() {
@@ -228,18 +232,20 @@ pub fn offer_source_to<T: Vtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
         }
         match data.role.get() {
             Role::Selection => {
-                T::send_selection(dd, T::get_offer_id(&offer));
+                T::send_selection(dd, Some(&offer));
                 device_data.selection.set(Some(offer.clone()));
             }
             Role::Dnd => {
                 device_data.dnd.set(Some(offer.clone()));
             }
         }
-        client.add_server_obj(&offer);
+        if !device_data.is_xwm {
+            client.add_server_obj(&offer);
+        }
     });
 }
 
-fn add_mime_type<T: Vtable>(src: &T::Source, mime_type: &str) {
+pub fn add_data_source_mime_type<T: IpcVtable>(src: &T::Source, mime_type: &str) {
     let data = T::get_source_data(src);
     if data.mime_types.borrow_mut().insert(mime_type.to_string()) {
         for (_, offer) in &data.offers {
@@ -250,20 +256,20 @@ fn add_mime_type<T: Vtable>(src: &T::Source, mime_type: &str) {
     }
 }
 
-fn destroy_source<T: Vtable>(src: &T::Source) {
+pub fn destroy_data_source<T: IpcVtable>(src: &T::Source) {
     let data = T::get_source_data(src);
     if let Some(seat) = data.seat.take() {
         T::unset(&seat, data.role.get());
     }
 }
 
-fn destroy_offer<T: Vtable>(offer: &T::Offer) {
+pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
     let data = T::get_offer_data(offer);
     if let Some(device) = data.device.take() {
         let device_data = T::get_device_data(&device);
         match data.shared.role.get() {
             Role::Selection => {
-                T::send_selection(&device, ObjectId::NONE.into());
+                T::send_selection(&device, None);
                 device_data.selection.take();
             }
             Role::Dnd => {
@@ -285,37 +291,37 @@ fn destroy_offer<T: Vtable>(offer: &T::Offer) {
     }
 }
 
-fn destroy_device<T: Vtable>(dd: &T::Device) {
+pub fn destroy_data_device<T: IpcVtable>(dd: &T::Device) {
     let data = T::get_device_data(dd);
     let offers = [data.selection.take(), data.dnd.take()];
     for offer in offers.into_iter().flat_map(|o| o.into_iter()) {
         T::get_offer_data(&offer).device.take();
-        destroy_offer::<T>(&offer);
+        destroy_data_offer::<T>(&offer);
     }
 }
 
-fn break_source_loops<T: Vtable>(src: &T::Source) {
+fn break_source_loops<T: IpcVtable>(src: &T::Source) {
     let data = T::get_source_data(src);
     if data.offer_client.get() == data.client.id {
         data.offers.take();
     }
-    destroy_source::<T>(src);
+    destroy_data_source::<T>(src);
 }
 
-fn break_offer_loops<T: Vtable>(offer: &T::Offer) {
+fn break_offer_loops<T: IpcVtable>(offer: &T::Offer) {
     let data = T::get_offer_data(offer);
     data.device.set(None);
-    destroy_offer::<T>(offer);
+    destroy_data_offer::<T>(offer);
 }
 
-fn break_device_loops<T: Vtable>(dd: &T::Device) {
+fn break_device_loops<T: IpcVtable>(dd: &T::Device) {
     let data = T::get_device_data(dd);
     data.selection.take();
     data.dnd.take();
-    destroy_device::<T>(dd);
+    destroy_data_device::<T>(dd);
 }
 
-fn receive<T: Vtable>(offer: &T::Offer, mime_type: &str, fd: Rc<OwnedFd>) {
+pub fn receive_data_offer<T: IpcVtable>(offer: &T::Offer, mime_type: &str, fd: Rc<OwnedFd>) {
     let data = T::get_offer_data(offer);
     if let Some(src) = data.source.get() {
         T::send_send(&src, mime_type, fd);

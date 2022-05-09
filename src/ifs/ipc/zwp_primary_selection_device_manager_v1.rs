@@ -55,7 +55,11 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let req: CreateSource = self.client.parse(self, parser)?;
-        let res = Rc::new(ZwpPrimarySelectionSourceV1::new(req.id, &self.client));
+        let res = Rc::new(ZwpPrimarySelectionSourceV1::new(
+            req.id,
+            &self.client,
+            false,
+        ));
         track!(self.client, res);
         self.client.add_client_obj(&res)?;
         Ok(())
@@ -67,9 +71,15 @@ impl ZwpPrimarySelectionDeviceManagerV1 {
     ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let req: GetDevice = self.client.parse(&**self, parser)?;
         let seat = self.client.lookup(req.seat)?;
-        let dev = Rc::new(ZwpPrimarySelectionDeviceV1::new(req.id, self, &seat));
+        let dev = Rc::new(ZwpPrimarySelectionDeviceV1::new(
+            req.id,
+            &self.client,
+            self.version,
+            &seat.global,
+            false,
+        ));
         track!(self.client, dev);
-        seat.add_primary_selection_device(&dev);
+        seat.global.add_primary_selection_device(&dev);
         self.client.add_client_obj(&dev)?;
         Ok(())
     }

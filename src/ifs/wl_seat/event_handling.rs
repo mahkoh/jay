@@ -6,8 +6,10 @@ use {
         ifs::{
             ipc,
             ipc::{
-                wl_data_device::WlDataDevice,
-                zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
+                wl_data_device::{ClipboardIpc, WlDataDevice},
+                zwp_primary_selection_device_v1::{
+                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
+                },
             },
             wl_seat::{
                 wl_keyboard::{self, WlKeyboard},
@@ -21,7 +23,6 @@ use {
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
-        object::ObjectId,
         tree::{FloatNode, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
@@ -328,7 +329,7 @@ impl WlSeatGlobal {
         self.kb_owner.set_kb_node(self, node);
     }
 
-    fn offer_selection<T: ipc::Vtable>(
+    fn offer_selection<T: ipc::IpcVtable>(
         &self,
         field: &CloneCell<Option<Rc<T::Source>>>,
         client: &Rc<Client>,
@@ -336,7 +337,7 @@ impl WlSeatGlobal {
         match field.get() {
             Some(sel) => ipc::offer_source_to::<T>(&sel, client),
             None => T::for_each_device(self, client.id, |dd| {
-                T::send_selection(dd, ObjectId::NONE.into());
+                T::send_selection(dd, None);
             }),
         }
     }
@@ -398,7 +399,7 @@ impl WlSeatGlobal {
         let dd = self.data_devices.borrow_mut();
         if let Some(dd) = dd.get(&client) {
             for dd in dd.values() {
-                if dd.manager.version >= ver {
+                if dd.version >= ver {
                     f(dd);
                 }
             }
@@ -412,7 +413,7 @@ impl WlSeatGlobal {
         let dd = self.primary_selection_devices.borrow_mut();
         if let Some(dd) = dd.get(&client) {
             for dd in dd.values() {
-                if dd.manager.version >= ver {
+                if dd.version >= ver {
                     f(dd);
                 }
             }
@@ -624,11 +625,8 @@ impl WlSeatGlobal {
         });
 
         if self.keyboard_node.get().node_client_id() != Some(surface.client.id) {
-            self.offer_selection::<WlDataDevice>(&self.selection, &surface.client);
-            self.offer_selection::<ZwpPrimarySelectionDeviceV1>(
-                &self.primary_selection,
-                &surface.client,
-            );
+            self.offer_selection::<ClipboardIpc>(&self.selection, &surface.client);
+            self.offer_selection::<PrimarySelectionIpc>(&self.primary_selection, &surface.client);
         }
     }
 }
@@ -692,7 +690,7 @@ impl WlSeatGlobal {
         serial: u32,
     ) {
         if let Some(src) = &dnd.src {
-            ipc::offer_source_to::<WlDataDevice>(src, &surface.client);
+            ipc::offer_source_to::<ClipboardIpc>(src, &surface.client);
             src.for_each_data_offer(|offer| {
                 offer.device.send_enter(surface.id, x, y, offer.id, serial);
                 offer.send_source_actions();

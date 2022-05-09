@@ -18,9 +18,13 @@ use {
         ifs::{
             ipc,
             ipc::{
-                wl_data_device::WlDataDevice, wl_data_source::WlDataSource,
-                zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, IpcError,
+                wl_data_device::{ClipboardIpc, WlDataDevice},
+                wl_data_source::WlDataSource,
+                zwp_primary_selection_device_v1::{
+                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
+                },
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
+                IpcError,
             },
             wl_seat::{
                 kb_owner::KbOwnerHolder,
@@ -33,7 +37,7 @@ use {
             wl_surface::WlSurface,
         },
         leaks::Tracker,
-        object::{Object, ObjectId},
+        object::Object,
         state::State,
         tree::{
             generic_node_visitor, ContainerNode, ContainerSplit, FloatNode, FoundNode, Node,
@@ -97,7 +101,7 @@ pub struct DroppedDnd {
 impl Drop for DroppedDnd {
     fn drop(&mut self) {
         if let Some(src) = self.dnd.src.take() {
-            ipc::detach_seat::<WlDataDevice>(&src);
+            ipc::detach_seat::<ClipboardIpc>(&src);
         }
     }
 }
@@ -197,6 +201,40 @@ impl WlSeatGlobal {
         });
         slf.tree_changed_handler.set(Some(future));
         slf
+    }
+
+    pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
+        let mut dd = self.data_devices.borrow_mut();
+        dd.entry(device.client.id)
+            .or_default()
+            .insert(device.id, device.clone());
+    }
+
+    pub fn remove_data_device(&self, device: &WlDataDevice) {
+        let mut dd = self.data_devices.borrow_mut();
+        if let Entry::Occupied(mut e) = dd.entry(device.client.id) {
+            e.get_mut().remove(&device.id);
+            if e.get().is_empty() {
+                e.remove();
+            }
+        }
+    }
+
+    pub fn add_primary_selection_device(&self, device: &Rc<ZwpPrimarySelectionDeviceV1>) {
+        let mut dd = self.primary_selection_devices.borrow_mut();
+        dd.entry(device.client.id)
+            .or_default()
+            .insert(device.id, device.clone());
+    }
+
+    pub fn remove_primary_selection_device(&self, device: &ZwpPrimarySelectionDeviceV1) {
+        let mut dd = self.primary_selection_devices.borrow_mut();
+        if let Entry::Occupied(mut e) = dd.entry(device.client.id) {
+            e.get_mut().remove(&device.id);
+            if e.get().is_empty() {
+                e.remove();
+            }
+        }
     }
 
     pub fn get_output(&self) -> Rc<OutputNode> {
@@ -460,7 +498,7 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_selection_<T: ipc::Vtable>(
+    fn set_selection_<T: ipc::IpcVtable>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<T::Source>>>,
         src: Option<Rc<T::Source>>,
@@ -475,7 +513,7 @@ impl WlSeatGlobal {
             match src {
                 Some(src) => ipc::offer_source_to::<T>(&src, &client),
                 _ => T::for_each_device(self, client.id, |device| {
-                    T::send_selection(device, ObjectId::NONE.into());
+                    T::send_selection(device, None);
                 }),
             }
             // client.flush();
@@ -510,7 +548,7 @@ impl WlSeatGlobal {
         if let Some(serial) = serial {
             self.selection_serial.set(serial);
         }
-        self.set_selection_::<WlDataDevice>(&self.selection, selection)
+        self.set_selection_::<ClipboardIpc>(&self.selection, selection)
     }
 
     pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
@@ -521,10 +559,12 @@ impl WlSeatGlobal {
         self.keyboard_node.get().node_client_id() == Some(client.id)
     }
 
-    pub fn may_modify_primary_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
-        let dist = serial.wrapping_sub(self.primary_selection_serial.get()) as i32;
-        if dist < 0 {
-            return false;
+    pub fn may_modify_primary_selection(&self, client: &Rc<Client>, serial: Option<u32>) -> bool {
+        if let Some(serial) = serial {
+            let dist = serial.wrapping_sub(self.primary_selection_serial.get()) as i32;
+            if dist < 0 {
+                return false;
+            }
         }
         self.keyboard_node.get().node_client_id() == Some(client.id)
             || self.pointer_node().and_then(|n| n.node_client_id()) == Some(client.id)
@@ -542,7 +582,7 @@ impl WlSeatGlobal {
         if let Some(serial) = serial {
             self.primary_selection_serial.set(serial);
         }
-        self.set_selection_::<ZwpPrimarySelectionDeviceV1>(&self.primary_selection, selection)
+        self.set_selection_::<PrimarySelectionIpc>(&self.primary_selection, selection)
     }
 
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
@@ -708,40 +748,6 @@ impl WlSeat {
             self_id: self.id,
             name,
         })
-    }
-
-    pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
-        let mut dd = self.global.data_devices.borrow_mut();
-        dd.entry(self.client.id)
-            .or_default()
-            .insert(device.id, device.clone());
-    }
-
-    pub fn remove_data_device(&self, device: &WlDataDevice) {
-        let mut dd = self.global.data_devices.borrow_mut();
-        if let Entry::Occupied(mut e) = dd.entry(self.client.id) {
-            e.get_mut().remove(&device.id);
-            if e.get().is_empty() {
-                e.remove();
-            }
-        }
-    }
-
-    pub fn add_primary_selection_device(&self, device: &Rc<ZwpPrimarySelectionDeviceV1>) {
-        let mut dd = self.global.primary_selection_devices.borrow_mut();
-        dd.entry(self.client.id)
-            .or_default()
-            .insert(device.id, device.clone());
-    }
-
-    pub fn remove_primary_selection_device(&self, device: &ZwpPrimarySelectionDeviceV1) {
-        let mut dd = self.global.primary_selection_devices.borrow_mut();
-        if let Entry::Occupied(mut e) = dd.entry(self.client.id) {
-            e.get_mut().remove(&device.id);
-            if e.get().is_empty() {
-                e.remove();
-            }
-        }
     }
 
     pub fn move_(&self, node: &Rc<FloatNode>) {
