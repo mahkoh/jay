@@ -755,12 +755,6 @@ mod fd {
         }
     }
 
-    impl Drop for AsyncFdData {
-        fn drop(&mut self) {
-            let _ = self.el.remove(self.id);
-        }
-    }
-
     pub struct AsyncFd {
         pub(super) engine: Rc<AsyncEngine>,
         pub(super) data: Rc<AsyncFdData>,
@@ -786,6 +780,7 @@ mod fd {
         fn drop(&mut self) {
             if self.data.ref_count.fetch_sub(1) == 1 {
                 self.engine.fds.remove(&self.data.fd.raw());
+                let _ = self.data.el.remove(self.data.id);
             }
         }
     }
