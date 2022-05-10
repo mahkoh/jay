@@ -1102,6 +1102,7 @@ impl Node for ContainerNode {
                     let rect = child.title_rect.get();
                     if rect.contains(seat_data.x, seat_data.y) {
                         self.activate_child(&child);
+                        child.node.clone().node_do_focus(seat, Direction::Unspecified);
                         break 'res (SeatOpKind::Move, child);
                     } else if !mono {
                         if self.split.get() == ContainerSplit::Horizontal {
