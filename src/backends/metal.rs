@@ -111,8 +111,6 @@ pub enum MetalError {
     DeviceResumeSignalHandler(#[source] DbusError),
 }
 
-linear_ids!(DrmIds, DrmId);
-
 pub struct MetalBackend {
     state: Rc<State>,
     udev: Rc<Udev>,
@@ -122,7 +120,6 @@ pub struct MetalBackend {
     libinput_fd: AsyncFd,
     device_holder: Rc<DeviceHolder>,
     session: Session,
-    drm_ids: DrmIds,
     pause_handler: Cell<Option<SignalHandler>>,
     resume_handler: Cell<Option<SignalHandler>>,
     ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
@@ -252,7 +249,6 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         libinput_fd,
         device_holder,
         session,
-        drm_ids: Default::default(),
         pause_handler: Default::default(),
         resume_handler: Default::default(),
         ctx: Default::default(),

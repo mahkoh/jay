@@ -1,5 +1,6 @@
 mod backend;
 mod connector;
+mod drmdev;
 mod idle;
 mod input_device;
 mod slow_clients;

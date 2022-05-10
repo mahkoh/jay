@@ -3,8 +3,9 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
-            ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            ConnectorKernelId, DrmDeviceId, InputDevice, InputDeviceAccelProfile,
+            InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
+            ScrollAxis, TransformMatrix,
         },
         fixed::Fixed,
         format::XRGB8888,
@@ -947,6 +948,10 @@ impl Connector for XOutput {
 
     fn damage(&self) {
         // nothing
+    }
+
+    fn drm_dev(&self) -> Option<DrmDeviceId> {
+        None
     }
 }
 

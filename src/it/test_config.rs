@@ -102,6 +102,8 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::TimerExpired { .. } => {}
         ServerMessage::GraphicsInitialized => tc.graphics_initialized.set(true),
         ServerMessage::Clear => tc.clear(),
+        ServerMessage::NewDrmDev { .. } => {}
+        ServerMessage::DelDrmDev { .. } => {}
     }
 }
 

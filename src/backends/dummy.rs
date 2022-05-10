@@ -1,7 +1,9 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
-        backend::{Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId},
+        backend::{
+            Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+        },
         video::drm::ConnectorType,
     },
     std::{any::Any, error::Error, rc::Rc},
@@ -45,5 +47,9 @@ impl Connector for DummyOutput {
 
     fn damage(&self) {
         // nothing
+    }
+
+    fn drm_dev(&self) -> Option<DrmDeviceId> {
+        None
     }
 }

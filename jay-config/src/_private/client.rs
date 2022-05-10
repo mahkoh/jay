@@ -9,12 +9,12 @@ use {
         },
         drm::{
             connector_type::{ConnectorType, CON_UNKNOWN},
-            Connector, Mode,
+            Connector, DrmDevice, Mode,
         },
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::keymap::Keymap,
         theme::Color,
-        Axis, Command, Direction, LogLevel, ModifiedKeySym, Timer, Workspace,
+        Axis, Command, Direction, LogLevel, ModifiedKeySym, PciId, Timer, Workspace,
     },
     std::{
         cell::{Cell, RefCell},
@@ -40,6 +40,8 @@ pub(crate) struct Client {
     on_connector_connected: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     on_graphics_initialized: Cell<Option<Box<dyn FnOnce()>>>,
     on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
+    on_new_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
+    on_del_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
 }
@@ -124,6 +126,8 @@ pub unsafe extern "C" fn init(
         on_connector_connected: Default::default(),
         on_graphics_initialized: Default::default(),
         on_new_connector: Default::default(),
+        on_new_drm_device: Default::default(),
+        on_del_drm_device: Default::default(),
         bufs: Default::default(),
         reload: Cell::new(false),
     });
@@ -400,6 +404,36 @@ impl Client {
         self.send(&ClientMessage::ConnectorSetPosition { connector, x, y });
     }
 
+    pub fn device_connectors(&self, device: DrmDevice) -> Vec<Connector> {
+        let res = self.send_with_response(&ClientMessage::GetDeviceConnectors { device });
+        get_response!(res, vec![], GetDeviceConnectors, connectors);
+        connectors
+    }
+
+    pub fn drm_device_syspath(&self, device: DrmDevice) -> String {
+        let res = self.send_with_response(&ClientMessage::GetDrmDeviceSyspath { device });
+        get_response!(res, String::new(), GetDrmDeviceSyspath, syspath);
+        syspath
+    }
+
+    pub fn drm_device_vendor(&self, device: DrmDevice) -> String {
+        let res = self.send_with_response(&ClientMessage::GetDrmDeviceVendor { device });
+        get_response!(res, String::new(), GetDrmDeviceVendor, vendor);
+        vendor
+    }
+
+    pub fn drm_device_model(&self, device: DrmDevice) -> String {
+        let res = self.send_with_response(&ClientMessage::GetDrmDeviceModel { device });
+        get_response!(res, String::new(), GetDrmDeviceModel, model);
+        model
+    }
+
+    pub fn drm_device_pci_id(&self, device: DrmDevice) -> PciId {
+        let res = self.send_with_response(&ClientMessage::GetDrmDevicePciId { device });
+        get_response!(res, Default::default(), GetDrmDevicePciId, pci_id);
+        pci_id
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected, connected);
@@ -427,6 +461,20 @@ impl Client {
             height,
             refresh_millihz,
         }
+    }
+
+    pub fn drm_devices(&self) -> Vec<DrmDevice> {
+        let res = self.send_with_response(&ClientMessage::GetDrmDevices);
+        get_response!(res, vec![], GetDrmDevices, devices);
+        devices
+    }
+
+    pub fn on_new_drm_device<F: Fn(DrmDevice) + 'static>(&self, f: F) {
+        *self.on_new_drm_device.borrow_mut() = Some(Rc::new(f));
+    }
+
+    pub fn on_del_drm_device<F: Fn(DrmDevice) + 'static>(&self, f: F) {
+        *self.on_del_drm_device.borrow_mut() = Some(Rc::new(f));
     }
 
     pub fn on_new_connector<F: Fn(Connector) + 'static>(&self, f: F) {
@@ -590,6 +638,18 @@ impl Client {
             }
             ServerMessage::Clear => {
                 // only used by test config
+            }
+            ServerMessage::NewDrmDev { device } => {
+                let handler = self.on_new_drm_device.borrow_mut();
+                if let Some(handler) = handler.deref() {
+                    handler(device);
+                }
+            }
+            ServerMessage::DelDrmDev { device } => {
+                let handler = self.on_del_drm_device.borrow_mut();
+                if let Some(handler) = handler.deref() {
+                    handler(device);
+                }
             }
         }
     }

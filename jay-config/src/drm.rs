@@ -1,9 +1,12 @@
 use {
-    crate::drm::connector_type::{
-        ConnectorType, CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI,
-        CON_DSI, CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA, CON_HDMIB,
-        CON_LVDS, CON_SPI, CON_SVIDEO, CON_TV, CON_UNKNOWN, CON_USB, CON_VGA, CON_VIRTUAL,
-        CON_WRITEBACK,
+    crate::{
+        drm::connector_type::{
+            ConnectorType, CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI,
+            CON_DSI, CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA,
+            CON_HDMIB, CON_LVDS, CON_SPI, CON_SVIDEO, CON_TV, CON_UNKNOWN, CON_USB, CON_VGA,
+            CON_VIRTUAL, CON_WRITEBACK,
+        },
+        PciId,
     },
     bincode::{Decode, Encode},
     std::str::FromStr,
@@ -86,6 +89,18 @@ impl Connector {
         }
         get!().connector_set_position(self, x, y);
     }
+}
+
+pub fn drm_devices() -> Vec<DrmDevice> {
+    get!().drm_devices()
+}
+
+pub fn on_new_drm_device<F: Fn(DrmDevice) + 'static>(f: F) {
+    get!().on_new_drm_device(f)
+}
+
+pub fn on_drm_device_removed<F: Fn(DrmDevice) + 'static>(f: F) {
+    get!().on_del_drm_device(f)
 }
 
 pub fn on_new_connector<F: Fn(Connector) + 'static>(f: F) {
@@ -185,4 +200,29 @@ pub mod connector_type {
     pub const CON_SPI: ConnectorType = ConnectorType(19);
     pub const CON_USB: ConnectorType = ConnectorType(20);
     pub const CON_EMBEDDED_WINDOW: ConnectorType = ConnectorType(u32::MAX);
+}
+
+#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct DrmDevice(pub u64);
+
+impl DrmDevice {
+    pub fn connectors(self) -> Vec<Connector> {
+        get!().device_connectors(self)
+    }
+
+    pub fn syspath(self) -> String {
+        get!().drm_device_syspath(self)
+    }
+
+    pub fn vendor(self) -> String {
+        get!().drm_device_vendor(self)
+    }
+
+    pub fn model(self) -> String {
+        get!().drm_device_model(self)
+    }
+
+    pub fn pci_id(self) -> PciId {
+        get!().drm_device_pci_id(self)
+    }
 }

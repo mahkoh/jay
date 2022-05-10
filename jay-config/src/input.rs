@@ -156,9 +156,7 @@ pub fn get_seats() -> Vec<Seat> {
 }
 
 pub fn input_devices() -> Vec<InputDevice> {
-    let mut res = vec![];
-    (|| res = get!().get_input_devices(None))();
-    res
+    get!().get_input_devices(None)
 }
 
 pub fn remove_all_seats() {}

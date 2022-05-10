@@ -2,12 +2,13 @@ use {
     crate::{
         async_engine::{AsyncError, SpawnedFuture, Timer},
         backend::{
-            self, ConnectorId, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
+            self, ConnectorId, DrmDeviceId, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceId,
         },
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
-        state::{ConnectorData, DeviceHandlerData, OutputData, State},
+        state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
         utils::{
             copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
@@ -21,7 +22,7 @@ use {
             bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage},
         },
-        drm::Connector,
+        drm::{Connector, DrmDevice},
         input::{
             acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
             capability::{
@@ -150,6 +151,53 @@ impl ConfigProxyHandler {
         };
         self.respond(Response::ParseKeymap { keymap });
         res
+    }
+
+    fn handle_get_drm_device_connectors(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
+        let mut connectors = vec![];
+        for c in dev.connectors.lock().values() {
+            connectors.push(Connector(c.connector.id().raw() as _));
+        }
+        self.respond(Response::GetDeviceConnectors { connectors });
+        Ok(())
+    }
+
+    fn handle_get_drm_device_syspath(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
+        let syspath = dev.syspath.clone().unwrap_or_default();
+        self.respond(Response::GetDrmDeviceSyspath { syspath });
+        Ok(())
+    }
+
+    fn handle_get_drm_device_vendor(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
+        let vendor = dev.vendor.clone().unwrap_or_default();
+        self.respond(Response::GetDrmDeviceVendor { vendor });
+        Ok(())
+    }
+
+    fn handle_get_drm_devices(&self) {
+        let devs = self.state.drm_devs.lock();
+        let mut res = vec![];
+        for dev in devs.values() {
+            res.push(DrmDevice(dev.dev.id().raw() as _));
+        }
+        self.respond(Response::GetDrmDevices { devices: res });
+    }
+
+    fn handle_get_drm_device_model(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
+        let model = dev.model.clone().unwrap_or_default();
+        self.respond(Response::GetDrmDeviceModel { model });
+        Ok(())
+    }
+
+    fn handle_get_drm_device_pci_id(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
+        let pci_id = dev.pci_id.unwrap_or_default();
+        self.respond(Response::GetDrmDevicePciId { pci_id });
+        Ok(())
     }
 
     fn handle_reload(&self) {
@@ -354,6 +402,13 @@ impl ConfigProxyHandler {
         match data {
             Some(d) => Ok(d),
             _ => Err(CphError::OutputDoesNotExist(connector)),
+        }
+    }
+
+    fn get_drm_device(&self, dev: DrmDevice) -> Result<Rc<DrmDevData>, CphError> {
+        match self.state.drm_devs.get(&DrmDeviceId::from_raw(dev.0 as _)) {
+            Some(dev) => Ok(dev),
+            _ => Err(CphError::DrmDeviceDoesNotExist(dev)),
         }
     }
 
@@ -944,6 +999,22 @@ impl ConfigProxyHandler {
                 self.handle_get_fullscreen(seat).wrn("get_fullscreen")?
             }
             ClientMessage::Reload => self.handle_reload(),
+            ClientMessage::GetDeviceConnectors { device } => self
+                .handle_get_drm_device_connectors(device)
+                .wrn("get_device_connectors")?,
+            ClientMessage::GetDrmDeviceSyspath { device } => self
+                .handle_get_drm_device_syspath(device)
+                .wrn("get_drm_device_syspath")?,
+            ClientMessage::GetDrmDeviceVendor { device } => self
+                .handle_get_drm_device_vendor(device)
+                .wrn("get_drm_device_vendor")?,
+            ClientMessage::GetDrmDeviceModel { device } => self
+                .handle_get_drm_device_model(device)
+                .wrn("get_drm_device_model")?,
+            ClientMessage::GetDrmDevices => self.handle_get_drm_devices(),
+            ClientMessage::GetDrmDevicePciId { device } => self
+                .handle_get_drm_device_pci_id(device)
+                .wrn("get_drm_device_pci_id")?,
         }
         Ok(())
     }
@@ -985,6 +1056,8 @@ enum CphError {
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]
     SeatDoesNotExist(Seat),
+    #[error("DRM device {0:?} does not exist")]
+    DrmDeviceDoesNotExist(DrmDevice),
     #[error("Workspace {0:?} does not exist")]
     WorkspaceDoesNotExist(Workspace),
     #[error("Keyboard {0:?} does not exist")]

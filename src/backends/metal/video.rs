@@ -2,9 +2,10 @@ use {
     crate::{
         async_engine::{AsyncFd, Phase, SpawnedFuture},
         backend::{
-            BackendEvent, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, MonitorInfo,
+            BackendDrmDevice, BackendEvent, Connector, ConnectorEvent, ConnectorId,
+            ConnectorKernelId, DrmDeviceId, MonitorInfo,
         },
-        backends::metal::{DrmId, MetalBackend, MetalError},
+        backends::metal::{MetalBackend, MetalError},
         edid::Descriptor,
         format::{Format, XRGB8888},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
@@ -35,11 +36,11 @@ use {
         fmt::{Debug, Formatter},
         rc::Rc,
     },
-    uapi::c,
+    uapi::{c, c::dev_t},
 };
 
 pub struct PendingDrmDevice {
-    pub id: DrmId,
+    pub id: DrmDeviceId,
     pub devnum: c::dev_t,
     pub devnode: CString,
 }
@@ -51,7 +52,7 @@ pub struct MetalRenderContext {
 
 #[derive(Debug)]
 pub struct MetalDrmDeviceStatic {
-    pub id: DrmId,
+    pub id: DrmDeviceId,
     pub devnum: c::dev_t,
     pub devnode: CString,
     pub master: Rc<DrmMaster>,
@@ -65,6 +66,24 @@ pub struct MetalDrmDeviceStatic {
     pub gbm: GbmDevice,
     pub async_fd: AsyncFd,
     pub handle_events: HandleEvents,
+}
+
+impl BackendDrmDevice for MetalDrmDeviceStatic {
+    fn id(&self) -> DrmDeviceId {
+        self.id
+    }
+
+    fn event(&self) -> Option<crate::backend::DrmEvent> {
+        None
+    }
+
+    fn on_change(&self, _cb: Rc<dyn Fn()>) {
+        // nothing
+    }
+
+    fn dev_t(&self) -> dev_t {
+        self.devnum
+    }
 }
 
 pub struct HandleEvents {
@@ -248,6 +267,10 @@ impl Connector for MetalConnector {
         if self.can_present.get() {
             self.schedule_present();
         }
+    }
+
+    fn drm_dev(&self) -> Option<DrmDeviceId> {
+        Some(self.dev.id)
     }
 }
 
@@ -760,12 +783,16 @@ impl MetalBackend {
         let (connectors, futures) = get_connectors(&self, &dev, &resources.connectors)?;
 
         let slf = Rc::new(MetalDrmDevice {
-            dev,
+            dev: dev.clone(),
             connectors,
             futures,
         });
 
         self.init_drm_device(&slf)?;
+
+        self.state
+            .backend_events
+            .push(BackendEvent::NewDrmDevice(dev.clone()));
 
         for connector in slf.connectors.values() {
             self.state

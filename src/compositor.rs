@@ -157,6 +157,7 @@ fn start_compositor2(
         logger,
         connectors: Default::default(),
         outputs: Default::default(),
+        drm_devs: Default::default(),
         status: Default::default(),
         idle: IdleState {
             input: Default::default(),
@@ -180,6 +181,7 @@ fn start_compositor2(
         config_file_id: NumCell::new(1),
         tracker: Default::default(),
         data_offer_ids: Default::default(),
+        drm_dev_ids: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -350,6 +352,7 @@ fn create_dummy_output(state: &Rc<State>) {
                 handler: Cell::new(None),
                 connected: Cell::new(true),
                 name: "Dummy".to_string(),
+                drm_dev: None,
             }),
             0,
             &backend::Mode {

@@ -4,7 +4,7 @@ mod handler;
 use crate::it::test_config::TEST_CONFIG_ENTRY;
 use {
     crate::{
-        backend::{ConnectorId, InputDeviceId},
+        backend::{ConnectorId, DrmDeviceId, InputDeviceId},
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
@@ -19,7 +19,7 @@ use {
             ipc::{InitMessage, ServerMessage, V1InitMessage},
             ConfigEntry, VERSION,
         },
-        drm::Connector,
+        drm::{Connector, DrmDevice},
         input::{InputDevice, Seat},
         keyboard::ModifiedKeySym,
     },
@@ -67,6 +67,18 @@ impl ConfigProxy {
             seat: Seat(seat.raw() as _),
             mods: modsym.mods,
             sym: modsym.sym,
+        });
+    }
+
+    pub fn new_drm_dev(&self, dev: DrmDeviceId) {
+        self.send(&ServerMessage::NewDrmDev {
+            device: DrmDevice(dev.raw() as _),
+        });
+    }
+
+    pub fn del_drm_dev(&self, dev: DrmDeviceId) {
+        self.send(&ServerMessage::DelDrmDev {
+            device: DrmDevice(dev.raw() as _),
         });
     }
 

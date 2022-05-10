@@ -3,8 +3,9 @@ use {
         async_engine::SpawnedFuture,
         backend::{
             AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
-            ConnectorKernelId, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            ConnectorKernelId, DrmDeviceId, InputDevice, InputDeviceAccelProfile,
+            InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
+            ScrollAxis, TransformMatrix,
         },
         compositor::TestFuture,
         fixed::Fixed,
@@ -240,6 +241,10 @@ impl Connector for TestConnector {
 
     fn damage(&self) {
         // nothing
+    }
+
+    fn drm_dev(&self) -> Option<DrmDeviceId> {
+        None
     }
 }
 

@@ -11,10 +11,12 @@ use {
         fmt::{Debug, Display, Formatter},
         rc::Rc,
     },
+    uapi::c,
 };
 
 linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
+linear_ids!(DrmDeviceIds, DrmDeviceId);
 
 pub trait Backend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>>;
@@ -77,6 +79,7 @@ pub trait Connector {
     fn event(&self) -> Option<ConnectorEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn damage(&self);
+    fn drm_dev(&self) -> Option<DrmDeviceId>;
 }
 
 #[derive(Debug)]
@@ -121,6 +124,7 @@ pub enum InputDeviceAccelProfile {
 }
 
 pub enum BackendEvent {
+    NewDrmDevice(Rc<dyn BackendDrmDevice>),
     NewConnector(Rc<dyn Connector>),
     NewInputDevice(Rc<dyn InputDevice>),
 }
@@ -162,4 +166,16 @@ pub enum InputEvent {
     AxisStop(ScrollAxis),
     AxisDiscrete(i32, ScrollAxis),
     Frame,
+}
+
+pub enum DrmEvent {
+    #[allow(dead_code)]
+    Removed,
+}
+
+pub trait BackendDrmDevice {
+    fn id(&self) -> DrmDeviceId;
+    fn event(&self) -> Option<DrmEvent>;
+    fn on_change(&self, cb: Rc<dyn Fn()>);
+    fn dev_t(&self) -> c::dev_t;
 }

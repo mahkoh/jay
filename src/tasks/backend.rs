@@ -1,4 +1,5 @@
 use {
+    super::drmdev,
     crate::{
         backend::BackendEvent,
         state::State,
@@ -23,6 +24,7 @@ impl BackendEventHandler {
         match event {
             BackendEvent::NewConnector(connector) => connector::handle(&self.state, &connector),
             BackendEvent::NewInputDevice(s) => input_device::handle(&self.state, s),
+            BackendEvent::NewDrmDevice(d) => drmdev::handle(&self.state, d),
         }
     }
 }

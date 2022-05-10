@@ -3,8 +3,8 @@ use {
         acceptor::Acceptor,
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
-            Backend, BackendEvent, Connector, ConnectorId, ConnectorIds, InputDevice,
-            InputDeviceId, InputDeviceIds, MonitorInfo,
+            Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorId, ConnectorIds,
+            DrmDeviceId, DrmDeviceIds, InputDevice, InputDeviceId, InputDeviceIds, MonitorInfo,
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
@@ -43,7 +43,7 @@ use {
         xwayland::{self, XWaylandEvent},
     },
     ahash::AHashMap,
-    jay_config::Direction,
+    jay_config::{Direction, PciId},
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -71,6 +71,7 @@ pub struct State {
     pub clients: Clients,
     pub globals: Globals,
     pub connector_ids: ConnectorIds,
+    pub drm_dev_ids: DrmDeviceIds,
     pub seat_ids: SeatIds,
     pub idle_inhibitor_ids: IdleInhibitorIds,
     pub input_device_ids: InputDeviceIds,
@@ -95,6 +96,7 @@ pub struct State {
     pub logger: Option<Arc<Logger>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
+    pub drm_devs: CopyHashMap<DrmDeviceId, Rc<DrmDevData>>,
     pub status: CloneCell<Rc<String>>,
     pub idle: IdleState,
     pub run_args: RunArgs,
@@ -171,12 +173,23 @@ pub struct ConnectorData {
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connected: Cell<bool>,
     pub name: String,
+    pub drm_dev: Option<Rc<DrmDevData>>,
 }
 
 pub struct OutputData {
     pub connector: Rc<ConnectorData>,
     pub monitor_info: MonitorInfo,
     pub node: Rc<OutputNode>,
+}
+
+pub struct DrmDevData {
+    pub dev: Rc<dyn BackendDrmDevice>,
+    pub handler: Cell<Option<SpawnedFuture<()>>>,
+    pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
+    pub syspath: Option<String>,
+    pub vendor: Option<String>,
+    pub model: Option<String>,
+    pub pci_id: Option<PciId>,
 }
 
 impl State {
@@ -486,6 +499,9 @@ impl State {
         self.xwayland.handler.borrow_mut().take();
         self.xwayland.queue.clear();
         self.idle.inhibitors.clear();
+        for (_, drm_dev) in self.drm_devs.lock().drain() {
+            drm_dev.handler.take();
+        }
         for (_, connector) in self.connectors.lock().drain() {
             connector.handler.take();
         }

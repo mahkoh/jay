@@ -1,7 +1,11 @@
 use {
     crate::keyboard::{keymap::Keymap, ModifiedKeySym},
     bincode::{Decode, Encode},
-    std::{collections::HashMap, time::Duration},
+    std::{
+        collections::HashMap,
+        fmt::{Debug, Display, Formatter},
+        time::Duration,
+    },
 };
 
 #[macro_use]
@@ -128,4 +132,16 @@ pub fn reload() {
 
 pub fn is_reload() -> bool {
     get!(false).is_reload()
+}
+
+#[derive(Encode, Decode, Debug, Copy, Clone, Hash, Eq, PartialEq, Default)]
+pub struct PciId {
+    pub vendor: u32,
+    pub model: u32,
+}
+
+impl Display for PciId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:04x}:{:04x}", self.vendor, self.model)
+    }
 }

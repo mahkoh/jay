@@ -293,6 +293,7 @@ pub enum XWaylandEvent {
     Activate(Rc<XwindowData>),
     ActivateRoot,
     Close(Rc<XwindowData>),
+    #[allow(dead_code)]
     SeatChanged,
 
     PrimarySelectionCancelSource(Rc<ZwpPrimarySelectionSourceV1>),

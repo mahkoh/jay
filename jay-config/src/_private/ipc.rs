@@ -1,10 +1,10 @@
 use {
     crate::{
-        drm::{connector_type::ConnectorType, Connector},
+        drm::{connector_type::ConnectorType, Connector, DrmDevice},
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
         theme::Color,
-        Axis, Direction, LogLevel, Timer, Workspace,
+        Axis, Direction, LogLevel, PciId, Timer, Workspace,
     },
     bincode::{BorrowDecode, Decode, Encode},
     std::time::Duration,
@@ -46,6 +46,12 @@ pub enum ServerMessage {
         timer: Timer,
     },
     Clear,
+    NewDrmDev {
+        device: DrmDevice,
+    },
+    DelDrmDev {
+        device: DrmDevice,
+    },
 }
 
 #[derive(Encode, BorrowDecode, Debug)]
@@ -241,6 +247,22 @@ pub enum ClientMessage<'a> {
         seat: Seat,
     },
     Reload,
+    GetDeviceConnectors {
+        device: DrmDevice,
+    },
+    GetDrmDeviceSyspath {
+        device: DrmDevice,
+    },
+    GetDrmDeviceVendor {
+        device: DrmDevice,
+    },
+    GetDrmDeviceModel {
+        device: DrmDevice,
+    },
+    GetDrmDevices,
+    GetDrmDevicePciId {
+        device: DrmDevice,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -302,6 +324,24 @@ pub enum Response {
     },
     GetFullscreen {
         fullscreen: bool,
+    },
+    GetDeviceConnectors {
+        connectors: Vec<Connector>,
+    },
+    GetDrmDeviceSyspath {
+        syspath: String,
+    },
+    GetDrmDeviceVendor {
+        vendor: String,
+    },
+    GetDrmDeviceModel {
+        model: String,
+    },
+    GetDrmDevices {
+        devices: Vec<DrmDevice>,
+    },
+    GetDrmDevicePciId {
+        pci_id: PciId,
     },
 }
 

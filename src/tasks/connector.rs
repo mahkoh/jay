@@ -13,13 +13,24 @@ use {
 };
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
+    let mut drm_dev = None;
+    if let Some(dev_id) = connector.drm_dev() {
+        drm_dev = match state.drm_devs.get(&dev_id) {
+            Some(dev) => Some(dev),
+            _ => panic!("connector's drm device does not exist"),
+        };
+    }
     let id = connector.id();
     let data = Rc::new(ConnectorData {
         connector: connector.clone(),
         handler: Default::default(),
         connected: Cell::new(false),
         name: connector.kernel_id().to_string(),
+        drm_dev: drm_dev.clone(),
     });
+    if let Some(dev) = drm_dev {
+        dev.connectors.set(id, data.clone());
+    }
     let oh = ConnectorHandler {
         id,
         state: state.clone(),
@@ -150,5 +161,8 @@ impl ConnectorHandler {
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
+        if let Some(dev) = &self.data.drm_dev {
+            dev.connectors.remove(&self.id);
+        }
     }
 }

@@ -1,7 +1,8 @@
 use {
+    crate::utils::oserror::OsError,
     std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
     thiserror::Error,
-    uapi::{c, Errno, IntoUstr},
+    uapi::{c, ustr, Errno, IntoUstr, Ustr},
 };
 
 #[link(name = "udev")]
@@ -42,36 +43,52 @@ extern "C" {
 
     fn udev_device_new_from_syspath(udev: *mut udev, syspath: *const c::c_char)
         -> *mut udev_device;
+    fn udev_device_ref(udev_device: *mut udev_device) -> *mut udev_device;
     fn udev_device_unref(udev_device: *mut udev_device) -> *mut udev_device;
     fn udev_device_get_sysname(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_is_initialized(udev_device: *mut udev_device) -> c::c_int;
     fn udev_device_get_devnode(udev_device: *mut udev_device) -> *const c::c_char;
+    fn udev_device_get_syspath(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_devtype(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_devnum(udev_device: *mut udev_device) -> c::dev_t;
     fn udev_device_get_action(udev_device: *mut udev_device) -> *const c::c_char;
     fn udev_device_get_subsystem(udev_device: *mut udev_device) -> *const c::c_char;
+    fn udev_device_new_from_devnum(
+        udev: *mut udev,
+        ty: c::c_char,
+        devnum: c::dev_t,
+    ) -> *mut udev_device;
+    fn udev_device_get_parent(udev_device: *mut udev_device) -> *mut udev_device;
+    fn udev_device_get_property_value(
+        udev_device: *mut udev_device,
+        key: *const c::c_char,
+    ) -> *const c::c_char;
 }
 
 #[derive(Debug, Error)]
 pub enum UdevError {
     #[error("Could not create a new udev instance")]
-    New(#[source] crate::utils::oserror::OsError),
+    New(#[source] OsError),
     #[error("Could not create a new udev_monitor instance")]
-    NewMonitor(#[source] crate::utils::oserror::OsError),
+    NewMonitor(#[source] OsError),
     #[error("Could not create a new udev_enumerate instance")]
-    NewEnumerate(#[source] crate::utils::oserror::OsError),
+    NewEnumerate(#[source] OsError),
     #[error("Could not enable receiving on a udev_monitor")]
-    EnableReceiving(#[source] crate::utils::oserror::OsError),
+    EnableReceiving(#[source] OsError),
     #[error("Could not add a match rule to a udev_monitor")]
-    MonitorAddMatch(#[source] crate::utils::oserror::OsError),
+    MonitorAddMatch(#[source] OsError),
     #[error("Could not add a match rule to a udev_enumerate")]
-    EnumerateAddMatch(#[source] crate::utils::oserror::OsError),
+    EnumerateAddMatch(#[source] OsError),
     #[error("Could not list devices of a udev_enumerate")]
-    EnumerateGetListEntry(#[source] crate::utils::oserror::OsError),
+    EnumerateGetListEntry(#[source] OsError),
     #[error("Could not scan devices of a udev_enumerate")]
-    ScanDevices(#[source] crate::utils::oserror::OsError),
+    ScanDevices(#[source] OsError),
     #[error("Could not create a udev_device from a syspath")]
-    DeviceFromSyspath(#[source] crate::utils::oserror::OsError),
+    DeviceFromSyspath(#[source] OsError),
+    #[error("Could not create a udev_device from a devnum")]
+    DeviceFromDevnum(#[source] OsError),
+    #[error("Could not get the device parent")]
+    DeviceParent(#[source] OsError),
 }
 
 pub struct Udev {
@@ -94,8 +111,14 @@ pub struct UdevListEntry<'a> {
 }
 
 pub struct UdevDevice {
-    _udev: Rc<Udev>,
+    udev: Rc<Udev>,
     device: *mut udev_device,
+}
+
+pub enum UdevDeviceType {
+    Character,
+    #[allow(dead_code)]
+    Block,
 }
 
 impl Udev {
@@ -139,7 +162,26 @@ impl Udev {
             return Err(UdevError::DeviceFromSyspath(Errno::default().into()));
         }
         Ok(UdevDevice {
-            _udev: self.clone(),
+            udev: self.clone(),
+            device: res,
+        })
+    }
+
+    pub fn create_device_from_devnum<'a>(
+        self: &Rc<Self>,
+        ty: UdevDeviceType,
+        devnum: c::dev_t,
+    ) -> Result<UdevDevice, UdevError> {
+        let ty = match ty {
+            UdevDeviceType::Character => b'c',
+            UdevDeviceType::Block => b'b',
+        };
+        let res = unsafe { udev_device_new_from_devnum(self.udev, ty as _, devnum) };
+        if res.is_null() {
+            return Err(UdevError::DeviceFromDevnum(Errno::default().into()));
+        }
+        Ok(UdevDevice {
+            udev: self.clone(),
             device: res,
         })
     }
@@ -197,7 +239,7 @@ impl UdevMonitor {
             None
         } else {
             Some(UdevDevice {
-                _udev: self.udev.clone(),
+                udev: self.udev.clone(),
                 device: res,
             })
         }
@@ -297,6 +339,7 @@ macro_rules! strfn {
 
 impl UdevDevice {
     strfn!(sysname, udev_device_get_sysname);
+    strfn!(syspath, udev_device_get_syspath);
     strfn!(devnode, udev_device_get_devnode);
     strfn!(devtype, udev_device_get_devtype);
     strfn!(action, udev_device_get_action);
@@ -306,9 +349,44 @@ impl UdevDevice {
         unsafe { udev_device_get_devnum(self.device) }
     }
 
+    pub fn parent(&self) -> Result<UdevDevice, UdevError> {
+        let res = unsafe { udev_device_get_parent(self.device) };
+        if res.is_null() {
+            return Err(UdevError::DeviceParent(Errno::default().into()));
+        }
+        unsafe {
+            udev_device_ref(res);
+        }
+        Ok(UdevDevice {
+            udev: self.udev.clone(),
+            device: res,
+        })
+    }
+
     #[allow(dead_code)]
     pub fn is_initialized(&self) -> bool {
         unsafe { udev_device_get_is_initialized(self.device) != 0 }
+    }
+
+    fn get_property(&self, prop: &Ustr) -> Option<&CStr> {
+        let prop = unsafe { udev_device_get_property_value(self.device, prop.as_ptr()) };
+        if prop.is_null() {
+            None
+        } else {
+            unsafe { Some(CStr::from_ptr(prop)) }
+        }
+    }
+
+    pub fn vendor(&self) -> Option<&CStr> {
+        self.get_property(ustr!("ID_VENDOR_FROM_DATABASE"))
+    }
+
+    pub fn model(&self) -> Option<&CStr> {
+        self.get_property(ustr!("ID_MODEL_FROM_DATABASE"))
+    }
+
+    pub fn pci_id(&self) -> Option<&CStr> {
+        self.get_property(ustr!("PCI_ID"))
     }
 }
 
