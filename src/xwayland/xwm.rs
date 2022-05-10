@@ -657,7 +657,6 @@ impl Wm {
                 return;
             }
         };
-        log::info!("push {} = {}", mt, name);
         enhanced.mime_types.borrow_mut().push(mt);
     }
 
