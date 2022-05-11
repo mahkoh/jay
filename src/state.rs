@@ -24,6 +24,7 @@ use {
             },
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
+        io_uring::IoUring,
         leaks::Tracker,
         logger::Logger,
         rect::Rect,
@@ -108,6 +109,7 @@ pub struct State {
     pub config_file_id: NumCell<u64>,
     pub tracker: Tracker<Self>,
     pub data_offer_ids: NumCell<u64>,
+    pub io_uring: IoUring,
 }
 
 // impl Drop for State {

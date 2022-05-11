@@ -12,6 +12,7 @@ pub mod fdcloser;
 pub mod hex;
 pub mod linkedlist;
 pub mod log_on_drop;
+pub mod mmap;
 pub mod nonblock;
 pub mod num_cpus;
 pub mod numcell;

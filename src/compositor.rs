@@ -18,6 +18,7 @@ use {
         forker,
         globals::Globals,
         ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
+        io_uring::{IoUring, IoUringError},
         leaks,
         logger::Logger,
         render::{self, RenderError},
@@ -87,6 +88,8 @@ pub enum CompositorError {
     AsyncError(#[from] AsyncError),
     #[error("The render backend caused an error")]
     RenderError(#[from] RenderError),
+    #[error("Could not create an io-uring")]
+    IoUringError(#[from] IoUringError),
 }
 
 pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
@@ -117,6 +120,7 @@ fn start_compositor2(
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
     let wheel = Wheel::install(&el)?;
     let engine = AsyncEngine::install(&el, &wheel)?;
+    let io_uring = IoUring::new(&engine, 32)?;
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
@@ -182,6 +186,7 @@ fn start_compositor2(
         tracker: Default::default(),
         data_offer_ids: Default::default(),
         drm_dev_ids: Default::default(),
+        io_uring,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

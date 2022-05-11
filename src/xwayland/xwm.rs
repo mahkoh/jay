@@ -58,7 +58,10 @@ use {
     },
     ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
-    futures_util::{select, FutureExt},
+    futures_util::{
+        future::{self, Either},
+        pin_mut, select, FutureExt,
+    },
     smallvec::SmallVec,
     std::{
         borrow::Cow,
@@ -250,7 +253,7 @@ pub struct Wm {
 
 struct PendingTransfer {
     mime_type: u32,
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
 }
 
 const TEXT_PLAIN_UTF_8: &str = "text/plain;charset=utf-8";
@@ -649,7 +652,6 @@ impl Wm {
             }
             Some(r) => r,
         };
-        let name = mt.clone();
         let mt = match self.mime_type_to_atom(mt).await {
             Ok(mt) => mt,
             Err(e) => {
@@ -799,24 +801,6 @@ impl Wm {
             Ok(mt) => mt,
             Err(e) => {
                 log::error!("Could not intern mime type: {}", ErrorFmt(e));
-                return;
-            }
-        };
-        {
-            let res = OsError::tri(|| {
-                let fl = uapi::fcntl_getfl(fd.raw())?;
-                uapi::fcntl_setfl(fd.raw(), fl | c::O_NONBLOCK)?;
-                Ok(())
-            });
-            if let Err(e) = res {
-                log::error!("Could not set file description flags: {}", ErrorFmt(e));
-                return;
-            }
-        }
-        let fd = match self.state.eng.fd(&fd) {
-            Ok(afd) => afd,
-            Err(e) => {
-                log::error!("Could not create async fd: {}", ErrorFmt(e));
                 return;
             }
         };
@@ -1709,8 +1693,8 @@ impl Wm {
                 let transfer = XToWaylandTransfer {
                     id,
                     data: data.clone(),
-                    pos: 0,
                     fd: transfer.fd,
+                    state: self.state.clone(),
                     shared: self.shared.clone(),
                 };
                 self.shared
@@ -2394,24 +2378,38 @@ impl Wm {
 struct XToWaylandTransfer {
     id: u64,
     data: Rc<Vec<u8>>,
-    pos: usize,
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
+    state: Rc<State>,
     shared: Rc<XwmShared>,
 }
 
 impl XToWaylandTransfer {
-    async fn run(mut self) {
-        while self.pos < self.data.len() {
-            match uapi::write(self.fd.raw(), &self.data[self.pos..]) {
-                Ok(n) => self.pos += n,
-                Err(Errno(c::EAGAIN)) => {
-                    if let Err(e) = self.fd.writable().await {
-                        log::error!("Could not wait for fd to become writable: {}", ErrorFmt(e));
+    async fn run(self) {
+        let timeout = match self.state.eng.timeout(5000) {
+            Ok(to) => to,
+            Err(e) => {
+                log::error!("Could not create a timeout: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        pin_mut!(timeout);
+        let mut pos = 0;
+        while pos < self.data.len() {
+            let f1 = self
+                .state
+                .io_uring
+                .write(&self.fd, &self.data, pos, self.data.len() - pos);
+            pin_mut!(f1);
+            match future::select(f1, &mut timeout).await {
+                Either::Left((res, _)) => match res {
+                    Ok(n) => pos += n,
+                    Err(e) => {
+                        log::error!("Could not write to wayland client: {}", ErrorFmt(e));
                         break;
                     }
-                }
-                Err(e) => {
-                    log::error!("Could not write to wayland client: {}", ErrorFmt(e));
+                },
+                Either::Right(_) => {
+                    log::error!("Transfer timed out");
                     break;
                 }
             }

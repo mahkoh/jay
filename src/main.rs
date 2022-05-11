@@ -52,6 +52,7 @@ mod forker;
 mod format;
 mod globals;
 mod ifs;
+mod io_uring;
 #[cfg(feature = "it")]
 mod it;
 mod libinput;

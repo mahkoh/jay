@@ -25,6 +25,7 @@ impl Debug for AsyncEvent {
 
 impl AsyncEvent {
     pub fn clear(&self) {
+        self.triggers.set(0);
         self.waker.take();
     }
 
