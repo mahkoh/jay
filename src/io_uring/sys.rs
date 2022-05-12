@@ -2,6 +2,7 @@
 
 use {
     crate::utils::oserror::OsError,
+    std::mem::MaybeUninit,
     uapi::{c, OwnedFd},
 };
 
@@ -21,6 +22,12 @@ pub struct io_uring_sqe {
     pub personality: u16,
     pub u5: io_uring_sqe_union5,
     pub __pad2: [u64; 2],
+}
+
+impl Default for io_uring_sqe {
+    fn default() -> Self {
+        unsafe { MaybeUninit::zeroed().assume_init() }
+    }
 }
 
 #[repr(C)]

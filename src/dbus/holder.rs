@@ -2,6 +2,7 @@ use {
     crate::{
         async_engine::AsyncEngine,
         dbus::{auth::handle_auth, DbusError, DbusHolder, DbusSocket},
+        io_uring::IoUring,
         utils::{bufio::BufIo, errorfmt::ErrorFmt, numcell::NumCell, run_toplevel::RunToplevel},
         wire_dbus::org,
     },
@@ -13,6 +14,7 @@ impl DbusHolder {
     pub(super) fn get(
         self: &Rc<Self>,
         eng: &Rc<AsyncEngine>,
+        ring: &Rc<IoUring>,
         addr: &str,
         name: &'static str,
     ) -> Result<Rc<DbusSocket>, DbusError> {
@@ -23,7 +25,7 @@ impl DbusHolder {
                 return Ok(c);
             }
         }
-        let socket = connect(eng, addr, name, &self.run_toplevel)?;
+        let socket = connect(eng, ring, addr, name, &self.run_toplevel)?;
         self.socket.set(Some(socket.clone()));
         Ok(socket)
     }
@@ -31,6 +33,7 @@ impl DbusHolder {
 
 fn connect(
     eng: &Rc<AsyncEngine>,
+    ring: &Rc<IoUring>,
     addr: &str,
     name: &'static str,
     run_toplevel: &Rc<RunToplevel>,
@@ -50,11 +53,12 @@ fn connect(
     if let Err(e) = uapi::connect(socket.raw(), &sadr) {
         return Err(DbusError::Connect(e.into()));
     }
-    let fd = eng.fd(&Rc::new(socket))?;
+    let fd = Rc::new(socket);
     let socket = Rc::new(DbusSocket {
         bus_name: name,
         fd: fd.clone(),
-        bufio: Rc::new(BufIo::new(fd)),
+        ring: ring.clone(),
+        bufio: Rc::new(BufIo::new(&fd, ring)),
         eng: eng.clone(),
         next_serial: NumCell::new(1),
         unique_name: Default::default(),

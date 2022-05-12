@@ -109,7 +109,7 @@ pub struct State {
     pub config_file_id: NumCell<u64>,
     pub tracker: Tracker<Self>,
     pub data_offer_ids: NumCell<u64>,
-    pub io_uring: IoUring,
+    pub ring: Rc<IoUring>,
 }
 
 // impl Drop for State {

@@ -116,7 +116,7 @@ pub enum XBackendError {
 }
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
-    let c = match Xcon::connect(state.eng.clone()).await {
+    let c = match Xcon::connect(state).await {
         Ok(c) => c,
         Err(e) => return Err(XBackendError::CannotConnect(e)),
     };

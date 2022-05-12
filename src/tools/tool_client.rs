@@ -4,6 +4,7 @@ use {
         client::{EventFormatter, RequestParser},
         compositor::WAYLAND_DISPLAY,
         event_loop::{EventLoop, EventLoopError},
+        io_uring::{IoUring, IoUringError},
         logger::Logger,
         object::{ObjectId, WL_DISPLAY_ID},
         utils::{
@@ -49,6 +50,8 @@ pub enum ToolClientError {
     CreateWheel(#[source] WheelError),
     #[error("Could not create an async engine")]
     CreateEngine(#[source] AsyncError),
+    #[error("Could not create an io-uring")]
+    CreateRing(#[source] IoUringError),
     #[error("XDG_RUNTIME_DIR is not set")]
     XrdNotSet,
     #[error("WAYLAND_DISPLAY is not set")]
@@ -59,8 +62,6 @@ pub enum ToolClientError {
     SocketPathTooLong,
     #[error("Could not connect to the compositor")]
     Connect(#[source] OsError),
-    #[error("Could not create an async fd")]
-    AsyncFd(#[source] AsyncError),
     #[error("The message length is smaller than 8 bytes")]
     MsgLenTooSmall,
     #[error("The size of the message is not a multiple of 4")]
@@ -78,6 +79,7 @@ pub enum ToolClientError {
 pub struct ToolClient {
     pub logger: Arc<Logger>,
     pub el: Rc<EventLoop>,
+    pub ring: Rc<IoUring>,
     pub wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
     obj_ids: RefCell<Bitfield>,
@@ -131,7 +133,11 @@ impl ToolClient {
             Ok(e) => e,
             Err(e) => return Err(ToolClientError::CreateEngine(e)),
         };
-        let wheel = match Wheel::new(&eng) {
+        let ring = match IoUring::new(&eng, 32) {
+            Ok(e) => e,
+            Err(e) => return Err(ToolClientError::CreateRing(e)),
+        };
+        let wheel = match Wheel::new(&eng, &ring) {
             Ok(w) => w,
             Err(e) => return Err(ToolClientError::CreateWheel(e)),
         };
@@ -163,16 +169,13 @@ impl ToolClient {
         if let Err(e) = uapi::connect(socket.raw(), &addr) {
             return Err(ToolClientError::Connect(e.into()));
         }
-        let fd = match eng.fd(&socket) {
-            Ok(fd) => fd,
-            Err(e) => return Err(ToolClientError::AsyncFd(e)),
-        };
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);
         obj_ids.take(1);
         let slf = Rc::new(Self {
             logger,
             el,
+            ring,
             wheel,
             eng,
             obj_ids: RefCell::new(obj_ids),
@@ -197,7 +200,7 @@ impl ToolClient {
             slf.eng.spawn(
                 Incoming {
                     tc: slf.clone(),
-                    buf: BufFdIn::new(fd.clone()),
+                    buf: BufFdIn::new(&socket, &slf.ring),
                 }
                 .run(),
             ),
@@ -206,7 +209,7 @@ impl ToolClient {
             slf.eng.spawn(
                 Outgoing {
                     tc: slf.clone(),
-                    buf: BufFdOut::new(fd.clone(), &slf.wheel),
+                    buf: BufFdOut::new(&socket, &slf.ring, &slf.wheel),
                     buffers: Default::default(),
                 }
                 .run(),

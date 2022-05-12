@@ -51,17 +51,12 @@ impl TestRun {
         uapi::connect(socket.raw(), &self.server_addr)
             .to_os_error()
             .with_context(|| "Could not connect to the compositor")?;
-        let fd = self
-            .state
-            .eng
-            .fd(&socket)
-            .with_context(|| "Could not create an async fd")?;
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);
         obj_ids.take(1);
         let tran = Rc::new(TestTransport {
             run: self.clone(),
-            fd,
+            socket,
             client_id: Cell::new(ClientId::from_raw(0)),
             bufs: Default::default(),
             swapchain: Default::default(),

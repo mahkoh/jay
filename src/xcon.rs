@@ -5,8 +5,9 @@ pub use crate::xcon::{
 };
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture},
+        async_engine::{AsyncError, Phase, SpawnedFuture},
         compositor::DISPLAY,
+        state::State,
         utils::{
             bufio::{BufIo, BufIoError, BufIoMessage},
             clonecell::CloneCell,
@@ -385,7 +386,7 @@ impl Xcon {
         Ok(id)
     }
 
-    pub async fn connect(eng: Rc<AsyncEngine>) -> Result<Rc<Self>, XconError> {
+    pub async fn connect(state: &Rc<State>) -> Result<Rc<Self>, XconError> {
         let authority = match XAuthority::load() {
             Ok(a) => a,
             Err(e) => {
@@ -433,18 +434,17 @@ impl Xcon {
             }
             (&[], &[])
         };
-        Self::connect_to_fd(&eng, &fd, auth_method, auth_value).await
+        Self::connect_to_fd(state, &fd, auth_method, auth_value).await
     }
 
     pub async fn connect_to_fd(
-        eng: &Rc<AsyncEngine>,
+        state: &Rc<State>,
         fd: &Rc<OwnedFd>,
         auth_method: &[u8],
         auth_value: &[u8],
     ) -> Result<Rc<Self>, XconError> {
-        let fd = eng.fd(fd)?;
         let data = Rc::new(XconData {
-            bufio: Rc::new(BufIo::new(fd)),
+            bufio: Rc::new(BufIo::new(fd, &state.ring)),
             next_serial: NumCell::new(1),
             last_recv_serial: Cell::new(0),
             reply_handlers: Default::default(),
@@ -454,7 +454,9 @@ impl Xcon {
             xorg: CloneCell::new(Weak::new()),
             events: Default::default(),
         });
-        let outgoing = eng.spawn2(Phase::PostLayout, handle_outgoing(data.clone()));
+        let outgoing = state
+            .eng
+            .spawn2(Phase::PostLayout, handle_outgoing(data.clone()));
         let mut buf = data.bufio.buf();
         let mut fds = vec![];
         {
@@ -497,7 +499,7 @@ impl Xcon {
             return Err(XconError::Authenticate(reason.to_owned()));
         }
         let setup = Setup::deserialize(&mut parser)?;
-        let incoming = eng.spawn(handle_incoming(data.clone(), incoming));
+        let incoming = state.eng.spawn(handle_incoming(data.clone(), incoming));
         let slf = Rc::new(Self {
             extensions: data.fetch_extension_data().await?,
             outgoing: Cell::new(Some(outgoing)),

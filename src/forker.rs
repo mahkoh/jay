@@ -3,13 +3,14 @@ mod io;
 
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncFd, SpawnedFuture},
+        async_engine::{AsyncEngine, SpawnedFuture},
         compositor::{DISPLAY, WAYLAND_DISPLAY},
         event_loop::EventLoop,
         forker::{
             clone3::{fork_with_pidfd, Forked},
             io::{IoIn, IoOut},
         },
+        io_uring::IoUring,
         state::State,
         utils::{
             buffd::BufFdError, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
@@ -112,17 +113,13 @@ impl ForkerProxy {
 
     pub fn install(self: &Rc<Self>, state: &Rc<State>) {
         state.forker.set(Some(self.clone()));
-        let socket = state.eng.fd(&self.socket).unwrap();
         self.task_proc.set(Some(
             state.eng.spawn(self.clone().check_process(state.clone())),
         ));
         self.task_in
-            .set(Some(state.eng.spawn(self.clone().incoming(socket.clone()))));
-        self.task_out.set(Some(
-            state
-                .eng
-                .spawn(self.clone().outgoing(state.clone(), socket.clone())),
-        ));
+            .set(Some(state.eng.spawn(self.clone().incoming(state.clone()))));
+        self.task_out
+            .set(Some(state.eng.spawn(self.clone().outgoing(state.clone()))));
     }
 
     pub fn setenv(&self, key: &[u8], val: &[u8]) {
@@ -191,8 +188,8 @@ impl ForkerProxy {
         })
     }
 
-    async fn incoming(self: Rc<Self>, socket: AsyncFd) {
-        let mut io = IoIn::new(socket);
+    async fn incoming(self: Rc<Self>, state: Rc<State>) {
+        let mut io = IoIn::new(&self.socket, &state.ring);
         loop {
             let msg = match io.read_msg().await {
                 Ok(msg) => msg,
@@ -240,8 +237,8 @@ impl ForkerProxy {
         log::log!(level, "{}", msg);
     }
 
-    async fn outgoing(self: Rc<Self>, state: Rc<State>, socket: AsyncFd) {
-        let mut io = IoOut::new(socket, &state.wheel);
+    async fn outgoing(self: Rc<Self>, state: Rc<State>) {
+        let mut io = IoOut::new(&self.socket, &state.ring, &state.wheel);
         loop {
             let msg = self.outgoing.pop().await;
             for fd in self.fds.borrow_mut().drain(..) {
@@ -257,8 +254,7 @@ impl ForkerProxy {
     }
 
     async fn check_process(self: Rc<Self>, state: Rc<State>) {
-        let pidfd = state.eng.fd(&self.pidfd).unwrap();
-        if let Err(e) = pidfd.readable().await {
+        if let Err(e) = state.ring.readable(&self.pidfd).await {
             log::error!(
                 "Cannot wait for the forker pidfd to become readable: {}",
                 ErrorFmt(e)
@@ -303,8 +299,9 @@ enum ForkerMessage {
 }
 
 struct Forker {
-    socket: AsyncFd,
+    socket: Rc<OwnedFd>,
     ae: Rc<AsyncEngine>,
+    ring: Rc<IoUring>,
     wheel: Rc<Wheel>,
     fds: RefCell<Vec<Rc<OwnedFd>>>,
     outgoing: AsyncQueue<ForkerMessage>,
@@ -333,10 +330,12 @@ impl Forker {
         });
         let el = EventLoop::new().unwrap();
         let ae = AsyncEngine::install(&el).unwrap();
-        let wheel = Wheel::new(&ae).unwrap();
+        let ring = IoUring::new(&ae, 32).unwrap();
+        let wheel = Wheel::new(&ae, &ring).unwrap();
         let forker = Rc::new(Forker {
-            socket: ae.fd(&socket).unwrap(),
+            socket,
             ae: ae.clone(),
+            ring,
             wheel,
             fds: RefCell::new(vec![]),
             outgoing: Default::default(),
@@ -349,7 +348,7 @@ impl Forker {
     }
 
     async fn outgoing(self: Rc<Self>) {
-        let mut io = IoOut::new(self.socket.clone(), &self.wheel);
+        let mut io = IoOut::new(&self.socket, &self.ring, &self.wheel);
         loop {
             let msg = self.outgoing.pop().await;
             for fd in self.fds.borrow_mut().drain(..) {
@@ -360,7 +359,7 @@ impl Forker {
     }
 
     async fn incoming(self: Rc<Self>) {
-        let mut io = IoIn::new(self.socket.clone());
+        let mut io = IoIn::new(&self.socket, &self.ring);
         loop {
             let msg = io.read_msg().await.unwrap();
             self.handle_msg(msg, &mut io);
@@ -456,8 +455,8 @@ impl Forker {
                 drop(write);
                 let slf = self.clone();
                 let spawn = self.ae.spawn(async move {
-                    let read = slf.ae.fd(&Rc::new(read)).unwrap();
-                    if let Err(e) = read.readable().await {
+                    let read = Rc::new(read);
+                    if let Err(e) = slf.ring.readable(&read).await {
                         log::error!(
                             "Cannot wait for the child fd to become readable: {}",
                             ErrorFmt(e)

@@ -4,7 +4,7 @@ mod video;
 
 use {
     crate::{
-        async_engine::{AsyncError, AsyncFd, SpawnedFuture},
+        async_engine::SpawnedFuture,
         backend::{
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
             InputEvent, KeyState, TransformMatrix,
@@ -103,8 +103,6 @@ pub enum MetalError {
     CreateEncoder(#[source] DrmError),
     #[error(transparent)]
     DrmError(#[from] DrmError),
-    #[error("Could not create an async fd")]
-    CreateAsyncFd(#[source] AsyncError),
     #[error("Could not create device-paused signal handler")]
     DevicePauseSignalHandler(#[source] DbusError),
     #[error("Could not create device-resumed signal handler")]
@@ -115,9 +113,9 @@ pub struct MetalBackend {
     state: Rc<State>,
     udev: Rc<Udev>,
     monitor: Rc<UdevMonitor>,
-    monitor_fd: AsyncFd,
+    monitor_fd: Rc<OwnedFd>,
     libinput: Rc<LibInput>,
-    libinput_fd: AsyncFd,
+    libinput_fd: Rc<OwnedFd>,
     device_holder: Rc<DeviceHolder>,
     session: Session,
     pause_handler: Cell<Option<SignalHandler>>,
@@ -204,12 +202,9 @@ impl Backend for MetalBackend {
     }
 }
 
-fn dup_async_fd(state: &Rc<State>, fd: c::c_int) -> Result<AsyncFd, MetalError> {
+fn dup_fd(fd: c::c_int) -> Result<Rc<OwnedFd>, MetalError> {
     match uapi::fcntl_dupfd_cloexec(fd, 0) {
-        Ok(m) => match state.eng.fd(&Rc::new(m)) {
-            Ok(fd) => Ok(fd),
-            Err(e) => Err(MetalError::CreateAsyncFd(e)),
-        },
+        Ok(m) => Ok(Rc::new(m)),
         Err(e) => Err(MetalError::Dup(e.into())),
     }
 }
@@ -238,8 +233,8 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
     monitor.add_match_subsystem_devtype(Some("drm"), None)?;
     monitor.enable_receiving()?;
     let libinput = Rc::new(LibInput::new(device_holder.clone())?);
-    let monitor_fd = dup_async_fd(&state, monitor.fd())?;
-    let libinput_fd = dup_async_fd(&state, libinput.fd())?;
+    let monitor_fd = dup_fd(monitor.fd())?;
+    let libinput_fd = dup_fd(libinput.fd())?;
     let metal = Rc::new(MetalBackend {
         state: state.clone(),
         udev,

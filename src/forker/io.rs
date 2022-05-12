@@ -5,8 +5,8 @@ use {
 
 use {
     crate::{
-        async_engine::AsyncFd,
         forker::ForkerError,
+        io_uring::IoUring,
         utils::{
             buffd::{BufFdIn, BufFdOut},
             vec_ext::VecExt,
@@ -23,9 +23,9 @@ pub struct IoIn {
 }
 
 impl IoIn {
-    pub fn new(fd: AsyncFd) -> Self {
+    pub fn new(fd: &Rc<OwnedFd>, ring: &Rc<IoUring>) -> Self {
         Self {
-            incoming: BufFdIn::new(fd),
+            incoming: BufFdIn::new(fd, ring),
             scratch: vec![],
         }
     }
@@ -63,9 +63,9 @@ pub struct IoOut {
 }
 
 impl IoOut {
-    pub fn new(fd: AsyncFd, wheel: &Rc<Wheel>) -> Self {
+    pub fn new(fd: &Rc<OwnedFd>, ring: &Rc<IoUring>, wheel: &Rc<Wheel>) -> Self {
         Self {
-            outgoing: BufFdOut::new(fd, wheel),
+            outgoing: BufFdOut::new(fd, ring, wheel),
             scratch: vec![],
             fds: vec![],
         }

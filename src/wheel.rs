@@ -1,6 +1,7 @@
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncError, AsyncFd, SpawnedFuture},
+        async_engine::{AsyncEngine, AsyncError, SpawnedFuture},
+        io_uring::IoUring,
         time::{Time, TimeError},
         utils::{
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError,
@@ -18,7 +19,7 @@ use {
         time::Duration,
     },
     thiserror::Error,
-    uapi::c,
+    uapi::{c, OwnedFd},
 };
 
 #[derive(Debug, Error)]
@@ -99,7 +100,8 @@ impl Future for WheelTimeoutFuture {
 
 pub struct WheelData {
     destroyed: Cell<bool>,
-    fd: AsyncFd,
+    ring: Rc<IoUring>,
+    fd: Rc<OwnedFd>,
     next_id: NumCell<u64>,
     start: Time,
     current_expiration: Cell<Option<Time>>,
@@ -110,14 +112,14 @@ pub struct WheelData {
 }
 
 impl Wheel {
-    pub fn new(eng: &Rc<AsyncEngine>) -> Result<Rc<Self>, WheelError> {
+    pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, WheelError> {
         let fd = match uapi::timerfd_create(c::CLOCK_MONOTONIC, c::TFD_CLOEXEC | c::TFD_NONBLOCK) {
             Ok(fd) => Rc::new(fd),
             Err(e) => return Err(WheelError::CreateFailed(e.into())),
         };
-        let fd = eng.fd(&fd)?;
         let data = Rc::new(WheelData {
             destroyed: Cell::new(false),
+            ring: ring.clone(),
             fd,
             next_id: NumCell::new(1),
             start: Time::now()?,
@@ -207,7 +209,7 @@ impl WheelData {
 
     async fn dispatch(self: Rc<Self>) {
         loop {
-            if let Err(e) = self.fd.readable().await {
+            if let Err(e) = self.ring.readable(&self.fd).await {
                 log::error!(
                     "Could not wait for the timerfd to become readable: {}",
                     ErrorFmt(e)

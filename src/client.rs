@@ -1,7 +1,7 @@
 pub use error::{ClientError, MethodError, ObjectError};
 use {
     crate::{
-        async_engine::{AsyncFd, SpawnedFuture},
+        async_engine::SpawnedFuture,
         client::{error::LookupError, objects::Objects},
         ifs::{wl_display::WlDisplay, wl_registry::WlRegistry},
         leaks::Tracker,
@@ -130,7 +130,7 @@ impl Clients {
             id,
             state: global.clone(),
             checking_queue_size: Cell::new(false),
-            socket: global.eng.fd(&Rc::new(socket))?,
+            socket: Rc::new(socket),
             objects: Objects::new(),
             swapchain: Default::default(),
             flush_request: Default::default(),
@@ -236,7 +236,7 @@ pub struct Client {
     pub id: ClientId,
     pub state: Rc<State>,
     checking_queue_size: Cell<bool>,
-    socket: AsyncFd,
+    socket: Rc<OwnedFd>,
     pub objects: Objects,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,

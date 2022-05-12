@@ -1,6 +1,5 @@
 use {
     crate::{
-        async_engine::FdStatus,
         backend::BackendEvent,
         backends::metal::{
             video::{MetalDrmDevice, PendingDrmDevice},
@@ -8,7 +7,7 @@ use {
         },
         dbus::TRUE,
         udev::UdevDevice,
-        utils::{errorfmt::ErrorFmt, nonblock::set_nonblock},
+        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, nonblock::set_nonblock},
         video::drm::DrmMaster,
         wire_dbus::org::freedesktop::login1::session::{PauseDevice, ResumeDevice},
     },
@@ -33,7 +32,7 @@ fn is_primary_node(n: &[u8]) -> bool {
 impl MetalBackend {
     pub async fn monitor_devices(self: Rc<Self>) {
         loop {
-            match self.monitor_fd.readable().await {
+            match self.state.ring.readable(&self.monitor_fd).await {
                 Err(e) => {
                     log::error!(
                         "Cannot wait for udev_monitor to become readable: {}",
@@ -41,7 +40,7 @@ impl MetalBackend {
                     );
                     break;
                 }
-                Ok(FdStatus::Err) => {
+                Ok(n) if n.intersects(c::POLLERR | c::POLLHUP) => {
                     log::error!("udev_monitor fd is in an error state");
                     break;
                 }

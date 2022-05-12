@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncFd, Phase, SpawnedFuture},
+        async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendDrmDevice, BackendEvent, Connector, ConnectorEvent, ConnectorId,
             ConnectorKernelId, DrmDeviceId, MonitorInfo,
@@ -64,7 +64,6 @@ pub struct MetalDrmDeviceStatic {
     pub min_height: u32,
     pub max_height: u32,
     pub gbm: GbmDevice,
-    pub async_fd: AsyncFd,
     pub handle_events: HandleEvents,
 }
 
@@ -749,10 +748,6 @@ impl MetalBackend {
             Ok(g) => g,
             Err(e) => return Err(MetalError::GbmDevice(e)),
         };
-        let async_fd = match self.state.eng.fd(master.fd()) {
-            Ok(f) => f,
-            Err(e) => return Err(MetalError::CreateAsyncFd(e)),
-        };
 
         let dev = Rc::new(MetalDrmDeviceStatic {
             id: pending.id,
@@ -767,7 +762,6 @@ impl MetalBackend {
             min_height: resources.min_height,
             max_height: resources.max_height,
             gbm,
-            async_fd,
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
             },
@@ -883,7 +877,7 @@ impl MetalBackend {
 
     async fn handle_drm_events(self: Rc<Self>, dev: Rc<MetalDrmDevice>) {
         loop {
-            if let Err(e) = dev.dev.async_fd.readable().await {
+            if let Err(e) = self.state.ring.readable(dev.dev.master.fd()).await {
                 log::error!("Could not register the DRM fd for reading: {}", ErrorFmt(e));
                 break;
             }

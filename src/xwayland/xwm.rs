@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncFd, SpawnedFuture},
+        async_engine::SpawnedFuture,
         client::Client,
         ifs::{
             ipc::{
@@ -18,6 +18,7 @@ use {
                 WlSurface,
             },
         },
+        io_uring::{IoUring, TaskResultExt},
         rect::Rect,
         state::State,
         tree::ToplevelNode,
@@ -282,7 +283,7 @@ impl Wm {
         socket: OwnedFd,
         shared: &Rc<XwmShared>,
     ) -> Result<Self, XWaylandError> {
-        let c = match Xcon::connect_to_fd(&state.eng, &Rc::new(socket), &[], &[]).await {
+        let c = match Xcon::connect_to_fd(&state, &Rc::new(socket), &[], &[]).await {
             Ok(c) => c,
             Err(e) => return Err(XWaylandError::Connect(e)),
         };
@@ -1576,19 +1577,13 @@ impl Wm {
                         log::error!("Could not make pipe nonblocking: {}", e);
                         break 'convert;
                     }
-                    let fd = match self.state.eng.fd(&Rc::new(rx)) {
-                        Ok(afd) => afd,
-                        Err(e) => {
-                            log::error!("Could not create an async fd: {}", ErrorFmt(e));
-                            break 'convert;
-                        }
-                    };
                     success = None;
                     receive_data_offer::<T>(&offer.offer, &mt, Rc::new(tx));
                     let id = self.transfer_ids.fetch_add(1);
                     let wtx = WaylandToXTransfer {
                         id,
-                        fd,
+                        fd: Rc::new(rx),
+                        ring: self.state.ring.clone(),
                         c: self.c.clone(),
                         window: event.requestor,
                         time: event.time,
@@ -2391,11 +2386,11 @@ impl XToWaylandTransfer {
         while pos < self.data.len() {
             let f1 = self
                 .state
-                .io_uring
+                .ring
                 .write(&self.fd, &self.data, pos, self.data.len() - pos);
             pin_mut!(f1);
             match future::select(f1, &mut timeout).await {
-                Either::Left((res, _)) => match res {
+                Either::Left((res, _)) => match res.merge() {
                     Ok(n) => pos += n,
                     Err(e) => {
                         log::error!("Could not write to wayland client: {}", ErrorFmt(e));
@@ -2414,7 +2409,8 @@ impl XToWaylandTransfer {
 
 struct WaylandToXTransfer {
     id: u64,
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
+    ring: Rc<IoUring>,
     c: Rc<Xcon>,
     window: u32,
     time: u32,
@@ -2449,7 +2445,7 @@ impl WaylandToXTransfer {
                     }
                 }
                 Err(Errno(c::EAGAIN)) => {
-                    if let Err(e) = self.fd.readable().await {
+                    if let Err(e) = self.ring.readable(&self.fd).await {
                         log::error!("Could not wait for fd to become readable: {}", ErrorFmt(e));
                         break;
                     }

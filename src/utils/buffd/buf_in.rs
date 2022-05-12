@@ -1,14 +1,15 @@
 use {
     crate::{
-        async_engine::AsyncFd,
+        io_uring::IoUring,
         utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE, MAX_IN_FD},
     },
-    std::{collections::VecDeque, mem::MaybeUninit},
+    std::{collections::VecDeque, mem::MaybeUninit, rc::Rc},
     uapi::{c, Errno, OwnedFd, Pod},
 };
 
 pub struct BufFdIn {
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
+    ring: Rc<IoUring>,
 
     in_fd: VecDeque<OwnedFd>,
 
@@ -19,9 +20,10 @@ pub struct BufFdIn {
 }
 
 impl BufFdIn {
-    pub fn new(fd: AsyncFd) -> Self {
+    pub fn new(fd: &Rc<OwnedFd>, ring: &Rc<IoUring>) -> Self {
         Self {
-            fd,
+            fd: fd.clone(),
+            ring: ring.clone(),
             in_fd: Default::default(),
             in_buf: Box::new([MaybeUninit::uninit(); BUF_SIZE]),
             in_cmsg_buf: Box::new([MaybeUninit::uninit(); CMSG_BUF_SIZE]),
@@ -35,7 +37,7 @@ impl BufFdIn {
         let mut offset = 0;
         while offset < bytes.len() {
             if self.read_full_(bytes, &mut offset)? {
-                self.fd.readable().await?;
+                self.ring.readable(&self.fd).await?;
             }
         }
         Ok(())

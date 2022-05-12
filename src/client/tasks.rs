@@ -37,7 +37,7 @@ pub async fn client(data: Rc<Client>) {
 async fn receive(data: Rc<Client>) {
     let display = data.display().unwrap();
     let recv = async {
-        let mut buf = BufFdIn::new(data.socket.clone());
+        let mut buf = BufFdIn::new(&data.socket, &data.state.ring);
         let mut data_buf = Vec::<u32>::new();
         loop {
             let mut hdr = [0u32, 0];
@@ -100,7 +100,7 @@ async fn receive(data: Rc<Client>) {
 
 async fn send(data: Rc<Client>) {
     let send = async {
-        let mut out = BufFdOut::new(data.socket.clone(), &data.state.wheel);
+        let mut out = BufFdOut::new(&data.socket, &data.state.ring, &data.state.wheel);
         let mut buffers = VecDeque::new();
         loop {
             data.flush_request.triggered().await;

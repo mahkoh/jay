@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, AsyncError, AsyncFd, FdStatus, Phase, SpawnedFuture},
         io_uring::{
-            ops::{async_cancel::AsyncCancelTask, write::WriteTask},
+            ops::{async_cancel::AsyncCancelTask, poll::PollTask, write::WriteTask},
             pending_result::PendingResults,
             sys::{
                 io_uring_cqe, io_uring_enter, io_uring_params, io_uring_setup, io_uring_sqe,
@@ -46,6 +46,7 @@ macro_rules! map_err {
         }
     }};
 }
+pub use ops::TaskResultExt;
 
 mod ops;
 mod pending_result;
@@ -82,7 +83,7 @@ impl Drop for IoUring {
 }
 
 impl IoUring {
-    pub fn new(eng: &Rc<AsyncEngine>, entries: u32) -> Result<Self, IoUringError> {
+    pub fn new(eng: &Rc<AsyncEngine>, entries: u32) -> Result<Rc<Self>, IoUringError> {
         let mut params = io_uring_params::default();
         let fd = match io_uring_setup(entries, &mut params) {
             Ok(f) => Rc::new(f),
@@ -196,6 +197,7 @@ impl IoUring {
             pending_results: Default::default(),
             cached_writes: Default::default(),
             cached_cancels: Default::default(),
+            cached_polls: Default::default(),
             reader: Cell::new(None),
             submitter: Cell::new(None),
         });
@@ -203,7 +205,7 @@ impl IoUring {
         let reader = eng.spawn(data.clone().reader());
         data.reader.set(Some(reader));
         data.submitter.set(Some(submitter));
-        Ok(Self { ring: data })
+        Ok(Rc::new(Self { ring: data }))
     }
 }
 
@@ -237,6 +239,7 @@ struct IoUringData {
     pending_results: PendingResults,
     cached_writes: Stack<Box<WriteTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
+    cached_polls: Stack<Box<PollTask>>,
 
     reader: Cell<Option<SpawnedFuture<()>>>,
     submitter: Cell<Option<SpawnedFuture<()>>>,
@@ -313,6 +316,7 @@ impl IoUringData {
                 let idx = (tail & self.sqmask) as usize;
                 let mut sqe = self.sqesmap.deref()[idx].get().deref_mut();
                 self.sqmap.deref()[idx].set(idx as _);
+                *sqe = Default::default();
                 sqe.user_data = id;
                 task.encode(sqe);
                 tail = tail.wrapping_add(1);

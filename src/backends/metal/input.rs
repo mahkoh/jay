@@ -1,6 +1,5 @@
 use {
     crate::{
-        async_engine::FdStatus,
         backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
         fixed::Fixed,
@@ -12,9 +11,10 @@ use {
             },
             event::LibInputEvent,
         },
-        utils::errorfmt::ErrorFmt,
+        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt},
     },
     std::rc::Rc,
+    uapi::c,
 };
 
 macro_rules! unpack {
@@ -49,7 +49,7 @@ macro_rules! unpack {
 impl MetalBackend {
     pub async fn handle_libinput_events(self: Rc<Self>) {
         loop {
-            match self.libinput_fd.readable().await {
+            match self.state.ring.readable(&self.libinput_fd).await {
                 Err(e) => {
                     log::error!(
                         "Cannot wait for libinput fd to become readable: {}",
@@ -57,7 +57,7 @@ impl MetalBackend {
                     );
                     break;
                 }
-                Ok(FdStatus::Err) => {
+                Ok(n) if n.intersects(c::POLLERR | c::POLLHUP) => {
                     log::error!("libinput fd fd is in an error state");
                     break;
                 }

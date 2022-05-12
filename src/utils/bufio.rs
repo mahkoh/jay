@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncError, AsyncFd},
+        io_uring::{IoUring, IoUringError},
         utils::{
             oserror::OsError,
             queue::AsyncQueue,
@@ -26,9 +26,9 @@ pub enum BufIoError {
     #[error("Could not read from the socket")]
     ReadError(#[source] OsError),
     #[error("Cannot wait for fd to become writable")]
-    Writable(#[source] AsyncError),
+    Writable(#[source] IoUringError),
     #[error("Cannot wait for fd to become readable")]
-    Readable(#[source] AsyncError),
+    Readable(#[source] IoUringError),
     #[error("The socket is closed")]
     Closed,
 }
@@ -44,7 +44,8 @@ struct MessageOffset {
 }
 
 pub struct BufIo {
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
+    ring: Rc<IoUring>,
     bufs: Stack<Vec<u8>>,
     outgoing: AsyncQueue<BufIoMessage>,
 }
@@ -69,9 +70,10 @@ struct Outgoing {
 }
 
 impl BufIo {
-    pub fn new(fd: AsyncFd) -> Self {
+    pub fn new(fd: &Rc<OwnedFd>, ring: &Rc<IoUring>) -> Self {
         Self {
-            fd,
+            fd: fd.clone(),
+            ring: ring.clone(),
             bufs: Default::default(),
             outgoing: Default::default(),
         }
@@ -130,7 +132,7 @@ impl BufIoIncoming {
                     if e.0 != c::EAGAIN {
                         return Err(BufIoError::ReadError(e.into()));
                     }
-                    if let Err(e) = self.bufio.fd.readable().await {
+                    if let Err(e) = self.bufio.ring.readable(&self.bufio.fd).await {
                         return Err(BufIoError::Readable(e));
                     }
                 }
@@ -184,7 +186,7 @@ impl Outgoing {
                 if e != Errno(c::EAGAIN) {
                     return Err(BufIoError::FlushError(e.into()));
                 }
-                if let Err(e) = self.bufio.fd.writable().await {
+                if let Err(e) = self.bufio.ring.writable(&self.bufio.fd).await {
                     return Err(BufIoError::Writable(e));
                 }
             }

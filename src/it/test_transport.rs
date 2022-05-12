@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncFd, SpawnedFuture},
+        async_engine::SpawnedFuture,
         client::{Client, ClientId, EventFormatter},
         it::{
             test_error::{StdError, TestError},
@@ -28,11 +28,12 @@ use {
         rc::Rc,
         task::Poll,
     },
+    uapi::OwnedFd,
 };
 
 pub struct TestTransport {
     pub run: Rc<TestRun>,
-    pub fd: AsyncFd,
+    pub socket: Rc<OwnedFd>,
     pub client_id: Cell<ClientId>,
     pub bufs: Stack<Vec<u32>>,
     pub swapchain: Rc<RefCell<OutBufferSwapchain>>,
@@ -132,7 +133,7 @@ impl TestTransport {
             self.run.state.eng.spawn(
                 Incoming {
                     tc: self.clone(),
-                    buf: BufFdIn::new(self.fd.clone()),
+                    buf: BufFdIn::new(&self.socket, &self.run.state.ring),
                 }
                 .run(),
             ),
@@ -141,7 +142,7 @@ impl TestTransport {
             self.run.state.eng.spawn(
                 Outgoing {
                     tc: self.clone(),
-                    buf: BufFdOut::new(self.fd.clone(), &self.run.state.wheel),
+                    buf: BufFdOut::new(&self.socket, &self.run.state.ring, &self.run.state.wheel),
                     buffers: Default::default(),
                 }
                 .run(),

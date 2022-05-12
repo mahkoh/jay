@@ -3,7 +3,6 @@ mod xwm;
 
 use {
     crate::{
-        async_engine::AsyncError,
         client::ClientError,
         compositor::DISPLAY,
         forker::{ForkerError, ForkerProxy},
@@ -19,6 +18,7 @@ use {
                 WlSurface,
             },
         },
+        io_uring::IoUringError,
         state::State,
         user_session::import_environment,
         utils::{errorfmt::ErrorFmt, oserror::OsError, tri::Try},
@@ -59,8 +59,8 @@ enum XWaylandError {
     BindFailed(#[source] OsError),
     #[error("All X displays in the range 0..1000 are already in use")]
     AddressesInUse,
-    #[error("The async engine returned an error")]
-    AsyncError(#[from] AsyncError),
+    #[error("The io-uring returned an error")]
+    RingError(#[from] IoUringError),
     #[error("pipe(2) failed")]
     Pipe(#[source] OsError),
     #[error("socketpair(2) failed")]
@@ -120,12 +120,7 @@ pub async fn manage(state: Rc<State>) {
         if state.backend.get().import_environment() {
             import_environment(&state, DISPLAY, &display);
         }
-        let res = XWaylandError::tria(async {
-            state.eng.fd(&socket)?.readable().await?;
-            Ok(())
-        })
-        .await;
-        if let Err(e) = res {
+        if let Err(e) = state.ring.readable(&socket).await {
             log::error!("{}", ErrorFmt(e));
             return;
         }
@@ -192,7 +187,7 @@ async fn run(
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),
     };
-    state.eng.fd(&Rc::new(dfdread))?.readable().await?;
+    state.ring.readable(&Rc::new(dfdread)).await?;
     state.xwayland.queue.clear();
     {
         let shared = Rc::new(XwmShared::default());
@@ -201,7 +196,7 @@ async fn run(
             Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
         };
         let _wm = state.eng.spawn(wm.run());
-        state.eng.fd(&Rc::new(pidfd))?.readable().await?;
+        state.ring.readable(&Rc::new(pidfd)).await?;
     }
     state.xwayland.queue.clear();
     stderr_read.await;
@@ -226,6 +221,7 @@ pub fn build_args(fds: &[OwnedFd]) -> (String, Vec<String>) {
 }
 
 async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
+    let stderr = Rc::new(stderr);
     let res = Errno::tri(|| {
         uapi::fcntl_setfl(
             stderr.raw(),
@@ -237,21 +233,11 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
         log::error!("Could not set stderr fd to nonblock: {}", ErrorFmt(e));
         return;
     }
-    let afd = match state.eng.fd(&Rc::new(stderr)) {
-        Ok(f) => f,
-        Err(e) => {
-            log::error!(
-                "Could not turn the stderr fd into an async fd: {}",
-                ErrorFmt(e)
-            );
-            return;
-        }
-    };
     let mut buf = vec![];
     let mut buf2 = [0; 128];
     let mut done = false;
     while !done {
-        if let Err(e) = afd.readable().await {
+        if let Err(e) = state.ring.readable(&stderr).await {
             log::error!(
                 "Cannot wait for the xwayland stderr to become readable: {}",
                 ErrorFmt(e)
@@ -259,7 +245,7 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
             return;
         }
         loop {
-            match uapi::read(afd.raw(), &mut buf2[..]) {
+            match uapi::read(stderr.raw(), &mut buf2[..]) {
                 Ok(buf2) if buf2.len() > 0 => {
                     buf.extend_from_slice(buf2);
                 }

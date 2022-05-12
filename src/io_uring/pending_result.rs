@@ -1,8 +1,5 @@
 use {
-    crate::{
-        io_uring::IoUringError,
-        utils::{numcell::NumCell, oserror::OsError, ptr_ext::PtrExt, stack::Stack},
-    },
+    crate::utils::{numcell::NumCell, oserror::OsError, ptr_ext::PtrExt, stack::Stack},
     std::{
         cell::Cell,
         future::Future,
@@ -104,13 +101,13 @@ impl Clone for PendingResult {
 }
 
 impl Future for PendingResult {
-    type Output = Result<i32, IoUringError>;
+    type Output = Result<i32, OsError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let pr = unsafe { self.pr.deref() };
         if let Some(res) = pr.res.take() {
             let res = if res < 0 {
-                Err(IoUringError::OsError(OsError::from(-res as c::c_int)))
+                Err(OsError::from(-res as c::c_int))
             } else {
                 Ok(res)
             };

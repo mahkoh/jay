@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::AsyncFd,
+        io_uring::IoUring,
         utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE},
         wheel::{Wheel, WheelTimeoutFuture},
     },
@@ -79,16 +79,18 @@ impl OutBufferSwapchain {
 }
 
 pub struct BufFdOut {
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
+    ring: Rc<IoUring>,
     wheel: Rc<Wheel>,
     cmsg_buf: Box<[MaybeUninit<u8>; CMSG_BUF_SIZE]>,
     fd_ids: Vec<i32>,
 }
 
 impl BufFdOut {
-    pub fn new(fd: AsyncFd, wheel: &Rc<Wheel>) -> Self {
+    pub fn new(fd: &Rc<OwnedFd>, ring: &Rc<IoUring>, wheel: &Rc<Wheel>) -> Self {
         Self {
-            fd,
+            fd: fd.clone(),
+            ring: ring.clone(),
             wheel: wheel.clone(),
             cmsg_buf: Box::new([MaybeUninit::uninit(); CMSG_BUF_SIZE]),
             fd_ids: vec![],
@@ -109,7 +111,7 @@ impl BufFdOut {
                     _ = timeout.as_mut().unwrap() => {
                         return Err(BufFdError::Timeout);
                     },
-                    res = self.fd.writable().fuse() => {
+                    res = self.ring.writable(&self.fd).fuse() => {
                         res?;
                     },
                 }
@@ -123,7 +125,7 @@ impl BufFdOut {
     pub async fn flush_no_timeout(&mut self, buf: &mut OutBuffer) -> Result<(), BufFdError> {
         while buf.read_pos < buf.write_pos {
             if self.flush_sync(buf)? {
-                self.fd.writable().await?;
+                let _ = self.ring.writable(&self.fd).await?;
             }
         }
         buf.read_pos = 0;
@@ -186,7 +188,7 @@ impl BufFdOut {
         let mut read_pos = 0;
         while read_pos < buf.len() {
             if self.flush_sync2(&mut read_pos, buf, fds)? {
-                self.fd.writable().await?;
+                self.ring.writable(&self.fd).await?;
             }
         }
         Ok(())

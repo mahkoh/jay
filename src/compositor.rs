@@ -119,8 +119,8 @@ fn start_compositor2(
     let xkb_ctx = XkbContext::new().unwrap();
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
     let engine = AsyncEngine::install(&el)?;
-    let wheel = Wheel::new(&engine)?;
-    let io_uring = IoUring::new(&engine, 32)?;
+    let ring = IoUring::new(&engine, 32)?;
+    let wheel = Wheel::new(&engine, &ring)?;
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
     let state = Rc::new(State {
@@ -156,7 +156,7 @@ fn start_compositor2(
         pending_container_render_data: Default::default(),
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
-        dbus: Dbus::new(&engine, &run_toplevel),
+        dbus: Dbus::new(&engine, &ring, &run_toplevel),
         fdcloser: FdCloser::new(),
         logger,
         connectors: Default::default(),
@@ -186,7 +186,7 @@ fn start_compositor2(
         tracker: Default::default(),
         data_offer_ids: Default::default(),
         drm_dev_ids: Default::default(),
-        io_uring,
+        ring,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

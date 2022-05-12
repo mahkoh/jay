@@ -1,8 +1,9 @@
 use {
     crate::io_uring::{
+        ops::TaskResult,
         pending_result::PendingResult,
         sys::{io_uring_sqe, IORING_OP_WRITE},
-        IoUring, IoUringData, IoUringError, Task,
+        IoUring, IoUringData, Task,
     },
     std::{
         cell::{Cell, RefCell},
@@ -19,7 +20,7 @@ impl IoUring {
         buf: &Rc<Vec<u8>>,
         offset: usize,
         n: usize,
-    ) -> Result<usize, IoUringError> {
+    ) -> TaskResult<usize> {
         self.ring.check_destroyed()?;
         let id = self.ring.id();
         let pr = self.ring.pending_results.acquire();
@@ -39,7 +40,7 @@ impl IoUring {
             });
             self.ring.schedule(pw);
         }
-        Ok(pr.await? as usize)
+        Ok(pr.await.map(|v| v as usize))
     }
 }
 

@@ -1,16 +1,18 @@
 pub use types::*;
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncError, AsyncFd, SpawnedFuture},
+        async_engine::{AsyncEngine, SpawnedFuture},
         dbus::{
             property::GetReply,
             types::{ObjectPath, Signature, Variant},
         },
+        io_uring::{IoUring, IoUringError},
         utils::{
             bufio::{BufIo, BufIoError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             numcell::NumCell,
+            oserror::OsError,
             run_toplevel::RunToplevel,
             vecstorage::VecStorage,
             xrd::{xrd, XRD},
@@ -78,15 +80,15 @@ pub enum DbusError {
     #[error("Variant has an invalid type")]
     InvalidVariantType,
     #[error("Could not create a socket")]
-    Socket(#[source] crate::utils::oserror::OsError),
+    Socket(#[source] OsError),
     #[error("Could not connect")]
-    Connect(#[source] crate::utils::oserror::OsError),
+    Connect(#[source] OsError),
     #[error("Could not write to the dbus socket")]
-    WriteError(#[source] crate::utils::oserror::OsError),
+    WriteError(#[source] OsError),
     #[error("Could not read from the dbus socket")]
-    ReadError(#[source] crate::utils::oserror::OsError),
+    ReadError(#[source] OsError),
     #[error("timeout")]
-    AsyncError(#[source] Box<AsyncError>),
+    IoUringError(#[source] Box<IoUringError>),
     #[error("Server did not accept our authentication")]
     Auth,
     #[error("Array length is not a multiple of the element size")]
@@ -126,17 +128,18 @@ pub enum DbusError {
     #[error(transparent)]
     DbusError(Rc<DbusError>),
 }
-efrom!(DbusError, AsyncError);
+efrom!(DbusError, IoUringError);
 
 pub struct Dbus {
     eng: Rc<AsyncEngine>,
+    ring: Rc<IoUring>,
     system: Rc<DbusHolder>,
     session: Rc<DbusHolder>,
     user_path: Option<String>,
 }
 
 impl Dbus {
-    pub fn new(eng: &Rc<AsyncEngine>, run_toplevel: &Rc<RunToplevel>) -> Self {
+    pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>, run_toplevel: &Rc<RunToplevel>) -> Self {
         let user_path = match xrd() {
             Some(path) => Some(format!("{}/bus", path)),
             _ => {
@@ -147,6 +150,7 @@ impl Dbus {
         log::info!("dbus path = {:?}", user_path);
         Self {
             eng: eng.clone(),
+            ring: ring.clone(),
             system: Rc::new(DbusHolder::new(run_toplevel)),
             session: Rc::new(DbusHolder::new(run_toplevel)),
             user_path,
@@ -159,8 +163,12 @@ impl Dbus {
     }
 
     pub fn system(&self) -> Result<Rc<DbusSocket>, DbusError> {
-        self.system
-            .get(&self.eng, "/var/run/dbus/system_bus_socket", "System bus")
+        self.system.get(
+            &self.eng,
+            &self.ring,
+            "/var/run/dbus/system_bus_socket",
+            "System bus",
+        )
     }
 
     pub fn session(&self) -> Result<Rc<DbusSocket>, DbusError> {
@@ -168,7 +176,7 @@ impl Dbus {
             None => return Err(DbusError::SessionBusAddressNotSet),
             Some(sba) => sba,
         };
-        self.session.get(&self.eng, sba, "Session bus")
+        self.session.get(&self.eng, &self.ring, sba, "Session bus")
     }
 }
 
@@ -186,7 +194,8 @@ unsafe trait ReplyHandler {
 
 pub struct DbusSocket {
     bus_name: &'static str,
-    fd: AsyncFd,
+    fd: Rc<OwnedFd>,
+    ring: Rc<IoUring>,
     bufio: Rc<BufIo>,
     eng: Rc<AsyncEngine>,
     next_serial: NumCell<u32>,
