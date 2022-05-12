@@ -434,6 +434,7 @@ impl State {
         for output in outputs.values() {
             output.set_status(&status);
         }
+        self.damage();
     }
 
     pub fn input_occurred(&self) {
