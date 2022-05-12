@@ -190,7 +190,7 @@ fn start_compositor2(
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
-    let acceptor = Acceptor::install(&state)?;
+    let (acceptor, acceptor_future) = Acceptor::install(&state)?;
     forker.install(&state);
     forker.setenv(
         WAYLAND_DISPLAY.as_bytes(),
@@ -202,6 +202,7 @@ fn start_compositor2(
     let compositor = engine.spawn(start_compositor3(state.clone(), test_future));
     el.run()?;
     drop(compositor);
+    drop(acceptor_future);
     drop(acceptor);
     drop(forker);
     engine.clear();
