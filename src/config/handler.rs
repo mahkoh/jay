@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncError, SpawnedFuture, Timer},
+        async_engine::SpawnedFuture,
         backend::{
             self, ConnectorId, DrmDeviceId, InputDeviceAccelProfile, InputDeviceCapability,
             InputDeviceId,
@@ -11,8 +11,12 @@ use {
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
         utils::{
-            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
+            copyhashmap::CopyHashMap,
+            debug_fn::debug_fn,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
             stack::Stack,
+            timer::{TimerError, TimerFd},
         },
         xkbcommon::{XkbCommonError, XkbKeymap},
     },
@@ -63,7 +67,7 @@ pub(super) struct ConfigProxyHandler {
 }
 
 pub(super) struct TimerData {
-    timer: Timer,
+    timer: TimerFd,
     id: u64,
     name: Rc<String>,
     _handler: SpawnedFuture<()>,
@@ -288,13 +292,13 @@ impl ConfigProxyHandler {
             return Ok(());
         }
         let id = self.timer_ids.fetch_add(1);
-        let timer = self.state.eng.timer(c::CLOCK_BOOTTIME)?;
+        let timer = TimerFd::new(c::CLOCK_BOOTTIME)?;
         let handler = {
             let timer = timer.clone();
             let slf = self.clone();
             self.state.eng.spawn(async move {
                 loop {
-                    match timer.expired().await {
+                    match timer.expired(&slf.state.ring).await {
                         Ok(_) => slf.send(&ServerMessage::TimerExpired {
                             timer: jay_config::Timer(id),
                         }),
@@ -1067,7 +1071,7 @@ enum CphError {
     #[error("Could not process a `{0}` request")]
     FailedRequest(&'static str, #[source] Box<Self>),
     #[error(transparent)]
-    AsyncError(#[from] AsyncError),
+    TimerError(#[from] TimerError),
 }
 
 trait WithRequestName {

@@ -26,6 +26,7 @@ pub mod scroller;
 pub mod smallmap;
 pub mod stack;
 pub mod syncqueue;
+pub mod timer;
 pub mod tri;
 pub mod trim;
 pub mod unlink_on_drop;

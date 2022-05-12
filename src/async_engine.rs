@@ -1,19 +1,17 @@
 mod ae_fd;
 mod ae_queue;
 mod ae_task;
-mod ae_timer;
 mod ae_yield;
 
 pub use {
     crate::async_engine::ae_yield::Yield,
     ae_fd::{AsyncFd, FdStatus},
     ae_task::SpawnedFuture,
-    ae_timer::Timer,
 };
 use {
     crate::{
         event_loop::{EventLoop, EventLoopError},
-        utils::{copyhashmap::CopyHashMap, numcell::NumCell, oserror::OsError},
+        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
     },
     ae_fd::AsyncFdData,
     ae_queue::{DispatchQueue, Dispatcher},
@@ -23,19 +21,13 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::OwnedFd,
 };
 
 #[derive(Debug, Error)]
 pub enum AsyncError {
     #[error("The event loop caused an error")]
     EventLoopError(#[from] EventLoopError),
-    #[error("Could not read from a timer")]
-    TimerReadError(#[source] OsError),
-    #[error("Could not set a timer")]
-    SetTimer(#[source] OsError),
-    #[error("Could not create a timer")]
-    CreateTimer(#[source] OsError),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -61,10 +53,6 @@ impl AsyncEngine {
             queue,
             fds: CopyHashMap::new(),
         }))
-    }
-
-    pub fn timer(self: &Rc<Self>, clock_id: c::c_int) -> Result<Timer, AsyncError> {
-        Timer::new(self, clock_id)
     }
 
     pub fn clear(&self) {

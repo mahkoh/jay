@@ -1,9 +1,11 @@
 use {
     crate::{
-        async_engine::{AsyncError, Timer},
         backend::Backend,
         state::State,
-        utils::errorfmt::ErrorFmt,
+        utils::{
+            errorfmt::ErrorFmt,
+            timer::{TimerError, TimerFd},
+        },
     },
     futures_util::{select, FutureExt},
     std::{rc::Rc, time::Duration},
@@ -14,7 +16,7 @@ pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
     if !backend.supports_idle() {
         return;
     }
-    let timer = match state.eng.timer(c::CLOCK_MONOTONIC) {
+    let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
         Ok(t) => t,
         Err(e) => {
             log::error!("Could not create idle timer: {}", ErrorFmt(e));
@@ -38,7 +40,7 @@ pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
 struct Idle {
     state: Rc<State>,
     backend: Rc<dyn Backend>,
-    timer: Timer,
+    timer: TimerFd,
     idle: bool,
     dead: bool,
     is_inhibited: bool,
@@ -49,14 +51,14 @@ impl Idle {
     async fn run(&mut self) {
         while !self.dead {
             select! {
-                res = self.timer.expired().fuse() => self.handle_expired(res),
+                res = self.timer.expired(&self.state.ring).fuse() => self.handle_expired(res),
                 _ = self.state.idle.change.triggered().fuse() => self.handle_idle_changes(),
             }
         }
         log::error!("Due to the above error, monitors will no longer be (de)activated.")
     }
 
-    fn handle_expired(&mut self, res: Result<u64, AsyncError>) {
+    fn handle_expired(&mut self, res: Result<u64, TimerError>) {
         if let Err(e) = res {
             log::error!("Could not wait for idle timer to expire: {}", ErrorFmt(e));
             self.dead = true;
