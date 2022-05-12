@@ -2385,13 +2385,7 @@ struct XToWaylandTransfer {
 
 impl XToWaylandTransfer {
     async fn run(self) {
-        let timeout = match self.state.eng.timeout(5000) {
-            Ok(to) => to,
-            Err(e) => {
-                log::error!("Could not create a timeout: {}", ErrorFmt(e));
-                return;
-            }
-        };
+        let timeout = self.state.wheel.timeout(5000);
         pin_mut!(timeout);
         let mut pos = 0;
         while pos < self.data.len() {

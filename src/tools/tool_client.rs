@@ -127,13 +127,13 @@ impl ToolClient {
             Ok(e) => e,
             Err(e) => return Err(ToolClientError::CreateEventLoop(e)),
         };
-        let wheel = match Wheel::install(&el) {
-            Ok(w) => w,
-            Err(e) => return Err(ToolClientError::CreateWheel(e)),
-        };
-        let eng = match AsyncEngine::install(&el, &wheel) {
+        let eng = match AsyncEngine::install(&el) {
             Ok(e) => e,
             Err(e) => return Err(ToolClientError::CreateEngine(e)),
+        };
+        let wheel = match Wheel::new(&eng) {
+            Ok(w) => w,
+            Err(e) => return Err(ToolClientError::CreateWheel(e)),
         };
         let xrd = match xrd() {
             Some(d) => d,
@@ -206,7 +206,7 @@ impl ToolClient {
             slf.eng.spawn(
                 Outgoing {
                     tc: slf.clone(),
-                    buf: BufFdOut::new(fd.clone()),
+                    buf: BufFdOut::new(fd.clone(), &slf.wheel),
                     buffers: Default::default(),
                 }
                 .run(),

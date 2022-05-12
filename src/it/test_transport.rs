@@ -141,7 +141,7 @@ impl TestTransport {
             self.run.state.eng.spawn(
                 Outgoing {
                     tc: self.clone(),
-                    buf: BufFdOut::new(self.fd.clone()),
+                    buf: BufFdOut::new(self.fd.clone(), &self.run.state.wheel),
                     buffers: Default::default(),
                 }
                 .run(),

@@ -241,7 +241,7 @@ impl ForkerProxy {
     }
 
     async fn outgoing(self: Rc<Self>, state: Rc<State>, socket: AsyncFd) {
-        let mut io = IoOut::new(socket);
+        let mut io = IoOut::new(socket, &state.wheel);
         loop {
             let msg = self.outgoing.pop().await;
             for fd in self.fds.borrow_mut().drain(..) {
@@ -305,6 +305,7 @@ enum ForkerMessage {
 struct Forker {
     socket: AsyncFd,
     ae: Rc<AsyncEngine>,
+    wheel: Rc<Wheel>,
     fds: RefCell<Vec<Rc<OwnedFd>>>,
     outgoing: AsyncQueue<ForkerMessage>,
     pending_spawns: CopyHashMap<c::pid_t, SpawnedFuture<()>>,
@@ -331,11 +332,12 @@ impl Forker {
             })
         });
         let el = EventLoop::new().unwrap();
-        let wheel = Wheel::install(&el).unwrap();
-        let ae = AsyncEngine::install(&el, &wheel).unwrap();
+        let ae = AsyncEngine::install(&el).unwrap();
+        let wheel = Wheel::new(&ae).unwrap();
         let forker = Rc::new(Forker {
             socket: ae.fd(&socket).unwrap(),
             ae: ae.clone(),
+            wheel,
             fds: RefCell::new(vec![]),
             outgoing: Default::default(),
             pending_spawns: Default::default(),
@@ -347,7 +349,7 @@ impl Forker {
     }
 
     async fn outgoing(self: Rc<Self>) {
-        let mut io = IoOut::new(self.socket.clone());
+        let mut io = IoOut::new(self.socket.clone(), &self.wheel);
         loop {
             let msg = self.outgoing.pop().await;
             for fd in self.fds.borrow_mut().drain(..) {

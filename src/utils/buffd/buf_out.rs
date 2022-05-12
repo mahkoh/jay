@@ -1,7 +1,8 @@
 use {
     crate::{
-        async_engine::{AsyncFd, Timeout},
+        async_engine::AsyncFd,
         utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE},
+        wheel::{Wheel, WheelTimeoutFuture},
     },
     futures_util::{future::Fuse, select, FutureExt},
     std::{
@@ -79,14 +80,16 @@ impl OutBufferSwapchain {
 
 pub struct BufFdOut {
     fd: AsyncFd,
+    wheel: Rc<Wheel>,
     cmsg_buf: Box<[MaybeUninit<u8>; CMSG_BUF_SIZE]>,
     fd_ids: Vec<i32>,
 }
 
 impl BufFdOut {
-    pub fn new(fd: AsyncFd) -> Self {
+    pub fn new(fd: AsyncFd, wheel: &Rc<Wheel>) -> Self {
         Self {
             fd,
+            wheel: wheel.clone(),
             cmsg_buf: Box::new([MaybeUninit::uninit(); CMSG_BUF_SIZE]),
             fd_ids: vec![],
         }
@@ -95,12 +98,12 @@ impl BufFdOut {
     pub async fn flush(
         &mut self,
         buf: &mut OutBuffer,
-        timeout: &mut Option<Fuse<Timeout>>,
+        timeout: &mut Option<Fuse<WheelTimeoutFuture>>,
     ) -> Result<(), BufFdError> {
         while buf.read_pos < buf.write_pos {
             if self.flush_sync(buf)? {
                 if timeout.is_none() {
-                    *timeout = Some(self.fd.eng().timeout(5000)?.fuse());
+                    *timeout = Some(self.wheel.timeout(5000).fuse());
                 }
                 select! {
                     _ = timeout.as_mut().unwrap() => {

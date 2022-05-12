@@ -146,10 +146,6 @@ impl AsyncFd {
         self.data.fd.raw()
     }
 
-    pub fn eng(&self) -> &Rc<AsyncEngine> {
-        &self.engine
-    }
-
     pub fn readable(&self) -> AsyncFdReadable {
         AsyncFdReadable {
             fd: self,

@@ -11,6 +11,7 @@ use {
             buffd::{BufFdIn, BufFdOut},
             vec_ext::VecExt,
         },
+        wheel::Wheel,
     },
     jay_config::_private::bincode_ops,
     uapi::OwnedFd,
@@ -62,9 +63,9 @@ pub struct IoOut {
 }
 
 impl IoOut {
-    pub fn new(fd: AsyncFd) -> Self {
+    pub fn new(fd: AsyncFd, wheel: &Rc<Wheel>) -> Self {
         Self {
-            outgoing: BufFdOut::new(fd),
+            outgoing: BufFdOut::new(fd, wheel),
             scratch: vec![],
             fds: vec![],
         }

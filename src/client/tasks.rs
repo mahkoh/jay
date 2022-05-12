@@ -23,9 +23,8 @@ pub async fn client(data: Rc<Client>) {
     }
     drop(recv);
     data.flush_request.trigger();
-    match data.state.eng.timeout(5000) {
-        Ok(timeout) => {
-            timeout.await;
+    match data.state.wheel.timeout(5000).await {
+        Ok(_) => {
             log::error!("Could not shut down client {} within 5 seconds", data.id.0);
         }
         Err(e) => {
@@ -101,7 +100,7 @@ async fn receive(data: Rc<Client>) {
 
 async fn send(data: Rc<Client>) {
     let send = async {
-        let mut out = BufFdOut::new(data.socket.clone());
+        let mut out = BufFdOut::new(data.socket.clone(), &data.state.wheel);
         let mut buffers = VecDeque::new();
         loop {
             data.flush_request.triggered().await;
