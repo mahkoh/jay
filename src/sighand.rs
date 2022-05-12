@@ -23,6 +23,7 @@ pub fn install(el: &Rc<EventLoop>) -> Result<(), SighandError> {
     let mut set: c::sigset_t = uapi::pod_zeroed();
     uapi::sigaddset(&mut set, c::SIGINT).unwrap();
     uapi::sigaddset(&mut set, c::SIGTERM).unwrap();
+    uapi::sigaddset(&mut set, c::SIGPIPE).unwrap();
     if let Err(e) = uapi::pthread_sigmask(c::SIG_BLOCK, Some(&set), None) {
         return Err(SighandError::BlockFailed(e.into()));
     }
@@ -59,9 +60,12 @@ impl EventLoopDispatcher for Sighand {
                     _ => return Err(Box::new(SighandError::ReadFailed(e.into()))),
                 }
             }
-            log::info!("Received signal {}", sigfd.ssi_signo);
-            log::info!("Exiting");
-            self.el.stop();
+            let sig = sigfd.ssi_signo as i32;
+            log::info!("Received signal {}", sig);
+            if matches!(sig, c::SIGINT | c::SIGTERM) {
+                log::info!("Exiting");
+                self.el.stop();
+            }
         }
         Ok(())
     }
