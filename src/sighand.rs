@@ -1,25 +1,30 @@
 use {
-    crate::event_loop::{EventLoop, EventLoopDispatcher, EventLoopError, EventLoopId},
-    std::{error::Error, rc::Rc},
+    crate::{
+        async_engine::{AsyncEngine, SpawnedFuture},
+        event_loop::{EventLoop, EventLoopError},
+        io_uring::IoUring,
+        utils::{errorfmt::ErrorFmt, oserror::OsError},
+    },
+    std::rc::Rc,
     thiserror::Error,
     uapi::{c, Errno, OwnedFd},
 };
 
 #[derive(Debug, Error)]
 pub enum SighandError {
-    #[error("The signal fd is in an error state")]
-    ErrorEvent,
-    #[error("Could not read from the signal fd")]
-    ReadFailed(#[source] crate::utils::oserror::OsError),
     #[error("Could not block the signalfd signals")]
-    BlockFailed(#[source] crate::utils::oserror::OsError),
+    BlockFailed(#[source] OsError),
     #[error("Could not create a signalfd")]
-    CreateFailed(#[source] crate::utils::oserror::OsError),
+    CreateFailed(#[source] OsError),
     #[error("The event loop caused an error")]
     EventLoopError(#[from] EventLoopError),
 }
 
-pub fn install(el: &Rc<EventLoop>) -> Result<(), SighandError> {
+pub fn install(
+    el: &Rc<EventLoop>,
+    eng: &Rc<AsyncEngine>,
+    ring: &Rc<IoUring>,
+) -> Result<SpawnedFuture<()>, SighandError> {
     let mut set: c::sigset_t = uapi::pod_zeroed();
     uapi::sigaddset(&mut set, c::SIGINT).unwrap();
     uapi::sigaddset(&mut set, c::SIGTERM).unwrap();
@@ -28,51 +33,41 @@ pub fn install(el: &Rc<EventLoop>) -> Result<(), SighandError> {
         return Err(SighandError::BlockFailed(e.into()));
     }
     let fd = match uapi::signalfd_new(&set, c::SFD_CLOEXEC | c::SFD_NONBLOCK) {
-        Ok(fd) => fd,
+        Ok(fd) => Rc::new(fd),
         Err(e) => return Err(SighandError::CreateFailed(e.into())),
     };
-    let id = el.id();
-    let sh = Rc::new(Sighand {
-        fd,
-        id,
-        el: el.clone(),
-    });
-    el.insert(id, Some(sh.fd.raw()), c::EPOLLIN, sh)?;
-    Ok(())
+    Ok(eng.spawn(handle_signals(fd, ring.clone(), el.clone())))
 }
 
-struct Sighand {
-    fd: OwnedFd,
-    id: EventLoopId,
-    el: Rc<EventLoop>,
-}
-
-impl EventLoopDispatcher for Sighand {
-    fn dispatch(self: Rc<Self>, _fd: Option<i32>, events: i32) -> Result<(), Box<dyn Error>> {
-        if events & (c::EPOLLERR | c::EPOLLHUP) != 0 {
-            return Err(Box::new(SighandError::ErrorEvent));
+async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>, el: Rc<EventLoop>) {
+    let mut siginfo: c::signalfd_siginfo = uapi::pod_zeroed();
+    loop {
+        if let Err(e) = ring.readable(&fd).await {
+            log::error!(
+                "Could not wait for signal fd to become readable: {}",
+                ErrorFmt(e)
+            );
+            return;
         }
-        let mut sigfd: c::signalfd_siginfo = uapi::pod_zeroed();
         loop {
-            if let Err(e) = uapi::read(self.fd.raw(), &mut sigfd) {
+            if let Err(e) = uapi::read(fd.raw(), &mut siginfo) {
                 match e {
                     Errno(c::EAGAIN) => break,
-                    _ => return Err(Box::new(SighandError::ReadFailed(e.into()))),
+                    _ => {
+                        log::error!(
+                            "Could not read from signal fd: {}",
+                            ErrorFmt(OsError::from(e))
+                        );
+                        return;
+                    }
                 }
             }
-            let sig = sigfd.ssi_signo as i32;
+            let sig = siginfo.ssi_signo as i32;
             log::info!("Received signal {}", sig);
             if matches!(sig, c::SIGINT | c::SIGTERM) {
                 log::info!("Exiting");
-                self.el.stop();
+                el.stop();
             }
         }
-        Ok(())
-    }
-}
-
-impl Drop for Sighand {
-    fn drop(&mut self) {
-        let _ = self.el.remove(self.id);
     }
 }

@@ -115,11 +115,11 @@ fn start_compositor2(
     render::init()?;
     clientmem::init()?;
     let el = EventLoop::new()?;
-    sighand::install(&el)?;
     let xkb_ctx = XkbContext::new().unwrap();
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
     let engine = AsyncEngine::install(&el)?;
     let ring = IoUring::new(&engine, 32)?;
+    let _signal_future = sighand::install(&el, &engine, &ring)?;
     let wheel = Wheel::new(&engine, &ring)?;
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
