@@ -12,7 +12,6 @@ use {
         config::ConfigProxy,
         cursor::ServerCursors,
         dbus::Dbus,
-        event_loop::EventLoop,
         forker::ForkerProxy,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -63,7 +62,6 @@ pub struct State {
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
-    pub el: Rc<EventLoop>,
     pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,

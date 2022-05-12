@@ -289,7 +289,7 @@ impl XBackend {
                     "Fatal error: Could not handle an event from the X server: {}",
                     ErrorFmt(e)
                 );
-                self.state.el.stop();
+                self.state.ring.stop();
                 return;
             }
         }
@@ -851,7 +851,7 @@ impl XBackend {
     }
 
     fn handle_destroy(&self, event: &Event) -> Result<(), XBackendError> {
-        self.state.el.stop();
+        self.state.ring.stop();
         let event: DestroyNotify = event.parse()?;
         let output = match self.outputs.remove(&event.event) {
             Some(o) => o,

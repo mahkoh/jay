@@ -92,7 +92,7 @@ impl JayCompositor {
     fn quit(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
         let _req: Quit = self.client.parse(self, parser)?;
         log::info!("Quitting");
-        self.client.state.el.stop();
+        self.client.state.ring.stop();
         Ok(())
     }
 

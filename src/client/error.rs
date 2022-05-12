@@ -1,6 +1,5 @@
 use {
     crate::{
-        async_engine::AsyncError,
         client::ClientId,
         object::{Interface, ObjectId},
         utils::buffd::{BufFdError, MsgParserError},
@@ -12,8 +11,6 @@ use {
 
 #[derive(Debug, Error)]
 pub enum ClientError {
-    #[error("An error occurred in the async engine")]
-    Async(#[from] AsyncError),
     #[error("An error occurred reading from/writing to the client")]
     Io(#[from] BufFdError),
     #[error("An error occurred while processing a request")]

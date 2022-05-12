@@ -1,34 +1,14 @@
-mod ae_fd;
-mod ae_queue;
 mod ae_task;
 mod ae_yield;
 
-pub use {
-    crate::async_engine::ae_yield::Yield,
-    ae_fd::{AsyncFd, FdStatus},
-    ae_task::SpawnedFuture,
-};
+pub use {crate::async_engine::ae_yield::Yield, ae_task::SpawnedFuture};
 use {
     crate::{
-        event_loop::{EventLoop, EventLoopError},
-        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
+        async_engine::ae_task::Runnable,
+        utils::{array, numcell::NumCell, syncqueue::SyncQueue},
     },
-    ae_fd::AsyncFdData,
-    ae_queue::{DispatchQueue, Dispatcher},
-    std::{
-        cell::{Cell, RefCell},
-        future::Future,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::OwnedFd,
+    std::{cell::RefCell, collections::VecDeque, future::Future, rc::Rc, task::Waker},
 };
-
-#[derive(Debug, Error)]
-pub enum AsyncError {
-    #[error("The event loop caused an error")]
-    EventLoopError(#[from] EventLoopError),
-}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Phase {
@@ -40,70 +20,88 @@ pub enum Phase {
 const NUM_PHASES: usize = 4;
 
 pub struct AsyncEngine {
-    el: Rc<EventLoop>,
-    queue: Rc<DispatchQueue>,
-    fds: CopyHashMap<i32, Rc<AsyncFdData>>,
+    num_queued: NumCell<usize>,
+    queues: [SyncQueue<Runnable>; NUM_PHASES],
+    iteration: NumCell<u64>,
+    yields: SyncQueue<Waker>,
+    stash: RefCell<VecDeque<Runnable>>,
+    yield_stash: RefCell<VecDeque<Waker>>,
 }
 
 impl AsyncEngine {
-    pub fn install(el: &Rc<EventLoop>) -> Result<Rc<Self>, AsyncError> {
-        let queue = Dispatcher::install(el)?;
-        Ok(Rc::new(Self {
-            el: el.clone(),
-            queue,
-            fds: CopyHashMap::new(),
-        }))
-    }
-
-    pub fn clear(&self) {
-        for (_, fd) in self.fds.lock().drain() {
-            fd.readers.take();
-            fd.writers.take();
-        }
-        self.queue.clear();
-    }
-
-    pub fn spawn<T, F: Future<Output = T> + 'static>(&self, f: F) -> SpawnedFuture<T> {
-        self.queue.spawn(Phase::EventHandling, f)
-    }
-
-    pub fn spawn2<T, F: Future<Output = T> + 'static>(
-        &self,
-        phase: Phase,
-        f: F,
-    ) -> SpawnedFuture<T> {
-        self.queue.spawn(phase, f)
-    }
-
-    pub fn fd(self: &Rc<Self>, fd: &Rc<OwnedFd>) -> Result<AsyncFd, AsyncError> {
-        let data = if let Some(afd) = self.fds.get(&fd.raw()) {
-            afd.ref_count.fetch_add(1);
-            afd
-        } else {
-            let id = self.el.id();
-            let afd = Rc::new(AsyncFdData {
-                ref_count: NumCell::new(1),
-                fd: fd.clone(),
-                id,
-                el: self.el.clone(),
-                write_registered: Cell::new(false),
-                read_registered: Cell::new(false),
-                readers: RefCell::new(vec![]),
-                writers: RefCell::new(vec![]),
-            });
-            self.el.insert(id, Some(fd.raw()), 0, afd.clone())?;
-            afd
-        };
-        Ok(AsyncFd {
-            engine: self.clone(),
-            data,
+    pub fn new() -> Rc<Self> {
+        Rc::new(Self {
+            num_queued: Default::default(),
+            queues: array::from_fn(|_| Default::default()),
+            iteration: Default::default(),
+            yields: Default::default(),
+            stash: Default::default(),
+            yield_stash: Default::default(),
         })
     }
 
-    pub fn yield_now(&self) -> Yield {
-        Yield {
-            iteration: self.queue.iteration(),
-            queue: self.queue.clone(),
+    pub fn clear(&self) {
+        self.stash.borrow_mut().clear();
+        self.yield_stash.borrow_mut().clear();
+        self.yields.take();
+        for queue in &self.queues {
+            queue.take();
         }
+    }
+
+    pub fn spawn<T, F: Future<Output = T> + 'static>(self: &Rc<Self>, f: F) -> SpawnedFuture<T> {
+        self.spawn_(Phase::EventHandling, f)
+    }
+
+    pub fn spawn2<T, F: Future<Output = T> + 'static>(
+        self: &Rc<Self>,
+        phase: Phase,
+        f: F,
+    ) -> SpawnedFuture<T> {
+        self.spawn_(phase, f)
+    }
+
+    pub fn yield_now(self: &Rc<Self>) -> Yield {
+        Yield {
+            iteration: self.iteration(),
+            queue: self.clone(),
+        }
+    }
+
+    pub fn dispatch(&self) {
+        let mut stash = self.stash.borrow_mut();
+        let mut yield_stash = self.yield_stash.borrow_mut();
+        while self.num_queued.get() > 0 {
+            self.iteration.fetch_add(1);
+            let mut phase = 0;
+            while phase < NUM_PHASES as usize {
+                self.queues[phase].swap(&mut *stash);
+                if stash.is_empty() {
+                    phase += 1;
+                    continue;
+                }
+                self.num_queued.fetch_sub(stash.len());
+                for runnable in stash.drain(..) {
+                    runnable.run();
+                }
+            }
+            self.yields.swap(&mut *yield_stash);
+            for waker in yield_stash.drain(..) {
+                waker.wake();
+            }
+        }
+    }
+
+    fn push(&self, runnable: Runnable, phase: Phase) {
+        self.queues[phase as usize].push(runnable);
+        self.num_queued.fetch_add(1);
+    }
+
+    fn push_yield(&self, waker: Waker) {
+        self.yields.push(waker);
+    }
+
+    fn iteration(&self) -> u64 {
+        self.iteration.get()
     }
 }

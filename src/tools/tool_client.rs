@@ -1,9 +1,8 @@
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncError, SpawnedFuture},
+        async_engine::{AsyncEngine, SpawnedFuture},
         client::{EventFormatter, RequestParser},
         compositor::WAYLAND_DISPLAY,
-        event_loop::{EventLoop, EventLoopError},
         io_uring::{IoUring, IoUringError},
         logger::Logger,
         object::{ObjectId, WL_DISPLAY_ID},
@@ -44,12 +43,8 @@ use {
 
 #[derive(Debug, Error)]
 pub enum ToolClientError {
-    #[error("Could not create an event loop")]
-    CreateEventLoop(#[source] EventLoopError),
     #[error("Could not create a timer wheel")]
     CreateWheel(#[source] WheelError),
-    #[error("Could not create an async engine")]
-    CreateEngine(#[source] AsyncError),
     #[error("Could not create an io-uring")]
     CreateRing(#[source] IoUringError),
     #[error("XDG_RUNTIME_DIR is not set")]
@@ -78,7 +73,6 @@ pub enum ToolClientError {
 
 pub struct ToolClient {
     pub logger: Arc<Logger>,
-    pub el: Rc<EventLoop>,
     pub ring: Rc<IoUring>,
     pub wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
@@ -118,21 +112,14 @@ impl ToolClient {
             f.await;
             std::process::exit(0);
         });
-        if let Err(e) = self.el.run() {
+        if let Err(e) = self.ring.run() {
             fatal!("A fatal error occurred: {}", ErrorFmt(e));
         }
     }
 
     pub fn try_new(level: Level) -> Result<Rc<Self>, ToolClientError> {
         let logger = Logger::install_stderr(level);
-        let el = match EventLoop::new() {
-            Ok(e) => e,
-            Err(e) => return Err(ToolClientError::CreateEventLoop(e)),
-        };
-        let eng = match AsyncEngine::install(&el) {
-            Ok(e) => e,
-            Err(e) => return Err(ToolClientError::CreateEngine(e)),
-        };
+        let eng = AsyncEngine::new();
         let ring = match IoUring::new(&eng, 32) {
             Ok(e) => e,
             Err(e) => return Err(ToolClientError::CreateRing(e)),
@@ -174,7 +161,6 @@ impl ToolClient {
         obj_ids.take(1);
         let slf = Rc::new(Self {
             logger,
-            el,
             ring,
             wheel,
             eng,

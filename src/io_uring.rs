@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncError, AsyncFd, FdStatus, Phase, SpawnedFuture},
+        async_engine::AsyncEngine,
         io_uring::{
             ops::{async_cancel::AsyncCancelTask, poll::PollTask, write::WriteTask},
             pending_result::PendingResults,
@@ -33,7 +33,10 @@ use {
         },
     },
     thiserror::Error,
-    uapi::c::{self},
+    uapi::{
+        c::{self},
+        OwnedFd,
+    },
 };
 
 macro_rules! map_err {
@@ -56,8 +59,6 @@ mod sys;
 pub enum IoUringError {
     #[error(transparent)]
     OsError(OsError),
-    #[error("The async engine returned an error")]
-    AsyncError(#[from] AsyncError),
     #[error("Could not create an io-uring")]
     CreateUring(#[source] OsError),
     #[error("The kernel does not support the IORING_FEAT_NODROP feature")]
@@ -70,6 +71,8 @@ pub enum IoUringError {
     MapCqRing(#[source] OsError),
     #[error("The io-uring has already been destroyed")]
     Destroyed,
+    #[error("io_uring_enter failed")]
+    Enter(#[source] OsError),
 }
 
 pub struct IoUring {
@@ -86,7 +89,7 @@ impl IoUring {
     pub fn new(eng: &Rc<AsyncEngine>, entries: u32) -> Result<Rc<Self>, IoUringError> {
         let mut params = io_uring_params::default();
         let fd = match io_uring_setup(entries, &mut params) {
-            Ok(f) => Rc::new(f),
+            Ok(f) => f,
             Err(e) => return Err(IoUringError::CreateUring(e.into())),
         };
         if !params.features.contains(IORING_FEAT_NODROP) {
@@ -172,10 +175,10 @@ impl IoUring {
                 .cast();
             std::slice::from_raw_parts(base, params.cq_entries as _)
         };
-        let fd = eng.fd(&fd)?;
         let data = Rc::new(IoUringData {
             destroyed: Cell::new(false),
             fd,
+            eng: eng.clone(),
             _sqesmap_map: sqesmap_map,
             _sqmap_map: sqmap_map,
             sqmask,
@@ -198,21 +201,26 @@ impl IoUring {
             cached_writes: Default::default(),
             cached_cancels: Default::default(),
             cached_polls: Default::default(),
-            reader: Cell::new(None),
-            submitter: Cell::new(None),
         });
-        let submitter = eng.spawn2(Phase::Present, data.clone().submit());
-        let reader = eng.spawn(data.clone().reader());
-        data.reader.set(Some(reader));
-        data.submitter.set(Some(submitter));
         Ok(Rc::new(Self { ring: data }))
+    }
+
+    pub fn stop(&self) {
+        self.ring.kill();
+    }
+
+    pub fn run(&self) -> Result<(), IoUringError> {
+        let res = self.ring.run();
+        self.ring.kill();
+        res
     }
 }
 
 struct IoUringData {
     destroyed: Cell<bool>,
 
-    fd: AsyncFd,
+    fd: OwnedFd,
+    eng: Rc<AsyncEngine>,
 
     _sqesmap_map: Mmapped,
     _sqmap_map: Mmapped,
@@ -240,9 +248,6 @@ struct IoUringData {
     cached_writes: Stack<Box<WriteTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
     cached_polls: Stack<Box<PollTask>>,
-
-    reader: Cell<Option<SpawnedFuture<()>>>,
-    submitter: Cell<Option<SpawnedFuture<()>>>,
 }
 
 unsafe trait Task {
@@ -256,20 +261,47 @@ unsafe trait Task {
 }
 
 impl IoUringData {
-    async fn reader(self: Rc<Self>) {
+    fn run(&self) -> Result<(), IoUringError> {
+        let mut to_submit = 0;
         loop {
-            if !self.dispatch_completions() {
-                match self.fd.readable().await {
-                    Err(e) => {
-                        log::error!("Could not wait for the fd to become readable: {}", e);
-                    }
-                    Ok(FdStatus::Err) => {
-                        log::error!("Fd is in an error state");
-                    }
-                    _ => continue,
+            loop {
+                self.eng.dispatch();
+                if self.destroyed.get() {
+                    return Ok(());
                 }
-                self.kill();
-                return;
+                if !self.dispatch_completions() {
+                    break;
+                }
+            }
+            to_submit += self.encode();
+            let res = if to_submit == 0 {
+                io_uring_enter(self.fd.raw(), 0, 1, IORING_ENTER_GETEVENTS)
+            } else if self.to_encode.is_empty() {
+                io_uring_enter(self.fd.raw(), to_submit as _, 1, IORING_ENTER_GETEVENTS)
+            } else {
+                io_uring_enter(self.fd.raw(), !0, 0, 0)
+            };
+            let mut submitted_any = false;
+            match res {
+                Ok(n) => {
+                    if n > 0 {
+                        submitted_any = true;
+                    }
+                    to_submit -= n;
+                }
+                Err(e) => {
+                    if !matches!(e.0, c::EAGAIN | c::EBUSY | c::EINTR) {
+                        return Err(IoUringError::Enter(e));
+                    }
+                }
+            }
+            if to_submit > 0 && !submitted_any {
+                let res = io_uring_enter(self.fd.raw(), 0, 1, IORING_ENTER_GETEVENTS);
+                if let Err(e) = res {
+                    if e.0 != c::EINTR {
+                        return Err(IoUringError::Enter(e));
+                    }
+                }
             }
         }
     }
@@ -327,48 +359,6 @@ impl IoUringData {
         encoded
     }
 
-    async fn submit(self: Rc<Self>) {
-        let mut to_submit = 0;
-        loop {
-            self.to_encode.non_empty().await;
-            to_submit += self.encode();
-            if to_submit == 0 {
-                match self.fd.writable().await {
-                    Err(e) => {
-                        log::error!("Could not write for fd to become writable: {}", ErrorFmt(e));
-                    }
-                    Ok(FdStatus::Err) => {
-                        log::error!("Fd is in an error state");
-                    }
-                    _ => continue,
-                }
-                self.kill();
-                return;
-            }
-            while to_submit > 0 {
-                let res = io_uring_enter(self.fd.raw(), to_submit as _, 0, 0);
-                match res {
-                    Ok(0) => {
-                        panic!("io_uring_enter returned 0");
-                    }
-                    Ok(n) => to_submit -= n,
-                    Err(e) => match e.0 {
-                        c::EAGAIN | c::EBUSY => {
-                            log::debug!("waiting for completion events");
-                            self.cqes_consumed.clear();
-                            self.cqes_consumed.triggered().await;
-                        }
-                        _ => {
-                            log::error!("io_uring_enter returned an error: {}", ErrorFmt(e));
-                            self.kill();
-                            return;
-                        }
-                    },
-                }
-            }
-        }
-    }
-
     fn id(&self) -> Cancellable {
         Cancellable {
             id: self.id_raw(),
@@ -409,8 +399,6 @@ impl IoUringData {
     }
 
     fn kill(&self) {
-        self.reader.take();
-        self.submitter.take();
         let mut to_cancel = vec![];
         for task in self.tasks.lock().values() {
             if !task.is_cancel() {

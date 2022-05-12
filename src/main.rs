@@ -46,7 +46,6 @@ mod config;
 mod cursor;
 mod dbus;
 mod edid;
-mod event_loop;
 mod fixed;
 mod forker;
 mod format;

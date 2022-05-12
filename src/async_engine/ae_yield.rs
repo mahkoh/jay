@@ -1,5 +1,5 @@
 use {
-    crate::async_engine::ae_queue::DispatchQueue,
+    crate::async_engine::AsyncEngine,
     std::{
         future::Future,
         pin::Pin,
@@ -10,7 +10,7 @@ use {
 
 pub struct Yield {
     pub(super) iteration: u64,
-    pub(super) queue: Rc<DispatchQueue>,
+    pub(super) queue: Rc<AsyncEngine>,
 }
 
 impl Future for Yield {

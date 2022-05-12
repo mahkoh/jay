@@ -5,7 +5,7 @@ pub use crate::xcon::{
 };
 use {
     crate::{
-        async_engine::{AsyncError, Phase, SpawnedFuture},
+        async_engine::{Phase, SpawnedFuture},
         compositor::DISPLAY,
         state::State,
         utils::{
@@ -86,8 +86,6 @@ pub enum XconError {
     Connect(BString),
     #[error("Server requires additional authentication: {0}")]
     Authenticate(BString),
-    #[error(transparent)]
-    AsyncError(#[from] AsyncError),
     #[error(transparent)]
     BufIoError(#[from] BufIoError),
     #[error("The server did not send a reply to a request")]

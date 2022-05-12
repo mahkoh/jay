@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{ae_queue::DispatchQueue, Phase},
+        async_engine::{AsyncEngine, Phase},
         utils::{
             numcell::NumCell,
             ptr_ext::{MutPtrExt, PtrExt},
@@ -94,7 +94,7 @@ struct Task<T, F: Future<Output = T>> {
     state: NumCell<u32>,
     data: UnsafeCell<TaskData<T, F>>,
     waker: Cell<Option<Waker>>,
-    queue: Rc<DispatchQueue>,
+    queue: Rc<AsyncEngine>,
 }
 
 pub(super) struct Runnable {
@@ -119,8 +119,8 @@ impl Drop for Runnable {
     }
 }
 
-impl DispatchQueue {
-    pub(super) fn spawn<T, F: Future<Output = T>>(
+impl AsyncEngine {
+    pub(super) fn spawn_<T, F: Future<Output = T>>(
         self: &Rc<Self>,
         phase: Phase,
         f: F,

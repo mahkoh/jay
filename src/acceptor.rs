@@ -1,7 +1,6 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
-        event_loop::EventLoopError,
         state::State,
         utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
     },
@@ -30,8 +29,6 @@ pub enum AcceptorError {
     BindFailed(#[source] OsError),
     #[error("All wayland addresses in the range 0..1000 are already in use")]
     AddressesInUse,
-    #[error("The event loop caused an error")]
-    EventLoopError(#[from] EventLoopError),
 }
 
 pub struct Acceptor {
@@ -205,5 +202,5 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, secure: bool) {
             }
         }
     }
-    state.el.stop();
+    state.ring.stop();
 }

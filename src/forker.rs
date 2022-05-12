@@ -5,7 +5,6 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         compositor::{DISPLAY, WAYLAND_DISPLAY},
-        event_loop::EventLoop,
         forker::{
             clone3::{fork_with_pidfd, Forked},
             io::{IoIn, IoOut},
@@ -328,14 +327,13 @@ impl Forker {
                 let _ = Fd::new(socket).write_all(&msg);
             })
         });
-        let el = EventLoop::new().unwrap();
-        let ae = AsyncEngine::install(&el).unwrap();
+        let ae = AsyncEngine::new();
         let ring = IoUring::new(&ae, 32).unwrap();
         let wheel = Wheel::new(&ae, &ring).unwrap();
         let forker = Rc::new(Forker {
             socket,
             ae: ae.clone(),
-            ring,
+            ring: ring.clone(),
             wheel,
             fds: RefCell::new(vec![]),
             outgoing: Default::default(),
@@ -343,7 +341,7 @@ impl Forker {
         });
         let _f1 = ae.spawn(forker.clone().incoming());
         let _f2 = ae.spawn(forker.clone().outgoing());
-        let _ = el.run();
+        let _ = ring.run();
         unreachable!();
     }
 

@@ -1,7 +1,6 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        event_loop::{EventLoop, EventLoopError},
         io_uring::IoUring,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
     },
@@ -16,12 +15,9 @@ pub enum SighandError {
     BlockFailed(#[source] OsError),
     #[error("Could not create a signalfd")]
     CreateFailed(#[source] OsError),
-    #[error("The event loop caused an error")]
-    EventLoopError(#[from] EventLoopError),
 }
 
 pub fn install(
-    el: &Rc<EventLoop>,
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
 ) -> Result<SpawnedFuture<()>, SighandError> {
@@ -36,10 +32,10 @@ pub fn install(
         Ok(fd) => Rc::new(fd),
         Err(e) => return Err(SighandError::CreateFailed(e.into())),
     };
-    Ok(eng.spawn(handle_signals(fd, ring.clone(), el.clone())))
+    Ok(eng.spawn(handle_signals(fd, ring.clone())))
 }
 
-async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>, el: Rc<EventLoop>) {
+async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>) {
     let mut siginfo: c::signalfd_siginfo = uapi::pod_zeroed();
     loop {
         if let Err(e) = ring.readable(&fd).await {
@@ -66,7 +62,7 @@ async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>, el: Rc<EventLoop>) {
             log::info!("Received signal {}", sig);
             if matches!(sig, c::SIGINT | c::SIGTERM) {
                 log::info!("Exiting");
-                el.stop();
+                ring.stop();
             }
         }
     }

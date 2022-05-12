@@ -3,7 +3,7 @@ use crate::it::test_backend::TestBackend;
 use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
-        async_engine::{AsyncEngine, AsyncError, Phase, SpawnedFuture},
+        async_engine::{AsyncEngine, Phase, SpawnedFuture},
         backend::{self, Backend},
         backends::{
             dummy::{DummyBackend, DummyOutput},
@@ -14,7 +14,6 @@ use {
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
         dbus::Dbus,
-        event_loop::{EventLoop, EventLoopError},
         forker,
         globals::Globals,
         ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
@@ -76,16 +75,12 @@ fn create_forker() -> Rc<ForkerProxy> {
 pub enum CompositorError {
     #[error("The client acceptor caused an error")]
     AcceptorError(#[from] AcceptorError),
-    #[error("The event loop caused an error")]
-    EventLoopError(#[from] EventLoopError),
     #[error("The signal handler caused an error")]
     SighandError(#[from] SighandError),
     #[error("The clientmem subsystem caused an error")]
     ClientmemError(#[from] ClientMemError),
     #[error("The timer subsystem caused an error")]
     WheelError(#[from] WheelError),
-    #[error("The async subsystem caused an error")]
-    AsyncError(#[from] AsyncError),
     #[error("The render backend caused an error")]
     RenderError(#[from] RenderError),
     #[error("Could not create an io-uring")]
@@ -114,12 +109,11 @@ fn start_compositor2(
     leaks::init();
     render::init()?;
     clientmem::init()?;
-    let el = EventLoop::new()?;
     let xkb_ctx = XkbContext::new().unwrap();
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();
-    let engine = AsyncEngine::install(&el)?;
+    let engine = AsyncEngine::new();
     let ring = IoUring::new(&engine, 32)?;
-    let _signal_future = sighand::install(&el, &engine, &ring)?;
+    let _signal_future = sighand::install(&engine, &ring)?;
     let wheel = Wheel::new(&engine, &ring)?;
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
@@ -129,7 +123,6 @@ fn start_compositor2(
         forker: Default::default(),
         default_keymap: xkb_keymap,
         eng: engine.clone(),
-        el: el.clone(),
         render_ctx: Default::default(),
         render_ctx_version: NumCell::new(1),
         render_ctx_ever_initialized: Cell::new(false),
@@ -186,7 +179,7 @@ fn start_compositor2(
         tracker: Default::default(),
         data_offer_ids: Default::default(),
         drm_dev_ids: Default::default(),
-        ring,
+        ring: ring.clone(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -200,7 +193,7 @@ fn start_compositor2(
         forker.setenv(key.as_bytes(), val.as_bytes());
     }
     let compositor = engine.spawn(start_compositor3(state.clone(), test_future));
-    el.run()?;
+    ring.run()?;
     drop(compositor);
     drop(acceptor_future);
     drop(acceptor);
@@ -222,7 +215,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
         Some(b) => b,
         _ => {
             log::error!("Could not create a backend");
-            state.el.stop();
+            state.ring.stop();
             return;
         }
     };
@@ -249,7 +242,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
         Err(e) => log::error!("Backend failed: {}", ErrorFmt(e.deref())),
         _ => log::error!("Backend stopped without an error"),
     }
-    state.el.stop();
+    state.ring.stop();
 }
 
 fn load_config(state: &Rc<State>, #[allow(unused_variables)] for_test: bool) -> ConfigProxy {

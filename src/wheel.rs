@@ -1,6 +1,6 @@
 use {
     crate::{
-        async_engine::{AsyncEngine, AsyncError, SpawnedFuture},
+        async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::IoUring,
         time::{Time, TimeError},
         utils::{
@@ -28,8 +28,6 @@ pub enum WheelError {
     CreateFailed(#[source] OsError),
     #[error("Could not set the timerfd")]
     SetFailed(#[source] OsError),
-    #[error("An async error occurred")]
-    AsyncError(#[from] AsyncError),
     #[error("Cannot determine the time")]
     TimeError(#[from] TimeError),
     #[error("The timer wheel is already destroyed")]

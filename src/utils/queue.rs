@@ -49,6 +49,10 @@ impl<T> AsyncQueue<T> {
         mem::take(&mut *self.data.borrow_mut());
         self.waiter.take();
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.data.borrow_mut().is_empty()
+    }
 }
 
 pub struct AsyncQueuePop<'a, T> {

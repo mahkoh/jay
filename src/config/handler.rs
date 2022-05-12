@@ -768,7 +768,7 @@ impl ConfigProxyHandler {
 
     fn handle_quit(&self) {
         log::info!("Quitting");
-        self.state.el.stop();
+        self.state.ring.stop();
     }
 
     fn handle_switch_to(&self, vtnr: u32) {
