@@ -152,7 +152,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
                 }
             }
             errors.set(testrun.errors.take());
-            state.el.stop();
+            state.ring.stop();
             pending().await
         })
     }));

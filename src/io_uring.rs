@@ -409,6 +409,7 @@ impl IoUringData {
     }
 
     fn kill(&self) {
+        self.eng.stop();
         let mut to_cancel = vec![];
         for task in self.tasks.lock().values() {
             if !task.is_cancel() {

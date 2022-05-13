@@ -338,7 +338,7 @@ impl Forker {
         let _f1 = ae.spawn(forker.clone().incoming());
         let _f2 = ae.spawn(forker.clone().outgoing());
         let _ = ring.run();
-        unreachable!();
+        std::process::exit(1);
     }
 
     async fn outgoing(self: Rc<Self>) {
@@ -348,14 +348,23 @@ impl Forker {
             for fd in self.fds.borrow_mut().drain(..) {
                 io.push_fd(fd);
             }
-            io.write_msg(msg).await.unwrap();
+            if io.write_msg(msg).await.is_err() {
+                self.ring.stop();
+                return;
+            }
         }
     }
 
     async fn incoming(self: Rc<Self>) {
         let mut io = IoIn::new(&self.socket, &self.ring);
         loop {
-            let msg = io.read_msg().await.unwrap();
+            let msg = match io.read_msg().await {
+                Ok(m) => m,
+                _ => {
+                    self.ring.stop();
+                    return;
+                }
+            };
             self.handle_msg(msg, &mut io);
         }
     }

@@ -7,6 +7,7 @@ use {
         utils::errorfmt::ErrorFmt,
     },
     std::cell::Cell,
+    uapi::c,
 };
 
 pub struct AsyncCancelTask {
@@ -36,7 +37,9 @@ unsafe impl Task for AsyncCancelTask {
 
     fn complete(self: Box<Self>, ring: &IoUringData, res: i32) {
         if let Err(e) = map_err!(res) {
-            log::debug!("Could not cancel task: {}", ErrorFmt(e));
+            if e.0 != c::ENOENT {
+                log::debug!("Could not cancel task: {}", ErrorFmt(e));
+            }
         }
         ring.cached_cancels.push(self);
     }

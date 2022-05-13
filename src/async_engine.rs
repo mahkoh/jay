@@ -7,7 +7,13 @@ use {
         async_engine::ae_task::Runnable,
         utils::{array, numcell::NumCell, syncqueue::SyncQueue},
     },
-    std::{cell::RefCell, collections::VecDeque, future::Future, rc::Rc, task::Waker},
+    std::{
+        cell::{Cell, RefCell},
+        collections::VecDeque,
+        future::Future,
+        rc::Rc,
+        task::Waker,
+    },
 };
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -26,6 +32,7 @@ pub struct AsyncEngine {
     yields: SyncQueue<Waker>,
     stash: RefCell<VecDeque<Runnable>>,
     yield_stash: RefCell<VecDeque<Waker>>,
+    stopped: Cell<bool>,
 }
 
 impl AsyncEngine {
@@ -37,7 +44,12 @@ impl AsyncEngine {
             yields: Default::default(),
             stash: Default::default(),
             yield_stash: Default::default(),
+            stopped: Cell::new(false),
         })
+    }
+
+    pub fn stop(&self) {
+        self.stopped.set(true);
     }
 
     pub fn clear(&self) {
@@ -83,6 +95,9 @@ impl AsyncEngine {
                 self.num_queued.fetch_sub(stash.len());
                 for runnable in stash.drain(..) {
                     runnable.run();
+                    if self.stopped.get() {
+                        return;
+                    }
                 }
             }
             self.yields.swap(&mut *yield_stash);
