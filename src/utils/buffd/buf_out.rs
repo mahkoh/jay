@@ -137,7 +137,7 @@ impl BufFdOut {
                 Ok(())
             }
             Err(IoUringError::OsError(OsError(c::ECONNRESET))) => return Err(BufFdError::Closed),
-            Err(IoUringError::OsError(OsError(c::ETIME))) => return Err(BufFdError::Timeout),
+            Err(IoUringError::OsError(OsError(c::ECANCELED))) => return Err(BufFdError::Timeout),
             Err(e) => return Err(BufFdError::Ring(e)),
         }
     }
