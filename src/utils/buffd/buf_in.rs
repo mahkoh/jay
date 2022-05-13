@@ -1,10 +1,14 @@
 use {
     crate::{
         io_uring::IoUring,
-        utils::buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE, MAX_IN_FD},
+        utils::{
+            buf::Buf,
+            buffd::{BufFdError, BUF_SIZE, MAX_IN_FD},
+        },
     },
+    smallvec::SmallVec,
     std::{collections::VecDeque, mem::MaybeUninit, rc::Rc},
-    uapi::{c, Errno, OwnedFd, Pod},
+    uapi::{OwnedFd, Pod},
 };
 
 pub struct BufFdIn {
@@ -13,8 +17,7 @@ pub struct BufFdIn {
 
     in_fd: VecDeque<OwnedFd>,
 
-    in_buf: Box<[MaybeUninit<u8>; BUF_SIZE]>,
-    in_cmsg_buf: Box<[MaybeUninit<u8>; CMSG_BUF_SIZE]>,
+    in_buf: Buf,
     in_left: usize,
     in_right: usize,
 }
@@ -25,8 +28,7 @@ impl BufFdIn {
             fd: fd.clone(),
             ring: ring.clone(),
             in_fd: Default::default(),
-            in_buf: Box::new([MaybeUninit::uninit(); BUF_SIZE]),
-            in_cmsg_buf: Box::new([MaybeUninit::uninit(); CMSG_BUF_SIZE]),
+            in_buf: Buf::new(BUF_SIZE),
             in_left: 0,
             in_right: 0,
         }
@@ -36,73 +38,52 @@ impl BufFdIn {
         let bytes = unsafe { uapi::as_maybe_uninit_bytes_mut2(buf) };
         let mut offset = 0;
         while offset < bytes.len() {
-            if self.read_full_(bytes, &mut offset)? {
-                self.ring.readable(&self.fd).await?;
-            }
+            self.read_full_(bytes, &mut offset).await?;
         }
         Ok(())
     }
 
-    fn read_full_(
+    async fn read_full_(
         &mut self,
         bytes: &mut [MaybeUninit<u8>],
         offset: &mut usize,
-    ) -> Result<bool, BufFdError> {
+    ) -> Result<(), BufFdError> {
+        let in_buf = uapi::as_maybe_uninit_bytes(&self.in_buf[..]);
         let num_bytes = (bytes.len() - *offset).min(self.in_right - self.in_left);
         if num_bytes > 0 {
             let left = self.in_left % BUF_SIZE;
             let right = (self.in_left + num_bytes) % BUF_SIZE;
             if left < right {
-                bytes[*offset..*offset + num_bytes].copy_from_slice(&self.in_buf[left..right]);
+                bytes[*offset..*offset + num_bytes].copy_from_slice(&in_buf[left..right]);
             } else {
-                bytes[*offset..*offset + (BUF_SIZE - left)].copy_from_slice(&self.in_buf[left..]);
+                bytes[*offset..*offset + (BUF_SIZE - left)].copy_from_slice(&in_buf[left..]);
                 bytes[*offset + (BUF_SIZE - left)..*offset + num_bytes]
-                    .copy_from_slice(&self.in_buf[..right]);
+                    .copy_from_slice(&in_buf[..right]);
             }
             self.in_left += num_bytes;
             *offset += num_bytes;
         }
         if *offset == bytes.len() {
-            return Ok(false);
+            return Ok(());
         }
         let left = self.in_left % BUF_SIZE;
         let right = self.in_right % BUF_SIZE;
-        let mut iov = if right < left {
-            [&mut self.in_buf[right..left], &mut []]
+        let mut iov = SmallVec::<[_; 2]>::new();
+        if right < left {
+            iov.push(self.in_buf.slice(right..left));
         } else {
-            let (l, r) = self.in_buf.split_at_mut(right);
-            [r, &mut l[..left]]
-        };
-        let mut hdr = uapi::MsghdrMut {
-            iov: &mut iov[..],
-            control: Some(&mut self.in_cmsg_buf[..]),
-            name: uapi::sockaddr_none_mut(),
-            flags: 0,
-        };
-        let (iov, _, mut cmsg) = match uapi::recvmsg(
-            self.fd.raw(),
-            &mut hdr,
-            c::MSG_DONTWAIT | c::MSG_CMSG_CLOEXEC,
-        ) {
-            Ok((iov, _, _)) if iov.is_empty() => return Err(BufFdError::Closed),
-            Ok(v) => v,
-            Err(Errno(c::EAGAIN)) => return Ok(true),
-            Err(e) => return Err(BufFdError::Io(e.into())),
-        };
-        self.in_right += iov.len();
-        while cmsg.len() > 0 {
-            let (_, hdr, data) = match uapi::cmsg_read(&mut cmsg) {
-                Ok(m) => m,
-                Err(e) => return Err(BufFdError::Io(e.into())),
-            };
-            if (hdr.cmsg_level, hdr.cmsg_type) == (c::SOL_SOCKET, c::SCM_RIGHTS) {
-                self.in_fd.extend(uapi::pod_iter(data).unwrap());
-            }
+            iov.push(self.in_buf.slice(right..));
+            iov.push(self.in_buf.slice(..left));
+        }
+        match self.ring.recvmsg(&self.fd, &mut iov, &mut self.in_fd).await {
+            Ok(0) => return Err(BufFdError::Closed),
+            Ok(n) => self.in_right += n,
+            Err(e) => return Err(BufFdError::Ring(e.into())),
         }
         if self.in_fd.len() > MAX_IN_FD {
             return Err(BufFdError::TooManyFds);
         }
-        Ok(false)
+        Ok(())
     }
 
     pub fn get_fd(&mut self) -> Result<OwnedFd, BufFdError> {

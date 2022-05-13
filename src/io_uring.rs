@@ -4,8 +4,8 @@ use {
         async_engine::AsyncEngine,
         io_uring::{
             ops::{
-                async_cancel::AsyncCancelTask, poll::PollTask, sendmsg::SendmsgTask,
-                timeout::TimeoutTask, write::WriteTask,
+                async_cancel::AsyncCancelTask, poll::PollTask, recvmsg::RecvmsgTask,
+                sendmsg::SendmsgTask, timeout::TimeoutTask, write::WriteTask,
             },
             pending_result::PendingResults,
             sys::{
@@ -17,6 +17,7 @@ use {
         utils::{
             asyncevent::AsyncEvent,
             bitflags::BitflagsExt,
+            buf::Buf,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             mmap::{mmap, Mmapped},
@@ -76,6 +77,8 @@ pub enum IoUringError {
     Destroyed,
     #[error("io_uring_enter failed")]
     Enter(#[source] OsError),
+    #[error("Kernel sent invalid cmsg data")]
+    InvalidCmsgData,
 }
 
 pub struct IoUring {
@@ -205,7 +208,9 @@ impl IoUring {
             cached_cancels: Default::default(),
             cached_polls: Default::default(),
             cached_sendmsg: Default::default(),
+            cached_recvmsg: Default::default(),
             cached_timeouts: Default::default(),
+            cached_cmsg_bufs: Default::default(),
             fd_ids_scratch: Default::default(),
         });
         Ok(Rc::new(Self { ring: data }))
@@ -251,11 +256,14 @@ struct IoUringData {
     tasks: CopyHashMap<u64, Box<dyn Task>>,
 
     pending_results: PendingResults,
+
     cached_writes: Stack<Box<WriteTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
     cached_polls: Stack<Box<PollTask>>,
     cached_sendmsg: Stack<Box<SendmsgTask>>,
+    cached_recvmsg: Stack<Box<RecvmsgTask>>,
     cached_timeouts: Stack<Box<TimeoutTask>>,
+    cached_cmsg_bufs: Stack<Buf>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
 }
@@ -431,6 +439,10 @@ impl IoUringData {
                 // nothing
             }
         }
+    }
+
+    fn cmsg_buf(&self) -> Buf {
+        self.cached_cmsg_bufs.pop().unwrap_or_else(|| Buf::new(256))
     }
 }
 

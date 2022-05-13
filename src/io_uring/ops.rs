@@ -2,6 +2,7 @@ use crate::{io_uring::IoUringError, utils::oserror::OsError};
 
 pub mod async_cancel;
 pub mod poll;
+pub mod recvmsg;
 pub mod sendmsg;
 pub mod timeout;
 pub mod write;

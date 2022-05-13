@@ -167,7 +167,6 @@ impl Wheel {
         let expiration = (now + Duration::from_millis(ms)).round_to_ms();
         let current = self.data.current_expiration.get();
         if current.is_none() || expiration - self.data.start < current.unwrap() - self.data.start {
-            log::info!("programming timer {}", self.data.fd.raw());
             let res = uapi::timerfd_settime(
                 self.data.fd.raw(),
                 c::TFD_TIMER_ABSTIME,
