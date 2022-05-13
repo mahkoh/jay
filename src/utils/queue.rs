@@ -1,14 +1,17 @@
-use std::{
-    cell::{Cell, RefCell},
-    collections::VecDeque,
-    future::Future,
-    mem,
-    pin::Pin,
-    task::{Context, Poll, Waker},
+use {
+    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
+    std::{
+        cell::{Cell, UnsafeCell},
+        collections::VecDeque,
+        future::Future,
+        mem,
+        pin::Pin,
+        task::{Context, Poll, Waker},
+    },
 };
 
 pub struct AsyncQueue<T> {
-    data: RefCell<VecDeque<T>>,
+    data: UnsafeCell<VecDeque<T>>,
     waiter: Cell<Option<Waker>>,
 }
 
@@ -27,14 +30,16 @@ impl<T> AsyncQueue<T> {
     }
 
     pub fn push(&self, t: T) {
-        self.data.borrow_mut().push_back(t);
+        unsafe {
+            self.data.get().deref_mut().push_back(t);
+        }
         if let Some(waiter) = self.waiter.take() {
             waiter.wake();
         }
     }
 
     pub fn try_pop(&self) -> Option<T> {
-        self.data.borrow_mut().pop_front()
+        unsafe { self.data.get().deref_mut().pop_front() }
     }
 
     pub fn pop<'a>(&'a self) -> AsyncQueuePop<'a, T> {
@@ -46,12 +51,14 @@ impl<T> AsyncQueue<T> {
     }
 
     pub fn clear(&self) {
-        mem::take(&mut *self.data.borrow_mut());
+        unsafe {
+            mem::take(self.data.get().deref_mut());
+        }
         self.waiter.take();
     }
 
     pub fn is_empty(&self) -> bool {
-        self.data.borrow_mut().is_empty()
+        unsafe { self.data.get().deref().is_empty() }
     }
 }
 
@@ -80,7 +87,7 @@ impl<'a, T> Future for AsyncQueueNonEmpty<'a, T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.queue.data.borrow_mut().len() > 0 {
+        if unsafe { self.queue.data.get().deref().len() } > 0 {
             Poll::Ready(())
         } else {
             self.queue.waiter.set(Some(cx.waker().clone()));
