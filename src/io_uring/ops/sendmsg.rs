@@ -2,7 +2,7 @@ use {
     crate::{
         io_uring::{
             pending_result::PendingResult,
-            sys::{io_uring_sqe, IORING_OP_SENDMSG, IOSQE_IO_LINK},
+            sys::{io_uring_sqe, IORING_OP_SENDMSG},
             IoUring, IoUringData, IoUringError, Task,
         },
         time::Time,
@@ -123,8 +123,9 @@ unsafe impl Task for SendmsgTask {
         sqe.fd = self.fd;
         sqe.u2.addr = &self.msghdr as *const _ as _;
         sqe.u3.msg_flags = c::MSG_NOSIGNAL as _;
-        if self.has_timeout {
-            sqe.flags = IOSQE_IO_LINK;
-        }
+    }
+
+    fn has_timeout(&self) -> bool {
+        self.has_timeout
     }
 }

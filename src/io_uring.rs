@@ -11,7 +11,7 @@ use {
             sys::{
                 io_uring_cqe, io_uring_enter, io_uring_params, io_uring_setup, io_uring_sqe,
                 IORING_ENTER_GETEVENTS, IORING_FEAT_NODROP, IORING_OFF_CQ_RING, IORING_OFF_SQES,
-                IORING_OFF_SQ_RING,
+                IORING_OFF_SQ_RING, IOSQE_IO_LINK,
             },
         },
         utils::{
@@ -24,8 +24,8 @@ use {
             numcell::NumCell,
             oserror::OsError,
             ptr_ext::{MutPtrExt, PtrExt},
-            queue::AsyncQueue,
             stack::Stack,
+            syncqueue::SyncQueue,
         },
     },
     std::{
@@ -251,7 +251,7 @@ struct IoUringData {
     cqes_consumed: AsyncEvent,
 
     next: NumCell<u64>,
-    to_encode: AsyncQueue<u64>,
+    to_encode: SyncQueue<u64>,
     pending_in_kernel: CopyHashMap<u64, ()>,
     tasks: CopyHashMap<u64, Box<dyn Task>>,
 
@@ -274,6 +274,10 @@ unsafe trait Task {
     fn encode(&self, sqe: &mut io_uring_sqe);
 
     fn is_cancel(&self) -> bool {
+        false
+    }
+
+    fn has_timeout(&self) -> bool {
         false
     }
 }
@@ -353,8 +357,9 @@ impl IoUringData {
         unsafe {
             let mut tail = self.sqtail.deref().load(Relaxed);
             let head = self.sqhead.deref().load(Acquire);
-            while tail.wrapping_sub(head) < self.sqlen {
-                let id = match self.to_encode.try_pop() {
+            let available = self.sqlen - tail.wrapping_sub(head);
+            while encoded < available {
+                let id = match self.to_encode.pop() {
                     Some(t) => t,
                     _ => break,
                 };
@@ -362,6 +367,11 @@ impl IoUringData {
                     Some(t) => t,
                     _ => continue,
                 };
+                let has_timeout = task.has_timeout();
+                if has_timeout && (available - encoded) < 2 {
+                    self.to_encode.push_front(id);
+                    break;
+                }
                 self.pending_in_kernel.set(id, ());
                 let idx = (tail & self.sqmask) as usize;
                 let mut sqe = self.sqesmap.deref()[idx].get().deref_mut();
@@ -369,12 +379,15 @@ impl IoUringData {
                 *sqe = Default::default();
                 sqe.user_data = id;
                 task.encode(sqe);
+                if has_timeout {
+                    sqe.flags |= IOSQE_IO_LINK;
+                }
                 tail = tail.wrapping_add(1);
                 encoded += 1;
             }
             self.sqtail.deref().store(tail, Release);
         }
-        encoded
+        encoded as usize
     }
 
     fn id(&self) -> Cancellable {

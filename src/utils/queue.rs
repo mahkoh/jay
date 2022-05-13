@@ -56,10 +56,6 @@ impl<T> AsyncQueue<T> {
         }
         self.waiter.take();
     }
-
-    pub fn is_empty(&self) -> bool {
-        unsafe { self.data.get().deref().is_empty() }
-    }
 }
 
 pub struct AsyncQueuePop<'a, T> {

@@ -23,6 +23,12 @@ impl<T> SyncQueue<T> {
         }
     }
 
+    pub fn push_front(&self, t: T) {
+        unsafe {
+            self.el.get().deref_mut().push_front(t);
+        }
+    }
+
     pub fn pop(&self) -> Option<T> {
         unsafe { self.el.get().deref_mut().pop_front() }
     }

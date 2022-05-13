@@ -3,7 +3,7 @@ use {
         io_uring::{
             ops::TaskResult,
             pending_result::PendingResult,
-            sys::{io_uring_sqe, IORING_OP_WRITE, IOSQE_IO_LINK},
+            sys::{io_uring_sqe, IORING_OP_WRITE},
             IoUring, IoUringData, Task,
         },
         time::Time,
@@ -74,8 +74,9 @@ unsafe impl Task for WriteTask {
         sqe.u2.addr = data.buf.as_ptr() as _;
         sqe.u3.rw_flags = 0;
         sqe.len = data.buf.len() as _;
-        if self.has_timeout {
-            sqe.flags = IOSQE_IO_LINK;
-        }
+    }
+
+    fn has_timeout(&self) -> bool {
+        self.has_timeout
     }
 }
