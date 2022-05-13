@@ -18,9 +18,10 @@ use {
                 WlSurface,
             },
         },
-        io_uring::{IoUring, TaskResultExt},
+        io_uring::{IoUring, IoUringError, TaskResultExt},
         rect::Rect,
         state::State,
+        time::Time,
         tree::ToplevelNode,
         utils::{
             bitflags::BitflagsExt, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -59,10 +60,7 @@ use {
     },
     ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
-    futures_util::{
-        future::{self, Either},
-        pin_mut, select, FutureExt,
-    },
+    futures_util::{select, FutureExt},
     smallvec::SmallVec,
     std::{
         borrow::Cow,
@@ -2380,22 +2378,21 @@ struct XToWaylandTransfer {
 
 impl XToWaylandTransfer {
     async fn run(mut self) {
-        let timeout = self.state.wheel.timeout(5000);
-        pin_mut!(timeout);
+        let timeout = Time::in_ms(5000).unwrap();
         let mut pos = 0;
         while pos < self.data.len() {
-            let f1 = self.state.ring.write(&self.fd, self.data.slice(pos..));
-            pin_mut!(f1);
-            match future::select(f1, &mut timeout).await {
-                Either::Left((res, _)) => match res.merge() {
-                    Ok(n) => pos += n,
-                    Err(e) => {
-                        log::error!("Could not write to wayland client: {}", ErrorFmt(e));
-                        break;
-                    }
-                },
-                Either::Right(_) => {
+            let res = self
+                .state
+                .ring
+                .write(&self.fd, self.data.slice(pos..), Some(timeout));
+            match res.await.merge() {
+                Ok(n) => pos += n,
+                Err(IoUringError::OsError(OsError(c::ECANCELED))) => {
                     log::error!("Transfer timed out");
+                    break;
+                }
+                Err(e) => {
+                    log::error!("Could not write to wayland client: {}", ErrorFmt(e));
                     break;
                 }
             }
