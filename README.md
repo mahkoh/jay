@@ -46,9 +46,7 @@ later:
 - Games that require pointer grabs
 - Screen locking
 - Touch and tablet support
-- Efficient CPU usage:
-  - Damage tracking (any kind of damage causes a complete re-render currently)
-  - Pointer target caching (each mouse movement causes an expensive node lookup)
+- Damage tracking (any kind of damage causes a complete re-render currently)
 - GPU/monitor hotplug/unplug
 - Multiple GPUs (this causes an immediate crash)
 
