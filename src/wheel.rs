@@ -53,7 +53,7 @@ impl Drop for Wheel {
 }
 
 struct WheelTimeoutData {
-    id: u64,
+    id: Cell<u64>,
     expired: Cell<Option<Result<(), WheelError>>>,
     wheel: Rc<WheelData>,
     waker: Cell<Option<Waker>>,
@@ -74,7 +74,7 @@ pub struct WheelTimeoutFuture {
 
 impl Drop for WheelTimeoutFuture {
     fn drop(&mut self) {
-        self.data.wheel.dispatchers.remove(&self.data.id);
+        self.data.wheel.dispatchers.remove(&self.data.id.get());
         self.data.waker.set(None);
         if !self.data.wheel.destroyed.get() {
             self.data.expired.take();
@@ -135,12 +135,13 @@ impl Wheel {
     fn future(&self) -> WheelTimeoutFuture {
         let data = self.data.cached_futures.pop().unwrap_or_else(|| {
             Rc::new(WheelTimeoutData {
-                id: self.data.next_id.fetch_add(1),
+                id: Cell::new(0),
                 expired: Cell::new(None),
                 wheel: self.data.clone(),
                 waker: Cell::new(None),
             })
         });
+        data.id.set(self.data.next_id.fetch_add(1));
         WheelTimeoutFuture { data }
     }
 
@@ -148,7 +149,7 @@ impl Wheel {
         if self.data.destroyed.get() {
             return WheelTimeoutFuture {
                 data: Rc::new(WheelTimeoutData {
-                    id: 0,
+                    id: Cell::new(0),
                     expired: Cell::new(Some(Err(WheelError::Destroyed))),
                     wheel: self.data.clone(),
                     waker: Default::default(),
@@ -186,11 +187,11 @@ impl Wheel {
         }
         self.data.expirations.borrow_mut().push(Reverse(WheelEntry {
             expiration,
-            id: future.data.id,
+            id: future.data.id.get(),
         }));
         self.data
             .dispatchers
-            .set(future.data.id, future.data.clone());
+            .set(future.data.id.get(), future.data.clone());
         future
     }
 }
@@ -235,7 +236,6 @@ impl WheelData {
         }
         let now = Time::now()?;
         let dist = now - self.start;
-        let mut to_dispatch = vec![];
         {
             let mut expirations = self.expirations.borrow_mut();
             while let Some(Reverse(entry)) = expirations.peek() {
@@ -243,7 +243,7 @@ impl WheelData {
                     break;
                 }
                 if let Some(dispatcher) = self.dispatchers.remove(&entry.id) {
-                    to_dispatch.push(dispatcher);
+                    dispatcher.complete(Ok(()));
                 }
                 expirations.pop();
             }
@@ -266,9 +266,6 @@ impl WheelData {
                 }
                 expirations.pop();
             }
-        }
-        for dispatcher in to_dispatch {
-            dispatcher.complete(Ok(()));
         }
         Ok(())
     }

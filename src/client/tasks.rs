@@ -3,6 +3,7 @@ use {
         async_engine::Phase,
         client::{Client, ClientError},
         object::ObjectId,
+        time::Time,
         utils::{
             buffd::{BufFdIn, BufFdOut, MsgParser},
             errorfmt::ErrorFmt,
@@ -100,7 +101,7 @@ async fn receive(data: Rc<Client>) {
 
 async fn send(data: Rc<Client>) {
     let send = async {
-        let mut out = BufFdOut::new(&data.socket, &data.state.ring, &data.state.wheel);
+        let mut out = BufFdOut::new(&data.socket, &data.state.ring);
         let mut buffers = VecDeque::new();
         loop {
             data.flush_request.triggered().await;
@@ -109,9 +110,9 @@ async fn send(data: Rc<Client>) {
                 swapchain.commit();
                 mem::swap(&mut swapchain.pending, &mut buffers);
             }
-            let mut timeout = None;
+            let timeout = Time::in_ms(5000).unwrap();
             while let Some(mut cur) = buffers.pop_front() {
-                out.flush(&mut cur, &mut timeout).await?;
+                out.flush(&mut cur, timeout).await?;
                 data.swapchain.borrow_mut().free.push(cur);
             }
         }
@@ -122,9 +123,9 @@ async fn send(data: Rc<Client>) {
             log::info!("Client {} terminated the connection", data.id.0);
         } else {
             log::error!(
-                "An error occurred while sending data to client {}: {:#}",
+                "An error occurred while sending data to client {}: {}",
                 data.id.0,
-                e
+                ErrorFmt(e)
             );
         }
     }

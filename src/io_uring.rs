@@ -1,8 +1,12 @@
+pub use ops::TaskResultExt;
 use {
     crate::{
         async_engine::AsyncEngine,
         io_uring::{
-            ops::{async_cancel::AsyncCancelTask, poll::PollTask, write::WriteTask},
+            ops::{
+                async_cancel::AsyncCancelTask, poll::PollTask, sendmsg::SendmsgTask,
+                timeout::TimeoutTask, write::WriteTask,
+            },
             pending_result::PendingResults,
             sys::{
                 io_uring_cqe, io_uring_enter, io_uring_params, io_uring_setup, io_uring_sqe,
@@ -24,7 +28,7 @@ use {
         },
     },
     std::{
-        cell::{Cell, UnsafeCell},
+        cell::{Cell, RefCell, UnsafeCell},
         mem::{self},
         rc::Rc,
         sync::atomic::{
@@ -49,7 +53,6 @@ macro_rules! map_err {
         }
     }};
 }
-pub use ops::TaskResultExt;
 
 mod ops;
 mod pending_result;
@@ -58,7 +61,7 @@ mod sys;
 #[derive(Debug, Error)]
 pub enum IoUringError {
     #[error(transparent)]
-    OsError(OsError),
+    OsError(#[from] OsError),
     #[error("Could not create an io-uring")]
     CreateUring(#[source] OsError),
     #[error("The kernel does not support the IORING_FEAT_NODROP feature")]
@@ -201,6 +204,9 @@ impl IoUring {
             cached_writes: Default::default(),
             cached_cancels: Default::default(),
             cached_polls: Default::default(),
+            cached_sendmsg: Default::default(),
+            cached_timeouts: Default::default(),
+            fd_ids_scratch: Default::default(),
         });
         Ok(Rc::new(Self { ring: data }))
     }
@@ -248,6 +254,10 @@ struct IoUringData {
     cached_writes: Stack<Box<WriteTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
     cached_polls: Stack<Box<PollTask>>,
+    cached_sendmsg: Stack<Box<SendmsgTask>>,
+    cached_timeouts: Stack<Box<TimeoutTask>>,
+
+    fd_ids_scratch: RefCell<Vec<c::c_int>>,
 }
 
 unsafe trait Task {

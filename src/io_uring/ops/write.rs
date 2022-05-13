@@ -1,26 +1,22 @@
 use {
-    crate::io_uring::{
-        ops::TaskResult,
-        pending_result::PendingResult,
-        sys::{io_uring_sqe, IORING_OP_WRITE},
-        IoUring, IoUringData, Task,
+    crate::{
+        io_uring::{
+            ops::TaskResult,
+            pending_result::PendingResult,
+            sys::{io_uring_sqe, IORING_OP_WRITE},
+            IoUring, IoUringData, Task,
+        },
+        utils::buf::Buf,
     },
     std::{
         cell::{Cell, RefCell},
-        ops::Range,
         rc::Rc,
     },
     uapi::OwnedFd,
 };
 
 impl IoUring {
-    pub async fn write(
-        &self,
-        fd: &Rc<OwnedFd>,
-        buf: &Rc<Vec<u8>>,
-        offset: usize,
-        n: usize,
-    ) -> TaskResult<usize> {
+    pub async fn write(&self, fd: &Rc<OwnedFd>, buf: Buf) -> TaskResult<usize> {
         self.ring.check_destroyed()?;
         let id = self.ring.id();
         let pr = self.ring.pending_results.acquire();
@@ -34,8 +30,7 @@ impl IoUring {
             pw.id.set(id.id);
             *pw.data.borrow_mut() = Some(WriteTaskData {
                 fd: fd.clone(),
-                buf: buf.clone(),
-                range: offset..offset + n,
+                buf,
                 res: pr.clone(),
             });
             self.ring.schedule(pw);
@@ -46,8 +41,7 @@ impl IoUring {
 
 struct WriteTaskData {
     fd: Rc<OwnedFd>,
-    buf: Rc<Vec<u8>>,
-    range: Range<usize>,
+    buf: Buf,
     res: PendingResult,
 }
 
@@ -74,8 +68,8 @@ unsafe impl Task for WriteTask {
         sqe.opcode = IORING_OP_WRITE;
         sqe.fd = data.fd.raw();
         sqe.u1.off = !0;
-        sqe.u2.addr = data.buf[data.range.clone()].as_ptr() as _;
+        sqe.u2.addr = data.buf.as_ptr() as _;
         sqe.u3.rw_flags = 0;
-        sqe.len = data.range.len() as _;
+        sqe.len = data.buf.len() as _;
     }
 }

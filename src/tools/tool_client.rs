@@ -195,7 +195,7 @@ impl ToolClient {
             slf.eng.spawn(
                 Outgoing {
                     tc: slf.clone(),
-                    buf: BufFdOut::new(&socket, &slf.ring, &slf.wheel),
+                    buf: BufFdOut::new(&socket, &slf.ring),
                     buffers: Default::default(),
                 }
                 .run(),

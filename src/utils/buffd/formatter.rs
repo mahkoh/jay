@@ -2,14 +2,15 @@ use {
     crate::{
         fixed::Fixed,
         object::ObjectId,
-        utils::buffd::buf_out::{MsgFds, OutBuffer},
+        utils::buffd::buf_out::{MsgFds, OutBuffer, OutBufferMeta, OUT_BUF_SIZE},
     },
-    std::{mem, mem::MaybeUninit, rc::Rc},
-    uapi::OwnedFd,
+    std::{mem, rc::Rc},
+    uapi::{OwnedFd, Packed},
 };
 
 pub struct MsgFormatter<'a> {
-    buf: &'a mut OutBuffer,
+    buf: &'a mut [u8],
+    meta: &'a mut OutBufferMeta,
     pos: usize,
     fds: &'a mut Vec<Rc<OwnedFd>>,
 }
@@ -17,24 +18,33 @@ pub struct MsgFormatter<'a> {
 impl<'a> MsgFormatter<'a> {
     pub fn new(buf: &'a mut OutBuffer, fds: &'a mut Vec<Rc<OwnedFd>>) -> Self {
         Self {
-            pos: buf.write_pos,
-            buf,
+            pos: buf.meta.write_pos,
+            buf: &mut buf.buf[..],
             fds,
+            meta: &mut buf.meta,
         }
     }
 
+    fn write(&mut self, bytes: &[u8]) {
+        if bytes.len() > OUT_BUF_SIZE - self.meta.write_pos {
+            panic!("Out buffer overflow");
+        }
+        self.buf[self.meta.write_pos..self.meta.write_pos + bytes.len()].copy_from_slice(bytes);
+        self.meta.write_pos += bytes.len();
+    }
+
     pub fn int(&mut self, int: i32) -> &mut Self {
-        self.buf.write(uapi::as_maybe_uninit_bytes(&int));
+        self.write(uapi::as_bytes(&int));
         self
     }
 
     pub fn uint(&mut self, int: u32) -> &mut Self {
-        self.buf.write(uapi::as_maybe_uninit_bytes(&int));
+        self.write(uapi::as_bytes(&int));
         self
     }
 
     pub fn fixed(&mut self, fixed: Fixed) -> &mut Self {
-        self.buf.write(uapi::as_maybe_uninit_bytes(&fixed));
+        self.write(uapi::as_bytes(&fixed.0));
         self
     }
 
@@ -50,9 +60,9 @@ impl<'a> MsgFormatter<'a> {
         let len = s.len() + 1;
         let cap = (len + 3) & !3;
         self.uint(len as u32);
-        self.buf.write(uapi::as_maybe_uninit_bytes(s));
-        let none = [MaybeUninit::new(0); 4];
-        self.buf.write(&none[..cap - len + 1]);
+        self.write(uapi::as_bytes(s));
+        let none = [0; 4];
+        self.write(&none[..cap - len + 1]);
         self
     }
 
@@ -71,46 +81,43 @@ impl<'a> MsgFormatter<'a> {
 
     #[allow(dead_code)]
     pub fn array<F: FnOnce(&mut MsgFormatter<'_>)>(&mut self, f: F) -> &mut Self {
-        let pos = self.buf.write_pos;
+        let pos = self.meta.write_pos;
         self.uint(0);
         let len = {
             let mut fmt = MsgFormatter {
                 buf: self.buf,
+                meta: self.meta,
                 pos,
                 fds: self.fds,
             };
             f(&mut fmt);
-            let len = self.buf.write_pos - pos - 4;
-            let none = [MaybeUninit::new(0); 4];
-            self.buf
-                .write(&none[..self.buf.write_pos.wrapping_neg() & 3]);
+            let len = self.meta.write_pos - pos - 4;
+            let none = [0; 4];
+            self.write(&none[..self.meta.write_pos.wrapping_neg() & 3]);
             len as u32
         };
-        unsafe {
-            (*self.buf.buf)[pos..pos + 4].copy_from_slice(uapi::as_maybe_uninit_bytes(&len));
-        }
+        self.buf[pos..pos + 4].copy_from_slice(uapi::as_bytes(&len));
         self
     }
 
-    pub fn binary<T: ?Sized>(&mut self, t: &T) -> &mut Self {
+    pub fn binary<T: ?Sized + Packed>(&mut self, t: &T) -> &mut Self {
         self.uint(mem::size_of_val(t) as u32);
-        self.buf.write(uapi::as_maybe_uninit_bytes(t));
-        let none = [MaybeUninit::new(0); 4];
-        self.buf
-            .write(&none[..self.buf.write_pos.wrapping_neg() & 3]);
+        self.write(uapi::as_bytes(t));
+        let none = [0; 4];
+        self.write(&none[..self.meta.write_pos.wrapping_neg() & 3]);
         self
     }
 
     pub fn write_len(self) {
-        assert!(self.buf.write_pos - self.pos >= 8);
+        assert!(self.meta.write_pos - self.pos >= 8);
         assert_eq!(self.pos % 4, 0);
         unsafe {
-            let second_ptr = (self.buf.buf as *mut u8).add(self.pos + 4) as *mut u32;
-            let len = ((self.buf.write_pos - self.pos) as u32) << 16;
+            let second_ptr = self.buf.as_ptr().add(self.pos + 4) as *mut u32;
+            let len = ((self.meta.write_pos - self.pos) as u32) << 16;
             *second_ptr |= len;
         }
         if self.fds.len() > 0 {
-            self.buf.fds.push_back(MsgFds {
+            self.meta.fds.push_back(MsgFds {
                 pos: self.pos,
                 fds: mem::take(self.fds),
             })

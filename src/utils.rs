@@ -2,6 +2,7 @@ pub mod array;
 pub mod asyncevent;
 pub mod bitfield;
 pub mod bitflags;
+pub mod buf;
 pub mod buffd;
 pub mod bufio;
 pub mod clonecell;

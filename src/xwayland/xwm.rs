@@ -23,7 +23,7 @@ use {
         state::State,
         tree::ToplevelNode,
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            bitflags::BitflagsExt, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell, oserror::OsError,
             rc_eq::rc_eq, tri::Try,
         },
@@ -1678,7 +1678,7 @@ impl Wm {
                 log::error!("Could not get converted property: {}", e);
                 return Ok(());
             }
-            let data = Rc::new(data);
+            let mut data = Buf::from_slice(&data);
             for transfer in transfers {
                 if event.target != transfer.mime_type {
                     log::error!("Conversion yielded an incompatible mime type");
@@ -1687,7 +1687,7 @@ impl Wm {
                 let id = self.transfer_ids.fetch_add(1);
                 let transfer = XToWaylandTransfer {
                     id,
-                    data: data.clone(),
+                    data: data.slice(..),
                     fd: transfer.fd,
                     state: self.state.clone(),
                     shared: self.shared.clone(),
@@ -2372,22 +2372,19 @@ impl Wm {
 
 struct XToWaylandTransfer {
     id: u64,
-    data: Rc<Vec<u8>>,
+    data: Buf,
     fd: Rc<OwnedFd>,
     state: Rc<State>,
     shared: Rc<XwmShared>,
 }
 
 impl XToWaylandTransfer {
-    async fn run(self) {
+    async fn run(mut self) {
         let timeout = self.state.wheel.timeout(5000);
         pin_mut!(timeout);
         let mut pos = 0;
         while pos < self.data.len() {
-            let f1 = self
-                .state
-                .ring
-                .write(&self.fd, &self.data, pos, self.data.len() - pos);
+            let f1 = self.state.ring.write(&self.fd, self.data.slice(pos..));
             pin_mut!(f1);
             match future::select(f1, &mut timeout).await {
                 Either::Left((res, _)) => match res.merge() {

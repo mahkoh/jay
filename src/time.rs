@@ -36,6 +36,11 @@ impl Time {
         Ok(Self(time))
     }
 
+    pub fn in_ms(ms: u64) -> Result<Time, TimeError> {
+        let now = Self::now()?;
+        Ok(now + Duration::from_millis(ms))
+    }
+
     #[allow(dead_code)]
     pub fn now_unchecked() -> Time {
         let mut time = uapi::pod_zeroed();

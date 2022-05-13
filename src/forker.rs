@@ -15,7 +15,6 @@ use {
             buffd::BufFdError, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             queue::AsyncQueue,
         },
-        wheel::Wheel,
         xwayland,
     },
     bincode::{
@@ -237,7 +236,7 @@ impl ForkerProxy {
     }
 
     async fn outgoing(self: Rc<Self>, state: Rc<State>) {
-        let mut io = IoOut::new(&self.socket, &state.ring, &state.wheel);
+        let mut io = IoOut::new(&self.socket, &state.ring);
         loop {
             let msg = self.outgoing.pop().await;
             for fd in self.fds.borrow_mut().drain(..) {
@@ -301,7 +300,6 @@ struct Forker {
     socket: Rc<OwnedFd>,
     ae: Rc<AsyncEngine>,
     ring: Rc<IoUring>,
-    wheel: Rc<Wheel>,
     fds: RefCell<Vec<Rc<OwnedFd>>>,
     outgoing: AsyncQueue<ForkerMessage>,
     pending_spawns: CopyHashMap<c::pid_t, SpawnedFuture<()>>,
@@ -329,12 +327,10 @@ impl Forker {
         });
         let ae = AsyncEngine::new();
         let ring = IoUring::new(&ae, 32).unwrap();
-        let wheel = Wheel::new(&ae, &ring).unwrap();
         let forker = Rc::new(Forker {
             socket,
             ae: ae.clone(),
             ring: ring.clone(),
-            wheel,
             fds: RefCell::new(vec![]),
             outgoing: Default::default(),
             pending_spawns: Default::default(),
@@ -346,7 +342,7 @@ impl Forker {
     }
 
     async fn outgoing(self: Rc<Self>) {
-        let mut io = IoOut::new(&self.socket, &self.ring, &self.wheel);
+        let mut io = IoOut::new(&self.socket, &self.ring);
         loop {
             let msg = self.outgoing.pop().await;
             for fd in self.fds.borrow_mut().drain(..) {
