@@ -128,12 +128,14 @@ simple_add_obj!(ZwlrLayerShellV1);
 
 impl Object for ZwlrLayerShellV1 {
     fn num_requests(&self) -> u32 {
-        let last_request = if self.version >= 3 {
-            DESTROY
-        } else {
-            GET_LAYER_SURFACE
-        };
-        last_request + 1
+        // todo
+        // let last_request = if self.version >= 3 {
+        //     DESTROY
+        // } else {
+        //     GET_LAYER_SURFACE
+        // };
+        // last_request + 1
+        DESTROY + 1
     }
 }
 
