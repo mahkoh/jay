@@ -48,7 +48,7 @@ later:
 - Touch and tablet support
 - Damage tracking (any kind of damage causes a complete re-render currently)
 - GPU/monitor hotplug/unplug
-- Multiple GPUs (this causes an immediate crash)
+- Selecting the primary device in multi-GPU systems 
 
 ## Native library dependencies
 
