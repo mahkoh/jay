@@ -123,6 +123,14 @@ impl Seat {
         get!().close(self);
     }
 
+    pub fn get_floating(self) -> bool {
+        get!().get_floating(self)
+    }
+
+    pub fn set_floating(self, floating: bool) {
+        get!().set_floating(self, floating);
+    }
+
     pub fn toggle_floating(self) {
         get!().toggle_floating(self);
     }

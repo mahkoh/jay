@@ -11,7 +11,6 @@ use {
         render::{Renderer, Texture},
         state::State,
         text,
-        theme::Color,
         tree::{
             walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
             ToplevelData, ToplevelNode, WorkspaceNode,
@@ -26,7 +25,6 @@ use {
         },
     },
     ahash::AHashMap,
-    isnt::std_1::vec::IsntVecExt,
     jay_config::{Axis, Direction},
     smallvec::SmallVec,
     std::{
@@ -368,8 +366,8 @@ impl ContainerNode {
         self.mono_content
             .set(child.content.get().at_point(mb.x1(), mb.y1()));
 
-        let th = self.state.theme.title_height.get();
-        let bw = self.state.theme.border_width.get();
+        let th = self.state.theme.sizes.title_height.get();
+        let bw = self.state.theme.sizes.border_width.get();
         let num_children = self.num_children.get() as i32;
         let content_width = self.width.get().sub(bw * (num_children - 1)).max(0);
         let width_per_child = content_width / num_children;
@@ -390,8 +388,8 @@ impl ContainerNode {
 
     fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
-        let border_width = self.state.theme.border_width.get();
-        let title_height = self.state.theme.title_height.get();
+        let border_width = self.state.theme.sizes.border_width.get();
+        let title_height = self.state.theme.sizes.title_height.get();
         let split = self.split.get();
         let (content_size, other_content_size) = match split {
             ContainerSplit::Horizontal => (self.content_width.get(), self.content_height.get()),
@@ -476,8 +474,8 @@ impl ContainerNode {
     }
 
     fn update_content_size(&self) {
-        let border_width = self.state.theme.border_width.get();
-        let title_height = self.state.theme.title_height.get();
+        let border_width = self.state.theme.sizes.border_width.get();
+        let title_height = self.state.theme.sizes.title_height.get();
         let nc = self.num_children.get();
         match self.split.get() {
             ContainerSplit::Horizontal => {
@@ -508,7 +506,7 @@ impl ContainerNode {
     }
 
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, mut x: i32, mut y: i32) {
-        let title_height = self.state.theme.title_height.get();
+        let title_height = self.state.theme.sizes.title_height.get();
         let mut seats = self.seats.borrow_mut();
         let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
             cursor: KnownCursor::Default,
@@ -630,8 +628,8 @@ impl ContainerNode {
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
-        let th = theme.title_height.get();
-        let bw = theme.border_width.get();
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
         let font = theme.font.borrow_mut();
         let cwidth = self.width.get();
         let cheight = self.height.get();
@@ -641,9 +639,11 @@ impl ContainerNode {
         rd.active_title_rects.clear();
         rd.border_rects.clear();
         rd.underline_rects.clear();
+        rd.last_active_rect.take();
         let last_active = self.focus_history.last().map(|v| v.node.node_id());
         let mono = self.mono_child.get().is_some();
         let split = self.split.get();
+        let have_active = self.children.iter().any(|c| c.active.get());
         for (i, child) in self.children.iter().enumerate() {
             let rect = child.title_rect.get();
             if i > 0 {
@@ -656,14 +656,16 @@ impl ContainerNode {
                 };
                 rd.border_rects.push(rect.unwrap());
             }
-            if child.active.get() {
+            let color = if child.active.get() {
                 rd.active_title_rects.push(rect);
+                theme.colors.focused_title_text.get()
+            } else if !have_active && last_active == Some(child.node.node_id()) {
+                rd.last_active_rect = Some(rect);
+                theme.colors.focused_inactive_title_text.get()
             } else {
                 rd.title_rects.push(rect);
-            }
-            if last_active == Some(child.node.node_id()) {
-                rd.last_active_rect = Some(rect);
-            }
+                theme.colors.unfocused_title_text.get()
+            };
             if !mono {
                 let rect = Rect::new_sized(rect.x1(), rect.y2(), rect.width(), 1).unwrap();
                 rd.underline_rects.push(rect);
@@ -674,7 +676,7 @@ impl ContainerNode {
                     break 'render_title;
                 }
                 if let Some(ctx) = &ctx {
-                    match text::render(ctx, rect.width(), th, &font, title.deref(), Color::GREY) {
+                    match text::render(ctx, rect.width(), th, &font, title.deref(), color) {
                         Ok(t) => rd.titles.push(ContainerTitle {
                             x: rect.x1(),
                             y: rect.y1(),
@@ -690,9 +692,6 @@ impl ContainerNode {
         if mono {
             rd.underline_rects
                 .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
-        }
-        if rd.active_title_rects.is_not_empty() {
-            rd.last_active_rect.take();
         }
     }
 
@@ -1151,7 +1150,7 @@ impl Node for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        if seat_data.y > self.state.theme.title_height.get() {
+        if seat_data.y > self.state.theme.sizes.title_height.get() {
             return;
         }
         let cur_mc = match self.mono_child.get() {

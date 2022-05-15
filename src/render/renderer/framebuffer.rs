@@ -108,7 +108,7 @@ impl Framebuffer {
         result: &mut RenderResult,
     ) {
         let _ = self.ctx.ctx.with_current(|| {
-            let c = state.theme.background_color.get();
+            let c = state.theme.colors.background.get();
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
                 glViewport(0, 0, self.gl.width, self.gl.height);

@@ -422,7 +422,14 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn toggle_floating(self: &Rc<Self>) {
+    pub fn get_floating(self: &Rc<Self>) -> Option<bool> {
+        match self.keyboard_node.get().node_toplevel() {
+            Some(tl) => Some(tl.tl_data().is_floating.get()),
+            _ => None,
+        }
+    }
+
+    pub fn set_floating(self: &Rc<Self>, floating: bool) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => return,
@@ -431,12 +438,15 @@ impl WlSeatGlobal {
         if data.is_fullscreen.get() {
             return;
         }
+        if data.is_floating.get() == floating {
+            return;
+        }
         let parent = match data.parent.get() {
             Some(p) => p,
             _ => return,
         };
-        if let Some(cn) = parent.clone().node_into_containing_node() {
-            if parent.node_is_float() {
+        if let Some(cn) = parent.node_into_containing_node() {
+            if !floating {
                 cn.cnode_remove_child2(tl.tl_as_node(), true);
                 self.state.map_tiled(tl);
             } else if let Some(ws) = data.workspace.get() {

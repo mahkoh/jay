@@ -8,7 +8,6 @@ use {
         render::{Renderer, Texture},
         state::State,
         text,
-        theme::Color,
         tree::{
             walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
             StackedNode, ToplevelNode, WorkspaceNode,
@@ -144,8 +143,8 @@ impl FloatNode {
         };
         let pos = self.position.get();
         let theme = &self.state.theme;
-        let bw = theme.border_width.get();
-        let th = theme.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let th = theme.sizes.title_height.get();
         let cpos = Rect::new_sized(
             pos.x1() + bw,
             pos.y1() + bw + th + 1,
@@ -167,8 +166,12 @@ impl FloatNode {
     fn render_title(&self) {
         self.render_titles_scheduled.set(false);
         let theme = &self.state.theme;
-        let th = theme.title_height.get();
-        let bw = theme.border_width.get();
+        let th = theme.sizes.title_height.get();
+        let tc = match self.active.get() {
+            true => theme.colors.focused_title_text.get(),
+            false => theme.colors.unfocused_title_text.get(),
+        };
+        let bw = theme.sizes.border_width.get();
         let font = theme.font.borrow_mut();
         let title = self.title.borrow_mut();
         self.title_texture.set(None);
@@ -180,8 +183,7 @@ impl FloatNode {
             Some(c) => c,
             _ => return,
         };
-        let texture = match text::render(&ctx, pos.width() - 2 * bw, th, &font, &title, Color::GREY)
-        {
+        let texture = match text::render(&ctx, pos.width() - 2 * bw, th, &font, &title, tc) {
             Ok(t) => t,
             Err(e) => {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
@@ -193,8 +195,8 @@ impl FloatNode {
 
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
         let theme = &self.state.theme;
-        let bw = theme.border_width.get();
-        let th = theme.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let th = theme.sizes.title_height.get();
         let mut seats = self.seats.borrow_mut();
         let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
             cursor: KnownCursor::Default,
@@ -370,8 +372,8 @@ impl Node for FloatNode {
 
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         let theme = &self.state.theme;
-        let th = theme.title_height.get();
-        let bw = theme.border_width.get();
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
         let pos = self.position.get();
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;

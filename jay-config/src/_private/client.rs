@@ -13,7 +13,7 @@ use {
         },
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::keymap::Keymap,
-        theme::Color,
+        theme::{colors::Colorable, sized::Resizable, Color},
         Axis, Command, Direction, LogLevel, ModifiedKeySym, PciId, Timer, Workspace,
     },
     std::{
@@ -149,7 +149,7 @@ pub unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize
 }
 
 macro_rules! get_response {
-    ($res:expr, $def:expr, $ty:ident, $($field:ident),+) => {
+    ($res:expr, $def:expr, $ty:ident { $($field:ident),+ }) => {
         let ($($field,)+) = match $res {
             Response::$ty { $($field,)+ } => ($($field,)+),
             _ => {
@@ -231,19 +231,19 @@ impl Client {
 
     pub fn seats(&self) -> Vec<Seat> {
         let res = self.send_with_response(&ClientMessage::GetSeats);
-        get_response!(res, vec![], GetSeats, seats);
+        get_response!(res, vec![], GetSeats { seats });
         seats
     }
 
     pub fn mono(&self, seat: Seat) -> bool {
         let res = self.send_with_response(&ClientMessage::GetMono { seat });
-        get_response!(res, false, GetMono, mono);
+        get_response!(res, false, GetMono { mono });
         mono
     }
 
     pub fn get_timer(&self, name: &str) -> Timer {
         let res = self.send_with_response(&ClientMessage::GetTimer { name });
-        get_response!(res, Timer(0), GetTimer, timer);
+        get_response!(res, Timer(0), GetTimer { timer });
         timer
     }
 
@@ -270,13 +270,13 @@ impl Client {
 
     pub fn get_workspace(&self, name: &str) -> Workspace {
         let res = self.send_with_response(&ClientMessage::GetWorkspace { name });
-        get_response!(res, Workspace(0), GetWorkspace, workspace);
+        get_response!(res, Workspace(0), GetWorkspace { workspace });
         workspace
     }
 
     pub fn get_connector(&self, ty: ConnectorType, idx: u32) -> Connector {
         let res = self.send_with_response(&ClientMessage::GetConnector { ty, idx });
-        get_response!(res, Connector(0), GetConnector, connector);
+        get_response!(res, Connector(0), GetConnector { connector });
         connector
     }
 
@@ -290,7 +290,7 @@ impl Client {
 
     pub fn split(&self, seat: Seat) -> Axis {
         let res = self.send_with_response(&ClientMessage::GetSplit { seat });
-        get_response!(res, Axis::Horizontal, GetSplit, axis);
+        get_response!(res, Axis::Horizontal, GetSplit { axis });
         axis
     }
 
@@ -300,48 +300,64 @@ impl Client {
 
     pub fn get_fullscreen(&self, seat: Seat) -> bool {
         let res = self.send_with_response(&ClientMessage::GetFullscreen { seat });
-        get_response!(res, false, GetFullscreen, fullscreen);
+        get_response!(res, false, GetFullscreen { fullscreen });
         fullscreen
     }
 
+    pub fn reset_font(&self) {
+        self.send(&ClientMessage::ResetFont);
+    }
+
+    pub fn set_font(&self, font: &str) {
+        self.send(&ClientMessage::SetFont { font });
+    }
+
+    pub fn get_font(&self) -> String {
+        let res = self.send_with_response(&ClientMessage::GetFont);
+        get_response!(res, String::new(), GetFont { font });
+        font
+    }
+
+    pub fn get_floating(&self, seat: Seat) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetFloating { seat });
+        get_response!(res, false, GetFloating { floating });
+        floating
+    }
+
+    pub fn set_floating(&self, seat: Seat, floating: bool) {
+        self.send(&ClientMessage::SetFloating { seat, floating });
+    }
+
     pub fn toggle_floating(&self, seat: Seat) {
-        self.send(&ClientMessage::ToggleFloating { seat });
+        self.set_floating(seat, !self.get_floating(seat));
     }
 
-    pub fn set_title_color(&self, color: Color) {
-        self.send(&ClientMessage::SetTitleColor { color });
+    pub fn reset_colors(&self) {
+        self.send(&ClientMessage::ResetColors);
     }
 
-    pub fn set_border_color(&self, color: Color) {
-        self.send(&ClientMessage::SetBorderColor { color });
+    pub fn reset_sizes(&self) {
+        self.send(&ClientMessage::ResetSizes);
     }
 
-    pub fn set_title_underline_color(&self, color: Color) {
-        self.send(&ClientMessage::SetTitleUnderlineColor { color });
+    pub fn get_color(&self, colorable: Colorable) -> Color {
+        let res = self.send_with_response(&ClientMessage::GetColor { colorable });
+        get_response!(res, Color::BLACK, GetColor { color });
+        color
     }
 
-    pub fn set_background_color(&self, color: Color) {
-        self.send(&ClientMessage::SetBackgroundColor { color });
+    pub fn set_color(&self, colorable: Colorable, color: Color) {
+        self.send(&ClientMessage::SetColor { colorable, color });
     }
 
-    pub fn get_title_height(&self) -> i32 {
-        let res = self.send_with_response(&ClientMessage::GetTitleHeight);
-        get_response!(res, 0, GetTitleHeight, height);
-        height
+    pub fn get_size(&self, sized: Resizable) -> i32 {
+        let res = self.send_with_response(&ClientMessage::GetSize { sized });
+        get_response!(res, 0, GetSize { size });
+        size
     }
 
-    pub fn get_border_width(&self) -> i32 {
-        let res = self.send_with_response(&ClientMessage::GetBorderWidth);
-        get_response!(res, 0, GetBorderWidth, width);
-        width
-    }
-
-    pub fn set_title_height(&self, height: i32) {
-        self.send(&ClientMessage::SetTitleHeight { height })
-    }
-
-    pub fn set_border_width(&self, width: i32) {
-        self.send(&ClientMessage::SetBorderWidth { width })
+    pub fn set_size(&self, sized: Resizable, size: i32) {
+        self.send(&ClientMessage::SetSize { sized, size })
     }
 
     pub fn set_mono(&self, seat: Seat, mono: bool) {
@@ -374,13 +390,13 @@ impl Client {
 
     pub fn get_seat(&self, name: &str) -> Seat {
         let res = self.send_with_response(&ClientMessage::GetSeat { name });
-        get_response!(res, Seat(0), GetSeat, seat);
+        get_response!(res, Seat(0), GetSeat { seat });
         seat
     }
 
     pub fn get_input_devices(&self, seat: Option<Seat>) -> Vec<InputDevice> {
         let res = self.send_with_response(&ClientMessage::GetInputDevices { seat });
-        get_response!(res, vec!(), GetInputDevices, devices);
+        get_response!(res, vec!(), GetInputDevices { devices });
         devices
     }
 
@@ -406,43 +422,43 @@ impl Client {
 
     pub fn device_connectors(&self, device: DrmDevice) -> Vec<Connector> {
         let res = self.send_with_response(&ClientMessage::GetDeviceConnectors { device });
-        get_response!(res, vec![], GetDeviceConnectors, connectors);
+        get_response!(res, vec![], GetDeviceConnectors { connectors });
         connectors
     }
 
     pub fn drm_device_syspath(&self, device: DrmDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDrmDeviceSyspath { device });
-        get_response!(res, String::new(), GetDrmDeviceSyspath, syspath);
+        get_response!(res, String::new(), GetDrmDeviceSyspath { syspath });
         syspath
     }
 
     pub fn drm_device_vendor(&self, device: DrmDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDrmDeviceVendor { device });
-        get_response!(res, String::new(), GetDrmDeviceVendor, vendor);
+        get_response!(res, String::new(), GetDrmDeviceVendor { vendor });
         vendor
     }
 
     pub fn drm_device_model(&self, device: DrmDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDrmDeviceModel { device });
-        get_response!(res, String::new(), GetDrmDeviceModel, model);
+        get_response!(res, String::new(), GetDrmDeviceModel { model });
         model
     }
 
     pub fn drm_device_pci_id(&self, device: DrmDevice) -> PciId {
         let res = self.send_with_response(&ClientMessage::GetDrmDevicePciId { device });
-        get_response!(res, Default::default(), GetDrmDevicePciId, pci_id);
+        get_response!(res, Default::default(), GetDrmDevicePciId { pci_id });
         pci_id
     }
 
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
-        get_response!(res, false, ConnectorConnected, connected);
+        get_response!(res, false, ConnectorConnected { connected });
         connected
     }
 
     pub fn connector_type(&self, connector: Connector) -> ConnectorType {
         let res = self.send_with_response(&ClientMessage::ConnectorType { connector });
-        get_response!(res, CON_UNKNOWN, ConnectorType, ty);
+        get_response!(res, CON_UNKNOWN, ConnectorType { ty });
         ty
     }
 
@@ -451,10 +467,11 @@ impl Client {
         get_response!(
             res,
             Mode::zeroed(),
-            ConnectorMode,
-            width,
-            height,
-            refresh_millihz
+            ConnectorMode {
+                width,
+                height,
+                refresh_millihz
+            }
         );
         Mode {
             width,
@@ -465,7 +482,7 @@ impl Client {
 
     pub fn drm_devices(&self) -> Vec<DrmDevice> {
         let res = self.send_with_response(&ClientMessage::GetDrmDevices);
-        get_response!(res, vec![], GetDrmDevices, devices);
+        get_response!(res, vec![], GetDrmDevices { devices });
         devices
     }
 
@@ -514,13 +531,13 @@ impl Client {
 
     pub fn device_name(&self, device: InputDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDeviceName { device });
-        get_response!(res, String::new(), GetDeviceName, name);
+        get_response!(res, String::new(), GetDeviceName { name });
         name
     }
 
     pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {
         let res = self.send_with_response(&ClientMessage::HasCapability { device, cap });
-        get_response!(res, false, HasCapability, has);
+        get_response!(res, false, HasCapability { has });
         has
     }
 
@@ -534,13 +551,13 @@ impl Client {
 
     pub fn seat_get_repeat_rate(&self, seat: Seat) -> (i32, i32) {
         let res = self.send_with_response(&ClientMessage::SeatGetRepeatRate { seat });
-        get_response!(res, (25, 250), GetRepeatRate, rate, delay);
+        get_response!(res, (25, 250), GetRepeatRate { rate, delay });
         (rate, delay)
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
         let res = self.send_with_response(&ClientMessage::ParseKeymap { keymap });
-        get_response!(res, Keymap(0), ParseKeymap, keymap);
+        get_response!(res, Keymap(0), ParseKeymap { keymap });
         keymap
     }
 

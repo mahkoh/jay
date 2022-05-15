@@ -9,7 +9,8 @@ use {
         config::ConfigProxy,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
-        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase},
+        theme::{Color, ThemeSized, DEFAULT_FONT},
+        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode},
         utils::{
             copyhashmap::CopyHashMap,
             debug_fn::debug_fn,
@@ -36,6 +37,7 @@ use {
             InputDevice, Seat,
         },
         keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
+        theme::{colors::Colorable, sized::Resizable},
         Axis, Direction, LogLevel, Workspace,
     },
     libloading::Library,
@@ -742,18 +744,6 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_get_title_height(&self) {
-        self.respond(Response::GetTitleHeight {
-            height: self.state.theme.title_height.get(),
-        });
-    }
-
-    fn handle_get_border_width(&self) {
-        self.respond(Response::GetBorderWidth {
-            width: self.state.theme.border_width.get(),
-        });
-    }
-
     fn handle_create_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.create_split(axis.into());
@@ -775,15 +765,27 @@ impl ConfigProxyHandler {
         self.state.backend.get().switch_to(vtnr);
     }
 
-    fn handle_toggle_floating(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_floating(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.toggle_floating();
+        self.respond(Response::GetFloating {
+            floating: seat.get_floating().unwrap_or(false),
+        });
+        Ok(())
+    }
+
+    fn handle_set_floating(&self, seat: Seat, floating: bool) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_floating(floating);
         Ok(())
     }
 
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                node.on_spaces_changed();
+                node.node_visit_children(self);
+            }
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                 node.on_spaces_changed();
                 node.node_visit_children(self);
@@ -796,7 +798,7 @@ impl ConfigProxyHandler {
         self.state.root.clone().node_visit(&mut V);
     }
 
-    fn colors_change(&self) {
+    fn colors_changed(&self) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -811,45 +813,95 @@ impl ConfigProxyHandler {
         self.state.root.clone().node_visit(&mut V);
     }
 
-    fn handle_set_title_height(&self, height: i32) -> Result<(), CphError> {
-        if height < 0 {
-            return Err(CphError::NegativeTitleHeight(height));
+    fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
+        use jay_config::theme::sized::*;
+        let sized = match sized {
+            TITLE_HEIGHT => ThemeSized::title_height,
+            BORDER_WIDTH => ThemeSized::border_width,
+            _ => return Err(CphError::UnknownSized(sized.0)),
+        };
+        Ok(sized)
+    }
+
+    fn handle_get_size(&self, sized: Resizable) -> Result<(), CphError> {
+        let sized = self.get_sized(sized)?;
+        let size = sized.field(&self.state.theme).get();
+        self.respond(Response::GetSize { size });
+        Ok(())
+    }
+
+    fn handle_set_size(&self, sized: Resizable, size: i32) -> Result<(), CphError> {
+        let sized = self.get_sized(sized)?;
+        if size < sized.min() {
+            return Err(CphError::InvalidSize(size, sized));
         }
-        if height > 1000 {
-            return Err(CphError::ExcessiveTitleHeight(height));
+        if size > sized.max() {
+            return Err(CphError::InvalidSize(size, sized));
         }
-        self.state.theme.title_height.set(height);
+        sized.field(&self.state.theme).set(size);
         self.spaces_change();
         Ok(())
     }
 
-    fn handle_set_border_width(&self, width: i32) -> Result<(), CphError> {
-        if width < 0 {
-            return Err(CphError::NegativeBorderWidth(width));
-        }
-        if width > 1000 {
-            return Err(CphError::ExcessiveBorderWidth(width));
-        }
-        self.state.theme.border_width.set(width);
+    fn handle_reset_colors(&self) {
+        self.state.theme.colors.reset();
+        self.colors_changed();
+    }
+
+    fn handle_reset_sizes(&self) {
+        self.state.theme.sizes.reset();
         self.spaces_change();
+    }
+
+    fn handle_reset_font(&self) {
+        *self.state.theme.font.borrow_mut() = DEFAULT_FONT.to_string();
+    }
+
+    fn handle_set_font(&self, font: &str) {
+        *self.state.theme.font.borrow_mut() = font.to_string();
+    }
+
+    fn handle_get_font(&self) {
+        let font = self.state.theme.font.borrow_mut().clone();
+        self.respond(Response::GetFont { font });
+    }
+
+    fn get_color(&self, colorable: Colorable) -> Result<&Cell<Color>, CphError> {
+        let colors = &self.state.theme.colors;
+        use jay_config::theme::colors::*;
+        let colorable = match colorable {
+            UNFOCUSED_TITLE_BACKGROUND_COLOR => &colors.unfocused_title_background,
+            FOCUSED_TITLE_BACKGROUND_COLOR => &colors.focused_title_background,
+            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => &colors.focused_inactive_title_background,
+            BACKGROUND_COLOR => &colors.background,
+            BAR_BACKGROUND_COLOR => &colors.bar_background,
+            SEPARATOR_COLOR => &colors.separator,
+            BORDER_COLOR => &colors.border,
+            UNFOCUSED_TITLE_TEXT_COLOR => &colors.unfocused_title_text,
+            FOCUSED_TITLE_TEXT_COLOR => &colors.focused_title_text,
+            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => &colors.focused_inactive_title_text,
+            BAR_STATUS_TEXT_COLOR => &colors.bar_text,
+            _ => return Err(CphError::UnknownColor(colorable.0)),
+        };
+        Ok(colorable)
+    }
+
+    fn handle_get_color(&self, colorable: Colorable) -> Result<(), CphError> {
+        let color = self.get_color(colorable)?.get();
+        let color =
+            jay_config::theme::Color::new_f32_premultiplied(color.r, color.g, color.b, color.a);
+        self.respond(Response::GetColor { color });
         Ok(())
     }
 
-    fn handle_set_title_color(&self, color: jay_config::theme::Color) {
-        self.state.theme.title_color.set(color.into());
-        self.colors_change();
-    }
-
-    fn handle_set_border_color(&self, color: jay_config::theme::Color) {
-        self.state.theme.border_color.set(color.into());
-    }
-
-    fn handle_set_background_color(&self, color: jay_config::theme::Color) {
-        self.state.theme.background_color.set(color.into());
-    }
-
-    fn handle_set_title_underline_color(&self, color: jay_config::theme::Color) {
-        self.state.theme.underline_color.set(color.into());
+    fn handle_set_color(
+        &self,
+        colorable: Colorable,
+        color: jay_config::theme::Color,
+    ) -> Result<(), CphError> {
+        self.get_color(colorable)?.set(color.into());
+        self.colors_changed();
+        Ok(())
     }
 
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
@@ -914,29 +966,24 @@ impl ConfigProxyHandler {
                 self.handle_run(prog, args, env).wrn("run")?
             }
             ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab).wrn("grab")?,
-            ClientMessage::SetTitleHeight { height } => self
-                .handle_set_title_height(height)
-                .wrn("set_title_height")?,
-            ClientMessage::SetBorderWidth { width } => self
-                .handle_set_border_width(width)
-                .wrn("set_bordre_width")?,
-            ClientMessage::SetTitleColor { color } => self.handle_set_title_color(color),
-            ClientMessage::SetTitleUnderlineColor { color } => {
-                self.handle_set_title_underline_color(color)
+            ClientMessage::SetColor { colorable, color } => {
+                self.handle_set_color(colorable, color).wrn("set_color")?
             }
-            ClientMessage::SetBorderColor { color } => self.handle_set_border_color(color),
-            ClientMessage::SetBackgroundColor { color } => self.handle_set_background_color(color),
-            ClientMessage::GetTitleHeight => self.handle_get_title_height(),
-            ClientMessage::GetBorderWidth => self.handle_get_border_width(),
+            ClientMessage::GetColor { colorable } => {
+                self.handle_get_color(colorable).wrn("get_color")?
+            }
             ClientMessage::CreateSplit { seat, axis } => {
                 self.handle_create_split(seat, axis).wrn("create_split")?
             }
             ClientMessage::FocusParent { seat } => {
                 self.handle_focus_parent(seat).wrn("focus_parent")?
             }
-            ClientMessage::ToggleFloating { seat } => {
-                self.handle_toggle_floating(seat).wrn("toggle_floating")?
+            ClientMessage::GetFloating { seat } => {
+                self.handle_get_floating(seat).wrn("get_floating")?
             }
+            ClientMessage::SetFloating { seat, floating } => self
+                .handle_set_floating(seat, floating)
+                .wrn("set_floating")?,
             ClientMessage::Quit => self.handle_quit(),
             ClientMessage::SwitchTo { vtnr } => self.handle_switch_to(vtnr),
             ClientMessage::HasCapability { device, cap } => self
@@ -1019,6 +1066,15 @@ impl ConfigProxyHandler {
             ClientMessage::GetDrmDevicePciId { device } => self
                 .handle_get_drm_device_pci_id(device)
                 .wrn("get_drm_device_pci_id")?,
+            ClientMessage::ResetColors => self.handle_reset_colors(),
+            ClientMessage::ResetSizes => self.handle_reset_sizes(),
+            ClientMessage::GetSize { sized } => self.handle_get_size(sized).wrn("get_size")?,
+            ClientMessage::SetSize { sized, size } => {
+                self.handle_set_size(sized, size).wrn("set_size")?
+            }
+            ClientMessage::ResetFont => self.handle_reset_font(),
+            ClientMessage::GetFont => self.handle_get_font(),
+            ClientMessage::SetFont { font } => self.handle_set_font(font),
         }
         Ok(())
     }
@@ -1030,14 +1086,8 @@ enum CphError {
     UnknownAccelProfile(AccelProfile),
     #[error("Queried unknown capability: {}", (.0).0)]
     UnknownCapability(Capability),
-    #[error("The height {0} is negative")]
-    NegativeTitleHeight(i32),
-    #[error("The height {0} is larger than the maximum 1000")]
-    ExcessiveTitleHeight(i32),
-    #[error("The width {0} is negative")]
-    NegativeBorderWidth(i32),
-    #[error("The width {0} is larger than the maximum 1000")]
-    ExcessiveBorderWidth(i32),
+    #[error("The sized {0} is outside the valid range [{}, {}] for component {}", .1.min(), .1.max(), .1.name())]
+    InvalidSize(i32, ThemeSized),
     #[error("The ol' forker is not available")]
     NoForker,
     #[error("Repeat rate is negative")]
@@ -1066,6 +1116,10 @@ enum CphError {
     WorkspaceDoesNotExist(Workspace),
     #[error("Keyboard {0:?} does not exist")]
     KeyboardDoesNotExist(InputDevice),
+    #[error("Colorable element {0} is not known")]
+    UnknownColor(u32),
+    #[error("Sized element {0} is not known")]
+    UnknownSized(u32),
     #[error("Could not parse the message")]
     ParsingFailed(#[source] DecodeError),
     #[error("Could not process a `{0}` request")]

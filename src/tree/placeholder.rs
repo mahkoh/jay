@@ -8,7 +8,6 @@ use {
         render::{Renderer, Texture},
         state::State,
         text,
-        theme::Color,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode},
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
     },
@@ -54,7 +53,7 @@ impl PlaceholderNode {
                     rect.height(),
                     &font,
                     "Fullscreen",
-                    Color::GREY,
+                    self.toplevel.state.theme.colors.unfocused_title_text.get(),
                     false,
                 ) {
                     Ok(t) => {

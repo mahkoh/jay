@@ -12,7 +12,6 @@ use {
         render::{Renderer, Texture},
         state::State,
         text,
-        theme::Color,
         tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
         utils::{
             clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList, scroller::Scroller,
@@ -53,6 +52,13 @@ impl OutputNode {
         }
     }
 
+    pub fn on_spaces_changed(self: &Rc<Self>) {
+        self.update_render_data();
+        if let Some(c) = self.workspace.get() {
+            c.change_extents(&self.workspace_rect());
+        }
+    }
+
     pub fn update_render_data(&self) {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
@@ -61,7 +67,8 @@ impl OutputNode {
         rd.status = None;
         let mut pos = 0;
         let font = self.state.theme.font.borrow_mut();
-        let th = self.state.theme.title_height.get();
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
         let active_id = self.workspace.get().map(|w| w.id);
         let width = self.global.pos.get().width();
         rd.underline = Rect::new_sized(0, th, width, 1).unwrap();
@@ -72,14 +79,17 @@ impl OutputNode {
                     if th == 0 || ws.name.is_empty() {
                         break 'create_texture;
                     }
-                    let title =
-                        match text::render_fitting(&ctx, th, &font, &ws.name, Color::GREY, false) {
-                            Ok(t) => t,
-                            Err(e) => {
-                                log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
-                                break 'create_texture;
-                            }
-                        };
+                    let tc = match active_id == Some(ws.id) {
+                        true => theme.colors.focused_title_text.get(),
+                        false => theme.colors.unfocused_title_text.get(),
+                    };
+                    let title = match text::render_fitting(&ctx, th, &font, &ws.name, tc, false) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
+                            break 'create_texture;
+                        }
+                    };
                     let mut x = pos + 1;
                     if title.width() + 2 > title_width {
                         title_width = title.width() + 2;
@@ -110,7 +120,8 @@ impl OutputNode {
             if status.is_empty() {
                 break 'set_status;
             }
-            let title = match text::render_fitting(&ctx, th, &font, &status, Color::GREY, true) {
+            let tc = self.state.theme.colors.bar_text.get();
+            let title = match text::render_fitting(&ctx, th, &font, &status, tc, true) {
                 Ok(t) => t,
                 Err(e) => {
                     log::error!("Could not render status {}: {}", status, ErrorFmt(e));
@@ -205,7 +216,7 @@ impl OutputNode {
 
     fn workspace_rect(&self) -> Rect {
         let rect = self.global.pos.get();
-        let th = self.state.theme.title_height.get();
+        let th = self.state.theme.sizes.title_height.get();
         Rect::new_sized(
             rect.x1(),
             rect.y1() + th + 1,
@@ -384,7 +395,7 @@ impl Node for OutputNode {
                 }
             }
         }
-        let bar_height = self.state.theme.title_height.get() + 1;
+        let bar_height = self.state.theme.sizes.title_height.get() + 1;
         if y >= bar_height {
             y -= bar_height;
             let len = tree.len();

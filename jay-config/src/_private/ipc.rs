@@ -3,7 +3,7 @@ use {
         drm::{connector_type::ConnectorType, Connector, DrmDevice},
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
-        theme::Color,
+        theme::{colors::Colorable, sized::Resizable, Color},
         Axis, Direction, LogLevel, PciId, Timer, Workspace,
     },
     bincode::{BorrowDecode, Decode, Encode},
@@ -56,6 +56,11 @@ pub enum ServerMessage {
 
 #[derive(Encode, BorrowDecode, Debug)]
 pub enum ClientMessage<'a> {
+    Reload,
+    Quit,
+    SwitchTo {
+        vtnr: u32,
+    },
     Log {
         level: LogLevel,
         msg: &'a str,
@@ -64,10 +69,6 @@ pub enum ClientMessage<'a> {
     },
     GetSeat {
         name: &'a str,
-    },
-    Quit,
-    SwitchTo {
-        vtnr: u32,
     },
     SetSeat {
         device: InputDevice,
@@ -139,24 +140,20 @@ pub enum ClientMessage<'a> {
         kb: InputDevice,
         grab: bool,
     },
-    GetTitleHeight,
-    GetBorderWidth,
-    SetTitleHeight {
-        height: i32,
+    ResetSizes,
+    GetSize {
+        sized: Resizable,
     },
-    SetBorderWidth {
-        width: i32,
+    SetSize {
+        sized: Resizable,
+        size: i32,
     },
-    SetTitleColor {
-        color: Color,
+    ResetColors,
+    GetColor {
+        colorable: Colorable,
     },
-    SetTitleUnderlineColor {
-        color: Color,
-    },
-    SetBorderColor {
-        color: Color,
-    },
-    SetBackgroundColor {
+    SetColor {
+        colorable: Colorable,
         color: Color,
     },
     CreateSplit {
@@ -169,8 +166,12 @@ pub enum ClientMessage<'a> {
     FocusParent {
         seat: Seat,
     },
-    ToggleFloating {
+    GetFloating {
         seat: Seat,
+    },
+    SetFloating {
+        seat: Seat,
+        floating: bool,
     },
     HasCapability {
         device: InputDevice,
@@ -246,7 +247,6 @@ pub enum ClientMessage<'a> {
     GetFullscreen {
         seat: Seat,
     },
-    Reload,
     GetDeviceConnectors {
         device: DrmDevice,
     },
@@ -262,6 +262,11 @@ pub enum ClientMessage<'a> {
     GetDrmDevices,
     GetDrmDevicePciId {
         device: DrmDevice,
+    },
+    ResetFont,
+    GetFont,
+    SetFont {
+        font: &'a str,
     },
 }
 
@@ -290,11 +295,8 @@ pub enum Response {
     GetInputDevices {
         devices: Vec<InputDevice>,
     },
-    GetTitleHeight {
-        height: i32,
-    },
-    GetBorderWidth {
-        width: i32,
+    GetSize {
+        size: i32,
     },
     HasCapability {
         has: bool,
@@ -342,6 +344,15 @@ pub enum Response {
     },
     GetDrmDevicePciId {
         pci_id: PciId,
+    },
+    GetFloating {
+        floating: bool,
+    },
+    GetColor {
+        color: Color,
+    },
+    GetFont {
+        font: String,
     },
 }
 

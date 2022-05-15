@@ -89,7 +89,7 @@ pub fn render(
     render2(ctx, 1, width, height, 1, font, text, color, true, false)
 }
 
-pub fn render2(
+fn render2(
     ctx: &Rc<RenderContext>,
     x: i32,
     width: i32,

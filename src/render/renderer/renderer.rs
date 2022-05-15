@@ -95,9 +95,9 @@ impl Renderer<'_> {
         render_layer!(output.layers[0]);
         render_layer!(output.layers[1]);
         let theme = &self.state.theme;
-        let th = theme.title_height.get();
+        let th = theme.sizes.title_height.get();
         {
-            let c = Color::BLACK;
+            let c = theme.colors.bar_background.get();
             self.fill_boxes2(
                 slice::from_ref(&Rect::new_sized(0, 0, opos.width(), th).unwrap()),
                 &c,
@@ -106,12 +106,12 @@ impl Renderer<'_> {
             );
             let rd = output.render_data.borrow_mut();
             if let Some(aw) = &rd.active_workspace {
-                let c = theme.active_title_color.get();
+                let c = theme.colors.focused_title_background.get();
                 self.fill_boxes2(slice::from_ref(aw), &c, x, y);
             }
-            let c = theme.underline_color.get();
+            let c = theme.colors.separator.get();
             self.fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
-            let c = theme.title_color.get();
+            let c = theme.colors.unfocused_title_background.get();
             self.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
             for title in &rd.titles {
                 self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
@@ -208,16 +208,21 @@ impl Renderer<'_> {
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
         {
             let rd = container.render_data.borrow_mut();
-            let c = self.state.theme.title_color.get();
+            let c = self.state.theme.colors.unfocused_title_background.get();
             self.fill_boxes2(&rd.title_rects, &c, x, y);
-            let c = self.state.theme.active_title_color.get();
+            let c = self.state.theme.colors.focused_title_background.get();
             self.fill_boxes2(&rd.active_title_rects, &c, x, y);
-            let c = self.state.theme.underline_color.get();
+            let c = self.state.theme.colors.separator.get();
             self.fill_boxes2(&rd.underline_rects, &c, x, y);
-            let c = self.state.theme.border_color.get();
+            let c = self.state.theme.colors.border.get();
             self.fill_boxes2(&rd.border_rects, &c, x, y);
             if let Some(lar) = &rd.last_active_rect {
-                let c = self.state.theme.last_active_color.get();
+                let c = self
+                    .state
+                    .theme
+                    .colors
+                    .focused_inactive_title_background
+                    .get();
                 self.fill_boxes2(std::slice::from_ref(lar), &c, x, y);
             }
             for title in &rd.titles {
@@ -379,14 +384,14 @@ impl Renderer<'_> {
         };
         let pos = floating.position.get();
         let theme = &self.state.theme;
-        let th = theme.title_height.get();
-        let bw = theme.border_width.get();
-        let bc = theme.border_color.get();
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let bc = theme.colors.border.get();
         let tc = match floating.active.get() {
-            true => theme.active_title_color.get(),
-            false => theme.title_color.get(),
+            true => theme.colors.focused_title_background.get(),
+            false => theme.colors.unfocused_title_background.get(),
         };
-        let uc = theme.underline_color.get();
+        let uc = theme.colors.separator.get();
         let borders = [
             Rect::new_sized(x, y, pos.width(), bw).unwrap(),
             Rect::new_sized(x, y + bw, bw, pos.height() - bw).unwrap(),
