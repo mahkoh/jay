@@ -1,9 +1,9 @@
 use {
-    chrono::{format::StrftimeItems, Local, Timelike},
+    chrono::{format::StrftimeItems, Local},
     jay_config::{
         config,
-        drm::on_graphics_initialized,
-        get_timer, get_workspace,
+        exec::Command,
+        get_workspace,
         input::{get_seat, input_devices, on_new_input_device, InputDevice, Seat},
         keyboard::{
             mods::{Modifiers, ALT, CTRL, SHIFT},
@@ -16,8 +16,9 @@ use {
         quit, reload,
         status::set_status,
         switch_to_vt,
+        timer::{duration_until_wall_clock_is_multiple_of, get_timer},
+        video::on_graphics_initialized,
         Axis::{Horizontal, Vertical},
-        Command,
         Direction::{Down, Left, Right, Up},
     },
     std::time::Duration,
@@ -77,16 +78,9 @@ fn setup_status() {
         set_status(&status);
     };
     update_status();
-    // Sleep until the time becomes a multiple of 5 seconds
-    let initial = {
-        let now = Local::now();
-        5000 - (now.second() * 1000 + now.timestamp_subsec_millis()) % 5000
-    };
+    let period = Duration::from_secs(5);
     let timer = get_timer("status_timer");
-    timer.program(
-        Duration::from_millis(initial as u64),
-        Some(Duration::from_secs(5)),
-    );
+    timer.repeated(duration_until_wall_clock_is_multiple_of(period), period);
     timer.on_tick(update_status);
 }
 

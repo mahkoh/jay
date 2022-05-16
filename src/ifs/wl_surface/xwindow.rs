@@ -11,8 +11,8 @@ use {
         render::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode, ToplevelData,
-            ToplevelNode,
+            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
+            ToplevelData, ToplevelNode,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -20,7 +20,6 @@ use {
         xwayland::XWaylandEvent,
     },
     bstr::BString,
-    jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
         ops::{Deref, Not},

@@ -40,8 +40,8 @@ use {
         object::Object,
         state::State,
         tree::{
-            generic_node_visitor, ContainerNode, ContainerSplit, FloatNode, FoundNode, Node,
-            OutputNode, WorkspaceNode,
+            generic_node_visitor, ContainerNode, ContainerSplit, Direction, FloatNode, FoundNode,
+            Node, OutputNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -60,7 +60,7 @@ use {
         xkbcommon::{XkbKeymap, XkbState},
     },
     ahash::{AHashMap, AHashSet},
-    jay_config::{keyboard::mods::Modifiers, Direction},
+    jay_config::keyboard::mods::Modifiers,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},

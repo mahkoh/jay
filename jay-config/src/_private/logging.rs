@@ -1,5 +1,5 @@
 use {
-    crate::LogLevel,
+    crate::logging::LogLevel,
     log::{Level, LevelFilter, Log, Metadata, Record},
 };
 

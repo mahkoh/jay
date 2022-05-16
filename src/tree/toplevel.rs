@@ -4,10 +4,9 @@ use {
         ifs::wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
         rect::Rect,
         state::State,
-        tree::{ContainingNode, Node, OutputNode, PlaceholderNode, WorkspaceNode},
+        tree::{ContainingNode, Direction, Node, OutputNode, PlaceholderNode, WorkspaceNode},
         utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
     },
-    jay_config::Direction,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,

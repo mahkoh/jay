@@ -7,14 +7,17 @@ use {
             ipc::{ClientMessage, InitMessage, Response, ServerMessage},
             logging, Config, ConfigEntry, ConfigEntryGen, VERSION,
         },
-        drm::{
+        exec::Command,
+        input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
+        keyboard::Keymap,
+        logging::LogLevel,
+        theme::{colors::Colorable, sized::Resizable, Color},
+        timer::Timer,
+        video::{
             connector_type::{ConnectorType, CON_UNKNOWN},
             Connector, DrmDevice, Mode,
         },
-        input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
-        keyboard::keymap::Keymap,
-        theme::{colors::Colorable, sized::Resizable, Color},
-        Axis, Command, Direction, LogLevel, ModifiedKeySym, PciId, Timer, Workspace,
+        Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
     std::{
         cell::{Cell, RefCell},

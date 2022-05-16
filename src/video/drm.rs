@@ -803,8 +803,8 @@ impl ConnectorType {
         }
     }
 
-    pub fn to_config(self) -> jay_config::drm::connector_type::ConnectorType {
-        use jay_config::drm::connector_type::*;
+    pub fn to_config(self) -> jay_config::video::connector_type::ConnectorType {
+        use jay_config::video::connector_type::*;
         match self {
             Self::Unknown(_) => CON_UNKNOWN,
             Self::VGA => CON_VGA,

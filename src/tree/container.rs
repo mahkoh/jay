@@ -12,8 +12,8 @@ use {
         state::State,
         text,
         tree::{
-            walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
-            ToplevelData, ToplevelNode, WorkspaceNode,
+            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
+            NodeId, ToplevelData, ToplevelNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -25,7 +25,7 @@ use {
         },
     },
     ahash::AHashMap,
-    jay_config::{Axis, Direction},
+    jay_config::Axis,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},

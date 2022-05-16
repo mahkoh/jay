@@ -15,8 +15,8 @@ use {
         render::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode,
-            ToplevelNodeId, WorkspaceNode,
+            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
+            ToplevelNode, ToplevelNodeId, WorkspaceNode,
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -25,7 +25,6 @@ use {
         wire::{xdg_toplevel::*, XdgToplevelId},
     },
     ahash::{AHashMap, AHashSet},
-    jay_config::Direction,
     num_derive::FromPrimitive,
     std::{
         cell::{Cell, RefCell},

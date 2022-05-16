@@ -12,12 +12,13 @@ use {
         render::{Renderer, Texture},
         state::State,
         text,
-        tree::{walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode},
+        tree::{
+            walker::NodeVisitor, Direction, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode,
+        },
         utils::{
             clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList, scroller::Scroller,
         },
     },
-    jay_config::Direction,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},

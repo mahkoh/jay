@@ -1,3 +1,4 @@
+/// Declares the entry point of the configuration.
 #[macro_export]
 macro_rules! config {
     ($f:path) => {

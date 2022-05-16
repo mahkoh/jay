@@ -12,7 +12,7 @@ use {
         utils::numcell::NumCell,
         xkbcommon::ModifierState,
     },
-    jay_config::Direction,
+    jay_config::Direction as JayDirection,
     std::{
         fmt::{Debug, Display},
         rc::Rc,
@@ -33,6 +33,26 @@ mod stacked;
 mod toplevel;
 mod walker;
 mod workspace;
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Direction {
+    Unspecified,
+    Left,
+    Down,
+    Up,
+    Right,
+}
+
+impl From<JayDirection> for Direction {
+    fn from(d: JayDirection) -> Self {
+        match d {
+            JayDirection::Left => Self::Left,
+            JayDirection::Down => Self::Down,
+            JayDirection::Up => Self::Up,
+            JayDirection::Right => Self::Right,
+        }
+    }
+}
 
 pub struct NodeIds {
     next: NumCell<u32>,

@@ -5,15 +5,14 @@ use {
         rect::Rect,
         render::Renderer,
         tree::{
-            container::ContainerNode, walker::NodeVisitor, ContainingNode, FindTreeResult,
-            FoundNode, Node, NodeId, OutputNode, StackedNode, ToplevelNode,
+            container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
+            FindTreeResult, FoundNode, Node, NodeId, OutputNode, StackedNode, ToplevelNode,
         },
         utils::{
             clonecell::CloneCell,
             linkedlist::{LinkedList, LinkedNode},
         },
     },
-    jay_config::Direction,
     std::{cell::Cell, fmt::Debug, rc::Rc},
 };
 

@@ -1,10 +1,12 @@
 use {
     crate::{
-        drm::{connector_type::ConnectorType, Connector, DrmDevice},
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
-        keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
+        keyboard::{mods::Modifiers, syms::KeySym, Keymap},
+        logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
-        Axis, Direction, LogLevel, PciId, Timer, Workspace,
+        timer::Timer,
+        video::{connector_type::ConnectorType, Connector, DrmDevice},
+        Axis, Direction, PciId, Workspace,
     },
     bincode::{BorrowDecode, Decode, Encode},
     std::time::Duration,

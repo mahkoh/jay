@@ -13,7 +13,7 @@ use {
             ConfigEntry, VERSION,
         },
         input::{InputDevice, Seat},
-        keyboard::{keymap::Keymap, ModifiedKeySym},
+        keyboard::{Keymap, ModifiedKeySym},
         Axis, Direction,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},

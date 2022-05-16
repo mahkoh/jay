@@ -1,42 +1,69 @@
+//! This crate allows you to configure the Jay compositor.
+//!
+//! A minimal example configuration looks as follows:
+//!
+//! ```rust
+//! use jay_config::config;
+//!
+//! fn configure() {
+//!
+//! }
+//!
+//! config!(configure);
+//! ```
+//!
+//! This configuration will not allow you to interact with the compositor at all nor exit it.
+//! To add at least that much functionality, add the following code to `configure`:
+//!
+//! ```rust
+//! use jay_config::{config, quit};
+//! use jay_config::input::{get_seat, input_devices, on_new_input_device};
+//! use jay_config::keyboard::mods::ALT;
+//! use jay_config::keyboard::syms::SYM_q;
+//!
+//! fn configure() {
+//!     // Create a seat.
+//!     let seat = get_seat("default");
+//!     // Create a key binding to exit the compositor.
+//!     seat.bind(ALT | SYM_q, || quit());
+//!     // Assign all current and future input devices to this seat.
+//!     input_devices().into_iter().for_each(move |d| d.set_seat(seat));
+//!     on_new_input_device(move |d| d.set_seat(seat));
+//! }
+//!
+//! config!(configure);
+//! ```
+
 use {
-    crate::keyboard::{keymap::Keymap, ModifiedKeySym},
+    crate::keyboard::ModifiedKeySym,
     bincode::{Decode, Encode},
-    std::{
-        collections::HashMap,
-        fmt::{Debug, Display, Formatter},
-        time::Duration,
-    },
+    std::fmt::{Debug, Display, Formatter},
 };
 
 #[macro_use]
 mod macros;
 #[doc(hidden)]
 pub mod _private;
-pub mod drm;
 pub mod embedded;
+pub mod exec;
 pub mod input;
 pub mod keyboard;
+pub mod logging;
 pub mod status;
 pub mod theme;
+pub mod timer;
+pub mod video;
 
-#[derive(Encode, Decode, Copy, Clone, Debug)]
-pub enum LogLevel {
-    Error,
-    Warn,
-    Info,
-    Debug,
-    Trace,
-}
-
+/// A planar direction.
 #[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Direction {
-    Unspecified,
     Left,
     Down,
     Up,
     Right,
 }
 
+/// A planar axis.
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Axis {
     Horizontal,
@@ -44,6 +71,7 @@ pub enum Axis {
 }
 
 impl Axis {
+    /// Returns the axis orthogonal to `self`.
     pub fn other(self) -> Self {
         match self {
             Self::Horizontal => Self::Vertical,
@@ -52,88 +80,47 @@ impl Axis {
     }
 }
 
+/// Exits the compositor.
 pub fn quit() {
     get!().quit()
 }
 
+/// Switches to a different VT.
 pub fn switch_to_vt(n: u32) {
     get!().switch_to_vt(n)
 }
 
-pub fn set_env(key: &str, val: &str) {
-    get!().set_env(key, val);
-}
-
-pub struct Command {
-    prog: String,
-    args: Vec<String>,
-    env: HashMap<String, String>,
-}
-
-impl Command {
-    pub fn new(prog: &str) -> Self {
-        Self {
-            prog: prog.to_string(),
-            args: vec![],
-            env: Default::default(),
-        }
-    }
-
-    pub fn arg(&mut self, arg: &str) -> &mut Self {
-        self.args.push(arg.to_string());
-        self
-    }
-
-    pub fn env(&mut self, key: &str, val: &str) -> &mut Self {
-        self.env.insert(key.to_string(), val.to_string());
-        self
-    }
-
-    pub fn spawn(&self) {
-        get!().spawn(self);
-    }
-}
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct Workspace(pub u64);
-
-pub fn get_workspace(name: &str) -> Workspace {
-    get!(Workspace(0)).get_workspace(name)
-}
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct Timer(pub u64);
-
-pub fn get_timer(name: &str) -> Timer {
-    get!(Timer(0)).get_timer(name)
-}
-
-impl Timer {
-    pub fn program(self, initial: Duration, periodic: Option<Duration>) {
-        get!().program_timer(self, Some(initial), periodic);
-    }
-
-    pub fn cancel(self) {
-        get!().program_timer(self, None, None);
-    }
-
-    pub fn remove(self) {
-        get!().remove_timer(self);
-    }
-
-    pub fn on_tick<F: Fn() + 'static>(self, f: F) {
-        get!().on_timer_tick(self, f);
-    }
-}
-
+/// Reloads the configuration.
+///
+/// If the configuration cannot be reloaded, this function has no effect.
 pub fn reload() {
     get!().reload()
 }
 
+/// Returns whether this execution of the configuration function is due to a reload.
+///
+/// This can be used to decide whether the configuration should auto-start programs.
 pub fn is_reload() -> bool {
     get!(false).is_reload()
 }
 
+/// A workspace.
+#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct Workspace(pub u64);
+
+/// Returns the workspace with the given name.
+///
+/// Workspaces are identified by their name. Calling this function alone does not create the
+/// workspace if it doesn't already exist.
+pub fn get_workspace(name: &str) -> Workspace {
+    get!(Workspace(0)).get_workspace(name)
+}
+
+/// A PCI ID.
+///
+/// PCI IDs can be used to identify a hardware component. See the Debian [documentation][pci].
+///
+/// [pci]: https://wiki.debian.org/HowToIdentifyADevice/PCI
 #[derive(Encode, Decode, Debug, Copy, Clone, Hash, Eq, PartialEq, Default)]
 pub struct PciId {
     pub vendor: u32,

@@ -8,10 +8,12 @@ use {
         render::{Renderer, Texture},
         state::State,
         text,
-        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData, ToplevelNode},
+        tree::{
+            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
+            ToplevelNode,
+        },
         utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
     },
-    jay_config::Direction,
     std::{cell::Cell, ops::Deref, rc::Rc},
 };
 

@@ -1,5 +1,6 @@
 xkb_keymap {
 
+    # See the file keycodes.xkb for a full list of keycodes.
     xkb_keycodes {
 
           <1> =   9; # ESC

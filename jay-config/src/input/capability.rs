@@ -1,5 +1,10 @@
+//! Constants specifying the capabilities of an input device.
+//!
+//! See the libinput documentation for the meanings of these constants.
+
 use bincode::{Decode, Encode};
 
+/// A capability of an input device.
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Capability(pub u32);
 

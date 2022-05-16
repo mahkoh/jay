@@ -30,8 +30,8 @@ use {
         render::RenderContext,
         theme::Theme,
         tree::{
-            ContainerNode, ContainerSplit, DisplayNode, FloatNode, Node, NodeIds, NodeVisitorBase,
-            OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
+            ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
+            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -43,7 +43,7 @@ use {
         xwayland::{self, XWaylandEvent},
     },
     ahash::AHashMap,
-    jay_config::{Direction, PciId},
+    jay_config::PciId,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},

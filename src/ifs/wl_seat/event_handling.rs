@@ -23,15 +23,12 @@ use {
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
-        tree::{FloatNode, Node, ToplevelNode},
+        tree::{Direction, FloatNode, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
-    jay_config::{
-        keyboard::{mods::Modifiers, syms::KeySym, ModifiedKeySym},
-        Direction,
-    },
+    jay_config::keyboard::{mods::Modifiers, syms::KeySym, ModifiedKeySym},
     smallvec::SmallVec,
     std::rc::Rc,
 };

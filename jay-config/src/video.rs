@@ -1,6 +1,8 @@
+//! Tools for configuring graphics cards and monitors.
+
 use {
     crate::{
-        drm::connector_type::{
+        video::connector_type::{
             ConnectorType, CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI,
             CON_DSI, CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA,
             CON_HDMIB, CON_LVDS, CON_SPI, CON_SVIDEO, CON_TV, CON_UNKNOWN, CON_USB, CON_VGA,
@@ -12,7 +14,14 @@ use {
     std::str::FromStr,
 };
 
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+/// The mode of a connector.
+///
+/// Currently a mode consists of three properties:
+///
+/// - width in pixels
+/// - height in pixels
+/// - refresh rate in mhz.
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Mode {
     pub(crate) width: i32,
     pub(crate) height: i32,
@@ -20,14 +29,19 @@ pub struct Mode {
 }
 
 impl Mode {
+    /// Returns the width of the mode.
     pub fn width(&self) -> i32 {
         self.width
     }
 
+    /// Returns the height of the mode.
     pub fn height(&self) -> i32 {
         self.height
     }
 
+    /// Returns the refresh rate of the mode in mhz.
+    ///
+    /// For a 60hz monitor, this function would return 60_000.
     pub fn refresh_rate(&self) -> u32 {
         self.refresh_millihz
     }
@@ -41,14 +55,23 @@ impl Mode {
     }
 }
 
+/// A connector that is potentially connected to an output device.
+///
+/// A connector is the part that sticks out of your graphics card. A graphics card usually
+/// has many connectors but one few of them are actually connected to a monitor.
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Connector(pub u64);
 
 impl Connector {
+    /// Returns whether this connector existed at the time `get_connector` was called.
+    ///
+    /// This only implies existence at the time `get_connector` was called. Even if this
+    /// function returns true, the connector might since have disappeared.
     pub fn exists(self) -> bool {
         self.0 != 0
     }
 
+    /// Returns whether the connector is connected to an output device.
     pub fn connected(self) -> bool {
         if !self.exists() {
             return false;
@@ -56,6 +79,7 @@ impl Connector {
         get!(false).connector_connected(self)
     }
 
+    /// Returns the connector type.
     pub fn ty(self) -> ConnectorType {
         if !self.exists() {
             return CON_UNKNOWN;
@@ -63,6 +87,7 @@ impl Connector {
         get!(CON_UNKNOWN).connector_type(self)
     }
 
+    /// Returns the current mode of the connector.
     pub fn mode(self) -> Mode {
         if !self.exists() {
             return Mode::zeroed();
@@ -70,18 +95,34 @@ impl Connector {
         get!(Mode::zeroed()).connector_mode(self)
     }
 
+    /// Returns the width of the current mode of the connector.
+    ///
+    /// This is a shortcut for `mode().width()`.
     pub fn width(self) -> i32 {
         self.mode().width
     }
 
+    /// Returns the height of the current mode of the connector.
+    ///
+    /// This is a shortcut for `mode().height()`.
     pub fn height(self) -> i32 {
         self.mode().height
     }
 
+    /// Returns the refresh rate in mhz of the current mode of the connector.
+    ///
+    /// This is a shortcut for `mode().refresh_rate()`.
     pub fn refresh_rate(self) -> u32 {
         self.mode().refresh_millihz
     }
 
+    /// Sets the position of the connector in the global compositor space.
+    ///
+    /// `x` and `y` must be non-negative and must not exceed a currently unspecified limit.
+    /// Any reasonable values for `x` and `y` should work.
+    ///
+    /// This function allows the connector to overlap with other connectors, however, such
+    /// configurations are not supported and might result in unexpected behavior.
     pub fn set_position(self, x: i32, y: i32) {
         if !self.exists() {
             log::warn!("set_position called on a connector that does not exist");
@@ -91,30 +132,72 @@ impl Connector {
     }
 }
 
+/// Returns all available DRM devices.
 pub fn drm_devices() -> Vec<DrmDevice> {
     get!().drm_devices()
 }
 
+/// Sets the callback to be called when a new DRM device appears.
 pub fn on_new_drm_device<F: Fn(DrmDevice) + 'static>(f: F) {
     get!().on_new_drm_device(f)
 }
 
+/// Sets the callback to be called when a DRM device is removed.
 pub fn on_drm_device_removed<F: Fn(DrmDevice) + 'static>(f: F) {
     get!().on_del_drm_device(f)
 }
 
+/// Sets the callback to be called when a new connector appears.
 pub fn on_new_connector<F: Fn(Connector) + 'static>(f: F) {
     get!().on_new_connector(f)
 }
 
+/// Sets the callback to be called when a connector becomes connected to an output device.
 pub fn on_connector_connected<F: Fn(Connector) + 'static>(f: F) {
     get!().on_connector_connected(f)
 }
 
+/// Sets the callback to be called when the graphics of the compositor have been initialized.
+///
+/// This callback is only invoked once during the lifetime of the compositor. This is a good place
+/// to auto start graphical applications.
 pub fn on_graphics_initialized<F: FnOnce() + 'static>(f: F) {
     get!().on_graphics_initialized(f)
 }
 
+/// Returns the connector with the given id.
+///
+/// The linux kernel identifies connectors by a (type, idx) tuple, e.g., `DP-0`.
+/// If the connector does not exist at the time this function is called, a sentinel value is
+/// returned. This can be checked by calling `exists()` on the returned connector.
+///
+/// The `id` argument can either be an explicit tuple, e.g. `(CON_DISPLAY_PORT, 0)`, or a string
+/// that can be parsed to such a tuple, e.g. `"DP-0"`.
+///
+/// The following string prefixes exist:
+///
+/// - `DP`
+/// - `eDP`
+/// - `HDMI-A`
+/// - `HDMI-B`
+/// - `EmbeddedWindow` - this is an implementation detail of the compositor and used if it
+///   runs as an embedded application.
+/// - `VGA`
+/// - `DVI-I`
+/// - `DVI-D`
+/// - `DVI-A`
+/// - `Composite`
+/// - `SVIDEO`
+/// - `LVDS`
+/// - `Component`
+/// - `DIN`
+/// - `TV`
+/// - `Virtual`
+/// - `DSI`
+/// - `DPI`
+/// - `Writeback`
+/// - `SPI`
+/// - `USB`
 pub fn get_connector(id: impl ToConnectorId) -> Connector {
     let (ty, idx) = match id.to_connector_id() {
         Ok(id) => id,
@@ -126,6 +209,7 @@ pub fn get_connector(id: impl ToConnectorId) -> Connector {
     get!(Connector(0)).get_connector(ty, idx)
 }
 
+/// A type that can be converted to a `(ConnectorType, idx)` tuple.
 pub trait ToConnectorId {
     fn to_connector_id(&self) -> Result<(ConnectorType, u32), String>;
 }
@@ -172,9 +256,11 @@ impl ToConnectorId for &'_ str {
     }
 }
 
+/// Module containing all known connector types.
 pub mod connector_type {
     use bincode::{Decode, Encode};
 
+    /// The type of a connector.
     #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
     pub struct ConnectorType(pub u32);
 
@@ -202,26 +288,44 @@ pub mod connector_type {
     pub const CON_EMBEDDED_WINDOW: ConnectorType = ConnectorType(u32::MAX);
 }
 
+/// A *Direct Rendering Manager* (DRM) device.
+///
+/// It's easiest to think of a DRM device as a graphics card.
+/// There are also DRM devices that are emulated in software but you are unlikely to encounter
+/// those accidentally.
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct DrmDevice(pub u64);
 
 impl DrmDevice {
+    /// Returns the connectors of this device.
     pub fn connectors(self) -> Vec<Connector> {
         get!().device_connectors(self)
     }
 
+    /// Returns the syspath of this device.
+    ///
+    /// E.g. `/sys/devices/pci0000:00/0000:00:03.1/0000:07:00.0`.
     pub fn syspath(self) -> String {
         get!().drm_device_syspath(self)
     }
 
+    /// Returns the vendor of this device.
+    ///
+    /// E.g. `Advanced Micro Devices, Inc. [AMD/ATI]`.
     pub fn vendor(self) -> String {
         get!().drm_device_vendor(self)
     }
 
+    /// Returns the model of this device.
+    ///
+    /// E.g. `Ellesmere [Radeon RX 470/480/570/570X/580/580X/590] (Radeon RX 570 Armor 8G OC)`.
     pub fn model(self) -> String {
         get!().drm_device_model(self)
     }
 
+    /// Returns the PIC ID of this device.
+    ///
+    /// E.g. `1002:67DF`.
     pub fn pci_id(self) -> PciId {
         get!().drm_device_pci_id(self)
     }

@@ -27,7 +27,6 @@ use {
             bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage},
         },
-        drm::{Connector, DrmDevice},
         input::{
             acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
             capability::{
@@ -36,9 +35,12 @@ use {
             },
             InputDevice, Seat,
         },
-        keyboard::{keymap::Keymap, mods::Modifiers, syms::KeySym},
+        keyboard::{mods::Modifiers, syms::KeySym, Keymap},
+        logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
-        Axis, Direction, LogLevel, Workspace,
+        timer::Timer as JayTimer,
+        video::{Connector, DrmDevice},
+        Axis, Direction, Workspace,
     },
     libloading::Library,
     log::Level,
@@ -254,14 +256,14 @@ impl ConfigProxyHandler {
         self.state.set_status(status);
     }
 
-    fn get_timer(&self, timer: jay_config::Timer) -> Result<Rc<TimerData>, CphError> {
+    fn get_timer(&self, timer: JayTimer) -> Result<Rc<TimerData>, CphError> {
         match self.timers_by_id.get(&timer.0) {
             Some(t) => Ok(t),
             _ => Err(CphError::TimerDoesNotExist(timer)),
         }
     }
 
-    fn handle_remove_timer(&self, timer: jay_config::Timer) -> Result<(), CphError> {
+    fn handle_remove_timer(&self, timer: JayTimer) -> Result<(), CphError> {
         let timer = self.get_timer(timer)?;
         self.timers_by_id.remove(&timer.id);
         self.timers_by_name.remove(&timer.name);
@@ -276,7 +278,7 @@ impl ConfigProxyHandler {
 
     fn handle_program_timer(
         &self,
-        timer: jay_config::Timer,
+        timer: JayTimer,
         initial: Option<Duration>,
         periodic: Option<Duration>,
     ) -> Result<(), CphError> {
@@ -289,7 +291,7 @@ impl ConfigProxyHandler {
         let name = Rc::new(name.to_owned());
         if let Some(t) = self.timers_by_name.get(&name) {
             self.respond(Response::GetTimer {
-                timer: jay_config::Timer(t.id),
+                timer: JayTimer(t.id),
             });
             return Ok(());
         }
@@ -302,7 +304,7 @@ impl ConfigProxyHandler {
                 loop {
                     match timer.expired(&slf.state.ring).await {
                         Ok(_) => slf.send(&ServerMessage::TimerExpired {
-                            timer: jay_config::Timer(id),
+                            timer: JayTimer(id),
                         }),
                         Err(e) => {
                             log::error!("Could not wait for timer expiration: {}", ErrorFmt(e));
@@ -324,7 +326,7 @@ impl ConfigProxyHandler {
         self.timers_by_name.set(name.clone(), td.clone());
         self.timers_by_id.set(id, td.clone());
         self.respond(Response::GetTimer {
-            timer: jay_config::Timer(id),
+            timer: JayTimer(id),
         });
         Ok(())
     }
@@ -337,13 +339,13 @@ impl ConfigProxyHandler {
 
     fn handle_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.move_focus(direction);
+        seat.move_focus(direction.into());
         Ok(())
     }
 
     fn handle_move(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.move_focused(direction);
+        seat.move_focused(direction.into());
         Ok(())
     }
 
@@ -592,7 +594,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_connector(
         &self,
-        ty: jay_config::drm::connector_type::ConnectorType,
+        ty: jay_config::video::connector_type::ConnectorType,
         idx: u32,
     ) -> Result<(), CphError> {
         let connectors = self.state.connectors.lock();
@@ -1101,7 +1103,7 @@ enum CphError {
     #[error("Connector {0:?} does not exist")]
     ConnectorDoesNotExist(Connector),
     #[error("Timer {0:?} does not exist")]
-    TimerDoesNotExist(jay_config::Timer),
+    TimerDoesNotExist(JayTimer),
     #[error("Connector {0:?} does not exist or is not connected")]
     OutputDoesNotExist(Connector),
     #[error("{0}x{1} is not a valid connector position")]

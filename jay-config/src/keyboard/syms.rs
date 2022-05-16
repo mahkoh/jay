@@ -1,7 +1,10 @@
+//! Keysyms
+
 #![allow(non_upper_case_globals)]
 
 use bincode::{Decode, Encode};
 
+/// A keysym.
 #[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct KeySym(pub u32);
 

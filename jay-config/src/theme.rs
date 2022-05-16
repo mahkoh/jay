@@ -1,4 +1,4 @@
-//! Knobs for changing the look of the compositor.
+//! Tools for configuring the look of the compositor.
 
 use bincode::{Decode, Encode};
 
@@ -156,7 +156,7 @@ pub fn reset_font() {
     get!().reset_font()
 }
 
-/// Tools for customizing the colors of the desktop.
+/// Elements of the compositor whose color can be changed.
 pub mod colors {
     use {
         crate::theme::Color,
@@ -248,7 +248,7 @@ pub mod colors {
     }
 }
 
-/// Tools for customizing the sizes of GUI elements.
+/// Elements of the compositor whose size can be changed.
 pub mod sized {
     use bincode::{Decode, Encode};
 
