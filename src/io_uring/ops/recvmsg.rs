@@ -124,7 +124,7 @@ unsafe impl Task for RecvmsgTask {
 
     fn encode(&self, sqe: &mut io_uring_sqe) {
         sqe.opcode = IORING_OP_RECVMSG;
-        sqe.fd = self.fd;
+        sqe.fd = self.fd as _;
         sqe.u2.addr = &self.msghdr as *const _ as _;
         sqe.u3.msg_flags = c::MSG_CMSG_CLOEXEC as _;
     }

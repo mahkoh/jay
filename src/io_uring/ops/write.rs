@@ -10,7 +10,7 @@ use {
         utils::buf::Buf,
     },
     std::rc::Rc,
-    uapi::OwnedFd,
+    uapi::{c, OwnedFd},
 };
 
 impl IoUring {
@@ -27,9 +27,12 @@ impl IoUring {
             let mut pw = self.ring.cached_writes.pop().unwrap_or_default();
             pw.id = id.id;
             pw.has_timeout = timeout.is_some();
+            pw.fd = fd.raw();
+            pw.buf = buf.as_ptr() as _;
+            pw.len = buf.len();
             pw.data = Some(WriteTaskData {
-                fd: fd.clone(),
-                buf,
+                _fd: fd.clone(),
+                _buf: buf,
                 res: pr.clone(),
             });
             self.ring.schedule(pw);
@@ -42,8 +45,8 @@ impl IoUring {
 }
 
 struct WriteTaskData {
-    fd: Rc<OwnedFd>,
-    buf: Buf,
+    _fd: Rc<OwnedFd>,
+    _buf: Buf,
     res: PendingResult,
 }
 
@@ -51,6 +54,9 @@ struct WriteTaskData {
 pub struct WriteTask {
     id: u64,
     has_timeout: bool,
+    fd: c::c_int,
+    buf: usize,
+    len: usize,
     data: Option<WriteTaskData>,
 }
 
@@ -63,17 +69,16 @@ unsafe impl Task for WriteTask {
         if let Some(data) = self.data.take() {
             data.res.complete(res);
         }
-        ring.clone().cached_writes.push(self);
+        ring.cached_writes.push(self);
     }
 
     fn encode(&self, sqe: &mut io_uring_sqe) {
-        let data = self.data.as_ref().unwrap();
         sqe.opcode = IORING_OP_WRITE;
-        sqe.fd = data.fd.raw();
+        sqe.fd = self.fd as _;
         sqe.u1.off = !0;
-        sqe.u2.addr = data.buf.as_ptr() as _;
+        sqe.u2.addr = self.buf as _;
         sqe.u3.rw_flags = 0;
-        sqe.len = data.buf.len() as _;
+        sqe.len = self.len as _;
     }
 
     fn has_timeout(&self) -> bool {
