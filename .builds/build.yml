@@ -3,6 +3,7 @@ sources:
   - https://github.com/mahkoh/jay
 tasks:
   - install: |
+      sudo pacman -Syu
       sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon
       rustup toolchain install stable
   - build: |
