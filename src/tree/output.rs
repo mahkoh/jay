@@ -1,10 +1,14 @@
 use {
     crate::{
-        backend::Mode,
+        backend::{KeyState, Mode},
         cursor::KnownCursor,
+        fixed::Fixed,
         ifs::{
             wl_output::WlOutputGlobal,
-            wl_seat::{collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, WlSeatGlobal},
+            wl_seat::{
+                collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
+                BTN_LEFT,
+            },
             wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
@@ -16,7 +20,8 @@ use {
             walker::NodeVisitor, Direction, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode,
         },
         utils::{
-            clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedList, scroller::Scroller,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            linkedlist::LinkedList, scroller::Scroller,
         },
     },
     smallvec::SmallVec,
@@ -41,6 +46,7 @@ pub struct OutputNode {
     pub is_dummy: bool,
     pub status: CloneCell<Rc<String>>,
     pub scroll: Scroller,
+    pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
 }
 
 impl OutputNode {
@@ -98,9 +104,12 @@ impl OutputNode {
                         x = pos + (title_width - title.width()) / 2;
                     }
                     rd.titles.push(OutputTitle {
-                        x,
-                        y: 0,
+                        x1: pos,
+                        x2: pos + title_width,
+                        tex_x: x,
+                        tex_y: 0,
                         tex: title,
+                        ws: ws.deref().clone(),
                     });
                 }
             }
@@ -130,9 +139,9 @@ impl OutputNode {
                 }
             };
             let pos = width - title.width() - 1;
-            rd.status = Some(OutputTitle {
-                x: pos,
-                y: 0,
+            rd.status = Some(OutputStatus {
+                tex_x: pos,
+                tex_y: 0,
                 tex: title,
             });
         }
@@ -295,11 +304,24 @@ impl OutputNode {
         self.status.set(status.clone());
         self.update_render_data();
     }
+
+    fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
+        self.pointer_positions.set(seat.id(), (x, y));
+    }
 }
 
 pub struct OutputTitle {
-    pub x: i32,
-    pub y: i32,
+    pub x1: i32,
+    pub x2: i32,
+    pub tex_x: i32,
+    pub tex_y: i32,
+    pub tex: Rc<Texture>,
+    pub ws: Rc<WorkspaceNode>,
+}
+
+pub struct OutputStatus {
+    pub tex_x: i32,
+    pub tex_y: i32,
     pub tex: Rc<Texture>,
 }
 
@@ -309,7 +331,7 @@ pub struct OutputRenderData {
     pub underline: Rect,
     pub inactive_workspaces: Vec<Rect>,
     pub titles: Vec<OutputTitle>,
-    pub status: Option<OutputTitle>,
+    pub status: Option<OutputStatus>,
 }
 
 impl Debug for OutputNode {
@@ -423,6 +445,37 @@ impl Node for OutputNode {
         renderer.render_output(self, x, y);
     }
 
+    fn node_on_button(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        state: KeyState,
+        _serial: u32,
+    ) {
+        if state != KeyState::Pressed || button != BTN_LEFT {
+            return;
+        }
+        let (x, y) = match self.pointer_positions.get(&seat.id()) {
+            Some(p) => p,
+            _ => return,
+        };
+        if y >= self.state.theme.sizes.title_height.get() {
+            return;
+        }
+        let ws = 'ws: {
+            let rd = self.render_data.borrow_mut();
+            for title in &rd.titles {
+                if x >= title.x1 && x < title.x2 {
+                    break 'ws title.ws.clone();
+                }
+            }
+            return;
+        };
+        self.show_workspace(&ws);
+        self.update_render_data();
+        self.state.tree_changed();
+    }
+
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
         let steps = match self.scroll.handle(event) {
             Some(e) => e,
@@ -460,9 +513,17 @@ impl Node for OutputNode {
         self.state.tree_changed();
     }
 
+    fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
+    }
+
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("output focus");
         seat.set_known_cursor(KnownCursor::Default);
+    }
+
+    fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
+        self.pointer_move(seat, x.round_down(), y.round_down());
     }
 
     fn node_into_output(self: Rc<Self>) -> Option<Rc<OutputNode>> {

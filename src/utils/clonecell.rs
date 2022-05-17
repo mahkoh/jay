@@ -76,5 +76,8 @@ unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
 
 unsafe impl UnsafeCellCloneSafe for () {}
 unsafe impl UnsafeCellCloneSafe for u64 {}
+unsafe impl UnsafeCellCloneSafe for i32 {}
+
+unsafe impl<A: UnsafeCellCloneSafe, B: UnsafeCellCloneSafe> UnsafeCellCloneSafe for (A, B) {}
 
 unsafe impl UnsafeCellCloneSafe for Modifiers {}

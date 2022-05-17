@@ -43,6 +43,7 @@ mod t0014_container_scroll_focus;
 mod t0015_scroll_partial;
 mod t0016_scroll_ws;
 mod t0017_remove_unused_ws;
+mod t0018_click_to_active_ws;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -78,5 +79,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0015_scroll_partial,
         t0016_scroll_ws,
         t0017_remove_unused_ws,
+        t0018_click_to_active_ws,
     }
 }

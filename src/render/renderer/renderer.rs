@@ -114,10 +114,10 @@ impl Renderer<'_> {
             let c = theme.colors.unfocused_title_background.get();
             self.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
             for title in &rd.titles {
-                self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
+                self.render_texture(&title.tex, x + title.tex_x, y + title.tex_y, ARGB8888);
             }
             if let Some(status) = &rd.status {
-                self.render_texture(&status.tex, x + status.x, y + status.y, ARGB8888);
+                self.render_texture(&status.tex, x + status.tex_x, y + status.tex_y, ARGB8888);
             }
         }
         if let Some(ws) = output.workspace.get() {
