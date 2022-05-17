@@ -180,6 +180,10 @@ impl OutputNode {
             }
             collect_kb_foci2(old.clone(), &mut seats);
             old.set_visible(false);
+            if old.is_empty() {
+                old.clear();
+                self.state.workspaces.remove(&old.name);
+            }
         }
         ws.set_visible(true);
         if let Some(fs) = ws.fullscreen.get() {
