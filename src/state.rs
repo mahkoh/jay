@@ -161,6 +161,7 @@ pub struct InputDeviceData {
     pub handler: SpawnedFuture<()>,
     pub id: InputDeviceId,
     pub data: Rc<DeviceHandlerData>,
+    pub async_event: Rc<AsyncEvent>,
 }
 
 pub struct DeviceHandlerData {
@@ -174,6 +175,7 @@ pub struct ConnectorData {
     pub connected: Cell<bool>,
     pub name: String,
     pub drm_dev: Option<Rc<DrmDevData>>,
+    pub async_event: Rc<AsyncEvent>,
 }
 
 pub struct OutputData {
@@ -491,20 +493,19 @@ impl State {
         if let Some(forker) = self.forker.set(None) {
             forker.clear();
         }
-        if let Some(output) = self.dummy_output.set(None) {
-            output.clear();
-        }
         self.acceptor.set(None);
         self.backend.set(Rc::new(DummyBackend));
         self.run_toplevel.clear();
         self.xwayland.handler.borrow_mut().take();
         self.xwayland.queue.clear();
         self.idle.inhibitors.clear();
+        self.idle.change.clear();
         for (_, drm_dev) in self.drm_devs.lock().drain() {
             drm_dev.handler.take();
         }
         for (_, connector) in self.connectors.lock().drain() {
             connector.handler.take();
+            connector.async_event.clear();
         }
         for (_, output) in self.outputs.lock().drain() {
             output.node.clear();
@@ -515,17 +516,24 @@ impl State {
         self.pending_float_layout.clear();
         self.pending_float_titles.clear();
         self.slow_clients.clear();
-        self.input_device_handlers.borrow_mut().clear();
+        for (_, h) in self.input_device_handlers.borrow_mut().drain() {
+            h.async_event.clear();
+        }
         self.backend_events.clear();
         self.workspaces.clear();
-        self.globals.clear();
-        self.render_ctx.set(None);
-        self.root.clear();
         {
             let seats = mem::take(self.globals.seats.lock().deref_mut());
             for seat in seats.values() {
                 seat.clear();
             }
         }
+        self.globals.clear();
+        self.render_ctx.set(None);
+        self.root.clear();
+        if let Some(output) = self.dummy_output.set(None) {
+            output.clear();
+        }
+        self.wheel.clear();
+        self.eng.clear();
     }
 }

@@ -42,7 +42,10 @@ mod leaks {
     use {
         crate::{
             client::ClientId,
-            utils::ptr_ext::{MutPtrExt, PtrExt},
+            utils::{
+                ptr_ext::{MutPtrExt, PtrExt},
+                windows::WindowsExt,
+            },
         },
         ahash::{AHashMap, AHashSet},
         backtrace::Backtrace,
@@ -63,6 +66,9 @@ mod leaks {
 
     pub fn init() {
         unsafe {
+            if INITIALIZED {
+                return;
+            }
             MAP = Box::into_raw(Box::new(AHashMap::new()));
             ALLOCATIONS = Box::into_raw(Box::new(AHashMap::new()));
             IN_ALLOCATOR = 0;
@@ -93,7 +99,47 @@ mod leaks {
         } else {
             let containers = find_allocations_pointing_to(allocation.addr);
             if containers.is_empty() {
-                log::error!("{} NO REFERENCES", prefix);
+                let mut frames = vec![];
+                backtrace::trace(|frame| {
+                    frames.push((frame.ip() as usize, frame.sp() as usize));
+                    true
+                });
+                let mut frames2 = vec![];
+                for [l, r] in frames.array_windows_ext::<2>() {
+                    frames2.push((l.0, l.1, r.1));
+                }
+                let mut referenced_on_stack = false;
+                for (ip, lo, hi) in frames2 {
+                    if lo % 8 != 0 {
+                        log::error!("lo % 8 != 0");
+                    }
+                    let slice = unsafe {
+                        std::slice::from_raw_parts(
+                            lo as *const *mut u8,
+                            (hi - lo) / mem::size_of::<usize>(),
+                        )
+                    };
+                    for addr in slice {
+                        if *addr == allocation.addr {
+                            let mut name = String::new();
+                            backtrace::resolve(ip as _, |sym| {
+                                let symname = match sym.name() {
+                                    Some(s) => s.to_string(),
+                                    _ => String::new(),
+                                };
+                                name =
+                                    format!("{} {:?}:{:?}", symname, sym.filename(), sym.lineno())
+                            });
+                            if !name.starts_with("jay::leaks::") {
+                                log::info!("{} REFERENCED ON THE STACK: {}", prefix, name);
+                                referenced_on_stack = true;
+                            }
+                        }
+                    }
+                }
+                if !referenced_on_stack {
+                    log::error!("{} NO REFERENCES", prefix);
+                }
             }
             let new_prefix = format!("{}    ", prefix);
             for (mut allocation, offset) in containers {
@@ -133,6 +179,19 @@ mod leaks {
             IN_ALLOCATOR -= 1;
         }
     }
+    //
+    // pub fn log_allocations(w: &mut dyn Write) {
+    //     log::info!("remaining allocations:");
+    //     unsafe {
+    //         IN_ALLOCATOR += 1;
+    //         for (_, a) in ALLOCATIONS.deref() {
+    //             let mut bt = a.backtrace.clone();
+    //             bt.resolve();
+    //             write!(w, "[{:?}, {:?}), allocated at\n{:?}", a.addr, a.addr.add(a.len), bt);
+    //         }
+    //         IN_ALLOCATOR -= 1;
+    //     }
+    // }
 
     #[derive(Copy, Clone)]
     struct Tracked {
@@ -225,6 +284,7 @@ mod leaks {
                         backtrace: Backtrace::new_unresolved(),
                     },
                 );
+                // log::info!("allocated [0x{:x}, 0x{:x})", res as usize, res as usize + layout.size());
                 IN_ALLOCATOR = 0;
             }
             res

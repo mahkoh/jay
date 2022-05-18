@@ -46,7 +46,6 @@ use {
         ffi::{CStr, CString},
         fmt::{Debug, Formatter},
         future::pending,
-        mem,
         rc::Rc,
     },
     thiserror::Error,
@@ -291,14 +290,6 @@ struct MetalInputDevice {
     accel_profile: Cell<Option<AccelProfile>>,
     accel_speed: Cell<Option<f64>>,
     transform_matrix: Cell<Option<TransformMatrix>>,
-}
-
-impl Drop for MetalInputDevice {
-    fn drop(&mut self) {
-        if let Some(fd) = self.fd.take() {
-            mem::forget(fd);
-        }
-    }
 }
 
 #[derive(Clone)]

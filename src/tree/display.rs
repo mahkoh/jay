@@ -34,6 +34,7 @@ impl DisplayNode {
 
     pub fn clear(&self) {
         self.outputs.clear();
+        self.seat_state.clear();
     }
 
     pub fn update_extents(&self) {

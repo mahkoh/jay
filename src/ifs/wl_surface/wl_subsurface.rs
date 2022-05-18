@@ -140,6 +140,7 @@ impl WlSubsurface {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
         self.surface.unset_ext();
+        *self.pending.node.borrow_mut() = None;
         *self.node.borrow_mut() = None;
         {
             let mut children = self.parent.children.borrow_mut();
@@ -256,6 +257,11 @@ object_base! {
 impl Object for WlSubsurface {
     fn num_requests(&self) -> u32 {
         SET_DESYNC + 1
+    }
+
+    fn break_loops(&self) {
+        *self.pending.node.borrow_mut() = None;
+        *self.node.borrow_mut() = None;
     }
 }
 

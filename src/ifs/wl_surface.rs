@@ -697,6 +697,8 @@ impl Object for WlSurface {
         self.buffer.set(None);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
+        self.pending.presentation_feedback.borrow_mut().clear();
+        self.presentation_feedback.borrow_mut().clear();
     }
 }
 

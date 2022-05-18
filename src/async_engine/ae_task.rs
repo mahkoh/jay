@@ -158,8 +158,19 @@ impl<T, F: Future<Output = T>> Task<T, F> {
         let task = data as *const Self;
         if run {
             task.deref().run();
+        } else {
+            Self::task_runnable_dropped(task);
         }
         Self::dec_ref_count(task);
+    }
+
+    #[cold]
+    unsafe fn task_runnable_dropped(task: *const Self) {
+        let task = task.deref();
+        task.state.and_assign(!RUNNING);
+        if task.state.get() & CANCELLED != 0 {
+            task.drop_data();
+        }
     }
 
     unsafe fn dec_ref_count(slf: *const Self) {

@@ -77,6 +77,7 @@ impl ForkerProxy {
         self.task_in.take();
         self.task_out.take();
         self.task_proc.take();
+        self.outgoing.clear();
     }
 
     pub fn create() -> Result<Self, ForkerError> {

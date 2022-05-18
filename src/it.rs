@@ -7,6 +7,7 @@ use {
             testrun::TestRun,
             tests::TestCase,
         },
+        leaks,
         utils::{errorfmt::ErrorFmt, num_cpus::num_cpus},
     },
     ahash::AHashMap,
@@ -45,6 +46,7 @@ mod tests;
 const SINGLE_THREAD: bool = false;
 
 pub fn run_tests() {
+    leaks::init();
     test_logger::install();
     test_logger::set_level(Level::Trace);
     let it_run = Arc::new(ItRun {

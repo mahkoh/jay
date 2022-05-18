@@ -57,6 +57,7 @@ impl OutputNode {
         for workspace in workspaces {
             workspace.clear();
         }
+        self.render_data.borrow_mut().titles.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {

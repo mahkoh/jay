@@ -132,6 +132,10 @@ impl Wheel {
         Ok(Rc::new(Wheel { data }))
     }
 
+    pub fn clear(&self) {
+        self.data.kill();
+    }
+
     fn future(&self) -> WheelTimeoutFuture {
         let data = self.data.cached_futures.pop().unwrap_or_else(|| {
             Rc::new(WheelTimeoutData {

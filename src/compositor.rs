@@ -48,7 +48,9 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let forker = create_forker();
     let logger = Logger::install_compositor(global.log_level.into());
-    if let Err(e) = start_compositor2(forker, Some(logger.clone()), args, None) {
+    let res = start_compositor2(Some(forker), Some(logger.clone()), args, None);
+    leaks::log_leaked();
+    if let Err(e) = res {
         let e = ErrorFmt(e);
         log::error!("A fatal error occurred: {}", e);
         eprintln!("A fatal error occurred: {}", e);
@@ -60,8 +62,9 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let forker = create_forker();
-    start_compositor2(forker, None, RunArgs::default(), Some(future))
+    let res = start_compositor2(None, None, RunArgs::default(), Some(future));
+    leaks::log_leaked();
+    res
 }
 
 fn create_forker() -> Rc<ForkerProxy> {
@@ -99,7 +102,7 @@ const STATIC_VARS: &[(&str, &str)] = &[
 pub type TestFuture = Box<dyn Fn(&Rc<State>) -> Box<dyn Future<Output = ()>>>;
 
 fn start_compositor2(
-    forker: Rc<ForkerProxy>,
+    forker: Option<Rc<ForkerProxy>>,
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
     test_future: Option<TestFuture>,
@@ -183,28 +186,20 @@ fn start_compositor2(
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
-    let (acceptor, acceptor_future) = Acceptor::install(&state)?;
-    forker.install(&state);
-    forker.setenv(
-        WAYLAND_DISPLAY.as_bytes(),
-        acceptor.socket_name().as_bytes(),
-    );
-    for (key, val) in STATIC_VARS {
-        forker.setenv(key.as_bytes(), val.as_bytes());
+    let (acceptor, _acceptor_future) = Acceptor::install(&state)?;
+    if let Some(forker) = forker {
+        forker.install(&state);
+        forker.setenv(
+            WAYLAND_DISPLAY.as_bytes(),
+            acceptor.socket_name().as_bytes(),
+        );
+        for (key, val) in STATIC_VARS {
+            forker.setenv(key.as_bytes(), val.as_bytes());
+        }
     }
-    let compositor = engine.spawn(start_compositor3(state.clone(), test_future));
+    let _compositor = engine.spawn(start_compositor3(state.clone(), test_future));
     ring.run()?;
-    drop(compositor);
-    drop(acceptor_future);
-    drop(acceptor);
-    drop(forker);
-    engine.clear();
     state.clear();
-    for (_, seat) in state.globals.seats.lock().deref() {
-        seat.clear();
-    }
-    drop(state);
-    leaks::log_leaked();
     Ok(())
 }
 
@@ -352,6 +347,7 @@ fn create_dummy_output(state: &Rc<State>) {
                 connected: Cell::new(true),
                 name: "Dummy".to_string(),
                 drm_dev: None,
+                async_event: Default::default(),
             }),
             0,
             &backend::Mode {

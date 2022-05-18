@@ -27,6 +27,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         connected: Cell::new(false),
         name: connector.kernel_id().to_string(),
         drm_dev: drm_dev.clone(),
+        async_event: Rc::new(AsyncEvent::default()),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -51,9 +52,8 @@ struct ConnectorHandler {
 
 impl ConnectorHandler {
     async fn handle(self) {
-        let ae = Rc::new(AsyncEvent::default());
         {
-            let ae = ae.clone();
+            let ae = self.data.async_event.clone();
             self.data.connector.on_change(Rc::new(move || ae.trigger()));
         }
         if let Some(config) = self.state.config.get() {
@@ -63,11 +63,11 @@ impl ConnectorHandler {
             while let Some(event) = self.data.connector.event() {
                 match event {
                     ConnectorEvent::Removed => break 'outer,
-                    ConnectorEvent::Connected(mi) => self.handle_connected(&ae, mi).await,
+                    ConnectorEvent::Connected(mi) => self.handle_connected(mi).await,
                     _ => unreachable!(),
                 }
             }
-            ae.triggered().await;
+            self.data.async_event.triggered().await;
         }
         if let Some(config) = self.state.config.get() {
             config.del_connector(self.id);
@@ -76,7 +76,7 @@ impl ConnectorHandler {
         self.state.connectors.remove(&self.id);
     }
 
-    async fn handle_connected(&self, ae: &Rc<AsyncEvent>, info: MonitorInfo) {
+    async fn handle_connected(&self, info: MonitorInfo) {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
         let name = self.state.globals.name();
@@ -151,7 +151,7 @@ impl ConnectorHandler {
                     _ => unreachable!(),
                 }
             }
-            ae.triggered().await;
+            self.data.async_event.triggered().await;
         }
         log::info!("Connector {} disconnected", self.data.connector.kernel_id());
         if let Some(config) = self.state.config.get() {

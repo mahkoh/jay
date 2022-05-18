@@ -12,10 +12,12 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         seat: Default::default(),
         device: dev.clone(),
     });
+    let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {
         state: state.clone(),
         dev: dev.clone(),
         data: data.clone(),
+        ae: ae.clone(),
     };
     let handler = state.eng.spawn(oh.handle());
     state.input_device_handlers.borrow_mut().insert(
@@ -24,21 +26,22 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
             handler,
             id: dev.id(),
             data,
+            async_event: ae,
         },
     );
 }
 
-pub struct DeviceHandler {
-    pub state: Rc<State>,
-    pub dev: Rc<dyn InputDevice>,
-    pub data: Rc<DeviceHandlerData>,
+struct DeviceHandler {
+    state: Rc<State>,
+    dev: Rc<dyn InputDevice>,
+    data: Rc<DeviceHandlerData>,
+    ae: Rc<AsyncEvent>,
 }
 
 impl DeviceHandler {
     pub async fn handle(self) {
-        let ae = Rc::new(AsyncEvent::default());
         {
-            let ae = ae.clone();
+            let ae = self.ae.clone();
             self.dev.on_change(Rc::new(move || ae.trigger()));
         }
         if let Some(config) = self.state.config.get() {
@@ -63,7 +66,7 @@ impl DeviceHandler {
                     // nothing
                 }
             }
-            ae.triggered().await;
+            self.ae.triggered().await;
         }
         if let Some(config) = self.state.config.get() {
             config.del_input_device(self.dev.id());

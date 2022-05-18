@@ -154,6 +154,13 @@ impl NodeSeatState {
         self.dnd_targets.remove(&seat.id);
         self.pointer_grabs.remove(&seat.id);
     }
+
+    pub fn clear(&self) {
+        self.kb_foci.clear();
+        self.pointer_foci.clear();
+        self.dnd_targets.clear();
+        self.pointer_grabs.clear();
+    }
 }
 
 impl WlSeatGlobal {
