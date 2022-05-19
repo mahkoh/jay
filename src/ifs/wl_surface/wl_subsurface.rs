@@ -270,7 +270,7 @@ simple_add_obj!(WlSubsurface);
 impl SurfaceExt for WlSubsurface {
     fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
         if ctx == CommitContext::RootCommit && self.sync() {
-            log::info!("Aborting commit due to sync");
+            log::debug!("Aborting commit due to sync");
             return Ok(CommitAction::AbortCommit);
         }
         Ok(CommitAction::ContinueCommit)

@@ -3,6 +3,7 @@ use {
         backend::Backend,
         client::Client,
         ifs::{
+            ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
                 zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
@@ -139,6 +140,7 @@ impl Globals {
         add_singleton!(JayCompositorGlobal);
         add_singleton!(ZwlrScreencopyManagerV1Global);
         add_singleton!(ZwpRelativePointerManagerV1Global);
+        add_singleton!(ExtSessionLockManagerV1Global);
 
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);

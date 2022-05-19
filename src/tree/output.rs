@@ -9,7 +9,10 @@ use {
                 collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
                 BTN_LEFT,
             },
-            wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+            wl_surface::{
+                ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+            },
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
         rect::Rect,
@@ -47,6 +50,7 @@ pub struct OutputNode {
     pub status: CloneCell<Rc<String>>,
     pub scroll: Scroller,
     pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
+    pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
 }
 
 impl OutputNode {
@@ -58,6 +62,7 @@ impl OutputNode {
             workspace.clear();
         }
         self.render_data.borrow_mut().titles.clear();
+        self.lock_surface.take();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
@@ -264,6 +269,9 @@ impl OutputNode {
         self.global.pos.set(*rect);
         self.state.root.update_extents();
         self.update_render_data();
+        if let Some(ls) = self.lock_surface.get() {
+            ls.change_extents(*rect);
+        }
         if let Some(c) = self.workspace.get() {
             if let Some(fs) = c.fullscreen.get() {
                 fs.tl_change_extents(rect);
@@ -355,6 +363,9 @@ impl Node for OutputNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
+        if let Some(ls) = self.lock_surface.get() {
+            visitor.visit_lock_surface(&ls);
+        }
         for ws in self.workspaces.iter() {
             visitor.visit_workspace(ws.deref());
         }
@@ -374,12 +385,29 @@ impl Node for OutputNode {
     }
 
     fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        if self.state.lock.locked.get() {
+            if let Some(lock) = self.lock_surface.get() {
+                seat.focus_node(lock.surface.clone());
+            }
+            return;
+        }
         if let Some(ws) = self.workspace.get() {
             ws.node_do_focus(seat, direction);
         }
     }
 
     fn node_find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+        if self.state.lock.locked.get() {
+            if let Some(ls) = self.lock_surface.get() {
+                tree.push(FoundNode {
+                    node: ls.clone(),
+                    x,
+                    y,
+                });
+                return ls.node_find_tree_at(x, y, tree);
+            }
+            return FindTreeResult::AcceptsInput;
+        }
         if let Some(ws) = self.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
                 tree.push(FoundNode {

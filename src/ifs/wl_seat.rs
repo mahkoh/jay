@@ -118,6 +118,7 @@ pub struct WlSeatGlobal {
     extents_start_pos: Cell<(i32, i32)>,
     pos: Cell<(Fixed, Fixed)>,
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
+    pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
@@ -164,6 +165,7 @@ impl WlSeatGlobal {
             extents_start_pos: Cell::new((0, 0)),
             pos: Cell::new((Fixed(0), Fixed(0))),
             pointer_stack: RefCell::new(vec![]),
+            pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
@@ -328,6 +330,11 @@ impl WlSeatGlobal {
                 }
             }
         }
+    }
+
+    pub fn prepare_for_lock(self: &Rc<Self>) {
+        self.pointer_owner.revert_to_default(self);
+        self.kb_owner.ungrab(self);
     }
 
     pub fn set_position(&self, x: i32, y: i32) {

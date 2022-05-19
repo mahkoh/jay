@@ -1,0 +1,17 @@
+# request
+
+msg destroy = 0 {
+
+}
+
+msg ack_configure = 1 {
+    serial: u32,
+}
+
+# events
+
+msg configure = 0 {
+    serial: u32,
+    width: u32,
+    height: u32,
+}

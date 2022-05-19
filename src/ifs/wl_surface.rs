@@ -1,4 +1,5 @@
 pub mod cursor;
+pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod xdg_surface;
 pub mod xwindow;
@@ -64,6 +65,7 @@ pub enum SurfaceRole {
     DndIcon,
     ZwlrLayerSurface,
     XSurface,
+    ExtSessionLockSurface,
 }
 
 impl SurfaceRole {
@@ -76,6 +78,7 @@ impl SurfaceRole {
             SurfaceRole::DndIcon => "dnd_icon",
             SurfaceRole::ZwlrLayerSurface => "zwlr_layer_surface",
             SurfaceRole::XSurface => "xwayland surface",
+            SurfaceRole::ExtSessionLockSurface => "ext_session_lock_surface",
         }
     }
 }

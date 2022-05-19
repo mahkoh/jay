@@ -119,6 +119,7 @@ impl ConnectorHandler {
             status: self.state.status.clone(),
             scroll: Default::default(),
             pointer_positions: Default::default(),
+            lock_surface: Default::default(),
         });
         let mode = info.initial_mode;
         let output_data = Rc::new(OutputData {
@@ -158,10 +159,12 @@ impl ConnectorHandler {
             config.connector_disconnected(self.id);
         }
         global.node.set(None);
+        global.destroyed.set(true);
         let _ = self.state.remove_global(&*global);
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
+        on.lock_surface.take();
         let mut target_is_dummy = false;
         let target = match self.state.outputs.lock().values().next() {
             Some(o) => o.node.clone(),

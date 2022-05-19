@@ -201,7 +201,8 @@ impl PointerOwner for DefaultPointerOwner {
                 break;
             }
         }
-        if (stack.len(), found_tree.len()) == (divergence, divergence) {
+        let psm = seat.pointer_stack_modified.replace(false);
+        if !psm && (stack.len(), found_tree.len()) == (divergence, divergence) {
             if let Some(node) = found_tree.last() {
                 node.node.clone().node_on_pointer_motion(
                     seat,

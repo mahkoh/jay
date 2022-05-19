@@ -1,6 +1,7 @@
 use {
     crate::{
         ifs::wl_surface::{
+            ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
             xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
             xwindow::Xwindow,
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
@@ -57,6 +58,10 @@ pub trait NodeVisitorBase: Sized {
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
         node.node_visit_children(self);
     }
+
+    fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
+        node.node_visit_children(self);
+    }
 }
 
 pub trait NodeVisitor {
@@ -71,6 +76,7 @@ pub trait NodeVisitor {
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>);
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>);
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>);
+    fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>);
 }
 
 impl<T: NodeVisitorBase> NodeVisitor for T {
@@ -116,6 +122,10 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
 
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
         <T as NodeVisitorBase>::visit_placeholder(self, node)
+    }
+
+    fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
+        <T as NodeVisitorBase>::visit_lock_surface(self, node)
     }
 }
 
@@ -179,6 +189,11 @@ impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {
     }
 
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        (self.f)(node.clone());
+        node.node_visit_children(self);
+    }
+
+    fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
         (self.f)(node.clone());
         node.node_visit_children(self);
     }

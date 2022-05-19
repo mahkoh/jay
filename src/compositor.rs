@@ -22,7 +22,7 @@ use {
         logger::Logger,
         render::{self, RenderError},
         sighand::{self, SighandError},
-        state::{ConnectorData, IdleState, State, XWaylandState},
+        state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
         tasks::{self, idle},
         tree::{
             container_layout, container_render_data, float_layout, float_titles, DisplayNode,
@@ -183,6 +183,10 @@ fn start_compositor2(
         data_offer_ids: Default::default(),
         drm_dev_ids: Default::default(),
         ring: ring.clone(),
+        lock: ScreenlockState {
+            locked: Cell::new(false),
+            lock: Default::default(),
+        },
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -370,6 +374,7 @@ fn create_dummy_output(state: &Rc<State>) {
         status: Default::default(),
         scroll: Default::default(),
         pointer_positions: Default::default(),
+        lock_surface: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

@@ -15,6 +15,7 @@ use {
         forker::ForkerProxy,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
+            ext_session_lock_v1::ExtSessionLockV1,
             wl_drm::WlDrmGlobal,
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
@@ -108,6 +109,7 @@ pub struct State {
     pub tracker: Tracker<Self>,
     pub data_offer_ids: NumCell<u64>,
     pub ring: Rc<IoUring>,
+    pub lock: ScreenlockState,
 }
 
 // impl Drop for State {
@@ -120,6 +122,11 @@ impl Debug for State {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State").finish_non_exhaustive()
     }
+}
+
+pub struct ScreenlockState {
+    pub locked: Cell<bool>,
+    pub lock: CloneCell<Option<Rc<ExtSessionLockV1>>>,
 }
 
 pub struct XWaylandState {
@@ -485,6 +492,7 @@ impl State {
     }
 
     pub fn clear(&self) {
+        self.lock.lock.take();
         self.xwayland.handler.borrow_mut().take();
         self.clients.clear();
         if let Some(config) = self.config.set(None) {

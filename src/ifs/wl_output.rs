@@ -79,6 +79,7 @@ pub struct WlOutputGlobal {
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
     pub unused_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
+    pub destroyed: Cell<bool>,
 }
 
 impl WlOutputGlobal {
@@ -112,6 +113,7 @@ impl WlOutputGlobal {
             bindings: Default::default(),
             unused_captures: Default::default(),
             pending_captures: Default::default(),
+            destroyed: Cell::new(false),
         }
     }
 

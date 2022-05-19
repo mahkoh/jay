@@ -31,6 +31,10 @@ msg enable_symmetric_delete = 7 {
 
 }
 
+msg unlock = 8 {
+
+}
+
 # events
 
 msg client_id = 0 {

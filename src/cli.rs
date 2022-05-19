@@ -4,6 +4,7 @@ mod log;
 mod quit;
 pub mod screenshot;
 mod set_log_level;
+mod unlock;
 
 use {
     crate::compositor::start_compositor,
@@ -40,6 +41,8 @@ pub enum Cmd {
     SetLogLevel(SetLogArgs),
     /// Stop the compositor.
     Quit,
+    /// Unlocks the compositor.
+    Unlock,
     /// Take a screenshot.
     Screenshot(ScreenshotArgs),
     /// Inspect/modify the idle (screensaver) settings.
@@ -186,6 +189,7 @@ pub fn main() {
         Cmd::SetLogLevel(a) => set_log_level::main(cli.global, a),
         Cmd::Screenshot(a) => screenshot::main(cli.global, a),
         Cmd::Idle(a) => idle::main(cli.global, a),
+        Cmd::Unlock => unlock::main(cli.global),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }

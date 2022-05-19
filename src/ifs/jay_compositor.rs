@@ -174,6 +174,25 @@ impl JayCompositor {
         self.client.symmetric_delete.set(true);
         Ok(())
     }
+
+    fn unlock(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let _req: Unlock = self.client.parse(self, parser)?;
+        let state = &self.client.state;
+        if state.lock.locked.replace(false) {
+            if let Some(lock) = state.lock.lock.take() {
+                lock.finish();
+            }
+            for output in state.outputs.lock().values() {
+                if let Some(surface) = output.node.lock_surface.take() {
+                    surface.destroy_node();
+                }
+            }
+            state.tree_changed();
+            state.damage();
+        }
+        self.client.symmetric_delete.set(true);
+        Ok(())
+    }
 }
 
 object_base! {
@@ -187,11 +206,12 @@ object_base! {
     GET_IDLE => get_idle,
     GET_CLIENT_ID => get_client_id,
     ENABLE_SYMMETRIC_DELETE => enable_symmetric_delete,
+    UNLOCK => unlock,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        GET_CLIENT_ID + 1
+        UNLOCK + 1
     }
 }
 

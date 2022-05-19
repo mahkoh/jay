@@ -73,6 +73,14 @@ impl Renderer<'_> {
     }
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
+        if self.state.lock.locked.get() {
+            if let Some(surface) = output.lock_surface.get() {
+                if surface.surface.buffer.get().is_some() {
+                    self.render_surface(&surface.surface, x, y);
+                }
+            }
+            return;
+        }
         if let Some(ws) = output.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
                 fs.tl_as_node().node_render(self, x, y);

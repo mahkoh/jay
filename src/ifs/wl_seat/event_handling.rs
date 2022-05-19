@@ -134,6 +134,7 @@ impl NodeSeatState {
                 last.node_seat_state().leave(&seat);
                 last.node_on_leave(&seat);
             }
+            seat.pointer_stack_modified.set(true);
             seat.state.tree_changed();
         }
         self.release_kb_focus2(focus_last);
@@ -273,7 +274,7 @@ impl WlSeatGlobal {
         let new_mods;
         {
             let mut kb_state = self.kb_state.borrow_mut();
-            if state == wl_keyboard::PRESSED {
+            if !self.state.lock.locked.get() && state == wl_keyboard::PRESSED {
                 let old_mods = kb_state.mods();
                 let keysyms = kb_state.unmodified_keysyms(key);
                 for &sym in keysyms {
