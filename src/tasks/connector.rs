@@ -148,7 +148,7 @@ impl ConnectorHandler {
                     ConnectorEvent::ModeChanged(mode) => {
                         on.update_mode(mode);
                     }
-                    _ => unreachable!(),
+                    ev => unreachable!("received unexpected event {:?}", ev),
                 }
             }
             self.data.async_event.triggered().await;
@@ -162,6 +162,38 @@ impl ConnectorHandler {
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
+        let mut target_is_dummy = false;
+        let target = match self.state.outputs.lock().values().next() {
+            Some(o) => o.node.clone(),
+            _ => {
+                target_is_dummy = true;
+                self.state.dummy_output.get().unwrap()
+            }
+        };
+        if !on.workspaces.is_empty() {
+            for ws in on.workspaces.iter() {
+                let is_visible =
+                    !target_is_dummy && target.workspaces.is_empty() && ws.visible.get();
+                ws.output.set(target.clone());
+                target.workspaces.add_last_existing(&ws);
+                if is_visible {
+                    target.show_workspace(&ws);
+                } else if ws.visible.get() {
+                    ws.set_visible(false);
+                }
+            }
+            target.update_render_data();
+            self.state.tree_changed();
+            self.state.damage();
+        }
+        let seats = self.state.globals.seats.lock();
+        for seat in seats.values() {
+            if seat.get_output().id == on.id {
+                let tpos = target.global.pos.get();
+                let tmode = target.global.mode.get();
+                seat.set_position(tpos.x1() + tmode.width / 2, tpos.y1() + tmode.height / 2);
+            }
+        }
         if let Some(dev) = &self.data.drm_dev {
             dev.connectors.remove(&self.id);
         }

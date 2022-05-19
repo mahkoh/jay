@@ -2,7 +2,7 @@ use {
     crate::{
         backend::BackendEvent,
         backends::metal::{
-            video::{MetalDrmDevice, PendingDrmDevice},
+            video::{MetalDrmDeviceData, PendingDrmDevice},
             MetalBackend, MetalDevice, MetalError, MetalInputDevice,
         },
         dbus::TRUE,
@@ -85,7 +85,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>, _fd: Rc<OwnedFd>) {
+    fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>, _fd: Rc<OwnedFd>) {
         log::info!("Device resumed: {}", dev.dev.devnode.to_bytes().as_bstr());
         if let Err(e) = self.resume_drm_device(dev) {
             log::error!("Could not resume drm device: {}", ErrorFmt(e));
@@ -117,7 +117,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_device_removed(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>) {
+    fn handle_drm_device_removed(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>) {
         log::info!("Device removed: {}", dev.dev.devnode.to_bytes().as_bstr());
     }
 
@@ -146,7 +146,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_device_paused(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>) {
+    fn handle_drm_device_paused(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>) {
         log::info!("Device paused: {}", dev.dev.devnode.to_bytes().as_bstr());
     }
 
@@ -232,19 +232,6 @@ impl MetalBackend {
             DRM => self.handle_drm_change(dev),
             _ => None,
         }
-    }
-
-    fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
-        let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
-            Some(dev) => dev,
-            _ => return None,
-        };
-        for connector in dev.connectors.values() {
-            connector.can_present.set(true);
-            connector.has_damage.set(true);
-            connector.schedule_present();
-        }
-        None
     }
 
     pub fn enumerate_devices(self: &Rc<Self>) -> Result<(), MetalError> {

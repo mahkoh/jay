@@ -11,10 +11,11 @@ use {
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         render::{Framebuffer, RenderContext, RenderResult, ResetStatus, Texture},
         state::State,
+        udev::UdevDevice,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
-            debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError,
-            syncqueue::SyncQueue,
+            copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
+            oserror::OsError, syncqueue::SyncQueue,
         },
         video::{
             drm::{
@@ -34,6 +35,8 @@ use {
         cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
+        mem,
+        ops::DerefMut,
         rc::Rc,
     },
     uapi::{c, c::dev_t},
@@ -46,12 +49,12 @@ pub struct PendingDrmDevice {
 }
 
 pub struct MetalRenderContext {
-    pub dev: Rc<MetalDrmDeviceStatic>,
+    pub dev: Rc<MetalDrmDevice>,
     pub egl: Rc<RenderContext>,
 }
 
 #[derive(Debug)]
-pub struct MetalDrmDeviceStatic {
+pub struct MetalDrmDevice {
     pub id: DrmDeviceId,
     pub devnum: c::dev_t,
     pub devnode: CString,
@@ -67,7 +70,7 @@ pub struct MetalDrmDeviceStatic {
     pub handle_events: HandleEvents,
 }
 
-impl BackendDrmDevice for MetalDrmDeviceStatic {
+impl BackendDrmDevice for MetalDrmDevice {
     fn id(&self) -> DrmDeviceId {
         self.id
     }
@@ -96,10 +99,39 @@ impl Debug for HandleEvents {
 }
 
 #[derive(Debug)]
-pub struct MetalDrmDevice {
-    pub dev: Rc<MetalDrmDeviceStatic>,
-    pub connectors: AHashMap<DrmConnector, Rc<MetalConnector>>,
-    pub futures: Vec<ConnectorFutures>,
+pub struct MetalDrmDeviceData {
+    pub dev: Rc<MetalDrmDevice>,
+    pub connectors: CopyHashMap<DrmConnector, Rc<MetalConnector>>,
+    pub futures: CopyHashMap<DrmConnector, ConnectorFutures>,
+}
+
+#[derive(Debug)]
+pub struct ConnectorDisplayData {
+    pub crtc_id: MutableProperty<DrmCrtc>,
+    pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    pub modes: Vec<DrmModeInfo>,
+    pub mode: Option<Rc<DrmModeInfo>>,
+    pub refresh: u32,
+
+    pub monitor_manufacturer: String,
+    pub monitor_name: String,
+    pub monitor_serial_number: String,
+
+    pub connection: ConnectorStatus,
+    pub mm_width: u32,
+    pub mm_height: u32,
+    pub subpixel: u32,
+
+    pub connector_type: ConnectorType,
+    pub connector_type_id: u32,
+}
+
+impl ConnectorDisplayData {
+    fn is_same_monitor(&self, other: &Self) -> bool {
+        self.monitor_manufacturer == other.monitor_manufacturer
+            && self.monitor_name == other.monitor_name
+            && self.monitor_serial_number == other.monitor_serial_number
+    }
 }
 
 #[derive(Debug)]
@@ -108,19 +140,10 @@ pub struct MetalConnector {
     pub master: Rc<DrmMaster>,
     pub state: Rc<State>,
 
-    pub dev: Rc<MetalDrmDeviceStatic>,
+    pub dev: Rc<MetalDrmDevice>,
     pub backend: Rc<MetalBackend>,
 
     pub connector_id: ConnectorId,
-
-    pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
-    pub modes: Vec<DrmModeInfo>,
-    pub mode: CloneCell<Option<Rc<DrmModeInfo>>>,
-    pub refresh: Cell<u32>,
-
-    pub monitor_manufacturer: String,
-    pub monitor_name: String,
-    pub monitor_serial_number: String,
 
     pub events: SyncQueue<ConnectorEvent>,
 
@@ -130,17 +153,12 @@ pub struct MetalConnector {
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
 
-    pub connector_type: ConnectorType,
-    pub connector_type_id: u32,
+    pub display: RefCell<ConnectorDisplayData>,
 
-    pub connection: ConnectorStatus,
-    pub mm_width: u32,
-    pub mm_height: u32,
-    pub subpixel: u32,
+    pub connect_sent: Cell<bool>,
 
     pub primary_plane: CloneCell<Option<Rc<MetalPlane>>>,
 
-    pub crtc_id: MutableProperty<DrmCrtc>,
     pub crtc: CloneCell<Option<Rc<MetalCrtc>>>,
 
     pub on_change: OnChange,
@@ -179,6 +197,18 @@ impl MetalConnector {
         loop {
             self.present_trigger.triggered().await;
             self.present();
+        }
+    }
+
+    fn connected(&self) -> bool {
+        let dd = self.display.borrow_mut();
+        dd.connection == ConnectorStatus::Connected && self.primary_plane.get().is_some()
+    }
+
+    fn send_event(&self, event: ConnectorEvent) {
+        self.events.push(event);
+        if let Some(oc) = self.on_change.on_change.get() {
+            oc();
         }
     }
 
@@ -247,9 +277,10 @@ impl Connector for MetalConnector {
     }
 
     fn kernel_id(&self) -> ConnectorKernelId {
+        let dd = self.display.borrow_mut();
         ConnectorKernelId {
-            ty: self.connector_type,
-            idx: self.connector_type_id,
+            ty: dd.connector_type,
+            idx: dd.connector_type_id,
         }
     }
 
@@ -328,22 +359,23 @@ pub struct MetalPlane {
 
 fn get_connectors(
     backend: &Rc<MetalBackend>,
-    dev: &Rc<MetalDrmDeviceStatic>,
+    dev: &Rc<MetalDrmDevice>,
     ids: &[DrmConnector],
 ) -> Result<
     (
-        AHashMap<DrmConnector, Rc<MetalConnector>>,
-        Vec<ConnectorFutures>,
+        CopyHashMap<DrmConnector, Rc<MetalConnector>>,
+        CopyHashMap<DrmConnector, ConnectorFutures>,
     ),
     DrmError,
 > {
-    let mut connectors = AHashMap::new();
-    let mut futures = vec![];
+    let connectors = CopyHashMap::new();
+    let futures = CopyHashMap::new();
     for connector in ids {
         match create_connector(backend, *connector, dev) {
             Ok((con, fut)) => {
-                connectors.insert(con.id, con);
-                futures.push(fut);
+                let id = con.id;
+                connectors.set(id, con);
+                futures.set(id, fut);
             }
             Err(e) => return Err(DrmError::CreateConnector(Box::new(e))),
         }
@@ -354,8 +386,42 @@ fn get_connectors(
 fn create_connector(
     backend: &Rc<MetalBackend>,
     connector: DrmConnector,
-    dev: &Rc<MetalDrmDeviceStatic>,
+    dev: &Rc<MetalDrmDevice>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
+    let display = create_connector_display_data(connector, dev)?;
+    let slf = Rc::new(MetalConnector {
+        id: connector,
+        master: dev.master.clone(),
+        state: backend.state.clone(),
+        dev: dev.clone(),
+        backend: backend.clone(),
+        connector_id: backend.state.connector_ids.next(),
+        events: Default::default(),
+        buffers: Default::default(),
+        next_buffer: Default::default(),
+        can_present: Cell::new(true),
+        has_damage: Cell::new(true),
+        primary_plane: Default::default(),
+        crtc: Default::default(),
+        on_change: Default::default(),
+        present_trigger: Default::default(),
+        render_result: RefCell::new(Default::default()),
+        display: RefCell::new(display),
+        connect_sent: Cell::new(false),
+    });
+    let futures = ConnectorFutures {
+        present: backend
+            .state
+            .eng
+            .spawn2(Phase::Present, slf.clone().present_loop()),
+    };
+    Ok((slf, futures))
+}
+
+fn create_connector_display_data(
+    connector: DrmConnector,
+    dev: &Rc<MetalDrmDevice>,
+) -> Result<ConnectorDisplayData, DrmError> {
     let info = dev.master.get_connector_info(connector, true)?;
     let mut crtcs = AHashMap::new();
     for encoder in info.encoders {
@@ -367,10 +433,15 @@ fn create_connector(
     }
     let props = collect_properties(&dev.master, connector)?;
     let connection = ConnectorStatus::from_drm(info.connection);
-    let connector_type = ConnectorType::from_drm(info.connector_type);
     let mut name = String::new();
     let mut manufacturer = String::new();
     let mut serial_number = String::new();
+    let mode = info.modes.first().cloned().map(Rc::new);
+    let refresh = mode
+        .as_ref()
+        .map(|m| 1_000_000_000_000u64 / (m.refresh_rate_millihz() as u64))
+        .unwrap_or(0) as u32;
+    let connector_type = ConnectorType::from_drm(info.connector_type);
     let connector_name = debug_fn(|f| write!(f, "{}-{}", connector_type, info.connector_type_id));
     'fetch_edid: {
         if connection != ConnectorStatus::Connected {
@@ -436,50 +507,24 @@ fn create_connector(
             serial_number = edid.base_block.id_serial_number.to_string();
         }
     }
-    let mode = info.modes.first().cloned().map(Rc::new);
-    let refresh = mode
-        .as_ref()
-        .map(|m| 1_000_000_000_000u64 / (m.refresh_rate_millihz() as u64))
-        .unwrap_or(0) as u32;
-    let slf = Rc::new(MetalConnector {
-        id: connector,
-        master: dev.master.clone(),
-        state: backend.state.clone(),
-        dev: dev.clone(),
-        backend: backend.clone(),
-        connector_id: backend.state.connector_ids.next(),
+    let props = collect_properties(&dev.master, connector)?;
+    let connector_type = ConnectorType::from_drm(info.connector_type);
+    Ok(ConnectorDisplayData {
+        crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtcs,
-        mode: CloneCell::new(mode),
-        refresh: Cell::new(refresh),
+        modes: info.modes,
+        mode,
+        refresh,
         monitor_manufacturer: manufacturer,
         monitor_name: name,
         monitor_serial_number: serial_number,
-        events: Default::default(),
-        modes: info.modes,
-        buffers: Default::default(),
-        next_buffer: Default::default(),
-        can_present: Cell::new(true),
-        has_damage: Cell::new(true),
-        connector_type,
-        connector_type_id: info.connector_type_id,
         connection,
         mm_width: info.mm_width,
         mm_height: info.mm_height,
         subpixel: info.subpixel,
-        primary_plane: Default::default(),
-        crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
-        crtc: Default::default(),
-        on_change: Default::default(),
-        present_trigger: Default::default(),
-        render_result: RefCell::new(Default::default()),
-    });
-    let futures = ConnectorFutures {
-        present: backend
-            .state
-            .eng
-            .spawn2(Phase::Present, slf.clone().present_loop()),
-    };
-    Ok((slf, futures))
+        connector_type,
+        connector_type_id: info.connector_type_id,
+    })
 }
 
 fn create_encoder(
@@ -642,6 +687,13 @@ impl<T: Copy> MutableProperty<T> {
     }
 }
 
+#[derive(Default)]
+struct Preserve {
+    connectors: AHashSet<DrmConnector>,
+    crtcs: AHashSet<DrmCrtc>,
+    planes: AHashSet<DrmPlane>,
+}
+
 impl MetalBackend {
     fn check_render_context(&self) -> bool {
         let ctx = match self.ctx.get() {
@@ -660,22 +712,23 @@ impl MetalBackend {
         self.state.set_render_ctx(None);
         let mut old_buffers = vec![];
         for dev in self.device_holder.drm_devices.lock().values() {
-            for connector in dev.connectors.values() {
+            for connector in dev.connectors.lock().values() {
                 old_buffers.push(connector.buffers.take());
             }
         }
         if !self.install_render_context(&ctx.dev) {
             return false;
         }
+        let mut preserve = Preserve::default();
         for dev in self.device_holder.drm_devices.lock().values() {
-            if let Err(e) = self.init_drm_device(dev) {
+            if let Err(e) = self.init_drm_device(dev, &mut preserve) {
                 log::error!("Could not re-initialize device: {}", ErrorFmt(e));
             }
         }
         true
     }
 
-    fn install_render_context(&self, dev: &Rc<MetalDrmDeviceStatic>) -> bool {
+    fn install_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
         let ctx = match self.create_render_context(dev) {
             Ok(ctx) => ctx,
             Err(e) => {
@@ -690,7 +743,7 @@ impl MetalBackend {
 
     fn create_render_context(
         &self,
-        dev: &Rc<MetalDrmDeviceStatic>,
+        dev: &Rc<MetalDrmDevice>,
     ) -> Result<Rc<MetalRenderContext>, MetalError> {
         let egl = match RenderContext::from_drm_device(&dev.master) {
             Ok(r) => Rc::new(r),
@@ -704,11 +757,120 @@ impl MetalBackend {
         Ok(ctx)
     }
 
+    pub fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
+        if let Err(e) = self.handle_drm_change_(dev) {
+            log::error!("Could not handle change of drm device: {}", ErrorFmt(e));
+        }
+        None
+    }
+
+    fn handle_drm_change_(self: &Rc<Self>, dev: UdevDevice) -> Result<(), MetalError> {
+        let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
+            Some(dev) => dev,
+            _ => return Ok(()),
+        };
+        if let Err(e) = self.update_device_properties(&dev) {
+            return Err(MetalError::UpdateProperties(e));
+        }
+        let res = dev.dev.master.get_resources()?;
+        let current_connectors: AHashSet<_> = res.connectors.iter().copied().collect();
+        let mut new_connectors = AHashSet::new();
+        let mut removed_connectors = AHashSet::new();
+        for c in &res.connectors {
+            if !dev.connectors.contains(c) {
+                new_connectors.insert(*c);
+            }
+        }
+        for c in dev.connectors.lock().keys() {
+            if !current_connectors.contains(c) {
+                removed_connectors.insert(*c);
+            }
+        }
+        for c in removed_connectors {
+            dev.futures.remove(&c);
+            if let Some(c) = dev.connectors.remove(&c) {
+                if c.connect_sent.get() {
+                    c.send_event(ConnectorEvent::Disconnected);
+                }
+                c.send_event(ConnectorEvent::Removed);
+            }
+        }
+        let mut preserve = Preserve::default();
+        for c in dev.connectors.lock().values() {
+            let mut dd = match create_connector_display_data(c.id, &dev.dev) {
+                Ok(d) => d,
+                Err(e) => {
+                    log::error!(
+                        "Could not update display data for connector: {}",
+                        ErrorFmt(e)
+                    );
+                    continue;
+                }
+            };
+            let mut old = c.display.borrow_mut();
+            mem::swap(old.deref_mut(), &mut dd);
+            if c.connect_sent.get() {
+                if old.connection != ConnectorStatus::Connected || !old.is_same_monitor(&dd) {
+                    c.send_event(ConnectorEvent::Disconnected);
+                    c.connect_sent.set(false);
+                    c.can_present.set(true);
+                } else {
+                    preserve.connectors.insert(c.id);
+                }
+            }
+        }
+        for c in new_connectors {
+            let (connector, future) = match create_connector(self, c, &dev.dev) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::error!("Could not create new drm connector: {}", ErrorFmt(e));
+                    continue;
+                }
+            };
+            self.state
+                .backend_events
+                .push(BackendEvent::NewConnector(connector.clone()));
+            dev.futures.set(c, future);
+            dev.connectors.set(c, connector);
+        }
+        self.init_drm_device(&dev, &mut preserve)?;
+        for connector in dev.connectors.lock().values() {
+            if connector.connected() {
+                let dd = connector.display.borrow_mut();
+                if !connector.connect_sent.get() {
+                    self.send_connected(&connector, &dd);
+                }
+                self.start_connector(connector, &dd);
+            }
+        }
+        Ok(())
+    }
+
+    fn send_connected(&self, connector: &MetalConnector, dd: &ConnectorDisplayData) {
+        let mut prev_mode = None;
+        let mut modes = vec![];
+        for mode in dd.modes.iter().map(|m| m.to_backend()) {
+            if prev_mode.replace(mode) != Some(mode) {
+                modes.push(mode);
+            }
+        }
+        connector.send_event(ConnectorEvent::Connected(MonitorInfo {
+            modes,
+            manufacturer: dd.monitor_manufacturer.clone(),
+            product: dd.monitor_name.clone(),
+            serial_number: dd.monitor_serial_number.clone(),
+            initial_mode: dd.mode.clone().unwrap().to_backend(),
+            width_mm: dd.mm_width as _,
+            height_mm: dd.mm_height as _,
+        }));
+        connector.connect_sent.set(true);
+    }
+
     pub fn create_drm_device(
         self: &Rc<Self>,
         pending: PendingDrmDevice,
         master: &Rc<DrmMaster>,
-    ) -> Result<Rc<MetalDrmDevice>, MetalError> {
+    ) -> Result<Rc<MetalDrmDeviceData>, MetalError> {
         if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_ATOMIC, 2) {
             return Err(MetalError::AtomicModesetting(e));
         }
@@ -749,7 +911,7 @@ impl MetalBackend {
             Err(e) => return Err(MetalError::GbmDevice(e)),
         };
 
-        let dev = Rc::new(MetalDrmDeviceStatic {
+        let dev = Rc::new(MetalDrmDevice {
             id: pending.id,
             devnum: pending.devnum,
             devnode: pending.devnode,
@@ -767,59 +929,37 @@ impl MetalBackend {
             },
         });
 
+        let mut preserve = Preserve::default();
+
         if self.ctx.get().is_none() {
             self.install_render_context(&dev);
             for dev in self.device_holder.drm_devices.lock().values() {
-                let _ = self.init_drm_device(dev);
+                let _ = self.init_drm_device(dev, &mut preserve);
             }
         }
 
         let (connectors, futures) = get_connectors(&self, &dev, &resources.connectors)?;
 
-        let slf = Rc::new(MetalDrmDevice {
+        let slf = Rc::new(MetalDrmDeviceData {
             dev: dev.clone(),
             connectors,
             futures,
         });
 
-        self.init_drm_device(&slf)?;
+        self.init_drm_device(&slf, &mut preserve)?;
 
         self.state
             .backend_events
             .push(BackendEvent::NewDrmDevice(dev.clone()));
 
-        for connector in slf.connectors.values() {
+        for connector in slf.connectors.lock().values() {
             self.state
                 .backend_events
                 .push(BackendEvent::NewConnector(connector.clone()));
-            if connector.connection == ConnectorStatus::Connected {
-                if connector.primary_plane.get().is_none() {
-                    log::error!(
-                        "Connector {}-{} is connected but does not have a primary plane",
-                        connector.connector_type,
-                        connector.connector_type_id
-                    );
-                    continue;
-                }
-                let mut prev_mode = None;
-                let mut modes = vec![];
-                for mode in connector.modes.iter().map(|m| m.to_backend()) {
-                    if prev_mode.replace(mode) != Some(mode) {
-                        modes.push(mode);
-                    }
-                }
-                connector
-                    .events
-                    .push(ConnectorEvent::Connected(MonitorInfo {
-                        modes,
-                        manufacturer: connector.monitor_manufacturer.clone(),
-                        product: connector.monitor_name.clone(),
-                        serial_number: connector.monitor_serial_number.clone(),
-                        initial_mode: connector.mode.get().unwrap().to_backend(),
-                        width_mm: connector.mm_width as _,
-                        height_mm: connector.mm_height as _,
-                    }));
-                self.start_connector(connector);
+            if connector.connected() {
+                let dd = connector.display.borrow_mut();
+                self.send_connected(&connector, &dd);
+                self.start_connector(connector, &dd);
             }
         }
 
@@ -832,17 +972,18 @@ impl MetalBackend {
         Ok(slf)
     }
 
-    fn update_device_properties(&self, dev: &Rc<MetalDrmDevice>) -> Result<(), DrmError> {
+    fn update_device_properties(&self, dev: &Rc<MetalDrmDeviceData>) -> Result<(), DrmError> {
         let get = |p: &AHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
             Some(v) => Ok(*v),
             _ => todo!(),
         };
         let master = &dev.dev.master;
-        for c in dev.connectors.values() {
+        for c in dev.connectors.lock().values() {
+            let dd = c.display.borrow_mut();
             let props = collect_untyped_properties(master, c.id)?;
-            c.crtc_id
+            dd.crtc_id
                 .value
-                .set(DrmCrtc(get(&props, c.crtc_id.id)? as _));
+                .set(DrmCrtc(get(&props, dd.crtc_id.id)? as _));
         }
         for c in dev.dev.crtcs.values() {
             let props = collect_untyped_properties(master, c.id)?;
@@ -860,12 +1001,16 @@ impl MetalBackend {
         Ok(())
     }
 
-    pub fn resume_drm_device(self: &Rc<Self>, dev: &Rc<MetalDrmDevice>) -> Result<(), MetalError> {
+    pub fn resume_drm_device(
+        self: &Rc<Self>,
+        dev: &Rc<MetalDrmDeviceData>,
+    ) -> Result<(), MetalError> {
         if let Err(e) = self.update_device_properties(dev) {
             return Err(MetalError::UpdateProperties(e));
         }
-        self.init_drm_device(dev)?;
-        for connector in dev.connectors.values() {
+        let mut preserve = Preserve::default();
+        self.init_drm_device(dev, &mut preserve)?;
+        for connector in dev.connectors.lock().values() {
             if connector.primary_plane.get().is_some() {
                 connector.can_present.set(true);
                 connector.has_damage.set(true);
@@ -875,7 +1020,7 @@ impl MetalBackend {
         Ok(())
     }
 
-    async fn handle_drm_events(self: Rc<Self>, dev: Rc<MetalDrmDevice>) {
+    async fn handle_drm_events(self: Rc<Self>, dev: Rc<MetalDrmDeviceData>) {
         loop {
             if let Err(e) = self.state.ring.readable(dev.dev.master.fd()).await {
                 log::error!("Could not register the DRM fd for reading: {}", ErrorFmt(e));
@@ -894,7 +1039,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_drm_event(self: &Rc<Self>, event: DrmEvent, dev: &Rc<MetalDrmDevice>) {
+    fn handle_drm_event(self: &Rc<Self>, event: DrmEvent, dev: &Rc<MetalDrmDeviceData>) {
         match event {
             DrmEvent::FlipComplete {
                 tv_sec,
@@ -907,7 +1052,7 @@ impl MetalBackend {
 
     fn handle_drm_flip_event(
         self: &Rc<Self>,
-        dev: &Rc<MetalDrmDevice>,
+        dev: &Rc<MetalDrmDeviceData>,
         crtc_id: DrmCrtc,
         tv_sec: u32,
         tv_usec: u32,
@@ -925,11 +1070,12 @@ impl MetalBackend {
         if connector.has_damage.get() {
             connector.schedule_present();
         }
+        let dd = connector.display.borrow_mut();
         {
             let global = self.state.outputs.get(&connector.connector_id);
             let mut rr = connector.render_result.borrow_mut();
             if let Some(g) = &global {
-                let refresh = connector.refresh.get();
+                let refresh = dd.refresh;
                 let bindings = g.node.global.bindings.borrow_mut();
                 for fb in rr.presentation_feedbacks.drain(..) {
                     if let Some(bindings) = bindings.get(&fb.client.id) {
@@ -955,8 +1101,11 @@ impl MetalBackend {
         }
     }
 
-    fn reset_planes(&self, dev: &MetalDrmDevice, changes: &mut Change) {
+    fn reset_planes(&self, dev: &MetalDrmDeviceData, changes: &mut Change, preserve: &Preserve) {
         for plane in dev.dev.planes.values() {
+            if preserve.planes.contains(&plane.id) {
+                continue;
+            }
             plane.crtc_id.value.set(DrmCrtc::NONE);
             changes.change_object(plane.id, |c| {
                 c.change(plane.crtc_id.id, 0);
@@ -966,16 +1115,34 @@ impl MetalBackend {
         }
     }
 
-    fn reset_connectors_and_crtcs(&self, dev: &MetalDrmDevice, changes: &mut Change) {
-        for connector in dev.connectors.values() {
+    fn reset_connectors_and_crtcs(
+        &self,
+        dev: &MetalDrmDeviceData,
+        changes: &mut Change,
+        preserve: &mut Preserve,
+    ) {
+        for connector in dev.connectors.lock().values() {
+            if preserve.connectors.contains(&connector.id) {
+                if let Some(pp) = connector.primary_plane.get() {
+                    preserve.planes.insert(pp.id);
+                }
+                if let Some(crtc) = connector.crtc.get() {
+                    preserve.crtcs.insert(crtc.id);
+                }
+                continue;
+            }
             connector.primary_plane.set(None);
             connector.crtc.set(None);
-            connector.crtc_id.value.set(DrmCrtc::NONE);
+            let dd = connector.display.borrow_mut();
+            dd.crtc_id.value.set(DrmCrtc::NONE);
             changes.change_object(connector.id, |c| {
-                c.change(connector.crtc_id.id, 0);
+                c.change(dd.crtc_id.id, 0);
             })
         }
         for crtc in dev.dev.crtcs.values() {
+            if preserve.crtcs.contains(&crtc.id) {
+                continue;
+            }
             crtc.connector.set(None);
             crtc.active.value.set(false);
             crtc.mode_id.value.set(DrmBlob::NONE);
@@ -987,27 +1154,84 @@ impl MetalBackend {
         }
     }
 
-    fn init_drm_device(&self, dev: &Rc<MetalDrmDevice>) -> Result<(), MetalError> {
+    fn validate_preserve(&self, dev: &Rc<MetalDrmDeviceData>, preserve: &mut Preserve) {
+        let mut remove_connectors = vec![];
+        macro_rules! fail {
+            ($c:expr) => {{
+                remove_connectors.push($c);
+                continue;
+            }};
+        }
+        for c in &preserve.connectors {
+            let c = match dev.connectors.get(c) {
+                Some(c) => c,
+                _ => {
+                    log::warn!("Cannot preserve connector which no longer exists");
+                    fail!(*c)
+                }
+            };
+            let dd = c.display.borrow_mut();
+            if let Some(crtc) = c.crtc.get() {
+                if dd.crtc_id.value.get() != crtc.id {
+                    log::warn!("Cannot preserve attached to a different crtc");
+                    fail!(c.id);
+                }
+                if let Some(mode) = crtc.mode_blob.get() {
+                    if crtc.mode_id.value.get() != mode.id() {
+                        log::warn!("Cannot preserve whose crtc has a different mode");
+                        fail!(c.id);
+                    }
+                }
+                if !crtc.active.value.get() {
+                    log::warn!("Cannot preserve whose crtc is inactive");
+                    fail!(c.id);
+                }
+                if let Some(plane) = c.primary_plane.get() {
+                    if plane.crtc_id.value.get() != crtc.id {
+                        log::warn!("Cannot preserve connector whose primary plane is attached to a different crtc");
+                        fail!(c.id);
+                    }
+                }
+            }
+        }
+        for c in remove_connectors {
+            preserve.connectors.remove(&c);
+        }
+    }
+
+    fn init_drm_device(
+        &self,
+        dev: &Rc<MetalDrmDeviceData>,
+        preserve: &mut Preserve,
+    ) -> Result<(), MetalError> {
         let ctx = match self.ctx.get() {
             Some(ctx) => ctx,
             _ => return Ok(()),
         };
+        self.validate_preserve(dev, preserve);
         let mut flags = 0;
         let mut changes = dev.dev.master.change();
         if !self.can_use_current_drm_mode(dev) {
             log::warn!("Cannot use existing connector configuration. Trying to perform modeset.");
             flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-            self.reset_connectors_and_crtcs(dev, &mut changes);
-            for connector in dev.connectors.values() {
-                if let Err(e) = self.assign_connector_crtc(connector, &mut changes) {
-                    log::error!("Could not assign a crtc: {}", ErrorFmt(e));
+            self.reset_connectors_and_crtcs(dev, &mut changes, preserve);
+            for connector in dev.connectors.lock().values() {
+                if !preserve.connectors.contains(&connector.id) {
+                    if let Err(e) = self.assign_connector_crtc(connector, &mut changes) {
+                        log::error!("Could not assign a crtc: {}", ErrorFmt(e));
+                    }
                 }
             }
         }
-        self.reset_planes(dev, &mut changes);
-        for connector in dev.connectors.values() {
-            if let Err(e) = self.assign_connector_plane(connector, &mut changes, &ctx) {
-                log::error!("Could not assign a plane: {}", ErrorFmt(e));
+        self.reset_planes(dev, &mut changes, preserve);
+        let mut old_buffers = vec![];
+        for connector in dev.connectors.lock().values() {
+            if !preserve.connectors.contains(&connector.id) {
+                if let Err(e) =
+                    self.assign_connector_plane(connector, &mut changes, &ctx, &mut old_buffers)
+                {
+                    log::error!("Could not assign a plane: {}", ErrorFmt(e));
+                }
             }
         }
         if let Err(e) = changes.commit(flags, 0) {
@@ -1016,19 +1240,20 @@ impl MetalBackend {
         Ok(())
     }
 
-    fn can_use_current_drm_mode(&self, dev: &Rc<MetalDrmDevice>) -> bool {
+    fn can_use_current_drm_mode(&self, dev: &Rc<MetalDrmDeviceData>) -> bool {
         let mut used_crtcs = AHashSet::new();
         let mut used_planes = AHashSet::new();
 
-        for connector in dev.connectors.values() {
-            if connector.connection != ConnectorStatus::Connected {
-                if connector.crtc_id.value.get().is_some() {
+        for connector in dev.connectors.lock().values() {
+            let dd = connector.display.borrow_mut();
+            if dd.connection != ConnectorStatus::Connected {
+                if dd.crtc_id.value.get().is_some() {
                     log::debug!("Connector is not connected but has an assigned crtc");
                     return false;
                 }
                 continue;
             }
-            let crtc_id = connector.crtc_id.value.get();
+            let crtc_id = dd.crtc_id.value.get();
             if crtc_id.is_none() {
                 log::debug!("Connector is connected but has no assigned crtc");
                 return false;
@@ -1041,7 +1266,7 @@ impl MetalBackend {
                 log::debug!("Crtc is not active");
                 return false;
             }
-            let mode = match connector.mode.get() {
+            let mode = match &dd.mode {
                 Some(m) => m,
                 _ => {
                     log::debug!("Connector has no assigned mode");
@@ -1059,7 +1284,7 @@ impl MetalBackend {
                     return false;
                 }
             };
-            if !modes_equal(&mode, &current_mode) {
+            if !modes_equal(mode, &current_mode) {
                 log::debug!("Connector mode differs from desired mode");
                 return false;
             }
@@ -1097,7 +1322,7 @@ impl MetalBackend {
 
     fn create_scanout_buffers(
         &self,
-        dev: &Rc<MetalDrmDeviceStatic>,
+        dev: &Rc<MetalDrmDevice>,
         format: &ModifiedFormat,
         width: i32,
         height: i32,
@@ -1109,7 +1334,7 @@ impl MetalBackend {
 
     fn create_scanout_buffer(
         &self,
-        dev: &Rc<MetalDrmDeviceStatic>,
+        dev: &Rc<MetalDrmDevice>,
         format: &ModifiedFormat,
         width: i32,
         height: i32,
@@ -1153,31 +1378,35 @@ impl MetalBackend {
         connector: &Rc<MetalConnector>,
         changes: &mut Change,
     ) -> Result<(), MetalError> {
-        if connector.connection != ConnectorStatus::Connected {
+        let dd = connector.display.borrow_mut();
+        if dd.connection != ConnectorStatus::Connected {
             return Ok(());
         }
-        let crtc = 'crtc: {
-            for crtc in connector.crtcs.values() {
-                if crtc.connector.get().is_none() {
-                    break 'crtc crtc.clone();
+        let crtc = match connector.crtc.get() {
+            Some(c) => c,
+            _ => 'crtc: {
+                for crtc in dd.crtcs.values() {
+                    if crtc.connector.get().is_none() {
+                        break 'crtc crtc.clone();
+                    }
                 }
+                return Err(MetalError::NoCrtcForConnector);
             }
-            return Err(MetalError::NoCrtcForConnector);
         };
-        let mode = match connector.mode.get() {
+        let mode = match &dd.mode {
             Some(m) => m,
             _ => return Err(MetalError::NoModeForConnector),
         };
         let mode_blob = mode.create_blob(&connector.master)?;
         changes.change_object(connector.id, |c| {
-            c.change(connector.crtc_id.id, crtc.id.0 as _);
+            c.change(dd.crtc_id.id, crtc.id.0 as _);
         });
         changes.change_object(crtc.id, |c| {
             c.change(crtc.active.id, 1);
             c.change(crtc.mode_id.id, mode_blob.id().0 as _);
         });
         connector.crtc.set(Some(crtc.clone()));
-        connector.crtc_id.value.set(crtc.id);
+        dd.crtc_id.value.set(crtc.id);
         crtc.connector.set(Some(connector.clone()));
         crtc.active.value.set(true);
         crtc.mode_id.value.set(mode_blob.id());
@@ -1190,28 +1419,33 @@ impl MetalBackend {
         connector: &Rc<MetalConnector>,
         changes: &mut Change,
         ctx: &MetalRenderContext,
+        old_buffers: &mut Vec<Rc<[RenderBuffer; 2]>>,
     ) -> Result<(), MetalError> {
+        let dd = connector.display.borrow_mut();
         let crtc = match connector.crtc.get() {
             Some(c) => c,
             _ => return Ok(()),
         };
-        let mode = match connector.mode.get() {
+        let mode = match &dd.mode {
             Some(m) => m,
             _ => {
                 log::error!("Connector has a crtc assigned but no mode");
                 return Ok(());
             }
         };
-        let primary_plane = 'primary_plane: {
-            for plane in crtc.possible_planes.values() {
-                if plane.ty == PlaneType::Primary
-                    && plane.crtc_id.value.get().is_none()
-                    && plane.formats.contains_key(&XRGB8888.drm)
-                {
-                    break 'primary_plane plane.clone();
+        let primary_plane = match connector.primary_plane.get() {
+            Some(p) => p,
+            _ => 'primary_plane: {
+                for plane in crtc.possible_planes.values() {
+                    if plane.ty == PlaneType::Primary
+                        && plane.crtc_id.value.get().is_none()
+                        && plane.formats.contains_key(&XRGB8888.drm)
+                    {
+                        break 'primary_plane plane.clone();
+                    }
                 }
+                return Err(MetalError::NoPrimaryPlaneForConnector);
             }
-            return Err(MetalError::NoPrimaryPlaneForConnector);
         };
         let format = ModifiedFormat {
             format: XRGB8888,
@@ -1245,19 +1479,21 @@ impl MetalBackend {
         primary_plane.src_y.value.set(0);
         primary_plane.src_w.value.set((mode.hdisplay as u32) << 16);
         primary_plane.src_h.value.set((mode.vdisplay as u32) << 16);
-        connector.buffers.set(Some(buffers));
+        if let Some(old) = connector.buffers.set(Some(buffers)) {
+            old_buffers.push(old);
+        }
         connector.primary_plane.set(Some(primary_plane.clone()));
         Ok(())
     }
 
-    fn start_connector(&self, connector: &Rc<MetalConnector>) {
-        let mode = connector.mode.get().unwrap();
+    fn start_connector(&self, connector: &Rc<MetalConnector>, dd: &ConnectorDisplayData) {
         log::info!(
             "Initialized connector {}-{} with mode {:?}",
-            connector.connector_type,
-            connector.connector_type_id,
-            mode
+            dd.connector_type,
+            dd.connector_type_id,
+            dd.mode.as_ref().unwrap(),
         );
+        connector.has_damage.set(true);
         connector.schedule_present();
     }
 }

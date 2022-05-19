@@ -9,7 +9,7 @@ use {
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
             InputEvent, KeyState, TransformMatrix,
         },
-        backends::metal::video::{MetalDrmDevice, MetalRenderContext, PendingDrmDevice},
+        backends::metal::video::{MetalDrmDeviceData, MetalRenderContext, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
         libinput::{
             consts::{
@@ -164,7 +164,7 @@ impl Backend for MetalBackend {
         let devices = self.device_holder.drm_devices.lock();
         for device in devices.values() {
             let mut change = device.dev.master.change();
-            for connector in device.connectors.values() {
+            for connector in device.connectors.lock().values() {
                 if let Some(crtc) = connector.crtc.get() {
                     if idle == crtc.active.value.get() {
                         crtc.active.value.set(!idle);
@@ -181,7 +181,7 @@ impl Backend for MetalBackend {
         }
         if !idle {
             for device in devices.values() {
-                for connector in device.connectors.values() {
+                for connector in device.connectors.lock().values() {
                     connector.schedule_present();
                 }
             }
@@ -295,7 +295,7 @@ struct MetalInputDevice {
 #[derive(Clone)]
 enum MetalDevice {
     Input(Rc<MetalInputDevice>),
-    Drm(Rc<MetalDrmDevice>),
+    Drm(Rc<MetalDrmDeviceData>),
 }
 
 unsafe impl UnsafeCellCloneSafe for MetalDevice {}
@@ -303,7 +303,7 @@ unsafe impl UnsafeCellCloneSafe for MetalDevice {}
 struct DeviceHolder {
     devices: CopyHashMap<c::dev_t, MetalDevice>,
     input_devices: RefCell<Vec<Option<Rc<MetalInputDevice>>>>,
-    drm_devices: CopyHashMap<c::dev_t, Rc<MetalDrmDevice>>,
+    drm_devices: CopyHashMap<c::dev_t, Rc<MetalDrmDeviceData>>,
     pending_drm_devices: CopyHashMap<c::dev_t, PendingDrmDevice>,
 }
 
