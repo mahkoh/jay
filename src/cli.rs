@@ -2,6 +2,7 @@ mod generate;
 mod idle;
 mod log;
 mod quit;
+mod run_privileged;
 pub mod screenshot;
 mod set_log_level;
 mod unlock;
@@ -47,6 +48,8 @@ pub enum Cmd {
     Screenshot(ScreenshotArgs),
     /// Inspect/modify the idle (screensaver) settings.
     Idle(IdleArgs),
+    /// Run a privileged program
+    RunPrivileged(RunPrivilegedArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -61,6 +64,13 @@ pub struct IdleArgs {
     /// The filename can contain the usual strftime parameters.
     #[clap(subcommand)]
     pub command: Option<IdleCmd>,
+}
+
+#[derive(Args, Debug)]
+pub struct RunPrivilegedArgs {
+    /// The program to run
+    #[clap(required = true)]
+    pub program: Vec<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -190,6 +200,7 @@ pub fn main() {
         Cmd::Screenshot(a) => screenshot::main(cli.global, a),
         Cmd::Idle(a) => idle::main(cli.global, a),
         Cmd::Unlock => unlock::main(cli.global),
+        Cmd::RunPrivileged(a) => run_privileged::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }
