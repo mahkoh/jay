@@ -37,6 +37,8 @@ The following features have been implemented and should work:
 - Video playback with synced audio (via presentation time)
 - Simple games that don't require cursor grabs
 - GPU reset recovery
+- Screen locking
+- Monitor hotplug
 
 ### Missing Features
 
@@ -44,10 +46,8 @@ The following features are known to be missing or broken and will be implemented
 later:
 
 - Games that require pointer grabs
-- Screen locking
 - Touch and tablet support
 - Damage tracking (any kind of damage causes a complete re-render currently)
-- GPU/monitor hotplug/unplug
 - Selecting the primary device in multi-GPU systems 
 
 ## Native library dependencies
