@@ -819,7 +819,6 @@ impl MetalBackend {
                 if old.connection != ConnectorStatus::Connected || !old.is_same_monitor(&dd) {
                     c.send_event(ConnectorEvent::Disconnected);
                     c.connect_sent.set(false);
-                    c.can_present.set(true);
                 } else if preserve_any {
                     preserve.connectors.insert(c.id);
                 }
@@ -842,6 +841,9 @@ impl MetalBackend {
         self.init_drm_device(&dev, &mut preserve)?;
         for connector in dev.connectors.lock().values() {
             if connector.connected() {
+                if !preserve.connectors.contains(&connector.id) {
+                    connector.can_present.set(true);
+                }
                 let dd = connector.display.borrow_mut();
                 if !connector.connect_sent.get() {
                     self.send_connected(&connector, &dd);
@@ -1186,17 +1188,29 @@ impl MetalBackend {
             let dd = c.display.borrow_mut();
             if let Some(crtc) = c.crtc.get() {
                 if dd.crtc_id.value.get() != crtc.id {
-                    log::warn!("Cannot preserve attached to a different crtc");
+                    log::warn!("Cannot preserve connector attached to a different crtc");
                     fail!(c.id);
                 }
-                if let Some(mode) = crtc.mode_blob.get() {
-                    if crtc.mode_id.value.get() != mode.id() {
-                        log::warn!("Cannot preserve whose crtc has a different mode");
+                if let Some(mode) = &dd.mode {
+                    let mode_id = crtc.mode_id.value.get();
+                    if mode_id.is_none() {
+                        log::warn!("Cannot preserve connector whose crtc has no mode attached");
+                        fail!(c.id);
+                    }
+                    let current_mode = match dev.dev.master.getblob::<drm_mode_modeinfo>(mode_id) {
+                        Ok(m) => m.into(),
+                        _ => {
+                            log::warn!("Could not retrieve current mode of connector");
+                            fail!(c.id);
+                        }
+                    };
+                    if !modes_equal(mode, &current_mode) {
+                        log::warn!("Cannot preserve connector whose crtc has a different mode");
                         fail!(c.id);
                     }
                 }
                 if !crtc.active.value.get() {
-                    log::warn!("Cannot preserve whose crtc is inactive");
+                    log::warn!("Cannot preserve connector whose crtc is inactive");
                     fail!(c.id);
                 }
                 if let Some(plane) = c.primary_plane.get() {
