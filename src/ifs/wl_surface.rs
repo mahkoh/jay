@@ -231,6 +231,10 @@ impl WlSurface {
         }
     }
 
+    pub fn get_toplevel(&self) -> Option<Rc<dyn ToplevelNode>> {
+        self.toplevel.get()
+    }
+
     fn set_absolute_position(&self, x1: i32, y1: i32) {
         self.buffer_abs_pos
             .set(self.buffer_abs_pos.get().at_point(x1, y1));

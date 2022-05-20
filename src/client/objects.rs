@@ -20,7 +20,6 @@ use {
             xdg_wm_base::XdgWmBase,
         },
         object::{Object, ObjectId},
-        tree::ToplevelNode,
         utils::{
             clonecell::CloneCell,
             copyhashmap::{CopyHashMap, Locked},
@@ -31,7 +30,7 @@ use {
             ZwpPrimarySelectionSourceV1Id,
         },
     },
-    std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},
+    std::{cell::RefCell, mem, rc::Rc},
 };
 
 pub struct Objects {
@@ -80,25 +79,21 @@ impl Objects {
     }
 
     pub fn destroy(&self) {
-        {
-            let mut toplevel = self.xdg_toplevel.lock();
-            for obj in toplevel.values_mut() {
-                obj.tl_destroy();
+        for surface in self.surfaces.lock().values() {
+            if let Some(tl) = surface.get_toplevel() {
+                tl.tl_destroy();
             }
-            mem::take(toplevel.deref_mut());
         }
-        {
-            let mut registry = self.registry.lock();
-            for obj in registry.values_mut() {
-                obj.break_loops();
-            }
-            mem::take(registry.deref_mut());
+        for obj in self.registry.lock().values_mut() {
+            obj.break_loops();
         }
         self.display.set(None);
+        self.registry.clear();
         self.registries.clear();
         self.outputs.clear();
         self.surfaces.clear();
         self.xdg_surfaces.clear();
+        self.xdg_toplevel.clear();
         self.wl_data_source.clear();
         self.zwp_primary_selection_source.clear();
         self.xdg_positioners.clear();
