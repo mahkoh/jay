@@ -103,6 +103,7 @@ pub struct MetalDrmDeviceData {
     pub dev: Rc<MetalDrmDevice>,
     pub connectors: CopyHashMap<DrmConnector, Rc<MetalConnector>>,
     pub futures: CopyHashMap<DrmConnector, ConnectorFutures>,
+    pub unprocessed_change: Cell<bool>,
 }
 
 #[derive(Debug)]
@@ -758,17 +759,22 @@ impl MetalBackend {
     }
 
     pub fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
-        if let Err(e) = self.handle_drm_change_(dev) {
+        let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
+            Some(dev) => dev,
+            _ => return None,
+        };
+        if let Err(e) = self.handle_drm_change_(&dev, true) {
+            dev.unprocessed_change.set(true);
             log::error!("Could not handle change of drm device: {}", ErrorFmt(e));
         }
         None
     }
 
-    fn handle_drm_change_(self: &Rc<Self>, dev: UdevDevice) -> Result<(), MetalError> {
-        let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
-            Some(dev) => dev,
-            _ => return Ok(()),
-        };
+    fn handle_drm_change_(
+        self: &Rc<Self>,
+        dev: &Rc<MetalDrmDeviceData>,
+        preserve_any: bool,
+    ) -> Result<(), MetalError> {
         if let Err(e) = self.update_device_properties(&dev) {
             return Err(MetalError::UpdateProperties(e));
         }
@@ -814,7 +820,7 @@ impl MetalBackend {
                     c.send_event(ConnectorEvent::Disconnected);
                     c.connect_sent.set(false);
                     c.can_present.set(true);
-                } else {
+                } else if preserve_any {
                     preserve.connectors.insert(c.id);
                 }
             }
@@ -843,6 +849,7 @@ impl MetalBackend {
                 self.start_connector(connector, &dd);
             }
         }
+        dev.unprocessed_change.set(false);
         Ok(())
     }
 
@@ -944,6 +951,7 @@ impl MetalBackend {
             dev: dev.clone(),
             connectors,
             futures,
+            unprocessed_change: Cell::new(false),
         });
 
         self.init_drm_device(&slf, &mut preserve)?;
@@ -1005,6 +1013,13 @@ impl MetalBackend {
         self: &Rc<Self>,
         dev: &Rc<MetalDrmDeviceData>,
     ) -> Result<(), MetalError> {
+        for connector in dev.connectors.lock().values() {
+            connector.can_present.set(true);
+            connector.has_damage.set(true);
+        }
+        if dev.unprocessed_change.get() {
+            return self.handle_drm_change_(dev, false);
+        }
         if let Err(e) = self.update_device_properties(dev) {
             return Err(MetalError::UpdateProperties(e));
         }
@@ -1012,8 +1027,6 @@ impl MetalBackend {
         self.init_drm_device(dev, &mut preserve)?;
         for connector in dev.connectors.lock().values() {
             if connector.primary_plane.get().is_some() {
-                connector.can_present.set(true);
-                connector.has_damage.set(true);
                 connector.schedule_present();
             }
         }
@@ -1382,16 +1395,13 @@ impl MetalBackend {
         if dd.connection != ConnectorStatus::Connected {
             return Ok(());
         }
-        let crtc = match connector.crtc.get() {
-            Some(c) => c,
-            _ => 'crtc: {
-                for crtc in dd.crtcs.values() {
-                    if crtc.connector.get().is_none() {
-                        break 'crtc crtc.clone();
-                    }
+        let crtc = 'crtc: {
+            for crtc in dd.crtcs.values() {
+                if crtc.connector.get().is_none() {
+                    break 'crtc crtc.clone();
                 }
-                return Err(MetalError::NoCrtcForConnector);
             }
+            return Err(MetalError::NoCrtcForConnector);
         };
         let mode = match &dd.mode {
             Some(m) => m,
@@ -1433,19 +1443,16 @@ impl MetalBackend {
                 return Ok(());
             }
         };
-        let primary_plane = match connector.primary_plane.get() {
-            Some(p) => p,
-            _ => 'primary_plane: {
-                for plane in crtc.possible_planes.values() {
-                    if plane.ty == PlaneType::Primary
-                        && plane.crtc_id.value.get().is_none()
-                        && plane.formats.contains_key(&XRGB8888.drm)
-                    {
-                        break 'primary_plane plane.clone();
-                    }
+        let primary_plane = 'primary_plane: {
+            for plane in crtc.possible_planes.values() {
+                if plane.ty == PlaneType::Primary
+                    && plane.crtc_id.value.get().is_none()
+                    && plane.formats.contains_key(&XRGB8888.drm)
+                {
+                    break 'primary_plane plane.clone();
                 }
-                return Err(MetalError::NoPrimaryPlaneForConnector);
             }
+            return Err(MetalError::NoPrimaryPlaneForConnector);
         };
         let format = ModifiedFormat {
             format: XRGB8888,
