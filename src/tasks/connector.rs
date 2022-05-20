@@ -154,6 +154,7 @@ impl ConnectorHandler {
                     }
                 }
                 for ws in ws_to_move {
+                    ws.output.set(on.clone());
                     on.workspaces.add_last_existing(&ws);
                     if ws.visible_on_desired_output.get() && on.workspace.get().is_none() {
                         on.show_workspace(&ws);
