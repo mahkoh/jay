@@ -395,6 +395,7 @@ impl State {
                 }
                 let workspace = Rc::new(WorkspaceNode {
                     id: self.node_ids.next(),
+                    is_dummy: false,
                     output: CloneCell::new(output.clone()),
                     position: Cell::new(Default::default()),
                     container: Default::default(),
@@ -404,6 +405,8 @@ impl State {
                     output_link: Cell::new(None),
                     visible: Cell::new(false),
                     fullscreen: Default::default(),
+                    visible_on_desired_output: Cell::new(false),
+                    desired_output: CloneCell::new(output.global.output_id.clone()),
                 });
                 workspace
                     .output_link

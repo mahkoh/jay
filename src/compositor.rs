@@ -359,8 +359,9 @@ fn create_dummy_output(state: &Rc<State>) {
                 height: 0,
                 refresh_rate_millihz: 0,
             },
-            "none",
-            "none",
+            "jay",
+            "dummy-output",
+            "0",
             0,
             0,
         )),
@@ -378,6 +379,7 @@ fn create_dummy_output(state: &Rc<State>) {
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
+        is_dummy: true,
         output: CloneCell::new(dummy_output.clone()),
         position: Default::default(),
         container: Default::default(),
@@ -387,6 +389,8 @@ fn create_dummy_output(state: &Rc<State>) {
         output_link: Default::default(),
         visible: Default::default(),
         fullscreen: Default::default(),
+        visible_on_desired_output: Default::default(),
+        desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),

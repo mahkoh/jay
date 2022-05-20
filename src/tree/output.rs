@@ -168,6 +168,7 @@ impl OutputNode {
         };
         let workspace = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
+            is_dummy: false,
             output: CloneCell::new(self.clone()),
             position: Default::default(),
             container: Default::default(),
@@ -177,6 +178,8 @@ impl OutputNode {
             output_link: Default::default(),
             visible: Cell::new(true),
             fullscreen: Default::default(),
+            visible_on_desired_output: Cell::new(false),
+            desired_output: CloneCell::new(self.global.output_id.clone()),
         });
         self.state.workspaces.set(name, workspace.clone());
         workspace
@@ -214,6 +217,7 @@ impl OutputNode {
     pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
         let ws = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
+            is_dummy: false,
             output: CloneCell::new(self.clone()),
             position: Cell::new(Default::default()),
             container: Default::default(),
@@ -223,6 +227,8 @@ impl OutputNode {
             output_link: Cell::new(None),
             visible: Cell::new(false),
             fullscreen: Default::default(),
+            visible_on_desired_output: Cell::new(false),
+            desired_output: CloneCell::new(self.global.output_id.clone()),
         });
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));

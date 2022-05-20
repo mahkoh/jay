@@ -97,6 +97,7 @@ impl ConnectorHandler {
             &info.initial_mode,
             &info.manufacturer,
             &info.product,
+            &info.serial_number,
             info.width_mm,
             info.height_mm,
         ));
@@ -138,6 +139,46 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        {
+            for source in self.state.outputs.lock().values() {
+                if source.node.id == on.id {
+                    continue;
+                }
+                let mut ws_to_move = vec![];
+                for ws in source.node.workspaces.iter() {
+                    if ws.is_dummy {
+                        continue;
+                    }
+                    if ws.desired_output.get() == global.output_id {
+                        ws_to_move.push(ws.clone());
+                    }
+                }
+                for ws in ws_to_move {
+                    on.workspaces.add_last_existing(&ws);
+                    if ws.visible_on_desired_output.get() && on.workspace.get().is_none() {
+                        on.show_workspace(&ws);
+                    } else {
+                        ws.set_visible(false);
+                    }
+                    if let Some(visible) = source.node.workspace.get() {
+                        if visible.id == ws.id {
+                            source.node.workspace.take();
+                        }
+                    }
+                }
+                if source.node.workspace.get().is_none() {
+                    if let Some(ws) = source.node.workspaces.first() {
+                        source.node.show_workspace(&ws);
+                    }
+                }
+                source.node.update_render_data();
+            }
+            if on.workspace.get().is_none() {
+                if let Some(ws) = on.workspaces.first() {
+                    on.show_workspace(&ws);
+                }
+            }
+        }
         on.update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.root.update_extents();
@@ -177,6 +218,7 @@ impl ConnectorHandler {
             for ws in on.workspaces.iter() {
                 let is_visible =
                     !target_is_dummy && target.workspaces.is_empty() && ws.visible.get();
+                ws.visible_on_desired_output.set(ws.visible.get());
                 ws.output.set(target.clone());
                 target.workspaces.add_last_existing(&ws);
                 if is_visible {

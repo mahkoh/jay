@@ -1,7 +1,10 @@
 use {
     crate::{
         cursor::KnownCursor,
-        ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
+        ifs::{
+            wl_output::OutputId,
+            wl_seat::{NodeSeatState, WlSeatGlobal},
+        },
         rect::Rect,
         render::Renderer,
         tree::{
@@ -20,6 +23,7 @@ tree_id!(WorkspaceNodeId);
 
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
+    pub is_dummy: bool,
     pub output: CloneCell<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
@@ -29,6 +33,8 @@ pub struct WorkspaceNode {
     pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
+    pub visible_on_desired_output: Cell<bool>,
+    pub desired_output: CloneCell<Rc<OutputId>>,
 }
 
 impl WorkspaceNode {

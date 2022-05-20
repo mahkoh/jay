@@ -70,8 +70,7 @@ pub struct WlOutputGlobal {
     pub state: Rc<State>,
     pub connector: Rc<ConnectorData>,
     pub pos: Cell<Rect>,
-    pub manufacturer: String,
-    pub display: String,
+    pub output_id: Rc<OutputId>,
     pub mode: Cell<backend::Mode>,
     pub node: CloneCell<Option<Rc<OutputNode>>>,
     pub width_mm: i32,
@@ -80,6 +79,13 @@ pub struct WlOutputGlobal {
     pub unused_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
+}
+
+#[derive(Eq, PartialEq)]
+pub struct OutputId {
+    pub manufacturer: String,
+    pub model: String,
+    pub serial_number: String,
 }
 
 impl WlOutputGlobal {
@@ -96,6 +102,7 @@ impl WlOutputGlobal {
         mode: &backend::Mode,
         manufacturer: &str,
         product: &str,
+        serial_number: &str,
         width_mm: i32,
         height_mm: i32,
     ) -> Self {
@@ -104,8 +111,11 @@ impl WlOutputGlobal {
             state: state.clone(),
             connector: connector.clone(),
             pos: Cell::new(Rect::new_sized(x1, 0, mode.width, mode.height).unwrap()),
-            manufacturer: manufacturer.to_string(),
-            display: product.to_string(),
+            output_id: Rc::new(OutputId {
+                manufacturer: manufacturer.to_string(),
+                model: product.to_string(),
+                serial_number: serial_number.to_string(),
+            }),
             mode: Cell::new(*mode),
             node: Default::default(),
             width_mm,
@@ -268,8 +278,8 @@ impl WlOutput {
             physical_width: self.global.width_mm,
             physical_height: self.global.height_mm,
             subpixel: SP_UNKNOWN,
-            make: &self.global.manufacturer,
-            model: &self.global.display,
+            make: &self.global.output_id.manufacturer,
+            model: &self.global.output_id.model,
             transform: TF_NORMAL,
         };
         self.client.event(event);
