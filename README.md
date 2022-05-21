@@ -8,13 +8,10 @@ configurability, stability, and performance.
 
 ## Status
 
-Jay is in a pre-alpha state. For dedicated individuals it is possible to use Jay
-as their primary Wayland compositor but they have to be ready to deal with many
-large and small bugs and regressions. I have personally been using Jay as my
-daily driver for several weeks.
-
-Currently the focus of the project is on creating an integration test suite to
-improve reliability and prevent regressions.
+Jay is beta-quality software. For many people it should be possible to use Jay for most
+of their work. Jay has a small integration test suite but sometimes there are regressions
+that cause features to break. I'm currently looking for people willing to test Jay,
+especially on Nvidia hardware.
 
 ### Working Features
 
