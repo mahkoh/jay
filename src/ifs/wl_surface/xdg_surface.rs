@@ -251,6 +251,10 @@ impl XdgSurface {
 
     fn set_window_geometry(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: SetWindowGeometry = self.surface.client.parse(self, parser)?;
+        if req.height == 0 && req.width == 0 {
+            // TODO: https://crbug.com/1329214
+            return Ok(());
+        }
         if req.height <= 0 || req.width <= 0 {
             return Err(XdgSurfaceError::NonPositiveWidthHeight);
         }
