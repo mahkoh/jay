@@ -119,7 +119,11 @@ impl MetalBackend {
             }
             KeyState::Released
         };
-        dev.event(InputEvent::Key(event.key(), state));
+        dev.event(InputEvent::Key {
+            time_usec: event.time_usec(),
+            key: event.key(),
+            state,
+        });
     }
 
     fn handle_pointer_axis(self: &Rc<Self>, event: LibInputEvent, source: AxisSource) {
@@ -132,7 +136,7 @@ impl MetalBackend {
             ),
             (LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL, ScrollAxis::Vertical),
         ];
-        dev.event(InputEvent::AxisSource(source));
+        dev.event(InputEvent::AxisSource { source });
         for (axis, sa) in axes {
             if !event.has_axis(axis) {
                 continue;
@@ -142,17 +146,25 @@ impl MetalBackend {
                 _ => event.scroll_value(axis),
             };
             if scroll == 0.0 {
-                dev.event(InputEvent::AxisStop(sa));
+                dev.event(InputEvent::AxisStop { axis: sa });
             } else {
                 if source == AxisSource::Wheel {
                     let scroll_discrete = scroll / ONE_TWENTRY;
-                    dev.event(InputEvent::AxisDiscrete(scroll_discrete as _, sa));
+                    dev.event(InputEvent::AxisDiscrete {
+                        dist: scroll_discrete as _,
+                        axis: sa,
+                    });
                     scroll = PX_PER_SCROLL * scroll_discrete;
                 }
-                dev.event(InputEvent::Axis(Fixed::from_f64(scroll), sa));
+                dev.event(InputEvent::Axis {
+                    dist: Fixed::from_f64(scroll),
+                    axis: sa,
+                });
             }
         }
-        dev.event(InputEvent::Frame);
+        dev.event(InputEvent::AxisFrame {
+            time_usec: event.time_usec(),
+        });
     }
 
     fn handle_pointer_button(self: &Rc<Self>, event: LibInputEvent) {
@@ -168,7 +180,11 @@ impl MetalBackend {
             }
             KeyState::Released
         };
-        dev.event(InputEvent::Button(event.button(), state));
+        dev.event(InputEvent::Button {
+            time_usec: event.time_usec(),
+            button: event.button(),
+            state,
+        });
     }
 
     fn handle_pointer_motion(self: &Rc<Self>, event: LibInputEvent) {

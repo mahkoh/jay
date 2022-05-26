@@ -31,8 +31,8 @@ impl Default for PointerOwnerHolder {
 }
 
 impl PointerOwnerHolder {
-    pub fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
-        self.owner.get().button(seat, button, state)
+    pub fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
+        self.owner.get().button(seat, time_usec, button, state)
     }
 
     pub fn axis_source(&self, axis_source: AxisSource) {
@@ -51,7 +51,8 @@ impl PointerOwnerHolder {
         self.pending_scroll.stop[axis as usize].set(true);
     }
 
-    pub fn frame(&self, seat: &Rc<WlSeatGlobal>) {
+    pub fn frame(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
+        self.pending_scroll.time_usec.set(time_usec);
         let pending = self.pending_scroll.take();
         if let Some(node) = self.owner.get().axis_node(seat) {
             node.node_on_axis_event(seat, &pending);
@@ -122,7 +123,7 @@ impl PointerOwnerHolder {
 }
 
 trait PointerOwner {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState);
+    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState);
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>>;
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>);
     fn start_drag(
@@ -158,7 +159,7 @@ struct DndPointerOwner {
 }
 
 impl PointerOwner for DefaultPointerOwner {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
         if state != KeyState::Pressed {
             return;
         }
@@ -173,7 +174,7 @@ impl PointerOwner for DefaultPointerOwner {
             serial,
         }));
         pn.node_seat_state().add_pointer_grab(seat);
-        pn.node_on_button(seat, button, state, serial);
+        pn.node_on_button(seat, time_usec, button, state, serial);
     }
 
     fn axis_node(&self, seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -280,7 +281,7 @@ impl PointerOwner for DefaultPointerOwner {
 }
 
 impl PointerOwner for GrabPointerOwner {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
         match state {
             KeyState::Released => {
                 self.buttons.remove(&button);
@@ -300,7 +301,7 @@ impl PointerOwner for GrabPointerOwner {
         let serial = seat.state.next_serial(self.node.node_client().as_deref());
         self.node
             .clone()
-            .node_on_button(seat, button, state, serial);
+            .node_on_button(seat, time_usec, button, state, serial);
     }
 
     fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
@@ -400,7 +401,7 @@ impl PointerOwner for GrabPointerOwner {
 }
 
 impl PointerOwner for DndPointerOwner {
-    fn button(&self, seat: &Rc<WlSeatGlobal>, button: u32, state: KeyState) {
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: KeyState) {
         if button != self.button || state != KeyState::Released {
             return;
         }
@@ -468,7 +469,7 @@ impl PointerOwner for DndPointerOwner {
             target.node_seat_state().add_dnd_target(seat);
             self.target.set(target);
         } else if (self.pos_x.get(), self.pos_y.get()) != (x, y) {
-            node.node_on_dnd_motion(&self.dnd, x, y);
+            node.node_on_dnd_motion(&self.dnd, seat.pos_time_usec.get(), x, y);
         }
         self.pos_x.set(x);
         self.pos_y.set(y);

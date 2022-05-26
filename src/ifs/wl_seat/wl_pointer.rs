@@ -40,6 +40,7 @@ pub struct PendingScroll {
     pub axis: [Cell<Option<Fixed>>; 2],
     pub stop: [Cell<bool>; 2],
     pub source: Cell<Option<u32>>,
+    pub time_usec: Cell<u64>,
 }
 
 impl PendingScroll {
@@ -58,6 +59,7 @@ impl PendingScroll {
                 Cell::new(self.stop[1].take()),
             ],
             source: Cell::new(self.source.take()),
+            time_usec: Cell::new(self.time_usec.take()),
         }
     }
 }

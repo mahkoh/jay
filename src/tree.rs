@@ -157,8 +157,9 @@ pub trait Node: 'static {
 
     // EVENT HANDLERS
 
-    fn node_on_key(&self, seat: &WlSeatGlobal, key: u32, state: u32) {
+    fn node_on_key(&self, seat: &WlSeatGlobal, time_usec: u64, key: u32, state: u32) {
         let _ = seat;
+        let _ = time_usec;
         let _ = key;
         let _ = state;
     }
@@ -171,11 +172,13 @@ pub trait Node: 'static {
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
         button: u32,
         state: KeyState,
         serial: u32,
     ) {
         let _ = seat;
+        let _ = time_usec;
         let _ = button;
         let _ = state;
         let _ = serial;
@@ -251,8 +254,9 @@ pub trait Node: 'static {
         let _ = serial;
     }
 
-    fn node_on_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
+    fn node_on_dnd_motion(&self, dnd: &Dnd, time_usec: u64, x: Fixed, y: Fixed) {
         let _ = dnd;
+        let _ = time_usec;
         let _ = x;
         let _ = y;
     }

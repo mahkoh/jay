@@ -12,7 +12,7 @@ use {
         it::test_error::TestResult,
         render::{RenderContext, RenderError},
         state::State,
-        time::Time,
+        time::now_usec,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
         },
@@ -255,9 +255,11 @@ pub struct TestMouseClick {
 
 impl Drop for TestMouseClick {
     fn drop(&mut self) {
-        self.mouse
-            .common
-            .event(InputEvent::Button(self.button, KeyState::Released));
+        self.mouse.common.event(InputEvent::Button {
+            time_usec: now_usec(),
+            button: self.button,
+            state: KeyState::Released,
+        });
     }
 }
 
@@ -272,7 +274,7 @@ pub struct TestBackendMouse {
 impl TestBackendMouse {
     pub fn rel(&self, dx: f64, dy: f64) {
         self.common.event(InputEvent::Motion {
-            time_usec: Time::now_unchecked().usec(),
+            time_usec: now_usec(),
             dx: Fixed::from_f64(dx * self.accel_speed.get()),
             dy: Fixed::from_f64(dy * self.accel_speed.get()),
             dx_unaccelerated: Fixed::from_f64(dx),
@@ -282,15 +284,19 @@ impl TestBackendMouse {
 
     pub fn abs(&self, connector: &TestConnector, x: f64, y: f64) {
         self.common.event(InputEvent::ConnectorPosition {
-            0: connector.id,
-            1: Fixed::from_f64(x),
-            2: Fixed::from_f64(y),
+            time_usec: now_usec(),
+            connector: connector.id,
+            x: Fixed::from_f64(x),
+            y: Fixed::from_f64(y),
         })
     }
 
     pub fn click(self: &Rc<Self>, button: u32) -> TestMouseClick {
-        self.common
-            .event(InputEvent::Button(button, KeyState::Pressed));
+        self.common.event(InputEvent::Button {
+            time_usec: now_usec(),
+            button,
+            state: KeyState::Pressed,
+        });
         TestMouseClick {
             mouse: self.clone(),
             button,
@@ -298,21 +304,33 @@ impl TestBackendMouse {
     }
 
     pub fn scroll(&self, dy: i32) {
-        self.common.event(InputEvent::AxisSource(AxisSource::Wheel));
-        self.common
-            .event(InputEvent::AxisDiscrete(dy, ScrollAxis::Vertical));
-        self.common.event(InputEvent::Axis(
-            Fixed::from_int(dy * 15),
-            ScrollAxis::Vertical,
-        ));
-        self.common.event(InputEvent::Frame);
+        self.common.event(InputEvent::AxisSource {
+            source: AxisSource::Wheel,
+        });
+        self.common.event(InputEvent::AxisDiscrete {
+            dist: dy,
+            axis: ScrollAxis::Vertical,
+        });
+        self.common.event(InputEvent::Axis {
+            dist: Fixed::from_int(dy * 15),
+            axis: ScrollAxis::Vertical,
+        });
+        self.common.event(InputEvent::AxisFrame {
+            time_usec: now_usec(),
+        });
     }
 
     pub fn scroll_px(&self, dy: i32) {
-        self.common.event(InputEvent::AxisSource(AxisSource::Wheel));
-        self.common
-            .event(InputEvent::Axis(Fixed::from_int(dy), ScrollAxis::Vertical));
-        self.common.event(InputEvent::Frame);
+        self.common.event(InputEvent::AxisSource {
+            source: AxisSource::Wheel,
+        });
+        self.common.event(InputEvent::Axis {
+            dist: Fixed::from_int(dy),
+            axis: ScrollAxis::Vertical,
+        });
+        self.common.event(InputEvent::AxisFrame {
+            time_usec: now_usec(),
+        });
     }
 }
 
@@ -327,15 +345,21 @@ pub struct PressedKey {
 
 impl Drop for PressedKey {
     fn drop(&mut self) {
-        self.kb
-            .common
-            .event(InputEvent::Key(self.key, KeyState::Released));
+        self.kb.common.event(InputEvent::Key {
+            time_usec: now_usec(),
+            key: self.key,
+            state: KeyState::Released,
+        });
     }
 }
 
 impl TestBackendKb {
     pub fn press(self: &Rc<Self>, key: u32) -> PressedKey {
-        self.common.event(InputEvent::Key(key, KeyState::Pressed));
+        self.common.event(InputEvent::Key {
+            time_usec: now_usec(),
+            key,
+            state: KeyState::Pressed,
+        });
         PressedKey {
             kb: self.clone(),
             key,

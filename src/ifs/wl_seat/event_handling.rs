@@ -167,8 +167,17 @@ impl NodeSeatState {
 impl WlSeatGlobal {
     pub fn event(self: &Rc<Self>, event: InputEvent) {
         match event {
-            InputEvent::Key(k, s) => self.key_event(k, s),
-            InputEvent::ConnectorPosition(o, x, y) => self.connector_position_event(o, x, y),
+            InputEvent::Key {
+                time_usec,
+                key,
+                state,
+            } => self.key_event(time_usec, key, state),
+            InputEvent::ConnectorPosition {
+                time_usec,
+                connector,
+                x,
+                y,
+            } => self.connector_position_event(time_usec, connector, x, y),
             InputEvent::Motion {
                 dx,
                 dy,
@@ -176,18 +185,23 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
                 time_usec,
             } => self.motion_event(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated),
-            InputEvent::Button(b, s) => self.pointer_owner.button(self, b, s),
+            InputEvent::Button {
+                time_usec,
+                button,
+                state,
+            } => self.pointer_owner.button(self, time_usec, button, state),
 
-            InputEvent::AxisSource(s) => self.pointer_owner.axis_source(s),
-            InputEvent::AxisDiscrete(d, a) => self.pointer_owner.axis_discrete(d, a),
-            InputEvent::Axis(d, a) => self.pointer_owner.axis(d, a),
-            InputEvent::AxisStop(d) => self.pointer_owner.axis_stop(d),
-            InputEvent::Frame => self.pointer_owner.frame(self),
+            InputEvent::AxisSource { source } => self.pointer_owner.axis_source(source),
+            InputEvent::AxisDiscrete { dist, axis } => self.pointer_owner.axis_discrete(dist, axis),
+            InputEvent::Axis { dist, axis } => self.pointer_owner.axis(dist, axis),
+            InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
+            InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(self, time_usec),
         }
     }
 
     fn connector_position_event(
         self: &Rc<Self>,
+        time_usec: u64,
         connector: ConnectorId,
         mut x: Fixed,
         mut y: Fixed,
@@ -200,7 +214,7 @@ impl WlSeatGlobal {
         let pos = output.node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
-        self.set_new_position(x, y);
+        self.set_new_position(time_usec, x, y);
     }
 
     fn motion_event(
@@ -249,10 +263,10 @@ impl WlSeatGlobal {
                 y = y.apply_fract(y_int);
             }
         }
-        self.set_new_position(x, y);
+        self.set_new_position(time_usec, x, y);
     }
 
-    fn key_event(&self, key: u32, state: KeyState) {
+    fn key_event(&self, time_usec: u64, key: u32, state: KeyState) {
         let (state, xkb_dir) = {
             let mut pk = self.pressed_keys.borrow_mut();
             match state {
@@ -290,7 +304,7 @@ impl WlSeatGlobal {
         }
         let node = self.keyboard_node.get();
         if shortcuts.is_empty() {
-            node.node_on_key(self, key, state);
+            node.node_on_key(self, time_usec, key, state);
         } else if let Some(config) = self.state.config.get() {
             for shortcut in shortcuts {
                 config.invoke_shortcut(self.id(), &shortcut);
@@ -461,7 +475,8 @@ impl WlSeatGlobal {
         // client.flush();
     }
 
-    fn set_new_position(self: &Rc<Self>, x: Fixed, y: Fixed) {
+    fn set_new_position(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
+        self.pos_time_usec.set(time_usec);
         self.pos.set((x, y));
         if let Some(cursor) = self.cursor.get() {
             cursor.set_position(x.round_down(), y.round_down());
@@ -499,6 +514,7 @@ impl WlSeatGlobal {
     pub fn button_surface(
         self: &Rc<Self>,
         surface: &Rc<WlSurface>,
+        time_usec: u64,
         button: u32,
         state: KeyState,
         serial: u32,
@@ -507,7 +523,8 @@ impl WlSeatGlobal {
             KeyState::Released => (wl_pointer::RELEASED, false),
             KeyState::Pressed => (wl_pointer::PRESSED, true),
         };
-        self.surface_pointer_event(0, surface, |p| p.send_button(serial, 0, button, state));
+        let time = (time_usec / 1000) as u32;
+        self.surface_pointer_event(0, surface, |p| p.send_button(serial, time, button, state));
         self.surface_pointer_frame(surface);
         if pressed {
             if let Some(node) = surface.get_focus_node(self.id) {
@@ -528,6 +545,7 @@ impl WlSeatGlobal {
             };
             self.surface_pointer_event(since, surface, |p| p.send_axis_source(source));
         }
+        let time = (event.time_usec.get() / 1000) as _;
         for i in 0..1 {
             if let Some(delta) = event.discrete[i].get() {
                 self.surface_pointer_event(AXIS_DISCRETE_SINCE_VERSION, surface, |p| {
@@ -535,11 +553,11 @@ impl WlSeatGlobal {
                 });
             }
             if let Some(delta) = event.axis[i].get() {
-                self.surface_pointer_event(0, surface, |p| p.send_axis(0, i as _, delta));
+                self.surface_pointer_event(0, surface, |p| p.send_axis(time, i as _, delta));
             }
             if event.stop[i].get() {
                 self.surface_pointer_event(AXIS_STOP_SINCE_VERSION, surface, |p| {
-                    p.send_axis_stop(0, i as _)
+                    p.send_axis_stop(time, i as _)
                 });
             }
         }
@@ -550,7 +568,8 @@ impl WlSeatGlobal {
 // Motion callbacks
 impl WlSeatGlobal {
     pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        self.surface_pointer_event(0, n, |p| p.send_motion(0, x, y));
+        let time = (self.pos_time_usec.get() / 1000) as u32;
+        self.surface_pointer_event(0, n, |p| p.send_motion(time, x, y));
         self.surface_pointer_frame(n);
     }
 }
@@ -638,9 +657,10 @@ impl WlSeatGlobal {
 
 // Key callbacks
 impl WlSeatGlobal {
-    pub fn key_surface(&self, surface: &WlSurface, key: u32, state: u32) {
+    pub fn key_surface(&self, surface: &WlSurface, time_usec: u64, key: u32, state: u32) {
         let serial = surface.client.next_serial();
-        self.surface_kb_event(0, surface, |k| k.send_key(serial, 0, key, state));
+        let time = (time_usec / 1000) as _;
+        self.surface_kb_event(0, surface, |k| k.send_key(serial, time, key, state));
     }
 }
 
@@ -708,10 +728,17 @@ impl WlSeatGlobal {
         // surface.client.flush();
     }
 
-    pub fn dnd_surface_motion(&self, surface: &WlSurface, dnd: &Dnd, x: Fixed, y: Fixed) {
+    pub fn dnd_surface_motion(
+        &self,
+        surface: &WlSurface,
+        dnd: &Dnd,
+        time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+    ) {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
             self.for_each_data_device(0, surface.client.id, |dd| {
-                dd.send_motion(x, y);
+                dd.send_motion(time_usec, x, y);
             })
         }
         // surface.client.flush();

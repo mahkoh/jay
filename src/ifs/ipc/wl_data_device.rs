@@ -115,11 +115,11 @@ impl WlDataDevice {
         }
     }
 
-    pub fn send_motion(&self, x: Fixed, y: Fixed) {
+    pub fn send_motion(&self, time_usec: u64, x: Fixed, y: Fixed) {
         if !self.data.is_xwm {
             self.client.event(Motion {
                 self_id: self.id,
-                time: 0,
+                time: (time_usec / 1000) as _,
                 x,
                 y,
             })

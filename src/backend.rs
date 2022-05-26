@@ -150,8 +150,17 @@ pub enum AxisSource {
 
 #[derive(Debug)]
 pub enum InputEvent {
-    Key(u32, KeyState),
-    ConnectorPosition(ConnectorId, Fixed, Fixed),
+    Key {
+        time_usec: u64,
+        key: u32,
+        state: KeyState,
+    },
+    ConnectorPosition {
+        time_usec: u64,
+        connector: ConnectorId,
+        x: Fixed,
+        y: Fixed,
+    },
     Motion {
         time_usec: u64,
         dx: Fixed,
@@ -159,13 +168,29 @@ pub enum InputEvent {
         dx_unaccelerated: Fixed,
         dy_unaccelerated: Fixed,
     },
-    Button(u32, KeyState),
+    Button {
+        time_usec: u64,
+        button: u32,
+        state: KeyState,
+    },
 
-    Axis(Fixed, ScrollAxis),
-    AxisSource(AxisSource),
-    AxisStop(ScrollAxis),
-    AxisDiscrete(i32, ScrollAxis),
-    Frame,
+    Axis {
+        dist: Fixed,
+        axis: ScrollAxis,
+    },
+    AxisSource {
+        source: AxisSource,
+    },
+    AxisStop {
+        axis: ScrollAxis,
+    },
+    AxisDiscrete {
+        dist: i32,
+        axis: ScrollAxis,
+    },
+    AxisFrame {
+        time_usec: u64,
+    },
 }
 
 pub enum DrmEvent {

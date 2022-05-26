@@ -760,8 +760,8 @@ impl Node for WlSurface {
         self.toplevel.get()
     }
 
-    fn node_on_key(&self, seat: &WlSeatGlobal, key: u32, state: u32) {
-        seat.key_surface(self, key, state);
+    fn node_on_key(&self, seat: &WlSeatGlobal, time_usec: u64, key: u32, state: u32) {
+        seat.key_surface(self, time_usec, key, state);
     }
 
     fn node_on_mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
@@ -771,11 +771,12 @@ impl Node for WlSurface {
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
         button: u32,
         state: KeyState,
         serial: u32,
     ) {
-        seat.button_surface(&self, button, state, serial);
+        seat.button_surface(&self, time_usec, button, state, serial);
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
@@ -830,8 +831,8 @@ impl Node for WlSurface {
         dnd.seat.dnd_surface_enter(self, dnd, x, y, serial);
     }
 
-    fn node_on_dnd_motion(&self, dnd: &Dnd, x: Fixed, y: Fixed) {
-        dnd.seat.dnd_surface_motion(self, dnd, x, y);
+    fn node_on_dnd_motion(&self, dnd: &Dnd, time_usec: u64, x: Fixed, y: Fixed) {
+        dnd.seat.dnd_surface_motion(self, dnd, time_usec, x, y);
     }
 
     fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {

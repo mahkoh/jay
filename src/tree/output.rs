@@ -483,6 +483,7 @@ impl Node for OutputNode {
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
+        _time_usec: u64,
         button: u32,
         state: KeyState,
         _serial: u32,

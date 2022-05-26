@@ -118,3 +118,7 @@ impl Add<Duration> for Time {
         self
     }
 }
+
+pub fn now_usec() -> u64 {
+    Time::now_unchecked().usec()
+}
