@@ -44,8 +44,8 @@ impl PointerOwnerHolder {
         self.pending_scroll.v120[axis as usize].set(Some(delta));
     }
 
-    pub fn axis_smooth(&self, delta: Fixed, axis: ScrollAxis) {
-        self.pending_scroll.smooth[axis as usize].set(Some(delta));
+    pub fn axis_px(&self, delta: Fixed, axis: ScrollAxis) {
+        self.pending_scroll.px[axis as usize].set(Some(delta));
     }
 
     pub fn axis_stop(&self, axis: ScrollAxis) {

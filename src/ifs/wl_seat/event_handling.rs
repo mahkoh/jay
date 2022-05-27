@@ -195,7 +195,7 @@ impl WlSeatGlobal {
 
             InputEvent::AxisSource { source } => self.pointer_owner.axis_source(source),
             InputEvent::Axis120 { dist, axis } => self.pointer_owner.axis_120(dist, axis),
-            InputEvent::AxisSmooth { dist, axis } => self.pointer_owner.axis_smooth(dist, axis),
+            InputEvent::AxisPx { dist, axis } => self.pointer_owner.axis_px(dist, axis),
             InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
             InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(dev, self, time_usec),
         }
@@ -564,7 +564,7 @@ impl WlSeatGlobal {
                     }
                     let px = (delta as f64 / AXIS_120 as f64) * dev.px_per_scroll_wheel.get();
                     p.send_axis(time, axis, Fixed::from_f64(px));
-                } else if let Some(delta) = event.smooth[i].get() {
+                } else if let Some(delta) = event.px[i].get() {
                     p.send_axis(time, axis, delta);
                 }
                 if p.seat.version >= AXIS_STOP_SINCE_VERSION && event.stop[i].get() {

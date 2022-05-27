@@ -151,7 +151,7 @@ impl MetalBackend {
                     axis,
                 }
             } else {
-                InputEvent::AxisSmooth {
+                InputEvent::AxisPx {
                     dist: Fixed::from_f64(scroll),
                     axis,
                 }

@@ -38,7 +38,7 @@ pub const AXIS_VALUE120_SINCE_VERSION: u32 = 8;
 #[derive(Default, Debug)]
 pub struct PendingScroll {
     pub v120: [Cell<Option<i32>>; 2],
-    pub smooth: [Cell<Option<Fixed>>; 2],
+    pub px: [Cell<Option<Fixed>>; 2],
     pub stop: [Cell<bool>; 2],
     pub source: Cell<Option<u32>>,
     pub time_usec: Cell<u64>,
@@ -51,10 +51,7 @@ impl PendingScroll {
                 Cell::new(self.v120[0].take()),
                 Cell::new(self.v120[1].take()),
             ],
-            smooth: [
-                Cell::new(self.smooth[0].take()),
-                Cell::new(self.smooth[1].take()),
-            ],
+            px: [Cell::new(self.px[0].take()), Cell::new(self.px[1].take())],
             stop: [
                 Cell::new(self.stop[0].take()),
                 Cell::new(self.stop[1].take()),

@@ -318,9 +318,9 @@ impl TestBackendMouse {
 
     pub fn scroll_px(&self, dy: i32) {
         self.common.event(InputEvent::AxisSource {
-            source: AxisSource::Wheel,
+            source: AxisSource::Finger,
         });
-        self.common.event(InputEvent::AxisSmooth {
+        self.common.event(InputEvent::AxisPx {
             dist: Fixed::from_int(dy),
             axis: ScrollAxis::Vertical,
         });

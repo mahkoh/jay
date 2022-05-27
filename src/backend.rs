@@ -176,7 +176,7 @@ pub enum InputEvent {
         state: KeyState,
     },
 
-    AxisSmooth {
+    AxisPx {
         dist: Fixed,
         axis: ScrollAxis,
     },
