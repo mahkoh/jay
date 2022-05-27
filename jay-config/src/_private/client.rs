@@ -71,7 +71,7 @@ unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {
             self.cell.set(self.val);
         }
     }
-    CLIENT.with(|cell| unsafe {
+    CLIENT.with(|cell| {
         let client = data as *const Client;
         Rc::increment_strong_count(client);
         let client = Rc::from_raw(client);

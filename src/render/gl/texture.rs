@@ -68,7 +68,7 @@ impl GlTexture {
 
     #[allow(dead_code)]
     pub unsafe fn to_framebuffer(self: &Rc<Self>) -> Result<Rc<GlFrameBuffer>, RenderError> {
-        self.ctx.with_current(|| unsafe {
+        self.ctx.with_current(|| {
             let mut fbo = 0;
             glGenFramebuffers(1, &mut fbo);
             glBindFramebuffer(GL_FRAMEBUFFER, fbo);
