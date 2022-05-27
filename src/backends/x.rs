@@ -5,11 +5,10 @@ use {
             AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
             ConnectorKernelId, DrmDeviceId, InputDevice, InputDeviceAccelProfile,
             InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
-            ScrollAxis, TransformMatrix,
+            ScrollAxis, TransformMatrix, AXIS_120,
         },
         fixed::Fixed,
         format::XRGB8888,
-        ifs::wl_seat::PX_PER_SCROLL,
         render::{Framebuffer, RenderContext, RenderError, RenderResult, Texture},
         state::State,
         time::now_usec,
@@ -765,9 +764,8 @@ impl XBackend {
                     seat.mouse_event(InputEvent::AxisSource {
                         source: AxisSource::Wheel,
                     });
-                    seat.mouse_event(InputEvent::AxisDiscrete { dist: val, axis });
-                    seat.mouse_event(InputEvent::Axis {
-                        dist: Fixed::from_f64(val as f64 * PX_PER_SCROLL),
+                    seat.mouse_event(InputEvent::Axis120 {
+                        dist: val * AXIS_120,
                         axis,
                     });
                     seat.mouse_event(InputEvent::AxisFrame {

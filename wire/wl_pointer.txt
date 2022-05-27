@@ -61,3 +61,8 @@ msg axis_discrete = 8 {
     axis: u32,
     discrete: i32,
 }
+
+msg axis_value120 = 9 {
+    axis: u32,
+    value120: i32,
+}

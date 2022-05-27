@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{ConnectorId, InputEvent, KeyState},
+        backend::{ConnectorId, InputEvent, KeyState, AXIS_120},
         client::{Client, ClientId},
         fixed::Fixed,
         ifs::{
@@ -16,10 +16,11 @@ use {
                 wl_pointer::{
                     self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
                     AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
-                    POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
+                    AXIS_VALUE120_SINCE_VERSION, POINTER_FRAME_SINCE_VERSION, WHEEL_TILT,
+                    WHEEL_TILT_SINCE_VERSION,
                 },
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
-                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
+                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, PX_PER_SCROLL,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
@@ -192,8 +193,8 @@ impl WlSeatGlobal {
             } => self.pointer_owner.button(self, time_usec, button, state),
 
             InputEvent::AxisSource { source } => self.pointer_owner.axis_source(source),
-            InputEvent::AxisDiscrete { dist, axis } => self.pointer_owner.axis_discrete(dist, axis),
-            InputEvent::Axis { dist, axis } => self.pointer_owner.axis(dist, axis),
+            InputEvent::Axis120 { dist, axis } => self.pointer_owner.axis_120(dist, axis),
+            InputEvent::AxisSmooth { dist, axis } => self.pointer_owner.axis_smooth(dist, axis),
             InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
             InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(self, time_usec),
         }
@@ -546,22 +547,28 @@ impl WlSeatGlobal {
             self.surface_pointer_event(since, surface, |p| p.send_axis_source(source));
         }
         let time = (event.time_usec.get() / 1000) as _;
-        for i in 0..1 {
-            if let Some(delta) = event.discrete[i].get() {
-                self.surface_pointer_event(AXIS_DISCRETE_SINCE_VERSION, surface, |p| {
-                    p.send_axis_discrete(i as _, delta)
-                });
+        self.for_each_pointer(0, surface.client.id, |p| {
+            for i in 0..1 {
+                let axis = i as _;
+                if let Some(delta) = event.v120[i].get() {
+                    if p.seat.version >= AXIS_VALUE120_SINCE_VERSION {
+                        p.send_axis_value120(axis, delta);
+                    } else if p.seat.version >= AXIS_DISCRETE_SINCE_VERSION {
+                        p.send_axis_discrete(axis, delta / AXIS_120);
+                    }
+                    let px = (delta as f64 / AXIS_120 as f64) * PX_PER_SCROLL;
+                    p.send_axis(time, axis, Fixed::from_f64(px));
+                } else if let Some(delta) = event.smooth[i].get() {
+                    p.send_axis(time, axis, delta);
+                }
+                if p.seat.version >= AXIS_STOP_SINCE_VERSION && event.stop[i].get() {
+                    p.send_axis_stop(time, axis);
+                }
             }
-            if let Some(delta) = event.axis[i].get() {
-                self.surface_pointer_event(0, surface, |p| p.send_axis(time, i as _, delta));
+            if p.seat.version >= POINTER_FRAME_SINCE_VERSION {
+                p.send_frame();
             }
-            if event.stop[i].get() {
-                self.surface_pointer_event(AXIS_STOP_SINCE_VERSION, surface, |p| {
-                    p.send_axis_stop(time, i as _)
-                });
-            }
-        }
-        self.surface_pointer_frame(surface);
+        });
     }
 }
 

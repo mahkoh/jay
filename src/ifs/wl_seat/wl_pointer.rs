@@ -33,11 +33,12 @@ pub const AXIS_SOURCE_SINCE_VERSION: u32 = 5;
 pub const AXIS_DISCRETE_SINCE_VERSION: u32 = 5;
 pub const AXIS_STOP_SINCE_VERSION: u32 = 5;
 pub const WHEEL_TILT_SINCE_VERSION: u32 = 6;
+pub const AXIS_VALUE120_SINCE_VERSION: u32 = 8;
 
 #[derive(Default, Debug)]
 pub struct PendingScroll {
-    pub discrete: [Cell<Option<i32>>; 2],
-    pub axis: [Cell<Option<Fixed>>; 2],
+    pub v120: [Cell<Option<i32>>; 2],
+    pub smooth: [Cell<Option<Fixed>>; 2],
     pub stop: [Cell<bool>; 2],
     pub source: Cell<Option<u32>>,
     pub time_usec: Cell<u64>,
@@ -46,13 +47,13 @@ pub struct PendingScroll {
 impl PendingScroll {
     pub fn take(&self) -> Self {
         Self {
-            discrete: [
-                Cell::new(self.discrete[0].take()),
-                Cell::new(self.discrete[1].take()),
+            v120: [
+                Cell::new(self.v120[0].take()),
+                Cell::new(self.v120[1].take()),
             ],
-            axis: [
-                Cell::new(self.axis[0].take()),
-                Cell::new(self.axis[1].take()),
+            smooth: [
+                Cell::new(self.smooth[0].take()),
+                Cell::new(self.smooth[1].take()),
             ],
             stop: [
                 Cell::new(self.stop[0].take()),
@@ -153,6 +154,14 @@ impl WlPointer {
             self_id: self.id,
             axis,
             discrete,
+        })
+    }
+
+    pub fn send_axis_value120(&self, axis: u32, value120: i32) {
+        self.seat.client.event(AxisValue120 {
+            self_id: self.id,
+            axis,
+            value120,
         })
     }
 

@@ -3,7 +3,6 @@ use {
         backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
         fixed::Fixed,
-        ifs::wl_seat::PX_PER_SCROLL,
         libinput::{
             consts::{
                 LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
@@ -127,7 +126,6 @@ impl MetalBackend {
     }
 
     fn handle_pointer_axis(self: &Rc<Self>, event: LibInputEvent, source: AxisSource) {
-        const ONE_TWENTRY: f64 = 120.0;
         let (event, dev) = unpack!(self, event, pointer_event);
         let axes = [
             (
@@ -137,30 +135,28 @@ impl MetalBackend {
             (LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL, ScrollAxis::Vertical),
         ];
         dev.event(InputEvent::AxisSource { source });
-        for (axis, sa) in axes {
-            if !event.has_axis(axis) {
+        for (pointer_axis, axis) in axes {
+            if !event.has_axis(pointer_axis) {
                 continue;
             }
-            let mut scroll = match source {
-                AxisSource::Wheel => event.scroll_value_v120(axis),
-                _ => event.scroll_value(axis),
+            let scroll = match source {
+                AxisSource::Wheel => event.scroll_value_v120(pointer_axis),
+                _ => event.scroll_value(pointer_axis),
             };
-            if scroll == 0.0 {
-                dev.event(InputEvent::AxisStop { axis: sa });
-            } else {
-                if source == AxisSource::Wheel {
-                    let scroll_discrete = scroll / ONE_TWENTRY;
-                    dev.event(InputEvent::AxisDiscrete {
-                        dist: scroll_discrete as _,
-                        axis: sa,
-                    });
-                    scroll = PX_PER_SCROLL * scroll_discrete;
+            let ie = if scroll == 0.0 {
+                InputEvent::AxisStop { axis }
+            } else if source == AxisSource::Wheel {
+                InputEvent::Axis120 {
+                    dist: scroll as _,
+                    axis,
                 }
-                dev.event(InputEvent::Axis {
+            } else {
+                InputEvent::AxisSmooth {
                     dist: Fixed::from_f64(scroll),
-                    axis: sa,
-                });
-            }
+                    axis,
+                }
+            };
+            dev.event(ie);
         }
         dev.event(InputEvent::AxisFrame {
             time_usec: event.time_usec(),

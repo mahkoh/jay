@@ -39,12 +39,12 @@ impl PointerOwnerHolder {
         self.pending_scroll.source.set(Some(axis_source as _));
     }
 
-    pub fn axis_discrete(&self, delta: i32, axis: ScrollAxis) {
-        self.pending_scroll.discrete[axis as usize].set(Some(delta));
+    pub fn axis_120(&self, delta: i32, axis: ScrollAxis) {
+        self.pending_scroll.v120[axis as usize].set(Some(delta));
     }
 
-    pub fn axis(&self, delta: Fixed, axis: ScrollAxis) {
-        self.pending_scroll.axis[axis as usize].set(Some(delta));
+    pub fn axis_smooth(&self, delta: Fixed, axis: ScrollAxis) {
+        self.pending_scroll.smooth[axis as usize].set(Some(delta));
     }
 
     pub fn axis_stop(&self, axis: ScrollAxis) {

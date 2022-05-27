@@ -307,12 +307,8 @@ impl TestBackendMouse {
         self.common.event(InputEvent::AxisSource {
             source: AxisSource::Wheel,
         });
-        self.common.event(InputEvent::AxisDiscrete {
-            dist: dy,
-            axis: ScrollAxis::Vertical,
-        });
-        self.common.event(InputEvent::Axis {
-            dist: Fixed::from_int(dy * 15),
+        self.common.event(InputEvent::Axis120 {
+            dist: dy * 120,
             axis: ScrollAxis::Vertical,
         });
         self.common.event(InputEvent::AxisFrame {
@@ -324,7 +320,7 @@ impl TestBackendMouse {
         self.common.event(InputEvent::AxisSource {
             source: AxisSource::Wheel,
         });
-        self.common.event(InputEvent::Axis {
+        self.common.event(InputEvent::AxisSmooth {
             dist: Fixed::from_int(dy),
             axis: ScrollAxis::Vertical,
         });

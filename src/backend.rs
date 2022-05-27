@@ -148,6 +148,8 @@ pub enum AxisSource {
     Continuous = CONTINUOUS as _,
 }
 
+pub const AXIS_120: i32 = 120;
+
 #[derive(Debug)]
 pub enum InputEvent {
     Key {
@@ -174,7 +176,7 @@ pub enum InputEvent {
         state: KeyState,
     },
 
-    Axis {
+    AxisSmooth {
         dist: Fixed,
         axis: ScrollAxis,
     },
@@ -184,7 +186,7 @@ pub enum InputEvent {
     AxisStop {
         axis: ScrollAxis,
     },
-    AxisDiscrete {
+    Axis120 {
         dist: i32,
         axis: ScrollAxis,
     },
