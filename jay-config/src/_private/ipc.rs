@@ -270,6 +270,10 @@ pub enum ClientMessage<'a> {
     SetFont {
         font: &'a str,
     },
+    SetPxPerWheelScroll {
+        device: InputDevice,
+        px: f64,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

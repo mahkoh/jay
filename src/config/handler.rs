@@ -487,6 +487,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_px_per_wheel_scroll(&self, device: InputDevice, px: f64) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.px_per_scroll_wheel.set(px);
+        Ok(())
+    }
+
     fn handle_set_transform_matrix(
         &self,
         device: InputDevice,
@@ -1077,6 +1083,9 @@ impl ConfigProxyHandler {
             ClientMessage::ResetFont => self.handle_reset_font(),
             ClientMessage::GetFont => self.handle_get_font(),
             ClientMessage::SetFont { font } => self.handle_set_font(font),
+            ClientMessage::SetPxPerWheelScroll { device, px } => self
+                .handle_set_px_per_wheel_scroll(device, px)
+                .wrn("set_px_per_wheel_scroll")?,
         }
         Ok(())
     }

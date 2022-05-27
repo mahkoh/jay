@@ -9,6 +9,7 @@ use {
         },
         rect::Rect,
         render::Renderer,
+        state::DeviceHandlerData,
         utils::numcell::NumCell,
         xkbcommon::ModifierState,
     },
@@ -184,7 +185,13 @@ pub trait Node: 'static {
         let _ = serial;
     }
 
-    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
+    fn node_on_axis_event(
+        self: Rc<Self>,
+        dev: &DeviceHandlerData,
+        seat: &Rc<WlSeatGlobal>,
+        event: &PendingScroll,
+    ) {
+        let _ = dev;
         let _ = seat;
         let _ = event;
     }

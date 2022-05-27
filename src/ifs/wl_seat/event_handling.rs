@@ -20,10 +20,11 @@ use {
                     WHEEL_TILT_SINCE_VERSION,
                 },
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
-                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, PX_PER_SCROLL,
+                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
+        state::DeviceHandlerData,
         tree::{Direction, FloatNode, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
         wire::WlDataOfferId,
@@ -166,7 +167,7 @@ impl NodeSeatState {
 }
 
 impl WlSeatGlobal {
-    pub fn event(self: &Rc<Self>, event: InputEvent) {
+    pub fn event(self: &Rc<Self>, dev: &DeviceHandlerData, event: InputEvent) {
         match event {
             InputEvent::Key {
                 time_usec,
@@ -196,7 +197,7 @@ impl WlSeatGlobal {
             InputEvent::Axis120 { dist, axis } => self.pointer_owner.axis_120(dist, axis),
             InputEvent::AxisSmooth { dist, axis } => self.pointer_owner.axis_smooth(dist, axis),
             InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
-            InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(self, time_usec),
+            InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(dev, self, time_usec),
         }
     }
 
@@ -537,7 +538,12 @@ impl WlSeatGlobal {
 
 // Scroll callbacks
 impl WlSeatGlobal {
-    pub fn scroll_surface(&self, surface: &WlSurface, event: &PendingScroll) {
+    pub fn scroll_surface(
+        &self,
+        dev: &DeviceHandlerData,
+        surface: &WlSurface,
+        event: &PendingScroll,
+    ) {
         if let Some(source) = event.source.get() {
             let since = if source >= WHEEL_TILT {
                 WHEEL_TILT_SINCE_VERSION
@@ -556,7 +562,7 @@ impl WlSeatGlobal {
                     } else if p.seat.version >= AXIS_DISCRETE_SINCE_VERSION {
                         p.send_axis_discrete(axis, delta / AXIS_120);
                     }
-                    let px = (delta as f64 / AXIS_120 as f64) * PX_PER_SCROLL;
+                    let px = (delta as f64 / AXIS_120 as f64) * dev.px_per_scroll_wheel.get();
                     p.send_axis(time, axis, Fixed::from_f64(px));
                 } else if let Some(delta) = event.smooth[i].get() {
                     p.send_axis(time, axis, delta);

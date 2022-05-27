@@ -71,6 +71,18 @@ impl InputDevice {
     pub fn name(self) -> String {
         get!(String::new()).device_name(self)
     }
+
+    /// Sets how many pixel to scroll per scroll wheel dedent.
+    ///
+    /// Default: `15.0`
+    ///
+    /// This setting has no effect on non-wheel input such as touchpads.
+    ///
+    /// Some mouse wheels support high-resolution scrolling without discrete steps. In
+    /// this case a value proportional to this setting will be used.
+    pub fn set_px_per_wheel_scroll(self, px: f64) {
+        get!().set_px_per_wheel_scroll(self, px);
+    }
 }
 
 /// A seat.

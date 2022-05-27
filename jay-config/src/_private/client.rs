@@ -532,6 +532,10 @@ impl Client {
         self.send(&ClientMessage::SetTransformMatrix { device, matrix })
     }
 
+    pub fn set_px_per_wheel_scroll(&self, device: InputDevice, px: f64) {
+        self.send(&ClientMessage::SetPxPerWheelScroll { device, px })
+    }
+
     pub fn device_name(&self, device: InputDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDeviceName { device });
         get_response!(res, String::new(), GetDeviceName { name });

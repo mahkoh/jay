@@ -1,15 +1,17 @@
 use {
     crate::{
         backend::InputDevice,
+        ifs::wl_seat::PX_PER_SCROLL,
         state::{DeviceHandlerData, InputDeviceData, State},
         utils::asyncevent::AsyncEvent,
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
 };
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
     let data = Rc::new(DeviceHandlerData {
         seat: Default::default(),
+        px_per_scroll_wheel: Cell::new(PX_PER_SCROLL),
         device: dev.clone(),
     });
     let ae = Rc::new(AsyncEvent::default());
@@ -54,7 +56,7 @@ impl DeviceHandler {
             if let Some(seat) = self.data.seat.get() {
                 let mut any_events = false;
                 while let Some(event) = self.dev.event() {
-                    seat.event(event);
+                    seat.event(&self.data, event);
                     any_events = true;
                 }
                 if any_events {

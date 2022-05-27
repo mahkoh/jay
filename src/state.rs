@@ -173,6 +173,7 @@ pub struct InputDeviceData {
 
 pub struct DeviceHandlerData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
+    pub px_per_scroll_wheel: Cell<f64>,
     pub device: Rc<dyn InputDevice>,
 }
 

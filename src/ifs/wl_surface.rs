@@ -25,6 +25,7 @@ use {
         object::Object,
         rect::{Rect, Region},
         render::Renderer,
+        state::DeviceHandlerData,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -779,8 +780,13 @@ impl Node for WlSurface {
         seat.button_surface(&self, time_usec, button, state, serial);
     }
 
-    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
-        seat.scroll_surface(&*self, event);
+    fn node_on_axis_event(
+        self: Rc<Self>,
+        dev: &DeviceHandlerData,
+        seat: &Rc<WlSeatGlobal>,
+        event: &PendingScroll,
+    ) {
+        seat.scroll_surface(dev, &*self, event);
     }
 
     fn node_on_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {

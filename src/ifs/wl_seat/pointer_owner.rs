@@ -8,6 +8,7 @@ use {
             wl_seat::{wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal},
             wl_surface::WlSurface,
         },
+        state::DeviceHandlerData,
         tree::{FoundNode, Node},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -51,11 +52,11 @@ impl PointerOwnerHolder {
         self.pending_scroll.stop[axis as usize].set(true);
     }
 
-    pub fn frame(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
+    pub fn frame(&self, dev: &DeviceHandlerData, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
         self.pending_scroll.time_usec.set(time_usec);
         let pending = self.pending_scroll.take();
         if let Some(node) = self.owner.get().axis_node(seat) {
-            node.node_on_axis_event(seat, &pending);
+            node.node_on_axis_event(dev, seat, &pending);
         }
     }
 

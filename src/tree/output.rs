@@ -17,7 +17,7 @@ use {
         },
         rect::Rect,
         render::{Renderer, Texture},
-        state::State,
+        state::{DeviceHandlerData, State},
         text,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode,
@@ -512,7 +512,12 @@ impl Node for OutputNode {
         self.state.tree_changed();
     }
 
-    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
+    fn node_on_axis_event(
+        self: Rc<Self>,
+        _dev: &DeviceHandlerData,
+        seat: &Rc<WlSeatGlobal>,
+        event: &PendingScroll,
+    ) {
         let steps = match self.scroll.handle(event) {
             Some(e) => e,
             _ => return,
