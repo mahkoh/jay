@@ -343,15 +343,14 @@ impl Node for Xwindow {
     }
 
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        if let Some(buffer) = self.surface.buffer.get() {
-            if x < buffer.rect.width() && y < buffer.rect.height() {
-                tree.push(FoundNode {
-                    node: self.surface.clone(),
-                    x,
-                    y,
-                });
-                return FindTreeResult::AcceptsInput;
-            }
+        let rect = self.surface.buffer_abs_pos.get();
+        if x < rect.width() && y < rect.height() {
+            tree.push(FoundNode {
+                node: self.surface.clone(),
+                x,
+                y,
+            });
+            return FindTreeResult::AcceptsInput;
         }
         FindTreeResult::Other
     }

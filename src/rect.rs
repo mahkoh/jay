@@ -61,6 +61,7 @@ impl RectOverflow {
 }
 
 impl Rect {
+    #[allow(dead_code)]
     pub fn new_empty(x: i32, y: i32) -> Self {
         Self {
             x1: x,
@@ -203,5 +204,9 @@ impl Rect {
 
     pub fn position(&self) -> (i32, i32) {
         (self.x1, self.y1)
+    }
+
+    pub fn size(&self) -> (i32, i32) {
+        (self.width(), self.height())
     }
 }

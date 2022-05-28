@@ -122,10 +122,24 @@ impl Renderer<'_> {
             let c = theme.colors.unfocused_title_background.get();
             self.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
             for title in &rd.titles {
-                self.render_texture(&title.tex, x + title.tex_x, y + title.tex_y, ARGB8888);
+                self.render_texture(
+                    &title.tex,
+                    x + title.tex_x,
+                    y + title.tex_y,
+                    ARGB8888,
+                    None,
+                    None,
+                );
             }
             if let Some(status) = &rd.status {
-                self.render_texture(&status.tex, x + status.tex_x, y + status.tex_y, ARGB8888);
+                self.render_texture(
+                    &status.tex,
+                    x + status.tex_x,
+                    y + status.tex_y,
+                    ARGB8888,
+                    None,
+                    None,
+                );
             }
         }
         if let Some(ws) = output.workspace.get() {
@@ -209,7 +223,7 @@ impl Renderer<'_> {
         if let Some(tex) = placeholder.texture.get() {
             let x = x + (pos.width() - tex.width()) / 2;
             let y = y + (pos.height() - tex.height()) / 2;
-            self.render_texture(&tex, x, y, &ARGB8888);
+            self.render_texture(&tex, x, y, &ARGB8888, None, None);
         }
     }
 
@@ -234,7 +248,7 @@ impl Renderer<'_> {
                 self.fill_boxes2(std::slice::from_ref(lar), &c, x, y);
             }
             for title in &rd.titles {
-                self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888);
+                self.render_texture(&title.tex, x + title.x, y + title.y, ARGB8888, None, None);
             }
         }
         if let Some(child) = container.mono_child.get() {
@@ -287,6 +301,8 @@ impl Renderer<'_> {
                 return;
             }
         };
+        let tpoints = surface.buffer_points_norm.borrow_mut();
+        let size = surface.buffer_abs_pos.get().size();
         if let Some(children) = children.deref() {
             macro_rules! render {
                 ($children:expr) => {
@@ -300,10 +316,10 @@ impl Renderer<'_> {
                 };
             }
             render!(&children.below);
-            self.render_buffer(&buffer, x, y);
+            self.render_buffer(&buffer, x, y, &tpoints, size);
             render!(&children.above);
         } else {
-            self.render_buffer(&buffer, x, y);
+            self.render_buffer(&buffer, x, y, &tpoints, size);
         }
         if self.on_output {
             {
@@ -317,13 +333,28 @@ impl Renderer<'_> {
         }
     }
 
-    pub fn render_buffer(&mut self, buffer: &WlBuffer, x: i32, y: i32) {
+    pub fn render_buffer(
+        &mut self,
+        buffer: &WlBuffer,
+        x: i32,
+        y: i32,
+        tpoints: &[f32; 8],
+        tsize: (i32, i32),
+    ) {
         if let Some(tex) = buffer.texture.get() {
-            self.render_texture(&tex, x, y, buffer.format);
+            self.render_texture(&tex, x, y, buffer.format, Some(tpoints), Some(tsize));
         }
     }
 
-    pub fn render_texture(&mut self, texture: &Texture, x: i32, y: i32, format: &Format) {
+    pub fn render_texture(
+        &mut self,
+        texture: &Texture,
+        x: i32,
+        y: i32,
+        format: &Format,
+        tpoints: Option<&[f32; 8]>,
+        tsize: Option<(i32, i32)>,
+    ) {
         assert!(rc_eq(&self.ctx.ctx, &texture.ctx.ctx));
         unsafe {
             glActiveTexture(GL_TEXTURE0);
@@ -346,15 +377,26 @@ impl Renderer<'_> {
 
             glUniform1i(prog.tex, 0);
 
-            let texcoord: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+            static DEFAULT_TEXCOORD: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+
+            let texcoord: &[f32; 8] = match tpoints {
+                None => &DEFAULT_TEXCOORD,
+                Some(tp) => tp,
+            };
 
             let f_width = self.fb.width as f32;
             let f_height = self.fb.height as f32;
 
+            let (twidth, theight) = if let Some(size) = tsize {
+                size
+            } else {
+                (texture.gl.width, texture.gl.height)
+            };
+
             let x1 = 2.0 * (x as f32 / f_width) - 1.0;
             let y1 = 2.0 * (y as f32 / f_height) - 1.0;
-            let x2 = 2.0 * ((x + texture.gl.width) as f32 / f_width) - 1.0;
-            let y2 = 2.0 * ((y + texture.gl.height) as f32 / f_height) - 1.0;
+            let x2 = 2.0 * ((x + twidth) as f32 / f_width) - 1.0;
+            let y2 = 2.0 * ((y + theight) as f32 / f_height) - 1.0;
 
             let pos: [f32; 8] = [
                 x2, y1, // top right
@@ -413,7 +455,7 @@ impl Renderer<'_> {
             [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
         self.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_texture.get() {
-            self.render_texture(&title, x + bw, y + bw, ARGB8888);
+            self.render_texture(&title, x + bw, y + bw, ARGB8888, None, None);
         }
         let body = Rect::new_sized(
             x + bw,

@@ -221,7 +221,7 @@ impl Cursor for StaticCursor {
     }
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_texture(&self.image.tex, x, y, ARGB8888);
+        renderer.render_texture(&self.image.tex, x, y, ARGB8888, None, None);
     }
 
     fn get_hotspot(&self) -> (i32, i32) {
@@ -252,7 +252,7 @@ impl Cursor for AnimatedCursor {
 
     fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
         let img = &self.images[self.idx.get()];
-        renderer.render_texture(&img.tex, x, y, ARGB8888);
+        renderer.render_texture(&img.tex, x, y, ARGB8888, None, None);
     }
 
     fn get_hotspot(&self) -> (i32, i32) {

@@ -62,7 +62,7 @@ impl Framebuffer {
                 on_output: false,
                 result: &mut RenderResult::default(),
             };
-            renderer.render_texture(texture, x, y, XRGB8888);
+            renderer.render_texture(texture, x, y, XRGB8888, None, None);
             unsafe {
                 glFlush();
             }

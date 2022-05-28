@@ -45,21 +45,14 @@ const SP_VERTICAL_RGB: i32 = 4;
 #[allow(dead_code)]
 const SP_VERTICAL_BGR: i32 = 5;
 
-const TF_NORMAL: i32 = 0;
-#[allow(dead_code)]
-const TF_90: i32 = 1;
-#[allow(dead_code)]
-const TF_180: i32 = 2;
-#[allow(dead_code)]
-const TF_270: i32 = 3;
-#[allow(dead_code)]
-const TF_FLIPPED: i32 = 4;
-#[allow(dead_code)]
-const TF_FLIPPED_90: i32 = 5;
-#[allow(dead_code)]
-const TF_FLIPPED_180: i32 = 6;
-#[allow(dead_code)]
-const TF_FLIPPED_270: i32 = 7;
+pub const TF_NORMAL: i32 = 0;
+pub const TF_90: i32 = 1;
+pub const TF_180: i32 = 2;
+pub const TF_270: i32 = 3;
+pub const TF_FLIPPED: i32 = 4;
+pub const TF_FLIPPED_90: i32 = 5;
+pub const TF_FLIPPED_180: i32 = 6;
+pub const TF_FLIPPED_270: i32 = 7;
 
 const MODE_CURRENT: u32 = 1;
 #[allow(dead_code)]

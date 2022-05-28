@@ -1,6 +1,7 @@
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
+pub mod wp_viewport;
 pub mod xdg_surface;
 pub mod xwindow;
 pub mod zwlr_layer_surface_v1;
@@ -14,10 +15,14 @@ use {
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
+            wl_output::{
+                TF_180, TF_270, TF_90, TF_FLIPPED, TF_FLIPPED_180, TF_FLIPPED_270, TF_FLIPPED_90,
+                TF_NORMAL,
+            },
             wl_seat::{wl_pointer::PendingScroll, Dnd, NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{
-                cursor::CursorSurface, wl_subsurface::WlSubsurface, xdg_surface::XdgSurfaceError,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
+                cursor::CursorSurface, wl_subsurface::WlSubsurface, wp_viewport::WpViewport,
+                xdg_surface::XdgSurfaceError, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
             wp_presentation_feedback::WpPresentationFeedback,
         },
@@ -57,6 +62,124 @@ const INVALID_TRANSFORM: u32 = 1;
 #[allow(dead_code)]
 const INVALID_SIZE: u32 = 2;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Transform {
+    Normal,
+    Rotate90,
+    Rotate180,
+    Rotate270,
+    Flipped,
+    Flipped90,
+    Flipped180,
+    Flipped270,
+}
+
+impl Transform {
+    fn swaps_dimensions(self) -> bool {
+        match self {
+            Transform::Normal => false,
+            Transform::Rotate90 => true,
+            Transform::Rotate180 => false,
+            Transform::Rotate270 => true,
+            Transform::Flipped => false,
+            Transform::Flipped90 => true,
+            Transform::Flipped180 => false,
+            Transform::Flipped270 => true,
+        }
+    }
+}
+
+#[derive(Default, Debug)]
+struct BufferPoint {
+    x: f32,
+    y: f32,
+}
+
+#[derive(Default, Debug)]
+struct BufferPoints {
+    top_right: BufferPoint,
+    top_left: BufferPoint,
+    bottom_right: BufferPoint,
+    bottom_left: BufferPoint,
+}
+
+impl Transform {
+    fn apply_inv_sized(self, x1: f32, y1: f32, width: f32, height: f32) -> BufferPoints {
+        let x2 = x1 + width;
+        let y2 = y1 + height;
+        self.apply_inv(x1, y1, x2, y2)
+    }
+
+    fn apply_inv(self, x1: f32, y1: f32, x2: f32, y2: f32) -> BufferPoints {
+        macro_rules! bp {
+            (
+                $tl_x:expr, $tl_y:expr,
+                $tr_x:expr, $tr_y:expr,
+                $br_x:expr, $br_y:expr,
+                $bl_x:expr, $bl_y:expr,
+            ) => {
+                BufferPoints {
+                    top_left: BufferPoint { x: $tl_x, y: $tl_y },
+                    top_right: BufferPoint { x: $tr_x, y: $tr_y },
+                    bottom_right: BufferPoint { x: $br_x, y: $br_y },
+                    bottom_left: BufferPoint { x: $bl_x, y: $bl_y },
+                }
+            };
+        }
+        use Transform::*;
+        match self {
+            Normal => bp! {
+                x1, y1,
+                x2, y1,
+                x2, y2,
+                x1, y2,
+            },
+            Rotate90 => bp! {
+                y1, x2,
+                y1, x1,
+                y2, x1,
+                y2, x2,
+            },
+            Rotate180 => bp! {
+                x2, y2,
+                x1, y2,
+                x1, y1,
+                x2, y1,
+            },
+            Rotate270 => bp! {
+                y2, x1,
+                y2, x2,
+                y1, x2,
+                y1, x1,
+            },
+            Flipped => bp! {
+                x2, y1,
+                x1, y1,
+                x1, y2,
+                x2, y2,
+            },
+            Flipped90 => bp! {
+                y1, x1,
+                y1, x2,
+                y2, x2,
+                y2, x1,
+            },
+            Flipped180 => bp! {
+                x1, y2,
+                x2, y2,
+                x2, y1,
+                x1, y1,
+            },
+            Flipped270 => bp! {
+                y2, x2,
+                y2, x1,
+                y1, x1,
+                y1, x2,
+            },
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SurfaceRole {
     None,
@@ -93,6 +216,12 @@ pub struct WlSurface {
     pending: PendingState,
     input_region: Cell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
+    buffer_points: RefCell<BufferPoints>,
+    pub buffer_points_norm: RefCell<[f32; 8]>,
+    buffer_transform: Cell<Transform>,
+    buffer_scale: Cell<i32>,
+    src_rect: Cell<Option<[Fixed; 4]>>,
+    dst_size: Cell<Option<(i32, i32)>>,
     pub extents: Cell<Rect>,
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
@@ -109,6 +238,7 @@ pub struct WlSurface {
     pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
     idle_inhibitors: CopyHashMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>>,
+    viewporter: CloneCell<Option<Rc<WpViewport>>>,
 }
 
 impl Debug for WlSurface {
@@ -188,6 +318,10 @@ struct PendingState {
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
     damage: Cell<bool>,
     presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
+    src_rect: Cell<Option<Option<[Fixed; 4]>>>,
+    dst_size: Cell<Option<Option<(i32, i32)>>>,
+    scale: Cell<Option<i32>>,
+    transform: Cell<Option<Transform>>,
 }
 
 #[derive(Default)]
@@ -213,6 +347,12 @@ impl WlSurface {
             pending: Default::default(),
             input_region: Default::default(),
             opaque_region: Default::default(),
+            buffer_points: Default::default(),
+            buffer_points_norm: Default::default(),
+            buffer_transform: Cell::new(Transform::Normal),
+            buffer_scale: Cell::new(1),
+            src_rect: Cell::new(None),
+            dst_size: Cell::new(None),
             extents: Default::default(),
             buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Default::default(),
@@ -229,6 +369,7 @@ impl WlSurface {
             dnd_icons: Default::default(),
             tracker: Default::default(),
             idle_inhibitors: Default::default(),
+            viewporter: Default::default(),
         }
     }
 
@@ -327,10 +468,7 @@ impl WlSurface {
 
     fn calculate_extents(&self) {
         let old_extents = self.extents.get();
-        let mut extents = Rect::new_empty(0, 0);
-        if let Some(b) = self.buffer.get() {
-            extents = b.rect;
-        }
+        let mut extents = self.buffer_abs_pos.get().at_point(0, 0);
         let children = self.children.borrow();
         if let Some(children) = &*children {
             for ss in children.subsurfaces.values() {
@@ -472,24 +610,46 @@ impl WlSurface {
                 }
             }
         }
+        let mut scale_changed = false;
+        if let Some(scale) = self.pending.scale.take() {
+            scale_changed = true;
+            self.buffer_scale.set(scale);
+        }
+        let mut buffer_transform_changed = false;
+        if let Some(transform) = self.pending.transform.take() {
+            buffer_transform_changed = true;
+            self.buffer_transform.set(transform);
+        }
+        let mut viewport_changed = false;
+        if let Some(dst_size) = self.pending.dst_size.take() {
+            viewport_changed = true;
+            self.dst_size.set(dst_size);
+        }
+        if let Some(src_rect) = self.pending.src_rect.take() {
+            viewport_changed = true;
+            self.src_rect.set(src_rect);
+        }
+        if viewport_changed {
+            if let Some(rect) = self.src_rect.get() {
+                if self.dst_size.get().is_none() {
+                    if !rect[2].is_integer() || !rect[3].is_integer() {
+                        return Err(WlSurfaceError::NonIntegerViewportSize);
+                    }
+                }
+            }
+        }
+        let mut buffer_changed = false;
+        let mut old_raw_size = None;
         if let Some(buffer_change) = self.pending.buffer.take() {
-            let mut old_size = None;
-            let mut new_size = None;
+            buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
-                old_size = Some(buffer.rect);
+                old_raw_size = Some(buffer.rect);
                 if !buffer.destroyed() {
                     buffer.send_release();
                 }
             }
             if let Some((dx, dy, buffer)) = buffer_change {
                 let _ = buffer.update_texture();
-                new_size = Some(buffer.rect);
-                self.buffer_abs_pos.set(
-                    self.buffer_abs_pos
-                        .get()
-                        .with_size(buffer.rect.width(), buffer.rect.height())
-                        .unwrap(),
-                );
                 self.buffer.set(Some(buffer));
                 self.buf_x.fetch_add(dx);
                 self.buf_y.fetch_add(dy);
@@ -506,9 +666,94 @@ impl WlSurface {
                     cursor.set_hotspot(0, 0);
                 }
             }
-            if old_size != new_size {
+        }
+        let transform_changed = viewport_changed || scale_changed || buffer_transform_changed;
+        if buffer_changed || transform_changed {
+            let mut buffer_points = self.buffer_points.borrow_mut();
+            let mut buffer_points_norm = self.buffer_points_norm.borrow_mut();
+            let mut new_size = None;
+            if let Some(src_rect) = self.src_rect.get() {
+                if transform_changed {
+                    let [mut x1, mut y1, mut width, mut height] = src_rect.map(|v| v.to_f64() as _);
+                    let scale = self.buffer_scale.get();
+                    if scale != 1 {
+                        let scale = scale as f32;
+                        x1 *= scale;
+                        y1 *= scale;
+                        width *= scale;
+                        height *= scale;
+                    }
+                    *buffer_points = self
+                        .buffer_transform
+                        .get()
+                        .apply_inv_sized(x1, y1, width, height);
+                }
+                let size = match self.dst_size.get() {
+                    Some(ds) => ds,
+                    None => (src_rect[2].to_int(), src_rect[3].to_int()),
+                };
+                new_size = Some(size);
+            } else if let Some(size) = self.dst_size.get() {
+                new_size = Some(size);
+            }
+            if let Some(buffer) = self.buffer.get() {
+                if new_size.is_none() {
+                    let (mut width, mut height) = buffer.rect.size();
+                    if self.buffer_transform.get().swaps_dimensions() {
+                        mem::swap(&mut width, &mut height);
+                    }
+                    let scale = self.buffer_scale.get();
+                    if scale != 1 {
+                        width = (width + scale - 1) / scale;
+                        height = (height + scale - 1) / scale;
+                    }
+                    new_size = Some((width, height));
+                }
+                if transform_changed || Some(buffer.rect) != old_raw_size {
+                    if self.src_rect.get().is_none() {
+                        *buffer_points = self
+                            .buffer_transform
+                            .get()
+                            .apply_inv_sized(0.0, 0.0, 1.0, 1.0);
+                        let points = &*buffer_points;
+                        *buffer_points_norm = [
+                            points.top_right.x,
+                            points.top_right.y,
+                            points.top_left.x,
+                            points.top_left.y,
+                            points.bottom_right.x,
+                            points.bottom_right.y,
+                            points.bottom_left.x,
+                            points.bottom_left.y,
+                        ];
+                    } else {
+                        let width = buffer.rect.width() as f32;
+                        let height = buffer.rect.height() as f32;
+                        let points = &*buffer_points;
+                        *buffer_points_norm = [
+                            points.top_right.x / width,
+                            points.top_right.y / height,
+                            points.top_left.x / width,
+                            points.top_left.y / height,
+                            points.bottom_right.x / width,
+                            points.bottom_right.y / height,
+                            points.bottom_left.x / width,
+                            points.bottom_left.y / height,
+                        ];
+                        for &v in buffer_points_norm.iter() {
+                            if v > 1.0 {
+                                return Err(WlSurfaceError::ViewportOutsideBuffer);
+                            }
+                        }
+                    }
+                }
+            }
+            let (width, height) = new_size.unwrap_or_default();
+            if (width, height) != self.buffer_abs_pos.get().size() {
                 self.need_extents_update.set(true);
             }
+            self.buffer_abs_pos
+                .set(self.buffer_abs_pos.get().with_size(width, height).unwrap());
             for (_, cursor) in &self.cursors {
                 cursor.handle_buffer_change();
             }
@@ -549,12 +794,29 @@ impl WlSurface {
     }
 
     fn set_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let _req: SetBufferTransform = self.parse(parser)?;
+        let req: SetBufferTransform = self.parse(parser)?;
+        use Transform::*;
+        let tf = match req.transform {
+            TF_NORMAL => Normal,
+            TF_90 => Rotate90,
+            TF_180 => Rotate180,
+            TF_270 => Rotate270,
+            TF_FLIPPED => Flipped,
+            TF_FLIPPED_90 => Flipped90,
+            TF_FLIPPED_180 => Flipped180,
+            TF_FLIPPED_270 => Flipped270,
+            _ => return Err(WlSurfaceError::UnknownBufferTransform(req.transform)),
+        };
+        self.pending.transform.set(Some(tf));
         Ok(())
     }
 
     fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let _req: SetBufferScale = self.parse(parser)?;
+        let req: SetBufferScale = self.parse(parser)?;
+        if req.scale < 1 {
+            return Err(WlSurfaceError::NonPositiveBufferScale);
+        }
+        self.pending.scale.set(Some(req.scale));
         Ok(())
     }
 
@@ -565,15 +827,12 @@ impl WlSurface {
     }
 
     fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
-        let buffer = match self.buffer.get() {
-            Some(b) => b,
-            _ => return None,
-        };
+        let rect = self.buffer_abs_pos.get().at_point(0, 0);
         let children = self.children.borrow();
         let children = match children.deref() {
             Some(c) => c,
             _ => {
-                return if buffer.rect.contains(x, y) {
+                return if rect.contains(x, y) {
                     Some((self.clone(), x, y))
                 } else {
                     None
@@ -598,7 +857,7 @@ impl WlSurface {
         if let Some(res) = ss(&children.above) {
             return Some(res);
         }
-        if buffer.rect.contains(x, y) {
+        if rect.contains(x, y) {
             return Some((self.clone(), x, y));
         }
         if let Some(res) = ss(&children.below) {
@@ -868,6 +1127,14 @@ pub enum WlSurfaceError {
     ReloObjectStillExists,
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
+    #[error("Buffer scale is not positive")]
+    NonPositiveBufferScale,
+    #[error("Unknown buffer transform {0}")]
+    UnknownBufferTransform(i32),
+    #[error("Viewport source is not integer-sized and destination size is not set")]
+    NonIntegerViewportSize,
+    #[error("Viewport source is not contained in the attached buffer")]
+    ViewportOutsideBuffer,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

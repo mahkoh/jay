@@ -1,0 +1,9 @@
+# requests
+
+msg destroy = 0 {
+}
+
+msg get_viewport = 1 {
+    id: id(wp_viewport),
+    surface: id(wl_surface),
+}

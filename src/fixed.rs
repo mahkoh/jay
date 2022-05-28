@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt::{Debug, Display, Formatter},
     ops::{Add, AddAssign, Sub, SubAssign},
 };
@@ -8,6 +9,10 @@ use std::{
 pub struct Fixed(pub i32);
 
 impl Fixed {
+    pub fn is_integer(self) -> bool {
+        self.0 & 255 == 0
+    }
+
     pub fn from_f64(f: f64) -> Self {
         Self((f * 256.0) as i32)
     }
@@ -20,6 +25,10 @@ impl Fixed {
         Self(i >> 8)
     }
 
+    pub fn to_int(self) -> i32 {
+        self.0 >> 8
+    }
+
     pub fn from_int(i: i32) -> Self {
         Self(i << 8)
     }
@@ -30,6 +39,18 @@ impl Fixed {
 
     pub fn apply_fract(self, i: i32) -> Self {
         Self((i << 8) | (self.0 & 255))
+    }
+}
+
+impl PartialEq<i32> for Fixed {
+    fn eq(&self, other: &i32) -> bool {
+        self.0 == *other << 8
+    }
+}
+
+impl PartialOrd<i32> for Fixed {
+    fn partial_cmp(&self, other: &i32) -> Option<Ordering> {
+        self.0.partial_cmp(&(*other << 8))
     }
 }
 

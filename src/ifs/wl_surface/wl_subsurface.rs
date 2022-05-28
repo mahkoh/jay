@@ -282,12 +282,9 @@ impl SurfaceExt for WlSubsurface {
             self.node.borrow_mut().replace(v);
         }
         if let Some((x, y)) = self.pending.position.take() {
-            if let Some(buffer) = self.surface.buffer.get() {
-                self.position.set(buffer.rect.move_(x, y));
-                self.parent.need_extents_update.set(true);
-            } else {
-                self.position.set(Rect::new_empty(x, y));
-            }
+            self.position
+                .set(self.surface.buffer_abs_pos.get().at_point(x, y));
+            self.parent.need_extents_update.set(true);
         }
     }
 

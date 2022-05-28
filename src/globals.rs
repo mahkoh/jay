@@ -19,6 +19,7 @@ use {
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
             wp_presentation::WpPresentationGlobal,
+            wp_viewporter::WpViewporterGlobal,
             xdg_wm_base::XdgWmBaseGlobal,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
@@ -141,6 +142,7 @@ impl Globals {
         add_singleton!(ZwlrScreencopyManagerV1Global);
         add_singleton!(ZwpRelativePointerManagerV1Global);
         add_singleton!(ExtSessionLockManagerV1Global);
+        add_singleton!(WpViewporterGlobal);
 
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);

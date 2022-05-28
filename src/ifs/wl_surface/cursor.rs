@@ -50,10 +50,7 @@ impl CursorSurface {
     }
 
     pub fn handle_buffer_change(&self) {
-        let (width, height) = match self.surface.buffer.get() {
-            Some(b) => (b.rect.width(), b.rect.height()),
-            _ => (0, 0),
-        };
+        let (width, height) = self.surface.buffer_abs_pos.get().size();
         self.extents
             .set(Rect::new_sized(0, 0, width, height).unwrap());
         self.update_extents();

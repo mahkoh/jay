@@ -22,6 +22,7 @@ pub mod wl_subcompositor;
 pub mod wl_surface;
 pub mod wp_presentation;
 pub mod wp_presentation_feedback;
+pub mod wp_viewporter;
 pub mod xdg_positioner;
 pub mod xdg_wm_base;
 pub mod zwlr_layer_shell_v1;
