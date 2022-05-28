@@ -966,6 +966,7 @@ impl Object for WlSurface {
         self.idle_inhibitors.clear();
         self.pending.presentation_feedback.borrow_mut().clear();
         self.presentation_feedback.borrow_mut().clear();
+        self.viewporter.take();
     }
 }
 
