@@ -12,6 +12,7 @@ pub struct EglImage {
     pub img: EGLImageKHR,
     pub width: i32,
     pub height: i32,
+    pub external_only: bool,
 }
 
 impl Drop for EglImage {

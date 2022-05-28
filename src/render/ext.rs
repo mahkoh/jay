@@ -118,11 +118,18 @@ pub(super) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
 bitflags::bitflags! {
     pub struct GlExt: u32 {
         const GL_OES_EGL_IMAGE   = 1 << 0;
+        const GL_OES_EGL_IMAGE_EXTERNAL   = 1 << 1;
     }
 }
 
 pub fn get_gl_ext() -> GlExt {
-    let map = [("GL_OES_EGL_image", GlExt::GL_OES_EGL_IMAGE)];
+    let map = [
+        ("GL_OES_EGL_image", GlExt::GL_OES_EGL_IMAGE),
+        (
+            "GL_OES_EGL_image_external",
+            GlExt::GL_OES_EGL_IMAGE_EXTERNAL,
+        ),
+    ];
     match unsafe { get_extensions(glGetString(GL_EXTENSIONS) as _) } {
         Some(exts) => get_typed_ext(&exts, GlExt::empty(), &map),
         _ => GlExt::empty(),

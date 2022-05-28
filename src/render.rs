@@ -88,4 +88,12 @@ pub enum RenderError {
     XRGB888,
     #[error("The DRM device does not have a render node")]
     NoRenderNode,
+    #[error("The requested format is not supported")]
+    UnsupportedFormat,
+    #[error("The requested modifier is not supported")]
+    UnsupportedModifier,
+    #[error("Image is external only and cannot be rendered to")]
+    ExternalOnly,
+    #[error("OpenGL context does not support external textures")]
+    ExternalUnsupported,
 }

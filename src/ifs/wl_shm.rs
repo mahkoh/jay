@@ -44,10 +44,12 @@ impl WlShmGlobal {
         track!(client, obj);
         client.add_client_obj(&obj)?;
         for format in FORMATS {
-            client.event(Format {
-                self_id: id,
-                format: format.wl_id.unwrap_or(format.drm),
-            });
+            if format.shm_supported {
+                client.event(Format {
+                    self_id: id,
+                    format: format.wl_id.unwrap_or(format.drm),
+                });
+            }
         }
         Ok(())
     }

@@ -30,6 +30,7 @@ pub const GL_RENDERBUFFER: GLenum = 0x8D41;
 pub const GL_SCISSOR_TEST: GLenum = 0x0C11;
 pub const GL_TEXTURE0: GLenum = 0x84C0;
 pub const GL_TEXTURE_2D: GLenum = 0x0DE1;
+pub const GL_TEXTURE_EXTERNAL_OES: GLenum = 0x8D65;
 #[allow(dead_code)]
 pub const GL_TEXTURE_MAG_FILTER: GLenum = 0x2800;
 pub const GL_TEXTURE_MIN_FILTER: GLenum = 0x2801;

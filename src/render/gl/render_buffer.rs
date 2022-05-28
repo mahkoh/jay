@@ -26,6 +26,9 @@ impl GlRenderBuffer {
         img: &Rc<EglImage>,
         ctx: &Rc<EglContext>,
     ) -> Result<Rc<GlRenderBuffer>, RenderError> {
+        if img.external_only {
+            return Err(RenderError::ExternalOnly);
+        }
         let mut rbo = 0;
         glGenRenderbuffers(1, &mut rbo);
         glBindRenderbuffer(GL_RENDERBUFFER, rbo);

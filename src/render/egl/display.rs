@@ -38,6 +38,7 @@ use {
 #[derive(Debug)]
 pub struct EglFormat {
     pub format: &'static Format,
+    pub implicit_external_only: bool,
     pub modifiers: AHashMap<u64, EglModifier>,
 }
 
@@ -142,6 +143,13 @@ impl EglDisplay {
     }
 
     pub fn import_dmabuf(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<EglImage>, RenderError> {
+        let format = match self.formats.get(&buf.format.drm) {
+            Some(fmt) => match fmt.modifiers.get(&buf.modifier) {
+                Some(fmt) => fmt,
+                _ => return Err(RenderError::UnsupportedModifier),
+            },
+            _ => return Err(RenderError::UnsupportedFormat),
+        };
         struct PlaneKey {
             fd: EGLint,
             offset: EGLint,
@@ -212,6 +220,7 @@ impl EglDisplay {
             img,
             width: buf.width,
             height: buf.height,
+            external_only: format.external_only,
         }))
     }
 }
@@ -243,11 +252,13 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
     let formats = formats();
     for fmt in vec {
         if let Some(format) = formats.get(&(fmt as u32)) {
+            let (modifiers, external_only) = query_modifiers(dpy, fmt, format)?;
             res.insert(
                 format.drm,
                 EglFormat {
                     format: *format,
-                    modifiers: query_modifiers(dpy, fmt)?,
+                    implicit_external_only: external_only,
+                    modifiers,
                 },
             );
         }
@@ -257,14 +268,15 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
 
 unsafe fn query_modifiers(
     dpy: EGLDisplay,
-    format: EGLint,
-) -> Result<AHashMap<u64, EglModifier>, RenderError> {
+    gl_format: EGLint,
+    format: &'static Format,
+) -> Result<(AHashMap<u64, EglModifier>, bool), RenderError> {
     let mut mods = vec![];
     let mut ext_only = vec![];
     let mut num = 0;
     let res = PROCS.eglQueryDmaBufModifiersEXT(
         dpy,
-        format,
+        gl_format,
         num,
         ptr::null_mut(),
         ptr::null_mut(),
@@ -277,7 +289,7 @@ unsafe fn query_modifiers(
     ext_only.reserve_exact(num as usize);
     let res = PROCS.eglQueryDmaBufModifiersEXT(
         dpy,
-        format,
+        gl_format,
         num,
         mods.as_mut_ptr(),
         ext_only.as_mut_ptr(),
@@ -289,13 +301,6 @@ unsafe fn query_modifiers(
     mods.set_len(num as usize);
     ext_only.set_len(num as usize);
     let mut res = AHashMap::new();
-    res.insert(
-        INVALID_MODIFIER,
-        EglModifier {
-            modifier: INVALID_MODIFIER,
-            external_only: false,
-        },
-    );
     for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
         res.insert(
             modifier as _,
@@ -305,5 +310,16 @@ unsafe fn query_modifiers(
             },
         );
     }
-    Ok(res)
+    let mut external_only = format.external_only_guess;
+    if res.len() > 0 {
+        external_only = res.values().any(|f| f.external_only);
+    }
+    res.insert(
+        INVALID_MODIFIER,
+        EglModifier {
+            modifier: INVALID_MODIFIER,
+            external_only,
+        },
+    );
+    Ok((res, external_only))
 }

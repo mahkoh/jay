@@ -16,7 +16,9 @@ pub struct Format {
     pub gl_type: GLint,
     pub drm: u32,
     pub wl_id: Option<u32>,
+    pub external_only_guess: bool,
     pub has_alpha: bool,
+    pub shm_supported: bool,
 }
 
 static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
@@ -72,7 +74,9 @@ pub static FORMATS: &[Format] = &[
         gl_type: GL_UNSIGNED_BYTE,
         drm: ARGB8888_DRM,
         wl_id: Some(ARGB8888_ID),
+        external_only_guess: false,
         has_alpha: true,
+        shm_supported: true,
     },
     Format {
         name: "xrgb8888",
@@ -81,7 +85,20 @@ pub static FORMATS: &[Format] = &[
         gl_type: GL_UNSIGNED_BYTE,
         drm: XRGB8888_DRM,
         wl_id: Some(XRGB8888_ID),
+        external_only_guess: false,
         has_alpha: false,
+        shm_supported: true,
+    },
+    Format {
+        name: "nv12",
+        bpp: 1,                    // wrong but only used for shm
+        gl_format: 0,              // wrong but only used for shm
+        gl_type: GL_UNSIGNED_BYTE, // wrong but only used for shm
+        drm: fourcc_code('N', 'V', '1', '2'),
+        wl_id: None,
+        external_only_guess: true,
+        has_alpha: false,
+        shm_supported: false,
     },
     // Format {
     //     id: fourcc_code('C', '8', ' ', ' '),

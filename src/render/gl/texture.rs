@@ -3,22 +3,17 @@ use {
         format::Format,
         render::{
             egl::{context::EglContext, image::EglImage, PROCS},
-            gl::{
-                frame_buffer::GlFrameBuffer,
-                sys::{
-                    glBindFramebuffer, glBindTexture, glCheckFramebufferStatus, glDeleteTextures,
-                    glFramebufferTexture2D, glGenFramebuffers, glGenTextures, glPixelStorei,
-                    glTexImage2D, glTexParameteri, GLint, GLuint, GL_CLAMP_TO_EDGE,
-                    GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER, GL_FRAMEBUFFER_COMPLETE, GL_LINEAR,
-                    GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S,
-                    GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
-                },
+            ext::GlExt,
+            gl::sys::{
+                glBindTexture, glDeleteTextures, glGenTextures, glPixelStorei, glTexImage2D,
+                glTexParameteri, GLint, GLuint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
             },
-            sys::GLeglImageOES,
+            sys::{GLeglImageOES, GLenum, GL_TEXTURE_EXTERNAL_OES},
             RenderError,
         },
     },
-    std::{cell::Cell, ptr, rc::Rc},
+    std::{cell::Cell, rc::Rc},
 };
 
 pub struct GlTexture {
@@ -27,84 +22,30 @@ pub struct GlTexture {
     pub tex: GLuint,
     pub width: i32,
     pub height: i32,
+    pub external_only: bool,
+}
+
+pub fn image_target(external_only: bool) -> GLenum {
+    match external_only {
+        true => GL_TEXTURE_EXTERNAL_OES,
+        false => GL_TEXTURE_2D,
+    }
 }
 
 impl GlTexture {
-    #[allow(dead_code)]
-    pub fn new(
-        ctx: &Rc<EglContext>,
-        format: &'static Format,
-        width: i32,
-        height: i32,
-    ) -> Result<Rc<GlTexture>, RenderError> {
-        let tex = ctx.with_current(|| unsafe {
-            let mut tex = 0;
-            glGenTextures(1, &mut tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexImage2D(
-                GL_TEXTURE_2D,
-                0,
-                format.gl_format,
-                width,
-                height,
-                0,
-                format.gl_format as _,
-                format.gl_type as _,
-                ptr::null(),
-            );
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            Ok(tex)
-        })?;
-        Ok(Rc::new(GlTexture {
-            ctx: ctx.clone(),
-            img: None,
-            tex,
-            width,
-            height,
-        }))
-    }
-
-    #[allow(dead_code)]
-    pub unsafe fn to_framebuffer(self: &Rc<Self>) -> Result<Rc<GlFrameBuffer>, RenderError> {
-        self.ctx.with_current(|| {
-            let mut fbo = 0;
-            glGenFramebuffers(1, &mut fbo);
-            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-            glFramebufferTexture2D(
-                GL_FRAMEBUFFER,
-                GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_2D,
-                self.tex,
-                0,
-            );
-            let fb = GlFrameBuffer {
-                _rb: None,
-                _tex: Some(self.clone()),
-                ctx: self.ctx.clone(),
-                fbo,
-                width: self.width,
-                height: self.height,
-            };
-            let status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            if status != GL_FRAMEBUFFER_COMPLETE {
-                return Err(RenderError::CreateFramebuffer);
-            }
-            Ok(Rc::new(fb))
-        })
-    }
-
     pub fn import_img(ctx: &Rc<EglContext>, img: &Rc<EglImage>) -> Result<GlTexture, RenderError> {
+        if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL) {
+            return Err(RenderError::ExternalUnsupported);
+        }
+        let target = image_target(img.external_only);
         let tex = ctx.with_current(|| unsafe {
             let mut tex = 0;
             glGenTextures(1, &mut tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            PROCS.glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, GLeglImageOES(img.img.0));
-            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindTexture(target, tex);
+            glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            PROCS.glEGLImageTargetTexture2DOES(target, GLeglImageOES(img.img.0));
+            glBindTexture(target, 0);
             Ok(tex)
         })?;
         Ok(GlTexture {
@@ -113,6 +54,7 @@ impl GlTexture {
             tex,
             width: img.width,
             height: img.height,
+            external_only: img.external_only,
         })
     }
 
@@ -155,6 +97,7 @@ impl GlTexture {
             tex,
             width,
             height,
+            external_only: false,
         })
     }
 }

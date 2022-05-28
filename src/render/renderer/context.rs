@@ -6,6 +6,7 @@ use {
                 context::EglContext,
                 display::{EglDisplay, EglFormat},
             },
+            ext::GlExt,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
             },
@@ -46,14 +47,19 @@ impl TexProg {
     }
 }
 
+pub(super) struct TexProgs {
+    pub alpha: TexProg,
+    pub solid: TexProg,
+}
+
 pub struct RenderContext {
     pub(super) ctx: Rc<EglContext>,
     pub gbm: Rc<GbmDevice>,
 
     pub(super) render_node: Rc<CString>,
 
-    pub(super) tex_prog: TexProg,
-    pub(super) tex_alpha_prog: TexProg,
+    pub(super) tex_internal: TexProgs,
+    pub(super) tex_external: Option<TexProgs>,
 
     pub(super) fill_prog: GlProgram,
     pub(super) fill_prog_pos: GLint,
@@ -79,6 +85,10 @@ impl RenderContext {
         self.ctx.reset_status()
     }
 
+    pub fn supports_external_texture(&self) -> bool {
+        self.ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL)
+    }
+
     pub fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
         let nodes = drm.get_nodes()?;
         let node = match nodes
@@ -97,16 +107,32 @@ impl RenderContext {
     }
 
     unsafe fn new(ctx: &Rc<EglContext>, node: &Rc<CString>) -> Result<Self, RenderError> {
-        let tex_prog = GlProgram::from_shaders(
-            ctx,
-            include_str!("../shaders/tex.vert.glsl"),
-            include_str!("../shaders/tex.frag.glsl"),
-        )?;
+        let tex_vert = include_str!("../shaders/tex.vert.glsl");
+        let tex_prog =
+            GlProgram::from_shaders(ctx, tex_vert, include_str!("../shaders/tex.frag.glsl"))?;
         let tex_alpha_prog = GlProgram::from_shaders(
             ctx,
-            include_str!("../shaders/tex.vert.glsl"),
+            tex_vert,
             include_str!("../shaders/tex-alpha.frag.glsl"),
         )?;
+        let tex_external = if ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL) {
+            let solid = GlProgram::from_shaders(
+                ctx,
+                tex_vert,
+                include_str!("../shaders/tex-external.frag.glsl"),
+            )?;
+            let alpha = GlProgram::from_shaders(
+                ctx,
+                tex_vert,
+                include_str!("../shaders/tex-external-alpha.frag.glsl"),
+            )?;
+            Some(TexProgs {
+                alpha: TexProg::from(alpha),
+                solid: TexProg::from(solid),
+            })
+        } else {
+            None
+        };
         let fill_prog = GlProgram::from_shaders(
             ctx,
             include_str!("../shaders/fill.vert.glsl"),
@@ -118,8 +144,11 @@ impl RenderContext {
 
             render_node: node.clone(),
 
-            tex_prog: TexProg::from(tex_prog),
-            tex_alpha_prog: TexProg::from(tex_alpha_prog),
+            tex_internal: TexProgs {
+                solid: TexProg::from(tex_prog),
+                alpha: TexProg::from(tex_alpha_prog),
+            },
+            tex_external,
 
             fill_prog_pos: fill_prog.get_attrib_location(ustr!("pos")),
             fill_prog_color: fill_prog.get_uniform_location(ustr!("color")),

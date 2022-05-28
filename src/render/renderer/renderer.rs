@@ -17,9 +17,9 @@ use {
                     glActiveTexture, glBindTexture, glDisableVertexAttribArray, glDrawArrays,
                     glEnableVertexAttribArray, glTexParameteri, glUniform1i, glUniform4f,
                     glUseProgram, glVertexAttribPointer, GL_FALSE, GL_FLOAT, GL_LINEAR,
-                    GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES,
-                    GL_TRIANGLE_STRIP,
+                    GL_TEXTURE0, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
                 },
+                texture::image_target,
             },
             renderer::context::RenderContext,
             sys::{glDisable, glEnable, GL_BLEND},
@@ -359,17 +359,29 @@ impl Renderer<'_> {
         unsafe {
             glActiveTexture(GL_TEXTURE0);
 
-            glBindTexture(GL_TEXTURE_2D, texture.gl.tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            let target = image_target(texture.gl.external_only);
 
+            glBindTexture(target, texture.gl.tex);
+            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+            let progs = match texture.gl.external_only {
+                true => match &self.ctx.tex_external {
+                    Some(p) => p,
+                    _ => {
+                        log::error!("Trying to render an external-only texture but context does not support the required extension");
+                        return;
+                    }
+                },
+                false => &self.ctx.tex_internal,
+            };
             let prog = match format.has_alpha {
                 true => {
                     glEnable(GL_BLEND);
-                    &self.ctx.tex_alpha_prog
+                    &progs.alpha
                 }
                 false => {
                     glDisable(GL_BLEND);
-                    &self.ctx.tex_prog
+                    &progs.solid
                 }
             };
 
@@ -423,7 +435,7 @@ impl Renderer<'_> {
             glDisableVertexAttribArray(prog.texcoord as _);
             glDisableVertexAttribArray(prog.pos as _);
 
-            glBindTexture(GL_TEXTURE_2D, 0);
+            glBindTexture(target, 0);
         }
     }
 
