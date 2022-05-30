@@ -5,8 +5,8 @@ use {
         format::XRGB8888,
         globals::{Global, GlobalName},
         ifs::{
-            wl_buffer::WlBufferStorage, zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
-            zxdg_output_v1::ZxdgOutputV1,
+            wl_buffer::WlBufferStorage, wl_surface::WlSurface,
+            zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zxdg_output_v1::ZxdgOutputV1,
         },
         leaks::Tracker,
         object::Object,
@@ -72,6 +72,7 @@ pub struct WlOutputGlobal {
     pub unused_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
+    pub legacy_scale: Cell<i32>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -117,11 +118,33 @@ impl WlOutputGlobal {
             unused_captures: Default::default(),
             pending_captures: Default::default(),
             destroyed: Cell::new(false),
+            legacy_scale: Cell::new(1),
         }
     }
 
     pub fn position(&self) -> Rect {
         self.pos.get()
+    }
+
+    pub fn for_each_binding<F: FnMut(&Rc<WlOutput>)>(&self, client: ClientId, mut f: F) {
+        let bindings = self.bindings.borrow_mut();
+        if let Some(bindings) = bindings.get(&client) {
+            for binding in bindings.values() {
+                f(binding);
+            }
+        }
+    }
+
+    pub fn send_enter(&self, surface: &WlSurface) {
+        self.for_each_binding(surface.client.id, |b| {
+            surface.send_enter(b.id);
+        })
+    }
+
+    pub fn send_leave(&self, surface: &WlSurface) {
+        self.for_each_binding(surface.client.id, |b| {
+            surface.send_leave(b.id);
+        })
     }
 
     pub fn send_mode(&self) {
@@ -293,7 +316,7 @@ impl WlOutput {
     fn send_scale(self: &Rc<Self>) {
         let event = Scale {
             self_id: self.id,
-            factor: 1,
+            factor: self.global.legacy_scale.get(),
         };
         self.client.event(event);
     }

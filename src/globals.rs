@@ -18,6 +18,7 @@ use {
             },
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
+            wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
             wp_presentation::WpPresentationGlobal,
             wp_viewporter::WpViewporterGlobal,
             xdg_wm_base::XdgWmBaseGlobal,
@@ -143,6 +144,7 @@ impl Globals {
         add_singleton!(ZwpRelativePointerManagerV1Global);
         add_singleton!(ExtSessionLockManagerV1Global);
         add_singleton!(WpViewporterGlobal);
+        add_singleton!(WpFractionalScaleManagerV1Global);
 
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);

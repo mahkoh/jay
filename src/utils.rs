@@ -22,6 +22,7 @@ pub mod oserror;
 pub mod ptr_ext;
 pub mod queue;
 pub mod rc_eq;
+pub mod refcounted;
 pub mod run_toplevel;
 pub mod scroller;
 pub mod smallmap;

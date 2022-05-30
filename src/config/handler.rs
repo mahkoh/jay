@@ -7,6 +7,7 @@ use {
         },
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
+        fixed::Fixed,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         theme::{Color, ThemeSized, DEFAULT_FONT},
@@ -573,6 +574,47 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_cursor_size(&self, seat: Seat, size: i32) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        if size < 0 {
+            return Err(CphError::NegativeCursorSize);
+        }
+        seat.set_cursor_size(size as _);
+        Ok(())
+    }
+
+    fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        let pos = connector.node.global.pos.get();
+        self.respond(Response::ConnectorSize {
+            width: pos.width(),
+            height: pos.height(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_get_scale(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        self.respond(Response::ConnectorGetScale {
+            scale: connector.node.preferred_scale.get().to_f64(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_set_scale(&self, connector: Connector, scale: f64) -> Result<(), CphError> {
+        if scale < 0.1 {
+            return Err(CphError::ScaleTooSmall(scale));
+        }
+        if scale > 1000.0 {
+            return Err(CphError::ScaleTooLarge(scale));
+        }
+        let scale = Fixed::from_f64(scale);
+        let connector = self.get_output(connector)?;
+        connector.node.set_preferred_scale(scale);
+        self.state.damage();
+        Ok(())
+    }
+
     fn handle_connector_set_position(
         &self,
         connector: Connector,
@@ -1086,6 +1128,18 @@ impl ConfigProxyHandler {
             ClientMessage::SetPxPerWheelScroll { device, px } => self
                 .handle_set_px_per_wheel_scroll(device, px)
                 .wrn("set_px_per_wheel_scroll")?,
+            ClientMessage::ConnectorSetScale { connector, scale } => self
+                .handle_connector_set_scale(connector, scale)
+                .wrn("connector_set_scale")?,
+            ClientMessage::ConnectorGetScale { connector } => self
+                .handle_connector_get_scale(connector)
+                .wrn("connector_get_scale")?,
+            ClientMessage::ConnectorSize { connector } => self
+                .handle_connector_size(connector)
+                .wrn("connector_size")?,
+            ClientMessage::SetCursorSize { seat, size } => self
+                .handle_set_cursor_size(seat, size)
+                .wrn("set_cursor_size")?,
         }
         Ok(())
     }
@@ -1137,6 +1191,12 @@ enum CphError {
     FailedRequest(&'static str, #[source] Box<Self>),
     #[error(transparent)]
     TimerError(#[from] TimerError),
+    #[error("The requested monitor scale {0} is too small")]
+    ScaleTooSmall(f64),
+    #[error("The requested monitor scale {0} is too large")]
+    ScaleTooLarge(f64),
+    #[error("Tried to set a negative cursor size")]
+    NegativeCursorSize,
 }
 
 trait WithRequestName {

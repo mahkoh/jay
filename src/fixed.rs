@@ -4,7 +4,7 @@ use std::{
     ops::{Add, AddAssign, Sub, SubAssign},
 };
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct Fixed(pub i32);
 
@@ -35,6 +35,10 @@ impl Fixed {
 
     pub fn round_down(self) -> i32 {
         self.0 >> 8
+    }
+
+    pub fn round_up(self) -> i32 {
+        (self.0 + 255) >> 8
     }
 
     pub fn apply_fract(self, i: i32) -> Self {

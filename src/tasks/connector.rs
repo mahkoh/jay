@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
+        fixed::Fixed,
         ifs::wl_output::WlOutputGlobal,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, OutputRenderData},
@@ -121,7 +122,9 @@ impl ConnectorHandler {
             scroll: Default::default(),
             pointer_positions: Default::default(),
             lock_surface: Default::default(),
+            preferred_scale: Cell::new(Fixed::from_int(1)),
         });
+        self.state.add_output_scale(on.preferred_scale.get());
         let mode = info.initial_mode;
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
@@ -154,7 +157,7 @@ impl ConnectorHandler {
                     }
                 }
                 for ws in ws_to_move {
-                    ws.output.set(on.clone());
+                    ws.set_output(&on);
                     on.workspaces.add_last_existing(&ws);
                     if ws.visible_on_desired_output.get() && on.workspace.get().is_none() {
                         on.show_workspace(&ws);
@@ -220,7 +223,7 @@ impl ConnectorHandler {
                 let is_visible =
                     !target_is_dummy && target.workspaces.is_empty() && ws.visible.get();
                 ws.visible_on_desired_output.set(ws.visible.get());
-                ws.output.set(target.clone());
+                ws.set_output(&target);
                 target.workspaces.add_last_existing(&ws);
                 if is_visible {
                     target.show_workspace(&ws);
@@ -243,5 +246,6 @@ impl ConnectorHandler {
         if let Some(dev) = &self.data.drm_dev {
             dev.connectors.remove(&self.id);
         }
+        self.state.remove_output_scale(on.preferred_scale.get());
     }
 }

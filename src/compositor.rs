@@ -14,6 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
         dbus::Dbus,
+        fixed::Fixed,
         forker,
         globals::Globals,
         ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
@@ -31,7 +32,8 @@ use {
         user_session::import_environment,
         utils::{
             clonecell::CloneCell, errorfmt::ErrorFmt, fdcloser::FdCloser, numcell::NumCell,
-            oserror::OsError, queue::AsyncQueue, run_toplevel::RunToplevel, tri::Try,
+            oserror::OsError, queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
+            tri::Try,
         },
         wheel::{Wheel, WheelError},
         xkbcommon::XkbContext,
@@ -120,6 +122,8 @@ fn start_compositor2(
     let wheel = Wheel::new(&engine, &ring)?;
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
+    let scales = RefCounted::default();
+    scales.add(Fixed::from_int(1));
     let state = Rc::new(State {
         xkb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -187,6 +191,8 @@ fn start_compositor2(
             locked: Cell::new(false),
             lock: Default::default(),
         },
+        scales,
+        cursor_sizes: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -376,6 +382,7 @@ fn create_dummy_output(state: &Rc<State>) {
         scroll: Default::default(),
         pointer_positions: Default::default(),
         lock_surface: Default::default(),
+        preferred_scale: Cell::new(Fixed::from_int(1)),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

@@ -1,6 +1,7 @@
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
+pub mod wp_fractional_scale_v1;
 pub mod wp_viewport;
 pub mod xdg_surface;
 pub mod xwindow;
@@ -21,7 +22,8 @@ use {
             },
             wl_seat::{wl_pointer::PendingScroll, Dnd, NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{
-                cursor::CursorSurface, wl_subsurface::WlSubsurface, wp_viewport::WpViewport,
+                cursor::CursorSurface, wl_subsurface::WlSubsurface,
+                wp_fractional_scale_v1::WpFractionalScaleV1, wp_viewport::WpViewport,
                 xdg_surface::XdgSurfaceError, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
             wp_presentation_feedback::WpPresentationFeedback,
@@ -31,7 +33,10 @@ use {
         rect::{Rect, Region},
         render::Renderer,
         state::DeviceHandlerData,
-        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelNode},
+        tree::{
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode,
+            ToplevelNode,
+        },
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -207,6 +212,14 @@ impl SurfaceRole {
     }
 }
 
+pub struct SurfaceSendPreferredScaleVisitor(pub Fixed);
+impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
+    fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+        node.send_preferred_scale();
+        node.node_visit_children(self);
+    }
+}
+
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
@@ -239,6 +252,8 @@ pub struct WlSurface {
     pub tracker: Tracker<Self>,
     idle_inhibitors: CopyHashMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>>,
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
+    output: CloneCell<Rc<OutputNode>>,
+    fractional_scale: CloneCell<Option<Rc<WpFractionalScaleV1>>>,
 }
 
 impl Debug for WlSurface {
@@ -370,6 +385,34 @@ impl WlSurface {
             tracker: Default::default(),
             idle_inhibitors: Default::default(),
             viewporter: Default::default(),
+            output: CloneCell::new(client.state.dummy_output.get().unwrap()),
+            fractional_scale: Default::default(),
+        }
+    }
+
+    pub fn set_output(&self, output: &Rc<OutputNode>) {
+        let old = self.output.set(output.clone());
+        if old.id == output.id {
+            return;
+        }
+        output.global.send_enter(self);
+        old.global.send_leave(self);
+        if old.preferred_scale.get() != output.preferred_scale.get() {
+            if let Some(fs) = self.fractional_scale.get() {
+                fs.send_preferred_scale();
+            }
+        }
+        let children = self.children.borrow_mut();
+        if let Some(children) = &*children {
+            for ss in children.subsurfaces.values() {
+                ss.surface.set_output(output);
+            }
+        }
+    }
+
+    pub fn send_preferred_scale(&self) {
+        if let Some(fs) = self.fractional_scale.get() {
+            fs.send_preferred_scale();
         }
     }
 
@@ -423,8 +466,15 @@ impl WlSurface {
         }
     }
 
-    fn send_enter(&self, output: WlOutputId) {
+    pub fn send_enter(&self, output: WlOutputId) {
         self.client.event(Enter {
+            self_id: self.id,
+            output,
+        })
+    }
+
+    pub fn send_leave(&self, output: WlOutputId) {
+        self.client.event(Leave {
             self_id: self.id,
             output,
         })
@@ -967,6 +1017,7 @@ impl Object for WlSurface {
         self.pending.presentation_feedback.borrow_mut().clear();
         self.presentation_feedback.borrow_mut().clear();
         self.viewporter.take();
+        self.fractional_scale.take();
     }
 }
 

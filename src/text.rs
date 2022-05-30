@@ -40,7 +40,7 @@ struct Data {
     layout: PangoLayout,
 }
 
-fn create_data(font: &str, width: i32, height: i32) -> Result<Data, TextError> {
+fn create_data(font: &str, width: i32, height: i32, scale: Option<f64>) -> Result<Data, TextError> {
     let image = match CairoImageSurface::new_image_surface(CAIRO_FORMAT_ARGB32, width, height) {
         Ok(s) => s,
         Err(e) => return Err(TextError::CreateImage(e)),
@@ -53,7 +53,10 @@ fn create_data(font: &str, width: i32, height: i32) -> Result<Data, TextError> {
         Ok(c) => c,
         Err(e) => return Err(TextError::PangoContext(e)),
     };
-    let fd = PangoFontDescription::from_string(font);
+    let mut fd = PangoFontDescription::from_string(font);
+    if let Some(scale) = scale {
+        fd.set_size((fd.size() as f64 * scale).round() as _);
+    }
     let layout = match pctx.create_layout() {
         Ok(l) => l,
         Err(e) => return Err(TextError::CreateLayout(e)),
@@ -68,8 +71,13 @@ fn create_data(font: &str, width: i32, height: i32) -> Result<Data, TextError> {
     })
 }
 
-pub fn measure(font: &str, text: &str, markup: bool) -> Result<Rect, TextError> {
-    let data = create_data(font, 1, 1)?;
+pub fn measure(
+    font: &str,
+    text: &str,
+    markup: bool,
+    scale: Option<f64>,
+) -> Result<Rect, TextError> {
+    let data = create_data(font, 1, 1, scale)?;
     if markup {
         data.layout.set_markup(text);
     } else {
@@ -85,8 +93,11 @@ pub fn render(
     font: &str,
     text: &str,
     color: Color,
+    scale: Option<f64>,
 ) -> Result<Rc<Texture>, TextError> {
-    render2(ctx, 1, width, height, 1, font, text, color, true, false)
+    render2(
+        ctx, 1, width, height, 1, font, text, color, true, false, scale,
+    )
 }
 
 fn render2(
@@ -100,8 +111,9 @@ fn render2(
     color: Color,
     ellipsize: bool,
     markup: bool,
+    scale: Option<f64>,
 ) -> Result<Rc<Texture>, TextError> {
-    let data = create_data(font, width, height)?;
+    let data = create_data(font, width, height, scale)?;
     if ellipsize {
         data.layout
             .set_width((width - 2 * padding).max(0) * PANGO_SCALE);
@@ -137,8 +149,9 @@ pub fn render_fitting(
     text: &str,
     color: Color,
     markup: bool,
+    scale: Option<f64>,
 ) -> Result<Rc<Texture>, TextError> {
-    let rect = measure(font, text, markup)?;
+    let rect = measure(font, text, markup, scale)?;
     render2(
         ctx,
         rect.x1().neg(),
@@ -150,5 +163,6 @@ pub fn render_fitting(
         color,
         false,
         markup,
+        scale,
     )
 }

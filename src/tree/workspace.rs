@@ -4,6 +4,7 @@ use {
         ifs::{
             wl_output::OutputId,
             wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_surface::SurfaceSendPreferredScaleVisitor,
         },
         rect::Rect,
         render::Renderer,
@@ -16,7 +17,7 @@ use {
             linkedlist::{LinkedList, LinkedNode},
         },
     },
-    std::{cell::Cell, fmt::Debug, rc::Rc},
+    std::{cell::Cell, fmt::Debug, ops::Deref, rc::Rc},
 };
 
 tree_id!(WorkspaceNodeId);
@@ -42,6 +43,17 @@ impl WorkspaceNode {
         self.container.set(None);
         self.output_link.set(None);
         self.fullscreen.set(None);
+    }
+
+    pub fn set_output(&self, output: &Rc<OutputNode>) {
+        let old = self.output.set(output.clone());
+        if old.preferred_scale.get() != output.preferred_scale.get() {
+            let mut visitor = SurfaceSendPreferredScaleVisitor(output.preferred_scale.get());
+            self.node_visit_children(&mut visitor);
+            for stacked in self.stacked.iter() {
+                stacked.deref().clone().node_visit(&mut visitor);
+            }
+        }
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {

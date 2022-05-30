@@ -12,7 +12,10 @@ use {
             walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
             StackedNode, ToplevelNode, WorkspaceNode,
         },
-        utils::{clonecell::CloneCell, errorfmt::ErrorFmt, linkedlist::LinkedNode},
+        utils::{
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            linkedlist::LinkedNode,
+        },
     },
     ahash::AHashMap,
     std::{
@@ -39,7 +42,7 @@ pub struct FloatNode {
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
-    pub title_texture: CloneCell<Option<Rc<Texture>>>,
+    pub title_textures: CopyHashMap<Fixed, Rc<Texture>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
 }
 
@@ -106,7 +109,7 @@ impl FloatNode {
             layout_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
             title: Default::default(),
-            title_texture: Default::default(),
+            title_textures: Default::default(),
             seats: Default::default(),
         });
         floater
@@ -174,23 +177,38 @@ impl FloatNode {
         let bw = theme.sizes.border_width.get();
         let font = theme.font.borrow_mut();
         let title = self.title.borrow_mut();
-        self.title_texture.set(None);
+        self.title_textures.clear();
         let pos = self.position.get();
-        if pos.width() <= 2 * bw || th == 0 || title.is_empty() {
+        if pos.width() <= 2 * bw || title.is_empty() {
             return;
         }
         let ctx = match self.state.render_ctx.get() {
             Some(c) => c,
             _ => return,
         };
-        let texture = match text::render(&ctx, pos.width() - 2 * bw, th, &font, &title, tc) {
-            Ok(t) => t,
-            Err(e) => {
-                log::error!("Could not render title {}: {}", title, ErrorFmt(e));
-                return;
+        let scales = self.state.scales.lock();
+        for (scale, _) in scales.iter() {
+            let mut th = th;
+            let mut scalef = None;
+            let mut width = pos.width() - 2 * bw;
+            if *scale != 1 {
+                let scale = scale.to_f64();
+                th = (th as f64 * scale).round() as _;
+                width = (width as f64 * scale).round() as _;
+                scalef = Some(scale);
             }
-        };
-        self.title_texture.set(Some(texture));
+            if th == 0 || width == 0 {
+                continue;
+            }
+            let texture = match text::render(&ctx, width, th, &font, &title, tc, scalef) {
+                Ok(t) => t,
+                Err(e) => {
+                    log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                    return;
+                }
+            };
+            self.title_textures.set(*scale, texture);
+        }
     }
 
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {

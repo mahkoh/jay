@@ -274,6 +274,20 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         px: f64,
     },
+    ConnectorSetScale {
+        connector: Connector,
+        scale: f64,
+    },
+    ConnectorGetScale {
+        connector: Connector,
+    },
+    ConnectorSize {
+        connector: Connector,
+    },
+    SetCursorSize {
+        seat: Seat,
+        size: i32,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -359,6 +373,13 @@ pub enum Response {
     },
     GetFont {
         font: String,
+    },
+    ConnectorGetScale {
+        scale: f64,
+    },
+    ConnectorSize {
+        width: i32,
+        height: i32,
     },
 }
 

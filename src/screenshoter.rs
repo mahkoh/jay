@@ -1,5 +1,6 @@
 use {
     crate::{
+        fixed::Fixed,
         format::XRGB8888,
         render::RenderError,
         state::State,
@@ -59,6 +60,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         Some(state.root.extents.get()),
         false,
         &mut Default::default(),
+        Fixed::from_int(1),
     );
     let drm = ctx.gbm.drm.dup_render()?.fd().clone();
     Ok(Screenshot { drm, bo })

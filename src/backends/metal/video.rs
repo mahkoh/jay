@@ -248,6 +248,7 @@ impl MetalConnector {
                 Some(node.global.pos.get()),
                 true,
                 &mut rr,
+                node.preferred_scale.get(),
             );
             for fr in rr.frame_requests.drain(..) {
                 fr.send_done();

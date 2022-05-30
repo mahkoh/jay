@@ -63,6 +63,8 @@ extern "C" {
 
     fn pango_font_description_from_string(str: *const c::c_char) -> *mut PangoFontDescription_;
     fn pango_font_description_free(desc: *mut PangoFontDescription_);
+    fn pango_font_description_get_size(desc: *mut PangoFontDescription_) -> c::c_int;
+    fn pango_font_description_set_size(desc: *mut PangoFontDescription_, size: c::c_int);
 
     fn pango_layout_new(context: *mut PangoContext_) -> *mut PangoLayout_;
     fn pango_layout_set_width(layout: *mut PangoLayout_, width: c::c_int);
@@ -254,6 +256,16 @@ impl PangoFontDescription {
         let s = s.into_ustr();
         Self {
             s: unsafe { pango_font_description_from_string(s.as_ptr()) },
+        }
+    }
+
+    pub fn size(&self) -> i32 {
+        unsafe { pango_font_description_get_size(self.s) as _ }
+    }
+
+    pub fn set_size(&mut self, size: i32) {
+        unsafe {
+            pango_font_description_set_size(self.s, size);
         }
     }
 }

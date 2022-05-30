@@ -1,0 +1,10 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg get_fractional_scale = 1 {
+    id: id(wp_fractional_scale_v1),
+    surface: id(wl_surface),
+}

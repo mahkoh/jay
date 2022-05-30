@@ -12,6 +12,7 @@ use {
         config::ConfigProxy,
         cursor::ServerCursors,
         dbus::Dbus,
+        fixed::Fixed,
         forker::ForkerProxy,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -37,7 +38,7 @@ use {
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, numcell::NumCell,
-            queue::AsyncQueue, run_toplevel::RunToplevel,
+            queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
         wheel::Wheel,
         xkbcommon::{XkbContext, XkbKeymap},
@@ -110,6 +111,8 @@ pub struct State {
     pub data_offer_ids: NumCell<u64>,
     pub ring: Rc<IoUring>,
     pub lock: ScreenlockState,
+    pub scales: RefCounted<Fixed>,
+    pub cursor_sizes: RefCounted<u32>,
 }
 
 // impl Drop for State {
@@ -202,10 +205,64 @@ pub struct DrmDevData {
     pub pci_id: Option<PciId>,
 }
 
+struct UpdateTextTexturesVisitor;
+impl NodeVisitorBase for UpdateTextTexturesVisitor {
+    fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+        node.schedule_compute_render_data();
+        node.node_visit_children(self);
+    }
+    fn visit_output(&mut self, node: &Rc<OutputNode>) {
+        node.update_render_data();
+        node.node_visit_children(self);
+    }
+    fn visit_float(&mut self, node: &Rc<FloatNode>) {
+        node.schedule_render_titles();
+        node.node_visit_children(self);
+    }
+    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        node.update_texture();
+        node.node_visit_children(self);
+    }
+}
+
 impl State {
+    pub fn add_output_scale(&self, scale: Fixed) {
+        if self.scales.add(scale) {
+            self.output_scales_changed();
+        }
+    }
+
+    pub fn remove_output_scale(&self, scale: Fixed) {
+        if self.scales.remove(&scale) {
+            self.output_scales_changed();
+        }
+    }
+
+    pub fn add_cursor_size(&self, size: u32) {
+        if self.cursor_sizes.add(size) {
+            self.cursor_sizes_changed();
+        }
+    }
+
+    pub fn remove_cursor_size(&self, size: u32) {
+        if self.cursor_sizes.remove(&size) {
+            self.cursor_sizes_changed();
+        }
+    }
+
+    fn output_scales_changed(&self) {
+        UpdateTextTexturesVisitor.visit_display(&self.root);
+        self.reload_cursors();
+    }
+
+    fn cursor_sizes_changed(&self) {
+        self.reload_cursors();
+    }
+
     pub fn set_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
         self.render_ctx.set(ctx.cloned());
         self.render_ctx_version.fetch_add(1);
+        self.cursors.set(None);
 
         {
             struct Walker;
@@ -220,11 +277,11 @@ impl State {
                     node.node_visit_children(self);
                 }
                 fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                    node.title_texture.set(None);
+                    node.title_textures.clear();
                     node.node_visit_children(self);
                 }
                 fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                    node.texture.set(None);
+                    node.textures.clear();
                     node.node_visit_children(self);
                 }
                 fn visit_surface(&mut self, node: &Rc<WlSurface>) {
@@ -242,36 +299,9 @@ impl State {
             }
         }
 
-        if let Some(ctx) = ctx {
-            let cursors = match ServerCursors::load(ctx) {
-                Ok(c) => Some(Rc::new(c)),
-                Err(e) => {
-                    log::error!("Could not load the cursors: {}", ErrorFmt(e));
-                    None
-                }
-            };
-            self.cursors.set(cursors);
-
-            struct Walker;
-            impl NodeVisitorBase for Walker {
-                fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                    node.schedule_compute_render_data();
-                    node.node_visit_children(self);
-                }
-                fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                    node.update_render_data();
-                    node.node_visit_children(self);
-                }
-                fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                    node.schedule_render_titles();
-                    node.node_visit_children(self);
-                }
-                fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                    node.update_texture();
-                    node.node_visit_children(self);
-                }
-            }
-            Walker.visit_display(&self.root);
+        if ctx.is_some() {
+            self.reload_cursors();
+            UpdateTextTexturesVisitor.visit_display(&self.root);
         }
 
         let seats = self.globals.seats.lock();
@@ -284,6 +314,22 @@ impl State {
             self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
             if let Some(config) = self.config.get() {
                 config.graphics_initialized();
+            }
+        }
+    }
+
+    fn reload_cursors(&self) {
+        if let Some(ctx) = self.render_ctx.get() {
+            let cursors = match ServerCursors::load(&ctx, self) {
+                Ok(c) => c.map(Rc::new),
+                Err(e) => {
+                    log::error!("Could not load the cursors: {}", ErrorFmt(e));
+                    None
+                }
+            };
+            self.cursors.set(cursors);
+            for seat in self.globals.seats.lock().values() {
+                seat.reload_known_cursor();
             }
         }
     }

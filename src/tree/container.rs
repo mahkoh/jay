@@ -22,6 +22,7 @@ use {
             numcell::NumCell,
             rc_eq::rc_eq,
             scroller::Scroller,
+            smallmap::SmallMapMut,
         },
     },
     ahash::AHashMap,
@@ -84,7 +85,7 @@ pub struct ContainerRenderData {
     pub last_active_rect: Option<Rect>,
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
-    pub titles: Vec<ContainerTitle>,
+    pub titles: SmallMapMut<Fixed, Vec<ContainerTitle>, 2>,
 }
 
 pub struct ContainerNode {
@@ -634,7 +635,9 @@ impl ContainerNode {
         let cwidth = self.width.get();
         let cheight = self.height.get();
         let ctx = self.state.render_ctx.get();
-        rd.titles.clear();
+        for (_, v) in rd.titles.iter_mut() {
+            v.clear();
+        }
         rd.title_rects.clear();
         rd.active_title_rects.clear();
         rd.border_rects.clear();
@@ -644,6 +647,7 @@ impl ContainerNode {
         let mono = self.mono_child.get().is_some();
         let split = self.split.get();
         let have_active = self.children.iter().any(|c| c.active.get());
+        let scales = self.state.scales.lock();
         for (i, child) in self.children.iter().enumerate() {
             let rect = child.title_rect.get();
             if i > 0 {
@@ -670,20 +674,32 @@ impl ContainerNode {
                 let rect = Rect::new_sized(rect.x1(), rect.y2(), rect.width(), 1).unwrap();
                 rd.underline_rects.push(rect);
             }
-            'render_title: {
-                let title = child.title.borrow_mut();
-                if th == 0 || rect.width() == 0 || title.is_empty() {
-                    break 'render_title;
-                }
-                if let Some(ctx) = &ctx {
-                    match text::render(ctx, rect.width(), th, &font, title.deref(), color) {
-                        Ok(t) => rd.titles.push(ContainerTitle {
-                            x: rect.x1(),
-                            y: rect.y1(),
-                            tex: t,
-                        }),
-                        Err(e) => {
-                            log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+            let title = child.title.borrow_mut();
+            for (scale, _) in scales.iter() {
+                let titles = rd.titles.get_or_default_mut(*scale);
+                'render_title: {
+                    let mut th = th;
+                    let mut scalef = None;
+                    let mut width = rect.width();
+                    if *scale != 1 {
+                        let scale = scale.to_f64();
+                        th = (th as f64 * scale).round() as _;
+                        width = (width as f64 * scale).round() as _;
+                        scalef = Some(scale);
+                    }
+                    if th == 0 || width == 0 || title.is_empty() {
+                        break 'render_title;
+                    }
+                    if let Some(ctx) = &ctx {
+                        match text::render(ctx, width, th, &font, title.deref(), color, scalef) {
+                            Ok(t) => titles.push(ContainerTitle {
+                                x: rect.x1(),
+                                y: rect.y1(),
+                                tex: t,
+                            }),
+                            Err(e) => {
+                                log::error!("Could not render title {}: {}", title, ErrorFmt(e));
+                            }
                         }
                     }
                 }
@@ -693,6 +709,7 @@ impl ContainerNode {
             rd.underline_rects
                 .push(Rect::new_sized(0, th, cwidth, 1).unwrap());
         }
+        rd.titles.remove_if(|_, v| v.is_empty());
     }
 
     fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
@@ -1349,8 +1366,7 @@ impl ToplevelNode for ContainerNode {
         self.parent.set(parent);
     }
 
-    fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        self.toplevel_data.workspace.set(Some(ws.clone()));
+    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         for child in self.children.iter() {
             child.node.clone().tl_set_workspace(ws);
         }

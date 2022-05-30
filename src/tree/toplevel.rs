@@ -129,6 +129,11 @@ pub trait ToplevelNode: Node {
     fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
         data.workspace.set(Some(ws.clone()));
+        self.tl_set_workspace_ext(ws);
+    }
+
+    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        let _ = ws;
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {

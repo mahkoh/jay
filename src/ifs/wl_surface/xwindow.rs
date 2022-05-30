@@ -12,7 +12,7 @@ use {
         state::State,
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
-            ToplevelData, ToplevelNode,
+            ToplevelData, ToplevelNode, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -399,6 +399,10 @@ impl ToplevelNode for Xwindow {
 
     fn tl_focus_child(&self, _seat: SeatId) -> Option<Rc<dyn Node>> {
         Some(self.surface.clone())
+    }
+
+    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        self.surface.set_output(&ws.output.get());
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {

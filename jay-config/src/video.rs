@@ -79,6 +79,23 @@ impl Connector {
         get!(false).connector_connected(self)
     }
 
+    /// Returns the scale of the currently connected monitor.
+    pub fn scale(self) -> f64 {
+        if !self.exists() {
+            return 1.0;
+        }
+        get!(1.0).connector_get_scale(self)
+    }
+
+    /// Sets the scale to use for the currently connected monitor.
+    pub fn set_scale(self, scale: f64) {
+        if !self.exists() {
+            return;
+        }
+        log::info!("setting scale to {}", scale);
+        get!().connector_set_scale(self, scale);
+    }
+
     /// Returns the connector type.
     pub fn ty(self) -> ConnectorType {
         if !self.exists() {
@@ -95,18 +112,18 @@ impl Connector {
         get!(Mode::zeroed()).connector_mode(self)
     }
 
-    /// Returns the width of the current mode of the connector.
+    /// Returns the logical width of the connector.
     ///
-    /// This is a shortcut for `mode().width()`.
+    /// The returned value will be different from `mode().width()` if the scale is not 1.
     pub fn width(self) -> i32 {
-        self.mode().width
+        get!().connector_size(self).0
     }
 
-    /// Returns the height of the current mode of the connector.
+    /// Returns the logical height of the connector.
     ///
-    /// This is a shortcut for `mode().height()`.
+    /// The returned value will be different from `mode().height()` if the scale is not 1.
     pub fn height(self) -> i32 {
-        self.mode().height
+        get!().connector_size(self).1
     }
 
     /// Returns the refresh rate in mhz of the current mode of the connector.

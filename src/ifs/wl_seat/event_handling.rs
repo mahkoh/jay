@@ -212,7 +212,7 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
-        self.output.set(output.node.clone());
+        self.set_output(&output.node);
         let pos = output.node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
@@ -247,7 +247,7 @@ impl WlSeatGlobal {
                 let outputs = self.state.outputs.lock();
                 for output in outputs.values() {
                     if output.node.global.pos.get().contains(x_int, y_int) {
-                        self.output.set(output.node.clone());
+                        self.set_output(&output.node);
                         break 'warp;
                     }
                 }
@@ -261,8 +261,8 @@ impl WlSeatGlobal {
                 } else if y_int >= pos.y2() {
                     y_int = pos.y2() - 1;
                 }
-                x = x.apply_fract(x_int);
-                y = y.apply_fract(y_int);
+                x = Fixed::from_int(x_int);
+                y = Fixed::from_int(y_int);
             }
         }
         self.set_new_position(time_usec, x, y);
@@ -480,9 +480,6 @@ impl WlSeatGlobal {
     fn set_new_position(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
         self.pos_time_usec.set(time_usec);
         self.pos.set((x, y));
-        if let Some(cursor) = self.cursor.get() {
-            cursor.set_position(x.round_down(), y.round_down());
-        }
         self.changes.or_assign(CHANGE_CURSOR_MOVED);
         self.apply_changes();
     }

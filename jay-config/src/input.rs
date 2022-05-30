@@ -107,6 +107,13 @@ impl Seat {
         Self(raw)
     }
 
+    /// Sets the size of the cursor theme.
+    ///
+    /// Default: 16.
+    pub fn set_cursor_size(self, size: i32) {
+        get!().set_cursor_size(self, size)
+    }
+
     /// Creates a compositor-wide hotkey.
     ///
     /// The closure is invoked when the user presses the last key of the modified keysym.

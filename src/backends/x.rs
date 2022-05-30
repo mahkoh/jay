@@ -699,6 +699,7 @@ impl XBackend {
                 Some(node.global.pos.get()),
                 true,
                 rr.deref_mut(),
+                node.preferred_scale.get(),
             );
             for fr in rr.frame_requests.drain(..) {
                 fr.send_done();

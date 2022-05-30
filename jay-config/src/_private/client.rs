@@ -359,6 +359,10 @@ impl Client {
         size
     }
 
+    pub fn set_cursor_size(&self, seat: Seat, size: i32) {
+        self.send(&ClientMessage::SetCursorSize { seat, size })
+    }
+
     pub fn set_size(&self, sized: Resizable, size: i32) {
         self.send(&ClientMessage::SetSize { sized, size })
     }
@@ -459,6 +463,16 @@ impl Client {
         connected
     }
 
+    pub fn connector_set_scale(&self, connector: Connector, scale: f64) {
+        self.send(&ClientMessage::ConnectorSetScale { connector, scale });
+    }
+
+    pub fn connector_get_scale(&self, connector: Connector) -> f64 {
+        let res = self.send_with_response(&ClientMessage::ConnectorGetScale { connector });
+        get_response!(res, 1.0, ConnectorGetScale { scale });
+        scale
+    }
+
     pub fn connector_type(&self, connector: Connector) -> ConnectorType {
         let res = self.send_with_response(&ClientMessage::ConnectorType { connector });
         get_response!(res, CON_UNKNOWN, ConnectorType { ty });
@@ -481,6 +495,12 @@ impl Client {
             height,
             refresh_millihz,
         }
+    }
+
+    pub fn connector_size(&self, connector: Connector) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::ConnectorSize { connector });
+        get_response!(res, (0, 0), ConnectorSize { width, height });
+        (width, height)
     }
 
     pub fn drm_devices(&self) -> Vec<DrmDevice> {

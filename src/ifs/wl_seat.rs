@@ -149,10 +149,19 @@ pub struct WlSeatGlobal {
     output: CloneCell<Rc<OutputNode>>,
     desired_known_cursor: Cell<Option<KnownCursor>>,
     changes: NumCell<u32>,
+    cursor_size: Cell<u32>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
 const CHANGE_TREE: u32 = 1 << 1;
+
+const DEFAULT_CURSOR_SIZE: u32 = 16;
+
+impl Drop for WlSeatGlobal {
+    fn drop(&mut self) {
+        self.state.remove_cursor_size(self.cursor_size.get());
+    }
+}
 
 impl WlSeatGlobal {
     pub fn new(name: GlobalName, seat_name: &str, state: &Rc<State>) -> Rc<Self> {
@@ -192,7 +201,9 @@ impl WlSeatGlobal {
             output: CloneCell::new(state.dummy_output.get().unwrap()),
             desired_known_cursor: Cell::new(None),
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
+            cursor_size: Cell::new(DEFAULT_CURSOR_SIZE),
         });
+        state.add_cursor_size(DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
         let future = state.eng.spawn(async move {
             loop {
@@ -205,6 +216,15 @@ impl WlSeatGlobal {
         });
         slf.tree_changed_handler.set(Some(future));
         slf
+    }
+
+    pub fn set_cursor_size(&self, size: u32) {
+        let old = self.cursor_size.replace(size);
+        if size != old {
+            self.state.remove_cursor_size(old);
+            self.state.add_cursor_size(size);
+            self.reload_known_cursor();
+        }
     }
 
     pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
@@ -342,15 +362,25 @@ impl WlSeatGlobal {
     pub fn set_position(&self, x: i32, y: i32) {
         self.pos.set((Fixed::from_int(x), Fixed::from_int(y)));
         self.trigger_tree_changed();
-        'set_output: {
+        let output = 'set_output: {
             let outputs = self.state.outputs.lock();
             for output in outputs.values() {
                 if output.node.global.pos.get().contains(x, y) {
-                    self.output.set(output.node.clone());
-                    break 'set_output;
+                    break 'set_output output.node.clone();
                 }
             }
-            self.output.set(self.state.dummy_output.get().unwrap());
+            self.state.dummy_output.get().unwrap()
+        };
+        self.set_output(&output);
+    }
+
+    fn set_output(&self, output: &Rc<OutputNode>) {
+        self.output.set(output.clone());
+        if let Some(cursor) = self.cursor.get() {
+            cursor.set_output(output);
+        }
+        if let Some(dnd) = self.pointer_owner.dnd_icon() {
+            dnd.set_output(output);
         }
     }
 
@@ -547,6 +577,9 @@ impl WlSeatGlobal {
         icon: Option<Rc<WlSurface>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
+        if let Some(icon) = &icon {
+            icon.set_output(&self.output.get());
+        }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
     }
@@ -604,6 +637,12 @@ impl WlSeatGlobal {
         self.set_selection_::<PrimarySelectionIpc>(&self.primary_selection, selection)
     }
 
+    pub fn reload_known_cursor(&self) {
+        if let Some(kc) = self.desired_known_cursor.get() {
+            self.set_known_cursor(kc);
+        }
+    }
+
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
         self.desired_known_cursor.set(Some(cursor));
         let cursors = match self.state.cursors.get() {
@@ -622,7 +661,7 @@ impl WlSeatGlobal {
             KnownCursor::ResizeBottomLeft => &cursors.resize_bottom_left,
             KnownCursor::ResizeBottomRight => &cursors.resize_bottom_right,
         };
-        self.set_cursor2(Some(tpl.instantiate()));
+        self.set_cursor2(Some(tpl.instantiate(self.cursor_size.get())));
     }
 
     pub fn set_app_cursor(&self, cursor: Option<Rc<dyn Cursor>>) {
@@ -640,8 +679,7 @@ impl WlSeatGlobal {
             old.handle_unset();
         }
         if let Some(cursor) = cursor.as_ref() {
-            let (x, y) = self.pos.get();
-            cursor.set_position(x.round_down(), y.round_down());
+            cursor.set_output(&self.output.get());
         }
         self.cursor.set(cursor);
     }
@@ -652,6 +690,10 @@ impl WlSeatGlobal {
 
     pub fn remove_dnd_icon(&self) {
         self.pointer_owner.remove_dnd_icon();
+    }
+
+    pub fn get_position(&self) -> (Fixed, Fixed) {
+        self.pos.get()
     }
 
     pub fn get_cursor(&self) -> Option<Rc<dyn Cursor>> {

@@ -1,5 +1,6 @@
 use {
     crate::{
+        fixed::Fixed,
         format::{Format, XRGB8888},
         rect::Rect,
         render::{
@@ -55,14 +56,19 @@ impl Framebuffer {
                 glViewport(0, 0, self.gl.width, self.gl.height);
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
+            let scale = Fixed::from_int(1);
             let mut renderer = Renderer {
                 ctx: &self.ctx,
                 fb: &self.gl,
                 state,
                 on_output: false,
                 result: &mut RenderResult::default(),
+                scaled: false,
+                scale,
+                scalef: 1.0,
+                logical_extents: Rect::new_sized(0, 0, self.gl.width, self.gl.height).unwrap(),
             };
-            renderer.render_texture(texture, x, y, XRGB8888, None, None);
+            renderer.render_texture(texture, x, y, XRGB8888, None, None, scale);
             unsafe {
                 glFlush();
             }
@@ -106,6 +112,7 @@ impl Framebuffer {
         cursor_rect: Option<Rect>,
         on_output: bool,
         result: &mut RenderResult,
+        scale: Fixed,
     ) {
         let _ = self.ctx.ctx.with_current(|| {
             let c = state.theme.colors.background.get();
@@ -122,29 +129,31 @@ impl Framebuffer {
                 state,
                 on_output,
                 result,
+                scaled: scale != 1,
+                scale,
+                scalef: scale.to_f64(),
+                logical_extents: node.node_absolute_position().at_point(0, 0),
             };
             node.node_render(&mut renderer, 0, 0);
             if let Some(rect) = cursor_rect {
                 let seats = state.globals.lock_seats();
                 for seat in seats.values() {
                     if let Some(cursor) = seat.get_cursor() {
-                        cursor.tick();
-                        let extents = cursor.extents();
+                        let (mut x, mut y) = seat.get_position();
                         if let Some(dnd_icon) = seat.dnd_icon() {
-                            let (x_hot, y_hot) = cursor.get_hotspot();
                             let extents = dnd_icon.extents.get().move_(
-                                extents.x1() + x_hot + dnd_icon.buf_x.get(),
-                                extents.y1() + y_hot + dnd_icon.buf_y.get(),
+                                x.round_down() + dnd_icon.buf_x.get(),
+                                y.round_down() + dnd_icon.buf_y.get(),
                             );
                             if extents.intersects(&rect) {
                                 let (x, y) = rect.translate(extents.x1(), extents.y1());
                                 renderer.render_surface(&dnd_icon, x, y);
                             }
                         }
-                        if extents.intersects(&rect) {
-                            let (x, y) = rect.translate(extents.x1(), extents.y1());
-                            cursor.render(&mut renderer, x, y);
-                        }
+                        cursor.tick();
+                        x -= Fixed::from_int(rect.x1());
+                        y -= Fixed::from_int(rect.y1());
+                        cursor.render(&mut renderer, x, y);
                     }
                 }
             }

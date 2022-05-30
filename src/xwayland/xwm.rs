@@ -424,6 +424,10 @@ impl Wm {
                 Some(f) => f,
                 _ => break 'set_root_cursor,
             };
+            let first = match first.iter().find(|i| i.0 .0 == 1) {
+                Some(f) => f.1,
+                _ => break 'set_root_cursor,
+            };
             let cursor = match c
                 .create_cursor(
                     &first.pixels,

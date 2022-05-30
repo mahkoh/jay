@@ -12,7 +12,7 @@ use {
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
             ToplevelNode,
         },
-        utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
+        utils::{errorfmt::ErrorFmt, smallmap::SmallMap},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
 };
@@ -23,7 +23,7 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    pub texture: CloneCell<Option<Rc<Texture>>>,
+    pub textures: SmallMap<Fixed, Rc<Texture>, 2>,
 }
 
 impl PlaceholderNode {
@@ -36,7 +36,7 @@ impl PlaceholderNode {
                 node.node_client(),
             ),
             destroyed: Default::default(),
-            texture: Default::default(),
+            textures: Default::default(),
         }
     }
 
@@ -45,24 +45,35 @@ impl PlaceholderNode {
     }
 
     pub fn update_texture(&self) {
-        self.texture.set(None);
+        self.textures.clear();
         if let Some(ctx) = self.toplevel.state.render_ctx.get() {
+            let scales = self.toplevel.state.scales.lock();
             let rect = self.toplevel.pos.get();
-            if rect.width() != 0 && rect.height() != 0 {
-                let font = format!("monospace {}", rect.width() / 10);
-                match text::render_fitting(
-                    &ctx,
-                    rect.height(),
-                    &font,
-                    "Fullscreen",
-                    self.toplevel.state.theme.colors.unfocused_title_text.get(),
-                    false,
-                ) {
-                    Ok(t) => {
-                        self.texture.set(Some(t));
-                    }
-                    Err(e) => {
-                        log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
+            for (scale, _) in scales.iter() {
+                let mut width = rect.width();
+                let mut height = rect.height();
+                if *scale != 1 {
+                    let scale = scale.to_f64();
+                    width = (width as f64 * scale).round() as _;
+                    height = (height as f64 * scale).round() as _;
+                }
+                if width != 0 && height != 0 {
+                    let font = format!("monospace {}", width / 10);
+                    match text::render_fitting(
+                        &ctx,
+                        height,
+                        &font,
+                        "Fullscreen",
+                        self.toplevel.state.theme.colors.unfocused_title_text.get(),
+                        false,
+                        None,
+                    ) {
+                        Ok(t) => {
+                            self.textures.insert(*scale, t);
+                        }
+                        Err(e) => {
+                            log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
+                        }
                     }
                 }
             }

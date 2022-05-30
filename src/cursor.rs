@@ -1,11 +1,14 @@
 use {
     crate::{
+        fixed::Fixed,
         format::ARGB8888,
         rect::Rect,
         render::{RenderContext, RenderError, Renderer, Texture},
-        utils::{errorfmt::ErrorFmt, numcell::NumCell},
+        state::State,
+        tree::OutputNode,
+        utils::{errorfmt::ErrorFmt, numcell::NumCell, smallmap::SmallMapMut},
     },
-    ahash::AHashSet,
+    ahash::{AHashMap, AHashSet},
     bstr::{BStr, BString, ByteSlice, ByteVec},
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
@@ -34,10 +37,10 @@ const HOME: &str = "HOME";
 const HEADER_SIZE: u32 = 16;
 
 pub trait Cursor {
-    fn set_position(&self, x: i32, y: i32);
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32);
-    fn get_hotspot(&self) -> (i32, i32);
-    fn extents(&self) -> Rect;
+    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed);
+    fn set_output(&self, output: &Rc<OutputNode>) {
+        let _ = output;
+    }
     fn handle_unset(&self) {}
     fn tick(&self) {}
 }
@@ -68,11 +71,17 @@ pub enum KnownCursor {
 }
 
 impl ServerCursors {
-    pub fn load(ctx: &Rc<RenderContext>) -> Result<Self, CursorError> {
+    pub fn load(ctx: &Rc<RenderContext>, state: &State) -> Result<Option<Self>, CursorError> {
         let paths = find_cursor_paths();
         log::debug!("Trying to load cursors from paths {:?}", paths);
-        let load = |name: &str| ServerCursorTemplate::load(name, None, 16, &paths, ctx);
-        Ok(Self {
+        let sizes = state.cursor_sizes.to_vec();
+        let scales = state.scales.to_vec();
+        if sizes.is_empty() || scales.is_empty() {
+            return Ok(None);
+        }
+        let load =
+            |name: &str| ServerCursorTemplate::load(name, None, &scales, &sizes, &paths, ctx);
+        Ok(Some(Self {
             default: load("left_ptr")?,
             // default: load("left_ptr_watch")?,
             resize_right: load("right_side")?,
@@ -85,13 +94,13 @@ impl ServerCursors {
             resize_top_right: load("top_right_corner")?,
             resize_bottom_left: load("bottom_left_corner")?,
             resize_bottom_right: load("bottom_right_corner")?,
-        })
+        }))
     }
 }
 
 pub struct ServerCursorTemplate {
     var: ServerCursorTemplateVariant,
-    pub xcursor: Vec<XCursorImage>,
+    pub xcursor: Vec<AHashMap<(Fixed, u32), Rc<XCursorImage>>>,
 }
 
 enum ServerCursorTemplateVariant {
@@ -103,45 +112,64 @@ impl ServerCursorTemplate {
     fn load(
         name: &str,
         theme: Option<&BStr>,
-        size: u32,
+        scales: &[Fixed],
+        sizes: &[u32],
         paths: &[BString],
         ctx: &Rc<RenderContext>,
     ) -> Result<Self, CursorError> {
-        match open_cursor(name, theme, size, paths) {
+        match open_cursor(name, theme, &scales, sizes, paths) {
             Ok(cs) => {
-                if cs.len() == 1 {
-                    let c = &cs[0];
-                    let cursor = CursorImage::from_bytes(
-                        ctx, &c.pixels, 0, c.width, c.height, c.xhot, c.yhot,
-                    )?;
+                if cs.images.len() == 1 {
+                    let mut sizes = SmallMapMut::new();
+                    for (k, c) in &cs.images[0] {
+                        sizes.insert(
+                            *k,
+                            CursorImageScaled::from_bytes(
+                                ctx, &c.pixels, c.width, c.height, c.xhot, c.yhot,
+                            )?,
+                        );
+                    }
+                    let cursor = CursorImage::from_sizes(0, sizes)?;
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
-                        xcursor: cs,
+                        xcursor: cs.images,
                     })
                 } else {
                     let mut images = vec![];
-                    for c in &cs {
-                        let img = CursorImage::from_bytes(
-                            ctx,
-                            &c.pixels,
-                            c.delay as _,
-                            c.width,
-                            c.height,
-                            c.xhot,
-                            c.yhot,
-                        )?;
+                    for image in &cs.images {
+                        let mut sizes = SmallMapMut::new();
+                        let mut delay_ms = 0;
+                        for (k, c) in image {
+                            delay_ms = c.delay;
+                            sizes.insert(
+                                *k,
+                                CursorImageScaled::from_bytes(
+                                    ctx, &c.pixels, c.width, c.height, c.xhot, c.yhot,
+                                )?,
+                            );
+                        }
+                        let img = CursorImage::from_sizes(delay_ms as _, sizes)?;
                         images.push(img);
                     }
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Animated(Rc::new(images)),
-                        xcursor: cs,
+                        xcursor: cs.images,
                     })
                 }
             }
             Err(e) => {
                 log::warn!("Could not load cursor {}: {}", name, ErrorFmt(e));
                 let empty: [Cell<u8>; 4] = unsafe { MaybeUninit::zeroed().assume_init() };
-                let cursor = CursorImage::from_bytes(ctx, &empty, 0, 1, 1, 0, 0)?;
+                let mut img_sizes = SmallMapMut::new();
+                for scale in scales {
+                    for size in sizes {
+                        img_sizes.insert(
+                            (*scale, *size),
+                            CursorImageScaled::from_bytes(ctx, &empty, 1, 1, 0, 0)?,
+                        );
+                    }
+                }
+                let cursor = CursorImage::from_sizes(0, img_sizes)?;
                 Ok(ServerCursorTemplate {
                     var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
                     xcursor: Default::default(),
@@ -150,13 +178,10 @@ impl ServerCursorTemplate {
         }
     }
 
-    pub fn instantiate(&self) -> Rc<dyn Cursor> {
+    pub fn instantiate(&self, size: u32) -> Rc<dyn Cursor> {
         match &self.var {
             ServerCursorTemplateVariant::Static(s) => Rc::new(StaticCursor {
-                x: Cell::new(0),
-                y: Cell::new(0),
-                extents: Cell::new(s.extents),
-                image: s.clone(),
+                image: s.for_size(size),
             }),
             ServerCursorTemplateVariant::Animated(a) => {
                 let mut start = c::timespec {
@@ -168,68 +193,103 @@ impl ServerCursorTemplate {
                     start,
                     next: NumCell::new(a[0].delay_ns),
                     idx: Cell::new(0),
-                    images: a.clone(),
-                    x: Cell::new(0),
-                    y: Cell::new(0),
-                    extents: Cell::new(a[0].extents),
+                    images: a.iter().map(|c| c.for_size(size)).collect(),
                 })
             }
         }
     }
 }
 
-struct CursorImage {
+struct CursorImageScaled {
     extents: Rect,
-    xhot: i32,
-    yhot: i32,
-    delay_ns: u64,
     tex: Rc<Texture>,
 }
 
-impl CursorImage {
+struct CursorImage {
+    delay_ns: u64,
+    sizes: SmallMapMut<(Fixed, u32), Rc<CursorImageScaled>, 2>,
+}
+
+struct InstantiatedCursorImage {
+    delay_ns: u64,
+    scales: SmallMapMut<Fixed, Rc<CursorImageScaled>, 2>,
+}
+
+impl CursorImageScaled {
     fn from_bytes(
         ctx: &Rc<RenderContext>,
         data: &[Cell<u8>],
-        delay_ms: u64,
         width: i32,
         height: i32,
         xhot: i32,
         yhot: i32,
+    ) -> Result<Rc<Self>, CursorError> {
+        Ok(Rc::new(Self {
+            extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
+            tex: ctx.shmem_texture(data, ARGB8888, width, height, width * 4)?,
+        }))
+    }
+}
+
+impl CursorImage {
+    fn from_sizes(
+        delay_ms: u64,
+        sizes: SmallMapMut<(Fixed, u32), Rc<CursorImageScaled>, 2>,
     ) -> Result<Self, CursorError> {
         Ok(Self {
-            extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
-            xhot,
-            yhot,
             delay_ns: delay_ms * 1_000_000,
-            tex: ctx.shmem_texture(data, ARGB8888, width, height, width * 4)?,
+            sizes,
         })
+    }
+
+    fn for_size(&self, size: u32) -> InstantiatedCursorImage {
+        let mut sizes = SmallMapMut::new();
+        for ((scale, isize), v) in &self.sizes {
+            if *isize == size {
+                sizes.insert(*scale, v.clone());
+            }
+        }
+        InstantiatedCursorImage {
+            delay_ns: self.delay_ns,
+            scales: sizes,
+        }
     }
 }
 
 struct StaticCursor {
-    x: Cell<i32>,
-    y: Cell<i32>,
-    extents: Cell<Rect>,
-    image: Rc<CursorImage>,
+    image: InstantiatedCursorImage,
+}
+
+fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+    let scale = renderer.scale();
+    let img = match image.scales.get(&scale) {
+        Some(img) => img,
+        _ => return,
+    };
+    let extents = if scale != 1 {
+        let scalef = scale.to_f64();
+        let x = (x.to_f64() * scalef).round() as i32;
+        let y = (y.to_f64() * scalef).round() as i32;
+        img.extents.move_(x, y)
+    } else {
+        img.extents.move_(x.round_down(), y.round_down())
+    };
+    if extents.intersects(&renderer.physical_extents()) {
+        renderer.render_texture(
+            &img.tex,
+            extents.x1(),
+            extents.y1(),
+            ARGB8888,
+            None,
+            None,
+            scale,
+        );
+    }
 }
 
 impl Cursor for StaticCursor {
-    fn set_position(&self, x: i32, y: i32) {
-        let dx = x - self.x.replace(x);
-        let dy = y - self.y.replace(y);
-        self.extents.set(self.extents.get().move_(dx, dy));
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_texture(&self.image.tex, x, y, ARGB8888, None, None);
-    }
-
-    fn get_hotspot(&self) -> (i32, i32) {
-        (self.image.xhot, self.image.yhot)
-    }
-
-    fn extents(&self) -> Rect {
-        self.extents.get()
+    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+        render_img(&self.image, renderer, x, y);
     }
 }
 
@@ -237,31 +297,13 @@ struct AnimatedCursor {
     start: c::timespec,
     next: NumCell<u64>,
     idx: Cell<usize>,
-    images: Rc<Vec<CursorImage>>,
-    x: Cell<i32>,
-    y: Cell<i32>,
-    extents: Cell<Rect>,
+    images: Vec<InstantiatedCursorImage>,
 }
 
 impl Cursor for AnimatedCursor {
-    fn set_position(&self, x: i32, y: i32) {
-        let dx = x - self.x.replace(x);
-        let dy = y - self.y.replace(y);
-        self.extents.set(self.extents.get().move_(dx, dy));
-    }
-
-    fn render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
         let img = &self.images[self.idx.get()];
-        renderer.render_texture(&img.tex, x, y, ARGB8888, None, None);
-    }
-
-    fn get_hotspot(&self) -> (i32, i32) {
-        let img = &self.images[self.idx.get()];
-        (img.xhot, img.yhot)
-    }
-
-    fn extents(&self) -> Rect {
-        self.extents.get()
+        render_img(img, renderer, x, y);
     }
 
     fn tick(&self) {
@@ -278,25 +320,21 @@ impl Cursor for AnimatedCursor {
         let idx = (self.idx.get() + 1) % self.images.len();
         self.idx.set(idx);
         let image = &self.images[idx];
-        self.extents.set(
-            Rect::new_sized(
-                self.x.get() - image.xhot,
-                self.y.get() - image.yhot,
-                image.extents.width(),
-                image.extents.height(),
-            )
-            .unwrap(),
-        );
         self.next.fetch_add(image.delay_ns);
     }
+}
+
+struct OpenCursorResult {
+    images: Vec<AHashMap<(Fixed, u32), Rc<XCursorImage>>>,
 }
 
 fn open_cursor(
     name: &str,
     theme: Option<&BStr>,
-    size: u32,
+    scales: &[Fixed],
+    sizes: &[u32],
     paths: &[BString],
-) -> Result<Vec<XCursorImage>, CursorError> {
+) -> Result<OpenCursorResult, CursorError> {
     let name = name.as_bytes().as_bstr();
     let mut file = None;
     let mut themes_tested = AHashSet::new();
@@ -311,11 +349,7 @@ fn open_cursor(
         _ => return Err(CursorError::NotFound),
     };
     let mut file = BufReader::new(file);
-    let images = parser_cursor_file(&mut file, size)?;
-    if images.is_empty() {
-        return Err(CursorError::EmptyXcursorFile);
-    }
-    Ok(images)
+    parser_cursor_file(&mut file, scales, sizes)
 }
 
 fn open_cursor_file(
@@ -461,8 +495,9 @@ impl Debug for XCursorImage {
 
 fn parser_cursor_file<R: BufRead + Seek>(
     r: &mut R,
-    target: u32,
-) -> Result<Vec<XCursorImage>, CursorError> {
+    scales: &[Fixed],
+    sizes: &[u32],
+) -> Result<OpenCursorResult, CursorError> {
     let [magic, header] = read_u32_n(r)?;
     if magic != XCURSOR_MAGIC || header < HEADER_SIZE {
         return Err(CursorError::NotAnXcursorFile);
@@ -472,24 +507,54 @@ fn parser_cursor_file<R: BufRead + Seek>(
     if ntoc > 0x10000 {
         return Err(CursorError::OversizedXcursorFile);
     }
-    let mut images_positions = vec![];
-    let mut best_fit = i64::MAX;
+    struct Target {
+        positions: Vec<u32>,
+        effective_size: u32,
+        size: u32,
+        scale: Fixed,
+        best_fit: i64,
+    }
+    let mut targets = Vec::new();
+    for scale in scales {
+        let scalef = scale.to_f64();
+        for size in sizes {
+            let effective_size = (*size as f64 * scalef).round() as _;
+            targets.push(Target {
+                positions: vec![],
+                effective_size,
+                size: *size,
+                scale: *scale,
+                best_fit: i64::MAX,
+            });
+        }
+    }
+    let mut sizes = AHashSet::new();
     for _ in 0..ntoc {
         let [type_, size, position] = read_u32_n(r)?;
         if type_ != XCURSOR_IMAGE_TYPE {
             continue;
         }
-        let fit = (size as i64 - target as i64).abs();
-        if fit < best_fit {
-            best_fit = fit;
-            images_positions.clear();
-        }
-        if fit == best_fit {
-            images_positions.push(position);
+        sizes.insert(size);
+        for target in &mut targets {
+            let fit = (size as i64 - target.effective_size as i64).abs();
+            if fit < target.best_fit {
+                target.best_fit = fit;
+                target.positions.clear();
+            }
+            if fit == target.best_fit {
+                target.positions.push(position);
+            }
         }
     }
-    let mut images = Vec::with_capacity(images_positions.len());
-    for position in images_positions {
+    let positions: AHashSet<_> = targets
+        .iter()
+        .flat_map(|t| t.positions.iter().copied())
+        .collect();
+    if positions.is_empty() {
+        return Err(CursorError::EmptyXcursorFile);
+    }
+    let mut images = AHashMap::new();
+    for position in positions {
         r.seek(SeekFrom::Start(position as u64))?;
         let [_chunk_header, _type_, _size, _version, width, height, xhot, yhot, delay] =
             read_u32_n(r)?;
@@ -511,9 +576,23 @@ fn parser_cursor_file<R: BufRead + Seek>(
                 num_bytes,
             ))?;
         }
-        images.push(image);
+        images.insert(position, Rc::new(image));
     }
-    Ok(images)
+    let mut num = targets[0].positions.len();
+    if num > 1 && targets.iter().any(|t| t.positions.len() != num) {
+        log::warn!("Cursor file contains animated cursor but not all scales have the same number of images");
+        num = 1;
+    }
+    let mut res = vec![];
+    for i in 0..num {
+        let mut idx_images = AHashMap::new();
+        for target in &targets {
+            let image = images.get(&target.positions[i]).unwrap();
+            idx_images.insert((target.scale, target.size), image.clone());
+        }
+        res.push(idx_images);
+    }
+    Ok(OpenCursorResult { images: res })
 }
 
 fn read_u32_n<R: BufRead, const N: usize>(r: &mut R) -> Result<[u32; N], io::Error> {

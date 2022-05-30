@@ -456,8 +456,7 @@ impl ToplevelNode for XdgToplevel {
         Some(self.xdg.surface.clone())
     }
 
-    fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        self.toplevel_data.workspace.set(Some(ws.clone()));
+    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         self.xdg.set_workspace(ws);
     }
 
@@ -548,12 +547,7 @@ impl XdgSurfaceExt for XdgToplevel {
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.output.get();
-                let bindings = output.global.bindings.borrow_mut();
-                if let Some(binding) = bindings.get(&self.xdg.surface.client.id) {
-                    for binding in binding.values() {
-                        self.xdg.surface.send_enter(binding.id);
-                    }
-                }
+                surface.set_output(&output);
             }
             // {
             //     let seats = surface.client.state.globals.lock_seats();

@@ -11,7 +11,7 @@ use {
             },
             wl_surface::{
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, SurfaceSendPreferredScaleVisitor,
             },
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
@@ -51,6 +51,7 @@ pub struct OutputNode {
     pub scroll: Scroller,
     pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
+    pub preferred_scale: Cell<Fixed>,
 }
 
 impl OutputNode {
@@ -72,6 +73,24 @@ impl OutputNode {
         }
     }
 
+    pub fn set_preferred_scale(&self, scale: Fixed) {
+        let old_scale = self.preferred_scale.replace(scale);
+        if scale == old_scale {
+            return;
+        }
+        let legacy_scale = scale.round_up();
+        if self.global.legacy_scale.replace(legacy_scale) != legacy_scale {
+            self.global.send_mode();
+        }
+        self.state.remove_output_scale(old_scale);
+        self.state.add_output_scale(scale);
+        let rect = self.calculate_extents();
+        self.change_extents_(&rect);
+        let mut visitor = SurfaceSendPreferredScaleVisitor(scale);
+        self.node_visit_children(&mut visitor);
+        self.update_render_data();
+    }
+
     pub fn update_render_data(&self) {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
@@ -82,9 +101,19 @@ impl OutputNode {
         let font = self.state.theme.font.borrow_mut();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
+        let scale = self.preferred_scale.get();
+        let scale = if scale != 1 {
+            Some(scale.to_f64())
+        } else {
+            None
+        };
+        let mut texture_height = th;
+        if let Some(scale) = scale {
+            texture_height = (th as f64 * scale).round() as _;
+        }
         let active_id = self.workspace.get().map(|w| w.id);
-        let width = self.global.pos.get().width();
-        rd.underline = Rect::new_sized(0, th, width, 1).unwrap();
+        let output_width = self.global.pos.get().width();
+        rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
             let mut title_width = th;
             'create_texture: {
@@ -96,7 +125,15 @@ impl OutputNode {
                         true => theme.colors.focused_title_text.get(),
                         false => theme.colors.unfocused_title_text.get(),
                     };
-                    let title = match text::render_fitting(&ctx, th, &font, &ws.name, tc, false) {
+                    let title = match text::render_fitting(
+                        &ctx,
+                        texture_height,
+                        &font,
+                        &ws.name,
+                        tc,
+                        false,
+                        scale,
+                    ) {
                         Ok(t) => t,
                         Err(e) => {
                             log::error!("Could not render title {}: {}", ws.name, ErrorFmt(e));
@@ -104,10 +141,14 @@ impl OutputNode {
                         }
                     };
                     let mut x = pos + 1;
-                    if title.width() + 2 > title_width {
-                        title_width = title.width() + 2;
+                    let mut width = title.width();
+                    if let Some(scale) = scale {
+                        width = (width as f64 / scale).round() as _;
+                    }
+                    if width + 2 > title_width {
+                        title_width = width + 2;
                     } else {
-                        x = pos + (title_width - title.width()) / 2;
+                        x = pos + (title_width - width) / 2;
                     }
                     rd.titles.push(OutputTitle {
                         x1: pos,
@@ -137,14 +178,19 @@ impl OutputNode {
                 break 'set_status;
             }
             let tc = self.state.theme.colors.bar_text.get();
-            let title = match text::render_fitting(&ctx, th, &font, &status, tc, true) {
-                Ok(t) => t,
-                Err(e) => {
-                    log::error!("Could not render status {}: {}", status, ErrorFmt(e));
-                    break 'set_status;
-                }
-            };
-            let pos = width - title.width() - 1;
+            let title =
+                match text::render_fitting(&ctx, texture_height, &font, &status, tc, true, scale) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        log::error!("Could not render status {}: {}", status, ErrorFmt(e));
+                        break 'set_status;
+                    }
+                };
+            let mut width = title.width();
+            if let Some(scale) = scale {
+                width = (width as f64 / scale).round() as _;
+            }
+            let pos = output_width - width - 1;
             rd.status = Some(OutputStatus {
                 tex_x: pos,
                 tex_y: 0,
@@ -266,9 +312,22 @@ impl OutputNode {
             return;
         }
         self.global.mode.set(mode);
-        let pos = self.global.pos.get();
-        let rect = Rect::new_sized(pos.x1(), pos.y1(), mode.width, mode.height).unwrap();
+        let rect = self.calculate_extents();
         self.change_extents_(&rect);
+    }
+
+    fn calculate_extents(&self) -> Rect {
+        let mode = self.global.mode.get();
+        let mut width = mode.width;
+        let mut height = mode.height;
+        let scale = self.preferred_scale.get();
+        if scale != 1 {
+            let scale = scale.to_f64();
+            width = (width as f64 / scale).round() as _;
+            height = (height as f64 / scale).round() as _;
+        }
+        let pos = self.global.pos.get();
+        pos.with_size(width, height).unwrap()
     }
 
     fn change_extents_(&self, rect: &Rect) {
