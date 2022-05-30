@@ -88,6 +88,11 @@ impl OutputNode {
         self.change_extents_(&rect);
         let mut visitor = SurfaceSendPreferredScaleVisitor(scale);
         self.node_visit_children(&mut visitor);
+        for ws in self.workspaces.iter() {
+            for stacked in ws.stacked.iter() {
+                stacked.deref().clone().node_visit(&mut visitor);
+            }
+        }
         self.update_render_data();
     }
 
