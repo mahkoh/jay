@@ -8,7 +8,7 @@ use {
             wl_surface::{
                 xdg_surface::{
                     xdg_popup::{XdgPopup, XdgPopupError},
-                    xdg_toplevel::XdgToplevel,
+                    xdg_toplevel::{XdgToplevel, WM_CAPABILITIES_SINCE},
                 },
                 CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
             },
@@ -217,6 +217,9 @@ impl XdgSurface {
         track!(self.surface.client, toplevel);
         self.surface.client.add_client_obj(&toplevel)?;
         self.ext.set(Some(toplevel.clone()));
+        if self.base.version >= WM_CAPABILITIES_SINCE {
+            toplevel.send_wm_capabilities();
+        }
         self.surface.set_toplevel(Some(toplevel));
         Ok(())
     }
