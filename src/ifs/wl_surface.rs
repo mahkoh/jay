@@ -832,6 +832,7 @@ impl WlSurface {
         if buffer_changed || transform_changed {
             for (_, cursor) in &self.cursors {
                 cursor.handle_buffer_change();
+                cursor.update_hardware_cursor();
             }
         }
         ext.post_commit();

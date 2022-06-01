@@ -178,6 +178,7 @@ pub struct MetalConnector {
     pub cursor_enabled: Cell<bool>,
     pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub cursor_front_buffer: NumCell<usize>,
+    pub cursor_swap_buffer: Cell<bool>,
 }
 
 #[derive(Debug)]
@@ -228,7 +229,7 @@ impl HardwareCursor for MetalHardwareCursor {
         self.connector.cursor_x.set(self.cursor_x_pending.get());
         self.connector.cursor_y.set(self.cursor_y_pending.get());
         if self.cursor_swap_buffer.take() {
-            self.connector.cursor_front_buffer.fetch_add(1);
+            self.connector.cursor_swap_buffer.set(true);
         }
         self.connector.cursor_changed.set(true);
         if self.connector.can_present.get() {
@@ -363,6 +364,9 @@ impl MetalConnector {
         if self.cursor_changed.get() && cursor.is_some() {
             let plane = cursor.unwrap();
             if self.cursor_enabled.get() {
+                if self.cursor_swap_buffer.take() {
+                    self.cursor_front_buffer.fetch_add(1);
+                }
                 let buffers = self.cursor_buffers.get().unwrap();
                 let buffer = &buffers[self.cursor_front_buffer.get() % buffers.len()];
                 changes.change_object(plane.id, |c| {
@@ -545,6 +549,7 @@ fn create_connector(
         connect_sent: Cell::new(false),
         cursor_changed: Cell::new(false),
         cursor_front_buffer: Default::default(),
+        cursor_swap_buffer: Cell::new(false),
     });
     let futures = ConnectorFutures {
         present: backend

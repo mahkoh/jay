@@ -34,9 +34,6 @@ impl CursorSurface {
         let (hot_x, hot_y) = self.hotspot.get();
         self.extents
             .set(self.surface.extents.get().move_(-hot_x, -hot_y));
-        if self.seat.hardware_cursor() {
-            self.seat.update_hardware_cursor();
-        }
     }
 
     pub fn handle_surface_destroy(&self) {
@@ -56,6 +53,12 @@ impl CursorSurface {
         let (hot_x, hot_y) = self.hotspot.get();
         self.hotspot.set((hot_x - hotspot_dx, hot_y - hotspot_dy));
         self.update_extents();
+    }
+
+    pub fn update_hardware_cursor(&self) {
+        if self.seat.hardware_cursor() {
+            self.seat.update_hardware_cursor();
+        }
     }
 }
 
