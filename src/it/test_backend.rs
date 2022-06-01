@@ -427,6 +427,18 @@ trait TestInputDevice: InputDevice {
     fn set_transform_matrix(&self, matrix: TransformMatrix) {
         let _ = matrix;
     }
+
+    fn set_tap_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_drag_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_drag_lock_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -472,5 +484,17 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn name(&self) -> Rc<String> {
         self.common().name.clone()
+    }
+
+    fn set_tap_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_tap_enabled(self, enabled)
+    }
+
+    fn set_drag_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_drag_enabled(self, enabled)
+    }
+
+    fn set_drag_lock_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_drag_lock_enabled(self, enabled)
     }
 }

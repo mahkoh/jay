@@ -287,6 +287,9 @@ impl MetalBackend {
             accel_profile: Default::default(),
             accel_speed: Default::default(),
             transform_matrix: Default::default(),
+            tap_enabled: Default::default(),
+            drag_enabled: Default::default(),
+            drag_lock_enabled: Default::default(),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder

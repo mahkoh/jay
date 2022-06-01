@@ -54,6 +54,27 @@ extern "C" {
         speed: f64,
     ) -> libinput_config_status;
     pub fn libinput_device_get_name(device: *mut libinput_device) -> *const c::c_char;
+    pub fn libinput_device_config_tap_set_enabled(
+        device: *mut libinput_device,
+        enable: libinput_config_tap_state,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_tap_get_enabled(
+        device: *mut libinput_device,
+    ) -> libinput_config_tap_state;
+    pub fn libinput_device_config_tap_set_drag_enabled(
+        device: *mut libinput_device,
+        enable: libinput_config_drag_state,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_tap_get_drag_enabled(
+        device: *mut libinput_device,
+    ) -> libinput_config_drag_state;
+    pub fn libinput_device_config_tap_set_drag_lock_enabled(
+        device: *mut libinput_device,
+        enable: libinput_config_drag_lock_state,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_tap_get_drag_lock_enabled(
+        device: *mut libinput_device,
+    ) -> libinput_config_drag_lock_state;
 
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;

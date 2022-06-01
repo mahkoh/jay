@@ -288,6 +288,18 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         size: i32,
     },
+    SetTapEnabled {
+        device: InputDevice,
+        enabled: bool,
+    },
+    SetDragEnabled {
+        device: InputDevice,
+        enabled: bool,
+    },
+    SetDragLockEnabled {
+        device: InputDevice,
+        enabled: bool,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

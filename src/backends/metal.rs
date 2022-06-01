@@ -291,6 +291,9 @@ struct MetalInputDevice {
     accel_profile: Cell<Option<AccelProfile>>,
     accel_speed: Cell<Option<f64>>,
     transform_matrix: Cell<Option<TransformMatrix>>,
+    tap_enabled: Cell<Option<bool>>,
+    drag_enabled: Cell<Option<bool>>,
+    drag_lock_enabled: Cell<Option<bool>>,
 }
 
 #[derive(Clone)]
@@ -338,6 +341,15 @@ impl MetalInputDevice {
         }
         if let Some(speed) = self.accel_speed.get() {
             dev.device().set_accel_speed(speed);
+        }
+        if let Some(enabled) = self.tap_enabled.get() {
+            dev.device().set_tap_enabled(enabled);
+        }
+        if let Some(enabled) = self.drag_enabled.get() {
+            dev.device().set_drag_enabled(enabled);
+        }
+        if let Some(enabled) = self.drag_lock_enabled.get() {
+            dev.device().set_drag_lock_enabled(enabled);
         }
     }
 
@@ -428,6 +440,27 @@ impl InputDevice for MetalInputDevice {
 
     fn name(&self) -> Rc<String> {
         self.name.get()
+    }
+
+    fn set_tap_enabled(&self, enabled: bool) {
+        self.tap_enabled.set(Some(enabled));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_tap_enabled(enabled);
+        }
+    }
+
+    fn set_drag_enabled(&self, enabled: bool) {
+        self.drag_enabled.set(Some(enabled));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_drag_enabled(enabled);
+        }
+    }
+
+    fn set_drag_lock_enabled(&self, enabled: bool) {
+        self.drag_lock_enabled.set(Some(enabled));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_drag_lock_enabled(enabled);
+        }
     }
 }
 

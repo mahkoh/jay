@@ -494,6 +494,28 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_tap_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_tap_enabled(enabled);
+        Ok(())
+    }
+
+    fn handle_set_drag_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_drag_enabled(enabled);
+        Ok(())
+    }
+
+    fn handle_set_drag_lock_enabled(
+        &self,
+        device: InputDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_drag_lock_enabled(enabled);
+        Ok(())
+    }
+
     fn handle_set_transform_matrix(
         &self,
         device: InputDevice,
@@ -1140,6 +1162,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetCursorSize { seat, size } => self
                 .handle_set_cursor_size(seat, size)
                 .wrn("set_cursor_size")?,
+            ClientMessage::SetTapEnabled { device, enabled } => self
+                .handle_set_tap_enabled(device, enabled)
+                .wrn("set_tap_enabled")?,
+            ClientMessage::SetDragEnabled { device, enabled } => self
+                .handle_set_drag_enabled(device, enabled)
+                .wrn("set_drag_enabled")?,
+            ClientMessage::SetDragLockEnabled { device, enabled } => self
+                .handle_set_drag_lock_enabled(device, enabled)
+                .wrn("set_drag_lock_enabled")?,
         }
         Ok(())
     }

@@ -119,6 +119,21 @@ pub fn main() -> anyhow::Result<()> {
         libinput::LIBINPUT_CONFIG_ACCEL_PROFILE,
         "libinput_config_accel_profile",
     )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_CONFIG_TAP_STATE,
+        "libinput_config_tap_state",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_CONFIG_DRAG_STATE,
+        "libinput_config_drag_state",
+    )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_CONFIG_DRAG_LOCK_STATE,
+        "libinput_config_drag_lock_state",
+    )?;
 
     let mut f = open("pango_tys.rs")?;
     write_ty(&mut f, pango::CAIRO_FORMATS, "cairo_format_t")?;

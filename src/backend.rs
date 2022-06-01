@@ -104,6 +104,9 @@ pub trait InputDevice {
     fn set_accel_speed(&self, speed: f64);
     fn set_transform_matrix(&self, matrix: TransformMatrix);
     fn name(&self) -> Rc<String>;
+    fn set_tap_enabled(&self, enabled: bool);
+    fn set_drag_enabled(&self, enabled: bool);
+    fn set_drag_lock_enabled(&self, enabled: bool);
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]

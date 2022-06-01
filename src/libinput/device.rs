@@ -1,12 +1,21 @@
 use {
     crate::libinput::{
-        consts::{AccelProfile, DeviceCapability},
+        consts::{
+            AccelProfile, ConfigDragLockState, ConfigDragState, ConfigTapState, DeviceCapability,
+            LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
+            LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
+            LIBINPUT_CONFIG_TAP_DISABLED, LIBINPUT_CONFIG_TAP_ENABLED,
+        },
         sys::{
             libinput_device, libinput_device_config_accel_set_profile,
             libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
-            libinput_device_get_name, libinput_device_get_user_data,
-            libinput_device_has_capability, libinput_device_set_user_data, libinput_device_unref,
-            libinput_path_remove_device,
+            libinput_device_config_tap_get_drag_enabled,
+            libinput_device_config_tap_get_drag_lock_enabled,
+            libinput_device_config_tap_get_enabled, libinput_device_config_tap_set_drag_enabled,
+            libinput_device_config_tap_set_drag_lock_enabled,
+            libinput_device_config_tap_set_enabled, libinput_device_get_name,
+            libinput_device_get_user_data, libinput_device_has_capability,
+            libinput_device_set_user_data, libinput_device_unref, libinput_path_remove_device,
         },
         LibInput,
     },
@@ -75,6 +84,66 @@ impl<'a> LibInputDevice<'a> {
         unsafe {
             let name = libinput_device_get_name(self.dev);
             CStr::from_ptr(name).to_bytes().as_bstr().to_string()
+        }
+    }
+
+    pub fn set_tap_enabled(&self, enabled: bool) {
+        let enabled = match enabled {
+            true => LIBINPUT_CONFIG_TAP_ENABLED,
+            false => LIBINPUT_CONFIG_TAP_DISABLED,
+        };
+        unsafe {
+            libinput_device_config_tap_set_enabled(self.dev, enabled.raw() as _);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn tap_enabled(&self) -> bool {
+        let enabled = unsafe { ConfigTapState(libinput_device_config_tap_get_enabled(self.dev)) };
+        match enabled {
+            LIBINPUT_CONFIG_TAP_ENABLED => true,
+            _ => false,
+        }
+    }
+
+    pub fn set_drag_enabled(&self, enabled: bool) {
+        let enabled = match enabled {
+            true => LIBINPUT_CONFIG_DRAG_ENABLED,
+            false => LIBINPUT_CONFIG_DRAG_DISABLED,
+        };
+        unsafe {
+            libinput_device_config_tap_set_drag_enabled(self.dev, enabled.raw() as _);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn drag_enabled(&self) -> bool {
+        let enabled =
+            unsafe { ConfigDragState(libinput_device_config_tap_get_drag_enabled(self.dev)) };
+        match enabled {
+            LIBINPUT_CONFIG_DRAG_ENABLED => true,
+            _ => false,
+        }
+    }
+
+    pub fn set_drag_lock_enabled(&self, enabled: bool) {
+        let enabled = match enabled {
+            true => LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
+            false => LIBINPUT_CONFIG_DRAG_LOCK_DISABLED,
+        };
+        unsafe {
+            libinput_device_config_tap_set_drag_lock_enabled(self.dev, enabled.raw() as _);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn drag_lock_enabled(&self) -> bool {
+        let enabled = unsafe {
+            ConfigDragLockState(libinput_device_config_tap_get_drag_lock_enabled(self.dev))
+        };
+        match enabled {
+            LIBINPUT_CONFIG_DRAG_LOCK_ENABLED => true,
+            _ => false,
         }
     }
 }

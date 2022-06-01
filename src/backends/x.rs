@@ -1081,6 +1081,18 @@ impl InputDevice for XSeatKeyboard {
     fn name(&self) -> Rc<String> {
         self.0.kb_name.clone()
     }
+
+    fn set_tap_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_drag_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_drag_lock_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1129,5 +1141,17 @@ impl InputDevice for XSeatMouse {
 
     fn name(&self) -> Rc<String> {
         self.0.mouse_name.clone()
+    }
+
+    fn set_tap_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_drag_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_drag_lock_enabled(&self, enabled: bool) {
+        let _ = enabled;
     }
 }
