@@ -605,6 +605,24 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_use_hardware_cursor(
+        &self,
+        seat: Seat,
+        use_hardware_cursor: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        if use_hardware_cursor {
+            for other in self.state.globals.seats.lock().values() {
+                if other.id() != seat.id() {
+                    other.set_hardware_cursor(false);
+                }
+            }
+        }
+        seat.set_hardware_cursor(use_hardware_cursor);
+        self.state.refresh_hardware_cursors();
+        Ok(())
+    }
+
     fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         let pos = connector.node.global.pos.get();
@@ -1171,6 +1189,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetDragLockEnabled { device, enabled } => self
                 .handle_set_drag_lock_enabled(device, enabled)
                 .wrn("set_drag_lock_enabled")?,
+            ClientMessage::SetUseHardwareCursor {
+                seat,
+                use_hardware_cursor,
+            } => self
+                .handle_set_use_hardware_cursor(seat, use_hardware_cursor)
+                .wrn("set_use_hardware_cursor")?,
         }
         Ok(())
     }

@@ -128,6 +128,16 @@ impl Seat {
         Self(raw)
     }
 
+    /// Sets whether this seat's cursor uses the hardware cursor if available.
+    ///
+    /// Only one seat at a time can use the hardware cursor. Setting this to `true` for a
+    /// seat automatically unsets it for all other seats.
+    ///
+    /// By default, the first created seat uses the hardware cursor.
+    pub fn use_hardware_cursor(self, use_hardware_cursor: bool) {
+        get!().set_use_hardware_cursor(self, use_hardware_cursor);
+    }
+
     /// Sets the size of the cursor theme.
     ///
     /// Default: 16.

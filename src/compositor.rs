@@ -193,6 +193,7 @@ fn start_compositor2(
         },
         scales,
         cursor_sizes: Default::default(),
+        hardware_tick_cursor: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -274,6 +275,7 @@ fn start_global_event_handlers(
 
     res.push(eng.spawn(tasks::handle_backend_events(state.clone())));
     res.push(eng.spawn(tasks::handle_slow_clients(state.clone())));
+    res.push(eng.spawn(tasks::handle_hardware_cursor_tick(state.clone())));
     res.push(eng.spawn2(Phase::Layout, container_layout(state.clone())));
     res.push(eng.spawn2(Phase::PostLayout, container_render_data(state.clone())));
     res.push(eng.spawn2(Phase::Layout, float_layout(state.clone())));
@@ -383,6 +385,7 @@ fn create_dummy_output(state: &Rc<State>) {
         pointer_positions: Default::default(),
         lock_surface: Default::default(),
         preferred_scale: Cell::new(Fixed::from_int(1)),
+        hardware_cursor: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

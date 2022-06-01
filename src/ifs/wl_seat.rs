@@ -38,6 +38,7 @@ use {
         },
         leaks::Tracker,
         object::Object,
+        rect::Rect,
         state::State,
         tree::{
             generic_node_visitor, ContainerNode, ContainerSplit, Direction, FloatNode, FoundNode,
@@ -150,6 +151,7 @@ pub struct WlSeatGlobal {
     desired_known_cursor: Cell<Option<KnownCursor>>,
     changes: NumCell<u32>,
     cursor_size: Cell<u32>,
+    hardware_cursor: Cell<bool>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -202,6 +204,7 @@ impl WlSeatGlobal {
             desired_known_cursor: Cell::new(None),
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
             cursor_size: Cell::new(DEFAULT_CURSOR_SIZE),
+            hardware_cursor: Cell::new(state.globals.seats.len() == 0),
         });
         state.add_cursor_size(DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -216,6 +219,78 @@ impl WlSeatGlobal {
         });
         slf.tree_changed_handler.set(Some(future));
         slf
+    }
+
+    pub fn set_hardware_cursor(&self, hardware_cursor: bool) {
+        self.hardware_cursor.set(hardware_cursor);
+    }
+
+    pub fn hardware_cursor(&self) -> bool {
+        self.hardware_cursor.get()
+    }
+
+    fn update_hardware_cursor_position(&self) {
+        self.update_hardware_cursor_(false);
+    }
+
+    pub fn update_hardware_cursor(&self) {
+        self.update_hardware_cursor_(true);
+    }
+
+    fn update_hardware_cursor_(&self, render: bool) {
+        if !self.hardware_cursor.get() {
+            return;
+        }
+        let cursor = match self.get_cursor() {
+            Some(c) => c,
+            _ => {
+                self.state.disable_hardware_cursors();
+                return;
+            }
+        };
+        if render {
+            cursor.tick();
+        }
+        let (x, y) = self.get_position();
+        for output in self.state.root.outputs.lock().values() {
+            if let Some(hc) = output.hardware_cursor.get() {
+                let scale = output.preferred_scale.get();
+                let extents = cursor.extents_at_scale(scale);
+                if render {
+                    let (max_width, max_height) = hc.max_size();
+                    if extents.width() > max_width || extents.height() > max_height {
+                        hc.set_enabled(false);
+                        hc.commit();
+                        continue;
+                    }
+                }
+                let opos = output.global.pos.get();
+                let (x_rel, y_rel);
+                if scale == 1 {
+                    x_rel = x.round_down() - opos.x1();
+                    y_rel = y.round_down() - opos.y1();
+                } else {
+                    let scalef = scale.to_f64();
+                    x_rel = ((x - Fixed::from_int(opos.x1())).to_f64() * scalef).round() as i32;
+                    y_rel = ((y - Fixed::from_int(opos.y1())).to_f64() * scalef).round() as i32;
+                }
+                let mode = output.global.mode.get();
+                if extents
+                    .intersects(&Rect::new_sized(-x_rel, -y_rel, mode.width, mode.height).unwrap())
+                {
+                    if render {
+                        let buffer = hc.get_buffer();
+                        buffer.render_hardware_cursor(cursor.deref(), &self.state, scale);
+                        hc.swap_buffer();
+                    }
+                    hc.set_enabled(true);
+                    hc.set_position(x_rel + extents.x1(), y_rel + extents.y1());
+                } else {
+                    hc.set_enabled(false);
+                }
+                hc.commit();
+            }
+        }
     }
 
     pub fn set_cursor_size(&self, size: u32) {
@@ -361,6 +436,7 @@ impl WlSeatGlobal {
 
     pub fn set_position(&self, x: i32, y: i32) {
         self.pos.set((Fixed::from_int(x), Fixed::from_int(y)));
+        self.update_hardware_cursor_position();
         self.trigger_tree_changed();
         let output = 'set_output: {
             let outputs = self.state.outputs.lock();
@@ -681,7 +757,9 @@ impl WlSeatGlobal {
         if let Some(cursor) = cursor.as_ref() {
             cursor.set_output(&self.output.get());
         }
-        self.cursor.set(cursor);
+        self.cursor.set(cursor.clone());
+        self.state.hardware_tick_cursor.push(cursor);
+        self.update_hardware_cursor();
     }
 
     pub fn dnd_icon(&self) -> Option<Rc<WlSurface>> {

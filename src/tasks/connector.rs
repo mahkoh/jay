@@ -123,6 +123,7 @@ impl ConnectorHandler {
             pointer_positions: Default::default(),
             lock_surface: Default::default(),
             preferred_scale: Cell::new(Fixed::from_int(1)),
+            hardware_cursor: Default::default(),
         });
         self.state.add_output_scale(on.preferred_scale.get());
         let mode = info.initial_mode;
@@ -191,6 +192,10 @@ impl ConnectorHandler {
             while let Some(event) = self.data.connector.event() {
                 match event {
                     ConnectorEvent::Disconnected => break 'outer,
+                    ConnectorEvent::HardwareCursor(hc) => {
+                        on.hardware_cursor.set(hc);
+                        self.state.refresh_hardware_cursors();
+                    }
                     ConnectorEvent::ModeChanged(mode) => {
                         on.update_mode(mode);
                     }

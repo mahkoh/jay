@@ -804,9 +804,6 @@ impl WlSurface {
             }
             self.buffer_abs_pos
                 .set(self.buffer_abs_pos.get().with_size(width, height).unwrap());
-            for (_, cursor) in &self.cursors {
-                cursor.handle_buffer_change();
-            }
         }
         {
             let mut pfr = self.pending.frame_request.borrow_mut();
@@ -831,6 +828,11 @@ impl WlSurface {
         }
         if self.need_extents_update.get() {
             self.calculate_extents();
+        }
+        if buffer_transform_changed || transform_changed {
+            for (_, cursor) in &self.cursors {
+                cursor.handle_buffer_change();
+            }
         }
         ext.post_commit();
         self.client.state.damage();

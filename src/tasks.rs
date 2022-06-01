@@ -1,11 +1,11 @@
 mod backend;
 mod connector;
 mod drmdev;
+mod hardware_cursor;
 mod idle;
 mod input_device;
 mod slow_clients;
 
-pub use idle::idle;
 use {
     crate::{
         state::State,
@@ -13,6 +13,7 @@ use {
     },
     std::rc::Rc,
 };
+pub use {hardware_cursor::handle_hardware_cursor_tick, idle::idle};
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };

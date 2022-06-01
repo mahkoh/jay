@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{KeyState, Mode},
+        backend::{HardwareCursor, KeyState, Mode},
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
@@ -52,6 +52,7 @@ pub struct OutputNode {
     pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
     pub preferred_scale: Cell<Fixed>,
+    pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
 }
 
 impl OutputNode {

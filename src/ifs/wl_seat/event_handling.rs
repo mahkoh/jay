@@ -480,6 +480,7 @@ impl WlSeatGlobal {
     fn set_new_position(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
         self.pos_time_usec.set(time_usec);
         self.pos.set((x, y));
+        self.update_hardware_cursor_position();
         self.changes.or_assign(CHANGE_CURSOR_MOVED);
         self.apply_changes();
     }

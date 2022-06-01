@@ -31,10 +31,12 @@ impl CursorSurface {
     }
 
     fn update_extents(&self) {
-        let extents = self.extents.get();
         let (hot_x, hot_y) = self.hotspot.get();
         self.extents
-            .set(Rect::new_sized(-hot_x, -hot_y, extents.width(), extents.height()).unwrap());
+            .set(self.surface.extents.get().move_(-hot_x, -hot_y));
+        if self.seat.hardware_cursor() {
+            self.seat.update_hardware_cursor();
+        }
     }
 
     pub fn handle_surface_destroy(&self) {
@@ -42,9 +44,6 @@ impl CursorSurface {
     }
 
     pub fn handle_buffer_change(&self) {
-        let (width, height) = self.surface.buffer_abs_pos.get().size();
-        self.extents
-            .set(Rect::new_sized(0, 0, width, height).unwrap());
         self.update_extents();
     }
 
@@ -62,20 +61,42 @@ impl CursorSurface {
 
 impl Cursor for CursorSurface {
     fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
-        let extents = self.extents.get().move_(x.round_down(), y.round_down());
+        let x_int = x.round_down();
+        let y_int = y.round_down();
+        let extents = self.extents.get().move_(x_int, y_int);
         if extents.intersects(&renderer.logical_extents()) {
+            let (hot_x, hot_y) = self.hotspot.get();
             let scale = renderer.scale();
             if scale != 1 {
                 let scale = scale.to_f64();
-                let (hot_x, hot_y) = self.hotspot.get();
                 let (hot_x, hot_y) = (Fixed::from_int(hot_x), Fixed::from_int(hot_y));
                 let x = ((x - hot_x).to_f64() * scale).round() as _;
                 let y = ((y - hot_y).to_f64() * scale).round() as _;
                 renderer.render_surface_scaled(&self.surface, x, y, None);
             } else {
-                renderer.render_surface(&self.surface, extents.x1(), extents.y1());
+                renderer.render_surface(&self.surface, x_int - hot_x, y_int - hot_y);
             }
         }
+    }
+
+    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+        let extents = self.surface.extents.get();
+        renderer.render_surface(&self.surface, -extents.x1(), -extents.y1());
+    }
+
+    fn extents_at_scale(&self, scale: Fixed) -> Rect {
+        let rect = self.extents.get();
+        if scale == 1 {
+            return rect;
+        }
+        let scale = scale.to_f64();
+        Rect::new(
+            (rect.x1() as f64 * scale).ceil() as _,
+            (rect.y1() as f64 * scale).ceil() as _,
+            (rect.x2() as f64 * scale).ceil() as _,
+            (rect.y2() as f64 * scale).ceil() as _,
+        )
+        .unwrap()
     }
 
     fn set_output(&self, output: &Rc<OutputNode>) {

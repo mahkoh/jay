@@ -217,6 +217,9 @@ const DRM_MODE_PROP_SIGNED_RANGE: u32 = drm_mode_prop_type(2);
 
 const DRM_MODE_PROP_ATOMIC: u32 = 0x80000000;
 
+pub const DRM_CAP_CURSOR_WIDTH: u64 = 0x8;
+pub const DRM_CAP_CURSOR_HEIGHT: u64 = 0x9;
+
 #[repr(C)]
 struct drm_mode_property_enum {
     value: u64,

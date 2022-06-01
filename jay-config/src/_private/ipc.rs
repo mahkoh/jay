@@ -300,6 +300,10 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         enabled: bool,
     },
+    SetUseHardwareCursor {
+        seat: Seat,
+        use_hardware_cursor: bool,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

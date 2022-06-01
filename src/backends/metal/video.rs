@@ -3,11 +3,11 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendDrmDevice, BackendEvent, Connector, ConnectorEvent, ConnectorId,
-            ConnectorKernelId, DrmDeviceId, MonitorInfo,
+            ConnectorKernelId, DrmDeviceId, HardwareCursor, MonitorInfo,
         },
         backends::metal::{MetalBackend, MetalError},
         edid::Descriptor,
-        format::{Format, XRGB8888},
+        format::{Format, ARGB8888, XRGB8888},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         render::{Framebuffer, RenderContext, RenderResult, ResetStatus, Texture},
         state::State,
@@ -66,6 +66,8 @@ pub struct MetalDrmDevice {
     pub max_width: u32,
     pub min_height: u32,
     pub max_height: u32,
+    pub cursor_width: u64,
+    pub cursor_height: u64,
     pub gbm: GbmDevice,
     pub handle_events: HandleEvents,
 }
@@ -153,12 +155,14 @@ pub struct MetalConnector {
 
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
+    pub cursor_changed: Cell<bool>,
 
     pub display: RefCell<ConnectorDisplayData>,
 
     pub connect_sent: Cell<bool>,
 
     pub primary_plane: CloneCell<Option<Rc<MetalPlane>>>,
+    pub cursor_plane: CloneCell<Option<Rc<MetalPlane>>>,
 
     pub crtc: CloneCell<Option<Rc<MetalCrtc>>>,
 
@@ -167,6 +171,77 @@ pub struct MetalConnector {
     pub present_trigger: AsyncEvent,
 
     pub render_result: RefCell<RenderResult>,
+
+    pub cursor_generation: NumCell<u64>,
+    pub cursor_x: Cell<i32>,
+    pub cursor_y: Cell<i32>,
+    pub cursor_enabled: Cell<bool>,
+    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+    pub cursor_front_buffer: NumCell<usize>,
+}
+
+#[derive(Debug)]
+pub struct MetalHardwareCursor {
+    pub generation: u64,
+    pub connector: Rc<MetalConnector>,
+    pub cursor_swap_buffer: Cell<bool>,
+    pub cursor_enabled_pending: Cell<bool>,
+    pub cursor_x_pending: Cell<i32>,
+    pub cursor_y_pending: Cell<i32>,
+    pub cursor_buffers: Rc<[RenderBuffer; 2]>,
+    pub have_changes: Cell<bool>,
+}
+
+impl HardwareCursor for MetalHardwareCursor {
+    fn set_enabled(&self, enabled: bool) {
+        if self.cursor_enabled_pending.replace(enabled) != enabled {
+            self.have_changes.set(true);
+        }
+    }
+
+    fn get_buffer(&self) -> Rc<Framebuffer> {
+        let buffer = (self.connector.cursor_front_buffer.get() + 1) % 2;
+        self.cursor_buffers[buffer].fb.clone()
+    }
+
+    fn set_position(&self, x: i32, y: i32) {
+        self.cursor_x_pending.set(x);
+        self.cursor_y_pending.set(y);
+        self.have_changes.set(true);
+    }
+
+    fn swap_buffer(&self) {
+        self.cursor_swap_buffer.set(true);
+        self.have_changes.set(true);
+    }
+
+    fn commit(&self) {
+        if self.generation != self.connector.cursor_generation.get() {
+            return;
+        }
+        if !self.have_changes.take() {
+            return;
+        }
+        self.connector
+            .cursor_enabled
+            .set(self.cursor_enabled_pending.get());
+        self.connector.cursor_x.set(self.cursor_x_pending.get());
+        self.connector.cursor_y.set(self.cursor_y_pending.get());
+        if self.cursor_swap_buffer.take() {
+            self.connector.cursor_front_buffer.fetch_add(1);
+        }
+        self.connector.cursor_changed.set(true);
+        if self.connector.can_present.get() {
+            self.connector.schedule_present();
+        }
+    }
+
+    fn max_size(&self) -> (i32, i32) {
+        (
+            self.connector.dev.cursor_width as _,
+            self.connector.dev.cursor_height as _,
+        )
+    }
 }
 
 pub struct ConnectorFutures {
@@ -201,6 +276,27 @@ impl MetalConnector {
         }
     }
 
+    fn send_hardware_cursor(self: &Rc<Self>) {
+        if !self.connect_sent.get() {
+            return;
+        }
+        let generation = self.cursor_generation.fetch_add(1) + 1;
+        let hc = match self.cursor_buffers.get() {
+            Some(cp) => Some(Rc::new(MetalHardwareCursor {
+                generation,
+                connector: self.clone(),
+                cursor_swap_buffer: Cell::new(false),
+                cursor_enabled_pending: Cell::new(self.cursor_enabled.get()),
+                cursor_x_pending: Cell::new(self.cursor_x.get()),
+                cursor_y_pending: Cell::new(self.cursor_y.get()),
+                cursor_buffers: cp.clone(),
+                have_changes: Cell::new(false),
+            }) as _),
+            _ => None,
+        };
+        self.send_event(ConnectorEvent::HardwareCursor(hc));
+    }
+
     fn connected(&self) -> bool {
         let dd = self.display.borrow_mut();
         dd.connection == ConnectorStatus::Connected && self.primary_plane.get().is_some()
@@ -218,14 +314,11 @@ impl MetalConnector {
     }
 
     pub fn present(&self) {
-        if !self.backend.check_render_context() {
-            return;
-        }
         let crtc = match self.crtc.get() {
             Some(crtc) => crtc,
             _ => return,
         };
-        if !self.has_damage.get() || !self.can_present.get() {
+        if (!self.has_damage.get() && !self.cursor_changed.get()) || !self.can_present.get() {
             return;
         }
         if !crtc.active.value.get() {
@@ -239,27 +332,58 @@ impl MetalConnector {
             Some(b) => b,
             _ => return,
         };
-        let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
-        if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
-            let mut rr = self.render_result.borrow_mut();
-            buffer.fb.render(
-                &*node,
-                &self.state,
-                Some(node.global.pos.get()),
-                true,
-                &mut rr,
-                node.preferred_scale.get(),
-            );
-            for fr in rr.frame_requests.drain(..) {
-                fr.send_done();
-                let _ = fr.client.remove_obj(&*fr);
-            }
-            node.global.perform_screencopies(&buffer.fb, &buffer.tex);
-        }
+        let cursor = self.cursor_plane.get();
         let mut changes = self.master.change();
-        changes.change_object(plane.id, |c| {
-            c.change(plane.fb_id, buffer.drm.id().0 as _);
-        });
+        if self.has_damage.get() {
+            if !self.backend.check_render_context() {
+                return;
+            }
+            let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
+            if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
+                let mut rr = self.render_result.borrow_mut();
+                buffer.fb.render(
+                    &*node,
+                    &self.state,
+                    Some(node.global.pos.get()),
+                    true,
+                    &mut rr,
+                    node.preferred_scale.get(),
+                    !self.cursor_enabled.get(),
+                );
+                for fr in rr.frame_requests.drain(..) {
+                    fr.send_done();
+                    let _ = fr.client.remove_obj(&*fr);
+                }
+                node.global.perform_screencopies(&buffer.fb, &buffer.tex);
+            }
+            changes.change_object(plane.id, |c| {
+                c.change(plane.fb_id, buffer.drm.id().0 as _);
+            });
+        }
+        if self.cursor_changed.get() && cursor.is_some() {
+            let plane = cursor.unwrap();
+            if self.cursor_enabled.get() {
+                let buffers = self.cursor_buffers.get().unwrap();
+                let buffer = &buffers[self.cursor_front_buffer.get() % buffers.len()];
+                changes.change_object(plane.id, |c| {
+                    c.change(plane.fb_id, buffer.drm.id().0 as _);
+                    c.change(plane.crtc_id.id, crtc.id.0 as _);
+                    c.change(plane.crtc_x.id, self.cursor_x.get() as _);
+                    c.change(plane.crtc_y.id, self.cursor_y.get() as _);
+                    c.change(plane.crtc_w.id, buffer.tex.width() as _);
+                    c.change(plane.crtc_h.id, buffer.tex.height() as _);
+                    c.change(plane.src_x.id, 0);
+                    c.change(plane.src_y.id, 0);
+                    c.change(plane.src_w.id, (buffer.tex.width() as u64) << 16);
+                    c.change(plane.src_h.id, (buffer.tex.height() as u64) << 16);
+                });
+            } else {
+                changes.change_object(plane.id, |c| {
+                    c.change(plane.fb_id, 0);
+                    c.change(plane.crtc_id.id, 0);
+                });
+            }
+        }
         if let Err(e) = changes.commit(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT, 0) {
             match e {
                 DrmError::Atomic(OsError(c::EACCES)) => {
@@ -270,6 +394,7 @@ impl MetalConnector {
         }
         self.can_present.set(false);
         self.has_damage.set(false);
+        self.cursor_changed.set(false);
     }
 }
 
@@ -346,6 +471,8 @@ pub struct MetalPlane {
     pub possible_crtcs: u32,
     pub formats: AHashMap<u32, &'static Format>,
 
+    pub assigned: Cell<bool>,
+
     pub crtc_id: MutableProperty<DrmCrtc>,
     pub crtc_x: MutableProperty<i32>,
     pub crtc_y: MutableProperty<i32>,
@@ -404,12 +531,20 @@ fn create_connector(
         can_present: Cell::new(true),
         has_damage: Cell::new(true),
         primary_plane: Default::default(),
+        cursor_plane: Default::default(),
         crtc: Default::default(),
         on_change: Default::default(),
         present_trigger: Default::default(),
         render_result: RefCell::new(Default::default()),
+        cursor_generation: Default::default(),
+        cursor_x: Cell::new(0),
+        cursor_y: Cell::new(0),
+        cursor_enabled: Cell::new(false),
+        cursor_buffers: Default::default(),
         display: RefCell::new(display),
         connect_sent: Cell::new(false),
+        cursor_changed: Cell::new(false),
+        cursor_front_buffer: Default::default(),
     });
     let futures = ConnectorFutures {
         present: backend
@@ -629,6 +764,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         src_w: props.get("SRC_W")?.map(|v| v as u32),
         src_h: props.get("SRC_H")?.map(|v| v as u32),
         in_fence_fd: props.get("IN_FENCE_FD")?.id,
+        assigned: Cell::new(false),
     })
 }
 
@@ -856,7 +992,7 @@ impl MetalBackend {
         Ok(())
     }
 
-    fn send_connected(&self, connector: &MetalConnector, dd: &ConnectorDisplayData) {
+    fn send_connected(&self, connector: &Rc<MetalConnector>, dd: &ConnectorDisplayData) {
         let mut prev_mode = None;
         let mut modes = vec![];
         for mode in dd.modes.iter().map(|m| m.to_backend()) {
@@ -874,6 +1010,7 @@ impl MetalBackend {
             height_mm: dd.mm_height as _,
         }));
         connector.connect_sent.set(true);
+        connector.send_hardware_cursor();
     }
 
     pub fn create_drm_device(
@@ -885,6 +1022,14 @@ impl MetalBackend {
             return Err(MetalError::AtomicModesetting(e));
         }
         let resources = master.get_resources()?;
+
+        let (cursor_width, cursor_height) = match master.get_cursor_size() {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("Can't determine size of cursor planes: {}", ErrorFmt(e));
+                (64, 64)
+            }
+        };
 
         let mut planes = AHashMap::new();
         for plane in master.get_planes()? {
@@ -933,6 +1078,8 @@ impl MetalBackend {
             max_width: resources.max_width,
             min_height: resources.min_height,
             max_height: resources.max_height,
+            cursor_width,
+            cursor_height,
             gbm,
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
@@ -1019,6 +1166,7 @@ impl MetalBackend {
         for connector in dev.connectors.lock().values() {
             connector.can_present.set(true);
             connector.has_damage.set(true);
+            connector.cursor_changed.set(true);
         }
         if dev.unprocessed_change.get() {
             return self.handle_drm_change_(dev, false);
@@ -1083,7 +1231,7 @@ impl MetalBackend {
             _ => return,
         };
         connector.can_present.set(true);
-        if connector.has_damage.get() {
+        if connector.has_damage.get() || connector.cursor_changed.get() {
             connector.schedule_present();
         }
         let dd = connector.display.borrow_mut();
@@ -1123,6 +1271,7 @@ impl MetalBackend {
                 continue;
             }
             plane.crtc_id.value.set(DrmCrtc::NONE);
+            plane.assigned.set(false);
             changes.change_object(plane.id, |c| {
                 c.change(plane.crtc_id.id, 0);
                 c.change(plane.fb_id, 0);
@@ -1135,19 +1284,15 @@ impl MetalBackend {
         &self,
         dev: &MetalDrmDeviceData,
         changes: &mut Change,
-        preserve: &mut Preserve,
+        preserve: &Preserve,
     ) {
         for connector in dev.connectors.lock().values() {
             if preserve.connectors.contains(&connector.id) {
-                if let Some(pp) = connector.primary_plane.get() {
-                    preserve.planes.insert(pp.id);
-                }
-                if let Some(crtc) = connector.crtc.get() {
-                    preserve.crtcs.insert(crtc.id);
-                }
                 continue;
             }
             connector.primary_plane.set(None);
+            connector.cursor_plane.set(None);
+            connector.cursor_enabled.set(false);
             connector.crtc.set(None);
             let dd = connector.display.borrow_mut();
             dd.crtc_id.value.set(DrmCrtc::NONE);
@@ -1220,10 +1365,30 @@ impl MetalBackend {
                         fail!(c.id);
                     }
                 }
+                if let Some(plane) = c.cursor_plane.get() {
+                    let crtc_id = plane.crtc_id.value.get();
+                    if crtc_id.is_some() && crtc_id != crtc.id {
+                        log::warn!("Cannot preserve connector whose cursor plane is attached to a different crtc");
+                        fail!(c.id);
+                    }
+                }
             }
         }
         for c in remove_connectors {
             preserve.connectors.remove(&c);
+        }
+        for connector in dev.connectors.lock().values() {
+            if preserve.connectors.contains(&connector.id) {
+                if let Some(pp) = connector.primary_plane.get() {
+                    preserve.planes.insert(pp.id);
+                }
+                if let Some(pp) = connector.cursor_plane.get() {
+                    preserve.planes.insert(pp.id);
+                }
+                if let Some(crtc) = connector.crtc.get() {
+                    preserve.crtcs.insert(crtc.id);
+                }
+            }
         }
     }
 
@@ -1256,7 +1421,7 @@ impl MetalBackend {
         for connector in dev.connectors.lock().values() {
             if !preserve.connectors.contains(&connector.id) {
                 if let Err(e) =
-                    self.assign_connector_plane(connector, &mut changes, &ctx, &mut old_buffers)
+                    self.assign_connector_planes(connector, &mut changes, &ctx, &mut old_buffers)
                 {
                     log::error!("Could not assign a plane: {}", ErrorFmt(e));
                 }
@@ -1264,6 +1429,12 @@ impl MetalBackend {
         }
         if let Err(e) = changes.commit(flags, 0) {
             return Err(MetalError::Modeset(e));
+        }
+        for connector in dev.connectors.lock().values() {
+            if preserve.connectors.contains(&connector.id) {
+                continue;
+            }
+            connector.send_hardware_cursor();
         }
         Ok(())
     }
@@ -1355,8 +1526,9 @@ impl MetalBackend {
         width: i32,
         height: i32,
         ctx: &MetalRenderContext,
+        cursor: bool,
     ) -> Result<[RenderBuffer; 2], MetalError> {
-        let create = || self.create_scanout_buffer(dev, format, width, height, ctx);
+        let create = || self.create_scanout_buffer(dev, format, width, height, ctx, cursor);
         Ok([create()?, create()?])
     }
 
@@ -1367,9 +1539,10 @@ impl MetalBackend {
         width: i32,
         height: i32,
         ctx: &MetalRenderContext,
+        cursor: bool,
     ) -> Result<RenderBuffer, MetalError> {
         let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
-        if ctx.dev.id != dev.id {
+        if cursor || ctx.dev.id != dev.id {
             usage |= GBM_BO_USE_LINEAR;
         };
         let bo = dev.gbm.create_bo(width, height, format, usage);
@@ -1439,7 +1612,7 @@ impl MetalBackend {
         Ok(())
     }
 
-    fn assign_connector_plane(
+    fn assign_connector_planes(
         &self,
         connector: &Rc<MetalConnector>,
         changes: &mut Change,
@@ -1461,7 +1634,7 @@ impl MetalBackend {
         let primary_plane = 'primary_plane: {
             for plane in crtc.possible_planes.values() {
                 if plane.ty == PlaneType::Primary
-                    && plane.crtc_id.value.get().is_none()
+                    && !plane.assigned.get()
                     && plane.formats.contains_key(&XRGB8888.drm)
                 {
                     break 'primary_plane plane.clone();
@@ -1469,17 +1642,51 @@ impl MetalBackend {
             }
             return Err(MetalError::NoPrimaryPlaneForConnector);
         };
-        let format = ModifiedFormat {
-            format: XRGB8888,
-            modifier: INVALID_MODIFIER,
-        };
         let buffers = Rc::new(self.create_scanout_buffers(
             &connector.dev,
-            &format,
+            &ModifiedFormat {
+                format: XRGB8888,
+                modifier: INVALID_MODIFIER,
+            },
             mode.hdisplay as _,
             mode.vdisplay as _,
             ctx,
+            false,
         )?);
+        let mut cursor_plane = None;
+        for plane in crtc.possible_planes.values() {
+            if plane.ty == PlaneType::Cursor
+                && !plane.assigned.get()
+                && plane.formats.contains_key(&ARGB8888.drm)
+            {
+                cursor_plane = Some(plane.clone());
+                break;
+            }
+        }
+        let mut cursor_buffers = None;
+        if cursor_plane.is_some() {
+            let res = self.create_scanout_buffers(
+                &connector.dev,
+                &ModifiedFormat {
+                    format: ARGB8888,
+                    modifier: INVALID_MODIFIER,
+                },
+                connector.dev.cursor_width as _,
+                connector.dev.cursor_height as _,
+                ctx,
+                true,
+            );
+            match res {
+                Ok(r) => cursor_buffers = Some(Rc::new(r)),
+                Err(e) => {
+                    log::warn!(
+                        "Could not allocate buffers for the cursor plane: {}",
+                        ErrorFmt(e)
+                    );
+                    cursor_plane = None;
+                }
+            }
+        }
         changes.change_object(primary_plane.id, |c| {
             c.change(primary_plane.fb_id, buffers[0].drm.id().0 as _);
             c.change(primary_plane.crtc_id.id, crtc.id.0 as _);
@@ -1492,6 +1699,7 @@ impl MetalBackend {
             c.change(primary_plane.src_w.id, (mode.hdisplay as u64) << 16);
             c.change(primary_plane.src_h.id, (mode.vdisplay as u64) << 16);
         });
+        primary_plane.assigned.set(true);
         primary_plane.crtc_id.value.set(crtc.id);
         primary_plane.crtc_x.value.set(0);
         primary_plane.crtc_y.value.set(0);
@@ -1505,6 +1713,14 @@ impl MetalBackend {
             old_buffers.push(old);
         }
         connector.primary_plane.set(Some(primary_plane.clone()));
+        if let Some(cp) = &cursor_plane {
+            cp.assigned.set(true);
+        }
+        if let Some(old) = connector.cursor_buffers.set(cursor_buffers) {
+            old_buffers.push(old);
+        }
+        connector.cursor_plane.set(cursor_plane);
+        connector.cursor_enabled.set(false);
         Ok(())
     }
 
@@ -1516,6 +1732,7 @@ impl MetalBackend {
             dd.mode.as_ref().unwrap(),
         );
         connector.has_damage.set(true);
+        connector.cursor_changed.set(true);
         connector.schedule_present();
     }
 }

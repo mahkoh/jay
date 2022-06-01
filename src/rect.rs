@@ -99,13 +99,8 @@ impl Rect {
         }
     }
 
-    #[allow(dead_code)]
     pub fn intersects(&self, other: &Self) -> bool {
-        let x1 = self.x1.max(other.x1);
-        let y1 = self.y1.max(other.y1);
-        let x2 = self.x2.min(other.x2);
-        let y2 = self.y2.min(other.y2);
-        x1 < x2 && y1 < y2
+        self.x1 < other.x2 && other.x1 < self.x2 && self.y1 < other.y2 && other.y1 < self.y2
     }
 
     pub fn intersect(&self, other: Self) -> Self {

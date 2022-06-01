@@ -1,5 +1,6 @@
 use {
     crate::{
+        cursor::Cursor,
         fixed::Fixed,
         format::{Format, XRGB8888},
         rect::Rect,
@@ -113,6 +114,7 @@ impl Framebuffer {
         on_output: bool,
         result: &mut RenderResult,
         scale: Fixed,
+        render_hardware_cursor: bool,
     ) {
         let _ = self.ctx.ctx.with_current(|| {
             let c = state.theme.colors.background.get();
@@ -138,6 +140,9 @@ impl Framebuffer {
             if let Some(rect) = cursor_rect {
                 let seats = state.globals.lock_seats();
                 for seat in seats.values() {
+                    if !render_hardware_cursor && seat.hardware_cursor() {
+                        continue;
+                    }
                     if let Some(cursor) = seat.get_cursor() {
                         let (mut x, mut y) = seat.get_position();
                         if let Some(dnd_icon) = seat.dnd_icon() {
@@ -157,6 +162,35 @@ impl Framebuffer {
                     }
                 }
             }
+            unsafe {
+                glFlush();
+            }
+            Ok(())
+        });
+    }
+
+    pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Fixed) {
+        let _ = self.ctx.ctx.with_current(|| {
+            unsafe {
+                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
+                glViewport(0, 0, self.gl.width, self.gl.height);
+                glClearColor(0.0, 0.0, 0.0, 0.0);
+                glClear(GL_COLOR_BUFFER_BIT);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            }
+            let mut res = RenderResult::default();
+            let mut renderer = Renderer {
+                ctx: &self.ctx,
+                fb: &self.gl,
+                state,
+                on_output: false,
+                result: &mut res,
+                scaled: scale != 1,
+                scale,
+                scalef: scale.to_f64(),
+                logical_extents: Rect::new_empty(0, 0),
+            };
+            cursor.render_hardware_cursor(&mut renderer);
             unsafe {
                 glFlush();
             }

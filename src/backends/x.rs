@@ -700,6 +700,7 @@ impl XBackend {
                 true,
                 rr.deref_mut(),
                 node.preferred_scale.get(),
+                true,
             );
             for fr in rr.frame_requests.drain(..) {
                 fr.send_done();

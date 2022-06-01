@@ -3,6 +3,7 @@ use {
         async_engine::SpawnedFuture,
         fixed::Fixed,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
+        render::Framebuffer,
         video::drm::ConnectorType,
     },
     std::{
@@ -85,9 +86,19 @@ pub trait Connector {
 #[derive(Debug)]
 pub enum ConnectorEvent {
     Connected(MonitorInfo),
+    HardwareCursor(Option<Rc<dyn HardwareCursor>>),
     Disconnected,
     Removed,
     ModeChanged(Mode),
+}
+
+pub trait HardwareCursor: Debug {
+    fn set_enabled(&self, enabled: bool);
+    fn get_buffer(&self) -> Rc<Framebuffer>;
+    fn set_position(&self, x: i32, y: i32);
+    fn swap_buffer(&self);
+    fn commit(&self);
+    fn max_size(&self) -> (i32, i32);
 }
 
 pub type TransformMatrix = [[f64; 2]; 2];

@@ -363,6 +363,13 @@ impl Client {
         self.send(&ClientMessage::SetCursorSize { seat, size })
     }
 
+    pub fn set_use_hardware_cursor(&self, seat: Seat, use_hardware_cursor: bool) {
+        self.send(&ClientMessage::SetUseHardwareCursor {
+            seat,
+            use_hardware_cursor,
+        })
+    }
+
     pub fn set_size(&self, sized: Resizable, size: i32) {
         self.send(&ClientMessage::SetSize { sized, size })
     }

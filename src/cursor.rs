@@ -5,6 +5,7 @@ use {
         rect::Rect,
         render::{RenderContext, RenderError, Renderer, Texture},
         state::State,
+        time::Time,
         tree::OutputNode,
         utils::{errorfmt::ErrorFmt, numcell::NumCell, smallmap::SmallMapMut},
     },
@@ -22,9 +23,9 @@ use {
         mem::MaybeUninit,
         rc::Rc,
         slice, str,
+        time::Duration,
     },
     thiserror::Error,
-    uapi::c,
 };
 
 const XCURSOR_MAGIC: u32 = 0x72756358;
@@ -38,11 +39,19 @@ const HEADER_SIZE: u32 = 16;
 
 pub trait Cursor {
     fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed);
+    fn render_hardware_cursor(&self, renderer: &mut Renderer);
+    fn extents_at_scale(&self, scale: Fixed) -> Rect;
     fn set_output(&self, output: &Rc<OutputNode>) {
         let _ = output;
     }
     fn handle_unset(&self) {}
     fn tick(&self) {}
+    fn needs_tick(&self) -> bool {
+        false
+    }
+    fn time_until_tick(&self) -> Duration {
+        Duration::new(0, 0)
+    }
 }
 
 pub struct ServerCursors {
@@ -183,19 +192,12 @@ impl ServerCursorTemplate {
             ServerCursorTemplateVariant::Static(s) => Rc::new(StaticCursor {
                 image: s.for_size(size),
             }),
-            ServerCursorTemplateVariant::Animated(a) => {
-                let mut start = c::timespec {
-                    tv_sec: 0,
-                    tv_nsec: 0,
-                };
-                uapi::clock_gettime(c::CLOCK_MONOTONIC, &mut start).unwrap();
-                Rc::new(AnimatedCursor {
-                    start,
-                    next: NumCell::new(a[0].delay_ns),
-                    idx: Cell::new(0),
-                    images: a.iter().map(|c| c.for_size(size)).collect(),
-                })
-            }
+            ServerCursorTemplateVariant::Animated(a) => Rc::new(AnimatedCursor {
+                start: Time::now_unchecked(),
+                next: NumCell::new(a[0].delay_ns),
+                idx: Cell::new(0),
+                images: a.iter().map(|c| c.for_size(size)).collect(),
+            }),
         }
     }
 }
@@ -237,7 +239,7 @@ impl CursorImage {
         sizes: SmallMapMut<(Fixed, u32), Rc<CursorImageScaled>, 2>,
     ) -> Result<Self, CursorError> {
         Ok(Self {
-            delay_ns: delay_ms * 1_000_000,
+            delay_ns: delay_ms.max(1) * 1_000_000,
             sizes,
         })
     }
@@ -291,10 +293,23 @@ impl Cursor for StaticCursor {
     fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
         render_img(&self.image, renderer, x, y);
     }
+
+    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+        if let Some(img) = self.image.scales.get(&renderer.scale()) {
+            renderer.render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+        }
+    }
+
+    fn extents_at_scale(&self, scale: Fixed) -> Rect {
+        match self.image.scales.get(&scale) {
+            None => Rect::new_empty(0, 0),
+            Some(i) => i.extents,
+        }
+    }
 }
 
 struct AnimatedCursor {
-    start: c::timespec,
+    start: Time,
     next: NumCell<u64>,
     idx: Cell<usize>,
     images: Vec<InstantiatedCursorImage>,
@@ -306,21 +321,41 @@ impl Cursor for AnimatedCursor {
         render_img(img, renderer, x, y);
     }
 
+    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+        let img = &self.images[self.idx.get()];
+        if let Some(img) = img.scales.get(&renderer.scale()) {
+            renderer.render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+        }
+    }
+
+    fn extents_at_scale(&self, scale: Fixed) -> Rect {
+        let img = &self.images[self.idx.get()];
+        match img.scales.get(&scale) {
+            None => Rect::new_empty(0, 0),
+            Some(i) => i.extents,
+        }
+    }
+
     fn tick(&self) {
-        let mut now = c::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
-        uapi::clock_gettime(c::CLOCK_MONOTONIC, &mut now).unwrap();
-        let dist = (now.tv_sec.wrapping_sub(self.start.tv_sec)) as i64 * 1_000_000_000
-            + now.tv_nsec.wrapping_sub(self.start.tv_nsec) as i64;
-        if (dist as u64) < self.next.get() {
+        let dist = Time::now_unchecked() - self.start;
+        if (dist.as_nanos() as u64) < self.next.get() {
             return;
         }
         let idx = (self.idx.get() + 1) % self.images.len();
         self.idx.set(idx);
         let image = &self.images[idx];
         self.next.fetch_add(image.delay_ns);
+    }
+
+    fn needs_tick(&self) -> bool {
+        true
+    }
+
+    fn time_until_tick(&self) -> Duration {
+        let dist = Time::now_unchecked() - self.start;
+        let dist = dist.as_nanos() as u64;
+        let nanos = self.next.get().saturating_sub(dist);
+        Duration::from_nanos(nanos)
     }
 }
 

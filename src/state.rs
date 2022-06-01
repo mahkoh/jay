@@ -10,7 +10,7 @@ use {
         cli::RunArgs,
         client::{Client, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
         config::ConfigProxy,
-        cursor::ServerCursors,
+        cursor::{Cursor, ServerCursors},
         dbus::Dbus,
         fixed::Fixed,
         forker::ForkerProxy,
@@ -113,6 +113,7 @@ pub struct State {
     pub lock: ScreenlockState,
     pub scales: RefCounted<Fixed>,
     pub cursor_sizes: RefCounted<u32>,
+    pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
 }
 
 // impl Drop for State {
@@ -593,5 +594,32 @@ impl State {
         }
         self.wheel.clear();
         self.eng.clear();
+    }
+
+    pub fn disable_hardware_cursors(&self) {
+        for output in self.root.outputs.lock().values() {
+            if let Some(hc) = output.hardware_cursor.get() {
+                hc.set_enabled(false);
+                hc.commit();
+            }
+        }
+    }
+
+    pub fn refresh_hardware_cursors(&self) {
+        let seat = self
+            .globals
+            .seats
+            .lock()
+            .values()
+            .find(|s| s.hardware_cursor())
+            .cloned();
+        let seat = match seat {
+            Some(s) => s,
+            _ => {
+                self.disable_hardware_cursors();
+                return;
+            }
+        };
+        seat.update_hardware_cursor();
     }
 }

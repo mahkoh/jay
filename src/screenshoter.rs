@@ -61,6 +61,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         false,
         &mut Default::default(),
         Fixed::from_int(1),
+        true,
     );
     let drm = ctx.gbm.drm.dup_render()?.fd().clone();
     Ok(Screenshot { drm, bo })

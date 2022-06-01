@@ -32,7 +32,11 @@ use {
 use crate::{
     backend,
     utils::{errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
-    video::{dmabuf::DmaBuf, INVALID_MODIFIER},
+    video::{
+        dmabuf::DmaBuf,
+        drm::sys::{DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH},
+        INVALID_MODIFIER,
+    },
 };
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
@@ -233,6 +237,12 @@ impl DrmMaster {
 
     pub fn get_encoder_info(&self, encoder: DrmEncoder) -> Result<DrmEncoderInfo, DrmError> {
         mode_getencoder(self.raw(), encoder.0)
+    }
+
+    pub fn get_cursor_size(&self) -> Result<(u64, u64), OsError> {
+        let width = self.get_cap(DRM_CAP_CURSOR_WIDTH)?;
+        let height = self.get_cap(DRM_CAP_CURSOR_HEIGHT)?;
+        Ok((width, height))
     }
 
     pub fn get_connector_info(
