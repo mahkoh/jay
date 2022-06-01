@@ -36,6 +36,8 @@ The following features have been implemented and should work:
 - GPU reset recovery
 - Screen locking
 - Monitor hotplug
+- Fractional scaling
+- Hardware cursors
 
 ### Missing Features
 
