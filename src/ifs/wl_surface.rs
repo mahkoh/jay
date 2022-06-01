@@ -829,7 +829,7 @@ impl WlSurface {
         if self.need_extents_update.get() {
             self.calculate_extents();
         }
-        if buffer_transform_changed || transform_changed {
+        if buffer_changed || transform_changed {
             for (_, cursor) in &self.cursors {
                 cursor.handle_buffer_change();
             }

@@ -6,9 +6,9 @@ use {
         leaks::Tracker,
         rect::Rect,
         render::Renderer,
-        tree::OutputNode,
+        tree::{Node, NodeVisitorBase, OutputNode},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, ops::Deref, rc::Rc},
 };
 
 pub struct CursorSurface {
@@ -82,6 +82,22 @@ impl Cursor for CursorSurface {
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         let extents = self.surface.extents.get();
         renderer.render_surface(&self.surface, -extents.x1(), -extents.y1());
+
+        struct FrameRequests;
+        impl NodeVisitorBase for FrameRequests {
+            fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+                for fr in node.frame_requests.borrow_mut().drain(..) {
+                    fr.send_done();
+                    let _ = fr.client.remove_obj(fr.deref());
+                }
+                for fr in node.presentation_feedback.borrow_mut().drain(..) {
+                    fr.send_discarded();
+                    let _ = fr.client.remove_obj(fr.deref());
+                }
+                node.node_visit_children(self);
+            }
+        }
+        FrameRequests.visit_surface(&self.surface);
     }
 
     fn extents_at_scale(&self, scale: Fixed) -> Rect {
