@@ -29,6 +29,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "algorithms"
+version = "0.1.0"
+dependencies = [
+ "smallvec",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -308,6 +315,7 @@ name = "jay"
 version = "0.1.0"
 dependencies = [
  "ahash",
+ "algorithms",
  "anyhow",
  "backtrace",
  "bincode",
@@ -329,7 +337,6 @@ dependencies = [
  "num-traits",
  "once_cell",
  "pin-project",
- "qoi",
  "rand",
  "repc",
  "smallvec",
@@ -516,10 +523,6 @@ checksum = "c7342d5883fbccae1cc37a2353b09c87c9b0f3afd73f5fb9bba687a1f733b029"
 dependencies = [
  "unicode-xid",
 ]
-
-[[package]]
-name = "qoi"
-version = "0.1.0"
 
 [[package]]
 name = "quote"

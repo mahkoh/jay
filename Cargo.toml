@@ -5,7 +5,7 @@ edition = "2021"
 build = "build/build.rs"
 
 [workspace]
-members = ["jay-config", "default-config", "qoi"]
+members = ["jay-config", "default-config", "algorithms"]
 
 [profile.release]
 panic = "abort"
@@ -32,7 +32,7 @@ byteorder = "1.4.3"
 bincode = "2.0.0-rc.1"
 jay-config = { path = "jay-config" }
 default-config = { path = "default-config" }
-qoi = { path = "qoi" }
+algorithms = { path = "algorithms" }
 pin-project = "1.0.10"
 clap = { version = "3.1.6", features = ["derive", "wrap_help"] }
 clap_complete = "3.1.1"
@@ -49,7 +49,10 @@ bstr = { version = "0.2.17", default-features = false, features = ["std"] }
 #[profile.dev.build-override]
 #opt-level = 3
 
-[profile.dev.package."qoi"]
+[profile.dev.package."algorithms"]
+opt-level = 3
+
+[profile.dev.package."smallvec"]
 opt-level = 3
 
 [features]
