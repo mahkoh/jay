@@ -210,7 +210,6 @@ impl ConnectorHandler {
         }
         global.node.set(None);
         global.destroyed.set(true);
-        let _ = self.state.remove_global(&*global);
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
@@ -252,5 +251,6 @@ impl ConnectorHandler {
             dev.connectors.remove(&self.id);
         }
         self.state.remove_output_scale(on.preferred_scale.get());
+        let _ = self.state.remove_global(&*global);
     }
 }

@@ -4,13 +4,14 @@ use {
         ifs::{
             wl_output::OutputId,
             wl_seat::{NodeSeatState, WlSeatGlobal},
-            wl_surface::SurfaceSendPreferredScaleVisitor,
+            wl_surface::WlSurface,
         },
         rect::Rect,
         render::Renderer,
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
-            FindTreeResult, FoundNode, Node, NodeId, OutputNode, StackedNode, ToplevelNode,
+            FindTreeResult, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode, StackedNode,
+            ToplevelNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -46,13 +47,17 @@ impl WorkspaceNode {
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
-        let old = self.output.set(output.clone());
-        if old.preferred_scale.get() != output.preferred_scale.get() {
-            let mut visitor = SurfaceSendPreferredScaleVisitor(output.preferred_scale.get());
-            self.node_visit_children(&mut visitor);
-            for stacked in self.stacked.iter() {
-                stacked.deref().clone().node_visit(&mut visitor);
+        self.output.set(output.clone());
+        struct OutputSetter<'a>(&'a Rc<OutputNode>);
+        impl NodeVisitorBase for OutputSetter<'_> {
+            fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+                node.set_output(self.0);
             }
+        }
+        let mut visitor = OutputSetter(output);
+        self.node_visit_children(&mut visitor);
+        for stacked in self.stacked.iter() {
+            stacked.deref().clone().node_visit(&mut visitor);
         }
     }
 
