@@ -172,6 +172,12 @@ xkb_keymap {
         interpret Num_Lock {
             action = LockMods(modifiers=Mod2);
         };
+        interpret Super_L {
+            action = SetMods(modifiers=Mod4);
+        };
+        interpret Super_R {
+            action = SetMods(modifiers=Mod4);
+        };
     };
 
     xkb_symbols {
