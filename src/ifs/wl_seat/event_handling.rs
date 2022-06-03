@@ -191,7 +191,7 @@ impl WlSeatGlobal {
                 time_usec,
                 button,
                 state,
-            } => self.pointer_owner.button(self, time_usec, button, state),
+            } => self.button_event(time_usec, button, state),
 
             InputEvent::AxisSource { source } => self.pointer_owner.axis_source(source),
             InputEvent::Axis120 { dist, axis } => self.pointer_owner.axis_120(dist, axis),
@@ -216,6 +216,9 @@ impl WlSeatGlobal {
         let pos = output.node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
+        self.state.for_each_seat_tester(|t| {
+            t.send_pointer_abs(self.id, time_usec, x, y);
+        });
         self.set_new_position(time_usec, x, y);
     }
 
@@ -238,6 +241,18 @@ impl WlSeatGlobal {
         let (mut x, mut y) = self.pos.get();
         x += dx;
         y += dy;
+        self.state.for_each_seat_tester(|t| {
+            t.send_pointer_rel(
+                self.id,
+                time_usec,
+                x,
+                y,
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+            );
+        });
         let output = self.output.get();
         let pos = output.global.pos.get();
         let mut x_int = x.round_down();
@@ -268,10 +283,17 @@ impl WlSeatGlobal {
         self.set_new_position(time_usec, x, y);
     }
 
-    fn key_event(&self, time_usec: u64, key: u32, state: KeyState) {
+    fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_button(self.id, time_usec, button, state);
+        });
+        self.pointer_owner.button(self, time_usec, button, state);
+    }
+
+    fn key_event(&self, time_usec: u64, key: u32, key_state: KeyState) {
         let (state, xkb_dir) = {
             let mut pk = self.pressed_keys.borrow_mut();
-            match state {
+            match key_state {
                 KeyState::Released => {
                     if !pk.remove(&key) {
                         return;
@@ -304,6 +326,9 @@ impl WlSeatGlobal {
             }
             new_mods = kb_state.update(key, xkb_dir);
         }
+        self.state.for_each_seat_tester(|t| {
+            t.send_key(self.id, time_usec, key, key_state);
+        });
         let node = self.keyboard_node.get();
         if shortcuts.is_empty() {
             node.node_on_key(self, time_usec, key, state);
@@ -313,6 +338,9 @@ impl WlSeatGlobal {
             }
         }
         if let Some(mods) = new_mods {
+            self.state.for_each_seat_tester(|t| {
+                t.send_modifiers(self.id, &mods);
+            });
             node.node_on_mods(self, mods);
         }
     }

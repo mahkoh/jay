@@ -8,7 +8,7 @@ use {
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
-        client::{Client, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
+        client::{Client, ClientId, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
@@ -17,6 +17,7 @@ use {
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
+            jay_seat_events::JaySeatEvents,
             wl_drm::WlDrmGlobal,
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
@@ -41,6 +42,7 @@ use {
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
         wheel::Wheel,
+        wire::JaySeatEventsId,
         xkbcommon::{XkbContext, XkbKeymap},
         xwayland::{self, XWaylandEvent},
     },
@@ -114,6 +116,7 @@ pub struct State {
     pub scales: RefCounted<Fixed>,
     pub cursor_sizes: RefCounted<u32>,
     pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
+    pub testers: RefCell<AHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
 }
 
 // impl Drop for State {
@@ -621,5 +624,12 @@ impl State {
             }
         };
         seat.update_hardware_cursor();
+    }
+
+    pub fn for_each_seat_tester<F: Fn(&JaySeatEvents)>(&self, f: F) {
+        let testers = self.testers.borrow_mut();
+        for tester in testers.values() {
+            f(tester);
+        }
     }
 }

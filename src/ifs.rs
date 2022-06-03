@@ -5,6 +5,7 @@ pub mod jay_compositor;
 pub mod jay_idle;
 pub mod jay_log_file;
 pub mod jay_screenshot;
+pub mod jay_seat_events;
 pub mod org_kde_kwin_server_decoration;
 pub mod org_kde_kwin_server_decoration_manager;
 pub mod wl_buffer;

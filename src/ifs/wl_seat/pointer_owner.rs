@@ -55,6 +55,9 @@ impl PointerOwnerHolder {
     pub fn frame(&self, dev: &DeviceHandlerData, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
         self.pending_scroll.time_usec.set(time_usec);
         let pending = self.pending_scroll.take();
+        seat.state.for_each_seat_tester(|t| {
+            t.send_axis(seat.id, time_usec, dev, &pending);
+        });
         if let Some(node) = self.owner.get().axis_node(seat) {
             node.node_on_axis_event(dev, seat, &pending);
         }

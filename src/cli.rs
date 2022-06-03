@@ -4,6 +4,7 @@ mod log;
 mod quit;
 mod run_privileged;
 pub mod screenshot;
+mod seat_test;
 mod set_log_level;
 mod unlock;
 
@@ -48,8 +49,10 @@ pub enum Cmd {
     Screenshot(ScreenshotArgs),
     /// Inspect/modify the idle (screensaver) settings.
     Idle(IdleArgs),
-    /// Run a privileged program
+    /// Run a privileged program.
     RunPrivileged(RunPrivilegedArgs),
+    /// Tests the events produced by a seat.
+    SeatTest(SeatTestArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -149,6 +152,15 @@ pub struct SetLogArgs {
     level: CliLogLevel,
 }
 
+#[derive(Args, Debug)]
+pub struct SeatTestArgs {
+    /// Test all seats.
+    #[clap(long, short = 'a')]
+    all: bool,
+    /// The seat to test.
+    seat: Option<String>,
+}
+
 #[derive(ArgEnum, Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum CliBackend {
     X11,
@@ -201,6 +213,7 @@ pub fn main() {
         Cmd::Idle(a) => idle::main(cli.global, a),
         Cmd::Unlock => unlock::main(cli.global),
         Cmd::RunPrivileged(a) => run_privileged::main(cli.global, a),
+        Cmd::SeatTest(a) => seat_test::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }

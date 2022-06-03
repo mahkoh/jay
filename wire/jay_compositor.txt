@@ -35,8 +35,21 @@ msg unlock = 8 {
 
 }
 
+msg get_seats = 9 {
+
+}
+
+msg seat_events = 10 {
+    id: id(jay_seat_events),
+}
+
 # events
 
 msg client_id = 0 {
     client_id: pod(u64),
+}
+
+msg seat = 1 {
+    id: u32,
+    name: str,
 }

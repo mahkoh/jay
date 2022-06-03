@@ -3,7 +3,10 @@ use {
         cli::CliLogLevel,
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::{jay_idle::JayIdle, jay_log_file::JayLogFile, jay_screenshot::JayScreenshot},
+        ifs::{
+            jay_idle::JayIdle, jay_log_file::JayLogFile, jay_screenshot::JayScreenshot,
+            jay_seat_events::JaySeatEvents,
+        },
         leaks::Tracker,
         object::Object,
         screenshoter::take_screenshot,
@@ -193,6 +196,35 @@ impl JayCompositor {
         self.client.symmetric_delete.set(true);
         Ok(())
     }
+
+    fn get_seats(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let _req: GetSeats = self.client.parse(self, parser)?;
+        for seat in self.client.state.globals.seats.lock().values() {
+            self.client.event(Seat {
+                self_id: self.id,
+                id: seat.id().raw(),
+                name: seat.seat_name(),
+            })
+        }
+        Ok(())
+    }
+
+    fn seat_events(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: SeatEvents = self.client.parse(self, parser)?;
+        let se = Rc::new(JaySeatEvents {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, se);
+        self.client.add_client_obj(&se)?;
+        self.client
+            .state
+            .testers
+            .borrow_mut()
+            .insert((self.client.id, req.id), se);
+        Ok(())
+    }
 }
 
 object_base! {
@@ -207,11 +239,13 @@ object_base! {
     GET_CLIENT_ID => get_client_id,
     ENABLE_SYMMETRIC_DELETE => enable_symmetric_delete,
     UNLOCK => unlock,
+    GET_SEATS => get_seats,
+    SEAT_EVENTS => seat_events,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        UNLOCK + 1
+        SEAT_EVENTS + 1
     }
 }
 
