@@ -22,7 +22,7 @@ use {
         rect::Rect,
         state::State,
         time::Time,
-        tree::ToplevelNode,
+        tree::{Node, ToplevelNode},
         utils::{
             bitflags::BitflagsExt, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell, oserror::OsError,
@@ -1757,15 +1757,18 @@ impl Wm {
         let new_window = self.windows.get(&event.event);
         let mut focus_window = self.focus_window.as_ref();
         if let Some(window) = new_window {
-            if let Some(prev) = focus_window {
-                let prev_pid = prev.info.pid.get();
-                let new_pid = window.info.pid.get();
-                if prev_pid.is_some()
-                    && prev_pid == new_pid
-                    && revent.serial() >= self.last_input_serial
-                {
-                    // log::info!("xwm ACCEPT");
-                    focus_window = new_window;
+            if let Some(w) = window.window.get() {
+                if let Some(prev) = focus_window {
+                    let prev_pid = prev.info.pid.get();
+                    let new_pid = window.info.pid.get();
+                    if prev_pid.is_some()
+                        && prev_pid == new_pid
+                        && revent.serial() >= self.last_input_serial
+                        && w.surface.node_visible()
+                    {
+                        // log::info!("xwm ACCEPT");
+                        focus_window = new_window;
+                    }
                 }
             }
         }
