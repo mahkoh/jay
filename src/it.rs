@@ -14,13 +14,9 @@ use {
     futures_util::{future, future::Either},
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
+    parking_lot::Mutex,
     std::{
-        cell::Cell,
-        collections::VecDeque,
-        future::pending,
-        pin::Pin,
-        rc::Rc,
-        sync::{Arc, Mutex},
+        cell::Cell, collections::VecDeque, future::pending, pin::Pin, rc::Rc, sync::Arc,
         time::SystemTime,
     },
     uapi::c,
@@ -75,7 +71,7 @@ pub fn run_tests() {
             let queue = queue.clone();
             let it_run = it_run.clone();
             threads.push(std::thread::spawn(move || loop {
-                let test = match queue.lock().unwrap().pop_front() {
+                let test = match queue.lock().pop_front() {
                     Some(t) => t,
                     _ => break,
                 };
@@ -88,7 +84,7 @@ pub fn run_tests() {
             thread.join().unwrap();
         }
     }
-    let failed = it_run.failed.lock().unwrap();
+    let failed = it_run.failed.lock();
     if failed.is_not_empty() {
         let mut failed: Vec<_> = failed.iter().collect();
         failed.sort_by_key(|f| f.0);
@@ -167,7 +163,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
         for e in &errors {
             log::error!("    {}", e);
         }
-        it_run.failed.lock().unwrap().insert(test.name(), errors);
+        it_run.failed.lock().insert(test.name(), errors);
     }
     test_logger::unset_file();
 }
