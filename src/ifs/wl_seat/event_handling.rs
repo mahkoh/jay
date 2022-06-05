@@ -564,12 +564,7 @@ impl WlSeatGlobal {
 
 // Scroll callbacks
 impl WlSeatGlobal {
-    pub fn scroll_surface(
-        &self,
-        dev: &DeviceHandlerData,
-        surface: &WlSurface,
-        event: &PendingScroll,
-    ) {
+    pub fn scroll_surface(&self, surface: &WlSurface, event: &PendingScroll) {
         if let Some(source) = event.source.get() {
             let since = if source >= WHEEL_TILT {
                 WHEEL_TILT_SINCE_VERSION
@@ -588,9 +583,8 @@ impl WlSeatGlobal {
                     } else if p.seat.version >= AXIS_DISCRETE_SINCE_VERSION {
                         p.send_axis_discrete(axis, delta / AXIS_120);
                     }
-                    let px = (delta as f64 / AXIS_120 as f64) * dev.px_per_scroll_wheel.get();
-                    p.send_axis(time, axis, Fixed::from_f64(px));
-                } else if let Some(delta) = event.px[i].get() {
+                }
+                if let Some(delta) = event.px[i].get() {
                     p.send_axis(time, axis, delta);
                 }
                 if p.seat.version >= AXIS_STOP_SINCE_VERSION && event.stop[i].get() {

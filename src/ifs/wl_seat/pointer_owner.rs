@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{AxisSource, KeyState, ScrollAxis},
+        backend::{AxisSource, KeyState, ScrollAxis, AXIS_120},
         fixed::Fixed,
         ifs::{
             ipc,
@@ -55,11 +55,17 @@ impl PointerOwnerHolder {
     pub fn frame(&self, dev: &DeviceHandlerData, seat: &Rc<WlSeatGlobal>, time_usec: u64) {
         self.pending_scroll.time_usec.set(time_usec);
         let pending = self.pending_scroll.take();
+        for axis in 0..2 {
+            if let Some(dist) = pending.v120[axis].get() {
+                let px = (dist as f64 / AXIS_120 as f64) * dev.px_per_scroll_wheel.get();
+                pending.px[axis].set(Some(Fixed::from_f64(px)));
+            }
+        }
         seat.state.for_each_seat_tester(|t| {
-            t.send_axis(seat.id, time_usec, dev, &pending);
+            t.send_axis(seat.id, time_usec, &pending);
         });
         if let Some(node) = self.owner.get().axis_node(seat) {
-            node.node_on_axis_event(dev, seat, &pending);
+            node.node_on_axis_event(seat, &pending);
         }
     }
 

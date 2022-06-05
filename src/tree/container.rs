@@ -9,7 +9,7 @@ use {
         },
         rect::Rect,
         render::{Renderer, Texture},
-        state::{DeviceHandlerData, State},
+        state::State,
         text,
         tree::{
             walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
@@ -1162,12 +1162,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn node_on_axis_event(
-        self: Rc<Self>,
-        _dev: &DeviceHandlerData,
-        seat: &Rc<WlSeatGlobal>,
-        event: &PendingScroll,
-    ) {
+    fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
         let mut seat_datas = self.seats.borrow_mut();
         let seat_data = match seat_datas.get_mut(&seat.id()) {
             Some(s) => s,

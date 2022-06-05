@@ -1,12 +1,11 @@
 use {
     crate::{
-        backend::{self, KeyState},
+        backend::KeyState,
         client::Client,
         fixed::Fixed,
         ifs::wl_seat::{wl_pointer::PendingScroll, SeatId},
         leaks::Tracker,
         object::Object,
-        state::DeviceHandlerData,
         wire::{jay_seat_events::*, JaySeatEventsId},
         xkbcommon::ModifierState,
     },
@@ -83,13 +82,7 @@ impl JaySeatEvents {
         });
     }
 
-    pub fn send_axis(
-        &self,
-        seat: SeatId,
-        time_usec: u64,
-        dev: &DeviceHandlerData,
-        ps: &PendingScroll,
-    ) {
+    pub fn send_axis(&self, seat: SeatId, time_usec: u64, ps: &PendingScroll) {
         if let Some(source) = ps.source.get() {
             self.client.event(AxisSource {
                 self_id: self.id,
@@ -103,13 +96,8 @@ impl JaySeatEvents {
                     dist,
                     axis: axis as _,
                 });
-                let px = (dist as f64 / backend::AXIS_120 as f64) * dev.px_per_scroll_wheel.get();
-                self.client.event(AxisPx {
-                    self_id: self.id,
-                    dist: Fixed::from_f64(px),
-                    axis: axis as _,
-                });
-            } else if let Some(dist) = ps.px[axis].get() {
+            }
+            if let Some(dist) = ps.px[axis].get() {
                 self.client.event(AxisPx {
                     self_id: self.id,
                     dist,
