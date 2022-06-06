@@ -1882,6 +1882,7 @@ impl Wm {
         };
         // log::info!("xwm destroy_notify {}", event.window);
         data.destroyed.set(true);
+        data.stack_link.borrow_mut().take();
         if let Some(sid) = data.surface_id.take() {
             self.windows_by_surface_id.remove(&sid);
         }
