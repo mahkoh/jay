@@ -499,6 +499,9 @@ impl Node for OutputNode {
             let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
             for stacked in self.state.root.stacked.rev_iter() {
                 let ext = stacked.node_absolute_position();
+                if !stacked.node_visible() {
+                    continue;
+                }
                 if stacked.stacked_absolute_position_constrains_input()
                     && !ext.contains(x_abs, y_abs)
                 {
