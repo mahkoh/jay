@@ -414,7 +414,9 @@ impl Node for FloatNode {
     }
 
     fn node_child_active_changed(self: Rc<Self>, _child: &dyn Node, active: bool, _depth: u32) {
-        self.active.set(active);
+        if self.active.replace(active) != active {
+            self.schedule_render_titles();
+        }
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
