@@ -19,6 +19,7 @@ pub mod num_cpus;
 pub mod numcell;
 pub mod once;
 pub mod oserror;
+pub mod page_size;
 pub mod ptr_ext;
 pub mod queue;
 pub mod rc_eq;

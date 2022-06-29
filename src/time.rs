@@ -68,6 +68,13 @@ impl Time {
         let nsec = self.0.tv_nsec as u64 / 1_000;
         sec + nsec
     }
+
+    #[allow(dead_code)]
+    pub fn nsec(self) -> u64 {
+        let sec = self.0.tv_sec as u64 * 1_000_000_000;
+        let nsec = self.0.tv_nsec as u64;
+        sec + nsec
+    }
 }
 
 impl Eq for Time {}

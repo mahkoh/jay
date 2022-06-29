@@ -9,7 +9,7 @@ mod set_log_level;
 mod unlock;
 
 use {
-    crate::compositor::start_compositor,
+    crate::{compositor::start_compositor, portal},
     ::log::Level,
     clap::{ArgEnum, Args, Parser, Subcommand},
     clap_complete::Shell,
@@ -53,6 +53,8 @@ pub enum Cmd {
     RunPrivileged(RunPrivilegedArgs),
     /// Tests the events produced by a seat.
     SeatTest(SeatTestArgs),
+    /// Run the desktop portal.
+    Portal,
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -214,6 +216,7 @@ pub fn main() {
         Cmd::Unlock => unlock::main(cli.global),
         Cmd::RunPrivileged(a) => run_privileged::main(cli.global, a),
         Cmd::SeatTest(a) => seat_test::main(cli.global, a),
+        Cmd::Portal => portal::run(),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }

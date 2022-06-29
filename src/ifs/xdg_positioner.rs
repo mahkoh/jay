@@ -8,7 +8,6 @@ use {
         utils::buffd::{MsgParser, MsgParserError},
         wire::{xdg_positioner::*, XdgPositionerId},
     },
-    bitflags::bitflags,
     std::{cell::RefCell, rc::Rc},
     thiserror::Error,
 };
@@ -53,7 +52,7 @@ impl Edge {
     }
 }
 
-bitflags! {
+bitflags::bitflags! {
     #[derive(Default)]
     pub struct CA: u32 {
         const NONE = 0;
