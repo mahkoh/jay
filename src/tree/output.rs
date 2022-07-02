@@ -1,9 +1,11 @@
 use {
     crate::{
         backend::{HardwareCursor, KeyState, Mode},
+        client::ClientId,
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
+            jay_output::JayOutput,
             wl_output::WlOutputGlobal,
             wl_seat::{
                 collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
@@ -26,7 +28,9 @@ use {
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             linkedlist::LinkedList, scroller::Scroller,
         },
+        wire::JayOutputId,
     },
+    ahash::AHashMap,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -40,6 +44,7 @@ tree_id!(OutputNodeId);
 pub struct OutputNode {
     pub id: OutputNodeId,
     pub global: Rc<WlOutputGlobal>,
+    pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
     pub workspaces: LinkedList<Rc<WorkspaceNode>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
@@ -53,6 +58,19 @@ pub struct OutputNode {
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
     pub preferred_scale: Cell<Fixed>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
+    pub update_render_data_scheduled: Cell<bool>,
+}
+
+pub async fn output_render_data(state: Rc<State>) {
+    loop {
+        let container = state.pending_output_render_data.pop().await;
+        if container.global.destroyed.get() {
+            continue;
+        }
+        if container.update_render_data_scheduled.get() {
+            container.update_render_data();
+        }
+    }
 }
 
 impl OutputNode {
@@ -65,16 +83,17 @@ impl OutputNode {
         }
         self.render_data.borrow_mut().titles.clear();
         self.lock_surface.take();
+        self.jay_outputs.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
-        self.update_render_data();
+        self.schedule_update_render_data();
         if let Some(c) = self.workspace.get() {
             c.change_extents(&self.workspace_rect());
         }
     }
 
-    pub fn set_preferred_scale(&self, scale: Fixed) {
+    pub fn set_preferred_scale(self: &Rc<Self>, scale: Fixed) {
         let old_scale = self.preferred_scale.replace(scale);
         if scale == old_scale {
             return;
@@ -94,10 +113,17 @@ impl OutputNode {
                 stacked.deref().clone().node_visit(&mut visitor);
             }
         }
-        self.update_render_data();
+        self.schedule_update_render_data();
     }
 
-    pub fn update_render_data(&self) {
+    pub fn schedule_update_render_data(self: &Rc<Self>) {
+        if !self.update_render_data_scheduled.replace(true) {
+            self.state.pending_output_render_data.push(self.clone());
+        }
+    }
+
+    fn update_render_data(&self) {
+        self.update_render_data_scheduled.set(false);
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
         rd.inactive_workspaces.clear();
@@ -218,28 +244,7 @@ impl OutputNode {
             }
             unreachable!();
         };
-        let workspace = Rc::new(WorkspaceNode {
-            id: self.state.node_ids.next(),
-            is_dummy: false,
-            output: CloneCell::new(self.clone()),
-            position: Default::default(),
-            container: Default::default(),
-            stacked: Default::default(),
-            seat_state: Default::default(),
-            name: name.clone(),
-            output_link: Default::default(),
-            visible: Cell::new(true),
-            fullscreen: Default::default(),
-            visible_on_desired_output: Cell::new(false),
-            desired_output: CloneCell::new(self.global.output_id.clone()),
-        });
-        self.state.workspaces.set(name, workspace.clone());
-        workspace
-            .output_link
-            .set(Some(self.workspaces.add_last(workspace.clone())));
-        self.show_workspace(&workspace);
-        self.update_render_data();
-        workspace
+        self.create_workspace(&name)
     }
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
@@ -249,10 +254,16 @@ impl OutputNode {
                 return false;
             }
             collect_kb_foci2(old.clone(), &mut seats);
-            old.set_visible(false);
             if old.is_empty() {
+                for jw in old.jay_workspaces.lock().values() {
+                    jw.send_destroyed();
+                    jw.workspace.set(None);
+                }
                 old.clear();
                 self.state.workspaces.remove(&old.name);
+            } else {
+                old.set_visible(false);
+                old.flush_jay_workspaces();
             }
         }
         ws.set_visible(true);
@@ -281,6 +292,7 @@ impl OutputNode {
             fullscreen: Default::default(),
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
+            jay_workspaces: Default::default(),
         });
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));
@@ -288,7 +300,16 @@ impl OutputNode {
         if self.workspace.get().is_none() {
             self.show_workspace(&ws);
         }
-        self.update_render_data();
+        let mut clients_to_kill = AHashMap::new();
+        for watcher in self.state.workspace_watchers.lock().values() {
+            if let Err(e) = watcher.send_workspace(&ws) {
+                clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));
+            }
+        }
+        for (client, e) in clients_to_kill.values() {
+            client.error(e);
+        }
+        self.schedule_update_render_data();
         ws
     }
 
@@ -304,7 +325,7 @@ impl OutputNode {
         .unwrap()
     }
 
-    pub fn set_position(&self, x: i32, y: i32) {
+    pub fn set_position(self: &Rc<Self>, x: i32, y: i32) {
         let pos = self.global.pos.get();
         if (pos.x1(), pos.y1()) == (x, y) {
             return;
@@ -313,7 +334,7 @@ impl OutputNode {
         self.change_extents_(&rect);
     }
 
-    pub fn update_mode(&self, mode: Mode) {
+    pub fn update_mode(self: &Rc<Self>, mode: Mode) {
         if self.global.mode.get() == mode {
             return;
         }
@@ -336,10 +357,10 @@ impl OutputNode {
         pos.with_size(width, height).unwrap()
     }
 
-    fn change_extents_(&self, rect: &Rect) {
+    fn change_extents_(self: &Rc<Self>, rect: &Rect) {
         self.global.pos.set(*rect);
         self.state.root.update_extents();
-        self.update_render_data();
+        self.schedule_update_render_data();
         if let Some(ls) = self.lock_surface.get() {
             ls.change_extents(*rect);
         }
@@ -380,9 +401,9 @@ impl OutputNode {
         FindTreeResult::Other
     }
 
-    pub fn set_status(&self, status: &Rc<String>) {
+    pub fn set_status(self: &Rc<Self>, status: &Rc<String>) {
         self.status.set(status.clone());
-        self.update_render_data();
+        self.schedule_update_render_data();
     }
 
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
@@ -576,7 +597,8 @@ impl Node for OutputNode {
             return;
         };
         self.show_workspace(&ws);
-        self.update_render_data();
+        ws.flush_jay_workspaces();
+        self.schedule_update_render_data();
         self.state.tree_changed();
     }
 
@@ -610,10 +632,11 @@ impl Node for OutputNode {
         if !self.show_workspace(&ws) {
             return;
         }
+        ws.flush_jay_workspaces();
         ws.deref()
             .clone()
             .node_do_focus(seat, Direction::Unspecified);
-        self.update_render_data();
+        self.schedule_update_render_data();
         self.state.tree_changed();
     }
 

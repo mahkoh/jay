@@ -8,3 +8,9 @@ fn Set(interface_name: string, property_name: string, value: variant) {
 fn GetAll(interface_name: string) {
     props: array(dict(string, variant)),
 }
+
+sig PropertiesChanged {
+    interface_name: string,
+    changed_properties: array(dict(string, variant)),
+    invalidated_properties: array(string),
+}

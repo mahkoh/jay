@@ -7,3 +7,7 @@ fn AddMatch(rule: string) { }
 fn RemoveMatch(rule: string) { }
 
 fn UpdateActivationEnvironment(environment: array(dict(string, string))) { }
+
+fn RequestName(name: string, flags: u32) {
+    rv: u32,
+}

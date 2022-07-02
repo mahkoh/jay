@@ -3,12 +3,11 @@
 mod pw_debug;
 
 use {
-    crate::pipewire::pw_parser::PwParser,
+    crate::pipewire::pw_parser::{PwParser, PwParserError},
     bstr::BStr,
     std::fmt::{Debug, Formatter},
     uapi::{c, Pod},
 };
-use crate::pipewire::pw_parser::PwParserError;
 
 macro_rules! ty {
     ($name:ident; $($id:ident = $val:expr,)*) => {
@@ -71,8 +70,8 @@ ty! {
 ty! {
     PwPodObjectType;
 
-	PW_COMMAND_Device = 0x30001,
-	PW_COMMAND_Node = 0x30002,
+    PW_COMMAND_Device = 0x30001,
+    PW_COMMAND_Node = 0x30002,
 
     PW_OBJECT_PropInfo             = 0x40001,
     PW_OBJECT_Props                = 0x40002,
@@ -752,7 +751,7 @@ pub struct spa_meta_header {
     pub seq: u64,
 }
 
-unsafe impl Pod for spa_meta_header { }
+unsafe impl Pod for spa_meta_header {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -783,7 +782,7 @@ pub struct spa_meta_bitmap {
     pub offset: u32,
 }
 
-unsafe impl Pod for spa_meta_bitmap { }
+unsafe impl Pod for spa_meta_bitmap {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -795,12 +794,11 @@ pub struct spa_meta_cursor {
     pub bitmap_offset: u32,
 }
 
-unsafe impl Pod for spa_meta_cursor { }
+unsafe impl Pod for spa_meta_cursor {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct spa_meta_control {
-}
+pub struct spa_meta_control {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -809,9 +807,9 @@ pub struct spa_meta_busy {
     pub count: u32,
 }
 
-unsafe impl Pod for spa_meta_busy { }
+unsafe impl Pod for spa_meta_busy {}
 
-unsafe impl Pod for spa_meta_region { }
+unsafe impl Pod for spa_meta_region {}
 
 ty! {
     SpaMetaType;
@@ -1032,17 +1030,17 @@ ty! {
 ty! {
     SpaNodeCommand;
 
-	SPA_NODE_COMMAND_Suspend        = 0,
-	SPA_NODE_COMMAND_Pause          = 1,
-	SPA_NODE_COMMAND_Start          = 2,
-	SPA_NODE_COMMAND_Enable         = 3,
-	SPA_NODE_COMMAND_Disable        = 4,
-	SPA_NODE_COMMAND_Flush          = 5,
-	SPA_NODE_COMMAND_Drain          = 6,
-	SPA_NODE_COMMAND_Marker         = 7,
-	SPA_NODE_COMMAND_ParamBegin     = 8,
-	SPA_NODE_COMMAND_ParamEnd       = 9,
-	SPA_NODE_COMMAND_RequestProcess = 10,
+    SPA_NODE_COMMAND_Suspend        = 0,
+    SPA_NODE_COMMAND_Pause          = 1,
+    SPA_NODE_COMMAND_Start          = 2,
+    SPA_NODE_COMMAND_Enable         = 3,
+    SPA_NODE_COMMAND_Disable        = 4,
+    SPA_NODE_COMMAND_Flush          = 5,
+    SPA_NODE_COMMAND_Drain          = 6,
+    SPA_NODE_COMMAND_Marker         = 7,
+    SPA_NODE_COMMAND_ParamBegin     = 8,
+    SPA_NODE_COMMAND_ParamEnd       = 9,
+    SPA_NODE_COMMAND_RequestProcess = 10,
 }
 
 #[derive(Copy, Clone)]
@@ -1107,7 +1105,7 @@ impl<'a> PwPodObject<'a> {
             if self.probs.len() == 0 {
                 self.probs.reset();
             } else {
-                let mut prob = self.probs.read_prop()?;
+                let prob = self.probs.read_prop()?;
                 if prob.key == key {
                     return Ok(Some(prob));
                 }
@@ -1180,14 +1178,20 @@ impl<'a> PwPod<'a> {
     pub fn get_fraction(&self) -> Result<PwPodFraction, PwParserError> {
         match self.get_value()? {
             PwPod::Fraction(i) => Ok(i),
-            _ => Err(PwParserError::UnexpectedPodType(PW_TYPE_Fraction, self.ty())),
+            _ => Err(PwParserError::UnexpectedPodType(
+                PW_TYPE_Fraction,
+                self.ty(),
+            )),
         }
     }
 
     pub fn get_rectangle(&self) -> Result<PwPodRectangle, PwParserError> {
         match self.get_value()? {
             PwPod::Rectangle(i) => Ok(i),
-            _ => Err(PwParserError::UnexpectedPodType(PW_TYPE_Rectangle, self.ty())),
+            _ => Err(PwParserError::UnexpectedPodType(
+                PW_TYPE_Rectangle,
+                self.ty(),
+            )),
         }
     }
 
@@ -1428,3 +1432,20 @@ pub struct spa_io_buffers {
 }
 
 unsafe impl Pod for spa_io_buffers {}
+
+bitflags! {
+    SpaChunkFlags: u32;
+
+    SPA_CHUNK_FLAG_CORRUPTED = 1,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct spa_chunk {
+    pub offset: u32,
+    pub size: u32,
+    pub stride: u32,
+    pub flags: SpaChunkFlags,
+}
+
+unsafe impl Pod for spa_chunk {}

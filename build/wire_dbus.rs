@@ -670,8 +670,13 @@ fn write_module<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<(
 }
 
 fn write_element<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<()> {
+    let name = if element.name == "impl" {
+        "impl_".as_bytes().as_bstr()
+    } else {
+        element.name.as_bstr()
+    };
     writeln!(f)?;
-    writeln!(f, "{}pub mod {} {{", indent, element.name)?;
+    writeln!(f, "{}pub mod {} {{", indent, name)?;
     writeln!(f, "{}    use crate::dbus::prelude::*;", indent)?;
     {
         let indent = format!("{}    ", indent);

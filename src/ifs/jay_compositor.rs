@@ -4,14 +4,16 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::{
-            jay_idle::JayIdle, jay_log_file::JayLogFile, jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents,
+            jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
+            jay_render_ctx::JayRenderCtx, jay_screenshot::JayScreenshot,
+            jay_seat_events::JaySeatEvents, jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
         object::Object,
         screenshoter::take_screenshot,
         utils::{
             buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
             errorfmt::ErrorFmt,
         },
         wire::{jay_compositor::*, JayCompositorId},
@@ -225,6 +227,68 @@ impl JayCompositor {
             .insert((self.client.id, req.id), se);
         Ok(())
     }
+
+    fn create_screencast(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let _req: CreateScreencast = self.client.parse(self, parser)?;
+        todo!()
+    }
+
+    fn get_output(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetOutput = self.client.parse(self, parser)?;
+        let output = self.client.lookup(req.output)?;
+        let jo = Rc::new(JayOutput {
+            id: req.id,
+            client: self.client.clone(),
+            output: CloneCell::new(output.global.node.get()),
+            tracker: Default::default(),
+        });
+        track!(self.client, jo);
+        self.client.add_client_obj(&jo)?;
+        if let Some(node) = jo.output.get() {
+            node.jay_outputs.set((self.client.id, req.id), jo.clone());
+            jo.send_linear_id();
+        } else {
+            jo.send_destroyed();
+        }
+        Ok(())
+    }
+
+    fn watch_workspaces(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: WatchWorkspaces = self.client.parse(self, parser)?;
+        let watcher = Rc::new(JayWorkspaceWatcher {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, watcher);
+        self.client.add_client_obj(&watcher)?;
+        self.client
+            .state
+            .workspace_watchers
+            .set((self.client.id, req.id), watcher.clone());
+        for ws in self.client.state.workspaces.lock().values() {
+            watcher.send_workspace(ws)?;
+        }
+        Ok(())
+    }
+
+    fn get_render_ctx(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetRenderCtx = self.client.parse(self, parser)?;
+        let ctx = Rc::new(JayRenderCtx {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, ctx);
+        self.client.add_client_obj(&ctx)?;
+        self.client
+            .state
+            .render_ctx_watchers
+            .set((self.client.id, req.id), ctx.clone());
+        let rctx = self.client.state.render_ctx.get();
+        ctx.send_render_ctx(rctx.as_ref());
+        Ok(())
+    }
 }
 
 object_base! {
@@ -241,11 +305,15 @@ object_base! {
     UNLOCK => unlock,
     GET_SEATS => get_seats,
     SEAT_EVENTS => seat_events,
+    CREATE_SCREENCAST => create_screencast,
+    GET_OUTPUT => get_output,
+    WATCH_WORKSPACES => watch_workspaces,
+    GET_RENDER_CTX => get_render_ctx,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        SEAT_EVENTS + 1
+        GET_RENDER_CTX + 1
     }
 }
 

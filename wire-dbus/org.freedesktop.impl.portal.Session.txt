@@ -1,0 +1,9 @@
+fn Close() {
+
+}
+
+sig Closed {
+
+}
+
+prop version = u32

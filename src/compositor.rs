@@ -26,8 +26,8 @@ use {
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
         tasks::{self, idle},
         tree::{
-            container_layout, container_render_data, float_layout, float_titles, DisplayNode,
-            NodeIds, OutputNode, WorkspaceNode,
+            container_layout, container_render_data, float_layout, float_titles,
+            output_render_data, DisplayNode, NodeIds, OutputNode, WorkspaceNode,
         },
         user_session::import_environment,
         utils::{
@@ -154,6 +154,7 @@ fn start_compositor2(
         theme: Default::default(),
         pending_container_layout: Default::default(),
         pending_container_render_data: Default::default(),
+        pending_output_render_data: Default::default(),
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
         dbus: Dbus::new(&engine, &ring, &run_toplevel),
@@ -195,6 +196,8 @@ fn start_compositor2(
         cursor_sizes: Default::default(),
         hardware_tick_cursor: Default::default(),
         testers: Default::default(),
+        workspace_watchers: Default::default(),
+        render_ctx_watchers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -279,6 +282,7 @@ fn start_global_event_handlers(
     res.push(eng.spawn(tasks::handle_hardware_cursor_tick(state.clone())));
     res.push(eng.spawn2(Phase::Layout, container_layout(state.clone())));
     res.push(eng.spawn2(Phase::PostLayout, container_render_data(state.clone())));
+    res.push(eng.spawn2(Phase::PostLayout, output_render_data(state.clone())));
     res.push(eng.spawn2(Phase::Layout, float_layout(state.clone())));
     res.push(eng.spawn2(Phase::PostLayout, float_titles(state.clone())));
     res.push(eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())));
@@ -374,6 +378,7 @@ fn create_dummy_output(state: &Rc<State>) {
             0,
             0,
         )),
+        jay_outputs: Default::default(),
         workspaces: Default::default(),
         workspace: Default::default(),
         seat_state: Default::default(),
@@ -387,6 +392,7 @@ fn create_dummy_output(state: &Rc<State>) {
         lock_surface: Default::default(),
         preferred_scale: Cell::new(Fixed::from_int(1)),
         hardware_cursor: Default::default(),
+        update_render_data_scheduled: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
@@ -402,6 +408,7 @@ fn create_dummy_output(state: &Rc<State>) {
         fullscreen: Default::default(),
         visible_on_desired_output: Default::default(),
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
+        jay_workspaces: Default::default(),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),

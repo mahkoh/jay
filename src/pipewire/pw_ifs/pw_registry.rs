@@ -36,7 +36,7 @@ impl PwRegistry {
         Ok(())
     }
 
-    fn handle_global_remove(&self, p: PwParser<'_>) -> Result<(), PwRegistryError> {
+    fn handle_global_remove(&self, _p: PwParser<'_>) -> Result<(), PwRegistryError> {
         Ok(())
     }
 }

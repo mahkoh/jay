@@ -17,7 +17,9 @@ use {
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
+            jay_render_ctx::JayRenderCtx,
             jay_seat_events::JaySeatEvents,
+            jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
@@ -42,7 +44,7 @@ use {
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
         wheel::Wheel,
-        wire::JaySeatEventsId,
+        wire::{JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId},
         xkbcommon::{XkbContext, XkbKeymap},
         xwayland::{self, XWaylandEvent},
     },
@@ -92,6 +94,7 @@ pub struct State {
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_data: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub dbus: Dbus,
@@ -117,6 +120,8 @@ pub struct State {
     pub cursor_sizes: RefCounted<u32>,
     pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
     pub testers: RefCell<AHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
+    pub workspace_watchers: CopyHashMap<(ClientId, JayWorkspaceWatcherId), Rc<JayWorkspaceWatcher>>,
+    pub render_ctx_watchers: CopyHashMap<(ClientId, JayRenderCtxId), Rc<JayRenderCtx>>,
 }
 
 // impl Drop for State {
@@ -216,7 +221,7 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
         node.node_visit_children(self);
     }
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        node.update_render_data();
+        node.schedule_update_render_data();
         node.node_visit_children(self);
     }
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
@@ -319,6 +324,10 @@ impl State {
             if let Some(config) = self.config.get() {
                 config.graphics_initialized();
             }
+        }
+
+        for watcher in self.render_ctx_watchers.lock().values() {
+            watcher.send_render_ctx(ctx);
         }
     }
 
@@ -428,15 +437,15 @@ impl State {
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
-        let output = match self.workspaces.get(name) {
+        let (output, ws) = match self.workspaces.get(name) {
             Some(ws) => {
                 let output = ws.output.get();
                 let did_change = output.show_workspace(&ws);
-                ws.node_do_focus(seat, Direction::Unspecified);
+                ws.clone().node_do_focus(seat, Direction::Unspecified);
                 if !did_change {
                     return;
                 }
-                output
+                (output, ws)
             }
             _ => {
                 let output = seat.get_output();
@@ -444,30 +453,13 @@ impl State {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;
                 }
-                let workspace = Rc::new(WorkspaceNode {
-                    id: self.node_ids.next(),
-                    is_dummy: false,
-                    output: CloneCell::new(output.clone()),
-                    position: Cell::new(Default::default()),
-                    container: Default::default(),
-                    stacked: Default::default(),
-                    seat_state: Default::default(),
-                    name: name.to_string(),
-                    output_link: Cell::new(None),
-                    visible: Cell::new(false),
-                    fullscreen: Default::default(),
-                    visible_on_desired_output: Cell::new(false),
-                    desired_output: CloneCell::new(output.global.output_id.clone()),
-                });
-                workspace
-                    .output_link
-                    .set(Some(output.workspaces.add_last(workspace.clone())));
-                output.show_workspace(&workspace);
-                self.workspaces.set(name.to_string(), workspace);
-                output
+                let ws = output.create_workspace(name);
+                output.show_workspace(&ws);
+                (output, ws)
             }
         };
-        output.update_render_data();
+        ws.flush_jay_workspaces();
+        output.schedule_update_render_data();
         self.tree_changed();
         // let seats = self.globals.seats.lock();
         // for seat in seats.values() {
@@ -575,8 +567,11 @@ impl State {
         self.dbus.clear();
         self.pending_container_layout.clear();
         self.pending_container_render_data.clear();
+        self.pending_output_render_data.clear();
         self.pending_float_layout.clear();
         self.pending_float_titles.clear();
+        self.render_ctx_watchers.clear();
+        self.workspace_watchers.clear();
         self.slow_clients.clear();
         for (_, h) in self.input_device_handlers.borrow_mut().drain() {
             h.async_event.clear();

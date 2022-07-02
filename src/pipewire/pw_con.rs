@@ -36,9 +36,6 @@ use {
     thiserror::Error,
     uapi::{c, OwnedFd},
 };
-use crate::format::formats;
-use crate::pipewire::pw_ifs::pw_client_node::{PwClientNodeOwnerDummy, PwClientNodePortSupportedFormats, SUPPORTED_META_BUSY, SUPPORTED_META_HEADER};
-use crate::pipewire::pw_pod::{PwPodRectangle, SPA_MEDIA_SUBTYPE_raw, SPA_MEDIA_TYPE_video};
 
 #[derive(Debug, Error)]
 pub enum PwConError {
@@ -60,9 +57,6 @@ pub struct PwCon {
     data: Rc<PwConData>,
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
-    core: Rc<PwCore>,
-    client: Rc<PwClient>,
-    // registry: Rc<PwRegistry>,
 }
 
 pub struct PwConData {
@@ -148,6 +142,7 @@ impl PwConData {
         self.io.send(BufIoMessage { fds, buf });
     }
 
+    #[allow(dead_code)]
     pub fn sync<P: PwObject>(&self, p: &P) {
         let seq = p.data().sync_id.fetch_add(1) + 1;
         self.send2(0, "core", PwCoreMethods::Sync, |f| {
@@ -164,6 +159,7 @@ impl PwConData {
         });
     }
 
+    #[allow(dead_code)]
     pub fn get_registry(self: &Rc<Self>) -> Rc<PwRegistry> {
         let registry = Rc::new(PwRegistry {
             data: self.proxy_data(),
@@ -235,6 +231,7 @@ impl PwConData {
 }
 
 impl PwCon {
+    #[allow(dead_code)]
     pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, PwConError> {
         let mut addr = c::sockaddr_un {
             sun_family: c::AF_UNIX as _,
@@ -281,12 +278,22 @@ impl PwCon {
         data.objects.set(1, client.clone());
         data.send_hello();
         data.send_properties();
-        // let registry = core.get_registry();
+        let con = Rc::new(PwCon {
+            outgoing: Cell::new(Some(eng.spawn(data.clone().handle_outgoing()))),
+            incoming: Cell::new(Some(eng.spawn(data.clone().handle_incoming()))),
+            data,
+            // registry,
+        });
+        con.data.con.set(Rc::downgrade(&con));
+        Ok(con)
+    }
+
+    pub fn create_client_node(&self, props: &[(String, String)]) -> Rc<PwClientNode> {
         let node = Rc::new(PwClientNode {
-            data: data.proxy_data(),
-            con: data.clone(),
+            data: self.data.proxy_data(),
+            con: self.data.clone(),
             ios: Default::default(),
-            owner: CloneCell::new(Weak::<PwClientNodeOwnerDummy>::new()),
+            owner: CloneCell::new(None),
             ports: Default::default(),
             check_buffers: Cell::new(None),
             port_out_free: RefCell::new(Default::default()),
@@ -295,57 +302,18 @@ impl PwCon {
             transport_in: Cell::new(None),
             transport_out: Default::default(),
             activations: Default::default(),
+            periodic: Cell::new(None),
         });
-        data.objects.set(node.data.id, node.clone());
-        data.create_object(
+        self.data.objects.set(node.data.id, node.clone());
+        self.data.create_object(
             PW_CLIENT_NODE_FACTORY,
             PW_CLIENT_NODE_INTERFACE,
             PW_CLIENT_NODE_VERSION,
-            &[
-                ("media.class".to_string(), "Video/Source".to_string()),
-                ("media.name".to_string(), "hurr-durr".to_string()),
-                ("stream.is-live".to_string(), "true".to_string()),
-                ("node.name".to_string(), "jay".to_string()),
-                ("node.driver".to_string(), "true".to_string()),
-                ("node.want-driver".to_string(), "true".to_string()),
-            ],
+            props,
             node.data.id,
         );
         node.send_update();
-        let port = node.create_port(true);
-        {
-            // port.can_alloc_buffers.set(true);
-            port.supported_metas.set(SUPPORTED_META_HEADER | SUPPORTED_META_BUSY);
-            {
-                let mut fmts = vec!();
-                for format in formats().values() {
-                    if format.shm_supported {
-                        fmts.push(*format);
-                    }
-                }
-                *port.supported_formats.borrow_mut() = Some(PwClientNodePortSupportedFormats {
-                    media_type: Some(SPA_MEDIA_TYPE_video),
-                    media_sub_type: Some(SPA_MEDIA_SUBTYPE_raw),
-                    video_size: Some(PwPodRectangle {
-                        width: 100,
-                        height: 100,
-                    }),
-                    formats: fmts,
-                });
-            }
-        }
-        node.send_port_update(&port);
-        node.send_active(true);
-        let con = Rc::new(PwCon {
-            outgoing: Cell::new(Some(eng.spawn(data.clone().handle_outgoing()))),
-            incoming: Cell::new(Some(eng.spawn(data.clone().handle_incoming()))),
-            data,
-            core,
-            client,
-            // registry,
-        });
-        con.data.con.set(Rc::downgrade(&con));
-        Ok(con)
+        node
     }
 }
 

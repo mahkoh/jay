@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 use {
     crate::{
         pipewire::{
@@ -5,13 +7,13 @@ use {
             pw_mem::{PwMem, PwMemType},
             pw_object::{PwObject, PwObjectData},
             pw_parser::{PwParser, PwParserError},
+            pw_pod::{SPA_DATA_DmaBuf, SPA_DATA_MemFd, SpaDataType},
         },
         utils::bitflags::BitflagsExt,
     },
     std::rc::Rc,
     thiserror::Error,
 };
-use crate::pipewire::pw_pod::{SPA_DATA_DmaBuf, SPA_DATA_MemFd, SPA_DATA_MemId, SpaDataType};
 
 pub struct PwCore {
     pub data: PwObjectData,

@@ -5,14 +5,17 @@ use {
     },
     crate::{
         dbus::{
-            CallError, DbusError, DbusSocket, Headers, Parser, MSG_ERROR, MSG_METHOD_RETURN,
-            MSG_SIGNAL,
+            CallError, DbusError, DbusSocket, Headers, MemberHandlerKey, Message, MethodHandlerApi,
+            Parser, PropertyGetAllHandlerProxy, PropertyGetHandlerProxy, MSG_ERROR,
+            MSG_METHOD_CALL, MSG_METHOD_RETURN, MSG_SIGNAL, NO_REPLY_EXPECTED,
         },
         utils::{
+            bitflags::BitflagsExt,
             bufio::BufIoIncoming,
             errorfmt::ErrorFmt,
             ptr_ext::{MutPtrExt, PtrExt},
         },
+        wire_dbus::org::freedesktop::dbus::properties::{Get, GetAll},
     },
     std::{cell::UnsafeCell, ops::Deref, rc::Rc},
 };
@@ -60,14 +63,14 @@ impl Incoming {
             return Err(DbusError::InvalidEndianess);
         }
         let msg_ty = msg_buf[1];
-        let _flags = msg_buf[2];
+        let flags = msg_buf[2];
         let protocol = msg_buf[3];
         if protocol != 1 {
             return Err(DbusError::InvalidProtocol);
         }
         let mut fields2 = [0u32; 3];
         uapi::pod_write(&msg_buf[4..], &mut fields2[..]).unwrap();
-        let [body_len, _serial, headers_len] = fields2;
+        let [body_len, serial, headers_len] = fields2;
         let dyn_header_len = headers_len + (headers_len.wrapping_neg() & 7);
         let remaining = dyn_header_len + body_len;
         self.incoming
@@ -89,6 +92,65 @@ impl Incoming {
             fds: &fds,
         };
         match msg_ty {
+            MSG_METHOD_CALL => {
+                let (sender, interface, member, path) = match (
+                    &headers.sender,
+                    &headers.interface,
+                    &headers.member,
+                    &headers.path,
+                ) {
+                    (Some(s), Some(i), Some(m), Some(p)) => (s, i, m, p),
+                    _ => return Err(DbusError::MissingMethodCallHeaders),
+                };
+                if let Some(object) = self.socket.objects.get(path.deref()) {
+                    let method_handler;
+                    let handler: Option<&dyn MethodHandlerApi> =
+                        if (interface.deref(), member.deref()) == (Get::INTERFACE, Get::MEMBER) {
+                            Some(&PropertyGetHandlerProxy)
+                        } else if (interface.deref(), member.deref())
+                            == (GetAll::INTERFACE, GetAll::MEMBER)
+                        {
+                            Some(&PropertyGetAllHandlerProxy)
+                        } else {
+                            let key = MemberHandlerKey {
+                                interface: interface.deref(),
+                                member: member.deref(),
+                            };
+                            method_handler = object.methods.get(&key);
+                            method_handler.as_ref().map(|mh| mh.deref())
+                        };
+                    if let Some(handler) = handler {
+                        let sig = headers.signature.as_deref().unwrap_or("");
+                        if sig != handler.signature() {
+                            let msg = format!(
+                                "Method call has an invalid signature: expected: {}, actual: {}",
+                                handler.signature(),
+                                sig,
+                            );
+                            self.socket.send_error(sender.deref(), serial, &msg);
+                        } else {
+                            let pr = if flags.contains(NO_REPLY_EXPECTED) {
+                                None
+                            } else {
+                                Some((sender.deref(), serial))
+                            };
+                            if let Err(e) = handler.handle(&object, &self.socket, pr, &mut parser) {
+                                log::error!(
+                                    "{}: Could not handle method call: {}",
+                                    self.socket.bus_name,
+                                    ErrorFmt(e)
+                                );
+                            }
+                        }
+                    } else {
+                        self.socket
+                            .send_error(sender.deref(), serial, "Method does not exist");
+                    }
+                } else {
+                    self.socket
+                        .send_error(sender.deref(), serial, "Object does not exist");
+                }
+            }
             MSG_METHOD_RETURN | MSG_ERROR => {
                 let serial = match headers.reply_serial {
                     Some(s) => s,

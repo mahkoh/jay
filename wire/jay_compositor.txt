@@ -43,6 +43,23 @@ msg seat_events = 10 {
     id: id(jay_seat_events),
 }
 
+msg create_screencast = 11 {
+    id: id(jay_screencast),
+}
+
+msg get_output = 12 {
+    id: id(jay_output),
+    output: id(wl_output),
+}
+
+msg watch_workspaces = 13 {
+    id: id(jay_workspace_watcher),
+}
+
+msg get_render_ctx = 14 {
+    id: id(jay_render_ctx),
+}
+
 # events
 
 msg client_id = 0 {

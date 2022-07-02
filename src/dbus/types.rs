@@ -497,6 +497,32 @@ impl<'a> Variant<'a> {
         };
         w.push(c);
     }
+
+    pub fn borrow<'b>(&'b self) -> Variant<'b> {
+        match self {
+            Variant::U8(v) => Variant::U8(*v),
+            Variant::Bool(v) => Variant::Bool(*v),
+            Variant::I16(v) => Variant::I16(*v),
+            Variant::U16(v) => Variant::U16(*v),
+            Variant::I32(v) => Variant::I32(*v),
+            Variant::U32(v) => Variant::U32(*v),
+            Variant::I64(v) => Variant::I64(*v),
+            Variant::U64(v) => Variant::U64(*v),
+            Variant::F64(v) => Variant::F64(*v),
+            Variant::String(v) => Variant::String(v.deref().into()),
+            Variant::ObjectPath(v) => Variant::ObjectPath(ObjectPath(v.0.deref().into())),
+            Variant::Signature(v) => Variant::Signature(Signature(v.0.deref().into())),
+            Variant::Variant(v) => Variant::Variant(Box::new(v.deref().borrow())),
+            Variant::Fd(v) => Variant::Fd(v.clone()),
+            Variant::Array(t, v) => {
+                Variant::Array(t.clone(), v.iter().map(|v| v.borrow()).collect())
+            }
+            Variant::DictEntry(k, v) => {
+                Variant::DictEntry(Box::new(k.deref().borrow()), Box::new(v.deref().borrow()))
+            }
+            Variant::Struct(v) => Variant::Struct(v.iter().map(|v| v.borrow()).collect()),
+        }
+    }
 }
 
 unsafe impl<'a> DbusType<'a> for Variant<'a> {

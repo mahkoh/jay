@@ -1,5 +1,8 @@
 use {
     crate::{
+        pipewire::pw_pod::{
+            SPA_VIDEO_FORMAT_BGRx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_NV12,
+        },
         render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE},
         utils::debug_fn::debug_fn,
     },
@@ -7,7 +10,6 @@ use {
     once_cell::sync::Lazy,
     std::fmt::{Debug, Write},
 };
-use crate::pipewire::pw_pod::{SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_NV12, SpaVideoFormat};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Format {

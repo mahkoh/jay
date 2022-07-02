@@ -1,0 +1,56 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg set_output = 1 {
+    output: id(jay_output),
+}
+
+msg set_show_always = 2 {
+
+}
+
+msg add_workspace = 3 {
+    workspace: id(jay_workspace),
+}
+
+msg start = 4 {
+
+}
+
+msg ack = 5 {
+    serial: u32,
+}
+
+msg release_buffer = 6 {
+    idx: u32,
+}
+
+# events
+
+msg plane = 0 {
+    fd: fd,
+    offset: u32,
+    stride: u32,
+}
+
+msg buffer = 1 {
+    format: u32,
+    modifier: pod(u64),
+    width: i32,
+    height: i32,
+}
+
+msg buffers_done = 2 {
+    serial: u32,
+}
+
+msg ready = 3 {
+    idx: u32,
+}
+
+msg destroyed = 4 {
+
+}

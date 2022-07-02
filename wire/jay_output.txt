@@ -1,0 +1,15 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+# events
+
+msg linear_id = 0 {
+    linear_id: u32,
+}
+
+msg destroyed = 2 {
+
+}

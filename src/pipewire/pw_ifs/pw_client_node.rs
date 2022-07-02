@@ -1,37 +1,47 @@
-use std::cell::RefCell;
-use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::rc::Weak;
+#![allow(non_upper_case_globals)]
+
 use {
     crate::{
         async_engine::SpawnedFuture,
+        format::{pw_formats, Format},
         pipewire::{
             pw_con::PwConData,
-            pw_mem::{PwMemMap, PwMemTyped},
+            pw_mem::{PwMemError, PwMemMap, PwMemSlice, PwMemTyped},
             pw_object::{PwObject, PwObjectData},
             pw_parser::{PwParser, PwParserError},
             pw_pod::{
-                pw_node_activation, PW_CHOICE_Enum, PW_OBJECT_Format, PwIoType, PwPropFlag,
-                SPA_FORMAT_VIDEO_format, SPA_FORMAT_VIDEO_size, SPA_FORMAT_mediaSubtype,
-                SPA_FORMAT_mediaType, SPA_MEDIA_SUBTYPE_raw, SPA_MEDIA_TYPE_video,
-                SPA_PARAM_EnumFormat, SPA_PARAM_Format, SPA_VIDEO_FORMAT_RGBx,
-                PW_NODE_ACTIVATION_TRIGGERED, SPA_PARAM_INFO_READ, SPA_PARAM_INFO_WRITE,
-                SPA_PORT_FLAG_CAN_ALLOC_BUFFERS, SPA_VIDEO_FORMAT_BGR, SPA_VIDEO_FORMAT_I420,
-                SPA_VIDEO_FORMAT_RGB, SPA_VIDEO_FORMAT_RGBA, SPA_VIDEO_FORMAT_YUY2,
+                pw_node_activation, spa_chunk, spa_io_buffers, spa_meta_bitmap, spa_meta_busy,
+                spa_meta_cursor, spa_meta_header, spa_meta_region, PW_CHOICE_Enum, PW_CHOICE_Flags,
+                PW_OBJECT_Format, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamMeta, PwIoType,
+                PwPodFraction, PwPodObject, PwPodRectangle, PwPropFlag, SPA_DATA_MemFd,
+                SPA_DATA_MemPtr, SPA_FORMAT_VIDEO_format, SPA_FORMAT_VIDEO_framerate,
+                SPA_FORMAT_VIDEO_size, SPA_FORMAT_mediaSubtype, SPA_FORMAT_mediaType,
+                SPA_IO_Buffers, SPA_META_Bitmap, SPA_META_Busy, SPA_META_Control, SPA_META_Cursor,
+                SPA_META_Header, SPA_META_VideoCrop, SPA_META_VideoDamage, SPA_NODE_COMMAND_Start,
+                SPA_PARAM_BUFFERS_align, SPA_PARAM_BUFFERS_blocks, SPA_PARAM_BUFFERS_buffers,
+                SPA_PARAM_BUFFERS_dataType, SPA_PARAM_BUFFERS_size, SPA_PARAM_BUFFERS_stride,
+                SPA_PARAM_Buffers, SPA_PARAM_EnumFormat, SPA_PARAM_Format, SPA_PARAM_META_size,
+                SPA_PARAM_META_type, SPA_PARAM_Meta, SpaDataFlags, SpaDataType, SpaDirection,
+                SpaIoType, SpaMediaSubtype, SpaMediaType, SpaMetaType, SpaNodeBuffersFlags,
+                SpaNodeCommand, SpaParamType, SpaVideoFormat, SPA_DATA_FLAG_READABLE,
+                SPA_DIRECTION_INPUT, SPA_DIRECTION_OUTPUT, SPA_NODE_BUFFERS_FLAG_ALLOC,
+                SPA_PARAM_INFO_READ, SPA_PORT_FLAG, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS,
             },
         },
-        time::Time,
-        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt},
+        utils::{
+            bitfield::Bitfield, bitflags::BitflagsExt, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+        },
     },
-    std::{cell::Cell, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        mem,
+        ops::Deref,
+        rc::Rc,
+    },
     thiserror::Error,
     uapi::OwnedFd,
 };
-use crate::format::{Format, pw_formats};
-use crate::pipewire::pw_mem::PwMemError;
-use crate::pipewire::pw_pod::{PW_CHOICE_Flags, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamMeta, PwPodFraction, PwPodObject, PwPodRectangle, SPA_DATA_MemFd, SPA_DATA_MemPtr, SPA_DIRECTION_INPUT, SPA_DIRECTION_OUTPUT, SPA_FORMAT_VIDEO_framerate, spa_fraction, SPA_IO_Buffers, spa_io_buffers, SPA_META_Bitmap, spa_meta_bitmap, SPA_META_Busy, spa_meta_busy, SPA_META_Control, SPA_META_Cursor, spa_meta_cursor, SPA_META_Header, spa_meta_header, SPA_META_Invalid, spa_meta_region, SPA_META_VideoCrop, SPA_META_VideoDamage, SPA_NODE_COMMAND_Start, SPA_PARAM_Buffers, SPA_PARAM_BUFFERS_align, SPA_PARAM_BUFFERS_blocks, SPA_PARAM_BUFFERS_buffers, SPA_PARAM_BUFFERS_dataType, SPA_PARAM_BUFFERS_size, SPA_PARAM_BUFFERS_stride, SPA_PARAM_Meta, SPA_PARAM_META_size, SPA_PARAM_META_type, SPA_PORT_FLAG, spa_rectangle, SPA_STATUS_HAVE_DATA, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_NV12, SpaDataFlags, SpaDataType, SpaDataTypes, SpaDirection, SpaIoType, SpaMediaSubtype, SpaMediaType, SpaMetaHeaderFlags, SpaMetaType, SpaNodeBuffersFlags, SpaNodeCommand, SpaParamType, SpaVideoFormat};
-use crate::utils::bitfield::Bitfield;
-use crate::utils::bitflags::BitflagsExt;
 
 pw_opcodes! {
     PwClientNodeMethods;
@@ -62,15 +72,9 @@ pw_opcodes! {
 }
 
 pub trait PwClientNodeOwner {
-    fn port_format_changed(&self, port: &Rc<PwClientNodePort>, format: PwClientNodePortFormat);
-}
-
-pub struct PwClientNodeOwnerDummy;
-
-impl PwClientNodeOwner for PwClientNodeOwnerDummy {
-    fn port_format_changed(&self, _port: &Rc<PwClientNodePort>, _format: PwClientNodePortFormat) {
-        // nothing
-    }
+    fn port_format_changed(&self, port: &Rc<PwClientNodePort>);
+    fn use_buffers(&self, port: &Rc<PwClientNodePort>);
+    fn start(self: Rc<Self>);
 }
 
 bitflags! {
@@ -103,7 +107,7 @@ pub struct PwClientNodePort {
 
     pub buffer_config: Cell<Option<PwClientNodeBufferConfig>>,
 
-    pub io_buffers: CloneCell<Option<Rc<PwMemTyped<spa_io_buffers>>>>,
+    pub io_buffers: CopyHashMap<u32, Rc<PwMemTyped<spa_io_buffers>>>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -117,8 +121,10 @@ pub struct PwClientNodeBufferConfig {
 }
 
 pub struct PwClientNodeBuffer {
-    pub meta_header: CloneCell<Option<Rc<PwMemTyped<spa_meta_header>>>>,
-    pub meta_busy: CloneCell<Option<Rc<PwMemTyped<spa_meta_busy>>>>,
+    pub meta_header: Option<Rc<PwMemTyped<spa_meta_header>>>,
+    pub meta_busy: Option<Rc<PwMemTyped<spa_meta_busy>>>,
+    pub chunks: Vec<Rc<PwMemTyped<spa_chunk>>>,
+    pub slices: Vec<Rc<PwMemSlice>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -143,7 +149,7 @@ pub struct PwClientNode {
     pub con: Rc<PwConData>,
     pub ios: CopyHashMap<PwIoType, Rc<PwMemMap>>,
 
-    pub owner: CloneCell<Weak<dyn PwClientNodeOwner>>,
+    pub owner: CloneCell<Option<Rc<dyn PwClientNodeOwner>>>,
 
     pub ports: CopyHashMap<(SpaDirection, u32), Rc<PwClientNodePort>>,
 
@@ -157,6 +163,8 @@ pub struct PwClientNode {
     pub transport_out: CloneCell<Option<Rc<OwnedFd>>>,
 
     pub activations: CopyHashMap<u32, Rc<PwNodeActivation>>,
+
+    pub periodic: Cell<Option<SpawnedFuture<()>>>,
 }
 
 pub struct PwNodeActivation {
@@ -164,14 +172,24 @@ pub struct PwNodeActivation {
     pub fd: Rc<OwnedFd>,
 }
 
+pub struct PwNodeBuffer {
+    pub width: i32,
+    pub height: i32,
+    pub stride: i32,
+    pub offset: i32,
+    pub fd: Rc<OwnedFd>,
+}
+
 pub const PW_CLIENT_NODE_FACTORY: &str = "client-node";
 pub const PW_CLIENT_NODE_INTERFACE: &str = "PipeWire:Interface:ClientNode";
 pub const PW_CLIENT_NODE_VERSION: i32 = 4;
 
+#[allow(dead_code)]
 const PW_CLIENT_NODE_UPDATE_PARAMS: u32 = 1 << 0;
 const PW_CLIENT_NODE_UPDATE_INFO: u32 = 1 << 1;
 
 const SPA_NODE_CHANGE_MASK_FLAGS: u64 = 1 << 0;
+#[allow(dead_code)]
 const SPA_NODE_CHANGE_MASK_PROPS: u64 = 1 << 1;
 const SPA_NODE_CHANGE_MASK_PARAMS: u64 = 1 << 2;
 
@@ -229,6 +247,35 @@ impl PwClientNode {
         });
         self.ports.set((direction, port.id), port.clone());
         port
+    }
+
+    pub fn send_port_output_buffers(&self, port: &PwClientNodePort, buffers: &[PwNodeBuffer]) {
+        self.con.send(self, PwClientNodeMethods::PortBuffers, |f| {
+            f.write_struct(|f| {
+                // direction
+                f.write_uint(port.direction.0);
+                // id
+                f.write_uint(port.id);
+                // mix_id
+                f.write_int(-1);
+                // n_buffers
+                f.write_uint(buffers.len() as _);
+                for buffer in buffers.deref() {
+                    // n_datas
+                    f.write_uint(1);
+                    // type
+                    f.write_id(SPA_DATA_MemFd.0);
+                    // fd
+                    f.write_fd(&buffer.fd);
+                    // flags
+                    f.write_uint(SPA_DATA_FLAG_READABLE.0);
+                    // offset
+                    f.write_int(buffer.offset);
+                    // size
+                    f.write_int(buffer.stride * buffer.height);
+                }
+            });
+        });
     }
 
     pub fn send_port_update(&self, port: &PwClientNodePort) {
@@ -373,7 +420,7 @@ impl PwClientNode {
         });
     }
 
-    fn handle_set_param(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
+    fn handle_set_param(&self, _p: PwParser<'_>) -> Result<(), PwClientNodeError> {
         Ok(())
     }
 
@@ -400,60 +447,41 @@ impl PwClientNode {
         Ok(())
     }
 
-    fn handle_event(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
+    fn handle_event(&self, _p: PwParser<'_>) -> Result<(), PwClientNodeError> {
         Ok(())
     }
 
-    fn handle_command(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
+    fn handle_command(self: &Rc<Self>, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
         let s1 = p.read_struct()?;
         let mut p1 = s1.fields;
         let obj = p1.read_object()?;
         match SpaNodeCommand(obj.id) {
             SPA_NODE_COMMAND_Start => {
-                for port in self.ports.lock().values() {
-                    if let Some(header) = port.buffers.borrow_mut()[1].meta_header.get() {
-                        unsafe {
-                            let header = header.write();
-                            header.pts = Time::now_unchecked().nsec() as _;
-                            header.seq = 1000000000;
-                            header.flags = SpaMetaHeaderFlags::none();
-                            header.dts_offset = 0;
-                        }
-                    }
-                    if let Some(io) = port.io_buffers.get() {
-                        unsafe {
-                            io.write().status = SPA_STATUS_HAVE_DATA;
-                            io.write().buffer_id = 1;
-                        }
-                    }
+                if let Some(owner) = self.owner.get() {
+                    owner.start();
                 }
-                if let Some(wfd) = self.transport_out.get() {
-                    let _ = uapi::eventfd_write(wfd.raw(), 1);
-                }
-                // for activation in self.activations.lock().values() {
-                //     unsafe {
-                //         activation.activation.write().status = PW_NODE_ACTIVATION_TRIGGERED;
-                //         activation.activation.write().signal_time = Time::now_unchecked().nsec();
-                //     }
-                //     uapi::eventfd_write(activation.fd.raw(), 1).unwrap();
-                // }
-            },
+            }
             v => {
+                self.periodic.take();
                 log::error!("Unhandled node command {:?}", v);
             }
         }
         Ok(())
     }
 
-    fn handle_add_port(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
+    fn handle_add_port(&self, _p: PwParser<'_>) -> Result<(), PwClientNodeError> {
         Ok(())
     }
 
-    fn handle_remove_port(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
+    fn handle_remove_port(&self, _p: PwParser<'_>) -> Result<(), PwClientNodeError> {
         Ok(())
     }
 
-    fn port_set_format(&self, port: &Rc<PwClientNodePort>, obj: Option<PwPodObject<'_>>) -> Result<(), PwClientNodeError> {
+    fn port_set_format(
+        &self,
+        port: &Rc<PwClientNodePort>,
+        obj: Option<PwPodObject<'_>>,
+    ) -> Result<(), PwClientNodeError> {
         let mut obj = match obj {
             Some(obj) => obj,
             _ => {
@@ -480,37 +508,30 @@ impl PwClientNode {
             format.framerate = Some(mt.pod.get_fraction()?);
         }
         port.effective_format.set(format);
-        if let Some(owner) = self.owner.get().upgrade() {
-            owner.port_format_changed(&port, format);
-        }
-        let mut bc = PwClientNodeBufferConfig::default();
-        bc.num_buffers = 3;
-        bc.planes = 1;
-        if let (Some(size), Some(format)) = (format.video_size, format.format) {
-            let stride = size.width * format.bpp;
-            bc.stride = Some(stride);
-            bc.size = Some(stride * size.height)
-        }
-        bc.align = 16;
-        bc.data_type = SPA_DATA_MemFd;
-        port.buffer_config.set(Some(bc));
-        self.send_port_update(port);
         Ok(())
     }
 
     fn handle_port_set_param(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
-        let mut s1 = p.read_struct()?;
+        let s1 = p.read_struct()?;
         let mut p1 = s1.fields;
         let direction = SpaDirection(p1.read_uint()?);
         let port_id = p1.read_uint()?;
         let id = SpaParamType(p1.read_id()?);
-        let flags = p1.read_int()?;
-        let mut obj = p1.read_object_opt()?;
+        let _flags = p1.read_int()?;
+        let obj = p1.read_object_opt()?;
         let port = self.get_port(direction, port_id)?;
         match id {
-            SPA_PARAM_Format => self.port_set_format(&port, obj)?,
+            SPA_PARAM_Format => {
+                self.port_set_format(&port, obj)?;
+                if let Some(owner) = self.owner.get() {
+                    owner.port_format_changed(&port);
+                }
+            }
             _ => {
-                log::warn!("port_set_param: Ignoring unexpected port parameter {:?}", id);
+                log::warn!(
+                    "port_set_param: Ignoring unexpected port parameter {:?}",
+                    id
+                );
             }
         }
         Ok(())
@@ -521,14 +542,12 @@ impl PwClientNode {
         let mut p1 = s1.fields;
         let direction = SpaDirection(p1.read_uint()?);
         let port_id = p1.read_uint()?;
-        let mix_id = p1.read_int()?;
-        let flags = SpaNodeBuffersFlags(p1.read_uint()?);
+        let _mix_id = p1.read_int()?;
+        let buffer_flags = SpaNodeBuffersFlags(p1.read_uint()?);
         let n_buffers = p1.read_uint()?;
         let port = self.get_port(direction, port_id)?;
 
-        log::info!("port_use_buffers: mix_id={}, flags={:?}, n_buffers={}", mix_id, flags, n_buffers);
-
-        let mut res = vec!();
+        let mut res = vec![];
 
         for _ in 0..n_buffers {
             let mem_id = p1.read_uint()?;
@@ -536,10 +555,10 @@ impl PwClientNode {
             let size = p1.read_uint()?;
             let n_metas = p1.read_uint()?;
 
-            let mut buf = PwClientNodeBuffer {
-                meta_header: Default::default(),
-                meta_busy: Default::default(),
-            };
+            let mut meta_header = Default::default();
+            let mut meta_busy = Default::default();
+            let mut chunks = vec![];
+            let mut slices = vec![];
 
             let mem = self.con.mem.map(mem_id, offset, size)?;
 
@@ -552,74 +571,71 @@ impl PwClientNode {
                 let ty = SpaMetaType(p1.read_id()?);
                 let size = p1.read_uint()? as usize;
 
-                unsafe {
-                    match ty {
-                        SPA_META_Header      => {
-                            let header = mem.typed_at::<spa_meta_header>(offset);
-                            log::info!("    SPA_META_Header = {:?}", header.read());
-                            buf.meta_header.set(Some(header));
-                        }
-                        SPA_META_VideoCrop   => {
-                            let crop = mem.typed_at::<spa_meta_region>(offset);
-                            log::info!("    SPA_META_VideoCrop = {:?}", crop.read());
-                        }
-                        SPA_META_VideoDamage => {
-                            let video_damage = mem.typed_at::<spa_meta_region>(offset);
-                            log::info!("    SPA_META_VideoDamage = {:?}", video_damage.read());
-                        }
-                        SPA_META_Bitmap      => {
-                            let bitmap = mem.typed_at::<spa_meta_bitmap>(offset);
-                            log::info!("    SPA_META_Bitmap = {:?}", bitmap.read());
-                        }
-                        SPA_META_Cursor      => {
-                            let cursor = mem.typed_at::<spa_meta_cursor>(offset);
-                            log::info!("    SPA_META_Cursor = {:?}", cursor.read());
-                        },
-                        SPA_META_Control     => { },
-                        SPA_META_Busy        => {
-                            let busy = mem.typed_at::<spa_meta_busy>(offset);
-                            log::info!("    SPA_META_Busy = {:?}", busy.read());
-                            buf.meta_busy.set(Some(busy));
-                        },
-                        _ => { },
+                match ty {
+                    SPA_META_Header => {
+                        let header = mem.typed_at::<spa_meta_header>(offset);
+                        meta_header = Some(header);
                     }
+                    SPA_META_VideoCrop => {
+                        let _crop = mem.typed_at::<spa_meta_region>(offset);
+                    }
+                    SPA_META_VideoDamage => {
+                        let _video_damage = mem.typed_at::<spa_meta_region>(offset);
+                    }
+                    SPA_META_Bitmap => {
+                        let _bitmap = mem.typed_at::<spa_meta_bitmap>(offset);
+                    }
+                    SPA_META_Cursor => {
+                        let _cursor = mem.typed_at::<spa_meta_cursor>(offset);
+                    }
+                    SPA_META_Control => {}
+                    SPA_META_Busy => {
+                        let busy = mem.typed_at::<spa_meta_busy>(offset);
+                        meta_busy = Some(busy);
+                    }
+                    _ => {}
                 }
 
-                offset += size;
+                offset += (size + 7) & !7;
             }
 
             let n_datas = p1.read_uint()?;
 
-            log::info!("  offset = {}, n_datas={}", offset, n_datas);
+            // log::info!("  offset = {}, n_datas={}", offset, n_datas);
 
             for _ in 0..n_datas {
                 let ty = SpaDataType(p1.read_id()?);
                 let data_id = p1.read_uint()?;
-                let flags = SpaDataFlags(p1.read_uint()?);
+                let _flags = SpaDataFlags(p1.read_uint()?);
                 let mapoffset = p1.read_uint()?;
                 let maxsize = p1.read_uint()?;
 
-                if ty == SPA_DATA_MemPtr {
-                    unsafe {
+                chunks.push(mem.typed_at(offset));
+
+                if !buffer_flags.contains(SPA_NODE_BUFFERS_FLAG_ALLOC) {
+                    if ty == SPA_DATA_MemPtr {
                         let offset = data_id as usize;
-                        for i in 0..maxsize as usize {
-                            mem.bytes_mut()[offset + i] = i as _;
-                        }
-                        // for i in 0..maxsize as usize / 4 {
-                        //     mem.bytes_mut()[offset + 4 * i + 0] = 255;
-                        //     mem.bytes_mut()[offset + 4 * i + 1] = 255;
-                        //     mem.bytes_mut()[offset + 4 * i + 2] = 255;
-                        //     mem.bytes_mut()[offset + 4 * i + 3] = 255;
-                        // }
+                        slices.push(mem.slice(offset..offset + maxsize as usize));
+                    } else if ty == SPA_DATA_MemFd {
+                        let mem = self.con.mem.map(data_id, mapoffset, maxsize)?;
+                        slices.push(mem.slice(0..maxsize as usize));
                     }
                 }
-                log::info!("    ty={:?}, data_id={}, flags={:?}, mapoffset={}, maxsize={}", ty, data_id, flags, mapoffset, maxsize);
             }
 
-            res.push(Rc::new(buf));
+            res.push(Rc::new(PwClientNodeBuffer {
+                meta_header,
+                meta_busy,
+                chunks,
+                slices,
+            }));
         }
 
         *port.buffers.borrow_mut() = res;
+
+        if let Some(owner) = self.owner.get() {
+            owner.use_buffers(&port);
+        }
 
         Ok(())
     }
@@ -637,9 +653,10 @@ impl PwClientNode {
         let port = self.get_port(direction, port_id)?;
         match id {
             SPA_IO_Buffers => {
-                port.io_buffers.set(Some(self.con.mem.map(mem_id, offset, size)?.typed()));
-            },
-            _ => { },
+                port.io_buffers
+                    .set(mix_id, self.con.mem.map(mem_id, offset, size)?.typed());
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -688,17 +705,24 @@ impl PwClientNode {
                 }
             };
             let typed = map.typed::<pw_node_activation>();
-            self.activations.set(node, Rc::new(PwNodeActivation {
-                activation: typed,
-                fd: signalfd,
-            }));
+            self.activations.set(
+                node,
+                Rc::new(PwNodeActivation {
+                    activation: typed,
+                    fd: signalfd,
+                }),
+            );
         } else {
             self.activations.remove(&node);
         }
         Ok(())
     }
 
-    fn get_port(&self, direction: SpaDirection, port_id: u32) -> Result<Rc<PwClientNodePort>, PwClientNodeError> {
+    fn get_port(
+        &self,
+        direction: SpaDirection,
+        port_id: u32,
+    ) -> Result<Rc<PwClientNodePort>, PwClientNodeError> {
         match self.ports.get(&(direction, port_id)) {
             Some(p) => Ok(p),
             _ => Err(PwClientNodeError::UnknownPort(direction, port_id)),
@@ -706,20 +730,26 @@ impl PwClientNode {
     }
 
     fn handle_port_set_mix_info(&self, mut p: PwParser<'_>) -> Result<(), PwClientNodeError> {
-        let mut s1 = p.read_struct()?;
+        let s1 = p.read_struct()?;
         let mut p1 = s1.fields;
         let direction = SpaDirection(p1.read_uint()?);
         let port_id = p1.read_uint()?;
         let mix_id = p1.read_int()?;
         let peer_id = p1.read_int()?;
         let dict = p1.read_dict_struct()?;
-        let port = self.get_port(direction, port_id)?;
+        let _port = self.get_port(direction, port_id)?;
+        log::info!(
+            "mix info: mix_id={}, peer_id={}, dict={:#?}",
+            mix_id,
+            peer_id,
+            dict
+        );
         Ok(())
     }
 
     async fn transport_in(
         self: Rc<Self>,
-        activation: Rc<PwMemTyped<pw_node_activation>>,
+        _activation: Rc<PwMemTyped<pw_node_activation>>,
         fd: Rc<OwnedFd>,
     ) {
         loop {
@@ -733,6 +763,10 @@ impl PwClientNode {
                 );
                 return;
             }
+            // log::info!("transport in");
+            // unsafe {
+            //     log::info!("state = {:#?}", activation.read().state[0]);
+            // }
             let mut n = 0u64;
             if let Err(e) = uapi::read(fd.raw(), &mut n) {
                 log::error!("Could not read from eventfd: {}", ErrorFmt(e));
@@ -770,8 +804,6 @@ pub enum PwClientNodeError {
     PwParserError(#[from] PwParserError),
     #[error(transparent)]
     PwMemError(#[from] PwMemError),
-    #[error("Unknown port direction {0:?}")]
-    UnknownPortDirection(SpaDirection),
     #[error("Unknown port {0:?}@{1}")]
     UnknownPort(SpaDirection, u32),
 }

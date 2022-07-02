@@ -124,6 +124,8 @@ impl ConnectorHandler {
             lock_surface: Default::default(),
             preferred_scale: Cell::new(Fixed::from_int(1)),
             hardware_cursor: Default::default(),
+            jay_outputs: Default::default(),
+            update_render_data_scheduled: Cell::new(false),
         });
         self.state.add_output_scale(on.preferred_scale.get());
         let mode = info.initial_mode;
@@ -165,6 +167,7 @@ impl ConnectorHandler {
                     } else {
                         ws.set_visible(false);
                     }
+                    ws.flush_jay_workspaces();
                     if let Some(visible) = source.node.workspace.get() {
                         if visible.id == ws.id {
                             source.node.workspace.take();
@@ -174,17 +177,19 @@ impl ConnectorHandler {
                 if source.node.workspace.get().is_none() {
                     if let Some(ws) = source.node.workspaces.first() {
                         source.node.show_workspace(&ws);
+                        ws.flush_jay_workspaces();
                     }
                 }
-                source.node.update_render_data();
+                source.node.schedule_update_render_data();
             }
             if on.workspace.get().is_none() {
                 if let Some(ws) = on.workspaces.first() {
                     on.show_workspace(&ws);
+                    ws.flush_jay_workspaces();
                 }
             }
         }
-        on.update_render_data();
+        on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.root.update_extents();
         self.state.add_global(&global);
@@ -209,6 +214,10 @@ impl ConnectorHandler {
             config.connector_disconnected(self.id);
         }
         global.node.set(None);
+        for (_, jo) in on.jay_outputs.lock().drain() {
+            jo.send_destroyed();
+            jo.output.take();
+        }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
@@ -234,8 +243,9 @@ impl ConnectorHandler {
                 } else if ws.visible.get() {
                     ws.set_visible(false);
                 }
+                ws.flush_jay_workspaces();
             }
-            target.update_render_data();
+            target.schedule_update_render_data();
             self.state.tree_changed();
             self.state.damage();
         }

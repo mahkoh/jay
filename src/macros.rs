@@ -11,6 +11,46 @@ macro_rules! efrom {
     };
 }
 
+macro_rules! usr_object_base {
+    ($oname:ident, $iname:ident; $($code:ident => $f:ident,)*) => {
+        impl crate::wl_usr::usr_object::UsrObjectBase for $oname {
+            fn id(&self) -> crate::object::ObjectId {
+                self.id.into()
+            }
+
+            #[allow(unused_variables, unreachable_code)]
+            fn handle_event(
+                self: std::rc::Rc<Self>,
+                event: u32,
+                parser: crate::utils::buffd::MsgParser<'_, '_>,
+            ) -> Result<(), crate::wl_usr::usr_object::UsrObjectError> {
+                let res: std::result::Result<(), _> = match event {
+                    $(
+                        $code => $oname::$f(&self, parser).map_err(|e| crate::wl_usr::usr_object::UsrObjectErrorType::EventError {
+                            event: stringify!($f),
+                            error: Box::new(e),
+                        }),
+                    )*
+                    _ => Err(crate::wl_usr::usr_object::UsrObjectErrorType::UnknownEventError {
+                        event,
+                    }),
+                };
+                if let Err(e) = res {
+                    return Err(crate::wl_usr::usr_object::UsrObjectError {
+                        interface: crate::wire::$iname,
+                        ty: e,
+                    });
+                }
+                Ok(())
+            }
+
+            fn interface(&self) -> crate::object::Interface {
+                crate::wire::$iname
+            }
+        }
+    };
+}
+
 macro_rules! object_base {
     ($oname:ident; $($code:ident => $f:ident,)*) => {
         impl crate::object::ObjectBase for $oname {

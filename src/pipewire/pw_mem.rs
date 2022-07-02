@@ -41,6 +41,11 @@ pub struct PwMemTyped<T> {
     _phantom: PhantomData<T>,
 }
 
+pub struct PwMemSlice {
+    mem: Rc<PwMemMap>,
+    range: Range<usize>,
+}
+
 impl PwMemPool {
     pub fn map(&self, memid: u32, offset: u32, size: u32) -> Result<Rc<PwMemMap>, PwMemError> {
         match self.mems.get(&memid) {
@@ -79,11 +84,13 @@ impl PwMem {
 }
 
 impl PwMemMap {
+    #[allow(dead_code)]
     pub unsafe fn read<T: Pod>(&self) -> &T {
         self.check::<T>(0);
         (self.map.ptr.cast::<u8>().add(self.range.start) as *const T).deref()
     }
 
+    #[allow(dead_code)]
     pub unsafe fn write<T: Pod>(&self) -> &mut T {
         self.check::<T>(0);
         (self.map.ptr.cast::<u8>().add(self.range.start) as *mut T).deref_mut()
@@ -112,6 +119,15 @@ impl PwMemMap {
             mem: self.clone(),
             offset: self.range.start + offset,
             _phantom: Default::default(),
+        })
+    }
+
+    pub fn slice(self: &Rc<Self>, range: Range<usize>) -> Rc<PwMemSlice> {
+        assert!(range.start <= self.range.len());
+        assert!(range.len() <= self.range.len() - range.start);
+        Rc::new(PwMemSlice {
+            mem: self.clone(),
+            range: self.range.start + range.start..self.range.start + range.end,
         })
     }
 }

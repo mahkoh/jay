@@ -3,7 +3,7 @@ use {
         pipewire::{
             pw_parser::PwParser,
             pw_pod::{
-                PW_OBJECT_Format, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamIO,
+                PW_COMMAND_Node, PW_OBJECT_Format, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamIO,
                 PW_OBJECT_ParamLatency, PW_OBJECT_ParamMeta, PW_OBJECT_ParamPortConfig,
                 PW_OBJECT_ParamProcessLatency, PW_OBJECT_ParamProfile, PW_OBJECT_ParamRoute,
                 PW_OBJECT_Profiler, PW_OBJECT_PropInfo, PW_OBJECT_Props, PW_TYPE_Id, PwPod,
@@ -22,19 +22,19 @@ use {
                 SPA_PROP_channelMap, SPA_PROP_iec958Codecs, SpaAudioChannel, SpaAudioFormat,
                 SpaAudioIec958Codec, SpaDataTypes, SpaDirection, SpaFormat, SpaH264Alignment,
                 SpaH264StreamFormat, SpaIoType, SpaMediaSubtype, SpaMediaType, SpaMetaType,
-                SpaParamAvailability, SpaParamBitorder, SpaParamBuffers, SpaParamIo,
-                SpaParamLatency, SpaParamMeta, SpaParamPortConfig, SpaParamPortConfigMode,
-                SpaParamProcessLatency, SpaParamProfile, SpaParamRoute, SpaProfiler, SpaProp,
-                SpaPropInfo, SpaVideoChromaSite, SpaVideoColorMatrix, SpaVideoColorPrimaries,
-                SpaVideoColorRange, SpaVideoFormat, SpaVideoInterlaceMode, SpaVideoMultiviewFlags,
-                SpaVideoMultiviewMode, SpaVideoTransferFunction,
+                SpaNodeCommand, SpaParamAvailability, SpaParamBitorder, SpaParamBuffers,
+                SpaParamIo, SpaParamLatency, SpaParamMeta, SpaParamPortConfig,
+                SpaParamPortConfigMode, SpaParamProcessLatency, SpaParamProfile, SpaParamRoute,
+                SpaParamType, SpaProfiler, SpaProp, SpaPropInfo, SpaVideoChromaSite,
+                SpaVideoColorMatrix, SpaVideoColorPrimaries, SpaVideoColorRange, SpaVideoFormat,
+                SpaVideoInterlaceMode, SpaVideoMultiviewFlags, SpaVideoMultiviewMode,
+                SpaVideoTransferFunction,
             },
         },
         utils::{debug_fn::debug_fn, errorfmt::ErrorFmt},
     },
     std::fmt::{Debug, DebugList, Formatter, Write},
 };
-use crate::pipewire::pw_pod::{PW_COMMAND_Device, PW_COMMAND_Node, SpaNodeCommand, SpaParamType};
 
 trait PwPodObjectDebugger: Sync {
     fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> std::fmt::Result;
@@ -292,12 +292,11 @@ static PARAM_PROCESS_LATENCY_DEBUGGER: &'static dyn PwPodObjectDebugger =
         debug_pod: |_, f: &mut Formatter<'_>, p: PwPod<'_>| p.fmt(f),
     };
 
-static COMMAND_NODE_DEBUGGER: &'static dyn PwPodObjectDebugger =
-    &PwPodObjectDebuggerSimple {
-        key_name: |key| SpaNodeCommand(key).name(),
-        id_name: command_id_name,
-        debug_pod: |_, f: &mut Formatter<'_>, p: PwPod<'_>| p.fmt(f),
-    };
+static COMMAND_NODE_DEBUGGER: &'static dyn PwPodObjectDebugger = &PwPodObjectDebuggerSimple {
+    key_name: |key| SpaNodeCommand(key).name(),
+    id_name: command_id_name,
+    debug_pod: |_, f: &mut Formatter<'_>, p: PwPod<'_>| p.fmt(f),
+};
 
 fn object_debugger(obj: PwPodObjectType) -> Option<&'static dyn PwPodObjectDebugger> {
     let res: &dyn PwPodObjectDebugger = match obj {

@@ -50,7 +50,11 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         unsafe { self.map.get().deref().get(k).cloned() }
     }
 
-    pub fn remove(&self, k: &K) -> Option<V> {
+    pub fn remove<Q: ?Sized>(&self, k: &Q) -> Option<V>
+    where
+        Q: Hash + Eq,
+        K: Borrow<Q>,
+    {
         unsafe { self.map.get().deref_mut().remove(k) }
     }
 

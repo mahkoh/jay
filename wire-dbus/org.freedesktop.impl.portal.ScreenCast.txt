@@ -1,0 +1,34 @@
+fn CreateSession(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn SelectSources(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn Start(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    parent_window: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+prop AvailableSourceTypes = u32
+prop AvailableCursorModes = u32
+prop version = u32

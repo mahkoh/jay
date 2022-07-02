@@ -316,6 +316,7 @@ impl ToplevelData {
         fd.workspace.fullscreen.take();
         if node.node_visible() {
             fd.workspace.set_visible(true);
+            fd.workspace.flush_jay_workspaces();
         }
         if fd.placeholder.is_destroyed() {
             state.map_tiled(node);

@@ -8,7 +8,7 @@ use {
         PW_TYPE_Rectangle, PW_TYPE_Sequence, PW_TYPE_String, PW_TYPE_Struct, PwChoiceType,
         PwControlType, PwPod, PwPodArray, PwPodChoice, PwPodControl, PwPodFraction, PwPodObject,
         PwPodObjectType, PwPodPointer, PwPodRectangle, PwPodSequence, PwPodStruct, PwPodType,
-        PwPointerType, PwProp, PwPropFlag, SpaParamType,
+        PwPointerType, PwProp, PwPropFlag,
     },
     ahash::AHashMap,
     bstr::{BStr, BString, ByteSlice},
@@ -129,7 +129,10 @@ impl<'a> PwParser<'a> {
     pub fn read_object(&mut self) -> Result<PwPodObject, PwParserError> {
         match self.read_object_opt()? {
             Some(p) => Ok(p),
-            _ => Err(PwParserError::UnexpectedPodType(PW_TYPE_Object, PW_TYPE_None)),
+            _ => Err(PwParserError::UnexpectedPodType(
+                PW_TYPE_Object,
+                PW_TYPE_None,
+            )),
         }
     }
 

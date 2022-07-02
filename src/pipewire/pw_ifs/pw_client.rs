@@ -41,7 +41,7 @@ impl PwClient {
         Ok(())
     }
 
-    fn handle_permissions(&self, mut p: PwParser<'_>) -> Result<(), PwClientError> {
+    fn handle_permissions(&self, _p: PwParser<'_>) -> Result<(), PwClientError> {
         Ok(())
     }
 }
