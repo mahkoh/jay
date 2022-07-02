@@ -1,6 +1,7 @@
 pub mod usr_jay_compositor;
 pub mod usr_jay_output;
 pub mod usr_jay_render_ctx;
+pub mod usr_jay_screencast;
 pub mod usr_jay_workspace;
 pub mod usr_jay_workspace_watcher;
 pub mod usr_wl_buffer;

@@ -91,7 +91,11 @@ pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
             fd: buf.fd.clone(),
         }],
     };
-    let bo = match gbm.import_dmabuf(&dmabuf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {
+    video_buf_to_qoi(&gbm, &dmabuf)
+}
+
+pub fn video_buf_to_qoi(gbm: &GbmDevice, buf: &DmaBuf) -> Vec<u8> {
+    let bo = match gbm.import_dmabuf(&buf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {
         Ok(bo) => Rc::new(bo),
         Err(e) => {
             fatal!("Could not import screenshot dmabuf: {}", ErrorFmt(e));
@@ -104,5 +108,5 @@ pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
         }
     };
     let data = unsafe { bo_map.data() };
-    xrgb8888_encode_qoi(data, buf.width, buf.height, buf.stride)
+    xrgb8888_encode_qoi(data, buf.width as _, buf.height as _, buf.planes[0].stride)
 }

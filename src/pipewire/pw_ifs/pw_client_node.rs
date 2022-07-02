@@ -42,6 +42,8 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
+use crate::pipewire::pw_pod::{SPA_DATA_DmaBuf, SPA_FORMAT_VIDEO_modifier};
+use crate::video::dmabuf::DmaBuf;
 
 pw_opcodes! {
     PwClientNodeMethods;
@@ -72,9 +74,10 @@ pw_opcodes! {
 }
 
 pub trait PwClientNodeOwner {
-    fn port_format_changed(&self, port: &Rc<PwClientNodePort>);
-    fn use_buffers(&self, port: &Rc<PwClientNodePort>);
-    fn start(self: Rc<Self>);
+    fn port_format_changed(&self, port: &Rc<PwClientNodePort>) {}
+    fn use_buffers(&self, port: &Rc<PwClientNodePort>) {}
+    fn start(self: Rc<Self>) {}
+    fn bound_id(&self, id: u32) {}
 }
 
 bitflags! {
@@ -133,6 +136,7 @@ pub struct PwClientNodePortSupportedFormats {
     pub media_sub_type: Option<SpaMediaSubtype>,
     pub video_size: Option<PwPodRectangle>,
     pub formats: Vec<&'static Format>,
+    pub modifiers: Vec<u64>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -172,13 +176,13 @@ pub struct PwNodeActivation {
     pub fd: Rc<OwnedFd>,
 }
 
-pub struct PwNodeBuffer {
-    pub width: i32,
-    pub height: i32,
-    pub stride: i32,
-    pub offset: i32,
-    pub fd: Rc<OwnedFd>,
-}
+// pub struct PwNodeBuffer {
+//     pub width: i32,
+//     pub height: i32,
+//     pub stride: i32,
+//     pub offset: i32,
+//     pub fd: Rc<OwnedFd>,
+// }
 
 pub const PW_CLIENT_NODE_FACTORY: &str = "client-node";
 pub const PW_CLIENT_NODE_INTERFACE: &str = "PipeWire:Interface:ClientNode";
@@ -249,7 +253,7 @@ impl PwClientNode {
         port
     }
 
-    pub fn send_port_output_buffers(&self, port: &PwClientNodePort, buffers: &[PwNodeBuffer]) {
+    pub fn send_port_output_buffers(&self, port: &PwClientNodePort, buffers: &[DmaBuf]) {
         self.con.send(self, PwClientNodeMethods::PortBuffers, |f| {
             f.write_struct(|f| {
                 // direction
@@ -262,17 +266,19 @@ impl PwClientNode {
                 f.write_uint(buffers.len() as _);
                 for buffer in buffers.deref() {
                     // n_datas
-                    f.write_uint(1);
-                    // type
-                    f.write_id(SPA_DATA_MemFd.0);
-                    // fd
-                    f.write_fd(&buffer.fd);
-                    // flags
-                    f.write_uint(SPA_DATA_FLAG_READABLE.0);
-                    // offset
-                    f.write_int(buffer.offset);
-                    // size
-                    f.write_int(buffer.stride * buffer.height);
+                    f.write_uint(buffer.planes.len() as _);
+                    for plane in &buffer.planes {
+                        // type
+                        f.write_id(SPA_DATA_DmaBuf.0);
+                        // fd
+                        f.write_fd(&plane.fd);
+                        // flags
+                        f.write_uint(SPA_DATA_FLAG_READABLE.0);
+                        // offset
+                        f.write_uint(plane.offset);
+                        // size
+                        f.write_uint(plane.stride * buffer.height as u32);
+                    }
                 }
             });
         });
@@ -324,6 +330,16 @@ impl PwClientNode {
                                     f.write_id(sf.formats[0].pipewire.0);
                                     for format in &sf.formats {
                                         f.write_id(format.pipewire.0);
+                                    }
+                                });
+                            });
+                        }
+                        if sf.modifiers.len() > 0 {
+                            f.write_property(SPA_FORMAT_VIDEO_modifier.0, PwPropFlag::none(), |f| {
+                                f.write_choice(PW_CHOICE_Enum, 0, |f| {
+                                    f.write_ulong(sf.modifiers[0]);
+                                    for modifier in &sf.modifiers {
+                                        f.write_ulong(*modifier);
                                     }
                                 });
                             });
@@ -601,7 +617,7 @@ impl PwClientNode {
 
             let n_datas = p1.read_uint()?;
 
-            // log::info!("  offset = {}, n_datas={}", offset, n_datas);
+            log::info!("  offset = {}, n_datas={}", offset, n_datas);
 
             for _ in 0..n_datas {
                 let ty = SpaDataType(p1.read_id()?);
@@ -796,7 +812,13 @@ pw_object_base! {
     PortSetMixInfo => handle_port_set_mix_info,
 }
 
-impl PwObject for PwClientNode {}
+impl PwObject for PwClientNode {
+    fn bound_id(&self, id: u32) {
+        if let Some(owner) = self.owner.get() {
+            owner.bound_id(id);
+        }
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum PwClientNodeError {

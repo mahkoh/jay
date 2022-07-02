@@ -8,7 +8,7 @@ use {
         wl_usr::{
             usr_ifs::{
                 usr_jay_output::UsrJayOutput, usr_jay_render_ctx::UsrJayRenderCtx,
-                usr_wl_output::UsrWlOutput,
+                usr_jay_screencast::UsrJayScreencast, usr_wl_output::UsrWlOutput,
             },
             usr_object::UsrObject,
             UsrCon,
@@ -38,6 +38,13 @@ impl UsrJayCompositor {
         self.con.request(GetRenderCtx {
             self_id: self.id,
             id: jo.id,
+        });
+    }
+
+    pub fn request_create_screencast(&self, sc: &UsrJayScreencast) {
+        self.con.request(CreateScreencast {
+            self_id: self.id,
+            id: sc.id,
         });
     }
 

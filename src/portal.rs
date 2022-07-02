@@ -157,45 +157,6 @@ pub fn run() {
 //         self.state.wl_con.add_object(frame.clone());
 //     }
 // }
-//
-// fn create_node(state: &Rc<PortalState>, output: &OutputOwner) -> Rc<ClientNodeOwner> {
-//     let node = state.pw_con.create_client_node(&[
-//         ("media.class".to_string(), "Video/Source".to_string()),
-//         // ("media.name".to_string(), "hurr-durr".to_string()),
-//         // ("stream.is-live".to_string(), "true".to_string()),
-//         // ("node.name".to_string(), "jay".to_string()),
-//         ("node.driver".to_string(), "true".to_string()),
-//         // ("node.want-driver".to_string(), "true".to_string()),
-//     ]);
-//     let port = node.create_port(true);
-//     let owner = Rc::new(ClientNodeOwner {
-//         node: node.clone(),
-//         port: port.clone(),
-//         state: state.clone(),
-//         wl_buffers: RefCell::new(vec![]),
-//     });
-//     node.owner.set(Some(owner.clone()));
-//     {
-//         port.can_alloc_buffers.set(true);
-//         port.supported_metas
-//             .set(SUPPORTED_META_HEADER | SUPPORTED_META_BUSY);
-//         {
-//             let fmts = vec![ARGB8888];
-//             *port.supported_formats.borrow_mut() = Some(PwClientNodePortSupportedFormats {
-//                 media_type: Some(SPA_MEDIA_TYPE_video),
-//                 media_sub_type: Some(SPA_MEDIA_SUBTYPE_raw),
-//                 video_size: Some(PwPodRectangle {
-//                     width: output.width.get().unwrap() as _,
-//                     height: output.height.get().unwrap() as _,
-//                 }),
-//                 formats: fmts,
-//             });
-//         }
-//     }
-//     node.send_port_update(&port);
-//     node.send_active(true);
-//     owner
-// }
 
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
 

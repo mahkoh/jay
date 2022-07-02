@@ -329,6 +329,16 @@ impl State {
         for watcher in self.render_ctx_watchers.lock().values() {
             watcher.send_render_ctx(ctx);
         }
+
+        let mut scs = vec![];
+        for output in self.root.outputs.lock().values() {
+            for sc in output.screencasts.lock().values() {
+                scs.push(sc.clone());
+            }
+        }
+        for sc in scs {
+            sc.do_destroy();
+        }
     }
 
     fn reload_cursors(&self) {

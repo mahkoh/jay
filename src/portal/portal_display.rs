@@ -40,19 +40,19 @@ struct PortalDisplayPrelude {
 
 pub struct PortalDisplay {
     id: u32,
-    con: Rc<UsrCon>,
+    pub con: Rc<UsrCon>,
     state: Rc<PortalState>,
     registry: Rc<UsrWlRegistry>,
-    jc: Rc<UsrJayCompositor>,
-    outputs: CopyHashMap<u32, Rc<PortalOutput>>,
-    render_ctx: CloneCell<Option<Rc<PortalRenderCtx>>>,
+    pub jc: Rc<UsrJayCompositor>,
+    pub outputs: CopyHashMap<u32, Rc<PortalOutput>>,
+    pub render_ctx: CloneCell<Option<Rc<PortalRenderCtx>>>,
 }
 
-struct PortalOutput {
+pub struct PortalOutput {
     linear_id: Cell<u32>,
     dpy: Rc<PortalDisplay>,
     wl: Rc<UsrWlOutput>,
-    jay: Rc<UsrJayOutput>,
+    pub jay: Rc<UsrJayOutput>,
 }
 
 impl UsrWlRegistryOwner for PortalDisplayPrelude {

@@ -5,8 +5,9 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
-            jay_render_ctx::JayRenderCtx, jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents, jay_workspace_watcher::JayWorkspaceWatcher,
+            jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast,
+            jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
+            jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
         object::Object,
@@ -229,8 +230,11 @@ impl JayCompositor {
     }
 
     fn create_screencast(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: CreateScreencast = self.client.parse(self, parser)?;
-        todo!()
+        let req: CreateScreencast = self.client.parse(self, parser)?;
+        let sc = Rc::new(JayScreencast::new(req.id, &self.client));
+        track!(self.client, sc);
+        self.client.add_client_obj(&sc)?;
+        Ok(())
     }
 
     fn get_output(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {

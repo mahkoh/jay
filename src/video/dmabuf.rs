@@ -1,13 +1,13 @@
 use {crate::format::Format, std::rc::Rc, uapi::OwnedFd};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DmaBufPlane {
     pub offset: u32,
     pub stride: u32,
     pub fd: Rc<OwnedFd>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DmaBuf {
     pub width: i32,
     pub height: i32,
