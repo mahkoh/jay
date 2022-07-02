@@ -109,12 +109,14 @@ pub struct Globals {
 
 impl Globals {
     pub fn new() -> Self {
-        Self {
+        let slf = Self {
             next_name: NumCell::new(1),
             registry: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
-        }
+        };
+        slf.add_singletons();
+        slf
     }
 
     pub fn clear(&self) {
@@ -123,7 +125,7 @@ impl Globals {
         self.seats.clear();
     }
 
-    pub fn add_singletons(&self, backend: &Rc<dyn Backend>) {
+    fn add_singletons(&self) {
         macro_rules! add_singleton {
             ($name:ident) => {
                 self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
@@ -145,11 +147,17 @@ impl Globals {
         add_singleton!(ExtSessionLockManagerV1Global);
         add_singleton!(WpViewporterGlobal);
         add_singleton!(WpFractionalScaleManagerV1Global);
+    }
 
+    pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
+        macro_rules! add_singleton {
+            ($name:ident) => {
+                self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
+            };
+        }
         if backend.supports_idle() {
             add_singleton!(ZwpIdleInhibitManagerV1Global);
         }
-
         if backend.supports_presentation_feedback() {
             add_singleton!(WpPresentationGlobal);
         }

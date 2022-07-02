@@ -227,7 +227,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
         }
     };
     state.backend.set(backend.clone());
-    state.globals.add_singletons(&backend);
+    state.globals.add_backend_singletons(&backend);
 
     if backend.import_environment() {
         if let Some(acc) = state.acceptor.get() {
