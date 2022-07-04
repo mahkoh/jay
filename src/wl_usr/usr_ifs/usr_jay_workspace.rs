@@ -17,7 +17,7 @@ pub struct UsrJayWorkspace {
 }
 
 pub trait UsrJayWorkspaceOwner {
-    fn linear_id(&self, ev: &LinearId) {
+    fn linear_id(self: Rc<Self>, ev: &LinearId) {
         let _ = ev;
     }
 
@@ -25,9 +25,11 @@ pub trait UsrJayWorkspaceOwner {
         let _ = ev;
     }
 
+    fn destroyed(&self) {}
+
     fn done(&self) {}
 
-    fn output(&self, ev: &Output) {
+    fn output(self: Rc<Self>, ev: &Output) {
         let _ = ev;
     }
 
@@ -49,6 +51,14 @@ impl UsrJayWorkspace {
         let ev: Name = self.con.parse(self, parser)?;
         if let Some(owner) = self.owner.get() {
             owner.name(&ev);
+        }
+        Ok(())
+    }
+
+    fn destroyed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let _ev: Destroyed = self.con.parse(self, parser)?;
+        if let Some(owner) = self.owner.get() {
+            owner.destroyed();
         }
         Ok(())
     }
@@ -86,6 +96,13 @@ impl Drop for UsrJayWorkspace {
 
 usr_object_base! {
     UsrJayWorkspace, JayWorkspace;
+
+    LINEAR_ID => linear_id,
+    NAME => name,
+    DESTROYED => destroyed,
+    DONE => done,
+    OUTPUT => output,
+    VISIBLE => visible,
 }
 
 impl UsrObject for UsrJayWorkspace {

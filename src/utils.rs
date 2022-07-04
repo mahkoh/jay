@@ -18,6 +18,7 @@ pub mod nonblock;
 pub mod num_cpus;
 pub mod numcell;
 pub mod once;
+pub mod option_ext;
 pub mod oserror;
 pub mod page_size;
 pub mod ptr_ext;

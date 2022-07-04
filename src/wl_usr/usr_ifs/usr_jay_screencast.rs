@@ -21,6 +21,17 @@ pub struct UsrJayScreencast {
 
     pub pending_buffers: RefCell<Vec<DmaBuf>>,
     pub pending_planes: RefCell<Vec<DmaBufPlane>>,
+
+    pub pending_config: RefCell<UsrJayScreencastServerConfig>,
+}
+
+#[derive(Default)]
+pub struct UsrJayScreencastServerConfig {
+    pub output: Option<u32>,
+    pub show_all: bool,
+    pub running: bool,
+    pub use_linear_buffers: bool,
+    pub allowed_workspaces: Vec<u32>,
 }
 
 pub trait UsrJayScreencastOwner {
@@ -33,6 +44,12 @@ pub trait UsrJayScreencastOwner {
     }
 
     fn destroyed(&self) {}
+
+    fn missed_frame(&self) {}
+
+    fn config(&self, config: UsrJayScreencastServerConfig) {
+        let _ = config;
+    }
 }
 
 impl UsrJayScreencast {
@@ -43,26 +60,41 @@ impl UsrJayScreencast {
         });
     }
 
-    pub fn request_set_show_always(&self) {
-        self.con.request(SetShowAlways { self_id: self.id });
+    pub fn request_set_allow_all_workspaces(&self, allow_all: bool) {
+        self.con.request(SetAllowAllWorkspaces {
+            self_id: self.id,
+            allow_all: allow_all as _,
+        });
     }
 
-    pub fn request_add_workspace(&self, ws: &JayWorkspace) {
-        self.con.request(AddWorkspace {
+    pub fn request_allow_workspace(&self, ws: &JayWorkspace) {
+        self.con.request(AllowWorkspace {
             self_id: self.id,
             workspace: ws.id,
         });
     }
 
-    pub fn request_start(&self) {
-        self.con.request(Start { self_id: self.id });
+    pub fn request_touch_allowed_workspaces(&self) {
+        self.con
+            .request(TouchAllowedWorkspaces { self_id: self.id });
     }
 
-    fn request_ack(&self, serial: u32) {
-        self.con.request(Ack {
+    pub fn request_set_use_linear_buffers(&self, linear: bool) {
+        self.con.request(SetUseLinearBuffers {
             self_id: self.id,
-            serial,
+            use_linear: linear as _,
         });
+    }
+
+    pub fn request_set_running(&self, running: bool) {
+        self.con.request(SetRunning {
+            self_id: self.id,
+            running: running as _,
+        });
+    }
+
+    pub fn request_configure(&self) {
+        self.con.request(Configure { self_id: self.id });
     }
 
     pub fn request_release_buffer(&self, idx: usize) {
@@ -103,7 +135,10 @@ impl UsrJayScreencast {
         if let Some(owner) = self.owner.get() {
             owner.buffers(mem::take(self.pending_buffers.borrow_mut().deref_mut()));
         }
-        self.request_ack(ev.serial);
+        self.con.request(AckBuffers {
+            self_id: self.id,
+            serial: ev.serial,
+        });
         Ok(())
     }
 
@@ -122,6 +157,59 @@ impl UsrJayScreencast {
         }
         Ok(())
     }
+
+    fn missed_frame(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let _ev: MissedFrame = self.con.parse(self, parser)?;
+        if let Some(owner) = self.owner.get() {
+            owner.missed_frame();
+        }
+        Ok(())
+    }
+
+    fn config_output(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: ConfigOutput = self.con.parse(self, parser)?;
+        self.pending_config.borrow_mut().output = Some(ev.linear_id);
+        Ok(())
+    }
+
+    fn config_allow_all_workspaces(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: ConfigAllowAllWorkspaces = self.con.parse(self, parser)?;
+        self.pending_config.borrow_mut().show_all = ev.allow_all != 0;
+        Ok(())
+    }
+
+    fn config_use_linear_buffers(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: ConfigUseLinearBuffers = self.con.parse(self, parser)?;
+        self.pending_config.borrow_mut().use_linear_buffers = ev.use_linear != 0;
+        Ok(())
+    }
+
+    fn config_running(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: ConfigRunning = self.con.parse(self, parser)?;
+        self.pending_config.borrow_mut().running = ev.running != 0;
+        Ok(())
+    }
+
+    fn config_allow_workspace(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: ConfigAllowWorkspace = self.con.parse(self, parser)?;
+        self.pending_config
+            .borrow_mut()
+            .allowed_workspaces
+            .push(ev.linear_id);
+        Ok(())
+    }
+
+    fn config_done(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: ConfigDone = self.con.parse(self, parser)?;
+        if let Some(owner) = self.owner.get() {
+            owner.config(mem::take(self.pending_config.borrow_mut().deref_mut()));
+        }
+        self.con.request(AckConfig {
+            self_id: self.id,
+            serial: ev.serial,
+        });
+        Ok(())
+    }
 }
 
 impl Drop for UsrJayScreencast {
@@ -138,6 +226,13 @@ usr_object_base! {
     BUFFERS_DONE => buffers_done,
     READY => ready,
     DESTROYED => destroyed,
+    MISSED_FRAME => missed_frame,
+    CONFIG_OUTPUT => config_output,
+    CONFIG_ALLOW_ALL_WORKSPACES => config_allow_all_workspaces,
+    CONFIG_ALLOW_WORKSPACE => config_allow_workspace,
+    CONFIG_USE_LINEAR_BUFFERS => config_use_linear_buffers,
+    CONFIG_RUNNING => config_running,
+    CONFIG_DONE => config_done,
 }
 
 impl UsrObject for UsrJayScreencast {

@@ -5,3 +5,4 @@ mod framebuffer;
 mod image;
 mod renderer;
 mod texture;
+mod renderer_base;

@@ -344,17 +344,19 @@ impl OutputNode {
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
-        if self.global.mode.get() == mode {
+        let old_mode = self.global.mode.get();
+        if old_mode == mode {
             return;
         }
         self.global.mode.set(mode);
         let rect = self.calculate_extents();
         self.change_extents_(&rect);
-        {
+
+        if (old_mode.width, old_mode.height) != (mode.width, mode.height) {
             let mut to_destroy = vec![];
             if let Some(ctx) = self.state.render_ctx.get() {
                 for sc in self.screencasts.lock().values() {
-                    if let Err(e) = sc.allocate_buffers(self, &ctx) {
+                    if let Err(e) = sc.realloc(&ctx) {
                         log::error!(
                             "Could not re-allocate buffers for screencast after mode change: {}",
                             ErrorFmt(e)

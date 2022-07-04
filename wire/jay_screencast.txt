@@ -8,23 +8,38 @@ msg set_output = 1 {
     output: id(jay_output),
 }
 
-msg set_show_always = 2 {
-
+msg set_allow_all_workspaces = 2 {
+    allow_all: u32,
 }
 
-msg add_workspace = 3 {
+msg allow_workspace = 3 {
     workspace: id(jay_workspace),
 }
 
-msg start = 4 {
+msg touch_allowed_workspaces = 4 {
+}
+
+msg set_use_linear_buffers = 5 {
+    use_linear: u32,
+}
+
+msg set_running = 6 {
+    running: u32,
+}
+
+msg configure = 7 {
 
 }
 
-msg ack = 5 {
+msg ack_buffers = 8 {
     serial: u32,
 }
 
-msg release_buffer = 6 {
+msg ack_config = 9 {
+    serial: u32,
+}
+
+msg release_buffer = 10 {
     idx: u32,
 }
 
@@ -53,4 +68,32 @@ msg ready = 3 {
 
 msg destroyed = 4 {
 
+}
+
+msg missed_frame = 5 {
+
+}
+
+msg config_output = 6 {
+    linear_id: u32,
+}
+
+msg config_allow_all_workspaces = 7 {
+    allow_all: u32,
+}
+
+msg config_allow_workspace = 8 {
+    linear_id: u32,
+}
+
+msg config_use_linear_buffers = 9 {
+    use_linear: u32,
+}
+
+msg config_running = 10 {
+    running: u32,
+}
+
+msg config_done = 11 {
+    serial: u32,
 }

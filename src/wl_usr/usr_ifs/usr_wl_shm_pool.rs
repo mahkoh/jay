@@ -22,7 +22,7 @@ impl UsrWlShmPool {
             offset,
             width: buffer.width,
             height: buffer.height,
-            stride: buffer.stride,
+            stride: buffer.stride.unwrap(),
             format: buffer.format.wl_id.unwrap_or(buffer.format.drm),
         });
     }

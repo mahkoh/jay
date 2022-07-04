@@ -16,7 +16,7 @@ pub struct UsrWlBuffer {
     pub con: Rc<UsrCon>,
     pub width: i32,
     pub height: i32,
-    pub stride: i32,
+    pub stride: Option<i32>,
     pub format: &'static Format,
     pub owner: CloneCell<Option<Rc<dyn UsrWlBufferOwner>>>,
 }

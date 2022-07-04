@@ -8,7 +8,8 @@ use {
         wl_usr::{
             usr_ifs::{
                 usr_jay_output::UsrJayOutput, usr_jay_render_ctx::UsrJayRenderCtx,
-                usr_jay_screencast::UsrJayScreencast, usr_wl_output::UsrWlOutput,
+                usr_jay_screencast::UsrJayScreencast,
+                usr_jay_workspace_watcher::UsrJayWorkspaceWatcher, usr_wl_output::UsrWlOutput,
             },
             usr_object::UsrObject,
             UsrCon,
@@ -56,11 +57,10 @@ impl UsrJayCompositor {
         });
     }
 
-    pub fn request_watch_workspaces(&self, jo: &UsrJayOutput, output: &UsrWlOutput) {
-        self.con.request(GetOutput {
+    pub fn request_watch_workspaces(&self, watcher: &UsrJayWorkspaceWatcher) {
+        self.con.request(WatchWorkspaces {
             self_id: self.id,
-            id: jo.id,
-            output: output.id,
+            id: watcher.id,
         });
     }
 

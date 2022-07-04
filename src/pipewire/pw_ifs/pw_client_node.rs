@@ -13,11 +13,12 @@ use {
                 pw_node_activation, spa_chunk, spa_io_buffers, spa_meta_bitmap, spa_meta_busy,
                 spa_meta_cursor, spa_meta_header, spa_meta_region, PW_CHOICE_Enum, PW_CHOICE_Flags,
                 PW_OBJECT_Format, PW_OBJECT_ParamBuffers, PW_OBJECT_ParamMeta, PwIoType,
-                PwPodFraction, PwPodObject, PwPodRectangle, PwPropFlag, SPA_DATA_MemFd,
-                SPA_DATA_MemPtr, SPA_FORMAT_VIDEO_format, SPA_FORMAT_VIDEO_framerate,
-                SPA_FORMAT_VIDEO_size, SPA_FORMAT_mediaSubtype, SPA_FORMAT_mediaType,
-                SPA_IO_Buffers, SPA_META_Bitmap, SPA_META_Busy, SPA_META_Control, SPA_META_Cursor,
-                SPA_META_Header, SPA_META_VideoCrop, SPA_META_VideoDamage, SPA_NODE_COMMAND_Start,
+                PwPodFraction, PwPodObject, PwPodRectangle, PwPropFlag, SPA_DATA_DmaBuf,
+                SPA_DATA_MemFd, SPA_DATA_MemPtr, SPA_FORMAT_VIDEO_format,
+                SPA_FORMAT_VIDEO_framerate, SPA_FORMAT_VIDEO_modifier, SPA_FORMAT_VIDEO_size,
+                SPA_FORMAT_mediaSubtype, SPA_FORMAT_mediaType, SPA_IO_Buffers, SPA_META_Bitmap,
+                SPA_META_Busy, SPA_META_Control, SPA_META_Cursor, SPA_META_Header,
+                SPA_META_VideoCrop, SPA_META_VideoDamage, SPA_NODE_COMMAND_Start,
                 SPA_PARAM_BUFFERS_align, SPA_PARAM_BUFFERS_blocks, SPA_PARAM_BUFFERS_buffers,
                 SPA_PARAM_BUFFERS_dataType, SPA_PARAM_BUFFERS_size, SPA_PARAM_BUFFERS_stride,
                 SPA_PARAM_Buffers, SPA_PARAM_EnumFormat, SPA_PARAM_Format, SPA_PARAM_META_size,
@@ -32,6 +33,7 @@ use {
             bitfield::Bitfield, bitflags::BitflagsExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
         },
+        video::dmabuf::DmaBuf,
     },
     std::{
         cell::{Cell, RefCell},
@@ -42,8 +44,6 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
-use crate::pipewire::pw_pod::{SPA_DATA_DmaBuf, SPA_FORMAT_VIDEO_modifier};
-use crate::video::dmabuf::DmaBuf;
 
 pw_opcodes! {
     PwClientNodeMethods;
@@ -335,14 +335,18 @@ impl PwClientNode {
                             });
                         }
                         if sf.modifiers.len() > 0 {
-                            f.write_property(SPA_FORMAT_VIDEO_modifier.0, PwPropFlag::none(), |f| {
-                                f.write_choice(PW_CHOICE_Enum, 0, |f| {
-                                    f.write_ulong(sf.modifiers[0]);
-                                    for modifier in &sf.modifiers {
-                                        f.write_ulong(*modifier);
-                                    }
-                                });
-                            });
+                            f.write_property(
+                                SPA_FORMAT_VIDEO_modifier.0,
+                                PwPropFlag::none(),
+                                |f| {
+                                    f.write_choice(PW_CHOICE_Enum, 0, |f| {
+                                        f.write_ulong(sf.modifiers[0]);
+                                        for modifier in &sf.modifiers {
+                                            f.write_ulong(*modifier);
+                                        }
+                                    });
+                                },
+                            );
                         }
                         if let Some(vs) = sf.video_size {
                             f.write_property(SPA_FORMAT_VIDEO_size.0, PwPropFlag::none(), |f| {
@@ -362,19 +366,19 @@ impl PwClientNode {
                         f.write_property(SPA_PARAM_BUFFERS_blocks.0, PwPropFlag::none(), |f| {
                             f.write_uint(bc.planes as _);
                         });
-                        if let Some(size) = bc.size {
-                            f.write_property(SPA_PARAM_BUFFERS_size.0, PwPropFlag::none(), |f| {
-                                f.write_uint(size as _);
-                            });
-                        }
-                        if let Some(stride) = bc.stride {
-                            f.write_property(SPA_PARAM_BUFFERS_stride.0, PwPropFlag::none(), |f| {
-                                f.write_uint(stride as _);
-                            });
-                        }
-                        f.write_property(SPA_PARAM_BUFFERS_align.0, PwPropFlag::none(), |f| {
-                            f.write_uint(bc.align as _);
-                        });
+                        // if let Some(size) = bc.size {
+                        //     f.write_property(SPA_PARAM_BUFFERS_size.0, PwPropFlag::none(), |f| {
+                        //         f.write_uint(size as _);
+                        //     });
+                        // }
+                        // if let Some(stride) = bc.stride {
+                        //     f.write_property(SPA_PARAM_BUFFERS_stride.0, PwPropFlag::none(), |f| {
+                        //         f.write_uint(stride as _);
+                        //     });
+                        // }
+                        // f.write_property(SPA_PARAM_BUFFERS_align.0, PwPropFlag::none(), |f| {
+                        //     f.write_uint(bc.align as _);
+                        // });
                         f.write_property(SPA_PARAM_BUFFERS_dataType.0, PwPropFlag::none(), |f| {
                             f.write_choice(PW_CHOICE_Flags, 0, |f| {
                                 f.write_uint(1 << bc.data_type.0);
@@ -779,7 +783,14 @@ impl PwClientNode {
                 );
                 return;
             }
-            // log::info!("transport in");
+            log::info!("transport in");
+            for port in self.ports.lock().values() {
+                for io in port.io_buffers.lock().values() {
+                    unsafe {
+                        log::info!("status = {:?}", io.read().status);
+                    }
+                }
+            }
             // unsafe {
             //     log::info!("state = {:#?}", activation.read().state[0]);
             // }

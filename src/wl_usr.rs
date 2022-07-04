@@ -345,8 +345,10 @@ impl Incoming {
                 let parser = MsgParser::new(&mut self.buf, &self.data);
                 obj.handle_event(event, parser)?;
             }
-        } else {
+        } else if obj_id.raw() < MIN_SERVER_ID {
             return Err(UsrConError::MissingObject(obj_id));
+        } else {
+            // ignore events for server-created objects that were never added to the state
         }
         Ok(())
     }

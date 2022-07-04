@@ -331,8 +331,8 @@ impl State {
         }
 
         let mut scs = vec![];
-        for output in self.root.outputs.lock().values() {
-            for sc in output.screencasts.lock().values() {
+        for client in self.clients.clients.borrow_mut().values() {
+            for sc in client.data.objects.screencasts.lock().values() {
                 scs.push(sc.clone());
             }
         }

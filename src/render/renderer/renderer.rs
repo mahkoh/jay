@@ -1,7 +1,7 @@
 use {
     crate::{
         fixed::Fixed,
-        format::{Format, ARGB8888},
+        format::{ARGB8888},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -13,18 +13,8 @@ use {
         rect::Rect,
         render::{
             gl::{
-                frame_buffer::{with_scissor, GlFrameBuffer},
-                sys::{
-                    glActiveTexture, glBindTexture, glDisableVertexAttribArray, glDrawArrays,
-                    glEnableVertexAttribArray, glTexParameteri, glUniform1i, glUniform4f,
-                    glUseProgram, glVertexAttribPointer, GL_FALSE, GL_FLOAT, GL_LINEAR,
-                    GL_TEXTURE0, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
-                },
-                texture::image_target,
+                frame_buffer::{with_scissor},
             },
-            renderer::context::RenderContext,
-            sys::{glDisable, glEnable, GL_BLEND},
-            Texture,
         },
         state::State,
         theme::Color,
@@ -32,7 +22,6 @@ use {
             ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelNode,
             WorkspaceNode,
         },
-        utils::rc_eq::rc_eq,
     },
     std::{
         fmt::{Debug, Formatter},
@@ -41,6 +30,7 @@ use {
         slice,
     },
 };
+use crate::render::renderer::renderer_base::RendererBase;
 
 #[derive(Default)]
 pub struct RenderResult {
@@ -55,47 +45,24 @@ impl Debug for RenderResult {
 }
 
 pub struct Renderer<'a> {
-    pub(super) ctx: &'a Rc<RenderContext>,
-    pub(super) fb: &'a GlFrameBuffer,
+    pub base: RendererBase<'a>,
     pub(super) state: &'a State,
     pub(super) on_output: bool,
     pub(super) result: &'a mut RenderResult,
-    pub(super) scaled: bool,
-    pub(super) scale: Fixed,
-    pub(super) scalef: f64,
     pub(super) logical_extents: Rect,
 }
 
 impl Renderer<'_> {
     pub fn scale(&self) -> Fixed {
-        self.scale
+        self.base.scale
     }
 
     pub fn physical_extents(&self) -> Rect {
-        Rect::new_sized(0, 0, self.fb.width, self.fb.height).unwrap()
+        self.base.physical_extents()
     }
 
     pub fn logical_extents(&self) -> Rect {
         self.logical_extents
-    }
-
-    pub(super) fn scale_point(&self, mut x: i32, mut y: i32) -> (i32, i32) {
-        if self.scaled {
-            x = (x as f64 * self.scalef).round() as _;
-            y = (y as f64 * self.scalef).round() as _;
-        }
-        (x, y)
-    }
-
-    fn scale_rect(&self, mut rect: Rect) -> Rect {
-        if self.scaled {
-            let x1 = (rect.x1() as f64 * self.scalef).round() as _;
-            let y1 = (rect.y1() as f64 * self.scalef).round() as _;
-            let x2 = (rect.x2() as f64 * self.scalef).round() as _;
-            let y2 = (rect.y2() as f64 * self.scalef).round() as _;
-            rect = Rect::new(x1, y1, x2, y2).unwrap();
-        }
-        rect
     }
 
     pub fn render_display(&mut self, display: &DisplayNode, x: i32, y: i32) {
@@ -142,7 +109,7 @@ impl Renderer<'_> {
         let th = theme.sizes.title_height.get();
         {
             let c = theme.colors.bar_background.get();
-            self.fill_boxes2(
+            self.base.fill_boxes2(
                 slice::from_ref(&Rect::new_sized(0, 0, opos.width(), th).unwrap()),
                 &c,
                 x,
@@ -151,20 +118,20 @@ impl Renderer<'_> {
             let rd = output.render_data.borrow_mut();
             if let Some(aw) = &rd.active_workspace {
                 let c = theme.colors.focused_title_background.get();
-                self.fill_boxes2(slice::from_ref(aw), &c, x, y);
+                self.base.fill_boxes2(slice::from_ref(aw), &c, x, y);
             }
             let c = theme.colors.separator.get();
-            self.fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
+            self.base.fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
             let c = theme.colors.unfocused_title_background.get();
-            self.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
+            self.base.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
             let scale = output.preferred_scale.get();
             for title in &rd.titles {
-                let (x, y) = self.scale_point(x + title.tex_x, y + title.tex_y);
-                self.render_texture(&title.tex, x, y, ARGB8888, None, None, scale);
+                let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
+                self.base.render_texture(&title.tex, x, y, ARGB8888, None, None, scale);
             }
             if let Some(status) = &rd.status {
-                let (x, y) = self.scale_point(x + status.tex_x, y + status.tex_y);
-                self.render_texture(&status.tex, x, y, ARGB8888, None, None, scale);
+                let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
+                self.base.render_texture(&status.tex, x, y, ARGB8888, None, None, scale);
             }
         }
         if let Some(ws) = output.workspace.get() {
@@ -189,68 +156,16 @@ impl Renderer<'_> {
         }
     }
 
-    fn x_to_f(&self, x: i32) -> f32 {
-        2.0 * (x as f32 / self.fb.width as f32) - 1.0
-    }
-
-    fn y_to_f(&self, y: i32) -> f32 {
-        2.0 * (y as f32 / self.fb.height as f32) - 1.0
-    }
-
-    fn fill_boxes(&self, boxes: &[Rect], color: &Color) {
-        self.fill_boxes2(boxes, color, 0, 0);
-    }
-
-    fn fill_boxes2(&self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
-        if boxes.is_empty() {
-            return;
-        }
-        let (dx, dy) = self.scale_point(dx, dy);
-        let mut pos = Vec::with_capacity(boxes.len() * 12);
-        for bx in boxes {
-            let bx = self.scale_rect(*bx);
-            let x1 = self.x_to_f(bx.x1() + dx);
-            let y1 = self.y_to_f(bx.y1() + dy);
-            let x2 = self.x_to_f(bx.x2() + dx);
-            let y2 = self.y_to_f(bx.y2() + dy);
-            pos.extend_from_slice(&[
-                // triangle 1
-                x2, y1, // top right
-                x1, y1, // top left
-                x1, y2, // bottom left
-                // triangle 2
-                x2, y1, // top right
-                x1, y2, // bottom left
-                x2, y2, // bottom right
-            ]);
-        }
-        unsafe {
-            glUseProgram(self.ctx.fill_prog.prog);
-            glUniform4f(self.ctx.fill_prog_color, color.r, color.g, color.b, color.a);
-            glVertexAttribPointer(
-                self.ctx.fill_prog_pos as _,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
-                0,
-                pos.as_ptr() as _,
-            );
-            glEnableVertexAttribArray(self.ctx.fill_prog_pos as _);
-            glDrawArrays(GL_TRIANGLES, 0, (boxes.len() * 6) as _);
-            glDisableVertexAttribArray(self.ctx.fill_prog_pos as _);
-        }
-    }
-
     pub fn render_placeholder(&mut self, placeholder: &PlaceholderNode, x: i32, y: i32) {
         let pos = placeholder.tl_data().pos.get();
-        self.fill_boxes(
+        self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
             &Color::from_rgba_straight(20, 20, 20, 255),
         );
-        if let Some(tex) = placeholder.textures.get(&self.scale) {
+        if let Some(tex) = placeholder.textures.get(&self.base.scale) {
             let x = x + (pos.width() - tex.width()) / 2;
             let y = y + (pos.height() - tex.height()) / 2;
-            self.render_texture(&tex, x, y, &ARGB8888, None, None, self.scale);
+            self.base.render_texture(&tex, x, y, &ARGB8888, None, None, self.base.scale);
         }
     }
 
@@ -258,13 +173,13 @@ impl Renderer<'_> {
         {
             let rd = container.render_data.borrow_mut();
             let c = self.state.theme.colors.unfocused_title_background.get();
-            self.fill_boxes2(&rd.title_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.title_rects, &c, x, y);
             let c = self.state.theme.colors.focused_title_background.get();
-            self.fill_boxes2(&rd.active_title_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.active_title_rects, &c, x, y);
             let c = self.state.theme.colors.separator.get();
-            self.fill_boxes2(&rd.underline_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.underline_rects, &c, x, y);
             let c = self.state.theme.colors.border.get();
-            self.fill_boxes2(&rd.border_rects, &c, x, y);
+            self.base.fill_boxes2(&rd.border_rects, &c, x, y);
             if let Some(lar) = &rd.last_active_rect {
                 let c = self
                     .state
@@ -272,19 +187,19 @@ impl Renderer<'_> {
                     .colors
                     .focused_inactive_title_background
                     .get();
-                self.fill_boxes2(std::slice::from_ref(lar), &c, x, y);
+                self.base.fill_boxes2(std::slice::from_ref(lar), &c, x, y);
             }
-            if let Some(titles) = rd.titles.get(&self.scale) {
+            if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
-                    let (x, y) = self.scale_point(x + title.x, y + title.y);
-                    self.render_texture(&title.tex, x, y, ARGB8888, None, None, self.scale);
+                    let (x, y) = self.base.scale_point(x + title.x, y + title.y);
+                    self.base.render_texture(&title.tex, x, y, ARGB8888, None, None, self.base.scale);
                 }
             }
         }
         if let Some(child) = container.mono_child.get() {
             unsafe {
                 let body = container.mono_body.get().move_(x, y);
-                let body = self.scale_rect(body);
+                let body = self.base.scale_rect(body);
                 with_scissor(&body, || {
                     let content = container.mono_content.get();
                     child
@@ -299,7 +214,7 @@ impl Renderer<'_> {
                     break;
                 }
                 let body = body.move_(x, y);
-                let body = self.scale_rect(body);
+                let body = self.base.scale_rect(body);
                 unsafe {
                     with_scissor(&body, || {
                         let content = child.content.get();
@@ -323,7 +238,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_surface(&mut self, surface: &WlSurface, x: i32, y: i32) {
-        let (x, y) = self.scale_point(x, y);
+        let (x, y) = self.base.scale_point(x, y);
         self.render_surface_scaled(surface, x, y, None);
     }
 
@@ -347,11 +262,11 @@ impl Renderer<'_> {
         let tpoints = surface.buffer_points_norm.borrow_mut();
         let mut size = surface.buffer_abs_pos.get().size();
         if let Some((x_rel, y_rel)) = pos_rel {
-            let (x, y) = self.scale_point(x_rel, y_rel);
-            let (w, h) = self.scale_point(x_rel + size.0, y_rel + size.1);
+            let (x, y) = self.base.scale_point(x_rel, y_rel);
+            let (w, h) = self.base.scale_point(x_rel + size.0, y_rel + size.1);
             size = (w - x, h - y);
         } else {
-            size = self.scale_point(size.0, size.1);
+            size = self.base.scale_point(size.0, size.1);
         }
         if let Some(children) = children.deref() {
             macro_rules! render {
@@ -361,7 +276,7 @@ impl Renderer<'_> {
                             continue;
                         }
                         let pos = child.sub_surface.position.get();
-                        let (x1, y1) = self.scale_point(pos.x1(), pos.y1());
+                        let (x1, y1) = self.base.scale_point(pos.x1(), pos.y1());
                         self.render_surface_scaled(
                             &child.sub_surface.surface,
                             x + x1,
@@ -398,115 +313,15 @@ impl Renderer<'_> {
         tsize: (i32, i32),
     ) {
         if let Some(tex) = buffer.texture.get() {
-            self.render_texture(
+            self.base.render_texture(
                 &tex,
                 x,
                 y,
                 buffer.format,
                 Some(tpoints),
                 Some(tsize),
-                self.scale,
+                self.base.scale,
             );
-        }
-    }
-
-    pub fn render_texture(
-        &mut self,
-        texture: &Texture,
-        x: i32,
-        y: i32,
-        format: &Format,
-        tpoints: Option<&[f32; 8]>,
-        tsize: Option<(i32, i32)>,
-        tscale: Fixed,
-    ) {
-        assert!(rc_eq(&self.ctx.ctx, &texture.ctx.ctx));
-        unsafe {
-            glActiveTexture(GL_TEXTURE0);
-
-            let target = image_target(texture.gl.external_only);
-
-            glBindTexture(target, texture.gl.tex);
-            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-            let progs = match texture.gl.external_only {
-                true => match &self.ctx.tex_external {
-                    Some(p) => p,
-                    _ => {
-                        log::error!("Trying to render an external-only texture but context does not support the required extension");
-                        return;
-                    }
-                },
-                false => &self.ctx.tex_internal,
-            };
-            let prog = match format.has_alpha {
-                true => {
-                    glEnable(GL_BLEND);
-                    &progs.alpha
-                }
-                false => {
-                    glDisable(GL_BLEND);
-                    &progs.solid
-                }
-            };
-
-            glUseProgram(prog.prog.prog);
-
-            glUniform1i(prog.tex, 0);
-
-            static DEFAULT_TEXCOORD: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
-
-            let texcoord: &[f32; 8] = match tpoints {
-                None => &DEFAULT_TEXCOORD,
-                Some(tp) => tp,
-            };
-
-            let f_width = self.fb.width as f32;
-            let f_height = self.fb.height as f32;
-
-            let (twidth, theight) = if let Some(size) = tsize {
-                size
-            } else {
-                let (mut w, mut h) = (texture.gl.width, texture.gl.height);
-                if tscale != self.scale {
-                    let tscale = tscale.to_f64();
-                    w = (w as f64 * self.scalef / tscale).round() as _;
-                    h = (h as f64 * self.scalef / tscale).round() as _;
-                }
-                (w, h)
-            };
-
-            let x1 = 2.0 * (x as f32 / f_width) - 1.0;
-            let y1 = 2.0 * (y as f32 / f_height) - 1.0;
-            let x2 = 2.0 * ((x + twidth) as f32 / f_width) - 1.0;
-            let y2 = 2.0 * ((y + theight) as f32 / f_height) - 1.0;
-
-            let pos: [f32; 8] = [
-                x2, y1, // top right
-                x1, y1, // top left
-                x2, y2, // bottom right
-                x1, y2, // bottom left
-            ];
-
-            glVertexAttribPointer(
-                prog.texcoord as _,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
-                0,
-                texcoord.as_ptr() as _,
-            );
-            glVertexAttribPointer(prog.pos as _, 2, GL_FLOAT, GL_FALSE, 0, pos.as_ptr() as _);
-
-            glEnableVertexAttribArray(prog.texcoord as _);
-            glEnableVertexAttribArray(prog.pos as _);
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-            glDisableVertexAttribArray(prog.texcoord as _);
-            glDisableVertexAttribArray(prog.pos as _);
-
-            glBindTexture(target, 0);
         }
     }
 
@@ -531,15 +346,15 @@ impl Renderer<'_> {
             Rect::new_sized(x + pos.width() - bw, y + bw, bw, pos.height() - bw).unwrap(),
             Rect::new_sized(x + bw, y + pos.height() - bw, pos.width() - 2 * bw, bw).unwrap(),
         ];
-        self.fill_boxes(&borders, &bc);
+        self.base.fill_boxes(&borders, &bc);
         let title = [Rect::new_sized(x + bw, y + bw, pos.width() - 2 * bw, th).unwrap()];
-        self.fill_boxes(&title, &tc);
+        self.base.fill_boxes(&title, &tc);
         let title_underline =
             [Rect::new_sized(x + bw, y + bw + th, pos.width() - 2 * bw, 1).unwrap()];
-        self.fill_boxes(&title_underline, &uc);
-        if let Some(title) = floating.title_textures.get(&self.scale) {
-            let (x, y) = self.scale_point(x + bw, y + bw);
-            self.render_texture(&title, x, y, ARGB8888, None, None, self.scale);
+        self.base.fill_boxes(&title_underline, &uc);
+        if let Some(title) = floating.title_textures.get(&self.base.scale) {
+            let (x, y) = self.base.scale_point(x + bw, y + bw);
+            self.base.render_texture(&title, x, y, ARGB8888, None, None, self.base.scale);
         }
         let body = Rect::new_sized(
             x + bw,
@@ -548,7 +363,7 @@ impl Renderer<'_> {
             pos.height() - 2 * bw - th - 1,
         )
         .unwrap();
-        let scissor_body = self.scale_rect(body);
+        let scissor_body = self.base.scale_rect(body);
         unsafe {
             with_scissor(&scissor_body, || {
                 child.node_render(self, body.x1(), body.y1());
@@ -559,7 +374,7 @@ impl Renderer<'_> {
     pub fn render_layer_surface(&mut self, surface: &ZwlrLayerSurfaceV1, x: i32, y: i32) {
         unsafe {
             let body = surface.position().at_point(x, y);
-            let body = self.scale_rect(body);
+            let body = self.base.scale_rect(body);
             with_scissor(&body, || {
                 self.render_surface(&surface.surface, x, y);
             });

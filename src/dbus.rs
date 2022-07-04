@@ -605,7 +605,7 @@ impl DbusObject {
     pub fn add_method<T, F>(&self, handler: F)
     where
         T: MethodCall<'static>,
-        F: for<'a> Fn(T::Generic<'a>, Option<PendingReply<T::Reply>>) + 'static,
+        F: for<'a> Fn(T::Generic<'a>, PendingReply<T::Reply>) + 'static,
     {
         let rhd = Rc::new(MethodHandlerData {
             handler,
@@ -648,6 +648,10 @@ impl DbusObject {
     pub fn emit_signal<'a, T: Signal<'a>>(&self, signal: &T) {
         self.socket.emit_signal(&self.data.path, signal);
     }
+
+    pub fn path(&self) -> &str {
+        &self.data.path
+    }
 }
 
 trait PropertyHandlerApi {
@@ -679,6 +683,7 @@ where
 }
 
 pub struct PendingReply<T> {
+    reply_expected: bool,
     socket: Rc<DbusSocket>,
     destination: String,
     serial: u32,
@@ -689,14 +694,24 @@ impl<T> PendingReply<T>
 where
     T: Message<'static>,
 {
+    #[allow(dead_code)]
+    pub fn reply_expected(&self) -> bool {
+        self.reply_expected
+    }
+
     pub fn ok<'a>(self, msg: &T::Generic<'a>) {
-        self.socket.send_reply(&self.destination, self.serial, msg);
+        if self.reply_expected {
+            self.socket.send_reply(&self.destination, self.serial, msg);
+        }
     }
 
     pub fn err(self, msg: &str) {
-        self.socket.send_error(&self.destination, self.serial, msg);
+        if self.reply_expected {
+            self.socket.send_error(&self.destination, self.serial, msg);
+        }
     }
 
+    #[allow(dead_code)]
     pub fn complete<'a>(self, res: Result<&T::Generic<'a>, &str>) {
         match res {
             Ok(m) => self.ok(m),
@@ -711,7 +726,9 @@ trait MethodHandlerApi {
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
-        reply: Option<(&str, u32)>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
         parser: &mut Parser,
     ) -> Result<(), DbusError>;
 }
@@ -724,7 +741,7 @@ struct MethodHandlerData<T, F> {
 impl<T, F> MethodHandlerApi for MethodHandlerData<T, F>
 where
     T: MethodCall<'static>,
-    F: for<'a> Fn(T::Generic<'a>, Option<PendingReply<T::Reply>>) + 'static,
+    F: for<'a> Fn(T::Generic<'a>, PendingReply<T::Reply>) + 'static,
 {
     fn signature(&self) -> &'static str {
         T::SIGNATURE
@@ -734,18 +751,18 @@ where
         &self,
         _object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
-        reply: Option<(&str, u32)>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
         parser: &mut Parser<'a>,
     ) -> Result<(), DbusError> {
         let msg = T::Generic::<'a>::unmarshal(parser)?;
-        let pr = match reply {
-            None => None,
-            Some((d, r)) => Some(PendingReply {
-                socket: socket.clone(),
-                destination: d.to_string(),
-                serial: r,
-                _phantom: Default::default(),
-            }),
+        let pr = PendingReply {
+            reply_expected,
+            socket: socket.clone(),
+            destination: dest.to_string(),
+            serial,
+            _phantom: Default::default(),
         };
         (self.handler)(msg, pr);
         Ok(())
@@ -763,13 +780,14 @@ impl MethodHandlerApi for PropertyGetHandlerProxy {
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
-        reply: Option<(&str, u32)>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
         parser: &mut Parser<'a>,
     ) -> Result<(), DbusError> {
-        let (dest, serial) = match reply {
-            None => return Ok(()),
-            Some(v) => v,
-        };
+        if !reply_expected {
+            return Ok(());
+        }
         let msg = org::freedesktop::dbus::properties::Get::unmarshal(parser)?;
         let key = MemberHandlerKey {
             interface: msg.interface_name.deref(),
@@ -798,13 +816,14 @@ impl MethodHandlerApi for PropertyGetAllHandlerProxy {
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
-        reply: Option<(&str, u32)>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
         parser: &mut Parser<'a>,
     ) -> Result<(), DbusError> {
-        let (dest, serial) = match reply {
-            None => return Ok(()),
-            Some(v) => v,
-        };
+        if !reply_expected {
+            return Ok(());
+        }
         let msg = GetAll::unmarshal(parser)?;
         let all_props = object.properties.lock();
         let mut props = vec![];

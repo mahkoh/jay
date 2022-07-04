@@ -382,19 +382,24 @@ impl Incoming {
             }
         }
         if let Some(obj) = self.con.objects.get(&id) {
-            if log::log_enabled!(log::Level::Trace) {
-                let s;
-                let op: &dyn Display = match obj.event_name(opcode) {
-                    Some(e) => {
-                        s = e;
-                        &s
+            'log: {
+                if log::log_enabled!(log::Level::Trace) {
+                    let s;
+                    let op: &dyn Display = match obj.event_name(opcode) {
+                        Some(e) => {
+                            s = e;
+                            if e == "Done" && obj.interface() == "core" {
+                                break 'log;
+                            }
+                            &s
+                        }
+                        _ => &opcode,
+                    };
+                    log::trace!("EVENT {}@{}: `{}`:", obj.interface(), obj.data().id, op);
+                    let mut parser = parser;
+                    while parser.len() > 0 {
+                        log::trace!("{:#?}", parser.read_pod().unwrap());
                     }
-                    _ => &opcode,
-                };
-                log::trace!("EVENT {}@{}: `{}`:", obj.interface(), obj.data().id, op);
-                let mut parser = parser;
-                while parser.len() > 0 {
-                    log::trace!("{:#?}", parser.read_pod().unwrap());
                 }
             }
             obj.handle_msg(opcode, parser)?;

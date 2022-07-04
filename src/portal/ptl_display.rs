@@ -1,18 +1,26 @@
 use {
     crate::{
-        portal::{portal_render_ctx::PortalRenderCtx, PortalState},
+        portal::{
+            ptl_render_ctx::PortalRenderCtx, ptl_screencast::SelectedScreencast, PortalState,
+        },
         render::RenderContext,
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, oserror::OsError,
         },
-        video::drm::Drm,
-        wire::{jay_output::LinearId, JayCompositor, WlOutput},
+        video::{drm::Drm},
+        wire::{
+            jay_output::LinearId, jay_workspace, JayCompositor, JayOutputId, JayWorkspaceId,
+            WlOutput,
+        },
         wl_usr::{
             usr_ifs::{
                 usr_jay_compositor::UsrJayCompositor,
                 usr_jay_output::{UsrJayOutput, UsrJayOutputOwner},
                 usr_jay_render_ctx::{UsrJayRenderCtx, UsrJayRenderCtxOwner},
+                usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
+                usr_jay_workspace_watcher::{UsrJayWorkspaceWatcher, UsrJayWorkspaceWatcherOwner},
+                usr_linux_dmabuf::UsrLinuxDmabuf,
                 usr_wl_output::{UsrWlOutput, UsrWlOutputOwner},
                 usr_wl_registry::{UsrWlRegistry, UsrWlRegistryOwner},
             },
@@ -30,6 +38,9 @@ use {
     },
     uapi::{c, AsUstr, OwnedFd},
 };
+use crate::wire::{WlCompositor, ZwlrLayerShellV1, ZwpLinuxDmabufV1};
+use crate::wl_usr::usr_ifs::usr_wl_compositor::UsrWlCompositor;
+use crate::wl_usr::usr_ifs::usr_wlr_layer_shell::UsrWlrLayerShell;
 
 struct PortalDisplayPrelude {
     con: Rc<UsrCon>,
@@ -43,16 +54,77 @@ pub struct PortalDisplay {
     pub con: Rc<UsrCon>,
     state: Rc<PortalState>,
     registry: Rc<UsrWlRegistry>,
+    workspace_watcher: Rc<UsrJayWorkspaceWatcher>,
+    pub dmabuf: CloneCell<Option<Rc<UsrLinuxDmabuf>>>,
+
     pub jc: Rc<UsrJayCompositor>,
-    pub outputs: CopyHashMap<u32, Rc<PortalOutput>>,
+    pub ls: Rc<UsrWlrLayerShell>,
+    pub comp: Rc<UsrWlCompositor>,
     pub render_ctx: CloneCell<Option<Rc<PortalRenderCtx>>>,
+
+    pub outputs: CopyHashMap<JayOutputId, Rc<PortalOutput>>,
+    pub outputs_by_linear_id: CopyHashMap<u32, Rc<PortalOutput>>,
+
+    pub workspaces: CopyHashMap<JayWorkspaceId, Rc<PortalWorkspace>>,
+    pub workspaces_by_linear_id: CopyHashMap<u32, Rc<PortalWorkspace>>,
+
+    pub screencasts: CopyHashMap<u32, Rc<SelectedScreencast>>,
+}
+
+pub struct PortalWorkspace {
+    linear_id: Cell<u32>,
+    dpy: Rc<PortalDisplay>,
+    ws: Rc<UsrJayWorkspace>,
+    name: RefCell<String>,
+    output: CloneCell<Option<Rc<PortalOutput>>>,
 }
 
 pub struct PortalOutput {
-    linear_id: Cell<u32>,
+    pub linear_id: Cell<u32>,
     dpy: Rc<PortalDisplay>,
-    wl: Rc<UsrWlOutput>,
+    pub wl: Rc<UsrWlOutput>,
+    workspaces: CopyHashMap<u32, Rc<PortalWorkspace>>,
     pub jay: Rc<UsrJayOutput>,
+}
+
+impl PortalWorkspace {
+    fn detach_from_output(&self) {
+        if let Some(output) = self.output.take() {
+            output.workspaces.remove(&self.linear_id.get());
+        }
+    }
+}
+
+impl UsrJayWorkspaceOwner for PortalWorkspace {
+    fn linear_id(self: Rc<Self>, ev: &jay_workspace::LinearId) {
+        self.linear_id.set(ev.linear_id);
+        self.dpy
+            .workspaces_by_linear_id
+            .set(ev.linear_id, self.clone());
+    }
+
+    fn name(&self, ev: &jay_workspace::Name) {
+        log::info!("New workspace {}", ev.name);
+        *self.name.borrow_mut() = ev.name.to_string();
+    }
+
+    fn destroyed(&self) {
+        log::info!("Workspace {} removed", self.name.borrow_mut());
+        self.detach_from_output();
+        self.dpy.workspaces.remove(&self.ws.id);
+        self.dpy
+            .workspaces_by_linear_id
+            .remove(&self.linear_id.get());
+        self.dpy.con.remove_obj(self.ws.deref());
+    }
+
+    fn output(self: Rc<Self>, ev: &jay_workspace::Output) {
+        self.detach_from_output();
+        if let Some(output) = self.dpy.outputs_by_linear_id.get(&ev.output_linear_id) {
+            output.workspaces.set(self.linear_id.get(), self.clone());
+            self.output.set(Some(output));
+        }
+    }
 }
 
 impl UsrWlRegistryOwner for PortalDisplayPrelude {
@@ -62,6 +134,21 @@ impl UsrWlRegistryOwner for PortalDisplayPrelude {
             .entry(interface.to_string())
             .or_default()
             .push((name, version));
+    }
+}
+
+impl UsrJayWorkspaceWatcherOwner for PortalDisplay {
+    fn new(self: Rc<Self>, ev: Rc<UsrJayWorkspace>) {
+        let owner = Rc::new(PortalWorkspace {
+            linear_id: Cell::new(0),
+            dpy: self.clone(),
+            ws: ev.clone(),
+            name: RefCell::new("".to_string()),
+            output: Default::default(),
+        });
+        ev.owner.set(Some(owner.clone()));
+        self.workspaces.set(ev.id, owner);
+        self.con.add_object(ev);
     }
 }
 
@@ -115,23 +202,42 @@ impl UsrConOwner for PortalDisplay {
 
 impl UsrWlRegistryOwner for PortalDisplay {
     fn global(self: Rc<Self>, name: u32, interface: &str, version: u32) {
-        // todo
+        if interface == WlOutput.name() {
+            add_output(&self, name, version);
+        } else if interface == ZwpLinuxDmabufV1.name() {
+            let ls = Rc::new(UsrLinuxDmabuf {
+                id: self.con.id(),
+                con: self.con.clone(),
+                owner: Default::default(),
+            });
+            self.con.add_object(ls.clone());
+            self.registry.request_bind(name, version, ls.deref());
+            self.dmabuf.set(Some(ls));
+        }
     }
 }
 
 impl UsrJayOutputOwner for PortalOutput {
     fn linear_id(self: Rc<Self>, ev: &LinearId) {
-        log::info!("Display: {}: New output {}", self.dpy.id, ev.linear_id);
+        log::info!(
+            "Display: {}: New output {}",
+            self.dpy.con.server_id,
+            ev.linear_id
+        );
         self.linear_id.set(ev.linear_id);
-        self.dpy.outputs.set(ev.linear_id, self.clone());
+        self.dpy
+            .outputs_by_linear_id
+            .set(ev.linear_id, self.clone());
     }
 
     fn destroyed(&self) {
-        let id = self.linear_id.get();
-        if id != 0 {
-            log::info!("Display {}: Output {} removed", self.dpy.con.server_id, id);
-            self.dpy.outputs.remove(&id);
-        }
+        log::info!(
+            "Display {}: Output {} removed",
+            self.dpy.con.server_id,
+            self.linear_id.get()
+        );
+        self.dpy.outputs.remove(&self.jay.id);
+        self.dpy.outputs_by_linear_id.remove(&self.linear_id.get());
         self.dpy.con.remove_obj(self.wl.deref());
         self.dpy.con.remove_obj(self.jay.deref());
     }
@@ -181,6 +287,9 @@ fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
 
 fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     let mut jc_opt = None;
+    let mut ls_opt = None;
+    let mut comp_opt = None;
+    let mut dmabuf_opt = None;
     let mut outputs = vec![];
     for (interface, instances) in dpy.globals.borrow_mut().deref() {
         for &(name, version) in instances {
@@ -193,39 +302,82 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 dpy.con.add_object(jc.clone());
                 dpy.registry.request_bind(name, version, jc.deref());
                 jc_opt = Some(jc);
-            } else if interface == WlOutput.name() {
-                let wl = Rc::new(UsrWlOutput {
+            } else if interface == ZwlrLayerShellV1.name() {
+                let ls = Rc::new(UsrWlrLayerShell {
+                    id: dpy.con.id(),
+                    con: dpy.con.clone(),
+                });
+                dpy.con.add_object(ls.clone());
+                dpy.registry.request_bind(name, version, ls.deref());
+                ls_opt = Some(ls);
+            } else if interface == WlCompositor.name() {
+                let ls = Rc::new(UsrWlCompositor {
+                    id: dpy.con.id(),
+                    con: dpy.con.clone(),
+                });
+                dpy.con.add_object(ls.clone());
+                dpy.registry.request_bind(name, version, ls.deref());
+                comp_opt = Some(ls);
+            } else if interface == ZwpLinuxDmabufV1.name() {
+                let ls = Rc::new(UsrLinuxDmabuf {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
                     owner: Default::default(),
                 });
-                dpy.con.add_object(wl.clone());
-                dpy.registry.request_bind(name, version, wl.deref());
-                outputs.push(wl);
+                dpy.con.add_object(ls.clone());
+                dpy.registry.request_bind(name, version, ls.deref());
+                dmabuf_opt = Some(ls);
+            } else if interface == WlOutput.name() {
+                outputs.push((name, version));
             }
         }
     }
-    let jc = match jc_opt {
-        Some(jc) => jc,
-        _ => {
-            log::error!("Compositor did not advertise a JayCompositor");
-            dpy.con.kill();
-            return;
+    macro_rules! get {
+        ($opt:expr, $ty:expr) => {
+            match $opt {
+                Some(c) => c,
+                _ => {
+                    log::error!("Compositor did not advertise a {}", $ty.name());
+                    dpy.con.kill();
+                    return;
+                }
+            }
         }
-    };
+    }
+    let jc = get!(jc_opt, JayCompositor);
+    let ls = get!(ls_opt, ZwlrLayerShellV1);
+    let comp = get!(comp_opt, WlCompositor);
+
+    let workspace_watcher = Rc::new(UsrJayWorkspaceWatcher {
+        id: dpy.con.id(),
+        con: dpy.con.clone(),
+        owner: Default::default(),
+    });
+    dpy.con.add_object(workspace_watcher.clone());
+    jc.request_watch_workspaces(&workspace_watcher);
+
     let dpy = Rc::new(PortalDisplay {
-        id: dpy.state.next_id.fetch_add(1),
+        id: dpy.state.id(),
         con: dpy.con.clone(),
         state: dpy.state.clone(),
         registry: dpy.registry.clone(),
+        workspace_watcher,
+        dmabuf: CloneCell::new(dmabuf_opt),
         jc,
         outputs: Default::default(),
         render_ctx: Default::default(),
+        workspaces: Default::default(),
+        outputs_by_linear_id: Default::default(),
+        workspaces_by_linear_id: Default::default(),
+        screencasts: Default::default(),
+        ls,
+        comp
     });
 
     dpy.state.displays.set(dpy.id, dpy.clone());
     dpy.con.owner.set(Some(dpy.clone()));
     dpy.registry.owner.set(Some(dpy.clone()));
+    dpy.workspace_watcher.owner.set(Some(dpy.clone()));
 
     let jrc = Rc::new(UsrJayRenderCtx {
         id: dpy.con.id(),
@@ -236,24 +388,37 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     dpy.jc.request_get_render_context(&jrc);
     dpy.con.add_object(jrc);
 
-    for output in outputs {
-        let jo = Rc::new(UsrJayOutput {
-            id: dpy.con.id(),
-            con: dpy.con.clone(),
-            owner: Default::default(),
-        });
-        dpy.con.add_object(jo.clone());
-        dpy.jc.request_get_output(&jo, &output);
-        let po = Rc::new(PortalOutput {
-            linear_id: Cell::new(0),
-            dpy: dpy.clone(),
-            wl: output.clone(),
-            jay: jo.clone(),
-        });
-        po.wl.owner.set(Some(po.clone()));
-        po.jay.owner.set(Some(po.clone()));
+    for (name, version) in outputs {
+        add_output(&dpy, name, version);
     }
     log::info!("Display {} initialized", dpy.id);
+}
+
+fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
+    let wl = Rc::new(UsrWlOutput {
+        id: dpy.con.id(),
+        con: dpy.con.clone(),
+        owner: Default::default(),
+    });
+    dpy.con.add_object(wl.clone());
+    dpy.registry.request_bind(name, version, wl.deref());
+    let jo = Rc::new(UsrJayOutput {
+        id: dpy.con.id(),
+        con: dpy.con.clone(),
+        owner: Default::default(),
+    });
+    dpy.con.add_object(jo.clone());
+    dpy.jc.request_get_output(&jo, &wl);
+    let po = Rc::new(PortalOutput {
+        linear_id: Cell::new(0),
+        dpy: dpy.clone(),
+        wl: wl.clone(),
+        workspaces: Default::default(),
+        jay: jo.clone(),
+    });
+    po.wl.owner.set(Some(po.clone()));
+    po.jay.owner.set(Some(po.clone()));
+    dpy.outputs.set(jo.id, po);
 }
 
 pub(super) async fn watch_displays(state: Rc<PortalState>) {

@@ -96,6 +96,7 @@ impl PwMemMap {
         (self.map.ptr.cast::<u8>().add(self.range.start) as *mut T).deref_mut()
     }
 
+    #[allow(dead_code)]
     pub unsafe fn bytes_mut(&self) -> &mut [u8] {
         std::slice::from_raw_parts_mut(
             self.map.ptr.cast::<u8>().add(self.range.start) as _,

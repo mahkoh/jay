@@ -129,12 +129,15 @@ impl Incoming {
                             );
                             self.socket.send_error(sender.deref(), serial, &msg);
                         } else {
-                            let pr = if flags.contains(NO_REPLY_EXPECTED) {
-                                None
-                            } else {
-                                Some((sender.deref(), serial))
-                            };
-                            if let Err(e) = handler.handle(&object, &self.socket, pr, &mut parser) {
+                            let reply_expected = !flags.contains(NO_REPLY_EXPECTED);
+                            if let Err(e) = handler.handle(
+                                &object,
+                                &self.socket,
+                                &sender,
+                                serial,
+                                reply_expected,
+                                &mut parser,
+                            ) {
                                 log::error!(
                                     "{}: Could not handle method call: {}",
                                     self.socket.bus_name,

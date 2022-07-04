@@ -12,10 +12,11 @@ use {
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
             numcell::NumCell,
+            option_ext::OptionExt,
         },
         video::{
             dmabuf::DmaBuf,
-            gbm::{GbmError, GBM_BO_USE_RENDERING},
+            gbm::{GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
             ModifiedFormat, INVALID_MODIFIER,
         },
         wire::{jay_screencast::*, JayScreencastId},
@@ -28,21 +29,33 @@ use {
     },
     thiserror::Error,
 };
-use crate::video::gbm::GBM_BO_USE_LINEAR;
 
 pub struct JayScreencast {
     pub id: JayScreencastId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    serial: NumCell<u32>,
-    acked: Cell<bool>,
+    config_serial: NumCell<u32>,
+    config_acked: Cell<bool>,
+    buffers_serial: NumCell<u32>,
+    buffers_acked: Cell<bool>,
     buffers: RefCell<Vec<ScreencastBuffer>>,
     missed_frame: Cell<bool>,
-    output: CloneCell<Option<Rc<JayOutput>>>,
-    started: Cell<bool>,
+    output: CloneCell<Option<Rc<OutputNode>>>,
     destroyed: Cell<bool>,
+    running: Cell<bool>,
     show_all: Cell<bool>,
     show_workspaces: RefCell<AHashSet<WorkspaceNodeId>>,
+    linear: Cell<bool>,
+    pending: Pending,
+}
+
+#[derive(Default)]
+struct Pending {
+    linear: Cell<Option<bool>>,
+    running: Cell<Option<bool>>,
+    output: Cell<Option<Option<Rc<JayOutput>>>>,
+    show_all: Cell<Option<bool>>,
+    show_workspaces: RefCell<Option<AHashSet<WorkspaceNodeId>>>,
 }
 
 struct ScreencastBuffer {
@@ -57,21 +70,25 @@ impl JayScreencast {
             id,
             client: client.clone(),
             tracker: Default::default(),
-            serial: NumCell::new(0),
-            acked: Cell::new(false),
+            config_serial: Default::default(),
+            config_acked: Cell::new(true),
+            buffers_serial: Default::default(),
+            buffers_acked: Cell::new(false),
             buffers: Default::default(),
             missed_frame: Cell::new(false),
             output: Default::default(),
-            started: Cell::new(false),
             destroyed: Cell::new(false),
+            running: Cell::new(false),
             show_all: Cell::new(false),
             show_workspaces: Default::default(),
+            linear: Cell::new(false),
+            pending: Default::default(),
         }
     }
 
     fn send_buffers(&self) {
-        self.acked.set(false);
-        let serial = self.serial.fetch_add(1) + 1;
+        self.buffers_acked.set(false);
+        let serial = self.buffers_serial.fetch_add(1) + 1;
         let buffers = self.buffers.borrow_mut();
         for buffer in buffers.iter() {
             for plane in &buffer.dmabuf.planes {
@@ -96,18 +113,44 @@ impl JayScreencast {
         });
     }
 
-    pub fn send_ready(&self, idx: u32) {
-        self.client.event(Ready {
+    #[allow(dead_code)]
+    fn send_config(&self) {
+        self.config_acked.set(false);
+        let serial = self.config_serial.fetch_add(1) + 1;
+        if let Some(output) = self.output.get() {
+            self.client.event(ConfigOutput {
+                self_id: self.id,
+                linear_id: output.id.raw(),
+            });
+        }
+        self.client.event(ConfigAllowAllWorkspaces {
             self_id: self.id,
-            idx,
-        })
-    }
-
-    pub fn send_destroyed(&self) {
-        self.client.event(Destroyed { self_id: self.id });
+            allow_all: self.show_all.get() as _,
+        });
+        for &ws in self.show_workspaces.borrow_mut().iter() {
+            self.client.event(ConfigAllowWorkspace {
+                self_id: self.id,
+                linear_id: ws.raw(),
+            });
+        }
+        self.client.event(ConfigUseLinearBuffers {
+            self_id: self.id,
+            use_linear: self.linear.get() as _,
+        });
+        self.client.event(ConfigRunning {
+            self_id: self.id,
+            running: self.running.get() as _,
+        });
+        self.client.event(ConfigDone {
+            self_id: self.id,
+            serial,
+        });
     }
 
     pub fn copy_texture(&self, on: &OutputNode, texture: &Texture) {
+        if !self.running.get() {
+            return;
+        }
         if !self.show_all.get() {
             let ws = match on.workspace.get() {
                 Some(ws) => ws,
@@ -121,28 +164,67 @@ impl JayScreencast {
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
             if buffer.free {
                 buffer.fb.copy_texture(&self.client.state, texture, 0, 0);
-                self.send_ready(idx as _);
+                self.client.event(Ready {
+                    self_id: self.id,
+                    idx: idx as _,
+                });
                 buffer.free = false;
                 return;
             }
         }
         self.missed_frame.set(true);
+        self.client.event(MissedFrame { self_id: self.id })
     }
 
     fn detach(&self) {
-        if let Some(output) = self.output.get() {
-            if let Some(output) = output.output.get() {
-                output.screencasts.remove(&(self.client.id, self.id));
-            }
+        if let Some(output) = self.output.take() {
+            output.screencasts.remove(&(self.client.id, self.id));
         }
     }
 
     pub fn do_destroy(&self) {
         self.detach();
         self.destroyed.set(true);
-        self.send_destroyed();
+        self.client.event(Destroyed { self_id: self.id });
     }
 
+    pub fn realloc(&self, ctx: &Rc<RenderContext>) -> Result<(), JayScreencastError> {
+        let mut buffers = vec![];
+        if let Some(output) = self.output.get() {
+            let mode = output.global.mode.get();
+            let num = 3;
+            for _ in 0..num {
+                let format = ModifiedFormat {
+                    format: XRGB8888,
+                    modifier: INVALID_MODIFIER,
+                };
+                let mut flags = GBM_BO_USE_RENDERING;
+                if self.linear.get() {
+                    flags |= GBM_BO_USE_LINEAR;
+                }
+                let buffer = ctx.gbm.create_bo(mode.width, mode.height, &format, flags)?;
+                let fb = ctx.dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
+                buffers.push(ScreencastBuffer {
+                    dmabuf: buffer.dmabuf().clone(),
+                    fb,
+                    free: true,
+                });
+            }
+        }
+        *self.buffers.borrow_mut() = buffers;
+        self.send_buffers();
+        self.damage();
+        Ok(())
+    }
+
+    fn damage(&self) {
+        if let Some(output) = self.output.get() {
+            output.global.connector.connector.damage();
+        }
+    }
+}
+
+impl JayScreencast {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
         let _req: Destroy = self.client.parse(self, parser)?;
         self.detach();
@@ -152,141 +234,164 @@ impl JayScreencast {
 
     fn set_output(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
         let req: SetOutput = self.client.parse(self, parser)?;
-        let output = self.client.lookup(req.output)?;
-        if self.started.get() {
-            return Err(JayScreencastError::AlreadyStarted);
-        }
-        if self.destroyed.get() {
-            return Ok(());
-        }
-        self.output.set(Some(output));
-        Ok(())
-    }
-
-    fn set_show_always(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let _req: SetShowAlways = self.client.parse(self, parser)?;
-        if self.started.get() {
-            return Err(JayScreencastError::AlreadyStarted);
-        }
-        if self.destroyed.get() {
-            return Ok(());
-        }
-        self.show_all.set(true);
-        Ok(())
-    }
-
-    fn add_workspace(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: AddWorkspace = self.client.parse(self, parser)?;
-        let ws = self.client.lookup(req.workspace)?;
-        if self.started.get() {
-            return Err(JayScreencastError::AlreadyStarted);
-        }
-        if self.destroyed.get() {
-            return Ok(());
-        }
-        let ws = match ws.workspace.get() {
-            Some(ws) => ws,
-            _ => return Ok(()),
+        let output = if req.output.is_some() {
+            Some(self.client.lookup(req.output)?)
+        } else {
+            None
         };
-        self.show_workspaces.borrow_mut().insert(ws.id);
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        self.pending.output.set(Some(output));
         Ok(())
     }
 
-    pub fn allocate_buffers(
+    fn set_allow_all_workspaces(
         &self,
-        output: &OutputNode,
-        ctx: &Rc<RenderContext>,
+        parser: MsgParser<'_, '_>,
     ) -> Result<(), JayScreencastError> {
-        let mode = output.global.mode.get();
-        let mut buffers = vec![];
-        let num = 3;
-        for _ in 0..num {
-            let format = ModifiedFormat {
-                format: XRGB8888,
-                modifier: INVALID_MODIFIER,
+        let req: SetAllowAllWorkspaces = self.client.parse(self, parser)?;
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        self.pending.show_all.set(Some(req.allow_all != 0));
+        Ok(())
+    }
+
+    fn allow_workspace(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
+        let req: AllowWorkspace = self.client.parse(self, parser)?;
+        let ws = self.client.lookup(req.workspace)?;
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        let mut sw = self.pending.show_workspaces.borrow_mut();
+        let sw = sw.get_or_insert_default_ext();
+        if let Some(ws) = ws.workspace.get() {
+            sw.insert(ws.id);
+        }
+        Ok(())
+    }
+
+    fn touch_allowed_workspaces(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), JayScreencastError> {
+        let _req: TouchAllowedWorkspaces = self.client.parse(self, parser)?;
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        self.pending
+            .show_workspaces
+            .borrow_mut()
+            .get_or_insert_default_ext();
+        Ok(())
+    }
+
+    fn set_use_linear_buffers(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
+        let req: SetUseLinearBuffers = self.client.parse(self, parser)?;
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        self.pending.linear.set(Some(req.use_linear != 0));
+        Ok(())
+    }
+
+    fn set_running(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
+        let req: SetRunning = self.client.parse(self, parser)?;
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        self.pending.running.set(Some(req.running != 0));
+        Ok(())
+    }
+
+    fn configure(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
+        let _req: Configure = self.client.parse(self.deref(), parser)?;
+
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+
+        let mut need_realloc = false;
+
+        if let Some(output) = self.pending.output.take() {
+            let output = output.and_then(|o| o.output.get());
+            if output_size(&output) != output_size(&self.output.get()) {
+                need_realloc = true;
+            }
+            self.detach();
+            if let Some(new) = &output {
+                new.screencasts.set((self.client.id, self.id), self.clone());
+            }
+            self.output.set(output);
+        }
+        if let Some(linear) = self.pending.linear.take() {
+            if self.linear.replace(linear) != linear {
+                need_realloc = true;
+            }
+        }
+        if let Some(show_all) = self.pending.show_all.take() {
+            self.show_all.set(show_all);
+        }
+        if let Some(new_workspaces) = self.pending.show_workspaces.borrow_mut().take() {
+            *self.show_workspaces.borrow_mut() = new_workspaces;
+        }
+        if let Some(running) = self.pending.running.take() {
+            self.running.set(running);
+        }
+
+        if need_realloc {
+            let ctx = match self.client.state.render_ctx.get() {
+                Some(ctx) => ctx,
+                _ => {
+                    self.do_destroy();
+                    return Ok(());
+                }
             };
-            let buffer =
-                ctx.gbm
-                    .create_bo(mode.width, mode.height, &format, GBM_BO_USE_RENDERING)?;
-            let fb = ctx.dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
-            buffers.push(ScreencastBuffer {
-                dmabuf: buffer.dmabuf().clone(),
-                fb,
-                free: true,
-            });
-        }
-        *self.buffers.borrow_mut() = buffers;
-        self.send_buffers();
-        Ok(())
-    }
-
-    fn start(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let _req: Start = self.client.parse(self.deref(), parser)?;
-        if self.started.replace(true) {
-            return Err(JayScreencastError::AlreadyStarted);
-        }
-        if self.destroyed.get() {
-            return Ok(());
-        }
-        let output = match self.output.get() {
-            Some(o) => o,
-            _ => return Err(JayScreencastError::NoOutputSet),
-        };
-        let output = match output.output.get() {
-            Some(o) => o,
-            _ => {
+            if let Err(e) = self.realloc(&ctx) {
+                log::error!("Could not allocate buffers: {}", ErrorFmt(e));
                 self.do_destroy();
                 return Ok(());
             }
-        };
-        let ctx = match self.client.state.render_ctx.get() {
-            Some(ctx) => ctx,
-            _ => {
-                self.do_destroy();
-                return Ok(());
-            }
-        };
-        if let Err(e) = self.allocate_buffers(&output, &ctx) {
-            log::error!("Could not allocate buffer: {}", ErrorFmt(e));
-            self.do_destroy();
-            return Ok(());
         }
-        output
-            .screencasts
-            .set((self.client.id, self.id), self.clone());
-        output.global.connector.connector.damage();
+
         Ok(())
     }
 
-    fn ack(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: Ack = self.client.parse(self, parser)?;
+    fn ack_buffers(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
+        let req: AckBuffers = self.client.parse(self, parser)?;
         if self.destroyed.get() {
             return Ok(());
         }
-        if req.serial == self.serial.get() {
-            self.acked.set(true);
+        if req.serial == self.buffers_serial.get() {
+            self.buffers_acked.set(true);
+        }
+        Ok(())
+    }
+
+    fn ack_config(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
+        let req: AckConfig = self.client.parse(self, parser)?;
+        if self.destroyed.get() {
+            return Ok(());
+        }
+        if req.serial == self.config_serial.get() {
+            self.config_acked.set(true);
         }
         Ok(())
     }
 
     fn release_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
         let req: ReleaseBuffer = self.client.parse(self, parser)?;
-        if self.destroyed.get() {
+        if self.destroyed.get() || !self.buffers_acked.get() {
             return Ok(());
         }
-        if self.acked.get() {
-            let idx = req.idx as usize;
-            if idx > self.buffers.borrow_mut().len() {
-                return Err(JayScreencastError::OutOfBounds(req.idx));
-            }
-            self.buffers.borrow_mut()[idx].free = true;
-            if self.missed_frame.replace(false) {
-                if let Some(output) = self.output.get() {
-                    if let Some(output) = output.output.get() {
-                        output.global.connector.connector.damage();
-                    }
-                }
-            }
+        let idx = req.idx as usize;
+        if idx > self.buffers.borrow_mut().len() {
+            return Err(JayScreencastError::OutOfBounds(req.idx));
+        }
+        self.buffers.borrow_mut()[idx].free = true;
+        if self.missed_frame.replace(false) {
+            self.damage();
         }
         Ok(())
     }
@@ -297,10 +402,14 @@ object_base! {
 
     DESTROY => destroy,
     SET_OUTPUT => set_output,
-    SET_SHOW_ALWAYS => set_show_always,
-    ADD_WORKSPACE => add_workspace,
-    START => start,
-    ACK => ack,
+    SET_ALLOW_ALL_WORKSPACES => set_allow_all_workspaces,
+    ALLOW_WORKSPACE => allow_workspace,
+    TOUCH_ALLOWED_WORKSPACES => touch_allowed_workspaces,
+    SET_USE_LINEAR_BUFFERS => set_use_linear_buffers,
+    SET_RUNNING => set_running,
+    CONFIGURE => configure,
+    ACK_CONFIG => ack_config,
+    ACK_BUFFERS => ack_buffers,
     RELEASE_BUFFER => release_buffer,
 }
 
@@ -314,7 +423,7 @@ impl Object for JayScreencast {
     }
 }
 
-simple_add_obj!(JayScreencast);
+dedicated_add_obj!(JayScreencast, JayScreencastId, screencasts);
 
 #[derive(Debug, Error)]
 pub enum JayScreencastError {
@@ -324,10 +433,6 @@ pub enum JayScreencastError {
     ClientError(Box<ClientError>),
     #[error("Buffer index {0} is out-of-bounds")]
     OutOfBounds(u32),
-    #[error("The screencast has already been started")]
-    AlreadyStarted,
-    #[error("No output has been set")]
-    NoOutputSet,
     #[error(transparent)]
     GbmError(#[from] GbmError),
     #[error(transparent)]
@@ -335,3 +440,13 @@ pub enum JayScreencastError {
 }
 efrom!(JayScreencastError, MsgParserError);
 efrom!(JayScreencastError, ClientError);
+
+fn output_size(output: &Option<Rc<OutputNode>>) -> (i32, i32) {
+    match output {
+        Some(o) => {
+            let mode = o.global.mode.get();
+            (mode.width, mode.height)
+        }
+        _ => (0, 0),
+    }
+}

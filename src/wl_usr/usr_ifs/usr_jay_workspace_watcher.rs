@@ -17,7 +17,7 @@ pub struct UsrJayWorkspaceWatcher {
 }
 
 pub trait UsrJayWorkspaceWatcherOwner {
-    fn new(&self, ev: Rc<UsrJayWorkspace>) {
+    fn new(self: Rc<Self>, ev: Rc<UsrJayWorkspace>) {
         let _ = ev;
     }
 }

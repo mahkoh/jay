@@ -7,6 +7,7 @@ use {
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             jay_output::JayOutput,
+            jay_screencast::JayScreencast,
             jay_workspace::JayWorkspace,
             wl_buffer::WlBuffer,
             wl_display::WlDisplay,
@@ -27,9 +28,9 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            JayOutputId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId,
-            WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId, XdgSurfaceId,
-            XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
+            JayOutputId, JayScreencastId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
+            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId,
+            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -54,6 +55,7 @@ pub struct Objects {
     pub pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
     pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
+    pub screencasts: CopyHashMap<JayScreencastId, Rc<JayScreencast>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -80,6 +82,7 @@ impl Objects {
             pointers: Default::default(),
             xdg_wm_bases: Default::default(),
             seats: Default::default(),
+            screencasts: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -110,6 +113,7 @@ impl Objects {
         self.xdg_wm_bases.clear();
         self.seats.clear();
         self.pointers.clear();
+        self.screencasts.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>
