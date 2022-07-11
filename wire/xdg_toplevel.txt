@@ -72,3 +72,7 @@ msg configure_bounds = 2 {
     width: i32,
     height: i32,
 }
+
+msg wm_capabilities = 3 {
+    capabilities: array(u32),
+}

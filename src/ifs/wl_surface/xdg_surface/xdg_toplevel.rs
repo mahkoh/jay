@@ -61,6 +61,16 @@ const STATE_TILED_RIGHT: u32 = 6;
 const STATE_TILED_TOP: u32 = 7;
 const STATE_TILED_BOTTOM: u32 = 8;
 
+#[allow(dead_code)]
+const CAP_WINDOW_MENU: u32 = 1;
+#[allow(dead_code)]
+const CAP_MAXIMIZE: u32 = 2;
+const CAP_FULLSCREEN: u32 = 3;
+#[allow(dead_code)]
+const CAP_MINIMIZE: u32 = 4;
+
+pub const WM_CAPABILITIES_SINCE: u32 = 5;
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
     #[allow(dead_code)]
@@ -161,6 +171,13 @@ impl XdgToplevel {
             width,
             height,
             states: &states,
+        })
+    }
+
+    pub fn send_wm_capabilities(&self) {
+        self.xdg.surface.client.event(WmCapabilities {
+            self_id: self.id,
+            capabilities: &[CAP_FULLSCREEN],
         })
     }
 
