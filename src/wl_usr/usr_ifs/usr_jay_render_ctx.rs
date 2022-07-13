@@ -42,12 +42,6 @@ impl UsrJayRenderCtx {
     }
 }
 
-impl Drop for UsrJayRenderCtx {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrJayRenderCtx, JayRenderCtx;
 
@@ -56,6 +50,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrJayRenderCtx {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.take();
     }

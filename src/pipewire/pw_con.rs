@@ -295,7 +295,6 @@ impl PwCon {
             ios: Default::default(),
             owner: CloneCell::new(None),
             ports: Default::default(),
-            check_buffers: Cell::new(None),
             port_out_free: RefCell::new(Default::default()),
             port_in_free: RefCell::new(Default::default()),
             activation: Default::default(),

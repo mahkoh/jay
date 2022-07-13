@@ -174,6 +174,7 @@ impl UsrCon {
     }
 
     pub fn remove_obj(&self, obj: &impl UsrObject) {
+        obj.destroy();
         obj.break_loops();
         if obj.id().raw() >= MIN_SERVER_ID {
             self.objects.remove(&obj.id());
@@ -200,10 +201,9 @@ impl UsrCon {
         registry
     }
 
-    pub fn request_sync<E, F>(self: &Rc<Self>, handler: F)
+    pub fn sync<F>(self: &Rc<Self>, handler: F)
     where
-        E: std::error::Error + 'static,
-        F: FnOnce() -> Result<(), E> + 'static,
+        F: FnOnce() + 'static,
     {
         let callback = Rc::new(UsrWlCallback::new(self, handler));
         self.request(wl_display::Sync {

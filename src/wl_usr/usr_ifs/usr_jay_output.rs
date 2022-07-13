@@ -42,12 +42,6 @@ impl UsrJayOutput {
     }
 }
 
-impl Drop for UsrJayOutput {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrJayOutput, JayOutput;
 
@@ -56,6 +50,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrJayOutput {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.set(None);
     }

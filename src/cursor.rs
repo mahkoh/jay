@@ -13,6 +13,7 @@ use {
     bstr::{BStr, BString, ByteSlice, ByteVec},
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
+    num_derive::FromPrimitive,
     std::{
         cell::Cell,
         convert::TryInto,
@@ -56,6 +57,7 @@ pub trait Cursor {
 
 pub struct ServerCursors {
     pub default: ServerCursorTemplate,
+    pub pointer: ServerCursorTemplate,
     pub resize_right: ServerCursorTemplate,
     pub resize_left: ServerCursorTemplate,
     pub resize_top: ServerCursorTemplate,
@@ -68,9 +70,10 @@ pub struct ServerCursors {
     pub resize_bottom_right: ServerCursorTemplate,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum KnownCursor {
     Default,
+    Pointer,
     ResizeLeftRight,
     ResizeTopBottom,
     ResizeTopLeft,
@@ -92,6 +95,7 @@ impl ServerCursors {
             |name: &str| ServerCursorTemplate::load(name, None, &scales, &sizes, &paths, ctx);
         Ok(Some(Self {
             default: load("left_ptr")?,
+            pointer: load("hand2")?,
             // default: load("left_ptr_watch")?,
             resize_right: load("right_side")?,
             resize_left: load("left_side")?,
@@ -296,7 +300,9 @@ impl Cursor for StaticCursor {
 
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
-            renderer.base.render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+            renderer
+                .base
+                .render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
         }
     }
 
@@ -324,7 +330,9 @@ impl Cursor for AnimatedCursor {
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         let img = &self.images[self.idx.get()];
         if let Some(img) = img.scales.get(&renderer.scale()) {
-            renderer.base.render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+            renderer
+                .base
+                .render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
         }
     }
 

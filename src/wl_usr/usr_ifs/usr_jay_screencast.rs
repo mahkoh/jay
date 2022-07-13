@@ -53,51 +53,51 @@ pub trait UsrJayScreencastOwner {
 }
 
 impl UsrJayScreencast {
-    pub fn request_set_output(&self, output: &UsrJayOutput) {
+    pub fn set_output(&self, output: &UsrJayOutput) {
         self.con.request(SetOutput {
             self_id: self.id,
             output: output.id,
         });
     }
 
-    pub fn request_set_allow_all_workspaces(&self, allow_all: bool) {
+    pub fn set_allow_all_workspaces(&self, allow_all: bool) {
         self.con.request(SetAllowAllWorkspaces {
             self_id: self.id,
             allow_all: allow_all as _,
         });
     }
 
-    pub fn request_allow_workspace(&self, ws: &JayWorkspace) {
+    pub fn allow_workspace(&self, ws: &JayWorkspace) {
         self.con.request(AllowWorkspace {
             self_id: self.id,
             workspace: ws.id,
         });
     }
 
-    pub fn request_touch_allowed_workspaces(&self) {
+    pub fn touch_allowed_workspaces(&self) {
         self.con
             .request(TouchAllowedWorkspaces { self_id: self.id });
     }
 
-    pub fn request_set_use_linear_buffers(&self, linear: bool) {
+    pub fn set_use_linear_buffers(&self, linear: bool) {
         self.con.request(SetUseLinearBuffers {
             self_id: self.id,
             use_linear: linear as _,
         });
     }
 
-    pub fn request_set_running(&self, running: bool) {
+    pub fn set_running(&self, running: bool) {
         self.con.request(SetRunning {
             self_id: self.id,
             running: running as _,
         });
     }
 
-    pub fn request_configure(&self) {
+    pub fn configure(&self) {
         self.con.request(Configure { self_id: self.id });
     }
 
-    pub fn request_release_buffer(&self, idx: usize) {
+    pub fn release_buffer(&self, idx: usize) {
         self.con.request(ReleaseBuffer {
             self_id: self.id,
             idx: idx as _,
@@ -212,12 +212,6 @@ impl UsrJayScreencast {
     }
 }
 
-impl Drop for UsrJayScreencast {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrJayScreencast, JayScreencast;
 
@@ -236,6 +230,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrJayScreencast {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.take();
     }

@@ -88,12 +88,6 @@ impl UsrJayWorkspace {
     }
 }
 
-impl Drop for UsrJayWorkspace {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrJayWorkspace, JayWorkspace;
 
@@ -106,6 +100,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrJayWorkspace {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.set(None);
     }

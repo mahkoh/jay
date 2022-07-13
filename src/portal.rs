@@ -1,7 +1,7 @@
 mod ptl_display;
 mod ptl_render_ctx;
 mod ptl_screencast;
-mod ptl_selection_gui;
+mod ptr_gui;
 
 use {
     crate::{
@@ -14,9 +14,9 @@ use {
         logger,
         pipewire::pw_con::PwCon,
         portal::{
-            ptl_display::{watch_displays, PortalDisplay},
+            ptl_display::{watch_displays, PortalDisplay, PortalDisplayId},
             ptl_render_ctx::PortalRenderCtx,
-            ptl_screencast::ScreencastSession,
+            ptl_screencast::{add_screencast_dbus_members, ScreencastSession},
         },
         utils::{
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
@@ -26,7 +26,6 @@ use {
         wire_dbus::org,
     },
     log::Level,
-    ptl_screencast::add_screencast_dbus_members,
     std::{
         cell::Cell,
         rc::{Rc, Weak},
@@ -40,7 +39,45 @@ const PORTAL_CANCELLED: u32 = 1;
 const PORTAL_ENDED: u32 = 2;
 
 pub fn run() {
-    run1();
+    logger::Logger::install_stderr(Level::Trace);
+    let xrd = match xrd() {
+        Some(xrd) => xrd,
+        _ => {
+            fatal!("XDG_RUNTIME_DIR is not set");
+        }
+    };
+    let eng = AsyncEngine::new();
+    let ring = IoUring::new(&eng, 32).unwrap();
+    let wheel = Wheel::new(&eng, &ring).unwrap();
+    let pw_con = PwCon::new(&eng, &ring).unwrap();
+    let (_rtl_future, rtl) = RunToplevel::install(&eng);
+    let dbus = Dbus::new(&eng, &ring, &rtl);
+    let dbus = init_dbus_session(&dbus);
+    let state = Rc::new(PortalState {
+        xrd,
+        ring,
+        eng,
+        wheel,
+        pw_con,
+        displays: Default::default(),
+        watch_displays: Cell::new(None),
+        dbus,
+        screencasts: Default::default(),
+        next_id: NumCell::new(1),
+        render_ctxs: Default::default(),
+    });
+    let _root = {
+        let obj = state
+            .dbus
+            .add_object("/org/freedesktop/portal/desktop")
+            .unwrap();
+        add_screencast_dbus_members(&state, &obj);
+        obj
+    };
+    state
+        .watch_displays
+        .set(Some(state.eng.spawn(watch_displays(state.clone()))));
+    state.ring.run().unwrap();
 }
 
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
@@ -78,56 +115,13 @@ fn init_dbus_session(dbus: &Dbus) -> Rc<DbusSocket> {
     session
 }
 
-fn run1() {
-    logger::Logger::install_stderr(Level::Trace);
-    let xrd = match xrd() {
-        Some(xrd) => xrd,
-        _ => {
-            log::error!("XDG_RUNTIME_DIR is not set");
-            return;
-        }
-    };
-    let eng = AsyncEngine::new();
-    let ring = IoUring::new(&eng, 32).unwrap();
-    let wheel = Wheel::new(&eng, &ring).unwrap();
-    let pw_con = PwCon::new(&eng, &ring).unwrap();
-    let (_rtl_future, rtl) = RunToplevel::install(&eng);
-    let dbus = Dbus::new(&eng, &ring, &rtl);
-    let dbus = init_dbus_session(&dbus);
-    let state = Rc::new(PortalState {
-        xrd,
-        ring,
-        eng,
-        wheel,
-        pw_con,
-        displays: Default::default(),
-        watch_displays: Cell::new(None),
-        dbus,
-        screencasts: Default::default(),
-        next_id: NumCell::new(1),
-        render_ctxs: Default::default(),
-    });
-    let _root = {
-        let obj = state
-            .dbus
-            .add_object("/org/freedesktop/portal/desktop")
-            .unwrap();
-        add_screencast_dbus_members(&state, &obj);
-        obj
-    };
-    state
-        .watch_displays
-        .set(Some(state.eng.spawn(watch_displays(state.clone()))));
-    state.ring.run().unwrap();
-}
-
 struct PortalState {
     xrd: String,
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
     wheel: Rc<Wheel>,
     pw_con: Rc<PwCon>,
-    displays: CopyHashMap<u32, Rc<PortalDisplay>>,
+    displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,
     watch_displays: Cell<Option<SpawnedFuture<()>>>,
     dbus: Rc<DbusSocket>,
     screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
@@ -136,7 +130,7 @@ struct PortalState {
 }
 
 impl PortalState {
-    pub fn id(&self) -> u32 {
-        self.next_id.fetch_add(1)
+    pub fn id<T: From<u32>>(&self) -> T {
+        T::from(self.next_id.fetch_add(1))
     }
 }

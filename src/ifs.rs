@@ -5,6 +5,7 @@ pub mod jay_compositor;
 pub mod jay_idle;
 pub mod jay_log_file;
 pub mod jay_output;
+pub mod jay_pointer;
 pub mod jay_render_ctx;
 pub mod jay_screencast;
 pub mod jay_screenshot;

@@ -17,6 +17,10 @@ fn to_u8(c: f32) -> u8 {
 }
 
 impl Color {
+    pub fn from_gray(g: u8) -> Self {
+        Self::from_rgb(g, g, g)
+    }
+
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self {
             r: to_f32(r),

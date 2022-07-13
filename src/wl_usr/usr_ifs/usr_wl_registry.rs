@@ -64,6 +64,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrWlRegistry {
+    fn destroy(&self) {
+        // nothing
+    }
+
     fn break_loops(&self) {
         self.owner.set(None);
     }

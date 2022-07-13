@@ -19,8 +19,7 @@ use {
                 SPA_FORMAT_mediaSubtype, SPA_FORMAT_mediaType, SPA_IO_Buffers, SPA_META_Bitmap,
                 SPA_META_Busy, SPA_META_Control, SPA_META_Cursor, SPA_META_Header,
                 SPA_META_VideoCrop, SPA_META_VideoDamage, SPA_NODE_COMMAND_Start,
-                SPA_PARAM_BUFFERS_align, SPA_PARAM_BUFFERS_blocks, SPA_PARAM_BUFFERS_buffers,
-                SPA_PARAM_BUFFERS_dataType, SPA_PARAM_BUFFERS_size, SPA_PARAM_BUFFERS_stride,
+                SPA_PARAM_BUFFERS_blocks, SPA_PARAM_BUFFERS_buffers, SPA_PARAM_BUFFERS_dataType,
                 SPA_PARAM_Buffers, SPA_PARAM_EnumFormat, SPA_PARAM_Format, SPA_PARAM_META_size,
                 SPA_PARAM_META_type, SPA_PARAM_Meta, SpaDataFlags, SpaDataType, SpaDirection,
                 SpaIoType, SpaMediaSubtype, SpaMediaType, SpaMetaType, SpaNodeBuffersFlags,
@@ -157,8 +156,6 @@ pub struct PwClientNode {
 
     pub ports: CopyHashMap<(SpaDirection, u32), Rc<PwClientNodePort>>,
 
-    pub check_buffers: Cell<Option<SpawnedFuture<()>>>,
-
     pub port_out_free: RefCell<Bitfield>,
     pub port_in_free: RefCell<Bitfield>,
 
@@ -206,6 +203,8 @@ const SPA_PORT_CHANGE_MASK_PROPS: u64 = 1 << 2;
 const SPA_PORT_CHANGE_MASK_PARAMS: u64 = 1 << 3;
 
 impl PwClientNode {
+    pub fn kill(&self) {}
+
     pub fn send_update(&self) {
         self.con.send(self, PwClientNodeMethods::Update, |f| {
             f.write_struct(|f| {
@@ -783,14 +782,14 @@ impl PwClientNode {
                 );
                 return;
             }
-            log::info!("transport in");
-            for port in self.ports.lock().values() {
-                for io in port.io_buffers.lock().values() {
-                    unsafe {
-                        log::info!("status = {:?}", io.read().status);
-                    }
-                }
-            }
+            // log::info!("transport in");
+            // for port in self.ports.lock().values() {
+            //     for io in port.io_buffers.lock().values() {
+            //         unsafe {
+            //             log::info!("status = {:?}", io.read().status);
+            //         }
+            //     }
+            // }
             // unsafe {
             //     log::info!("state = {:#?}", activation.read().state[0]);
             // }

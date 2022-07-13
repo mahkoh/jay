@@ -76,8 +76,8 @@ use {
     uapi::{c, Errno, OwnedFd},
 };
 
-const POINTER: u32 = 1;
-const KEYBOARD: u32 = 2;
+pub const POINTER: u32 = 1;
+pub const KEYBOARD: u32 = 2;
 #[allow(dead_code)]
 const TOUCH: u32 = 4;
 
@@ -775,6 +775,7 @@ impl WlSeatGlobal {
         };
         let tpl = match cursor {
             KnownCursor::Default => &cursors.default,
+            KnownCursor::Pointer => &cursors.pointer,
             KnownCursor::ResizeLeftRight => &cursors.resize_left_right,
             KnownCursor::ResizeTopBottom => &cursors.resize_top_bottom,
             KnownCursor::ResizeTopLeft => &cursors.resize_top_left,

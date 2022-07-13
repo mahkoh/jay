@@ -17,19 +17,20 @@ pub struct UsrZwlrScreencopyManager {
 }
 
 impl UsrZwlrScreencopyManager {
-    pub fn request_capture_output(&self, frame: &UsrZwlrScreencopyFrame, output: &UsrWlOutput) {
+    pub fn capture_output(&self, output: &UsrWlOutput) -> Rc<UsrZwlrScreencopyFrame> {
+        let frame = Rc::new(UsrZwlrScreencopyFrame {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+        });
         self.con.request(CaptureOutput {
             self_id: self.id,
             frame: frame.id,
             overlay_cursor: 0,
             output: output.id,
         });
-    }
-}
-
-impl Drop for UsrZwlrScreencopyManager {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
+        self.con.add_object(frame.clone());
+        frame
     }
 }
 
@@ -37,4 +38,8 @@ usr_object_base! {
     UsrZwlrScreencopyManager, ZwlrScreencopyManagerV1;
 }
 
-impl UsrObject for UsrZwlrScreencopyManager {}
+impl UsrObject for UsrZwlrScreencopyManager {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+}

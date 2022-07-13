@@ -38,5 +38,7 @@ pub trait UsrObjectBase {
 }
 
 pub trait UsrObject: UsrObjectBase + 'static {
+    fn destroy(&self);
+
     fn break_loops(&self) {}
 }

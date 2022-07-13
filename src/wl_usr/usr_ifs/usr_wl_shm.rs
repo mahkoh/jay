@@ -9,6 +9,7 @@ use {
         wl_usr::{usr_ifs::usr_wl_shm_pool::UsrWlShmPool, usr_object::UsrObject, UsrCon},
     },
     std::rc::Rc,
+    uapi::OwnedFd,
 };
 
 pub struct UsrWlShm {
@@ -18,13 +19,19 @@ pub struct UsrWlShm {
 }
 
 impl UsrWlShm {
-    pub fn request_create_pool(&self, pool: &UsrWlShmPool) {
+    pub fn create_pool(&self, fd: &Rc<OwnedFd>, size: i32) -> Rc<UsrWlShmPool> {
+        let pool = Rc::new(UsrWlShmPool {
+            id: self.con.id(),
+            con: self.con.clone(),
+        });
         self.con.request(CreatePool {
             self_id: self.id,
             id: pool.id,
-            fd: pool.fd.clone(),
-            size: pool.size.get(),
-        })
+            fd: fd.clone(),
+            size,
+        });
+        self.con.add_object(pool.clone());
+        pool
     }
 
     fn format(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
@@ -43,4 +50,8 @@ usr_object_base! {
     FORMAT => format,
 }
 
-impl UsrObject for UsrWlShm {}
+impl UsrObject for UsrWlShm {
+    fn destroy(&self) {
+        // nothing
+    }
+}

@@ -375,7 +375,7 @@ impl WlSeatGlobal {
 }
 
 impl WlSeatGlobal {
-    pub(super) fn pointer_node(&self) -> Option<Rc<dyn Node>> {
+    pub fn pointer_node(&self) -> Option<Rc<dyn Node>> {
         self.pointer_stack.borrow().last().cloned()
     }
 

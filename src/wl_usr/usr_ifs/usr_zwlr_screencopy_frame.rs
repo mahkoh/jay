@@ -43,7 +43,7 @@ pub trait UsrZwlrScreencopyFrameOwner {
 }
 
 impl UsrZwlrScreencopyFrame {
-    pub fn request_copy(&self, buffer: &UsrWlBuffer) {
+    pub fn copy(&self, buffer: &UsrWlBuffer) {
         self.con.request(Copy {
             self_id: self.id,
             buffer: buffer.id,
@@ -51,7 +51,7 @@ impl UsrZwlrScreencopyFrame {
     }
 
     #[allow(dead_code)]
-    pub fn request_copy_with_damage(&self, buffer: &UsrWlBuffer) {
+    pub fn copy_with_damage(&self, buffer: &UsrWlBuffer) {
         self.con.request(CopyWithDamage {
             self_id: self.id,
             buffer: buffer.id,
@@ -115,12 +115,6 @@ impl UsrZwlrScreencopyFrame {
     }
 }
 
-impl Drop for UsrZwlrScreencopyFrame {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrZwlrScreencopyFrame, ZwlrScreencopyFrameV1;
 
@@ -134,6 +128,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrZwlrScreencopyFrame {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.take();
     }

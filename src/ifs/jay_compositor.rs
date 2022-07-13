@@ -5,7 +5,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
-            jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast,
+            jay_pointer::JayPointer, jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast,
             jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
         },
@@ -293,6 +293,20 @@ impl JayCompositor {
         ctx.send_render_ctx(rctx.as_ref());
         Ok(())
     }
+
+    fn get_pointer(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetPointer = self.client.parse(self, parser)?;
+        let seat = self.client.lookup(req.seat)?;
+        let ctx = Rc::new(JayPointer {
+            id: req.id,
+            client: self.client.clone(),
+            seat: seat.global.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, ctx);
+        self.client.add_client_obj(&ctx)?;
+        Ok(())
+    }
 }
 
 object_base! {
@@ -313,11 +327,12 @@ object_base! {
     GET_OUTPUT => get_output,
     WATCH_WORKSPACES => watch_workspaces,
     GET_RENDER_CTX => get_render_ctx,
+    GET_POINTER => get_pointer,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        GET_RENDER_CTX + 1
+        GET_POINTER + 1
     }
 }
 

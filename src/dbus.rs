@@ -690,29 +690,31 @@ pub struct PendingReply<T> {
     _phantom: PhantomData<T>,
 }
 
-impl<T> PendingReply<T>
-where
-    T: Message<'static>,
-{
+impl<T> PendingReply<T> {
     #[allow(dead_code)]
     pub fn reply_expected(&self) -> bool {
         self.reply_expected
     }
 
-    pub fn ok<'a>(self, msg: &T::Generic<'a>) {
+    pub fn err(&self, msg: &str) {
+        if self.reply_expected {
+            self.socket.send_error(&self.destination, self.serial, msg);
+        }
+    }
+}
+
+impl<T> PendingReply<T>
+where
+    T: Message<'static>,
+{
+    pub fn ok<'a>(&self, msg: &T::Generic<'a>) {
         if self.reply_expected {
             self.socket.send_reply(&self.destination, self.serial, msg);
         }
     }
 
-    pub fn err(self, msg: &str) {
-        if self.reply_expected {
-            self.socket.send_error(&self.destination, self.serial, msg);
-        }
-    }
-
     #[allow(dead_code)]
-    pub fn complete<'a>(self, res: Result<&T::Generic<'a>, &str>) {
+    pub fn complete<'a>(&self, res: Result<&T::Generic<'a>, &str>) {
         match res {
             Ok(m) => self.ok(m),
             Err(e) => self.err(e),

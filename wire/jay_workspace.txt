@@ -23,7 +23,7 @@ msg done = 3 {
 }
 
 msg output = 4 {
-    output_linear_id: u32,
+    global_name: u32,
 }
 
 msg visible = 5 {

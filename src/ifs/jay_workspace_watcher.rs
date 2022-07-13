@@ -37,6 +37,7 @@ impl JayWorkspaceWatcher {
         self.client.event(New {
             self_id: self.id,
             id: jw.id,
+            linear_id: workspace.id.raw(),
         });
         jw.send_linear_id(workspace);
         jw.send_name(workspace);

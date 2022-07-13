@@ -47,7 +47,7 @@ impl JayWorkspace {
     pub fn send_output(&self, output: &OutputNode) {
         self.client.event(Output {
             self_id: self.id,
-            output_linear_id: output.id.raw(),
+            global_name: output.global.name.raw(),
         });
     }
 

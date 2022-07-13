@@ -31,6 +31,7 @@ extern "C" {
     fn cairo_surface_destroy(surface: *mut cairo_surface_t);
     fn cairo_surface_status(surface: *mut cairo_surface_t) -> cairo_status_t;
     fn cairo_surface_flush(surface: *mut cairo_surface_t);
+    fn cairo_surface_set_device_scale(surface: *mut cairo_surface_t, x_scale: f64, y_scale: f64);
 
     fn cairo_create(surface: *mut cairo_surface_t) -> *mut cairo_t;
     fn cairo_status(cairo: *mut cairo_t) -> cairo_status_t;
@@ -66,6 +67,9 @@ extern "C" {
     fn pango_font_description_get_size(desc: *mut PangoFontDescription_) -> c::c_int;
     fn pango_font_description_set_size(desc: *mut PangoFontDescription_, size: c::c_int);
 
+    fn pango_context_set_matrix(context: *mut PangoContext_, matrix: *const PangoMatrix);
+    fn pango_context_get_matrix(context: *mut PangoContext_) -> *const PangoMatrix;
+
     fn pango_layout_new(context: *mut PangoContext_) -> *mut PangoLayout_;
     fn pango_layout_set_width(layout: *mut PangoLayout_, width: c::c_int);
     fn pango_layout_set_ellipsize(layout: *mut PangoLayout_, ellipsize: PangoEllipsizeMode_);
@@ -85,6 +89,7 @@ extern "C" {
         ink_rect: *mut PangoRectangle,
         logical_rect: *mut PangoRectangle,
     );
+    fn pango_layout_get_baseline(layout: *mut PangoLayout_) -> c::c_int;
 
     fn pango_extents_to_pixels(inclusive: *mut PangoRectangle, nearest: *mut PangoRectangle);
 }
@@ -104,12 +109,26 @@ pub enum PangoError {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct PangoMatrix {
+    pub xx: f64,
+    pub xy: f64,
+    pub yx: f64,
+    pub yy: f64,
+    pub x0: f64,
+    pub y0: f64,
+}
+
+#[repr(C)]
+#[derive(Default)]
 struct PangoRectangle {
     x: c::c_int,
     y: c::c_int,
     width: c::c_int,
     height: c::c_int,
 }
+
+const PANGO_SCALE: i32 = 1024;
 
 pub struct CairoImageSurface {
     s: *mut cairo_surface_t,
@@ -153,6 +172,12 @@ impl CairoImageSurface {
 
     pub fn height(&self) -> i32 {
         unsafe { cairo_image_surface_get_height(self.s) as _ }
+    }
+
+    pub fn set_device_scale(&self, scale: f64) {
+        unsafe {
+            cairo_surface_set_device_scale(self.s, scale, scale);
+        }
     }
 
     pub fn stride(&self) -> i32 {
@@ -236,6 +261,16 @@ impl PangoCairoContext {
             }
             Ok(PangoLayout { c: self.clone(), l })
         }
+    }
+
+    pub fn set_matrix(&self, matrix: &PangoMatrix) {
+        unsafe {
+            pango_context_set_matrix(self.p, matrix);
+        }
+    }
+
+    pub fn get_matrix(&self) -> PangoMatrix {
+        unsafe { *pango_context_get_matrix(self.p) }
     }
 }
 
@@ -325,15 +360,26 @@ impl PangoLayout {
 
     pub fn inc_pixel_rect(&self) -> Rect {
         unsafe {
-            let mut rect = PangoRectangle {
-                x: 0,
-                y: 0,
-                width: 0,
-                height: 0,
-            };
+            let mut rect = PangoRectangle::default();
             pango_layout_get_extents(self.l, &mut rect, ptr::null_mut());
             pango_extents_to_pixels(&mut rect, ptr::null_mut());
             Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
+        }
+    }
+
+    pub fn logical_pixel_rect(&self) -> Rect {
+        unsafe {
+            let mut rect = PangoRectangle::default();
+            pango_layout_get_extents(self.l, ptr::null_mut(), &mut rect);
+            pango_extents_to_pixels(&mut rect, ptr::null_mut());
+            Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
+        }
+    }
+
+    pub fn pixel_baseline(&self) -> i32 {
+        unsafe {
+            let res = pango_layout_get_baseline(self.l);
+            (res as i32 + PANGO_SCALE - 1) / PANGO_SCALE
         }
     }
 

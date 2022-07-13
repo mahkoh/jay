@@ -1,6 +1,5 @@
 use {
     crate::{
-        format::Format,
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -14,10 +13,6 @@ use {
 pub struct UsrWlBuffer {
     pub id: WlBufferId,
     pub con: Rc<UsrCon>,
-    pub width: i32,
-    pub height: i32,
-    pub stride: Option<i32>,
-    pub format: &'static Format,
     pub owner: CloneCell<Option<Rc<dyn UsrWlBufferOwner>>>,
 }
 
@@ -35,12 +30,6 @@ impl UsrWlBuffer {
     }
 }
 
-impl Drop for UsrWlBuffer {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrWlBuffer, WlBuffer;
 
@@ -48,6 +37,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrWlBuffer {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.take();
     }

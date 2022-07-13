@@ -12,7 +12,7 @@ use {
                     GL_FRAMEBUFFER,
                 },
             },
-            renderer::{context::RenderContext, renderer::Renderer},
+            renderer::{context::RenderContext, renderer::Renderer, renderer_base::RendererBase},
             sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
             RenderResult, Texture,
         },
@@ -25,7 +25,6 @@ use {
         rc::Rc,
     },
 };
-use crate::render::renderer::renderer_base::RendererBase;
 
 pub struct Framebuffer {
     pub(super) ctx: Rc<RenderContext>,
@@ -76,7 +75,9 @@ impl Framebuffer {
                 result: &mut RenderResult::default(),
                 logical_extents: Rect::new_sized(0, 0, self.gl.width, self.gl.height).unwrap(),
             };
-            renderer.base.render_texture(texture, x, y, XRGB8888, None, None, scale);
+            renderer
+                .base
+                .render_texture(texture, x, y, XRGB8888, None, None, scale);
             unsafe {
                 glFlush();
             }
@@ -113,11 +114,7 @@ impl Framebuffer {
         });
     }
 
-    pub fn render_custom(
-        &self,
-        scale: Fixed,
-        f: impl FnOnce(&mut RendererBase),
-    ) {
+    pub fn render_custom(&self, scale: Fixed, f: impl FnOnce(&mut RendererBase)) {
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);

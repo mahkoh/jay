@@ -40,4 +40,8 @@ usr_object_base! {
     DELETE_ID => delete_id,
 }
 
-impl UsrObject for UsrWlDisplay {}
+impl UsrObject for UsrWlDisplay {
+    fn destroy(&self) {
+        // nothing
+    }
+}

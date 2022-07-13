@@ -1,28 +1,37 @@
 use {
     crate::{
+        ifs::wl_seat::{wl_pointer::PendingScroll, POINTER},
         portal::{
-            ptl_render_ctx::PortalRenderCtx, ptl_screencast::SelectedScreencast, PortalState,
+            ptl_render_ctx::PortalRenderCtx,
+            ptr_gui::WindowData, PortalState,
         },
         render::RenderContext,
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, oserror::OsError,
         },
-        video::{drm::Drm},
+        video::drm::Drm,
         wire::{
-            jay_output::LinearId, jay_workspace, JayCompositor, JayOutputId, JayWorkspaceId,
-            WlOutput,
+            jay_workspace, wl_pointer, JayCompositor, WlCompositor, WlOutput, WlSeat, WlSurfaceId,
+            WpFractionalScaleManagerV1, WpViewporter, ZwlrLayerShellV1, ZwpLinuxDmabufV1,
         },
         wl_usr::{
             usr_ifs::{
                 usr_jay_compositor::UsrJayCompositor,
                 usr_jay_output::{UsrJayOutput, UsrJayOutputOwner},
-                usr_jay_render_ctx::{UsrJayRenderCtx, UsrJayRenderCtxOwner},
+                usr_jay_pointer::UsrJayPointer,
+                usr_jay_render_ctx::UsrJayRenderCtxOwner,
                 usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
                 usr_jay_workspace_watcher::{UsrJayWorkspaceWatcher, UsrJayWorkspaceWatcherOwner},
                 usr_linux_dmabuf::UsrLinuxDmabuf,
+                usr_wl_compositor::UsrWlCompositor,
                 usr_wl_output::{UsrWlOutput, UsrWlOutputOwner},
+                usr_wl_pointer::{UsrWlPointer, UsrWlPointerOwner},
                 usr_wl_registry::{UsrWlRegistry, UsrWlRegistryOwner},
+                usr_wl_seat::{UsrWlSeat, UsrWlSeatOwner},
+                usr_wlr_layer_shell::UsrWlrLayerShell,
+                usr_wp_fractional_scale_manager::UsrWpFractionalScaleManager,
+                usr_wp_viewporter::UsrWpViewporter,
             },
             UsrCon, UsrConOwner,
         },
@@ -30,7 +39,6 @@ use {
     ahash::AHashMap,
     std::{
         cell::{Cell, RefCell},
-        convert::Infallible,
         ops::Deref,
         os::unix::ffi::OsStrExt,
         rc::Rc,
@@ -38,9 +46,6 @@ use {
     },
     uapi::{c, AsUstr, OwnedFd},
 };
-use crate::wire::{WlCompositor, ZwlrLayerShellV1, ZwpLinuxDmabufV1};
-use crate::wl_usr::usr_ifs::usr_wl_compositor::UsrWlCompositor;
-use crate::wl_usr::usr_ifs::usr_wlr_layer_shell::UsrWlrLayerShell;
 
 struct PortalDisplayPrelude {
     con: Rc<UsrCon>,
@@ -49,10 +54,11 @@ struct PortalDisplayPrelude {
     globals: RefCell<AHashMap<String, Vec<(u32, u32)>>>,
 }
 
+shared_ids!(PortalDisplayId);
 pub struct PortalDisplay {
-    id: u32,
+    pub id: PortalDisplayId,
     pub con: Rc<UsrCon>,
-    state: Rc<PortalState>,
+    pub(super) state: Rc<PortalState>,
     registry: Rc<UsrWlRegistry>,
     workspace_watcher: Rc<UsrJayWorkspaceWatcher>,
     pub dmabuf: CloneCell<Option<Rc<UsrLinuxDmabuf>>>,
@@ -60,19 +66,19 @@ pub struct PortalDisplay {
     pub jc: Rc<UsrJayCompositor>,
     pub ls: Rc<UsrWlrLayerShell>,
     pub comp: Rc<UsrWlCompositor>,
+    pub fsm: Rc<UsrWpFractionalScaleManager>,
+    pub vp: Rc<UsrWpViewporter>,
     pub render_ctx: CloneCell<Option<Rc<PortalRenderCtx>>>,
 
-    pub outputs: CopyHashMap<JayOutputId, Rc<PortalOutput>>,
-    pub outputs_by_linear_id: CopyHashMap<u32, Rc<PortalOutput>>,
+    pub outputs: CopyHashMap<u32, Rc<PortalOutput>>,
+    pub workspaces: CopyHashMap<u32, Rc<PortalWorkspace>>,
+    pub seats: CopyHashMap<u32, Rc<PortalSeat>>,
 
-    pub workspaces: CopyHashMap<JayWorkspaceId, Rc<PortalWorkspace>>,
-    pub workspaces_by_linear_id: CopyHashMap<u32, Rc<PortalWorkspace>>,
-
-    pub screencasts: CopyHashMap<u32, Rc<SelectedScreencast>>,
+    pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
 }
 
 pub struct PortalWorkspace {
-    linear_id: Cell<u32>,
+    linear_id: u32,
     dpy: Rc<PortalDisplay>,
     ws: Rc<UsrJayWorkspace>,
     name: RefCell<String>,
@@ -80,29 +86,85 @@ pub struct PortalWorkspace {
 }
 
 pub struct PortalOutput {
-    pub linear_id: Cell<u32>,
-    dpy: Rc<PortalDisplay>,
+    pub global_id: u32,
+    pub dpy: Rc<PortalDisplay>,
     pub wl: Rc<UsrWlOutput>,
     workspaces: CopyHashMap<u32, Rc<PortalWorkspace>>,
     pub jay: Rc<UsrJayOutput>,
 }
 
+pub struct PortalSeat {
+    pub global_id: u32,
+    pub dpy: Rc<PortalDisplay>,
+    pub wl: Rc<UsrWlSeat>,
+    pub jay_pointer: Rc<UsrJayPointer>,
+    pub pointer: CloneCell<Option<Rc<UsrWlPointer>>>,
+    pub name: RefCell<String>,
+    pub capabilities: Cell<u32>,
+    pub window: CloneCell<Option<Rc<WindowData>>>,
+}
+
+impl UsrWlSeatOwner for PortalSeat {
+    fn name(&self, name: &str) {
+        *self.name.borrow_mut() = name.to_string();
+    }
+
+    fn capabilities(self: Rc<Self>, value: u32) {
+        let old = self.capabilities.replace(value);
+        if old.contains(POINTER) != value.contains(POINTER) {
+            if old.contains(POINTER) {
+                if let Some(pointer) = self.pointer.take() {
+                    pointer.con.remove_obj(pointer.deref());
+                }
+            } else {
+                let pointer = self.wl.get_pointer();
+                pointer.owner.set(Some(self.clone()));
+                self.pointer.set(Some(pointer));
+            }
+        }
+    }
+}
+
+impl UsrWlPointerOwner for PortalSeat {
+    fn enter(&self, ev: &wl_pointer::Enter) {
+        if let Some(window) = self.dpy.windows.get(&ev.surface) {
+            self.window.set(Some(window.clone()));
+            window.motion(self, ev.surface_x, ev.surface_y, true);
+        }
+    }
+
+    fn leave(&self, _ev: &wl_pointer::Leave) {
+        self.window.take();
+    }
+
+    fn motion(&self, ev: &wl_pointer::Motion) {
+        if let Some(window) = self.window.get() {
+            window.motion(self, ev.surface_x, ev.surface_y, false);
+        }
+    }
+
+    fn button(&self, ev: &wl_pointer::Button) {
+        if let Some(window) = self.window.get() {
+            window.button(self, ev.button, ev.state);
+        }
+    }
+
+    fn scroll(&self, ps: &PendingScroll) {
+        if let Some(window) = self.window.get() {
+            window.scroll(self, ps);
+        }
+    }
+}
+
 impl PortalWorkspace {
     fn detach_from_output(&self) {
         if let Some(output) = self.output.take() {
-            output.workspaces.remove(&self.linear_id.get());
+            output.workspaces.remove(&self.linear_id);
         }
     }
 }
 
 impl UsrJayWorkspaceOwner for PortalWorkspace {
-    fn linear_id(self: Rc<Self>, ev: &jay_workspace::LinearId) {
-        self.linear_id.set(ev.linear_id);
-        self.dpy
-            .workspaces_by_linear_id
-            .set(ev.linear_id, self.clone());
-    }
-
     fn name(&self, ev: &jay_workspace::Name) {
         log::info!("New workspace {}", ev.name);
         *self.name.borrow_mut() = ev.name.to_string();
@@ -111,17 +173,14 @@ impl UsrJayWorkspaceOwner for PortalWorkspace {
     fn destroyed(&self) {
         log::info!("Workspace {} removed", self.name.borrow_mut());
         self.detach_from_output();
-        self.dpy.workspaces.remove(&self.ws.id);
-        self.dpy
-            .workspaces_by_linear_id
-            .remove(&self.linear_id.get());
+        self.dpy.workspaces.remove(&self.linear_id);
         self.dpy.con.remove_obj(self.ws.deref());
     }
 
     fn output(self: Rc<Self>, ev: &jay_workspace::Output) {
         self.detach_from_output();
-        if let Some(output) = self.dpy.outputs_by_linear_id.get(&ev.output_linear_id) {
-            output.workspaces.set(self.linear_id.get(), self.clone());
+        if let Some(output) = self.dpy.outputs.get(&ev.global_name) {
+            output.workspaces.set(self.linear_id, self.clone());
             self.output.set(Some(output));
         }
     }
@@ -138,16 +197,16 @@ impl UsrWlRegistryOwner for PortalDisplayPrelude {
 }
 
 impl UsrJayWorkspaceWatcherOwner for PortalDisplay {
-    fn new(self: Rc<Self>, ev: Rc<UsrJayWorkspace>) {
+    fn new(self: Rc<Self>, ev: Rc<UsrJayWorkspace>, linear_id: u32) {
         let owner = Rc::new(PortalWorkspace {
-            linear_id: Cell::new(0),
+            linear_id,
             dpy: self.clone(),
             ws: ev.clone(),
             name: RefCell::new("".to_string()),
             output: Default::default(),
         });
         ev.owner.set(Some(owner.clone()));
-        self.workspaces.set(ev.id, owner);
+        self.workspaces.set(linear_id, owner);
         self.con.add_object(ev);
     }
 }
@@ -204,6 +263,8 @@ impl UsrWlRegistryOwner for PortalDisplay {
     fn global(self: Rc<Self>, name: u32, interface: &str, version: u32) {
         if interface == WlOutput.name() {
             add_output(&self, name, version);
+        } else if interface == WlSeat.name() {
+            add_seat(&self, name, version);
         } else if interface == ZwpLinuxDmabufV1.name() {
             let ls = Rc::new(UsrLinuxDmabuf {
                 id: self.con.id(),
@@ -218,26 +279,13 @@ impl UsrWlRegistryOwner for PortalDisplay {
 }
 
 impl UsrJayOutputOwner for PortalOutput {
-    fn linear_id(self: Rc<Self>, ev: &LinearId) {
-        log::info!(
-            "Display: {}: New output {}",
-            self.dpy.con.server_id,
-            ev.linear_id
-        );
-        self.linear_id.set(ev.linear_id);
-        self.dpy
-            .outputs_by_linear_id
-            .set(ev.linear_id, self.clone());
-    }
-
     fn destroyed(&self) {
         log::info!(
             "Display {}: Output {} removed",
             self.dpy.con.server_id,
-            self.linear_id.get()
+            self.global_id,
         );
-        self.dpy.outputs.remove(&self.jay.id);
-        self.dpy.outputs_by_linear_id.remove(&self.linear_id.get());
+        self.dpy.outputs.remove(&self.global_id);
         self.dpy.con.remove_obj(self.wl.deref());
         self.dpy.con.remove_obj(self.jay.deref());
     }
@@ -278,9 +326,8 @@ fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
         globals: Default::default(),
     });
     dpy.registry.owner.set(Some(dpy.clone()));
-    con.request_sync::<Infallible, _>(move || {
+    con.sync(move || {
         finish_display_connect(dpy);
-        Ok(())
     });
     log::info!("Connected to wayland display {num}: {name}");
 }
@@ -288,9 +335,12 @@ fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
 fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     let mut jc_opt = None;
     let mut ls_opt = None;
+    let mut fsm_opt = None;
     let mut comp_opt = None;
+    let mut vp_opt = None;
     let mut dmabuf_opt = None;
     let mut outputs = vec![];
+    let mut seats = vec![];
     for (interface, instances) in dpy.globals.borrow_mut().deref() {
         for &(name, version) in instances {
             if interface == JayCompositor.name() {
@@ -302,6 +352,14 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 dpy.con.add_object(jc.clone());
                 dpy.registry.request_bind(name, version, jc.deref());
                 jc_opt = Some(jc);
+            } else if interface == WpFractionalScaleManagerV1.name() {
+                let ls = Rc::new(UsrWpFractionalScaleManager {
+                    id: dpy.con.id(),
+                    con: dpy.con.clone(),
+                });
+                dpy.con.add_object(ls.clone());
+                dpy.registry.request_bind(name, version, ls.deref());
+                fsm_opt = Some(ls);
             } else if interface == ZwlrLayerShellV1.name() {
                 let ls = Rc::new(UsrWlrLayerShell {
                     id: dpy.con.id(),
@@ -310,6 +368,14 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 dpy.con.add_object(ls.clone());
                 dpy.registry.request_bind(name, version, ls.deref());
                 ls_opt = Some(ls);
+            } else if interface == WpViewporter.name() {
+                let ls = Rc::new(UsrWpViewporter {
+                    id: dpy.con.id(),
+                    con: dpy.con.clone(),
+                });
+                dpy.con.add_object(ls.clone());
+                dpy.registry.request_bind(name, version, ls.deref());
+                vp_opt = Some(ls);
             } else if interface == WlCompositor.name() {
                 let ls = Rc::new(UsrWlCompositor {
                     id: dpy.con.id(),
@@ -329,6 +395,8 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 dmabuf_opt = Some(ls);
             } else if interface == WlOutput.name() {
                 outputs.push((name, version));
+            } else if interface == WlSeat.name() {
+                seats.push((name, version));
             }
         }
     }
@@ -342,19 +410,15 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     return;
                 }
             }
-        }
+        };
     }
     let jc = get!(jc_opt, JayCompositor);
     let ls = get!(ls_opt, ZwlrLayerShellV1);
     let comp = get!(comp_opt, WlCompositor);
+    let fsm = get!(fsm_opt, WpFractionalScaleManagerV1);
+    let vp = get!(vp_opt, WpViewporter);
 
-    let workspace_watcher = Rc::new(UsrJayWorkspaceWatcher {
-        id: dpy.con.id(),
-        con: dpy.con.clone(),
-        owner: Default::default(),
-    });
-    dpy.con.add_object(workspace_watcher.clone());
-    jc.request_watch_workspaces(&workspace_watcher);
+    let workspace_watcher = jc.watch_workspaces();
 
     let dpy = Rc::new(PortalDisplay {
         id: dpy.state.id(),
@@ -367,11 +431,12 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
         outputs: Default::default(),
         render_ctx: Default::default(),
         workspaces: Default::default(),
-        outputs_by_linear_id: Default::default(),
-        workspaces_by_linear_id: Default::default(),
-        screencasts: Default::default(),
+        seats: Default::default(),
         ls,
-        comp
+        comp,
+        fsm,
+        vp,
+        windows: Default::default(),
     });
 
     dpy.state.displays.set(dpy.id, dpy.clone());
@@ -379,19 +444,39 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     dpy.registry.owner.set(Some(dpy.clone()));
     dpy.workspace_watcher.owner.set(Some(dpy.clone()));
 
-    let jrc = Rc::new(UsrJayRenderCtx {
-        id: dpy.con.id(),
-        con: dpy.con.clone(),
-        owner: Default::default(),
-    });
+    let jrc = dpy.jc.get_render_context();
     jrc.owner.set(Some(dpy.clone()));
-    dpy.jc.request_get_render_context(&jrc);
-    dpy.con.add_object(jrc);
 
     for (name, version) in outputs {
         add_output(&dpy, name, version);
     }
+    for (name, version) in seats {
+        add_seat(&dpy, name, version);
+    }
     log::info!("Display {} initialized", dpy.id);
+}
+
+fn add_seat(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
+    let wl = Rc::new(UsrWlSeat {
+        id: dpy.con.id(),
+        con: dpy.con.clone(),
+        owner: Default::default(),
+    });
+    dpy.con.add_object(wl.clone());
+    dpy.registry.request_bind(name, version, wl.deref());
+    let jay_pointer = dpy.jc.get_pointer(&wl);
+    let js = Rc::new(PortalSeat {
+        global_id: name,
+        dpy: dpy.clone(),
+        wl,
+        jay_pointer,
+        pointer: Default::default(),
+        name: RefCell::new("".to_string()),
+        capabilities: Cell::new(0),
+        window: Default::default(),
+    });
+    js.wl.owner.set(Some(js.clone()));
+    dpy.seats.set(name, js);
 }
 
 fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
@@ -402,15 +487,9 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
     });
     dpy.con.add_object(wl.clone());
     dpy.registry.request_bind(name, version, wl.deref());
-    let jo = Rc::new(UsrJayOutput {
-        id: dpy.con.id(),
-        con: dpy.con.clone(),
-        owner: Default::default(),
-    });
-    dpy.con.add_object(jo.clone());
-    dpy.jc.request_get_output(&jo, &wl);
+    let jo = dpy.jc.get_output(&wl);
     let po = Rc::new(PortalOutput {
-        linear_id: Cell::new(0),
+        global_id: name,
         dpy: dpy.clone(),
         wl: wl.clone(),
         workspaces: Default::default(),
@@ -418,7 +497,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
     });
     po.wl.owner.set(Some(po.clone()));
     po.jay.owner.set(Some(po.clone()));
-    dpy.outputs.set(jo.id, po);
+    dpy.outputs.set(name, po);
 }
 
 pub(super) async fn watch_displays(state: Rc<PortalState>) {

@@ -1,7 +1,7 @@
 use {
     crate::{
         fixed::Fixed,
-        format::{ARGB8888},
+        format::ARGB8888,
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -11,11 +11,7 @@ use {
             wp_presentation_feedback::WpPresentationFeedback,
         },
         rect::Rect,
-        render::{
-            gl::{
-                frame_buffer::{with_scissor},
-            },
-        },
+        render::{gl::frame_buffer::with_scissor, renderer::renderer_base::RendererBase},
         state::State,
         theme::Color,
         tree::{
@@ -30,7 +26,6 @@ use {
         slice,
     },
 };
-use crate::render::renderer::renderer_base::RendererBase;
 
 #[derive(Default)]
 pub struct RenderResult {
@@ -121,17 +116,20 @@ impl Renderer<'_> {
                 self.base.fill_boxes2(slice::from_ref(aw), &c, x, y);
             }
             let c = theme.colors.separator.get();
-            self.base.fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
+            self.base
+                .fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
             let c = theme.colors.unfocused_title_background.get();
             self.base.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
             let scale = output.preferred_scale.get();
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
-                self.base.render_texture(&title.tex, x, y, ARGB8888, None, None, scale);
+                self.base
+                    .render_texture(&title.tex, x, y, ARGB8888, None, None, scale);
             }
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
-                self.base.render_texture(&status.tex, x, y, ARGB8888, None, None, scale);
+                self.base
+                    .render_texture(&status.tex, x, y, ARGB8888, None, None, scale);
             }
         }
         if let Some(ws) = output.workspace.get() {
@@ -165,7 +163,8 @@ impl Renderer<'_> {
         if let Some(tex) = placeholder.textures.get(&self.base.scale) {
             let x = x + (pos.width() - tex.width()) / 2;
             let y = y + (pos.height() - tex.height()) / 2;
-            self.base.render_texture(&tex, x, y, &ARGB8888, None, None, self.base.scale);
+            self.base
+                .render_texture(&tex, x, y, &ARGB8888, None, None, self.base.scale);
         }
     }
 
@@ -192,7 +191,15 @@ impl Renderer<'_> {
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
                     let (x, y) = self.base.scale_point(x + title.x, y + title.y);
-                    self.base.render_texture(&title.tex, x, y, ARGB8888, None, None, self.base.scale);
+                    self.base.render_texture(
+                        &title.tex,
+                        x,
+                        y,
+                        ARGB8888,
+                        None,
+                        None,
+                        self.base.scale,
+                    );
                 }
             }
         }
@@ -354,7 +361,8 @@ impl Renderer<'_> {
         self.base.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_textures.get(&self.base.scale) {
             let (x, y) = self.base.scale_point(x + bw, y + bw);
-            self.base.render_texture(&title, x, y, ARGB8888, None, None, self.base.scale);
+            self.base
+                .render_texture(&title, x, y, ARGB8888, None, None, self.base.scale);
         }
         let body = Rect::new_sized(
             x + bw,

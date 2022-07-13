@@ -1,16 +1,20 @@
 use {
     crate::{
-        format::Format,
-        utils::clonecell::CloneCell,
-        wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufV1Id},
-        wl_usr::{usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams, UsrCon},
+        format::{formats, Format},
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
+        },
+        wire::{
+            zwp_linux_dmabuf_v1::{self, *},
+            ZwpLinuxDmabufV1Id,
+        },
+        wl_usr::{
+            usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams, usr_object::UsrObject, UsrCon,
+        },
     },
     std::rc::Rc,
 };
-use crate::format::formats;
-use crate::utils::buffd::{MsgParser, MsgParserError};
-use crate::wire::zwp_linux_dmabuf_v1;
-use crate::wl_usr::usr_object::UsrObject;
 
 pub struct UsrLinuxDmabuf {
     pub id: ZwpLinuxDmabufV1Id,
@@ -31,9 +35,6 @@ impl UsrLinuxDmabuf {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
-            format: Default::default(),
-            width: Default::default(),
-            height: Default::default(),
         });
         self.con.request(CreateParams {
             self_id: self.id,
@@ -52,16 +53,13 @@ impl UsrLinuxDmabuf {
         let ev: Modifier = self.con.parse(self, parser)?;
         if let Some(owner) = self.owner.get() {
             if let Some(format) = formats().get(&ev.format) {
-                owner.modifier(*format, (ev.modifier_hi as u64) << 32 | (ev.modifier_lo as u64));
+                owner.modifier(
+                    *format,
+                    (ev.modifier_hi as u64) << 32 | (ev.modifier_lo as u64),
+                );
             }
         }
         Ok(())
-    }
-}
-
-impl Drop for UsrLinuxDmabuf {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
     }
 }
 
@@ -73,6 +71,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrLinuxDmabuf {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.take();
     }

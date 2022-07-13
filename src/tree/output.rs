@@ -168,7 +168,7 @@ impl OutputNode {
                     };
                     let title = match text::render_fitting(
                         &ctx,
-                        texture_height,
+                        Some(texture_height),
                         &font,
                         &ws.name,
                         tc,
@@ -219,14 +219,21 @@ impl OutputNode {
                 break 'set_status;
             }
             let tc = self.state.theme.colors.bar_text.get();
-            let title =
-                match text::render_fitting(&ctx, texture_height, &font, &status, tc, true, scale) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        log::error!("Could not render status {}: {}", status, ErrorFmt(e));
-                        break 'set_status;
-                    }
-                };
+            let title = match text::render_fitting(
+                &ctx,
+                Some(texture_height),
+                &font,
+                &status,
+                tc,
+                true,
+                scale,
+            ) {
+                Ok(t) => t,
+                Err(e) => {
+                    log::error!("Could not render status {}: {}", status, ErrorFmt(e));
+                    break 'set_status;
+                }
+            };
             let mut width = title.width();
             if let Some(scale) = scale {
                 width = (width as f64 / scale).round() as _;

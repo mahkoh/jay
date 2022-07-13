@@ -1,9 +1,10 @@
-use std::rc::Rc;
-use crate::wire::wl_compositor::CreateSurface;
-use crate::wire::WlCompositorId;
-use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
-use crate::wl_usr::usr_object::UsrObject;
-use crate::wl_usr::UsrCon;
+use {
+    crate::{
+        wire::{wl_compositor::CreateSurface, WlCompositorId},
+        wl_usr::{usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject, UsrCon},
+    },
+    std::rc::Rc,
+};
 
 pub struct UsrWlCompositor {
     pub id: WlCompositorId,
@@ -30,5 +31,7 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrWlCompositor {
-
+    fn destroy(&self) {
+        // nothing
+    }
 }

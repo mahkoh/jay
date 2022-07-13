@@ -7,9 +7,10 @@ use {
         wire::{jay_compositor::*, JayCompositorId},
         wl_usr::{
             usr_ifs::{
-                usr_jay_output::UsrJayOutput, usr_jay_render_ctx::UsrJayRenderCtx,
-                usr_jay_screencast::UsrJayScreencast,
+                usr_jay_output::UsrJayOutput, usr_jay_pointer::UsrJayPointer,
+                usr_jay_render_ctx::UsrJayRenderCtx, usr_jay_screencast::UsrJayScreencast,
                 usr_jay_workspace_watcher::UsrJayWorkspaceWatcher, usr_wl_output::UsrWlOutput,
+                usr_wl_seat::UsrWlSeat,
             },
             usr_object::UsrObject,
             UsrCon,
@@ -35,33 +36,78 @@ pub trait UsrJayCompositorOwner {
 }
 
 impl UsrJayCompositor {
-    pub fn request_get_render_context(&self, jo: &UsrJayRenderCtx) {
+    pub fn get_render_context(&self) -> Rc<UsrJayRenderCtx> {
+        let rc = Rc::new(UsrJayRenderCtx {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+        });
         self.con.request(GetRenderCtx {
             self_id: self.id,
-            id: jo.id,
+            id: rc.id,
         });
+        self.con.add_object(rc.clone());
+        rc
     }
 
-    pub fn request_create_screencast(&self, sc: &UsrJayScreencast) {
+    pub fn create_screencast(&self) -> Rc<UsrJayScreencast> {
+        let sc = Rc::new(UsrJayScreencast {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+            pending_buffers: Default::default(),
+            pending_planes: Default::default(),
+            pending_config: Default::default(),
+        });
         self.con.request(CreateScreencast {
             self_id: self.id,
             id: sc.id,
         });
+        self.con.add_object(sc.clone());
+        sc
     }
 
-    pub fn request_get_output(&self, jo: &UsrJayOutput, output: &UsrWlOutput) {
+    pub fn get_output(&self, output: &UsrWlOutput) -> Rc<UsrJayOutput> {
+        let jo = Rc::new(UsrJayOutput {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+        });
         self.con.request(GetOutput {
             self_id: self.id,
             id: jo.id,
             output: output.id,
         });
+        self.con.add_object(jo.clone());
+        jo
     }
 
-    pub fn request_watch_workspaces(&self, watcher: &UsrJayWorkspaceWatcher) {
+    pub fn watch_workspaces(&self) -> Rc<UsrJayWorkspaceWatcher> {
+        let ww = Rc::new(UsrJayWorkspaceWatcher {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+        });
         self.con.request(WatchWorkspaces {
             self_id: self.id,
-            id: watcher.id,
+            id: ww.id,
         });
+        self.con.add_object(ww.clone());
+        ww
+    }
+
+    pub fn get_pointer(&self, seat: &UsrWlSeat) -> Rc<UsrJayPointer> {
+        let jp = Rc::new(UsrJayPointer {
+            id: self.con.id(),
+            con: self.con.clone(),
+        });
+        self.con.add_object(jp.clone());
+        self.con.request(GetPointer {
+            self_id: self.id,
+            id: jp.id,
+            seat: seat.id,
+        });
+        jp
     }
 
     fn client_id(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
@@ -81,12 +127,6 @@ impl UsrJayCompositor {
     }
 }
 
-impl Drop for UsrJayCompositor {
-    fn drop(&mut self) {
-        self.con.request(Destroy { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrJayCompositor, JayCompositor;
 
@@ -95,6 +135,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrJayCompositor {
+    fn destroy(&self) {
+        self.con.request(Destroy { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.take();
     }

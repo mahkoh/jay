@@ -60,6 +60,11 @@ msg get_render_ctx = 14 {
     id: id(jay_render_ctx),
 }
 
+msg get_pointer = 15 {
+    id: id(jay_pointer),
+    seat: id(wl_seat),
+}
+
 # events
 
 msg client_id = 0 {

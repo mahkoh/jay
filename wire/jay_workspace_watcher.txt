@@ -8,4 +8,5 @@ msg destroy = 0 {
 
 msg new = 0 {
     id: id(jay_workspace),
+    linear_id: u32,
 }

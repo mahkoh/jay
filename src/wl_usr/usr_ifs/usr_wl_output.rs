@@ -90,12 +90,6 @@ impl UsrWlOutput {
     }
 }
 
-impl Drop for UsrWlOutput {
-    fn drop(&mut self) {
-        self.con.request(Release { self_id: self.id });
-    }
-}
-
 usr_object_base! {
     UsrWlOutput, WlOutput;
 
@@ -108,6 +102,10 @@ usr_object_base! {
 }
 
 impl UsrObject for UsrWlOutput {
+    fn destroy(&self) {
+        self.con.request(Release { self_id: self.id });
+    }
+
     fn break_loops(&self) {
         self.owner.set(None);
     }
