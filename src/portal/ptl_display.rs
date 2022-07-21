@@ -1,10 +1,7 @@
 use {
     crate::{
         ifs::wl_seat::{wl_pointer::PendingScroll, POINTER},
-        portal::{
-            ptl_render_ctx::PortalRenderCtx,
-            ptr_gui::WindowData, PortalState,
-        },
+        portal::{ptl_render_ctx::PortalRenderCtx, ptr_gui::WindowData, PortalState},
         render::RenderContext,
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,

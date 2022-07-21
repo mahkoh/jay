@@ -3,7 +3,9 @@ use {
         ifs::wl_seat::{wl_pointer::PRESSED, BTN_LEFT},
         portal::{
             ptl_display::{PortalDisplay, PortalOutput},
-            ptl_screencast::integration::{ScreencastPhase, ScreencastSession, StartingScreencast},
+            ptl_screencast::{
+                ScreencastPhase, ScreencastSession, StartingScreencast,
+            },
             ptr_gui::{
                 Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
                 OverlayWindowOwner,
@@ -14,6 +16,9 @@ use {
     },
     std::rc::Rc,
 };
+
+const H_MARGIN: f32 = 30.0;
+const V_MARGIN: f32 = 20.0;
 
 pub struct SelectionGui {
     screencast_session: Rc<ScreencastSession>,
@@ -33,6 +38,20 @@ enum SelectionState {
     Select,
 }
 
+struct StaticButton {
+    surface: Rc<SelectionGuiSurface>,
+    role: ButtonRole,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum ButtonRole {
+    Accept,
+    Reject,
+    ShareAll,
+    ShareSelected,
+    Cancel,
+}
+
 impl SelectionGui {
     pub fn kill(&self, upwards: bool) {
         for (_, surface) in self.surfaces.lock().drain() {
@@ -46,9 +65,6 @@ impl SelectionGui {
         }
     }
 }
-
-const H_MARGIN: f32 = 30.0;
-const V_MARGIN: f32 = 20.0;
 
 fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let app = &surface.gui.screencast_session.app;
@@ -67,15 +83,11 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
         button.border.set(2.0);
         button.padding.set(5.0);
     }
-    accept_button
-        .bg_color
-        .set(Color::from_rgb(170, 200, 170));
+    accept_button.bg_color.set(Color::from_rgb(170, 200, 170));
     accept_button
         .bg_hover_color
         .set(Color::from_rgb(170, 255, 170));
-    reject_button
-        .bg_color
-        .set(Color::from_rgb(200, 170, 170));
+    reject_button.bg_color.set(Color::from_rgb(200, 170, 170));
     reject_button
         .bg_hover_color
         .set(Color::from_rgb(255, 170, 170));
@@ -90,7 +102,11 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
 
 fn create_select_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let share_all_button = static_button(surface, ButtonRole::ShareAll, "Share All Workspaces");
-    let share_selected_button = static_button(surface, ButtonRole::ShareSelected, "Share Selected Workspaces");
+    let share_selected_button = static_button(
+        surface,
+        ButtonRole::ShareSelected,
+        "Share Selected Workspaces",
+    );
     let cancel_button = static_button(surface, ButtonRole::Cancel, "Cancel");
     let buttons = [&share_all_button, &share_selected_button, &cancel_button];
     for button in buttons {
@@ -101,13 +117,9 @@ fn create_select_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let buttons = [&share_all_button, &share_selected_button];
     for button in buttons {
         button.bg_color.set(Color::from_rgb(170, 200, 170));
-        button
-            .bg_hover_color
-            .set(Color::from_rgb(170, 255, 170));
+        button.bg_hover_color.set(Color::from_rgb(170, 255, 170));
     }
-    cancel_button
-        .bg_color
-        .set(Color::from_rgb(200, 170, 170));
+    cancel_button.bg_color.set(Color::from_rgb(200, 170, 170));
     cancel_button
         .bg_hover_color
         .set(Color::from_rgb(255, 170, 170));
@@ -116,11 +128,7 @@ fn create_select_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     flow.cross_align.set(Align::Center);
     flow.in_margin.set(H_MARGIN);
     flow.cross_margin.set(V_MARGIN);
-    *flow.elements.borrow_mut() = vec![
-        share_all_button,
-        share_selected_button,
-        cancel_button,
-    ];
+    *flow.elements.borrow_mut() = vec![share_all_button, share_selected_button, cancel_button];
     flow
 }
 
@@ -158,11 +166,6 @@ impl SelectionGui {
     }
 }
 
-struct StaticButton {
-    surface: Rc<SelectionGuiSurface>,
-    role: ButtonRole,
-}
-
 impl ButtonOwner for StaticButton {
     fn button(&self, button: u32, state: u32) {
         if button != BTN_LEFT || state != PRESSED {
@@ -195,7 +198,8 @@ impl ButtonOwner for StaticButton {
                     .lock()
                     .retain(|s, _| *s == self.surface.gui.dpy.id);
                 self.surface.state.set(Rc::new(SelectionState::Select));
-                let old = self.surface
+                let old = self
+                    .surface
                     .overlay
                     .data
                     .content
@@ -254,13 +258,4 @@ fn static_button(surface: &Rc<SelectionGuiSurface>, role: ButtonRole, text: &str
     button.owner.set(Some(slf));
     *button.text.borrow_mut() = text.to_string();
     button
-}
-
-#[derive(Copy, Clone, Eq, PartialEq)]
-enum ButtonRole {
-    Accept,
-    Reject,
-    ShareAll,
-    ShareSelected,
-    Cancel,
 }

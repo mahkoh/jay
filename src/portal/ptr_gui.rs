@@ -4,7 +4,10 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
-        ifs::{wl_surface::zwlr_layer_surface_v1::KI_EXCLUSIVE, zwlr_layer_shell_v1::OVERLAY},
+        ifs::{
+            wl_seat::wl_pointer::PendingScroll, wl_surface::zwlr_layer_surface_v1::KI_EXCLUSIVE,
+            zwlr_layer_shell_v1::OVERLAY,
+        },
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
         render::{Framebuffer, RenderContext, RendererBase, Texture},
         text::{self, TextMeasurement},
@@ -35,7 +38,6 @@ use {
         rc::Rc,
     },
 };
-use crate::ifs::wl_seat::wl_pointer::PendingScroll;
 
 #[derive(Default)]
 pub struct GuiElementData {
@@ -202,12 +204,7 @@ impl GuiElement for Button {
             r.fill_boxes_f(&rects, &self.border_color.get());
         }
         {
-            let rects = [(
-                x1 + border,
-                y1 + border,
-                x2 - border,
-                y2 - border,
-            )];
+            let rects = [(x1 + border, y1 + border, x2 - border, y2 - border)];
             let color = match self.hover.borrow_mut().is_empty() {
                 true => self.bg_color.get(),
                 false => self.bg_hover_color.get(),
@@ -215,8 +212,17 @@ impl GuiElement for Button {
             r.fill_boxes_f(&rects, &color);
         }
         if let Some(tex) = self.tex.get() {
-            let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 as f32 + self.tex_off_y.get());
-            r.render_texture(&tex, tx.round() as _, ty.round() as _, ARGB8888, None, None, r.scale());
+            let (tx, ty) =
+                r.scale_point_f(x1 + self.tex_off_x.get(), y1 as f32 + self.tex_off_y.get());
+            r.render_texture(
+                &tex,
+                tx.round() as _,
+                ty.round() as _,
+                ARGB8888,
+                None,
+                None,
+                r.scale(),
+            );
         }
     }
 
@@ -304,7 +310,15 @@ impl GuiElement for Label {
     fn render_at(&self, r: &mut RendererBase, x: f32, y: f32) {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
-            r.render_texture(&tex, tx.round() as _, ty.round() as _, ARGB8888, None, None, r.scale());
+            r.render_texture(
+                &tex,
+                tx.round() as _,
+                ty.round() as _,
+                ARGB8888,
+                None,
+                None,
+                r.scale(),
+            );
         }
     }
 
@@ -390,18 +404,15 @@ impl GuiElement for Flow {
         for (run, run_cross_size) in runs {
             let mut in_pos = in_margin;
             for (element, cur_in_size, cur_cross_size) in run {
-                let cur_cross_pos = cross_pos + match self.cross_align.get() {
-                    Align::Left => 0.0,
-                    Align::Center => (run_cross_size - cur_cross_size) / 2.0,
-                    Align::Right => run_cross_size - cur_cross_size,
-                };
+                let cur_cross_pos = cross_pos
+                    + match self.cross_align.get() {
+                        Align::Left => 0.0,
+                        Align::Center => (run_cross_size - cur_cross_size) / 2.0,
+                        Align::Right => run_cross_size - cur_cross_size,
+                    };
                 let (x, y, w, h) = match orientation {
-                    Orientation::Horizontal => {
-                        (in_pos, cur_cross_pos, cur_in_size, cur_cross_size)
-                    }
-                    Orientation::Vertical => {
-                        (cur_cross_pos, in_pos, cur_cross_size, cur_in_size)
-                    }
+                    Orientation::Horizontal => (in_pos, cur_cross_pos, cur_in_size, cur_cross_size),
+                    Orientation::Vertical => (cur_cross_pos, in_pos, cur_cross_size, cur_in_size),
                 };
                 element.data().x.set(x);
                 element.data().y.set(y);
@@ -582,7 +593,8 @@ impl WindowData {
         height = height.max(1.0);
         self.width.set(width.round() as _);
         self.height.set(height.round() as _);
-        self.viewport.set_destination(width.round() as _, height.round() as _);
+        self.viewport
+            .set_destination(width.round() as _, height.round() as _);
         if let Some(owner) = self.owner.get() {
             owner.post_layout();
         }
@@ -796,9 +808,7 @@ impl WindowData {
         }
     }
 
-    pub fn scroll(&self, pseat: &PortalSeat, ps: &PendingScroll) {
-
-    }
+    pub fn scroll(&self, pseat: &PortalSeat, ps: &PendingScroll) {}
 }
 
 pub struct GuiBuffer {

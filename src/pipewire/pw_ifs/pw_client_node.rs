@@ -90,6 +90,7 @@ bitflags! {
 
     SUPPORTED_META_HEADER = 1 << 0,
     SUPPORTED_META_BUSY = 1 << 1,
+    SUPPORTED_META_VIDEO_CROP = 1 << 2,
 }
 
 pub struct PwClientNodePort {
@@ -125,6 +126,7 @@ pub struct PwClientNodeBufferConfig {
 pub struct PwClientNodeBuffer {
     pub meta_header: Option<Rc<PwMemTyped<spa_meta_header>>>,
     pub meta_busy: Option<Rc<PwMemTyped<spa_meta_busy>>>,
+    pub meta_video_crop: Option<Rc<PwMemTyped<spa_meta_region>>>,
     pub chunks: Vec<Rc<PwMemTyped<spa_chunk>>>,
     pub slices: Vec<Rc<PwMemSlice>>,
 }
@@ -299,6 +301,9 @@ impl PwClientNode {
                 }
                 if sm.contains(SUPPORTED_META_BUSY) {
                     metas.push((SPA_META_Busy, mem::size_of::<spa_meta_busy>()));
+                }
+                if sm.contains(SUPPORTED_META_VIDEO_CROP) {
+                    metas.push((SPA_META_VideoCrop, mem::size_of::<spa_meta_region>()));
                 }
                 let sf = port.supported_formats.borrow_mut();
                 let bc = port.buffer_config.get();
@@ -575,6 +580,7 @@ impl PwClientNode {
             let n_metas = p1.read_uint()?;
 
             let mut meta_header = Default::default();
+            let mut meta_video_crop = Default::default();
             let mut meta_busy = Default::default();
             let mut chunks = vec![];
             let mut slices = vec![];
@@ -596,7 +602,8 @@ impl PwClientNode {
                         meta_header = Some(header);
                     }
                     SPA_META_VideoCrop => {
-                        let _crop = mem.typed_at::<spa_meta_region>(offset);
+                        let crop = mem.typed_at::<spa_meta_region>(offset);
+                        meta_video_crop = Some(crop);
                     }
                     SPA_META_VideoDamage => {
                         let _video_damage = mem.typed_at::<spa_meta_region>(offset);
@@ -645,6 +652,7 @@ impl PwClientNode {
             res.push(Rc::new(PwClientNodeBuffer {
                 meta_header,
                 meta_busy,
+                meta_video_crop,
                 chunks,
                 slices,
             }));
