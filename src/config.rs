@@ -125,6 +125,10 @@ impl ConfigProxy {
     pub fn clear(&self) {
         self.send(&ServerMessage::Clear);
     }
+
+    pub fn idle(&self) {
+        self.send(&ServerMessage::Idle);
+    }
 }
 
 impl Drop for ConfigProxy {

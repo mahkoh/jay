@@ -68,6 +68,9 @@ impl Idle {
         let since = duration_since(self.last_input);
         if since >= timeout {
             if !timeout.is_zero() && !self.is_inhibited {
+                if let Some(config) = self.state.config.get() {
+                    config.idle();
+                }
                 self.backend.set_idle(true);
                 self.idle = true;
             }

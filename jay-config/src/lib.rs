@@ -132,3 +132,8 @@ impl Display for PciId {
         write!(f, "{:04x}:{:04x}", self.vendor, self.model)
     }
 }
+
+/// Sets the callback to be called when the display goes idle.
+pub fn on_idle<F: Fn() + 'static>(f: F) {
+    get!().on_idle(f)
+}

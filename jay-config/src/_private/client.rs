@@ -45,6 +45,7 @@ pub(crate) struct Client {
     on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     on_new_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
     on_del_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
+    on_idle: RefCell<Option<Rc<dyn Fn()>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
 }
@@ -131,6 +132,7 @@ pub unsafe extern "C" fn init(
         on_new_connector: Default::default(),
         on_new_drm_device: Default::default(),
         on_del_drm_device: Default::default(),
+        on_idle: Default::default(),
         bufs: Default::default(),
         reload: Cell::new(false),
     });
@@ -532,6 +534,10 @@ impl Client {
         *self.on_new_connector.borrow_mut() = Some(Rc::new(f));
     }
 
+    pub fn on_idle<F: Fn() + 'static>(&self, f: F) {
+        *self.on_idle.borrow_mut() = Some(Rc::new(f));
+    }
+
     pub fn on_connector_connected<F: Fn(Connector) + 'static>(&self, f: F) {
         *self.on_connector_connected.borrow_mut() = Some(Rc::new(f));
     }
@@ -716,6 +722,12 @@ impl Client {
                 let handler = self.on_del_drm_device.borrow_mut();
                 if let Some(handler) = handler.deref() {
                     handler(device);
+                }
+            }
+            ServerMessage::Idle => {
+                let handler = self.on_idle.borrow_mut();
+                if let Some(handler) = handler.deref() {
+                    handler();
                 }
             }
         }
