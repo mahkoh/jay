@@ -14,6 +14,7 @@ use {
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
             wl_seat::{
+                zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Global,
                 zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global, WlSeatGlobal,
             },
             wl_shm::WlShmGlobal,
@@ -147,6 +148,7 @@ impl Globals {
         add_singleton!(ExtSessionLockManagerV1Global);
         add_singleton!(WpViewporterGlobal);
         add_singleton!(WpFractionalScaleManagerV1Global);
+        add_singleton!(ZwpPointerConstraintsV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

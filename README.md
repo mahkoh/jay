@@ -38,13 +38,13 @@ The following features have been implemented and should work:
 - Monitor hotplug
 - Fractional scaling
 - Hardware cursors
+- Pointer constraints
 
 ### Missing Features
 
 The following features are known to be missing or broken and will be implemented
 later:
 
-- Games that require pointer grabs
 - Touch and tablet support
 - Damage tracking (any kind of damage causes a complete re-render currently)
 - Selecting the primary device in multi-GPU systems 

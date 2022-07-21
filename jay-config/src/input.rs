@@ -278,6 +278,11 @@ impl Seat {
     pub fn set_fullscreen(self, fullscreen: bool) {
         get!().set_fullscreen(self, fullscreen)
     }
+
+    /// Disables the currently active pointer constraint on this seat.
+    pub fn disable_pointer_constraint(self) {
+        get!().disable_pointer_constraint(self)
+    }
 }
 
 /// Returns all seats.

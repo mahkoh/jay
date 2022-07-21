@@ -304,6 +304,9 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         use_hardware_cursor: bool,
     },
+    DisablePointerConstraint {
+        seat: Seat,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

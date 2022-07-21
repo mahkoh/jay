@@ -118,6 +118,22 @@ impl Rect {
         self.raw.x1 <= x && self.raw.y1 <= y && self.raw.x2 > x && self.raw.y2 > y
     }
 
+    pub fn dist_squared(&self, x: i32, y: i32) -> i32 {
+        let mut dx = 0;
+        if self.raw.x1 > x {
+            dx = self.raw.x1 - x;
+        } else if self.raw.x2 < x {
+            dx = x - self.raw.x1;
+        }
+        let mut dy = 0;
+        if self.raw.y1 > y {
+            dy = self.raw.y1 - y;
+        } else if self.raw.y2 < y {
+            dy = y - self.raw.y1;
+        }
+        dx * dx + dy * dy
+    }
+
     #[allow(dead_code)]
     pub fn contains_rect(&self, rect: &Self) -> bool {
         self.raw.x1 <= rect.raw.x1

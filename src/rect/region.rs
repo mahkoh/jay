@@ -78,6 +78,18 @@ impl Region {
     pub fn extents(&self) -> Rect {
         self.extents
     }
+
+    pub fn contains(&self, x: i32, y: i32) -> bool {
+        if !self.extents.contains(x, y) {
+            return false;
+        }
+        for r in self.deref() {
+            if r.contains(x, y) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl Deref for Region {

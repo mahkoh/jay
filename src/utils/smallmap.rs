@@ -42,6 +42,10 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         }
     }
 
+    pub fn contains(&self, k: &K) -> bool {
+        unsafe { self.m.get().deref().contains(k) }
+    }
+
     pub fn len(&self) -> usize {
         unsafe { self.m.get().deref().len() }
     }
@@ -156,6 +160,15 @@ impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
 
     pub fn len(&self) -> usize {
         self.m.len()
+    }
+
+    pub fn contains(&self, k: &K) -> bool {
+        for (ek, _) in &self.m {
+            if ek == k {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn insert(&mut self, k: K, v: V) -> Option<V> {

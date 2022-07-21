@@ -20,7 +20,10 @@ use {
                 TF_180, TF_270, TF_90, TF_FLIPPED, TF_FLIPPED_180, TF_FLIPPED_270, TF_FLIPPED_90,
                 TF_NORMAL,
             },
-            wl_seat::{wl_pointer::PendingScroll, Dnd, NodeSeatState, SeatId, WlSeatGlobal},
+            wl_seat::{
+                wl_pointer::PendingScroll, zwp_pointer_constraints_v1::SeatConstraint, Dnd,
+                NodeSeatState, SeatId, WlSeatGlobal,
+            },
             wl_surface::{
                 cursor::CursorSurface, wl_subsurface::WlSubsurface,
                 wp_fractional_scale_v1::WpFractionalScaleV1, wp_viewport::WpViewport,
@@ -253,6 +256,7 @@ pub struct WlSurface {
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
     output: CloneCell<Rc<OutputNode>>,
     fractional_scale: CloneCell<Option<Rc<WpFractionalScaleV1>>>,
+    pub constraints: SmallMap<SeatId, Rc<SeatConstraint>, 1>,
 }
 
 impl Debug for WlSurface {
@@ -386,6 +390,7 @@ impl WlSurface {
             viewporter: Default::default(),
             output: CloneCell::new(client.state.dummy_output.get().unwrap()),
             fractional_scale: Default::default(),
+            constraints: Default::default(),
         }
     }
 
@@ -595,6 +600,7 @@ impl WlSurface {
         self.toplevel.set(None);
         self.client.remove_obj(self)?;
         self.idle_inhibitors.clear();
+        self.constraints.take();
         Ok(())
     }
 
@@ -957,6 +963,9 @@ impl WlSurface {
     }
 
     pub fn destroy_node(&self) {
+        for (_, constraint) in &self.constraints {
+            constraint.deactivate();
+        }
         for (_, inhibitor) in self.idle_inhibitors.lock().drain() {
             inhibitor.deactivate();
         }
@@ -1020,6 +1029,7 @@ impl Object for WlSurface {
         self.presentation_feedback.borrow_mut().clear();
         self.viewporter.take();
         self.fractional_scale.take();
+        self.constraints.clear();
     }
 }
 

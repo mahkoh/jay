@@ -297,6 +297,10 @@ impl Client {
         axis
     }
 
+    pub fn disable_pointer_constraint(&self, seat: Seat) {
+        self.send(&ClientMessage::DisablePointerConstraint { seat });
+    }
+
     pub fn set_fullscreen(&self, seat: Seat, fullscreen: bool) {
         self.send(&ClientMessage::SetFullscreen { seat, fullscreen });
     }

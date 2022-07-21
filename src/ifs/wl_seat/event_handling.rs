@@ -19,6 +19,7 @@ use {
                     AXIS_VALUE120_SINCE_VERSION, POINTER_FRAME_SINCE_VERSION, WHEEL_TILT,
                     WHEEL_TILT_SINCE_VERSION,
                 },
+                zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
                 Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
             },
@@ -216,6 +217,11 @@ impl WlSeatGlobal {
         let pos = output.node.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
+        if let Some(c) = self.constraint.get() {
+            if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
+                c.deactivate();
+            }
+        }
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
@@ -238,9 +244,26 @@ impl WlSeatGlobal {
             dx_unaccelerated,
             dy_unaccelerated,
         );
+        let constraint = self.constraint.get();
+        let locked = match &constraint {
+            Some(c) if c.ty == ConstraintType::Lock => true,
+            _ => false,
+        };
         let (mut x, mut y) = self.pos.get();
-        x += dx;
-        y += dy;
+        if !locked {
+            x += dx;
+            y += dy;
+            if let Some(c) = &constraint {
+                let surface_pos = c.surface.buffer_abs_pos.get();
+                let (x_rel, y_rel) = (x - surface_pos.x1(), y - surface_pos.y1());
+                let contained = surface_pos.contains(x.round_down(), y.round_down())
+                    && c.contains(x_rel.round_down(), y_rel.round_down());
+                if !contained {
+                    let (x_rel, y_rel) = c.warp(x_rel, y_rel);
+                    (x, y) = (x_rel + surface_pos.x1(), y_rel + surface_pos.y1());
+                }
+            }
+        }
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_rel(
                 self.id,
@@ -604,6 +627,7 @@ impl WlSeatGlobal {
         let time = (self.pos_time_usec.get() / 1000) as u32;
         self.surface_pointer_event(0, n, |p| p.send_motion(time, x, y));
         self.surface_pointer_frame(n);
+        self.maybe_constrain(n, x, y);
     }
 }
 
@@ -641,6 +665,12 @@ impl WlSeatGlobal {
         n.client.last_enter_serial.set(serial);
         self.surface_pointer_event(0, n, |p| p.send_enter(serial, n.id, x, y));
         self.surface_pointer_frame(n);
+        for (_, constraint) in &n.constraints {
+            if constraint.status.get() == SeatConstraintStatus::ActivatableOnFocus {
+                constraint.status.set(SeatConstraintStatus::Inactive);
+            }
+        }
+        self.maybe_constrain(n, x, y);
     }
 }
 
@@ -648,6 +678,9 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn leave_surface(&self, n: &WlSurface) {
         let serial = n.client.next_serial();
+        for (_, constraint) in &n.constraints {
+            constraint.deactivate();
+        }
         self.surface_pointer_event(0, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
     }

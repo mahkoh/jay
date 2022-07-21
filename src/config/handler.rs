@@ -605,6 +605,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_disable_pointer_constraint(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.disable_pointer_constraint();
+        Ok(())
+    }
+
     fn handle_set_use_hardware_cursor(
         &self,
         seat: Seat,
@@ -1195,6 +1201,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_use_hardware_cursor(seat, use_hardware_cursor)
                 .wrn("set_use_hardware_cursor")?,
+            ClientMessage::DisablePointerConstraint { seat } => self
+                .handle_disable_pointer_constraint(seat)
+                .wrn("disable_pointer_constraint")?,
         }
         Ok(())
     }

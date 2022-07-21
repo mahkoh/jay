@@ -4,6 +4,7 @@ mod pointer_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
+pub mod zwp_pointer_constraints_v1;
 pub mod zwp_relative_pointer_manager_v1;
 pub mod zwp_relative_pointer_v1;
 
@@ -32,6 +33,7 @@ use {
                 wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
+                zwp_pointer_constraints_v1::{SeatConstraint, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
             wl_surface::WlSurface,
@@ -152,6 +154,7 @@ pub struct WlSeatGlobal {
     changes: NumCell<u32>,
     cursor_size: Cell<u32>,
     hardware_cursor: Cell<bool>,
+    constraint: CloneCell<Option<Rc<SeatConstraint>>>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -205,6 +208,7 @@ impl WlSeatGlobal {
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
             cursor_size: Cell::new(DEFAULT_CURSOR_SIZE),
             hardware_cursor: Cell::new(state.globals.seats.len() == 0),
+            constraint: Default::default(),
         });
         state.add_cursor_size(DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -386,6 +390,47 @@ impl WlSeatGlobal {
     pub fn mark_last_active(self: &Rc<Self>) {
         self.queue_link
             .set(Some(self.state.seat_queue.add_last(self.clone())));
+    }
+
+    pub fn disable_pointer_constraint(&self) {
+        if let Some(constraint) = self.constraint.get() {
+            constraint.deactivate();
+            if constraint.status.get() == SeatConstraintStatus::Inactive {
+                constraint
+                    .status
+                    .set(SeatConstraintStatus::ActivatableOnFocus);
+            }
+        }
+    }
+
+    fn maybe_constrain_pointer_node(&self) {
+        if let Some(pn) = self.pointer_node() {
+            if let Some(surface) = pn.node_into_surface() {
+                let (mut x, mut y) = self.pos.get();
+                let (sx, sy) = surface.buffer_abs_pos.get().position();
+                x -= Fixed::from_int(sx);
+                y -= Fixed::from_int(sy);
+                self.maybe_constrain(&surface, x, y);
+            }
+        }
+    }
+
+    fn maybe_constrain(&self, surface: &WlSurface, x: Fixed, y: Fixed) {
+        if self.constraint.get().is_some() {
+            return;
+        }
+        let candidate = match surface.constraints.get(&self.id) {
+            Some(c) if c.status.get() == SeatConstraintStatus::Inactive => c,
+            _ => return,
+        };
+        if !candidate.contains(x.round_down(), y.round_down()) {
+            return;
+        }
+        candidate.status.set(SeatConstraintStatus::Active);
+        if let Some(owner) = candidate.owner.get() {
+            owner.send_enabled();
+        }
+        self.constraint.set(Some(candidate));
     }
 
     pub fn set_fullscreen(&self, fullscreen: bool) {
@@ -800,6 +845,7 @@ impl WlSeatGlobal {
         self.queue_link.set(None);
         self.tree_changed_handler.set(None);
         self.output.set(self.state.dummy_output.get().unwrap());
+        self.constraint.take();
     }
 
     pub fn id(&self) -> SeatId {

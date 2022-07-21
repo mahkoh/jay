@@ -1,0 +1,21 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg lock_pointer = 1 {
+    id: id(zwp_locked_pointer_v1),
+    surface: id(wl_surface),
+    pointer: id(wl_pointer),
+    region: id(wl_region),
+    lifetime: u32,
+}
+
+msg confine_pointer = 2 {
+    id: id(zwp_confined_pointer_v1),
+    surface: id(wl_surface),
+    pointer: id(wl_pointer),
+    region: id(wl_region),
+    lifetime: u32,
+}

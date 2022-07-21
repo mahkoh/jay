@@ -9,6 +9,8 @@ use std::{
 pub struct Fixed(pub i32);
 
 impl Fixed {
+    pub const EPSILON: Self = Fixed(1);
+
     pub fn is_integer(self) -> bool {
         self.0 & 255 == 0
     }
@@ -83,6 +85,22 @@ impl Add for Fixed {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0 + rhs.0)
+    }
+}
+
+impl Sub<i32> for Fixed {
+    type Output = Self;
+
+    fn sub(self, rhs: i32) -> Self::Output {
+        Self(self.0 - (rhs << 8))
+    }
+}
+
+impl Add<i32> for Fixed {
+    type Output = Self;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        Self(self.0 + (rhs << 8))
     }
 }
 
