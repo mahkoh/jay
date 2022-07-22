@@ -624,8 +624,15 @@ impl WlSeatGlobal {
 // Motion callbacks
 impl WlSeatGlobal {
     pub fn motion_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
-        let time = (self.pos_time_usec.get() / 1000) as u32;
-        self.surface_pointer_event(0, n, |p| p.send_motion(time, x, y));
+        'send_motion: {
+            if let Some(constraint) = self.constraint.get() {
+                if constraint.ty == ConstraintType::Lock {
+                    break 'send_motion;
+                }
+            }
+            let time = (self.pos_time_usec.get() / 1000) as u32;
+            self.surface_pointer_event(0, n, |p| p.send_motion(time, x, y));
+        }
         self.surface_pointer_frame(n);
         self.maybe_constrain(n, x, y);
     }
