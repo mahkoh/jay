@@ -395,10 +395,11 @@ impl MetalConnector {
                 }
                 _ => log::error!("Could not set plane framebuffer: {}", ErrorFmt(e)),
             }
+        } else {
+            self.can_present.set(false);
+            self.has_damage.set(false);
+            self.cursor_changed.set(false);
         }
-        self.can_present.set(false);
-        self.has_damage.set(false);
-        self.cursor_changed.set(false);
     }
 }
 
