@@ -113,6 +113,7 @@ impl ZwlrLayerSurfaceV1 {
             return Err(ZwlrLayerSurfaceV1Error::AlreadyAttached(self.surface.id));
         }
         self.surface.ext.set(self.clone());
+        self.surface.set_output(&self.output);
         Ok(())
     }
 
