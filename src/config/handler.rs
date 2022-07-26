@@ -686,6 +686,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_connector_set_enabled(
+        &self,
+        connector: Connector,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let connector = self.get_connector(connector)?;
+        connector.connector.set_enabled(enabled);
+        Ok(())
+    }
+
     fn handle_get_connector(
         &self,
         ty: jay_config::video::connector_type::ConnectorType,
@@ -1125,6 +1135,9 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetPosition { connector, x, y } => self
                 .handle_connector_set_position(connector, x, y)
                 .wrn("connector_set_position")?,
+            ClientMessage::ConnectorSetEnabled { connector, enabled } => self
+                .handle_connector_set_enabled(connector, enabled)
+                .wrn("connector_set_enabled")?,
             ClientMessage::Close { seat } => self.handle_close(seat).wrn("close")?,
             ClientMessage::SetStatus { status } => self.handle_set_status(status),
             ClientMessage::GetTimer { name } => self.handle_get_timer(name).wrn("get_timer")?,

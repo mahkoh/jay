@@ -153,6 +153,8 @@ pub struct MetalConnector {
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub next_buffer: NumCell<usize>,
 
+    pub enabled: Cell<bool>,
+
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
     pub cursor_changed: Cell<bool>,
@@ -300,7 +302,7 @@ impl MetalConnector {
 
     fn connected(&self) -> bool {
         let dd = self.display.borrow_mut();
-        dd.connection == ConnectorStatus::Connected && self.primary_plane.get().is_some()
+        self.enabled.get() && dd.connection == ConnectorStatus::Connected && self.primary_plane.get().is_some()
     }
 
     fn send_event(&self, event: ConnectorEvent) {
@@ -434,6 +436,19 @@ impl Connector for MetalConnector {
     fn drm_dev(&self) -> Option<DrmDeviceId> {
         Some(self.dev.id)
     }
+
+    fn set_enabled(&self, enabled: bool) {
+        if self.enabled.replace(enabled) != enabled {
+            if self.display.borrow_mut().connection == ConnectorStatus::Connected {
+                if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
+                    if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
+                        dev.unprocessed_change.set(true);
+                        log::error!("Could not dis/enable connector: {}", ErrorFmt(e));
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -533,6 +548,7 @@ fn create_connector(
         events: Default::default(),
         buffers: Default::default(),
         next_buffer: Default::default(),
+        enabled: Cell::new(true),
         can_present: Cell::new(true),
         has_damage: Cell::new(true),
         primary_plane: Default::default(),
@@ -959,7 +975,7 @@ impl MetalBackend {
             let mut old = c.display.borrow_mut();
             mem::swap(old.deref_mut(), &mut dd);
             if c.connect_sent.get() {
-                if old.connection != ConnectorStatus::Connected || !old.is_same_monitor(&dd) {
+                if !c.enabled.get() || old.connection != ConnectorStatus::Connected || !old.is_same_monitor(&dd) {
                     c.send_event(ConnectorEvent::Disconnected);
                     c.connect_sent.set(false);
                 } else if preserve_any {
@@ -1451,7 +1467,7 @@ impl MetalBackend {
 
         for connector in dev.connectors.lock().values() {
             let dd = connector.display.borrow_mut();
-            if dd.connection != ConnectorStatus::Connected {
+            if !connector.enabled.get() || dd.connection != ConnectorStatus::Connected {
                 if dd.crtc_id.value.get().is_some() {
                     log::debug!("Connector is not connected but has an assigned crtc");
                     return false;
@@ -1586,7 +1602,7 @@ impl MetalBackend {
         changes: &mut Change,
     ) -> Result<(), MetalError> {
         let dd = connector.display.borrow_mut();
-        if dd.connection != ConnectorStatus::Connected {
+        if !connector.enabled.get() || dd.connection != ConnectorStatus::Connected {
             return Ok(());
         }
         let crtc = 'crtc: {

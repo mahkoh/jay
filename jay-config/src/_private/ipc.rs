@@ -308,6 +308,10 @@ pub enum ClientMessage<'a> {
     DisablePointerConstraint {
         seat: Seat,
     },
+    ConnectorSetEnabled {
+        connector: Connector,
+        enabled: bool,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

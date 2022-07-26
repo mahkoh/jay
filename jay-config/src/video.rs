@@ -147,6 +147,17 @@ impl Connector {
         }
         get!().connector_set_position(self, x, y);
     }
+
+    /// Enables or disables the connector.
+    ///
+    /// By default, all connectors are enabled.
+    pub fn set_enabled(self, enabled: bool) {
+        if !self.exists() {
+            log::warn!("set_enabled called on a connector that does not exist");
+            return;
+        }
+        get!().connector_set_enabled(self, enabled);
+    }
 }
 
 /// Returns all available DRM devices.

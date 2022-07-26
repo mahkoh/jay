@@ -81,6 +81,7 @@ pub trait Connector {
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
+    fn set_enabled(&self, enabled: bool);
 }
 
 #[derive(Debug)]

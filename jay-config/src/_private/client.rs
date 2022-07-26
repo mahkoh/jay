@@ -440,6 +440,10 @@ impl Client {
         self.send(&ClientMessage::ConnectorSetPosition { connector, x, y });
     }
 
+    pub fn connector_set_enabled(&self, connector: Connector, enabled: bool) {
+        self.send(&ClientMessage::ConnectorSetEnabled { connector, enabled });
+    }
+
     pub fn device_connectors(&self, device: DrmDevice) -> Vec<Connector> {
         let res = self.send_with_response(&ClientMessage::GetDeviceConnectors { device });
         get_response!(res, vec![], GetDeviceConnectors { connectors });
