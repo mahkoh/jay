@@ -94,7 +94,7 @@ pub(super) fn allocate_socket() -> Result<(XSocket, Rc<OwnedFd>), XWaylandError>
         Ok(f) => Rc::new(f),
         Err(e) => return Err(XWaylandError::SocketFailed(e.into())),
     };
-    for i in 0..1000 {
+    for i in 500..1500 {
         match bind_socket(&fd, i) {
             Ok(s) => return Ok(s),
             Err(e) => {
