@@ -302,7 +302,9 @@ impl MetalConnector {
 
     fn connected(&self) -> bool {
         let dd = self.display.borrow_mut();
-        self.enabled.get() && dd.connection == ConnectorStatus::Connected && self.primary_plane.get().is_some()
+        self.enabled.get()
+            && dd.connection == ConnectorStatus::Connected
+            && self.primary_plane.get().is_some()
     }
 
     fn send_event(&self, event: ConnectorEvent) {
@@ -975,7 +977,10 @@ impl MetalBackend {
             let mut old = c.display.borrow_mut();
             mem::swap(old.deref_mut(), &mut dd);
             if c.connect_sent.get() {
-                if !c.enabled.get() || old.connection != ConnectorStatus::Connected || !old.is_same_monitor(&dd) {
+                if !c.enabled.get()
+                    || old.connection != ConnectorStatus::Connected
+                    || !old.is_same_monitor(&dd)
+                {
                     c.send_event(ConnectorEvent::Disconnected);
                     c.connect_sent.set(false);
                 } else if preserve_any {
