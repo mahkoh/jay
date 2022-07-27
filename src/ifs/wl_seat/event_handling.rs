@@ -31,7 +31,11 @@ use {
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
-    jay_config::keyboard::{mods::Modifiers, syms::KeySym, ModifiedKeySym},
+    jay_config::keyboard::{
+        mods::{Modifiers, CAPS, NUM},
+        syms::KeySym,
+        ModifiedKeySym,
+    },
     smallvec::SmallVec,
     std::rc::Rc,
 };
@@ -339,7 +343,8 @@ impl WlSeatGlobal {
                 let old_mods = kb_state.mods();
                 let keysyms = kb_state.unmodified_keysyms(key);
                 for &sym in keysyms {
-                    if let Some(mods) = self.shortcuts.get(&(old_mods.mods_effective, sym)) {
+                    let mods = old_mods.mods_effective & !(CAPS.0 | NUM.0);
+                    if let Some(mods) = self.shortcuts.get(&(mods, sym)) {
                         shortcuts.push(ModifiedKeySym {
                             mods,
                             sym: KeySym(sym),

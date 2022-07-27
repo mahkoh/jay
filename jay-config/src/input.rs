@@ -150,6 +150,9 @@ impl Seat {
     /// The closure is invoked when the user presses the last key of the modified keysym.
     /// Note that the keysym is calculated without modifiers applied. To perform an action
     /// when `SHIFT+k` is pressed, use `SHIFT | SYM_k` not `SHIFT | SYM_K`.
+    ///
+    /// CapsLock and NumLock are ignored during modifier evaluation. Therefore, bindings
+    /// containing these modifiers will never be invoked.
     pub fn bind<T: Into<ModifiedKeySym>, F: Fn() + 'static>(self, mod_sym: T, f: F) {
         get!().bind(self, mod_sym, f)
     }
