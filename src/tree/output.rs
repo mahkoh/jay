@@ -253,29 +253,7 @@ impl OutputNode {
             }
             unreachable!();
         };
-        let workspace = Rc::new(WorkspaceNode {
-            id: self.state.node_ids.next(),
-            is_dummy: false,
-            output: CloneCell::new(self.clone()),
-            position: Default::default(),
-            container: Default::default(),
-            stacked: Default::default(),
-            seat_state: Default::default(),
-            name: name.clone(),
-            output_link: Default::default(),
-            visible: Cell::new(true),
-            fullscreen: Default::default(),
-            visible_on_desired_output: Cell::new(false),
-            desired_output: CloneCell::new(self.global.output_id.clone()),
-            jay_workspaces: Default::default(),
-        });
-        self.state.workspaces.set(name, workspace.clone());
-        workspace
-            .output_link
-            .set(Some(self.workspaces.add_last(workspace.clone())));
-        self.show_workspace(&workspace);
-        self.schedule_update_render_data();
-        workspace
+        self.create_workspace(&name)
     }
 
     pub fn show_workspace(&self, ws: &Rc<WorkspaceNode>) -> bool {
