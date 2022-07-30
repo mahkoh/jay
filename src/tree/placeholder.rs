@@ -61,7 +61,7 @@ impl PlaceholderNode {
                     let font = format!("monospace {}", width / 10);
                     match text::render_fitting(
                         &ctx,
-                        height,
+                        Some(height),
                         &font,
                         "Fullscreen",
                         self.toplevel.state.theme.colors.unfocused_title_text.get(),

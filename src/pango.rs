@@ -85,6 +85,7 @@ extern "C" {
         ink_rect: *mut PangoRectangle,
         logical_rect: *mut PangoRectangle,
     );
+    fn pango_layout_get_baseline(layout: *mut PangoLayout_) -> c::c_int;
 
     fn pango_extents_to_pixels(inclusive: *mut PangoRectangle, nearest: *mut PangoRectangle);
 }
@@ -104,12 +105,15 @@ pub enum PangoError {
 }
 
 #[repr(C)]
+#[derive(Default)]
 struct PangoRectangle {
     x: c::c_int,
     y: c::c_int,
     width: c::c_int,
     height: c::c_int,
 }
+
+const PANGO_SCALE: i32 = 1024;
 
 pub struct CairoImageSurface {
     s: *mut cairo_surface_t,
@@ -325,15 +329,26 @@ impl PangoLayout {
 
     pub fn inc_pixel_rect(&self) -> Rect {
         unsafe {
-            let mut rect = PangoRectangle {
-                x: 0,
-                y: 0,
-                width: 0,
-                height: 0,
-            };
+            let mut rect = PangoRectangle::default();
             pango_layout_get_extents(self.l, &mut rect, ptr::null_mut());
             pango_extents_to_pixels(&mut rect, ptr::null_mut());
             Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
+        }
+    }
+
+    pub fn logical_pixel_rect(&self) -> Rect {
+        unsafe {
+            let mut rect = PangoRectangle::default();
+            pango_layout_get_extents(self.l, ptr::null_mut(), &mut rect);
+            pango_extents_to_pixels(&mut rect, ptr::null_mut());
+            Rect::new_sized(rect.x, rect.y, rect.width, rect.height).unwrap()
+        }
+    }
+
+    pub fn pixel_baseline(&self) -> i32 {
+        unsafe {
+            let res = pango_layout_get_baseline(self.l);
+            (res as i32 + PANGO_SCALE - 1) / PANGO_SCALE
         }
     }
 
