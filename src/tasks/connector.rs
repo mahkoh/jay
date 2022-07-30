@@ -126,6 +126,7 @@ impl ConnectorHandler {
             hardware_cursor: Default::default(),
             jay_outputs: Default::default(),
             screencasts: Default::default(),
+            update_render_data_scheduled: Cell::new(false),
         });
         self.state.add_output_scale(on.preferred_scale.get());
         let mode = info.initial_mode;
@@ -180,7 +181,7 @@ impl ConnectorHandler {
                         ws.flush_jay_workspaces();
                     }
                 }
-                source.node.update_render_data();
+                source.node.schedule_update_render_data();
             }
             if on.workspace.get().is_none() {
                 if let Some(ws) = on.workspaces.first() {
@@ -189,7 +190,7 @@ impl ConnectorHandler {
                 }
             }
         }
-        on.update_render_data();
+        on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.root.update_extents();
         self.state.add_global(&global);
@@ -249,7 +250,7 @@ impl ConnectorHandler {
                 }
                 ws.flush_jay_workspaces();
             }
-            target.update_render_data();
+            target.schedule_update_render_data();
             self.state.tree_changed();
             self.state.damage();
         }

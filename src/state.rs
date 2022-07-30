@@ -94,6 +94,7 @@ pub struct State {
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_data: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub dbus: Dbus,
@@ -220,7 +221,7 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
         node.node_visit_children(self);
     }
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        node.update_render_data();
+        node.schedule_update_render_data();
         node.node_visit_children(self);
     }
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
@@ -468,7 +469,7 @@ impl State {
             }
         };
         ws.flush_jay_workspaces();
-        output.update_render_data();
+        output.schedule_update_render_data();
         self.tree_changed();
         // let seats = self.globals.seats.lock();
         // for seat in seats.values() {
@@ -576,6 +577,7 @@ impl State {
         self.dbus.clear();
         self.pending_container_layout.clear();
         self.pending_container_render_data.clear();
+        self.pending_output_render_data.clear();
         self.pending_float_layout.clear();
         self.pending_float_titles.clear();
         self.render_ctx_watchers.clear();
