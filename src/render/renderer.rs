@@ -4,4 +4,5 @@ mod context;
 mod framebuffer;
 mod image;
 mod renderer;
+mod renderer_base;
 mod texture;

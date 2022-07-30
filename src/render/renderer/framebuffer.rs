@@ -12,7 +12,7 @@ use {
                     GL_FRAMEBUFFER,
                 },
             },
-            renderer::{context::RenderContext, renderer::Renderer},
+            renderer::{context::RenderContext, renderer::Renderer, renderer_base::RendererBase},
             sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
             RenderResult, Texture,
         },
@@ -39,11 +39,15 @@ impl Debug for Framebuffer {
 
 impl Framebuffer {
     pub fn clear(&self) {
+        self.clear_with(0.0, 0.0, 0.0, 0.0);
+    }
+
+    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) {
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
                 glViewport(0, 0, self.gl.width, self.gl.height);
-                glClearColor(0.0, 0.0, 0.0, 0.0);
+                glClearColor(r, g, b, a);
                 glClear(GL_COLOR_BUFFER_BIT);
             }
             Ok(())
@@ -59,17 +63,21 @@ impl Framebuffer {
             }
             let scale = Fixed::from_int(1);
             let mut renderer = Renderer {
-                ctx: &self.ctx,
-                fb: &self.gl,
+                base: RendererBase {
+                    ctx: &self.ctx,
+                    fb: &self.gl,
+                    scaled: false,
+                    scale,
+                    scalef: 1.0,
+                },
                 state,
                 on_output: false,
                 result: &mut RenderResult::default(),
-                scaled: false,
-                scale,
-                scalef: 1.0,
                 logical_extents: Rect::new_sized(0, 0, self.gl.width, self.gl.height).unwrap(),
             };
-            renderer.render_texture(texture, x, y, XRGB8888, None, None, scale);
+            renderer
+                .base
+                .render_texture(texture, x, y, XRGB8888, None, None, scale);
             unsafe {
                 glFlush();
             }
@@ -126,14 +134,16 @@ impl Framebuffer {
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
             let mut renderer = Renderer {
-                ctx: &self.ctx,
-                fb: &self.gl,
+                base: RendererBase {
+                    ctx: &self.ctx,
+                    fb: &self.gl,
+                    scaled: scale != 1,
+                    scale,
+                    scalef: scale.to_f64(),
+                },
                 state,
                 on_output,
                 result,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
                 logical_extents: node.node_absolute_position().at_point(0, 0),
             };
             node.node_render(&mut renderer, 0, 0);
@@ -180,14 +190,16 @@ impl Framebuffer {
             }
             let mut res = RenderResult::default();
             let mut renderer = Renderer {
-                ctx: &self.ctx,
-                fb: &self.gl,
+                base: RendererBase {
+                    ctx: &self.ctx,
+                    fb: &self.gl,
+                    scaled: scale != 1,
+                    scale,
+                    scalef: scale.to_f64(),
+                },
                 state,
                 on_output: false,
                 result: &mut res,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
                 logical_extents: Rect::new_empty(0, 0),
             };
             cursor.render_hardware_cursor(&mut renderer);

@@ -281,7 +281,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
         img.extents.move_(x.round_down(), y.round_down())
     };
     if extents.intersects(&renderer.physical_extents()) {
-        renderer.render_texture(
+        renderer.base.render_texture(
             &img.tex,
             extents.x1(),
             extents.y1(),
@@ -300,7 +300,9 @@ impl Cursor for StaticCursor {
 
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
-            renderer.render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+            renderer
+                .base
+                .render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
         }
     }
 
@@ -328,7 +330,9 @@ impl Cursor for AnimatedCursor {
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         let img = &self.images[self.idx.get()];
         if let Some(img) = img.scales.get(&renderer.scale()) {
-            renderer.render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+            renderer
+                .base
+                .render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
         }
     }
 
