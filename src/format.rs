@@ -1,5 +1,8 @@
 use {
     crate::{
+        pipewire::pw_pod::{
+            SPA_VIDEO_FORMAT_BGRx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_NV12,
+        },
         render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE},
         utils::debug_fn::debug_fn,
     },
@@ -19,6 +22,7 @@ pub struct Format {
     pub external_only_guess: bool,
     pub has_alpha: bool,
     pub shm_supported: bool,
+    pub pipewire: SpaVideoFormat,
 }
 
 static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
@@ -29,8 +33,20 @@ static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
     map
 });
 
+static PW_FORMATS_MAP: Lazy<AHashMap<SpaVideoFormat, &'static Format>> = Lazy::new(|| {
+    let mut map = AHashMap::new();
+    for format in FORMATS {
+        assert!(map.insert(format.pipewire, format).is_none());
+    }
+    map
+});
+
 pub fn formats() -> &'static AHashMap<u32, &'static Format> {
     &*FORMATS_MAP
+}
+
+pub fn pw_formats() -> &'static AHashMap<SpaVideoFormat, &'static Format> {
+    &*PW_FORMATS_MAP
 }
 
 const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
@@ -77,6 +93,7 @@ pub static FORMATS: &[Format] = &[
         external_only_guess: false,
         has_alpha: true,
         shm_supported: true,
+        pipewire: SPA_VIDEO_FORMAT_BGRA,
     },
     Format {
         name: "xrgb8888",
@@ -88,6 +105,7 @@ pub static FORMATS: &[Format] = &[
         external_only_guess: false,
         has_alpha: false,
         shm_supported: true,
+        pipewire: SPA_VIDEO_FORMAT_BGRx,
     },
     Format {
         name: "nv12",
@@ -99,6 +117,7 @@ pub static FORMATS: &[Format] = &[
         external_only_guess: true,
         has_alpha: false,
         shm_supported: false,
+        pipewire: SPA_VIDEO_FORMAT_NV12,
     },
     // Format {
     //     id: fourcc_code('C', '8', ' ', ' '),

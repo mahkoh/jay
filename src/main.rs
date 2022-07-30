@@ -59,6 +59,7 @@ mod logger;
 mod logind;
 mod object;
 mod pango;
+mod pipewire;
 mod rect;
 mod render;
 mod screenshoter;

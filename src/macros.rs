@@ -489,3 +489,181 @@ macro_rules! containing_node_impl {
         }
     };
 }
+
+macro_rules! bitflags {
+    ($name:ident: $rep:ty; $($var:ident = $val:expr,)*) => {
+        #[derive(Copy, Clone, Eq, PartialEq)]
+        pub struct $name(pub $rep);
+
+        $(
+            #[allow(dead_code)]
+            pub const $var: $name = $name($val);
+        )*
+
+        #[allow(dead_code)]
+        impl $name {
+            pub fn none() -> Self {
+                Self(0)
+            }
+
+            pub fn is_some(self) -> bool {
+                self.0 != 0
+            }
+        }
+
+        impl crate::utils::bitflags::BitflagsExt for $name {
+            fn contains(self, other: Self) -> bool {
+                self.0 & other.0 == other.0
+            }
+
+            fn not_contains(self, other: Self) -> bool {
+                self.0 & other.0 != other.0
+            }
+
+            fn intersects(self, other: Self) -> bool {
+                self.0 & other.0 != 0
+            }
+        }
+
+        impl std::ops::BitOr for $name {
+            type Output = Self;
+
+            fn bitor(self, rhs: Self) -> Self::Output {
+                Self(self.0 | rhs.0)
+            }
+        }
+
+        impl std::ops::BitAnd for $name {
+            type Output = Self;
+
+            fn bitand(self, rhs: Self) -> Self::Output {
+                Self(self.0 & rhs.0)
+            }
+        }
+
+        impl std::ops::BitOrAssign for $name {
+            fn bitor_assign(&mut self, rhs: Self) {
+                self.0 |= rhs.0;
+            }
+        }
+
+        impl std::ops::BitAndAssign for $name {
+            fn bitand_assign(&mut self, rhs: Self) {
+                self.0 &= rhs.0;
+            }
+        }
+
+        impl std::ops::Not for $name {
+            type Output = Self;
+
+            fn not(self) -> Self::Output {
+                Self(!self.0)
+            }
+        }
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let mut any = false;
+                let mut v = self.0;
+                $(
+                    if v & $val == $val {
+                        if any {
+                            write!(f, "|")?;
+                        }
+                        any = true;
+                        write!(f, "{}", stringify!($var))?;
+                        v &= !$val;
+                    }
+                )*
+                if !any || v != 0 {
+                    if any {
+                        write!(f, "|")?;
+                    }
+                    write!(f, "0x{:x}", v)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+macro_rules! pw_opcodes {
+    ($name:ident; $($var:ident = $val:expr,)*) => {
+        #[derive(Copy, Clone, Debug)]
+        #[allow(dead_code)]
+        pub enum $name {
+            $(
+                $var,
+            )*
+        }
+
+        #[allow(dead_code)]
+        impl $name {
+            pub fn from_id(id: u8) -> Option<Self> {
+                let v = match id {
+                    $($val => Self::$var,)*
+                    _ => return None,
+                };
+                Some(v)
+            }
+
+            pub fn name(self) -> &'static str {
+                match self {
+                    $(Self::$var => stringify!($var),)*
+                }
+            }
+        }
+
+        impl crate::pipewire::pw_object::PwOpcode for $name {
+            fn id(&self) -> u8 {
+                match self {
+                    $(Self::$var => $val,)*
+                }
+            }
+        }
+    }
+}
+
+macro_rules! pw_object_base {
+    ($name:ident, $if:expr, $events:ident; $($event:ident => $method:ident,)*) => {
+        impl crate::pipewire::pw_object::PwObjectBase for $name {
+            fn data(&self) -> &crate::pipewire::pw_object::PwObjectData {
+                &self.data
+            }
+
+            fn interface(&self) -> &str {
+                $if
+            }
+
+            fn handle_msg(self: std::rc::Rc<Self>, opcode: u8, parser: crate::pipewire::pw_parser::PwParser<'_>) -> Result<(), crate::pipewire::pw_object::PwObjectError> {
+                match $events::from_id(opcode) {
+                    None => Err(crate::pipewire::pw_object::PwObjectError {
+                        interface: $if,
+                        source: crate::pipewire::pw_object::PwObjectErrorType::UnknownEvent(opcode),
+                    }),
+                    Some(m) => {
+                        let (res, method) = match m {
+                            $(
+                                $events::$event => (self.$method(parser), stringify!($event)),
+                            )*
+                        };
+                        match res {
+                            Ok(_) => Ok(()),
+                            Err(source) => Err(crate::pipewire::pw_object::PwObjectError {
+                                interface: $if,
+                                source: crate::pipewire::pw_object::PwObjectErrorType::EventError {
+                                    method,
+                                    source: Box::new(source),
+                                },
+                            })
+                        }
+                    },
+                }
+            }
+
+            fn event_name(&self, opcode: u8) -> Option<&'static str> {
+                $events::from_id(opcode).map(|o| o.name())
+            }
+        }
+    }
+}
