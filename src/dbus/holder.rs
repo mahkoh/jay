@@ -70,6 +70,7 @@ fn connect(
         headers: Default::default(),
         run_toplevel: run_toplevel.clone(),
         signal_handlers: Default::default(),
+        objects: Default::default(),
     });
     let skt = socket.clone();
     socket.call(

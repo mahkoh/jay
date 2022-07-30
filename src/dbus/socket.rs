@@ -3,18 +3,20 @@ use {
         dbus::{
             property::Get,
             types::{ObjectPath, Signature, Variant},
-            AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusSocket, DbusType, Formatter,
-            Headers, InterfaceSignalHandlers, Message, MethodCall, Parser, Property, Reply,
-            ReplyHandler, Signal, SignalHandler, SignalHandlerApi, SignalHandlerData, BUS_DEST,
-            BUS_PATH, HDR_DESTINATION, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_SIGNATURE,
-            HDR_UNIX_FDS, MSG_METHOD_CALL, NO_REPLY_EXPECTED,
+            AsyncProperty, AsyncReply, AsyncReplySlot, DbusError, DbusObject, DbusObjectData,
+            DbusSocket, DbusType, ErrorMessage, Formatter, Headers, InterfaceSignalHandlers,
+            Message, MethodCall, Parser, Property, Reply, ReplyHandler, Signal, SignalHandler,
+            SignalHandlerApi, SignalHandlerData, BUS_DEST, BUS_PATH, HDR_DESTINATION,
+            HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL, HDR_SIGNATURE,
+            HDR_UNIX_FDS, MSG_ERROR, MSG_METHOD_CALL, MSG_METHOD_RETURN, MSG_SIGNAL,
+            NO_REPLY_EXPECTED,
         },
         utils::{bufio::BufIoMessage, errorfmt::ErrorFmt},
         wire_dbus::org,
     },
     std::{
-        cell::Cell, collections::hash_map::Entry, fmt::Write, marker::PhantomData, mem,
-        ops::DerefMut, rc::Rc,
+        borrow::Cow, cell::Cell, collections::hash_map::Entry, fmt::Write, marker::PhantomData,
+        mem, ops::DerefMut, rc::Rc,
     },
     uapi::c,
 };
@@ -26,6 +28,7 @@ impl DbusSocket {
         self.outgoing_.take();
         self.reply_handlers.clear();
         self.signal_handlers.borrow_mut().clear();
+        self.objects.clear();
     }
 
     pub(super) fn kill(self: &Rc<Self>) {
@@ -129,6 +132,29 @@ impl DbusSocket {
         };
         AsyncProperty {
             reply: self.call_async(destination, path, msg),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn add_object(
+        self: &Rc<Self>,
+        object: impl Into<Cow<'static, str>>,
+    ) -> Result<DbusObject, DbusError> {
+        let object = object.into();
+        let data = Rc::new(DbusObjectData {
+            path: object.clone(),
+            methods: Default::default(),
+            properties: Default::default(),
+        });
+        match self.objects.lock().entry(object) {
+            Entry::Occupied(_) => Err(DbusError::AlreadyHandled),
+            Entry::Vacant(v) => {
+                v.insert(data.clone());
+                Ok(DbusObject {
+                    socket: self.clone(),
+                    data,
+                })
+            }
         }
     }
 
@@ -245,6 +271,30 @@ impl DbusSocket {
         );
     }
 
+    #[allow(dead_code)]
+    pub fn emit_signal<'a, T: Signal<'a>>(&self, path: &str, msg: &T) -> u32 {
+        let (msg, serial) = self.format_signal(path, msg);
+        self.bufio.send(msg);
+        serial
+    }
+
+    pub fn send_error(&self, destination: &str, reply_serial: u32, msg: &str) -> u32 {
+        let (msg, serial) = self.format_error(destination, reply_serial, msg);
+        self.bufio.send(msg);
+        serial
+    }
+
+    pub fn send_reply<'a, T: Message<'a>>(
+        &self,
+        destination: &str,
+        reply_serial: u32,
+        msg: &T,
+    ) -> u32 {
+        let (msg, serial) = self.format_reply(destination, reply_serial, msg);
+        self.bufio.send(msg);
+        serial
+    }
+
     fn send_call<'a, T: Message<'a>>(
         &self,
         path: &str,
@@ -257,6 +307,44 @@ impl DbusSocket {
         serial
     }
 
+    fn format_signal<'a, T: Signal<'a>>(&self, path: &str, msg: &T) -> (BufIoMessage, u32) {
+        self.format_generic(MSG_SIGNAL, Some(path), None, None, 0, msg, None, true, true)
+    }
+
+    fn format_error(&self, destination: &str, reply_serial: u32, msg: &str) -> (BufIoMessage, u32) {
+        let em = ErrorMessage { msg: msg.into() };
+        self.format_generic(
+            MSG_ERROR,
+            None,
+            Some(reply_serial),
+            Some(destination),
+            0,
+            &em,
+            Some("jay.Error"),
+            false,
+            false,
+        )
+    }
+
+    fn format_reply<'a, T: Message<'a>>(
+        &self,
+        destination: &str,
+        reply_serial: u32,
+        msg: &T,
+    ) -> (BufIoMessage, u32) {
+        self.format_generic(
+            MSG_METHOD_RETURN,
+            None,
+            Some(reply_serial),
+            Some(destination),
+            0,
+            msg,
+            None,
+            true,
+            true,
+        )
+    }
+
     fn format_call<'a, T: Message<'a>>(
         &self,
         path: &str,
@@ -264,19 +352,54 @@ impl DbusSocket {
         flags: u8,
         msg: &T,
     ) -> (BufIoMessage, u32) {
+        self.format_generic(
+            MSG_METHOD_CALL,
+            Some(path),
+            None,
+            Some(destination),
+            flags,
+            msg,
+            None,
+            true,
+            true,
+        )
+    }
+
+    fn format_generic<'a, T: Message<'a>>(
+        &self,
+        ty: u8,
+        path: Option<&str>,
+        reply_serial: Option<u32>,
+        destination: Option<&str>,
+        flags: u8,
+        msg: &T,
+        error_name: Option<&str>,
+        include_interface: bool,
+        include_member: bool,
+    ) -> (BufIoMessage, u32) {
         let num_fds = msg.num_fds();
         let mut fds = Vec::with_capacity(num_fds as _);
         let serial = self.serial();
         let mut buf = self.bufio.buf();
         let mut fmt = Formatter::new(&mut fds, &mut buf);
+        let interface = match include_interface {
+            true => Some(T::INTERFACE),
+            _ => None,
+        };
+        let member = match include_member {
+            true => Some(T::MEMBER),
+            _ => None,
+        };
         self.format_header(
             &mut fmt,
-            MSG_METHOD_CALL,
+            ty,
             flags,
             serial,
+            reply_serial,
             path,
-            T::INTERFACE,
-            T::MEMBER,
+            error_name,
+            interface,
+            member,
             destination,
             T::SIGNATURE,
             num_fds,
@@ -294,10 +417,12 @@ impl DbusSocket {
         ty: u8,
         flags: u8,
         serial: u32,
-        path: &str,
-        interface: &str,
-        member: &str,
-        destination: &str,
+        reply_serial: Option<u32>,
+        path: Option<&str>,
+        error_name: Option<&str>,
+        interface: Option<&str>,
+        member: Option<&str>,
+        destination: Option<&str>,
         signature: &str,
         fds: u32,
     ) {
@@ -312,10 +437,24 @@ impl DbusSocket {
         serial.marshal(fmt);
         let mut headers = self.headers.borrow_mut();
         let mut headers = headers.take_as::<(u8, Variant)>();
-        headers.push((HDR_PATH, Variant::ObjectPath(ObjectPath(path.into()))));
-        headers.push((HDR_INTERFACE, Variant::String(interface.into())));
-        headers.push((HDR_MEMBER, Variant::String(member.into())));
-        headers.push((HDR_DESTINATION, Variant::String(destination.into())));
+        if let Some(path) = path {
+            headers.push((HDR_PATH, Variant::ObjectPath(ObjectPath(path.into()))));
+        }
+        if let Some(interface) = interface {
+            headers.push((HDR_INTERFACE, Variant::String(interface.into())));
+        }
+        if let Some(member) = member {
+            headers.push((HDR_MEMBER, Variant::String(member.into())));
+        }
+        if let Some(error_name) = error_name {
+            headers.push((HDR_ERROR_NAME, Variant::String(error_name.into())));
+        }
+        if let Some(destination) = destination {
+            headers.push((HDR_DESTINATION, Variant::String(destination.into())));
+        }
+        if let Some(rs) = reply_serial {
+            headers.push((HDR_REPLY_SERIAL, Variant::U32(rs)));
+        }
         if signature.len() > 0 {
             headers.push((
                 HDR_SIGNATURE,

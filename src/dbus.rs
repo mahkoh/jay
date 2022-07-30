@@ -3,7 +3,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         dbus::{
-            property::GetReply,
+            property::{Get, GetReply},
             types::{ObjectPath, Signature, Variant},
         },
         io_uring::{IoUring, IoUringError},
@@ -17,15 +17,20 @@ use {
             vecstorage::VecStorage,
             xrd::{xrd, XRD},
         },
+        wire_dbus::{
+            org,
+            org::freedesktop::dbus::properties::{GetAll, GetAllReply, PropertiesChanged},
+        },
     },
     ahash::AHashMap,
     std::{
-        borrow::Cow,
+        borrow::{Borrow, Cow},
         cell::{Cell, RefCell},
         fmt::{Debug, Display},
         future::Future,
         marker::PhantomData,
         mem,
+        ops::Deref,
         pin::Pin,
         rc::Rc,
         task::{Context, Poll, Waker},
@@ -69,6 +74,8 @@ pub enum DbusError {
     NoReplySerial,
     #[error("Signal message contains no interface or member or path")]
     MissingSignalHeaders,
+    #[error("Method call message contains no interface or member or path")]
+    MissingMethodCallHeaders,
     #[error("Error has no error name")]
     NoErrorName,
     #[error("The socket was killed")]
@@ -208,6 +215,24 @@ pub struct DbusSocket {
     headers: RefCell<VecStorage<(u8, Variant<'static>)>>,
     run_toplevel: Rc<RunToplevel>,
     signal_handlers: RefCell<AHashMap<(&'static str, &'static str), InterfaceSignalHandlers>>,
+    objects: CopyHashMap<Cow<'static, str>, Rc<DbusObjectData>>,
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct MemberHandlerOwnedKey {
+    key: MemberHandlerKey<'static>,
+}
+
+#[derive(Hash, Eq, PartialEq)]
+struct MemberHandlerKey<'a> {
+    interface: &'a str,
+    member: &'a str,
+}
+
+impl<'a> Borrow<MemberHandlerKey<'a>> for MemberHandlerOwnedKey {
+    fn borrow(&self) -> &MemberHandlerKey<'a> {
+        &self.key
+    }
 }
 
 const TY_BYTE: u8 = b'y';
@@ -246,6 +271,22 @@ const NO_REPLY_EXPECTED: u8 = 0x1;
 const NO_AUTO_START: u8 = 0x2;
 #[allow(dead_code)]
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
+
+#[allow(dead_code)]
+pub const DBUS_NAME_FLAG_ALLOW_REPLACEMENT: u32 = 0x1;
+#[allow(dead_code)]
+pub const DBUS_NAME_FLAG_REPLACE_EXISTING: u32 = 0x2;
+#[allow(dead_code)]
+pub const DBUS_NAME_FLAG_DO_NOT_QUEUE: u32 = 0x4;
+
+#[allow(dead_code)]
+pub const DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER: u32 = 1;
+#[allow(dead_code)]
+pub const DBUS_REQUEST_NAME_REPLY_IN_QUEUE: u32 = 2;
+#[allow(dead_code)]
+pub const DBUS_REQUEST_NAME_REPLY_EXISTS: u32 = 3;
+#[allow(dead_code)]
+pub const DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER: u32 = 4;
 
 pub const BUS_DEST: &str = "org.freedesktop.DBus";
 pub const BUS_PATH: &str = "/org/freedesktop/DBus";
@@ -334,6 +375,31 @@ pub unsafe trait Message<'a>: Sized + 'a {
     fn marshal(&self, w: &mut Formatter);
     fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError>;
     fn num_fds(&self) -> u32;
+}
+
+pub struct ErrorMessage<'a> {
+    pub msg: Cow<'a, str>,
+}
+
+unsafe impl<'a> Message<'a> for ErrorMessage<'a> {
+    const SIGNATURE: &'static str = "s";
+    const INTERFACE: &'static str = "";
+    const MEMBER: &'static str = "";
+    type Generic<'b> = ErrorMessage<'b>;
+
+    fn marshal(&self, w: &mut Formatter) {
+        self.msg.marshal(w)
+    }
+
+    fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError> {
+        Ok(Self {
+            msg: p.unmarshal()?,
+        })
+    }
+
+    fn num_fds(&self) -> u32 {
+        0
+    }
 }
 
 pub trait Property {
@@ -518,6 +584,274 @@ impl Drop for SignalHandler {
 struct InterfaceSignalHandlers {
     unconditional: Option<Rc<dyn SignalHandlerApi>>,
     conditional: AHashMap<String, Rc<dyn SignalHandlerApi>>,
+}
+
+struct DbusObjectData {
+    path: Cow<'static, str>,
+    methods: CopyHashMap<MemberHandlerOwnedKey, Rc<dyn MethodHandlerApi>>,
+    properties: CopyHashMap<MemberHandlerOwnedKey, Rc<dyn PropertyHandlerApi>>,
+}
+
+pub struct DbusObject {
+    socket: Rc<DbusSocket>,
+    data: Rc<DbusObjectData>,
+}
+
+impl Drop for DbusObject {
+    fn drop(&mut self) {
+        self.socket.objects.remove(&self.data.path);
+    }
+}
+
+impl DbusObject {
+    #[allow(dead_code)]
+    pub fn add_method<T, F>(&self, handler: F)
+    where
+        T: MethodCall<'static>,
+        F: for<'a> Fn(T::Generic<'a>, PendingReply<T::Reply>) + 'static,
+    {
+        let rhd = Rc::new(MethodHandlerData {
+            handler,
+            _phantom: Default::default(),
+        });
+        let key = MemberHandlerOwnedKey {
+            key: MemberHandlerKey {
+                interface: T::INTERFACE,
+                member: T::MEMBER,
+            },
+        };
+        self.data.methods.set(key, rhd);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_property<T>(&self, value: Variant<'static>)
+    where
+        T: Property + 'static,
+    {
+        self.emit_signal(&PropertiesChanged {
+            interface_name: T::INTERFACE.into(),
+            changed_properties: Cow::Borrowed(&[DictEntry {
+                key: T::PROPERTY.into(),
+                value: value.borrow(),
+            }]),
+            invalidated_properties: Default::default(),
+        });
+        let phd = Rc::new(PropertyHandlerData::<T> {
+            data: value,
+            _phantom: Default::default(),
+        });
+        let key = MemberHandlerOwnedKey {
+            key: MemberHandlerKey {
+                interface: T::INTERFACE,
+                member: T::PROPERTY,
+            },
+        };
+        self.data.properties.set(key, phd);
+    }
+
+    #[allow(dead_code)]
+    pub fn emit_signal<'a, T: Signal<'a>>(&self, signal: &T) {
+        self.socket.emit_signal(&self.data.path, signal);
+    }
+
+    #[allow(dead_code)]
+    pub fn path(&self) -> &str {
+        &self.data.path
+    }
+}
+
+trait PropertyHandlerApi {
+    fn interface(&self) -> &'static str;
+    fn member(&self) -> &'static str;
+    fn value<'a>(&'a self) -> Variant<'a>;
+}
+
+struct PropertyHandlerData<T> {
+    data: Variant<'static>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> PropertyHandlerApi for PropertyHandlerData<T>
+where
+    T: Property,
+{
+    fn interface(&self) -> &'static str {
+        T::INTERFACE
+    }
+
+    fn member(&self) -> &'static str {
+        T::PROPERTY
+    }
+
+    fn value<'a>(&'a self) -> Variant<'a> {
+        self.data.borrow()
+    }
+}
+
+pub struct PendingReply<T> {
+    reply_expected: bool,
+    socket: Rc<DbusSocket>,
+    destination: String,
+    serial: u32,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> PendingReply<T> {
+    #[allow(dead_code)]
+    pub fn reply_expected(&self) -> bool {
+        self.reply_expected
+    }
+
+    pub fn err(&self, msg: &str) {
+        if self.reply_expected {
+            self.socket.send_error(&self.destination, self.serial, msg);
+        }
+    }
+}
+
+impl<T> PendingReply<T>
+where
+    T: Message<'static>,
+{
+    pub fn ok<'a>(&self, msg: &T::Generic<'a>) {
+        if self.reply_expected {
+            self.socket.send_reply(&self.destination, self.serial, msg);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn complete<'a>(&self, res: Result<&T::Generic<'a>, &str>) {
+        match res {
+            Ok(m) => self.ok(m),
+            Err(e) => self.err(e),
+        }
+    }
+}
+
+trait MethodHandlerApi {
+    fn signature(&self) -> &'static str;
+    fn handle(
+        &self,
+        object: &DbusObjectData,
+        socket: &Rc<DbusSocket>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
+        parser: &mut Parser,
+    ) -> Result<(), DbusError>;
+}
+
+struct MethodHandlerData<T, F> {
+    handler: F,
+    _phantom: PhantomData<T>,
+}
+
+impl<T, F> MethodHandlerApi for MethodHandlerData<T, F>
+where
+    T: MethodCall<'static>,
+    F: for<'a> Fn(T::Generic<'a>, PendingReply<T::Reply>) + 'static,
+{
+    fn signature(&self) -> &'static str {
+        T::SIGNATURE
+    }
+
+    fn handle<'a>(
+        &self,
+        _object: &DbusObjectData,
+        socket: &Rc<DbusSocket>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
+        parser: &mut Parser<'a>,
+    ) -> Result<(), DbusError> {
+        let msg = T::Generic::<'a>::unmarshal(parser)?;
+        let pr = PendingReply {
+            reply_expected,
+            socket: socket.clone(),
+            destination: dest.to_string(),
+            serial,
+            _phantom: Default::default(),
+        };
+        (self.handler)(msg, pr);
+        Ok(())
+    }
+}
+
+struct PropertyGetHandlerProxy;
+
+impl MethodHandlerApi for PropertyGetHandlerProxy {
+    fn signature(&self) -> &'static str {
+        Get::<u32>::SIGNATURE
+    }
+
+    fn handle<'a>(
+        &self,
+        object: &DbusObjectData,
+        socket: &Rc<DbusSocket>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
+        parser: &mut Parser<'a>,
+    ) -> Result<(), DbusError> {
+        if !reply_expected {
+            return Ok(());
+        }
+        let msg = org::freedesktop::dbus::properties::Get::unmarshal(parser)?;
+        let key = MemberHandlerKey {
+            interface: msg.interface_name.deref(),
+            member: msg.property_name.deref(),
+        };
+        match object.properties.get(&key) {
+            Some(h) => socket.send_reply(
+                dest,
+                serial,
+                &org::freedesktop::dbus::properties::GetReply { value: h.value() },
+            ),
+            _ => socket.send_error(dest, serial, "Property does not exist"),
+        };
+        Ok(())
+    }
+}
+
+struct PropertyGetAllHandlerProxy;
+
+impl MethodHandlerApi for PropertyGetAllHandlerProxy {
+    fn signature(&self) -> &'static str {
+        GetAll::SIGNATURE
+    }
+
+    fn handle<'a>(
+        &self,
+        object: &DbusObjectData,
+        socket: &Rc<DbusSocket>,
+        dest: &str,
+        serial: u32,
+        reply_expected: bool,
+        parser: &mut Parser<'a>,
+    ) -> Result<(), DbusError> {
+        if !reply_expected {
+            return Ok(());
+        }
+        let msg = GetAll::unmarshal(parser)?;
+        let all_props = object.properties.lock();
+        let mut props = vec![];
+        for property in all_props.values() {
+            if property.interface() == msg.interface_name {
+                props.push(DictEntry {
+                    key: property.member().into(),
+                    value: property.value(),
+                });
+            }
+        }
+        socket.send_reply(
+            dest,
+            serial,
+            &GetAllReply {
+                props: props.into(),
+            },
+        );
+        Ok(())
+    }
 }
 
 pub mod prelude {
