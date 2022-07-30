@@ -43,6 +43,11 @@ msg seat_events = 10 {
     id: id(jay_seat_events),
 }
 
+msg get_output = 11 {
+    id: id(jay_output),
+    output: id(wl_output),
+}
+
 # events
 
 msg client_id = 0 {

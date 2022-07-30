@@ -1,9 +1,11 @@
 use {
     crate::{
         backend::{HardwareCursor, KeyState, Mode},
+        client::ClientId,
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
+            jay_output::JayOutput,
             wl_output::WlOutputGlobal,
             wl_seat::{
                 collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
@@ -26,6 +28,7 @@ use {
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             linkedlist::LinkedList, scroller::Scroller,
         },
+        wire::JayOutputId,
     },
     smallvec::SmallVec,
     std::{
@@ -40,6 +43,7 @@ tree_id!(OutputNodeId);
 pub struct OutputNode {
     pub id: OutputNodeId,
     pub global: Rc<WlOutputGlobal>,
+    pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
     pub workspaces: LinkedList<Rc<WorkspaceNode>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
@@ -65,6 +69,7 @@ impl OutputNode {
         }
         self.render_data.borrow_mut().titles.clear();
         self.lock_surface.take();
+        self.jay_outputs.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {

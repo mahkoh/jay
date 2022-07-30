@@ -374,6 +374,7 @@ fn create_dummy_output(state: &Rc<State>) {
             0,
             0,
         )),
+        jay_outputs: Default::default(),
         workspaces: Default::default(),
         workspace: Default::default(),
         seat_state: Default::default(),

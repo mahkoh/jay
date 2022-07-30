@@ -4,6 +4,7 @@ pub mod ipc;
 pub mod jay_compositor;
 pub mod jay_idle;
 pub mod jay_log_file;
+pub mod jay_output;
 pub mod jay_screenshot;
 pub mod jay_seat_events;
 pub mod org_kde_kwin_server_decoration;

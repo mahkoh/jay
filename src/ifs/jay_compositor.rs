@@ -4,14 +4,15 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::{
-            jay_idle::JayIdle, jay_log_file::JayLogFile, jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents,
+            jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
+            jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
         },
         leaks::Tracker,
         object::Object,
         screenshoter::take_screenshot,
         utils::{
             buffd::{MsgParser, MsgParserError},
+            clonecell::CloneCell,
             errorfmt::ErrorFmt,
         },
         wire::{jay_compositor::*, JayCompositorId},
@@ -225,6 +226,26 @@ impl JayCompositor {
             .insert((self.client.id, req.id), se);
         Ok(())
     }
+
+    fn get_output(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetOutput = self.client.parse(self, parser)?;
+        let output = self.client.lookup(req.output)?;
+        let jo = Rc::new(JayOutput {
+            id: req.id,
+            client: self.client.clone(),
+            output: CloneCell::new(output.global.node.get()),
+            tracker: Default::default(),
+        });
+        track!(self.client, jo);
+        self.client.add_client_obj(&jo)?;
+        if let Some(node) = jo.output.get() {
+            node.jay_outputs.set((self.client.id, req.id), jo.clone());
+            jo.send_linear_id();
+        } else {
+            jo.send_destroyed();
+        }
+        Ok(())
+    }
 }
 
 object_base! {
@@ -241,11 +262,12 @@ object_base! {
     UNLOCK => unlock,
     GET_SEATS => get_seats,
     SEAT_EVENTS => seat_events,
+    GET_OUTPUT => get_output,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        SEAT_EVENTS + 1
+        GET_OUTPUT + 1
     }
 }
 

@@ -124,6 +124,7 @@ impl ConnectorHandler {
             lock_surface: Default::default(),
             preferred_scale: Cell::new(Fixed::from_int(1)),
             hardware_cursor: Default::default(),
+            jay_outputs: Default::default(),
         });
         self.state.add_output_scale(on.preferred_scale.get());
         let mode = info.initial_mode;
@@ -209,6 +210,10 @@ impl ConnectorHandler {
             config.connector_disconnected(self.id);
         }
         global.node.set(None);
+        for (_, jo) in on.jay_outputs.lock().drain() {
+            jo.send_destroyed();
+            jo.output.take();
+        }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
         self.data.connected.set(false);
