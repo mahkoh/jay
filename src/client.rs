@@ -1,4 +1,3 @@
-pub use error::{ClientError, MethodError, ObjectError};
 use {
     crate::{
         async_engine::SpawnedFuture,
@@ -29,6 +28,10 @@ use {
         rc::Rc,
     },
     uapi::{c, OwnedFd},
+};
+pub use {
+    error::{ClientError, MethodError, ObjectError},
+    objects::MIN_SERVER_ID,
 };
 
 mod error;

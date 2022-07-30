@@ -78,6 +78,7 @@ mod wheel;
 mod wire;
 mod wire_dbus;
 mod wire_xcon;
+mod wl_usr;
 mod xcon;
 mod xkbcommon;
 mod xwayland;
