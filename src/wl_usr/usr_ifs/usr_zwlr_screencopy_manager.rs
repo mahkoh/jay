@@ -17,6 +17,7 @@ pub struct UsrZwlrScreencopyManager {
 }
 
 impl UsrZwlrScreencopyManager {
+    #[allow(dead_code)]
     pub fn capture_output(&self, output: &UsrWlOutput) -> Rc<UsrZwlrScreencopyFrame> {
         let frame = Rc::new(UsrZwlrScreencopyFrame {
             id: self.con.id(),

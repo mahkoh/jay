@@ -276,10 +276,8 @@ const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
 pub const DBUS_NAME_FLAG_ALLOW_REPLACEMENT: u32 = 0x1;
 #[allow(dead_code)]
 pub const DBUS_NAME_FLAG_REPLACE_EXISTING: u32 = 0x2;
-#[allow(dead_code)]
 pub const DBUS_NAME_FLAG_DO_NOT_QUEUE: u32 = 0x4;
 
-#[allow(dead_code)]
 pub const DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER: u32 = 1;
 #[allow(dead_code)]
 pub const DBUS_REQUEST_NAME_REPLY_IN_QUEUE: u32 = 2;
@@ -604,7 +602,6 @@ impl Drop for DbusObject {
 }
 
 impl DbusObject {
-    #[allow(dead_code)]
     pub fn add_method<T, F>(&self, handler: F)
     where
         T: MethodCall<'static>,
@@ -623,7 +620,6 @@ impl DbusObject {
         self.data.methods.set(key, rhd);
     }
 
-    #[allow(dead_code)]
     pub fn set_property<T>(&self, value: Variant<'static>)
     where
         T: Property + 'static,
@@ -649,12 +645,10 @@ impl DbusObject {
         self.data.properties.set(key, phd);
     }
 
-    #[allow(dead_code)]
     pub fn emit_signal<'a, T: Signal<'a>>(&self, signal: &T) {
         self.socket.emit_signal(&self.data.path, signal);
     }
 
-    #[allow(dead_code)]
     pub fn path(&self) -> &str {
         &self.data.path
     }

@@ -168,7 +168,7 @@ impl TestBackend {
             return Err(TestBackendError::NoDrmNode);
         };
         let file = match uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0) {
-            Ok(f) => f,
+            Ok(f) => Rc::new(f),
             Err(e) => {
                 return Err(TestBackendError::OpenDrmNode(
                     node.as_os_str().as_bytes().as_bstr().to_string(),

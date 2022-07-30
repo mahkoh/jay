@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod pw_con;
 pub mod pw_formatter;
 pub mod pw_ifs;

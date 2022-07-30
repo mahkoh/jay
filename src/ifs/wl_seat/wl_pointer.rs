@@ -17,7 +17,7 @@ use {
 const ROLE: u32 = 0;
 
 pub(super) const RELEASED: u32 = 0;
-pub(super) const PRESSED: u32 = 1;
+pub const PRESSED: u32 = 1;
 
 pub const VERTICAL_SCROLL: u32 = 0;
 pub const HORIZONTAL_SCROLL: u32 = 1;

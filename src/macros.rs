@@ -174,6 +174,40 @@ macro_rules! id {
     };
 }
 
+macro_rules! shared_ids {
+    ($id:ident) => {
+        shared_ids!($id, u32);
+    };
+    ($id:ident, $ty:ty) => {
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        pub struct $id($ty);
+
+        impl $id {
+            #[allow(dead_code)]
+            pub fn raw(&self) -> $ty {
+                self.0
+            }
+
+            #[allow(dead_code)]
+            pub fn from_raw(id: $ty) -> Self {
+                Self(id)
+            }
+        }
+
+        impl From<$ty> for $id {
+            fn from(id: $ty) -> Self {
+                Self(id)
+            }
+        }
+
+        impl std::fmt::Display for $id {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+    };
+}
+
 macro_rules! linear_ids {
     ($ids:ident, $id:ident) => {
         linear_ids!($ids, $id, u32);

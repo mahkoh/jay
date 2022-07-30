@@ -60,6 +60,7 @@ mod logind;
 mod object;
 mod pango;
 mod pipewire;
+mod portal;
 mod rect;
 mod render;
 mod screenshoter;

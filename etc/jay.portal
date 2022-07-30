@@ -1,0 +1,4 @@
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.jay
+Interfaces=org.freedesktop.impl.portal.ScreenCast;
+UseIn=jay

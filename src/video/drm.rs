@@ -140,8 +140,8 @@ pub struct Drm {
 
 impl Drm {
     #[cfg_attr(not(feature = "it"), allow(dead_code))]
-    pub fn open_existing(fd: OwnedFd) -> Self {
-        Self { fd: Rc::new(fd) }
+    pub fn open_existing(fd: Rc<OwnedFd>) -> Self {
+        Self { fd }
     }
 
     pub fn reopen(fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {

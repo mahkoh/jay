@@ -43,7 +43,6 @@ impl DbusSocket {
         }
     }
 
-    #[allow(dead_code)]
     pub fn call_noreply<'a, T: MethodCall<'a>>(&self, destination: &str, path: &str, msg: T) {
         if !self.dead.get() {
             self.send_call(path, destination, NO_REPLY_EXPECTED, &msg);
@@ -135,7 +134,6 @@ impl DbusSocket {
         }
     }
 
-    #[allow(dead_code)]
     pub fn add_object(
         self: &Rc<Self>,
         object: impl Into<Cow<'static, str>>,
@@ -158,7 +156,6 @@ impl DbusSocket {
         }
     }
 
-    #[allow(dead_code)]
     pub fn handle_signal<T, F>(
         self: &Rc<Self>,
         sender: Option<&str>,
@@ -271,7 +268,6 @@ impl DbusSocket {
         );
     }
 
-    #[allow(dead_code)]
     pub fn emit_signal<'a, T: Signal<'a>>(&self, path: &str, msg: &T) -> u32 {
         let (msg, serial) = self.format_signal(path, msg);
         self.bufio.send(msg);

@@ -76,7 +76,7 @@ use {
     uapi::{c, Errno, OwnedFd},
 };
 
-const POINTER: u32 = 1;
+pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
 #[allow(dead_code)]
 const TOUCH: u32 = 4;

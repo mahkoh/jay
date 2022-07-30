@@ -67,6 +67,7 @@ impl UsrJayScreencast {
         });
     }
 
+    #[allow(dead_code)]
     pub fn allow_workspace(&self, ws: &JayWorkspace) {
         self.con.request(AllowWorkspace {
             self_id: self.id,
@@ -74,6 +75,7 @@ impl UsrJayScreencast {
         });
     }
 
+    #[allow(dead_code)]
     pub fn touch_allowed_workspaces(&self) {
         self.con
             .request(TouchAllowedWorkspaces { self_id: self.id });

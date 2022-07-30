@@ -82,6 +82,7 @@ impl UsrJayCompositor {
         jo
     }
 
+    #[allow(dead_code)]
     pub fn watch_workspaces(&self) -> Rc<UsrJayWorkspaceWatcher> {
         let ww = Rc::new(UsrJayWorkspaceWatcher {
             id: self.con.id(),

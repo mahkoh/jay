@@ -42,6 +42,7 @@ pub trait UsrWlPointerOwner {
 }
 
 impl UsrWlPointer {
+    #[allow(dead_code)]
     pub fn set_cursor(&self, serial: u32, cursor: &UsrWlSurface, hot_x: i32, hot_y: i32) {
         self.con.request(SetCursor {
             self_id: self.id,

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod usr_ifs;
 pub mod usr_object;
 
@@ -78,6 +76,7 @@ pub struct UsrCon {
     incoming: Cell<Option<SpawnedFuture<()>>>,
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     pub owner: CloneCell<Option<Rc<dyn UsrConOwner>>>,
+    dead: Cell<bool>,
 }
 
 pub trait UsrConOwner {
@@ -126,6 +125,7 @@ impl UsrCon {
             incoming: Default::default(),
             outgoing: Default::default(),
             owner: Default::default(),
+            dead: Cell::new(false),
         });
         slf.objects.set(
             WL_DISPLAY_ID.into(),
@@ -158,6 +158,7 @@ impl UsrCon {
     }
 
     pub fn kill(&self) {
+        self.dead.set(true);
         for (_, obj) in self.objects.lock().drain() {
             if let Some(obj) = obj {
                 obj.break_loops();
@@ -186,7 +187,9 @@ impl UsrCon {
     }
 
     pub fn add_object(&self, obj: Rc<dyn UsrObject>) {
-        self.objects.set(obj.id(), Some(obj));
+        if !self.dead.get() {
+            self.objects.set(obj.id(), Some(obj));
+        }
     }
 
     pub fn get_registry(self: &Rc<Self>) -> Rc<UsrWlRegistry> {
@@ -199,7 +202,7 @@ impl UsrCon {
             self_id: WL_DISPLAY_ID,
             registry: registry.id,
         });
-        self.objects.set(registry.id.into(), Some(registry.clone()));
+        self.add_object(registry.clone());
         registry
     }
 
@@ -212,7 +215,7 @@ impl UsrCon {
             self_id: WL_DISPLAY_ID,
             callback: callback.id,
         });
-        self.objects.set(callback.id.into(), Some(callback));
+        self.add_object(callback);
     }
 
     pub fn parse<'a, R: RequestParser<'a>>(
@@ -233,6 +236,9 @@ impl UsrCon {
     }
 
     pub fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
+        if self.dead.get() {
+            return;
+        }
         if log::log_enabled!(log::Level::Trace) {
             log::trace!(
                 "Server {} <= {}@{}.{:?}",

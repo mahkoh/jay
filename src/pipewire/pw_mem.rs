@@ -41,6 +41,7 @@ pub struct PwMemTyped<T> {
     _phantom: PhantomData<T>,
 }
 
+#[allow(dead_code)]
 pub struct PwMemSlice {
     mem: Rc<PwMemMap>,
     range: Range<usize>,
@@ -134,6 +135,7 @@ impl PwMemMap {
 }
 
 impl<T: Pod> PwMemTyped<T> {
+    #[allow(dead_code)]
     pub unsafe fn read(&self) -> &T {
         (self.mem.map.ptr.cast::<u8>().add(self.offset) as *const T).deref()
     }

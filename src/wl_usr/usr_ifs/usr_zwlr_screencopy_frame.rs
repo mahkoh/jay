@@ -43,6 +43,7 @@ pub trait UsrZwlrScreencopyFrameOwner {
 }
 
 impl UsrZwlrScreencopyFrame {
+    #[allow(dead_code)]
     pub fn copy(&self, buffer: &UsrWlBuffer) {
         self.con.request(Copy {
             self_id: self.id,

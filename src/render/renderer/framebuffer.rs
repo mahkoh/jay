@@ -114,6 +114,28 @@ impl Framebuffer {
         });
     }
 
+    pub fn render_custom(&self, scale: Fixed, f: impl FnOnce(&mut RendererBase)) {
+        let _ = self.ctx.ctx.with_current(|| {
+            unsafe {
+                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
+                glViewport(0, 0, self.gl.width, self.gl.height);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            }
+            let mut renderer = RendererBase {
+                ctx: &self.ctx,
+                fb: &self.gl,
+                scaled: scale != 1,
+                scale,
+                scalef: scale.to_f64(),
+            };
+            f(&mut renderer);
+            unsafe {
+                glFlush();
+            }
+            Ok(())
+        });
+    }
+
     pub fn render(
         &self,
         node: &dyn Node,
