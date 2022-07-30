@@ -390,6 +390,7 @@ fn create_dummy_output(state: &Rc<State>) {
         lock_surface: Default::default(),
         preferred_scale: Cell::new(Fixed::from_int(1)),
         hardware_cursor: Default::default(),
+        screencasts: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

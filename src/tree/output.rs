@@ -6,6 +6,7 @@ use {
         fixed::Fixed,
         ifs::{
             jay_output::JayOutput,
+            jay_screencast::JayScreencast,
             wl_output::WlOutputGlobal,
             wl_seat::{
                 collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
@@ -18,7 +19,7 @@ use {
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
         rect::Rect,
-        render::{Renderer, Texture},
+        render::{Framebuffer, Renderer, Texture},
         state::State,
         text,
         tree::{
@@ -28,7 +29,7 @@ use {
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             linkedlist::LinkedList, scroller::Scroller,
         },
-        wire::JayOutputId,
+        wire::{JayOutputId, JayScreencastId},
     },
     ahash::AHashMap,
     smallvec::SmallVec,
@@ -58,9 +59,17 @@ pub struct OutputNode {
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
     pub preferred_scale: Cell<Fixed>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
+    pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
 }
 
 impl OutputNode {
+    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+        self.global.perform_screencopies(fb, tex);
+        for sc in self.screencasts.lock().values() {
+            sc.copy_texture(self, tex);
+        }
+    }
+
     pub fn clear(&self) {
         self.global.clear();
         self.workspace.set(None);
@@ -337,12 +346,31 @@ impl OutputNode {
     }
 
     pub fn update_mode(&self, mode: Mode) {
-        if self.global.mode.get() == mode {
+        let old_mode = self.global.mode.get();
+        if old_mode == mode {
             return;
         }
         self.global.mode.set(mode);
         let rect = self.calculate_extents();
         self.change_extents_(&rect);
+
+        if (old_mode.width, old_mode.height) != (mode.width, mode.height) {
+            let mut to_destroy = vec![];
+            if let Some(ctx) = self.state.render_ctx.get() {
+                for sc in self.screencasts.lock().values() {
+                    if let Err(e) = sc.realloc(&ctx) {
+                        log::error!(
+                            "Could not re-allocate buffers for screencast after mode change: {}",
+                            ErrorFmt(e)
+                        );
+                        to_destroy.push(sc.clone());
+                    }
+                }
+            }
+            for sc in to_destroy {
+                sc.do_destroy();
+            }
+        }
     }
 
     fn calculate_extents(&self) -> Rect {

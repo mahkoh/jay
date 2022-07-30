@@ -359,7 +359,7 @@ impl MetalConnector {
                     fr.send_done();
                     let _ = fr.client.remove_obj(&*fr);
                 }
-                node.global.perform_screencopies(&buffer.fb, &buffer.tex);
+                node.perform_screencopies(&buffer.fb, &buffer.tex);
             }
             changes.change_object(plane.id, |c| {
                 c.change(plane.fb_id, buffer.drm.id().0 as _);

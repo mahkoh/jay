@@ -5,8 +5,9 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
-            jay_pointer::JayPointer, jay_render_ctx::JayRenderCtx, jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents, jay_workspace_watcher::JayWorkspaceWatcher,
+            jay_pointer::JayPointer, jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast,
+            jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
+            jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
         object::Object,
@@ -298,6 +299,14 @@ impl JayCompositor {
         }
         Ok(())
     }
+
+    fn create_screencast(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: CreateScreencast = self.client.parse(self, parser)?;
+        let sc = Rc::new(JayScreencast::new(req.id, &self.client));
+        track!(self.client, sc);
+        self.client.add_client_obj(&sc)?;
+        Ok(())
+    }
 }
 
 object_base! {
@@ -318,11 +327,12 @@ object_base! {
     GET_POINTER => get_pointer,
     GET_RENDER_CTX => get_render_ctx,
     WATCH_WORKSPACES => watch_workspaces,
+    CREATE_SCREENCAST => create_screencast,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        WATCH_WORKSPACES + 1
+        CREATE_SCREENCAST + 1
     }
 }
 

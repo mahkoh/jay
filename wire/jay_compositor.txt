@@ -61,6 +61,10 @@ msg watch_workspaces = 14 {
     id: id(jay_workspace_watcher),
 }
 
+msg create_screencast = 15 {
+    id: id(jay_screencast),
+}
+
 # events
 
 msg client_id = 0 {

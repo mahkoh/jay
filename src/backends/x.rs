@@ -706,7 +706,7 @@ impl XBackend {
                 fr.send_done();
                 let _ = fr.client.remove_obj(&*fr);
             }
-            node.global.perform_screencopies(&fb, &image.tex.get());
+            node.perform_screencopies(&fb, &image.tex.get());
         }
 
         let pp = PresentPixmap {

@@ -328,6 +328,16 @@ impl State {
         for watcher in self.render_ctx_watchers.lock().values() {
             watcher.send_render_ctx(ctx);
         }
+
+        let mut scs = vec![];
+        for client in self.clients.clients.borrow_mut().values() {
+            for sc in client.data.objects.screencasts.lock().values() {
+                scs.push(sc.clone());
+            }
+        }
+        for sc in scs {
+            sc.do_destroy();
+        }
     }
 
     fn reload_cursors(&self) {
