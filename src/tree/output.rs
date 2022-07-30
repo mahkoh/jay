@@ -237,6 +237,7 @@ impl OutputNode {
             fullscreen: Default::default(),
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
+            jay_workspaces: Default::default(),
         });
         self.state.workspaces.set(name, workspace.clone());
         workspace
@@ -254,10 +255,16 @@ impl OutputNode {
                 return false;
             }
             collect_kb_foci2(old.clone(), &mut seats);
-            old.set_visible(false);
             if old.is_empty() {
+                for jw in old.jay_workspaces.lock().values() {
+                    jw.send_destroyed();
+                    jw.workspace.set(None);
+                }
                 old.clear();
                 self.state.workspaces.remove(&old.name);
+            } else {
+                old.set_visible(false);
+                old.flush_jay_workspaces();
             }
         }
         ws.set_visible(true);
@@ -286,6 +293,7 @@ impl OutputNode {
             fullscreen: Default::default(),
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
+            jay_workspaces: Default::default(),
         });
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));
@@ -581,6 +589,7 @@ impl Node for OutputNode {
             return;
         };
         self.show_workspace(&ws);
+        ws.flush_jay_workspaces();
         self.update_render_data();
         self.state.tree_changed();
     }
@@ -615,6 +624,7 @@ impl Node for OutputNode {
         if !self.show_workspace(&ws) {
             return;
         }
+        ws.flush_jay_workspaces();
         ws.deref()
             .clone()
             .node_do_focus(seat, Direction::Unspecified);

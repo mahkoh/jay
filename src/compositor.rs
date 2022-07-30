@@ -404,6 +404,7 @@ fn create_dummy_output(state: &Rc<State>) {
         fullscreen: Default::default(),
         visible_on_desired_output: Default::default(),
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
+        jay_workspaces: Default::default(),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),

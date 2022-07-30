@@ -166,6 +166,7 @@ impl ConnectorHandler {
                     } else {
                         ws.set_visible(false);
                     }
+                    ws.flush_jay_workspaces();
                     if let Some(visible) = source.node.workspace.get() {
                         if visible.id == ws.id {
                             source.node.workspace.take();
@@ -175,6 +176,7 @@ impl ConnectorHandler {
                 if source.node.workspace.get().is_none() {
                     if let Some(ws) = source.node.workspaces.first() {
                         source.node.show_workspace(&ws);
+                        ws.flush_jay_workspaces();
                     }
                 }
                 source.node.update_render_data();
@@ -182,6 +184,7 @@ impl ConnectorHandler {
             if on.workspace.get().is_none() {
                 if let Some(ws) = on.workspaces.first() {
                     on.show_workspace(&ws);
+                    ws.flush_jay_workspaces();
                 }
             }
         }
@@ -239,6 +242,7 @@ impl ConnectorHandler {
                 } else if ws.visible.get() {
                     ws.set_visible(false);
                 }
+                ws.flush_jay_workspaces();
             }
             target.update_render_data();
             self.state.tree_changed();

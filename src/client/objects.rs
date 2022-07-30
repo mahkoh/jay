@@ -7,6 +7,7 @@ use {
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             jay_output::JayOutput,
+            jay_workspace::JayWorkspace,
             wl_buffer::WlBuffer,
             wl_display::WlDisplay,
             wl_output::WlOutput,
@@ -26,9 +27,9 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            JayOutputId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId, WlRegionId,
-            WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId, XdgSurfaceId, XdgToplevelId,
-            XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
+            JayOutputId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId, WlPointerId,
+            WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId, XdgSurfaceId,
+            XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -49,6 +50,7 @@ pub struct Objects {
     pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
     pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
     pub jay_outputs: CopyHashMap<JayOutputId, Rc<JayOutput>>,
+    pub jay_workspaces: CopyHashMap<JayWorkspaceId, Rc<JayWorkspace>>,
     pub pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
     pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
@@ -74,6 +76,7 @@ impl Objects {
             regions: Default::default(),
             buffers: Default::default(),
             jay_outputs: Default::default(),
+            jay_workspaces: Default::default(),
             pointers: Default::default(),
             xdg_wm_bases: Default::default(),
             seats: Default::default(),
@@ -103,6 +106,7 @@ impl Objects {
         self.regions.clear();
         self.buffers.clear();
         self.jay_outputs.clear();
+        self.jay_workspaces.clear();
         self.xdg_wm_bases.clear();
         self.seats.clear();
         self.pointers.clear();

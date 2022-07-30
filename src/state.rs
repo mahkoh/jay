@@ -434,15 +434,15 @@ impl State {
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
-        let output = match self.workspaces.get(name) {
+        let (output, ws) = match self.workspaces.get(name) {
             Some(ws) => {
                 let output = ws.output.get();
                 let did_change = output.show_workspace(&ws);
-                ws.node_do_focus(seat, Direction::Unspecified);
+                ws.clone().node_do_focus(seat, Direction::Unspecified);
                 if !did_change {
                     return;
                 }
-                output
+                (output, ws)
             }
             _ => {
                 let output = seat.get_output();
@@ -450,29 +450,12 @@ impl State {
                     log::warn!("Not showing workspace because seat is on dummy output");
                     return;
                 }
-                let workspace = Rc::new(WorkspaceNode {
-                    id: self.node_ids.next(),
-                    is_dummy: false,
-                    output: CloneCell::new(output.clone()),
-                    position: Cell::new(Default::default()),
-                    container: Default::default(),
-                    stacked: Default::default(),
-                    seat_state: Default::default(),
-                    name: name.to_string(),
-                    output_link: Cell::new(None),
-                    visible: Cell::new(false),
-                    fullscreen: Default::default(),
-                    visible_on_desired_output: Cell::new(false),
-                    desired_output: CloneCell::new(output.global.output_id.clone()),
-                });
-                workspace
-                    .output_link
-                    .set(Some(output.workspaces.add_last(workspace.clone())));
-                output.show_workspace(&workspace);
-                self.workspaces.set(name.to_string(), workspace);
-                output
+                let ws = output.create_workspace(name);
+                output.show_workspace(&ws);
+                (output, ws)
             }
         };
+        ws.flush_jay_workspaces();
         output.update_render_data();
         self.tree_changed();
         // let seats = self.globals.seats.lock();

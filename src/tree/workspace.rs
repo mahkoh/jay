@@ -1,7 +1,9 @@
 use {
     crate::{
+        client::ClientId,
         cursor::KnownCursor,
         ifs::{
+            jay_workspace::JayWorkspace,
             wl_output::OutputId,
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::WlSurface,
@@ -15,8 +17,10 @@ use {
         },
         utils::{
             clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedNode},
         },
+        wire::JayWorkspaceId,
     },
     std::{cell::Cell, fmt::Debug, ops::Deref, rc::Rc},
 };
@@ -37,6 +41,7 @@ pub struct WorkspaceNode {
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
+    pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
 }
 
 impl WorkspaceNode {
@@ -44,10 +49,14 @@ impl WorkspaceNode {
         self.container.set(None);
         self.output_link.set(None);
         self.fullscreen.set(None);
+        self.jay_workspaces.clear();
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
         self.output.set(output.clone());
+        for jw in self.jay_workspaces.lock().values() {
+            jw.send_output(output);
+        }
         struct OutputSetter<'a>(&'a Rc<OutputNode>);
         impl NodeVisitorBase for OutputSetter<'_> {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {
@@ -85,7 +94,16 @@ impl WorkspaceNode {
         }
     }
 
+    pub fn flush_jay_workspaces(&self) {
+        for jw in self.jay_workspaces.lock().values() {
+            jw.send_done();
+        }
+    }
+
     pub fn set_visible(&self, visible: bool) {
+        for jw in self.jay_workspaces.lock().values() {
+            jw.send_visible(visible);
+        }
         self.visible.set(visible);
         if let Some(fs) = self.fullscreen.get() {
             fs.tl_set_visible(visible);
