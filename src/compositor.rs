@@ -195,6 +195,7 @@ fn start_compositor2(
         cursor_sizes: Default::default(),
         hardware_tick_cursor: Default::default(),
         testers: Default::default(),
+        render_ctx_watchers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

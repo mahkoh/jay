@@ -53,6 +53,10 @@ msg get_pointer = 12 {
     seat: id(wl_seat),
 }
 
+msg get_render_ctx = 13 {
+    id: id(jay_render_ctx),
+}
+
 # events
 
 msg client_id = 0 {
