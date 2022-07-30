@@ -57,6 +57,10 @@ msg get_render_ctx = 13 {
     id: id(jay_render_ctx),
 }
 
+msg watch_workspaces = 14 {
+    id: id(jay_workspace_watcher),
+}
+
 # events
 
 msg client_id = 0 {

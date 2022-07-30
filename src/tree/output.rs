@@ -30,6 +30,7 @@ use {
         },
         wire::JayOutputId,
     },
+    ahash::AHashMap,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -300,6 +301,15 @@ impl OutputNode {
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.get().is_none() {
             self.show_workspace(&ws);
+        }
+        let mut clients_to_kill = AHashMap::new();
+        for watcher in self.state.workspace_watchers.lock().values() {
+            if let Err(e) = watcher.send_workspace(&ws) {
+                clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));
+            }
+        }
+        for (client, e) in clients_to_kill.values() {
+            client.error(e);
         }
         self.update_render_data();
         ws

@@ -21,7 +21,6 @@ pub struct JayWorkspace {
     pub tracker: Tracker<Self>,
 }
 
-#[allow(dead_code)]
 impl JayWorkspace {
     pub fn send_linear_id(&self, ws: &WorkspaceNode) {
         self.client.event(LinearId {

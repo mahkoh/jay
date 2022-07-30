@@ -1,0 +1,12 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+# events
+
+msg new = 0 {
+    id: id(jay_workspace),
+    linear_id: u32,
+}

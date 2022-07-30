@@ -19,6 +19,7 @@ use {
             ext_session_lock_v1::ExtSessionLockV1,
             jay_render_ctx::JayRenderCtx,
             jay_seat_events::JaySeatEvents,
+            jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
@@ -43,7 +44,7 @@ use {
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
         wheel::Wheel,
-        wire::{JayRenderCtxId, JaySeatEventsId},
+        wire::{JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId},
         xkbcommon::{XkbContext, XkbKeymap},
         xwayland::{self, XWaylandEvent},
     },
@@ -119,6 +120,7 @@ pub struct State {
     pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
     pub testers: RefCell<AHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
     pub render_ctx_watchers: CopyHashMap<(ClientId, JayRenderCtxId), Rc<JayRenderCtx>>,
+    pub workspace_watchers: CopyHashMap<(ClientId, JayWorkspaceWatcherId), Rc<JayWorkspaceWatcher>>,
 }
 
 // impl Drop for State {
@@ -567,6 +569,7 @@ impl State {
         self.pending_float_layout.clear();
         self.pending_float_titles.clear();
         self.render_ctx_watchers.clear();
+        self.workspace_watchers.clear();
         self.slow_clients.clear();
         for (_, h) in self.input_device_handlers.borrow_mut().drain() {
             h.async_event.clear();

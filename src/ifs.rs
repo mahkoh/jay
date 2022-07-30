@@ -10,6 +10,7 @@ pub mod jay_render_ctx;
 pub mod jay_screenshot;
 pub mod jay_seat_events;
 pub mod jay_workspace;
+pub mod jay_workspace_watcher;
 pub mod org_kde_kwin_server_decoration;
 pub mod org_kde_kwin_server_decoration_manager;
 pub mod wl_buffer;

@@ -6,7 +6,7 @@ use {
         ifs::{
             jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
             jay_pointer::JayPointer, jay_render_ctx::JayRenderCtx, jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents,
+            jay_seat_events::JaySeatEvents, jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
         object::Object,
@@ -279,6 +279,25 @@ impl JayCompositor {
         ctx.send_render_ctx(rctx.as_ref());
         Ok(())
     }
+
+    fn watch_workspaces(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: WatchWorkspaces = self.client.parse(self, parser)?;
+        let watcher = Rc::new(JayWorkspaceWatcher {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, watcher);
+        self.client.add_client_obj(&watcher)?;
+        self.client
+            .state
+            .workspace_watchers
+            .set((self.client.id, req.id), watcher.clone());
+        for ws in self.client.state.workspaces.lock().values() {
+            watcher.send_workspace(ws)?;
+        }
+        Ok(())
+    }
 }
 
 object_base! {
@@ -298,11 +317,12 @@ object_base! {
     GET_OUTPUT => get_output,
     GET_POINTER => get_pointer,
     GET_RENDER_CTX => get_render_ctx,
+    WATCH_WORKSPACES => watch_workspaces,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        GET_RENDER_CTX + 1
+        WATCH_WORKSPACES + 1
     }
 }
 
