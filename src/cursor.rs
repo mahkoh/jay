@@ -13,6 +13,7 @@ use {
     bstr::{BStr, BString, ByteSlice, ByteVec},
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
+    num_derive::FromPrimitive,
     std::{
         cell::Cell,
         convert::TryInto,
@@ -56,6 +57,7 @@ pub trait Cursor {
 
 pub struct ServerCursors {
     pub default: ServerCursorTemplate,
+    pub pointer: ServerCursorTemplate,
     pub resize_right: ServerCursorTemplate,
     pub resize_left: ServerCursorTemplate,
     pub resize_top: ServerCursorTemplate,
@@ -68,9 +70,10 @@ pub struct ServerCursors {
     pub resize_bottom_right: ServerCursorTemplate,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum KnownCursor {
     Default,
+    Pointer,
     ResizeLeftRight,
     ResizeTopBottom,
     ResizeTopLeft,
@@ -92,6 +95,7 @@ impl ServerCursors {
             |name: &str| ServerCursorTemplate::load(name, None, &scales, &sizes, &paths, ctx);
         Ok(Some(Self {
             default: load("left_ptr")?,
+            pointer: load("hand2")?,
             // default: load("left_ptr_watch")?,
             resize_right: load("right_side")?,
             resize_left: load("left_side")?,

@@ -5,7 +5,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{
             jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
-            jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
+            jay_pointer::JayPointer, jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
         },
         leaks::Tracker,
         object::Object,
@@ -246,6 +246,20 @@ impl JayCompositor {
         }
         Ok(())
     }
+
+    fn get_pointer(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetPointer = self.client.parse(self, parser)?;
+        let seat = self.client.lookup(req.seat)?;
+        let ctx = Rc::new(JayPointer {
+            id: req.id,
+            client: self.client.clone(),
+            seat: seat.global.clone(),
+            tracker: Default::default(),
+        });
+        track!(self.client, ctx);
+        self.client.add_client_obj(&ctx)?;
+        Ok(())
+    }
 }
 
 object_base! {
@@ -263,11 +277,12 @@ object_base! {
     GET_SEATS => get_seats,
     SEAT_EVENTS => seat_events,
     GET_OUTPUT => get_output,
+    GET_POINTER => get_pointer,
 }
 
 impl Object for JayCompositor {
     fn num_requests(&self) -> u32 {
-        GET_OUTPUT + 1
+        GET_POINTER + 1
     }
 }
 

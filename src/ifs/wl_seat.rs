@@ -775,6 +775,7 @@ impl WlSeatGlobal {
         };
         let tpl = match cursor {
             KnownCursor::Default => &cursors.default,
+            KnownCursor::Pointer => &cursors.pointer,
             KnownCursor::ResizeLeftRight => &cursors.resize_left_right,
             KnownCursor::ResizeTopBottom => &cursors.resize_top_bottom,
             KnownCursor::ResizeTopLeft => &cursors.resize_top_left,

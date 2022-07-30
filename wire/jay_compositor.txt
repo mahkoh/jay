@@ -48,6 +48,11 @@ msg get_output = 11 {
     output: id(wl_output),
 }
 
+msg get_pointer = 12 {
+    id: id(jay_pointer),
+    seat: id(wl_seat),
+}
+
 # events
 
 msg client_id = 0 {
