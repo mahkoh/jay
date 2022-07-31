@@ -79,12 +79,6 @@ impl Renderer<'_> {
             }
             return;
         }
-        if let Some(ws) = output.workspace.get() {
-            if let Some(fs) = ws.fullscreen.get() {
-                fs.tl_as_node().node_render(self, x, y);
-                return;
-            }
-        }
         let opos = output.global.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
@@ -97,6 +91,13 @@ impl Renderer<'_> {
                     );
                 }
             };
+        }
+        if let Some(ws) = output.workspace.get() {
+            if let Some(fs) = ws.fullscreen.get() {
+                fs.tl_as_node().node_render(self, x, y);
+                render_layer!(output.layers[3]);
+                return;
+            }
         }
         render_layer!(output.layers[0]);
         render_layer!(output.layers[1]);

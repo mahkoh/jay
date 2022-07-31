@@ -535,6 +535,12 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
+        {
+            let res = self.find_layer_surface_at(x, y, &[OVERLAY], tree);
+            if res.accepts_input() {
+                return res;
+            }
+        }
         if let Some(ws) = self.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
                 tree.push(FoundNode {
@@ -546,7 +552,7 @@ impl Node for OutputNode {
             }
         }
         {
-            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree);
+            let res = self.find_layer_surface_at(x, y, &[TOP], tree);
             if res.accepts_input() {
                 return res;
             }
