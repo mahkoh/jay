@@ -246,6 +246,10 @@ impl Connector for TestConnector {
     fn drm_dev(&self) -> Option<DrmDeviceId> {
         None
     }
+
+    fn set_enabled(&self, _enabled: bool) {
+        // todo
+    }
 }
 
 pub struct TestMouseClick {
