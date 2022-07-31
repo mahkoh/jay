@@ -536,7 +536,7 @@ impl Node for OutputNode {
             return FindTreeResult::AcceptsInput;
         }
         {
-            let res = self.find_layer_surface_at(x, y, &[OVERLAY], tree);
+            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree);
             if res.accepts_input() {
                 return res;
             }
@@ -549,12 +549,6 @@ impl Node for OutputNode {
                     y,
                 });
                 return fs.tl_as_node().node_find_tree_at(x, y, tree);
-            }
-        }
-        {
-            let res = self.find_layer_surface_at(x, y, &[TOP], tree);
-            if res.accepts_input() {
-                return res;
             }
         }
         {

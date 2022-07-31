@@ -95,6 +95,7 @@ impl Renderer<'_> {
         if let Some(ws) = output.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
                 fs.tl_as_node().node_render(self, x, y);
+                render_layer!(output.layers[2]);
                 render_layer!(output.layers[3]);
                 return;
             }
