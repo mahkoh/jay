@@ -158,7 +158,12 @@ impl ButtonOwner for StaticButton {
                     .set(ScreencastPhase::Starting(starting.clone()));
                 starting.node.owner.set(Some(starting.clone()));
                 self.surface.gui.dpy.screencasts.set(
-                    self.surface.gui.screencast_session.session_obj.path().to_owned(),
+                    self.surface
+                        .gui
+                        .screencast_session
+                        .session_obj
+                        .path()
+                        .to_owned(),
                     self.surface.gui.screencast_session.clone(),
                 );
             }

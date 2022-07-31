@@ -698,7 +698,8 @@ impl PwClientNode {
                 if mem_id == !0 {
                     port.io_buffers.remove(&mix_id);
                 } else {
-                    port.io_buffers.set(mix_id, self.con.mem.map(mem_id, offset, size)?.typed());
+                    port.io_buffers
+                        .set(mix_id, self.con.mem.map(mem_id, offset, size)?.typed());
                 }
             }
             _ => {}

@@ -1,7 +1,10 @@
 use {
     crate::{
         ifs::wl_seat::POINTER,
-        portal::{ptl_render_ctx::PortalRenderCtx, ptr_gui::WindowData, PortalState},
+        portal::{
+            ptl_render_ctx::PortalRenderCtx, ptl_screencast::ScreencastSession,
+            ptr_gui::WindowData, PortalState,
+        },
         render::RenderContext,
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -41,7 +44,6 @@ use {
     },
     uapi::{c, AsUstr, OwnedFd},
 };
-use crate::portal::ptl_screencast::ScreencastSession;
 
 struct PortalDisplayPrelude {
     con: Rc<UsrCon>,
