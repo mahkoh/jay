@@ -18,6 +18,15 @@ pub struct WpFractionalScaleV1 {
     pub tracker: Tracker<Self>,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum RoundingAlgorithm {
+    PositionDependent,
+    PositionIndependent,
+}
+
+const ROUND_POSITION_INDEPENDENT: u32 = 0;
+const ROUND_POSITION_DEPENDENT: u32 = 1;
+
 impl WpFractionalScaleV1 {
     pub fn new(id: WpFractionalScaleV1Id, surface: &Rc<WlSurface>) -> Self {
         Self {
@@ -43,6 +52,21 @@ impl WpFractionalScaleV1 {
         });
     }
 
+    fn set_rounding_algorithm(&self, msg: MsgParser<'_, '_>) -> Result<(), WpFractionalScaleError> {
+        let req: SetRoundingAlgorithm = self.client.parse(self, msg)?;
+        let algorithm = match req.algorithm {
+            ROUND_POSITION_INDEPENDENT => RoundingAlgorithm::PositionIndependent,
+            ROUND_POSITION_DEPENDENT => RoundingAlgorithm::PositionDependent,
+            _ => {
+                return Err(WpFractionalScaleError::UnknownRoundingAlgorithm(
+                    req.algorithm,
+                ))
+            }
+        };
+        self.surface.pending.rounding_algorithm.set(Some(algorithm));
+        Ok(())
+    }
+
     fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), WpFractionalScaleError> {
         let _req: Destroy = self.client.parse(self, msg)?;
         self.surface.fractional_scale.take();
@@ -55,11 +79,12 @@ object_base! {
     WpFractionalScaleV1;
 
     DESTROY => destroy,
+    SET_ROUNDING_ALGORITHM => set_rounding_algorithm,
 }
 
 impl Object for WpFractionalScaleV1 {
     fn num_requests(&self) -> u32 {
-        DESTROY + 1
+        SET_ROUNDING_ALGORITHM + 1
     }
 }
 
@@ -73,6 +98,8 @@ pub enum WpFractionalScaleError {
     ClientError(Box<ClientError>),
     #[error("The surface already has a fractional scale extension attached")]
     Exists,
+    #[error("Unknown rounding algorithm {0}")]
+    UnknownRoundingAlgorithm(u32),
 }
 efrom!(WpFractionalScaleError, MsgParserError);
 efrom!(WpFractionalScaleError, ClientError);

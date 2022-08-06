@@ -25,9 +25,12 @@ use {
                 NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
-                cursor::CursorSurface, wl_subsurface::WlSubsurface,
-                wp_fractional_scale_v1::WpFractionalScaleV1, wp_viewport::WpViewport,
-                xdg_surface::XdgSurfaceError, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
+                cursor::CursorSurface,
+                wl_subsurface::WlSubsurface,
+                wp_fractional_scale_v1::{RoundingAlgorithm, WpFractionalScaleV1},
+                wp_viewport::WpViewport,
+                xdg_surface::XdgSurfaceError,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
             wp_presentation_feedback::WpPresentationFeedback,
         },
@@ -232,6 +235,7 @@ pub struct WlSurface {
     input_region: Cell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
+    pub rounding_algorithm: Cell<RoundingAlgorithm>,
     pub buffer_points_norm: RefCell<[f32; 8]>,
     buffer_transform: Cell<Transform>,
     buffer_scale: Cell<i32>,
@@ -340,6 +344,7 @@ struct PendingState {
     dst_size: Cell<Option<Option<(i32, i32)>>>,
     scale: Cell<Option<i32>>,
     transform: Cell<Option<Transform>>,
+    rounding_algorithm: Cell<Option<RoundingAlgorithm>>,
 }
 
 #[derive(Default)]
@@ -366,6 +371,7 @@ impl WlSurface {
             input_region: Default::default(),
             opaque_region: Default::default(),
             buffer_points: Default::default(),
+            rounding_algorithm: Cell::new(RoundingAlgorithm::PositionDependent),
             buffer_points_norm: Default::default(),
             buffer_transform: Cell::new(Transform::Normal),
             buffer_scale: Cell::new(1),
@@ -683,6 +689,9 @@ impl WlSurface {
         if let Some(src_rect) = self.pending.src_rect.take() {
             viewport_changed = true;
             self.src_rect.set(src_rect);
+        }
+        if let Some(rounding_algorithm) = self.pending.rounding_algorithm.take() {
+            self.rounding_algorithm.set(rounding_algorithm);
         }
         if viewport_changed {
             if let Some(rect) = self.src_rect.get() {

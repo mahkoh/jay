@@ -4,6 +4,10 @@ msg destroy = 0 {
 
 }
 
+msg set_rounding_algorithm = 1 {
+    algorithm: u32,
+}
+
 # events
 
 msg preferred_scale = 0 {

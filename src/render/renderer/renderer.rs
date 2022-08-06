@@ -6,7 +6,8 @@ use {
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_surface::{
-                xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
+                wp_fractional_scale_v1::RoundingAlgorithm, xdg_surface::XdgSurface,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
             },
             wp_presentation_feedback::WpPresentationFeedback,
         },
@@ -286,11 +287,15 @@ impl Renderer<'_> {
                         }
                         let pos = child.sub_surface.position.get();
                         let (x1, y1) = self.base.scale_point(pos.x1(), pos.y1());
+                        let pos_rel = match child.sub_surface.surface.rounding_algorithm.get() {
+                            RoundingAlgorithm::PositionDependent => Some((pos.x1(), pos.y1())),
+                            RoundingAlgorithm::PositionIndependent => None,
+                        };
                         self.render_surface_scaled(
                             &child.sub_surface.surface,
                             x + x1,
                             y + y1,
-                            Some((pos.x1(), pos.y1())),
+                            pos_rel,
                         );
                     }
                 };
