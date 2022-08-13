@@ -673,6 +673,11 @@ impl WlSeatGlobal {
         field: &CloneCell<Option<Rc<T::Source>>>,
         src: Option<Rc<T::Source>>,
     ) -> Result<(), WlSeatError> {
+        if let (Some(new), Some(old)) = (&src, &field.get()) {
+            if T::source_eq(old, new) {
+                return Ok(());
+            }
+        }
         if let Some(new) = &src {
             ipc::attach_seat::<T>(new, self, ipc::Role::Selection)?;
         }

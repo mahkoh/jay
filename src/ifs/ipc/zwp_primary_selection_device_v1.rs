@@ -224,6 +224,10 @@ impl IpcVtable for PrimarySelectionIpc {
     fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal> {
         offer.seat.clone()
     }
+
+    fn source_eq(left: &Self::Source, right: &Self::Source) -> bool {
+        left as *const _ == right as *const _
+    }
 }
 
 object_base! {

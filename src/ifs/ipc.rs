@@ -63,6 +63,7 @@ pub trait IpcVtable: Sized {
     fn send_send(src: &Rc<Self::Source>, mime_type: &str, fd: Rc<OwnedFd>);
     fn remove_from_seat(device: &Self::Device);
     fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal>;
+    fn source_eq(left: &Self::Source, right: &Self::Source) -> bool;
 }
 
 pub struct DeviceData<T: IpcVtable> {
