@@ -272,7 +272,7 @@ struct Outgoing {
 }
 
 impl Outgoing {
-    async fn run(mut self: Self) {
+    async fn run(mut self) {
         loop {
             self.con.flush_request.triggered().await;
             if let Err(e) = self.flush().await {
@@ -310,7 +310,7 @@ struct Incoming {
 }
 
 impl Incoming {
-    async fn run(mut self: Self) {
+    async fn run(mut self) {
         loop {
             if let Err(e) = self.handle_msg().await {
                 log::error!(

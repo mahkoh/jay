@@ -187,7 +187,7 @@ impl GbmDevice {
         if dev.is_null() {
             Err(GbmError::CreateDevice)
         } else {
-            Ok(Self { drm: drm, dev })
+            Ok(Self { drm, dev })
         }
     }
 
@@ -222,10 +222,7 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
-            Ok(GbmBo {
-                bo: bo,
-                dmabuf: dma,
-            })
+            Ok(GbmBo { bo, dmabuf: dma })
         }
     }
 
@@ -257,7 +254,7 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             Ok(GbmBo {
-                bo: bo,
+                bo,
                 dmabuf: dmabuf.clone(),
             })
         }

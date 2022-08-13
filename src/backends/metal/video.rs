@@ -641,17 +641,15 @@ fn create_connector_display_data(
             }
         };
         manufacturer = edid.base_block.id_manufacturer_name.to_string();
-        for descriptor in &edid.base_block.descriptors {
-            if let Some(d) = descriptor {
-                match d {
-                    Descriptor::DisplayProductSerialNumber(s) => {
-                        serial_number = s.clone();
-                    }
-                    Descriptor::DisplayProductName(s) => {
-                        name = s.clone();
-                    }
-                    _ => {}
+        for descriptor in edid.base_block.descriptors.iter().flatten() {
+            match descriptor {
+                Descriptor::DisplayProductSerialNumber(s) => {
+                    serial_number = s.clone();
                 }
+                Descriptor::DisplayProductName(s) => {
+                    name = s.clone();
+                }
+                _ => {}
             }
         }
         if name.is_empty() {
@@ -936,7 +934,7 @@ impl MetalBackend {
         dev: &Rc<MetalDrmDeviceData>,
         preserve_any: bool,
     ) -> Result<(), MetalError> {
-        if let Err(e) = self.update_device_properties(&dev) {
+        if let Err(e) = self.update_device_properties(dev) {
             return Err(MetalError::UpdateProperties(e));
         }
         let res = dev.dev.master.get_resources()?;
@@ -1002,7 +1000,7 @@ impl MetalBackend {
             dev.futures.set(c, future);
             dev.connectors.set(c, connector);
         }
-        self.init_drm_device(&dev, &mut preserve)?;
+        self.init_drm_device(dev, &mut preserve)?;
         for connector in dev.connectors.lock().values() {
             if connector.connected() {
                 if !preserve.connectors.contains(&connector.id) {
@@ -1010,7 +1008,7 @@ impl MetalBackend {
                 }
                 let dd = connector.display.borrow_mut();
                 if !connector.connect_sent.get() {
-                    self.send_connected(&connector, &dd);
+                    self.send_connected(connector, &dd);
                 }
                 self.start_connector(connector, &dd);
             }
@@ -1122,7 +1120,7 @@ impl MetalBackend {
             }
         }
 
-        let (connectors, futures) = get_connectors(&self, &dev, &resources.connectors)?;
+        let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
 
         let slf = Rc::new(MetalDrmDeviceData {
             dev: dev.clone(),
@@ -1143,7 +1141,7 @@ impl MetalBackend {
                 .push(BackendEvent::NewConnector(connector.clone()));
             if connector.connected() {
                 let dd = connector.display.borrow_mut();
-                self.send_connected(&connector, &dd);
+                self.send_connected(connector, &dd);
                 self.start_connector(connector, &dd);
             }
         }

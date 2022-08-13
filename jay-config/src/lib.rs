@@ -34,6 +34,8 @@
 //! config!(configure);
 //! ```
 
+#![allow(clippy::zero_prefixed_literal, clippy::manual_range_contains)]
+
 use {
     crate::keyboard::ModifiedKeySym,
     bincode::{Decode, Encode},

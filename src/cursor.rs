@@ -130,7 +130,7 @@ impl ServerCursorTemplate {
         paths: &[BString],
         ctx: &Rc<RenderContext>,
     ) -> Result<Self, CursorError> {
-        match open_cursor(name, theme, &scales, sizes, paths) {
+        match open_cursor(name, theme, scales, sizes, paths) {
             Ok(cs) => {
                 if cs.images.len() == 1 {
                     let mut sizes = SmallMapMut::new();

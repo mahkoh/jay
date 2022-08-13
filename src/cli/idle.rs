@@ -169,7 +169,7 @@ fn parse_components(args: &[String]) -> Vec<Component> {
                 args.push_front(arg[pos..].to_string());
                 arg = &arg[..pos];
             }
-            let comp = match &arg[..] {
+            let comp = match arg {
                 "minutes" | "minute" | "min" | "m" => Component::Minutes(arg.to_string()),
                 "seconds" | "second" | "sec" | "s" => Component::Seconds(arg.to_string()),
                 _ => fatal!("Could not parse `{}`", arg),

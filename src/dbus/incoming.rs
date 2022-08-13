@@ -117,7 +117,7 @@ impl Incoming {
                                 member: member.deref(),
                             };
                             method_handler = object.methods.get(&key);
-                            method_handler.as_ref().map(|mh| mh.deref())
+                            method_handler.as_deref()
                         };
                     if let Some(handler) = handler {
                         let sig = headers.signature.as_deref().unwrap_or("");
@@ -133,7 +133,7 @@ impl Incoming {
                             if let Err(e) = handler.handle(
                                 &object,
                                 &self.socket,
-                                &sender,
+                                sender,
                                 serial,
                                 reply_expected,
                                 &mut parser,

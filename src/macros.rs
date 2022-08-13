@@ -596,11 +596,12 @@ macro_rules! bitflags {
         }
 
         impl std::fmt::Debug for $name {
+            #[allow(clippy::bad_bit_mask)]
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut any = false;
                 let mut v = self.0;
                 $(
-                    if v & $val == $val {
+                    if $val != 0 && v & $val == $val {
                         if any {
                             write!(f, "|")?;
                         }

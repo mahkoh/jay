@@ -166,7 +166,7 @@ impl Renderer<'_> {
             let x = x + (pos.width() - tex.width()) / 2;
             let y = y + (pos.height() - tex.height()) / 2;
             self.base
-                .render_texture(&tex, x, y, &ARGB8888, None, None, self.base.scale);
+                .render_texture(&tex, x, y, ARGB8888, None, None, self.base.scale);
         }
     }
 

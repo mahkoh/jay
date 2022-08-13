@@ -1,3 +1,5 @@
+#![allow(clippy::await_holding_refcell_ref)] // all borrows are to data that is only used by this task
+
 use {
     crate::{
         async_engine::SpawnedFuture,
@@ -281,7 +283,7 @@ impl Wm {
         socket: OwnedFd,
         shared: &Rc<XwmShared>,
     ) -> Result<Self, XWaylandError> {
-        let c = match Xcon::connect_to_fd(&state, &Rc::new(socket), &[], &[]).await {
+        let c = match Xcon::connect_to_fd(state, &Rc::new(socket), &[], &[]).await {
             Ok(c) => c,
             Err(e) => return Err(XWaylandError::Connect(e)),
         };

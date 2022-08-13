@@ -26,7 +26,18 @@
     clippy::option_map_unit_fn,
     clippy::wrong_self_convention,
     clippy::single_char_add_str,
-    clippy::ptr_eq
+    clippy::ptr_eq,
+    clippy::zero_prefixed_literal,
+    clippy::unnecessary_unwrap,
+    clippy::needless_return,
+    clippy::missing_safety_doc,
+    clippy::collapsible_if,
+    clippy::mut_from_ref,
+    clippy::bool_comparison,
+    clippy::collapsible_match,
+    clippy::field_reassign_with_default,
+    clippy::new_ret_no_self,
+    clippy::or_fun_call
 )]
 
 #[macro_use]

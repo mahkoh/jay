@@ -37,6 +37,7 @@ impl Incoming {
         }
     }
 
+    #[allow(clippy::await_holding_refcell_ref)] // false positive
     async fn handle_msg(&mut self) -> Result<(), XconError> {
         const MAX_LENGTH_UNITS: usize = 0x4000 / 4;
         const MIN_MSG_SIZE: usize = 32;
@@ -147,6 +148,7 @@ impl Incoming {
                 }
             }
             ev => 'handle_event: {
+                drop(reply_handlers);
                 let (ext, code) = if ev == XGE_EVENT {
                     let length =
                         u32::from_ne_bytes([msg_buf[4], msg_buf[5], msg_buf[6], msg_buf[7]])

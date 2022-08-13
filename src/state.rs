@@ -411,7 +411,7 @@ impl State {
             }
         } else {
             let container =
-                ContainerNode::new(self, &ws, ws.clone(), node, ContainerSplit::Horizontal);
+                ContainerNode::new(self, ws, ws.clone(), node, ContainerSplit::Horizontal);
             ws.set_container(&container);
         }
     }
@@ -484,7 +484,7 @@ impl State {
                 return output.ensure_workspace();
             }
         }
-        if let Some(output) = self.root.outputs.lock().values().cloned().next() {
+        if let Some(output) = self.root.outputs.lock().values().next().cloned() {
             return output.ensure_workspace();
         }
         self.dummy_output.get().unwrap().ensure_workspace()

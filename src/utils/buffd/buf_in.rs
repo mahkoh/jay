@@ -78,7 +78,7 @@ impl BufFdIn {
         match self.ring.recvmsg(&self.fd, &mut iov, &mut self.in_fd).await {
             Ok(0) => return Err(BufFdError::Closed),
             Ok(n) => self.in_right += n,
-            Err(e) => return Err(BufFdError::Ring(e.into())),
+            Err(e) => return Err(BufFdError::Ring(e)),
         }
         if self.in_fd.len() > MAX_IN_FD {
             return Err(BufFdError::TooManyFds);

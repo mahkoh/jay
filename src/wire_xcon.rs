@@ -3,7 +3,7 @@
     unused_variables,
     dead_code,
     unused_assignments,
-    clippy::eval_order_dependence,
+    clippy::mixed_read_write_in_expression,
     clippy::double_parens,
     clippy::unnecessary_cast
 )]

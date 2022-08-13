@@ -44,7 +44,7 @@ async fn run(seat_test: Rc<SeatTest>) {
     let tc = &seat_test.tc;
     let comp = tc.jay_compositor().await;
     tc.send(GetSeats { self_id: comp });
-    Seat::handle(&tc, comp, seat_test.clone(), |st, seat| {
+    Seat::handle(tc, comp, seat_test.clone(), |st, seat| {
         st.names
             .borrow_mut()
             .insert(seat.id, Rc::new(seat.name.to_string()));

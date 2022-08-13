@@ -96,7 +96,7 @@ impl IoUring {
         let mut params = io_uring_params::default();
         let fd = match io_uring_setup(entries, &mut params) {
             Ok(f) => f,
-            Err(e) => return Err(IoUringError::CreateUring(e.into())),
+            Err(e) => return Err(IoUringError::CreateUring(e)),
         };
         if !params.features.contains(IORING_FEAT_NODROP) {
             return Err(IoUringError::NoDrop);
@@ -342,7 +342,7 @@ impl IoUringData {
                 self.cqhead.deref().store(head, Release);
                 if let Some(pending) = self.tasks.remove(&entry.user_data) {
                     self.pending_in_kernel.remove(&entry.user_data);
-                    pending.complete(&self, entry.res);
+                    pending.complete(self, entry.res);
                 }
             }
             self.cqhead.deref().store(head, Release);

@@ -43,10 +43,10 @@ async fn run(screenshot: Rc<Screenshot>) {
         id: sid,
     });
     let result = Rc::new(AsyncQueue::new());
-    Error::handle(&tc, sid, result.clone(), |res, err| {
+    Error::handle(tc, sid, result.clone(), |res, err| {
         res.push(Err(err.msg.to_owned()));
     });
-    Dmabuf::handle(&tc, sid, result.clone(), |res, buf| {
+    Dmabuf::handle(tc, sid, result.clone(), |res, buf| {
         res.push(Ok(buf));
     });
     let buf = match result.pop().await {

@@ -920,8 +920,8 @@ impl<'a> EdidParser<'a> {
     fn parse_descriptors(&mut self, revision: u8) -> Result<[Option<Descriptor>; 4], EdidError> {
         let _ctx = self.push_ctx(EdidParseContext::Descriptors);
         let mut res = [None, None, None, None];
-        for i in 0..4 {
-            res[i] = self.parse_descriptor(revision)?;
+        for res in &mut res {
+            *res = self.parse_descriptor(revision)?;
         }
         Ok(res)
     }

@@ -213,7 +213,7 @@ impl ToolClient {
     {
         let slf = self.clone();
         let mut handlers = self.handlers.borrow_mut();
-        handlers.entry(id.into()).or_default().insert(
+        handlers.entry(id).or_default().insert(
             T::ID,
             Rc::new(move |parser| {
                 let val = match <T::Generic<'_> as RequestParser<'_>>::parse(parser) {
@@ -368,7 +368,7 @@ struct Outgoing {
 }
 
 impl Outgoing {
-    async fn run(mut self: Self) {
+    async fn run(mut self) {
         loop {
             self.tc.flush_request.triggered().await;
             if let Err(e) = self.flush().await {
@@ -399,7 +399,7 @@ struct Incoming {
 }
 
 impl Incoming {
-    async fn run(mut self: Self) {
+    async fn run(mut self) {
         loop {
             if let Err(e) = self.handle_msg().await {
                 fatal!("Could not process an incoming message: {}", ErrorFmt(e));

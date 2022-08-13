@@ -279,7 +279,7 @@ impl ToplevelData {
         self.is_fullscreen.set(true);
         ws.fullscreen.set(Some(node.clone()));
         node.tl_set_parent(ws.clone());
-        node.clone().tl_set_workspace(&ws);
+        node.clone().tl_set_workspace(ws);
         node.clone()
             .tl_change_extents(&ws.output.get().global.pos.get());
         for seat in kb_foci {

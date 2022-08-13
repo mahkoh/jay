@@ -7,7 +7,7 @@ use {
 };
 
 pub fn union(left: &Container, right: &Container) -> Container {
-    op::<Union>(left, &right)
+    op::<Union>(left, right)
 }
 
 pub fn subtract(left: &Container, right: &Container) -> Container {
@@ -393,11 +393,11 @@ pub fn rects_to_bands(rects_tmp: &[RectRaw]) -> Container {
     let mut res = Container::new();
 
     for &[y1, y2] in ys.array_windows_ext::<2>() {
-        loop {
+        'bands: {
             macro_rules! check_rect {
                 ($rect:expr) => {{
                     if $rect.y1 != y1 {
-                        break;
+                        break 'bands;
                     }
                     rects.pop();
                     if y2 < $rect.y2 {
@@ -422,7 +422,6 @@ pub fn rects_to_bands(rects_tmp: &[RectRaw]) -> Container {
                 }
                 res.push(RectRaw { x1, x2, y1, y2 });
             }
-            break;
         }
     }
 

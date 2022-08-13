@@ -167,7 +167,7 @@ impl Udev {
         })
     }
 
-    pub fn create_device_from_devnum<'a>(
+    pub fn create_device_from_devnum(
         self: &Rc<Self>,
         ty: UdevDeviceType,
         devnum: c::dev_t,

@@ -64,7 +64,7 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
 
     pub fn clear(&self) {
         unsafe {
-            let _v = self.m.get().deref_mut().clear();
+            self.m.get().deref_mut().clear();
         }
     }
 

@@ -275,19 +275,18 @@ fn start_global_event_handlers(
     backend: &Rc<dyn Backend>,
 ) -> Vec<SpawnedFuture<()>> {
     let eng = &state.eng;
-    let mut res = vec![];
 
-    res.push(eng.spawn(tasks::handle_backend_events(state.clone())));
-    res.push(eng.spawn(tasks::handle_slow_clients(state.clone())));
-    res.push(eng.spawn(tasks::handle_hardware_cursor_tick(state.clone())));
-    res.push(eng.spawn2(Phase::Layout, container_layout(state.clone())));
-    res.push(eng.spawn2(Phase::PostLayout, container_render_data(state.clone())));
-    res.push(eng.spawn2(Phase::PostLayout, output_render_data(state.clone())));
-    res.push(eng.spawn2(Phase::Layout, float_layout(state.clone())));
-    res.push(eng.spawn2(Phase::PostLayout, float_titles(state.clone())));
-    res.push(eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())));
-
-    res
+    vec![
+        eng.spawn(tasks::handle_backend_events(state.clone())),
+        eng.spawn(tasks::handle_slow_clients(state.clone())),
+        eng.spawn(tasks::handle_hardware_cursor_tick(state.clone())),
+        eng.spawn2(Phase::Layout, container_layout(state.clone())),
+        eng.spawn2(Phase::PostLayout, container_render_data(state.clone())),
+        eng.spawn2(Phase::PostLayout, output_render_data(state.clone())),
+        eng.spawn2(Phase::Layout, float_layout(state.clone())),
+        eng.spawn2(Phase::PostLayout, float_titles(state.clone())),
+        eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())),
+    ]
 }
 
 async fn create_backend(
