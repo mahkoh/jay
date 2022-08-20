@@ -229,7 +229,7 @@ impl ConnectorHandler {
         self.state.outputs.remove(&self.id);
         on.lock_surface.take();
         {
-            let mut surfaces = vec!();
+            let mut surfaces = vec![];
             for layer in &on.layers {
                 surfaces.extend(layer.iter());
             }
