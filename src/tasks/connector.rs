@@ -228,6 +228,16 @@ impl ConnectorHandler {
         self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
         on.lock_surface.take();
+        {
+            let mut surfaces = vec!();
+            for layer in &on.layers {
+                surfaces.extend(layer.iter());
+            }
+            for surface in surfaces {
+                surface.destroy_node();
+                surface.send_closed();
+            }
+        }
         let mut target_is_dummy = false;
         let target = match self.state.outputs.lock().values().next() {
             Some(o) => o.node.clone(),

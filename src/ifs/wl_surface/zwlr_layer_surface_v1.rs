@@ -126,8 +126,7 @@ impl ZwlrLayerSurfaceV1 {
         });
     }
 
-    #[allow(dead_code)]
-    fn send_closed(&self) {
+    pub fn send_closed(&self) {
         self.client.event(Closed { self_id: self.id });
     }
 
