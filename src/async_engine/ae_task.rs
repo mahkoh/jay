@@ -175,7 +175,7 @@ impl<T, F: Future<Output = T>> Task<T, F> {
 
     unsafe fn dec_ref_count(slf: *const Self) {
         if slf.deref().ref_count.fetch_sub(1) == 1 {
-            Box::from_raw(slf as *mut Self);
+            drop(Box::from_raw(slf as *mut Self));
         }
     }
 
