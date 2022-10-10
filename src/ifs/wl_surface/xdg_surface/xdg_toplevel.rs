@@ -133,7 +133,7 @@ impl XdgToplevel {
         }
     }
 
-    fn send_current_configure(&self) {
+    pub fn send_current_configure(&self) {
         let rect = self.xdg.absolute_desired_extents.get();
         self.send_configure_checked(rect.width(), rect.height());
         self.xdg.do_send_configure();

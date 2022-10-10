@@ -48,7 +48,7 @@ impl ZxdgToplevelDecorationV1 {
             Decoration::Server => SERVER_SIDE,
         };
         self.send_configure(mode);
-        self.toplevel.xdg.do_send_configure();
+        self.toplevel.send_current_configure();
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
