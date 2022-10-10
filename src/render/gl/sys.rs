@@ -13,6 +13,7 @@ pub type GLuint = c::c_uint;
 
 egl_transparent!(GLeglImageOES);
 
+pub const GL_RGBA: GLint = 0x1908;
 pub const GL_BGRA_EXT: GLint = 0x80E1;
 pub const GL_CLAMP_TO_EDGE: GLint = 0x812F;
 pub const GL_COLOR_ATTACHMENT0: GLenum = 0x8CE0;

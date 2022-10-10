@@ -1,9 +1,10 @@
 use {
     crate::{
         pipewire::pw_pod::{
-            SPA_VIDEO_FORMAT_BGRx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_NV12,
+            SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA,
+            SPA_VIDEO_FORMAT_NV12, SPA_VIDEO_FORMAT_RGBA,
         },
-        render::sys::{GLint, GL_BGRA_EXT, GL_UNSIGNED_BYTE},
+        render::sys::{GLint, GL_BGRA_EXT, GL_RGBA, GL_UNSIGNED_BYTE},
         utils::debug_fn::debug_fn,
     },
     ahash::AHashMap,
@@ -106,6 +107,30 @@ pub static FORMATS: &[Format] = &[
         has_alpha: false,
         shm_supported: true,
         pipewire: SPA_VIDEO_FORMAT_BGRx,
+    },
+    Format {
+        name: "abgr8888",
+        bpp: 4,
+        gl_format: GL_RGBA,
+        gl_type: GL_UNSIGNED_BYTE,
+        drm: fourcc_code('A', 'B', '2', '4'),
+        wl_id: None,
+        external_only_guess: false,
+        has_alpha: true,
+        shm_supported: true,
+        pipewire: SPA_VIDEO_FORMAT_RGBA,
+    },
+    Format {
+        name: "xbgr8888",
+        bpp: 4,
+        gl_format: GL_RGBA,
+        gl_type: GL_UNSIGNED_BYTE,
+        drm: fourcc_code('X', 'B', '2', '4'),
+        wl_id: None,
+        external_only_guess: false,
+        has_alpha: false,
+        shm_supported: true,
+        pipewire: SPA_VIDEO_FORMAT_RGBx,
     },
     Format {
         name: "nv12",
