@@ -46,7 +46,7 @@ impl WlRegistry {
         let bind: Bind = self.client.parse(self, parser)?;
         let name = GlobalName::from_raw(bind.name);
         let globals = &self.client.state.globals;
-        let global = globals.get(name, self.client.secure)?;
+        let global = globals.get(name, self.client.secure, self.client.is_xwayland)?;
         if global.interface().name() != bind.interface {
             return Err(WlRegistryError::InvalidInterface(InterfaceError {
                 name: global.name(),

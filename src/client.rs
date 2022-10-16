@@ -184,13 +184,13 @@ impl Clients {
         }
     }
 
-    pub fn broadcast<B>(&self, secure: bool, mut f: B)
+    pub fn broadcast<B>(&self, secure: bool, xwayland_only: bool, mut f: B)
     where
         B: FnMut(&Rc<Client>),
     {
         let clients = self.clients.borrow();
         for client in clients.values() {
-            if !secure || client.data.secure {
+            if (!secure || client.data.secure) && (!xwayland_only || client.data.is_xwayland) {
                 f(&client.data);
             }
         }
