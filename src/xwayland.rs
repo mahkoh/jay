@@ -14,7 +14,7 @@ use {
             },
             wl_seat::SeatId,
             wl_surface::{
-                xwindow::{Xwindow, XwindowData},
+                x_surface::xwindow::{Xwindow, XwindowData},
                 WlSurface,
             },
         },

@@ -3,8 +3,8 @@ pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_fractional_scale_v1;
 pub mod wp_viewport;
+pub mod x_surface;
 pub mod xdg_surface;
-pub mod xwindow;
 pub mod zwlr_layer_surface_v1;
 pub mod zwp_idle_inhibitor_v1;
 
@@ -27,7 +27,8 @@ use {
             wl_surface::{
                 cursor::CursorSurface, wl_subsurface::WlSubsurface,
                 wp_fractional_scale_v1::WpFractionalScaleV1, wp_viewport::WpViewport,
-                xdg_surface::XdgSurfaceError, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
+                x_surface::XSurface, xdg_surface::XdgSurfaceError,
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
             wp_presentation_feedback::WpPresentationFeedback,
         },
@@ -291,6 +292,10 @@ trait SurfaceExt {
         true
     }
 
+    fn is_none(&self) -> bool {
+        !self.is_some()
+    }
+
     fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
         if self.is_some() {
             Err(WlSurfaceError::ReloObjectStillExists)
@@ -316,6 +321,10 @@ trait SurfaceExt {
     }
 
     fn focus_node(&self) -> Option<Rc<dyn Node>> {
+        None
+    }
+
+    fn into_xsurface(self: Rc<Self>) -> Option<Rc<XSurface>> {
         None
     }
 }
@@ -392,6 +401,22 @@ impl WlSurface {
             fractional_scale: Default::default(),
             constraints: Default::default(),
         }
+    }
+
+    fn get_xsurface(self: &Rc<Self>) -> Result<Rc<XSurface>, WlSurfaceError> {
+        self.set_role(SurfaceRole::XSurface)?;
+        let mut ext = self.ext.get();
+        if ext.is_none() {
+            let xsurface = Rc::new(XSurface {
+                surface: self.clone(),
+                xwindow: Default::default(),
+                tracker: Default::default(),
+            });
+            track!(self.client, xsurface);
+            self.ext.set(xsurface.clone());
+            ext = xsurface;
+        }
+        Ok(ext.into_xsurface().unwrap())
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {

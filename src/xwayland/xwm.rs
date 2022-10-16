@@ -16,7 +16,7 @@ use {
             },
             wl_seat::{SeatId, WlSeatGlobal},
             wl_surface::{
-                xwindow::{XInputModel, Xwindow, XwindowData},
+                x_surface::xwindow::{XInputModel, Xwindow, XwindowData},
                 WlSurface,
             },
         },
@@ -1374,14 +1374,16 @@ impl Wm {
             log::error!("The xwindow has already been constructed");
             return;
         }
-        let window = Rc::new(Xwindow::new(data, &surface));
-        if let Err(e) = window.install() {
-            log::error!(
-                "Could not attach the xwindow to the surface: {}",
-                ErrorFmt(e)
-            );
-            return;
-        }
+        let window = match Xwindow::install(data, &surface) {
+            Ok(w) => w,
+            Err(e) => {
+                log::error!(
+                    "Could not attach the xwindow to the surface: {}",
+                    ErrorFmt(e)
+                );
+                return;
+            }
+        };
         data.window.set(Some(window.clone()));
         {
             self.load_window_wm_class(data).await;
@@ -1766,7 +1768,7 @@ impl Wm {
                     if prev_pid.is_some()
                         && prev_pid == new_pid
                         && revent.serial() >= self.last_input_serial
-                        && w.surface.node_visible()
+                        && w.x.surface.node_visible()
                     {
                         // log::info!("xwm ACCEPT");
                         focus_window = new_window;

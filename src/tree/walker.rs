@@ -2,8 +2,8 @@ use {
     crate::{
         ifs::wl_surface::{
             ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
+            x_surface::xwindow::Xwindow,
             xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
-            xwindow::Xwindow,
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
             WlSurface,
         },

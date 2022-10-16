@@ -5,7 +5,7 @@ use {
         fixed::Fixed,
         ifs::{
             wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
-            wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
+            wl_surface::{x_surface::XSurface, WlSurface, WlSurfaceError},
         },
         rect::Rect,
         render::Renderer,
@@ -132,7 +132,7 @@ pub struct Xwindow {
     pub id: XwindowId,
     pub seat_state: NodeSeatState,
     pub data: Rc<XwindowData>,
-    pub surface: Rc<WlSurface>,
+    pub x: Rc<XSurface>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub toplevel_data: ToplevelData,
 }
@@ -196,21 +196,31 @@ pub enum Change {
 }
 
 impl Xwindow {
-    pub fn new(data: &Rc<XwindowData>, surface: &Rc<WlSurface>) -> Self {
+    pub fn install(
+        data: &Rc<XwindowData>,
+        surface: &Rc<WlSurface>,
+    ) -> Result<Rc<Self>, XWindowError> {
+        let xsurface = surface.get_xsurface()?;
+        if xsurface.xwindow.get().is_some() {
+            return Err(XWindowError::AlreadyAttached);
+        }
         let tld = ToplevelData::new(
             &data.state,
             data.info.title.borrow_mut().clone().unwrap_or_default(),
             Some(surface.client.clone()),
         );
         tld.pos.set(surface.extents.get());
-        Self {
+        let slf = Rc::new(Self {
             id: data.state.node_ids.next(),
             seat_state: Default::default(),
             data: data.clone(),
-            surface: surface.clone(),
             display_link: Default::default(),
             toplevel_data: tld,
-        }
+            x: xsurface,
+        });
+        slf.x.xwindow.set(Some(slf.clone()));
+        slf.x.surface.set_toplevel(Some(slf.clone()));
+        Ok(slf)
     }
 
     pub fn destroy(&self) {
@@ -220,17 +230,8 @@ impl Xwindow {
 
     pub fn break_loops(&self) {
         self.tl_destroy();
-        self.surface.set_toplevel(None);
-    }
-
-    pub fn install(self: &Rc<Self>) -> Result<(), XWindowError> {
-        self.surface.set_role(SurfaceRole::XSurface)?;
-        if self.surface.ext.get().is_some() {
-            return Err(XWindowError::AlreadyAttached);
-        }
-        self.surface.ext.set(self.clone());
-        self.surface.set_toplevel(Some(self.clone()));
-        Ok(())
+        self.x.surface.set_toplevel(None);
+        self.x.xwindow.set(None);
     }
 
     pub fn is_mapped(&self) -> bool {
@@ -238,7 +239,7 @@ impl Xwindow {
     }
 
     pub fn may_be_mapped(&self) -> bool {
-        self.surface.buffer.get().is_some() && self.data.info.mapped.get()
+        self.x.surface.buffer.get().is_some() && self.data.info.mapped.get()
     }
 
     fn map_change(&self) -> Change {
@@ -289,30 +290,6 @@ impl Xwindow {
     }
 }
 
-impl SurfaceExt for Xwindow {
-    fn post_commit(self: Rc<Self>) {
-        self.map_status_changed();
-    }
-
-    fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
-        self.tl_destroy();
-        self.surface.unset_ext();
-        self.data.window.set(None);
-        self.data.surface_id.set(None);
-        self.data
-            .state
-            .xwayland
-            .queue
-            .push(XWaylandEvent::SurfaceDestroyed(self.surface.id));
-        Ok(())
-    }
-
-    fn extents_changed(&self) {
-        self.toplevel_data.pos.set(self.surface.extents.get());
-        self.tl_extents_changed();
-    }
-}
-
 impl Node for Xwindow {
     fn node_id(&self) -> NodeId {
         self.id.into()
@@ -327,11 +304,11 @@ impl Node for Xwindow {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_surface(&self.surface);
+        visitor.visit_surface(&self.x.surface);
     }
 
     fn node_visible(&self) -> bool {
-        self.surface.visible.get()
+        self.x.surface.visible.get()
     }
 
     fn node_absolute_position(&self) -> Rect {
@@ -343,10 +320,10 @@ impl Node for Xwindow {
     }
 
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        let rect = self.surface.buffer_abs_pos.get();
+        let rect = self.x.surface.buffer_abs_pos.get();
         if x < rect.width() && y < rect.height() {
             tree.push(FoundNode {
-                node: self.surface.clone(),
+                node: self.x.surface.clone(),
                 x,
                 y,
             });
@@ -356,7 +333,7 @@ impl Node for Xwindow {
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_surface(&self.surface, x, y)
+        renderer.render_surface(&self.x.surface, x, y)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -398,11 +375,11 @@ impl ToplevelNode for Xwindow {
     }
 
     fn tl_focus_child(&self, _seat: SeatId) -> Option<Rc<dyn Node>> {
-        Some(self.surface.clone())
+        Some(self.x.surface.clone())
     }
 
     fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        self.surface.set_output(&ws.output.get());
+        self.x.surface.set_output(&ws.output.get());
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
@@ -421,7 +398,7 @@ impl ToplevelNode for Xwindow {
                     .push(XWaylandEvent::Configure(self.clone()));
             }
             if old.position() != rect.position() {
-                self.surface.set_absolute_position(rect.x1(), rect.y1());
+                self.x.surface.set_absolute_position(rect.x1(), rect.y1());
             }
         }
     }
@@ -435,14 +412,14 @@ impl ToplevelNode for Xwindow {
     }
 
     fn tl_set_visible(&self, visible: bool) {
-        self.surface.set_visible(visible);
+        self.x.surface.set_visible(visible);
         self.seat_state.set_visible(self, visible);
     }
 
     fn tl_destroy(&self) {
         self.toplevel_data.destroy_node(self);
         self.display_link.borrow_mut().take();
-        self.surface.destroy_node();
+        self.x.surface.destroy_node();
     }
 }
 
