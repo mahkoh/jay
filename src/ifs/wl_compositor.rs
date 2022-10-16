@@ -58,7 +58,7 @@ impl WlCompositor {
                 .state
                 .xwayland
                 .queue
-                .push(XWaylandEvent::SurfaceCreated(surface.clone()));
+                .push(XWaylandEvent::SurfaceCreated(surface.id));
         }
         Ok(())
     }

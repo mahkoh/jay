@@ -13,10 +13,7 @@ use {
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             wl_seat::SeatId,
-            wl_surface::{
-                x_surface::xwindow::{Xwindow, XwindowData},
-                WlSurface,
-            },
+            wl_surface::x_surface::xwindow::{Xwindow, XwindowData},
         },
         io_uring::IoUringError,
         state::State,
@@ -273,7 +270,7 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
 }
 
 pub enum XWaylandEvent {
-    SurfaceCreated(Rc<WlSurface>),
+    SurfaceCreated(WlSurfaceId),
     SurfaceDestroyed(WlSurfaceId),
     Configure(Rc<Xwindow>),
     Activate(Rc<XwindowData>),

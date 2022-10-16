@@ -1421,7 +1421,11 @@ impl Wm {
         window.map_status_changed();
     }
 
-    async fn handle_xwayland_surface_created(&mut self, surface: Rc<WlSurface>) {
+    async fn handle_xwayland_surface_created(&mut self, surface: WlSurfaceId) {
+        let surface = match self.client.lookup(surface) {
+            Ok(s) => s,
+            _ => return,
+        };
         let data = match self.windows_by_surface_id.get(&surface.id) {
             Some(w) => w.clone(),
             _ => return,
