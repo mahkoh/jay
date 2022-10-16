@@ -271,7 +271,8 @@ async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
 
 pub enum XWaylandEvent {
     SurfaceCreated(WlSurfaceId),
-    SurfaceDestroyed(WlSurfaceId),
+    SurfaceSerialAssigned(WlSurfaceId),
+    SurfaceDestroyed(WlSurfaceId, Option<u64>),
     Configure(Rc<Xwindow>),
     Activate(Rc<XwindowData>),
     ActivateRoot,

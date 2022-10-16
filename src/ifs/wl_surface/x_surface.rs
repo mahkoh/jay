@@ -1,6 +1,9 @@
 use {
     crate::{
-        ifs::wl_surface::{x_surface::xwindow::Xwindow, SurfaceExt, WlSurface, WlSurfaceError},
+        ifs::wl_surface::{
+            x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
+            SurfaceExt, WlSurface, WlSurfaceError,
+        },
         leaks::Tracker,
         tree::ToplevelNode,
         utils::clonecell::CloneCell,
@@ -9,11 +12,13 @@ use {
     std::rc::Rc,
 };
 
+pub mod xwayland_surface_v1;
 pub mod xwindow;
 
 pub struct XSurface {
     pub surface: Rc<WlSurface>,
     pub xwindow: CloneCell<Option<Rc<Xwindow>>>,
+    pub xwayland_surface: CloneCell<Option<Rc<XwaylandSurfaceV1>>>,
     pub tracker: Tracker<Self>,
 }
 
@@ -25,6 +30,9 @@ impl SurfaceExt for XSurface {
     }
 
     fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
+        if self.xwayland_surface.get().is_some() {
+            return Err(WlSurfaceError::ReloObjectStillExists);
+        }
         self.surface.unset_ext();
         if let Some(xwindow) = self.xwindow.take() {
             xwindow.tl_destroy();
@@ -35,7 +43,10 @@ impl SurfaceExt for XSurface {
                 .state
                 .xwayland
                 .queue
-                .push(XWaylandEvent::SurfaceDestroyed(self.surface.id));
+                .push(XWaylandEvent::SurfaceDestroyed(
+                    self.surface.id,
+                    self.surface.xwayland_serial.get(),
+                ));
         }
         Ok(())
     }

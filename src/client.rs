@@ -2,14 +2,14 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::{error::LookupError, objects::Objects},
-        ifs::{wl_display::WlDisplay, wl_registry::WlRegistry},
+        ifs::{wl_display::WlDisplay, wl_registry::WlRegistry, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
         state::State,
         utils::{
             asyncevent::AsyncEvent,
             buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
-            copyhashmap::Locked,
+            copyhashmap::{CopyHashMap, Locked},
             errorfmt::ErrorFmt,
             numcell::NumCell,
             trim::AsciiTrim,
@@ -145,6 +145,8 @@ impl Clients {
             pid_info: get_pid_info(uid, pid),
             serials: Default::default(),
             symmetric_delete: Cell::new(false),
+            last_xwayland_serial: Cell::new(0),
+            surfaces_by_xwayland_serial: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -214,6 +216,7 @@ impl Drop for ClientHolder {
         self.data.objects.destroy();
         self.data.flush_request.clear();
         self.data.shutdown.clear();
+        self.data.surfaces_by_xwayland_serial.clear();
     }
 }
 
@@ -251,6 +254,8 @@ pub struct Client {
     pub pid_info: PidInfo,
     pub serials: RefCell<VecDeque<SerialRange>>,
     pub symmetric_delete: Cell<bool>,
+    pub last_xwayland_serial: Cell<u64>,
+    pub surfaces_by_xwayland_serial: CopyHashMap<u64, Rc<WlSurface>>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

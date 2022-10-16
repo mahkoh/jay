@@ -117,6 +117,7 @@ pub struct XwindowData {
     pub window_id: u32,
     pub client: Rc<Client>,
     pub surface_id: Cell<Option<WlSurfaceId>>,
+    pub surface_serial: Cell<Option<u64>>,
     pub window: CloneCell<Option<Rc<Xwindow>>>,
     pub info: XwindowInfo,
     pub children: CopyHashMap<u32, Rc<XwindowData>>,
@@ -152,6 +153,7 @@ impl XwindowData {
             window_id: event.window,
             client: client.clone(),
             surface_id: Cell::new(None),
+            surface_serial: Cell::new(None),
             window: Default::default(),
             info: XwindowInfo {
                 override_redirect: Cell::new(event.override_redirect != 0),

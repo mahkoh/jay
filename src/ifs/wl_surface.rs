@@ -5,6 +5,7 @@ pub mod wp_fractional_scale_v1;
 pub mod wp_viewport;
 pub mod x_surface;
 pub mod xdg_surface;
+pub mod xwayland_shell_v1;
 pub mod zwlr_layer_surface_v1;
 pub mod zwp_idle_inhibitor_v1;
 
@@ -50,6 +51,7 @@ use {
         },
         wire::{wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id},
         xkbcommon::ModifierState,
+        xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
     std::{
@@ -258,6 +260,7 @@ pub struct WlSurface {
     output: CloneCell<Rc<OutputNode>>,
     fractional_scale: CloneCell<Option<Rc<WpFractionalScaleV1>>>,
     pub constraints: SmallMap<SeatId, Rc<SeatConstraint>, 1>,
+    xwayland_serial: Cell<Option<u64>>,
 }
 
 impl Debug for WlSurface {
@@ -349,6 +352,7 @@ struct PendingState {
     dst_size: Cell<Option<Option<(i32, i32)>>>,
     scale: Cell<Option<i32>>,
     transform: Cell<Option<Transform>>,
+    xwayland_serial: Cell<Option<u64>>,
 }
 
 #[derive(Default)]
@@ -400,6 +404,7 @@ impl WlSurface {
             output: CloneCell::new(client.state.dummy_output.get().unwrap()),
             fractional_scale: Default::default(),
             constraints: Default::default(),
+            xwayland_serial: Default::default(),
         }
     }
 
@@ -410,6 +415,7 @@ impl WlSurface {
             let xsurface = Rc::new(XSurface {
                 surface: self.clone(),
                 xwindow: Default::default(),
+                xwayland_surface: Default::default(),
                 tracker: Default::default(),
             });
             track!(self.client, xsurface);
@@ -447,6 +453,10 @@ impl WlSurface {
 
     pub fn get_toplevel(&self) -> Option<Rc<dyn ToplevelNode>> {
         self.toplevel.get()
+    }
+
+    pub fn xwayland_serial(&self) -> Option<u64> {
+        self.xwayland_serial.get()
     }
 
     fn set_absolute_position(&self, x1: i32, y1: i32) {
@@ -620,6 +630,11 @@ impl WlSurface {
             if !buffer.destroyed() {
                 buffer.send_release();
             }
+        }
+        if let Some(xwayland_serial) = self.xwayland_serial.get() {
+            self.client
+                .surfaces_by_xwayland_serial
+                .remove(&xwayland_serial);
         }
         self.frame_requests.borrow_mut().clear();
         self.toplevel.set(None);
@@ -855,6 +870,17 @@ impl WlSurface {
             if let Some(region) = self.pending.opaque_region.take() {
                 self.opaque_region.set(region);
             }
+        }
+        if let Some(xwayland_serial) = self.pending.xwayland_serial.take() {
+            self.xwayland_serial.set(Some(xwayland_serial));
+            self.client
+                .surfaces_by_xwayland_serial
+                .set(xwayland_serial, self.clone());
+            self.client
+                .state
+                .xwayland
+                .queue
+                .push(XWaylandEvent::SurfaceSerialAssigned(self.id));
         }
         if self.need_extents_update.get() {
             self.calculate_extents();

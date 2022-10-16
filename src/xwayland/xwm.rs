@@ -124,6 +124,7 @@ atoms! {
     WINDOW,
     _WL_SELECTION,
     WL_SURFACE_ID,
+    WL_SURFACE_SERIAL,
     WM_CHANGE_STATE,
     WM_DELETE_WINDOW,
     WM_HINTS,
@@ -236,6 +237,8 @@ pub struct Wm {
     client: Rc<Client>,
     windows: AHashMap<u32, Rc<XwindowData>>,
     windows_by_surface_id: AHashMap<WlSurfaceId, Rc<XwindowData>>,
+    windows_by_surface_serial: AHashMap<u64, Rc<XwindowData>>,
+    last_surface_serial: u64,
     focus_window: Option<Rc<XwindowData>>,
     last_input_serial: u64,
     atom_cache: AHashMap<String, u32>,
@@ -514,6 +517,8 @@ impl Wm {
             client,
             windows: Default::default(),
             windows_by_surface_id: Default::default(),
+            windows_by_surface_serial: Default::default(),
+            last_surface_serial: 0,
             focus_window: Default::default(),
             last_input_serial: 0,
             atom_cache: Default::default(),
@@ -592,8 +597,13 @@ impl Wm {
             XWaylandEvent::SurfaceCreated(event) => {
                 self.handle_xwayland_surface_created(event).await
             }
+            XWaylandEvent::SurfaceSerialAssigned(event) => {
+                self.handle_xwayland_surface_serial_assigned(event).await
+            }
             XWaylandEvent::Configure(event) => self.handle_xwayland_configure(event).await,
-            XWaylandEvent::SurfaceDestroyed(event) => self.handle_xwayland_surface_destroyed(event),
+            XWaylandEvent::SurfaceDestroyed(surface_id, serial) => {
+                self.handle_xwayland_surface_destroyed(surface_id, serial)
+            }
             XWaylandEvent::Activate(window) => {
                 self.activate_window(Some(&window), Initiator::Wayland)
                     .await
@@ -1433,8 +1443,27 @@ impl Wm {
         self.create_window(&data, surface).await;
     }
 
-    fn handle_xwayland_surface_destroyed(&mut self, surface: WlSurfaceId) {
+    async fn handle_xwayland_surface_serial_assigned(&mut self, surface: WlSurfaceId) {
+        let surface = match self.client.lookup(surface) {
+            Ok(s) => s,
+            _ => return,
+        };
+        let serial = match surface.xwayland_serial() {
+            Some(s) => s,
+            _ => return,
+        };
+        let data = match self.windows_by_surface_serial.get(&serial) {
+            Some(w) => w.clone(),
+            _ => return,
+        };
+        self.create_window(&data, surface).await;
+    }
+
+    fn handle_xwayland_surface_destroyed(&mut self, surface: WlSurfaceId, serial: Option<u64>) {
         self.windows_by_surface_id.remove(&surface);
+        if let Some(serial) = serial {
+            self.windows_by_surface_serial.remove(&serial);
+        }
     }
 
     async fn handle_event(&mut self, event: &Event) {
@@ -1895,6 +1924,9 @@ impl Wm {
         if let Some(sid) = data.surface_id.take() {
             self.windows_by_surface_id.remove(&sid);
         }
+        if let Some(serial) = data.surface_serial.take() {
+            self.windows_by_surface_serial.remove(&serial);
+        }
         if let Some(window) = data.window.take() {
             window.destroy();
         }
@@ -1961,6 +1993,8 @@ impl Wm {
             self.handle_wm_change_state(&event).await?;
         } else if event.ty == self.atoms._NET_WM_MOVERESIZE {
             self.handle_net_wm_moveresize(&event).await?;
+        } else if event.ty == self.atoms.WL_SURFACE_SERIAL {
+            self.handle_wl_surface_serial(&event).await?;
         }
         Ok(())
     }
@@ -2331,6 +2365,37 @@ impl Wm {
         data.info.modal.set(modal);
         self.update_wants_floating(data);
         self.set_net_wm_state(data).await;
+        Ok(())
+    }
+
+    async fn handle_wl_surface_serial(
+        &mut self,
+        event: &ClientMessage<'_>,
+    ) -> Result<(), XWaylandError> {
+        let serial = event.data[0] as u64 | ((event.data[1] as u64) << 32);
+        if serial <= self.last_surface_serial {
+            log::error!(
+                "Surface serial is not monotonic: {} <= {}",
+                serial,
+                self.last_surface_serial
+            );
+            return Ok(());
+        }
+        self.last_surface_serial = serial;
+        let data = match self.windows.get(&event.window) {
+            Some(d) => d.clone(),
+            _ => return Ok(()),
+        };
+        if let Some(old) = data.surface_serial.replace(Some(serial)) {
+            self.windows_by_surface_serial.remove(&old);
+        }
+        if let Some(old) = data.window.take() {
+            old.break_loops();
+        }
+        self.windows_by_surface_serial.insert(serial, data.clone());
+        if let Some(surface) = self.client.surfaces_by_xwayland_serial.get(&serial) {
+            self.create_window(&data, surface).await;
+        }
         Ok(())
     }
 

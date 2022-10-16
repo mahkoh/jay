@@ -19,6 +19,7 @@ use {
             },
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
+            wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
             wp_presentation::WpPresentationGlobal,
             wp_viewporter::WpViewporterGlobal,
@@ -152,6 +153,7 @@ impl Globals {
         add_singleton!(WpViewporterGlobal);
         add_singleton!(WpFractionalScaleManagerV1Global);
         add_singleton!(ZwpPointerConstraintsV1Global);
+        add_singleton!(XwaylandShellV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
