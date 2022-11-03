@@ -1,4 +1,3 @@
-#![feature(generic_associated_types, label_break_value)]
 #![allow(
     clippy::mem_replace_with_default,
     clippy::comparison_chain,

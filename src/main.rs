@@ -1,8 +1,6 @@
 #![feature(
     c_variadic, // https://github.com/rust-lang/rust/issues/44930
     thread_local, // https://github.com/rust-lang/rust/issues/29594
-    label_break_value, // https://github.com/rust-lang/rust/issues/48594
-    generic_associated_types, // https://github.com/rust-lang/rust/issues/44265
     extern_types, // https://github.com/rust-lang/rust/issues/43467
 )]
 #![allow(
