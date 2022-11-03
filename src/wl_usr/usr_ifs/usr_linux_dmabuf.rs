@@ -54,7 +54,7 @@ impl UsrLinuxDmabuf {
         if let Some(owner) = self.owner.get() {
             if let Some(format) = formats().get(&ev.format) {
                 owner.modifier(
-                    *format,
+                    format,
                     (ev.modifier_hi as u64) << 32 | (ev.modifier_lo as u64),
                 );
             }

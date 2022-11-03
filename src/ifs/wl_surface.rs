@@ -1155,7 +1155,7 @@ impl Node for WlSurface {
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
-        seat.scroll_surface(&*self, event);
+        seat.scroll_surface(&self, event);
     }
 
     fn node_on_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
@@ -1179,7 +1179,7 @@ impl Node for WlSurface {
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        seat.motion_surface(&*self, x, y)
+        seat.motion_surface(&self, x, y)
     }
 
     fn node_on_pointer_relative_motion(

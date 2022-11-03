@@ -256,7 +256,7 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
             res.insert(
                 format.drm,
                 EglFormat {
-                    format: *format,
+                    format,
                     implicit_external_only: external_only,
                     modifiers,
                 },

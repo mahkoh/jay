@@ -43,11 +43,11 @@ static PW_FORMATS_MAP: Lazy<AHashMap<SpaVideoFormat, &'static Format>> = Lazy::n
 });
 
 pub fn formats() -> &'static AHashMap<u32, &'static Format> {
-    &*FORMATS_MAP
+    &FORMATS_MAP
 }
 
 pub fn pw_formats() -> &'static AHashMap<SpaVideoFormat, &'static Format> {
-    &*PW_FORMATS_MAP
+    &PW_FORMATS_MAP
 }
 
 const fn fourcc_code(a: char, b: char, c: char, d: char) -> u32 {
