@@ -9,6 +9,7 @@ use {
         },
         rect::Rect,
         render::{Renderer, Texture},
+        scale::Scale,
         state::State,
         text,
         tree::{
@@ -85,7 +86,7 @@ pub struct ContainerRenderData {
     pub last_active_rect: Option<Rect>,
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
-    pub titles: SmallMapMut<Fixed, Vec<ContainerTitle>, 2>,
+    pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
 }
 
 pub struct ContainerNode {

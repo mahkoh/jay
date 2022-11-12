@@ -72,6 +72,7 @@ mod pipewire;
 mod portal;
 mod rect;
 mod render;
+mod scale;
 mod screenshoter;
 mod sighand;
 mod state;

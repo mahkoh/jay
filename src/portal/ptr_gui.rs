@@ -7,6 +7,7 @@ use {
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
         render::{Framebuffer, RenderContext, RendererBase, Texture},
+        scale::Scale,
         text::{self, TextMeasurement},
         theme::Color,
         utils::{
@@ -467,7 +468,7 @@ pub struct WindowData {
     pub frame_missed: Cell<bool>,
     pub first_scale: Cell<bool>,
     pub have_frame: Cell<bool>,
-    pub scale: Cell<Fixed>,
+    pub scale: Cell<Scale>,
     pub render_trigger: AsyncEvent,
     pub render_task: Cell<Option<SpawnedFuture<()>>>,
     pub dpy: Rc<PortalDisplay>,
@@ -560,7 +561,7 @@ impl WindowData {
             content: Default::default(),
             surface,
             viewport,
-            scale: Cell::new(Fixed::from_int(1)),
+            scale: Cell::new(Scale::from_int(1)),
             fractional_scale,
             seats: Default::default(),
         });
@@ -833,7 +834,8 @@ impl UsrWlBufferOwner for GuiBuffer {
 impl UsrWpFractionalScaleOwner for WindowData {
     fn preferred_scale(self: Rc<Self>, ev: &PreferredScale) {
         let mut layout = self.first_scale.replace(false);
-        layout |= self.scale.replace(ev.scale) != ev.scale;
+        let scale = Scale(ev.scale);
+        layout |= self.scale.replace(scale) != scale;
         if layout {
             self.layout();
             self.allocate_buffers();

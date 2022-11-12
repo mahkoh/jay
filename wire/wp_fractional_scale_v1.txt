@@ -7,5 +7,5 @@ msg destroy = 0 {
 # events
 
 msg preferred_scale = 0 {
-    scale: fixed,
+    scale: u32,
 }

@@ -6,6 +6,7 @@ use {
         leaks::Tracker,
         rect::Rect,
         render::Renderer,
+        scale::Scale,
         tree::{Node, NodeVisitorBase, OutputNode},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
@@ -103,7 +104,7 @@ impl Cursor for CursorSurface {
         FrameRequests.visit_surface(&self.surface);
     }
 
-    fn extents_at_scale(&self, scale: Fixed) -> Rect {
+    fn extents_at_scale(&self, scale: Scale) -> Rect {
         let rect = self.extents.get();
         if scale == 1 {
             return rect;

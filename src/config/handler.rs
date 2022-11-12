@@ -7,8 +7,8 @@ use {
         },
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
-        fixed::Fixed,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
+        scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         theme::{Color, ThemeSized, DEFAULT_FONT},
         tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode},
@@ -654,7 +654,7 @@ impl ConfigProxyHandler {
         if scale > 1000.0 {
             return Err(CphError::ScaleTooLarge(scale));
         }
-        let scale = Fixed::from_f64(scale);
+        let scale = Scale::from_f64(scale);
         let connector = self.get_output(connector)?;
         connector.node.set_preferred_scale(scale);
         self.state.damage();

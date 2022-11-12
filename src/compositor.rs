@@ -14,7 +14,6 @@ use {
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
         dbus::Dbus,
-        fixed::Fixed,
         forker,
         globals::Globals,
         ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
@@ -22,6 +21,7 @@ use {
         leaks,
         logger::Logger,
         render::{self, RenderError},
+        scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
         tasks::{self, idle},
@@ -123,7 +123,7 @@ fn start_compositor2(
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
     let scales = RefCounted::default();
-    scales.add(Fixed::from_int(1));
+    scales.add(Scale::from_int(1));
     let state = Rc::new(State {
         xkb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
@@ -389,7 +389,7 @@ fn create_dummy_output(state: &Rc<State>) {
         scroll: Default::default(),
         pointer_positions: Default::default(),
         lock_surface: Default::default(),
-        preferred_scale: Cell::new(Fixed::from_int(1)),
+        preferred_scale: Cell::new(Scale::from_int(1)),
         hardware_cursor: Default::default(),
         update_render_data_scheduled: Cell::new(false),
         screencasts: Default::default(),

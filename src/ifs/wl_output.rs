@@ -72,7 +72,7 @@ pub struct WlOutputGlobal {
     pub unused_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
-    pub legacy_scale: Cell<i32>,
+    pub legacy_scale: Cell<u32>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -316,7 +316,7 @@ impl WlOutput {
     fn send_scale(self: &Rc<Self>) {
         let event = Scale {
             self_id: self.id,
-            factor: self.global.legacy_scale.get(),
+            factor: self.global.legacy_scale.get() as _,
         };
         self.client.event(event);
     }

@@ -1,8 +1,8 @@
 use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
-        fixed::Fixed,
         ifs::wl_output::WlOutputGlobal,
+        scale::Scale,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, OutputRenderData},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
@@ -122,7 +122,7 @@ impl ConnectorHandler {
             scroll: Default::default(),
             pointer_positions: Default::default(),
             lock_surface: Default::default(),
-            preferred_scale: Cell::new(Fixed::from_int(1)),
+            preferred_scale: Cell::new(Scale::from_int(1)),
             hardware_cursor: Default::default(),
             jay_outputs: Default::default(),
             screencasts: Default::default(),

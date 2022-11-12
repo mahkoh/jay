@@ -20,6 +20,7 @@ use {
         },
         rect::Rect,
         render::{Framebuffer, Renderer, Texture},
+        scale::Scale,
         state::State,
         text,
         tree::{
@@ -57,7 +58,7 @@ pub struct OutputNode {
     pub scroll: Scroller,
     pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
-    pub preferred_scale: Cell<Fixed>,
+    pub preferred_scale: Cell<Scale>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
     pub update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
@@ -102,7 +103,7 @@ impl OutputNode {
         }
     }
 
-    pub fn set_preferred_scale(self: &Rc<Self>, scale: Fixed) {
+    pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
         let old_scale = self.preferred_scale.replace(scale);
         if scale == old_scale {
             return;
@@ -115,7 +116,7 @@ impl OutputNode {
         self.state.add_output_scale(scale);
         let rect = self.calculate_extents();
         self.change_extents_(&rect);
-        let mut visitor = SurfaceSendPreferredScaleVisitor(scale);
+        let mut visitor = SurfaceSendPreferredScaleVisitor;
         self.node_visit_children(&mut visitor);
         for ws in self.workspaces.iter() {
             for stacked in ws.stacked.iter() {

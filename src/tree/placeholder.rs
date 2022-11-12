@@ -6,6 +6,7 @@ use {
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
         render::{Renderer, Texture},
+        scale::Scale,
         state::State,
         text,
         tree::{
@@ -23,7 +24,7 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    pub textures: SmallMap<Fixed, Rc<Texture>, 2>,
+    pub textures: SmallMap<Scale, Rc<Texture>, 2>,
 }
 
 impl PlaceholderNode {

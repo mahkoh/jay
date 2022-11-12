@@ -1,6 +1,5 @@
 use {
     crate::{
-        fixed::Fixed,
         format::Format,
         rect::Rect,
         render::{
@@ -18,6 +17,7 @@ use {
             sys::{glClear, glClearColor, glDisable, glEnable, GL_BLEND, GL_COLOR_BUFFER_BIT},
             Texture,
         },
+        scale::Scale,
         theme::Color,
         utils::rc_eq::rc_eq,
     },
@@ -28,12 +28,12 @@ pub struct RendererBase<'a> {
     pub(super) ctx: &'a Rc<RenderContext>,
     pub(super) fb: &'a GlFrameBuffer,
     pub(super) scaled: bool,
-    pub(super) scale: Fixed,
+    pub(super) scale: Scale,
     pub(super) scalef: f64,
 }
 
 impl RendererBase<'_> {
-    pub fn scale(&self) -> Fixed {
+    pub fn scale(&self) -> Scale {
         self.scale
     }
 
@@ -188,7 +188,7 @@ impl RendererBase<'_> {
         format: &Format,
         tpoints: Option<&[f32; 8]>,
         tsize: Option<(i32, i32)>,
-        tscale: Fixed,
+        tscale: Scale,
     ) {
         assert!(rc_eq(&self.ctx.ctx, &texture.ctx.ctx));
         unsafe {

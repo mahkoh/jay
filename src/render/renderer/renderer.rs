@@ -1,6 +1,5 @@
 use {
     crate::{
-        fixed::Fixed,
         format::ARGB8888,
         ifs::{
             wl_buffer::WlBuffer,
@@ -12,6 +11,7 @@ use {
         },
         rect::Rect,
         render::{gl::frame_buffer::with_scissor, renderer::renderer_base::RendererBase},
+        scale::Scale,
         state::State,
         theme::Color,
         tree::{
@@ -48,7 +48,7 @@ pub struct Renderer<'a> {
 }
 
 impl Renderer<'_> {
-    pub fn scale(&self) -> Fixed {
+    pub fn scale(&self) -> Scale {
         self.base.scale
     }
 

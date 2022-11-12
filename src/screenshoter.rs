@@ -1,8 +1,8 @@
 use {
     crate::{
-        fixed::Fixed,
         format::XRGB8888,
         render::RenderError,
+        scale::Scale,
         state::State,
         video::{
             drm::DrmError,
@@ -60,7 +60,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         Some(state.root.extents.get()),
         false,
         &mut Default::default(),
-        Fixed::from_int(1),
+        Scale::from_int(1),
         true,
     );
     let drm = ctx.gbm.drm.dup_render()?.fd().clone();

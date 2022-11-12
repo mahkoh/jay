@@ -6,6 +6,7 @@ use {
         ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
         rect::Rect,
         render::{Renderer, Texture},
+        scale::Scale,
         state::State,
         text,
         tree::{
@@ -42,7 +43,7 @@ pub struct FloatNode {
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
-    pub title_textures: CopyHashMap<Fixed, Rc<Texture>>,
+    pub title_textures: CopyHashMap<Scale, Rc<Texture>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
 }
 

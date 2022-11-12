@@ -4,6 +4,7 @@ use {
         format::ARGB8888,
         rect::Rect,
         render::{RenderContext, RenderError, Renderer, Texture},
+        scale::Scale,
         state::State,
         time::Time,
         tree::OutputNode,
@@ -41,7 +42,7 @@ const HEADER_SIZE: u32 = 16;
 pub trait Cursor {
     fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed);
     fn render_hardware_cursor(&self, renderer: &mut Renderer);
-    fn extents_at_scale(&self, scale: Fixed) -> Rect;
+    fn extents_at_scale(&self, scale: Scale) -> Rect;
     fn set_output(&self, output: &Rc<OutputNode>) {
         let _ = output;
     }
@@ -113,7 +114,7 @@ impl ServerCursors {
 
 pub struct ServerCursorTemplate {
     var: ServerCursorTemplateVariant,
-    pub xcursor: Vec<AHashMap<(Fixed, u32), Rc<XCursorImage>>>,
+    pub xcursor: Vec<AHashMap<(Scale, u32), Rc<XCursorImage>>>,
 }
 
 enum ServerCursorTemplateVariant {
@@ -125,7 +126,7 @@ impl ServerCursorTemplate {
     fn load(
         name: &str,
         theme: Option<&BStr>,
-        scales: &[Fixed],
+        scales: &[Scale],
         sizes: &[u32],
         paths: &[BString],
         ctx: &Rc<RenderContext>,
@@ -213,12 +214,12 @@ struct CursorImageScaled {
 
 struct CursorImage {
     delay_ns: u64,
-    sizes: SmallMapMut<(Fixed, u32), Rc<CursorImageScaled>, 2>,
+    sizes: SmallMapMut<(Scale, u32), Rc<CursorImageScaled>, 2>,
 }
 
 struct InstantiatedCursorImage {
     delay_ns: u64,
-    scales: SmallMapMut<Fixed, Rc<CursorImageScaled>, 2>,
+    scales: SmallMapMut<Scale, Rc<CursorImageScaled>, 2>,
 }
 
 impl CursorImageScaled {
@@ -240,7 +241,7 @@ impl CursorImageScaled {
 impl CursorImage {
     fn from_sizes(
         delay_ms: u64,
-        sizes: SmallMapMut<(Fixed, u32), Rc<CursorImageScaled>, 2>,
+        sizes: SmallMapMut<(Scale, u32), Rc<CursorImageScaled>, 2>,
     ) -> Result<Self, CursorError> {
         Ok(Self {
             delay_ns: delay_ms.max(1) * 1_000_000,
@@ -306,7 +307,7 @@ impl Cursor for StaticCursor {
         }
     }
 
-    fn extents_at_scale(&self, scale: Fixed) -> Rect {
+    fn extents_at_scale(&self, scale: Scale) -> Rect {
         match self.image.scales.get(&scale) {
             None => Rect::new_empty(0, 0),
             Some(i) => i.extents,
@@ -336,7 +337,7 @@ impl Cursor for AnimatedCursor {
         }
     }
 
-    fn extents_at_scale(&self, scale: Fixed) -> Rect {
+    fn extents_at_scale(&self, scale: Scale) -> Rect {
         let img = &self.images[self.idx.get()];
         match img.scales.get(&scale) {
             None => Rect::new_empty(0, 0),
@@ -368,13 +369,13 @@ impl Cursor for AnimatedCursor {
 }
 
 struct OpenCursorResult {
-    images: Vec<AHashMap<(Fixed, u32), Rc<XCursorImage>>>,
+    images: Vec<AHashMap<(Scale, u32), Rc<XCursorImage>>>,
 }
 
 fn open_cursor(
     name: &str,
     theme: Option<&BStr>,
-    scales: &[Fixed],
+    scales: &[Scale],
     sizes: &[u32],
     paths: &[BString],
 ) -> Result<OpenCursorResult, CursorError> {
@@ -538,7 +539,7 @@ impl Debug for XCursorImage {
 
 fn parser_cursor_file<R: BufRead + Seek>(
     r: &mut R,
-    scales: &[Fixed],
+    scales: &[Scale],
     sizes: &[u32],
 ) -> Result<OpenCursorResult, CursorError> {
     let [magic, header] = read_u32_n(r)?;
@@ -554,7 +555,7 @@ fn parser_cursor_file<R: BufRead + Seek>(
         positions: Vec<u32>,
         effective_size: u32,
         size: u32,
-        scale: Fixed,
+        scale: Scale,
         best_fit: i64,
     }
     let mut targets = Vec::new();

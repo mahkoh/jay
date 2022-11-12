@@ -16,6 +16,7 @@ use {
             sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
             RenderResult, Texture,
         },
+        scale::Scale,
         state::State,
         tree::Node,
     },
@@ -61,7 +62,7 @@ impl Framebuffer {
                 glViewport(0, 0, self.gl.width, self.gl.height);
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
-            let scale = Fixed::from_int(1);
+            let scale = Scale::from_int(1);
             let mut renderer = Renderer {
                 base: RendererBase {
                     ctx: &self.ctx,
@@ -114,7 +115,7 @@ impl Framebuffer {
         });
     }
 
-    pub fn render_custom(&self, scale: Fixed, f: impl FnOnce(&mut RendererBase)) {
+    pub fn render_custom(&self, scale: Scale, f: impl FnOnce(&mut RendererBase)) {
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
@@ -143,7 +144,7 @@ impl Framebuffer {
         cursor_rect: Option<Rect>,
         on_output: bool,
         result: &mut RenderResult,
-        scale: Fixed,
+        scale: Scale,
         render_hardware_cursor: bool,
     ) {
         let _ = self.ctx.ctx.with_current(|| {
@@ -201,7 +202,7 @@ impl Framebuffer {
         });
     }
 
-    pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Fixed) {
+    pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale) {
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);

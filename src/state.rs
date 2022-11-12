@@ -12,7 +12,6 @@ use {
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
-        fixed::Fixed,
         forker::ForkerProxy,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -33,6 +32,7 @@ use {
         logger::Logger,
         rect::Rect,
         render::RenderContext,
+        scale::Scale,
         theme::Theme,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
@@ -116,7 +116,7 @@ pub struct State {
     pub data_offer_ids: NumCell<u64>,
     pub ring: Rc<IoUring>,
     pub lock: ScreenlockState,
-    pub scales: RefCounted<Fixed>,
+    pub scales: RefCounted<Scale>,
     pub cursor_sizes: RefCounted<u32>,
     pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
     pub testers: RefCell<AHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
@@ -235,13 +235,13 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
 }
 
 impl State {
-    pub fn add_output_scale(&self, scale: Fixed) {
+    pub fn add_output_scale(&self, scale: Scale) {
         if self.scales.add(scale) {
             self.output_scales_changed();
         }
     }
 
-    pub fn remove_output_scale(&self, scale: Fixed) {
+    pub fn remove_output_scale(&self, scale: Scale) {
         if self.scales.remove(&scale) {
             self.output_scales_changed();
         }

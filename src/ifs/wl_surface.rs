@@ -217,7 +217,7 @@ impl SurfaceRole {
     }
 }
 
-pub struct SurfaceSendPreferredScaleVisitor(pub Fixed);
+pub struct SurfaceSendPreferredScaleVisitor;
 impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
         node.send_preferred_scale();

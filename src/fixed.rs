@@ -39,10 +39,6 @@ impl Fixed {
         self.0 >> 8
     }
 
-    pub fn round_up(self) -> i32 {
-        (self.0 + 255) >> 8
-    }
-
     pub fn apply_fract(self, i: i32) -> Self {
         Self((i << 8) | (self.0 & 255))
     }
