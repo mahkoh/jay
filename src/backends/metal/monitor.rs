@@ -183,7 +183,15 @@ impl MetalBackend {
         let devnum = dev.devnum();
         let devnode = dev.devnode()?;
         let id = self.state.drm_dev_ids.next();
-        log::info!("Device added: {}", devnode.to_bytes().as_bstr());
+        let model = dev
+            .parent()
+            .ok()
+            .and_then(|dev| dev.model().map(|s| s.to_string_lossy().into_owned()));
+        log::info!(
+            "Device added: {} ({})",
+            devnode.to_bytes().as_bstr(),
+            model.as_deref().unwrap_or("unknown"),
+        );
         let dev = PendingDrmDevice {
             id,
             devnum,
