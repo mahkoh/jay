@@ -1623,8 +1623,8 @@ impl MetalBackend {
             (None, render_tex, None)
         } else {
             // Create a _bridge_ BO in the render device
-            usage |= GBM_BO_USE_LINEAR;
-            let render_bo = dev.gbm.create_bo(width, height, format, usage);
+            usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
+            let render_bo = render_ctx.egl.gbm.create_bo(width, height, format, usage);
             let render_bo = match render_bo {
                 Ok(b) => b,
                 Err(e) => return Err(MetalError::ScanoutBuffer(e)),
