@@ -39,6 +39,7 @@ The following features have been implemented and should work:
 - Fractional scaling
 - Hardware cursors
 - Pointer constraints
+- Selecting the primary device in multi-GPU systems 
 
 ### Missing Features
 
@@ -47,7 +48,6 @@ later:
 
 - Touch and tablet support
 - Damage tracking (any kind of damage causes a complete re-render currently)
-- Selecting the primary device in multi-GPU systems 
 
 ## Native library dependencies
 
