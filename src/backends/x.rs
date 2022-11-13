@@ -2,10 +2,10 @@ use {
     crate::{
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            AxisSource, Backend, BackendEvent, Connector, ConnectorEvent, ConnectorId,
-            ConnectorKernelId, DrmDeviceId, InputDevice, InputDeviceAccelProfile,
-            InputDeviceCapability, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
-            ScrollAxis, TransformMatrix, AXIS_120,
+            AxisSource, Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorEvent,
+            ConnectorId, ConnectorKernelId, DrmDeviceId, DrmEvent, InputDevice,
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId, InputEvent, KeyState,
+            Mode, MonitorInfo, ScrollAxis, TransformMatrix, AXIS_120,
         },
         fixed::Fixed,
         format::XRGB8888,
@@ -59,6 +59,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
+    uapi::{c::dev_t, Errno},
 };
 
 #[derive(Debug, Error)]
@@ -113,6 +114,8 @@ pub enum XBackendError {
     MapWindow(#[source] XconError),
     #[error("Could not query device")]
     QueryDevice(#[source] XconError),
+    #[error("Could not fstat the drm device")]
+    DrmDeviceFstat(#[source] Errno),
 }
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
@@ -168,6 +171,10 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
             Ok(r) => Drm::reopen(r.get().device_fd.raw(), false)?,
             Err(e) => return Err(XBackendError::DriOpen(e)),
         }
+    };
+    let drm_dev = match uapi::fstat(drm.raw()) {
+        Ok(s) => s.st_rdev,
+        Err(e) => return Err(XBackendError::DrmDeviceFstat(e)),
     };
     let gbm = GbmDevice::new(&drm)?;
     let ctx = match RenderContext::from_drm_device(&drm) {
@@ -230,6 +237,8 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         scheduled_present: Default::default(),
         grab_requests: Default::default(),
         render_result: Default::default(),
+        drm_device_id: state.drm_dev_ids.next(),
+        drm_dev,
     });
     data.add_output().await?;
 
@@ -263,6 +272,8 @@ pub struct XBackend {
     scheduled_present: AsyncQueue<Rc<XOutput>>,
     grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
     render_result: RefCell<RenderResult>,
+    drm_device_id: DrmDeviceId,
+    drm_dev: dev_t,
 }
 
 impl XBackend {
@@ -277,6 +288,16 @@ impl XBackend {
             .spawn2(Phase::Present, self.clone().present_handler());
 
         self.state.set_render_ctx(Some(&self.ctx));
+        self.state
+            .backend_events
+            .push(BackendEvent::NewDrmDevice(Rc::new(XDrmDevice {
+                _backend: self.clone(),
+                id: self.drm_device_id,
+                dev: self.drm_dev,
+            })));
+        for (_, output) in self.outputs.lock().iter() {
+            self.active_output(output).await;
+        }
 
         pending().await
     }
@@ -428,7 +449,7 @@ impl XBackend {
         let images = self.create_images(window_id, WIDTH, HEIGHT).await?;
         let output = Rc::new(XOutput {
             id: self.state.connector_ids.next(),
-            _backend: self.clone(),
+            backend: self.clone(),
             window: window_id,
             events: Default::default(),
             width: Cell::new(0),
@@ -511,25 +532,28 @@ impl XBackend {
             }
         }
         self.outputs.set(window_id, output.clone());
+        Ok(())
+    }
+
+    async fn active_output(&self, output: &Rc<XOutput>) {
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(output.clone()));
         output.events.push(ConnectorEvent::Connected(MonitorInfo {
             modes: vec![],
             manufacturer: "X.Org Foundation".to_string(),
-            product: format!("X-Window-{}", window_id),
-            serial_number: window_id.to_string(),
+            product: format!("X-Window-{}", output.window),
+            serial_number: output.window.to_string(),
             initial_mode: Mode {
-                width: WIDTH,
-                height: HEIGHT,
+                width: output.width.get(),
+                height: output.height.get(),
                 refresh_rate_millihz: 60_000, // TODO
             },
-            width_mm: WIDTH,
-            height_mm: HEIGHT,
+            width_mm: output.width.get(),
+            height_mm: output.height.get(),
         }));
         output.changed();
         self.present(&output).await;
-        Ok(())
     }
 
     async fn query_devices(self: &Rc<Self>, deviceid: u16) -> Result<(), XBackendError> {
@@ -910,9 +934,33 @@ impl XBackend {
     }
 }
 
+struct XDrmDevice {
+    _backend: Rc<XBackend>,
+    id: DrmDeviceId,
+    dev: dev_t,
+}
+
+impl BackendDrmDevice for XDrmDevice {
+    fn id(&self) -> DrmDeviceId {
+        self.id
+    }
+
+    fn event(&self) -> Option<DrmEvent> {
+        None
+    }
+
+    fn on_change(&self, _cb: Rc<dyn Fn()>) {
+        // nothing
+    }
+
+    fn dev_t(&self) -> dev_t {
+        self.dev
+    }
+}
+
 struct XOutput {
     id: ConnectorId,
-    _backend: Rc<XBackend>,
+    backend: Rc<XBackend>,
     window: u32,
     events: SyncQueue<ConnectorEvent>,
     width: Cell<i32>,
@@ -966,7 +1014,7 @@ impl Connector for XOutput {
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
-        None
+        Some(self.backend.drm_device_id)
     }
 
     fn set_enabled(&self, _enabled: bool) {
