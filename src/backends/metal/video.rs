@@ -1105,10 +1105,6 @@ impl MetalBackend {
             },
         });
 
-        if self.ctx.get().is_none() {
-            self.make_render_device(&dev, false);
-        }
-
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
 
         let slf = Rc::new(MetalDrmDeviceData {

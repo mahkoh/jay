@@ -283,6 +283,11 @@ impl State {
         if let Some(config) = self.config.get() {
             config.devices_enumerated()
         }
+        if self.render_ctx.get().is_none() {
+            if let Some(dev) = self.drm_devs.lock().values().next() {
+                dev.make_render_device();
+            }
+        }
     }
 
     pub fn set_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
