@@ -21,9 +21,9 @@ use {
             drm::{
                 drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector,
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmMaster, DrmModeInfo,
-                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType, PropBlob,
-                DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK,
-                DRM_MODE_PAGE_FLIP_EVENT,
+                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
+                DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
+                DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
             },
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             ModifiedFormat, INVALID_MODIFIER,
@@ -92,6 +92,10 @@ impl BackendDrmDevice for MetalDrmDevice {
 
     fn make_render_device(self: Rc<Self>) {
         self.backend.make_render_device(&self, true);
+    }
+
+    fn version(&self) -> Result<DrmVersion, DrmError> {
+        self.gbm.drm.version()
     }
 }
 

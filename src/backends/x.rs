@@ -17,7 +17,7 @@ use {
             queue::AsyncQueue, syncqueue::SyncQueue,
         },
         video::{
-            drm::{ConnectorType, Drm, DrmError},
+            drm::{ConnectorType, Drm, DrmError, DrmVersion},
             gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
             ModifiedFormat, INVALID_MODIFIER,
         },
@@ -291,7 +291,7 @@ impl XBackend {
         self.state
             .backend_events
             .push(BackendEvent::NewDrmDevice(Rc::new(XDrmDevice {
-                _backend: self.clone(),
+                backend: self.clone(),
                 id: self.drm_device_id,
                 dev: self.drm_dev,
             })));
@@ -939,7 +939,7 @@ impl XBackend {
 }
 
 struct XDrmDevice {
-    _backend: Rc<XBackend>,
+    backend: Rc<XBackend>,
     id: DrmDeviceId,
     dev: dev_t,
 }
@@ -964,6 +964,10 @@ impl BackendDrmDevice for XDrmDevice {
     fn make_render_device(self: Rc<Self>) {
         log::warn!("make_render_device is not supported by the X backend");
         // nothing
+    }
+
+    fn version(&self) -> Result<DrmVersion, DrmError> {
+        self.backend.gbm.drm.version()
     }
 }
 

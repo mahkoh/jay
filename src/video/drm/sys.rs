@@ -8,7 +8,7 @@ use {
             DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
             DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
             DrmPropertyDefinition, DrmPropertyEnumValue, DrmPropertyType, DrmPropertyValue,
-            NodeType,
+            DrmVersion, NodeType,
         },
     },
     ahash::AHashMap,
@@ -18,7 +18,7 @@ use {
         io::{BufRead, BufReader},
         mem,
     },
-    uapi::{c, OwnedFd, Pod, Ustring},
+    uapi::{c, pod_zeroed, OwnedFd, Pod, Ustring},
 };
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
@@ -1074,4 +1074,61 @@ pub fn mode_getprobblob<T: Pod + ?Sized>(
         ioctl(fd, DRM_IOCTL_MODE_GETPROPBLOB, &mut res)?;
     }
     Ok(res.length as _)
+}
+
+#[repr(C)]
+struct drm_version {
+    version_major: c::c_int,
+    version_minor: c::c_int,
+    version_patchlevel: c::c_int,
+    name_len: usize, // actually __kernel_size_t but nobody cares about x32
+    name: *mut u8,
+    date_len: usize,
+    date: *mut u8,
+    desc_len: usize,
+    desc: *mut u8,
+}
+
+unsafe impl Pod for drm_version {}
+
+const DRM_IOCTL_VERSION: u64 = drm_iowr::<drm_version>(0x00);
+
+pub fn get_version(fd: c::c_int) -> Result<DrmVersion, OsError> {
+    let mut name = Vec::<u8>::new();
+    let mut date = Vec::<u8>::new();
+    let mut desc = Vec::<u8>::new();
+    let mut res: drm_version = pod_zeroed();
+    loop {
+        res.name_len = name.capacity();
+        res.name = name.as_mut_ptr();
+        res.date_len = date.capacity();
+        res.date = date.as_mut_ptr();
+        res.desc_len = desc.capacity();
+        res.desc = desc.as_mut_ptr();
+        unsafe {
+            ioctl(fd, DRM_IOCTL_VERSION, &mut res)?;
+        }
+        if res.name_len <= name.capacity()
+            && res.date_len <= date.capacity()
+            && res.desc_len <= desc.capacity()
+        {
+            break;
+        }
+        name.reserve_exact(res.name_len);
+        date.reserve_exact(res.date_len);
+        desc.reserve_exact(res.desc_len);
+    }
+    unsafe {
+        name.set_len(res.name_len);
+        date.set_len(res.date_len);
+        desc.set_len(res.desc_len);
+    }
+    Ok(DrmVersion {
+        version_major: res.version_major,
+        version_minor: res.version_minor,
+        version_patchlevel: res.version_patchlevel,
+        name: name.into(),
+        date: date.into(),
+        desc: desc.into(),
+    })
 }
