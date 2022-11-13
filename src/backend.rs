@@ -4,7 +4,7 @@ use {
         fixed::Fixed,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         render::Framebuffer,
-        video::drm::ConnectorType,
+        video::drm::{ConnectorType, DrmError, DrmVersion},
     },
     std::{
         any::Any,
@@ -222,4 +222,5 @@ pub trait BackendDrmDevice {
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn dev_t(&self) -> c::dev_t;
     fn make_render_device(self: Rc<Self>);
+    fn version(&self) -> Result<DrmVersion, DrmError>;
 }

@@ -49,6 +49,7 @@ use {
         xwayland::{self, XWaylandEvent},
     },
     ahash::AHashMap,
+    bstr::ByteSlice,
     jay_config::PciId,
     std::{
         cell::{Cell, RefCell},
@@ -284,8 +285,21 @@ impl State {
             config.devices_enumerated()
         }
         if self.render_ctx.get().is_none() {
-            if let Some(dev) = self.drm_devs.lock().values().next() {
+            for dev in self.drm_devs.lock().values() {
+                if let Ok(version) = dev.dev.version() {
+                    if version.name.contains_str("nvidia") {
+                        continue;
+                    }
+                }
                 dev.make_render_device();
+                if self.render_ctx.get().is_some() {
+                    break;
+                }
+            }
+            if self.render_ctx.get().is_none() {
+                if let Some(dev) = self.drm_devs.lock().values().next() {
+                    dev.make_render_device();
+                }
             }
         }
     }

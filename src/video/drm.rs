@@ -34,7 +34,7 @@ use crate::{
     utils::{errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
     video::{
         dmabuf::DmaBuf,
-        drm::sys::{DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH},
+        drm::sys::{get_version, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH},
         INVALID_MODIFIER,
     },
 };
@@ -103,6 +103,8 @@ pub enum DrmError {
     ReadEvents(#[source] OsError),
     #[error("Read invalid data from drm device")]
     InvalidRead,
+    #[error("Could not determine the drm version")]
+    Version(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -164,6 +166,10 @@ impl Drm {
 
     pub fn get_nodes(&self) -> Result<AHashMap<NodeType, CString>, DrmError> {
         get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
+    }
+
+    pub fn version(&self) -> Result<DrmVersion, DrmError> {
+        get_version(self.fd.raw()).map_err(DrmError::Version)
     }
 }
 
@@ -588,6 +594,16 @@ pub struct DrmModeInfo {
     pub flags: u32,
     pub ty: u32,
     pub name: BString,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct DrmVersion {
+    pub version_major: i32,
+    pub version_minor: i32,
+    pub version_patchlevel: i32,
+    pub name: BString,
+    pub date: BString,
+    pub desc: BString,
 }
 
 impl DrmModeInfo {
