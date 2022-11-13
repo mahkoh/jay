@@ -557,7 +557,7 @@ impl XBackend {
             height_mm: output.height.get(),
         }));
         output.changed();
-        self.present(&output).await;
+        self.present(output).await;
     }
 
     async fn query_devices(self: &Rc<Self>, deviceid: u16) -> Result<(), XBackendError> {

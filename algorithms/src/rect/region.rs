@@ -393,6 +393,7 @@ pub fn rects_to_bands(rects_tmp: &[RectRaw]) -> Container {
     let mut res = Container::new();
 
     for &[y1, y2] in ys.array_windows_ext::<2>() {
+        #[allow(clippy::never_loop)]
         loop {
             macro_rules! check_rect {
                 ($rect:expr) => {{
