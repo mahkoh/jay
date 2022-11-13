@@ -31,6 +31,7 @@ use {
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            numcell::NumCell,
             oserror::OsError,
             smallmap::SmallMap,
             syncqueue::SyncQueue,
@@ -226,6 +227,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         input_devices: Default::default(),
         drm_devices: Default::default(),
         pending_drm_devices: Default::default(),
+        num_pending_devices: Default::default(),
     });
     let udev = Rc::new(Udev::new()?);
     let monitor = Rc::new(udev.create_monitor()?);
@@ -309,6 +311,7 @@ struct DeviceHolder {
     input_devices: RefCell<Vec<Option<Rc<MetalInputDevice>>>>,
     drm_devices: CopyHashMap<c::dev_t, Rc<MetalDrmDeviceData>>,
     pending_drm_devices: CopyHashMap<c::dev_t, PendingDrmDevice>,
+    num_pending_devices: NumCell<u32>,
 }
 
 impl LibInputAdapter for DeviceHolder {

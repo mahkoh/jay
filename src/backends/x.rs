@@ -299,6 +299,10 @@ impl XBackend {
             self.active_output(output).await;
         }
 
+        self.state
+            .backend_events
+            .push(BackendEvent::DevicesEnumerated);
+
         pending().await
     }
 

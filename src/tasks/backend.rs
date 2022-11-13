@@ -25,6 +25,7 @@ impl BackendEventHandler {
             BackendEvent::NewConnector(connector) => connector::handle(&self.state, &connector),
             BackendEvent::NewInputDevice(s) => input_device::handle(&self.state, s),
             BackendEvent::NewDrmDevice(d) => drmdev::handle(&self.state, d),
+            BackendEvent::DevicesEnumerated => self.state.devices_enumerated(),
         }
     }
 }

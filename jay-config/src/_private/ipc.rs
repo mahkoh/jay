@@ -55,6 +55,7 @@ pub enum ServerMessage {
         device: DrmDevice,
     },
     Idle,
+    DevicesEnumerated,
 }
 
 #[derive(Encode, BorrowDecode, Debug)]
