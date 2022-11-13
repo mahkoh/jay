@@ -9,7 +9,7 @@ use {
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
-        render::{Framebuffer, RenderContext, RenderResult, ResetStatus, Texture},
+        render::{Framebuffer, RenderContext, RenderResult, Texture},
         state::State,
         udev::UdevDevice,
         utils::{
@@ -48,8 +48,9 @@ pub struct PendingDrmDevice {
     pub devnode: CString,
 }
 
+#[derive(Debug)]
 pub struct MetalRenderContext {
-    pub dev: Rc<MetalDrmDevice>,
+    pub dev_id: DrmDeviceId,
     pub egl: Rc<RenderContext>,
 }
 
@@ -71,6 +72,7 @@ pub struct MetalDrmDevice {
     pub cursor_height: u64,
     pub gbm: GbmDevice,
     pub handle_events: HandleEvents,
+    pub ctx: Rc<MetalRenderContext>,
 }
 
 impl BackendDrmDevice for MetalDrmDevice {
@@ -213,7 +215,7 @@ impl HardwareCursor for MetalHardwareCursor {
 
     fn get_buffer(&self) -> Rc<Framebuffer> {
         let buffer = (self.connector.cursor_front_buffer.get() + 1) % 2;
-        self.cursor_buffers[buffer].fb.clone()
+        self.cursor_buffers[buffer].render_fb()
     }
 
     fn set_position(&self, x: i32, y: i32) {
@@ -349,13 +351,14 @@ impl MetalConnector {
         let cursor = self.cursor_plane.get();
         let mut changes = self.master.change();
         if self.has_damage.get() {
-            if !self.backend.check_render_context() {
+            if !self.backend.check_render_context(&self.dev) {
                 return;
             }
             let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
             if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
                 let mut rr = self.render_result.borrow_mut();
-                buffer.fb.render(
+                let render_fb = buffer.render_fb();
+                render_fb.render(
                     &*node,
                     &self.state,
                     Some(node.global.pos.get()),
@@ -364,11 +367,14 @@ impl MetalConnector {
                     node.preferred_scale.get(),
                     !self.cursor_enabled.get(),
                 );
+                if let Some(tex) = &buffer.dev_tex {
+                    buffer.dev_fb.copy_texture(&self.state, tex, 0, 0, false);
+                }
                 for fr in rr.frame_requests.drain(..) {
                     fr.send_done();
                     let _ = fr.client.remove_obj(&*fr);
                 }
-                node.perform_screencopies(&buffer.fb, &buffer.tex);
+                node.perform_screencopies(&render_fb, &buffer.render_tex);
             }
             changes.change_object(plane.id, |c| {
                 c.change(plane.fb_id, buffer.drm.id().0 as _);
@@ -377,22 +383,28 @@ impl MetalConnector {
         if self.cursor_changed.get() && cursor.is_some() {
             let plane = cursor.unwrap();
             if self.cursor_enabled.get() {
-                if self.cursor_swap_buffer.take() {
+                let swap_buffer = self.cursor_swap_buffer.take();
+                if swap_buffer {
                     self.cursor_front_buffer.fetch_add(1);
                 }
                 let buffers = self.cursor_buffers.get().unwrap();
                 let buffer = &buffers[self.cursor_front_buffer.get() % buffers.len()];
+                if swap_buffer {
+                    if let Some(tex) = &buffer.dev_tex {
+                        buffer.dev_fb.copy_texture(&self.state, tex, 0, 0, true);
+                    }
+                }
                 changes.change_object(plane.id, |c| {
                     c.change(plane.fb_id, buffer.drm.id().0 as _);
                     c.change(plane.crtc_id.id, crtc.id.0 as _);
                     c.change(plane.crtc_x.id, self.cursor_x.get() as _);
                     c.change(plane.crtc_y.id, self.cursor_y.get() as _);
-                    c.change(plane.crtc_w.id, buffer.tex.width() as _);
-                    c.change(plane.crtc_h.id, buffer.tex.height() as _);
+                    c.change(plane.crtc_w.id, buffer.render_tex.width() as _);
+                    c.change(plane.crtc_h.id, buffer.render_tex.height() as _);
                     c.change(plane.src_x.id, 0);
                     c.change(plane.src_y.id, 0);
-                    c.change(plane.src_w.id, (buffer.tex.width() as u64) << 16);
-                    c.change(plane.src_h.id, (buffer.tex.height() as u64) << 16);
+                    c.change(plane.src_w.id, (buffer.render_tex.width() as u64) << 16);
+                    c.change(plane.src_h.id, (buffer.render_tex.height() as u64) << 16);
                 });
             } else {
                 changes.change_object(plane.id, |c| {
@@ -864,59 +876,53 @@ struct Preserve {
 }
 
 impl MetalBackend {
-    fn check_render_context(&self) -> bool {
+    fn check_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
         let ctx = match self.ctx.get() {
             Some(ctx) => ctx,
             None => return false,
         };
-        let reset = match ctx.egl.reset_status() {
-            Some(r) => r,
-            None => return true,
-        };
-        log::error!("EGL context has been reset: {:?}", reset);
-        if reset != ResetStatus::Innocent {
-            fatal!("We are not innocent. Terminating.");
+        if let Some(r) = ctx
+            .egl
+            .reset_status()
+            .or_else(|| dev.ctx.egl.reset_status())
+        {
+            fatal!("EGL context has been reset: {:?}", r);
         }
-        log::info!("Trying to create a new context");
-        self.ctx.set(None);
-        self.state.set_render_ctx(None);
-        let mut old_buffers = vec![];
-        for dev in self.device_holder.drm_devices.lock().values() {
-            for connector in dev.connectors.lock().values() {
-                old_buffers.push(connector.buffers.take());
-            }
-        }
-        self.make_render_device(&ctx.dev, true)
-    }
-
-    fn install_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
-        let ctx = match self.create_render_context(dev) {
-            Ok(ctx) => ctx,
-            Err(e) => {
-                log::error!("Could not create a render context: {}", ErrorFmt(e));
-                return false;
-            }
-        };
-        self.state.set_render_ctx(Some(&ctx.egl));
-        self.ctx.set(Some(ctx));
         true
     }
 
-    fn create_render_context(
-        &self,
-        dev: &Rc<MetalDrmDevice>,
-    ) -> Result<Rc<MetalRenderContext>, MetalError> {
-        let egl = match RenderContext::from_drm_device(&dev.master) {
-            Ok(r) => Rc::new(r),
-            Err(e) => return Err(MetalError::CreateRenderContex(e)),
-        };
-        let ctx = Rc::new(MetalRenderContext {
-            dev: dev.clone(),
-            egl,
-        });
-        self.ctx.set(Some(ctx.clone()));
-        Ok(ctx)
-    }
+    // fn check_render_context(&self) -> bool {
+    //     let ctx = match self.ctx.get() {
+    //         Some(ctx) => ctx,
+    //         None => return false,
+    //     };
+    //     let reset = match ctx.egl.reset_status() {
+    //         Some(r) => r,
+    //         None => return true,
+    //     };
+    //     log::error!("EGL context has been reset: {:?}", reset);
+    //     if reset != ResetStatus::Innocent {
+    //         fatal!("We are not innocent. Terminating.");
+    //     }
+    //     log::info!("Trying to create a new context");
+    //     self.ctx.set(None);
+    //     self.state.set_render_ctx(None);
+    //     let mut old_buffers = vec![];
+    //     let mut ctx_dev = None;
+    //     for dev in self.device_holder.drm_devices.lock().values() {
+    //         if dev.dev.id == ctx.dev_id {
+    //             ctx_dev = Some(dev.dev.clone());
+    //         }
+    //         for connector in dev.connectors.lock().values() {
+    //             old_buffers.push(connector.buffers.take());
+    //         }
+    //     }
+    //     if let Some(dev) = &ctx_dev {
+    //         self.make_render_device(dev, true)
+    //     } else {
+    //         false
+    //     }
+    // }
 
     pub fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
         let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
@@ -1083,6 +1089,15 @@ impl MetalBackend {
             }
         }
 
+        let egl = match RenderContext::from_drm_device(master) {
+            Ok(r) => Rc::new(r),
+            Err(e) => return Err(MetalError::CreateRenderContex(e)),
+        };
+        let ctx = Rc::new(MetalRenderContext {
+            dev_id: pending.id,
+            egl,
+        });
+
         let gbm = match GbmDevice::new(master) {
             Ok(g) => g,
             Err(e) => return Err(MetalError::GbmDevice(e)),
@@ -1107,6 +1122,7 @@ impl MetalBackend {
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
             },
+            ctx,
         });
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
@@ -1406,13 +1422,12 @@ impl MetalBackend {
 
     fn make_render_device(&self, dev: &Rc<MetalDrmDevice>, log: bool) -> bool {
         if let Some(ctx) = self.ctx.get() {
-            if ctx.dev.id == dev.id {
+            if ctx.dev_id == dev.id {
                 return true;
             }
         }
-        if !self.install_render_context(dev) {
-            return false;
-        }
+        self.state.set_render_ctx(Some(&dev.ctx.egl));
+        self.ctx.set(Some(dev.ctx.clone()));
         let mut preserve = Preserve::default();
         for dev in self.device_holder.drm_devices.lock().values() {
             if let Err(e) = self.init_drm_device(dev, &mut preserve) {
@@ -1575,39 +1590,77 @@ impl MetalBackend {
         format: &ModifiedFormat,
         width: i32,
         height: i32,
-        ctx: &MetalRenderContext,
+        render_ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<RenderBuffer, MetalError> {
         let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
-        if cursor || ctx.dev.id != dev.id {
+        if cursor {
             usage |= GBM_BO_USE_LINEAR;
         };
-        let bo = dev.gbm.create_bo(width, height, format, usage);
-        let bo = match bo {
+        let dev_bo = dev.gbm.create_bo(width, height, format, usage);
+        let dev_bo = match dev_bo {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
         };
-        let drm_fb = match dev.master.add_fb(bo.dmabuf()) {
+        let drm_fb = match dev.master.add_fb(dev_bo.dmabuf()) {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let egl_img = match ctx.egl.dmabuf_img(bo.dmabuf()) {
+        let dev_img = match dev.ctx.egl.dmabuf_img(dev_bo.dmabuf()) {
             Ok(img) => img,
             Err(e) => return Err(MetalError::ImportImage(e)),
         };
-        let egl_fb = match egl_img.to_framebuffer() {
+        let dev_fb = match dev_img.to_framebuffer() {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
-        let egl_tex = match egl_img.to_texture() {
-            Ok(fb) => fb,
-            Err(e) => return Err(MetalError::ImportTexture(e)),
+        dev_fb.clear();
+        let (dev_tex, render_tex, render_fb) = if dev.id == render_ctx.dev_id {
+            let render_tex = match dev_img.to_texture() {
+                Ok(fb) => fb,
+                Err(e) => return Err(MetalError::ImportTexture(e)),
+            };
+            (None, render_tex, None)
+        } else {
+            // Create a _bridge_ BO in the render device
+            usage |= GBM_BO_USE_LINEAR;
+            let render_bo = dev.gbm.create_bo(width, height, format, usage);
+            let render_bo = match render_bo {
+                Ok(b) => b,
+                Err(e) => return Err(MetalError::ScanoutBuffer(e)),
+            };
+            let render_img = match render_ctx.egl.dmabuf_img(render_bo.dmabuf()) {
+                Ok(img) => img,
+                Err(e) => return Err(MetalError::ImportImage(e)),
+            };
+            let render_fb = match render_img.to_framebuffer() {
+                Ok(fb) => fb,
+                Err(e) => return Err(MetalError::ImportFb(e)),
+            };
+            render_fb.clear();
+            let render_tex = match render_img.to_texture() {
+                Ok(fb) => fb,
+                Err(e) => return Err(MetalError::ImportTexture(e)),
+            };
+
+            // Import the bridge BO into the current device
+            let dev_img = match dev.ctx.egl.dmabuf_img(render_bo.dmabuf()) {
+                Ok(img) => img,
+                Err(e) => return Err(MetalError::ImportImage(e)),
+            };
+            let dev_tex = match dev_img.to_texture() {
+                Ok(fb) => fb,
+                Err(e) => return Err(MetalError::ImportTexture(e)),
+            };
+
+            (Some(dev_tex), render_tex, Some(render_fb))
         };
-        egl_fb.clear();
         Ok(RenderBuffer {
             drm: drm_fb,
-            fb: egl_fb,
-            tex: egl_tex,
+            dev_fb,
+            dev_tex,
+            render_tex,
+            render_fb,
         })
     }
 
@@ -1783,8 +1836,26 @@ impl MetalBackend {
 #[derive(Debug)]
 pub struct RenderBuffer {
     drm: Rc<DrmFramebuffer>,
-    fb: Rc<Framebuffer>,
-    tex: Rc<Texture>,
+    // ctx = dev
+    // buffer location = dev
+    dev_fb: Rc<Framebuffer>,
+    // ctx = dev
+    // buffer location = render
+    dev_tex: Option<Rc<Texture>>,
+    // ctx = render
+    // buffer location = render
+    render_tex: Rc<Texture>,
+    // ctx = render
+    // buffer location = render
+    render_fb: Option<Rc<Framebuffer>>,
+}
+
+impl RenderBuffer {
+    fn render_fb(&self) -> Rc<Framebuffer> {
+        self.render_fb
+            .clone()
+            .unwrap_or_else(|| self.dev_fb.clone())
+    }
 }
 
 fn modes_equal(a: &DrmModeInfo, b: &DrmModeInfo) -> bool {

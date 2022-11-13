@@ -2,7 +2,7 @@ use {
     crate::{
         cursor::Cursor,
         fixed::Fixed,
-        format::{Format, XRGB8888},
+        format::{Format, ARGB8888, XRGB8888},
         rect::Rect,
         render::{
             gl::{
@@ -55,11 +55,15 @@ impl Framebuffer {
         });
     }
 
-    pub fn copy_texture(&self, state: &State, texture: &Texture, x: i32, y: i32) {
+    pub fn copy_texture(&self, state: &State, texture: &Texture, x: i32, y: i32, alpha: bool) {
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
                 glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
                 glViewport(0, 0, self.gl.width, self.gl.height);
+                if alpha {
+                    glClearColor(0.0, 0.0, 0.0, 0.0);
+                    glClear(GL_COLOR_BUFFER_BIT);
+                }
                 glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
             let scale = Scale::from_int(1);
@@ -76,9 +80,13 @@ impl Framebuffer {
                 result: &mut RenderResult::default(),
                 logical_extents: Rect::new_sized(0, 0, self.gl.width, self.gl.height).unwrap(),
             };
+            let format = match alpha {
+                true => ARGB8888,
+                false => XRGB8888,
+            };
             renderer
                 .base
-                .render_texture(texture, x, y, XRGB8888, None, None, scale);
+                .render_texture(texture, x, y, format, None, None, scale);
             unsafe {
                 glFlush();
             }

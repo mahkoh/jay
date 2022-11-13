@@ -241,7 +241,13 @@ impl WlOutputGlobal {
                         continue;
                     }
                 };
-                fb.copy_texture(&self.state, tex, -capture.rect.x1(), -capture.rect.y1());
+                fb.copy_texture(
+                    &self.state,
+                    tex,
+                    -capture.rect.x1(),
+                    -capture.rect.y1(),
+                    false,
+                );
             }
             if capture.with_damage.get() {
                 capture.send_damage();
