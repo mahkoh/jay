@@ -55,6 +55,7 @@ pub struct MetalRenderContext {
 
 #[derive(Debug)]
 pub struct MetalDrmDevice {
+    pub backend: Rc<MetalBackend>,
     pub id: DrmDeviceId,
     pub devnum: c::dev_t,
     pub devnode: CString,
@@ -87,6 +88,10 @@ impl BackendDrmDevice for MetalDrmDevice {
 
     fn dev_t(&self) -> dev_t {
         self.devnum
+    }
+
+    fn make_render_device(self: Rc<Self>) {
+        self.backend.make_render_device(&self, true);
     }
 }
 
@@ -869,6 +874,7 @@ impl MetalBackend {
             fatal!("We are not innocent. Terminating.");
         }
         log::info!("Trying to create a new context");
+        self.ctx.set(None);
         self.state.set_render_ctx(None);
         let mut old_buffers = vec![];
         for dev in self.device_holder.drm_devices.lock().values() {
@@ -876,16 +882,7 @@ impl MetalBackend {
                 old_buffers.push(connector.buffers.take());
             }
         }
-        if !self.install_render_context(&ctx.dev) {
-            return false;
-        }
-        let mut preserve = Preserve::default();
-        for dev in self.device_holder.drm_devices.lock().values() {
-            if let Err(e) = self.init_drm_device(dev, &mut preserve) {
-                log::error!("Could not re-initialize device: {}", ErrorFmt(e));
-            }
-        }
-        true
+        self.make_render_device(&ctx.dev, true)
     }
 
     fn install_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
@@ -1006,11 +1003,7 @@ impl MetalBackend {
                 if !preserve.connectors.contains(&connector.id) {
                     connector.can_present.set(true);
                 }
-                let dd = connector.display.borrow_mut();
-                if !connector.connect_sent.get() {
-                    self.send_connected(connector, &dd);
-                }
-                self.start_connector(connector, &dd);
+                self.start_connector(connector, true);
             }
         }
         dev.unprocessed_change.set(false);
@@ -1092,6 +1085,7 @@ impl MetalBackend {
         };
 
         let dev = Rc::new(MetalDrmDevice {
+            backend: self.clone(),
             id: pending.id,
             devnum: pending.devnum,
             devnode: pending.devnode,
@@ -1111,13 +1105,8 @@ impl MetalBackend {
             },
         });
 
-        let mut preserve = Preserve::default();
-
         if self.ctx.get().is_none() {
-            self.install_render_context(&dev);
-            for dev in self.device_holder.drm_devices.lock().values() {
-                let _ = self.init_drm_device(dev, &mut preserve);
-            }
+            self.make_render_device(&dev, false);
         }
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
@@ -1129,7 +1118,7 @@ impl MetalBackend {
             unprocessed_change: Cell::new(false),
         });
 
-        self.init_drm_device(&slf, &mut preserve)?;
+        self.init_drm_device(&slf, &mut Preserve::default())?;
 
         self.state
             .backend_events
@@ -1140,9 +1129,7 @@ impl MetalBackend {
                 .backend_events
                 .push(BackendEvent::NewConnector(connector.clone()));
             if connector.connected() {
-                let dd = connector.display.borrow_mut();
-                self.send_connected(connector, &dd);
-                self.start_connector(connector, &dd);
+                self.start_connector(connector, true);
             }
         }
 
@@ -1415,6 +1402,31 @@ impl MetalBackend {
                 }
             }
         }
+    }
+
+    fn make_render_device(&self, dev: &Rc<MetalDrmDevice>, log: bool) -> bool {
+        if let Some(ctx) = self.ctx.get() {
+            if ctx.dev.id == dev.id {
+                return true;
+            }
+        }
+        if !self.install_render_context(dev) {
+            return false;
+        }
+        let mut preserve = Preserve::default();
+        for dev in self.device_holder.drm_devices.lock().values() {
+            if let Err(e) = self.init_drm_device(dev, &mut preserve) {
+                if log {
+                    log::error!("Could not initialize device: {}", ErrorFmt(e));
+                }
+            }
+            for connector in dev.connectors.lock().values() {
+                if connector.connected() {
+                    self.start_connector(connector, false);
+                }
+            }
+        }
+        true
     }
 
     fn init_drm_device(
@@ -1749,13 +1761,19 @@ impl MetalBackend {
         Ok(())
     }
 
-    fn start_connector(&self, connector: &Rc<MetalConnector>, dd: &ConnectorDisplayData) {
-        log::info!(
-            "Initialized connector {}-{} with mode {:?}",
-            dd.connector_type,
-            dd.connector_type_id,
-            dd.mode.as_ref().unwrap(),
-        );
+    fn start_connector(&self, connector: &Rc<MetalConnector>, log_mode: bool) {
+        let dd = connector.display.borrow_mut();
+        if !connector.connect_sent.get() {
+            self.send_connected(connector, &dd);
+        }
+        if log_mode {
+            log::info!(
+                "Initialized connector {}-{} with mode {:?}",
+                dd.connector_type,
+                dd.connector_type_id,
+                dd.mode.as_ref().unwrap(),
+            );
+        }
         connector.has_damage.set(true);
         connector.cursor_changed.set(true);
         connector.schedule_present();

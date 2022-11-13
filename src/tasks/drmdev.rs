@@ -12,6 +12,7 @@ use {
 pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     let id = dev.id();
     let mut syspath = None;
+    let mut devnode = None;
     let mut vendor = None;
     let mut model = None;
     let mut pci_id = None;
@@ -40,6 +41,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         syspath = dev.syspath().map(|s| s.to_string_lossy().into_owned());
         vendor = dev.vendor().map(|s| s.to_string_lossy().into_owned());
         model = dev.model().map(|s| s.to_string_lossy().into_owned());
+        devnode = odev.devnode().map(|s| s.to_string_lossy().into_owned());
         'get_pci_id: {
             let id = match dev.pci_id() {
                 Some(id) => id,
@@ -68,6 +70,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         handler: Cell::new(None),
         connectors: Default::default(),
         syspath,
+        devnode,
         vendor,
         model,
         pci_id,

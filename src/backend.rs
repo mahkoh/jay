@@ -221,4 +221,5 @@ pub trait BackendDrmDevice {
     fn event(&self) -> Option<DrmEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn dev_t(&self) -> c::dev_t;
+    fn make_render_device(self: Rc<Self>);
 }
