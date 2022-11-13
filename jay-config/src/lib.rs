@@ -139,3 +139,11 @@ impl Display for PciId {
 pub fn on_idle<F: Fn() + 'static>(f: F) {
     get!().on_idle(f)
 }
+
+/// Sets the callback to be called when all devices have been enumerated.
+///
+/// This callback is only invoked once during the lifetime of the compositor. This is a
+/// good place to select the DRM device used for rendering.
+pub fn on_devices_enumerated<F: FnOnce() + 'static>(f: F) {
+    get!().on_devices_enumerated(f)
+}

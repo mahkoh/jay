@@ -142,6 +142,7 @@ pub enum BackendEvent {
     NewDrmDevice(Rc<dyn BackendDrmDevice>),
     NewConnector(Rc<dyn Connector>),
     NewInputDevice(Rc<dyn InputDevice>),
+    DevicesEnumerated,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

@@ -5,11 +5,13 @@ use {
             video::{MetalDrmDeviceData, PendingDrmDevice},
             MetalBackend, MetalDevice, MetalError, MetalInputDevice,
         },
-        dbus::TRUE,
+        dbus::{DbusError, TRUE},
         udev::UdevDevice,
         utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, nonblock::set_nonblock},
         video::drm::DrmMaster,
-        wire_dbus::org::freedesktop::login1::session::{PauseDevice, ResumeDevice},
+        wire_dbus::org::freedesktop::login1::session::{
+            PauseDevice, ResumeDevice, TakeDeviceReply,
+        },
     },
     bstr::ByteSlice,
     std::{cell::Cell, rc::Rc},
@@ -199,7 +201,7 @@ impl MetalBackend {
         };
         self.device_holder.pending_drm_devices.set(devnum, dev);
         let slf = self.clone();
-        self.session.get_device(devnum, move |res| {
+        self.get_device(devnum, move |res| {
             let dev = match slf.device_holder.pending_drm_devices.remove(&devnum) {
                 Some(d) if d.id == id => d,
                 _ => return,
@@ -303,7 +305,7 @@ impl MetalBackend {
         self.device_holder
             .devices
             .set(devnum, MetalDevice::Input(dev));
-        self.session.get_device(devnum, move |res| {
+        self.get_device(devnum, move |res| {
             let id = &slf.device_holder.devices;
             let mut slots = slf.device_holder.input_devices.borrow_mut();
             let dev = 'dev: {
@@ -344,5 +346,24 @@ impl MetalBackend {
                 .push(BackendEvent::NewInputDevice(dev.clone()));
         });
         None
+    }
+
+    fn get_device<F>(self: &Rc<Self>, dev: c::dev_t, f: F)
+    where
+        F: FnOnce(Result<&TakeDeviceReply, DbusError>) + 'static,
+    {
+        self.device_holder.num_pending_devices.fetch_add(1);
+        let slf = self.clone();
+        self.session.get_device(dev, move |res| {
+            let rem = slf.device_holder.num_pending_devices.fetch_sub(1);
+            f(res);
+            if rem == 1 {
+                slf.state
+                    .backend_events
+                    .push(BackendEvent::DevicesEnumerated);
+                // Set to 1 to ensure this branch is never taken again.
+                slf.device_holder.num_pending_devices.set(1);
+            }
+        })
     }
 }

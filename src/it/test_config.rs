@@ -105,6 +105,7 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::NewDrmDev { .. } => {}
         ServerMessage::DelDrmDev { .. } => {}
         ServerMessage::Idle => {}
+        ServerMessage::DevicesEnumerated => {}
     }
 }
 

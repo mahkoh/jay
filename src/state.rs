@@ -268,6 +268,12 @@ impl State {
         self.reload_cursors();
     }
 
+    pub fn devices_enumerated(&self) {
+        if let Some(config) = self.config.get() {
+            config.devices_enumerated()
+        }
+    }
+
     pub fn set_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
         self.render_ctx.set(ctx.cloned());
         self.render_ctx_version.fetch_add(1);

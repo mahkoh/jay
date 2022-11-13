@@ -122,6 +122,10 @@ impl ConfigProxy {
         self.send(&ServerMessage::GraphicsInitialized);
     }
 
+    pub fn devices_enumerated(&self) {
+        self.send(&ServerMessage::DevicesEnumerated);
+    }
+
     pub fn clear(&self) {
         self.send(&ServerMessage::Clear);
     }

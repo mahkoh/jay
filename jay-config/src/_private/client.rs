@@ -42,6 +42,7 @@ pub(crate) struct Client {
     on_new_input_device: RefCell<Option<Rc<dyn Fn(InputDevice)>>>,
     on_connector_connected: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     on_graphics_initialized: Cell<Option<Box<dyn FnOnce()>>>,
+    on_devices_enumerated: Cell<Option<Box<dyn FnOnce()>>>,
     on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
     on_new_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
     on_del_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
@@ -129,6 +130,7 @@ pub unsafe extern "C" fn init(
         on_new_input_device: Default::default(),
         on_connector_connected: Default::default(),
         on_graphics_initialized: Default::default(),
+        on_devices_enumerated: Default::default(),
         on_new_connector: Default::default(),
         on_new_drm_device: Default::default(),
         on_del_drm_device: Default::default(),
@@ -550,6 +552,10 @@ impl Client {
         self.on_graphics_initialized.set(Some(Box::new(f)));
     }
 
+    pub fn on_devices_enumerated<F: FnOnce() + 'static>(&self, f: F) {
+        self.on_devices_enumerated.set(Some(Box::new(f)));
+    }
+
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
         self.send(&ClientMessage::SetSeat { device, seat })
     }
@@ -731,6 +737,11 @@ impl Client {
             ServerMessage::Idle => {
                 let handler = self.on_idle.borrow_mut();
                 if let Some(handler) = handler.deref() {
+                    handler();
+                }
+            }
+            ServerMessage::DevicesEnumerated => {
+                if let Some(handler) = self.on_devices_enumerated.take() {
                     handler();
                 }
             }
