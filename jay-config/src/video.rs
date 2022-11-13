@@ -357,4 +357,9 @@ impl DrmDevice {
     pub fn pci_id(self) -> PciId {
         get!().drm_device_pci_id(self)
     }
+
+    /// Makes this device the render device.
+    pub fn make_render_device(self) {
+        get!().make_render_device(self);
+    }
 }

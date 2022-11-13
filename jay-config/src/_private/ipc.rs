@@ -313,6 +313,9 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         enabled: bool,
     },
+    MakeRenderDevice {
+        device: DrmDevice,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

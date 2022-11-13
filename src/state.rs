@@ -214,6 +214,17 @@ pub struct DrmDevData {
     pub pci_id: Option<PciId>,
 }
 
+impl DrmDevData {
+    pub fn make_render_device(&self) {
+        log::info!(
+            "Making {} @ {} the render device",
+            self.model.as_deref().unwrap_or("unknown"),
+            self.syspath.as_deref().unwrap_or("unknown"),
+        );
+        self.dev.clone().make_render_device();
+    }
+}
+
 struct UpdateTextTexturesVisitor;
 impl NodeVisitorBase for UpdateTextTexturesVisitor {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {

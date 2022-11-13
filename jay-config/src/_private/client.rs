@@ -476,6 +476,10 @@ impl Client {
         pci_id
     }
 
+    pub fn make_render_device(&self, device: DrmDevice) {
+        self.send(&ClientMessage::MakeRenderDevice { device });
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });

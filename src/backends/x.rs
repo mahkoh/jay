@@ -960,6 +960,11 @@ impl BackendDrmDevice for XDrmDevice {
     fn dev_t(&self) -> dev_t {
         self.dev
     }
+
+    fn make_render_device(self: Rc<Self>) {
+        log::warn!("make_render_device is not supported by the X backend");
+        // nothing
+    }
 }
 
 struct XOutput {

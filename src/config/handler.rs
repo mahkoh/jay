@@ -197,6 +197,12 @@ impl ConfigProxyHandler {
 
     fn handle_get_drm_device_model(&self, dev: DrmDevice) -> Result<(), CphError> {
         let dev = self.get_drm_device(dev)?;
+        dev.make_render_device();
+        Ok(())
+    }
+
+    fn handle_make_render_device(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
         let model = dev.model.clone().unwrap_or_default();
         self.respond(Response::GetDrmDeviceModel { model });
         Ok(())
@@ -1217,6 +1223,9 @@ impl ConfigProxyHandler {
             ClientMessage::DisablePointerConstraint { seat } => self
                 .handle_disable_pointer_constraint(seat)
                 .wrn("disable_pointer_constraint")?,
+            ClientMessage::MakeRenderDevice { device } => self
+                .handle_make_render_device(device)
+                .wrn("make_render_device")?,
         }
         Ok(())
     }
