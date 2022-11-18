@@ -1,0 +1,11 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg get_tearing_control = 1 {
+    id: id(wp_tearing_control_v1),
+    surface: id(wl_surface),
+}
+

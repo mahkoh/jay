@@ -2,6 +2,7 @@ pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_fractional_scale_v1;
+pub mod wp_tearing_control_v1;
 pub mod wp_viewport;
 pub mod x_surface;
 pub mod xdg_surface;
@@ -27,7 +28,8 @@ use {
             },
             wl_surface::{
                 cursor::CursorSurface, wl_subsurface::WlSubsurface,
-                wp_fractional_scale_v1::WpFractionalScaleV1, wp_viewport::WpViewport,
+                wp_fractional_scale_v1::WpFractionalScaleV1,
+                wp_tearing_control_v1::WpTearingControlV1, wp_viewport::WpViewport,
                 x_surface::XSurface, xdg_surface::XdgSurfaceError,
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
@@ -261,6 +263,8 @@ pub struct WlSurface {
     fractional_scale: CloneCell<Option<Rc<WpFractionalScaleV1>>>,
     pub constraints: SmallMap<SeatId, Rc<SeatConstraint>, 1>,
     xwayland_serial: Cell<Option<u64>>,
+    tearing_control: CloneCell<Option<Rc<WpTearingControlV1>>>,
+    tearing: Cell<bool>,
 }
 
 impl Debug for WlSurface {
@@ -353,6 +357,7 @@ struct PendingState {
     scale: Cell<Option<i32>>,
     transform: Cell<Option<Transform>>,
     xwayland_serial: Cell<Option<u64>>,
+    tearing: Cell<Option<bool>>,
 }
 
 #[derive(Default)]
@@ -405,6 +410,8 @@ impl WlSurface {
             fractional_scale: Default::default(),
             constraints: Default::default(),
             xwayland_serial: Default::default(),
+            tearing_control: Default::default(),
+            tearing: Cell::new(false),
         }
     }
 
@@ -871,6 +878,9 @@ impl WlSurface {
                 self.opaque_region.set(region);
             }
         }
+        if let Some(tearing) = self.pending.tearing.take() {
+            self.tearing.set(tearing);
+        }
         if let Some(xwayland_serial) = self.pending.xwayland_serial.take() {
             self.xwayland_serial.set(Some(xwayland_serial));
             self.client
@@ -1080,6 +1090,7 @@ impl Object for WlSurface {
         self.presentation_feedback.borrow_mut().clear();
         self.viewporter.take();
         self.fractional_scale.take();
+        self.tearing_control.take();
         self.constraints.clear();
     }
 }
