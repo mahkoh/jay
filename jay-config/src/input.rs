@@ -86,21 +86,21 @@ impl InputDevice {
 
     /// Sets whether tap-to-click is enabled for this device.
     ///
-    /// See https://wayland.freedesktop.org/libinput/doc/latest/tapping.html
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/tapping.html>
     pub fn set_tap_enabled(self, enabled: bool) {
         get!().set_input_tap_enabled(self, enabled);
     }
 
     /// Sets whether tap-and-drag is enabled for this device.
     ///
-    /// See https://wayland.freedesktop.org/libinput/doc/latest/tapping.html
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/tapping.html>
     pub fn set_drag_enabled(self, enabled: bool) {
         get!().set_input_drag_enabled(self, enabled);
     }
 
     /// Sets whether drag lock is enabled for this device.
     ///
-    /// See https://wayland.freedesktop.org/libinput/doc/latest/tapping.html
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/tapping.html>
     pub fn set_drag_lock_enabled(self, enabled: bool) {
         get!().set_input_drag_lock_enabled(self, enabled);
     }
