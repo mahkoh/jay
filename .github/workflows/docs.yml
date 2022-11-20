@@ -2,7 +2,7 @@ name: docs
 
 on:
   push:
-    branches: [ master ]
+    branches: [ pages ]
   workflow_dispatch:
 
 env:
@@ -40,7 +40,7 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v1
       with:
-        path: './target/doc/jay_config'
+        path: './target/doc'
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v1
