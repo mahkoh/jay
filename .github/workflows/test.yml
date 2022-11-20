@@ -1,4 +1,4 @@
-name: rustfmt
+name: test
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rustfmt:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -24,5 +24,5 @@ jobs:
         curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
         rustup toolchain install nightly --allow-downgrade -c rustfmt
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-    - name: Check
-      run: cargo +nightly fmt -- --check
+    - name: Test
+      run: cargo +nightly test
