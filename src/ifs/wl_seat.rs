@@ -800,6 +800,7 @@ impl WlSeatGlobal {
         if let Some(old) = self.cursor.get() {
             if let Some(new) = cursor.as_ref() {
                 if rc_eq(&old, new) {
+                    self.update_hardware_cursor();
                     return;
                 }
             }
