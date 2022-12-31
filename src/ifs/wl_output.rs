@@ -190,6 +190,9 @@ impl WlOutputGlobal {
         if obj.version >= SEND_SCALE_SINCE {
             obj.send_scale();
         }
+        if obj.version >= SEND_NAME_SINCE {
+            obj.send_name();
+        }
         if obj.version >= SEND_DONE_SINCE {
             obj.send_done();
         }
@@ -268,7 +271,7 @@ impl Global for WlOutputGlobal {
     }
 
     fn version(&self) -> u32 {
-        3
+        4
     }
 
     fn break_loops(&self) {
@@ -289,6 +292,7 @@ pub struct WlOutput {
 
 pub const SEND_DONE_SINCE: u32 = 2;
 pub const SEND_SCALE_SINCE: u32 = 2;
+pub const SEND_NAME_SINCE: u32 = 4;
 
 impl WlOutput {
     fn send_geometry(&self) {
@@ -325,6 +329,13 @@ impl WlOutput {
             factor: self.global.legacy_scale.get() as _,
         };
         self.client.event(event);
+    }
+
+    fn send_name(&self) {
+        self.client.event(Name {
+            self_id: self.id,
+            name: &self.global.connector.name,
+        });
     }
 
     pub fn send_done(&self) {
