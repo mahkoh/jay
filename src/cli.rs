@@ -11,7 +11,7 @@ mod unlock;
 use {
     crate::{compositor::start_compositor, portal},
     ::log::Level,
-    clap::{ArgEnum, Args, Parser, Subcommand},
+    clap::{Args, Parser, Subcommand, ValueEnum},
     clap_complete::Shell,
 };
 
@@ -27,7 +27,7 @@ struct Jay {
 #[derive(Args, Debug)]
 pub struct GlobalArgs {
     /// The log level.
-    #[clap(arg_enum, long, default_value_t)]
+    #[clap(value_enum, long, default_value_t)]
     pub log_level: CliLogLevel,
 }
 
@@ -130,7 +130,7 @@ pub struct RunArgs {
     ///
     /// Using this option, you can change which backends will be tried and change the order in
     /// which they will be tried. Multiple backends can be supplied as a comma-separated list.
-    #[clap(arg_enum, use_value_delimiter = true, long)]
+    #[clap(value_enum, use_value_delimiter = true, long)]
     pub backends: Vec<CliBackend>,
 }
 
@@ -150,7 +150,7 @@ pub struct LogArgs {
 #[derive(Args, Debug)]
 pub struct SetLogArgs {
     /// The new log level.
-    #[clap(arg_enum)]
+    #[clap(value_enum)]
     level: CliLogLevel,
 }
 
@@ -163,13 +163,13 @@ pub struct SeatTestArgs {
     seat: Option<String>,
 }
 
-#[derive(ArgEnum, Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub enum CliBackend {
     X11,
     Metal,
 }
 
-#[derive(ArgEnum, Debug, Copy, Clone, Hash)]
+#[derive(ValueEnum, Debug, Copy, Clone, Hash)]
 pub enum CliLogLevel {
     Trace,
     Debug,
@@ -199,7 +199,7 @@ impl Default for CliLogLevel {
 #[derive(Args, Debug)]
 pub struct GenerateArgs {
     /// The shell to generate completions for
-    #[clap(arg_enum)]
+    #[clap(value_enum)]
     shell: Shell,
 }
 

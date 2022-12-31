@@ -1023,11 +1023,11 @@ impl ConfigProxyHandler {
     }
 
     fn handle_request_(self: &Rc<Self>, msg: &[u8]) -> Result<(), CphError> {
-        let (request, _) = match bincode::decode_from_slice::<ClientMessage, _>(msg, bincode_ops())
-        {
-            Ok(msg) => msg,
-            Err(e) => return Err(CphError::ParsingFailed(e)),
-        };
+        let (request, _) =
+            match bincode::borrow_decode_from_slice::<ClientMessage, _>(msg, bincode_ops()) {
+                Ok(msg) => msg,
+                Err(e) => return Err(CphError::ParsingFailed(e)),
+            };
         match request {
             ClientMessage::Log {
                 level,

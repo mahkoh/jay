@@ -666,7 +666,7 @@ impl Client {
     }
 
     fn handle_msg(&self, msg: &[u8]) {
-        let res = bincode::decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
+        let res = bincode::borrow_decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
         let (msg, _) = match res {
             Ok(msg) => msg,
             Err(e) => {
