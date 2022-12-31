@@ -95,7 +95,7 @@ impl Clients {
         &self,
         id: ClientId,
         global: &Rc<State>,
-        socket: OwnedFd,
+        socket: Rc<OwnedFd>,
         secure: bool,
     ) -> Result<(), ClientError> {
         let (uid, pid) = {
@@ -123,7 +123,7 @@ impl Clients {
         &self,
         id: ClientId,
         global: &Rc<State>,
-        socket: OwnedFd,
+        socket: Rc<OwnedFd>,
         uid: c::uid_t,
         pid: c::pid_t,
         secure: bool,
@@ -133,7 +133,7 @@ impl Clients {
             id,
             state: global.clone(),
             checking_queue_size: Cell::new(false),
-            socket: Rc::new(socket),
+            socket,
             objects: Objects::new(),
             swapchain: Default::default(),
             flush_request: Default::default(),

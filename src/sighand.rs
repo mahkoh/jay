@@ -2,11 +2,11 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::IoUring,
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
+        utils::{buf::TypedBuf, errorfmt::ErrorFmt, oserror::OsError},
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::{c, Errno, OwnedFd},
+    uapi::{c, OwnedFd},
 };
 
 #[derive(Debug, Error)]
@@ -28,7 +28,7 @@ pub fn install(
     if let Err(e) = uapi::pthread_sigmask(c::SIG_BLOCK, Some(&set), None) {
         return Err(SighandError::BlockFailed(e.into()));
     }
-    let fd = match uapi::signalfd_new(&set, c::SFD_CLOEXEC | c::SFD_NONBLOCK) {
+    let fd = match uapi::signalfd_new(&set, c::SFD_CLOEXEC) {
         Ok(fd) => Rc::new(fd),
         Err(e) => return Err(SighandError::CreateFailed(e.into())),
     };
@@ -36,34 +36,17 @@ pub fn install(
 }
 
 async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>) {
-    let mut siginfo: c::signalfd_siginfo = uapi::pod_zeroed();
+    let mut buf = TypedBuf::<c::signalfd_siginfo>::new();
     loop {
-        if let Err(e) = ring.readable(&fd).await {
-            log::error!(
-                "Could not wait for signal fd to become readable: {}",
-                ErrorFmt(e)
-            );
+        if let Err(e) = ring.read(&fd, buf.buf()).await {
+            log::error!("Could not read from signal fd: {}", ErrorFmt(e));
             return;
         }
-        loop {
-            if let Err(e) = uapi::read(fd.raw(), &mut siginfo) {
-                match e {
-                    Errno(c::EAGAIN) => break,
-                    _ => {
-                        log::error!(
-                            "Could not read from signal fd: {}",
-                            ErrorFmt(OsError::from(e))
-                        );
-                        return;
-                    }
-                }
-            }
-            let sig = siginfo.ssi_signo as i32;
-            log::info!("Received signal {}", sig);
-            if matches!(sig, c::SIGINT | c::SIGTERM) {
-                log::info!("Exiting");
-                ring.stop();
-            }
+        let sig = buf.t().ssi_signo as i32;
+        log::info!("Received signal {}", sig);
+        if matches!(sig, c::SIGINT | c::SIGTERM) {
+            log::info!("Exiting");
+            ring.stop();
         }
     }
 }

@@ -1,11 +1,16 @@
 use {
-    crate::{cli::GlobalArgs, tools::tool_client::ToolClient, wire::jay_compositor::Quit},
+    crate::{
+        cli::GlobalArgs,
+        tools::tool_client::{with_tool_client, ToolClient},
+        wire::jay_compositor::Quit,
+    },
     std::rc::Rc,
 };
 
 pub fn main(global: GlobalArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    tc.run(run(tc.clone()));
+    with_tool_client(global.log_level.into(), |tc| async move {
+        run(tc).await;
+    });
 }
 
 async fn run(tc: Rc<ToolClient>) {

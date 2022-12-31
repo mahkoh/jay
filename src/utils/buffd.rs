@@ -1,7 +1,4 @@
-use {
-    crate::{io_uring::IoUringError, utils::oserror::OsError},
-    thiserror::Error,
-};
+use {crate::io_uring::IoUringError, thiserror::Error};
 pub use {
     buf_in::BufFdIn,
     buf_out::{BufFdOut, OutBuffer, OutBufferSwapchain},
@@ -17,7 +14,7 @@ mod parser;
 #[derive(Debug, Error)]
 pub enum BufFdError {
     #[error("An IO error occurred")]
-    Io(#[source] OsError),
+    Io(#[source] IoUringError),
     #[error("An io-uring error occurred")]
     Ring(#[from] IoUringError),
     #[error("The peer did not send a file descriptor")]
@@ -31,5 +28,4 @@ pub enum BufFdError {
 }
 
 const BUF_SIZE: usize = 4096;
-const CMSG_BUF_SIZE: usize = 4096;
 const MAX_IN_FD: usize = 32;

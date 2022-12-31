@@ -11,7 +11,7 @@ use {
 };
 
 impl DbusHolder {
-    pub(super) fn get(
+    pub(super) async fn get(
         self: &Rc<Self>,
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
@@ -25,39 +25,35 @@ impl DbusHolder {
                 return Ok(c);
             }
         }
-        let socket = connect(eng, ring, addr, name, &self.run_toplevel)?;
+        let socket = connect(eng, ring, addr, name, &self.run_toplevel).await?;
         self.socket.set(Some(socket.clone()));
         Ok(socket)
     }
 }
 
-fn connect(
+async fn connect(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     addr: &str,
     name: &'static str,
     run_toplevel: &Rc<RunToplevel>,
 ) -> Result<Rc<DbusSocket>, DbusError> {
-    let socket = match uapi::socket(
-        c::AF_UNIX,
-        c::SOCK_STREAM | c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
-        0,
-    ) {
-        Ok(s) => s,
+    let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
+        Ok(s) => Rc::new(s),
         Err(e) => return Err(DbusError::Socket(e.into())),
     };
     let mut sadr: c::sockaddr_un = uapi::pod_zeroed();
     sadr.sun_family = c::AF_UNIX as _;
     let sun_path = uapi::as_bytes_mut(&mut sadr.sun_path[..]);
     sun_path[..addr.len()].copy_from_slice(addr.as_bytes());
-    if let Err(e) = uapi::connect(socket.raw(), &sadr) {
-        return Err(DbusError::Connect(e.into()));
+    if let Err(e) = ring.connect(&fd, &sadr).await {
+        return Err(DbusError::Connect(e));
     }
-    let fd = Rc::new(socket);
     let socket = Rc::new(DbusSocket {
         bus_name: name,
         fd: fd.clone(),
         ring: ring.clone(),
+        in_bufs: Default::default(),
         bufio: Rc::new(BufIo::new(&fd, ring)),
         eng: eng.clone(),
         next_serial: NumCell::new(1),

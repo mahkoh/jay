@@ -2,7 +2,7 @@ use {
     crate::{
         cli::{GlobalArgs, SeatTestArgs},
         ifs::wl_seat::wl_pointer::{PendingScroll, CONTINUOUS, FINGER, WHEEL},
-        tools::tool_client::{Handle, ToolClient},
+        tools::tool_client::{with_tool_client, Handle, ToolClient},
         wire::{
             jay_compositor::{GetSeats, Seat, SeatEvents},
             jay_seat_events::{
@@ -16,13 +16,14 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: SeatTestArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    let screenshot = Rc::new(SeatTest {
-        tc: tc.clone(),
-        args,
-        names: Default::default(),
+    with_tool_client(global.log_level.into(), |tc| async move {
+        let screenshot = Rc::new(SeatTest {
+            tc: tc.clone(),
+            args,
+            names: Default::default(),
+        });
+        run(screenshot).await;
     });
-    tc.run(run(screenshot));
 }
 
 struct SeatTest {

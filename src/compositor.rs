@@ -234,10 +234,10 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
 
     if backend.import_environment() {
         if let Some(acc) = state.acceptor.get() {
-            import_environment(&state, WAYLAND_DISPLAY, acc.socket_name());
+            import_environment(&state, WAYLAND_DISPLAY, acc.socket_name()).await;
         }
         for (key, val) in STATIC_VARS {
-            import_environment(&state, key, val);
+            import_environment(&state, key, val).await;
         }
     }
 

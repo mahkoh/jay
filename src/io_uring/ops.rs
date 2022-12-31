@@ -1,11 +1,13 @@
 use crate::{io_uring::IoUringError, utils::oserror::OsError};
 
+pub mod accept;
 pub mod async_cancel;
+pub mod connect;
 pub mod poll;
+pub mod read_write;
 pub mod recvmsg;
 pub mod sendmsg;
 pub mod timeout;
-pub mod write;
 
 pub type TaskResult<T> = Result<Result<T, OsError>, IoUringError>;
 

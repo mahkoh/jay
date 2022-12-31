@@ -211,7 +211,7 @@ fn dup_fd(fd: c::c_int) -> Result<Rc<OwnedFd>, MetalError> {
 }
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
-    let socket = match state.dbus.system() {
+    let socket = match state.dbus.system().await {
         Ok(s) => s,
         Err(e) => return Err(MetalError::DbusSystemSocket(e)),
     };

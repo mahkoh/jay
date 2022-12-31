@@ -2,7 +2,7 @@ use {
     crate::{
         cli::{GlobalArgs, ScreenshotArgs},
         format::XRGB8888,
-        tools::tool_client::{Handle, ToolClient},
+        tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
         video::{
             dmabuf::{DmaBuf, DmaBufPlane},
@@ -21,12 +21,13 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: ScreenshotArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    let screenshot = Rc::new(Screenshot {
-        tc: tc.clone(),
-        args,
+    with_tool_client(global.log_level.into(), |tc| async move {
+        let screenshot = Rc::new(Screenshot {
+            tc: tc.clone(),
+            args,
+        });
+        run(screenshot).await;
     });
-    tc.run(run(screenshot));
 }
 
 struct Screenshot {

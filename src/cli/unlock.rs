@@ -1,12 +1,17 @@
 use {
-    crate::{cli::GlobalArgs, tools::tool_client::ToolClient, wire::jay_compositor::Unlock},
+    crate::{
+        cli::GlobalArgs,
+        tools::tool_client::{with_tool_client, ToolClient},
+        wire::jay_compositor::Unlock,
+    },
     std::rc::Rc,
 };
 
 pub fn main(global: GlobalArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    let logger = Rc::new(Unlocker { tc: tc.clone() });
-    tc.run(run(logger));
+    with_tool_client(global.log_level.into(), |tc| async move {
+        let logger = Rc::new(Unlocker { tc: tc.clone() });
+        run(logger).await;
+    });
 }
 
 struct Unlocker {

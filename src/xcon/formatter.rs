@@ -1,17 +1,17 @@
 use {
-    crate::xcon::Message,
+    crate::{utils::buf::DynamicBuf, xcon::Message},
     std::rc::Rc,
     uapi::{AssertPacked, OwnedFd, Packed},
 };
 
 pub struct Formatter<'a> {
     fds: &'a mut Vec<Rc<OwnedFd>>,
-    buf: &'a mut Vec<u8>,
+    buf: &'a mut DynamicBuf,
     ext_opcode: u8,
 }
 
 impl<'a> Formatter<'a> {
-    pub fn new(fds: &'a mut Vec<Rc<OwnedFd>>, buf: &'a mut Vec<u8>, ext_opcode: u8) -> Self {
+    pub fn new(fds: &'a mut Vec<Rc<OwnedFd>>, buf: &'a mut DynamicBuf, ext_opcode: u8) -> Self {
         Self {
             fds,
             buf,

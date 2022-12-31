@@ -18,7 +18,7 @@ use {
         io_uring::IoUringError,
         state::State,
         user_session::import_environment,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, tri::Try},
+        utils::{buf::Buf, errorfmt::ErrorFmt, oserror::OsError},
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{
@@ -29,7 +29,7 @@ use {
     bstr::ByteSlice,
     std::{num::ParseIntError, rc::Rc},
     thiserror::Error,
-    uapi::{c, pipe2, Errno, OwnedFd},
+    uapi::{c, pipe2, OwnedFd},
 };
 
 #[derive(Debug, Error)]
@@ -115,7 +115,7 @@ pub async fn manage(state: Rc<State>) {
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
         if state.backend.get().import_environment() {
-            import_environment(&state, DISPLAY, &display);
+            import_environment(&state, DISPLAY, &display).await;
         }
         if let Err(e) = state.ring.readable(&socket).await {
             log::error!("{}", ErrorFmt(e));
@@ -144,20 +144,12 @@ async fn run(
         Ok(p) => p,
         Err(e) => return Err(XWaylandError::Pipe(e.into())),
     };
-    let wm = uapi::socketpair(
-        c::AF_UNIX,
-        c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-        0,
-    );
+    let wm = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
     let (wm1, wm2) = match wm {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
     };
-    let client = uapi::socketpair(
-        c::AF_UNIX,
-        c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-        0,
-    );
+    let client = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0);
     let (client1, client2) = match client {
         Ok(w) => w,
         Err(e) => return Err(XWaylandError::Socketpair(e.into())),
@@ -177,9 +169,15 @@ async fn run(
         Err(e) => return Err(XWaylandError::ExecFailed(e)),
     };
     let client_id = state.clients.id();
-    let client = state
-        .clients
-        .spawn2(client_id, state, client1, uapi::getuid(), pid, true, true);
+    let client = state.clients.spawn2(
+        client_id,
+        state,
+        Rc::new(client1),
+        uapi::getuid(),
+        pid,
+        true,
+        true,
+    );
     let client = match client {
         Ok(c) => c,
         Err(e) => return Err(XWaylandError::SpawnClient(e)),
@@ -193,7 +191,7 @@ async fn run(
             Err(e) => return Err(XWaylandError::CreateWm(Box::new(e))),
         };
         let _wm = state.eng.spawn(wm.run());
-        state.ring.readable(&Rc::new(pidfd)).await?;
+        state.ring.readable(&pidfd).await?;
     }
     state.xwayland.queue.clear();
     stderr_read.await;
@@ -219,45 +217,21 @@ pub fn build_args(fds: &[OwnedFd]) -> (String, Vec<String>) {
 
 async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
     let stderr = Rc::new(stderr);
-    let res = Errno::tri(|| {
-        uapi::fcntl_setfl(
-            stderr.raw(),
-            uapi::fcntl_getfl(stderr.raw())? | c::O_NONBLOCK,
-        )?;
-        Ok(())
-    });
-    if let Err(e) = res {
-        log::error!("Could not set stderr fd to nonblock: {}", ErrorFmt(e));
-        return;
-    }
     let mut buf = vec![];
-    let mut buf2 = [0; 128];
+    let mut buf2 = Buf::new(128);
     let mut done = false;
     while !done {
-        if let Err(e) = state.ring.readable(&stderr).await {
-            log::error!(
-                "Cannot wait for the xwayland stderr to become readable: {}",
-                ErrorFmt(e)
-            );
-            return;
-        }
         loop {
-            match uapi::read(stderr.raw(), &mut buf2[..]) {
-                Ok(buf2) if buf2.len() > 0 => {
-                    buf.extend_from_slice(buf2);
+            match state.ring.read(&stderr, buf2.clone()).await {
+                Ok(n) if n > 0 => {
+                    buf.extend_from_slice(&buf2[..n]);
                 }
                 Ok(_) => {
                     done = true;
                     break;
                 }
-                Err(Errno(c::EAGAIN)) => {
-                    break;
-                }
                 Err(e) => {
-                    log::error!(
-                        "Could not read from stderr fd: {}",
-                        ErrorFmt(crate::utils::oserror::OsError::from(e))
-                    );
+                    log::error!("Could not read from stderr fd: {}", ErrorFmt(e));
                     return;
                 }
             }

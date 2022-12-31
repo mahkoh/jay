@@ -26,12 +26,13 @@ use {
         rc::{Rc, Weak},
     },
     thiserror::Error,
-    uapi::{c, Errno, OwnedFd, Pod, Ustring},
+    uapi::{c, OwnedFd, Pod, Ustring},
 };
 
 use crate::{
     backend,
-    utils::{errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
+    io_uring::{IoUring, IoUringError},
+    utils::{buf::Buf, errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
     video::{
         dmabuf::DmaBuf,
         drm::sys::{get_version, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH},
@@ -100,7 +101,7 @@ pub enum DrmError {
     #[error("Could not convert prime fd to gem handle")]
     GemHandle(#[source] OsError),
     #[error("Could not read events from the drm fd")]
-    ReadEvents(#[source] OsError),
+    ReadEvents(#[source] IoUringError),
     #[error("Read invalid data from drm device")]
     InvalidRead,
     #[error("Could not determine the drm version")]
@@ -179,7 +180,8 @@ pub struct DrmMaster {
     u64_bufs: Stack<Vec<u64>>,
     gem_handles: RefCell<AHashMap<u32, Weak<GemHandle>>>,
     events: SyncQueue<DrmEvent>,
-    buf: RefCell<Box<[MaybeUninit<u8>; 1024]>>,
+    ring: Rc<IoUring>,
+    buf: RefCell<Buf>,
 }
 
 impl Debug for DrmMaster {
@@ -197,14 +199,15 @@ impl Deref for DrmMaster {
 }
 
 impl DrmMaster {
-    pub fn new(fd: Rc<OwnedFd>) -> Self {
+    pub fn new(ring: &Rc<IoUring>, fd: Rc<OwnedFd>) -> Self {
         Self {
             drm: Drm { fd },
             u32_bufs: Default::default(),
             u64_bufs: Default::default(),
             gem_handles: Default::default(),
             events: Default::default(),
-            buf: RefCell::new(Box::new([MaybeUninit::uninit(); 1024])),
+            ring: ring.clone(),
+            buf: RefCell::new(Buf::new(1024)),
         }
     }
 
@@ -370,13 +373,13 @@ impl DrmMaster {
         }
     }
 
-    pub fn event(&self) -> Result<Option<DrmEvent>, DrmError> {
+    #[allow(clippy::await_holding_refcell_ref)]
+    pub async fn event(&self) -> Result<Option<DrmEvent>, DrmError> {
         if self.events.is_empty() {
             let mut buf = self.buf.borrow_mut();
-            let mut buf = match uapi::read(self.raw(), buf.as_mut_slice()) {
-                Ok(b) => b,
-                Err(Errno(c::EAGAIN)) => return Ok(None),
-                Err(e) => return Err(DrmError::ReadEvents(e.into())),
+            let mut buf = match self.ring.read(self.drm.fd(), buf.clone()).await {
+                Ok(n) => &buf[..n],
+                Err(e) => return Err(DrmError::ReadEvents(e)),
             };
             while buf.len() > 0 {
                 let header: drm_event = match uapi::pod_read_init(buf) {
@@ -402,7 +405,7 @@ impl DrmMaster {
                     }
                     _ => {}
                 }
-                buf = &mut buf[len as usize..];
+                buf = &buf[len as usize..];
             }
         }
         Ok(self.events.pop())

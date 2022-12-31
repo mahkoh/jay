@@ -52,8 +52,9 @@ impl Incoming {
     }
 
     async fn handle_msg(&mut self) -> Result<(), DbusError> {
-        let msg_buf_data = UnsafeCell::new(self.socket.bufio.buf());
+        let msg_buf_data = UnsafeCell::new(self.socket.in_bufs.pop().unwrap_or_default());
         let msg_buf = unsafe { msg_buf_data.get().deref_mut() };
+        msg_buf.clear();
         const FIXED_HEADER_SIZE: usize = 16;
         self.incoming
             .fill_msg_buf(FIXED_HEADER_SIZE, msg_buf)
@@ -235,7 +236,7 @@ impl Incoming {
         }
         let msg_buf = msg_buf_data.into_inner();
         if msg_buf.capacity() > 0 {
-            self.socket.bufio.add_buf(msg_buf);
+            self.socket.in_bufs.push(msg_buf);
         }
         Ok(())
     }

@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::{GlobalArgs, IdleArgs, IdleCmd, IdleSetArgs},
-        tools::tool_client::{Handle, ToolClient},
+        tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::{errorfmt::ErrorFmt, stack::Stack},
         wire::{jay_compositor, jay_idle, JayIdleId, WlSurfaceId},
     },
@@ -9,9 +9,10 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    let idle = Idle { tc: tc.clone() };
-    tc.run(idle.run(args));
+    with_tool_client(global.log_level.into(), |tc| async move {
+        let idle = Idle { tc: tc.clone() };
+        idle.run(args).await;
+    });
 }
 
 struct Idle {

@@ -1,16 +1,19 @@
 use {
-    crate::pipewire::pw_pod::{
-        PW_TYPE_Array, PW_TYPE_Bitmap, PW_TYPE_Bool, PW_TYPE_Bytes, PW_TYPE_Choice, PW_TYPE_Double,
-        PW_TYPE_Fd, PW_TYPE_Float, PW_TYPE_Fraction, PW_TYPE_Id, PW_TYPE_Int, PW_TYPE_Long,
-        PW_TYPE_None, PW_TYPE_Object, PW_TYPE_Rectangle, PW_TYPE_String, PW_TYPE_Struct,
-        PwChoiceType, PwPodObjectType, PwPodType, PwPropFlag,
+    crate::{
+        pipewire::pw_pod::{
+            PW_TYPE_Array, PW_TYPE_Bitmap, PW_TYPE_Bool, PW_TYPE_Bytes, PW_TYPE_Choice,
+            PW_TYPE_Double, PW_TYPE_Fd, PW_TYPE_Float, PW_TYPE_Fraction, PW_TYPE_Id, PW_TYPE_Int,
+            PW_TYPE_Long, PW_TYPE_None, PW_TYPE_Object, PW_TYPE_Rectangle, PW_TYPE_String,
+            PW_TYPE_Struct, PwChoiceType, PwPodObjectType, PwPodType, PwPropFlag,
+        },
+        utils::buf::DynamicBuf,
     },
     std::rc::Rc,
     uapi::OwnedFd,
 };
 
 pub struct PwFormatter<'a> {
-    data: &'a mut Vec<u8>,
+    data: &'a mut DynamicBuf,
     fds: &'a mut Vec<Rc<OwnedFd>>,
     array: bool,
     first: bool,
@@ -260,7 +263,7 @@ impl<'a> PwFormatter<'a> {
 }
 
 pub struct PwObjectFormatter<'a> {
-    data: &'a mut Vec<u8>,
+    data: &'a mut DynamicBuf,
     fds: &'a mut Vec<Rc<OwnedFd>>,
 }
 
@@ -281,8 +284,14 @@ impl<'a> PwObjectFormatter<'a> {
     }
 }
 
-pub fn format<F>(buf: &mut Vec<u8>, fds: &mut Vec<Rc<OwnedFd>>, id: u32, opcode: u8, seq: u32, f: F)
-where
+pub fn format<F>(
+    buf: &mut DynamicBuf,
+    fds: &mut Vec<Rc<OwnedFd>>,
+    id: u32,
+    opcode: u8,
+    seq: u32,
+    f: F,
+) where
     F: FnOnce(&mut PwFormatter),
 {
     buf.clear();

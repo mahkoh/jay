@@ -30,7 +30,7 @@ use {
             },
         },
         utils::{
-            bitfield::Bitfield, bitflags::BitflagsExt, clonecell::CloneCell,
+            bitfield::Bitfield, bitflags::BitflagsExt, buf::TypedBuf, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
         },
         video::dmabuf::DmaBuf,
@@ -798,17 +798,11 @@ impl PwClientNode {
         _activation: Rc<PwMemTyped<pw_node_activation>>,
         fd: Rc<OwnedFd>,
     ) {
+        let mut buf = TypedBuf::<u64>::new();
         loop {
             // unsafe {
             //     log::info!("transport = {:#?}", activation.read());
             // }
-            if let Err(e) = self.con.ring.readable(&fd).await {
-                log::error!(
-                    "Could not wait for transport to become readable: {}",
-                    ErrorFmt(e)
-                );
-                return;
-            }
             // log::info!("transport in");
             // for port in self.ports.lock().values() {
             //     for io in port.io_buffers.lock().values() {
@@ -820,11 +814,11 @@ impl PwClientNode {
             // unsafe {
             //     log::info!("state = {:#?}", activation.read().state[0]);
             // }
-            let mut n = 0u64;
-            if let Err(e) = uapi::read(fd.raw(), &mut n) {
+            if let Err(e) = self.con.ring.read(&fd, buf.buf()).await {
                 log::error!("Could not read from eventfd: {}", ErrorFmt(e));
                 return;
             }
+            let n = buf.t();
             if n > 1 {
                 log::warn!("Missed {} transport changes", n - 1);
             }

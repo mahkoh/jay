@@ -56,7 +56,7 @@ pub enum ToolClientError {
     #[error("The socket path is too long")]
     SocketPathTooLong,
     #[error("Could not connect to the compositor")]
-    Connect(#[source] OsError),
+    Connect(#[source] IoUringError),
     #[error("The message length is smaller than 8 bytes")]
     MsgLenTooSmall,
     #[error("The size of the message is not a multiple of 4")]
@@ -94,36 +94,53 @@ pub struct ToolClient {
     jay_compositor: Cell<Option<JayCompositorId>>,
 }
 
-impl ToolClient {
-    pub fn new(level: Level) -> Rc<Self> {
-        match Self::try_new(level) {
-            Ok(s) => s,
-            Err(e) => {
-                fatal!("Could not create a tool client: {}", ErrorFmt(e));
-            }
-        }
+pub fn with_tool_client<T, F>(level: Level, f: F)
+where
+    F: FnOnce(Rc<ToolClient>) -> T + 'static,
+    T: Future<Output = ()> + 'static,
+{
+    if let Err(e) = with_tool_client_(level, f) {
+        handle_error(e);
     }
+}
 
-    pub fn run<F>(&self, f: F)
-    where
-        F: Future<Output = ()> + 'static,
-    {
-        let _future = self.eng.spawn(async move {
-            f.await;
-            std::process::exit(0);
-        });
-        if let Err(e) = self.ring.run() {
-            fatal!("A fatal error occurred: {}", ErrorFmt(e));
-        }
-    }
+fn handle_error(e: ToolClientError) -> ! {
+    fatal!("Could not create a tool client: {}", ErrorFmt(e));
+}
 
-    pub fn try_new(level: Level) -> Result<Rc<Self>, ToolClientError> {
-        let logger = Logger::install_stderr(level);
-        let eng = AsyncEngine::new();
-        let ring = match IoUring::new(&eng, 32) {
-            Ok(e) => e,
-            Err(e) => return Err(ToolClientError::CreateRing(e)),
+fn with_tool_client_<T, F>(level: Level, f: F) -> Result<(), ToolClientError>
+where
+    F: FnOnce(Rc<ToolClient>) -> T + 'static,
+    T: Future<Output = ()> + 'static,
+{
+    let logger = Logger::install_stderr(level);
+    let eng = AsyncEngine::new();
+    let ring = match IoUring::new(&eng, 32) {
+        Ok(e) => e,
+        Err(e) => return Err(ToolClientError::CreateRing(e)),
+    };
+    let eng2 = eng.clone();
+    let ring2 = ring.clone();
+    let _f = eng.spawn(async move {
+        let tc = match ToolClient::try_new(logger, eng2, ring2).await {
+            Ok(tc) => tc,
+            Err(e) => handle_error(e),
         };
+        f(tc).await;
+        std::process::exit(0);
+    });
+    if let Err(e) = ring.run() {
+        fatal!("A fatal error occurred: {}", ErrorFmt(e));
+    }
+    Ok(())
+}
+
+impl ToolClient {
+    async fn try_new(
+        logger: Arc<Logger>,
+        eng: Rc<AsyncEngine>,
+        ring: Rc<IoUring>,
+    ) -> Result<Rc<Self>, ToolClientError> {
         let wheel = match Wheel::new(&eng, &ring) {
             Ok(w) => w,
             Err(e) => return Err(ToolClientError::CreateWheel(e)),
@@ -137,11 +154,7 @@ impl ToolClient {
             Err(_) => return Err(ToolClientError::WaylandDisplayNotSet),
         };
         let path = format_ustr!("{}/{}.jay", xrd, wd);
-        let socket = match uapi::socket(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-            0,
-        ) {
+        let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
             Ok(s) => Rc::new(s),
             Err(e) => return Err(ToolClientError::CreateSocket(e.into())),
         };
@@ -153,8 +166,8 @@ impl ToolClient {
         let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
         sun_path[..path.len()].copy_from_slice(path.as_bytes());
         sun_path[path.len()] = 0;
-        if let Err(e) = uapi::connect(socket.raw(), &addr) {
-            return Err(ToolClientError::Connect(e.into()));
+        if let Err(e) = ring.connect(&socket, &addr).await {
+            return Err(ToolClientError::Connect(e));
         }
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);

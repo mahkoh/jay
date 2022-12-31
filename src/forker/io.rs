@@ -8,6 +8,7 @@ use {
         forker::ForkerError,
         io_uring::IoUring,
         utils::{
+            buf::DynamicBuf,
             buffd::{BufFdIn, BufFdOut},
             vec_ext::VecExt,
         },
@@ -29,7 +30,7 @@ impl IoIn {
         }
     }
 
-    pub fn pop_fd(&mut self) -> Option<OwnedFd> {
+    pub fn pop_fd(&mut self) -> Option<Rc<OwnedFd>> {
         self.incoming.get_fd().ok()
     }
 
@@ -57,7 +58,7 @@ impl IoIn {
 
 pub struct IoOut {
     outgoing: BufFdOut,
-    scratch: Vec<u8>,
+    scratch: DynamicBuf,
     fds: Vec<Rc<OwnedFd>>,
 }
 
@@ -65,7 +66,7 @@ impl IoOut {
     pub fn new(fd: &Rc<OwnedFd>, ring: &Rc<IoUring>) -> Self {
         Self {
             outgoing: BufFdOut::new(fd, ring),
-            scratch: vec![],
+            scratch: DynamicBuf::new(),
             fds: vec![],
         }
     }
@@ -83,7 +84,12 @@ impl IoOut {
             Err(e) => return Err(ForkerError::EncodeFailed(e)),
         };
         self.scratch[..mem::size_of_val(&len)].copy_from_slice(uapi::as_bytes(&len));
-        match self.outgoing.flush2(&self.scratch, &mut self.fds).await {
+        let mut buf = self.scratch.borrow();
+        match self
+            .outgoing
+            .flush2(buf.buf.clone(), mem::take(&mut self.fds))
+            .await
+        {
             Ok(()) => Ok(()),
             Err(e) => Err(ForkerError::WriteFailed(e)),
         }

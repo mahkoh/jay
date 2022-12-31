@@ -2,40 +2,33 @@ use {
     crate::{
         io_uring::{IoUring, IoUringError},
         utils::{
-            oserror::OsError,
+            buf::{Buf, DynamicBuf},
             queue::AsyncQueue,
             stack::Stack,
-            vec_ext::{UninitVecExt, VecExt},
-            vecstorage::VecStorage,
         },
     },
     std::{
         collections::VecDeque,
-        mem::{self, MaybeUninit},
-        ptr::NonNull,
+        mem::{self},
         rc::Rc,
     },
     thiserror::Error,
-    uapi::{c, Errno, MaybeUninitSliceExt, Msghdr, MsghdrMut, OwnedFd},
+    uapi::{c, OwnedFd},
 };
 
 #[derive(Debug, Error)]
 pub enum BufIoError {
     #[error("Could not write to the socket")]
-    FlushError(#[source] OsError),
+    FlushError(#[source] IoUringError),
     #[error("Could not read from the socket")]
-    ReadError(#[source] OsError),
-    #[error("Cannot wait for fd to become writable")]
-    Writable(#[source] IoUringError),
-    #[error("Cannot wait for fd to become readable")]
-    Readable(#[source] IoUringError),
+    ReadError(#[source] IoUringError),
     #[error("The socket is closed")]
     Closed,
 }
 
 pub struct BufIoMessage {
     pub fds: Vec<Rc<OwnedFd>>,
-    pub buf: Vec<u8>,
+    pub buf: Buf,
 }
 
 struct MessageOffset {
@@ -46,27 +39,24 @@ struct MessageOffset {
 pub struct BufIo {
     fd: Rc<OwnedFd>,
     ring: Rc<IoUring>,
-    bufs: Stack<Vec<u8>>,
+    bufs: Stack<Buf>,
     outgoing: AsyncQueue<BufIoMessage>,
 }
 
 pub struct BufIoIncoming {
     bufio: Rc<BufIo>,
 
-    buf: Box<[MaybeUninit<u8>; 4096]>,
+    buf: Buf,
     buf_start: usize,
     buf_end: usize,
     pub fds: VecDeque<Rc<OwnedFd>>,
-    cmsg: Box<[MaybeUninit<u8>; 256]>,
 }
 
 struct Outgoing {
     bufio: Rc<BufIo>,
 
     msgs: VecDeque<MessageOffset>,
-    cmsg: Vec<MaybeUninit<u8>>,
-    fds: Vec<c::c_int>,
-    iovecs: VecStorage<NonNull<[u8]>>,
+    bufs: Vec<Buf>,
 }
 
 impl BufIo {
@@ -83,14 +73,9 @@ impl BufIo {
         let _ = uapi::shutdown(self.fd.raw(), c::SHUT_RDWR);
     }
 
-    pub fn buf(&self) -> Vec<u8> {
-        let mut buf = self.bufs.pop().unwrap_or_default();
-        buf.clear();
-        buf
-    }
-
-    pub fn add_buf(&self, buf: Vec<u8>) {
-        self.bufs.push(buf);
+    pub fn buf(&self) -> DynamicBuf {
+        let buf = self.bufs.pop().unwrap_or_default();
+        DynamicBuf::from_buf(buf)
     }
 
     pub fn send(&self, msg: BufIoMessage) {
@@ -101,9 +86,7 @@ impl BufIo {
         let mut outgoing = Outgoing {
             bufio: self,
             msgs: Default::default(),
-            cmsg: vec![],
-            fds: vec![],
-            iovecs: Default::default(),
+            bufs: vec![],
         };
         outgoing.run().await
     }
@@ -111,11 +94,10 @@ impl BufIo {
     pub fn incoming(self: &Rc<Self>) -> BufIoIncoming {
         BufIoIncoming {
             bufio: self.clone(),
-            buf: Box::new([MaybeUninit::uninit(); 4096]),
+            buf: Buf::new(4096),
             buf_start: 0,
             buf_end: 0,
             fds: Default::default(),
-            cmsg: Box::new([MaybeUninit::uninit(); 256]),
         }
     }
 }
@@ -128,51 +110,26 @@ impl BufIoIncoming {
     ) -> Result<(), BufIoError> {
         while n > 0 {
             if self.buf_start == self.buf_end {
-                while let Err(e) = self.recvmsg() {
-                    if e.0 != c::EAGAIN {
-                        return Err(BufIoError::ReadError(e.into()));
-                    }
-                    if let Err(e) = self.bufio.ring.readable(&self.bufio.fd).await {
-                        return Err(BufIoError::Readable(e));
-                    }
+                self.buf_start = 0;
+                self.buf_end = 0;
+                let res = self
+                    .bufio
+                    .ring
+                    .recvmsg(&self.bufio.fd, &mut [self.buf.clone()], &mut self.fds)
+                    .await;
+                match res {
+                    Ok(n) => self.buf_end = n,
+                    Err(e) => return Err(BufIoError::ReadError(e)),
                 }
                 if self.buf_start == self.buf_end {
                     return Err(BufIoError::Closed);
                 }
             }
             let read = n.min(self.buf_end - self.buf_start);
-            let buf_start = self.buf_start % self.buf.len();
-            unsafe {
-                buf.extend_from_slice(
-                    self.buf[buf_start..buf_start + read].slice_assume_init_ref(),
-                );
-            }
+            let buf_start = self.buf_start;
+            buf.extend_from_slice(&self.buf[buf_start..buf_start + read]);
             n -= read;
             self.buf_start += read;
-        }
-        Ok(())
-    }
-
-    fn recvmsg(&mut self) -> Result<(), Errno> {
-        self.buf_start = 0;
-        self.buf_end = 0;
-        let mut iov = [&mut self.buf[..]];
-        let mut hdr = MsghdrMut {
-            iov: &mut iov[..],
-            control: Some(&mut self.cmsg[..]),
-            name: uapi::sockaddr_none_mut(),
-            flags: 0,
-        };
-        let (ivec, _, mut cmsg) =
-            uapi::recvmsg(self.bufio.fd.raw(), &mut hdr, c::MSG_CMSG_CLOEXEC)?;
-        self.buf_end += ivec.len();
-        while cmsg.len() > 0 {
-            let (_, hdr, body) = uapi::cmsg_read(&mut cmsg)?;
-            if hdr.cmsg_level == c::SOL_SOCKET && hdr.cmsg_type == c::SCM_RIGHTS {
-                for fd in uapi::pod_iter(body)? {
-                    self.fds.push_back(Rc::new(OwnedFd::new(fd)));
-                }
-            }
         }
         Ok(())
     }
@@ -182,18 +139,13 @@ impl Outgoing {
     async fn run(&mut self) -> Result<(), BufIoError> {
         loop {
             self.bufio.outgoing.non_empty().await;
-            while let Err(e) = self.try_flush() {
-                if e != Errno(c::EAGAIN) {
-                    return Err(BufIoError::FlushError(e.into()));
-                }
-                if let Err(e) = self.bufio.ring.writable(&self.bufio.fd).await {
-                    return Err(BufIoError::Writable(e));
-                }
+            if let Err(e) = self.try_flush().await {
+                return Err(BufIoError::FlushError(e));
             }
         }
     }
 
-    fn try_flush(&mut self) -> Result<(), Errno> {
+    async fn try_flush(&mut self) -> Result<(), IoUringError> {
         loop {
             while let Some(msg) = self.bufio.outgoing.try_pop() {
                 self.msgs.push_back(MessageOffset { msg, offset: 0 });
@@ -201,40 +153,23 @@ impl Outgoing {
             if self.msgs.is_empty() {
                 return Ok(());
             }
-            let mut iovecs = self.iovecs.take_as();
-            let mut fds = &[][..];
+            let mut fds = Vec::new();
             for msg in &mut self.msgs {
                 if msg.msg.fds.len() > 0 {
-                    if fds.len() > 0 || iovecs.len() > 0 {
+                    if fds.len() > 0 || self.bufs.len() > 0 {
                         break;
                     }
-                    fds = &msg.msg.fds;
+                    fds = mem::take(&mut msg.msg.fds);
                 }
-                iovecs.push(&msg.msg.buf[msg.offset..]);
+                self.bufs.push(msg.msg.buf.slice(msg.offset..));
             }
-            self.cmsg.clear();
-            if fds.len() > 0 {
-                self.fds.clear();
-                self.fds.extend(fds.iter().map(|f| f.raw()));
-                let cmsg_space = uapi::cmsg_space(fds.len() * mem::size_of::<c::c_int>());
-                self.cmsg.reserve(cmsg_space);
-                let (_, mut spare) = self.cmsg.split_at_spare_mut_bytes_ext();
-                let hdr = c::cmsghdr {
-                    cmsg_len: 0,
-                    cmsg_level: c::SOL_SOCKET,
-                    cmsg_type: c::SCM_RIGHTS,
-                };
-                let len = uapi::cmsg_write(&mut spare, hdr, &self.fds[..]).unwrap();
-                self.cmsg.set_len_safe(len);
-            }
-            let msg = Msghdr {
-                iov: &iovecs[..],
-                control: Some(&self.cmsg[..]),
-                name: uapi::sockaddr_none_ref(),
-            };
-            let mut n = uapi::sendmsg(self.bufio.fd.raw(), &msg, c::MSG_DONTWAIT)?;
-            drop(iovecs);
-            self.msgs[0].msg.fds.clear();
+            let res = self
+                .bufio
+                .ring
+                .sendmsg(&self.bufio.fd, &mut self.bufs, fds, None)
+                .await;
+            self.bufs.clear();
+            let mut n = res?;
             while n > 0 {
                 let len = self.msgs[0].msg.buf.len() - self.msgs[0].offset;
                 if n < len {

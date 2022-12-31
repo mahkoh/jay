@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::{GlobalArgs, LogArgs},
-        tools::tool_client::{Handle, ToolClient},
+        tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::errorfmt::ErrorFmt,
         wire::{jay_compositor, jay_log_file},
     },
@@ -18,13 +18,14 @@ use {
 };
 
 pub fn main(global: GlobalArgs, args: LogArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    let logger = Rc::new(Log {
-        tc: tc.clone(),
-        path: RefCell::new(None),
-        args,
+    with_tool_client(global.log_level.into(), |tc| async move {
+        let logger = Rc::new(Log {
+            tc: tc.clone(),
+            path: RefCell::new(None),
+            args,
+        });
+        run(logger).await;
     });
-    tc.run(run(logger));
 }
 
 struct Log {

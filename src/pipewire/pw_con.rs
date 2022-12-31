@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        io_uring::IoUring,
+        io_uring::{IoUring, IoUringError},
         pipewire::{
             pw_formatter::{format, PwFormatter},
             pw_ifs::{
@@ -43,7 +43,7 @@ pub enum PwConError {
     #[error("Could not create a unix socket")]
     CreateSocket(#[source] OsError),
     #[error("Could not connect to the pipewire daemon")]
-    ConnectSocket(#[source] OsError),
+    ConnectSocket(#[source] IoUringError),
     #[error(transparent)]
     BufIoError(#[from] BufIoError),
     #[error("Server did not sent a required fd")]
@@ -194,7 +194,10 @@ impl PwCon {
                 log::trace!("{:#?}", parser.read_pod().unwrap());
             }
         }
-        self.io.send(BufIoMessage { fds, buf });
+        self.io.send(BufIoMessage {
+            fds,
+            buf: buf.unwrap(),
+        });
     }
 
     #[allow(dead_code)]
@@ -295,13 +298,8 @@ impl Drop for PwConHolder {
 }
 
 impl PwConHolder {
-    #[allow(dead_code)]
-    pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, PwConError> {
-        let fd = match uapi::socket(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-            0,
-        ) {
+    pub async fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, PwConError> {
+        let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
             Ok(fd) => Rc::new(fd),
             Err(e) => return Err(PwConError::CreateSocket(e.into())),
         };
@@ -317,8 +315,8 @@ impl PwConHolder {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
             let _ = write!(path, "{}/pipewire-0", xrd);
         }
-        if let Err(e) = uapi::connect(fd.raw(), &addr) {
-            return Err(PwConError::ConnectSocket(e.into()));
+        if let Err(e) = ring.connect(&fd, &addr).await {
+            return Err(PwConError::ConnectSocket(e));
         }
         let io = Rc::new(BufIo::new(&fd, ring));
         let data = Rc::new(PwCon {

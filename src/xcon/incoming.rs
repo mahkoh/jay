@@ -42,7 +42,8 @@ impl Incoming {
         const MAX_LENGTH_UNITS: usize = 0x4000 / 4;
         const MIN_MSG_SIZE: usize = 32;
 
-        let mut msg_buf = self.socket.bufio.buf();
+        let mut msg_buf = self.socket.in_bufs.pop().unwrap_or_default();
+        msg_buf.clear();
         self.incoming
             .fill_msg_buf(MIN_MSG_SIZE, &mut msg_buf)
             .await?;
@@ -60,7 +61,7 @@ impl Incoming {
                 if first.serial() < serial {
                     let handler = reply_handlers.pop_front().unwrap();
                     drop(reply_handlers);
-                    handler.handle_noreply(&self.socket.bufio)?;
+                    handler.handle_noreply(&self.socket)?;
                     reply_handlers = self.socket.reply_handlers.borrow_mut();
                 } else {
                     break;
@@ -140,7 +141,7 @@ impl Incoming {
                             Parser::new(msg_buf, fds)
                         };
                         handler.handle_result(
-                            &self.socket.bufio,
+                            &self.socket,
                             &mut parser,
                             mem::take(&mut msg_buf),
                         )?;
@@ -203,7 +204,7 @@ impl Incoming {
                     break 'handle_event;
                 };
                 self.socket.events.push(Event {
-                    bufio: self.socket.bufio.clone(),
+                    socket: self.socket.clone(),
                     ext,
                     code,
                     buf: mem::take(&mut msg_buf),
@@ -212,7 +213,7 @@ impl Incoming {
             }
         }
         if msg_buf.capacity() > 0 {
-            self.socket.bufio.add_buf(msg_buf);
+            self.socket.in_bufs.push(msg_buf);
         }
         Ok(())
     }

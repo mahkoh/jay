@@ -7,14 +7,17 @@ use {
     crate::{
         async_engine::{Phase, SpawnedFuture},
         compositor::DISPLAY,
+        io_uring::IoUringError,
         state::State,
         utils::{
+            buf::DynamicBuf,
             bufio::{BufIo, BufIoError, BufIoMessage},
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
             numcell::NumCell,
             oserror::OsError,
             queue::AsyncQueue,
+            stack::Stack,
             vec_ext::VecExt,
         },
         wire_xcon::{
@@ -77,7 +80,7 @@ pub enum XconError {
     #[error("Could not create a unix socket")]
     CreateSocket(#[source] OsError),
     #[error("Could not connect to Xserver")]
-    ConnectSocket(#[source] OsError),
+    ConnectSocket(#[source] IoUringError),
     #[error("Could not retrive the hostname")]
     Hostname(#[source] OsError),
     #[error("Server did not send enough fds")]
@@ -170,6 +173,7 @@ impl Drop for Xcon {
 
 struct XconData {
     bufio: Rc<BufIo>,
+    in_bufs: Stack<Vec<u8>>,
     next_serial: NumCell<u64>,
     last_recv_serial: Cell<u64>,
     reply_handlers: RefCell<VecDeque<Box<dyn ReplyHandler>>>,
@@ -181,7 +185,7 @@ struct XconData {
 }
 
 pub struct Reply<T: Message<'static>> {
-    bufio: Rc<BufIo>,
+    socket: Rc<XconData>,
     buf: Vec<u8>,
     t: T::Generic<'static>,
 }
@@ -196,7 +200,7 @@ where
 }
 
 pub struct Event {
-    bufio: Rc<BufIo>,
+    socket: Rc<XconData>,
     ext: Option<Extension>,
     code: u16,
     buf: Vec<u8>,
@@ -236,7 +240,7 @@ impl Event {
 
 impl Drop for Event {
     fn drop(&mut self) {
-        self.bufio.add_buf(mem::take(&mut self.buf));
+        self.socket.in_bufs.push(mem::take(&mut self.buf));
     }
 }
 
@@ -249,7 +253,7 @@ impl<T: Message<'static>> Reply<T> {
 impl<T: Message<'static>> Drop for Reply<T> {
     fn drop(&mut self) {
         if self.buf.capacity() > 0 {
-            self.bufio.add_buf(mem::take(&mut self.buf));
+            self.socket.in_bufs.push(mem::take(&mut self.buf));
         }
     }
 }
@@ -259,11 +263,11 @@ unsafe trait ReplyHandler {
     fn serial(&self) -> u64;
     fn handle_result(
         self: Box<Self>,
-        bufio: &Rc<BufIo>,
+        socket: &Rc<XconData>,
         parser: &mut Parser<'static>,
         buf: Vec<u8>,
     ) -> Result<(), XconError>;
-    fn handle_noreply(self: Box<Self>, bufio: &Rc<BufIo>) -> Result<(), XconError>;
+    fn handle_noreply(self: Box<Self>, bufio: &Rc<XconData>) -> Result<(), XconError>;
     fn handle_error(self: Box<Self>, error: XconError);
 }
 
@@ -299,7 +303,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
 
     fn handle_result(
         self: Box<Self>,
-        bufio: &Rc<BufIo>,
+        socket: &Rc<XconData>,
         parser: &mut Parser<'static>,
         buf: Vec<u8>,
     ) -> Result<(), XconError> {
@@ -314,7 +318,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
         };
         log::trace!("result {:?}", msg);
         let reply = Reply {
-            bufio: bufio.clone(),
+            socket: socket.clone(),
             buf,
             t: msg,
         };
@@ -322,10 +326,10 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
         Ok(())
     }
 
-    fn handle_noreply(self: Box<Self>, bufio: &Rc<BufIo>) -> Result<(), XconError> {
+    fn handle_noreply(self: Box<Self>, socket: &Rc<XconData>) -> Result<(), XconError> {
         if TypeId::of::<T::Generic<'static>>() == TypeId::of::<()>() {
             let reply = Reply {
-                bufio: bufio.clone(),
+                socket: socket.clone(),
                 buf: vec![],
                 t: unsafe { ptr::read(&() as *const () as *const T::Generic<'static>) },
             };
@@ -404,16 +408,12 @@ impl Xcon {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
             let _ = write!(path, "/tmp/.X11-unix/X{}", display);
         }
-        let fd = match uapi::socket(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-            0,
-        ) {
+        let fd = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
             Ok(fd) => Rc::new(fd),
             Err(e) => return Err(XconError::CreateSocket(e.into())),
         };
-        if let Err(e) = uapi::connect(fd.raw(), &addr) {
-            return Err(XconError::ConnectSocket(e.into()));
+        if let Err(e) = state.ring.connect(&fd, &addr).await {
+            return Err(XconError::ConnectSocket(e));
         }
         let mut hnbuf = [MaybeUninit::<u8>::uninit(); 256];
         let hn = match uapi::gethostname(&mut hnbuf[..]) {
@@ -443,6 +443,7 @@ impl Xcon {
     ) -> Result<Rc<Self>, XconError> {
         let data = Rc::new(XconData {
             bufio: Rc::new(BufIo::new(fd, &state.ring)),
+            in_bufs: Default::default(),
             next_serial: NumCell::new(1),
             last_recv_serial: Cell::new(0),
             reply_handlers: Default::default(),
@@ -475,9 +476,13 @@ impl Xcon {
             formatter.write_packed(auth_value.as_bytes());
             formatter.align(4);
         }
-        data.bufio.send(BufIoMessage { fds, buf });
+        data.bufio.send(BufIoMessage {
+            fds,
+            buf: buf.unwrap(),
+        });
         let mut incoming = data.bufio.incoming();
-        let mut buf = data.bufio.buf();
+        let mut buf = data.in_bufs.pop().unwrap_or_default();
+        buf.clear();
         incoming.fill_msg_buf(8, &mut buf).await?;
         let len = u16::from_ne_bytes([buf[6], buf[7]]) as usize * 4;
         incoming.fill_msg_buf(len, &mut buf).await?;
@@ -506,7 +511,7 @@ impl Xcon {
             xid_inc: 1 << setup.resource_id_mask.trailing_zeros(),
             xid_max: setup.resource_id_mask | setup.resource_id_base,
             setup: Reply {
-                bufio: data.bufio.clone(),
+                socket: data.clone(),
                 t: unsafe { mem::transmute(setup) },
                 buf,
             },
@@ -823,9 +828,12 @@ impl XconData {
     fn send<T: Message<'static>>(
         self: &Rc<Self>,
         fds: Vec<Rc<OwnedFd>>,
-        buf: Vec<u8>,
+        buf: DynamicBuf,
     ) -> (AsyncReply<T>, u64) {
-        self.bufio.send(BufIoMessage { fds, buf });
+        self.bufio.send(BufIoMessage {
+            fds,
+            buf: buf.unwrap(),
+        });
         let slot = Rc::new(AsyncReplySlot {
             data: Cell::new(None),
             waker: Cell::new(None),
@@ -852,7 +860,10 @@ impl XconData {
         let mut formatter = Formatter::new(&mut fds, &mut buf, 0);
         GetInputFocus {}.serialize(&mut formatter);
         formatter.write_request_length();
-        self.bufio.send(BufIoMessage { fds, buf });
+        self.bufio.send(BufIoMessage {
+            fds,
+            buf: buf.unwrap(),
+        });
         self.next_serial.fetch_add(1);
     }
 

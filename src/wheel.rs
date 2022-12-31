@@ -1,11 +1,11 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        io_uring::IoUring,
+        io_uring::{IoUring, IoUringError},
         time::{Time, TimeError},
         utils::{
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError,
-            stack::Stack,
+            buf::TypedBuf, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
+            oserror::OsError, stack::Stack,
         },
     },
     std::{
@@ -33,7 +33,7 @@ pub enum WheelError {
     #[error("The timer wheel is already destroyed")]
     Destroyed,
     #[error("Could not read from the timerfd")]
-    Read(#[source] OsError),
+    Read(#[source] IoUringError),
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -111,7 +111,7 @@ pub struct WheelData {
 
 impl Wheel {
     pub fn new(eng: &Rc<AsyncEngine>, ring: &Rc<IoUring>) -> Result<Rc<Self>, WheelError> {
-        let fd = match uapi::timerfd_create(c::CLOCK_MONOTONIC, c::TFD_CLOEXEC | c::TFD_NONBLOCK) {
+        let fd = match uapi::timerfd_create(c::CLOCK_MONOTONIC, c::TFD_CLOEXEC) {
             Ok(fd) => Rc::new(fd),
             Err(e) => return Err(WheelError::CreateFailed(e.into())),
         };
@@ -210,16 +210,9 @@ impl WheelData {
     }
 
     async fn dispatch(self: Rc<Self>) {
+        let mut n = TypedBuf::new();
         loop {
-            if let Err(e) = self.ring.readable(&self.fd).await {
-                log::error!(
-                    "Could not wait for the timerfd to become readable: {}",
-                    ErrorFmt(e)
-                );
-                self.kill();
-                return;
-            }
-            if let Err(e) = self.dispatch_once() {
+            if let Err(e) = self.dispatch_once(&mut n).await {
                 log::error!("Could not dispatch wheel expirations: {}", ErrorFmt(e));
                 self.kill();
                 return;
@@ -227,15 +220,9 @@ impl WheelData {
         }
     }
 
-    fn dispatch_once(&self) -> Result<(), WheelError> {
-        let mut n = 0u64;
-        loop {
-            if let Err(e) = uapi::read(self.fd.raw(), &mut n) {
-                if e.0 == c::EAGAIN {
-                    break;
-                }
-                return Err(WheelError::Read(e.into()));
-            }
+    async fn dispatch_once(&self, n: &mut TypedBuf<u64>) -> Result<(), WheelError> {
+        if let Err(e) = self.ring.read(&self.fd, n.buf()).await {
+            return Err(WheelError::Read(e));
         }
         let now = Time::now()?;
         let dist = now - self.start;

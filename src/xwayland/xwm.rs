@@ -20,7 +20,7 @@ use {
                 WlSurface,
             },
         },
-        io_uring::{IoUring, IoUringError, TaskResultExt},
+        io_uring::{IoUring, IoUringError},
         rect::Rect,
         state::State,
         time::Time,
@@ -28,7 +28,7 @@ use {
         utils::{
             bitflags::BitflagsExt, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell, oserror::OsError,
-            rc_eq::rc_eq, tri::Try,
+            rc_eq::rc_eq,
         },
         wire::{WlDataDeviceId, WlSurfaceId, ZwpPrimarySelectionDeviceV1Id},
         wire_xcon::{
@@ -67,11 +67,11 @@ use {
     std::{
         borrow::Cow,
         cell::{Cell, RefCell},
-        mem::{self, MaybeUninit},
+        mem::{self},
         ops::{Deref, DerefMut},
         rc::Rc,
     },
-    uapi::{c, Errno, OwnedFd},
+    uapi::{c, OwnedFd},
 };
 
 atoms! {
@@ -1607,15 +1607,6 @@ impl Wm {
                             break 'convert;
                         }
                     };
-                    let res = OsError::tri(|| {
-                        let fl = uapi::fcntl_getfl(rx.raw())?;
-                        uapi::fcntl_setfl(rx.raw(), fl | c::O_NONBLOCK)?;
-                        Ok(())
-                    });
-                    if let Err(e) = res {
-                        log::error!("Could not make pipe nonblocking: {}", e);
-                        break 'convert;
-                    }
                     success = None;
                     receive_data_offer::<T>(&offer.offer, &mt, Rc::new(tx));
                     let id = self.transfer_ids.fetch_add(1);
@@ -1726,7 +1717,7 @@ impl Wm {
                 let id = self.transfer_ids.fetch_add(1);
                 let transfer = XToWaylandTransfer {
                     id,
-                    data: data.slice(..),
+                    data: data.clone(),
                     fd: transfer.fd,
                     state: self.state.clone(),
                     shared: self.shared.clone(),
@@ -2467,7 +2458,7 @@ impl XToWaylandTransfer {
                 .state
                 .ring
                 .write(&self.fd, self.data.slice(pos..), Some(timeout));
-            match res.await.merge() {
+            match res.await {
                 Ok(n) => pos += n,
                 Err(IoUringError::OsError(OsError(c::ECANCELED))) => {
                     log::error!("Transfer timed out");
@@ -2499,10 +2490,10 @@ struct WaylandToXTransfer {
 impl WaylandToXTransfer {
     async fn run(self) {
         let mut success = false;
-        let mut buf = Box::new([MaybeUninit::<u8>::uninit(); 1024]);
+        let mut buf = Buf::new(1024);
         loop {
-            match uapi::read(self.fd.raw(), &mut buf[..]) {
-                Ok(n) if n.is_empty() => {
+            match self.ring.read(&self.fd, buf.clone()).await {
+                Ok(0) => {
                     success = true;
                     break;
                 }
@@ -2513,16 +2504,10 @@ impl WaylandToXTransfer {
                         property: self.property,
                         ty: self.ty,
                         format: 8,
-                        data: n,
+                        data: &buf[..n],
                     };
                     if let Err(e) = self.c.call(&cp).await {
                         log::error!("Could not append data to property: {}", ErrorFmt(e));
-                        break;
-                    }
-                }
-                Err(Errno(c::EAGAIN)) => {
-                    if let Err(e) = self.ring.readable(&self.fd).await {
-                        log::error!("Could not wait for fd to become readable: {}", ErrorFmt(e));
                         break;
                     }
                 }

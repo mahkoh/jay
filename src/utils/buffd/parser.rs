@@ -97,7 +97,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
 
     pub fn fd(&mut self) -> Result<Rc<OwnedFd>, MsgParserError> {
         match self.buf.get_fd() {
-            Ok(fd) => Ok(Rc::new(fd)),
+            Ok(fd) => Ok(fd),
             _ => Err(MsgParserError::MissingFd),
         }
     }

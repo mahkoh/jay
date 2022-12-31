@@ -4,17 +4,16 @@ use {
         time::Time,
         utils::{
             buf::Buf,
-            buffd::{BufFdError, BUF_SIZE, CMSG_BUF_SIZE},
+            buffd::{BufFdError, BUF_SIZE},
             oserror::OsError,
         },
     },
     std::{
         collections::VecDeque,
-        mem::{self, MaybeUninit},
+        mem::{self},
         rc::Rc,
-        slice,
     },
-    uapi::{c, Errno, OwnedFd},
+    uapi::{c, OwnedFd},
 };
 
 pub(super) const OUT_BUF_SIZE: usize = 2 * BUF_SIZE;
@@ -80,8 +79,6 @@ impl OutBufferSwapchain {
 pub struct BufFdOut {
     fd: Rc<OwnedFd>,
     ring: Rc<IoUring>,
-    cmsg_buf: Box<[MaybeUninit<u8>; CMSG_BUF_SIZE]>,
-    fd_ids: Vec<i32>,
 }
 
 impl BufFdOut {
@@ -89,8 +86,6 @@ impl BufFdOut {
         Self {
             fd: fd.clone(),
             ring: ring.clone(),
-            cmsg_buf: Box::new([MaybeUninit::uninit(); CMSG_BUF_SIZE]),
-            fd_ids: vec![],
         }
     }
 
@@ -131,7 +126,7 @@ impl BufFdOut {
                 buf = buffer.buf.slice(buffer.meta.read_pos..next_pos);
             }
         }
-        match self.ring.sendmsg(&self.fd, buf, fds, timeout).await {
+        match self.ring.sendmsg_one(&self.fd, buf, fds, timeout).await {
             Ok(n) => {
                 buffer.meta.read_pos += n;
                 Ok(())
@@ -144,59 +139,23 @@ impl BufFdOut {
 
     pub async fn flush2(
         &mut self,
-        buf: &[u8],
-        fds: &mut Vec<Rc<OwnedFd>>,
+        mut buf: Buf,
+        mut fds: Vec<Rc<OwnedFd>>,
     ) -> Result<(), BufFdError> {
         let mut read_pos = 0;
         while read_pos < buf.len() {
-            if self.flush_sync2(&mut read_pos, buf, fds)? {
-                self.ring.writable(&self.fd).await?;
+            let res = self
+                .ring
+                .sendmsg_one(&self.fd, buf.slice(read_pos..), mem::take(&mut fds), None)
+                .await;
+            match res {
+                Ok(n) => read_pos += n,
+                Err(IoUringError::OsError(OsError(c::ECONNRESET))) => {
+                    return Err(BufFdError::Closed)
+                }
+                Err(e) => return Err(BufFdError::Io(e)),
             }
         }
         Ok(())
-    }
-
-    fn flush_sync2(
-        &mut self,
-        read_pos: &mut usize,
-        buf: &[u8],
-        fds: &mut Vec<Rc<OwnedFd>>,
-    ) -> Result<bool, BufFdError> {
-        let mut cmsg_len = 0;
-        let mut fds_opt = None;
-        if fds.len() > 0 {
-            self.fd_ids.clear();
-            self.fd_ids.extend(fds.iter().map(|f| f.raw()));
-            let hdr = c::cmsghdr {
-                cmsg_len: 0,
-                cmsg_level: c::SOL_SOCKET,
-                cmsg_type: c::SCM_RIGHTS,
-            };
-            let mut cmsg_buf = &mut self.cmsg_buf[..];
-            cmsg_len = uapi::cmsg_write(&mut cmsg_buf, hdr, &self.fd_ids[..]).unwrap();
-            fds_opt = Some(fds);
-        }
-        while *read_pos < buf.len() {
-            let buf = &buf[*read_pos..];
-            let hdr = uapi::Msghdr {
-                iov: slice::from_ref(&buf),
-                control: Some(&self.cmsg_buf[..cmsg_len]),
-                name: uapi::sockaddr_none_ref(),
-            };
-            let bytes_sent =
-                match uapi::sendmsg(self.fd.raw(), &hdr, c::MSG_DONTWAIT | c::MSG_NOSIGNAL) {
-                    Ok(b) => {
-                        if let Some(fds) = fds_opt.take() {
-                            fds.clear();
-                        }
-                        b
-                    }
-                    Err(Errno(c::EAGAIN)) => return Ok(true),
-                    Err(Errno(c::ECONNRESET)) => return Err(BufFdError::Closed),
-                    Err(e) => return Err(BufFdError::Io(e.into())),
-                };
-            *read_pos += bytes_sent;
-        }
-        Ok(false)
     }
 }

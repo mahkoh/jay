@@ -1,9 +1,9 @@
 use {
     crate::{
         io_uring::{IoUring, IoUringError},
-        utils::oserror::OsError,
+        utils::{buf::TypedBuf, oserror::OsError},
     },
-    std::{rc::Rc, time::Duration},
+    std::{cell::RefCell, rc::Rc, time::Duration},
     thiserror::Error,
     uapi::{c, OwnedFd},
 };
@@ -13,7 +13,7 @@ pub enum TimerError {
     #[error("Could not create a timer")]
     CreateTimer(#[source] OsError),
     #[error("Could not read from a timer")]
-    TimerReadError(#[source] OsError),
+    TimerReadError(#[source] IoUringError),
     #[error("Could not set a timer")]
     SetTimer(#[source] OsError),
     #[error("The io-uring returned an error")]
@@ -23,24 +23,28 @@ pub enum TimerError {
 #[derive(Clone)]
 pub struct TimerFd {
     fd: Rc<OwnedFd>,
+    buf: Rc<RefCell<TypedBuf<u64>>>,
 }
 
 impl TimerFd {
     pub fn new(clock_id: c::c_int) -> Result<Self, TimerError> {
-        let fd = match uapi::timerfd_create(clock_id, c::TFD_CLOEXEC | c::TFD_NONBLOCK) {
+        let fd = match uapi::timerfd_create(clock_id, c::TFD_CLOEXEC) {
             Ok(fd) => Rc::new(fd),
             Err(e) => return Err(TimerError::CreateTimer(e.into())),
         };
-        Ok(Self { fd })
+        Ok(Self {
+            fd,
+            buf: Rc::new(RefCell::new(TypedBuf::new())),
+        })
     }
 
+    #[allow(clippy::await_holding_refcell_ref)]
     pub async fn expired(&self, ring: &IoUring) -> Result<u64, TimerError> {
-        ring.readable(&self.fd).await?;
-        let mut buf = 0u64;
-        if let Err(e) = uapi::read(self.fd.raw(), &mut buf) {
-            return Err(TimerError::TimerReadError(e.into()));
+        let mut buf = self.buf.borrow_mut();
+        if let Err(e) = ring.read(&self.fd, buf.buf()).await {
+            return Err(TimerError::TimerReadError(e));
         }
-        Ok(buf)
+        Ok(buf.t())
     }
 
     pub fn program(

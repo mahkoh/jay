@@ -17,10 +17,20 @@ use {
 };
 
 impl IoUring {
-    pub async fn sendmsg(
+    pub async fn sendmsg_one(
         &self,
         fd: &Rc<OwnedFd>,
         buf: Buf,
+        fds: Vec<Rc<OwnedFd>>,
+        timeout: Option<Time>,
+    ) -> Result<usize, IoUringError> {
+        self.sendmsg(fd, &mut [buf], fds, timeout).await
+    }
+
+    pub async fn sendmsg(
+        &self,
+        fd: &Rc<OwnedFd>,
+        bufs: &mut [Buf],
         fds: Vec<Rc<OwnedFd>>,
         timeout: Option<Time>,
     ) -> Result<usize, IoUringError> {
@@ -52,13 +62,17 @@ impl IoUring {
             }
             st.id = id.id;
             st.fd = fd.raw();
-            st.iovec.iov_base = buf.as_ptr() as _;
-            st.iovec.iov_len = buf.len() as _;
-            st.msghdr.msg_iov = &st.iovec as *const _ as _;
-            st.msghdr.msg_iovlen = 1;
+            st.bufs.clear();
+            st.bufs.extend(bufs.iter_mut().map(|b| b.clone()));
+            st.iovecs.clear();
+            st.iovecs.extend(bufs.iter().map(|b| c::iovec {
+                iov_base: b.as_ptr() as _,
+                iov_len: b.len(),
+            }));
+            st.msghdr.msg_iov = st.iovecs.as_ptr() as _;
+            st.msghdr.msg_iovlen = st.iovecs.len();
             st.data = Some(SendmsgTaskData {
                 _fd: fd.clone(),
-                _buf: buf,
                 res: pr.clone(),
             });
             st.has_timeout = timeout.is_some();
@@ -73,14 +87,14 @@ impl IoUring {
 
 struct SendmsgTaskData {
     _fd: Rc<OwnedFd>,
-    _buf: Buf,
     res: PendingResult,
 }
 
 pub struct SendmsgTask {
     id: u64,
-    iovec: c::iovec,
+    iovecs: Vec<c::iovec>,
     msghdr: c::msghdr,
+    bufs: Vec<Buf>,
     fd: i32,
     has_timeout: bool,
     fds: Vec<Rc<OwnedFd>>,
@@ -93,8 +107,9 @@ impl Default for SendmsgTask {
         unsafe {
             SendmsgTask {
                 id: 0,
-                iovec: MaybeUninit::zeroed().assume_init(),
+                iovecs: vec![],
                 msghdr: MaybeUninit::zeroed().assume_init(),
+                bufs: vec![],
                 fd: 0,
                 has_timeout: false,
                 fds: vec![],
@@ -112,6 +127,7 @@ unsafe impl Task for SendmsgTask {
 
     fn complete(mut self: Box<Self>, ring: &IoUringData, res: i32) {
         self.fds.clear();
+        self.bufs.clear();
         if let Some(data) = self.data.take() {
             data.res.complete(res);
         }

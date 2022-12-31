@@ -213,11 +213,7 @@ impl MetalBackend {
                     return;
                 }
             };
-            if let Err(e) = set_nonblock(res.fd.raw()) {
-                log::error!("Could set drm fd to non-blocking: {}", ErrorFmt(e));
-                return;
-            }
-            let master = Rc::new(DrmMaster::new(res.fd.clone()));
+            let master = Rc::new(DrmMaster::new(&slf.state.ring, res.fd.clone()));
             let dev = match slf.create_drm_device(dev, &master) {
                 Ok(d) => d,
                 Err(e) => {

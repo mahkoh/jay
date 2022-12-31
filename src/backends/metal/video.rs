@@ -1214,18 +1214,12 @@ impl MetalBackend {
 
     async fn handle_drm_events(self: Rc<Self>, dev: Rc<MetalDrmDeviceData>) {
         loop {
-            if let Err(e) = self.state.ring.readable(dev.dev.master.fd()).await {
-                log::error!("Could not register the DRM fd for reading: {}", ErrorFmt(e));
-                break;
-            }
-            loop {
-                match dev.dev.master.event() {
-                    Ok(Some(e)) => self.handle_drm_event(e, &dev),
-                    Ok(None) => break,
-                    Err(e) => {
-                        log::error!("Could not read DRM event: {}", ErrorFmt(e));
-                        return;
-                    }
+            match dev.dev.master.event().await {
+                Ok(Some(e)) => self.handle_drm_event(e, &dev),
+                Ok(None) => break,
+                Err(e) => {
+                    log::error!("Could not read DRM event: {}", ErrorFmt(e));
+                    return;
                 }
             }
         }

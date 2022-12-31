@@ -5,7 +5,7 @@ mod ptr_gui;
 
 use {
     crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
+        async_engine::AsyncEngine,
         cli::GlobalArgs,
         dbus::{
             Dbus, DbusSocket, BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE,
@@ -26,10 +26,7 @@ use {
         wheel::Wheel,
         wire_dbus::org,
     },
-    std::{
-        cell::Cell,
-        rc::{Rc, Weak},
-    },
+    std::rc::{Rc, Weak},
     uapi::c,
 };
 
@@ -41,17 +38,24 @@ const PORTAL_ENDED: u32 = 2;
 
 pub fn run(global: GlobalArgs) {
     logger::Logger::install_stderr(global.log_level.into());
-    let xrd = match xrd() {
-        Some(xrd) => xrd,
-        _ => {
-            fatal!("XDG_RUNTIME_DIR is not set");
-        }
-    };
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
         Ok(r) => r,
         Err(e) => {
             fatal!("Could not create an IO-uring: {}", ErrorFmt(e));
+        }
+    };
+    let _f = eng.spawn(run_async(eng.clone(), ring.clone()));
+    if let Err(e) = ring.run() {
+        fatal!("The IO-uring returned an error: {}", ErrorFmt(e));
+    }
+}
+
+async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
+    let xrd = match xrd() {
+        Some(xrd) => xrd,
+        _ => {
+            fatal!("XDG_RUNTIME_DIR is not set");
         }
     };
     let wheel = match Wheel::new(&eng, &ring) {
@@ -60,7 +64,7 @@ pub fn run(global: GlobalArgs) {
             fatal!("Could not create a timer wheel: {}", ErrorFmt(e));
         }
     };
-    let pw_con = match PwConHolder::new(&eng, &ring) {
+    let pw_con = match PwConHolder::new(&eng, &ring).await {
         Ok(p) => p,
         Err(e) => {
             fatal!("Could not connect to pipewire: {}", ErrorFmt(e));
@@ -68,7 +72,7 @@ pub fn run(global: GlobalArgs) {
     };
     let (_rtl_future, rtl) = RunToplevel::install(&eng);
     let dbus = Dbus::new(&eng, &ring, &rtl);
-    let dbus = init_dbus_session(&dbus);
+    let dbus = init_dbus_session(&dbus).await;
     let state = Rc::new(PortalState {
         xrd,
         ring,
@@ -76,7 +80,6 @@ pub fn run(global: GlobalArgs) {
         wheel,
         pw_con: pw_con.con.clone(),
         displays: Default::default(),
-        watch_displays: Cell::new(None),
         dbus,
         screencasts: Default::default(),
         next_id: NumCell::new(1),
@@ -90,19 +93,14 @@ pub fn run(global: GlobalArgs) {
         add_screencast_dbus_members(&state, &obj);
         obj
     };
-    state
-        .watch_displays
-        .set(Some(state.eng.spawn(watch_displays(state.clone()))));
     state.pw_con.owner.set(Some(state.clone()));
-    if let Err(e) = state.ring.run() {
-        fatal!("The IO-uring returned an error: {}", ErrorFmt(e));
-    }
+    watch_displays(state.clone()).await;
 }
 
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
 
-fn init_dbus_session(dbus: &Dbus) -> Rc<DbusSocket> {
-    let session = match dbus.session() {
+async fn init_dbus_session(dbus: &Dbus) -> Rc<DbusSocket> {
+    let session = match dbus.session().await {
         Ok(s) => s,
         Err(e) => {
             fatal!("Could not connect to dbus session daemon: {}", ErrorFmt(e));
@@ -141,7 +139,6 @@ struct PortalState {
     wheel: Rc<Wheel>,
     pw_con: Rc<PwCon>,
     displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,
-    watch_displays: Cell<Option<SpawnedFuture<()>>>,
     dbus: Rc<DbusSocket>,
     screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
     next_id: NumCell<u32>,

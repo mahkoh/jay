@@ -1,19 +1,20 @@
 use {
     crate::{
         cli::{GlobalArgs, SetLogArgs},
-        tools::tool_client::ToolClient,
+        tools::tool_client::{with_tool_client, ToolClient},
         wire::jay_compositor::SetLogLevel,
     },
     std::rc::Rc,
 };
 
 pub fn main(global: GlobalArgs, args: SetLogArgs) {
-    let tc = ToolClient::new(global.log_level.into());
-    let logger = Rc::new(Log {
-        tc: tc.clone(),
-        args,
+    with_tool_client(global.log_level.into(), |tc| async move {
+        let logger = Rc::new(Log {
+            tc: tc.clone(),
+            args,
+        });
+        run(logger).await;
     });
-    tc.run(run(logger));
 }
 
 struct Log {

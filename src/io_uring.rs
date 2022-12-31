@@ -4,8 +4,9 @@ use {
         async_engine::AsyncEngine,
         io_uring::{
             ops::{
-                async_cancel::AsyncCancelTask, poll::PollTask, recvmsg::RecvmsgTask,
-                sendmsg::SendmsgTask, timeout::TimeoutTask, write::WriteTask,
+                accept::AcceptTask, async_cancel::AsyncCancelTask, connect::ConnectTask,
+                poll::PollTask, read_write::ReadWriteTask, recvmsg::RecvmsgTask,
+                sendmsg::SendmsgTask, timeout::TimeoutTask,
             },
             pending_result::PendingResults,
             sys::{
@@ -204,13 +205,15 @@ impl IoUring {
             pending_in_kernel: Default::default(),
             tasks: Default::default(),
             pending_results: Default::default(),
-            cached_writes: Default::default(),
+            cached_read_writes: Default::default(),
             cached_cancels: Default::default(),
             cached_polls: Default::default(),
             cached_sendmsg: Default::default(),
             cached_recvmsg: Default::default(),
             cached_timeouts: Default::default(),
             cached_cmsg_bufs: Default::default(),
+            cached_connects: Default::default(),
+            cached_accepts: Default::default(),
             fd_ids_scratch: Default::default(),
         });
         Ok(Rc::new(Self { ring: data }))
@@ -257,13 +260,15 @@ struct IoUringData {
 
     pending_results: PendingResults,
 
-    cached_writes: Stack<Box<WriteTask>>,
+    cached_read_writes: Stack<Box<ReadWriteTask>>,
     cached_cancels: Stack<Box<AsyncCancelTask>>,
     cached_polls: Stack<Box<PollTask>>,
     cached_sendmsg: Stack<Box<SendmsgTask>>,
     cached_recvmsg: Stack<Box<RecvmsgTask>>,
     cached_timeouts: Stack<Box<TimeoutTask>>,
     cached_cmsg_bufs: Stack<Buf>,
+    cached_connects: Stack<Box<ConnectTask>>,
+    cached_accepts: Stack<Box<AcceptTask>>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
 }

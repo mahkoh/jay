@@ -3,7 +3,10 @@ use {
         TY_ARRAY, TY_BOOLEAN, TY_BYTE, TY_DOUBLE, TY_INT16, TY_INT32, TY_INT64, TY_OBJECT_PATH,
         TY_SIGNATURE, TY_STRING, TY_UINT16, TY_UINT32, TY_UINT64, TY_UNIX_FD, TY_VARIANT,
     },
-    crate::dbus::{types::Variant, DbusError, DynamicType, Parser},
+    crate::{
+        dbus::{types::Variant, DbusError, DynamicType, Parser},
+        utils::buf::DynamicBuf,
+    },
     std::ops::Deref,
 };
 
@@ -88,7 +91,7 @@ impl DynamicType {
         }
     }
 
-    pub fn write_signature(&self, w: &mut Vec<u8>) {
+    pub fn write_signature(&self, w: &mut DynamicBuf) {
         let c = match self {
             DynamicType::U8 => TY_BYTE,
             DynamicType::Bool => TY_BOOLEAN,

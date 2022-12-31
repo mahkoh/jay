@@ -16,7 +16,7 @@ impl IoUring {
         &self,
         fd: &Rc<OwnedFd>,
         bufs: &mut [Buf],
-        fds: &mut VecDeque<OwnedFd>,
+        fds: &mut VecDeque<Rc<OwnedFd>>,
     ) -> Result<usize, IoUringError> {
         self.ring.check_destroyed()?;
         let id = self.ring.id();
@@ -64,7 +64,7 @@ impl IoUring {
                         }
                     };
                     if (hdr.cmsg_level, hdr.cmsg_type) == (c::SOL_SOCKET, c::SCM_RIGHTS) {
-                        fds.extend(uapi::pod_iter(data).unwrap());
+                        fds.extend(uapi::pod_iter(data).unwrap().map(Rc::new));
                     }
                 }
                 return_cmsg!();

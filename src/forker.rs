@@ -50,7 +50,7 @@ pub struct ForkerProxy {
 }
 
 struct PidfdHandoff {
-    pidfd: Cell<Option<Result<(OwnedFd, c::pid_t), ForkerError>>>,
+    pidfd: Cell<Option<Result<(Rc<OwnedFd>, c::pid_t), ForkerError>>>,
     waiter: Cell<Option<Waker>>,
 }
 
@@ -81,14 +81,11 @@ impl ForkerProxy {
     }
 
     pub fn create() -> Result<Self, ForkerError> {
-        let (parent, child) = match uapi::socketpair(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-            0,
-        ) {
-            Ok(o) => o,
-            Err(e) => return Err(ForkerError::Socketpair(e.into())),
-        };
+        let (parent, child) =
+            match uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
+                Ok(o) => o,
+                Err(e) => return Err(ForkerError::Socketpair(e.into())),
+            };
         let pid = uapi::getpid();
         match fork_with_pidfd(false)? {
             Forked::Parent { pid, pidfd } => Ok(ForkerProxy {
@@ -135,7 +132,7 @@ impl ForkerProxy {
         })
     }
 
-    async fn pidfd(&self, id: u32) -> Result<(OwnedFd, c::pid_t), ForkerError> {
+    async fn pidfd(&self, id: u32) -> Result<(Rc<OwnedFd>, c::pid_t), ForkerError> {
         let handoff = Rc::new(PidfdHandoff {
             pidfd: Cell::new(None),
             waiter: Cell::new(None),
@@ -159,7 +156,7 @@ impl ForkerProxy {
         listenfd: Rc<OwnedFd>,
         wmfd: Rc<OwnedFd>,
         waylandfd: Rc<OwnedFd>,
-    ) -> Result<(OwnedFd, c::pid_t), ForkerError> {
+    ) -> Result<(Rc<OwnedFd>, c::pid_t), ForkerError> {
         self.fds
             .borrow_mut()
             .extend([stderr, dfd, listenfd, wmfd, waylandfd]);
@@ -394,10 +391,10 @@ impl Forker {
     fn handle_xwayland(self: &Rc<Self>, io: &mut IoIn, id: u32) {
         let stderr = io.pop_fd();
         let fds = vec![
-            io.pop_fd().unwrap(),
-            io.pop_fd().unwrap(),
-            io.pop_fd().unwrap(),
-            io.pop_fd().unwrap(),
+            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
+            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
+            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
+            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
         ];
         let (prog, args) = xwayland::build_args(&fds);
         let env = vec![("WAYLAND_SOCKET".to_string(), fds[3].raw().to_string())];
@@ -424,7 +421,7 @@ impl Forker {
         prog: String,
         args: Vec<String>,
         env: Vec<(String, String)>,
-        stderr: Option<OwnedFd>,
+        stderr: Option<Rc<OwnedFd>>,
         fds: Vec<OwnedFd>,
         pidfd_id: Option<u32>,
     ) {

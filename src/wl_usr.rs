@@ -5,7 +5,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         client::{EventFormatter, RequestParser, MIN_SERVER_ID},
-        io_uring::IoUring,
+        io_uring::{IoUring, IoUringError},
         object::{ObjectId, WL_DISPLAY_ID},
         utils::{
             asyncevent::AsyncEvent,
@@ -47,7 +47,7 @@ pub enum UsrConError {
     #[error("The socket path is too long")]
     SocketPathTooLong,
     #[error("Could not connect to the compositor")]
-    Connect(#[source] OsError),
+    Connect(#[source] IoUringError),
     #[error("The message length is smaller than 8 bytes")]
     MsgLenTooSmall,
     #[error("The size of the message is not a multiple of 4")]
@@ -84,18 +84,14 @@ pub trait UsrConOwner {
 }
 
 impl UsrCon {
-    pub fn new(
+    pub async fn new(
         ring: &Rc<IoUring>,
         wheel: &Rc<Wheel>,
         eng: &Rc<AsyncEngine>,
         path: &str,
         server_id: u32,
     ) -> Result<Rc<Self>, UsrConError> {
-        let socket = match uapi::socket(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-            0,
-        ) {
+        let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
             Ok(s) => Rc::new(s),
             Err(e) => return Err(UsrConError::CreateSocket(e.into())),
         };
@@ -107,8 +103,8 @@ impl UsrCon {
         let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
         sun_path[..path.len()].copy_from_slice(path.as_bytes());
         sun_path[path.len()] = 0;
-        if let Err(e) = uapi::connect(socket.raw(), &addr) {
-            return Err(UsrConError::Connect(e.into()));
+        if let Err(e) = ring.connect(&socket, &addr).await {
+            return Err(UsrConError::Connect(e));
         }
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);

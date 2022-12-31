@@ -18,8 +18,8 @@ pub enum UserSessionError {
     AcquireSessionBus(#[source] DbusError),
 }
 
-pub fn import_environment(state: &Rc<State>, key: &str, value: &str) {
-    if let Err(e) = import_environment_(state, key, value) {
+pub async fn import_environment(state: &Rc<State>, key: &str, value: &str) {
+    if let Err(e) = import_environment_(state, key, value).await {
         log::error!(
             "Could not import `{}={}` into the system environment: {}",
             key,
@@ -29,8 +29,12 @@ pub fn import_environment(state: &Rc<State>, key: &str, value: &str) {
     }
 }
 
-fn import_environment_(state: &Rc<State>, key: &str, value: &str) -> Result<(), UserSessionError> {
-    let session = match state.dbus.session() {
+async fn import_environment_(
+    state: &Rc<State>,
+    key: &str,
+    value: &str,
+) -> Result<(), UserSessionError> {
+    let session = match state.dbus.session().await {
         Ok(s) => s,
         Err(e) => return Err(UserSessionError::AcquireSessionBus(e)),
     };

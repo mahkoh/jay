@@ -113,11 +113,7 @@ fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
     };
     let mut fds = [None, None];
     for fd in &mut fds {
-        let socket = match uapi::socket(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
-            0,
-        ) {
+        let socket = match uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0) {
             Ok(f) => Rc::new(f),
             Err(e) => return Err(AcceptorError::SocketFailed(e.into())),
         };
@@ -172,31 +168,17 @@ impl Acceptor {
 
 async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, secure: bool) {
     loop {
-        if let Err(e) = state.ring.readable(&fd).await {
-            log::error!(
-                "Could not wait for the acceptor to become readable: {}",
-                ErrorFmt(e)
-            );
-            break;
-        }
-        loop {
-            let fd = match uapi::accept4(
-                fd.raw(),
-                uapi::sockaddr_none_mut(),
-                c::SOCK_NONBLOCK | c::SOCK_CLOEXEC,
-            ) {
-                Ok((fd, _)) => fd,
-                Err(Errno(c::EAGAIN)) => break,
-                Err(e) => {
-                    log::error!("Could not accept a client: {}", ErrorFmt(OsError::from(e)));
-                    break;
-                }
-            };
-            let id = state.clients.id();
-            if let Err(e) = state.clients.spawn(id, &state, fd, secure) {
-                log::error!("Could not spawn a client: {}", ErrorFmt(e));
+        let fd = match state.ring.accept(&fd, c::SOCK_CLOEXEC).await {
+            Ok(fd) => fd,
+            Err(e) => {
+                log::error!("Could not accept a client: {}", ErrorFmt(e));
                 break;
             }
+        };
+        let id = state.clients.id();
+        if let Err(e) = state.clients.spawn(id, &state, fd, secure) {
+            log::error!("Could not spawn a client: {}", ErrorFmt(e));
+            break;
         }
     }
     state.ring.stop();

@@ -1,8 +1,7 @@
 use {
     crate::io_uring::{
-        ops::TaskResult,
         pending_result::PendingResult,
-        sys::{io_uring_sqe, IORING_OP_POLL_ADD},
+        sys::{io_uring_sqe, IORING_OP_ACCEPT},
         IoUring, IoUringData, IoUringError, Task, TaskResultExt,
     },
     std::rc::Rc,
@@ -10,31 +9,26 @@ use {
 };
 
 impl IoUring {
-    pub async fn poll(&self, fd: &Rc<OwnedFd>, events: c::c_short) -> TaskResult<c::c_short> {
+    pub async fn accept(
+        &self,
+        fd: &Rc<OwnedFd>,
+        flags: c::c_int,
+    ) -> Result<Rc<OwnedFd>, IoUringError> {
         self.ring.check_destroyed()?;
         let id = self.ring.id();
         let pr = self.ring.pending_results.acquire();
         {
-            let mut pw = self.ring.cached_polls.pop().unwrap_or_default();
+            let mut pw = self.ring.cached_accepts.pop().unwrap_or_default();
             pw.id = id.id;
             pw.fd = fd.raw() as _;
-            pw.events = events as _;
+            pw.flags = flags as _;
             pw.data = Some(Data {
                 pr: pr.clone(),
                 _fd: fd.clone(),
             });
             self.ring.schedule(pw);
         }
-        Ok(pr.await.map(|v| v as c::c_short))
-    }
-
-    pub async fn readable(&self, fd: &Rc<OwnedFd>) -> Result<c::c_short, IoUringError> {
-        self.poll(fd, c::POLLIN).await.merge()
-    }
-
-    #[allow(dead_code)]
-    pub async fn writable(&self, fd: &Rc<OwnedFd>) -> Result<c::c_short, IoUringError> {
-        self.poll(fd, c::POLLOUT).await.merge()
+        Ok(pr.await.map(OwnedFd::new).map(Rc::new)).merge()
     }
 }
 
@@ -44,14 +38,14 @@ struct Data {
 }
 
 #[derive(Default)]
-pub struct PollTask {
+pub struct AcceptTask {
     id: u64,
-    events: u16,
     fd: i32,
+    flags: u32,
     data: Option<Data>,
 }
 
-unsafe impl Task for PollTask {
+unsafe impl Task for AcceptTask {
     fn id(&self) -> u64 {
         self.id
     }
@@ -60,12 +54,14 @@ unsafe impl Task for PollTask {
         if let Some(data) = self.data.take() {
             data.pr.complete(res);
         }
-        ring.cached_polls.push(self);
+        ring.cached_accepts.push(self);
     }
 
     fn encode(&self, sqe: &mut io_uring_sqe) {
-        sqe.opcode = IORING_OP_POLL_ADD;
+        sqe.opcode = IORING_OP_ACCEPT;
         sqe.fd = self.fd;
-        sqe.u3.poll_events = self.events;
+        sqe.u2.addr = 0;
+        sqe.u1.addr2 = 0;
+        sqe.u3.accept_flags = self.flags;
     }
 }

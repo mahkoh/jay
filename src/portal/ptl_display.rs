@@ -234,7 +234,7 @@ impl UsrJayOutputOwner for PortalOutput {
 
 impl UsrWlOutputOwner for PortalOutput {}
 
-fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
+async fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
     let tail = match name.strip_prefix("wayland-") {
         Some(t) => t,
         _ => return,
@@ -248,7 +248,7 @@ fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
         _ => return,
     };
     let path = format!("{}/{}", state.xrd, name);
-    let con = match UsrCon::new(&state.ring, &state.wheel, &state.eng, &path, num) {
+    let con = match UsrCon::new(&state.ring, &state.wheel, &state.eng, &path, num).await {
         Ok(c) => c,
         Err(e) => {
             log::error!(
@@ -437,7 +437,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
 }
 
 pub(super) async fn watch_displays(state: Rc<PortalState>) {
-    let inotify = Rc::new(uapi::inotify_init1(c::IN_CLOEXEC | c::IN_NONBLOCK).unwrap());
+    let inotify = Rc::new(uapi::inotify_init1(c::IN_CLOEXEC).unwrap());
     if let Err(e) = uapi::inotify_add_watch(inotify.raw(), state.xrd.as_str(), c::IN_CREATE) {
         log::error!(
             "Cannot watch directory `{}`: {}",
@@ -462,7 +462,7 @@ pub(super) async fn watch_displays(state: Rc<PortalState>) {
             }
         };
         if let Ok(s) = std::str::from_utf8(entry.file_name().as_bytes()) {
-            maybe_add_display(&state, s);
+            maybe_add_display(&state, s).await;
         }
     }
     let mut buf = vec![0u8; 4096];
@@ -480,7 +480,7 @@ pub(super) async fn watch_displays(state: Rc<PortalState>) {
         for event in events {
             if event.mask.contains(c::IN_CREATE) {
                 if let Ok(s) = std::str::from_utf8(event.name().as_ustr().as_bytes()) {
-                    maybe_add_display(&state, s);
+                    maybe_add_display(&state, s).await;
                 }
             }
         }

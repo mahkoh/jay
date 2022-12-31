@@ -404,7 +404,13 @@ impl DbusSocket {
         msg.marshal(&mut fmt);
         let body_len = (buf.len() - body_start) as u32;
         buf[4..8].copy_from_slice(uapi::as_bytes(&body_len));
-        (BufIoMessage { fds, buf }, serial)
+        (
+            BufIoMessage {
+                fds,
+                buf: buf.unwrap(),
+            },
+            serial,
+        )
     }
 
     fn format_header(
@@ -489,7 +495,7 @@ where
     ) -> Result<(), DbusError> {
         let msg = <T::Generic<'a> as Message>::unmarshal(parser)?;
         (self.0)(Ok(&msg));
-        socket.bufio.add_buf(buf);
+        socket.in_bufs.push(buf);
         Ok(())
     }
 }

@@ -8,12 +8,14 @@ use {
         },
         io_uring::{IoUring, IoUringError},
         utils::{
+            buf::DynamicBuf,
             bufio::{BufIo, BufIoError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             numcell::NumCell,
             oserror::OsError,
             run_toplevel::RunToplevel,
+            stack::Stack,
             vecstorage::VecStorage,
             xrd::{xrd, XRD},
         },
@@ -89,11 +91,11 @@ pub enum DbusError {
     #[error("Could not create a socket")]
     Socket(#[source] OsError),
     #[error("Could not connect")]
-    Connect(#[source] OsError),
+    Connect(#[source] IoUringError),
     #[error("Could not write to the dbus socket")]
-    WriteError(#[source] OsError),
+    WriteError(#[source] IoUringError),
     #[error("Could not read from the dbus socket")]
-    ReadError(#[source] OsError),
+    ReadError(#[source] IoUringError),
     #[error("timeout")]
     IoUringError(#[source] Box<IoUringError>),
     #[error("Server did not accept our authentication")]
@@ -169,21 +171,25 @@ impl Dbus {
         self.session.clear();
     }
 
-    pub fn system(&self) -> Result<Rc<DbusSocket>, DbusError> {
-        self.system.get(
-            &self.eng,
-            &self.ring,
-            "/var/run/dbus/system_bus_socket",
-            "System bus",
-        )
+    pub async fn system(&self) -> Result<Rc<DbusSocket>, DbusError> {
+        self.system
+            .get(
+                &self.eng,
+                &self.ring,
+                "/var/run/dbus/system_bus_socket",
+                "System bus",
+            )
+            .await
     }
 
-    pub fn session(&self) -> Result<Rc<DbusSocket>, DbusError> {
+    pub async fn session(&self) -> Result<Rc<DbusSocket>, DbusError> {
         let sba = match self.user_path.as_deref() {
             None => return Err(DbusError::SessionBusAddressNotSet),
             Some(sba) => sba,
         };
-        self.session.get(&self.eng, &self.ring, sba, "Session bus")
+        self.session
+            .get(&self.eng, &self.ring, sba, "Session bus")
+            .await
     }
 }
 
@@ -203,6 +209,7 @@ pub struct DbusSocket {
     bus_name: &'static str,
     fd: Rc<OwnedFd>,
     ring: Rc<IoUring>,
+    in_bufs: Stack<Vec<u8>>,
     bufio: Rc<BufIo>,
     eng: Rc<AsyncEngine>,
     next_serial: NumCell<u32>,
@@ -361,7 +368,7 @@ pub struct Parser<'a> {
 
 pub struct Formatter<'a> {
     fds: &'a mut Vec<Rc<OwnedFd>>,
-    buf: &'a mut Vec<u8>,
+    buf: &'a mut DynamicBuf,
 }
 
 pub unsafe trait Message<'a>: Sized + 'a {
@@ -469,7 +476,7 @@ impl<T: Message<'static>> Reply<T> {
 
 impl<T: Message<'static>> Drop for Reply<T> {
     fn drop(&mut self) {
-        self.socket.bufio.add_buf(mem::take(&mut self.buf));
+        self.socket.in_bufs.push(mem::take(&mut self.buf));
     }
 }
 

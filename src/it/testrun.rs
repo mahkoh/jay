@@ -40,16 +40,15 @@ impl TestRun {
     }
 
     async fn create_client2(self: &Rc<Self>) -> Result<Rc<TestClient>, TestError> {
-        let socket = uapi::socket(
-            c::AF_UNIX,
-            c::SOCK_STREAM | c::SOCK_CLOEXEC | c::SOCK_NONBLOCK,
-            0,
-        )
-        .to_os_error()
-        .with_context(|| "Could not create a unix socket")?;
-        let socket = Rc::new(socket);
-        uapi::connect(socket.raw(), &self.server_addr)
+        let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .to_os_error()
+            .with_context(|| "Could not create a unix socket")?;
+        let socket = Rc::new(socket);
+        self.backend
+            .state
+            .ring
+            .connect(&socket, &self.server_addr)
+            .await
             .with_context(|| "Could not connect to the compositor")?;
         let mut obj_ids = Bitfield::default();
         obj_ids.take(0);

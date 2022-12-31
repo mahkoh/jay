@@ -15,7 +15,7 @@ pub struct BufFdIn {
     fd: Rc<OwnedFd>,
     ring: Rc<IoUring>,
 
-    in_fd: VecDeque<OwnedFd>,
+    in_fd: VecDeque<Rc<OwnedFd>>,
 
     in_buf: Buf,
     in_left: usize,
@@ -86,7 +86,7 @@ impl BufFdIn {
         Ok(())
     }
 
-    pub fn get_fd(&mut self) -> Result<OwnedFd, BufFdError> {
+    pub fn get_fd(&mut self) -> Result<Rc<OwnedFd>, BufFdError> {
         match self.in_fd.pop_front() {
             Some(f) => Ok(f),
             None => Err(BufFdError::NoFd),
