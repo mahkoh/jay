@@ -76,7 +76,7 @@ unsafe extern "C" fn unref(data: *const u8) {
 unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
     let tc = &*data.cast::<TestConfig>();
     let msg = std::slice::from_raw_parts(msg, size);
-    let res = bincode::decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
+    let res = bincode::borrow_decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
     let (msg, _) = match res {
         Ok(msg) => msg,
         Err(e) => {
