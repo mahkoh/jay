@@ -287,6 +287,32 @@ impl Client {
         connector
     }
 
+    pub fn get_seat_workspace(&self, seat: Seat) -> Workspace {
+        let res = self.send_with_response(&ClientMessage::GetSeatWorkspace { seat });
+        get_response!(res, Workspace(0), GetSeatWorkspace { workspace });
+        workspace
+    }
+
+    pub fn set_default_workspace_capture(&self, capture: bool) {
+        self.send(&ClientMessage::SetDefaultWorkspaceCapture { capture });
+    }
+
+    pub fn set_workspace_capture(&self, workspace: Workspace, capture: bool) {
+        self.send(&ClientMessage::SetWorkspaceCapture { workspace, capture });
+    }
+
+    pub fn get_default_workspace_capture(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetDefaultWorkspaceCapture);
+        get_response!(res, true, GetDefaultWorkspaceCapture { capture });
+        capture
+    }
+
+    pub fn get_workspace_capture(&self, workspace: Workspace) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceCapture { workspace });
+        get_response!(res, true, GetWorkspaceCapture { capture });
+        capture
+    }
+
     pub fn show_workspace(&self, seat: Seat, workspace: Workspace) {
         self.send(&ClientMessage::ShowWorkspace { seat, workspace });
     }

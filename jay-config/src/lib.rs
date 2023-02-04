@@ -106,9 +106,52 @@ pub fn is_reload() -> bool {
     get!(false).is_reload()
 }
 
+/// Sets whether new workspaces are captured by default.
+///
+/// The default is `true`.
+pub fn set_default_workspace_capture(capture: bool) {
+    get!().set_default_workspace_capture(capture)
+}
+
+/// Returns whether new workspaces are captured by default.
+pub fn get_default_workspace_capture() -> bool {
+    get!(true).get_default_workspace_capture()
+}
+
+/// Toggles whether new workspaces are captured by default.
+pub fn toggle_default_workspace_capture() {
+    let get = get!();
+    get.set_default_workspace_capture(!get.get_default_workspace_capture());
+}
+
 /// A workspace.
 #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Workspace(pub u64);
+
+impl Workspace {
+    /// Returns whether this workspace existed at the time `Seat::get_workspace` was called.
+    pub fn exists(self) -> bool {
+        self.0 != 0
+    }
+
+    /// Sets whether the workspaces is captured.
+    ///
+    /// The default is determined by `set_default_workspace_capture`.
+    pub fn set_capture(self, capture: bool) {
+        get!().set_workspace_capture(self, capture)
+    }
+
+    /// Returns whether the workspaces is captured.
+    pub fn get_capture(self) -> bool {
+        get!(true).get_workspace_capture(self)
+    }
+
+    /// Toggles whether the workspaces is captured.
+    pub fn toggle_capture(self) {
+        let get = get!();
+        get.set_workspace_capture(self, !get.get_workspace_capture(self));
+    }
+}
 
 /// Returns the workspace with the given name.
 ///

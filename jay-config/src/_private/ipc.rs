@@ -316,6 +316,20 @@ pub enum ClientMessage<'a> {
     MakeRenderDevice {
         device: DrmDevice,
     },
+    GetSeatWorkspace {
+        seat: Seat,
+    },
+    SetDefaultWorkspaceCapture {
+        capture: bool,
+    },
+    GetDefaultWorkspaceCapture,
+    SetWorkspaceCapture {
+        workspace: Workspace,
+        capture: bool,
+    },
+    GetWorkspaceCapture {
+        workspace: Workspace,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]
@@ -408,6 +422,15 @@ pub enum Response {
     ConnectorSize {
         width: i32,
         height: i32,
+    },
+    GetSeatWorkspace {
+        workspace: Workspace,
+    },
+    GetDefaultWorkspaceCapture {
+        capture: bool,
+    },
+    GetWorkspaceCapture {
+        capture: bool,
     },
 }
 

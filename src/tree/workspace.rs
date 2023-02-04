@@ -42,6 +42,7 @@ pub struct WorkspaceNode {
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
+    pub capture: Cell<bool>,
 }
 
 impl WorkspaceNode {

@@ -254,6 +254,14 @@ impl Seat {
         get!().toggle_floating(self);
     }
 
+    /// Returns the workspace that is currently active on the output that contains the seat's
+    /// cursor.
+    ///
+    /// If no such workspace exists, `exists` returns `false` for the returned workspace.
+    pub fn get_workspace(self) -> Workspace {
+        get!(Workspace(0)).get_seat_workspace(self)
+    }
+
     /// Shows the workspace and sets the keyboard focus of the seat to that workspace.
     ///
     /// If the workspace doesn't currently exist, it is created on the output that contains the

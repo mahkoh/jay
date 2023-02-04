@@ -78,6 +78,11 @@ pub async fn output_render_data(state: Rc<State>) {
 
 impl OutputNode {
     pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+        if let Some(workspace) = self.workspace.get() {
+            if !workspace.capture.get() {
+                return;
+            }
+        }
         self.global.perform_screencopies(fb, tex);
         for sc in self.screencasts.lock().values() {
             sc.copy_texture(self, tex);
@@ -137,6 +142,7 @@ impl OutputNode {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
         rd.inactive_workspaces.clear();
+        rd.captured_inactive_workspaces.clear();
         rd.active_workspace = None;
         rd.status = None;
         let mut pos = 0;
@@ -204,7 +210,12 @@ impl OutputNode {
             }
             let rect = Rect::new_sized(pos, 0, title_width, th).unwrap();
             if Some(ws.id) == active_id {
-                rd.active_workspace = Some(rect);
+                rd.active_workspace = Some(OutputWorkspaceRenderData {
+                    rect,
+                    captured: ws.capture.get(),
+                });
+            } else if ws.capture.get() {
+                rd.captured_inactive_workspaces.push(rect);
             } else {
                 rd.inactive_workspaces.push(rect);
             }
@@ -310,6 +321,7 @@ impl OutputNode {
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
             jay_workspaces: Default::default(),
+            capture: self.state.default_workspace_capture.clone(),
         });
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));
@@ -462,11 +474,18 @@ pub struct OutputStatus {
     pub tex: Rc<Texture>,
 }
 
+#[derive(Copy, Clone)]
+pub struct OutputWorkspaceRenderData {
+    pub rect: Rect,
+    pub captured: bool,
+}
+
 #[derive(Default)]
 pub struct OutputRenderData {
-    pub active_workspace: Option<Rect>,
+    pub active_workspace: Option<OutputWorkspaceRenderData>,
     pub underline: Rect,
     pub inactive_workspaces: Vec<Rect>,
+    pub captured_inactive_workspaces: Vec<Rect>,
     pub titles: Vec<OutputTitle>,
     pub status: Option<OutputStatus>,
 }

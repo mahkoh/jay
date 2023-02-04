@@ -245,6 +245,14 @@ pub mod colors {
         ///
         /// Default: `#ffffff`.
         const 11 => BAR_STATUS_TEXT_COLOR,
+        /// The title background color of an unfocused window that might be captured.
+        ///
+        /// Default: `#220303`.
+        const 12 => CAPTURED_UNFOCUSED_TITLE_BACKGROUND_COLOR,
+        /// The title background color of a focused window that might be captured.
+        ///
+        /// Default: `#772831`.
+        const 13 => CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR,
     }
 }
 

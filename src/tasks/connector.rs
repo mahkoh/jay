@@ -113,6 +113,7 @@ impl ConnectorHandler {
                 active_workspace: None,
                 underline: Default::default(),
                 inactive_workspaces: Default::default(),
+                captured_inactive_workspaces: Default::default(),
                 titles: Default::default(),
                 status: None,
             }),

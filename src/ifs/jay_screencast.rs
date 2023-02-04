@@ -181,6 +181,9 @@ impl JayScreencast {
     fn detach(&self) {
         if let Some(output) = self.output.take() {
             output.screencasts.remove(&(self.client.id, self.id));
+            if output.screencasts.is_empty() {
+                output.state.damage();
+            }
         }
     }
 
@@ -323,6 +326,9 @@ impl JayScreencast {
             }
             self.detach();
             if let Some(new) = &output {
+                if new.screencasts.is_empty() {
+                    new.state.damage();
+                }
                 new.screencasts.set((self.client.id, self.id), self.clone());
             }
             self.output.set(output);

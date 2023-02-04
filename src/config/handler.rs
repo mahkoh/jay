@@ -548,6 +548,56 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_get_workspace_capture(&self, workspace: Workspace) -> Result<(), CphError> {
+        let name = self.get_workspace(workspace)?;
+        let capture = match self.state.workspaces.get(name.as_str()) {
+            Some(ws) => ws.capture.get(),
+            None => self.state.default_workspace_capture.get(),
+        };
+        self.respond(Response::GetWorkspaceCapture { capture });
+        Ok(())
+    }
+
+    fn handle_set_workspace_capture(
+        &self,
+        workspace: Workspace,
+        capture: bool,
+    ) -> Result<(), CphError> {
+        let name = self.get_workspace(workspace)?;
+        if let Some(ws) = self.state.workspaces.get(name.as_str()) {
+            ws.capture.set(capture);
+            ws.output.get().schedule_update_render_data();
+        }
+        Ok(())
+    }
+
+    fn handle_get_default_workspace_capture(&self) {
+        self.respond(Response::GetDefaultWorkspaceCapture {
+            capture: self.state.default_workspace_capture.get(),
+        });
+    }
+
+    fn handle_set_default_workspace_capture(&self, capture: bool) {
+        self.state.default_workspace_capture.set(capture);
+    }
+
+    fn handle_get_seat_workspace(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let output = seat.get_output();
+        let mut workspace = 0;
+        if !output.is_dummy {
+            if let Some(ws) = output.workspace.get() {
+                if let Some(ws) = self.workspaces_by_name.get(&ws.name) {
+                    workspace = ws;
+                }
+            }
+        }
+        self.respond(Response::GetSeatWorkspace {
+            workspace: Workspace(workspace),
+        });
+        Ok(())
+    }
+
     fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
@@ -984,6 +1034,10 @@ impl ConfigProxyHandler {
         let colorable = match colorable {
             UNFOCUSED_TITLE_BACKGROUND_COLOR => &colors.unfocused_title_background,
             FOCUSED_TITLE_BACKGROUND_COLOR => &colors.focused_title_background,
+            CAPTURED_UNFOCUSED_TITLE_BACKGROUND_COLOR => {
+                &colors.captured_unfocused_title_background
+            }
+            CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => &colors.captured_focused_title_background,
             FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => &colors.focused_inactive_title_background,
             BACKGROUND_COLOR => &colors.background,
             BAR_BACKGROUND_COLOR => &colors.bar_background,
@@ -1226,6 +1280,21 @@ impl ConfigProxyHandler {
             ClientMessage::MakeRenderDevice { device } => self
                 .handle_make_render_device(device)
                 .wrn("make_render_device")?,
+            ClientMessage::GetSeatWorkspace { seat } => self
+                .handle_get_seat_workspace(seat)
+                .wrn("get_seat_workspace")?,
+            ClientMessage::SetDefaultWorkspaceCapture { capture } => {
+                self.handle_set_default_workspace_capture(capture)
+            }
+            ClientMessage::GetDefaultWorkspaceCapture => {
+                self.handle_get_default_workspace_capture()
+            }
+            ClientMessage::SetWorkspaceCapture { workspace, capture } => self
+                .handle_set_workspace_capture(workspace, capture)
+                .wrn("set_workspace_capture")?,
+            ClientMessage::GetWorkspaceCapture { workspace } => self
+                .handle_get_workspace_capture(workspace)
+                .wrn("get_workspace_capture")?,
         }
         Ok(())
     }
