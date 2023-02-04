@@ -218,7 +218,7 @@ impl<'a> PwParser<'a> {
         packed: bool,
     ) -> Result<PwPod<'a>, PwParserError> {
         let size = if packed { len } else { (len + 7) & !7 };
-        if self.len() < size as usize {
+        if self.len() < size {
             return Err(PwParserError::UnexpectedEof);
         }
         let val = match ty {
@@ -278,7 +278,7 @@ impl<'a> PwParser<'a> {
             }
             _ => return Err(PwParserError::UnknownType(ty)),
         };
-        self.pos += size as usize;
+        self.pos += size;
         Ok(val)
     }
 

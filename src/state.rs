@@ -469,12 +469,12 @@ impl State {
             let mut x1 = output_rect.x1();
             let mut y1 = output_rect.y1();
             if width < output_rect.width() {
-                x1 += (output_rect.width() - width) as i32 / 2;
+                x1 += (output_rect.width() - width) / 2;
             } else {
                 width = output_rect.width();
             }
             if height < output_rect.height() {
-                y1 += (output_rect.height() - height) as i32 / 2;
+                y1 += (output_rect.height() - height) / 2;
             } else {
                 height = output_rect.height();
             }

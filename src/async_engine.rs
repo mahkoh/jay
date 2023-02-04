@@ -86,7 +86,7 @@ impl AsyncEngine {
         while self.num_queued.get() > 0 {
             self.iteration.fetch_add(1);
             let mut phase = 0;
-            while phase < NUM_PHASES as usize {
+            while phase < NUM_PHASES {
                 self.queues[phase].swap(&mut *stash);
                 if stash.is_empty() {
                     phase += 1;

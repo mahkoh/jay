@@ -34,7 +34,11 @@
 //! config!(configure);
 //! ```
 
-#![allow(clippy::zero_prefixed_literal, clippy::manual_range_contains)]
+#![allow(
+    clippy::zero_prefixed_literal,
+    clippy::manual_range_contains,
+    clippy::uninlined_format_args
+)]
 
 use {
     crate::keyboard::ModifiedKeySym,

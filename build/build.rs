@@ -8,7 +8,9 @@
     clippy::unnecessary_to_owned,
     clippy::match_like_matches_macro,
     clippy::too_many_arguments,
-    clippy::iter_skip_next
+    clippy::iter_skip_next,
+    clippy::uninlined_format_args,
+    clippy::manual_is_ascii_check
 )]
 
 extern crate core;

@@ -613,8 +613,8 @@ fn parser_cursor_file<R: BufRead + Seek>(
         };
         let num_bytes = width as usize * height as usize * 4;
         unsafe {
-            image.pixels.reserve_exact(num_bytes as usize);
-            image.pixels.set_len(num_bytes as usize);
+            image.pixels.reserve_exact(num_bytes);
+            image.pixels.set_len(num_bytes);
             r.read_exact(slice::from_raw_parts_mut(
                 image.pixels.as_mut_ptr() as _,
                 num_bytes,

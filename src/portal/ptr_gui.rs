@@ -210,8 +210,7 @@ impl GuiElement for Button {
             r.fill_boxes_f(&rects, &color);
         }
         if let Some(tex) = self.tex.get() {
-            let (tx, ty) =
-                r.scale_point_f(x1 + self.tex_off_x.get(), y1 as f32 + self.tex_off_y.get());
+            let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
             r.render_texture(
                 &tex,
                 tx.round() as _,

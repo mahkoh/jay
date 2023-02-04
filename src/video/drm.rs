@@ -405,7 +405,7 @@ impl DrmMaster {
                     }
                     _ => {}
                 }
-                buf = &buf[len as usize..];
+                buf = &buf[len..];
             }
         }
         Ok(self.events.pop())

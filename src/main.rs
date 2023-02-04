@@ -35,7 +35,11 @@
     clippy::collapsible_match,
     clippy::field_reassign_with_default,
     clippy::new_ret_no_self,
-    clippy::or_fun_call
+    clippy::or_fun_call,
+    clippy::uninlined_format_args,
+    clippy::manual_is_ascii_check,
+    clippy::needless_borrow,
+    clippy::unnecessary_cast
 )]
 
 #[macro_use]
