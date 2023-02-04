@@ -567,6 +567,7 @@ impl ConfigProxyHandler {
         if let Some(ws) = self.state.workspaces.get(name.as_str()) {
             ws.capture.set(capture);
             ws.output.get().schedule_update_render_data();
+            self.state.damage();
         }
         Ok(())
     }
