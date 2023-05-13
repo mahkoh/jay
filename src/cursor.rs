@@ -15,7 +15,6 @@ use {
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
     num_derive::FromPrimitive,
-    uapi::Bytes,
     std::{
         cell::Cell,
         convert::TryInto,
@@ -29,6 +28,7 @@ use {
         time::Duration,
     },
     thiserror::Error,
+    uapi::Bytes,
 };
 
 const XCURSOR_MAGIC: u32 = 0x72756358;
