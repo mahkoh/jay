@@ -15,6 +15,7 @@ use {
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
     num_derive::FromPrimitive,
+    uapi::Bytes,
     std::{
         cell::Cell,
         convert::TryInto,
@@ -35,6 +36,7 @@ const XCURSOR_IMAGE_TYPE: u32 = 0xfffd0002;
 const XCURSOR_PATH_DEFAULT: &[u8] =
     b"~/.icons:/usr/share/icons:/usr/share/pixmaps:/usr/X11R6/lib/X11/icons";
 const XCURSOR_PATH: &str = "XCURSOR_PATH";
+const XCURSOR_THEME: &str = "XCURSOR_THEME";
 const HOME: &str = "HOME";
 
 const HEADER_SIZE: u32 = 16;
@@ -92,8 +94,11 @@ impl ServerCursors {
         if sizes.is_empty() || scales.is_empty() {
             return Ok(None);
         }
+        let xcursor_theme = env::var_os(XCURSOR_THEME);
+        let theme = xcursor_theme.as_ref().map(|theme| BStr::new(theme.bytes()));
+
         let load =
-            |name: &str| ServerCursorTemplate::load(name, None, &scales, &sizes, &paths, ctx);
+            |name: &str| ServerCursorTemplate::load(name, theme, &scales, &sizes, &paths, ctx);
         Ok(Some(Self {
             default: load("left_ptr")?,
             pointer: load("hand2")?,
