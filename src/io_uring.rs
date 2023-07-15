@@ -379,7 +379,7 @@ impl IoUringData {
                 }
                 self.pending_in_kernel.set(id, ());
                 let idx = (tail & self.sqmask) as usize;
-                let mut sqe = self.sqesmap.deref()[idx].get().deref_mut();
+                let sqe = self.sqesmap.deref()[idx].get().deref_mut();
                 self.sqmap.deref()[idx].set(idx as _);
                 *sqe = Default::default();
                 sqe.user_data = id;
