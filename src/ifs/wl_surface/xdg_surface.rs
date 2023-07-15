@@ -347,7 +347,7 @@ impl SurfaceExt for XdgSurface {
                     if let Some(ext) = self.ext.get() {
                         ext.initial_configure()?;
                     }
-                    self.send_configure(rse + 1);
+                    self.send_configure(rse);
                 }
                 // return CommitAction::AbortCommit;
             }
