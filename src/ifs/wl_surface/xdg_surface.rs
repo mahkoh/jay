@@ -96,7 +96,7 @@ impl XdgSurface {
             base: wm_base.clone(),
             role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
-            requested_serial: NumCell::new(0),
+            requested_serial: NumCell::new(1),
             acked_serial: Cell::new(None),
             geometry: Cell::new(None),
             extents: Cell::new(Default::default()),
