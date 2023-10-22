@@ -4,6 +4,7 @@ use {
         client::ClientId,
         cursor::KnownCursor,
         fixed::Fixed,
+        gfx_apis::gl::{Framebuffer, Texture},
         ifs::{
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
@@ -19,7 +20,7 @@ use {
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
         rect::Rect,
-        render::{Framebuffer, Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         text,

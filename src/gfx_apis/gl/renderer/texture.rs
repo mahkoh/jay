@@ -1,5 +1,5 @@
 use {
-    crate::render::{gl::texture::GlTexture, renderer::context::RenderContext},
+    crate::gfx_apis::gl::{gl::texture::GlTexture, renderer::context::RenderContext},
     std::{
         fmt::{Debug, Formatter},
         rc::Rc,
@@ -7,8 +7,8 @@ use {
 };
 
 pub struct Texture {
-    pub(super) ctx: Rc<RenderContext>,
-    pub(super) gl: GlTexture,
+    pub(crate) ctx: Rc<RenderContext>,
+    pub(crate) gl: GlTexture,
 }
 
 impl Debug for Texture {

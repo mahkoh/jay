@@ -9,8 +9,8 @@ use {
         },
         compositor::TestFuture,
         fixed::Fixed,
+        gfx_apis::gl::{RenderContext, RenderError},
         it::test_error::TestResult,
-        render::{RenderContext, RenderError},
         state::State,
         time::now_usec,
         utils::{

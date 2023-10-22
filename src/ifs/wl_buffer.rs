@@ -3,10 +3,10 @@ use {
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
         format::Format,
+        gfx_apis::gl::{Framebuffer, Image, RenderError, Texture},
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::{Framebuffer, Image, RenderError, Texture},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,

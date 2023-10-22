@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::context::EglContext,
         gl::sys::{
             glCompileShader, glCreateShader, glDeleteShader, glGetShaderiv, glShaderSource, GLenum,

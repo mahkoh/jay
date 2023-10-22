@@ -1,7 +1,7 @@
 use {
     crate::{
         format::XRGB8888,
-        render::RenderError,
+        gfx_apis::gl::RenderError,
         scale::Scale,
         state::State,
         video::{

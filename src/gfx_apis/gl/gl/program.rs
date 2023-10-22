@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::context::EglContext,
         gl::{
             shader::GlShader,

@@ -15,6 +15,7 @@ use {
         backend::KeyState,
         client::{Client, ClientError, RequestParser},
         fixed::Fixed,
+        gfx_api::{BufferPoint, BufferPoints},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -38,10 +39,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::{Rect, Region},
-        render::{
-            gfx_api::{BufferPoint, BufferPoints},
-            Renderer,
-        },
+        renderer::Renderer,
         tree::{
             FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode,
             ToplevelNode,

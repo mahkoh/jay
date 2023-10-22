@@ -13,6 +13,7 @@ use {
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
         forker::ForkerProxy,
+        gfx_apis::gl::RenderContext,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
@@ -31,7 +32,6 @@ use {
         leaks::Tracker,
         logger::Logger,
         rect::Rect,
-        render::RenderContext,
         scale::Scale,
         theme::Theme,
         tree::{

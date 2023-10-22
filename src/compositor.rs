@@ -15,12 +15,12 @@ use {
         config::ConfigProxy,
         dbus::Dbus,
         forker,
+        gfx_apis::gl::{self, RenderError},
         globals::Globals,
         ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
         io_uring::{IoUring, IoUringError},
         leaks,
         logger::Logger,
-        render::{self, RenderError},
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -112,7 +112,7 @@ fn start_compositor2(
     log::info!("pid = {}", uapi::getpid());
     init_fd_limit();
     leaks::init();
-    render::init()?;
+    gl::init()?;
     clientmem::init()?;
     let xkb_ctx = XkbContext::new().unwrap();
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();

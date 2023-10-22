@@ -1,9 +1,9 @@
 use {
     crate::{
         client::{Client, ClientError},
+        gfx_apis::gl::RenderContext,
         leaks::Tracker,
         object::Object,
-        render::RenderContext,
         utils::{
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,

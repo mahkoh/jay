@@ -1,6 +1,7 @@
 use {
     crate::{
         format::ARGB8888,
+        gfx_api::{BufferPoints, GfxApiOpt},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -10,10 +11,7 @@ use {
             wp_presentation_feedback::WpPresentationFeedback,
         },
         rect::Rect,
-        render::{
-            gfx_api::GfxApiOpt,
-            renderer::{gfx_api::BufferPoints, renderer_base::RendererBase},
-        },
+        renderer::renderer_base::RendererBase,
         scale::Scale,
         state::State,
         theme::Color,
@@ -30,6 +28,8 @@ use {
     },
 };
 
+pub mod renderer_base;
+
 #[derive(Default)]
 pub struct RenderResult {
     pub frame_requests: Vec<Rc<WlCallback>>,
@@ -44,11 +44,11 @@ impl Debug for RenderResult {
 
 pub struct Renderer<'a> {
     pub base: RendererBase<'a>,
-    pub(super) state: &'a State,
-    pub(super) on_output: bool,
-    pub(super) result: &'a mut RenderResult,
-    pub(super) logical_extents: Rect,
-    pub(super) physical_extents: Rect,
+    pub state: &'a State,
+    pub on_output: bool,
+    pub result: &'a mut RenderResult,
+    pub logical_extents: Rect,
+    pub physical_extents: Rect,
 }
 
 impl Renderer<'_> {

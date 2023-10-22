@@ -1,7 +1,7 @@
 use {
     crate::{
         format::{formats, Format},
-        render::{
+        gfx_apis::gl::{
             egl::{
                 context::EglContext,
                 image::EglImage,

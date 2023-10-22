@@ -1,5 +1,5 @@
 use {
-    crate::render::egl::{
+    crate::gfx_apis::gl::egl::{
         display::EglDisplay,
         sys::{EGLImageKHR, EGL_FALSE},
         PROCS,

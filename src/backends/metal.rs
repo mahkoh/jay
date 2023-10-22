@@ -11,6 +11,7 @@ use {
         },
         backends::metal::video::{MetalDrmDeviceData, MetalRenderContext, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
+        gfx_apis::gl::RenderError,
         libinput::{
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
@@ -23,7 +24,6 @@ use {
             LibInput, LibInputAdapter, LibInputError,
         },
         logind::{LogindError, Session},
-        render::RenderError,
         state::State,
         time::now_usec,
         udev::{Udev, UdevError, UdevMonitor},

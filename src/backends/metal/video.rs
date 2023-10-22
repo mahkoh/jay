@@ -8,8 +8,9 @@ use {
         backends::metal::{MetalBackend, MetalError},
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
+        gfx_apis::gl::{Framebuffer, RenderContext, Texture},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
-        render::{Framebuffer, RenderContext, RenderResult, Texture},
+        renderer::RenderResult,
         state::State,
         udev::UdevDevice,
         utils::{

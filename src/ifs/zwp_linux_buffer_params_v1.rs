@@ -1,10 +1,10 @@
 use {
     crate::{
         client::ClientError,
+        gfx_apis::gl::RenderError,
         ifs::{wl_buffer::WlBuffer, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1},
         leaks::Tracker,
         object::Object,
-        render::RenderError,
         utils::{
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,

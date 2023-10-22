@@ -1,5 +1,5 @@
 use {
-    crate::{format::Format, render::Texture, theme::Color},
+    crate::{format::Format, gfx_apis::gl::Texture, theme::Color},
     std::rc::Rc,
 };
 

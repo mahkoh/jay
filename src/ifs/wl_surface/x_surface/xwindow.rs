@@ -8,7 +8,7 @@ use {
             wl_surface::{x_surface::XSurface, WlSurface, WlSurfaceError},
         },
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         state::State,
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode,

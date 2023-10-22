@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::{context::EglContext, image::EglImage, PROCS},
         gl::{
             frame_buffer::GlFrameBuffer,

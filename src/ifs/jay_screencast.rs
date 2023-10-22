@@ -2,10 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         format::XRGB8888,
+        gfx_apis::gl::{Framebuffer, RenderContext, RenderError, Texture},
         ifs::jay_output::JayOutput,
         leaks::Tracker,
         object::Object,
-        render::{Framebuffer, RenderContext, RenderError, Texture},
         tree::{OutputNode, WorkspaceNodeId},
         utils::{
             buffd::{MsgParser, MsgParserError},

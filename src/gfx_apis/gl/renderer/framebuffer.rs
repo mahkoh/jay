@@ -3,8 +3,7 @@ use {
         cursor::Cursor,
         fixed::Fixed,
         format::{Format, ARGB8888, XRGB8888},
-        rect::Rect,
-        render::{
+        gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
                 sys::{
@@ -12,13 +11,13 @@ use {
                     GL_FRAMEBUFFER,
                 },
             },
-            renderer::{
-                context::RenderContext, gfx_apis::gl::run_ops, renderer::Renderer,
-                renderer_base::RendererBase,
-            },
+            renderer::context::RenderContext,
+            run_ops,
             sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
-            RenderResult, Texture,
+            Texture,
         },
+        rect::Rect,
+        renderer::{renderer_base::RendererBase, RenderResult, Renderer},
         scale::Scale,
         state::State,
         tree::Node,
@@ -31,8 +30,8 @@ use {
 };
 
 pub struct Framebuffer {
-    pub(super) ctx: Rc<RenderContext>,
-    pub(super) gl: GlFrameBuffer,
+    pub(crate) ctx: Rc<RenderContext>,
+    pub(crate) gl: GlFrameBuffer,
 }
 
 impl Debug for Framebuffer {

@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         tree::{
             walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, StackedNode,
         },

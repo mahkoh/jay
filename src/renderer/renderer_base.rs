@@ -1,14 +1,11 @@
 use {
     crate::{
         format::Format,
-        rect::Rect,
-        render::{
-            gfx_api::Clear,
-            renderer::gfx_api::{
-                AbsoluteRect, BufferPoint, BufferPoints, CopyTexture, FillRect, GfxApiOpt,
-            },
-            Texture,
+        gfx_api::{
+            AbsoluteRect, BufferPoint, BufferPoints, Clear, CopyTexture, FillRect, GfxApiOpt,
         },
+        gfx_apis::gl::Texture,
+        rect::Rect,
         scale::Scale,
         theme::Color,
     },
@@ -16,10 +13,10 @@ use {
 };
 
 pub struct RendererBase<'a> {
-    pub(super) ops: &'a mut Vec<GfxApiOpt>,
-    pub(super) scaled: bool,
-    pub(super) scale: Scale,
-    pub(super) scalef: f64,
+    pub ops: &'a mut Vec<GfxApiOpt>,
+    pub scaled: bool,
+    pub scale: Scale,
+    pub scalef: f64,
 }
 
 impl RendererBase<'_> {
@@ -143,7 +140,7 @@ impl RendererBase<'_> {
         let (twidth, theight) = if let Some(size) = tsize {
             size
         } else {
-            let (mut w, mut h) = (texture.gl.width, texture.gl.height);
+            let (mut w, mut h) = (texture.width(), texture.height());
             if tscale != self.scale {
                 let tscale = tscale.to_f64();
                 w = (w as f64 * self.scalef / tscale).round() as _;

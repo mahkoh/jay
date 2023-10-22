@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::{
             display::EglDisplay,
             sys::{eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE},

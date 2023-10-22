@@ -12,7 +12,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         state::State,
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,

@@ -2,8 +2,8 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         fixed::Fixed,
+        gfx_apis::gl::Framebuffer,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
-        render::Framebuffer,
         video::drm::{ConnectorType, DrmError, DrmVersion},
     },
     std::{

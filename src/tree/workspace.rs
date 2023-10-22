@@ -9,7 +9,7 @@ use {
             wl_surface::WlSurface,
         },
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
             FindTreeResult, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode, StackedNode,

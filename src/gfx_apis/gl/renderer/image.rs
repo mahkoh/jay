@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::image::EglImage,
         gl::{render_buffer::GlRenderBuffer, texture::GlTexture},
         Framebuffer, RenderContext, RenderError, Texture,
@@ -8,8 +8,8 @@ use {
 };
 
 pub struct Image {
-    pub(super) ctx: Rc<RenderContext>,
-    pub(super) gl: Rc<EglImage>,
+    pub(crate) ctx: Rc<RenderContext>,
+    pub(crate) gl: Rc<EglImage>,
 }
 
 impl Image {

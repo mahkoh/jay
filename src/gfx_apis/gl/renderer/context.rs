@@ -1,18 +1,18 @@
 use {
     crate::{
         format::{Format, XRGB8888},
-        render::{
+        gfx_api::GfxApiOpt,
+        gfx_apis::gl::{
             egl::{
                 context::EglContext,
                 display::{EglDisplay, EglFormat},
             },
             ext::GlExt,
-            gfx_api::GfxApiOpt,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
             },
-            renderer::{framebuffer::Framebuffer, gfx_apis::gl::GfxGlState, image::Image},
-            RenderError, Texture,
+            renderer::{framebuffer::Framebuffer, image::Image},
+            GfxGlState, RenderError, Texture,
         },
         video::{
             dmabuf::DmaBuf,
@@ -30,11 +30,11 @@ use {
     uapi::ustr,
 };
 
-pub(super) struct TexProg {
-    pub(super) prog: GlProgram,
-    pub(super) pos: GLint,
-    pub(super) texcoord: GLint,
-    pub(super) tex: GLint,
+pub(crate) struct TexProg {
+    pub(crate) prog: GlProgram,
+    pub(crate) pos: GLint,
+    pub(crate) texcoord: GLint,
+    pub(crate) tex: GLint,
 }
 
 impl TexProg {
@@ -48,26 +48,26 @@ impl TexProg {
     }
 }
 
-pub(super) struct TexProgs {
+pub(crate) struct TexProgs {
     pub alpha: TexProg,
     pub solid: TexProg,
 }
 
 pub struct RenderContext {
-    pub(super) ctx: Rc<EglContext>,
+    pub(crate) ctx: Rc<EglContext>,
     pub gbm: Rc<GbmDevice>,
 
-    pub(super) render_node: Rc<CString>,
+    pub(crate) render_node: Rc<CString>,
 
-    pub(super) tex_internal: TexProgs,
-    pub(super) tex_external: Option<TexProgs>,
+    pub(crate) tex_internal: TexProgs,
+    pub(crate) tex_external: Option<TexProgs>,
 
-    pub(super) fill_prog: GlProgram,
-    pub(super) fill_prog_pos: GLint,
-    pub(super) fill_prog_color: GLint,
+    pub(crate) fill_prog: GlProgram,
+    pub(crate) fill_prog_pos: GLint,
+    pub(crate) fill_prog_color: GLint,
 
-    pub(super) gfx_ops: RefCell<Vec<GfxApiOpt>>,
-    pub(super) gl_state: RefCell<GfxGlState>,
+    pub(crate) gfx_ops: RefCell<Vec<GfxApiOpt>>,
+    pub(crate) gl_state: RefCell<GfxGlState>,
 }
 
 impl Debug for RenderContext {

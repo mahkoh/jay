@@ -3,6 +3,7 @@ use {
         backend,
         client::{Client, ClientError, ClientId},
         format::XRGB8888,
+        gfx_apis::gl::{Framebuffer, Texture},
         globals::{Global, GlobalName},
         ifs::{
             wl_buffer::WlBufferStorage, wl_surface::WlSurface,
@@ -11,7 +12,6 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::{Framebuffer, Texture},
         state::{ConnectorData, State},
         time::Time,
         tree::OutputNode,

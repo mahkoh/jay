@@ -9,7 +9,8 @@ use {
         },
         fixed::Fixed,
         format::XRGB8888,
-        render::{Framebuffer, RenderContext, RenderError, RenderResult, Texture},
+        gfx_apis::gl::{Framebuffer, RenderContext, RenderError, Texture},
+        renderer::RenderResult,
         state::State,
         time::now_usec,
         utils::{

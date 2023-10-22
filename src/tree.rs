@@ -8,7 +8,7 @@ use {
             wl_surface::WlSurface,
         },
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         utils::numcell::NumCell,
         xkbcommon::ModifierState,
     },

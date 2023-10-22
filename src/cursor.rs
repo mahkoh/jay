@@ -2,8 +2,9 @@ use {
     crate::{
         fixed::Fixed,
         format::ARGB8888,
+        gfx_apis::gl::{RenderContext, RenderError, Texture},
         rect::Rect,
-        render::{RenderContext, RenderError, Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         time::Time,

@@ -1,11 +1,11 @@
 use {
     crate::{
+        gfx_apis::gl::RenderContext,
         ifs::wl_seat::POINTER,
         portal::{
             ptl_render_ctx::PortalRenderCtx, ptl_screencast::ScreencastSession,
             ptr_gui::WindowData, PortalState,
         },
-        render::RenderContext,
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, oserror::OsError,

@@ -5,7 +5,7 @@ use {
         ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
         leaks::Tracker,
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         scale::Scale,
         tree::{Node, NodeVisitorBase, OutputNode},
     },

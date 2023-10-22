@@ -1,6 +1,7 @@
 use {
     crate::{
         format::ARGB8888,
+        gfx_apis::gl::{RenderContext, RenderError, Texture},
         pango::{
             consts::{
                 CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
@@ -9,7 +10,6 @@ use {
             PangoLayout,
         },
         rect::Rect,
-        render::{RenderContext, RenderError, Texture},
         theme::Color,
     },
     std::{ops::Neg, rc::Rc},

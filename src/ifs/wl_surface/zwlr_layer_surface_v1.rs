@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
         utils::{
             bitflags::BitflagsExt,

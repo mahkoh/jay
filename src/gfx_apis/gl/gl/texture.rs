@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        render::{
+        gfx_apis::gl::{
             egl::{context::EglContext, image::EglImage, PROCS},
             ext::GlExt,
             gl::sys::{
@@ -17,7 +17,7 @@ use {
 };
 
 pub struct GlTexture {
-    pub(super) ctx: Rc<EglContext>,
+    pub(crate) ctx: Rc<EglContext>,
     pub img: Option<Rc<EglImage>>,
     pub tex: GLuint,
     pub width: i32,

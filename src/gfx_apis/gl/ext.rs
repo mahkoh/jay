@@ -1,6 +1,6 @@
 use {
     crate::{
-        render::{
+        gfx_apis::gl::{
             egl::sys::{eglQueryString, EGLDisplay, EGL_EXTENSIONS},
             gl::sys::{glGetString, GL_EXTENSIONS},
         },
@@ -82,7 +82,7 @@ bitflags::bitflags! {
     }
 }
 
-pub(super) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
+pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
     let map = [
         ("EGL_KHR_image_base", DisplayExt::KHR_IMAGE_BASE),
         (

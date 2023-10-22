@@ -1,11 +1,11 @@
 use {
     crate::{
         client::{Client, ClientError},
+        gfx_apis::gl::RenderError,
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
         object::Object,
-        render::RenderError,
         utils::buffd::{MsgParser, MsgParserError},
         video::{
             dmabuf::{DmaBuf, DmaBufPlane},
