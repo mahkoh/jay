@@ -3,8 +3,10 @@ use {
         format::Format,
         rect::Rect,
         render::{
-            gl::frame_buffer::GlFrameBuffer,
-            renderer::{context::RenderContext, gfx_apis::gl},
+            gfx_api::Clear,
+            renderer::gfx_api::{
+                AbsoluteRect, BufferPoint, BufferPoints, CopyTexture, FillRect, GfxApiOpt,
+            },
             Texture,
         },
         scale::Scale,
@@ -14,8 +16,7 @@ use {
 };
 
 pub struct RendererBase<'a> {
-    pub(super) ctx: &'a Rc<RenderContext>,
-    pub(super) fb: &'a GlFrameBuffer,
+    pub(super) ops: &'a mut Vec<GfxApiOpt>,
     pub(super) scaled: bool,
     pub(super) scale: Scale,
     pub(super) scalef: f64,
@@ -24,10 +25,6 @@ pub struct RendererBase<'a> {
 impl RendererBase<'_> {
     pub fn scale(&self) -> Scale {
         self.scale
-    }
-
-    pub fn physical_extents(&self) -> Rect {
-        Rect::new_sized(0, 0, self.fb.width, self.fb.height).unwrap()
     }
 
     pub fn scale_point(&self, mut x: i32, mut y: i32) -> (i32, i32) {
@@ -68,112 +65,138 @@ impl RendererBase<'_> {
         rect
     }
 
-    fn xf_to_f(&self, x: f32) -> f32 {
-        2.0 * (x / self.fb.width as f32) - 1.0
+    pub fn clear(&mut self, c: &Color) {
+        self.ops.push(GfxApiOpt::Clear(Clear { color: *c }))
     }
 
-    fn yf_to_f(&self, y: f32) -> f32 {
-        2.0 * (y / self.fb.height as f32) - 1.0
-    }
-
-    fn x_to_f(&self, x: i32) -> f32 {
-        2.0 * (x as f32 / self.fb.width as f32) - 1.0
-    }
-
-    fn y_to_f(&self, y: i32) -> f32 {
-        2.0 * (y as f32 / self.fb.height as f32) - 1.0
-    }
-
-    pub fn clear(&self, c: &Color) {
-        gl::clear(c);
-    }
-
-    pub fn fill_boxes(&self, boxes: &[Rect], color: &Color) {
+    pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color) {
         self.fill_boxes2(boxes, color, 0, 0);
     }
 
-    pub fn fill_boxes2(&self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
+    pub fn fill_boxes2(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
         if boxes.is_empty() {
             return;
         }
         let (dx, dy) = self.scale_point(dx, dy);
-        let mut pos = Vec::with_capacity(boxes.len() * 12);
         for bx in boxes {
             let bx = self.scale_rect(*bx);
-            let x1 = self.x_to_f(bx.x1() + dx);
-            let y1 = self.y_to_f(bx.y1() + dy);
-            let x2 = self.x_to_f(bx.x2() + dx);
-            let y2 = self.y_to_f(bx.y2() + dy);
-            pos.extend_from_slice(&[
-                // triangle 1
-                x2, y1, // top right
-                x1, y1, // top left
-                x1, y2, // bottom left
-                // triangle 2
-                x2, y1, // top right
-                x1, y2, // bottom left
-                x2, y2, // bottom right
-            ]);
+            self.ops.push(GfxApiOpt::FillRect(FillRect {
+                rect: AbsoluteRect {
+                    x1: (bx.x1() + dx) as f32,
+                    y1: (bx.y1() + dy) as f32,
+                    x2: (bx.x2() + dx) as f32,
+                    y2: (bx.y2() + dy) as f32,
+                },
+                color: *color,
+            }));
         }
-        self.fill_boxes3(&pos, color)
     }
 
-    pub fn fill_boxes_f(&self, boxes: &[(f32, f32, f32, f32)], color: &Color) {
+    pub fn fill_boxes_f(&mut self, boxes: &[(f32, f32, f32, f32)], color: &Color) {
         self.fill_boxes2_f(boxes, color, 0.0, 0.0);
     }
 
-    pub fn fill_boxes2_f(&self, boxes: &[(f32, f32, f32, f32)], color: &Color, dx: f32, dy: f32) {
+    pub fn fill_boxes2_f(
+        &mut self,
+        boxes: &[(f32, f32, f32, f32)],
+        color: &Color,
+        dx: f32,
+        dy: f32,
+    ) {
         if boxes.is_empty() {
             return;
         }
         let (dx, dy) = self.scale_point_f(dx, dy);
-        let mut pos = Vec::with_capacity(boxes.len() * 12);
         for bx in boxes {
             let (x1, y1, x2, y2) = self.scale_rect_f(*bx);
-            let x1 = self.xf_to_f(x1 + dx);
-            let y1 = self.yf_to_f(y1 + dy);
-            let x2 = self.xf_to_f(x2 + dx);
-            let y2 = self.yf_to_f(y2 + dy);
-            pos.extend_from_slice(&[
-                // triangle 1
-                x2, y1, // top right
-                x1, y1, // top left
-                x1, y2, // bottom left
-                // triangle 2
-                x2, y1, // top right
-                x1, y2, // bottom left
-                x2, y2, // bottom right
-            ]);
+            self.ops.push(GfxApiOpt::FillRect(FillRect {
+                rect: AbsoluteRect {
+                    x1: x1 + dx,
+                    y1: y1 + dy,
+                    x2: x2 + dx,
+                    y2: y2 + dy,
+                },
+                color: *color,
+            }));
         }
-        self.fill_boxes3(&pos, color)
-    }
-
-    fn fill_boxes3(&self, boxes: &[f32], color: &Color) {
-        gl::fill_boxes3(&self.ctx, boxes, color);
     }
 
     pub fn render_texture(
         &mut self,
-        texture: &Texture,
+        texture: &Rc<Texture>,
         x: i32,
         y: i32,
-        format: &Format,
-        tpoints: Option<&[f32; 8]>,
+        format: &'static Format,
+        tpoints: Option<BufferPoints>,
         tsize: Option<(i32, i32)>,
         tscale: Scale,
+        max_width: i32,
+        max_height: i32,
     ) {
-        gl::render_texture(
-            &self.ctx,
-            &self.fb,
-            texture,
-            x,
-            y,
+        let mut texcoord = tpoints.unwrap_or(BufferPoints {
+            top_left: BufferPoint { x: 0.0, y: 0.0 },
+            top_right: BufferPoint { x: 1.0, y: 0.0 },
+            bottom_left: BufferPoint { x: 0.0, y: 1.0 },
+            bottom_right: BufferPoint { x: 1.0, y: 1.0 },
+        });
+
+        let (twidth, theight) = if let Some(size) = tsize {
+            size
+        } else {
+            let (mut w, mut h) = (texture.gl.width, texture.gl.height);
+            if tscale != self.scale {
+                let tscale = tscale.to_f64();
+                w = (w as f64 * self.scalef / tscale).round() as _;
+                h = (h as f64 * self.scalef / tscale).round() as _;
+            }
+            (w, h)
+        };
+
+        macro_rules! clamp {
+            ($desired:ident, $max:ident, $([$far:ident, $near:ident]),*) => {
+                if $desired > $max {
+                    let $desired = $desired as f32;
+                    let $max = $max as f32;
+                    let factor = $max / $desired;
+                    $(
+                        let dx = (texcoord.$far.x - texcoord.$near.x) * factor;
+                        texcoord.$far.x = texcoord.$near.x + dx;
+                        let dy = (texcoord.$far.y - texcoord.$near.y) * factor;
+                        texcoord.$far.y = texcoord.$near.y + dy;
+                    )*
+                    $max
+                } else {
+                    $desired as f32
+                }
+            };
+        }
+
+        let twidth = clamp!(
+            twidth,
+            max_width,
+            [top_right, top_left],
+            [bottom_right, bottom_left]
+        );
+        let theight = clamp!(
+            theight,
+            max_height,
+            [bottom_left, top_left],
+            [bottom_right, top_right]
+        );
+
+        let x = x as f32;
+        let y = y as f32;
+
+        self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
+            tex: texture.clone(),
             format,
-            tpoints,
-            tsize,
-            tscale,
-            self.scale,
-            self.scalef,
-        )
+            source: texcoord,
+            target: AbsoluteRect {
+                x1: x,
+                y1: y,
+                x2: x + twidth,
+                y2: y + theight,
+            },
+        }));
     }
 }

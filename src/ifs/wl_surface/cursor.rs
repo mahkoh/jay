@@ -76,16 +76,28 @@ impl Cursor for CursorSurface {
                 let (hot_x, hot_y) = (Fixed::from_int(hot_x), Fixed::from_int(hot_y));
                 let x = ((x - hot_x).to_f64() * scale).round() as _;
                 let y = ((y - hot_y).to_f64() * scale).round() as _;
-                renderer.render_surface_scaled(&self.surface, x, y, None);
+                renderer.render_surface_scaled(&self.surface, x, y, None, i32::MAX, i32::MAX);
             } else {
-                renderer.render_surface(&self.surface, x_int - hot_x, y_int - hot_y);
+                renderer.render_surface(
+                    &self.surface,
+                    x_int - hot_x,
+                    y_int - hot_y,
+                    i32::MAX,
+                    i32::MAX,
+                );
             }
         }
     }
 
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         let extents = self.surface.extents.get();
-        renderer.render_surface(&self.surface, -extents.x1(), -extents.y1());
+        renderer.render_surface(
+            &self.surface,
+            -extents.x1(),
+            -extents.y1(),
+            i32::MAX,
+            i32::MAX,
+        );
 
         struct FrameRequests;
         impl NodeVisitorBase for FrameRequests {

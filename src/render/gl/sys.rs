@@ -28,7 +28,6 @@ pub const GL_FRAMEBUFFER: GLenum = 0x8D40;
 pub const GL_LINEAR: GLint = 0x2601;
 pub const GL_LINK_STATUS: GLenum = 0x8B82;
 pub const GL_RENDERBUFFER: GLenum = 0x8D41;
-pub const GL_SCISSOR_TEST: GLenum = 0x0C11;
 pub const GL_TEXTURE0: GLenum = 0x84C0;
 pub const GL_TEXTURE_2D: GLenum = 0x0DE1;
 pub const GL_TEXTURE_EXTERNAL_OES: GLenum = 0x8D65;
@@ -106,7 +105,6 @@ extern "C" {
         pixels: *const c::c_void,
     );
 
-    pub fn glScissor(x: GLint, y: GLint, width: GLsizei, height: GLsizei);
     pub fn glEnable(cap: GLenum);
     pub fn glDisable(cap: GLenum);
     pub fn glViewport(x: GLint, y: GLint, width: GLsizei, height: GLsizei);

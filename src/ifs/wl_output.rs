@@ -199,7 +199,7 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Rc<Texture>) {
         if self.pending_captures.is_empty() {
             return;
         }

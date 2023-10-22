@@ -147,7 +147,7 @@ impl JayScreencast {
         });
     }
 
-    pub fn copy_texture(&self, on: &OutputNode, texture: &Texture) {
+    pub fn copy_texture(&self, on: &OutputNode, texture: &Rc<Texture>) {
         if !self.running.get() {
             return;
         }

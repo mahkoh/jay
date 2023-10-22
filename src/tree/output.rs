@@ -77,7 +77,7 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
-    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Rc<Texture>) {
         if let Some(workspace) = self.workspace.get() {
             if !workspace.capture.get() {
                 return;
@@ -620,7 +620,14 @@ impl Node for OutputNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_output(self, x, y);
     }
 

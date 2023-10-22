@@ -1,29 +1,129 @@
-use crate::{
-    format::Format,
-    render::{
-        gl::{frame_buffer::GlFrameBuffer, texture::image_target},
-        sys::{
-            glActiveTexture, glBindTexture, glClear, glClearColor, glDisable,
-            glDisableVertexAttribArray, glDrawArrays, glEnable, glEnableVertexAttribArray,
-            glTexParameteri, glUniform1i, glUniform4f, glUseProgram, glVertexAttribPointer,
-            GL_BLEND, GL_COLOR_BUFFER_BIT, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0,
-            GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
+use {
+    crate::{
+        format::Format,
+        render::{
+            gfx_api::{BufferPoints, CopyTexture, FillRect, GfxApiOpt},
+            gl::texture::image_target,
+            sys::{
+                glActiveTexture, glBindTexture, glClear, glClearColor, glDisable,
+                glDisableVertexAttribArray, glDrawArrays, glEnable, glEnableVertexAttribArray,
+                glTexParameteri, glUniform1i, glUniform4f, glUseProgram, glVertexAttribPointer,
+                GL_BLEND, GL_COLOR_BUFFER_BIT, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0,
+                GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
+            },
+            Framebuffer, RenderContext, Texture,
         },
-        RenderContext, Texture,
+        theme::Color,
+        utils::{rc_eq::rc_eq, vecstorage::VecStorage},
     },
-    scale::Scale,
-    theme::Color,
-    utils::rc_eq::rc_eq,
+    isnt::std_1::vec::IsntVecExt,
+    std::cell::RefCell,
 };
 
-pub fn clear(c: &Color) {
+#[derive(Default)]
+pub struct GfxGlState {
+    triangles: RefCell<Vec<f32>>,
+    fill_rect: VecStorage<&'static FillRect>,
+    copy_tex: VecStorage<&'static CopyTexture>,
+}
+
+pub fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
+    let mut state = fb.ctx.gl_state.borrow_mut();
+    let state = &mut *state;
+    let mut fill_rect = state.fill_rect.take();
+    let fill_rect = &mut *fill_rect;
+    let mut copy_tex = state.copy_tex.take();
+    let copy_tex = &mut *copy_tex;
+    let mut triangles = state.triangles.borrow_mut();
+    let triangles = &mut *triangles;
+    let width = fb.gl.width as f32;
+    let height = fb.gl.height as f32;
+    let mut i = 0;
+    while i < ops.len() {
+        macro_rules! has_ops {
+            () => {
+                fill_rect.is_not_empty() || copy_tex.is_not_empty()
+            };
+        }
+        fill_rect.clear();
+        copy_tex.clear();
+        while i < ops.len() {
+            match &ops[i] {
+                GfxApiOpt::Sync => {
+                    i += 1;
+                    if has_ops!() {
+                        break;
+                    }
+                }
+                GfxApiOpt::Clear(c) => {
+                    if has_ops!() {
+                        break;
+                    }
+                    clear(&c.color);
+                    i += 1;
+                }
+                GfxApiOpt::FillRect(f) => {
+                    fill_rect.push(f);
+                    i += 1;
+                }
+                GfxApiOpt::CopyTexture(c) => {
+                    copy_tex.push(c);
+                    i += 1;
+                }
+            }
+        }
+        if fill_rect.is_not_empty() {
+            fill_rect.sort_unstable_by_key(|f| f.color);
+            let mut i = 0;
+            while i < fill_rect.len() {
+                triangles.clear();
+                let mut color = None;
+                while i < fill_rect.len() {
+                    let fr = fill_rect[i];
+                    match color {
+                        None => color = Some(fr.color),
+                        Some(c) if c == fr.color => {}
+                        _ => break,
+                    }
+                    let x1 = 2.0 * (fr.rect.x1 / width) - 1.0;
+                    let x2 = 2.0 * (fr.rect.x2 / width) - 1.0;
+                    let y1 = 2.0 * (fr.rect.y1 / height) - 1.0;
+                    let y2 = 2.0 * (fr.rect.y2 / height) - 1.0;
+                    triangles.extend_from_slice(&[
+                        // triangle 1
+                        x2, y1, // top right
+                        x1, y1, // top left
+                        x1, y2, // bottom left
+                        // triangle 2
+                        x2, y1, // top right
+                        x1, y2, // bottom left
+                        x2, y2, // bottom right
+                    ]);
+                    i += 1;
+                }
+                if let Some(color) = color {
+                    fill_boxes3(&fb.ctx, triangles, &color);
+                }
+            }
+        }
+        for tex in &*copy_tex {
+            let x1 = 2.0 * (tex.target.x1 / width) - 1.0;
+            let y1 = 2.0 * (tex.target.y1 / height) - 1.0;
+            let x2 = 2.0 * (tex.target.x2 / width) - 1.0;
+            let y2 = 2.0 * (tex.target.y2 / height) - 1.0;
+            render_texture(&fb.ctx, &tex.tex, tex.format, x1, y1, x2, y2, &tex.source)
+        }
+    }
+}
+
+fn clear(c: &Color) {
     unsafe {
         glClearColor(c.r, c.g, c.b, c.a);
         glClear(GL_COLOR_BUFFER_BIT);
     }
 }
 
-pub fn fill_boxes3(ctx: &RenderContext, boxes: &[f32], color: &Color) {
+fn fill_boxes3(ctx: &RenderContext, boxes: &[f32], color: &Color) {
     unsafe {
         glUseProgram(ctx.fill_prog.prog);
         glUniform4f(ctx.fill_prog_color, color.r, color.g, color.b, color.a);
@@ -41,18 +141,15 @@ pub fn fill_boxes3(ctx: &RenderContext, boxes: &[f32], color: &Color) {
     }
 }
 
-pub fn render_texture(
+fn render_texture(
     ctx: &RenderContext,
-    fb: &GlFrameBuffer,
     texture: &Texture,
-    x: i32,
-    y: i32,
     format: &Format,
-    tpoints: Option<&[f32; 8]>,
-    tsize: Option<(i32, i32)>,
-    tscale: Scale,
-    scale: Scale,
-    scalef: f64,
+    x1: f32,
+    y1: f32,
+    x2: f32,
+    y2: f32,
+    src: &BufferPoints,
 ) {
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
     unsafe {
@@ -88,34 +185,18 @@ pub fn render_texture(
 
         glUniform1i(prog.tex, 0);
 
-        static DEFAULT_TEXCOORD: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+        let texcoord = [
+            src.top_right.x,
+            src.top_right.y,
+            src.top_left.x,
+            src.top_left.y,
+            src.bottom_right.x,
+            src.bottom_right.y,
+            src.bottom_left.x,
+            src.bottom_left.y,
+        ];
 
-        let texcoord: &[f32; 8] = match tpoints {
-            None => &DEFAULT_TEXCOORD,
-            Some(tp) => tp,
-        };
-
-        let f_width = fb.width as f32;
-        let f_height = fb.height as f32;
-
-        let (twidth, theight) = if let Some(size) = tsize {
-            size
-        } else {
-            let (mut w, mut h) = (texture.gl.width, texture.gl.height);
-            if tscale != scale {
-                let tscale = tscale.to_f64();
-                w = (w as f64 * scalef / tscale).round() as _;
-                h = (h as f64 * scalef / tscale).round() as _;
-            }
-            (w, h)
-        };
-
-        let x1 = 2.0 * (x as f32 / f_width) - 1.0;
-        let y1 = 2.0 * (y as f32 / f_height) - 1.0;
-        let x2 = 2.0 * ((x + twidth) as f32 / f_width) - 1.0;
-        let y2 = 2.0 * ((y + theight) as f32 / f_height) - 1.0;
-
-        let pos: [f32; 8] = [
+        let pos = [
             x2, y1, // top right
             x1, y1, // top left
             x2, y2, // bottom right

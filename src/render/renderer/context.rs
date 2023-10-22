@@ -7,10 +7,11 @@ use {
                 display::{EglDisplay, EglFormat},
             },
             ext::GlExt,
+            gfx_api::GfxApiOpt,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
             },
-            renderer::{framebuffer::Framebuffer, image::Image},
+            renderer::{framebuffer::Framebuffer, gfx_apis::gl::GfxGlState, image::Image},
             RenderError, Texture,
         },
         video::{
@@ -21,7 +22,7 @@ use {
     },
     ahash::AHashMap,
     std::{
-        cell::Cell,
+        cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
         rc::Rc,
@@ -64,6 +65,9 @@ pub struct RenderContext {
     pub(super) fill_prog: GlProgram,
     pub(super) fill_prog_pos: GLint,
     pub(super) fill_prog_color: GLint,
+
+    pub(super) gfx_ops: RefCell<Vec<GfxApiOpt>>,
+    pub(super) gl_state: RefCell<GfxGlState>,
 }
 
 impl Debug for RenderContext {
@@ -153,6 +157,9 @@ impl RenderContext {
             fill_prog_pos: fill_prog.get_attrib_location(ustr!("pos")),
             fill_prog_color: fill_prog.get_uniform_location(ustr!("color")),
             fill_prog,
+
+            gfx_ops: Default::default(),
+            gl_state: Default::default(),
         })
     }
 
