@@ -1,7 +1,7 @@
 use {
     crate::{
         format::XRGB8888,
-        gfx_apis::gl::RenderError,
+        gfx_api::GfxError,
         scale::Scale,
         state::State,
         video::{
@@ -24,7 +24,7 @@ pub enum ScreenshooterError {
     #[error(transparent)]
     GbmError(#[from] GbmError),
     #[error(transparent)]
-    RenderError(#[from] RenderError),
+    RenderError(#[from] GfxError),
     #[error(transparent)]
     DrmError(#[from] DrmError),
 }
@@ -47,13 +47,14 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         format: XRGB8888,
         modifier: INVALID_MODIFIER,
     };
-    let bo = ctx.gbm.create_bo(
+    let gbm = ctx.gbm();
+    let bo = gbm.create_bo(
         extents.width(),
         extents.height(),
         &format,
         GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR,
     )?;
-    let fb = ctx.dmabuf_fb(bo.dmabuf())?;
+    let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;
     fb.render(
         state.root.deref(),
         state,
@@ -63,6 +64,6 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         Scale::from_int(1),
         true,
     );
-    let drm = ctx.gbm.drm.dup_render()?.fd().clone();
+    let drm = gbm.drm.dup_render()?.fd().clone();
     Ok(Screenshot { drm, bo })
 }

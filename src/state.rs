@@ -13,7 +13,7 @@ use {
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
         forker::ForkerProxy,
-        gfx_apis::gl::RenderContext,
+        gfx_api::GfxContext,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
@@ -69,7 +69,7 @@ pub struct State {
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
-    pub render_ctx: CloneCell<Option<Rc<RenderContext>>>,
+    pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -305,8 +305,8 @@ impl State {
         }
     }
 
-    pub fn set_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
-        self.render_ctx.set(ctx.cloned());
+    pub fn set_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
+        self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
 
@@ -364,7 +364,7 @@ impl State {
         }
 
         for watcher in self.render_ctx_watchers.lock().values() {
-            watcher.send_render_ctx(ctx);
+            watcher.send_render_ctx(ctx.clone());
         }
 
         let mut scs = vec![];

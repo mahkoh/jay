@@ -9,7 +9,8 @@ use {
         },
         compositor::TestFuture,
         fixed::Fixed,
-        gfx_apis::gl::{RenderContext, RenderError},
+        gfx_api::GfxError,
+        gfx_apis::create_gfx_context,
         it::test_error::TestResult,
         state::State,
         time::now_usec,
@@ -33,7 +34,7 @@ pub enum TestBackendError {
     #[error("Could not open drm node {0}")]
     OpenDrmNode(String, #[source] OsError),
     #[error("Could not create a render context")]
-    RenderContext(#[source] RenderError),
+    RenderContext(#[source] GfxError),
 }
 
 pub struct TestBackend {
@@ -177,11 +178,11 @@ impl TestBackend {
             }
         };
         let drm = Drm::open_existing(file);
-        let ctx = match RenderContext::from_drm_device(&drm) {
+        let ctx = match create_gfx_context(&drm) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };
-        self.state.set_render_ctx(Some(&Rc::new(ctx)));
+        self.state.set_render_ctx(Some(ctx));
         Ok(())
     }
 }

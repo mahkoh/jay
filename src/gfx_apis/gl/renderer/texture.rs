@@ -1,14 +1,18 @@
 use {
-    crate::gfx_apis::gl::{gl::texture::GlTexture, renderer::context::RenderContext},
+    crate::{
+        gfx_api::GfxTexture,
+        gfx_apis::gl::{gl::texture::GlTexture, renderer::context::GlRenderContext},
+    },
     std::{
+        any::Any,
         fmt::{Debug, Formatter},
         rc::Rc,
     },
 };
 
 pub struct Texture {
-    pub(crate) ctx: Rc<RenderContext>,
-    pub(crate) gl: GlTexture,
+    pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,
+    pub(in crate::gfx_apis::gl) gl: GlTexture,
 }
 
 impl Debug for Texture {
@@ -24,5 +28,19 @@ impl Texture {
 
     pub fn height(&self) -> i32 {
         self.gl.height
+    }
+}
+
+impl GfxTexture for Texture {
+    fn width(&self) -> i32 {
+        self.width()
+    }
+
+    fn height(&self) -> i32 {
+        self.height()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }

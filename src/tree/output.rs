@@ -4,7 +4,7 @@ use {
         client::ClientId,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_apis::gl::{Framebuffer, Texture},
+        gfx_api::{GfxFramebuffer, GfxTexture},
         ifs::{
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
@@ -78,7 +78,7 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
-    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Rc<Texture>) {
+    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
         if let Some(workspace) = self.workspace.get() {
             if !workspace.capture.get() {
                 return;
@@ -465,14 +465,14 @@ pub struct OutputTitle {
     pub x2: i32,
     pub tex_x: i32,
     pub tex_y: i32,
-    pub tex: Rc<Texture>,
+    pub tex: Rc<dyn GfxTexture>,
     pub ws: Rc<WorkspaceNode>,
 }
 
 pub struct OutputStatus {
     pub tex_x: i32,
     pub tex_y: i32,
-    pub tex: Rc<Texture>,
+    pub tex: Rc<dyn GfxTexture>,
 }
 
 #[derive(Copy, Clone)]

@@ -3,7 +3,7 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_apis::gl::Texture,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{
             collect_kb_foci, collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId,
             WlSeatGlobal, BTN_LEFT,
@@ -77,7 +77,7 @@ tree_id!(ContainerNodeId);
 pub struct ContainerTitle {
     pub x: i32,
     pub y: i32,
-    pub tex: Rc<Texture>,
+    pub tex: Rc<dyn GfxTexture>,
 }
 
 #[derive(Default)]

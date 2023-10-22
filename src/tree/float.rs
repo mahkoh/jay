@@ -3,7 +3,7 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_apis::gl::Texture,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
         rect::Rect,
         renderer::Renderer,
@@ -44,7 +44,7 @@ pub struct FloatNode {
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
-    pub title_textures: CopyHashMap<Scale, Rc<Texture>>,
+    pub title_textures: CopyHashMap<Scale, Rc<dyn GfxTexture>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
 }
 

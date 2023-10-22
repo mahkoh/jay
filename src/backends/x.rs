@@ -9,7 +9,8 @@ use {
         },
         fixed::Fixed,
         format::XRGB8888,
-        gfx_apis::gl::{Framebuffer, RenderContext, RenderError, Texture},
+        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
+        gfx_apis::create_gfx_context,
         renderer::RenderResult,
         state::State,
         time::now_usec,
@@ -89,14 +90,14 @@ pub enum XBackendError {
     GbmError(#[from] GbmError),
     #[error("Could not import a dma-buf")]
     ImportBuffer(#[source] XconError),
-    #[error("Could not create an EGL context")]
-    CreateEgl(#[source] RenderError),
-    #[error("Could not create an EGL image from a dma-buf")]
-    CreateImage(#[source] RenderError),
-    #[error("Could not create a framebuffer from an EGL image")]
-    CreateFramebuffer(#[source] RenderError),
-    #[error("Could not create a texture from an EGL image")]
-    CreateTexture(#[source] RenderError),
+    #[error("Could not create a graphics API context")]
+    CreateEgl(#[source] GfxError),
+    #[error("Could not create an graphics API image from a dma-buf")]
+    CreateImage(#[source] GfxError),
+    #[error("Could not create a framebuffer from a graphics API image")]
+    CreateFramebuffer(#[source] GfxError),
+    #[error("Could not create a texture from an graphics API image")]
+    CreateTexture(#[source] GfxError),
     #[error("Could not select input events")]
     CannotSelectInputEvents(#[source] XconError),
     #[error("Could not select present events")]
@@ -178,8 +179,8 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         Err(e) => return Err(XBackendError::DrmDeviceFstat(e)),
     };
     let gbm = GbmDevice::new(&drm)?;
-    let ctx = match RenderContext::from_drm_device(&drm) {
-        Ok(r) => Rc::new(r),
+    let ctx = match create_gfx_context(&drm) {
+        Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
     };
     let cursor = {
@@ -266,7 +267,7 @@ pub struct XBackend {
     outputs: CopyHashMap<u32, Rc<XOutput>>,
     seats: CopyHashMap<u16, Rc<XSeat>>,
     mouse_seats: CopyHashMap<u16, Rc<XSeat>>,
-    ctx: Rc<RenderContext>,
+    ctx: Rc<dyn GfxContext>,
     gbm: GbmDevice,
     cursor: u32,
     root: u32,
@@ -288,7 +289,7 @@ impl XBackend {
             .eng
             .spawn2(Phase::Present, self.clone().present_handler());
 
-        self.state.set_render_ctx(Some(&self.ctx));
+        self.state.set_render_ctx(Some(self.ctx.clone()));
         self.state
             .backend_events
             .push(BackendEvent::NewDrmDevice(Rc::new(XDrmDevice {
@@ -388,11 +389,11 @@ impl XBackend {
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();
             let size = plane.stride * dma.height as u32;
-            let img = match self.ctx.dmabuf_img(dma) {
+            let img = match self.ctx.clone().dmabuf_img(dma) {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateImage(e)),
             };
-            let fb = match img.to_framebuffer() {
+            let fb = match img.clone().to_framebuffer() {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateFramebuffer(e)),
             };
@@ -735,7 +736,7 @@ impl XBackend {
                 fr.send_done();
                 let _ = fr.client.remove_obj(&*fr);
             }
-            node.perform_screencopies(&fb, &image.tex.get());
+            node.perform_screencopies(&*fb, &image.tex.get());
         }
 
         let pp = PresentPixmap {
@@ -989,8 +990,8 @@ struct XOutput {
 
 struct XImage {
     pixmap: Cell<u32>,
-    fb: CloneCell<Rc<Framebuffer>>,
-    tex: CloneCell<Rc<Texture>>,
+    fb: CloneCell<Rc<dyn GfxFramebuffer>>,
+    tex: CloneCell<Rc<dyn GfxTexture>>,
     idle: Cell<bool>,
     render_on_idle: Cell<bool>,
     last_serial: Cell<u32>,

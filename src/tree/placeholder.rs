@@ -3,7 +3,7 @@ use {
         client::Client,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_apis::gl::Texture,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
         renderer::Renderer,
@@ -25,7 +25,7 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    pub textures: SmallMap<Scale, Rc<Texture>, 2>,
+    pub textures: SmallMap<Scale, Rc<dyn GfxTexture>, 2>,
 }
 
 impl PlaceholderNode {

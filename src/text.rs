@@ -1,7 +1,7 @@
 use {
     crate::{
         format::ARGB8888,
-        gfx_apis::gl::{RenderContext, RenderError, Texture},
+        gfx_api::{GfxContext, GfxError, GfxTexture},
         pango::{
             consts::{
                 CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, PANGO_ELLIPSIZE_END, PANGO_SCALE,
@@ -27,7 +27,7 @@ pub enum TextError {
     #[error("Could not create a pango layout")]
     CreateLayout(#[source] PangoError),
     #[error("Could not import the rendered text")]
-    RenderError(#[source] RenderError),
+    RenderError(#[source] GfxError),
     #[error("Could not access the cairo image data")]
     ImageData(#[source] PangoError),
 }
@@ -94,21 +94,21 @@ pub fn measure(
 }
 
 pub fn render(
-    ctx: &Rc<RenderContext>,
+    ctx: &Rc<dyn GfxContext>,
     width: i32,
     height: i32,
     font: &str,
     text: &str,
     color: Color,
     scale: Option<f64>,
-) -> Result<Rc<Texture>, TextError> {
+) -> Result<Rc<dyn GfxTexture>, TextError> {
     render2(
         ctx, 1, None, width, height, 1, font, text, color, true, false, scale,
     )
 }
 
 fn render2(
-    ctx: &Rc<RenderContext>,
+    ctx: &Rc<dyn GfxContext>,
     x: i32,
     y: Option<i32>,
     width: i32,
@@ -120,7 +120,7 @@ fn render2(
     ellipsize: bool,
     markup: bool,
     scale: Option<f64>,
-) -> Result<Rc<Texture>, TextError> {
+) -> Result<Rc<dyn GfxTexture>, TextError> {
     let data = create_data(font, width, height, scale)?;
     if ellipsize {
         data.layout
@@ -144,21 +144,24 @@ fn render2(
         Ok(d) => d,
         Err(e) => return Err(TextError::ImageData(e)),
     };
-    match ctx.shmem_texture(bytes, ARGB8888, width, height, data.image.stride()) {
+    match ctx
+        .clone()
+        .shmem_texture(bytes, ARGB8888, width, height, data.image.stride())
+    {
         Ok(t) => Ok(t),
         Err(e) => Err(TextError::RenderError(e)),
     }
 }
 
 pub fn render_fitting(
-    ctx: &Rc<RenderContext>,
+    ctx: &Rc<dyn GfxContext>,
     height: Option<i32>,
     font: &str,
     text: &str,
     color: Color,
     markup: bool,
     scale: Option<f64>,
-) -> Result<Rc<Texture>, TextError> {
+) -> Result<Rc<dyn GfxTexture>, TextError> {
     render_fitting2(ctx, height, font, text, color, markup, scale, false).map(|(a, _)| a)
 }
 
@@ -170,7 +173,7 @@ pub struct TextMeasurement {
 }
 
 pub fn render_fitting2(
-    ctx: &Rc<RenderContext>,
+    ctx: &Rc<dyn GfxContext>,
     height: Option<i32>,
     font: &str,
     text: &str,
@@ -178,7 +181,7 @@ pub fn render_fitting2(
     markup: bool,
     scale: Option<f64>,
     include_measurements: bool,
-) -> Result<(Rc<Texture>, TextMeasurement), TextError> {
+) -> Result<(Rc<dyn GfxTexture>, TextMeasurement), TextError> {
     let measurement = measure(font, text, markup, scale, include_measurements)?;
     let y = match height {
         Some(_) => None,

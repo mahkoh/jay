@@ -18,13 +18,15 @@ macro_rules! egl_transparent {
     };
 }
 
-pub use renderer::*;
 use {
     crate::{
         format::Format,
-        gfx_api::{BufferPoints, CopyTexture, FillRect, GfxApiOpt},
+        gfx_api::{
+            BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
+        },
         gfx_apis::gl::{
             gl::texture::image_target,
+            renderer::{context::GlRenderContext, framebuffer::Framebuffer, texture::Texture},
             sys::{
                 glActiveTexture, glBindTexture, glClear, glClearColor, glDisable,
                 glDisableVertexAttribArray, glDrawArrays, glEnable, glEnableVertexAttribArray,
@@ -35,10 +37,14 @@ use {
         },
         theme::Color,
         utils::{rc_eq::rc_eq, vecstorage::VecStorage},
-        video::{drm::DrmError, gbm::GbmError},
+        video::{
+            drm::{Drm, DrmError},
+            gbm::GbmError,
+        },
     },
     isnt::std_1::vec::IsntVecExt,
-    std::cell::RefCell,
+    once_cell::sync::Lazy,
+    std::{cell::RefCell, rc::Rc, sync::Arc},
     thiserror::Error,
 };
 
@@ -52,12 +58,19 @@ pub mod sys {
     pub use super::{egl::sys::*, gl::sys::*};
 }
 
-pub fn init() -> Result<(), RenderError> {
-    egl::init()
+static INIT: Lazy<Result<(), Arc<RenderError>>> = Lazy::new(|| egl::init().map_err(Arc::new));
+
+pub(super) fn create_gfx_context(drm: &Drm) -> Result<Rc<dyn GfxContext>, GfxError> {
+    if let Err(e) = &*INIT {
+        return Err(GfxError(Box::new(e.clone())));
+    }
+    GlRenderContext::from_drm_device(drm)
+        .map(|v| Rc::new(v) as Rc<dyn GfxContext>)
+        .map_err(|e| e.into())
 }
 
 #[derive(Debug, Error)]
-pub enum RenderError {
+enum RenderError {
     #[error("EGL library does not support `EGL_EXT_platform_base`")]
     ExtPlatformBase,
     #[error("Could not compile a shader")]
@@ -117,13 +130,13 @@ pub enum RenderError {
 }
 
 #[derive(Default)]
-pub struct GfxGlState {
+struct GfxGlState {
     triangles: RefCell<Vec<f32>>,
     fill_rect: VecStorage<&'static FillRect>,
     copy_tex: VecStorage<&'static CopyTexture>,
 }
 
-pub fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
+fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
     let mut state = fb.ctx.gl_state.borrow_mut();
     let state = &mut *state;
     let mut fill_rect = state.fill_rect.take();
@@ -207,7 +220,16 @@ pub fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
             let y1 = 2.0 * (tex.target.y1 / height) - 1.0;
             let x2 = 2.0 * (tex.target.x2 / width) - 1.0;
             let y2 = 2.0 * (tex.target.y2 / height) - 1.0;
-            render_texture(&fb.ctx, &tex.tex, tex.format, x1, y1, x2, y2, &tex.source)
+            render_texture(
+                &fb.ctx,
+                &tex.tex.as_gl(),
+                tex.format,
+                x1,
+                y1,
+                x2,
+                y2,
+                &tex.source,
+            )
         }
     }
 }
@@ -219,7 +241,7 @@ fn clear(c: &Color) {
     }
 }
 
-fn fill_boxes3(ctx: &RenderContext, boxes: &[f32], color: &Color) {
+fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
     unsafe {
         glUseProgram(ctx.fill_prog.prog);
         glUniform4f(ctx.fill_prog_color, color.r, color.g, color.b, color.a);
@@ -238,7 +260,7 @@ fn fill_boxes3(ctx: &RenderContext, boxes: &[f32], color: &Color) {
 }
 
 fn render_texture(
-    ctx: &RenderContext,
+    ctx: &GlRenderContext,
     texture: &Texture,
     format: &Format,
     x1: f32,
@@ -318,5 +340,19 @@ fn render_texture(
         glDisableVertexAttribArray(prog.pos as _);
 
         glBindTexture(target, 0);
+    }
+}
+
+impl dyn GfxTexture {
+    fn as_gl(&self) -> &Texture {
+        self.as_any()
+            .downcast_ref()
+            .expect("Non-gl texture passed into gl")
+    }
+}
+
+impl From<RenderError> for GfxError {
+    fn from(value: RenderError) -> Self {
+        Self(Box::new(value))
     }
 }

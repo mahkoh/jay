@@ -3,8 +3,8 @@ use {
         format::Format,
         gfx_api::{
             AbsoluteRect, BufferPoint, BufferPoints, Clear, CopyTexture, FillRect, GfxApiOpt,
+            GfxTexture,
         },
-        gfx_apis::gl::Texture,
         rect::Rect,
         scale::Scale,
         theme::Color,
@@ -120,7 +120,7 @@ impl RendererBase<'_> {
 
     pub fn render_texture(
         &mut self,
-        texture: &Rc<Texture>,
+        texture: &Rc<dyn GfxTexture>,
         x: i32,
         y: i32,
         format: &'static Format,

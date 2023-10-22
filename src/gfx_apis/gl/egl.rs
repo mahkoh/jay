@@ -31,7 +31,7 @@ pub(crate) static PROCS: Lazy<ExtProc> = Lazy::new(ExtProc::load);
 
 pub(crate) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
 
-pub fn init() -> Result<(), RenderError> {
+pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
     if !EXTS.contains(ClientExt::EXT_PLATFORM_BASE) {
         return Err(RenderError::ExtPlatformBase);
     }

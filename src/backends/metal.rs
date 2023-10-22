@@ -11,7 +11,7 @@ use {
         },
         backends::metal::video::{MetalDrmDeviceData, MetalRenderContext, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
-        gfx_apis::gl::RenderError,
+        gfx_api::GfxError,
         libinput::{
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
@@ -75,7 +75,7 @@ pub enum MetalError {
     #[error("Could not update the drm properties")]
     UpdateProperties(#[source] DrmError),
     #[error("Could not create a render context")]
-    CreateRenderContex(#[source] RenderError),
+    CreateRenderContex(#[source] GfxError),
     #[error("Cannot initialize connector because no CRTC is available")]
     NoCrtcForConnector,
     #[error("Cannot initialize connector because no primary plane is available")]
@@ -86,12 +86,12 @@ pub enum MetalError {
     ScanoutBuffer(#[source] GbmError),
     #[error("addfb2 failed")]
     Framebuffer(#[source] DrmError),
-    #[error("Could not import a framebuffer into EGL")]
-    ImportFb(#[source] RenderError),
-    #[error("Could not import a texture into EGL")]
-    ImportTexture(#[source] RenderError),
-    #[error("Could not import an image into EGL")]
-    ImportImage(#[source] RenderError),
+    #[error("Could not import a framebuffer into the graphics API")]
+    ImportFb(#[source] GfxError),
+    #[error("Could not import a texture into the graphics API")]
+    ImportTexture(#[source] GfxError),
+    #[error("Could not import an image into the graphics API")]
+    ImportImage(#[source] GfxError),
     #[error("Could not perform modeset")]
     Modeset(#[source] DrmError),
     #[error("Could not enable atomic modesetting")]

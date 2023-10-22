@@ -1,6 +1,7 @@
 use {
     crate::{
         format::{formats, Format},
+        gfx_api::{GfxFormat, GfxModifier},
         gfx_apis::gl::{
             egl::{
                 context::EglContext,
@@ -36,28 +37,15 @@ use {
 };
 
 #[derive(Debug)]
-pub struct EglFormat {
-    pub format: &'static Format,
-    pub implicit_external_only: bool,
-    pub modifiers: AHashMap<u64, EglModifier>,
-}
-
-#[derive(Debug)]
-pub struct EglModifier {
-    pub modifier: u64,
-    pub external_only: bool,
-}
-
-#[derive(Debug)]
 pub struct EglDisplay {
     pub exts: DisplayExt,
-    pub formats: Rc<AHashMap<u32, EglFormat>>,
+    pub formats: Rc<AHashMap<u32, GfxFormat>>,
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
 }
 
 impl EglDisplay {
-    pub fn create(drm: &Drm) -> Result<Rc<Self>, RenderError> {
+    pub(in crate::gfx_apis::gl) fn create(drm: &Drm) -> Result<Rc<Self>, RenderError> {
         unsafe {
             let gbm = match GbmDevice::new(drm) {
                 Ok(gbm) => gbm,
@@ -107,7 +95,9 @@ impl EglDisplay {
         }
     }
 
-    pub fn create_context(self: &Rc<Self>) -> Result<Rc<EglContext>, RenderError> {
+    pub(in crate::gfx_apis::gl) fn create_context(
+        self: &Rc<Self>,
+    ) -> Result<Rc<EglContext>, RenderError> {
         let mut attrib = vec![EGL_CONTEXT_CLIENT_VERSION, 2];
         if self
             .exts
@@ -142,7 +132,10 @@ impl EglDisplay {
         }
     }
 
-    pub fn import_dmabuf(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<EglImage>, RenderError> {
+    pub(in crate::gfx_apis::gl) fn import_dmabuf(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+    ) -> Result<Rc<EglImage>, RenderError> {
         let format = match self.formats.get(&buf.format.drm) {
             Some(fmt) => match fmt.modifiers.get(&buf.modifier) {
                 Some(fmt) => fmt,
@@ -235,7 +228,7 @@ impl Drop for EglDisplay {
     }
 }
 
-unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, RenderError> {
+unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, GfxFormat>, RenderError> {
     let mut vec = vec![];
     let mut num = 0;
     let res = PROCS.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num);
@@ -255,7 +248,7 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
             let (modifiers, external_only) = query_modifiers(dpy, fmt, format)?;
             res.insert(
                 format.drm,
-                EglFormat {
+                GfxFormat {
                     format,
                     implicit_external_only: external_only,
                     modifiers,
@@ -270,7 +263,7 @@ unsafe fn query_modifiers(
     dpy: EGLDisplay,
     gl_format: EGLint,
     format: &'static Format,
-) -> Result<(AHashMap<u64, EglModifier>, bool), RenderError> {
+) -> Result<(AHashMap<u64, GfxModifier>, bool), RenderError> {
     let mut mods = vec![];
     let mut ext_only = vec![];
     let mut num = 0;
@@ -304,7 +297,7 @@ unsafe fn query_modifiers(
     for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
         res.insert(
             modifier as _,
-            EglModifier {
+            GfxModifier {
                 modifier: modifier as _,
                 external_only: ext_only == EGL_TRUE,
             },
@@ -316,7 +309,7 @@ unsafe fn query_modifiers(
     }
     res.insert(
         INVALID_MODIFIER,
-        EglModifier {
+        GfxModifier {
             modifier: INVALID_MODIFIER,
             external_only,
         },

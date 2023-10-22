@@ -21,7 +21,7 @@ pub struct GlProgram {
 }
 
 impl GlProgram {
-    pub unsafe fn from_shaders(
+    pub(in crate::gfx_apis::gl) unsafe fn from_shaders(
         ctx: &Rc<EglContext>,
         vert: &str,
         frag: &str,
@@ -31,7 +31,10 @@ impl GlProgram {
         Self::link(&vert, &frag)
     }
 
-    pub unsafe fn link(vert: &GlShader, frag: &GlShader) -> Result<Self, RenderError> {
+    pub(in crate::gfx_apis::gl) unsafe fn link(
+        vert: &GlShader,
+        frag: &GlShader,
+    ) -> Result<Self, RenderError> {
         let res = GlProgram {
             _ctx: vert.ctx.clone(),
             prog: glCreateProgram(),

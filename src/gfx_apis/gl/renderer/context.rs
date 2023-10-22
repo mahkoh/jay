@@ -1,12 +1,12 @@
 use {
     crate::{
         format::{Format, XRGB8888},
-        gfx_api::GfxApiOpt,
+        gfx_api::{
+            GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture,
+            ResetStatus,
+        },
         gfx_apis::gl::{
-            egl::{
-                context::EglContext,
-                display::{EglDisplay, EglFormat},
-            },
+            egl::{context::EglContext, display::EglDisplay},
             ext::GlExt,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
@@ -25,6 +25,7 @@ use {
         cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
+        mem,
         rc::Rc,
     },
     uapi::ustr,
@@ -53,7 +54,7 @@ pub(crate) struct TexProgs {
     pub solid: TexProg,
 }
 
-pub struct RenderContext {
+pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
     pub gbm: Rc<GbmDevice>,
 
@@ -67,24 +68,16 @@ pub struct RenderContext {
     pub(crate) fill_prog_color: GLint,
 
     pub(crate) gfx_ops: RefCell<Vec<GfxApiOpt>>,
-    pub(crate) gl_state: RefCell<GfxGlState>,
+    pub(in crate::gfx_apis::gl) gl_state: RefCell<GfxGlState>,
 }
 
-impl Debug for RenderContext {
+impl Debug for GlRenderContext {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RenderContext").finish_non_exhaustive()
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum ResetStatus {
-    Guilty,
-    Innocent,
-    Unknown,
-    Other(u32),
-}
-
-impl RenderContext {
+impl GlRenderContext {
     pub fn reset_status(&self) -> Option<ResetStatus> {
         self.ctx.reset_status()
     }
@@ -93,7 +86,7 @@ impl RenderContext {
         self.ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL)
     }
 
-    pub fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
+    pub(in crate::gfx_apis::gl) fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
         let nodes = drm.get_nodes()?;
         let node = match nodes
             .get(&NodeType::Render)
@@ -167,11 +160,11 @@ impl RenderContext {
         self.render_node.clone()
     }
 
-    pub fn formats(&self) -> Rc<AHashMap<u32, EglFormat>> {
+    pub fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
         self.ctx.dpy.formats.clone()
     }
 
-    pub fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
+    fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
         self.ctx.with_current(|| unsafe {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
             let rb = GlRenderBuffer::from_image(&img, &self.ctx)?;
@@ -183,7 +176,7 @@ impl RenderContext {
         })
     }
 
-    pub fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Image>, RenderError> {
+    fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Image>, RenderError> {
         self.ctx.with_current(|| {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
             Ok(Rc::new(Image {
@@ -193,7 +186,7 @@ impl RenderContext {
         })
     }
 
-    pub fn shmem_texture(
+    fn shmem_texture(
         self: &Rc<Self>,
         data: &[Cell<u8>],
         format: &'static Format,
@@ -206,5 +199,59 @@ impl RenderContext {
             ctx: self.clone(),
             gl,
         }))
+    }
+}
+
+impl GfxContext for GlRenderContext {
+    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
+        mem::take(&mut self.gfx_ops.borrow_mut())
+    }
+
+    fn reset_status(&self) -> Option<ResetStatus> {
+        self.reset_status()
+    }
+
+    fn supports_external_texture(&self) -> bool {
+        self.supports_external_texture()
+    }
+
+    fn render_node(&self) -> Rc<CString> {
+        self.render_node()
+    }
+
+    fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
+        self.formats()
+    }
+
+    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        (&self)
+            .dmabuf_fb(buf)
+            .map(|w| w as Rc<dyn GfxFramebuffer>)
+            .map_err(|e| e.into())
+    }
+
+    fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError> {
+        (&self)
+            .dmabuf_img(buf)
+            .map(|w| w as Rc<dyn GfxImage>)
+            .map_err(|e| e.into())
+    }
+
+    fn shmem_texture(
+        self: Rc<Self>,
+        data: &[Cell<u8>],
+        format: &'static Format,
+        width: i32,
+        height: i32,
+        stride: i32,
+    ) -> Result<Rc<dyn GfxTexture>, GfxError> {
+        (&self)
+            .shmem_texture(data, format, width, height, stride)
+            .map(|w| w as Rc<dyn GfxTexture>)
+            .map_err(|e| e.into())
+    }
+
+    fn gbm(&self) -> &GbmDevice {
+        &self.gbm
     }
 }

@@ -3,6 +3,7 @@ use {
         cursor::Cursor,
         fixed::Fixed,
         format::{Format, ARGB8888, XRGB8888},
+        gfx_api::{GfxFramebuffer, GfxTexture},
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
@@ -11,10 +12,9 @@ use {
                     GL_FRAMEBUFFER,
                 },
             },
-            renderer::context::RenderContext,
+            renderer::context::GlRenderContext,
             run_ops,
             sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
-            Texture,
         },
         rect::Rect,
         renderer::{renderer_base::RendererBase, RenderResult, Renderer},
@@ -23,6 +23,7 @@ use {
         tree::Node,
     },
     std::{
+        any::Any,
         cell::Cell,
         fmt::{Debug, Formatter},
         rc::Rc,
@@ -30,8 +31,8 @@ use {
 };
 
 pub struct Framebuffer {
-    pub(crate) ctx: Rc<RenderContext>,
-    pub(crate) gl: GlFrameBuffer,
+    pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,
+    pub(in crate::gfx_apis::gl) gl: GlFrameBuffer,
 }
 
 impl Debug for Framebuffer {
@@ -57,7 +58,14 @@ impl Framebuffer {
         });
     }
 
-    pub fn copy_texture(&self, state: &State, texture: &Rc<Texture>, x: i32, y: i32, alpha: bool) {
+    pub fn copy_texture(
+        &self,
+        state: &State,
+        texture: &Rc<dyn GfxTexture>,
+        x: i32,
+        y: i32,
+        alpha: bool,
+    ) {
         let mut ops = self.ctx.gfx_ops.borrow_mut();
         ops.clear();
         let scale = Scale::from_int(1);
@@ -129,7 +137,7 @@ impl Framebuffer {
         });
     }
 
-    pub fn render_custom(&self, scale: Scale, f: impl FnOnce(&mut RendererBase)) {
+    pub fn render_custom(&self, scale: Scale, f: &mut dyn FnMut(&mut RendererBase)) {
         let mut ops = self.ctx.gfx_ops.borrow_mut();
         ops.clear();
         let mut renderer = RendererBase {
@@ -253,5 +261,71 @@ impl Framebuffer {
             }
             Ok(())
         });
+    }
+}
+
+impl GfxFramebuffer for Framebuffer {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clear(&self) {
+        self.clear()
+    }
+
+    fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) {
+        self.clear_with(r, g, b, a)
+    }
+
+    fn copy_texture(
+        &self,
+        state: &State,
+        texture: &Rc<dyn GfxTexture>,
+        x: i32,
+        y: i32,
+        alpha: bool,
+    ) {
+        self.copy_texture(state, texture, x, y, alpha)
+    }
+
+    fn copy_to_shm(
+        &self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        format: &Format,
+        shm: &[Cell<u8>],
+    ) {
+        self.copy_to_shm(x, y, width, height, format, shm)
+    }
+
+    fn render_custom(&self, scale: Scale, f: &mut dyn FnMut(&mut RendererBase)) {
+        self.render_custom(scale, f)
+    }
+
+    fn render(
+        &self,
+        node: &dyn Node,
+        state: &State,
+        cursor_rect: Option<Rect>,
+        on_output: bool,
+        result: &mut RenderResult,
+        scale: Scale,
+        render_hardware_cursor: bool,
+    ) {
+        self.render(
+            node,
+            state,
+            cursor_rect,
+            on_output,
+            result,
+            scale,
+            render_hardware_cursor,
+        )
+    }
+
+    fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale) {
+        self.render_hardware_cursor(cursor, state, scale)
     }
 }
