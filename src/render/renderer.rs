@@ -2,6 +2,7 @@ pub use {context::*, framebuffer::*, image::*, renderer::*, renderer_base::*, te
 
 mod context;
 mod framebuffer;
+mod gfx_apis;
 mod image;
 mod renderer;
 mod renderer_base;

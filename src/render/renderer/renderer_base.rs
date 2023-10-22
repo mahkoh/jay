@@ -3,23 +3,12 @@ use {
         format::Format,
         rect::Rect,
         render::{
-            gl::{
-                frame_buffer::GlFrameBuffer,
-                sys::{
-                    glActiveTexture, glBindTexture, glDisableVertexAttribArray, glDrawArrays,
-                    glEnableVertexAttribArray, glTexParameteri, glUniform1i, glUniform4f,
-                    glUseProgram, glVertexAttribPointer, GL_FALSE, GL_FLOAT, GL_LINEAR,
-                    GL_TEXTURE0, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
-                },
-                texture::image_target,
-            },
-            renderer::context::RenderContext,
-            sys::{glClear, glClearColor, glDisable, glEnable, GL_BLEND, GL_COLOR_BUFFER_BIT},
+            gl::frame_buffer::GlFrameBuffer,
+            renderer::{context::RenderContext, gfx_apis::gl},
             Texture,
         },
         scale::Scale,
         theme::Color,
-        utils::rc_eq::rc_eq,
     },
     std::rc::Rc,
 };
@@ -96,10 +85,7 @@ impl RendererBase<'_> {
     }
 
     pub fn clear(&self, c: &Color) {
-        unsafe {
-            glClearColor(c.r, c.g, c.b, c.a);
-            glClear(GL_COLOR_BUFFER_BIT);
-        }
+        gl::clear(c);
     }
 
     pub fn fill_boxes(&self, boxes: &[Rect], color: &Color) {
@@ -163,21 +149,7 @@ impl RendererBase<'_> {
     }
 
     fn fill_boxes3(&self, boxes: &[f32], color: &Color) {
-        unsafe {
-            glUseProgram(self.ctx.fill_prog.prog);
-            glUniform4f(self.ctx.fill_prog_color, color.r, color.g, color.b, color.a);
-            glVertexAttribPointer(
-                self.ctx.fill_prog_pos as _,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
-                0,
-                boxes.as_ptr() as _,
-            );
-            glEnableVertexAttribArray(self.ctx.fill_prog_pos as _);
-            glDrawArrays(GL_TRIANGLES, 0, (boxes.len() / 2) as _);
-            glDisableVertexAttribArray(self.ctx.fill_prog_pos as _);
-        }
+        gl::fill_boxes3(&self.ctx, boxes, color);
     }
 
     pub fn render_texture(
@@ -190,93 +162,18 @@ impl RendererBase<'_> {
         tsize: Option<(i32, i32)>,
         tscale: Scale,
     ) {
-        assert!(rc_eq(&self.ctx.ctx, &texture.ctx.ctx));
-        unsafe {
-            glActiveTexture(GL_TEXTURE0);
-
-            let target = image_target(texture.gl.external_only);
-
-            glBindTexture(target, texture.gl.tex);
-            glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-            let progs = match texture.gl.external_only {
-                true => match &self.ctx.tex_external {
-                    Some(p) => p,
-                    _ => {
-                        log::error!("Trying to render an external-only texture but context does not support the required extension");
-                        return;
-                    }
-                },
-                false => &self.ctx.tex_internal,
-            };
-            let prog = match format.has_alpha {
-                true => {
-                    glEnable(GL_BLEND);
-                    &progs.alpha
-                }
-                false => {
-                    glDisable(GL_BLEND);
-                    &progs.solid
-                }
-            };
-
-            glUseProgram(prog.prog.prog);
-
-            glUniform1i(prog.tex, 0);
-
-            static DEFAULT_TEXCOORD: [f32; 8] = [1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
-
-            let texcoord: &[f32; 8] = match tpoints {
-                None => &DEFAULT_TEXCOORD,
-                Some(tp) => tp,
-            };
-
-            let f_width = self.fb.width as f32;
-            let f_height = self.fb.height as f32;
-
-            let (twidth, theight) = if let Some(size) = tsize {
-                size
-            } else {
-                let (mut w, mut h) = (texture.gl.width, texture.gl.height);
-                if tscale != self.scale {
-                    let tscale = tscale.to_f64();
-                    w = (w as f64 * self.scalef / tscale).round() as _;
-                    h = (h as f64 * self.scalef / tscale).round() as _;
-                }
-                (w, h)
-            };
-
-            let x1 = 2.0 * (x as f32 / f_width) - 1.0;
-            let y1 = 2.0 * (y as f32 / f_height) - 1.0;
-            let x2 = 2.0 * ((x + twidth) as f32 / f_width) - 1.0;
-            let y2 = 2.0 * ((y + theight) as f32 / f_height) - 1.0;
-
-            let pos: [f32; 8] = [
-                x2, y1, // top right
-                x1, y1, // top left
-                x2, y2, // bottom right
-                x1, y2, // bottom left
-            ];
-
-            glVertexAttribPointer(
-                prog.texcoord as _,
-                2,
-                GL_FLOAT,
-                GL_FALSE,
-                0,
-                texcoord.as_ptr() as _,
-            );
-            glVertexAttribPointer(prog.pos as _, 2, GL_FLOAT, GL_FALSE, 0, pos.as_ptr() as _);
-
-            glEnableVertexAttribArray(prog.texcoord as _);
-            glEnableVertexAttribArray(prog.pos as _);
-
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-            glDisableVertexAttribArray(prog.texcoord as _);
-            glDisableVertexAttribArray(prog.pos as _);
-
-            glBindTexture(target, 0);
-        }
+        gl::render_texture(
+            &self.ctx,
+            &self.fb,
+            texture,
+            x,
+            y,
+            format,
+            tpoints,
+            tsize,
+            tscale,
+            self.scale,
+            self.scalef,
+        )
     }
 }
