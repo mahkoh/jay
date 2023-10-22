@@ -736,7 +736,6 @@ impl ContainerNode {
             child.node.tl_set_visible(true);
             // log::info!("activate_child2");
             self.schedule_layout();
-        } else {
         }
     }
 

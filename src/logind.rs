@@ -110,7 +110,7 @@ impl Session {
             LOGIND_NAME,
             &self.session_path,
             org::freedesktop::login1::session::TakeDevice { major, minor },
-            move |r| f(r),
+            f,
         );
     }
 
@@ -122,7 +122,7 @@ impl Session {
             .handle_signal::<org::freedesktop::login1::session::PauseDevice, _>(
                 Some(LOGIND_NAME),
                 Some(&self.session_path),
-                move |v| f(v),
+                f,
             )
     }
 
@@ -154,7 +154,7 @@ impl Session {
             LOGIND_NAME,
             &self.seat,
             org::freedesktop::login1::seat::SwitchTo { vtnr },
-            |r| f(r),
+            f,
         );
     }
 }

@@ -887,7 +887,7 @@ impl WlSeatGlobal {
         }
         {
             let mut bindings = self.bindings.borrow_mut();
-            let bindings = bindings.entry(client.id).or_insert_with(Default::default);
+            let bindings = bindings.entry(client.id).or_default();
             bindings.insert(id, obj.clone());
         }
         Ok(())
