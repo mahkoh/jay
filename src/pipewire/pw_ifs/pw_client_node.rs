@@ -271,7 +271,7 @@ impl PwClientNode {
                 f.write_int(-1);
                 // n_buffers
                 f.write_uint(buffers.len() as _);
-                for buffer in buffers.deref() {
+                for buffer in buffers {
                     // n_datas
                     f.write_uint(buffer.planes.len() as _);
                     for plane in &buffer.planes {

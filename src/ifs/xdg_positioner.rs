@@ -25,7 +25,7 @@ const TOP_RIGHT: u32 = 7;
 const BOTTOM_RIGHT: u32 = 8;
 
 bitflags::bitflags! {
-    #[derive(Default)]
+    #[derive(Copy, Clone, Default, Debug)]
     pub struct Edge: u32 {
         const TOP = 1 << 0;
         const BOTTOM = 1 << 1;
@@ -53,7 +53,7 @@ impl Edge {
 }
 
 bitflags::bitflags! {
-    #[derive(Default)]
+    #[derive(Copy, Clone, Default, Debug)]
     pub struct CA: u32 {
         const NONE = 0;
         const SLIDE_X = 1;
