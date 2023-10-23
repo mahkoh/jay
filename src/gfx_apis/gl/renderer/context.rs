@@ -25,7 +25,6 @@ use {
         cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
-        mem,
         rc::Rc,
     },
     uapi::ustr,
@@ -203,10 +202,6 @@ impl GlRenderContext {
 }
 
 impl GfxContext for GlRenderContext {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
-        mem::take(&mut self.gfx_ops.borrow_mut())
-    }
-
     fn reset_status(&self) -> Option<ResetStatus> {
         self.reset_status()
     }
