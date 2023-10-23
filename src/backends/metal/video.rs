@@ -364,8 +364,7 @@ impl MetalConnector {
                     &*node,
                     &self.state,
                     Some(node.global.pos.get()),
-                    true,
-                    &mut rr,
+                    Some(&mut rr),
                     node.preferred_scale.get(),
                     !self.cursor_enabled.get(),
                 );

@@ -45,8 +45,7 @@ impl Debug for RenderResult {
 pub struct Renderer<'a> {
     pub base: RendererBase<'a>,
     pub state: &'a State,
-    pub on_output: bool,
-    pub result: &'a mut RenderResult,
+    pub result: Option<&'a mut RenderResult>,
     pub logical_extents: Rect,
     pub physical_extents: Rect,
 }
@@ -367,14 +366,14 @@ impl Renderer<'_> {
         } else {
             self.render_buffer(&buffer, x, y, *tpoints, size, max_width, max_height);
         }
-        if self.on_output {
+        if let Some(result) = self.result.as_deref_mut() {
             {
                 let mut fr = surface.frame_requests.borrow_mut();
-                self.result.frame_requests.extend(fr.drain(..));
+                result.frame_requests.extend(fr.drain(..));
             }
             {
                 let mut fbs = surface.presentation_feedback.borrow_mut();
-                self.result.presentation_feedbacks.extend(fbs.drain(..));
+                result.presentation_feedbacks.extend(fbs.drain(..));
             }
         }
     }

@@ -78,8 +78,7 @@ impl Framebuffer {
                 scalef: 1.0,
             },
             state,
-            on_output: false,
-            result: &mut RenderResult::default(),
+            result: None,
             logical_extents: extents,
             physical_extents: extents,
         };
@@ -166,8 +165,7 @@ impl Framebuffer {
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
-        on_output: bool,
-        result: &mut RenderResult,
+        result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
     ) {
@@ -181,7 +179,6 @@ impl Framebuffer {
                 scalef: scale.to_f64(),
             },
             state,
-            on_output,
             result,
             logical_extents: node.node_absolute_position().at_point(0, 0),
             physical_extents: Rect::new(0, 0, self.gl.width, self.gl.height).unwrap(),
@@ -231,7 +228,6 @@ impl Framebuffer {
     pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale) {
         let mut ops = self.ctx.gfx_ops.borrow_mut();
         ops.clear();
-        let mut res = RenderResult::default();
         let mut renderer = Renderer {
             base: RendererBase {
                 ops: &mut ops,
@@ -240,8 +236,7 @@ impl Framebuffer {
                 scalef: scale.to_f64(),
             },
             state,
-            on_output: false,
-            result: &mut res,
+            result: None,
             logical_extents: Rect::new_empty(0, 0),
             physical_extents: Rect::new(0, 0, self.gl.width, self.gl.height).unwrap(),
         };
@@ -308,8 +303,7 @@ impl GfxFramebuffer for Framebuffer {
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
-        on_output: bool,
-        result: &mut RenderResult,
+        result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
     ) {
@@ -317,7 +311,6 @@ impl GfxFramebuffer for Framebuffer {
             node,
             state,
             cursor_rect,
-            on_output,
             result,
             scale,
             render_hardware_cursor,
