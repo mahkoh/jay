@@ -6,7 +6,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
         },
-        video::dmabuf::{DmaBuf, DmaBufPlane},
+        video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         wire::{jay_screencast::*, JayScreencastId},
         wl_usr::{usr_ifs::usr_jay_output::UsrJayOutput, usr_object::UsrObject, UsrCon},
     },
@@ -19,8 +19,8 @@ pub struct UsrJayScreencast {
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayScreencastOwner>>>,
 
-    pub pending_buffers: RefCell<Vec<DmaBuf>>,
-    pub pending_planes: RefCell<Vec<DmaBufPlane>>,
+    pub pending_buffers: RefCell<PlaneVec<DmaBuf>>,
+    pub pending_planes: RefCell<PlaneVec<DmaBufPlane>>,
 
     pub pending_config: RefCell<UsrJayScreencastServerConfig>,
 }
@@ -35,7 +35,7 @@ pub struct UsrJayScreencastServerConfig {
 }
 
 pub trait UsrJayScreencastOwner {
-    fn buffers(&self, buffers: Vec<DmaBuf>) {
+    fn buffers(&self, buffers: PlaneVec<DmaBuf>) {
         let _ = buffers;
     }
 

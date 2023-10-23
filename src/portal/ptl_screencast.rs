@@ -22,7 +22,7 @@ use {
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
         },
-        video::dmabuf::DmaBuf,
+        video::dmabuf::{DmaBuf, PlaneVec},
         wire::jay_screencast::Ready,
         wire_dbus::{
             org,
@@ -86,7 +86,7 @@ pub struct StartedScreencast {
     session: Rc<ScreencastSession>,
     node: Rc<PwClientNode>,
     port: Rc<PwClientNodePort>,
-    buffers: RefCell<Vec<DmaBuf>>,
+    buffers: RefCell<PlaneVec<DmaBuf>>,
     dpy: Rc<PortalDisplay>,
     jay_screencast: Rc<UsrJayScreencast>,
 }
@@ -276,7 +276,7 @@ impl ScreencastSession {
 }
 
 impl UsrJayScreencastOwner for StartedScreencast {
-    fn buffers(&self, buffers: Vec<DmaBuf>) {
+    fn buffers(&self, buffers: PlaneVec<DmaBuf>) {
         if buffers.len() == 0 {
             return;
         }
