@@ -59,8 +59,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         state.root.deref(),
         state,
         Some(state.root.extents.get()),
-        false,
-        &mut Default::default(),
+        None,
         Scale::from_int(1),
         true,
     );

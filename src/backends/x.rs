@@ -727,8 +727,7 @@ impl XBackend {
                 &*node,
                 &self.state,
                 Some(node.global.pos.get()),
-                true,
-                rr.deref_mut(),
+                Some(rr.deref_mut()),
                 node.preferred_scale.get(),
                 true,
             );

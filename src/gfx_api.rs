@@ -143,8 +143,7 @@ pub trait GfxFramebuffer: Debug {
         node: &dyn Node,
         state: &State,
         cursor_rect: Option<Rect>,
-        on_output: bool,
-        result: &mut RenderResult,
+        result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
     );
