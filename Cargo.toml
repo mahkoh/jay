@@ -41,6 +41,7 @@ dirs = "5.0.1"
 backtrace = "0.3.64"
 chrono = "0.4.19"
 parking_lot = "0.12.1"
+arrayvec = "0.7.4"
 
 [build-dependencies]
 repc = "0.1.1"

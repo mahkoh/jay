@@ -8,7 +8,7 @@ use {
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             INVALID_MODIFIER,
         },
         wire::{wl_drm::*, WlDrmId},
@@ -123,7 +123,7 @@ impl WlDrm {
             height: req.height,
             format,
             modifier: INVALID_MODIFIER,
-            planes: vec![],
+            planes: PlaneVec::new(),
         };
         if req.stride0 > 0 {
             dmabuf.planes.push(DmaBufPlane {

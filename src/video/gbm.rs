@@ -5,7 +5,7 @@ use {
         format::formats,
         utils::oserror::OsError,
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
             ModifiedFormat, INVALID_MODIFIER,
         },
@@ -161,7 +161,7 @@ unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
             }
         },
         planes: {
-            let mut planes = vec![];
+            let mut planes = PlaneVec::new();
             for plane in 0..gbm_bo_get_plane_count(bo) {
                 let offset = gbm_bo_get_offset(bo, plane);
                 let stride = gbm_bo_get_stride_for_plane(bo, plane);

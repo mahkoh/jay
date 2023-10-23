@@ -9,7 +9,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,
         },
-        video::dmabuf::{DmaBuf, DmaBufPlane},
+        video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec, MAX_PLANES},
         wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
     },
     ahash::AHashMap,
@@ -27,7 +27,7 @@ const INTERLACED: u32 = 2;
 #[allow(dead_code)]
 const BOTTOM_FIRST: u32 = 4;
 
-const MAX_PLANE: u32 = 3;
+const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;
 
 pub struct ZwpLinuxBufferParamsV1 {
     pub id: ZwpLinuxBufferParamsV1Id,
@@ -118,7 +118,7 @@ impl ZwpLinuxBufferParamsV1 {
             height,
             format: format.format,
             modifier,
-            planes: vec![],
+            planes: PlaneVec::new(),
         };
         let mut planes: Vec<_> = self.planes.borrow_mut().drain().map(|v| v.1).collect();
         planes.sort_by_key(|a| a.plane_idx);

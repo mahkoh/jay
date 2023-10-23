@@ -5,7 +5,7 @@ use {
         tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             drm::Drm,
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
             INVALID_MODIFIER,
@@ -81,16 +81,18 @@ pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
             fatal!("Could not create a gbm device: {}", ErrorFmt(e));
         }
     };
+    let mut planes = PlaneVec::new();
+    planes.push(DmaBufPlane {
+        offset: buf.offset,
+        stride: buf.stride,
+        fd: buf.fd.clone(),
+    });
     let dmabuf = DmaBuf {
         width: buf.width as _,
         height: buf.height as _,
         format: XRGB8888,
         modifier: INVALID_MODIFIER,
-        planes: vec![DmaBufPlane {
-            offset: buf.offset,
-            stride: buf.stride,
-            fd: buf.fd.clone(),
-        }],
+        planes,
     };
     let bo = match gbm.import_dmabuf(&dmabuf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {
         Ok(bo) => Rc::new(bo),
