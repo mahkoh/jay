@@ -38,6 +38,13 @@ fn to_u8(c: f32) -> u8 {
 }
 
 impl Color {
+    pub const TRANSPARENT: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+    };
+
     pub fn from_gray(g: u8) -> Self {
         Self::from_rgb(g, g, g)
     }
