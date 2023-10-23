@@ -9,7 +9,7 @@ use {
             wl_surface::WlSurface,
         },
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
             FindTreeResult, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode, StackedNode,
@@ -170,7 +170,14 @@ impl Node for WorkspaceNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_workspace(self, x, y);
     }
 

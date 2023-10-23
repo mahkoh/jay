@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        render::{
+        gfx_apis::gl::{
             egl::{context::EglContext, image::EglImage, PROCS},
             ext::GlExt,
             gl::sys::{
@@ -17,7 +17,7 @@ use {
 };
 
 pub struct GlTexture {
-    pub(super) ctx: Rc<EglContext>,
+    pub(crate) ctx: Rc<EglContext>,
     pub img: Option<Rc<EglImage>>,
     pub tex: GLuint,
     pub width: i32,
@@ -33,7 +33,10 @@ pub fn image_target(external_only: bool) -> GLenum {
 }
 
 impl GlTexture {
-    pub fn import_img(ctx: &Rc<EglContext>, img: &Rc<EglImage>) -> Result<GlTexture, RenderError> {
+    pub(in crate::gfx_apis::gl) fn import_img(
+        ctx: &Rc<EglContext>,
+        img: &Rc<EglImage>,
+    ) -> Result<GlTexture, RenderError> {
         if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL) {
             return Err(RenderError::ExternalUnsupported);
         }
@@ -58,7 +61,7 @@ impl GlTexture {
         })
     }
 
-    pub fn import_shm(
+    pub(in crate::gfx_apis::gl) fn import_shm(
         ctx: &Rc<EglContext>,
         data: &[Cell<u8>],
         format: &'static Format,

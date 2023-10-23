@@ -4,6 +4,7 @@ use {
         client::ClientId,
         cursor::KnownCursor,
         fixed::Fixed,
+        gfx_api::{GfxFramebuffer, GfxTexture},
         ifs::{
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
@@ -19,7 +20,7 @@ use {
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
         rect::Rect,
-        render::{Framebuffer, Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         text,
@@ -77,7 +78,7 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
-    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
         if let Some(workspace) = self.workspace.get() {
             if !workspace.capture.get() {
                 return;
@@ -464,14 +465,14 @@ pub struct OutputTitle {
     pub x2: i32,
     pub tex_x: i32,
     pub tex_y: i32,
-    pub tex: Rc<Texture>,
+    pub tex: Rc<dyn GfxTexture>,
     pub ws: Rc<WorkspaceNode>,
 }
 
 pub struct OutputStatus {
     pub tex_x: i32,
     pub tex_y: i32,
-    pub tex: Rc<Texture>,
+    pub tex: Rc<dyn GfxTexture>,
 }
 
 #[derive(Copy, Clone)]
@@ -620,7 +621,14 @@ impl Node for OutputNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_output(self, x, y);
     }
 

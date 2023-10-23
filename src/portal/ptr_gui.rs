@@ -4,9 +4,10 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
+        gfx_api::{GfxContext, GfxFramebuffer, GfxTexture},
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
-        render::{Framebuffer, RenderContext, RendererBase, Texture},
+        renderer::renderer_base::RendererBase,
         scale::Scale,
         text::{self, TextMeasurement},
         theme::Color,
@@ -49,7 +50,7 @@ pub trait GuiElement {
     fn data(&self) -> &GuiElementData;
     fn layout(
         &self,
-        ctx: &Rc<RenderContext>,
+        ctx: &Rc<dyn GfxContext>,
         scale: f32,
         max_width: f32,
         max_height: f32,
@@ -117,7 +118,7 @@ pub struct Button {
     pub bg_hover_color: Cell<Color>,
     pub text: RefCell<String>,
     pub font: RefCell<Cow<'static, str>>,
-    pub tex: CloneCell<Option<Rc<Texture>>>,
+    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub owner: CloneCell<Option<Rc<dyn ButtonOwner>>>,
 }
 
@@ -156,7 +157,7 @@ impl GuiElement for Button {
 
     fn layout(
         &self,
-        ctx: &Rc<RenderContext>,
+        ctx: &Rc<dyn GfxContext>,
         scale: f32,
         _max_width: f32,
         _max_height: f32,
@@ -219,6 +220,8 @@ impl GuiElement for Button {
                 None,
                 None,
                 r.scale(),
+                i32::MAX,
+                i32::MAX,
             );
         }
     }
@@ -257,7 +260,7 @@ pub struct Label {
     pub data: GuiElementData,
     pub font: RefCell<Cow<'static, str>>,
     pub text: RefCell<String>,
-    pub tex: CloneCell<Option<Rc<Texture>>>,
+    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
 }
 
 impl Default for Label {
@@ -278,7 +281,7 @@ impl GuiElement for Label {
 
     fn layout(
         &self,
-        ctx: &Rc<RenderContext>,
+        ctx: &Rc<dyn GfxContext>,
         scale: f32,
         _max_width: f32,
         _max_height: f32,
@@ -315,6 +318,8 @@ impl GuiElement for Label {
                 None,
                 None,
                 r.scale(),
+                i32::MAX,
+                i32::MAX,
             );
         }
     }
@@ -359,7 +364,7 @@ impl GuiElement for Flow {
 
     fn layout(
         &self,
-        ctx: &Rc<RenderContext>,
+        ctx: &Rc<dyn GfxContext>,
         scale: f32,
         max_width: f32,
         max_height: f32,
@@ -633,7 +638,7 @@ impl WindowData {
         self.have_frame.set(false);
         buf.free.set(false);
 
-        buf.fb.render_custom(self.scale.get(), |r| {
+        buf.fb.render_custom(self.scale.get(), &mut |r| {
             r.clear(&Color::from_gray(0));
             if let Some(content) = self.content.get() {
                 content.render_at(r, 0.0, 0.0)
@@ -695,7 +700,7 @@ impl WindowData {
             };
             let bo = match ctx
                 .ctx
-                .gbm
+                .gbm()
                 .create_bo(width, height, &format, GBM_BO_USE_RENDERING)
             {
                 Ok(b) => b,
@@ -704,7 +709,7 @@ impl WindowData {
                     return;
                 }
             };
-            let img = match ctx.ctx.dmabuf_img(bo.dmabuf()) {
+            let img = match ctx.ctx.clone().dmabuf_img(bo.dmabuf()) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!("Could not import dmabuf into EGL: {}", ErrorFmt(e));
@@ -809,14 +814,14 @@ impl WindowData {
 pub struct GuiBuffer {
     pub wl: Rc<UsrWlBuffer>,
     pub window: Rc<WindowData>,
-    pub fb: Rc<Framebuffer>,
+    pub fb: Rc<dyn GfxFramebuffer>,
     pub free: Cell<bool>,
     pub size: (i32, i32),
 }
 
 struct GuiBufferPending {
     pub window: Rc<WindowData>,
-    pub fb: Rc<Framebuffer>,
+    pub fb: Rc<dyn GfxFramebuffer>,
     pub params: Rc<UsrLinuxBufferParams>,
     pub size: (i32, i32),
 }

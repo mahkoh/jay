@@ -1,11 +1,11 @@
 use {
     crate::{
         client::{Client, ClientError},
+        gfx_api::GfxError,
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
         object::Object,
-        render::RenderError,
         utils::buffd::{MsgParser, MsgParserError},
         video::{
             dmabuf::{DmaBuf, DmaBufPlane},
@@ -190,7 +190,7 @@ pub enum WlDrmError {
     #[error("The format {0} is not supported")]
     InvalidFormat(u32),
     #[error("Could not import the buffer")]
-    ImportError(#[from] RenderError),
+    ImportError(#[from] GfxError),
 }
 efrom!(WlDrmError, ClientError);
 efrom!(WlDrmError, MsgParserError);

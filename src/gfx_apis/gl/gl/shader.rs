@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::context::EglContext,
         gl::sys::{
             glCompileShader, glCreateShader, glDeleteShader, glGetShaderiv, glShaderSource, GLenum,
@@ -17,7 +17,7 @@ pub struct GlShader {
 }
 
 impl GlShader {
-    pub unsafe fn compile(
+    pub(in crate::gfx_apis::gl) unsafe fn compile(
         ctx: &Rc<EglContext>,
         ty: GLenum,
         src: &str,

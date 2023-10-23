@@ -1,4 +1,4 @@
-use {crate::render::sys::GLenum, uapi::c};
+use {crate::gfx_apis::gl::sys::GLenum, uapi::c};
 
 pub type EGLint = i32;
 pub type EGLenum = c::c_uint;

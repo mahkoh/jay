@@ -8,8 +8,10 @@ use {
         backends::metal::{MetalBackend, MetalError},
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
+        gfx_api::{GfxContext, GfxFramebuffer, GfxTexture},
+        gfx_apis::create_gfx_context,
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
-        render::{Framebuffer, RenderContext, RenderResult, Texture},
+        renderer::RenderResult,
         state::State,
         udev::UdevDevice,
         utils::{
@@ -51,7 +53,7 @@ pub struct PendingDrmDevice {
 #[derive(Debug)]
 pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
-    pub egl: Rc<RenderContext>,
+    pub gfx: Rc<dyn GfxContext>,
 }
 
 #[derive(Debug)]
@@ -213,7 +215,7 @@ impl HardwareCursor for MetalHardwareCursor {
         }
     }
 
-    fn get_buffer(&self) -> Rc<Framebuffer> {
+    fn get_buffer(&self) -> Rc<dyn GfxFramebuffer> {
         let buffer = (self.connector.cursor_front_buffer.get() + 1) % 2;
         self.cursor_buffers[buffer].render_fb()
     }
@@ -374,7 +376,7 @@ impl MetalConnector {
                     fr.send_done();
                     let _ = fr.client.remove_obj(&*fr);
                 }
-                node.perform_screencopies(&render_fb, &buffer.render_tex);
+                node.perform_screencopies(&*render_fb, &buffer.render_tex);
             }
             changes.change_object(plane.id, |c| {
                 c.change(plane.fb_id, buffer.drm.id().0 as _);
@@ -882,9 +884,9 @@ impl MetalBackend {
             None => return false,
         };
         if let Some(r) = ctx
-            .egl
+            .gfx
             .reset_status()
-            .or_else(|| dev.ctx.egl.reset_status())
+            .or_else(|| dev.ctx.gfx.reset_status())
         {
             fatal!("EGL context has been reset: {:?}", r);
         }
@@ -1089,13 +1091,13 @@ impl MetalBackend {
             }
         }
 
-        let egl = match RenderContext::from_drm_device(master) {
-            Ok(r) => Rc::new(r),
+        let gfx = match create_gfx_context(master) {
+            Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
         };
         let ctx = Rc::new(MetalRenderContext {
             dev_id: pending.id,
-            egl,
+            gfx,
         });
 
         let gbm = match GbmDevice::new(master) {
@@ -1420,7 +1422,7 @@ impl MetalBackend {
                 return true;
             }
         }
-        self.state.set_render_ctx(Some(&dev.ctx.egl));
+        self.state.set_render_ctx(Some(dev.ctx.gfx.clone()));
         self.ctx.set(Some(dev.ctx.clone()));
         let mut preserve = Preserve::default();
         for dev in self.device_holder.drm_devices.lock().values() {
@@ -1600,11 +1602,11 @@ impl MetalBackend {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let dev_img = match dev.ctx.egl.dmabuf_img(dev_bo.dmabuf()) {
+        let dev_img = match dev.ctx.gfx.clone().dmabuf_img(dev_bo.dmabuf()) {
             Ok(img) => img,
             Err(e) => return Err(MetalError::ImportImage(e)),
         };
-        let dev_fb = match dev_img.to_framebuffer() {
+        let dev_fb = match dev_img.clone().to_framebuffer() {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
@@ -1618,16 +1620,16 @@ impl MetalBackend {
         } else {
             // Create a _bridge_ BO in the render device
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            let render_bo = render_ctx.egl.gbm.create_bo(width, height, format, usage);
+            let render_bo = render_ctx.gfx.gbm().create_bo(width, height, format, usage);
             let render_bo = match render_bo {
                 Ok(b) => b,
                 Err(e) => return Err(MetalError::ScanoutBuffer(e)),
             };
-            let render_img = match render_ctx.egl.dmabuf_img(render_bo.dmabuf()) {
+            let render_img = match render_ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
                 Ok(img) => img,
                 Err(e) => return Err(MetalError::ImportImage(e)),
             };
-            let render_fb = match render_img.to_framebuffer() {
+            let render_fb = match render_img.clone().to_framebuffer() {
                 Ok(fb) => fb,
                 Err(e) => return Err(MetalError::ImportFb(e)),
             };
@@ -1638,7 +1640,7 @@ impl MetalBackend {
             };
 
             // Import the bridge BO into the current device
-            let dev_img = match dev.ctx.egl.dmabuf_img(render_bo.dmabuf()) {
+            let dev_img = match dev.ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
                 Ok(img) => img,
                 Err(e) => return Err(MetalError::ImportImage(e)),
             };
@@ -1832,20 +1834,20 @@ pub struct RenderBuffer {
     drm: Rc<DrmFramebuffer>,
     // ctx = dev
     // buffer location = dev
-    dev_fb: Rc<Framebuffer>,
+    dev_fb: Rc<dyn GfxFramebuffer>,
     // ctx = dev
     // buffer location = render
-    dev_tex: Option<Rc<Texture>>,
+    dev_tex: Option<Rc<dyn GfxTexture>>,
     // ctx = render
     // buffer location = render
-    render_tex: Rc<Texture>,
+    render_tex: Rc<dyn GfxTexture>,
     // ctx = render
     // buffer location = render
-    render_fb: Option<Rc<Framebuffer>>,
+    render_fb: Option<Rc<dyn GfxFramebuffer>>,
 }
 
 impl RenderBuffer {
-    fn render_fb(&self) -> Rc<Framebuffer> {
+    fn render_fb(&self) -> Rc<dyn GfxFramebuffer> {
         self.render_fb
             .clone()
             .unwrap_or_else(|| self.dev_fb.clone())

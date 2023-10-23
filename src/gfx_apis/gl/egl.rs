@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::sys::{
             eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
             EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
@@ -27,11 +27,11 @@ pub mod display;
 pub mod image;
 pub mod sys;
 
-pub(super) static PROCS: Lazy<ExtProc> = Lazy::new(ExtProc::load);
+pub(crate) static PROCS: Lazy<ExtProc> = Lazy::new(ExtProc::load);
 
-pub(super) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
+pub(crate) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
 
-pub fn init() -> Result<(), RenderError> {
+pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
     if !EXTS.contains(ClientExt::EXT_PLATFORM_BASE) {
         return Err(RenderError::ExtPlatformBase);
     }

@@ -15,6 +15,7 @@ use {
         backend::KeyState,
         client::{Client, ClientError, RequestParser},
         fixed::Fixed,
+        gfx_api::{BufferPoint, BufferPoints},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -38,7 +39,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::{Rect, Region},
-        render::Renderer,
+        renderer::Renderer,
         tree::{
             FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode,
             ToplevelNode,
@@ -99,20 +100,6 @@ impl Transform {
             Transform::Flipped270 => true,
         }
     }
-}
-
-#[derive(Default, Debug)]
-struct BufferPoint {
-    x: f32,
-    y: f32,
-}
-
-#[derive(Default, Debug)]
-struct BufferPoints {
-    top_right: BufferPoint,
-    top_left: BufferPoint,
-    bottom_right: BufferPoint,
-    bottom_left: BufferPoint,
 }
 
 impl Transform {
@@ -237,7 +224,7 @@ pub struct WlSurface {
     input_region: Cell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
-    pub buffer_points_norm: RefCell<[f32; 8]>,
+    pub buffer_points_norm: RefCell<BufferPoints>,
     buffer_transform: Cell<Transform>,
     buffer_scale: Cell<i32>,
     src_rect: Cell<Option<[Fixed; 4]>>,
@@ -817,35 +804,12 @@ impl WlSurface {
                             .buffer_transform
                             .get()
                             .apply_inv_sized(0.0, 0.0, 1.0, 1.0);
-                        let points = &*buffer_points;
-                        *buffer_points_norm = [
-                            points.top_right.x,
-                            points.top_right.y,
-                            points.top_left.x,
-                            points.top_left.y,
-                            points.bottom_right.x,
-                            points.bottom_right.y,
-                            points.bottom_left.x,
-                            points.bottom_left.y,
-                        ];
+                        *buffer_points_norm = *buffer_points;
                     } else {
-                        let width = buffer.rect.width() as f32;
-                        let height = buffer.rect.height() as f32;
-                        let points = &*buffer_points;
-                        *buffer_points_norm = [
-                            points.top_right.x / width,
-                            points.top_right.y / height,
-                            points.top_left.x / width,
-                            points.top_left.y / height,
-                            points.bottom_right.x / width,
-                            points.bottom_right.y / height,
-                            points.bottom_left.x / width,
-                            points.bottom_left.y / height,
-                        ];
-                        for &v in buffer_points_norm.iter() {
-                            if v > 1.0 {
-                                return Err(WlSurfaceError::ViewportOutsideBuffer);
-                            }
+                        *buffer_points_norm = buffer_points
+                            .norm(buffer.rect.width() as f32, buffer.rect.height() as f32);
+                        if !buffer_points_norm.is_leq_1() {
+                            return Err(WlSurfaceError::ViewportOutsideBuffer);
                         }
                     }
                 }
@@ -1134,8 +1098,15 @@ impl Node for WlSurface {
         }
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_surface(self, x, y);
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        max_width: i32,
+        max_height: i32,
+    ) {
+        renderer.render_surface(self, x, y, max_width, max_height);
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {

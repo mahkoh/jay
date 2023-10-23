@@ -1,11 +1,32 @@
-use std::cell::{Cell, RefCell};
+use std::{
+    cell::{Cell, RefCell},
+    cmp::Ordering,
+};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,
     pub a: f32,
+}
+
+impl Eq for Color {}
+
+impl Ord for Color {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.r
+            .total_cmp(&other.r)
+            .then_with(|| self.g.total_cmp(&other.g))
+            .then_with(|| self.b.total_cmp(&other.b))
+            .then_with(|| self.a.total_cmp(&other.a))
+    }
+}
+
+impl PartialOrd for Color {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 fn to_f32(c: u8) -> f32 {

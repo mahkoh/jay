@@ -1,16 +1,21 @@
 use {
-    crate::render::{
-        egl::{
-            display::EglDisplay,
-            sys::{eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE},
-            PROCS,
+    crate::{
+        gfx_api::ResetStatus,
+        gfx_apis::gl::{
+            egl::{
+                display::EglDisplay,
+                sys::{
+                    eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE,
+                },
+                PROCS,
+            },
+            ext::{DisplayExt, GlExt},
+            sys::{
+                GL_GUILTY_CONTEXT_RESET_ARB, GL_INNOCENT_CONTEXT_RESET_ARB,
+                GL_UNKNOWN_CONTEXT_RESET_ARB,
+            },
+            RenderError,
         },
-        ext::{DisplayExt, GlExt},
-        sys::{
-            GL_GUILTY_CONTEXT_RESET_ARB, GL_INNOCENT_CONTEXT_RESET_ARB,
-            GL_UNKNOWN_CONTEXT_RESET_ARB,
-        },
-        RenderError, ResetStatus,
     },
     std::rc::Rc,
 };
@@ -58,7 +63,7 @@ impl EglContext {
     }
 
     #[inline]
-    pub fn with_current<T, F: FnOnce() -> Result<T, RenderError>>(
+    pub(in crate::gfx_apis::gl) fn with_current<T, F: FnOnce() -> Result<T, RenderError>>(
         &self,
         f: F,
     ) -> Result<T, RenderError> {

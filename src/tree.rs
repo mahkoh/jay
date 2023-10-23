@@ -8,7 +8,7 @@ use {
             wl_surface::WlSurface,
         },
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         utils::numcell::NumCell,
         xkbcommon::ModifierState,
     },
@@ -137,10 +137,19 @@ pub trait Node: 'static {
         let _ = (child, active, depth);
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        max_width: i32,
+        max_height: i32,
+    ) {
         let _ = renderer;
         let _ = x;
         let _ = y;
+        let _ = max_width;
+        let _ = max_height;
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {

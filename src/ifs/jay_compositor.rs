@@ -277,7 +277,7 @@ impl JayCompositor {
             .render_ctx_watchers
             .set((self.client.id, req.id), ctx.clone());
         let rctx = self.client.state.render_ctx.get();
-        ctx.send_render_ctx(rctx.as_ref());
+        ctx.send_render_ctx(rctx);
         Ok(())
     }
 

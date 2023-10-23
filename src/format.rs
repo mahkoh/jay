@@ -1,10 +1,10 @@
 use {
     crate::{
+        gfx_apis::gl::sys::{GLint, GL_BGRA_EXT, GL_RGBA, GL_UNSIGNED_BYTE},
         pipewire::pw_pod::{
             SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA,
             SPA_VIDEO_FORMAT_NV12, SPA_VIDEO_FORMAT_RGBA,
         },
-        render::sys::{GLint, GL_BGRA_EXT, GL_RGBA, GL_UNSIGNED_BYTE},
         utils::debug_fn::debug_fn,
     },
     ahash::AHashMap,

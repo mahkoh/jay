@@ -2,10 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         format::XRGB8888,
+        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         ifs::jay_output::JayOutput,
         leaks::Tracker,
         object::Object,
-        render::{Framebuffer, RenderContext, RenderError, Texture},
         tree::{OutputNode, WorkspaceNodeId},
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -60,7 +60,7 @@ struct Pending {
 
 struct ScreencastBuffer {
     dmabuf: DmaBuf,
-    fb: Rc<Framebuffer>,
+    fb: Rc<dyn GfxFramebuffer>,
     free: bool,
 }
 
@@ -147,7 +147,7 @@ impl JayScreencast {
         });
     }
 
-    pub fn copy_texture(&self, on: &OutputNode, texture: &Texture) {
+    pub fn copy_texture(&self, on: &OutputNode, texture: &Rc<dyn GfxTexture>) {
         if !self.running.get() {
             return;
         }
@@ -193,7 +193,7 @@ impl JayScreencast {
         self.client.event(Destroyed { self_id: self.id });
     }
 
-    pub fn realloc(&self, ctx: &Rc<RenderContext>) -> Result<(), JayScreencastError> {
+    pub fn realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
         let mut buffers = vec![];
         if let Some(output) = self.output.get() {
             let mode = output.global.mode.get();
@@ -207,8 +207,10 @@ impl JayScreencast {
                 if self.linear.get() {
                     flags |= GBM_BO_USE_LINEAR;
                 }
-                let buffer = ctx.gbm.create_bo(mode.width, mode.height, &format, flags)?;
-                let fb = ctx.dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
+                let buffer = ctx
+                    .gbm()
+                    .create_bo(mode.width, mode.height, &format, flags)?;
+                let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
                 buffers.push(ScreencastBuffer {
                     dmabuf: buffer.dmabuf().clone(),
                     fb,
@@ -444,7 +446,7 @@ pub enum JayScreencastError {
     #[error(transparent)]
     GbmError(#[from] GbmError),
     #[error(transparent)]
-    RenderError(#[from] RenderError),
+    GfxError(#[from] GfxError),
 }
 efrom!(JayScreencastError, MsgParserError);
 efrom!(JayScreencastError, ClientError);

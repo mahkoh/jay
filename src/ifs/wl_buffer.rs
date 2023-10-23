@@ -3,10 +3,10 @@ use {
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
         format::Format,
+        gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::{Framebuffer, Image, RenderError, Texture},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -25,7 +25,7 @@ use {
 
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },
-    Dmabuf(Rc<Image>),
+    Dmabuf(Rc<dyn GfxImage>),
 }
 
 pub struct WlBuffer {
@@ -37,8 +37,8 @@ pub struct WlBuffer {
     dmabuf: Option<DmaBuf>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
-    pub texture: CloneCell<Option<Rc<Texture>>>,
-    pub famebuffer: CloneCell<Option<Rc<Framebuffer>>>,
+    pub texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    pub famebuffer: CloneCell<Option<Rc<dyn GfxFramebuffer>>>,
     width: i32,
     height: i32,
     pub tracker: Tracker<Self>,
@@ -55,7 +55,7 @@ impl WlBuffer {
         client: &Rc<Client>,
         format: &'static Format,
         dmabuf: DmaBuf,
-        img: &Rc<Image>,
+        img: &Rc<dyn GfxImage>,
     ) -> Self {
         let width = img.width();
         let height = img.height();
@@ -165,7 +165,7 @@ impl WlBuffer {
             }
             WlBufferStorage::Dmabuf(img) => {
                 if self.texture.get().is_none() {
-                    self.texture.set(Some(img.to_texture()?));
+                    self.texture.set(Some(img.clone().to_texture()?));
                 }
             }
         }
@@ -184,7 +184,7 @@ impl WlBuffer {
             }
             WlBufferStorage::Dmabuf(img) => {
                 if self.famebuffer.get().is_none() {
-                    self.famebuffer.set(Some(img.to_framebuffer()?));
+                    self.famebuffer.set(Some(img.clone().to_framebuffer()?));
                 }
             }
         }
@@ -225,14 +225,13 @@ pub enum WlBufferError {
     StrideTooSmall,
     #[error("Could not access the client memory")]
     ClientMemError(#[source] Box<ClientMemError>),
-    #[error("GLES could not import the client image")]
-    RenderError(#[source] Box<RenderError>),
+    #[error("The graphics library could not import the client image")]
+    GfxError(#[from] GfxError),
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(WlBufferError, ClientMemError);
-efrom!(WlBufferError, RenderError);
 efrom!(WlBufferError, MsgParserError);
 efrom!(WlBufferError, ClientError);

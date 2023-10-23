@@ -1,5 +1,5 @@
 use {
-    crate::render::{
+    crate::gfx_apis::gl::{
         egl::{context::EglContext, image::EglImage, PROCS},
         gl::{
             frame_buffer::GlFrameBuffer,
@@ -22,7 +22,7 @@ pub struct GlRenderBuffer {
 }
 
 impl GlRenderBuffer {
-    pub unsafe fn from_image(
+    pub(in crate::gfx_apis::gl) unsafe fn from_image(
         img: &Rc<EglImage>,
         ctx: &Rc<EglContext>,
     ) -> Result<Rc<GlRenderBuffer>, RenderError> {
@@ -41,7 +41,9 @@ impl GlRenderBuffer {
         }))
     }
 
-    pub unsafe fn create_framebuffer(self: &Rc<Self>) -> Result<GlFrameBuffer, RenderError> {
+    pub(in crate::gfx_apis::gl) unsafe fn create_framebuffer(
+        self: &Rc<Self>,
+    ) -> Result<GlFrameBuffer, RenderError> {
         let mut fbo = 0;
         glGenFramebuffers(1, &mut fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);

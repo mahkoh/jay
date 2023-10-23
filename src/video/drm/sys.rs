@@ -814,7 +814,7 @@ pub fn mode_getconnector(
         modes: modes.into_iter().map(|m| m.into()).collect(),
         props: props
             .into_iter()
-            .zip(prop_values.into_iter())
+            .zip(prop_values)
             .map(|(id, value)| DrmPropertyValue {
                 id: DrmProperty(id),
                 value,

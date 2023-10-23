@@ -20,7 +20,6 @@ use {
         io_uring::{IoUring, IoUringError},
         leaks,
         logger::Logger,
-        render::{self, RenderError},
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -86,8 +85,6 @@ pub enum CompositorError {
     ClientmemError(#[from] ClientMemError),
     #[error("The timer subsystem caused an error")]
     WheelError(#[from] WheelError),
-    #[error("The render backend caused an error")]
-    RenderError(#[from] RenderError),
     #[error("Could not create an io-uring")]
     IoUringError(#[from] IoUringError),
 }
@@ -112,7 +109,6 @@ fn start_compositor2(
     log::info!("pid = {}", uapi::getpid());
     init_fd_limit();
     leaks::init();
-    render::init()?;
     clientmem::init()?;
     let xkb_ctx = XkbContext::new().unwrap();
     let xkb_keymap = xkb_ctx.keymap_from_str(include_str!("keymap.xkb")).unwrap();

@@ -2,8 +2,8 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         fixed::Fixed,
+        gfx_api::GfxFramebuffer,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
-        render::Framebuffer,
         video::drm::{ConnectorType, DrmError, DrmVersion},
     },
     std::{
@@ -95,7 +95,7 @@ pub enum ConnectorEvent {
 
 pub trait HardwareCursor: Debug {
     fn set_enabled(&self, enabled: bool);
-    fn get_buffer(&self) -> Rc<Framebuffer>;
+    fn get_buffer(&self) -> Rc<dyn GfxFramebuffer>;
     fn set_position(&self, x: i32, y: i32);
     fn swap_buffer(&self);
     fn commit(&self);

@@ -3,9 +3,10 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
         rect::Rect,
-        render::{Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         text,
@@ -43,7 +44,7 @@ pub struct FloatNode {
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
-    pub title_textures: CopyHashMap<Scale, Rc<Texture>>,
+    pub title_textures: CopyHashMap<Scale, Rc<dyn GfxTexture>>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
 }
 
@@ -420,7 +421,14 @@ impl Node for FloatNode {
         }
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_floating(self, x, y)
     }
 

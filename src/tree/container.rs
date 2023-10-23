@@ -3,12 +3,13 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{
             collect_kb_foci, collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId,
             WlSeatGlobal, BTN_LEFT,
         },
         rect::Rect,
-        render::{Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         text,
@@ -76,7 +77,7 @@ tree_id!(ContainerNodeId);
 pub struct ContainerTitle {
     pub x: i32,
     pub y: i32,
-    pub tex: Rc<Texture>,
+    pub tex: Rc<dyn GfxTexture>,
 }
 
 #[derive(Default)]
@@ -736,7 +737,6 @@ impl ContainerNode {
             child.node.tl_set_visible(true);
             // log::info!("activate_child2");
             self.schedule_layout();
-        } else {
         }
     }
 
@@ -1086,7 +1086,14 @@ impl Node for ContainerNode {
             .node_child_active_changed(self.deref(), active, depth + 1);
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_container(self, x, y);
     }
 

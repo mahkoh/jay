@@ -1,11 +1,11 @@
 use {
     crate::{
+        gfx_apis::create_gfx_context,
         ifs::wl_seat::POINTER,
         portal::{
             ptl_render_ctx::PortalRenderCtx, ptl_screencast::ScreencastSession,
             ptr_gui::WindowData, PortalState,
         },
-        render::RenderContext,
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, oserror::OsError,
@@ -169,7 +169,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         }
         if self.render_ctx.get().is_none() {
             let drm = Drm::open_existing(fd);
-            let ctx = match RenderContext::from_drm_device(&drm) {
+            let ctx = match create_gfx_context(&drm) {
                 Ok(c) => c,
                 Err(e) => {
                     log::error!(
@@ -179,10 +179,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
                     return;
                 }
             };
-            let ctx = Rc::new(PortalRenderCtx {
-                dev_id,
-                ctx: Rc::new(ctx),
-            });
+            let ctx = Rc::new(PortalRenderCtx { dev_id, ctx });
             self.render_ctx.set(Some(ctx.clone()));
             self.state.render_ctxs.set(dev_id, Rc::downgrade(&ctx));
         }

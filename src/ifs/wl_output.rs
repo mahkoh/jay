@@ -3,6 +3,7 @@ use {
         backend,
         client::{Client, ClientError, ClientId},
         format::XRGB8888,
+        gfx_api::{GfxFramebuffer, GfxTexture},
         globals::{Global, GlobalName},
         ifs::{
             wl_buffer::WlBufferStorage, wl_surface::WlSurface,
@@ -11,7 +12,6 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::{Framebuffer, Texture},
         state::{ConnectorData, State},
         time::Time,
         tree::OutputNode,
@@ -199,7 +199,7 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn perform_screencopies(&self, fb: &Framebuffer, tex: &Texture) {
+    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
         if self.pending_captures.is_empty() {
             return;
         }

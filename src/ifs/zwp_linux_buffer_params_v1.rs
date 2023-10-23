@@ -1,10 +1,10 @@
 use {
     crate::{
         client::ClientError,
+        gfx_api::GfxError,
         ifs::{wl_buffer::WlBuffer, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1},
         leaks::Tracker,
         object::Object,
-        render::RenderError,
         utils::{
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,
@@ -228,7 +228,7 @@ pub enum ZwpLinuxBufferParamsV1Error {
     #[error("Plane {0} was not set")]
     MissingPlane(usize),
     #[error("Could not import the buffer")]
-    ImportError(#[from] RenderError),
+    ImportError(#[from] GfxError),
 }
 efrom!(ZwpLinuxBufferParamsV1Error, ClientError);
 efrom!(ZwpLinuxBufferParamsV1Error, MsgParserError);

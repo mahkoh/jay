@@ -1,9 +1,9 @@
 use {
     crate::{
         client::{Client, ClientError},
+        gfx_api::GfxContext,
         leaks::Tracker,
         object::Object,
-        render::RenderContext,
         utils::{
             buffd::{MsgParser, MsgParserError},
             errorfmt::ErrorFmt,
@@ -21,10 +21,10 @@ pub struct JayRenderCtx {
 }
 
 impl JayRenderCtx {
-    pub fn send_render_ctx(&self, ctx: Option<&Rc<RenderContext>>) {
+    pub fn send_render_ctx(&self, ctx: Option<Rc<dyn GfxContext>>) {
         let mut fd = None;
         if let Some(ctx) = ctx {
-            match ctx.gbm.drm.dup_render() {
+            match ctx.gbm().drm.dup_render() {
                 Ok(d) => fd = Some(d.fd().clone()),
                 Err(e) => {
                     log::error!("Could not dup drm fd: {}", ErrorFmt(e));

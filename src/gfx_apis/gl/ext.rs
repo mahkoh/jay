@@ -1,6 +1,6 @@
 use {
     crate::{
-        render::{
+        gfx_apis::gl::{
             egl::sys::{eglQueryString, EGLDisplay, EGL_EXTENSIONS},
             gl::sys::{glGetString, GL_EXTENSIONS},
         },
@@ -47,6 +47,7 @@ where
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug)]
     pub struct ClientExt: u32 {
         const EXT_CLIENT_EXTENSION   = 1 << 0;
         const EXT_PLATFORM_BASE      = 1 << 1;
@@ -68,6 +69,7 @@ pub fn get_client_ext() -> ClientExt {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug)]
     pub struct DisplayExt: u32 {
         const KHR_IMAGE_BASE                     = 1 << 0;
         const EXT_IMAGE_DMA_BUF_IMPORT           = 1 << 1;
@@ -80,7 +82,7 @@ bitflags::bitflags! {
     }
 }
 
-pub(super) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
+pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
     let map = [
         ("EGL_KHR_image_base", DisplayExt::KHR_IMAGE_BASE),
         (
@@ -116,6 +118,7 @@ pub(super) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
 }
 
 bitflags::bitflags! {
+    #[derive(Copy, Clone, Debug)]
     pub struct GlExt: u32 {
         const GL_OES_EGL_IMAGE   = 1 << 0;
         const GL_OES_EGL_IMAGE_EXTERNAL   = 1 << 1;

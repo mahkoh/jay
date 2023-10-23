@@ -12,7 +12,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         state::State,
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
@@ -425,8 +425,15 @@ impl Node for XdgToplevel {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
-        renderer.render_xdg_surface(&self.xdg, x, y)
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        max_width: i32,
+        max_height: i32,
+    ) {
+        renderer.render_xdg_surface(&self.xdg, x, y, max_width, max_height)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {

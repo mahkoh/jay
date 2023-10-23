@@ -31,7 +31,6 @@ pub fn bincode_ops() -> impl bincode::config::Config {
         .with_fixed_int_encoding()
         .with_little_endian()
         .with_no_limit()
-        .skip_fixed_array_length()
 }
 
 pub trait Config {

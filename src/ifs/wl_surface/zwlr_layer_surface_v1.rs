@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        render::Renderer,
+        renderer::Renderer,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
         utils::{
             bitflags::BitflagsExt,
@@ -394,7 +394,14 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.surface.find_tree_at_(x, y, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_layer_surface(self, x, y);
     }
 }

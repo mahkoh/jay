@@ -3,9 +3,10 @@ use {
         client::Client,
         cursor::KnownCursor,
         fixed::Fixed,
+        gfx_api::GfxTexture,
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
-        render::{Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         text,
@@ -24,7 +25,7 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    pub textures: SmallMap<Scale, Rc<Texture>, 2>,
+    pub textures: SmallMap<Scale, Rc<dyn GfxTexture>, 2>,
 }
 
 impl PlaceholderNode {
@@ -122,7 +123,14 @@ impl Node for PlaceholderNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32) {
+    fn node_render(
+        &self,
+        renderer: &mut Renderer,
+        x: i32,
+        y: i32,
+        _max_width: i32,
+        _max_height: i32,
+    ) {
         renderer.render_placeholder(self, x, y);
     }
 

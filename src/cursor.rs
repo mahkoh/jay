@@ -2,8 +2,9 @@ use {
     crate::{
         fixed::Fixed,
         format::ARGB8888,
+        gfx_api::{GfxContext, GfxError, GfxTexture},
         rect::Rect,
-        render::{RenderContext, RenderError, Renderer, Texture},
+        renderer::Renderer,
         scale::Scale,
         state::State,
         time::Time,
@@ -86,7 +87,7 @@ pub enum KnownCursor {
 }
 
 impl ServerCursors {
-    pub fn load(ctx: &Rc<RenderContext>, state: &State) -> Result<Option<Self>, CursorError> {
+    pub fn load(ctx: &Rc<dyn GfxContext>, state: &State) -> Result<Option<Self>, CursorError> {
         let paths = find_cursor_paths();
         log::debug!("Trying to load cursors from paths {:?}", paths);
         let sizes = state.cursor_sizes.to_vec();
@@ -134,7 +135,7 @@ impl ServerCursorTemplate {
         scales: &[Scale],
         sizes: &[u32],
         paths: &[BString],
-        ctx: &Rc<RenderContext>,
+        ctx: &Rc<dyn GfxContext>,
     ) -> Result<Self, CursorError> {
         match open_cursor(name, theme, scales, sizes, paths) {
             Ok(cs) => {
@@ -214,7 +215,7 @@ impl ServerCursorTemplate {
 
 struct CursorImageScaled {
     extents: Rect,
-    tex: Rc<Texture>,
+    tex: Rc<dyn GfxTexture>,
 }
 
 struct CursorImage {
@@ -229,7 +230,7 @@ struct InstantiatedCursorImage {
 
 impl CursorImageScaled {
     fn from_bytes(
-        ctx: &Rc<RenderContext>,
+        ctx: &Rc<dyn GfxContext>,
         data: &[Cell<u8>],
         width: i32,
         height: i32,
@@ -238,7 +239,9 @@ impl CursorImageScaled {
     ) -> Result<Rc<Self>, CursorError> {
         Ok(Rc::new(Self {
             extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
-            tex: ctx.shmem_texture(data, ARGB8888, width, height, width * 4)?,
+            tex: ctx
+                .clone()
+                .shmem_texture(data, ARGB8888, width, height, width * 4)?,
         }))
     }
 }
@@ -295,6 +298,8 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             None,
             None,
             scale,
+            i32::MAX,
+            i32::MAX,
         );
     }
 }
@@ -306,9 +311,17 @@ impl Cursor for StaticCursor {
 
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
-            renderer
-                .base
-                .render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+            renderer.base.render_texture(
+                &img.tex,
+                0,
+                0,
+                ARGB8888,
+                None,
+                None,
+                renderer.scale(),
+                i32::MAX,
+                i32::MAX,
+            );
         }
     }
 
@@ -336,9 +349,17 @@ impl Cursor for AnimatedCursor {
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         let img = &self.images[self.idx.get()];
         if let Some(img) = img.scales.get(&renderer.scale()) {
-            renderer
-                .base
-                .render_texture(&img.tex, 0, 0, ARGB8888, None, None, renderer.scale());
+            renderer.base.render_texture(
+                &img.tex,
+                0,
+                0,
+                ARGB8888,
+                None,
+                None,
+                renderer.scale(),
+                i32::MAX,
+                i32::MAX,
+            );
         }
     }
 
@@ -517,7 +538,7 @@ pub enum CursorError {
     #[error("The requested cursor could not be found")]
     NotFound,
     #[error("Could not import the cursor as a texture")]
-    ImportError(#[from] RenderError),
+    ImportError(#[from] GfxError),
 }
 
 #[derive(Default, Clone)]
