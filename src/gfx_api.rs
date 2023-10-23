@@ -113,6 +113,8 @@ pub enum ResetStatus {
 pub trait GfxFramebuffer: Debug {
     fn as_any(&self) -> &dyn Any;
 
+    fn take_render_ops(&self) -> Vec<GfxApiOpt>;
+
     fn clear(&self);
 
     fn clear_with(&self, r: f32, g: f32, b: f32, a: f32);
@@ -167,8 +169,6 @@ pub trait GfxTexture: Debug {
 }
 
 pub trait GfxContext: Debug {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt>;
-
     fn reset_status(&self) -> Option<ResetStatus>;
 
     fn supports_external_texture(&self) -> bool;

@@ -3,7 +3,7 @@ use {
         cursor::Cursor,
         fixed::Fixed,
         format::{Format, ARGB8888, XRGB8888},
-        gfx_api::{GfxFramebuffer, GfxTexture},
+        gfx_api::{GfxApiOpt, GfxFramebuffer, GfxTexture},
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
@@ -26,6 +26,7 @@ use {
         any::Any,
         cell::Cell,
         fmt::{Debug, Formatter},
+        mem,
         rc::Rc,
     },
 };
@@ -262,6 +263,10 @@ impl Framebuffer {
 impl GfxFramebuffer for Framebuffer {
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
+        mem::take(&mut self.ctx.gfx_ops.borrow_mut())
     }
 
     fn clear(&self) {
