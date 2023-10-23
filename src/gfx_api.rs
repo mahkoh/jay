@@ -1,9 +1,10 @@
 use {
     crate::{
         cursor::Cursor,
-        format::Format,
+        fixed::Fixed,
+        format::{Format, ARGB8888, XRGB8888},
         rect::Rect,
-        renderer::{renderer_base::RendererBase, RenderResult},
+        renderer::{renderer_base::RendererBase, RenderResult, Renderer},
         scale::Scale,
         state::State,
         theme::Color,
@@ -115,18 +116,9 @@ pub trait GfxFramebuffer: Debug {
 
     fn take_render_ops(&self) -> Vec<GfxApiOpt>;
 
-    fn clear(&self);
+    fn size(&self) -> (i32, i32);
 
-    fn clear_with(&self, r: f32, g: f32, b: f32, a: f32);
-
-    fn copy_texture(
-        &self,
-        state: &State,
-        texture: &Rc<dyn GfxTexture>,
-        x: i32,
-        y: i32,
-        alpha: bool,
-    );
+    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>);
 
     fn copy_to_shm(
         &self,
@@ -137,10 +129,65 @@ pub trait GfxFramebuffer: Debug {
         format: &Format,
         shm: &[Cell<u8>],
     );
+}
 
-    fn render_custom(&self, scale: Scale, f: &mut dyn FnMut(&mut RendererBase));
+impl dyn GfxFramebuffer {
+    pub fn clear(&self) {
+        self.clear_with(0.0, 0.0, 0.0, 0.0);
+    }
 
-    fn render(
+    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) {
+        let ops = self.take_render_ops();
+        self.render(ops, Some(&Color { r, g, b, a }));
+    }
+
+    pub fn copy_texture(
+        &self,
+        state: &State,
+        texture: &Rc<dyn GfxTexture>,
+        x: i32,
+        y: i32,
+        alpha: bool,
+    ) {
+        let mut ops = self.take_render_ops();
+        let scale = Scale::from_int(1);
+        let (width, height) = self.size();
+        let extents = Rect::new_sized(0, 0, width, height).unwrap();
+        let mut renderer = Renderer {
+            base: RendererBase {
+                ops: &mut ops,
+                scaled: false,
+                scale,
+                scalef: 1.0,
+            },
+            state,
+            result: None,
+            logical_extents: extents,
+            physical_extents: extents,
+        };
+        let (format, clear) = match alpha {
+            true => (ARGB8888, Some(&Color::TRANSPARENT)),
+            false => (XRGB8888, None),
+        };
+        renderer
+            .base
+            .render_texture(texture, x, y, format, None, None, scale, i32::MAX, i32::MAX);
+        self.render(ops, clear);
+    }
+
+    pub fn render_custom(&self, scale: Scale, f: &mut dyn FnMut(&mut RendererBase)) {
+        let mut ops = self.take_render_ops();
+        let mut renderer = RendererBase {
+            ops: &mut ops,
+            scaled: scale != 1,
+            scale,
+            scalef: scale.to_f64(),
+        };
+        f(&mut renderer);
+        self.render(ops, None);
+    }
+
+    pub fn render_node(
         &self,
         node: &dyn Node,
         state: &State,
@@ -148,9 +195,68 @@ pub trait GfxFramebuffer: Debug {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
-    );
+    ) {
+        let mut ops = self.take_render_ops();
+        let (width, height) = self.size();
+        let mut renderer = Renderer {
+            base: RendererBase {
+                ops: &mut ops,
+                scaled: scale != 1,
+                scale,
+                scalef: scale.to_f64(),
+            },
+            state,
+            result,
+            logical_extents: node.node_absolute_position().at_point(0, 0),
+            physical_extents: Rect::new(0, 0, width, height).unwrap(),
+        };
+        node.node_render(&mut renderer, 0, 0, i32::MAX, i32::MAX);
+        if let Some(rect) = cursor_rect {
+            let seats = state.globals.lock_seats();
+            for seat in seats.values() {
+                if let Some(cursor) = seat.get_cursor() {
+                    let (mut x, mut y) = seat.get_position();
+                    if let Some(dnd_icon) = seat.dnd_icon() {
+                        let extents = dnd_icon.extents.get().move_(
+                            x.round_down() + dnd_icon.buf_x.get(),
+                            y.round_down() + dnd_icon.buf_y.get(),
+                        );
+                        if extents.intersects(&rect) {
+                            let (x, y) = rect.translate(extents.x1(), extents.y1());
+                            renderer.render_surface(&dnd_icon, x, y, i32::MAX, i32::MAX);
+                        }
+                    }
+                    if render_hardware_cursor || !seat.hardware_cursor() {
+                        cursor.tick();
+                        x -= Fixed::from_int(rect.x1());
+                        y -= Fixed::from_int(rect.y1());
+                        cursor.render(&mut renderer, x, y);
+                    }
+                }
+            }
+        }
+        let c = state.theme.colors.background.get();
+        self.render(ops, Some(&c));
+    }
 
-    fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale);
+    pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale) {
+        let mut ops = self.take_render_ops();
+        let (width, height) = self.size();
+        let mut renderer = Renderer {
+            base: RendererBase {
+                ops: &mut ops,
+                scaled: scale != 1,
+                scale,
+                scalef: scale.to_f64(),
+            },
+            state,
+            result: None,
+            logical_extents: Rect::new_empty(0, 0),
+            physical_extents: Rect::new(0, 0, width, height).unwrap(),
+        };
+        cursor.render_hardware_cursor(&mut renderer);
+        self.render(ops, Some(&Color::TRANSPARENT));
+    }
 }
 
 pub trait GfxImage {

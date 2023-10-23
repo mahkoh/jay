@@ -55,7 +55,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR,
     )?;
     let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;
-    fb.render(
+    fb.render_node(
         state.root.deref(),
         state,
         Some(state.root.extents.get()),

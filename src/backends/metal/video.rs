@@ -360,7 +360,7 @@ impl MetalConnector {
             if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
                 let mut rr = self.render_result.borrow_mut();
                 let render_fb = buffer.render_fb();
-                render_fb.render(
+                render_fb.render_node(
                     &*node,
                     &self.state,
                     Some(node.global.pos.get()),

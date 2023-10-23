@@ -723,7 +723,7 @@ impl XBackend {
         if let Some(node) = self.state.root.outputs.get(&output.id) {
             let mut rr = self.render_result.borrow_mut();
             let fb = image.fb.get();
-            fb.render(
+            fb.render_node(
                 &*node,
                 &self.state,
                 Some(node.global.pos.get()),
