@@ -3,7 +3,7 @@ use {
         gfx_apis::gl::sys::{GLint, GL_BGRA_EXT, GL_RGBA, GL_UNSIGNED_BYTE},
         pipewire::pw_pod::{
             SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA,
-            SPA_VIDEO_FORMAT_NV12, SPA_VIDEO_FORMAT_RGBA,
+            SPA_VIDEO_FORMAT_RGBA,
         },
         utils::debug_fn::debug_fn,
     },
@@ -132,18 +132,18 @@ pub static FORMATS: &[Format] = &[
         shm_supported: true,
         pipewire: SPA_VIDEO_FORMAT_RGBx,
     },
-    Format {
-        name: "nv12",
-        bpp: 1,                    // wrong but only used for shm
-        gl_format: 0,              // wrong but only used for shm
-        gl_type: GL_UNSIGNED_BYTE, // wrong but only used for shm
-        drm: fourcc_code('N', 'V', '1', '2'),
-        wl_id: None,
-        external_only_guess: true,
-        has_alpha: false,
-        shm_supported: false,
-        pipewire: SPA_VIDEO_FORMAT_NV12,
-    },
+    // Format {
+    //     name: "nv12",
+    //     bpp: 1,                    // wrong but only used for shm
+    //     gl_format: 0,              // wrong but only used for shm
+    //     gl_type: GL_UNSIGNED_BYTE, // wrong but only used for shm
+    //     drm: fourcc_code('N', 'V', '1', '2'),
+    //     wl_id: None,
+    //     external_only_guess: true,
+    //     has_alpha: false,
+    //     shm_supported: false,
+    //     pipewire: SPA_VIDEO_FORMAT_NV12,
+    // },
     // Format {
     //     id: fourcc_code('C', '8', ' ', ' '),
     //     name: "c8",
