@@ -28,11 +28,10 @@ use {
             gl::texture::image_target,
             renderer::{context::GlRenderContext, framebuffer::Framebuffer, texture::Texture},
             sys::{
-                glActiveTexture, glBindTexture, glClear, glClearColor, glDisable,
-                glDisableVertexAttribArray, glDrawArrays, glEnable, glEnableVertexAttribArray,
-                glTexParameteri, glUniform1i, glUniform4f, glUseProgram, glVertexAttribPointer,
-                GL_BLEND, GL_COLOR_BUFFER_BIT, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0,
-                GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
+                glActiveTexture, glBindTexture, glDisable, glDisableVertexAttribArray,
+                glDrawArrays, glEnable, glEnableVertexAttribArray, glTexParameteri, glUniform1i,
+                glUniform4f, glUseProgram, glVertexAttribPointer, GL_BLEND, GL_FALSE, GL_FLOAT,
+                GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
             },
         },
         theme::Color,
@@ -164,13 +163,6 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
                         break;
                     }
                 }
-                GfxApiOpt::Clear(c) => {
-                    if has_ops!() {
-                        break;
-                    }
-                    clear(&c.color);
-                    i += 1;
-                }
                 GfxApiOpt::FillRect(f) => {
                     fill_rect.push(f);
                     i += 1;
@@ -231,13 +223,6 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
                 &tex.source,
             )
         }
-    }
-}
-
-fn clear(c: &Color) {
-    unsafe {
-        glClearColor(c.r, c.g, c.b, c.a);
-        glClear(GL_COLOR_BUFFER_BIT);
     }
 }
 

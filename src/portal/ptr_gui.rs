@@ -638,12 +638,12 @@ impl WindowData {
         self.have_frame.set(false);
         buf.free.set(false);
 
-        buf.fb.render_custom(self.scale.get(), &mut |r| {
-            r.clear(&Color::from_gray(0));
-            if let Some(content) = self.content.get() {
-                content.render_at(r, 0.0, 0.0)
-            }
-        });
+        buf.fb
+            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
+                if let Some(content) = self.content.get() {
+                    content.render_at(r, 0.0, 0.0)
+                }
+            });
 
         self.surface.attach(&buf.wl);
         self.surface.commit();
