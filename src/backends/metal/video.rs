@@ -28,7 +28,7 @@ use {
                 DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
             },
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
-            ModifiedFormat, INVALID_MODIFIER,
+            Modifier,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -506,6 +506,12 @@ pub enum PlaneType {
 }
 
 #[derive(Debug)]
+pub struct PlaneFormat {
+    _format: &'static Format,
+    modifiers: Vec<Modifier>,
+}
+
+#[derive(Debug)]
 pub struct MetalPlane {
     pub id: DrmPlane,
     pub master: Rc<DrmMaster>,
@@ -513,7 +519,7 @@ pub struct MetalPlane {
     pub ty: PlaneType,
 
     pub possible_crtcs: u32,
-    pub formats: AHashMap<u32, &'static Format>,
+    pub formats: AHashMap<u32, PlaneFormat>,
 
     pub assigned: Cell<bool>,
 
@@ -755,19 +761,36 @@ fn create_crtc(
 
 fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, DrmError> {
     let info = master.get_plane_info(plane)?;
+    let props = collect_properties(master, plane)?;
     let mut formats = AHashMap::new();
-    for format in info.format_types {
-        if let Some(f) = crate::format::formats().get(&format) {
-            formats.insert(format, *f);
-        } else {
-            // log::warn!(
-            //     "{:?} supports unknown format '{:?}'",
-            //     plane,
-            //     crate::format::debug(format)
-            // );
+    if let Some((_, v)) = props.props.get(b"IN_FORMATS".as_bstr()) {
+        for format in master.get_in_formats(*v as _)? {
+            if format.modifiers.is_empty() {
+                continue;
+            }
+            if let Some(f) = crate::format::formats().get(&format.format) {
+                formats.insert(
+                    format.format,
+                    PlaneFormat {
+                        _format: f,
+                        modifiers: format.modifiers,
+                    },
+                );
+            }
+        }
+    } else {
+        for format in info.format_types {
+            if let Some(f) = crate::format::formats().get(&format) {
+                formats.insert(
+                    format,
+                    PlaneFormat {
+                        _format: f,
+                        modifiers: vec![],
+                    },
+                );
+            }
         }
     }
-    let props = collect_properties(master, plane)?;
     let ty = match props.props.get(b"type".as_bstr()) {
         Some((def, val)) => match &def.ty {
             DrmPropertyType::Enum { values, .. } => 'ty: {
@@ -1569,30 +1592,33 @@ impl MetalBackend {
     fn create_scanout_buffers(
         &self,
         dev: &Rc<MetalDrmDevice>,
-        format: &ModifiedFormat,
+        format: &Format,
+        modifiers: &[Modifier],
         width: i32,
         height: i32,
         ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<[RenderBuffer; 2], MetalError> {
-        let create = || self.create_scanout_buffer(dev, format, width, height, ctx, cursor);
+        let create =
+            || self.create_scanout_buffer(dev, format, modifiers, width, height, ctx, cursor);
         Ok([create()?, create()?])
     }
 
     fn create_scanout_buffer(
         &self,
         dev: &Rc<MetalDrmDevice>,
-        format: &ModifiedFormat,
+        format: &Format,
+        modifiers: &[Modifier],
         width: i32,
         height: i32,
         render_ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<RenderBuffer, MetalError> {
         let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
-        if cursor {
+        if cursor && modifiers.is_empty() {
             usage |= GBM_BO_USE_LINEAR;
         };
-        let dev_bo = dev.gbm.create_bo(width, height, format, usage);
+        let dev_bo = dev.gbm.create_bo(width, height, format, modifiers, usage);
         let dev_bo = match dev_bo {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
@@ -1619,7 +1645,10 @@ impl MetalBackend {
         } else {
             // Create a _bridge_ BO in the render device
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            let render_bo = render_ctx.gfx.gbm().create_bo(width, height, format, usage);
+            let render_bo = render_ctx
+                .gfx
+                .gbm()
+                .create_bo(width, height, format, &[], usage);
             let render_bo = match render_bo {
                 Ok(b) => b,
                 Err(e) => return Err(MetalError::ScanoutBuffer(e)),
@@ -1716,46 +1745,45 @@ impl MetalBackend {
                 return Ok(());
             }
         };
-        let primary_plane = 'primary_plane: {
+        let (primary_plane, primary_modifiers) = 'primary_plane: {
             for plane in crtc.possible_planes.values() {
-                if plane.ty == PlaneType::Primary
-                    && !plane.assigned.get()
-                    && plane.formats.contains_key(&XRGB8888.drm)
-                {
-                    break 'primary_plane plane.clone();
+                if plane.ty == PlaneType::Primary && !plane.assigned.get() {
+                    if let Some(format) = plane.formats.get(&XRGB8888.drm) {
+                        break 'primary_plane (plane.clone(), &format.modifiers);
+                    }
                 }
             }
             return Err(MetalError::NoPrimaryPlaneForConnector);
         };
         let buffers = Rc::new(self.create_scanout_buffers(
             &connector.dev,
-            &ModifiedFormat {
-                format: XRGB8888,
-                modifier: INVALID_MODIFIER,
-            },
+            XRGB8888,
+            primary_modifiers,
             mode.hdisplay as _,
             mode.vdisplay as _,
             ctx,
             false,
         )?);
         let mut cursor_plane = None;
+        let mut cursor_modifiers = &[][..];
         for plane in crtc.possible_planes.values() {
             if plane.ty == PlaneType::Cursor
                 && !plane.assigned.get()
                 && plane.formats.contains_key(&ARGB8888.drm)
             {
-                cursor_plane = Some(plane.clone());
-                break;
+                if let Some(format) = plane.formats.get(&ARGB8888.drm) {
+                    cursor_plane = Some(plane.clone());
+                    cursor_modifiers = &format.modifiers[..];
+                    break;
+                }
             }
         }
         let mut cursor_buffers = None;
         if cursor_plane.is_some() {
             let res = self.create_scanout_buffers(
                 &connector.dev,
-                &ModifiedFormat {
-                    format: ARGB8888,
-                    modifier: INVALID_MODIFIER,
-                },
+                ARGB8888,
+                cursor_modifiers,
                 connector.dev.cursor_width as _,
                 connector.dev.cursor_height as _,
                 ctx,

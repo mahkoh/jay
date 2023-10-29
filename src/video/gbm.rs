@@ -2,12 +2,12 @@
 
 use {
     crate::{
-        format::formats,
+        format::{formats, Format},
         utils::oserror::OsError,
         video::{
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
-            ModifiedFormat, INVALID_MODIFIER,
+            Modifier,
         },
     },
     std::{
@@ -27,7 +27,7 @@ pub enum GbmError {
     #[error("Cloud not create a gbm device")]
     CreateDevice,
     #[error("Cloud not create a gbm buffer")]
-    CreateBo,
+    CreateBo(#[source] OsError),
     #[error("gbm buffer has an unknown format")]
     UnknownFormat,
     #[error("Could not retrieve a drm-buf fd")]
@@ -199,26 +199,27 @@ impl GbmDevice {
         &self,
         width: i32,
         height: i32,
-        format: &ModifiedFormat,
+        format: &Format,
+        modifiers: &[Modifier],
         usage: u32,
     ) -> Result<GbmBo, GbmError> {
         unsafe {
-            let (modifiers, n_modifiers) = if format.modifier == INVALID_MODIFIER {
+            let (modifiers, n_modifiers) = if modifiers.is_empty() {
                 (ptr::null(), 0)
             } else {
-                (&format.modifier as _, 1)
+                (modifiers.as_ptr() as _, modifiers.len() as _)
             };
             let bo = gbm_bo_create_with_modifiers2(
                 self.dev,
                 width as _,
                 height as _,
-                format.format.drm,
+                format.drm,
                 modifiers,
                 n_modifiers,
                 usage,
             );
             if bo.is_null() {
-                return Err(GbmError::CreateBo);
+                return Err(GbmError::CreateBo(OsError::default()));
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
@@ -250,7 +251,7 @@ impl GbmDevice {
                 usage,
             );
             if bo.is_null() {
-                return Err(GbmError::CreateBo);
+                return Err(GbmError::CreateBo(OsError::default()));
             }
             let bo = BoHolder { bo };
             Ok(GbmBo {
