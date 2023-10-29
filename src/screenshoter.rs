@@ -7,7 +7,6 @@ use {
         video::{
             drm::DrmError,
             gbm::{GbmBo, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            ModifiedFormat, INVALID_MODIFIER,
         },
     },
     std::{ops::Deref, rc::Rc},
@@ -43,15 +42,12 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
     if extents.is_empty() {
         return Err(ScreenshooterError::EmptyDisplay);
     }
-    let format = ModifiedFormat {
-        format: XRGB8888,
-        modifier: INVALID_MODIFIER,
-    };
     let gbm = ctx.gbm();
     let bo = gbm.create_bo(
         extents.width(),
         extents.height(),
-        &format,
+        XRGB8888,
+        &[],
         GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR,
     )?;
     let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;

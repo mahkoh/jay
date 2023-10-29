@@ -21,7 +21,6 @@ use {
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
             gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
-            ModifiedFormat, INVALID_MODIFIER,
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
@@ -376,15 +375,11 @@ impl XBackend {
         width: i32,
         height: i32,
     ) -> Result<[XImage; 2], XBackendError> {
-        let format = ModifiedFormat {
-            format: XRGB8888,
-            modifier: INVALID_MODIFIER,
-        };
         let mut images = [None, None];
         for image in &mut images {
             let bo = self
                 .gbm
-                .create_bo(width, height, &format, GBM_BO_USE_RENDERING)?;
+                .create_bo(width, height, XRGB8888, &[], GBM_BO_USE_RENDERING)?;
             let dma = bo.dmabuf();
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();

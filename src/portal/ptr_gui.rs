@@ -15,7 +15,7 @@ use {
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
-        video::{gbm::GBM_BO_USE_RENDERING, ModifiedFormat, INVALID_MODIFIER},
+        video::gbm::GBM_BO_USE_RENDERING,
         wire::{
             wp_fractional_scale_v1::PreferredScale, zwlr_layer_surface_v1::Configure,
             ZwpLinuxBufferParamsV1Id,
@@ -694,21 +694,18 @@ impl WindowData {
         let width = (self.width.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let height = (self.height.get() as f64 * self.scale.get().to_f64()).round() as i32;
         for _ in 0..NUM_BUFFERS {
-            let format = ModifiedFormat {
-                format: ARGB8888,
-                modifier: INVALID_MODIFIER,
-            };
-            let bo = match ctx
-                .ctx
-                .gbm()
-                .create_bo(width, height, &format, GBM_BO_USE_RENDERING)
-            {
-                Ok(b) => b,
-                Err(e) => {
-                    log::error!("Could not allocate dmabuf: {}", ErrorFmt(e));
-                    return;
-                }
-            };
+            let bo =
+                match ctx
+                    .ctx
+                    .gbm()
+                    .create_bo(width, height, ARGB8888, &[], GBM_BO_USE_RENDERING)
+                {
+                    Ok(b) => b,
+                    Err(e) => {
+                        log::error!("Could not allocate dmabuf: {}", ErrorFmt(e));
+                        return;
+                    }
+                };
             let img = match ctx.ctx.clone().dmabuf_img(bo.dmabuf()) {
                 Ok(b) => b,
                 Err(e) => {

@@ -17,7 +17,6 @@ use {
         video::{
             dmabuf::DmaBuf,
             gbm::{GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            ModifiedFormat, INVALID_MODIFIER,
         },
         wire::{jay_screencast::*, JayScreencastId},
     },
@@ -199,17 +198,13 @@ impl JayScreencast {
             let mode = output.global.mode.get();
             let num = 3;
             for _ in 0..num {
-                let format = ModifiedFormat {
-                    format: XRGB8888,
-                    modifier: INVALID_MODIFIER,
-                };
                 let mut flags = GBM_BO_USE_RENDERING;
                 if self.linear.get() {
                     flags |= GBM_BO_USE_LINEAR;
                 }
                 let buffer = ctx
                     .gbm()
-                    .create_bo(mode.width, mode.height, &format, flags)?;
+                    .create_bo(mode.width, mode.height, XRGB8888, &[], flags)?;
                 let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
                 buffers.push(ScreencastBuffer {
                     dmabuf: buffer.dmabuf().clone(),
