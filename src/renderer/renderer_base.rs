@@ -2,8 +2,7 @@ use {
     crate::{
         format::Format,
         gfx_api::{
-            AbsoluteRect, BufferPoint, BufferPoints, Clear, CopyTexture, FillRect, GfxApiOpt,
-            GfxTexture,
+            AbsoluteRect, BufferPoint, BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxTexture,
         },
         rect::Rect,
         scale::Scale,
@@ -60,10 +59,6 @@ impl RendererBase<'_> {
             rect = (x1, y1, x2, y2)
         }
         rect
-    }
-
-    pub fn clear(&mut self, c: &Color) {
-        self.ops.push(GfxApiOpt::Clear(Clear { color: *c }))
     }
 
     pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color) {

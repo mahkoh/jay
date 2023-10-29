@@ -25,7 +25,6 @@ use {
 
 pub enum GfxApiOpt {
     Sync,
-    Clear(Clear),
     FillRect(FillRect),
     CopyTexture(CopyTexture),
 }
@@ -85,10 +84,6 @@ pub struct AbsoluteRect {
     pub x2: f32,
     pub y1: f32,
     pub y2: f32,
-}
-
-pub struct Clear {
-    pub color: Color,
 }
 
 pub struct FillRect {
@@ -175,7 +170,12 @@ impl dyn GfxFramebuffer {
         self.render(ops, clear);
     }
 
-    pub fn render_custom(&self, scale: Scale, f: &mut dyn FnMut(&mut RendererBase)) {
+    pub fn render_custom(
+        &self,
+        scale: Scale,
+        clear: Option<&Color>,
+        f: &mut dyn FnMut(&mut RendererBase),
+    ) {
         let mut ops = self.take_render_ops();
         let mut renderer = RendererBase {
             ops: &mut ops,
@@ -184,7 +184,7 @@ impl dyn GfxFramebuffer {
             scalef: scale.to_f64(),
         };
         f(&mut renderer);
-        self.render(ops, None);
+        self.render(ops, clear);
     }
 
     pub fn render_node(
