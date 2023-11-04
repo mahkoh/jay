@@ -2,8 +2,7 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
-        format::XRGB8888,
-        gfx_api::{GfxFramebuffer, GfxTexture},
+        gfx_api::GfxTexture,
         globals::{Global, GlobalName},
         ifs::{
             wl_buffer::WlBufferStorage, wl_surface::WlSurface,
@@ -199,7 +198,7 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
+    pub fn perform_screencopies(&self, tex: &Rc<dyn GfxTexture>) {
         if self.pending_captures.is_empty() {
             return;
         }
@@ -219,22 +218,9 @@ impl WlOutputGlobal {
                 capture.send_failed();
                 continue;
             }
-            let rect = capture.rect;
-            if let Some(WlBufferStorage::Shm { mem, .. }) = wl_buffer.storage.borrow_mut().deref() {
-                let res = mem.access(|mem| {
-                    fb.copy_to_shm(
-                        rect.x1(),
-                        rect.y1(),
-                        rect.width(),
-                        rect.height(),
-                        XRGB8888,
-                        mem,
-                    );
-                });
-                if let Err(e) = res {
-                    capture.client.error(e);
-                }
-                // capture.send_flags(FLAGS_Y_INVERT);
+            if let Some(WlBufferStorage::Shm { .. }) = wl_buffer.storage.borrow_mut().deref() {
+                capture.send_failed();
+                continue;
             } else {
                 let fb = match wl_buffer.famebuffer.get() {
                     Some(fb) => fb,

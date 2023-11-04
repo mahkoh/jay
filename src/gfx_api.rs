@@ -115,16 +115,6 @@ pub trait GfxFramebuffer: Debug {
     fn size(&self) -> (i32, i32);
 
     fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>);
-
-    fn copy_to_shm(
-        &self,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        format: &Format,
-        shm: &[Cell<u8>],
-    );
 }
 
 impl dyn GfxFramebuffer {

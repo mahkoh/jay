@@ -1,6 +1,5 @@
 use {
     crate::{
-        format::Format,
         gfx_api::{GfxApiOpt, GfxFramebuffer},
         gfx_apis::gl::{
             gl::{
@@ -12,13 +11,12 @@ use {
             },
             renderer::context::GlRenderContext,
             run_ops,
-            sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
+            sys::{glBlendFunc, glFlush, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
         },
         theme::Color,
     },
     std::{
         any::Any,
-        cell::Cell,
         fmt::{Debug, Formatter},
         mem,
         rc::Rc,
@@ -37,35 +35,6 @@ impl Debug for Framebuffer {
 }
 
 impl Framebuffer {
-    pub fn copy_to_shm(
-        &self,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        format: &Format,
-        shm: &[Cell<u8>],
-    ) {
-        let y = self.gl.height - y - height;
-        let _ = self.ctx.ctx.with_current(|| {
-            unsafe {
-                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
-                glViewport(0, 0, self.gl.width, self.gl.height);
-                glReadnPixels(
-                    x,
-                    y,
-                    width,
-                    height,
-                    format.gl_format as _,
-                    format.gl_type as _,
-                    shm.len() as _,
-                    shm.as_ptr() as _,
-                );
-            }
-            Ok(())
-        });
-    }
-
     pub fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) {
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
@@ -104,17 +73,5 @@ impl GfxFramebuffer for Framebuffer {
 
     fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) {
         self.render(ops, clear);
-    }
-
-    fn copy_to_shm(
-        &self,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        format: &Format,
-        shm: &[Cell<u8>],
-    ) {
-        self.copy_to_shm(x, y, width, height, format, shm)
     }
 }

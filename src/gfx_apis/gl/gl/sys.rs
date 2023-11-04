@@ -75,17 +75,6 @@ extern "C" {
     #[allow(dead_code)]
     pub fn glFlush();
 
-    pub fn glReadnPixels(
-        x: GLint,
-        y: GLint,
-        width: GLsizei,
-        height: GLsizei,
-        format: GLenum,
-        ty: GLenum,
-        buf_size: GLsizei,
-        data: *mut c::c_void,
-    );
-
     pub fn glGenTextures(n: GLsizei, textures: *mut GLuint);
     pub fn glDeleteTextures(n: GLsizei, textures: *const GLuint);
     pub fn glBindTexture(target: GLenum, texture: GLuint);
