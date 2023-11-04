@@ -9,9 +9,10 @@ use {
         state::State,
         theme::Color,
         tree::Node,
-        video::{dmabuf::DmaBuf, gbm::GbmDevice},
+        video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
     },
     ahash::AHashMap,
+    indexmap::IndexSet,
     std::{
         any::Any,
         cell::Cell,
@@ -277,8 +278,6 @@ pub trait GfxTexture: Debug {
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
 
-    fn supports_external_texture(&self) -> bool;
-
     fn render_node(&self) -> Rc<CString>;
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>>;
@@ -302,14 +301,7 @@ pub trait GfxContext: Debug {
 #[derive(Debug)]
 pub struct GfxFormat {
     pub format: &'static Format,
-    pub implicit_external_only: bool,
-    pub modifiers: AHashMap<u64, GfxModifier>,
-}
-
-#[derive(Debug)]
-pub struct GfxModifier {
-    pub modifier: u64,
-    pub external_only: bool,
+    pub modifiers: IndexSet<Modifier>,
 }
 
 #[derive(Error)]

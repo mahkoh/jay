@@ -126,6 +126,8 @@ enum RenderError {
     ExternalOnly,
     #[error("OpenGL context does not support external textures")]
     ExternalUnsupported,
+    #[error("OpenGL context does not support any formats")]
+    NoSupportedFormats,
 }
 
 #[derive(Default)]

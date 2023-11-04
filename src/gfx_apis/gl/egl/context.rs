@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::ResetStatus,
+        gfx_api::{GfxFormat, ResetStatus},
         gfx_apis::gl::{
             egl::{
                 display::EglDisplay,
@@ -17,6 +17,7 @@ use {
             RenderError,
         },
     },
+    ahash::AHashMap,
     std::rc::Rc,
 };
 
@@ -25,6 +26,7 @@ pub struct EglContext {
     pub dpy: Rc<EglDisplay>,
     pub ext: GlExt,
     pub ctx: EGLContext,
+    pub formats: Rc<AHashMap<u32, GfxFormat>>,
 }
 
 impl Drop for EglContext {
