@@ -24,6 +24,7 @@ impl JayScreenshot {
         height: i32,
         offset: u32,
         stride: u32,
+        modifier: u64,
     ) {
         self.client.event(Dmabuf {
             self_id: self.id,
@@ -33,6 +34,8 @@ impl JayScreenshot {
             height: height as _,
             offset,
             stride,
+            modifier_lo: modifier as u32,
+            modifier_hi: (modifier >> 32) as u32,
         });
     }
 

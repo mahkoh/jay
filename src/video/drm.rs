@@ -17,6 +17,7 @@ use {
     },
     ahash::AHashMap,
     bstr::{BString, ByteSlice},
+    indexmap::IndexSet,
     std::{
         cell::RefCell,
         ffi::CString,
@@ -181,7 +182,7 @@ impl Drm {
 
 pub struct InFormat {
     pub format: u32,
-    pub modifiers: Vec<Modifier>,
+    pub modifiers: IndexSet<Modifier>,
 }
 
 pub struct DrmMaster {
@@ -418,7 +419,7 @@ impl DrmMaster {
             .unwrap()
             .map(|f| InFormat {
                 format: f,
-                modifiers: vec![],
+                modifiers: IndexSet::new(),
             })
             .collect();
         let modifiers =
@@ -435,7 +436,7 @@ impl DrmMaster {
                     log::error!("Modifier offset is out of bounds");
                     return Err(DrmError::InFormats);
                 }
-                formats[idx].modifiers.push(modifier.modifier);
+                formats[idx].modifiers.insert(modifier.modifier);
             }
         }
         Ok(formats)

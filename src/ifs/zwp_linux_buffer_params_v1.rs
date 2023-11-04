@@ -110,7 +110,7 @@ impl ZwpLinuxBufferParamsV1 {
             Some(m) => m,
             _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
         };
-        if !format.modifiers.contains(&modifier) {
+        if !format.read_modifiers.contains(&modifier) {
             return Err(ZwpLinuxBufferParamsV1Error::InvalidModifier(modifier));
         }
         let mut dmabuf = DmaBuf {

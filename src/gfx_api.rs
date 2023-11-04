@@ -302,7 +302,8 @@ pub trait GfxContext: Debug {
 #[derive(Debug)]
 pub struct GfxFormat {
     pub format: &'static Format,
-    pub modifiers: IndexSet<Modifier>,
+    pub read_modifiers: IndexSet<Modifier>,
+    pub write_modifiers: IndexSet<Modifier>,
 }
 
 #[derive(Error)]

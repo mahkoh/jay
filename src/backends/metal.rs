@@ -108,6 +108,14 @@ pub enum MetalError {
     DevicePauseSignalHandler(#[source] DbusError),
     #[error("Could not create device-resumed signal handler")]
     DeviceResumeSignalHandler(#[source] DbusError),
+    #[error("Device render context does not support required format {0}")]
+    MissingDevFormat(&'static str),
+    #[error("Render context does not support required format {0}")]
+    MissingRenderFormat(&'static str),
+    #[error("Device cannot scan out any buffers writable by its GFX API (format {0})")]
+    MissingDevModifier(&'static str),
+    #[error("Device GFX API cannot read any buffers writable by the render GFX API (format {0})")]
+    MissingRenderModifier(&'static str),
 }
 
 pub struct MetalBackend {

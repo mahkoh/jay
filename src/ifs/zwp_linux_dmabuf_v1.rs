@@ -40,7 +40,7 @@ impl ZwpLinuxDmabufV1Global {
             for format in formats.values() {
                 obj.send_format(format.format.drm);
                 if version >= MODIFIERS_SINCE_VERSION {
-                    for &modifier in &format.modifiers {
+                    for &modifier in &format.read_modifiers {
                         obj.send_modifier(format.format.drm, modifier);
                     }
                 }

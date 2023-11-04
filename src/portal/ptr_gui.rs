@@ -693,19 +693,32 @@ impl WindowData {
         self.frame_missed.set(true);
         let width = (self.width.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let height = (self.height.get() as f64 * self.scale.get().to_f64()).round() as i32;
+        let formats = ctx.ctx.formats();
+        let format = match formats.get(&ARGB8888.drm) {
+            None => {
+                log::error!("Render context does not support ARGB8888 format");
+                return;
+            }
+            Some(f) => f,
+        };
+        if format.write_modifiers.is_empty() {
+            log::error!("Render context cannot render to ARGB8888 format");
+            return;
+        }
         for _ in 0..NUM_BUFFERS {
-            let bo =
-                match ctx
-                    .ctx
-                    .gbm()
-                    .create_bo(width, height, ARGB8888, &[], GBM_BO_USE_RENDERING)
-                {
-                    Ok(b) => b,
-                    Err(e) => {
-                        log::error!("Could not allocate dmabuf: {}", ErrorFmt(e));
-                        return;
-                    }
-                };
+            let bo = match ctx.ctx.gbm().create_bo(
+                width,
+                height,
+                ARGB8888,
+                &format.write_modifiers,
+                GBM_BO_USE_RENDERING,
+            ) {
+                Ok(b) => b,
+                Err(e) => {
+                    log::error!("Could not allocate dmabuf: {}", ErrorFmt(e));
+                    return;
+                }
+            };
             let img = match ctx.ctx.clone().dmabuf_img(bo.dmabuf()) {
                 Ok(b) => b,
                 Err(e) => {
