@@ -38,16 +38,10 @@ impl ZwpLinuxDmabufV1Global {
         if let Some(ctx) = client.state.render_ctx.get() {
             let formats = ctx.formats();
             for format in formats.values() {
-                if format.implicit_external_only && !ctx.supports_external_texture() {
-                    continue;
-                }
                 obj.send_format(format.format.drm);
                 if version >= MODIFIERS_SINCE_VERSION {
-                    for modifier in format.modifiers.values() {
-                        if modifier.external_only && !ctx.supports_external_texture() {
-                            continue;
-                        }
-                        obj.send_modifier(format.format.drm, modifier.modifier);
+                    for &modifier in &format.modifiers {
+                        obj.send_modifier(format.format.drm, modifier);
                     }
                 }
             }

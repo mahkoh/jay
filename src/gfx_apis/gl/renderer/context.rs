@@ -81,10 +81,6 @@ impl GlRenderContext {
         self.ctx.reset_status()
     }
 
-    pub fn supports_external_texture(&self) -> bool {
-        self.ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL)
-    }
-
     pub(in crate::gfx_apis::gl) fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
         let nodes = drm.get_nodes()?;
         let node = match nodes
@@ -160,7 +156,7 @@ impl GlRenderContext {
     }
 
     pub fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
-        self.ctx.dpy.formats.clone()
+        self.ctx.formats.clone()
     }
 
     fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
@@ -204,10 +200,6 @@ impl GlRenderContext {
 impl GfxContext for GlRenderContext {
     fn reset_status(&self) -> Option<ResetStatus> {
         self.reset_status()
-    }
-
-    fn supports_external_texture(&self) -> bool {
-        self.supports_external_texture()
     }
 
     fn render_node(&self) -> Rc<CString> {
