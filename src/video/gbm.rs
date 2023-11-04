@@ -7,7 +7,7 @@ use {
         video::{
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
-            Modifier,
+            Modifier, INVALID_MODIFIER,
         },
     },
     std::{
@@ -34,6 +34,8 @@ pub enum GbmError {
     DrmFd,
     #[error("Could not map bo")]
     MapBo(#[source] OsError),
+    #[error("Tried to allocate a buffer with no modifier")]
+    NoModifier,
 }
 
 pub type Device = u8;
@@ -195,18 +197,23 @@ impl GbmDevice {
         self.dev
     }
 
-    pub fn create_bo(
+    pub fn create_bo<'a>(
         &self,
         width: i32,
         height: i32,
         format: &Format,
-        modifiers: &[Modifier],
-        usage: u32,
+        modifiers: impl IntoIterator<Item = &'a Modifier>,
+        mut usage: u32,
     ) -> Result<GbmBo, GbmError> {
         unsafe {
-            let (modifiers, n_modifiers) = if modifiers.is_empty() {
+            let modifiers: Vec<Modifier> = modifiers.into_iter().copied().collect();
+            if modifiers.is_empty() {
+                return Err(GbmError::NoModifier);
+            }
+            let (modifiers, n_modifiers) = if modifiers == [INVALID_MODIFIER] {
                 (ptr::null(), 0)
             } else {
+                usage &= !GBM_BO_USE_LINEAR;
                 (modifiers.as_ptr() as _, modifiers.len() as _)
             };
             let bo = gbm_bo_create_with_modifiers2(

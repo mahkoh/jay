@@ -17,10 +17,13 @@ use {
         video::{
             dmabuf::DmaBuf,
             gbm::{GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            Modifier, INVALID_MODIFIER, LINEAR_MODIFIER,
         },
         wire::{jay_screencast::*, JayScreencastId},
     },
     ahash::AHashSet,
+    indexmap::{indexset, IndexSet},
+    once_cell::sync::Lazy,
     std::{
         cell::{Cell, RefCell},
         ops::{Deref, DerefMut},
@@ -194,17 +197,37 @@ impl JayScreencast {
 
     pub fn realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
         let mut buffers = vec![];
+        let formats = ctx.formats();
+        let format = match formats.get(&XRGB8888.drm) {
+            Some(f) => f,
+            _ => return Err(JayScreencastError::XRGB8888),
+        };
         if let Some(output) = self.output.get() {
             let mode = output.global.mode.get();
             let num = 3;
             for _ in 0..num {
-                let mut flags = GBM_BO_USE_RENDERING;
-                if self.linear.get() {
-                    flags |= GBM_BO_USE_LINEAR;
-                }
-                let buffer = ctx
-                    .gbm()
-                    .create_bo(mode.width, mode.height, XRGB8888, &[], flags)?;
+                let mut usage = GBM_BO_USE_RENDERING;
+                let modifiers = match self.linear.get() {
+                    true if format.write_modifiers.contains(&LINEAR_MODIFIER) => {
+                        static MODS: Lazy<IndexSet<Modifier>> =
+                            Lazy::new(|| indexset![LINEAR_MODIFIER]);
+                        &MODS
+                    }
+                    true if format.write_modifiers.contains(&INVALID_MODIFIER) => {
+                        usage |= GBM_BO_USE_LINEAR;
+                        static MODS: Lazy<IndexSet<Modifier>> =
+                            Lazy::new(|| indexset![INVALID_MODIFIER]);
+                        &MODS
+                    }
+                    true => return Err(JayScreencastError::Modifier),
+                    false if format.write_modifiers.is_empty() => {
+                        return Err(JayScreencastError::XRGB8888Writing)
+                    }
+                    false => &format.write_modifiers,
+                };
+                let buffer =
+                    ctx.gbm()
+                        .create_bo(mode.width, mode.height, XRGB8888, modifiers, usage)?;
                 let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
                 buffers.push(ScreencastBuffer {
                     dmabuf: buffer.dmabuf().clone(),
@@ -438,6 +461,12 @@ pub enum JayScreencastError {
     GbmError(#[from] GbmError),
     #[error(transparent)]
     GfxError(#[from] GfxError),
+    #[error("Render context does not support XRGB8888 format")]
+    XRGB8888,
+    #[error("Render context does not support XRGB8888 format for rendering")]
+    XRGB8888Writing,
+    #[error("Render context supports neither linear or invalid modifier")]
+    Modifier,
 }
 efrom!(JayScreencastError, MsgParserError);
 efrom!(JayScreencastError, ClientError);

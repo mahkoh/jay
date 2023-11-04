@@ -8,7 +8,6 @@ use {
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             drm::Drm,
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            INVALID_MODIFIER,
         },
         wire::{
             jay_compositor::TakeScreenshot,
@@ -91,7 +90,7 @@ pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
         width: buf.width as _,
         height: buf.height as _,
         format: XRGB8888,
-        modifier: INVALID_MODIFIER,
+        modifier: (buf.modifier_hi as u64) << 32 | (buf.modifier_lo as u64),
         planes,
     };
     let bo = match gbm.import_dmabuf(&dmabuf, GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING) {

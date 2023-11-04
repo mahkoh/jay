@@ -28,11 +28,12 @@ use {
                 DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
             },
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
-            Modifier,
+            Modifier, INVALID_MODIFIER,
         },
     },
     ahash::{AHashMap, AHashSet},
     bstr::{BString, ByteSlice},
+    indexmap::{indexset, IndexSet},
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -508,7 +509,7 @@ pub enum PlaneType {
 #[derive(Debug)]
 pub struct PlaneFormat {
     _format: &'static Format,
-    modifiers: Vec<Modifier>,
+    modifiers: IndexSet<Modifier>,
 }
 
 #[derive(Debug)]
@@ -785,7 +786,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
                     format,
                     PlaneFormat {
                         _format: f,
-                        modifiers: vec![],
+                        modifiers: indexset![INVALID_MODIFIER],
                     },
                 );
             }
@@ -1593,14 +1594,14 @@ impl MetalBackend {
         &self,
         dev: &Rc<MetalDrmDevice>,
         format: &Format,
-        modifiers: &[Modifier],
+        plane_modifiers: &IndexSet<Modifier>,
         width: i32,
         height: i32,
         ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<[RenderBuffer; 2], MetalError> {
         let create =
-            || self.create_scanout_buffer(dev, format, modifiers, width, height, ctx, cursor);
+            || self.create_scanout_buffer(dev, format, plane_modifiers, width, height, ctx, cursor);
         Ok([create()?, create()?])
     }
 
@@ -1608,17 +1609,35 @@ impl MetalBackend {
         &self,
         dev: &Rc<MetalDrmDevice>,
         format: &Format,
-        modifiers: &[Modifier],
+        plane_modifiers: &IndexSet<Modifier>,
         width: i32,
         height: i32,
         render_ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<RenderBuffer, MetalError> {
+        let dev_gfx_formats = dev.ctx.gfx.formats();
+        let dev_gfx_format = match dev_gfx_formats.get(&format.drm) {
+            None => return Err(MetalError::MissingDevFormat(format.name)),
+            Some(f) => f,
+        };
+        let possible_modifiers: Vec<_> = dev_gfx_format
+            .write_modifiers
+            .iter()
+            .filter(|m| plane_modifiers.contains(*m))
+            .copied()
+            .collect();
+        if possible_modifiers.is_empty() {
+            log::warn!("Scanout modifiers: {:?}", plane_modifiers);
+            log::warn!("DEV GFX modifiers: {:?}", dev_gfx_format.write_modifiers);
+            return Err(MetalError::MissingDevModifier(format.name));
+        }
         let mut usage = GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT;
-        if cursor && modifiers.is_empty() {
+        if cursor {
             usage |= GBM_BO_USE_LINEAR;
         };
-        let dev_bo = dev.gbm.create_bo(width, height, format, modifiers, usage);
+        let dev_bo = dev
+            .gbm
+            .create_bo(width, height, format, &possible_modifiers, usage);
         let dev_bo = match dev_bo {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
@@ -1644,11 +1663,31 @@ impl MetalBackend {
             (None, render_tex, None)
         } else {
             // Create a _bridge_ BO in the render device
+            let render_gfx_formats = render_ctx.gfx.formats();
+            let render_gfx_format = match render_gfx_formats.get(&format.drm) {
+                None => return Err(MetalError::MissingRenderFormat(format.name)),
+                Some(f) => f,
+            };
+            let possible_modifiers: Vec<_> = render_gfx_format
+                .write_modifiers
+                .iter()
+                .filter(|m| dev_gfx_format.read_modifiers.contains(*m))
+                .copied()
+                .collect();
+            if possible_modifiers.is_empty() {
+                log::warn!(
+                    "Render GFX modifiers: {:?}",
+                    render_gfx_format.write_modifiers
+                );
+                log::warn!("DEV GFX modifiers: {:?}", dev_gfx_format.read_modifiers);
+                return Err(MetalError::MissingRenderModifier(format.name));
+            }
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            let render_bo = render_ctx
-                .gfx
-                .gbm()
-                .create_bo(width, height, format, &[], usage);
+            let render_bo =
+                render_ctx
+                    .gfx
+                    .gbm()
+                    .create_bo(width, height, format, &possible_modifiers, usage);
             let render_bo = match render_bo {
                 Ok(b) => b,
                 Err(e) => return Err(MetalError::ScanoutBuffer(e)),
@@ -1765,7 +1804,7 @@ impl MetalBackend {
             false,
         )?);
         let mut cursor_plane = None;
-        let mut cursor_modifiers = &[][..];
+        let mut cursor_modifiers = &IndexSet::new();
         for plane in crtc.possible_planes.values() {
             if plane.ty == PlaneType::Cursor
                 && !plane.assigned.get()
@@ -1773,7 +1812,7 @@ impl MetalBackend {
             {
                 if let Some(format) = plane.formats.get(&ARGB8888.drm) {
                     cursor_plane = Some(plane.clone());
-                    cursor_modifiers = &format.modifiers[..];
+                    cursor_modifiers = &format.modifiers;
                     break;
                 }
             }

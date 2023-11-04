@@ -42,7 +42,7 @@ impl DrmFeedback {
 fn create_fd_data(ctx: &dyn GfxContext) -> Vec<u8> {
     let mut vec = vec![];
     for (format, info) in &*ctx.formats() {
-        for modifier in &info.modifiers {
+        for modifier in &info.read_modifiers {
             vec.write_u32::<NativeEndian>(*format).unwrap();
             vec.write_u32::<NativeEndian>(0).unwrap();
             vec.write_u64::<NativeEndian>(*modifier).unwrap();

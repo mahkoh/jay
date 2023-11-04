@@ -7,6 +7,7 @@ use {
         video::{
             drm::DrmError,
             gbm::{GbmBo, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            INVALID_MODIFIER, LINEAR_MODIFIER,
         },
     },
     std::{ops::Deref, rc::Rc},
@@ -26,6 +27,10 @@ pub enum ScreenshooterError {
     RenderError(#[from] GfxError),
     #[error(transparent)]
     DrmError(#[from] DrmError),
+    #[error("Render context does not support XRGB8888")]
+    XRGB8888,
+    #[error("Render context supports neither linear nor invalid modifier for XRGB8888 rendering")]
+    Linear,
 }
 
 pub struct Screenshot {
@@ -42,13 +47,24 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
     if extents.is_empty() {
         return Err(ScreenshooterError::EmptyDisplay);
     }
+    let formats = ctx.formats();
+    let mut usage = GBM_BO_USE_RENDERING;
+    let modifiers = match formats.get(&XRGB8888.drm) {
+        None => return Err(ScreenshooterError::XRGB8888),
+        Some(f) if f.write_modifiers.contains(&LINEAR_MODIFIER) => &[LINEAR_MODIFIER],
+        Some(f) if f.write_modifiers.contains(&INVALID_MODIFIER) => {
+            usage |= GBM_BO_USE_LINEAR;
+            &[INVALID_MODIFIER]
+        }
+        Some(_) => return Err(ScreenshooterError::Linear),
+    };
     let gbm = ctx.gbm();
     let bo = gbm.create_bo(
         extents.width(),
         extents.height(),
         XRGB8888,
-        &[],
-        GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR,
+        modifiers,
+        usage,
     )?;
     let fb = ctx.clone().dmabuf_fb(bo.dmabuf())?;
     fb.render_node(

@@ -20,7 +20,8 @@ use {
         },
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
+            gbm::{GbmDevice, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            INVALID_MODIFIER, LINEAR_MODIFIER,
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
@@ -117,6 +118,8 @@ pub enum XBackendError {
     QueryDevice(#[source] XconError),
     #[error("Could not fstat the drm device")]
     DrmDeviceFstat(#[source] Errno),
+    #[error("Render device does not support XRGB8888 format")]
+    XRGB8888,
 }
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
@@ -376,10 +379,24 @@ impl XBackend {
         height: i32,
     ) -> Result<[XImage; 2], XBackendError> {
         let mut images = [None, None];
+        let formats = self.ctx.formats();
+        let format = match formats.get(&XRGB8888.drm) {
+            Some(f) => f,
+            None => return Err(XBackendError::XRGB8888),
+        };
+        let mut usage = GBM_BO_USE_RENDERING;
+        let modifier = if format.write_modifiers.contains(&LINEAR_MODIFIER) {
+            &[LINEAR_MODIFIER]
+        } else if format.write_modifiers.contains(&INVALID_MODIFIER) {
+            usage |= GBM_BO_USE_LINEAR;
+            &[INVALID_MODIFIER]
+        } else {
+            panic!("Neither linear nor invalid modifier is supported");
+        };
         for image in &mut images {
             let bo = self
                 .gbm
-                .create_bo(width, height, XRGB8888, &[], GBM_BO_USE_RENDERING)?;
+                .create_bo(width, height, XRGB8888, modifier, usage)?;
             let dma = bo.dmabuf();
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();

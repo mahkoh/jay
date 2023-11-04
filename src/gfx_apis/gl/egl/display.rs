@@ -151,19 +151,24 @@ impl EglDisplay {
                 if format.implicit_external_only && !supports_external_only {
                     continue;
                 }
-                let mut modifiers = IndexSet::new();
+                let mut read_modifiers = IndexSet::new();
+                let mut write_modifiers = IndexSet::new();
                 for modifier in format.modifiers.values() {
                     if modifier.external_only && !supports_external_only {
                         continue;
                     }
-                    modifiers.insert(modifier.modifier);
+                    if !modifier.external_only {
+                        write_modifiers.insert(modifier.modifier);
+                    }
+                    read_modifiers.insert(modifier.modifier);
                 }
-                if !modifiers.is_empty() {
+                if !read_modifiers.is_empty() || !write_modifiers.is_empty() {
                     formats.insert(
                         drm,
                         GfxFormat {
                             format: format.format,
-                            modifiers,
+                            read_modifiers,
+                            write_modifiers,
                         },
                     );
                 }
