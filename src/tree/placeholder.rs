@@ -3,13 +3,12 @@ use {
         client::Client,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_api::GfxTexture,
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text,
+        text::{self, TextTexture},
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
             ToplevelNode,
@@ -25,7 +24,7 @@ pub struct PlaceholderNode {
     id: PlaceholderNodeId,
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
-    pub textures: SmallMap<Scale, Rc<dyn GfxTexture>, 2>,
+    pub textures: SmallMap<Scale, TextTexture, 2>,
 }
 
 impl PlaceholderNode {
@@ -47,11 +46,11 @@ impl PlaceholderNode {
     }
 
     pub fn update_texture(&self) {
-        self.textures.clear();
         if let Some(ctx) = self.toplevel.state.render_ctx.get() {
             let scales = self.toplevel.state.scales.lock();
             let rect = self.toplevel.pos.get();
             for (scale, _) in scales.iter() {
+                let old_tex = self.textures.remove(scale);
                 let mut width = rect.width();
                 let mut height = rect.height();
                 if *scale != 1 {
@@ -63,6 +62,7 @@ impl PlaceholderNode {
                     let font = format!("monospace {}", width / 10);
                     match text::render_fitting(
                         &ctx,
+                        old_tex,
                         Some(height),
                         &font,
                         "Fullscreen",

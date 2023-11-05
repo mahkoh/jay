@@ -3,7 +3,6 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_api::GfxTexture,
         ifs::wl_seat::{
             collect_kb_foci, collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId,
             WlSeatGlobal, BTN_LEFT,
@@ -12,7 +11,7 @@ use {
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text,
+        text::{self, TextTexture},
         tree::{
             walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
             NodeId, ToplevelData, ToplevelNode, WorkspaceNode,
@@ -24,7 +23,7 @@ use {
             numcell::NumCell,
             rc_eq::rc_eq,
             scroller::Scroller,
-            smallmap::SmallMapMut,
+            smallmap::{SmallMap, SmallMapMut},
         },
     },
     ahash::AHashMap,
@@ -77,7 +76,7 @@ tree_id!(ContainerNodeId);
 pub struct ContainerTitle {
     pub x: i32,
     pub y: i32,
-    pub tex: Rc<dyn GfxTexture>,
+    pub tex: TextTexture,
 }
 
 #[derive(Default)]
@@ -128,6 +127,7 @@ pub struct ContainerChild {
     pub node: Rc<dyn ToplevelNode>,
     pub active: Cell<bool>,
     title: RefCell<String>,
+    pub title_tex: SmallMap<Scale, TextTexture, 2>,
     pub title_rect: Cell<Rect>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
 
@@ -182,6 +182,7 @@ impl ContainerNode {
                 content: Default::default(),
                 factor: Cell::new(1.0),
                 title: Default::default(),
+                title_tex: Default::default(),
                 title_rect: Default::default(),
                 focus_history: Default::default(),
             }),
@@ -289,6 +290,7 @@ impl ContainerNode {
                 content: Default::default(),
                 factor: Default::default(),
                 title: Default::default(),
+                title_tex: Default::default(),
                 title_rect: Default::default(),
                 focus_history: Default::default(),
             });
@@ -678,6 +680,7 @@ impl ContainerNode {
             }
             let title = child.title.borrow_mut();
             for (scale, _) in scales.iter() {
+                let old_tex = child.title_tex.remove(scale);
                 let titles = rd.titles.get_or_default_mut(*scale);
                 'render_title: {
                     let mut th = th;
@@ -693,12 +696,24 @@ impl ContainerNode {
                         break 'render_title;
                     }
                     if let Some(ctx) = &ctx {
-                        match text::render(ctx, width, th, &font, title.deref(), color, scalef) {
-                            Ok(t) => titles.push(ContainerTitle {
-                                x: rect.x1(),
-                                y: rect.y1(),
-                                tex: t,
-                            }),
+                        match text::render(
+                            ctx,
+                            old_tex,
+                            width,
+                            th,
+                            &font,
+                            title.deref(),
+                            color,
+                            scalef,
+                        ) {
+                            Ok(t) => {
+                                child.title_tex.insert(*scale, t.clone());
+                                titles.push(ContainerTitle {
+                                    x: rect.x1(),
+                                    y: rect.y1(),
+                                    tex: t,
+                                })
+                            }
                             Err(e) => {
                                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
                             }
@@ -1268,6 +1283,7 @@ impl ContainingNode for ContainerNode {
             content: Default::default(),
             factor: Cell::new(node.factor.get()),
             title: Default::default(),
+            title_tex: Default::default(),
             title_rect: Cell::new(node.title_rect.get()),
             focus_history: Cell::new(None),
         });

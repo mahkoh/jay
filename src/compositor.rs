@@ -407,6 +407,7 @@ fn create_dummy_output(state: &Rc<State>) {
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
         jay_workspaces: Default::default(),
         capture: Cell::new(false),
+        title_texture: Cell::new(None),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),
