@@ -155,7 +155,7 @@ impl Renderer<'_> {
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
                 self.base.render_texture(
-                    &status.tex,
+                    &status.tex.texture,
                     x,
                     y,
                     ARGB8888,
@@ -197,10 +197,10 @@ impl Renderer<'_> {
             &Color::from_rgba_straight(20, 20, 20, 255),
         );
         if let Some(tex) = placeholder.textures.get(&self.base.scale) {
-            let x = x + (pos.width() - tex.width()) / 2;
-            let y = y + (pos.height() - tex.height()) / 2;
+            let x = x + (pos.width() - tex.texture.width()) / 2;
+            let y = y + (pos.height() - tex.texture.height()) / 2;
             self.base.render_texture(
-                &tex,
+                &tex.texture,
                 x,
                 y,
                 ARGB8888,
@@ -237,7 +237,7 @@ impl Renderer<'_> {
                 for title in titles {
                     let (x, y) = self.base.scale_point(x + title.x, y + title.y);
                     self.base.render_texture(
-                        &title.tex,
+                        &title.tex.texture,
                         x,
                         y,
                         ARGB8888,
@@ -439,7 +439,7 @@ impl Renderer<'_> {
         if let Some(title) = floating.title_textures.get(&self.base.scale) {
             let (x, y) = self.base.scale_point(x + bw, y + bw);
             self.base.render_texture(
-                &title,
+                &title.texture,
                 x,
                 y,
                 ARGB8888,

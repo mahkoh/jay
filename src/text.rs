@@ -11,8 +11,13 @@ use {
         },
         rect::Rect,
         theme::Color,
+        utils::clonecell::UnsafeCellCloneSafe,
     },
-    std::{ops::Neg, rc::Rc},
+    std::{
+        borrow::Cow,
+        ops::{Deref, Neg},
+        rc::Rc,
+    },
     thiserror::Error,
 };
 
@@ -31,6 +36,47 @@ pub enum TextError {
     #[error("Could not access the cairo image data")]
     ImageData(#[source] PangoError),
 }
+
+#[derive(PartialEq)]
+struct Config<'a> {
+    x: i32,
+    y: Option<i32>,
+    width: i32,
+    height: i32,
+    padding: i32,
+    font: Cow<'a, str>,
+    text: Cow<'a, str>,
+    color: Color,
+    ellipsize: bool,
+    markup: bool,
+    scale: Option<f64>,
+}
+
+impl<'a> Config<'a> {
+    fn to_static(self) -> Config<'static> {
+        Config {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+            padding: self.padding,
+            font: Cow::Owned(self.font.into_owned()),
+            text: Cow::Owned(self.text.into_owned()),
+            color: self.color,
+            ellipsize: self.ellipsize,
+            markup: self.markup,
+            scale: self.scale,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct TextTexture {
+    config: Rc<Config<'static>>,
+    pub texture: Rc<dyn GfxTexture>,
+}
+
+unsafe impl UnsafeCellCloneSafe for TextTexture {}
 
 struct Data {
     image: Rc<CairoImageSurface>,
@@ -95,20 +141,22 @@ pub fn measure(
 
 pub fn render(
     ctx: &Rc<dyn GfxContext>,
+    old: Option<TextTexture>,
     width: i32,
     height: i32,
     font: &str,
     text: &str,
     color: Color,
     scale: Option<f64>,
-) -> Result<Rc<dyn GfxTexture>, TextError> {
+) -> Result<TextTexture, TextError> {
     render2(
-        ctx, 1, None, width, height, 1, font, text, color, true, false, scale,
+        ctx, old, 1, None, width, height, 1, font, text, color, true, false, scale,
     )
 }
 
 fn render2(
     ctx: &Rc<dyn GfxContext>,
+    old: Option<TextTexture>,
     x: i32,
     y: Option<i32>,
     width: i32,
@@ -120,7 +168,25 @@ fn render2(
     ellipsize: bool,
     markup: bool,
     scale: Option<f64>,
-) -> Result<Rc<dyn GfxTexture>, TextError> {
+) -> Result<TextTexture, TextError> {
+    let config = Config {
+        x,
+        y,
+        width,
+        height,
+        padding,
+        font: Cow::Borrowed(font),
+        text: Cow::Borrowed(text),
+        color,
+        ellipsize,
+        markup,
+        scale,
+    };
+    if let Some(old2) = &old {
+        if old2.config.deref() == &config {
+            return Ok(old.unwrap());
+        }
+    }
     let data = create_data(font, width, height, scale)?;
     if ellipsize {
         data.layout
@@ -148,21 +214,25 @@ fn render2(
         .clone()
         .shmem_texture(bytes, ARGB8888, width, height, data.image.stride())
     {
-        Ok(t) => Ok(t),
+        Ok(t) => Ok(TextTexture {
+            config: Rc::new(config.to_static()),
+            texture: t,
+        }),
         Err(e) => Err(TextError::RenderError(e)),
     }
 }
 
 pub fn render_fitting(
     ctx: &Rc<dyn GfxContext>,
+    old: Option<TextTexture>,
     height: Option<i32>,
     font: &str,
     text: &str,
     color: Color,
     markup: bool,
     scale: Option<f64>,
-) -> Result<Rc<dyn GfxTexture>, TextError> {
-    render_fitting2(ctx, height, font, text, color, markup, scale, false).map(|(a, _)| a)
+) -> Result<TextTexture, TextError> {
+    render_fitting2(ctx, old, height, font, text, color, markup, scale, false).map(|(a, _)| a)
 }
 
 #[derive(Debug, Copy, Clone, Default)]
@@ -174,6 +244,7 @@ pub struct TextMeasurement {
 
 pub fn render_fitting2(
     ctx: &Rc<dyn GfxContext>,
+    old: Option<TextTexture>,
     height: Option<i32>,
     font: &str,
     text: &str,
@@ -181,7 +252,7 @@ pub fn render_fitting2(
     markup: bool,
     scale: Option<f64>,
     include_measurements: bool,
-) -> Result<(Rc<dyn GfxTexture>, TextMeasurement), TextError> {
+) -> Result<(TextTexture, TextMeasurement), TextError> {
     let measurement = measure(font, text, markup, scale, include_measurements)?;
     let y = match height {
         Some(_) => None,
@@ -189,6 +260,7 @@ pub fn render_fitting2(
     };
     let res = render2(
         ctx,
+        old,
         measurement.ink_rect.x1().neg(),
         y,
         measurement.ink_rect.width(),

@@ -237,6 +237,7 @@ impl DrmDevData {
 struct UpdateTextTexturesVisitor;
 impl NodeVisitorBase for UpdateTextTexturesVisitor {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+        node.children.iter().for_each(|c| c.title_tex.clear());
         node.schedule_compute_render_data();
         node.node_visit_children(self);
     }
@@ -245,10 +246,12 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
         node.node_visit_children(self);
     }
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
+        node.title_textures.clear();
         node.schedule_render_titles();
         node.node_visit_children(self);
     }
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        node.textures.clear();
         node.update_texture();
         node.node_visit_children(self);
     }
@@ -339,6 +342,11 @@ impl State {
             impl NodeVisitorBase for Walker {
                 fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                     node.render_data.borrow_mut().titles.clear();
+                    node.children.iter().for_each(|c| c.title_tex.clear());
+                    node.node_visit_children(self);
+                }
+                fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
+                    node.title_texture.set(None);
                     node.node_visit_children(self);
                 }
                 fn visit_output(&mut self, node: &Rc<OutputNode>) {
