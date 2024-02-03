@@ -32,12 +32,8 @@ impl Texture {
 }
 
 impl GfxTexture for Texture {
-    fn width(&self) -> i32 {
-        self.width()
-    }
-
-    fn height(&self) -> i32 {
-        self.height()
+    fn size(&self) -> (i32, i32) {
+        (self.width(), self.height())
     }
 
     fn as_any(&self) -> &dyn Any {

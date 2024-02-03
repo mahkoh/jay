@@ -194,7 +194,7 @@ impl OutputNode {
                     };
                     ws.title_texture.set(Some(title.clone()));
                     let mut x = pos + 1;
-                    let mut width = title.texture.width();
+                    let (mut width, _) = title.texture.size();
                     if let Some(scale) = scale {
                         width = (width as f64 / scale).round() as _;
                     }
@@ -253,7 +253,7 @@ impl OutputNode {
                     break 'set_status;
                 }
             };
-            let mut width = title.texture.width();
+            let (mut width, _) = title.texture.size();
             if let Some(scale) = scale {
                 width = (width as f64 / scale).round() as _;
             }

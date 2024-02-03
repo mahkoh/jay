@@ -197,8 +197,9 @@ impl Renderer<'_> {
             &Color::from_rgba_straight(20, 20, 20, 255),
         );
         if let Some(tex) = placeholder.textures.get(&self.base.scale) {
-            let x = x + (pos.width() - tex.texture.width()) / 2;
-            let y = y + (pos.height() - tex.texture.height()) / 2;
+            let (tex_width, tex_height) = tex.texture.size();
+            let x = x + (pos.width() - tex_width) / 2;
+            let y = y + (pos.height() - tex_height) / 2;
             self.base.render_texture(
                 &tex.texture,
                 x,

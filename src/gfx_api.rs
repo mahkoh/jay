@@ -270,8 +270,7 @@ pub trait GfxImage {
 }
 
 pub trait GfxTexture: Debug {
-    fn width(&self) -> i32;
-    fn height(&self) -> i32;
+    fn size(&self) -> (i32, i32);
     fn as_any(&self) -> &dyn Any;
 }
 
