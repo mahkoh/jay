@@ -352,6 +352,7 @@ impl State {
                 fn visit_output(&mut self, node: &Rc<OutputNode>) {
                     node.render_data.borrow_mut().titles.clear();
                     node.render_data.borrow_mut().status.take();
+                    node.hardware_cursor.set(None);
                     node.node_visit_children(self);
                 }
                 fn visit_float(&mut self, node: &Rc<FloatNode>) {
