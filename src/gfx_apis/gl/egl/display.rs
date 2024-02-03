@@ -263,6 +263,7 @@ impl EglDisplay {
             width: buf.width,
             height: buf.height,
             external_only: format.external_only,
+            format: buf.format,
         }))
     }
 }

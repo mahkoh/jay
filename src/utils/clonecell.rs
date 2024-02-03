@@ -59,7 +59,7 @@ impl<T> CloneCell<T> {
     }
 }
 
-impl<T: Default + UnsafeCellCloneSafe> Default for CloneCell<T> {
+impl<T: Default> Default for CloneCell<T> {
     fn default() -> Self {
         Self::new(Default::default())
     }
@@ -77,6 +77,8 @@ unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
 unsafe impl UnsafeCellCloneSafe for () {}
 unsafe impl UnsafeCellCloneSafe for u64 {}
 unsafe impl UnsafeCellCloneSafe for i32 {}
+unsafe impl UnsafeCellCloneSafe for u32 {}
+unsafe impl UnsafeCellCloneSafe for usize {}
 
 unsafe impl<A: UnsafeCellCloneSafe, B: UnsafeCellCloneSafe> UnsafeCellCloneSafe for (A, B) {}
 

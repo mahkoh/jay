@@ -9,7 +9,6 @@ use {
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{GfxContext, GfxFramebuffer, GfxTexture},
-        gfx_apis::create_gfx_context,
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
@@ -34,6 +33,7 @@ use {
     ahash::{AHashMap, AHashSet},
     bstr::{BString, ByteSlice},
     indexmap::{indexset, IndexSet},
+    jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -75,7 +75,8 @@ pub struct MetalDrmDevice {
     pub cursor_height: u64,
     pub gbm: GbmDevice,
     pub handle_events: HandleEvents,
-    pub ctx: Rc<MetalRenderContext>,
+    pub ctx: CloneCell<Rc<MetalRenderContext>>,
+    pub on_change: OnChange<crate::backend::DrmEvent>,
 }
 
 impl BackendDrmDevice for MetalDrmDevice {
@@ -84,19 +85,27 @@ impl BackendDrmDevice for MetalDrmDevice {
     }
 
     fn event(&self) -> Option<crate::backend::DrmEvent> {
-        None
+        self.on_change.events.pop()
     }
 
-    fn on_change(&self, _cb: Rc<dyn Fn()>) {
-        // nothing
+    fn on_change(&self, cb: Rc<dyn Fn()>) {
+        self.on_change.on_change.set(Some(cb));
     }
 
     fn dev_t(&self) -> dev_t {
         self.devnum
     }
 
-    fn make_render_device(self: Rc<Self>) {
-        self.backend.make_render_device(&self, true);
+    fn make_render_device(&self) {
+        self.backend.make_render_device(&self, false);
+    }
+
+    fn set_gfx_api(&self, api: GfxApi) {
+        self.backend.set_gfx_api(self, api)
+    }
+
+    fn gtx_api(&self) -> GfxApi {
+        self.ctx.get().gfx.gfx_api()
     }
 
     fn version(&self) -> Result<DrmVersion, DrmError> {
@@ -162,8 +171,6 @@ pub struct MetalConnector {
 
     pub connector_id: ConnectorId,
 
-    pub events: SyncQueue<ConnectorEvent>,
-
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub next_buffer: NumCell<usize>,
 
@@ -182,7 +189,7 @@ pub struct MetalConnector {
 
     pub crtc: CloneCell<Option<Rc<MetalCrtc>>>,
 
-    pub on_change: OnChange,
+    pub on_change: OnChange<ConnectorEvent>,
 
     pub present_trigger: AsyncEvent,
 
@@ -271,12 +278,30 @@ impl Debug for ConnectorFutures {
     }
 }
 
-#[derive(Default)]
-pub struct OnChange {
+pub struct OnChange<T> {
     pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
+    pub events: SyncQueue<T>,
 }
 
-impl Debug for OnChange {
+impl<T> OnChange<T> {
+    pub fn send_event(&self, event: T) {
+        self.events.push(event);
+        if let Some(cb) = self.on_change.get() {
+            cb();
+        }
+    }
+}
+
+impl<T> Default for OnChange<T> {
+    fn default() -> Self {
+        Self {
+            on_change: Default::default(),
+            events: Default::default(),
+        }
+    }
+}
+
+impl<T> Debug for OnChange<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.on_change.get() {
             None => f.write_str("None"),
@@ -311,7 +336,8 @@ impl MetalConnector {
             }) as _),
             _ => None,
         };
-        self.send_event(ConnectorEvent::HardwareCursor(hc));
+        self.on_change
+            .send_event(ConnectorEvent::HardwareCursor(hc));
     }
 
     fn connected(&self) -> bool {
@@ -319,13 +345,6 @@ impl MetalConnector {
         self.enabled.get()
             && dd.connection == ConnectorStatus::Connected
             && self.primary_plane.get().is_some()
-    }
-
-    fn send_event(&self, event: ConnectorEvent) {
-        self.events.push(event);
-        if let Some(oc) = self.on_change.on_change.get() {
-            oc();
-        }
     }
 
     pub fn schedule_present(&self) {
@@ -370,7 +389,7 @@ impl MetalConnector {
                     !self.cursor_enabled.get(),
                 );
                 if let Some(tex) = &buffer.dev_tex {
-                    buffer.dev_fb.copy_texture(&self.state, tex, 0, 0, false);
+                    buffer.dev_fb.copy_texture(tex, 0, 0);
                 }
                 for fr in rr.frame_requests.drain(..) {
                     fr.send_done();
@@ -393,7 +412,7 @@ impl MetalConnector {
                 let buffer = &buffers[self.cursor_front_buffer.get() % buffers.len()];
                 if swap_buffer {
                     if let Some(tex) = &buffer.dev_tex {
-                        buffer.dev_fb.copy_texture(&self.state, tex, 0, 0, true);
+                        buffer.dev_fb.copy_texture(tex, 0, 0);
                     }
                 }
                 let (width, height) = buffer.dev_fb.size();
@@ -445,7 +464,7 @@ impl Connector for MetalConnector {
     }
 
     fn event(&self) -> Option<ConnectorEvent> {
-        self.events.pop()
+        self.on_change.events.pop()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
@@ -577,7 +596,6 @@ fn create_connector(
         dev: dev.clone(),
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
-        events: Default::default(),
         buffers: Default::default(),
         next_buffer: Default::default(),
         enabled: Cell::new(true),
@@ -910,7 +928,7 @@ impl MetalBackend {
         if let Some(r) = ctx
             .gfx
             .reset_status()
-            .or_else(|| dev.ctx.gfx.reset_status())
+            .or_else(|| dev.ctx.get().gfx.reset_status())
         {
             fatal!("EGL context has been reset: {:?}", r);
         }
@@ -988,9 +1006,9 @@ impl MetalBackend {
             dev.futures.remove(&c);
             if let Some(c) = dev.connectors.remove(&c) {
                 if c.connect_sent.get() {
-                    c.send_event(ConnectorEvent::Disconnected);
+                    c.on_change.send_event(ConnectorEvent::Disconnected);
                 }
-                c.send_event(ConnectorEvent::Removed);
+                c.on_change.send_event(ConnectorEvent::Removed);
             }
         }
         let mut preserve = Preserve::default();
@@ -1012,7 +1030,7 @@ impl MetalBackend {
                     || old.connection != ConnectorStatus::Connected
                     || !old.is_same_monitor(&dd)
                 {
-                    c.send_event(ConnectorEvent::Disconnected);
+                    c.on_change.send_event(ConnectorEvent::Disconnected);
                     c.connect_sent.set(false);
                 } else if preserve_any {
                     preserve.connectors.insert(c.id);
@@ -1054,15 +1072,17 @@ impl MetalBackend {
                 modes.push(mode);
             }
         }
-        connector.send_event(ConnectorEvent::Connected(MonitorInfo {
-            modes,
-            manufacturer: dd.monitor_manufacturer.clone(),
-            product: dd.monitor_name.clone(),
-            serial_number: dd.monitor_serial_number.clone(),
-            initial_mode: dd.mode.clone().unwrap().to_backend(),
-            width_mm: dd.mm_width as _,
-            height_mm: dd.mm_height as _,
-        }));
+        connector
+            .on_change
+            .send_event(ConnectorEvent::Connected(MonitorInfo {
+                modes,
+                manufacturer: dd.monitor_manufacturer.clone(),
+                product: dd.monitor_name.clone(),
+                serial_number: dd.monitor_serial_number.clone(),
+                initial_mode: dd.mode.clone().unwrap().to_backend(),
+                width_mm: dd.mm_width as _,
+                height_mm: dd.mm_height as _,
+            }));
         connector.connect_sent.set(true);
         connector.send_hardware_cursor();
     }
@@ -1115,7 +1135,7 @@ impl MetalBackend {
             }
         }
 
-        let gfx = match create_gfx_context(master) {
+        let gfx = match self.state.create_gfx_context(master, None) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
         };
@@ -1148,7 +1168,8 @@ impl MetalBackend {
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
             },
-            ctx,
+            ctx: CloneCell::new(ctx),
+            on_change: Default::default(),
         });
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
@@ -1440,28 +1461,68 @@ impl MetalBackend {
         }
     }
 
-    fn make_render_device(&self, dev: &Rc<MetalDrmDevice>, log: bool) -> bool {
-        if let Some(ctx) = self.ctx.get() {
-            if ctx.dev_id == dev.id {
-                return true;
+    fn make_render_device(&self, dev: &MetalDrmDevice, force: bool) {
+        if !force {
+            if let Some(ctx) = self.ctx.get() {
+                if ctx.dev_id == dev.id {
+                    return;
+                }
             }
         }
-        self.state.set_render_ctx(Some(dev.ctx.gfx.clone()));
-        self.ctx.set(Some(dev.ctx.clone()));
-        let mut preserve = Preserve::default();
+        let ctx = dev.ctx.get();
+        self.state.set_render_ctx(Some(ctx.gfx.clone()));
+        self.ctx.set(Some(ctx));
         for dev in self.device_holder.drm_devices.lock().values() {
-            if let Err(e) = self.init_drm_device(dev, &mut preserve) {
-                if log {
-                    log::error!("Could not initialize device: {}", ErrorFmt(e));
-                }
+            self.re_init_drm_device(&dev);
+        }
+    }
+
+    fn set_gfx_api(&self, dev: &MetalDrmDevice, api: GfxApi) {
+        if dev.ctx.get().gfx.gfx_api() == api {
+            return;
+        }
+        let gfx = match self.state.create_gfx_context(&dev.master, Some(api)) {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!(
+                    "Could not create a new graphics context for device {:?}: {}",
+                    dev.devnode,
+                    ErrorFmt(e)
+                );
+                return;
             }
-            for connector in dev.connectors.lock().values() {
-                if connector.connected() {
-                    self.start_connector(connector, false);
-                }
+        };
+        dev.on_change
+            .send_event(crate::backend::DrmEvent::GfxApiChanged);
+        dev.ctx.set(Rc::new(MetalRenderContext {
+            dev_id: dev.id,
+            gfx,
+        }));
+        let mut is_render_ctx = false;
+        if let Some(render_ctx) = self.ctx.get() {
+            if render_ctx.dev_id == dev.id {
+                is_render_ctx = true;
             }
         }
-        true
+        if is_render_ctx {
+            self.make_render_device(dev, true);
+        } else {
+            if let Some(dev) = self.device_holder.drm_devices.get(&dev.devnum) {
+                self.re_init_drm_device(&dev);
+            }
+        }
+    }
+
+    fn re_init_drm_device(&self, dev: &Rc<MetalDrmDeviceData>) {
+        let mut preserve = Preserve::default();
+        if let Err(e) = self.init_drm_device(dev, &mut preserve) {
+            log::error!("Could not initialize device: {}", ErrorFmt(e));
+        }
+        for connector in dev.connectors.lock().values() {
+            if connector.connected() {
+                self.start_connector(connector, false);
+            }
+        }
     }
 
     fn init_drm_device(
@@ -1616,7 +1677,8 @@ impl MetalBackend {
         render_ctx: &MetalRenderContext,
         cursor: bool,
     ) -> Result<RenderBuffer, MetalError> {
-        let dev_gfx_formats = dev.ctx.gfx.formats();
+        let ctx = dev.ctx.get();
+        let dev_gfx_formats = ctx.gfx.formats();
         let dev_gfx_format = match dev_gfx_formats.get(&format.drm) {
             None => return Err(MetalError::MissingDevFormat(format.name)),
             Some(f) => f,
@@ -1647,7 +1709,7 @@ impl MetalBackend {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
-        let dev_img = match dev.ctx.gfx.clone().dmabuf_img(dev_bo.dmabuf()) {
+        let dev_img = match ctx.gfx.clone().dmabuf_img(dev_bo.dmabuf()) {
             Ok(img) => img,
             Err(e) => return Err(MetalError::ImportImage(e)),
         };
@@ -1708,7 +1770,7 @@ impl MetalBackend {
             };
 
             // Import the bridge BO into the current device
-            let dev_img = match dev.ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
+            let dev_img = match ctx.gfx.clone().dmabuf_img(render_bo.dmabuf()) {
                 Ok(img) => img,
                 Err(e) => return Err(MetalError::ImportImage(e)),
             };

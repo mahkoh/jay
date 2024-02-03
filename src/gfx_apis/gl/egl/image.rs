@@ -1,8 +1,11 @@
 use {
-    crate::gfx_apis::gl::egl::{
-        display::EglDisplay,
-        sys::{EGLImageKHR, EGL_FALSE},
-        PROCS,
+    crate::{
+        format::Format,
+        gfx_apis::gl::egl::{
+            display::EglDisplay,
+            sys::{EGLImageKHR, EGL_FALSE},
+            PROCS,
+        },
     },
     std::rc::Rc,
 };
@@ -13,6 +16,7 @@ pub struct EglImage {
     pub width: i32,
     pub height: i32,
     pub external_only: bool,
+    pub format: &'static Format,
 }
 
 impl Drop for EglImage {

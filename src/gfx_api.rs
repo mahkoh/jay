@@ -2,7 +2,7 @@ use {
     crate::{
         cursor::Cursor,
         fixed::Fixed,
-        format::{Format, ARGB8888, XRGB8888},
+        format::Format,
         rect::Rect,
         renderer::{renderer_base::RendererBase, RenderResult, Renderer},
         scale::Scale,
@@ -13,6 +13,7 @@ use {
     },
     ahash::AHashMap,
     indexmap::IndexSet,
+    jay_config::video::GfxApi,
     std::{
         any::Any,
         cell::Cell,
@@ -80,6 +81,7 @@ impl BufferPoints {
     }
 }
 
+#[derive(Debug)]
 pub struct AbsoluteRect {
     pub x1: f32,
     pub x2: f32,
@@ -87,6 +89,7 @@ pub struct AbsoluteRect {
     pub y2: f32,
 }
 
+#[derive(Debug)]
 pub struct FillRect {
     pub rect: AbsoluteRect,
     pub color: Color,
@@ -94,7 +97,6 @@ pub struct FillRect {
 
 pub struct CopyTexture {
     pub tex: Rc<dyn GfxTexture>,
-    pub format: &'static Format,
     pub source: BufferPoints,
     pub target: AbsoluteRect,
 }
@@ -124,7 +126,9 @@ pub trait GfxFramebuffer: Debug {
         height: i32,
         format: &Format,
         shm: &[Cell<u8>],
-    );
+    ) -> Result<(), GfxError>;
+
+    fn format(&self) -> &'static Format;
 }
 
 impl dyn GfxFramebuffer {
@@ -137,37 +141,17 @@ impl dyn GfxFramebuffer {
         self.render(ops, Some(&Color { r, g, b, a }));
     }
 
-    pub fn copy_texture(
-        &self,
-        state: &State,
-        texture: &Rc<dyn GfxTexture>,
-        x: i32,
-        y: i32,
-        alpha: bool,
-    ) {
+    pub fn copy_texture(&self, texture: &Rc<dyn GfxTexture>, x: i32, y: i32) {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
-        let (width, height) = self.size();
-        let extents = Rect::new_sized(0, 0, width, height).unwrap();
-        let mut renderer = Renderer {
-            base: RendererBase {
-                ops: &mut ops,
-                scaled: false,
-                scale,
-                scalef: 1.0,
-            },
-            state,
-            result: None,
-            logical_extents: extents,
-            physical_extents: extents,
+        let mut renderer = RendererBase {
+            ops: &mut ops,
+            scaled: false,
+            scale,
+            scalef: 1.0,
         };
-        let (format, clear) = match alpha {
-            true => (ARGB8888, Some(&Color::TRANSPARENT)),
-            false => (XRGB8888, None),
-        };
-        renderer
-            .base
-            .render_texture(texture, x, y, format, None, None, scale, i32::MAX, i32::MAX);
+        renderer.render_texture(texture, x, y, None, None, scale, i32::MAX, i32::MAX);
+        let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear);
     }
 
@@ -272,6 +256,17 @@ pub trait GfxImage {
 pub trait GfxTexture: Debug {
     fn size(&self) -> (i32, i32);
     fn as_any(&self) -> &dyn Any;
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
+    fn read_pixels(
+        self: Rc<Self>,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        stride: i32,
+        format: &'static Format,
+        shm: &[Cell<u8>],
+    ) -> Result<(), GfxError>;
 }
 
 pub trait GfxContext: Debug {
@@ -281,12 +276,15 @@ pub trait GfxContext: Debug {
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>>;
 
-    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        self.dmabuf_img(buf)?.to_framebuffer()
+    }
 
     fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError>;
 
     fn shmem_texture(
         self: Rc<Self>,
+        old: Option<Rc<dyn GfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
@@ -295,6 +293,8 @@ pub trait GfxContext: Debug {
     ) -> Result<Rc<dyn GfxTexture>, GfxError>;
 
     fn gbm(&self) -> &GbmDevice;
+
+    fn gfx_api(&self) -> GfxApi;
 }
 
 #[derive(Debug)]

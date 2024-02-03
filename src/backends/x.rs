@@ -10,7 +10,6 @@ use {
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        gfx_apis::create_gfx_context,
         renderer::RenderResult,
         state::State,
         time::now_usec,
@@ -50,6 +49,7 @@ use {
             Event, XEvent, Xcon, XconError,
         },
     },
+    jay_config::video::GfxApi,
     std::{
         any::Any,
         borrow::Cow,
@@ -181,7 +181,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         Err(e) => return Err(XBackendError::DrmDeviceFstat(e)),
     };
     let gbm = GbmDevice::new(&drm)?;
-    let ctx = match create_gfx_context(&drm) {
+    let ctx = match state.create_gfx_context(&drm, None) {
         Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
     };
@@ -976,9 +976,18 @@ impl BackendDrmDevice for XDrmDevice {
         self.dev
     }
 
-    fn make_render_device(self: Rc<Self>) {
+    fn make_render_device(&self) {
         log::warn!("make_render_device is not supported by the X backend");
         // nothing
+    }
+
+    fn set_gfx_api(&self, _api: GfxApi) {
+        log::warn!("set_gfx_api is not supported by the X backend");
+        // nothing
+    }
+
+    fn gtx_api(&self) -> GfxApi {
+        self.backend.ctx.gfx_api()
     }
 
     fn version(&self) -> Result<DrmVersion, DrmError> {

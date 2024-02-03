@@ -5,7 +5,7 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
-        video::{connector_type::ConnectorType, Connector, DrmDevice},
+        video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi},
         Axis, Direction, PciId, Workspace,
     },
     bincode::{BorrowDecode, Decode, Encode},
@@ -333,6 +333,10 @@ pub enum ClientMessage<'a> {
     SetNaturalScrollingEnabled {
         device: InputDevice,
         enabled: bool,
+    },
+    SetGfxApi {
+        device: Option<DrmDevice>,
+        api: GfxApi,
     },
 }
 

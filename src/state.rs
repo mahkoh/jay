@@ -14,7 +14,8 @@ use {
         dbus::Dbus,
         drm_feedback::DrmFeedback,
         forker::ForkerProxy,
-        gfx_api::GfxContext,
+        gfx_api::{GfxContext, GfxError},
+        gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
@@ -45,6 +46,7 @@ use {
             errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, numcell::NumCell,
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
+        video::drm::Drm,
         wheel::Wheel,
         wire::{
             JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
@@ -54,7 +56,7 @@ use {
     },
     ahash::AHashMap,
     bstr::ByteSlice,
-    jay_config::PciId,
+    jay_config::{video::GfxApi, PciId},
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -131,6 +133,7 @@ pub struct State {
     pub render_ctx_watchers: CopyHashMap<(ClientId, JayRenderCtxId), Rc<JayRenderCtx>>,
     pub workspace_watchers: CopyHashMap<(ClientId, JayWorkspaceWatcherId), Rc<JayWorkspaceWatcher>>,
     pub default_workspace_capture: Cell<bool>,
+    pub default_gfx_api: Cell<GfxApi>,
 }
 
 // impl Drop for State {
@@ -258,6 +261,19 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
 }
 
 impl State {
+    pub fn create_gfx_context(
+        &self,
+        drm: &Drm,
+        api: Option<GfxApi>,
+    ) -> Result<Rc<dyn GfxContext>, GfxError> {
+        create_gfx_context(
+            &self.eng,
+            &self.ring,
+            drm,
+            api.unwrap_or(self.default_gfx_api.get()),
+        )
+    }
+
     pub fn add_output_scale(&self, scale: Scale) {
         if self.scales.add(scale) {
             self.output_scales_changed();

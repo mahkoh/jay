@@ -1,6 +1,5 @@
 use {
     crate::{
-        format::Format,
         gfx_api::{
             AbsoluteRect, BufferPoint, BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxTexture,
         },
@@ -118,7 +117,6 @@ impl RendererBase<'_> {
         texture: &Rc<dyn GfxTexture>,
         x: i32,
         y: i32,
-        format: &'static Format,
         tpoints: Option<BufferPoints>,
         tsize: Option<(i32, i32)>,
         tscale: Scale,
@@ -181,7 +179,6 @@ impl RendererBase<'_> {
 
         self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
             tex: texture.clone(),
-            format,
             source: texcoord,
             target: AbsoluteRect {
                 x1: x,

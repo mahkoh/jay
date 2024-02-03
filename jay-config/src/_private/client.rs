@@ -15,7 +15,7 @@ use {
         timer::Timer,
         video::{
             connector_type::{ConnectorType, CON_UNKNOWN},
-            Connector, DrmDevice, Mode,
+            Connector, DrmDevice, GfxApi, Mode,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
@@ -504,6 +504,10 @@ impl Client {
 
     pub fn make_render_device(&self, device: DrmDevice) {
         self.send(&ClientMessage::MakeRenderDevice { device });
+    }
+
+    pub fn set_gfx_api(&self, device: Option<DrmDevice>, api: GfxApi) {
+        self.send(&ClientMessage::SetGfxApi { device, api });
     }
 
     pub fn connector_connected(&self, connector: Connector) -> bool {

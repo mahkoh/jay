@@ -20,7 +20,6 @@ macro_rules! egl_transparent {
 
 use {
     crate::{
-        format::Format,
         gfx_api::{
             BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
         },
@@ -128,6 +127,8 @@ enum RenderError {
     ExternalUnsupported,
     #[error("OpenGL context does not support any formats")]
     NoSupportedFormats,
+    #[error("Unsupported operation")]
+    UnsupportedOperation,
 }
 
 #[derive(Default)]
@@ -214,16 +215,7 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
             let y1 = 2.0 * (tex.target.y1 / height) - 1.0;
             let x2 = 2.0 * (tex.target.x2 / width) - 1.0;
             let y2 = 2.0 * (tex.target.y2 / height) - 1.0;
-            render_texture(
-                &fb.ctx,
-                &tex.tex.as_gl(),
-                tex.format,
-                x1,
-                y1,
-                x2,
-                y2,
-                &tex.source,
-            )
+            render_texture(&fb.ctx, &tex.tex.as_gl(), x1, y1, x2, y2, &tex.source)
         }
     }
 }
@@ -249,7 +241,6 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
 fn render_texture(
     ctx: &GlRenderContext,
     texture: &Texture,
-    format: &Format,
     x1: f32,
     y1: f32,
     x2: f32,
@@ -275,7 +266,7 @@ fn render_texture(
             },
             false => &ctx.tex_internal,
         };
-        let prog = match format.has_alpha {
+        let prog = match texture.gl.format.has_alpha {
             true => {
                 glEnable(GL_BLEND);
                 &progs.alpha

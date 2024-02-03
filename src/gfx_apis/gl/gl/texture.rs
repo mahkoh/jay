@@ -23,6 +23,7 @@ pub struct GlTexture {
     pub width: i32,
     pub height: i32,
     pub external_only: bool,
+    pub format: &'static Format,
 }
 
 pub fn image_target(external_only: bool) -> GLenum {
@@ -58,6 +59,7 @@ impl GlTexture {
             width: img.width,
             height: img.height,
             external_only: img.external_only,
+            format: img.format,
         })
     }
 
@@ -101,6 +103,7 @@ impl GlTexture {
             width,
             height,
             external_only: false,
+            format,
         })
     }
 }

@@ -14,13 +14,10 @@ use {
             renderer::{framebuffer::Framebuffer, image::Image},
             GfxGlState, RenderError, Texture,
         },
-        video::{
-            dmabuf::DmaBuf,
-            drm::{Drm, NodeType},
-            gbm::GbmDevice,
-        },
+        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice},
     },
     ahash::AHashMap,
+    jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -82,14 +79,10 @@ impl GlRenderContext {
     }
 
     pub(in crate::gfx_apis::gl) fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
-        let nodes = drm.get_nodes()?;
-        let node = match nodes
-            .get(&NodeType::Render)
-            .or_else(|| nodes.get(&NodeType::Primary))
-        {
-            None => return Err(RenderError::NoRenderNode),
-            Some(path) => Rc::new(path.to_owned()),
-        };
+        let node = drm
+            .get_render_node()?
+            .ok_or(RenderError::NoRenderNode)
+            .map(Rc::new)?;
         let dpy = EglDisplay::create(drm)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
@@ -226,6 +219,7 @@ impl GfxContext for GlRenderContext {
 
     fn shmem_texture(
         self: Rc<Self>,
+        _old: Option<Rc<dyn GfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
@@ -240,5 +234,9 @@ impl GfxContext for GlRenderContext {
 
     fn gbm(&self) -> &GbmDevice {
         &self.gbm
+    }
+
+    fn gfx_api(&self) -> GfxApi {
+        GfxApi::OpenGl
     }
 }

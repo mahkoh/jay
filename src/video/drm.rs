@@ -175,6 +175,14 @@ impl Drm {
         get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
     }
 
+    pub fn get_render_node(&self) -> Result<Option<CString>, DrmError> {
+        let nodes = self.get_nodes()?;
+        Ok(nodes
+            .get(&NodeType::Render)
+            .or_else(|| nodes.get(&NodeType::Primary))
+            .map(|c| c.to_owned()))
+    }
+
     pub fn version(&self) -> Result<DrmVersion, DrmError> {
         get_version(self.fd.raw()).map_err(DrmError::Version)
     }

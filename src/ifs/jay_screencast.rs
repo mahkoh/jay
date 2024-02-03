@@ -165,9 +165,7 @@ impl JayScreencast {
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
             if buffer.free {
-                buffer
-                    .fb
-                    .copy_texture(&self.client.state, texture, 0, 0, false);
+                buffer.fb.copy_texture(texture, 0, 0);
                 self.client.event(Ready {
                     self_id: self.id,
                     idx: idx as _,

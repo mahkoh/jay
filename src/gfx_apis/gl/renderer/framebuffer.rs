@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxFramebuffer},
+        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer},
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
@@ -114,7 +114,12 @@ impl GfxFramebuffer for Framebuffer {
         height: i32,
         format: &Format,
         shm: &[Cell<u8>],
-    ) {
-        self.copy_to_shm(x, y, width, height, format, shm)
+    ) -> Result<(), GfxError> {
+        self.copy_to_shm(x, y, width, height, format, shm);
+        Ok(())
+    }
+
+    fn format(&self) -> &'static Format {
+        self.gl.rb.img.format
     }
 }

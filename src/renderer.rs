@@ -1,6 +1,5 @@
 use {
     crate::{
-        format::ARGB8888,
         gfx_api::{BufferPoints, GfxApiOpt},
         ifs::{
             wl_buffer::WlBuffer,
@@ -140,17 +139,8 @@ impl Renderer<'_> {
             let scale = output.preferred_scale.get();
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
-                self.base.render_texture(
-                    &title.tex,
-                    x,
-                    y,
-                    ARGB8888,
-                    None,
-                    None,
-                    scale,
-                    i32::MAX,
-                    i32::MAX,
-                );
+                self.base
+                    .render_texture(&title.tex, x, y, None, None, scale, i32::MAX, i32::MAX);
             }
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
@@ -158,7 +148,6 @@ impl Renderer<'_> {
                     &status.tex.texture,
                     x,
                     y,
-                    ARGB8888,
                     None,
                     None,
                     scale,
@@ -204,7 +193,6 @@ impl Renderer<'_> {
                 &tex.texture,
                 x,
                 y,
-                ARGB8888,
                 None,
                 None,
                 self.base.scale,
@@ -241,7 +229,6 @@ impl Renderer<'_> {
                         &title.tex.texture,
                         x,
                         y,
-                        ARGB8888,
                         None,
                         None,
                         self.base.scale,
@@ -394,7 +381,6 @@ impl Renderer<'_> {
                 &tex,
                 x,
                 y,
-                buffer.format,
                 Some(tpoints),
                 Some(tsize),
                 self.base.scale,
@@ -407,6 +393,8 @@ impl Renderer<'_> {
             {
                 self.base.fill_boxes(&[rect], color);
             }
+        } else {
+            log::info!("live buffer has neither a texture nor is a single-pixel buffer");
         }
     }
 
@@ -443,7 +431,6 @@ impl Renderer<'_> {
                 &title.texture,
                 x,
                 y,
-                ARGB8888,
                 None,
                 None,
                 self.base.scale,
