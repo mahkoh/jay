@@ -155,10 +155,10 @@ impl WlBuffer {
         };
         match storage {
             WlBufferStorage::Shm { mem, stride } => {
-                self.texture.set(None);
+                let old = self.texture.take();
                 if let Some(ctx) = self.client.state.render_ctx.get() {
                     let tex = mem.access(|mem| {
-                        ctx.shmem_texture(mem, self.format, self.width, self.height, *stride)
+                        ctx.shmem_texture(old, mem, self.format, self.width, self.height, *stride)
                     })??;
                     self.texture.set(Some(tex));
                 }

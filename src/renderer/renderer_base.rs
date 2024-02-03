@@ -135,7 +135,7 @@ impl RendererBase<'_> {
         let (twidth, theight) = if let Some(size) = tsize {
             size
         } else {
-            let (mut w, mut h) = (texture.width(), texture.height());
+            let (mut w, mut h) = texture.size();
             if tscale != self.scale {
                 let tscale = tscale.to_f64();
                 w = (w as f64 * self.scalef / tscale).round() as _;

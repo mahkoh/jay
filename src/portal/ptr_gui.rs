@@ -304,7 +304,10 @@ impl GuiElement for Label {
         )
         .ok();
         let (tex, width, height) = match tex {
-            Some((t, _)) => (Some(t.clone()), t.texture.width(), t.texture.height()),
+            Some((t, _)) => {
+                let (width, height) = t.texture.size();
+                (Some(t.clone()), width, height)
+            }
             _ => (None, 0, 0),
         };
         self.tex.set(tex);

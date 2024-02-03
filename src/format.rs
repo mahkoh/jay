@@ -8,6 +8,7 @@ use {
         utils::debug_fn::debug_fn,
     },
     ahash::AHashMap,
+    ash::vk,
     once_cell::sync::Lazy,
     std::fmt::{Debug, Write},
 };
@@ -18,12 +19,14 @@ pub struct Format {
     pub bpp: u32,
     pub gl_format: GLint,
     pub gl_type: GLint,
+    pub vk_format: vk::Format,
     pub drm: u32,
     pub wl_id: Option<u32>,
     pub external_only_guess: bool,
     pub has_alpha: bool,
     pub shm_supported: bool,
     pub pipewire: SpaVideoFormat,
+    pub is_ycbcr: bool,
 }
 
 static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
@@ -80,57 +83,67 @@ pub fn map_wayland_format_id(id: u32) -> u32 {
 }
 
 #[allow(dead_code)]
-pub static ARGB8888: &Format = &FORMATS[0];
-pub static XRGB8888: &Format = &FORMATS[1];
+pub static ARGB8888: &Format = &Format {
+    name: "argb8888",
+    bpp: 4,
+    gl_format: GL_BGRA_EXT,
+    gl_type: GL_UNSIGNED_BYTE,
+    vk_format: vk::Format::B8G8R8A8_SRGB,
+    drm: ARGB8888_DRM,
+    wl_id: Some(ARGB8888_ID),
+    external_only_guess: false,
+    has_alpha: true,
+    shm_supported: true,
+    pipewire: SPA_VIDEO_FORMAT_BGRA,
+    is_ycbcr: false,
+};
+
+pub static XRGB8888: &Format = &Format {
+    name: "xrgb8888",
+    bpp: 4,
+    gl_format: GL_BGRA_EXT,
+    gl_type: GL_UNSIGNED_BYTE,
+    vk_format: vk::Format::B8G8R8A8_SRGB,
+    drm: XRGB8888_DRM,
+    wl_id: Some(XRGB8888_ID),
+    external_only_guess: false,
+    has_alpha: false,
+    shm_supported: true,
+    pipewire: SPA_VIDEO_FORMAT_BGRx,
+    is_ycbcr: false,
+};
 
 pub static FORMATS: &[Format] = &[
-    Format {
-        name: "argb8888",
-        bpp: 4,
-        gl_format: GL_BGRA_EXT,
-        gl_type: GL_UNSIGNED_BYTE,
-        drm: ARGB8888_DRM,
-        wl_id: Some(ARGB8888_ID),
-        external_only_guess: false,
-        has_alpha: true,
-        shm_supported: true,
-        pipewire: SPA_VIDEO_FORMAT_BGRA,
-    },
-    Format {
-        name: "xrgb8888",
-        bpp: 4,
-        gl_format: GL_BGRA_EXT,
-        gl_type: GL_UNSIGNED_BYTE,
-        drm: XRGB8888_DRM,
-        wl_id: Some(XRGB8888_ID),
-        external_only_guess: false,
-        has_alpha: false,
-        shm_supported: true,
-        pipewire: SPA_VIDEO_FORMAT_BGRx,
-    },
+    *ARGB8888,
+    *XRGB8888,
+    // *NV12,
     Format {
         name: "abgr8888",
         bpp: 4,
         gl_format: GL_RGBA,
         gl_type: GL_UNSIGNED_BYTE,
+        vk_format: vk::Format::R8G8B8A8_SRGB,
         drm: fourcc_code('A', 'B', '2', '4'),
         wl_id: None,
         external_only_guess: false,
         has_alpha: true,
         shm_supported: true,
         pipewire: SPA_VIDEO_FORMAT_RGBA,
+        is_ycbcr: false,
     },
     Format {
         name: "xbgr8888",
         bpp: 4,
         gl_format: GL_RGBA,
         gl_type: GL_UNSIGNED_BYTE,
+        vk_format: vk::Format::R8G8B8A8_SRGB,
         drm: fourcc_code('X', 'B', '2', '4'),
         wl_id: None,
         external_only_guess: false,
         has_alpha: false,
         shm_supported: true,
         pipewire: SPA_VIDEO_FORMAT_RGBx,
+        is_ycbcr: false,
     },
     // Format {
     //     name: "nv12",

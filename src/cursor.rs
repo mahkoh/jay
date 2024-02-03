@@ -241,7 +241,7 @@ impl CursorImageScaled {
             extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
             tex: ctx
                 .clone()
-                .shmem_texture(data, ARGB8888, width, height, width * 4)?,
+                .shmem_texture(None, data, ARGB8888, width, height, width * 4)?,
         }))
     }
 }

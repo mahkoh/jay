@@ -169,7 +169,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         }
         if self.render_ctx.get().is_none() {
             let drm = Drm::open_existing(fd);
-            let ctx = match create_gfx_context(&drm) {
+            let ctx = match create_gfx_context(&drm, &self.state.wait_for_sync_obj) {
                 Ok(c) => c,
                 Err(e) => {
                     log::error!(

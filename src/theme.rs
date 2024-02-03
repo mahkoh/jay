@@ -72,6 +72,26 @@ impl Color {
     pub fn to_rgba_premultiplied(self) -> [u8; 4] {
         [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
     }
+
+    pub fn to_array_srgb(self) -> [f32; 4] {
+        [self.r, self.g, self.b, self.a]
+    }
+
+    pub fn to_array_linear(self) -> [f32; 4] {
+        fn to_linear(srgb: f32) -> f32 {
+            if srgb <= 0.04045 {
+                srgb / 12.92
+            } else {
+                (srgb + 0.055 / 1.055).powf(2.4)
+            }
+        }
+        [
+            to_linear(self.r),
+            to_linear(self.g),
+            to_linear(self.b),
+            self.a,
+        ]
+    }
 }
 
 impl From<jay_config::theme::Color> for Color {

@@ -1156,3 +1156,138 @@ pub struct drm_format_modifier {
 }
 
 unsafe impl Pod for drm_format_modifier {}
+
+// pub const DRM_SYNCOBJ_CREATE_SIGNALED: u32 = 1 << 0;
+
+#[repr(C)]
+struct drm_syncobj_create {
+    handle: u32,
+    flags: u32,
+}
+
+const DRM_IOCTL_SYNCOBJ_CREATE: u64 = drm_iowr::<drm_syncobj_create>(0xBF);
+
+pub fn syncobj_create(drm: c::c_int, flags: u32) -> Result<u32, OsError> {
+    let mut res = drm_syncobj_create { handle: 0, flags };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_CREATE, &mut res)?;
+    }
+    Ok(res.handle)
+}
+
+#[repr(C)]
+struct drm_syncobj_destroy {
+    handle: u32,
+    pad: u32,
+}
+
+const DRM_IOCTL_SYNCOBJ_DESTROY: u64 = drm_iowr::<drm_syncobj_destroy>(0xC0);
+
+pub fn syncobj_destroy(drm: c::c_int, handle: u32) -> Result<(), OsError> {
+    let mut res = drm_syncobj_destroy { handle, pad: 0 };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_DESTROY, &mut res)?;
+    }
+    Ok(())
+}
+
+// pub const DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE: u32 = 1 << 0;
+// pub const DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE: u32 = 1 << 0;
+
+#[repr(C)]
+struct drm_syncobj_handle {
+    handle: u32,
+    flags: u32,
+    fd: i32,
+    pad: u32,
+}
+
+const DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD: u64 = drm_iowr::<drm_syncobj_handle>(0xC1);
+const DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE: u64 = drm_iowr::<drm_syncobj_handle>(0xC2);
+
+pub fn syncobj_handle_to_fd(drm: c::c_int, handle: u32, flags: u32) -> Result<OwnedFd, OsError> {
+    let mut res = drm_syncobj_handle {
+        handle,
+        flags,
+        fd: 0,
+        pad: 0,
+    };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD, &mut res)?;
+    }
+    Ok(OwnedFd::new(res.fd))
+}
+
+pub fn syncobj_fd_to_handle(drm: c::c_int, fd: c::c_int, flags: u32) -> Result<u32, OsError> {
+    let mut res = drm_syncobj_handle {
+        handle: 0,
+        flags,
+        fd,
+        pad: 0,
+    };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE, &mut res)?;
+    }
+    Ok(res.handle)
+}
+
+// pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL: u32 = 1 << 0;
+// pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_FOR_SUBMIT: u32 = 1 << 1;
+pub const DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE: u32 = 1 << 2;
+
+#[repr(C)]
+struct drm_syncobj_eventfd {
+    handle: u32,
+    flags: u32,
+    point: u64,
+    fd: i32,
+    pad: u32,
+}
+
+const DRM_IOCTL_SYNCOBJ_EVENTFD: u64 = drm_iowr::<drm_syncobj_eventfd>(0xCF);
+
+pub fn syncobj_eventfd(
+    drm: c::c_int,
+    eventfd: c::c_int,
+    handle: u32,
+    point: u64,
+    flags: u32,
+) -> Result<(), OsError> {
+    let mut res = drm_syncobj_eventfd {
+        handle,
+        flags,
+        point,
+        fd: eventfd,
+        pad: 0,
+    };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_EVENTFD, &mut res)?;
+    }
+    Ok(())
+}
+
+pub const DRM_SYNCOBJ_QUERY_FLAGS_LAST_SUBMITTED: u32 = 1 << 0;
+
+#[repr(C)]
+struct drm_syncobj_timeline_array {
+    handles: u64,
+    points: u64,
+    count_handles: u32,
+    flags: u32,
+}
+
+const DRM_IOCTL_SYNCOBJ_QUERY: u64 = drm_iowr::<drm_syncobj_timeline_array>(0xCB);
+
+pub fn syncobj_query(drm: c::c_int, handle: u32, flags: u32) -> Result<u64, OsError> {
+    let mut point = 0u64;
+    let mut res = drm_syncobj_timeline_array {
+        handles: &handle as *const u32 as u64,
+        points: &mut point as *mut u64 as u64,
+        count_handles: 1,
+        flags,
+    };
+    unsafe {
+        ioctl(drm, DRM_IOCTL_SYNCOBJ_QUERY, &mut res)?;
+    }
+    Ok(point)
+}

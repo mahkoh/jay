@@ -23,6 +23,7 @@ use {
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             run_toplevel::RunToplevel, xrd::xrd,
         },
+        video::drm::wait_for_syncobj::WaitForSyncObj,
         wheel::Wheel,
         wire_dbus::org,
     },
@@ -73,6 +74,7 @@ async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
     let (_rtl_future, rtl) = RunToplevel::install(&eng);
     let dbus = Dbus::new(&eng, &ring, &rtl);
     let dbus = init_dbus_session(&dbus).await;
+    let wait_for_sync_obj = Rc::new(WaitForSyncObj::new(&ring, &eng));
     let state = Rc::new(PortalState {
         xrd,
         ring,
@@ -84,6 +86,7 @@ async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
         screencasts: Default::default(),
         next_id: NumCell::new(1),
         render_ctxs: Default::default(),
+        wait_for_sync_obj,
     });
     let _root = {
         let obj = state
@@ -143,6 +146,7 @@ struct PortalState {
     screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
     next_id: NumCell<u32>,
     render_ctxs: CopyHashMap<c::dev_t, Weak<PortalRenderCtx>>,
+    wait_for_sync_obj: Rc<WaitForSyncObj>,
 }
 
 impl PortalState {

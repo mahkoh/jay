@@ -23,8 +23,12 @@ impl<T> Default for AsyncQueue<T> {
 
 impl<T> AsyncQueue<T> {
     pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            data: Default::default(),
+            data: UnsafeCell::new(VecDeque::with_capacity(capacity)),
             waiter: Default::default(),
         }
     }
@@ -50,6 +54,10 @@ impl<T> AsyncQueue<T> {
         AsyncQueueNonEmpty { queue: self }
     }
 
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        unsafe { self.data.get().deref_mut().is_empty() }
+    }
     pub fn clear(&self) {
         unsafe {
             mem::take(self.data.get().deref_mut());

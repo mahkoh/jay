@@ -10,7 +10,6 @@ use {
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        gfx_apis::create_gfx_context,
         renderer::RenderResult,
         state::State,
         time::now_usec,
@@ -62,6 +61,8 @@ use {
     thiserror::Error,
     uapi::{c::dev_t, Errno},
 };
+use crate::video::{INVALID_MODIFIER, LINEAR_MODIFIER};
+use crate::video::gbm::GBM_BO_USE_LINEAR;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {
@@ -180,7 +181,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         Err(e) => return Err(XBackendError::DrmDeviceFstat(e)),
     };
     let gbm = GbmDevice::new(&drm)?;
-    let ctx = match create_gfx_context(&drm) {
+    let ctx = match state.create_gfx_context(&drm) {
         Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
     };
@@ -383,13 +384,22 @@ impl XBackend {
             Some(f) => f,
             None => return Err(XBackendError::XRGB8888),
         };
+        let mut usage = GBM_BO_USE_RENDERING;
+        let modifier = if format.write_modifiers.contains(&LINEAR_MODIFIER) {
+            &[LINEAR_MODIFIER]
+        } else if format.write_modifiers.contains(&INVALID_MODIFIER) {
+            usage |= GBM_BO_USE_LINEAR;
+            &[INVALID_MODIFIER]
+        } else {
+            panic!("Neither linear nor invalid modifier is supported");
+        };
         for image in &mut images {
             let bo = self.gbm.create_bo(
                 width,
                 height,
                 XRGB8888,
-                &format.write_modifiers,
-                GBM_BO_USE_RENDERING,
+                modifier,
+                usage,
             )?;
             let dma = bo.dmabuf();
             assert!(dma.planes.len() == 1);

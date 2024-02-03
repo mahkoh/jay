@@ -2,6 +2,7 @@
     c_variadic, // https://github.com/rust-lang/rust/issues/44930
     thread_local, // https://github.com/rust-lang/rust/issues/29594
     extern_types, // https://github.com/rust-lang/rust/issues/43467
+    c_str_literals, // https://github.com/rust-lang/rust/issues/105723
 )]
 #![allow(
     clippy::len_zero,

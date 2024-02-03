@@ -210,7 +210,6 @@ impl GbmDevice {
             if modifiers.is_empty() {
                 return Err(GbmError::NoModifier);
             }
-            log::info!("modifiers: {:?}", modifiers);
             let (modifiers, n_modifiers) = if modifiers == [INVALID_MODIFIER] {
                 (ptr::null(), 0)
             } else {
@@ -231,7 +230,6 @@ impl GbmDevice {
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
-            log::info!("modifier {:?}", dma.modifier);
             Ok(GbmBo { bo, dmabuf: dma })
         }
     }

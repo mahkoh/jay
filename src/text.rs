@@ -210,9 +210,10 @@ fn render2(
         Ok(d) => d,
         Err(e) => return Err(TextError::ImageData(e)),
     };
+    let old = old.map(|o| o.texture);
     match ctx
         .clone()
-        .shmem_texture(bytes, ARGB8888, width, height, data.image.stride())
+        .shmem_texture(old, bytes, ARGB8888, width, height, data.image.stride())
     {
         Ok(t) => Ok(TextTexture {
             config: Rc::new(config.to_static()),

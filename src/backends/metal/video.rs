@@ -9,7 +9,6 @@ use {
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
         gfx_api::{GfxContext, GfxFramebuffer, GfxTexture},
-        gfx_apis::create_gfx_context,
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
@@ -396,17 +395,18 @@ impl MetalConnector {
                         buffer.dev_fb.copy_texture(&self.state, tex, 0, 0, true);
                     }
                 }
+                let (width, height) = buffer.dev_fb.size();
                 changes.change_object(plane.id, |c| {
                     c.change(plane.fb_id, buffer.drm.id().0 as _);
                     c.change(plane.crtc_id.id, crtc.id.0 as _);
                     c.change(plane.crtc_x.id, self.cursor_x.get() as _);
                     c.change(plane.crtc_y.id, self.cursor_y.get() as _);
-                    c.change(plane.crtc_w.id, buffer.render_tex.width() as _);
-                    c.change(plane.crtc_h.id, buffer.render_tex.height() as _);
+                    c.change(plane.crtc_w.id, width as _);
+                    c.change(plane.crtc_h.id, height as _);
                     c.change(plane.src_x.id, 0);
                     c.change(plane.src_y.id, 0);
-                    c.change(plane.src_w.id, (buffer.render_tex.width() as u64) << 16);
-                    c.change(plane.src_h.id, (buffer.render_tex.height() as u64) << 16);
+                    c.change(plane.src_w.id, (width as u64) << 16);
+                    c.change(plane.src_h.id, (height as u64) << 16);
                 });
             } else {
                 changes.change_object(plane.id, |c| {
@@ -1114,7 +1114,7 @@ impl MetalBackend {
             }
         }
 
-        let gfx = match create_gfx_context(master) {
+        let gfx = match self.state.create_gfx_context(master) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
         };

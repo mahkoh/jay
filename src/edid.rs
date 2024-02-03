@@ -1,5 +1,7 @@
 use {
-    crate::utils::{bitflags::BitflagsExt, ptr_ext::PtrExt, stack::Stack},
+    crate::utils::{
+        bitflags::BitflagsExt, clonecell::UnsafeCellCloneSafe, ptr_ext::PtrExt, stack::Stack,
+    },
     bstr::{BString, ByteSlice},
     std::{
         fmt::{Debug, Formatter},
@@ -392,6 +394,8 @@ pub enum EdidParseContext {
     IdManufacturerName,
     VideoInputDefinition,
 }
+
+unsafe impl UnsafeCellCloneSafe for EdidParseContext {}
 
 struct EdidPushedContext {
     stack: Rc<Stack<(usize, EdidParseContext)>>,

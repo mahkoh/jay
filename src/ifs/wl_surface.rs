@@ -48,6 +48,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
             numcell::NumCell,
             smallmap::SmallMap,
@@ -738,7 +739,9 @@ impl WlSurface {
                 }
             }
             if let Some((dx, dy, buffer)) = buffer_change {
-                let _ = buffer.update_texture();
+                if let Err(e) = buffer.update_texture() {
+                    log::warn!("Could not update texture: {}", ErrorFmt(e));
+                }
                 self.buffer.set(Some(buffer));
                 self.buf_x.fetch_add(dx);
                 self.buf_y.fetch_add(dy);

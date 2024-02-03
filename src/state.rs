@@ -13,7 +13,8 @@ use {
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
         forker::ForkerProxy,
-        gfx_api::GfxContext,
+        gfx_api::{GfxContext, GfxError},
+        gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
@@ -43,6 +44,7 @@ use {
             errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, numcell::NumCell,
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
+        video::drm::{wait_for_syncobj::WaitForSyncObj, Drm},
         wheel::Wheel,
         wire::{JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId},
         xkbcommon::{XkbContext, XkbKeymap},
@@ -72,6 +74,7 @@ pub struct State {
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
+    pub wait_for_syncobj: Rc<WaitForSyncObj>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
     pub wheel: Rc<Wheel>,
     pub clients: Clients,
@@ -251,6 +254,10 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
 }
 
 impl State {
+    pub fn create_gfx_context(&self, drm: &Drm) -> Result<Rc<dyn GfxContext>, GfxError> {
+        create_gfx_context(drm, &self.wait_for_syncobj)
+    }
+
     pub fn add_output_scale(&self, scale: Scale) {
         if self.scales.add(scale) {
             self.output_scales_changed();
@@ -312,6 +319,8 @@ impl State {
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
+        self.wait_for_syncobj
+            .set_ctx(ctx.as_ref().map(|c| c.gbm().drm.syncobj_ctx.clone()));
 
         {
             struct Walker;

@@ -1,4 +1,6 @@
+pub mod syncobj;
 mod sys;
+pub mod wait_for_syncobj;
 
 use {
     crate::{
@@ -36,9 +38,12 @@ use crate::{
     utils::{buf::Buf, errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
     video::{
         dmabuf::DmaBuf,
-        drm::sys::{
-            drm_format_modifier, drm_format_modifier_blob, get_version, DRM_CAP_CURSOR_HEIGHT,
-            DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+        drm::{
+            syncobj::SyncObjCtx,
+            sys::{
+                drm_format_modifier, drm_format_modifier_blob, get_version, DRM_CAP_CURSOR_HEIGHT,
+                DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+            },
         },
         Modifier, INVALID_MODIFIER,
     },
@@ -48,6 +53,7 @@ pub use sys::{
     DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
 };
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum DrmError {
     #[error("Could not reopen a node")]
@@ -112,6 +118,22 @@ pub enum DrmError {
     Version(#[source] OsError),
     #[error("Format of IN_FORMATS property is invalid")]
     InFormats,
+    #[error("Could not import a syncobj")]
+    ImportSyncObj(#[source] OsError),
+    #[error("Could not create a syncobj")]
+    CreateSyncObj(#[source] OsError),
+    #[error("Could not export a syncobj")]
+    ExportSyncObj(#[source] OsError),
+    #[error("Could not register an eventfd with a syncobj")]
+    RegisterEventfd(#[source] OsError),
+    #[error("Could not query the last syncobj point")]
+    LastPoint(#[source] OsError),
+    #[error("Could not create an eventfd")]
+    EventFd(#[source] OsError),
+    #[error("Could not read from an eventfd")]
+    ReadEventFd(#[source] IoUringError),
+    #[error("No syncobj context available")]
+    NoSyncObjContextAvailable,
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -145,18 +167,18 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
 
 pub struct Drm {
     fd: Rc<OwnedFd>,
+    pub syncobj_ctx: Rc<SyncObjCtx>,
 }
 
 impl Drm {
     #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn open_existing(fd: Rc<OwnedFd>) -> Self {
-        Self { fd }
+        let syncobj_ctx = Rc::new(SyncObjCtx::new(&fd));
+        Self { fd, syncobj_ctx }
     }
 
     pub fn reopen(fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {
-        Ok(Self {
-            fd: reopen(fd, need_primary)?,
-        })
+        Ok(Self::open_existing(reopen(fd, need_primary)?))
     }
 
     pub fn fd(&self) -> &Rc<OwnedFd> {
@@ -173,6 +195,14 @@ impl Drm {
 
     pub fn get_nodes(&self) -> Result<AHashMap<NodeType, CString>, DrmError> {
         get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
+    }
+
+    pub fn get_render_node(&self) -> Result<Option<CString>, DrmError> {
+        let nodes = self.get_nodes()?;
+        Ok(nodes
+            .get(&NodeType::Render)
+            .or_else(|| nodes.get(&NodeType::Primary))
+            .map(|c| c.to_owned()))
     }
 
     pub fn version(&self) -> Result<DrmVersion, DrmError> {
@@ -212,7 +242,7 @@ impl Deref for DrmMaster {
 impl DrmMaster {
     pub fn new(ring: &Rc<IoUring>, fd: Rc<OwnedFd>) -> Self {
         Self {
-            drm: Drm { fd },
+            drm: Drm::open_existing(fd),
             u32_bufs: Default::default(),
             u64_bufs: Default::default(),
             gem_handles: Default::default(),

@@ -80,6 +80,7 @@ impl BufferPoints {
     }
 }
 
+#[derive(Debug)]
 pub struct AbsoluteRect {
     pub x1: f32,
     pub x2: f32,
@@ -87,6 +88,7 @@ pub struct AbsoluteRect {
     pub y2: f32,
 }
 
+#[derive(Debug)]
 pub struct FillRect {
     pub rect: AbsoluteRect,
     pub color: Color,
@@ -261,9 +263,9 @@ pub trait GfxImage {
 }
 
 pub trait GfxTexture: Debug {
-    fn width(&self) -> i32;
-    fn height(&self) -> i32;
+    fn size(&self) -> (i32, i32);
     fn as_any(&self) -> &dyn Any;
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 }
 
 pub trait GfxContext: Debug {
@@ -273,12 +275,15 @@ pub trait GfxContext: Debug {
 
     fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>>;
 
-    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        self.dmabuf_img(buf)?.to_framebuffer()
+    }
 
     fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError>;
 
     fn shmem_texture(
         self: Rc<Self>,
+        old: Option<Rc<dyn GfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
@@ -287,6 +292,8 @@ pub trait GfxContext: Debug {
     ) -> Result<Rc<dyn GfxTexture>, GfxError>;
 
     fn gbm(&self) -> &GbmDevice;
+
+    fn explicit_sync(&self) -> bool;
 }
 
 #[derive(Debug)]
