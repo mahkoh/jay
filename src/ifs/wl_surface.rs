@@ -766,7 +766,7 @@ impl WlSurface {
                 }
             }
             if let Some(buffer) = buffer_change {
-                let _ = buffer.update_texture();
+                buffer.update_texture_or_log();
                 self.buffer.set(Some(buffer));
                 self.buf_x.fetch_add(dx);
                 self.buf_y.fetch_add(dy);
