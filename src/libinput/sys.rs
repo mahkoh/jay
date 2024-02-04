@@ -75,6 +75,13 @@ extern "C" {
     pub fn libinput_device_config_tap_get_drag_lock_enabled(
         device: *mut libinput_device,
     ) -> libinput_config_drag_lock_state;
+    pub fn libinput_device_config_scroll_set_natural_scroll_enabled(
+        device: *mut libinput_device,
+        enable: c::c_int,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_scroll_get_natural_scroll_enabled(
+        device: *mut libinput_device,
+    ) -> c::c_int;
 
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;

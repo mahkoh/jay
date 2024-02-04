@@ -444,6 +444,10 @@ trait TestInputDevice: InputDevice {
     fn set_drag_lock_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -501,5 +505,9 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
         <Self as TestInputDevice>::set_drag_lock_enabled(self, enabled)
+    }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_natural_scrolling_enabled(self, enabled)
     }
 }

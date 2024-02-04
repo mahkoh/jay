@@ -512,6 +512,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_natural_scrolling_enabled(
+        &self,
+        device: InputDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_natural_scrolling_enabled(enabled);
+        Ok(())
+    }
+
     fn handle_set_drag_lock_enabled(
         &self,
         device: InputDevice,
@@ -1296,6 +1306,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetWorkspaceCapture { workspace } => self
                 .handle_get_workspace_capture(workspace)
                 .wrn("get_workspace_capture")?,
+            ClientMessage::SetNaturalScrollingEnabled { device, enabled } => self
+                .handle_set_natural_scrolling_enabled(device, enabled)
+                .wrn("set_natural_scrolling_enabled")?,
         }
         Ok(())
     }

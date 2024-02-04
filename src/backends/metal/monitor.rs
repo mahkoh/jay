@@ -296,6 +296,7 @@ impl MetalBackend {
             tap_enabled: Default::default(),
             drag_enabled: Default::default(),
             drag_lock_enabled: Default::default(),
+            natural_scrolling_enabled: Default::default(),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder

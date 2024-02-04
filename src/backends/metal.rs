@@ -296,6 +296,7 @@ struct MetalInputDevice {
     tap_enabled: Cell<Option<bool>>,
     drag_enabled: Cell<Option<bool>>,
     drag_lock_enabled: Cell<Option<bool>>,
+    natural_scrolling_enabled: Cell<Option<bool>>,
 }
 
 #[derive(Clone)]
@@ -353,6 +354,9 @@ impl MetalInputDevice {
         }
         if let Some(enabled) = self.drag_lock_enabled.get() {
             dev.device().set_drag_lock_enabled(enabled);
+        }
+        if let Some(enabled) = self.natural_scrolling_enabled.get() {
+            dev.device().set_natural_scrolling_enabled(enabled);
         }
     }
 
@@ -463,6 +467,13 @@ impl InputDevice for MetalInputDevice {
         self.drag_lock_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
             dev.device().set_drag_lock_enabled(enabled);
+        }
+    }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        self.natural_scrolling_enabled.set(Some(enabled));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_natural_scrolling_enabled(enabled);
         }
     }
 }

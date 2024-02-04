@@ -617,6 +617,10 @@ impl Client {
         self.send(&ClientMessage::SetTapEnabled { device, enabled })
     }
 
+    pub fn set_input_natural_scrolling_enabled(&self, device: InputDevice, enabled: bool) {
+        self.send(&ClientMessage::SetNaturalScrollingEnabled { device, enabled })
+    }
+
     pub fn set_input_drag_enabled(&self, device: InputDevice, enabled: bool) {
         self.send(&ClientMessage::SetDragEnabled { device, enabled })
     }

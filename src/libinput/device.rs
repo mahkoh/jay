@@ -9,6 +9,8 @@ use {
         sys::{
             libinput_device, libinput_device_config_accel_set_profile,
             libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
+            libinput_device_config_scroll_get_natural_scroll_enabled,
+            libinput_device_config_scroll_set_natural_scroll_enabled,
             libinput_device_config_tap_get_drag_enabled,
             libinput_device_config_tap_get_drag_lock_enabled,
             libinput_device_config_tap_get_enabled, libinput_device_config_tap_set_drag_enabled,
@@ -145,6 +147,17 @@ impl<'a> LibInputDevice<'a> {
             LIBINPUT_CONFIG_DRAG_LOCK_ENABLED => true,
             _ => false,
         }
+    }
+
+    pub fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        unsafe {
+            libinput_device_config_scroll_set_natural_scroll_enabled(self.dev, enabled as _);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn natural_scrolling_enabled(&self) -> bool {
+        unsafe { libinput_device_config_scroll_get_natural_scroll_enabled(self.dev) != 0 }
     }
 }
 

@@ -1162,6 +1162,10 @@ impl InputDevice for XSeatKeyboard {
     fn set_drag_lock_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1221,6 +1225,10 @@ impl InputDevice for XSeatMouse {
     }
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
 }
