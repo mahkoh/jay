@@ -66,3 +66,8 @@ msg axis_value120 = 9 {
     axis: u32,
     value120: i32,
 }
+
+msg axis_relative_direction = 10 {
+    axis: u32,
+    direction: u32,
+}

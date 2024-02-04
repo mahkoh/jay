@@ -98,6 +98,11 @@ impl JaySeatEvents {
                 });
             }
             if let Some(dist) = ps.px[axis].get() {
+                self.client.event(AxisInverted {
+                    self_id: self.id,
+                    axis: axis as _,
+                    inverted: ps.inverted[axis].get() as _,
+                });
                 self.client.event(AxisPx {
                     self_id: self.id,
                     dist,

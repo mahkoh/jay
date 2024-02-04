@@ -149,11 +149,13 @@ impl MetalBackend {
                 InputEvent::Axis120 {
                     dist: scroll as _,
                     axis,
+                    inverted: dev.natural_scrolling.get(),
                 }
             } else {
                 InputEvent::AxisPx {
                     dist: Fixed::from_f64(scroll),
                     axis,
+                    inverted: dev.natural_scrolling.get(),
                 }
             };
             dev.event(ie);

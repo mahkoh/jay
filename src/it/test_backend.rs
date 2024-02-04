@@ -315,6 +315,7 @@ impl TestBackendMouse {
         self.common.event(InputEvent::Axis120 {
             dist: dy * 120,
             axis: ScrollAxis::Vertical,
+            inverted: false,
         });
         self.common.event(InputEvent::AxisFrame {
             time_usec: now_usec(),
@@ -328,6 +329,7 @@ impl TestBackendMouse {
         self.common.event(InputEvent::AxisPx {
             dist: Fixed::from_int(dy),
             axis: ScrollAxis::Vertical,
+            inverted: false,
         });
         self.common.event(InputEvent::AxisFrame {
             time_usec: now_usec(),
@@ -444,6 +446,10 @@ trait TestInputDevice: InputDevice {
     fn set_drag_lock_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -501,5 +507,9 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
         <Self as TestInputDevice>::set_drag_lock_enabled(self, enabled)
+    }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_natural_scrolling_enabled(self, enabled)
     }
 }

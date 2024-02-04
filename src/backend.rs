@@ -119,6 +119,7 @@ pub trait InputDevice {
     fn set_tap_enabled(&self, enabled: bool);
     fn set_drag_enabled(&self, enabled: bool);
     fn set_drag_lock_enabled(&self, enabled: bool);
+    fn set_natural_scrolling_enabled(&self, enabled: bool);
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -195,6 +196,7 @@ pub enum InputEvent {
     AxisPx {
         dist: Fixed,
         axis: ScrollAxis,
+        inverted: bool,
     },
     AxisSource {
         source: AxisSource,
@@ -205,6 +207,7 @@ pub enum InputEvent {
     Axis120 {
         dist: i32,
         axis: ScrollAxis,
+        inverted: bool,
     },
     AxisFrame {
         time_usec: u64,

@@ -330,6 +330,10 @@ pub enum ClientMessage<'a> {
     GetWorkspaceCapture {
         workspace: Workspace,
     },
+    SetNaturalScrollingEnabled {
+        device: InputDevice,
+        enabled: bool,
+    },
 }
 
 #[derive(Encode, Decode, Debug)]

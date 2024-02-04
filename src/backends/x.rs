@@ -799,6 +799,7 @@ impl XBackend {
                     seat.mouse_event(InputEvent::Axis120 {
                         dist: val * AXIS_120,
                         axis,
+                        inverted: false,
                     });
                     seat.mouse_event(InputEvent::AxisFrame {
                         time_usec: now_usec(),
@@ -1162,6 +1163,10 @@ impl InputDevice for XSeatKeyboard {
     fn set_drag_lock_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1221,6 +1226,10 @@ impl InputDevice for XSeatMouse {
     }
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn set_natural_scrolling_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
 }

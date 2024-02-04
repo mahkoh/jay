@@ -104,6 +104,13 @@ impl InputDevice {
     pub fn set_drag_lock_enabled(self, enabled: bool) {
         get!().set_input_drag_lock_enabled(self, enabled);
     }
+
+    /// Sets whether natural scrolling is enabled for this device.
+    ///
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/scrolling.html>
+    pub fn set_natural_scrolling_enabled(self, enabled: bool) {
+        get!().set_input_natural_scrolling_enabled(self, enabled);
+    }
 }
 
 /// A seat.

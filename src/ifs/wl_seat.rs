@@ -902,7 +902,7 @@ impl Global for WlSeatGlobal {
     }
 
     fn version(&self) -> u32 {
-        8
+        9
     }
 
     fn break_loops(&self) {
