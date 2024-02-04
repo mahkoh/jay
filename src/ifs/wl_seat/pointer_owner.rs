@@ -40,12 +40,14 @@ impl PointerOwnerHolder {
         self.pending_scroll.source.set(Some(axis_source as _));
     }
 
-    pub fn axis_120(&self, delta: i32, axis: ScrollAxis) {
+    pub fn axis_120(&self, delta: i32, axis: ScrollAxis, inverted: bool) {
         self.pending_scroll.v120[axis as usize].set(Some(delta));
+        self.pending_scroll.inverted[axis as usize].set(inverted);
     }
 
-    pub fn axis_px(&self, delta: Fixed, axis: ScrollAxis) {
+    pub fn axis_px(&self, delta: Fixed, axis: ScrollAxis, inverted: bool) {
         self.pending_scroll.px[axis as usize].set(Some(delta));
+        self.pending_scroll.inverted[axis as usize].set(inverted);
     }
 
     pub fn axis_stop(&self, axis: ScrollAxis) {

@@ -60,3 +60,8 @@ msg modifiers = 10 {
     modifiers: u32,
     group: u32,
 }
+
+msg axis_inverted = 11 {
+    inverted: u32,
+    axis: u32,
+}

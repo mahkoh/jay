@@ -283,6 +283,7 @@ struct MetalInputDevice {
     events: SyncQueue<InputEvent>,
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     name: CloneCell<Rc<String>>,
+    natural_scrolling: Cell<bool>,
 
     // state
     pressed_keys: SmallMap<u32, (), 5>,
@@ -356,7 +357,7 @@ impl MetalInputDevice {
             dev.device().set_drag_lock_enabled(enabled);
         }
         if let Some(enabled) = self.natural_scrolling_enabled.get() {
-            dev.device().set_natural_scrolling_enabled(enabled);
+            self.do_set_natural_scrolling_enabled(&dev, enabled);
         }
     }
 
@@ -376,6 +377,12 @@ impl MetalInputDevice {
                 state: KeyState::Released,
             });
         }
+    }
+
+    fn do_set_natural_scrolling_enabled(&self, dev: &RegisteredDevice, enabled: bool) {
+        dev.device().set_natural_scrolling_enabled(enabled);
+        self.natural_scrolling
+            .set(dev.device().natural_scrolling_enabled());
     }
 }
 
@@ -473,7 +480,7 @@ impl InputDevice for MetalInputDevice {
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
         self.natural_scrolling_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
-            dev.device().set_natural_scrolling_enabled(enabled);
+            self.do_set_natural_scrolling_enabled(&dev, enabled);
         }
     }
 }

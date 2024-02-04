@@ -15,9 +15,9 @@ use {
                 wl_keyboard::{self, WlKeyboard},
                 wl_pointer::{
                     self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
-                    AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
-                    AXIS_VALUE120_SINCE_VERSION, POINTER_FRAME_SINCE_VERSION, WHEEL_TILT,
-                    WHEEL_TILT_SINCE_VERSION,
+                    AXIS_RELATIVE_DIRECTION_SINCE_VERSION, AXIS_SOURCE_SINCE_VERSION,
+                    AXIS_STOP_SINCE_VERSION, AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED,
+                    POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
                 },
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
@@ -199,8 +199,16 @@ impl WlSeatGlobal {
             } => self.button_event(time_usec, button, state),
 
             InputEvent::AxisSource { source } => self.pointer_owner.axis_source(source),
-            InputEvent::Axis120 { dist, axis } => self.pointer_owner.axis_120(dist, axis),
-            InputEvent::AxisPx { dist, axis } => self.pointer_owner.axis_px(dist, axis),
+            InputEvent::Axis120 {
+                dist,
+                axis,
+                inverted,
+            } => self.pointer_owner.axis_120(dist, axis, inverted),
+            InputEvent::AxisPx {
+                dist,
+                axis,
+                inverted,
+            } => self.pointer_owner.axis_px(dist, axis, inverted),
             InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
             InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(dev, self, time_usec),
         }
@@ -613,6 +621,13 @@ impl WlSeatGlobal {
                     }
                 }
                 if let Some(delta) = event.px[i].get() {
+                    if p.seat.version >= AXIS_RELATIVE_DIRECTION_SINCE_VERSION {
+                        let direction = match event.inverted[i].get() {
+                            false => IDENTICAL,
+                            true => INVERTED,
+                        };
+                        p.send_axis_relative_direction(axis, direction);
+                    }
                     p.send_axis(time, axis, delta);
                 }
                 if p.seat.version >= AXIS_STOP_SINCE_VERSION && event.stop[i].get() {

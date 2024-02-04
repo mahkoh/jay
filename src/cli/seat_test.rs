@@ -6,8 +6,8 @@ use {
         wire::{
             jay_compositor::{GetSeats, Seat, SeatEvents},
             jay_seat_events::{
-                Axis120, AxisFrame, AxisPx, AxisSource, AxisStop, Button, Key, Modifiers,
-                PointerAbs, PointerRel,
+                Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, Key,
+                Modifiers, PointerAbs, PointerRel,
             },
         },
     },
@@ -134,6 +134,9 @@ async fn run(seat_test: Rc<SeatTest>) {
     AxisSource::handle(tc, se, ps.clone(), move |ps, ev| {
         ps.source.set(Some(ev.source));
     });
+    AxisInverted::handle(tc, se, ps.clone(), move |ps, ev| {
+        ps.inverted[ev.axis as usize].set(ev.inverted != 0);
+    });
     AxisPx::handle(tc, se, ps.clone(), move |ps, ev| {
         ps.px[ev.axis as usize].set(Some(ev.dist));
     });
@@ -152,6 +155,8 @@ async fn run(seat_test: Rc<SeatTest>) {
         let stop_y = ps.stop[1].take();
         let v120_x = ps.v120[0].take();
         let v120_y = ps.v120[1].take();
+        let inverted_x = ps.inverted[0].get();
+        let inverted_y = ps.inverted[1].get();
         if all || ev.seat == seat {
             if all {
                 print!("Seat: {}, ", st.name(ev.seat));
@@ -175,9 +180,9 @@ async fn run(seat_test: Rc<SeatTest>) {
                 print!("Source: {}", source);
                 need_comma = true;
             }
-            for (axis, px, steps, stop) in [
-                ("horizontal", px_x, v120_x, stop_x),
-                ("vertical", px_y, v120_y, stop_y),
+            for (axis, px, steps, stop, inverted) in [
+                ("horizontal", px_x, v120_x, stop_x, inverted_x),
+                ("vertical", px_y, v120_y, stop_y, inverted_y),
             ] {
                 if px.is_some() || steps.is_some() || stop {
                     comma!();
@@ -195,6 +200,11 @@ async fn run(seat_test: Rc<SeatTest>) {
                 if stop {
                     comma!();
                     print!("stop");
+                    need_comma = true;
+                }
+                if inverted {
+                    comma!();
+                    print!("natural scrolling");
                     need_comma = true;
                 }
             }

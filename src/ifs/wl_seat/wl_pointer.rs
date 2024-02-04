@@ -28,16 +28,21 @@ pub const CONTINUOUS: u32 = 2;
 #[allow(dead_code)]
 pub const WHEEL_TILT: u32 = 3;
 
+pub const IDENTICAL: u32 = 0;
+pub const INVERTED: u32 = 1;
+
 pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
 pub const AXIS_SOURCE_SINCE_VERSION: u32 = 5;
 pub const AXIS_DISCRETE_SINCE_VERSION: u32 = 5;
 pub const AXIS_STOP_SINCE_VERSION: u32 = 5;
 pub const WHEEL_TILT_SINCE_VERSION: u32 = 6;
 pub const AXIS_VALUE120_SINCE_VERSION: u32 = 8;
+pub const AXIS_RELATIVE_DIRECTION_SINCE_VERSION: u32 = 9;
 
 #[derive(Default, Debug)]
 pub struct PendingScroll {
     pub v120: [Cell<Option<i32>>; 2],
+    pub inverted: [Cell<bool>; 2],
     pub px: [Cell<Option<Fixed>>; 2],
     pub stop: [Cell<bool>; 2],
     pub source: Cell<Option<u32>>,
@@ -50,6 +55,10 @@ impl PendingScroll {
             v120: [
                 Cell::new(self.v120[0].take()),
                 Cell::new(self.v120[1].take()),
+            ],
+            inverted: [
+                Cell::new(self.inverted[0].take()),
+                Cell::new(self.inverted[1].take()),
             ],
             px: [Cell::new(self.px[0].take()), Cell::new(self.px[1].take())],
             stop: [
@@ -114,6 +123,14 @@ impl WlPointer {
         })
     }
 
+    pub fn send_axis_relative_direction(&self, axis: u32, direction: u32) {
+        self.seat.client.event(AxisRelativeDirection {
+            self_id: self.id,
+            axis,
+            direction,
+        })
+    }
+
     pub fn send_axis(&self, time: u32, axis: u32, value: Fixed) {
         self.seat.client.event(Axis {
             self_id: self.id,
@@ -123,12 +140,10 @@ impl WlPointer {
         })
     }
 
-    #[allow(dead_code)]
     pub fn send_frame(&self) {
         self.seat.client.event(Frame { self_id: self.id })
     }
 
-    #[allow(dead_code)]
     pub fn send_axis_source(&self, axis_source: u32) {
         self.seat.client.event(AxisSource {
             self_id: self.id,
@@ -136,7 +151,6 @@ impl WlPointer {
         })
     }
 
-    #[allow(dead_code)]
     pub fn send_axis_stop(&self, time: u32, axis: u32) {
         self.seat.client.event(AxisStop {
             self_id: self.id,
@@ -145,7 +159,6 @@ impl WlPointer {
         })
     }
 
-    #[allow(dead_code)]
     pub fn send_axis_discrete(&self, axis: u32, discrete: i32) {
         self.seat.client.event(AxisDiscrete {
             self_id: self.id,

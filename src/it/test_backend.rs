@@ -315,6 +315,7 @@ impl TestBackendMouse {
         self.common.event(InputEvent::Axis120 {
             dist: dy * 120,
             axis: ScrollAxis::Vertical,
+            inverted: false,
         });
         self.common.event(InputEvent::AxisFrame {
             time_usec: now_usec(),
@@ -328,6 +329,7 @@ impl TestBackendMouse {
         self.common.event(InputEvent::AxisPx {
             dist: Fixed::from_int(dy),
             axis: ScrollAxis::Vertical,
+            inverted: false,
         });
         self.common.event(InputEvent::AxisFrame {
             time_usec: now_usec(),

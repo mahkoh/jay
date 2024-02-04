@@ -196,6 +196,7 @@ pub enum InputEvent {
     AxisPx {
         dist: Fixed,
         axis: ScrollAxis,
+        inverted: bool,
     },
     AxisSource {
         source: AxisSource,
@@ -206,6 +207,7 @@ pub enum InputEvent {
     Axis120 {
         dist: i32,
         axis: ScrollAxis,
+        inverted: bool,
     },
     AxisFrame {
         time_usec: u64,

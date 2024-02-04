@@ -287,6 +287,7 @@ impl MetalBackend {
             events: Default::default(),
             cb: Default::default(),
             name: Default::default(),
+            natural_scrolling: Default::default(),
             pressed_keys: Default::default(),
             pressed_buttons: Default::default(),
             left_handed: Default::default(),
@@ -336,6 +337,8 @@ impl MetalBackend {
             };
             inputdev.device().set_slot(slot);
             dev.name.set(Rc::new(inputdev.device().name()));
+            dev.natural_scrolling
+                .set(inputdev.device().natural_scrolling_enabled());
             dev.inputdev.set(Some(inputdev));
             dev.apply_config();
             slf.state

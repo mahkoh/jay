@@ -155,7 +155,6 @@ impl<'a> LibInputDevice<'a> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn natural_scrolling_enabled(&self) -> bool {
         unsafe { libinput_device_config_scroll_get_natural_scroll_enabled(self.dev) != 0 }
     }
