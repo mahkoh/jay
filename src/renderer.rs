@@ -307,7 +307,7 @@ impl Renderer<'_> {
         max_height: i32,
     ) {
         let (x, y) = self.base.scale_point(x, y);
-        self.render_surface_scaled(surface, x, y, None, max_width, max_height);
+        self.render_surface_scaled(surface, x, y, None, max_width, max_height, false);
     }
 
     pub fn render_surface_scaled(
@@ -318,12 +318,13 @@ impl Renderer<'_> {
         pos_rel: Option<(i32, i32)>,
         max_width: i32,
         max_height: i32,
+        is_subsurface: bool,
     ) {
         let children = surface.children.borrow();
         let buffer = match surface.buffer.get() {
             Some(b) => b,
             _ => {
-                if !surface.is_cursor() {
+                if !surface.is_cursor() && !is_subsurface {
                     log::warn!("surface has no buffer attached");
                 }
                 return;
@@ -354,6 +355,7 @@ impl Renderer<'_> {
                             Some((pos.x1(), pos.y1())),
                             max_width,
                             max_height,
+                            true,
                         );
                     }
                 };

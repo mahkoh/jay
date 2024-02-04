@@ -76,7 +76,15 @@ impl Cursor for CursorSurface {
                 let (hot_x, hot_y) = (Fixed::from_int(hot_x), Fixed::from_int(hot_y));
                 let x = ((x - hot_x).to_f64() * scale).round() as _;
                 let y = ((y - hot_y).to_f64() * scale).round() as _;
-                renderer.render_surface_scaled(&self.surface, x, y, None, i32::MAX, i32::MAX);
+                renderer.render_surface_scaled(
+                    &self.surface,
+                    x,
+                    y,
+                    None,
+                    i32::MAX,
+                    i32::MAX,
+                    false,
+                );
             } else {
                 renderer.render_surface(
                     &self.surface,

@@ -131,7 +131,7 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         }
         device_node_name(fd)?
     };
-    match uapi::open(&path, c::O_RDWR | c::O_CLOEXEC, 0) {
+    match uapi::open(path, c::O_RDWR | c::O_CLOEXEC, 0) {
         Ok(f) => Ok(Rc::new(f)),
         Err(e) => Err(DrmError::ReopenNode(e.into())),
     }

@@ -63,7 +63,7 @@ async fn run(screenshot: Rc<Screenshot>) {
         .as_deref()
         .unwrap_or("%Y-%m-%d-%H%M%S_jay.qoi");
     let filename = Local::now().format(filename).to_string();
-    if let Err(e) = std::fs::write(&filename, &data) {
+    if let Err(e) = std::fs::write(&filename, data) {
         fatal!("Could not write `{}`: {}", filename, ErrorFmt(e));
     }
 }

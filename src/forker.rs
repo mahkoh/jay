@@ -319,7 +319,7 @@ impl Forker {
                     level: log::Level::Error as _,
                     msg: format!("The ol' forker panicked: {}", pi),
                 };
-                let msg = bincode::encode_to_vec(&msg, bincode_ops()).unwrap();
+                let msg = bincode::encode_to_vec(msg, bincode_ops()).unwrap();
                 let _ = Fd::new(socket).write_all(&msg);
             })
         });
