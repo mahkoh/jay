@@ -77,7 +77,7 @@ pub fn get_node_type_from_fd(fd: c::c_int) -> Result<NodeType, OsError> {
 
 pub fn node_is_drm(maj: u64, min: u64) -> bool {
     let path = device_dir(maj, min);
-    uapi::stat(&path).is_ok()
+    uapi::stat(path).is_ok()
 }
 
 pub fn get_minor_type(min: u64) -> Result<NodeType, OsError> {
@@ -102,7 +102,7 @@ pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsE
     let (_, maj, min) = drm_stat(fd)?;
 
     let dir = device_dir(maj, min);
-    let mut dir = uapi::opendir(&dir)?;
+    let mut dir = uapi::opendir(dir)?;
 
     while let Some(entry) = uapi::readdir(&mut dir) {
         let entry = entry?;
@@ -138,7 +138,7 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
     let (_, maj, min) = drm_stat(fd)?;
     let path = uapi::format_ustr!("/sys/dev/char/{maj}:{min}/uevent");
     let mut buf = vec![];
-    let mut br = BufReader::new(uapi::open(&path, c::O_RDONLY, 0)?);
+    let mut br = BufReader::new(uapi::open(path, c::O_RDONLY, 0)?);
     loop {
         buf.clear();
         if br.read_until(b'\n', &mut buf)? == 0 {
@@ -155,7 +155,7 @@ pub fn get_nodes(fd: c::c_int) -> Result<AHashMap<NodeType, CString>, OsError> {
     let (_, maj, min) = drm_stat(fd)?;
 
     let dir = device_dir(maj, min);
-    let mut dir = uapi::opendir(&dir)?;
+    let mut dir = uapi::opendir(dir)?;
 
     let mut res = AHashMap::new();
 

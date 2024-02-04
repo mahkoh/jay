@@ -858,7 +858,7 @@ impl MethodHandlerApi for PropertyGetAllHandlerProxy {
 pub mod prelude {
     pub use {
         super::{
-            types::{Bool, DictEntry, ObjectPath, Signature, Variant},
+            types::{Bool, DictEntry, ObjectPath, Variant},
             DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property, Signal,
         },
         std::{borrow::Cow, rc::Rc},

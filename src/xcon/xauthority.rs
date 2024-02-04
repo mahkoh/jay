@@ -29,7 +29,7 @@ impl XAuthority {
             return Err(XconError::HomeNotSet);
         };
         let mut buf = vec![];
-        if let Err(e) = File::open(&path).and_then(|mut f| f.read_to_end(&mut buf)) {
+        if let Err(e) = File::open(path).and_then(|mut f| f.read_to_end(&mut buf)) {
             return Err(XconError::ReadXAuthority(e));
         }
         Parser::parse(&buf)
