@@ -93,6 +93,7 @@ impl Renderer<'_> {
                         x + pos.x1() - opos.x1(),
                         y + pos.y1() - opos.y1(),
                     );
+                    self.base.ops.push(GfxApiOpt::Sync);
                 }
             };
         }
