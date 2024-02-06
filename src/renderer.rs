@@ -3,7 +3,7 @@ use {
         format::ARGB8888,
         gfx_api::{BufferPoints, GfxApiOpt},
         ifs::{
-            wl_buffer::{WlBuffer, WlBufferStorage},
+            wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_surface::{
                 xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
@@ -93,6 +93,7 @@ impl Renderer<'_> {
                         x + pos.x1() - opos.x1(),
                         y + pos.y1() - opos.y1(),
                     );
+                    self.base.ops.push(GfxApiOpt::Sync);
                 }
             };
         }
@@ -400,7 +401,7 @@ impl Renderer<'_> {
                 max_width,
                 max_height,
             );
-        } else if let Some(WlBufferStorage::Color(color)) = &*buffer.storage.borrow() {
+        } else if let Some(color) = &buffer.color {
             if let Some(rect) =
                 Rect::new_sized(x, y, tsize.0.min(max_width), tsize.1.min(max_height))
             {
