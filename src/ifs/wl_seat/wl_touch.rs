@@ -49,16 +49,12 @@ impl WlTouch {
 }
 
 object_base! {
-    WlTouch;
+    self = WlTouch;
 
-    RELEASE => release,
+    RELEASE => release if self.seat.version >= 3,
 }
 
-impl Object for WlTouch {
-    fn num_requests(&self) -> u32 {
-        RELEASE + 1
-    }
-}
+impl Object for WlTouch {}
 
 simple_add_obj!(WlTouch);
 

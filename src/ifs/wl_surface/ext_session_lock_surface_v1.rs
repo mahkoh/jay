@@ -130,17 +130,13 @@ impl Node for ExtSessionLockSurfaceV1 {
 }
 
 object_base! {
-    ExtSessionLockSurfaceV1;
+    self = ExtSessionLockSurfaceV1;
 
     DESTROY => destroy,
     ACK_CONFIGURE => ack_configure,
 }
 
 impl Object for ExtSessionLockSurfaceV1 {
-    fn num_requests(&self) -> u32 {
-        ACK_CONFIGURE + 1
-    }
-
     fn break_loops(&self) {
         self.destroy_node();
     }

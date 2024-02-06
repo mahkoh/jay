@@ -73,16 +73,12 @@ impl JayWorkspace {
 }
 
 object_base! {
-    JayWorkspace;
+    self = JayWorkspace;
 
     DESTROY => destroy,
 }
 
 impl Object for JayWorkspace {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         self.remove_from_node();
     }

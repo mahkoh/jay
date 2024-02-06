@@ -1049,7 +1049,7 @@ impl WlSurface {
 }
 
 object_base! {
-    WlSurface;
+    self = WlSurface;
 
     DESTROY => destroy,
     ATTACH => attach,
@@ -1058,17 +1058,13 @@ object_base! {
     SET_OPAQUE_REGION => set_opaque_region,
     SET_INPUT_REGION => set_input_region,
     COMMIT => commit,
-    SET_BUFFER_TRANSFORM => set_buffer_transform,
-    SET_BUFFER_SCALE => set_buffer_scale,
-    DAMAGE_BUFFER => damage_buffer,
-    OFFSET => offset,
+    SET_BUFFER_TRANSFORM => set_buffer_transform if self.version >= 2,
+    SET_BUFFER_SCALE => set_buffer_scale if self.version >= 3,
+    DAMAGE_BUFFER => damage_buffer if self.version >= 4,
+    OFFSET => offset if self.version >= 5,
 }
 
 impl Object for WlSurface {
-    fn num_requests(&self) -> u32 {
-        OFFSET + 1
-    }
-
     fn break_loops(&self) {
         self.unset_dnd_icons();
         self.unset_cursors();

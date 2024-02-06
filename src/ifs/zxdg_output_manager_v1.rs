@@ -93,7 +93,7 @@ impl Global for ZxdgOutputManagerV1Global {
 simple_add_global!(ZxdgOutputManagerV1Global);
 
 object_base! {
-    ZxdgOutputManagerV1;
+    self = ZxdgOutputManagerV1;
 
     DESTROY => destroy,
     GET_XDG_OUTPUT => get_xdg_output,
@@ -101,11 +101,7 @@ object_base! {
 
 simple_add_obj!(ZxdgOutputManagerV1);
 
-impl Object for ZxdgOutputManagerV1 {
-    fn num_requests(&self) -> u32 {
-        GET_XDG_OUTPUT + 1
-    }
-}
+impl Object for ZxdgOutputManagerV1 {}
 
 #[derive(Debug, Error)]
 pub enum ZxdgOutputManagerV1Error {

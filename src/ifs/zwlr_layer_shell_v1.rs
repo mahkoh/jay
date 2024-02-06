@@ -118,26 +118,15 @@ impl Global for ZwlrLayerShellV1Global {
 simple_add_global!(ZwlrLayerShellV1Global);
 
 object_base! {
-    ZwlrLayerShellV1;
+    self = ZwlrLayerShellV1;
 
     GET_LAYER_SURFACE => get_layer_surface,
-    DESTROY => destroy,
+    DESTROY => destroy if self.version >= 3,
 }
 
 simple_add_obj!(ZwlrLayerShellV1);
 
-impl Object for ZwlrLayerShellV1 {
-    fn num_requests(&self) -> u32 {
-        // todo
-        // let last_request = if self.version >= 3 {
-        //     DESTROY
-        // } else {
-        //     GET_LAYER_SURFACE
-        // };
-        // last_request + 1
-        DESTROY + 1
-    }
-}
+impl Object for ZwlrLayerShellV1 {}
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerShellV1Error {

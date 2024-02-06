@@ -50,16 +50,12 @@ impl JayOutput {
 }
 
 object_base! {
-    JayOutput;
+    self = JayOutput;
 
     DESTROY => destroy,
 }
 
 impl Object for JayOutput {
-    fn num_requests(&self) -> u32 {
-        1
-    }
-
     fn break_loops(&self) {
         self.remove_from_node();
     }

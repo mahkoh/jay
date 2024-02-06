@@ -92,16 +92,12 @@ impl OrgKdeKwinServerDecorationManager {
 }
 
 object_base! {
-    OrgKdeKwinServerDecorationManager;
+    self = OrgKdeKwinServerDecorationManager;
 
     CREATE => create,
 }
 
-impl Object for OrgKdeKwinServerDecorationManager {
-    fn num_requests(&self) -> u32 {
-        CREATE + 1
-    }
-}
+impl Object for OrgKdeKwinServerDecorationManager {}
 
 simple_add_obj!(OrgKdeKwinServerDecorationManager);
 

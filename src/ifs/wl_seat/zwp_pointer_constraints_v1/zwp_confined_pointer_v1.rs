@@ -47,17 +47,13 @@ impl ConstraintOwner for ZwpConfinedPointerV1 {
 }
 
 object_base! {
-    ZwpConfinedPointerV1;
+    self = ZwpConfinedPointerV1;
 
     DESTROY => destroy,
     SET_REGION => set_region,
 }
 
 impl Object for ZwpConfinedPointerV1 {
-    fn num_requests(&self) -> u32 {
-        SET_REGION + 1
-    }
-
     fn break_loops(&self) {
         self.constraint.detach();
     }

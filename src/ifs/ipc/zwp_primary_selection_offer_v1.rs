@@ -63,17 +63,13 @@ impl ZwpPrimarySelectionOfferV1 {
 }
 
 object_base! {
-    ZwpPrimarySelectionOfferV1;
+    self = ZwpPrimarySelectionOfferV1;
 
     RECEIVE => receive,
     DESTROY => destroy,
 }
 
 impl Object for ZwpPrimarySelectionOfferV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         break_offer_loops::<PrimarySelectionIpc>(self);
     }

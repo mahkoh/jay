@@ -91,17 +91,13 @@ impl Global for XwaylandShellV1Global {
 simple_add_global!(XwaylandShellV1Global);
 
 object_base! {
-    XwaylandShellV1;
+    self = XwaylandShellV1;
 
     DESTROY => destroy,
     GET_XWAYLAND_SURFACE => get_xwayland_surface,
 }
 
-impl Object for XwaylandShellV1 {
-    fn num_requests(&self) -> u32 {
-        GET_XWAYLAND_SURFACE + 1
-    }
-}
+impl Object for XwaylandShellV1 {}
 
 simple_add_obj!(XwaylandShellV1);
 

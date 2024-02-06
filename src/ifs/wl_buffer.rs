@@ -204,16 +204,12 @@ impl WlBuffer {
 }
 
 object_base! {
-    WlBuffer;
+    self = WlBuffer;
 
     DESTROY => destroy,
 }
 
-impl Object for WlBuffer {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for WlBuffer {}
 
 dedicated_add_obj!(WlBuffer, WlBufferId, buffers);
 

@@ -63,16 +63,12 @@ impl JayWorkspaceWatcher {
 }
 
 object_base! {
-    JayWorkspaceWatcher;
+    self = JayWorkspaceWatcher;
 
     DESTROY => destroy,
 }
 
 impl Object for JayWorkspaceWatcher {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         self.remove_from_state();
     }

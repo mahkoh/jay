@@ -91,17 +91,13 @@ impl WpTearingControlManagerV1 {
 }
 
 object_base! {
-    WpTearingControlManagerV1;
+    self = WpTearingControlManagerV1;
 
     DESTROY => destroy,
     GET_TEARING_CONTROL => get_tearing_control,
 }
 
-impl Object for WpTearingControlManagerV1 {
-    fn num_requests(&self) -> u32 {
-        GET_TEARING_CONTROL + 1
-    }
-}
+impl Object for WpTearingControlManagerV1 {}
 
 simple_add_obj!(WpTearingControlManagerV1);
 

@@ -314,7 +314,7 @@ impl XdgSurface {
 }
 
 object_base! {
-    XdgSurface;
+    self = XdgSurface;
 
     DESTROY => destroy,
     GET_TOPLEVEL => get_toplevel,
@@ -324,10 +324,6 @@ object_base! {
 }
 
 impl Object for XdgSurface {
-    fn num_requests(&self) -> u32 {
-        ACK_CONFIGURE + 1
-    }
-
     fn break_loops(&self) {
         self.ext.take();
         self.popups.clear();

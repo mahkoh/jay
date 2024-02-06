@@ -125,14 +125,10 @@ impl JaySeatEvents {
 }
 
 object_base! {
-    JaySeatEvents;
+    self = JaySeatEvents;
 }
 
 impl Object for JaySeatEvents {
-    fn num_requests(&self) -> u32 {
-        0
-    }
-
     fn break_loops(&self) {
         self.client
             .state

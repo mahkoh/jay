@@ -53,7 +53,7 @@ impl ConstraintOwner for ZwpLockedPointerV1 {
 }
 
 object_base! {
-    ZwpLockedPointerV1;
+    self = ZwpLockedPointerV1;
 
     DESTROY => destroy,
     SET_CURSOR_POSITION_HINT => set_cursor_position_hint,
@@ -61,10 +61,6 @@ object_base! {
 }
 
 impl Object for ZwpLockedPointerV1 {
-    fn num_requests(&self) -> u32 {
-        SET_REGION + 1
-    }
-
     fn break_loops(&self) {
         self.constraint.detach();
     }

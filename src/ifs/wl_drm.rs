@@ -38,7 +38,7 @@ impl WlDrmGlobal {
         let obj = Rc::new(WlDrm {
             id,
             client: client.clone(),
-            _version: version,
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -68,7 +68,7 @@ simple_add_global!(WlDrmGlobal);
 pub struct WlDrm {
     id: WlDrmId,
     pub client: Rc<Client>,
-    _version: u32,
+    version: u32,
     tracker: Tracker<Self>,
 }
 
@@ -161,19 +161,15 @@ impl WlDrm {
 }
 
 object_base! {
-    WlDrm;
+    self = WlDrm;
 
     AUTHENTICATE => authenticate,
     CREATE_BUFFER => create_buffer,
     CREATE_PLANAR_BUFFER => create_planar_buffer,
-    CREATE_PRIME_BUFFER => create_prime_buffer,
+    CREATE_PRIME_BUFFER => create_prime_buffer if self.version >= 2,
 }
 
-impl Object for WlDrm {
-    fn num_requests(&self) -> u32 {
-        CREATE_PRIME_BUFFER + 1
-    }
-}
+impl Object for WlDrm {}
 
 simple_add_obj!(WlDrm);
 

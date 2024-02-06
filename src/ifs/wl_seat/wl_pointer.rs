@@ -214,17 +214,13 @@ impl WlPointer {
 }
 
 object_base! {
-    WlPointer;
+    self = WlPointer;
 
     SET_CURSOR => set_cursor,
-    RELEASE => release,
+    RELEASE => release if self.seat.version >= 3,
 }
 
-impl Object for WlPointer {
-    fn num_requests(&self) -> u32 {
-        RELEASE + 1
-    }
-}
+impl Object for WlPointer {}
 
 dedicated_add_obj!(WlPointer, WlPointerId, pointers);
 

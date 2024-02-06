@@ -53,17 +53,13 @@ impl WpTearingControlV1 {
 }
 
 object_base! {
-    WpTearingControlV1;
+    self = WpTearingControlV1;
 
     SET_PRESENTATION_HINT => set_presentation_hint,
     DESTROY => destroy,
 }
 
-impl Object for WpTearingControlV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for WpTearingControlV1 {}
 
 simple_add_obj!(WpTearingControlV1);
 

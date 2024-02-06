@@ -407,7 +407,7 @@ impl Node for ZwlrLayerSurfaceV1 {
 }
 
 object_base! {
-    ZwlrLayerSurfaceV1;
+    self = ZwlrLayerSurfaceV1;
 
     SET_SIZE                   => set_size,
     SET_ANCHOR                 => set_anchor,
@@ -417,18 +417,10 @@ object_base! {
     GET_POPUP                  => get_popup,
     ACK_CONFIGURE              => ack_configure,
     DESTROY                    => destroy,
-    SET_LAYER                  => set_layer,
+    SET_LAYER                  => set_layer if self.shell.version >= 2,
 }
 
 impl Object for ZwlrLayerSurfaceV1 {
-    fn num_requests(&self) -> u32 {
-        let last_req = match self.shell.version {
-            0..=1 => DESTROY,
-            _ => SET_LAYER,
-        };
-        last_req + 1
-    }
-
     fn break_loops(&self) {
         self.destroy_node();
         self.link.set(None);

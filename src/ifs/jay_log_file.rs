@@ -41,16 +41,12 @@ impl JayLogFile {
 }
 
 object_base! {
-    JayLogFile;
+    self = JayLogFile;
 
     DESTROY => destroy,
 }
 
-impl Object for JayLogFile {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for JayLogFile {}
 
 simple_add_obj!(JayLogFile);
 

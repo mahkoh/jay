@@ -81,17 +81,13 @@ impl Global for WlSubcompositorGlobal {
 simple_add_global!(WlSubcompositorGlobal);
 
 object_base! {
-    WlSubcompositor;
+    self = WlSubcompositor;
 
     DESTROY => destroy,
     GET_SUBSURFACE => get_subsurface,
 }
 
-impl Object for WlSubcompositor {
-    fn num_requests(&self) -> u32 {
-        GET_SUBSURFACE + 1
-    }
-}
+impl Object for WlSubcompositor {}
 
 simple_add_obj!(WlSubcompositor);
 

@@ -360,7 +360,7 @@ impl XdgToplevel {
 }
 
 object_base! {
-    XdgToplevel;
+    self = XdgToplevel;
 
     DESTROY => destroy,
     SET_PARENT => set_parent,
@@ -379,10 +379,6 @@ object_base! {
 }
 
 impl Object for XdgToplevel {
-    fn num_requests(&self) -> u32 {
-        SET_MINIMIZED + 1
-    }
-
     fn break_loops(&self) {
         self.tl_destroy();
         self.parent.set(None);

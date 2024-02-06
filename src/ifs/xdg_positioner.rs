@@ -264,7 +264,7 @@ impl XdgPositioner {
 }
 
 object_base! {
-    XdgPositioner;
+    self = XdgPositioner;
 
     DESTROY => destroy,
     SET_SIZE => set_size,
@@ -273,20 +273,12 @@ object_base! {
     SET_GRAVITY => set_gravity,
     SET_CONSTRAINT_ADJUSTMENT => set_constraint_adjustment,
     SET_OFFSET => set_offset,
-    SET_REACTIVE => set_reactive,
-    SET_PARENT_SIZE => set_parent_size,
-    SET_PARENT_CONFIGURE => set_parent_configure,
+    SET_REACTIVE => set_reactive if self.base.version >= 3,
+    SET_PARENT_SIZE => set_parent_size if self.base.version >= 3,
+    SET_PARENT_CONFIGURE => set_parent_configure if self.base.version >= 3,
 }
 
-impl Object for XdgPositioner {
-    fn num_requests(&self) -> u32 {
-        if self.base.version < 3 {
-            SET_OFFSET + 1
-        } else {
-            SET_PARENT_CONFIGURE + 1
-        }
-    }
-}
+impl Object for XdgPositioner {}
 
 dedicated_add_obj!(XdgPositioner, XdgPositionerId, xdg_positioners);
 

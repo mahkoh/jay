@@ -49,17 +49,13 @@ impl JayPointer {
 }
 
 object_base! {
-    JayPointer;
+    self = JayPointer;
 
     DESTROY => destroy,
     SET_KNOWN_CURSOR => set_known_cursor,
 }
 
-impl Object for JayPointer {
-    fn num_requests(&self) -> u32 {
-        SET_KNOWN_CURSOR + 1
-    }
-}
+impl Object for JayPointer {}
 
 simple_add_obj!(JayPointer);
 

@@ -89,17 +89,13 @@ impl WlDisplay {
 }
 
 object_base! {
-    WlDisplay;
+    self = WlDisplay;
 
     SYNC => sync,
     GET_REGISTRY => get_registry,
 }
 
-impl Object for WlDisplay {
-    fn num_requests(&self) -> u32 {
-        GET_REGISTRY + 1
-    }
-}
+impl Object for WlDisplay {}
 
 #[derive(Debug, Error)]
 pub enum WlDisplayError {

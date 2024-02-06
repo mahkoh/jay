@@ -42,17 +42,13 @@ impl XwaylandSurfaceV1 {
 }
 
 object_base! {
-    XwaylandSurfaceV1;
+    self = XwaylandSurfaceV1;
 
     SET_SERIAL => set_serial,
     DESTROY => destroy,
 }
 
 impl Object for XwaylandSurfaceV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         self.x.xwayland_surface.set(None);
     }

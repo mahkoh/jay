@@ -77,17 +77,13 @@ impl WpViewporter {
 }
 
 object_base! {
-    WpViewporter;
+    self = WpViewporter;
 
     DESTROY => destroy,
     GET_VIEWPORT => get_viewport,
 }
 
-impl Object for WpViewporter {
-    fn num_requests(&self) -> u32 {
-        GET_VIEWPORT + 1
-    }
-}
+impl Object for WpViewporter {}
 
 simple_add_obj!(WpViewporter);
 

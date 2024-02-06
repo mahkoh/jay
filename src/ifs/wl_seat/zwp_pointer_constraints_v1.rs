@@ -278,18 +278,14 @@ impl Global for ZwpPointerConstraintsV1Global {
 simple_add_global!(ZwpPointerConstraintsV1Global);
 
 object_base! {
-    ZwpPointerConstraintsV1;
+    self = ZwpPointerConstraintsV1;
 
     DESTROY => destroy,
     LOCK_POINTER => lock_pointer,
     CONFINE_POINTER => confine_pointer,
 }
 
-impl Object for ZwpPointerConstraintsV1 {
-    fn num_requests(&self) -> u32 {
-        CONFINE_POINTER + 1
-    }
-}
+impl Object for ZwpPointerConstraintsV1 {}
 
 simple_add_obj!(ZwpPointerConstraintsV1);
 

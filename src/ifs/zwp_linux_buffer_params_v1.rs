@@ -187,19 +187,15 @@ impl ZwpLinuxBufferParamsV1 {
 }
 
 object_base! {
-    ZwpLinuxBufferParamsV1;
+    self = ZwpLinuxBufferParamsV1;
 
     DESTROY => destroy,
     ADD => add,
     CREATE => create,
-    CREATE_IMMED => create_immed,
+    CREATE_IMMED => create_immed if self.parent.version >= 2,
 }
 
-impl Object for ZwpLinuxBufferParamsV1 {
-    fn num_requests(&self) -> u32 {
-        CREATE_IMMED + 1
-    }
-}
+impl Object for ZwpLinuxBufferParamsV1 {}
 
 simple_add_obj!(ZwpLinuxBufferParamsV1);
 

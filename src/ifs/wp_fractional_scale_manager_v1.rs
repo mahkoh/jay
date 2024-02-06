@@ -85,17 +85,13 @@ impl WpFractionalScaleManagerV1 {
 }
 
 object_base! {
-    WpFractionalScaleManagerV1;
+    self = WpFractionalScaleManagerV1;
 
     DESTROY => destroy,
     GET_FRACTIONAL_SCALE => get_fractional_scale,
 }
 
-impl Object for WpFractionalScaleManagerV1 {
-    fn num_requests(&self) -> u32 {
-        GET_FRACTIONAL_SCALE + 1
-    }
-}
+impl Object for WpFractionalScaleManagerV1 {}
 
 simple_add_obj!(WpFractionalScaleManagerV1);
 

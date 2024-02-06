@@ -58,17 +58,13 @@ impl JayIdle {
 }
 
 object_base! {
-    JayIdle;
+    self = JayIdle;
 
     GET_STATUS => get_status,
     SET_INTERVAL => set_interval,
 }
 
-impl Object for JayIdle {
-    fn num_requests(&self) -> u32 {
-        SET_INTERVAL + 1
-    }
-}
+impl Object for JayIdle {}
 
 simple_add_obj!(JayIdle);
 

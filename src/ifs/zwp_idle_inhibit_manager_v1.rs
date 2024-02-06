@@ -95,17 +95,13 @@ impl ZwpIdleInhibitManagerV1 {
 }
 
 object_base! {
-    ZwpIdleInhibitManagerV1;
+    self = ZwpIdleInhibitManagerV1;
 
     DESTROY => destroy,
     CREATE_INHIBITOR => create_inhibitor,
 }
 
-impl Object for ZwpIdleInhibitManagerV1 {
-    fn num_requests(&self) -> u32 {
-        CREATE_INHIBITOR + 1
-    }
-}
+impl Object for ZwpIdleInhibitManagerV1 {}
 
 simple_add_obj!(ZwpIdleInhibitManagerV1);
 

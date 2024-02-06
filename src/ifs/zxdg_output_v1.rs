@@ -85,16 +85,12 @@ impl ZxdgOutputV1 {
 }
 
 object_base! {
-    ZxdgOutputV1;
+    self = ZxdgOutputV1;
 
     DESTROY => destroy,
 }
 
-impl Object for ZxdgOutputV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for ZxdgOutputV1 {}
 
 simple_add_obj!(ZxdgOutputV1);
 

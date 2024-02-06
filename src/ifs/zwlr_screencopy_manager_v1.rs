@@ -135,18 +135,14 @@ impl ZwlrScreencopyManagerV1 {
 }
 
 object_base! {
-    ZwlrScreencopyManagerV1;
+    self = ZwlrScreencopyManagerV1;
 
     CAPTURE_OUTPUT => capture_output,
     CAPTURE_OUTPUT_REGION => capture_output_region,
     DESTROY => destroy,
 }
 
-impl Object for ZwlrScreencopyManagerV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for ZwlrScreencopyManagerV1 {}
 
 simple_add_obj!(ZwlrScreencopyManagerV1);
 

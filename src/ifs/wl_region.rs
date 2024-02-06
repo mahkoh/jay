@@ -60,18 +60,14 @@ impl WlRegion {
 }
 
 object_base! {
-    WlRegion;
+    self = WlRegion;
 
     DESTROY => destroy,
     ADD => add,
     SUBTRACT => subtract,
 }
 
-impl Object for WlRegion {
-    fn num_requests(&self) -> u32 {
-        SUBTRACT + 1
-    }
-}
+impl Object for WlRegion {}
 
 dedicated_add_obj!(WlRegion, WlRegionId, regions);
 
