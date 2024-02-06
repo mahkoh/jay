@@ -77,18 +77,14 @@ impl ZxdgToplevelDecorationV1 {
 }
 
 object_base! {
-    ZxdgToplevelDecorationV1;
+    self = ZxdgToplevelDecorationV1;
 
     DESTROY => destroy,
     SET_MODE => set_mode,
     UNSET_MODE => unset_mode,
 }
 
-impl Object for ZxdgToplevelDecorationV1 {
-    fn num_requests(&self) -> u32 {
-        UNSET_MODE + 1
-    }
-}
+impl Object for ZxdgToplevelDecorationV1 {}
 
 simple_add_obj!(ZxdgToplevelDecorationV1);
 

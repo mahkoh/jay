@@ -43,7 +43,6 @@ pub trait ObjectBase {
 }
 
 pub trait Object: ObjectBase + 'static {
-    fn num_requests(&self) -> u32;
     fn break_loops(&self) {}
 }
 

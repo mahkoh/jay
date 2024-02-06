@@ -48,16 +48,12 @@ impl ZwpRelativePointerV1 {
 }
 
 object_base! {
-    ZwpRelativePointerV1;
+    self = ZwpRelativePointerV1;
 
     DESTROY => destroy,
 }
 
-impl Object for ZwpRelativePointerV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for ZwpRelativePointerV1 {}
 
 simple_add_obj!(ZwpRelativePointerV1);
 

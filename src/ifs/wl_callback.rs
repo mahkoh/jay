@@ -33,14 +33,10 @@ impl WlCallback {
 }
 
 object_base! {
-    WlCallback;
+    self = WlCallback;
 }
 
-impl Object for WlCallback {
-    fn num_requests(&self) -> u32 {
-        0
-    }
-}
+impl Object for WlCallback {}
 
 simple_add_obj!(WlCallback);
 

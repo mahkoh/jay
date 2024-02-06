@@ -87,18 +87,14 @@ impl WlShmPool {
 }
 
 object_base! {
-    WlShmPool;
+    self = WlShmPool;
 
     CREATE_BUFFER => create_buffer,
     DESTROY => destroy,
     RESIZE => resize,
 }
 
-impl Object for WlShmPool {
-    fn num_requests(&self) -> u32 {
-        RESIZE + 1
-    }
-}
+impl Object for WlShmPool {}
 
 simple_add_obj!(WlShmPool);
 

@@ -124,7 +124,7 @@ impl Global for XdgWmBaseGlobal {
 simple_add_global!(XdgWmBaseGlobal);
 
 object_base! {
-    XdgWmBase;
+    self = XdgWmBase;
 
     DESTROY => destroy,
     CREATE_POSITIONER => create_positioner,
@@ -135,10 +135,6 @@ object_base! {
 dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
 
 impl Object for XdgWmBase {
-    fn num_requests(&self) -> u32 {
-        PONG + 1
-    }
-
     fn break_loops(&self) {
         self.surfaces.clear();
     }

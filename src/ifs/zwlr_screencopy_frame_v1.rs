@@ -151,24 +151,16 @@ impl ZwlrScreencopyFrameV1 {
 }
 
 object_base! {
-    ZwlrScreencopyFrameV1;
+    self = ZwlrScreencopyFrameV1;
 
     COPY => copy,
     DESTROY => destroy,
-    COPY_WITH_DAMAGE => copy_with_damage,
+    COPY_WITH_DAMAGE => copy_with_damage if self.version >= 2,
 }
 
 simple_add_obj!(ZwlrScreencopyFrameV1);
 
 impl Object for ZwlrScreencopyFrameV1 {
-    fn num_requests(&self) -> u32 {
-        if self.version >= 2 {
-            COPY_WITH_DAMAGE + 1
-        } else {
-            DESTROY + 1
-        }
-    }
-
     fn break_loops(&self) {
         self.output_link.take();
     }

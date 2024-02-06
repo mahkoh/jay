@@ -55,10 +55,6 @@ async fn receive(data: Rc<Client>) {
                 }
             };
             // log::trace!("obj: {}, request: {}, len: {}", obj_id, request, len);
-            if request >= obj.num_requests() {
-                data.invalid_request(&*obj, request);
-                return Err(ClientError::InvalidMethod);
-            }
             if len < 8 {
                 return Err(ClientError::MessageSizeTooSmall);
             }
@@ -76,6 +72,12 @@ async fn receive(data: Rc<Client>) {
             // log::trace!("{:x?}", data_buf);
             let parser = MsgParser::new(&mut buf, &data_buf[..]);
             if let Err(e) = obj.handle_request(request, parser) {
+                if let ClientError::InvalidMethod = e {
+                    if let Ok(obj) = data.objects.get_obj(obj_id) {
+                        data.invalid_request(&*obj, request);
+                        return Err(e);
+                    }
+                }
                 return Err(ClientError::RequestError(Box::new(e)));
             }
             // data.flush();

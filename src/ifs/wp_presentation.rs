@@ -91,17 +91,13 @@ impl WpPresentation {
 }
 
 object_base! {
-    WpPresentation;
+    self = WpPresentation;
 
     DESTROY => destroy,
     FEEDBACK => feedback,
 }
 
-impl Object for WpPresentation {
-    fn num_requests(&self) -> u32 {
-        FEEDBACK + 1
-    }
-}
+impl Object for WpPresentation {}
 
 simple_add_obj!(WpPresentation);
 

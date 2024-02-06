@@ -52,16 +52,12 @@ impl WpFractionalScaleV1 {
 }
 
 object_base! {
-    WpFractionalScaleV1;
+    self = WpFractionalScaleV1;
 
     DESTROY => destroy,
 }
 
-impl Object for WpFractionalScaleV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for WpFractionalScaleV1 {}
 
 simple_add_obj!(WpFractionalScaleV1);
 

@@ -21,6 +21,7 @@ pub struct WlShm {
     _global: Rc<WlShmGlobal>,
     id: WlShmId,
     client: Rc<Client>,
+    version: u32,
     pub tracker: Tracker<Self>,
 }
 
@@ -33,12 +34,13 @@ impl WlShmGlobal {
         self: Rc<Self>,
         id: WlShmId,
         client: &Rc<Client>,
-        _version: u32,
+        version: u32,
     ) -> Result<(), WlShmError> {
         let obj = Rc::new(WlShm {
             _global: self,
             id,
             client: client.clone(),
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -94,17 +96,13 @@ impl Global for WlShmGlobal {
 simple_add_global!(WlShmGlobal);
 
 object_base! {
-    WlShm;
+    self = WlShm;
 
     CREATE_POOL => create_pool,
-    RELEASE => release,
+    RELEASE => release if self.version >= 2,
 }
 
-impl Object for WlShm {
-    fn num_requests(&self) -> u32 {
-        RELEASE + 1
-    }
-}
+impl Object for WlShm {}
 
 simple_add_obj!(WlShm);
 

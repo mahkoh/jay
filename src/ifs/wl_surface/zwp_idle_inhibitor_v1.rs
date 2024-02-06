@@ -49,16 +49,12 @@ impl ZwpIdleInhibitorV1 {
 }
 
 object_base! {
-    ZwpIdleInhibitorV1;
+    self = ZwpIdleInhibitorV1;
 
     DESTROY => destroy,
 }
 
 impl Object for ZwpIdleInhibitorV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         self.deactivate();
     }

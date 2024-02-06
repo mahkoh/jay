@@ -30,15 +30,17 @@ const INVALID_SOURCE: u32 = 1;
 pub struct WlDataSource {
     pub id: WlDataSourceId,
     pub data: SourceData<ClipboardIpc>,
+    pub version: u32,
     pub tracker: Tracker<Self>,
 }
 
 impl WlDataSource {
-    pub fn new(id: WlDataSourceId, client: &Rc<Client>, is_xwm: bool) -> Self {
+    pub fn new(id: WlDataSourceId, client: &Rc<Client>, is_xwm: bool, version: u32) -> Self {
         Self {
             id,
             tracker: Default::default(),
             data: SourceData::new(client, is_xwm),
+            version,
         }
     }
 
@@ -196,18 +198,14 @@ impl WlDataSource {
 }
 
 object_base! {
-    WlDataSource;
+    self = WlDataSource;
 
     OFFER => offer,
     DESTROY => destroy,
-    SET_ACTIONS => set_actions,
+    SET_ACTIONS => set_actions if self.version >= 3,
 }
 
 impl Object for WlDataSource {
-    fn num_requests(&self) -> u32 {
-        SET_ACTIONS + 1
-    }
-
     fn break_loops(&self) {
         break_source_loops::<ClipboardIpc>(self);
     }

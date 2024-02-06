@@ -168,20 +168,16 @@ impl WlDataOffer {
 }
 
 object_base! {
-    WlDataOffer;
+    self = WlDataOffer;
 
     ACCEPT => accept,
     RECEIVE => receive,
     DESTROY => destroy,
-    FINISH => finish,
-    SET_ACTIONS => set_actions,
+    FINISH => finish if self.device.version >= 3,
+    SET_ACTIONS => set_actions if self.device.version >= 3,
 }
 
 impl Object for WlDataOffer {
-    fn num_requests(&self) -> u32 {
-        SET_ACTIONS + 1
-    }
-
     fn break_loops(&self) {
         break_offer_loops::<ClipboardIpc>(self);
     }

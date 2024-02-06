@@ -89,17 +89,13 @@ impl ZwpRelativePointerManagerV1 {
 }
 
 object_base! {
-    ZwpRelativePointerManagerV1;
+    self = ZwpRelativePointerManagerV1;
 
     DESTROY => destroy,
     GET_RELATIVE_POINTER => get_relative_pointer,
 }
 
-impl Object for ZwpRelativePointerManagerV1 {
-    fn num_requests(&self) -> u32 {
-        GET_RELATIVE_POINTER + 1
-    }
-}
+impl Object for ZwpRelativePointerManagerV1 {}
 
 simple_add_obj!(ZwpRelativePointerManagerV1);
 

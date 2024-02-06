@@ -87,17 +87,13 @@ impl Global for WlCompositorGlobal {
 simple_add_global!(WlCompositorGlobal);
 
 object_base! {
-    WlCompositor;
+    self = WlCompositor;
 
     CREATE_SURFACE => create_surface,
     CREATE_REGION => create_region,
 }
 
-impl Object for WlCompositor {
-    fn num_requests(&self) -> u32 {
-        CREATE_REGION + 1
-    }
-}
+impl Object for WlCompositor {}
 
 simple_add_obj!(WlCompositor);
 

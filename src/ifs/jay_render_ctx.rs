@@ -58,16 +58,12 @@ impl JayRenderCtx {
 }
 
 object_base! {
-    JayRenderCtx;
+    self = JayRenderCtx;
 
     DESTROY => destroy,
 }
 
 impl Object for JayRenderCtx {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         self.remove_from_state();
     }

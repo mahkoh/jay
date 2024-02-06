@@ -362,20 +362,12 @@ impl WlOutput {
 }
 
 object_base! {
-    WlOutput;
+    self = WlOutput;
 
-    RELEASE => release,
+    RELEASE => release if self.version >= 3,
 }
 
 impl Object for WlOutput {
-    fn num_requests(&self) -> u32 {
-        if self.version < 3 {
-            0
-        } else {
-            RELEASE + 1
-        }
-    }
-
     fn break_loops(&self) {
         self.xdg_outputs.clear();
         self.remove_binding();

@@ -310,7 +310,7 @@ impl JayCompositor {
 }
 
 object_base! {
-    JayCompositor;
+    self = JayCompositor;
 
     DESTROY => destroy,
     GET_LOG_FILE => get_log_file,
@@ -330,11 +330,7 @@ object_base! {
     CREATE_SCREENCAST => create_screencast,
 }
 
-impl Object for JayCompositor {
-    fn num_requests(&self) -> u32 {
-        CREATE_SCREENCAST + 1
-    }
-}
+impl Object for JayCompositor {}
 
 simple_add_obj!(JayCompositor);
 

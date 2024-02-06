@@ -253,22 +253,14 @@ impl XdgPopup {
 }
 
 object_base! {
-    XdgPopup;
+    self = XdgPopup;
 
     DESTROY => destroy,
     GRAB => grab,
-    REPOSITION => reposition,
+    REPOSITION => reposition if self.xdg.base.version >= 3,
 }
 
 impl Object for XdgPopup {
-    fn num_requests(&self) -> u32 {
-        let last_req = match self.xdg.base.version {
-            0..=2 => GRAB,
-            _ => REPOSITION,
-        };
-        last_req + 1
-    }
-
     fn break_loops(&self) {
         self.destroy_node();
         self.parent.set(None);

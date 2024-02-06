@@ -1020,23 +1020,15 @@ impl WlSeat {
 }
 
 object_base! {
-    WlSeat;
+    self = WlSeat;
 
     GET_POINTER => get_pointer,
     GET_KEYBOARD => get_keyboard,
     GET_TOUCH => get_touch,
-    RELEASE => release,
+    RELEASE => release if self.version >= 5,
 }
 
 impl Object for WlSeat {
-    fn num_requests(&self) -> u32 {
-        if self.version < 5 {
-            GET_TOUCH + 1
-        } else {
-            RELEASE + 1
-        }
-    }
-
     fn break_loops(&self) {
         {
             let mut bindings = self.global.bindings.borrow_mut();

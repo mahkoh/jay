@@ -244,7 +244,7 @@ impl WlSubsurface {
 }
 
 object_base! {
-    WlSubsurface;
+    self = WlSubsurface;
 
     DESTROY => destroy,
     SET_POSITION => set_position,
@@ -255,10 +255,6 @@ object_base! {
 }
 
 impl Object for WlSubsurface {
-    fn num_requests(&self) -> u32 {
-        SET_DESYNC + 1
-    }
-
     fn break_loops(&self) {
         *self.pending.node.borrow_mut() = None;
         *self.node.borrow_mut() = None;

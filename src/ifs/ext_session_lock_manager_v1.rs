@@ -104,17 +104,13 @@ impl Global for ExtSessionLockManagerV1Global {
 simple_add_global!(ExtSessionLockManagerV1Global);
 
 object_base! {
-    ExtSessionLockManagerV1;
+    self = ExtSessionLockManagerV1;
 
     DESTROY => destroy,
     LOCK => lock,
 }
 
-impl Object for ExtSessionLockManagerV1 {
-    fn num_requests(&self) -> u32 {
-        LOCK + 1
-    }
-}
+impl Object for ExtSessionLockManagerV1 {}
 
 simple_add_obj!(ExtSessionLockManagerV1);
 

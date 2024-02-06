@@ -199,7 +199,7 @@ impl IpcVtable for ClipboardIpc {
     }
 
     fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
-        WlDataSource::new(WlDataSourceId::NONE, client, true)
+        WlDataSource::new(WlDataSourceId::NONE, client, true, 3)
     }
 
     fn set_seat_selection(
@@ -287,18 +287,14 @@ impl IpcVtable for ClipboardIpc {
 }
 
 object_base! {
-    WlDataDevice;
+    self = WlDataDevice;
 
     START_DRAG => start_drag,
     SET_SELECTION => set_selection,
-    RELEASE => release,
+    RELEASE => release if self.version >= 2,
 }
 
 impl Object for WlDataDevice {
-    fn num_requests(&self) -> u32 {
-        RELEASE + 1
-    }
-
     fn break_loops(&self) {
         break_device_loops::<ClipboardIpc>(self);
         self.seat.remove_data_device(self);

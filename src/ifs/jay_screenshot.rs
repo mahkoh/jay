@@ -45,13 +45,9 @@ impl JayScreenshot {
 }
 
 object_base! {
-    JayScreenshot;
+    self = JayScreenshot;
 }
 
-impl Object for JayScreenshot {
-    fn num_requests(&self) -> u32 {
-        0
-    }
-}
+impl Object for JayScreenshot {}
 
 simple_add_obj!(JayScreenshot);

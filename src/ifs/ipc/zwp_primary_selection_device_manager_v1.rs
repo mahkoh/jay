@@ -113,18 +113,14 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
 simple_add_global!(ZwpPrimarySelectionDeviceManagerV1Global);
 
 object_base! {
-    ZwpPrimarySelectionDeviceManagerV1;
+    self = ZwpPrimarySelectionDeviceManagerV1;
 
     CREATE_SOURCE => create_source,
     GET_DEVICE => get_data_device,
     DESTROY => destroy,
 }
 
-impl Object for ZwpPrimarySelectionDeviceManagerV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-}
+impl Object for ZwpPrimarySelectionDeviceManagerV1 {}
 
 simple_add_obj!(ZwpPrimarySelectionDeviceManagerV1);
 

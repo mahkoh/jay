@@ -52,30 +52,30 @@ macro_rules! usr_object_base {
 }
 
 macro_rules! object_base {
-    ($oname:ident; $($code:ident => $f:ident,)*) => {
+    ($self:ident = $oname:ident; $($code:ident => $f:ident $(if $cond:expr)?,)*) => {
         impl crate::object::ObjectBase for $oname {
-            fn id(&self) -> crate::object::ObjectId {
-                self.id.into()
+            fn id(&$self) -> crate::object::ObjectId {
+                $self.id.into()
             }
 
-            fn into_any(self: std::rc::Rc<Self>) -> std::rc::Rc<dyn std::any::Any> {
-                self
+            fn into_any($self: std::rc::Rc<Self>) -> std::rc::Rc<dyn std::any::Any> {
+                $self
             }
 
             #[allow(unused_variables, unreachable_code)]
             fn handle_request(
-                self: std::rc::Rc<Self>,
+                $self: std::rc::Rc<Self>,
                 request: u32,
                 parser: crate::utils::buffd::MsgParser<'_, '_>,
             ) -> Result<(), crate::client::ClientError> {
                 let res: Result<(), crate::client::MethodError> = match request {
                     $(
-                        $code => $oname::$f(&self, parser).map_err(|e| crate::client::MethodError {
+                        $code $(if $cond)? => $oname::$f(&$self, parser).map_err(|e| crate::client::MethodError {
                             method: stringify!($f),
                             error: Box::new(e),
                         }),
                     )*
-                    _ => unreachable!(),
+                    _ => return Err(crate::client::ClientError::InvalidMethod),
                 };
                 if let Err(e) = res {
                     return Err(crate::client::ClientError::ObjectError(crate::client::ObjectError {
@@ -86,7 +86,7 @@ macro_rules! object_base {
                 Ok(())
             }
 
-            fn interface(&self) -> crate::object::Interface {
+            fn interface(&$self) -> crate::object::Interface {
                 crate::wire::$oname
             }
         }

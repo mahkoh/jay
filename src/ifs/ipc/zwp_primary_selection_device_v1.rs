@@ -231,17 +231,13 @@ impl IpcVtable for PrimarySelectionIpc {
 }
 
 object_base! {
-    ZwpPrimarySelectionDeviceV1;
+    self = ZwpPrimarySelectionDeviceV1;
 
     SET_SELECTION => set_selection,
     DESTROY => destroy,
 }
 
 impl Object for ZwpPrimarySelectionDeviceV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         break_device_loops::<PrimarySelectionIpc>(self);
         self.seat.remove_primary_selection_device(self);

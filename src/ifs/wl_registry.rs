@@ -68,16 +68,12 @@ impl WlRegistry {
 }
 
 object_base! {
-    WlRegistry;
+    self = WlRegistry;
 
     BIND => bind,
 }
 
-impl Object for WlRegistry {
-    fn num_requests(&self) -> u32 {
-        BIND + 1
-    }
-}
+impl Object for WlRegistry {}
 
 dedicated_add_obj!(WlRegistry, WlRegistryId, registries);
 

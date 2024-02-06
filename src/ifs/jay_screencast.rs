@@ -408,7 +408,7 @@ impl JayScreencast {
 }
 
 object_base! {
-    JayScreencast;
+    self = JayScreencast;
 
     DESTROY => destroy,
     SET_OUTPUT => set_output,
@@ -424,10 +424,6 @@ object_base! {
 }
 
 impl Object for JayScreencast {
-    fn num_requests(&self) -> u32 {
-        RELEASE_BUFFER + 1
-    }
-
     fn break_loops(&self) {
         self.detach();
     }

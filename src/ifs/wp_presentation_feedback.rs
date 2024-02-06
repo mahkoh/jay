@@ -51,14 +51,10 @@ impl WpPresentationFeedback {
 }
 
 object_base! {
-    WpPresentationFeedback;
+    self = WpPresentationFeedback;
 }
 
-impl Object for WpPresentationFeedback {
-    fn num_requests(&self) -> u32 {
-        0
-    }
-}
+impl Object for WpPresentationFeedback {}
 
 simple_add_obj!(WpPresentationFeedback);
 

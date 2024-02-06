@@ -86,17 +86,13 @@ impl ZxdgDecorationManagerV1 {
 }
 
 object_base! {
-    ZxdgDecorationManagerV1;
+    self = ZxdgDecorationManagerV1;
 
     DESTROY => destroy,
     GET_TOPLEVEL_DECORATION => get_toplevel_decoration,
 }
 
-impl Object for ZxdgDecorationManagerV1 {
-    fn num_requests(&self) -> u32 {
-        GET_TOPLEVEL_DECORATION + 1
-    }
-}
+impl Object for ZxdgDecorationManagerV1 {}
 
 simple_add_obj!(ZxdgDecorationManagerV1);
 

@@ -61,7 +61,7 @@ impl WlDataDeviceManager {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), WlDataDeviceManagerError> {
         let req: CreateDataSource = self.client.parse(self, parser)?;
-        let res = Rc::new(WlDataSource::new(req.id, &self.client, false));
+        let res = Rc::new(WlDataSource::new(req.id, &self.client, false, self.version));
         track!(self.client, res);
         self.client.add_client_obj(&res)?;
         Ok(())
@@ -106,17 +106,13 @@ impl Global for WlDataDeviceManagerGlobal {
 simple_add_global!(WlDataDeviceManagerGlobal);
 
 object_base! {
-    WlDataDeviceManager;
+    self = WlDataDeviceManager;
 
     CREATE_DATA_SOURCE => create_data_source,
     GET_DATA_DEVICE => get_data_device,
 }
 
-impl Object for WlDataDeviceManager {
-    fn num_requests(&self) -> u32 {
-        GET_DATA_DEVICE + 1
-    }
-}
+impl Object for WlDataDeviceManager {}
 
 simple_add_obj!(WlDataDeviceManager);
 

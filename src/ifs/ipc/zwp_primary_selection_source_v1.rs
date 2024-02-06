@@ -80,17 +80,13 @@ impl ZwpPrimarySelectionSourceV1 {
 }
 
 object_base! {
-    ZwpPrimarySelectionSourceV1;
+    self = ZwpPrimarySelectionSourceV1;
 
     OFFER => offer,
     DESTROY => destroy,
 }
 
 impl Object for ZwpPrimarySelectionSourceV1 {
-    fn num_requests(&self) -> u32 {
-        DESTROY + 1
-    }
-
     fn break_loops(&self) {
         break_source_loops::<PrimarySelectionIpc>(self);
     }

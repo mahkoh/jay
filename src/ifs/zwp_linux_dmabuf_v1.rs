@@ -30,7 +30,7 @@ impl ZwpLinuxDmabufV1Global {
         let obj = Rc::new(ZwpLinuxDmabufV1 {
             id,
             client: client.clone(),
-            _version: version,
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -79,7 +79,7 @@ simple_add_global!(ZwpLinuxDmabufV1Global);
 pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
-    _version: u32,
+    pub version: u32,
     pub tracker: Tracker<Self>,
 }
 
@@ -119,17 +119,13 @@ impl ZwpLinuxDmabufV1 {
 }
 
 object_base! {
-    ZwpLinuxDmabufV1;
+    self = ZwpLinuxDmabufV1;
 
     DESTROY => destroy,
     CREATE_PARAMS => create_params,
 }
 
-impl Object for ZwpLinuxDmabufV1 {
-    fn num_requests(&self) -> u32 {
-        CREATE_PARAMS + 1
-    }
-}
+impl Object for ZwpLinuxDmabufV1 {}
 
 simple_add_obj!(ZwpLinuxDmabufV1);
 

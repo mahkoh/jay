@@ -110,16 +110,12 @@ impl WlKeyboard {
 }
 
 object_base! {
-    WlKeyboard;
+    self = WlKeyboard;
 
-    RELEASE => release,
+    RELEASE => release if self.seat.version >= 3,
 }
 
-impl Object for WlKeyboard {
-    fn num_requests(&self) -> u32 {
-        RELEASE + 1
-    }
-}
+impl Object for WlKeyboard {}
 
 simple_add_obj!(WlKeyboard);
 

@@ -98,7 +98,7 @@ impl ExtSessionLockV1 {
 }
 
 object_base! {
-    ExtSessionLockV1;
+    self = ExtSessionLockV1;
 
     DESTROY => destroy,
     GET_LOCK_SURFACE => get_lock_surface,
@@ -106,10 +106,6 @@ object_base! {
 }
 
 impl Object for ExtSessionLockV1 {
-    fn num_requests(&self) -> u32 {
-        UNLOCK_AND_DESTROY + 1
-    }
-
     fn break_loops(&self) {
         if !self.finished.get() {
             self.client.state.lock.lock.take();

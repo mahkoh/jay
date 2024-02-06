@@ -65,17 +65,13 @@ impl OrgKdeKwinServerDecoration {
 }
 
 object_base! {
-    OrgKdeKwinServerDecoration;
+    self = OrgKdeKwinServerDecoration;
 
     RELEASE => release,
     REQUEST_MODE => request_mode,
 }
 
-impl Object for OrgKdeKwinServerDecoration {
-    fn num_requests(&self) -> u32 {
-        REQUEST_MODE + 1
-    }
-}
+impl Object for OrgKdeKwinServerDecoration {}
 
 simple_add_obj!(OrgKdeKwinServerDecoration);
 
