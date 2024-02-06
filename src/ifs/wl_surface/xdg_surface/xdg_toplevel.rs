@@ -51,7 +51,6 @@ pub enum ResizeEdge {
 
 #[allow(dead_code)]
 const STATE_MAXIMIZED: u32 = 1;
-#[allow(dead_code)]
 const STATE_FULLSCREEN: u32 = 2;
 #[allow(dead_code)]
 const STATE_RESIZING: u32 = 3;
@@ -60,6 +59,7 @@ const STATE_TILED_LEFT: u32 = 5;
 const STATE_TILED_RIGHT: u32 = 6;
 const STATE_TILED_TOP: u32 = 7;
 const STATE_TILED_BOTTOM: u32 = 8;
+const STATE_SUSPENDED: u32 = 9;
 
 #[allow(dead_code)]
 const CAP_WINDOW_MENU: u32 = 1;
@@ -70,6 +70,7 @@ const CAP_FULLSCREEN: u32 = 3;
 const CAP_MINIMIZE: u32 = 4;
 
 pub const WM_CAPABILITIES_SINCE: u32 = 5;
+pub const SUSPENDED_SINCE: u32 = 6;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
@@ -507,6 +508,14 @@ impl ToplevelNode for XdgToplevel {
         // }
         self.xdg.set_visible(visible);
         self.toplevel_data.set_visible(self, visible);
+        if self.xdg.base.version >= SUSPENDED_SINCE {
+            if visible {
+                self.states.borrow_mut().remove(&STATE_SUSPENDED);
+            } else {
+                self.states.borrow_mut().insert(STATE_SUSPENDED);
+            }
+            self.send_current_configure();
+        }
     }
 
     fn tl_destroy(&self) {
