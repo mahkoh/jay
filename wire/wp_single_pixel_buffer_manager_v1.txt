@@ -1,0 +1,12 @@
+# requests
+
+msg destroy = 0 {
+}
+
+msg create_u32_rgba_buffer = 1 {
+    id: id(wl_buffer),
+    r: u32,
+    g: u32,
+    b: u32,
+    a: u32,
+}
