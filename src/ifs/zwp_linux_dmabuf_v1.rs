@@ -2,11 +2,14 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
+        ifs::{
+            zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
+            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
+        },
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
-        wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufV1Id},
+        wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id},
     },
     std::rc::Rc,
     thiserror::Error,
@@ -35,19 +38,21 @@ impl ZwpLinuxDmabufV1Global {
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
-        if let Some(ctx) = client.state.render_ctx.get() {
-            let formats = ctx.formats();
-            for format in formats.values() {
-                if format.implicit_external_only && !ctx.supports_external_texture() {
-                    continue;
-                }
-                obj.send_format(format.format.drm);
-                if version >= MODIFIERS_SINCE_VERSION {
-                    for modifier in format.modifiers.values() {
-                        if modifier.external_only && !ctx.supports_external_texture() {
-                            continue;
+        if version < FEEDBACK_SINCE_VERSION {
+            if let Some(ctx) = client.state.render_ctx.get() {
+                let formats = ctx.formats();
+                for format in formats.values() {
+                    if format.implicit_external_only && !ctx.supports_external_texture() {
+                        continue;
+                    }
+                    obj.send_format(format.format.drm);
+                    if version >= MODIFIERS_SINCE_VERSION {
+                        for modifier in format.modifiers.values() {
+                            if modifier.external_only && !ctx.supports_external_texture() {
+                                continue;
+                            }
+                            obj.send_modifier(format.format.drm, modifier.modifier);
                         }
-                        obj.send_modifier(format.format.drm, modifier.modifier);
                     }
                 }
             }
@@ -57,6 +62,7 @@ impl ZwpLinuxDmabufV1Global {
 }
 
 const MODIFIERS_SINCE_VERSION: u32 = 3;
+const FEEDBACK_SINCE_VERSION: u32 = 4;
 
 global_base!(
     ZwpLinuxDmabufV1Global,
@@ -70,7 +76,7 @@ impl Global for ZwpLinuxDmabufV1Global {
     }
 
     fn version(&self) -> u32 {
-        3
+        5
     }
 }
 
@@ -116,6 +122,40 @@ impl ZwpLinuxDmabufV1 {
         self.client.add_client_obj(&params)?;
         Ok(())
     }
+
+    fn get_feedback(
+        self: &Rc<Self>,
+        id: ZwpLinuxDmabufFeedbackV1Id,
+    ) -> Result<(), ZwpLinuxDmabufV1Error> {
+        let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(id, &self.client));
+        track!(self.client, fb);
+        self.client.add_client_obj(&fb)?;
+        self.client
+            .state
+            .drm_feedback_consumers
+            .set((self.client.id, id), fb.clone());
+        if let Some(feedback) = self.client.state.drm_feedback.get() {
+            fb.send_feedback(&feedback);
+        }
+        Ok(())
+    }
+
+    fn get_default_feedback(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpLinuxDmabufV1Error> {
+        let req: GetDefaultFeedback = self.client.parse(&**self, parser)?;
+        self.get_feedback(req.id)
+    }
+
+    fn get_surface_feedback(
+        self: &Rc<Self>,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), ZwpLinuxDmabufV1Error> {
+        let req: GetSurfaceFeedback = self.client.parse(&**self, parser)?;
+        let _surface = self.client.lookup(req.surface)?;
+        self.get_feedback(req.id)
+    }
 }
 
 object_base! {
@@ -123,6 +163,8 @@ object_base! {
 
     DESTROY => destroy,
     CREATE_PARAMS => create_params,
+    GET_DEFAULT_FEEDBACK => get_default_feedback if self.version >= 4,
+    GET_SURFACE_FEEDBACK => get_surface_feedback if self.version >= 4,
 }
 
 impl Object for ZwpLinuxDmabufV1 {}

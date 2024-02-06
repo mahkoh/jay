@@ -127,6 +127,8 @@ fn start_compositor2(
         default_keymap: xkb_keymap,
         eng: engine.clone(),
         render_ctx: Default::default(),
+        drm_feedback: Default::default(),
+        drm_feedback_consumers: Default::default(),
         render_ctx_version: NumCell::new(1),
         render_ctx_ever_initialized: Cell::new(false),
         cursors: Default::default(),

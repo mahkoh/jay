@@ -12,6 +12,7 @@ use {
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
+        drm_feedback::DrmFeedback,
         forker::ForkerProxy,
         gfx_api::GfxContext,
         globals::{Globals, GlobalsError, WaylandGlobal},
@@ -26,6 +27,7 @@ use {
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 NoneSurfaceExt, WlSurface,
             },
+            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
         io_uring::IoUring,
@@ -44,7 +46,9 @@ use {
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
         wheel::Wheel,
-        wire::{JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId},
+        wire::{
+            JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
+        },
         xkbcommon::{XkbContext, XkbKeymap},
         xwayland::{self, XWaylandEvent},
     },
@@ -70,6 +74,9 @@ pub struct State {
     pub default_keymap: Rc<XkbKeymap>,
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
+    pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
+    pub drm_feedback_consumers:
+        CopyHashMap<(ClientId, ZwpLinuxDmabufFeedbackV1Id), Rc<ZwpLinuxDmabufFeedbackV1>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -309,6 +316,23 @@ impl State {
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
+        self.drm_feedback.set(None);
+
+        'handle_new_feedback: {
+            if let Some(ctx) = &ctx {
+                let feedback = match DrmFeedback::new(&**ctx) {
+                    Ok(fb) => fb,
+                    Err(e) => {
+                        log::error!("Could not create new DRM feedback: {}", ErrorFmt(e));
+                        break 'handle_new_feedback;
+                    }
+                };
+                for watcher in self.drm_feedback_consumers.lock().values() {
+                    watcher.send_feedback(&feedback);
+                }
+                self.drm_feedback.set(Some(Rc::new(feedback)));
+            }
+        }
 
         {
             struct Walker;
