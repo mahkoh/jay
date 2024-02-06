@@ -20,7 +20,7 @@ pub struct WlCompositorGlobal {
 pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
-    _version: u32,
+    version: u32,
     pub tracker: Tracker<Self>,
 }
 
@@ -38,7 +38,7 @@ impl WlCompositorGlobal {
         let obj = Rc::new(WlCompositor {
             id,
             client: client.clone(),
-            _version: version,
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -50,7 +50,7 @@ impl WlCompositorGlobal {
 impl WlCompositor {
     fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), WlCompositorError> {
         let surface: CreateSurface = self.client.parse(self, parser)?;
-        let surface = Rc::new(WlSurface::new(surface.id, &self.client));
+        let surface = Rc::new(WlSurface::new(surface.id, &self.client, self.version));
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         if self.client.is_xwayland {
@@ -80,7 +80,7 @@ impl Global for WlCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        4
+        5
     }
 }
 
