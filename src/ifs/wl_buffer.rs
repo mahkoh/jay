@@ -27,7 +27,6 @@ use {
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },
     Dmabuf(Rc<dyn GfxImage>),
-    Color(Color),
 }
 
 pub struct WlBuffer {
@@ -39,6 +38,7 @@ pub struct WlBuffer {
     dmabuf: Option<DmaBuf>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
+    pub color: Option<Color>,
     pub texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub famebuffer: CloneCell<Option<Rc<dyn GfxFramebuffer>>>,
     width: i32,
@@ -75,6 +75,7 @@ impl WlBuffer {
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(Some(WlBufferStorage::Dmabuf(img.clone()))),
             tracker: Default::default(),
+            color: None,
         }
     }
 
@@ -113,6 +114,7 @@ impl WlBuffer {
             texture: CloneCell::new(None),
             tracker: Default::default(),
             famebuffer: Default::default(),
+            color: None,
         })
     }
 
@@ -132,14 +134,13 @@ impl WlBuffer {
             format: ARGB8888,
             dmabuf: None,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
-            storage: RefCell::new(Some(WlBufferStorage::Color(
-                Color::from_u32_rgba_premultiplied(r, g, b, a),
-            ))),
+            storage: RefCell::new(None),
             width: 1,
             height: 1,
             texture: CloneCell::new(None),
             tracker: Default::default(),
             famebuffer: Default::default(),
+            color: Some(Color::from_u32_rgba_premultiplied(r, g, b, a)),
         }
     }
 
@@ -197,9 +198,6 @@ impl WlBuffer {
                     self.texture.set(Some(img.clone().to_texture()?));
                 }
             }
-            WlBufferStorage::Color(_) => {
-                // nothing
-            }
         }
         Ok(())
     }
@@ -218,9 +216,6 @@ impl WlBuffer {
                 if self.famebuffer.get().is_none() {
                     self.famebuffer.set(Some(img.clone().to_framebuffer()?));
                 }
-            }
-            WlBufferStorage::Color(_) => {
-                // nothing
             }
         }
         Ok(())
