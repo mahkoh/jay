@@ -6,6 +6,9 @@ msg create_pool = 0 {
     size: i32,
 }
 
+msg release = 1 {
+}
+
 # events
 
 msg format = 0 {
