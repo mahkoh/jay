@@ -75,6 +75,9 @@ const INVALID_TRANSFORM: u32 = 1;
 #[allow(dead_code)]
 const INVALID_SIZE: u32 = 2;
 
+const OFFSET_SINCE: u32 = 5;
+const BUFFER_SCALE_SINCE: u32 = 6;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Transform {
     Normal,
@@ -209,7 +212,7 @@ impl SurfaceRole {
 pub struct SurfaceSendPreferredScaleVisitor;
 impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        node.send_preferred_scale();
+        node.on_scale_change();
         node.node_visit_children(self);
     }
 }
@@ -252,6 +255,7 @@ pub struct WlSurface {
     xwayland_serial: Cell<Option<u64>>,
     tearing_control: CloneCell<Option<Rc<WpTearingControlV1>>>,
     tearing: Cell<bool>,
+    version: u32,
 }
 
 impl Debug for WlSurface {
@@ -333,7 +337,8 @@ impl SurfaceExt for NoneSurfaceExt {
 
 #[derive(Default)]
 struct PendingState {
-    buffer: Cell<Option<Option<(i32, i32, Rc<WlBuffer>)>>>,
+    buffer: Cell<Option<Option<Rc<WlBuffer>>>>,
+    offset: Cell<(i32, i32)>,
     opaque_region: Cell<Option<Option<Rc<Region>>>>,
     input_region: Cell<Option<Option<Rc<Region>>>>,
     frame_request: RefCell<Vec<Rc<WlCallback>>>,
@@ -360,7 +365,7 @@ pub struct StackElement {
 }
 
 impl WlSurface {
-    pub fn new(id: WlSurfaceId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: u32) -> Self {
         Self {
             id,
             node_id: client.state.node_ids.next(),
@@ -399,6 +404,7 @@ impl WlSurface {
             xwayland_serial: Default::default(),
             tearing_control: Default::default(),
             tearing: Cell::new(false),
+            version,
         }
     }
 
@@ -427,9 +433,7 @@ impl WlSurface {
         output.global.send_enter(self);
         old.global.send_leave(self);
         if old.preferred_scale.get() != output.preferred_scale.get() {
-            if let Some(fs) = self.fractional_scale.get() {
-                fs.send_preferred_scale();
-            }
+            self.on_scale_change();
         }
         let children = self.children.borrow_mut();
         if let Some(children) = &*children {
@@ -439,10 +443,11 @@ impl WlSurface {
         }
     }
 
-    pub fn send_preferred_scale(&self) {
+    fn on_scale_change(&self) {
         if let Some(fs) = self.fractional_scale.get() {
             fs.send_preferred_scale();
         }
+        self.send_preferred_buffer_scale();
     }
 
     pub fn get_toplevel(&self) -> Option<Rc<dyn ToplevelNode>> {
@@ -511,6 +516,15 @@ impl WlSurface {
             self_id: self.id,
             output,
         })
+    }
+
+    pub fn send_preferred_buffer_scale(&self) {
+        if self.version >= BUFFER_SCALE_SINCE {
+            self.client.event(PreferredBufferScale {
+                self_id: self.id,
+                factor: self.output.get().global.legacy_scale.get() as _,
+            });
+        }
     }
 
     fn set_toplevel(&self, tl: Option<Rc<dyn ToplevelNode>>) {
@@ -640,8 +654,15 @@ impl WlSurface {
 
     fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Attach = self.parse(parser)?;
+        if self.version >= OFFSET_SINCE {
+            if req.x != 0 || req.y != 0 {
+                return Err(WlSurfaceError::OffsetInAttach);
+            }
+        } else {
+            self.pending.offset.set((req.x, req.y));
+        }
         let buf = if req.buffer.is_some() {
-            Some((req.x, req.y, self.client.lookup(req.buffer)?))
+            Some(self.client.lookup(req.buffer)?)
         } else {
             None
         };
@@ -729,6 +750,7 @@ impl WlSurface {
         }
         let mut buffer_changed = false;
         let mut old_raw_size = None;
+        let (dx, dy) = self.pending.offset.take();
         if let Some(buffer_change) = self.pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
@@ -737,7 +759,7 @@ impl WlSurface {
                     buffer.send_release();
                 }
             }
-            if let Some((dx, dy, buffer)) = buffer_change {
+            if let Some(buffer) = buffer_change {
                 let _ = buffer.update_texture();
                 self.buffer.set(Some(buffer));
                 self.buf_x.fetch_add(dx);
@@ -909,6 +931,12 @@ impl WlSurface {
         Ok(())
     }
 
+    fn offset(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
+        let req: Offset = self.parse(parser)?;
+        self.pending.offset.set((req.x, req.y));
+        Ok(())
+    }
+
     fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
         let rect = self.buffer_abs_pos.get().at_point(0, 0);
         let children = self.children.borrow();
@@ -1033,11 +1061,12 @@ object_base! {
     SET_BUFFER_TRANSFORM => set_buffer_transform,
     SET_BUFFER_SCALE => set_buffer_scale,
     DAMAGE_BUFFER => damage_buffer,
+    OFFSET => offset,
 }
 
 impl Object for WlSurface {
     fn num_requests(&self) -> u32 {
-        DAMAGE_BUFFER + 1
+        OFFSET + 1
     }
 
     fn break_loops(&self) {
@@ -1227,6 +1256,8 @@ pub enum WlSurfaceError {
     NonIntegerViewportSize,
     #[error("Viewport source is not contained in the attached buffer")]
     ViewportOutsideBuffer,
+    #[error("attach request must not contain offset")]
+    OffsetInAttach,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

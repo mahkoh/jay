@@ -60,3 +60,11 @@ msg enter = 0 {
 msg leave = 1 {
     output: id(wl_output),
 }
+
+msg preferred_buffer_scale = 2 {
+    factor: i32,
+}
+
+msg preferred_buffer_transform = 3 {
+    transform: u32,
+}
