@@ -71,6 +71,12 @@ impl WlShm {
         self.client.add_client_obj(&pool)?;
         Ok(())
     }
+
+    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmError> {
+        let _req: Release = self.client.parse(self, parser)?;
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
 }
 
 global_base!(WlShmGlobal, WlShm, WlShmError);
@@ -81,7 +87,7 @@ impl Global for WlShmGlobal {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 }
 
@@ -91,11 +97,12 @@ object_base! {
     WlShm;
 
     CREATE_POOL => create_pool,
+    RELEASE => release,
 }
 
 impl Object for WlShm {
     fn num_requests(&self) -> u32 {
-        CREATE_POOL + 1
+        RELEASE + 1
     }
 }
 
