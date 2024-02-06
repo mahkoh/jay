@@ -2,11 +2,12 @@ use {
     crate::{
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
-        format::Format,
+        format::{Format, ARGB8888},
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         leaks::Tracker,
         object::Object,
         rect::Rect,
+        theme::Color,
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -26,6 +27,7 @@ use {
 pub enum WlBufferStorage {
     Shm { mem: ClientMemOffset, stride: i32 },
     Dmabuf(Rc<dyn GfxImage>),
+    Color(Color),
 }
 
 pub struct WlBuffer {
@@ -114,6 +116,33 @@ impl WlBuffer {
         })
     }
 
+    pub fn new_single_pixel(
+        id: WlBufferId,
+        client: &Rc<Client>,
+        r: u32,
+        g: u32,
+        b: u32,
+        a: u32,
+    ) -> Self {
+        Self {
+            id,
+            destroyed: Cell::new(false),
+            client: client.clone(),
+            rect: Rect::new_sized(0, 0, 1, 1).unwrap(),
+            format: ARGB8888,
+            dmabuf: None,
+            render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
+            storage: RefCell::new(Some(WlBufferStorage::Color(
+                Color::from_u32_rgba_premultiplied(r, g, b, a),
+            ))),
+            width: 1,
+            height: 1,
+            texture: CloneCell::new(None),
+            tracker: Default::default(),
+            famebuffer: Default::default(),
+        }
+    }
+
     pub fn handle_gfx_context_change(&self) {
         let ctx_version = self.client.state.render_ctx_version.get();
         if self.render_ctx_version.replace(ctx_version) == ctx_version {
@@ -168,6 +197,9 @@ impl WlBuffer {
                     self.texture.set(Some(img.clone().to_texture()?));
                 }
             }
+            WlBufferStorage::Color(_) => {
+                // nothing
+            }
         }
         Ok(())
     }
@@ -186,6 +218,9 @@ impl WlBuffer {
                 if self.famebuffer.get().is_none() {
                     self.famebuffer.set(Some(img.clone().to_framebuffer()?));
                 }
+            }
+            WlBufferStorage::Color(_) => {
+                // nothing
             }
         }
         Ok(())

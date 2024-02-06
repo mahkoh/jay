@@ -3,7 +3,7 @@ use {
         format::ARGB8888,
         gfx_api::{BufferPoints, GfxApiOpt},
         ifs::{
-            wl_buffer::WlBuffer,
+            wl_buffer::{WlBuffer, WlBufferStorage},
             wl_callback::WlCallback,
             wl_surface::{
                 xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
@@ -400,6 +400,12 @@ impl Renderer<'_> {
                 max_width,
                 max_height,
             );
+        } else if let Some(WlBufferStorage::Color(color)) = &*buffer.storage.borrow() {
+            if let Some(rect) =
+                Rect::new_sized(x, y, tsize.0.min(max_width), tsize.1.min(max_height))
+            {
+                self.base.fill_boxes(&[rect], color);
+            }
         }
     }
 

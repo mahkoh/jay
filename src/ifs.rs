@@ -30,6 +30,7 @@ pub mod wl_surface;
 pub mod wp_fractional_scale_manager_v1;
 pub mod wp_presentation;
 pub mod wp_presentation_feedback;
+pub mod wp_single_pixel_buffer_manager_v1;
 pub mod wp_tearing_control_manager_v1;
 pub mod wp_viewporter;
 pub mod xdg_positioner;
