@@ -40,6 +40,7 @@ pub mod zwlr_screencopy_frame_v1;
 pub mod zwlr_screencopy_manager_v1;
 pub mod zwp_idle_inhibit_manager_v1;
 pub mod zwp_linux_buffer_params_v1;
+pub mod zwp_linux_dmabuf_feedback_v1;
 pub mod zwp_linux_dmabuf_v1;
 pub mod zxdg_decoration_manager_v1;
 pub mod zxdg_output_manager_v1;

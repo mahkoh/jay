@@ -58,6 +58,7 @@ mod compositor;
 mod config;
 mod cursor;
 mod dbus;
+mod drm_feedback;
 mod edid;
 mod fixed;
 mod forker;
