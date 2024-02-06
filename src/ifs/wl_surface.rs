@@ -76,6 +76,7 @@ const INVALID_TRANSFORM: u32 = 1;
 const INVALID_SIZE: u32 = 2;
 
 const OFFSET_SINCE: u32 = 5;
+const BUFFER_SCALE_SINCE: u32 = 6;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Transform {
@@ -211,7 +212,7 @@ impl SurfaceRole {
 pub struct SurfaceSendPreferredScaleVisitor;
 impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        node.send_preferred_scale();
+        node.on_scale_change();
         node.node_visit_children(self);
     }
 }
@@ -432,9 +433,7 @@ impl WlSurface {
         output.global.send_enter(self);
         old.global.send_leave(self);
         if old.preferred_scale.get() != output.preferred_scale.get() {
-            if let Some(fs) = self.fractional_scale.get() {
-                fs.send_preferred_scale();
-            }
+            self.on_scale_change();
         }
         let children = self.children.borrow_mut();
         if let Some(children) = &*children {
@@ -444,10 +443,11 @@ impl WlSurface {
         }
     }
 
-    pub fn send_preferred_scale(&self) {
+    fn on_scale_change(&self) {
         if let Some(fs) = self.fractional_scale.get() {
             fs.send_preferred_scale();
         }
+        self.send_preferred_buffer_scale();
     }
 
     pub fn get_toplevel(&self) -> Option<Rc<dyn ToplevelNode>> {
@@ -516,6 +516,15 @@ impl WlSurface {
             self_id: self.id,
             output,
         })
+    }
+
+    pub fn send_preferred_buffer_scale(&self) {
+        if self.version >= BUFFER_SCALE_SINCE {
+            self.client.event(PreferredBufferScale {
+                self_id: self.id,
+                factor: self.output.get().global.legacy_scale.get() as _,
+            });
+        }
     }
 
     fn set_toplevel(&self, tl: Option<Rc<dyn ToplevelNode>>) {
