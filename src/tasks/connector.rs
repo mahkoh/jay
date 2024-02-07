@@ -128,6 +128,7 @@ impl ConnectorHandler {
             jay_outputs: Default::default(),
             screencasts: Default::default(),
             update_render_data_scheduled: Cell::new(false),
+            hardware_cursor_needs_render: Cell::new(false),
         });
         self.state.add_output_scale(on.preferred_scale.get());
         let mode = info.initial_mode;
