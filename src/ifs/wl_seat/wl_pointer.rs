@@ -200,14 +200,15 @@ impl WlPointer {
             log::warn!("ignoring wl_pointer.set_cursor (2)");
             return Ok(());
         }
-        if req.serial != self.seat.client.last_enter_serial.get() {
-            log::warn!(
-                "ignoring wl_pointer.set_cursor (3) ({} != {})",
-                req.serial,
-                self.seat.client.last_enter_serial.get(),
-            );
-            return Ok(());
-        }
+        // https://gitlab.freedesktop.org/wayland/wayland/-/issues/439
+        // if req.serial != self.seat.client.last_enter_serial.get() {
+        //     log::warn!(
+        //         "ignoring wl_pointer.set_cursor (3) ({} != {})",
+        //         req.serial,
+        //         self.seat.client.last_enter_serial.get(),
+        //     );
+        //     return Ok(());
+        // }
         self.seat.global.set_app_cursor(cursor_opt);
         Ok(())
     }
