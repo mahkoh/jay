@@ -258,6 +258,7 @@ impl WlSeatGlobal {
         let (x, y) = self.get_position();
         for output in self.state.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
+                let render = render | output.hardware_cursor_needs_render.take();
                 let scale = output.preferred_scale.get();
                 let extents = cursor.extents_at_scale(scale);
                 if render {
@@ -290,6 +291,9 @@ impl WlSeatGlobal {
                     hc.set_enabled(true);
                     hc.set_position(x_rel + extents.x1(), y_rel + extents.y1());
                 } else {
+                    if render {
+                        output.hardware_cursor_needs_render.set(true);
+                    }
                     hc.set_enabled(false);
                 }
                 hc.commit();

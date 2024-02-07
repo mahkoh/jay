@@ -190,9 +190,6 @@ impl Framebuffer {
         if let Some(rect) = cursor_rect {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
-                if !render_hardware_cursor && seat.hardware_cursor() {
-                    continue;
-                }
                 if let Some(cursor) = seat.get_cursor() {
                     let (mut x, mut y) = seat.get_position();
                     if let Some(dnd_icon) = seat.dnd_icon() {
@@ -205,10 +202,12 @@ impl Framebuffer {
                             renderer.render_surface(&dnd_icon, x, y, i32::MAX, i32::MAX);
                         }
                     }
-                    cursor.tick();
-                    x -= Fixed::from_int(rect.x1());
-                    y -= Fixed::from_int(rect.y1());
-                    cursor.render(&mut renderer, x, y);
+                    if render_hardware_cursor || !seat.hardware_cursor() {
+                        cursor.tick();
+                        x -= Fixed::from_int(rect.x1());
+                        y -= Fixed::from_int(rect.y1());
+                        cursor.render(&mut renderer, x, y);
+                    }
                 }
             }
         }

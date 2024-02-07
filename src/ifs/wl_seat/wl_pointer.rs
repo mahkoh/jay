@@ -192,13 +192,20 @@ impl WlPointer {
             Some(n) => n,
             _ => {
                 // cannot happen
+                log::warn!("ignoring wl_pointer.set_cursor (1)");
                 return Ok(());
             }
         };
         if pointer_node.node_client_id() != Some(self.seat.client.id) {
+            log::warn!("ignoring wl_pointer.set_cursor (2)");
             return Ok(());
         }
         if req.serial != self.seat.client.last_enter_serial.get() {
+            log::warn!(
+                "ignoring wl_pointer.set_cursor (3) ({} != {})",
+                req.serial,
+                self.seat.client.last_enter_serial.get(),
+            );
             return Ok(());
         }
         self.seat.global.set_app_cursor(cursor_opt);

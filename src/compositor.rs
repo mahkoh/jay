@@ -392,6 +392,7 @@ fn create_dummy_output(state: &Rc<State>) {
         hardware_cursor: Default::default(),
         update_render_data_scheduled: Cell::new(false),
         screencasts: Default::default(),
+        hardware_cursor_needs_render: Cell::new(false),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

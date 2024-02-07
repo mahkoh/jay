@@ -61,6 +61,7 @@ pub struct OutputNode {
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
     pub preferred_scale: Cell<Scale>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
+    pub hardware_cursor_needs_render: Cell<bool>,
     pub update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
 }
