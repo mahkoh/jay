@@ -577,7 +577,7 @@ impl ContainerNode {
             if y < title_height + 1 {
                 KnownCursor::Default
             } else {
-                KnownCursor::ResizeLeftRight
+                KnownCursor::EwResize
             }
         } else {
             let mut cursor = KnownCursor::Default;
@@ -585,7 +585,7 @@ impl ContainerNode {
                 let body = child.body.get();
                 if body.y1() > y {
                     if body.y1() - y > title_height + 1 {
-                        cursor = KnownCursor::ResizeTopBottom
+                        cursor = KnownCursor::NsResize
                     }
                     break;
                 }

@@ -320,14 +320,14 @@ impl FloatNode {
         let op_type = OP_TYPES[id];
         let new_cursor = match op_type {
             OpType::Move => KnownCursor::Default,
-            OpType::ResizeLeft => KnownCursor::ResizeLeftRight,
-            OpType::ResizeTop => KnownCursor::ResizeTopBottom,
-            OpType::ResizeRight => KnownCursor::ResizeLeftRight,
-            OpType::ResizeBottom => KnownCursor::ResizeTopBottom,
-            OpType::ResizeTopLeft => KnownCursor::ResizeTopLeft,
-            OpType::ResizeTopRight => KnownCursor::ResizeTopRight,
-            OpType::ResizeBottomLeft => KnownCursor::ResizeBottomLeft,
-            OpType::ResizeBottomRight => KnownCursor::ResizeBottomRight,
+            OpType::ResizeLeft => KnownCursor::EwResize,
+            OpType::ResizeTop => KnownCursor::NsResize,
+            OpType::ResizeRight => KnownCursor::EwResize,
+            OpType::ResizeBottom => KnownCursor::NsResize,
+            OpType::ResizeTopLeft => KnownCursor::NwResize,
+            OpType::ResizeTopRight => KnownCursor::NeResize,
+            OpType::ResizeBottomLeft => KnownCursor::SwResize,
+            OpType::ResizeBottomRight => KnownCursor::SeResize,
         };
         seat_state.op_type = op_type;
         if new_cursor != mem::replace(&mut seat_state.cursor, new_cursor) {

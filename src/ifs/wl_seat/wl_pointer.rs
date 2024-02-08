@@ -197,7 +197,7 @@ impl WlPointer {
             }
         };
         if pointer_node.node_client_id() != Some(self.seat.client.id) {
-            log::warn!("ignoring wl_pointer.set_cursor (2)");
+            // log::warn!("ignoring wl_pointer.set_cursor (2)");
             return Ok(());
         }
         // https://gitlab.freedesktop.org/wayland/wayland/-/issues/439

@@ -61,29 +61,77 @@ pub trait Cursor {
 
 pub struct ServerCursors {
     pub default: ServerCursorTemplate,
+    pub context_menu: ServerCursorTemplate,
+    pub help: ServerCursorTemplate,
     pub pointer: ServerCursorTemplate,
-    pub resize_right: ServerCursorTemplate,
-    pub resize_left: ServerCursorTemplate,
-    pub resize_top: ServerCursorTemplate,
-    pub resize_bottom: ServerCursorTemplate,
-    pub resize_top_bottom: ServerCursorTemplate,
-    pub resize_left_right: ServerCursorTemplate,
-    pub resize_top_left: ServerCursorTemplate,
-    pub resize_top_right: ServerCursorTemplate,
-    pub resize_bottom_left: ServerCursorTemplate,
-    pub resize_bottom_right: ServerCursorTemplate,
+    pub progress: ServerCursorTemplate,
+    pub wait: ServerCursorTemplate,
+    pub cell: ServerCursorTemplate,
+    pub crosshair: ServerCursorTemplate,
+    pub text: ServerCursorTemplate,
+    pub vertical_text: ServerCursorTemplate,
+    pub alias: ServerCursorTemplate,
+    pub copy: ServerCursorTemplate,
+    pub r#move: ServerCursorTemplate,
+    pub no_drop: ServerCursorTemplate,
+    pub not_allowed: ServerCursorTemplate,
+    pub grab: ServerCursorTemplate,
+    pub grabbing: ServerCursorTemplate,
+    pub e_resize: ServerCursorTemplate,
+    pub n_resize: ServerCursorTemplate,
+    pub ne_resize: ServerCursorTemplate,
+    pub nw_resize: ServerCursorTemplate,
+    pub s_resize: ServerCursorTemplate,
+    pub se_resize: ServerCursorTemplate,
+    pub sw_resize: ServerCursorTemplate,
+    pub w_resize: ServerCursorTemplate,
+    pub ew_resize: ServerCursorTemplate,
+    pub ns_resize: ServerCursorTemplate,
+    pub nesw_resize: ServerCursorTemplate,
+    pub nwse_resize: ServerCursorTemplate,
+    pub col_resize: ServerCursorTemplate,
+    pub row_resize: ServerCursorTemplate,
+    pub all_scroll: ServerCursorTemplate,
+    pub zoom_in: ServerCursorTemplate,
+    pub zoom_out: ServerCursorTemplate,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, FromPrimitive)]
 pub enum KnownCursor {
     Default,
+    ContextMenu,
+    Help,
     Pointer,
-    ResizeLeftRight,
-    ResizeTopBottom,
-    ResizeTopLeft,
-    ResizeTopRight,
-    ResizeBottomLeft,
-    ResizeBottomRight,
+    Progress,
+    Wait,
+    Cell,
+    Crosshair,
+    Text,
+    VerticalText,
+    Alias,
+    Copy,
+    Move,
+    NoDrop,
+    NotAllowed,
+    Grab,
+    Grabbing,
+    EResize,
+    NResize,
+    NeResize,
+    NwResize,
+    SResize,
+    SeResize,
+    SwResize,
+    WResize,
+    EwResize,
+    NsResize,
+    NeswResize,
+    NwseResize,
+    ColResize,
+    RowResize,
+    AllScroll,
+    ZoomIn,
+    ZoomOut,
 }
 
 impl ServerCursors {
@@ -99,21 +147,42 @@ impl ServerCursors {
         let theme = xcursor_theme.as_ref().map(|theme| BStr::new(theme.bytes()));
 
         let load =
-            |name: &str| ServerCursorTemplate::load(name, theme, &scales, &sizes, &paths, ctx);
+            |names: &[&str]| ServerCursorTemplate::load(names, theme, &scales, &sizes, &paths, ctx);
         Ok(Some(Self {
-            default: load("left_ptr")?,
-            pointer: load("hand2")?,
-            // default: load("left_ptr_watch")?,
-            resize_right: load("right_side")?,
-            resize_left: load("left_side")?,
-            resize_top: load("top_side")?,
-            resize_bottom: load("bottom_side")?,
-            resize_top_bottom: load("v_double_arrow")?,
-            resize_left_right: load("h_double_arrow")?,
-            resize_top_left: load("top_left_corner")?,
-            resize_top_right: load("top_right_corner")?,
-            resize_bottom_left: load("bottom_left_corner")?,
-            resize_bottom_right: load("bottom_right_corner")?,
+            default: load(&["default", "left_ptr"])?,
+            context_menu: load(&["context-menu"])?,
+            help: load(&["help"])?,
+            pointer: load(&["pointer", "hand2", "hand1"])?,
+            progress: load(&["progress"])?,
+            wait: load(&["wait", "watch"])?,
+            cell: load(&["cell"])?,
+            crosshair: load(&["crosshair"])?,
+            text: load(&["text", "xterm"])?,
+            vertical_text: load(&["vertical-text"])?,
+            alias: load(&["alias"])?,
+            copy: load(&["copy"])?,
+            r#move: load(&["move"])?,
+            no_drop: load(&["no-drop"])?,
+            not_allowed: load(&["not-allowed"])?,
+            grab: load(&["grab"])?,
+            grabbing: load(&["grabbing"])?,
+            e_resize: load(&["e-resize", "right_side"])?,
+            w_resize: load(&["w-resize", "left_side"])?,
+            n_resize: load(&["n-resize", "top_side"])?,
+            s_resize: load(&["s-resize", "bottom_side"])?,
+            ns_resize: load(&["ns-resize", "v_double_arrow"])?,
+            ew_resize: load(&["ew-resize", "h_double_arrow"])?,
+            nw_resize: load(&["nw-resize", "top_left_corner"])?,
+            ne_resize: load(&["ne-resize", "top_right_corner"])?,
+            sw_resize: load(&["sw-resize", "bottom_left_corner"])?,
+            se_resize: load(&["se-resize", "bottom_right_corner"])?,
+            nesw_resize: load(&["nesw-resize"])?,
+            nwse_resize: load(&["nwse-resize"])?,
+            col_resize: load(&["col-resize"])?,
+            row_resize: load(&["row-resize"])?,
+            all_scroll: load(&["all-scroll", "grabbing"])?,
+            zoom_in: load(&["zoom-in"])?,
+            zoom_out: load(&["zoom-out"])?,
         }))
     }
 }
@@ -130,14 +199,14 @@ enum ServerCursorTemplateVariant {
 
 impl ServerCursorTemplate {
     fn load(
-        name: &str,
+        names: &[&str],
         theme: Option<&BStr>,
         scales: &[Scale],
         sizes: &[u32],
         paths: &[BString],
         ctx: &Rc<dyn GfxContext>,
     ) -> Result<Self, CursorError> {
-        match open_cursor(name, theme, scales, sizes, paths) {
+        match open_cursor(names, theme, scales, sizes, paths) {
             Ok(cs) => {
                 if cs.images.len() == 1 {
                     let mut sizes = SmallMapMut::new();
@@ -178,7 +247,7 @@ impl ServerCursorTemplate {
                 }
             }
             Err(e) => {
-                log::warn!("Could not load cursor {}: {}", name, ErrorFmt(e));
+                log::warn!("Could not load cursor {:?}: {}", names, ErrorFmt(e));
                 let empty: [Cell<u8>; 4] = unsafe { MaybeUninit::zeroed().assume_init() };
                 let mut img_sizes = SmallMapMut::new();
                 for scale in scales {
@@ -399,20 +468,31 @@ struct OpenCursorResult {
 }
 
 fn open_cursor(
-    name: &str,
+    names: &[&str],
     theme: Option<&BStr>,
     scales: &[Scale],
     sizes: &[u32],
     paths: &[BString],
 ) -> Result<OpenCursorResult, CursorError> {
-    let name = name.as_bytes().as_bstr();
     let mut file = None;
-    let mut themes_tested = AHashSet::new();
+    let mut pairs_tested = AHashSet::new();
     if let Some(theme) = theme {
-        file = open_cursor_file(&mut themes_tested, paths, theme, name);
+        for name in names {
+            let name = name.as_bytes().as_bstr();
+            file = open_cursor_file(&mut pairs_tested, paths, theme, name);
+            if file.is_some() {
+                break;
+            }
+        }
     }
     if file.is_none() {
-        file = open_cursor_file(&mut themes_tested, paths, b"default".as_bstr(), name);
+        for name in names {
+            let name = name.as_bytes().as_bstr();
+            file = open_cursor_file(&mut pairs_tested, paths, b"default".as_bstr(), name);
+            if file.is_some() {
+                break;
+            }
+        }
     }
     let file = match file {
         Some(f) => f,
@@ -422,13 +502,13 @@ fn open_cursor(
     parser_cursor_file(&mut file, scales, sizes)
 }
 
-fn open_cursor_file(
-    themes_tested: &mut AHashSet<BString>,
+fn open_cursor_file<'a>(
+    pairs_tested: &mut AHashSet<(BString, &'a BStr)>,
     paths: &[BString],
     theme: &BStr,
-    name: &BStr,
+    name: &'a BStr,
 ) -> Option<File> {
-    if !themes_tested.insert(theme.to_owned()) {
+    if !pairs_tested.insert((theme.to_owned(), name)) {
         return None;
     }
     if paths.is_empty() {
@@ -453,7 +533,7 @@ fn open_cursor_file(
     }
     if let Some(parents) = parents {
         for parent in parents {
-            if let Some(file) = open_cursor_file(themes_tested, paths, parent.as_bstr(), name) {
+            if let Some(file) = open_cursor_file(pairs_tested, paths, parent.as_bstr(), name) {
                 return Some(file);
             }
         }
