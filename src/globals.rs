@@ -20,6 +20,7 @@ use {
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
             wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
+            wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
             wp_presentation::WpPresentationGlobal,
             wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1Global,
@@ -158,6 +159,7 @@ impl Globals {
         add_singleton!(XwaylandShellV1Global);
         add_singleton!(WpTearingControlManagerV1Global);
         add_singleton!(WpSinglePixelBufferManagerV1Global);
+        add_singleton!(WpCursorShapeManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
