@@ -1429,9 +1429,12 @@ impl ToplevelNode for ContainerNode {
     }
 
     fn tl_set_visible(&self, visible: bool) {
-        self.toplevel_data.visible.set(visible);
-        for child in self.children.iter() {
-            child.node.tl_set_visible(visible);
+        if let Some(mc) = self.mono_child.get() {
+            mc.node.tl_set_visible(visible);
+        } else {
+            for child in self.children.iter() {
+                child.node.tl_set_visible(visible);
+            }
         }
         self.toplevel_data.set_visible(self, visible);
     }

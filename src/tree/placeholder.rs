@@ -179,7 +179,7 @@ impl ToplevelNode for PlaceholderNode {
     }
 
     fn tl_set_visible(&self, visible: bool) {
-        self.toplevel.visible.set(visible);
+        self.toplevel.set_visible(self, visible);
     }
 
     fn tl_destroy(&self) {

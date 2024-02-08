@@ -131,7 +131,6 @@ pub struct XwindowData {
 tree_id!(XwindowId);
 pub struct Xwindow {
     pub id: XwindowId,
-    pub seat_state: NodeSeatState,
     pub data: Rc<XwindowData>,
     pub x: Rc<XSurface>,
     pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
@@ -214,7 +213,6 @@ impl Xwindow {
         tld.pos.set(surface.extents.get());
         let slf = Rc::new(Self {
             id: data.state.node_ids.next(),
-            seat_state: Default::default(),
             data: data.clone(),
             display_link: Default::default(),
             toplevel_data: tld,
@@ -298,7 +296,7 @@ impl Node for Xwindow {
     }
 
     fn node_seat_state(&self) -> &NodeSeatState {
-        &self.seat_state
+        &self.toplevel_data.seat_state
     }
 
     fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
@@ -422,7 +420,7 @@ impl ToplevelNode for Xwindow {
 
     fn tl_set_visible(&self, visible: bool) {
         self.x.surface.set_visible(visible);
-        self.seat_state.set_visible(self, visible);
+        self.toplevel_data.set_visible(self, visible);
     }
 
     fn tl_destroy(&self) {
