@@ -34,6 +34,7 @@ use {
                 x_surface::XSurface, xdg_surface::XdgSurfaceError,
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
             },
+            wp_content_type_v1::ContentType,
             wp_presentation_feedback::WpPresentationFeedback,
         },
         leaks::Tracker,
@@ -256,6 +257,8 @@ pub struct WlSurface {
     tearing_control: CloneCell<Option<Rc<WpTearingControlV1>>>,
     tearing: Cell<bool>,
     version: u32,
+    pub has_content_type_manager: Cell<bool>,
+    content_type: Cell<Option<ContentType>>,
 }
 
 impl Debug for WlSurface {
@@ -350,6 +353,7 @@ struct PendingState {
     transform: Cell<Option<Transform>>,
     xwayland_serial: Cell<Option<u64>>,
     tearing: Cell<Option<bool>>,
+    content_type: Cell<Option<Option<ContentType>>>,
 }
 
 #[derive(Default)]
@@ -405,6 +409,8 @@ impl WlSurface {
             tearing_control: Default::default(),
             tearing: Cell::new(false),
             version,
+            has_content_type_manager: Default::default(),
+            content_type: Default::default(),
         }
     }
 
@@ -867,6 +873,9 @@ impl WlSurface {
         if let Some(tearing) = self.pending.tearing.take() {
             self.tearing.set(tearing);
         }
+        if let Some(content_type) = self.pending.content_type.take() {
+            self.content_type.set(content_type);
+        }
         if let Some(xwayland_serial) = self.pending.xwayland_serial.take() {
             self.xwayland_serial.set(Some(xwayland_serial));
             self.client
@@ -1045,6 +1054,10 @@ impl WlSurface {
         }
         self.send_seat_release_events();
         self.seat_state.destroy_node(self);
+    }
+
+    pub fn set_content_type(&self, content_type: Option<ContentType>) {
+        self.pending.content_type.set(Some(content_type));
     }
 }
 

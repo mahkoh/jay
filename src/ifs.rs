@@ -27,6 +27,8 @@ pub mod wl_shm;
 pub mod wl_shm_pool;
 pub mod wl_subcompositor;
 pub mod wl_surface;
+pub mod wp_content_type_manager_v1;
+pub mod wp_content_type_v1;
 pub mod wp_cursor_shape_device_v1;
 pub mod wp_cursor_shape_manager_v1;
 pub mod wp_fractional_scale_manager_v1;
