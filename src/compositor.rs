@@ -39,6 +39,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
+    jay_config::video::GfxApi,
     std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
@@ -197,6 +198,7 @@ fn start_compositor2(
         render_ctx_watchers: Default::default(),
         workspace_watchers: Default::default(),
         default_workspace_capture: Cell::new(true),
+        default_gfx_api: Cell::new(GfxApi::OpenGl),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -410,6 +412,7 @@ fn create_dummy_output(state: &Rc<State>) {
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
         jay_workspaces: Default::default(),
         capture: Cell::new(false),
+        title_texture: Cell::new(None),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),

@@ -10,7 +10,6 @@ use {
         compositor::TestFuture,
         fixed::Fixed,
         gfx_api::GfxError,
-        gfx_apis::create_gfx_context,
         it::test_error::TestResult,
         state::State,
         time::now_usec,
@@ -178,7 +177,7 @@ impl TestBackend {
             }
         };
         let drm = Drm::open_existing(file);
-        let ctx = match create_gfx_context(&drm) {
+        let ctx = match self.state.create_gfx_context(&drm, None) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };

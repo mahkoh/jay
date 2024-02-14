@@ -362,4 +362,30 @@ impl DrmDevice {
     pub fn make_render_device(self) {
         get!().make_render_device(self);
     }
+
+    /// Sets the preferred graphics API for this device.
+    ///
+    /// If the API cannot be used, the compositor will try other APIs.
+    pub fn set_gfx_api(self, gfx_api: GfxApi) {
+        get!().set_gfx_api(Some(self), gfx_api);
+    }
+}
+
+/// A graphics API.
+#[non_exhaustive]
+#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum GfxApi {
+    OpenGl,
+    Vulkan,
+}
+
+/// Sets the default graphics API.
+///
+/// If the API cannot be used, the compositor will try other APIs.
+///
+/// This setting can be overwritten per-device with [DrmDevice::set_gfx_api].
+///
+/// This call has no effect on devices that have already been initialized.
+pub fn set_gfx_api(gfx_api: GfxApi) {
+    get!().set_gfx_api(None, gfx_api);
 }

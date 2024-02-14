@@ -143,6 +143,7 @@ impl JayCompositor {
                     dmabuf.height,
                     plane.offset,
                     plane.stride,
+                    dmabuf.modifier,
                 );
             }
             Err(e) => {

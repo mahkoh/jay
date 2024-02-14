@@ -4,18 +4,18 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{GfxContext, GfxFramebuffer, GfxTexture},
+        gfx_api::{GfxContext, GfxFramebuffer},
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
         renderer::renderer_base::RendererBase,
         scale::Scale,
-        text::{self, TextMeasurement},
+        text::{self, TextMeasurement, TextTexture},
         theme::Color,
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
-        video::{gbm::GBM_BO_USE_RENDERING, ModifiedFormat, INVALID_MODIFIER},
+        video::gbm::GBM_BO_USE_RENDERING,
         wire::{
             wp_fractional_scale_v1::PreferredScale, zwlr_layer_surface_v1::Configure,
             ZwpLinuxBufferParamsV1Id,
@@ -118,7 +118,7 @@ pub struct Button {
     pub bg_hover_color: Cell<Color>,
     pub text: RefCell<String>,
     pub font: RefCell<Cow<'static, str>>,
-    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    pub tex: CloneCell<Option<TextTexture>>,
     pub owner: CloneCell<Option<Rc<dyn ButtonOwner>>>,
 }
 
@@ -162,10 +162,12 @@ impl GuiElement for Button {
         _max_width: f32,
         _max_height: f32,
     ) -> (f32, f32) {
+        let old_tex = self.tex.take();
         let font = self.font.borrow_mut();
         let text = self.text.borrow_mut();
         let tex = text::render_fitting2(
             ctx,
+            old_tex,
             None,
             &font,
             &text,
@@ -213,10 +215,9 @@ impl GuiElement for Button {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
             r.render_texture(
-                &tex,
+                &tex.texture,
                 tx.round() as _,
                 ty.round() as _,
-                ARGB8888,
                 None,
                 None,
                 r.scale(),
@@ -260,7 +261,7 @@ pub struct Label {
     pub data: GuiElementData,
     pub font: RefCell<Cow<'static, str>>,
     pub text: RefCell<String>,
-    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    pub tex: CloneCell<Option<TextTexture>>,
 }
 
 impl Default for Label {
@@ -286,10 +287,12 @@ impl GuiElement for Label {
         _max_width: f32,
         _max_height: f32,
     ) -> (f32, f32) {
+        let old_tex = self.tex.take();
         let text = self.text.borrow_mut();
         let font = self.font.borrow_mut();
         let tex = text::render_fitting2(
             ctx,
+            old_tex,
             None,
             &font,
             &text,
@@ -300,7 +303,10 @@ impl GuiElement for Label {
         )
         .ok();
         let (tex, width, height) = match tex {
-            Some((t, _)) => (Some(t.clone()), t.width(), t.height()),
+            Some((t, _)) => {
+                let (width, height) = t.texture.size();
+                (Some(t.clone()), width, height)
+            }
             _ => (None, 0, 0),
         };
         self.tex.set(tex);
@@ -311,10 +317,9 @@ impl GuiElement for Label {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
-                &tex,
+                &tex.texture,
                 tx.round() as _,
                 ty.round() as _,
-                ARGB8888,
                 None,
                 None,
                 r.scale(),
@@ -638,12 +643,12 @@ impl WindowData {
         self.have_frame.set(false);
         buf.free.set(false);
 
-        buf.fb.render_custom(self.scale.get(), &mut |r| {
-            r.clear(&Color::from_gray(0));
-            if let Some(content) = self.content.get() {
-                content.render_at(r, 0.0, 0.0)
-            }
-        });
+        buf.fb
+            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
+                if let Some(content) = self.content.get() {
+                    content.render_at(r, 0.0, 0.0)
+                }
+            });
 
         self.surface.attach(&buf.wl);
         self.surface.commit();
@@ -693,16 +698,26 @@ impl WindowData {
         self.frame_missed.set(true);
         let width = (self.width.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let height = (self.height.get() as f64 * self.scale.get().to_f64()).round() as i32;
+        let formats = ctx.ctx.formats();
+        let format = match formats.get(&ARGB8888.drm) {
+            None => {
+                log::error!("Render context does not support ARGB8888 format");
+                return;
+            }
+            Some(f) => f,
+        };
+        if format.write_modifiers.is_empty() {
+            log::error!("Render context cannot render to ARGB8888 format");
+            return;
+        }
         for _ in 0..NUM_BUFFERS {
-            let format = ModifiedFormat {
-                format: ARGB8888,
-                modifier: INVALID_MODIFIER,
-            };
-            let bo = match ctx
-                .ctx
-                .gbm()
-                .create_bo(width, height, &format, GBM_BO_USE_RENDERING)
-            {
+            let bo = match ctx.ctx.gbm().create_bo(
+                width,
+                height,
+                ARGB8888,
+                &format.write_modifiers,
+                GBM_BO_USE_RENDERING,
+            ) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!("Could not allocate dmabuf: {}", ErrorFmt(e));

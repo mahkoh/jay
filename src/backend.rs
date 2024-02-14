@@ -6,6 +6,7 @@ use {
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         video::drm::{ConnectorType, DrmError, DrmVersion},
     },
+    jay_config::video::GfxApi,
     std::{
         any::Any,
         error::Error,
@@ -217,6 +218,7 @@ pub enum InputEvent {
 pub enum DrmEvent {
     #[allow(dead_code)]
     Removed,
+    GfxApiChanged,
 }
 
 pub trait BackendDrmDevice {
@@ -224,6 +226,8 @@ pub trait BackendDrmDevice {
     fn event(&self) -> Option<DrmEvent>;
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn dev_t(&self) -> c::dev_t;
-    fn make_render_device(self: Rc<Self>);
+    fn make_render_device(&self);
+    fn set_gfx_api(&self, api: GfxApi);
+    fn gtx_api(&self) -> GfxApi;
     fn version(&self) -> Result<DrmVersion, DrmError>;
 }

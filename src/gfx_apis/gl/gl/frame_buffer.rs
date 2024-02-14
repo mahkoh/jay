@@ -11,7 +11,7 @@ use {
 };
 
 pub struct GlFrameBuffer {
-    pub _rb: Option<Rc<GlRenderBuffer>>,
+    pub rb: Rc<GlRenderBuffer>,
     pub _tex: Option<Rc<GlTexture>>,
     pub ctx: Rc<EglContext>,
     pub width: i32,

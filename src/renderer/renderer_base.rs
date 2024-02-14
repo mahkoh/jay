@@ -1,9 +1,7 @@
 use {
     crate::{
-        format::Format,
         gfx_api::{
-            AbsoluteRect, BufferPoint, BufferPoints, Clear, CopyTexture, FillRect, GfxApiOpt,
-            GfxTexture,
+            AbsoluteRect, BufferPoint, BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxTexture,
         },
         rect::Rect,
         scale::Scale,
@@ -60,10 +58,6 @@ impl RendererBase<'_> {
             rect = (x1, y1, x2, y2)
         }
         rect
-    }
-
-    pub fn clear(&mut self, c: &Color) {
-        self.ops.push(GfxApiOpt::Clear(Clear { color: *c }))
     }
 
     pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color) {
@@ -123,7 +117,6 @@ impl RendererBase<'_> {
         texture: &Rc<dyn GfxTexture>,
         x: i32,
         y: i32,
-        format: &'static Format,
         tpoints: Option<BufferPoints>,
         tsize: Option<(i32, i32)>,
         tscale: Scale,
@@ -140,7 +133,7 @@ impl RendererBase<'_> {
         let (twidth, theight) = if let Some(size) = tsize {
             size
         } else {
-            let (mut w, mut h) = (texture.width(), texture.height());
+            let (mut w, mut h) = texture.size();
             if tscale != self.scale {
                 let tscale = tscale.to_f64();
                 w = (w as f64 * self.scalef / tscale).round() as _;
@@ -186,7 +179,6 @@ impl RendererBase<'_> {
 
         self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
             tex: texture.clone(),
-            format,
             source: texcoord,
             target: AbsoluteRect {
                 x1: x,

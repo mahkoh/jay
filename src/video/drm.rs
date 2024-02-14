@@ -17,6 +17,7 @@ use {
     },
     ahash::AHashMap,
     bstr::{BString, ByteSlice},
+    indexmap::IndexSet,
     std::{
         cell::RefCell,
         ffi::CString,
@@ -35,8 +36,11 @@ use crate::{
     utils::{buf::Buf, errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
     video::{
         dmabuf::DmaBuf,
-        drm::sys::{get_version, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH},
-        INVALID_MODIFIER,
+        drm::sys::{
+            drm_format_modifier, drm_format_modifier_blob, get_version, DRM_CAP_CURSOR_HEIGHT,
+            DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+        },
+        Modifier, INVALID_MODIFIER,
     },
 };
 pub use sys::{
@@ -106,6 +110,8 @@ pub enum DrmError {
     InvalidRead,
     #[error("Could not determine the drm version")]
     Version(#[source] OsError),
+    #[error("Format of IN_FORMATS property is invalid")]
+    InFormats,
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -169,9 +175,22 @@ impl Drm {
         get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
     }
 
+    pub fn get_render_node(&self) -> Result<Option<CString>, DrmError> {
+        let nodes = self.get_nodes()?;
+        Ok(nodes
+            .get(&NodeType::Render)
+            .or_else(|| nodes.get(&NodeType::Primary))
+            .map(|c| c.to_owned()))
+    }
+
     pub fn version(&self) -> Result<DrmVersion, DrmError> {
         get_version(self.fd.raw()).map_err(DrmError::Version)
     }
+}
+
+pub struct InFormat {
+    pub format: u32,
+    pub modifiers: IndexSet<Modifier>,
 }
 
 pub struct DrmMaster {
@@ -371,6 +390,64 @@ impl DrmMaster {
                 Ok(n) => vec.reserve_exact(n / mem::size_of::<T>()),
             }
         }
+    }
+
+    pub fn get_in_formats(&self, property: u32) -> Result<Vec<InFormat>, DrmError> {
+        let blob = self.getblob_vec::<u8>(DrmBlob(property))?;
+        let header: drm_format_modifier_blob = match uapi::pod_read_init(blob.as_bytes()) {
+            Ok(h) => h,
+            Err(_) => {
+                log::error!("Header of IN_FORMATS blob doesn't fit in the blob");
+                return Err(DrmError::InFormats);
+            }
+        };
+        if header.version != FORMAT_BLOB_CURRENT {
+            log::error!(
+                "Header of IN_FORMATS has an invalid version: {}",
+                header.version
+            );
+            return Err(DrmError::InFormats);
+        }
+        let formats_start = header.formats_offset as usize;
+        let formats_end = formats_start
+            .wrapping_add((header.count_formats as usize).wrapping_mul(mem::size_of::<u32>()));
+        let modifiers_start = header.modifiers_offset as usize;
+        let modifiers_end = modifiers_start.wrapping_add(
+            (header.count_modifiers as usize).wrapping_mul(mem::size_of::<drm_format_modifier>()),
+        );
+        if blob.len() < formats_end || formats_end < formats_start {
+            log::error!("Formats of IN_FORMATS blob don't fit in the blob");
+            return Err(DrmError::InFormats);
+        }
+        if blob.len() < modifiers_end || modifiers_end < modifiers_start {
+            log::error!("Formats of IN_FORMATS blob don't fit in the blob");
+            return Err(DrmError::InFormats);
+        }
+        let mut formats: Vec<_> = uapi::pod_iter::<u32, _>(&blob[formats_start..formats_end])
+            .unwrap()
+            .map(|f| InFormat {
+                format: f,
+                modifiers: IndexSet::new(),
+            })
+            .collect();
+        let modifiers =
+            uapi::pod_iter::<drm_format_modifier, _>(&blob[modifiers_start..modifiers_end])
+                .unwrap();
+        for modifier in modifiers {
+            let offset = modifier.offset as usize;
+            let mut indices = modifier.formats;
+            while indices != 0 {
+                let idx = indices.trailing_zeros();
+                indices &= !(1 << idx);
+                let idx = idx as usize + offset;
+                if idx >= formats.len() {
+                    log::error!("Modifier offset is out of bounds");
+                    return Err(DrmError::InFormats);
+                }
+                formats[idx].modifiers.insert(modifier.modifier);
+            }
+        }
+        Ok(formats)
     }
 
     #[allow(clippy::await_holding_refcell_ref)]

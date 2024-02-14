@@ -40,7 +40,7 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
-        video::{Connector, DrmDevice},
+        video::{Connector, DrmDevice, GfxApi},
         Axis, Direction, Workspace,
     },
     libloading::Library,
@@ -578,6 +578,14 @@ impl ConfigProxyHandler {
             ws.capture.set(capture);
             ws.output.get().schedule_update_render_data();
             self.state.damage();
+        }
+        Ok(())
+    }
+
+    fn handle_set_gfx_api(&self, device: Option<DrmDevice>, api: GfxApi) -> Result<(), CphError> {
+        match device {
+            Some(dev) => self.get_drm_device(dev)?.dev.set_gfx_api(api),
+            _ => self.state.default_gfx_api.set(api),
         }
         Ok(())
     }
@@ -1309,6 +1317,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetNaturalScrollingEnabled { device, enabled } => self
                 .handle_set_natural_scrolling_enabled(device, enabled)
                 .wrn("set_natural_scrolling_enabled")?,
+            ClientMessage::SetGfxApi { device, api } => {
+                self.handle_set_gfx_api(device, api).wrn("set_gfx_api")?
+            }
         }
         Ok(())
     }

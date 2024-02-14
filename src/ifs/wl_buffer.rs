@@ -149,8 +149,15 @@ impl WlBuffer {
         if self.render_ctx_version.replace(ctx_version) == ctx_version {
             return;
         }
-        self.texture.set(None);
+        let had_texture = self.texture.set(None).is_some();
         self.famebuffer.set(None);
+        self.reset_storage_after_gfx_context_change();
+        if had_texture {
+            self.update_texture_or_log();
+        }
+    }
+
+    fn reset_storage_after_gfx_context_change(&self) {
         let mut storage = self.storage.borrow_mut();
         if let Some(storage) = &mut *storage {
             if let WlBufferStorage::Shm { .. } = storage {
@@ -167,7 +174,7 @@ impl WlBuffer {
                 Ok(image) => image,
                 Err(e) => {
                     log::error!(
-                        "Cannot re-import wl_buffer after graphics context reset: {}",
+                        "Cannot re-import wl_buffer after graphics context change: {}",
                         ErrorFmt(e)
                     );
                     return;
@@ -177,7 +184,13 @@ impl WlBuffer {
         }
     }
 
-    pub fn update_texture(&self) -> Result<(), WlBufferError> {
+    pub fn update_texture_or_log(&self) {
+        if let Err(e) = self.update_texture() {
+            log::warn!("Could not update texture: {}", ErrorFmt(e));
+        }
+    }
+
+    fn update_texture(&self) -> Result<(), WlBufferError> {
         let storage = self.storage.borrow_mut();
         let storage = match storage.deref() {
             Some(s) => s,
@@ -185,10 +198,10 @@ impl WlBuffer {
         };
         match storage {
             WlBufferStorage::Shm { mem, stride } => {
-                self.texture.set(None);
+                let old = self.texture.take();
                 if let Some(ctx) = self.client.state.render_ctx.get() {
                     let tex = mem.access(|mem| {
-                        ctx.shmem_texture(mem, self.format, self.width, self.height, *stride)
+                        ctx.shmem_texture(old, mem, self.format, self.width, self.height, *stride)
                     })??;
                     self.texture.set(Some(tex));
                 }

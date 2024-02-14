@@ -3,13 +3,12 @@ use {
         backend::KeyState,
         cursor::KnownCursor,
         fixed::Fixed,
-        gfx_api::GfxTexture,
         ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text,
+        text::{self, TextTexture},
         tree::{
             walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
             StackedNode, ToplevelNode, WorkspaceNode,
@@ -44,7 +43,7 @@ pub struct FloatNode {
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
-    pub title_textures: CopyHashMap<Scale, Rc<dyn GfxTexture>>,
+    pub title_textures: CopyHashMap<Scale, TextTexture>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
 }
 
@@ -179,7 +178,6 @@ impl FloatNode {
         let bw = theme.sizes.border_width.get();
         let font = theme.font.borrow_mut();
         let title = self.title.borrow_mut();
-        self.title_textures.clear();
         let pos = self.position.get();
         if pos.width() <= 2 * bw || title.is_empty() {
             return;
@@ -190,6 +188,7 @@ impl FloatNode {
         };
         let scales = self.state.scales.lock();
         for (scale, _) in scales.iter() {
+            let old_tex = self.title_textures.remove(scale);
             let mut th = th;
             let mut scalef = None;
             let mut width = pos.width() - 2 * bw;
@@ -202,7 +201,7 @@ impl FloatNode {
             if th == 0 || width == 0 {
                 continue;
             }
-            let texture = match text::render(&ctx, width, th, &font, &title, tc, scalef) {
+            let texture = match text::render(&ctx, old_tex, width, th, &font, &title, tc, scalef) {
                 Ok(t) => t,
                 Err(e) => {
                     log::error!("Could not render title {}: {}", title, ErrorFmt(e));

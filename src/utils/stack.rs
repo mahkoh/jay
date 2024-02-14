@@ -1,5 +1,8 @@
 use {
-    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
+    crate::utils::{
+        clonecell::UnsafeCellCloneSafe,
+        ptr_ext::{MutPtrExt, PtrExt},
+    },
     std::{cell::UnsafeCell, mem},
 };
 
@@ -28,7 +31,7 @@ impl<T> Stack<T> {
 
     pub fn to_vec(&self) -> Vec<T>
     where
-        T: Clone,
+        T: UnsafeCellCloneSafe,
     {
         unsafe {
             let v = self.vec.get().deref();

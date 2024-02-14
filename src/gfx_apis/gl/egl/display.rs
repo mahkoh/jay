@@ -1,7 +1,7 @@
 use {
     crate::{
         format::{formats, Format},
-        gfx_api::{GfxFormat, GfxModifier},
+        gfx_api::GfxFormat,
         gfx_apis::gl::{
             egl::{
                 context::EglContext,
@@ -30,16 +30,30 @@ use {
             },
             RenderError,
         },
-        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, INVALID_MODIFIER},
+        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice, Modifier, INVALID_MODIFIER},
     },
     ahash::AHashMap,
+    indexmap::{IndexMap, IndexSet},
     std::{ptr, rc::Rc},
 };
 
 #[derive(Debug)]
+pub struct EglFormat {
+    pub format: &'static Format,
+    pub implicit_external_only: bool,
+    pub modifiers: IndexMap<u64, EglModifier>,
+}
+
+#[derive(Debug)]
+pub struct EglModifier {
+    pub modifier: u64,
+    pub external_only: bool,
+}
+
+#[derive(Debug)]
 pub struct EglDisplay {
     pub exts: DisplayExt,
-    pub formats: Rc<AHashMap<u32, GfxFormat>>,
+    pub formats: AHashMap<u32, EglFormat>,
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
 }
@@ -61,7 +75,7 @@ impl EglDisplay {
             }
             let mut dpy = EglDisplay {
                 exts: DisplayExt::empty(),
-                formats: Rc::new(AHashMap::new()),
+                formats: AHashMap::new(),
                 gbm: Rc::new(gbm),
                 dpy,
             };
@@ -89,7 +103,7 @@ impl EglDisplay {
             if !dpy.exts.intersects(DisplayExt::KHR_SURFACELESS_CONTEXT) {
                 return Err(RenderError::SurfacelessContext);
             }
-            dpy.formats = Rc::new(query_formats(dpy.dpy)?);
+            dpy.formats = query_formats(dpy.dpy)?;
 
             Ok(Rc::new(dpy))
         }
@@ -109,27 +123,62 @@ impl EglDisplay {
             log::warn!("EGL display does not support gpu reset notifications");
         }
         attrib.push(EGL_NONE);
-        unsafe {
-            let ctx = eglCreateContext(
+        let ctx = unsafe {
+            eglCreateContext(
                 self.dpy,
                 EGLConfig::none(),
                 EGLContext::none(),
                 attrib.as_ptr(),
-            );
-            if ctx.is_none() {
-                return Err(RenderError::CreateContext);
-            }
-            let mut ctx = EglContext {
-                dpy: self.clone(),
-                ext: GlExt::empty(),
-                ctx,
-            };
-            ctx.ext = ctx.with_current(|| Ok(get_gl_ext()))?;
-            if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE) {
-                return Err(RenderError::OesEglImage);
-            }
-            Ok(Rc::new(ctx))
+            )
+        };
+        if ctx.is_none() {
+            return Err(RenderError::CreateContext);
         }
+        let mut ctx = EglContext {
+            dpy: self.clone(),
+            ext: GlExt::empty(),
+            ctx,
+            formats: Default::default(),
+        };
+        ctx.ext = ctx.with_current(|| Ok(get_gl_ext()))?;
+        if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE) {
+            return Err(RenderError::OesEglImage);
+        }
+        ctx.formats = {
+            let mut formats = AHashMap::new();
+            let supports_external_only = ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL);
+            for (&drm, format) in &self.formats {
+                if format.implicit_external_only && !supports_external_only {
+                    continue;
+                }
+                let mut read_modifiers = IndexSet::new();
+                let mut write_modifiers = IndexSet::new();
+                for modifier in format.modifiers.values() {
+                    if modifier.external_only && !supports_external_only {
+                        continue;
+                    }
+                    if !modifier.external_only {
+                        write_modifiers.insert(modifier.modifier);
+                    }
+                    read_modifiers.insert(modifier.modifier);
+                }
+                if !read_modifiers.is_empty() || !write_modifiers.is_empty() {
+                    formats.insert(
+                        drm,
+                        GfxFormat {
+                            format: format.format,
+                            read_modifiers,
+                            write_modifiers,
+                        },
+                    );
+                }
+            }
+            Rc::new(formats)
+        };
+        if ctx.formats.is_empty() {
+            return Err(RenderError::NoSupportedFormats);
+        }
+        Ok(Rc::new(ctx))
     }
 
     pub(in crate::gfx_apis::gl) fn import_dmabuf(
@@ -214,6 +263,7 @@ impl EglDisplay {
             width: buf.width,
             height: buf.height,
             external_only: format.external_only,
+            format: buf.format,
         }))
     }
 }
@@ -228,7 +278,7 @@ impl Drop for EglDisplay {
     }
 }
 
-unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, GfxFormat>, RenderError> {
+unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, RenderError> {
     let mut vec = vec![];
     let mut num = 0;
     let res = PROCS.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num);
@@ -248,7 +298,7 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, GfxFormat>, Ren
             let (modifiers, external_only) = query_modifiers(dpy, fmt, format)?;
             res.insert(
                 format.drm,
-                GfxFormat {
+                EglFormat {
                     format,
                     implicit_external_only: external_only,
                     modifiers,
@@ -263,7 +313,7 @@ unsafe fn query_modifiers(
     dpy: EGLDisplay,
     gl_format: EGLint,
     format: &'static Format,
-) -> Result<(AHashMap<u64, GfxModifier>, bool), RenderError> {
+) -> Result<(IndexMap<Modifier, EglModifier>, bool), RenderError> {
     let mut mods = vec![];
     let mut ext_only = vec![];
     let mut num = 0;
@@ -293,11 +343,11 @@ unsafe fn query_modifiers(
     }
     mods.set_len(num as usize);
     ext_only.set_len(num as usize);
-    let mut res = AHashMap::new();
+    let mut res = IndexMap::new();
     for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
         res.insert(
             modifier as _,
-            GfxModifier {
+            EglModifier {
                 modifier: modifier as _,
                 external_only: ext_only == EGL_TRUE,
             },
@@ -309,7 +359,7 @@ unsafe fn query_modifiers(
     }
     res.insert(
         INVALID_MODIFIER,
-        GfxModifier {
+        EglModifier {
             modifier: INVALID_MODIFIER,
             external_only,
         },

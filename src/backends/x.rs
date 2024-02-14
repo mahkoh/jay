@@ -10,7 +10,6 @@ use {
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        gfx_apis::create_gfx_context,
         renderer::RenderResult,
         state::State,
         time::now_usec,
@@ -20,8 +19,8 @@ use {
         },
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
-            ModifiedFormat, INVALID_MODIFIER,
+            gbm::{GbmDevice, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            INVALID_MODIFIER, LINEAR_MODIFIER,
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
@@ -50,6 +49,7 @@ use {
             Event, XEvent, Xcon, XconError,
         },
     },
+    jay_config::video::GfxApi,
     std::{
         any::Any,
         borrow::Cow,
@@ -118,6 +118,8 @@ pub enum XBackendError {
     QueryDevice(#[source] XconError),
     #[error("Could not fstat the drm device")]
     DrmDeviceFstat(#[source] Errno),
+    #[error("Render device does not support XRGB8888 format")]
+    XRGB8888,
 }
 
 pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
@@ -179,7 +181,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         Err(e) => return Err(XBackendError::DrmDeviceFstat(e)),
     };
     let gbm = GbmDevice::new(&drm)?;
-    let ctx = match create_gfx_context(&drm) {
+    let ctx = match state.create_gfx_context(&drm, None) {
         Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
     };
@@ -376,15 +378,25 @@ impl XBackend {
         width: i32,
         height: i32,
     ) -> Result<[XImage; 2], XBackendError> {
-        let format = ModifiedFormat {
-            format: XRGB8888,
-            modifier: INVALID_MODIFIER,
-        };
         let mut images = [None, None];
+        let formats = self.ctx.formats();
+        let format = match formats.get(&XRGB8888.drm) {
+            Some(f) => f,
+            None => return Err(XBackendError::XRGB8888),
+        };
+        let mut usage = GBM_BO_USE_RENDERING;
+        let modifier = if format.write_modifiers.contains(&LINEAR_MODIFIER) {
+            &[LINEAR_MODIFIER]
+        } else if format.write_modifiers.contains(&INVALID_MODIFIER) {
+            usage |= GBM_BO_USE_LINEAR;
+            &[INVALID_MODIFIER]
+        } else {
+            panic!("Neither linear nor invalid modifier is supported");
+        };
         for image in &mut images {
             let bo = self
                 .gbm
-                .create_bo(width, height, &format, GBM_BO_USE_RENDERING)?;
+                .create_bo(width, height, XRGB8888, modifier, usage)?;
             let dma = bo.dmabuf();
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();
@@ -723,12 +735,11 @@ impl XBackend {
         if let Some(node) = self.state.root.outputs.get(&output.id) {
             let mut rr = self.render_result.borrow_mut();
             let fb = image.fb.get();
-            fb.render(
+            fb.render_node(
                 &*node,
                 &self.state,
                 Some(node.global.pos.get()),
-                true,
-                rr.deref_mut(),
+                Some(rr.deref_mut()),
                 node.preferred_scale.get(),
                 true,
             );
@@ -965,9 +976,18 @@ impl BackendDrmDevice for XDrmDevice {
         self.dev
     }
 
-    fn make_render_device(self: Rc<Self>) {
+    fn make_render_device(&self) {
         log::warn!("make_render_device is not supported by the X backend");
         // nothing
+    }
+
+    fn set_gfx_api(&self, _api: GfxApi) {
+        log::warn!("set_gfx_api is not supported by the X backend");
+        // nothing
+    }
+
+    fn gtx_api(&self) -> GfxApi {
+        self.backend.ctx.gfx_api()
     }
 
     fn version(&self) -> Result<DrmVersion, DrmError> {

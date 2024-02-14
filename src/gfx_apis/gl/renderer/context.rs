@@ -14,18 +14,14 @@ use {
             renderer::{framebuffer::Framebuffer, image::Image},
             GfxGlState, RenderError, Texture,
         },
-        video::{
-            dmabuf::DmaBuf,
-            drm::{Drm, NodeType},
-            gbm::GbmDevice,
-        },
+        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice},
     },
     ahash::AHashMap,
+    jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
-        mem,
         rc::Rc,
     },
     uapi::ustr,
@@ -82,19 +78,11 @@ impl GlRenderContext {
         self.ctx.reset_status()
     }
 
-    pub fn supports_external_texture(&self) -> bool {
-        self.ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL)
-    }
-
     pub(in crate::gfx_apis::gl) fn from_drm_device(drm: &Drm) -> Result<Self, RenderError> {
-        let nodes = drm.get_nodes()?;
-        let node = match nodes
-            .get(&NodeType::Render)
-            .or_else(|| nodes.get(&NodeType::Primary))
-        {
-            None => return Err(RenderError::NoRenderNode),
-            Some(path) => Rc::new(path.to_owned()),
-        };
+        let node = drm
+            .get_render_node()?
+            .ok_or(RenderError::NoRenderNode)
+            .map(Rc::new)?;
         let dpy = EglDisplay::create(drm)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
@@ -161,7 +149,7 @@ impl GlRenderContext {
     }
 
     pub fn formats(&self) -> Rc<AHashMap<u32, GfxFormat>> {
-        self.ctx.dpy.formats.clone()
+        self.ctx.formats.clone()
     }
 
     fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
@@ -203,16 +191,8 @@ impl GlRenderContext {
 }
 
 impl GfxContext for GlRenderContext {
-    fn take_render_ops(&self) -> Vec<GfxApiOpt> {
-        mem::take(&mut self.gfx_ops.borrow_mut())
-    }
-
     fn reset_status(&self) -> Option<ResetStatus> {
         self.reset_status()
-    }
-
-    fn supports_external_texture(&self) -> bool {
-        self.supports_external_texture()
     }
 
     fn render_node(&self) -> Rc<CString> {
@@ -239,6 +219,7 @@ impl GfxContext for GlRenderContext {
 
     fn shmem_texture(
         self: Rc<Self>,
+        _old: Option<Rc<dyn GfxTexture>>,
         data: &[Cell<u8>],
         format: &'static Format,
         width: i32,
@@ -253,5 +234,9 @@ impl GfxContext for GlRenderContext {
 
     fn gbm(&self) -> &GbmDevice {
         &self.gbm
+    }
+
+    fn gfx_api(&self) -> GfxApi {
+        GfxApi::OpenGl
     }
 }

@@ -19,6 +19,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
@@ -220,8 +221,10 @@ impl WlOutputGlobal {
                 continue;
             }
             let rect = capture.rect;
-            if let Some(WlBufferStorage::Shm { mem, .. }) = wl_buffer.storage.borrow_mut().deref() {
-                let res = mem.access(|mem| {
+            if let Some(WlBufferStorage::Shm { mem, stride }) =
+                wl_buffer.storage.borrow_mut().deref()
+            {
+                let acc = mem.access(|mem| {
                     fb.copy_to_shm(
                         rect.x1(),
                         rect.y1(),
@@ -229,10 +232,39 @@ impl WlOutputGlobal {
                         rect.height(),
                         XRGB8888,
                         mem,
-                    );
+                    )
                 });
+                let mut res = match acc {
+                    Ok(res) => res,
+                    Err(e) => {
+                        capture.client.error(e);
+                        continue;
+                    }
+                };
+                if res.is_err() {
+                    let acc = mem.access(|mem| {
+                        tex.clone().read_pixels(
+                            capture.rect.x1(),
+                            capture.rect.y1(),
+                            capture.rect.width(),
+                            capture.rect.height(),
+                            *stride,
+                            wl_buffer.format,
+                            mem,
+                        )
+                    });
+                    res = match acc {
+                        Ok(res) => res,
+                        Err(e) => {
+                            capture.client.error(e);
+                            continue;
+                        }
+                    };
+                }
                 if let Err(e) = res {
-                    capture.client.error(e);
+                    log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
+                    capture.send_failed();
+                    continue;
                 }
                 // capture.send_flags(FLAGS_Y_INVERT);
             } else {
@@ -244,13 +276,7 @@ impl WlOutputGlobal {
                         continue;
                     }
                 };
-                fb.copy_texture(
-                    &self.state,
-                    tex,
-                    -capture.rect.x1(),
-                    -capture.rect.y1(),
-                    false,
-                );
+                fb.copy_texture(tex, -capture.rect.x1(), -capture.rect.y1());
             }
             if capture.with_damage.get() {
                 capture.send_damage();

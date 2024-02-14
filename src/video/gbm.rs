@@ -2,12 +2,12 @@
 
 use {
     crate::{
-        format::formats,
+        format::{formats, Format},
         utils::oserror::OsError,
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
-            ModifiedFormat, INVALID_MODIFIER,
+            Modifier, INVALID_MODIFIER,
         },
     },
     std::{
@@ -27,13 +27,15 @@ pub enum GbmError {
     #[error("Cloud not create a gbm device")]
     CreateDevice,
     #[error("Cloud not create a gbm buffer")]
-    CreateBo,
+    CreateBo(#[source] OsError),
     #[error("gbm buffer has an unknown format")]
     UnknownFormat,
     #[error("Could not retrieve a drm-buf fd")]
     DrmFd,
     #[error("Could not map bo")]
     MapBo(#[source] OsError),
+    #[error("Tried to allocate a buffer with no modifier")]
+    NoModifier,
 }
 
 pub type Device = u8;
@@ -161,7 +163,7 @@ unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
             }
         },
         planes: {
-            let mut planes = vec![];
+            let mut planes = PlaneVec::new();
             for plane in 0..gbm_bo_get_plane_count(bo) {
                 let offset = gbm_bo_get_offset(bo, plane);
                 let stride = gbm_bo_get_stride_for_plane(bo, plane);
@@ -195,30 +197,36 @@ impl GbmDevice {
         self.dev
     }
 
-    pub fn create_bo(
+    pub fn create_bo<'a>(
         &self,
         width: i32,
         height: i32,
-        format: &ModifiedFormat,
-        usage: u32,
+        format: &Format,
+        modifiers: impl IntoIterator<Item = &'a Modifier>,
+        mut usage: u32,
     ) -> Result<GbmBo, GbmError> {
         unsafe {
-            let (modifiers, n_modifiers) = if format.modifier == INVALID_MODIFIER {
+            let modifiers: Vec<Modifier> = modifiers.into_iter().copied().collect();
+            if modifiers.is_empty() {
+                return Err(GbmError::NoModifier);
+            }
+            let (modifiers, n_modifiers) = if modifiers == [INVALID_MODIFIER] {
                 (ptr::null(), 0)
             } else {
-                (&format.modifier as _, 1)
+                usage &= !GBM_BO_USE_LINEAR;
+                (modifiers.as_ptr() as _, modifiers.len() as _)
             };
             let bo = gbm_bo_create_with_modifiers2(
                 self.dev,
                 width as _,
                 height as _,
-                format.format.drm,
+                format.drm,
                 modifiers,
                 n_modifiers,
                 usage,
             );
             if bo.is_null() {
-                return Err(GbmError::CreateBo);
+                return Err(GbmError::CreateBo(OsError::default()));
             }
             let bo = BoHolder { bo };
             let dma = export_bo(bo.bo)?;
@@ -250,7 +258,7 @@ impl GbmDevice {
                 usage,
             );
             if bo.is_null() {
-                return Err(GbmError::CreateBo);
+                return Err(GbmError::CreateBo(OsError::default()));
             }
             let bo = BoHolder { bo };
             Ok(GbmBo {

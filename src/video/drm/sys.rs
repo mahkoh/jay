@@ -1132,3 +1132,27 @@ pub fn get_version(fd: c::c_int) -> Result<DrmVersion, OsError> {
         desc: desc.into(),
     })
 }
+
+pub const FORMAT_BLOB_CURRENT: u32 = 1;
+
+#[repr(C)]
+pub struct drm_format_modifier_blob {
+    pub version: u32,
+    pub flags: u32,
+    pub count_formats: u32,
+    pub formats_offset: u32,
+    pub count_modifiers: u32,
+    pub modifiers_offset: u32,
+}
+
+unsafe impl Pod for drm_format_modifier_blob {}
+
+#[repr(C)]
+pub struct drm_format_modifier {
+    pub formats: u64,
+    pub offset: u32,
+    pub pad: u32,
+    pub modifier: u64,
+}
+
+unsafe impl Pod for drm_format_modifier {}

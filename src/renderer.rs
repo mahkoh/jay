@@ -1,6 +1,5 @@
 use {
     crate::{
-        format::ARGB8888,
         gfx_api::{BufferPoints, GfxApiOpt},
         ifs::{
             wl_buffer::WlBuffer,
@@ -45,8 +44,7 @@ impl Debug for RenderResult {
 pub struct Renderer<'a> {
     pub base: RendererBase<'a>,
     pub state: &'a State,
-    pub on_output: bool,
-    pub result: &'a mut RenderResult,
+    pub result: Option<&'a mut RenderResult>,
     pub logical_extents: Rect,
     pub physical_extents: Rect,
 }
@@ -141,25 +139,15 @@ impl Renderer<'_> {
             let scale = output.preferred_scale.get();
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
-                self.base.render_texture(
-                    &title.tex,
-                    x,
-                    y,
-                    ARGB8888,
-                    None,
-                    None,
-                    scale,
-                    i32::MAX,
-                    i32::MAX,
-                );
+                self.base
+                    .render_texture(&title.tex, x, y, None, None, scale, i32::MAX, i32::MAX);
             }
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
                 self.base.render_texture(
-                    &status.tex,
+                    &status.tex.texture,
                     x,
                     y,
-                    ARGB8888,
                     None,
                     None,
                     scale,
@@ -198,13 +186,13 @@ impl Renderer<'_> {
             &Color::from_rgba_straight(20, 20, 20, 255),
         );
         if let Some(tex) = placeholder.textures.get(&self.base.scale) {
-            let x = x + (pos.width() - tex.width()) / 2;
-            let y = y + (pos.height() - tex.height()) / 2;
+            let (tex_width, tex_height) = tex.texture.size();
+            let x = x + (pos.width() - tex_width) / 2;
+            let y = y + (pos.height() - tex_height) / 2;
             self.base.render_texture(
-                &tex,
+                &tex.texture,
                 x,
                 y,
-                ARGB8888,
                 None,
                 None,
                 self.base.scale,
@@ -238,10 +226,9 @@ impl Renderer<'_> {
                 for title in titles {
                     let (x, y) = self.base.scale_point(x + title.x, y + title.y);
                     self.base.render_texture(
-                        &title.tex,
+                        &title.tex.texture,
                         x,
                         y,
-                        ARGB8888,
                         None,
                         None,
                         self.base.scale,
@@ -367,14 +354,14 @@ impl Renderer<'_> {
         } else {
             self.render_buffer(&buffer, x, y, *tpoints, size, max_width, max_height);
         }
-        if self.on_output {
+        if let Some(result) = self.result.as_deref_mut() {
             {
                 let mut fr = surface.frame_requests.borrow_mut();
-                self.result.frame_requests.extend(fr.drain(..));
+                result.frame_requests.extend(fr.drain(..));
             }
             {
                 let mut fbs = surface.presentation_feedback.borrow_mut();
-                self.result.presentation_feedbacks.extend(fbs.drain(..));
+                result.presentation_feedbacks.extend(fbs.drain(..));
             }
         }
     }
@@ -394,7 +381,6 @@ impl Renderer<'_> {
                 &tex,
                 x,
                 y,
-                buffer.format,
                 Some(tpoints),
                 Some(tsize),
                 self.base.scale,
@@ -407,6 +393,8 @@ impl Renderer<'_> {
             {
                 self.base.fill_boxes(&[rect], color);
             }
+        } else {
+            log::info!("live buffer has neither a texture nor is a single-pixel buffer");
         }
     }
 
@@ -440,10 +428,9 @@ impl Renderer<'_> {
         if let Some(title) = floating.title_textures.get(&self.base.scale) {
             let (x, y) = self.base.scale_point(x + bw, y + bw);
             self.base.render_texture(
-                &title,
+                &title.texture,
                 x,
                 y,
-                ARGB8888,
                 None,
                 None,
                 self.base.scale,

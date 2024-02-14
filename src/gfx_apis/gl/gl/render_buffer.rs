@@ -56,7 +56,7 @@ impl GlRenderBuffer {
         let status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         let fb = GlFrameBuffer {
-            _rb: Some(self.clone()),
+            rb: self.clone(),
             _tex: None,
             ctx: self.ctx.clone(),
             fbo,

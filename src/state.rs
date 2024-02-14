@@ -14,7 +14,8 @@ use {
         dbus::Dbus,
         drm_feedback::DrmFeedback,
         forker::ForkerProxy,
-        gfx_api::GfxContext,
+        gfx_api::{GfxContext, GfxError},
+        gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
             ext_session_lock_v1::ExtSessionLockV1,
@@ -45,6 +46,7 @@ use {
             errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, numcell::NumCell,
             queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
         },
+        video::drm::Drm,
         wheel::Wheel,
         wire::{
             JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
@@ -54,7 +56,7 @@ use {
     },
     ahash::AHashMap,
     bstr::ByteSlice,
-    jay_config::PciId,
+    jay_config::{video::GfxApi, PciId},
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -131,6 +133,7 @@ pub struct State {
     pub render_ctx_watchers: CopyHashMap<(ClientId, JayRenderCtxId), Rc<JayRenderCtx>>,
     pub workspace_watchers: CopyHashMap<(ClientId, JayWorkspaceWatcherId), Rc<JayWorkspaceWatcher>>,
     pub default_workspace_capture: Cell<bool>,
+    pub default_gfx_api: Cell<GfxApi>,
 }
 
 // impl Drop for State {
@@ -237,6 +240,7 @@ impl DrmDevData {
 struct UpdateTextTexturesVisitor;
 impl NodeVisitorBase for UpdateTextTexturesVisitor {
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+        node.children.iter().for_each(|c| c.title_tex.clear());
         node.schedule_compute_render_data();
         node.node_visit_children(self);
     }
@@ -245,16 +249,31 @@ impl NodeVisitorBase for UpdateTextTexturesVisitor {
         node.node_visit_children(self);
     }
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
+        node.title_textures.clear();
         node.schedule_render_titles();
         node.node_visit_children(self);
     }
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        node.textures.clear();
         node.update_texture();
         node.node_visit_children(self);
     }
 }
 
 impl State {
+    pub fn create_gfx_context(
+        &self,
+        drm: &Drm,
+        api: Option<GfxApi>,
+    ) -> Result<Rc<dyn GfxContext>, GfxError> {
+        create_gfx_context(
+            &self.eng,
+            &self.ring,
+            drm,
+            api.unwrap_or(self.default_gfx_api.get()),
+        )
+    }
+
     pub fn add_output_scale(&self, scale: Scale) {
         if self.scales.add(scale) {
             self.output_scales_changed();
@@ -339,11 +358,17 @@ impl State {
             impl NodeVisitorBase for Walker {
                 fn visit_container(&mut self, node: &Rc<ContainerNode>) {
                     node.render_data.borrow_mut().titles.clear();
+                    node.children.iter().for_each(|c| c.title_tex.clear());
+                    node.node_visit_children(self);
+                }
+                fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
+                    node.title_texture.set(None);
                     node.node_visit_children(self);
                 }
                 fn visit_output(&mut self, node: &Rc<OutputNode>) {
                     node.render_data.borrow_mut().titles.clear();
                     node.render_data.borrow_mut().status.take();
+                    node.hardware_cursor.set(None);
                     node.node_visit_children(self);
                 }
                 fn visit_float(&mut self, node: &Rc<FloatNode>) {

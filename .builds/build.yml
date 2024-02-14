@@ -4,7 +4,7 @@ sources:
 tasks:
   - install: |
       sudo pacman -Syu --noconfirm
-      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon
+      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon cmake
       rustup toolchain install stable
   - build: |
       cd jay

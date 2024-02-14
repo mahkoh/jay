@@ -310,7 +310,7 @@ impl CursorImageScaled {
             extents: Rect::new_sized(-xhot, -yhot, width, height).unwrap(),
             tex: ctx
                 .clone()
-                .shmem_texture(data, ARGB8888, width, height, width * 4)?,
+                .shmem_texture(None, data, ARGB8888, width, height, width * 4)?,
         }))
     }
 }
@@ -363,7 +363,6 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             &img.tex,
             extents.x1(),
             extents.y1(),
-            ARGB8888,
             None,
             None,
             scale,
@@ -384,7 +383,6 @@ impl Cursor for StaticCursor {
                 &img.tex,
                 0,
                 0,
-                ARGB8888,
                 None,
                 None,
                 renderer.scale(),
@@ -422,7 +420,6 @@ impl Cursor for AnimatedCursor {
                 &img.tex,
                 0,
                 0,
-                ARGB8888,
                 None,
                 None,
                 renderer.scale(),

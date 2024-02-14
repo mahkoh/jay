@@ -103,11 +103,13 @@ impl DrvDevHandler {
         if let Some(config) = self.state.config.get() {
             config.new_drm_dev(self.id);
         }
+        self.log_gfx_api();
         'outer: loop {
             #[allow(clippy::never_loop)]
             while let Some(event) = self.data.dev.event() {
                 match event {
                     DrmEvent::Removed => break 'outer,
+                    DrmEvent::GfxApiChanged => self.log_gfx_api(),
                 }
             }
             ae.triggered().await;
@@ -120,5 +122,14 @@ impl DrvDevHandler {
         }
         self.data.handler.set(None);
         self.state.drm_devs.remove(&self.id);
+    }
+
+    fn log_gfx_api(&self) {
+        let api = self.data.dev.gtx_api();
+        log::info!(
+            "Using {:?} for device {}",
+            api,
+            self.data.devnode.as_deref().unwrap_or(""),
+        )
     }
 }

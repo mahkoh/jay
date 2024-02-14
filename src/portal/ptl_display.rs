@@ -35,6 +35,7 @@ use {
         },
     },
     ahash::AHashMap,
+    jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -169,16 +170,17 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         }
         if self.render_ctx.get().is_none() {
             let drm = Drm::open_existing(fd);
-            let ctx = match create_gfx_context(&drm) {
-                Ok(c) => c,
-                Err(e) => {
-                    log::error!(
-                        "Could not create render context from drm device: {}",
-                        ErrorFmt(e)
-                    );
-                    return;
-                }
-            };
+            let ctx =
+                match create_gfx_context(&self.state.eng, &self.state.ring, &drm, GfxApi::OpenGl) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        log::error!(
+                            "Could not create render context from drm device: {}",
+                            ErrorFmt(e)
+                        );
+                        return;
+                    }
+                };
             let ctx = Rc::new(PortalRenderCtx { dev_id, ctx });
             self.render_ctx.set(Some(ctx.clone()));
             self.state.render_ctxs.set(dev_id, Rc::downgrade(&ctx));

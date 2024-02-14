@@ -23,7 +23,7 @@ use {
         renderer::Renderer,
         scale::Scale,
         state::State,
-        text,
+        text::{self, TextTexture},
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode,
         },
@@ -165,6 +165,7 @@ impl OutputNode {
         let output_width = self.global.pos.get().width();
         rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
+            let old_tex = ws.title_texture.take();
             let mut title_width = th;
             'create_texture: {
                 if let Some(ctx) = self.state.render_ctx.get() {
@@ -177,6 +178,7 @@ impl OutputNode {
                     };
                     let title = match text::render_fitting(
                         &ctx,
+                        old_tex,
                         Some(texture_height),
                         &font,
                         &ws.name,
@@ -190,8 +192,9 @@ impl OutputNode {
                             break 'create_texture;
                         }
                     };
+                    ws.title_texture.set(Some(title.clone()));
                     let mut x = pos + 1;
-                    let mut width = title.width();
+                    let (mut width, _) = title.texture.size();
                     if let Some(scale) = scale {
                         width = (width as f64 / scale).round() as _;
                     }
@@ -205,7 +208,7 @@ impl OutputNode {
                         x2: pos + title_width,
                         tex_x: x,
                         tex_y: 0,
-                        tex: title,
+                        tex: title.texture,
                         ws: ws.deref().clone(),
                     });
                 }
@@ -224,6 +227,7 @@ impl OutputNode {
             pos += title_width;
         }
         'set_status: {
+            let old_tex = rd.status.take().map(|s| s.tex);
             let ctx = match self.state.render_ctx.get() {
                 Some(ctx) => ctx,
                 _ => break 'set_status,
@@ -235,6 +239,7 @@ impl OutputNode {
             let tc = self.state.theme.colors.bar_text.get();
             let title = match text::render_fitting(
                 &ctx,
+                old_tex,
                 Some(texture_height),
                 &font,
                 &status,
@@ -248,7 +253,7 @@ impl OutputNode {
                     break 'set_status;
                 }
             };
-            let mut width = title.width();
+            let (mut width, _) = title.texture.size();
             if let Some(scale) = scale {
                 width = (width as f64 / scale).round() as _;
             }
@@ -324,6 +329,7 @@ impl OutputNode {
             desired_output: CloneCell::new(self.global.output_id.clone()),
             jay_workspaces: Default::default(),
             capture: self.state.default_workspace_capture.clone(),
+            title_texture: Default::default(),
         });
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));
@@ -473,7 +479,7 @@ pub struct OutputTitle {
 pub struct OutputStatus {
     pub tex_x: i32,
     pub tex_y: i32,
-    pub tex: Rc<dyn GfxTexture>,
+    pub tex: TextTexture,
 }
 
 #[derive(Copy, Clone)]

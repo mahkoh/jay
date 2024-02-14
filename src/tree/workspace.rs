@@ -10,6 +10,7 @@ use {
         },
         rect::Rect,
         renderer::Renderer,
+        text::TextTexture,
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
             FindTreeResult, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode, StackedNode,
@@ -43,6 +44,7 @@ pub struct WorkspaceNode {
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
     pub capture: Cell<bool>,
+    pub title_texture: Cell<Option<TextTexture>>,
 }
 
 impl WorkspaceNode {

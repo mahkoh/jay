@@ -20,7 +20,6 @@ macro_rules! egl_transparent {
 
 use {
     crate::{
-        format::Format,
         gfx_api::{
             BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
         },
@@ -28,11 +27,10 @@ use {
             gl::texture::image_target,
             renderer::{context::GlRenderContext, framebuffer::Framebuffer, texture::Texture},
             sys::{
-                glActiveTexture, glBindTexture, glClear, glClearColor, glDisable,
-                glDisableVertexAttribArray, glDrawArrays, glEnable, glEnableVertexAttribArray,
-                glTexParameteri, glUniform1i, glUniform4f, glUseProgram, glVertexAttribPointer,
-                GL_BLEND, GL_COLOR_BUFFER_BIT, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0,
-                GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
+                glActiveTexture, glBindTexture, glDisable, glDisableVertexAttribArray,
+                glDrawArrays, glEnable, glEnableVertexAttribArray, glTexParameteri, glUniform1i,
+                glUniform4f, glUseProgram, glVertexAttribPointer, GL_BLEND, GL_FALSE, GL_FLOAT,
+                GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
             },
         },
         theme::Color,
@@ -127,6 +125,10 @@ enum RenderError {
     ExternalOnly,
     #[error("OpenGL context does not support external textures")]
     ExternalUnsupported,
+    #[error("OpenGL context does not support any formats")]
+    NoSupportedFormats,
+    #[error("Unsupported operation")]
+    UnsupportedOperation,
 }
 
 #[derive(Default)]
@@ -163,13 +165,6 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
                     if has_ops!() {
                         break;
                     }
-                }
-                GfxApiOpt::Clear(c) => {
-                    if has_ops!() {
-                        break;
-                    }
-                    clear(&c.color);
-                    i += 1;
                 }
                 GfxApiOpt::FillRect(f) => {
                     fill_rect.push(f);
@@ -220,24 +215,8 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
             let y1 = 2.0 * (tex.target.y1 / height) - 1.0;
             let x2 = 2.0 * (tex.target.x2 / width) - 1.0;
             let y2 = 2.0 * (tex.target.y2 / height) - 1.0;
-            render_texture(
-                &fb.ctx,
-                &tex.tex.as_gl(),
-                tex.format,
-                x1,
-                y1,
-                x2,
-                y2,
-                &tex.source,
-            )
+            render_texture(&fb.ctx, &tex.tex.as_gl(), x1, y1, x2, y2, &tex.source)
         }
-    }
-}
-
-fn clear(c: &Color) {
-    unsafe {
-        glClearColor(c.r, c.g, c.b, c.a);
-        glClear(GL_COLOR_BUFFER_BIT);
     }
 }
 
@@ -262,7 +241,6 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
 fn render_texture(
     ctx: &GlRenderContext,
     texture: &Texture,
-    format: &Format,
     x1: f32,
     y1: f32,
     x2: f32,
@@ -288,7 +266,7 @@ fn render_texture(
             },
             false => &ctx.tex_internal,
         };
-        let prog = match format.has_alpha {
+        let prog = match texture.gl.format.has_alpha {
             true => {
                 glEnable(GL_BLEND);
                 &progs.alpha
