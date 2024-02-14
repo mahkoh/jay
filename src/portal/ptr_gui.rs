@@ -221,8 +221,7 @@ impl GuiElement for Button {
                 None,
                 None,
                 r.scale(),
-                i32::MAX,
-                i32::MAX,
+                None,
             );
         }
     }
@@ -323,8 +322,7 @@ impl GuiElement for Label {
                 None,
                 None,
                 r.scale(),
-                i32::MAX,
-                i32::MAX,
+                None,
             );
         }
     }

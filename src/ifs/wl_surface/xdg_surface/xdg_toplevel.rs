@@ -428,15 +428,8 @@ impl Node for XdgToplevel {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn node_render(
-        &self,
-        renderer: &mut Renderer,
-        x: i32,
-        y: i32,
-        max_width: i32,
-        max_height: i32,
-    ) {
-        renderer.render_xdg_surface(&self.xdg, x, y, max_width, max_height)
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+        renderer.render_xdg_surface(&self.xdg, x, y, bounds)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {

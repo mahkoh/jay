@@ -120,8 +120,7 @@ impl RendererBase<'_> {
         tpoints: Option<BufferPoints>,
         tsize: Option<(i32, i32)>,
         tscale: Scale,
-        max_width: i32,
-        max_height: i32,
+        bounds: Option<&Rect>,
     ) {
         let mut texcoord = tpoints.unwrap_or(BufferPoints {
             top_left: BufferPoint { x: 0.0, y: 0.0 },
@@ -142,49 +141,89 @@ impl RendererBase<'_> {
             (w, h)
         };
 
-        macro_rules! clamp {
-            ($desired:ident, $max:ident, $([$far:ident, $near:ident]),*) => {
-                if $desired > $max {
-                    let $desired = $desired as f32;
-                    let $max = $max as f32;
-                    let factor = $max / $desired;
-                    $(
-                        let dx = (texcoord.$far.x - texcoord.$near.x) * factor;
-                        texcoord.$far.x = texcoord.$near.x + dx;
-                        let dy = (texcoord.$far.y - texcoord.$near.y) * factor;
-                        texcoord.$far.y = texcoord.$near.y + dy;
-                    )*
-                    $max
-                } else {
-                    $desired as f32
-                }
-            };
+        let mut target_x = [x, x + twidth];
+        let mut target_y = [y, y + theight];
+
+        if let Some(bounds) = bounds {
+            #[cold]
+            fn cold() {}
+
+            let bounds_x = [bounds.x1(), bounds.x2()];
+            let bounds_y = [bounds.y1(), bounds.y2()];
+
+            macro_rules! clamp {
+                ($desired:ident, $bounds:ident, $test_idx:expr, $test_cmp:ident, $test_cmp_eq:ident, $([$modify:ident, $keep:ident],)*) => {{
+                    let desired_test = $desired[$test_idx];
+                    let desired_other = $desired[1 - $test_idx];
+                    let bound = $bounds[$test_idx];
+                    if desired_test.$test_cmp(&bound) {
+                        cold();
+                        if desired_other.$test_cmp_eq(&bound) {
+                            return;
+                        }
+                        let max = (desired_other - bound) as f32;
+                        let desired = ($desired[1] - $desired[0]) as f32;
+                        let factor = max.abs() / desired;
+                        $(
+                            let dx = (texcoord.$modify.x - texcoord.$keep.x) * factor;
+                            texcoord.$modify.x = texcoord.$keep.x + dx;
+                            let dy = (texcoord.$modify.y - texcoord.$keep.y) * factor;
+                            texcoord.$modify.y = texcoord.$keep.y + dy;
+                        )*
+                        $desired[$test_idx] = bound;
+                    }
+                }};
+            }
+
+            clamp!(
+                target_x,
+                bounds_x,
+                0,
+                lt,
+                le,
+                [top_left, top_right],
+                [bottom_left, bottom_right],
+            );
+
+            clamp!(
+                target_x,
+                bounds_x,
+                1,
+                gt,
+                ge,
+                [top_right, top_left],
+                [bottom_right, bottom_left],
+            );
+
+            clamp!(
+                target_y,
+                bounds_y,
+                0,
+                lt,
+                le,
+                [top_left, bottom_left],
+                [top_right, bottom_right],
+            );
+
+            clamp!(
+                target_y,
+                bounds_y,
+                1,
+                gt,
+                ge,
+                [bottom_left, top_left],
+                [bottom_right, top_right],
+            );
         }
-
-        let twidth = clamp!(
-            twidth,
-            max_width,
-            [top_right, top_left],
-            [bottom_right, bottom_left]
-        );
-        let theight = clamp!(
-            theight,
-            max_height,
-            [bottom_left, top_left],
-            [bottom_right, top_right]
-        );
-
-        let x = x as f32;
-        let y = y as f32;
 
         self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
             tex: texture.clone(),
             source: texcoord,
             target: AbsoluteRect {
-                x1: x,
-                y1: y,
-                x2: x + twidth,
-                y2: y + theight,
+                x1: target_x[0] as f32,
+                y1: target_y[0] as f32,
+                x2: target_x[1] as f32,
+                y2: target_y[1] as f32,
             },
         }));
     }

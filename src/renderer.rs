@@ -76,7 +76,7 @@ impl Renderer<'_> {
         if self.state.lock.locked.get() {
             if let Some(surface) = output.lock_surface.get() {
                 if surface.surface.buffer.get().is_some() {
-                    self.render_surface(&surface.surface, x, y, i32::MAX, i32::MAX);
+                    self.render_surface(&surface.surface, x, y, None);
                 }
             }
             return;
@@ -97,7 +97,7 @@ impl Renderer<'_> {
         }
         if let Some(ws) = output.workspace.get() {
             if let Some(fs) = ws.fullscreen.get() {
-                fs.tl_as_node().node_render(self, x, y, i32::MAX, i32::MAX);
+                fs.tl_as_node().node_render(self, x, y, None);
                 render_layer!(output.layers[2]);
                 render_layer!(output.layers[3]);
                 return;
@@ -143,20 +143,12 @@ impl Renderer<'_> {
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
                 self.base
-                    .render_texture(&title.tex, x, y, None, None, scale, i32::MAX, i32::MAX);
+                    .render_texture(&title.tex, x, y, None, None, scale, None);
             }
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
-                self.base.render_texture(
-                    &status.tex.texture,
-                    x,
-                    y,
-                    None,
-                    None,
-                    scale,
-                    i32::MAX,
-                    i32::MAX,
-                );
+                self.base
+                    .render_texture(&status.tex.texture, x, y, None, None, scale, None);
             }
         }
         if let Some(ws) = output.workspace.get() {
@@ -168,7 +160,7 @@ impl Renderer<'_> {
                 let pos = stacked.node_absolute_position();
                 if pos.intersects(&opos) {
                     let (x, y) = opos.translate(pos.x1(), pos.y1());
-                    stacked.node_render(self, x, y, i32::MAX, i32::MAX);
+                    stacked.node_render(self, x, y, None);
                 }
             }
         }
@@ -192,16 +184,8 @@ impl Renderer<'_> {
             let (tex_width, tex_height) = tex.texture.size();
             let x = x + (pos.width() - tex_width) / 2;
             let y = y + (pos.height() - tex_height) / 2;
-            self.base.render_texture(
-                &tex.texture,
-                x,
-                y,
-                None,
-                None,
-                self.base.scale,
-                i32::MAX,
-                i32::MAX,
-            );
+            self.base
+                .render_texture(&tex.texture, x, y, None, None, self.base.scale, None);
         }
     }
 
@@ -237,8 +221,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         self.base.scale,
-                        i32::MAX,
-                        i32::MAX,
+                        None,
                     );
                 }
             }
@@ -247,13 +230,9 @@ impl Renderer<'_> {
             let body = container.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
             let content = container.mono_content.get();
-            child.node.node_render(
-                self,
-                x + content.x1(),
-                y + content.y1(),
-                body.width(),
-                body.height(),
-            );
+            child
+                .node
+                .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
             for child in container.children.iter() {
                 let body = child.body.get();
@@ -263,13 +242,9 @@ impl Renderer<'_> {
                 let body = body.move_(x, y);
                 let body = self.base.scale_rect(body);
                 let content = child.content.get();
-                child.node.node_render(
-                    self,
-                    x + content.x1(),
-                    y + content.y1(),
-                    body.width(),
-                    body.height(),
-                );
+                child
+                    .node
+                    .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
             }
         }
     }
@@ -279,8 +254,7 @@ impl Renderer<'_> {
         xdg: &XdgSurface,
         mut x: i32,
         mut y: i32,
-        max_width: i32,
-        max_height: i32,
+        bounds: Option<&Rect>,
     ) {
         let surface = &xdg.surface;
         if let Some(geo) = xdg.geometry() {
@@ -288,19 +262,12 @@ impl Renderer<'_> {
             x = xt;
             y = yt;
         }
-        self.render_surface(surface, x, y, max_width, max_height);
+        self.render_surface(surface, x, y, bounds);
     }
 
-    pub fn render_surface(
-        &mut self,
-        surface: &WlSurface,
-        x: i32,
-        y: i32,
-        max_width: i32,
-        max_height: i32,
-    ) {
+    pub fn render_surface(&mut self, surface: &WlSurface, x: i32, y: i32, bounds: Option<&Rect>) {
         let (x, y) = self.base.scale_point(x, y);
-        self.render_surface_scaled(surface, x, y, None, max_width, max_height, false);
+        self.render_surface_scaled(surface, x, y, None, bounds, false);
     }
 
     pub fn render_surface_scaled(
@@ -309,8 +276,7 @@ impl Renderer<'_> {
         x: i32,
         y: i32,
         pos_rel: Option<(i32, i32)>,
-        max_width: i32,
-        max_height: i32,
+        bounds: Option<&Rect>,
         is_subsurface: bool,
     ) {
         let children = surface.children.borrow();
@@ -346,18 +312,17 @@ impl Renderer<'_> {
                             x + x1,
                             y + y1,
                             Some((pos.x1(), pos.y1())),
-                            max_width,
-                            max_height,
+                            bounds,
                             true,
                         );
                     }
                 };
             }
             render!(&children.below);
-            self.render_buffer(&buffer, x, y, *tpoints, size, max_width, max_height);
+            self.render_buffer(&buffer, x, y, *tpoints, size, bounds);
             render!(&children.above);
         } else {
-            self.render_buffer(&buffer, x, y, *tpoints, size, max_width, max_height);
+            self.render_buffer(&buffer, x, y, *tpoints, size, bounds);
         }
         if let Some(result) = self.result.as_deref_mut() {
             {
@@ -378,8 +343,7 @@ impl Renderer<'_> {
         y: i32,
         tpoints: BufferPoints,
         tsize: (i32, i32),
-        max_width: i32,
-        max_height: i32,
+        bounds: Option<&Rect>,
     ) {
         if let Some(tex) = buffer.texture.get() {
             self.base.render_texture(
@@ -389,14 +353,17 @@ impl Renderer<'_> {
                 Some(tpoints),
                 Some(tsize),
                 self.base.scale,
-                max_width,
-                max_height,
+                bounds,
             );
         } else if let Some(color) = &buffer.color {
-            if let Some(rect) =
-                Rect::new_sized(x, y, tsize.0.min(max_width), tsize.1.min(max_height))
-            {
-                self.base.fill_boxes(&[rect], color);
+            if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
+                let rect = match bounds {
+                    None => rect,
+                    Some(bounds) => rect.intersect(*bounds),
+                };
+                if !rect.is_empty() {
+                    self.base.fill_boxes(&[rect], color);
+                }
             }
         } else {
             log::info!("live buffer has neither a texture nor is a single-pixel buffer");
@@ -435,16 +402,8 @@ impl Renderer<'_> {
         self.base.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_textures.get(&self.base.scale) {
             let (x, y) = self.base.scale_point(x + bw, y + bw);
-            self.base.render_texture(
-                &title.texture,
-                x,
-                y,
-                None,
-                None,
-                self.base.scale,
-                i32::MAX,
-                i32::MAX,
-            );
+            self.base
+                .render_texture(&title.texture, x, y, None, None, self.base.scale, None);
         }
         let body = Rect::new_sized(
             x + bw,
@@ -454,18 +413,12 @@ impl Renderer<'_> {
         )
         .unwrap();
         let scissor_body = self.base.scale_rect(body);
-        child.node_render(
-            self,
-            body.x1(),
-            body.y1(),
-            scissor_body.width(),
-            scissor_body.height(),
-        );
+        child.node_render(self, body.x1(), body.y1(), Some(&scissor_body));
     }
 
     pub fn render_layer_surface(&mut self, surface: &ZwlrLayerSurfaceV1, x: i32, y: i32) {
         let body = surface.position().at_point(x, y);
         let body = self.base.scale_rect(body);
-        self.render_surface(&surface.surface, x, y, body.width(), body.height());
+        self.render_surface(&surface.surface, x, y, Some(&body));
     }
 }

@@ -224,14 +224,7 @@ impl Node for WorkspaceNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(
-        &self,
-        renderer: &mut Renderer,
-        x: i32,
-        y: i32,
-        _max_width: i32,
-        _max_height: i32,
-    ) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_workspace(self, x, y);
     }
 
