@@ -253,6 +253,10 @@ pub mod colors {
         ///
         /// Default: `#772831`.
         const 13 => CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR,
+        /// The title background color of a window that has requested attention.
+        ///
+        /// Default: `#23092c`.
+        const 14 => ATTENTION_REQUESTED_BACKGROUND_COLOR,
     }
 }
 

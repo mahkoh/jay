@@ -1,0 +1,28 @@
+# requests
+
+msg set_serial = 0 {
+    serial: u32,
+    seat: id(wl_seat),
+}
+
+msg set_app_id = 1 {
+    app_id: str,
+}
+
+msg set_surface = 2 {
+    surface: id(wl_surface),
+}
+
+msg commit = 3 {
+
+}
+
+msg destroy = 4 {
+
+}
+
+# events
+
+msg done = 0 {
+    token: str,
+}

@@ -7,6 +7,7 @@ use {
         object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
         state::State,
         utils::{
+            activation_token::ActivationToken,
             asyncevent::AsyncEvent,
             buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
             copyhashmap::{CopyHashMap, Locked},
@@ -147,6 +148,7 @@ impl Clients {
             symmetric_delete: Cell::new(false),
             last_xwayland_serial: Cell::new(0),
             surfaces_by_xwayland_serial: Default::default(),
+            activation_tokens: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
@@ -217,6 +219,7 @@ impl Drop for ClientHolder {
         self.data.flush_request.clear();
         self.data.shutdown.clear();
         self.data.surfaces_by_xwayland_serial.clear();
+        self.data.remove_activation_tokens();
     }
 }
 
@@ -256,6 +259,7 @@ pub struct Client {
     pub symmetric_delete: Cell<bool>,
     pub last_xwayland_serial: Cell<u64>,
     pub surfaces_by_xwayland_serial: CopyHashMap<u64, Rc<WlSurface>>,
+    pub activation_tokens: RefCell<VecDeque<ActivationToken>>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -442,6 +446,12 @@ impl Client {
                 interface: Id::INTERFACE,
                 id: id.into(),
             })),
+        }
+    }
+
+    fn remove_activation_tokens(&self) {
+        for token in &*self.activation_tokens.borrow() {
+            self.state.activation_tokens.remove(token);
         }
     }
 }

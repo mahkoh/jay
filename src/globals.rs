@@ -27,6 +27,7 @@ use {
             wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1Global,
             wp_tearing_control_manager_v1::WpTearingControlManagerV1Global,
             wp_viewporter::WpViewporterGlobal,
+            xdg_activation_v1::XdgActivationV1Global,
             xdg_wm_base::XdgWmBaseGlobal,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
@@ -162,6 +163,7 @@ impl Globals {
         add_singleton!(WpSinglePixelBufferManagerV1Global);
         add_singleton!(WpCursorShapeManagerV1Global);
         add_singleton!(WpContentTypeManagerV1Global);
+        add_singleton!(XdgActivationV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

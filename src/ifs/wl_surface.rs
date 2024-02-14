@@ -1059,6 +1059,12 @@ impl WlSurface {
     pub fn set_content_type(&self, content_type: Option<ContentType>) {
         self.pending.content_type.set(Some(content_type));
     }
+
+    pub fn request_activation(&self) {
+        if let Some(tl) = self.toplevel.get() {
+            tl.tl_data().request_attention(tl.tl_as_node());
+        }
+    }
 }
 
 object_base! {

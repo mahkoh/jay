@@ -42,9 +42,10 @@ use {
             NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, fdcloser::FdCloser, linkedlist::LinkedList, numcell::NumCell,
-            queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
+            activation_token::ActivationToken, asyncevent::AsyncEvent, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
+            linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
+            run_toplevel::RunToplevel,
         },
         video::drm::Drm,
         wheel::Wheel,
@@ -134,6 +135,7 @@ pub struct State {
     pub workspace_watchers: CopyHashMap<(ClientId, JayWorkspaceWatcherId), Rc<JayWorkspaceWatcher>>,
     pub default_workspace_capture: Cell<bool>,
     pub default_gfx_api: Cell<GfxApi>,
+    pub activation_tokens: CopyHashMap<ActivationToken, ()>,
 }
 
 // impl Drop for State {
