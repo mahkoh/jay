@@ -45,6 +45,7 @@ pub struct FloatNode {
     pub title: RefCell<String>,
     pub title_textures: CopyHashMap<Scale, TextTexture>,
     seats: RefCell<AHashMap<SeatId, SeatState>>,
+    pub attention_requested: Cell<bool>,
 }
 
 struct SeatState {
@@ -112,7 +113,9 @@ impl FloatNode {
             title: Default::default(),
             title_textures: Default::default(),
             seats: Default::default(),
+            attention_requested: Cell::new(false),
         });
+        floater.apply_child_flags();
         floater
             .display_link
             .set(Some(state.root.stacked.add_last(floater.clone())));
@@ -345,6 +348,29 @@ impl FloatNode {
         self.workspace.set(ws.clone());
         self.stacked_set_visible(ws.stacked_visible());
     }
+
+    fn apply_child_flags(&self) {
+        let child = match self.child.get() {
+            None => return,
+            Some(c) => c,
+        };
+        let data = child.tl_data();
+        let activation_requested = data.wants_attention.get();
+        self.attention_requested.set(activation_requested);
+        if activation_requested {
+            self.workspace
+                .get()
+                .cnode_child_attention_request_changed(self, true);
+        }
+    }
+
+    fn discard_child_flags(&self) {
+        if self.attention_requested.get() {
+            self.workspace
+                .get()
+                .cnode_child_attention_request_changed(self, false);
+        }
+    }
 }
 
 impl Debug for FloatNode {
@@ -527,13 +553,16 @@ impl ContainingNode for FloatNode {
     containing_node_impl!();
 
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
+        self.discard_child_flags();
         self.child.set(Some(new.clone()));
+        self.apply_child_flags();
         new.tl_set_parent(self.clone());
         new.clone().tl_set_workspace(&self.workspace.get());
         self.schedule_layout();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
+        self.discard_child_flags();
         self.child.set(None);
         self.display_link.set(None);
         self.workspace_link.set(None);
@@ -541,6 +570,14 @@ impl ContainingNode for FloatNode {
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
         true
+    }
+
+    fn cnode_child_attention_request_changed(self: Rc<Self>, _node: &dyn Node, set: bool) {
+        if self.attention_requested.replace(set) != set {
+            self.workspace
+                .get()
+                .cnode_child_attention_request_changed(&*self, set);
+        }
     }
 }
 

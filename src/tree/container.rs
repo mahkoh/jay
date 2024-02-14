@@ -24,6 +24,7 @@ use {
             rc_eq::rc_eq,
             scroller::Scroller,
             smallmap::{SmallMap, SmallMapMut},
+            threshold_counter::ThresholdCounter,
         },
     },
     ahash::AHashMap,
@@ -83,6 +84,7 @@ pub struct ContainerTitle {
 pub struct ContainerRenderData {
     pub title_rects: Vec<Rect>,
     pub active_title_rects: Vec<Rect>,
+    pub attention_title_rects: Vec<Rect>,
     pub last_active_rect: Option<Rect>,
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
@@ -115,6 +117,7 @@ pub struct ContainerNode {
     pub render_data: RefCell<ContainerRenderData>,
     scroller: Scroller,
     toplevel_data: ToplevelData,
+    attention_requests: ThresholdCounter,
 }
 
 impl Debug for ContainerNode {
@@ -126,6 +129,7 @@ impl Debug for ContainerNode {
 pub struct ContainerChild {
     pub node: Rc<dyn ToplevelNode>,
     pub active: Cell<bool>,
+    pub attention_requested: Cell<bool>,
     title: RefCell<String>,
     pub title_tex: SmallMap<Scale, TextTexture, 2>,
     pub title_rect: Cell<Rect>,
@@ -172,21 +176,21 @@ impl ContainerNode {
     ) -> Rc<Self> {
         child.clone().tl_set_workspace(workspace);
         let children = LinkedList::new();
+        let child_node = children.add_last(ContainerChild {
+            node: child.clone(),
+            active: Default::default(),
+            body: Default::default(),
+            content: Default::default(),
+            factor: Cell::new(1.0),
+            title: Default::default(),
+            title_tex: Default::default(),
+            title_rect: Default::default(),
+            focus_history: Default::default(),
+            attention_requested: Cell::new(false),
+        });
+        let child_node_ref = child_node.clone();
         let mut child_nodes = AHashMap::new();
-        child_nodes.insert(
-            child.node_id(),
-            children.add_last(ContainerChild {
-                node: child.clone(),
-                active: Default::default(),
-                body: Default::default(),
-                content: Default::default(),
-                factor: Cell::new(1.0),
-                title: Default::default(),
-                title_tex: Default::default(),
-                title_rect: Default::default(),
-                focus_history: Default::default(),
-            }),
-        );
+        child_nodes.insert(child.node_id(), child_node);
         let slf = Rc::new(Self {
             id: state.node_ids.next(),
             parent: CloneCell::new(parent.clone()),
@@ -213,9 +217,11 @@ impl ContainerNode {
             render_data: Default::default(),
             scroller: Default::default(),
             toplevel_data: ToplevelData::new(state, Default::default(), None),
+            attention_requests: Default::default(),
         });
         slf.tl_set_parent(parent);
         child.tl_set_parent(slf.clone());
+        slf.apply_child_flags(&child_node_ref);
         slf
     }
 
@@ -293,11 +299,13 @@ impl ContainerNode {
                 title_tex: Default::default(),
                 title_rect: Default::default(),
                 focus_history: Default::default(),
+                attention_requested: Default::default(),
             });
             let r = link.to_ref();
             links.insert(new.node_id(), link);
             r
         };
+        self.apply_child_flags(&new_ref);
         new.clone().tl_set_workspace(&self.workspace.get());
         new.tl_set_parent(self.clone());
         new.tl_set_visible(self.toplevel_data.visible.get());
@@ -644,6 +652,7 @@ impl ContainerNode {
         }
         rd.title_rects.clear();
         rd.active_title_rects.clear();
+        rd.attention_title_rects.clear();
         rd.border_rects.clear();
         rd.underline_rects.clear();
         rd.last_active_rect.take();
@@ -667,6 +676,9 @@ impl ContainerNode {
             let color = if child.active.get() {
                 rd.active_title_rects.push(rect);
                 theme.colors.focused_title_text.get()
+            } else if child.attention_requested.get() {
+                rd.attention_title_rects.push(rect);
+                theme.colors.unfocused_title_text.get()
             } else if !have_active && last_active == Some(child.node.node_id()) {
                 rd.last_active_rect = Some(rect);
                 theme.colors.focused_inactive_title_text.get()
@@ -760,7 +772,7 @@ impl ContainerNode {
             return;
         }
         let child = {
-            let children = self.child_nodes.borrow_mut();
+            let children = self.child_nodes.borrow();
             match child {
                 Some(c) => match children.get(&c.node_id()) {
                     Some(c) => Some(c.to_ref()),
@@ -815,7 +827,7 @@ impl ContainerNode {
         child: &dyn ToplevelNode,
         direction: Direction,
     ) {
-        let child = match self.child_nodes.borrow_mut().get(&child.node_id()) {
+        let child = match self.child_nodes.borrow().get(&child.node_id()) {
             Some(c) => c.to_ref(),
             _ => return,
         };
@@ -880,7 +892,7 @@ impl ContainerNode {
         if split == self.split.get()
             || (split == ContainerSplit::Horizontal && self.mono_child.get().is_some())
         {
-            let cc = match self.child_nodes.borrow_mut().get(&child.node_id()) {
+            let cc = match self.child_nodes.borrow().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
                 None => return,
             };
@@ -932,6 +944,33 @@ impl ContainerNode {
             self.append_child(node);
         } else {
             self.prepend_child(node);
+        }
+    }
+
+    fn apply_child_flags(&self, child: &ContainerChild) {
+        let data = child.node.tl_data();
+        let attention_requested = data.wants_attention.get();
+        child.attention_requested.set(attention_requested);
+        if attention_requested {
+            self.mod_attention_requests(true);
+        }
+    }
+
+    fn discard_child_flags(&self, child: &ContainerChild) {
+        if child.attention_requested.get() {
+            self.mod_attention_requests(false);
+        }
+    }
+
+    fn mod_attention_requests(&self, set: bool) {
+        let propagate = self.attention_requests.adj(set);
+        if set || propagate {
+            self.toplevel_data.wants_attention.set(set);
+        }
+        if propagate {
+            self.parent
+                .get()
+                .cnode_child_attention_request_changed(self, set);
         }
     }
 }
@@ -999,7 +1038,7 @@ impl Node for ContainerNode {
     }
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
-        let child = match self.child_nodes.borrow_mut().get(&child.node_id()) {
+        let child = match self.child_nodes.borrow().get(&child.node_id()) {
             Some(cn) => cn.to_ref(),
             _ => return,
         };
@@ -1083,7 +1122,7 @@ impl Node for ContainerNode {
     }
 
     fn node_child_active_changed(self: Rc<Self>, child: &dyn Node, active: bool, depth: u32) {
-        let node = match self.child_nodes.borrow_mut().get(&child.node_id()) {
+        let node = match self.child_nodes.borrow().get(&child.node_id()) {
             Some(l) => l.to_ref(),
             None => return,
         };
@@ -1276,6 +1315,7 @@ impl ContainingNode for ContainerNode {
             None => (false, false),
             Some(mc) => (true, mc.node.node_id() == old.node_id()),
         };
+        self.discard_child_flags(&node);
         let link = node.append(ContainerChild {
             node: new.clone(),
             active: Cell::new(false),
@@ -1286,7 +1326,9 @@ impl ContainingNode for ContainerNode {
             title_tex: Default::default(),
             title_rect: Cell::new(node.title_rect.get()),
             focus_history: Cell::new(None),
+            attention_requested: Cell::new(false),
         });
+        self.apply_child_flags(&link);
         if let Some(fh) = node.focus_history.take() {
             link.focus_history.set(Some(fh.append(link.to_ref())));
         }
@@ -1314,6 +1356,7 @@ impl ContainingNode for ContainerNode {
             None => return,
         };
         node.focus_history.set(None);
+        self.discard_child_flags(&node);
         if let Some(mono) = self.mono_child.get() {
             if mono.node.node_id() == child.node_id() {
                 let mut new = self.focus_history.last().map(|n| n.deref().clone());
@@ -1363,6 +1406,19 @@ impl ContainingNode for ContainerNode {
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
         true
+    }
+
+    fn cnode_child_attention_request_changed(self: Rc<Self>, child: &dyn Node, set: bool) {
+        let children = self.child_nodes.borrow();
+        let child = match children.get(&child.node_id()) {
+            Some(c) => c,
+            _ => return,
+        };
+        if child.attention_requested.replace(set) == set {
+            return;
+        }
+        self.mod_attention_requests(set);
+        self.schedule_compute_render_data();
     }
 }
 

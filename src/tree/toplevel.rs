@@ -5,7 +5,7 @@ use {
         rect::Rect,
         state::State,
         tree::{ContainingNode, Direction, Node, OutputNode, PlaceholderNode, WorkspaceNode},
-        utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
+        utils::{clonecell::CloneCell, smallmap::SmallMap, threshold_counter::ThresholdCounter},
     },
     std::{
         cell::{Cell, RefCell},
@@ -42,14 +42,14 @@ pub trait ToplevelNode: Node {
     fn tl_surface_active_changed(&self, active: bool) {
         let data = self.tl_data();
         if active {
-            if data.active_surfaces.fetch_add(1) == 0 {
+            if data.active_surfaces.inc() {
                 self.tl_set_active(true);
                 if let Some(parent) = data.parent.get() {
                     parent.node_child_active_changed(self.tl_as_node(), true, 1);
                 }
             }
         } else {
-            if data.active_surfaces.fetch_sub(1) == 1 {
+            if data.active_surfaces.dec() {
                 self.tl_set_active(false);
                 if let Some(parent) = data.parent.get() {
                     parent.node_child_active_changed(self.tl_as_node(), false, 1);
@@ -109,7 +109,7 @@ pub trait ToplevelNode: Node {
             _ => return,
         };
         let node = self.tl_as_node();
-        if data.active.get() || data.active_surfaces.get() > 0 {
+        if data.active.get() || data.active_surfaces.active() {
             parent.clone().node_child_active_changed(node, true, 1);
         }
     }
@@ -161,7 +161,7 @@ pub struct ToplevelData {
     pub active: Cell<bool>,
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
-    pub active_surfaces: NumCell<u32>,
+    pub active_surfaces: ThresholdCounter,
     pub focus_node: SmallMap<SeatId, Rc<dyn Node>, 1>,
     pub visible: Cell<bool>,
     pub is_floating: Cell<bool>,
@@ -174,6 +174,8 @@ pub struct ToplevelData {
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
     pub pos: Cell<Rect>,
     pub seat_state: NodeSeatState,
+    pub wants_attention: Cell<bool>,
+    pub requested_attention: Cell<bool>,
 }
 
 impl ToplevelData {
@@ -195,6 +197,8 @@ impl ToplevelData {
             parent: Default::default(),
             pos: Default::default(),
             seat_state: Default::default(),
+            wants_attention: Cell::new(false),
+            requested_attention: Cell::new(false),
         }
     }
 
@@ -263,12 +267,10 @@ impl ToplevelData {
         let mut kb_foci = Default::default();
         if ws.visible.get() {
             if let Some(container) = ws.container.get() {
-                kb_foci = collect_kb_foci(container.clone());
-                container.tl_set_visible(false);
+                kb_foci = collect_kb_foci(container);
             }
             for stacked in ws.stacked.iter() {
                 collect_kb_foci2(stacked.deref().clone().stacked_into_node(), &mut kb_foci);
-                stacked.stacked_set_visible(false);
             }
         }
         *data = Some(FullscreenedData {
@@ -277,7 +279,7 @@ impl ToplevelData {
         });
         drop(data);
         self.is_fullscreen.set(true);
-        ws.fullscreen.set(Some(node.clone()));
+        ws.set_fullscreen_node(&node);
         node.tl_set_parent(ws.clone());
         node.clone().tl_set_workspace(ws);
         node.clone()
@@ -313,11 +315,7 @@ impl ToplevelData {
             }
             _ => {}
         }
-        fd.workspace.fullscreen.take();
-        if node.node_visible() {
-            fd.workspace.set_visible(true);
-            fd.workspace.flush_jay_workspaces();
-        }
+        fd.workspace.remove_fullscreen_node();
         if fd.placeholder.is_destroyed() {
             state.map_tiled(node);
             return;
@@ -339,6 +337,31 @@ impl ToplevelData {
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
         self.visible.set(visible);
-        self.seat_state.set_visible(node, visible)
+        self.seat_state.set_visible(node, visible);
+        if !visible {
+            return;
+        }
+        if !self.requested_attention.replace(false) {
+            return;
+        }
+        self.wants_attention.set(false);
+        if let Some(parent) = self.parent.get() {
+            parent.cnode_child_attention_request_changed(node, false);
+        }
+        self.state.damage();
+    }
+
+    pub fn request_attention(&self, node: &dyn Node) {
+        if self.visible.get() {
+            return;
+        }
+        if self.requested_attention.replace(true) {
+            return;
+        }
+        self.wants_attention.set(true);
+        if let Some(parent) = self.parent.get() {
+            parent.cnode_child_attention_request_changed(node, true);
+        }
+        self.state.damage();
     }
 }

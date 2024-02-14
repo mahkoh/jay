@@ -37,6 +37,8 @@ pub mod wp_presentation_feedback;
 pub mod wp_single_pixel_buffer_manager_v1;
 pub mod wp_tearing_control_manager_v1;
 pub mod wp_viewporter;
+pub mod xdg_activation_token_v1;
+pub mod xdg_activation_v1;
 pub mod xdg_positioner;
 pub mod xdg_wm_base;
 pub mod zwlr_layer_shell_v1;

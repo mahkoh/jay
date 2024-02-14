@@ -136,6 +136,9 @@ impl Renderer<'_> {
             };
             self.base
                 .fill_boxes2(&rd.captured_inactive_workspaces, &c, x, y);
+            let c = theme.colors.attention_requested_background.get();
+            self.base
+                .fill_boxes2(&rd.attention_requested_workspaces, &c, x, y);
             let scale = output.preferred_scale.get();
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -209,6 +212,8 @@ impl Renderer<'_> {
             self.base.fill_boxes2(&rd.title_rects, &c, x, y);
             let c = self.state.theme.colors.focused_title_background.get();
             self.base.fill_boxes2(&rd.active_title_rects, &c, x, y);
+            let c = self.state.theme.colors.attention_requested_background.get();
+            self.base.fill_boxes2(&rd.attention_title_rects, &c, x, y);
             let c = self.state.theme.colors.separator.get();
             self.base.fill_boxes2(&rd.underline_rects, &c, x, y);
             let c = self.state.theme.colors.border.get();
@@ -408,9 +413,12 @@ impl Renderer<'_> {
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
         let bc = theme.colors.border.get();
-        let tc = match floating.active.get() {
-            true => theme.colors.focused_title_background.get(),
-            false => theme.colors.unfocused_title_background.get(),
+        let tc = if floating.active.get() {
+            theme.colors.focused_title_background.get()
+        } else if floating.attention_requested.get() {
+            theme.colors.attention_requested_background.get()
+        } else {
+            theme.colors.unfocused_title_background.get()
         };
         let uc = theme.colors.separator.get();
         let borders = [

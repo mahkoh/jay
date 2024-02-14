@@ -20,6 +20,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedNode},
+            threshold_counter::ThresholdCounter,
         },
         wire::JayWorkspaceId,
     },
@@ -45,6 +46,7 @@ pub struct WorkspaceNode {
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
     pub capture: Cell<bool>,
     pub title_texture: Cell<Option<TextTexture>>,
+    pub attention_requests: ThresholdCounter,
 }
 
 impl WorkspaceNode {
@@ -74,6 +76,10 @@ impl WorkspaceNode {
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
+        if let Some(prev) = self.container.get() {
+            self.discard_child_flags(&*prev);
+        }
+        self.apply_child_flags(&**container);
         let pos = self.position.get();
         container.clone().tl_change_extents(&pos);
         container.clone().tl_set_workspace(self);
@@ -103,6 +109,15 @@ impl WorkspaceNode {
         }
     }
 
+    fn plane_set_visible(&self, visible: bool) {
+        if let Some(container) = self.container.get() {
+            container.tl_set_visible(visible);
+        }
+        for stacked in self.stacked.iter() {
+            stacked.stacked_set_visible(visible);
+        }
+    }
+
     pub fn set_visible(&self, visible: bool) {
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
@@ -111,14 +126,51 @@ impl WorkspaceNode {
         if let Some(fs) = self.fullscreen.get() {
             fs.tl_set_visible(visible);
         } else {
-            if let Some(container) = self.container.get() {
-                container.tl_set_visible(visible);
-            }
-            for stacked in self.stacked.iter() {
-                stacked.stacked_set_visible(visible);
-            }
+            self.plane_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
+    }
+
+    pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
+        let visible = self.visible.get();
+        let mut plane_was_visible = visible;
+        if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
+            plane_was_visible = false;
+            self.discard_child_flags(&*prev);
+        }
+        self.apply_child_flags(&**node);
+        node.tl_set_visible(visible);
+        if plane_was_visible {
+            self.plane_set_visible(false);
+        }
+    }
+
+    pub fn remove_fullscreen_node(&self) {
+        if let Some(node) = self.fullscreen.take() {
+            self.discard_child_flags(&*node);
+            if self.visible.get() {
+                self.plane_set_visible(true);
+            }
+        }
+    }
+
+    fn apply_child_flags(&self, child: &dyn ToplevelNode) {
+        if child.tl_data().wants_attention.get() {
+            self.mod_attention_requested(true);
+        }
+    }
+
+    fn discard_child_flags(&self, child: &dyn ToplevelNode) {
+        if child.tl_data().wants_attention.get() {
+            self.mod_attention_requested(false);
+        }
+    }
+
+    fn mod_attention_requested(&self, set: bool) {
+        let crossed_threshold = self.attention_requests.adj(set);
+        if crossed_threshold {
+            self.output.get().schedule_update_render_data();
+        }
     }
 }
 
@@ -224,12 +276,14 @@ impl ContainingNode for WorkspaceNode {
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
         if let Some(container) = self.container.get() {
             if container.node_id() == child.node_id() {
+                self.discard_child_flags(&*container);
                 self.container.set(None);
                 return;
             }
         }
         if let Some(fs) = self.fullscreen.get() {
             if fs.tl_as_node().node_id() == child.node_id() {
+                self.discard_child_flags(&*fs);
                 self.fullscreen.set(None);
                 return;
             }
@@ -239,5 +293,9 @@ impl ContainingNode for WorkspaceNode {
 
     fn cnode_accepts_child(&self, node: &dyn Node) -> bool {
         node.node_is_container()
+    }
+
+    fn cnode_child_attention_request_changed(self: Rc<Self>, _node: &dyn Node, set: bool) {
+        self.mod_attention_requested(set);
     }
 }

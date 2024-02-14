@@ -199,6 +199,7 @@ fn start_compositor2(
         workspace_watchers: Default::default(),
         default_workspace_capture: Cell::new(true),
         default_gfx_api: Cell::new(GfxApi::OpenGl),
+        activation_tokens: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -413,6 +414,7 @@ fn create_dummy_output(state: &Rc<State>) {
         jay_workspaces: Default::default(),
         capture: Cell::new(false),
         title_texture: Cell::new(None),
+        attention_requests: Default::default(),
     });
     dummy_workspace.output_link.set(Some(
         dummy_output.workspaces.add_last(dummy_workspace.clone()),

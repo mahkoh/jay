@@ -144,6 +144,7 @@ impl OutputNode {
         let mut rd = self.render_data.borrow_mut();
         rd.titles.clear();
         rd.inactive_workspaces.clear();
+        rd.attention_requested_workspaces.clear();
         rd.captured_inactive_workspaces.clear();
         rd.active_workspace = None;
         rd.status = None;
@@ -219,10 +220,15 @@ impl OutputNode {
                     rect,
                     captured: ws.capture.get(),
                 });
-            } else if ws.capture.get() {
-                rd.captured_inactive_workspaces.push(rect);
             } else {
-                rd.inactive_workspaces.push(rect);
+                if ws.attention_requests.active() {
+                    rd.attention_requested_workspaces.push(rect);
+                }
+                if ws.capture.get() {
+                    rd.captured_inactive_workspaces.push(rect);
+                } else {
+                    rd.inactive_workspaces.push(rect);
+                }
             }
             pos += title_width;
         }
@@ -330,6 +336,7 @@ impl OutputNode {
             jay_workspaces: Default::default(),
             capture: self.state.default_workspace_capture.clone(),
             title_texture: Default::default(),
+            attention_requests: Default::default(),
         });
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));
@@ -493,6 +500,7 @@ pub struct OutputRenderData {
     pub active_workspace: Option<OutputWorkspaceRenderData>,
     pub underline: Rect,
     pub inactive_workspaces: Vec<Rect>,
+    pub attention_requested_workspaces: Vec<Rect>,
     pub captured_inactive_workspaces: Vec<Rect>,
     pub titles: Vec<OutputTitle>,
     pub status: Option<OutputStatus>,
