@@ -137,19 +137,11 @@ pub trait Node: 'static {
         let _ = (child, active, depth);
     }
 
-    fn node_render(
-        &self,
-        renderer: &mut Renderer,
-        x: i32,
-        y: i32,
-        max_width: i32,
-        max_height: i32,
-    ) {
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
         let _ = renderer;
         let _ = x;
         let _ = y;
-        let _ = max_width;
-        let _ = max_height;
+        let _ = bounds;
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {

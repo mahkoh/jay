@@ -150,7 +150,7 @@ impl dyn GfxFramebuffer {
             scale,
             scalef: 1.0,
         };
-        renderer.render_texture(texture, x, y, None, None, scale, i32::MAX, i32::MAX);
+        renderer.render_texture(texture, x, y, None, None, scale, None);
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear);
     }
@@ -195,7 +195,7 @@ impl dyn GfxFramebuffer {
             logical_extents: node.node_absolute_position().at_point(0, 0),
             physical_extents: Rect::new(0, 0, width, height).unwrap(),
         };
-        node.node_render(&mut renderer, 0, 0, i32::MAX, i32::MAX);
+        node.node_render(&mut renderer, 0, 0, None);
         if let Some(rect) = cursor_rect {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
@@ -208,7 +208,7 @@ impl dyn GfxFramebuffer {
                         );
                         if extents.intersects(&rect) {
                             let (x, y) = rect.translate(extents.x1(), extents.y1());
-                            renderer.render_surface(&dnd_icon, x, y, i32::MAX, i32::MAX);
+                            renderer.render_surface(&dnd_icon, x, y, None);
                         }
                     }
                     if render_hardware_cursor || !seat.hardware_cursor() {

@@ -332,15 +332,8 @@ impl Node for Xwindow {
         FindTreeResult::Other
     }
 
-    fn node_render(
-        &self,
-        renderer: &mut Renderer,
-        x: i32,
-        y: i32,
-        max_width: i32,
-        max_height: i32,
-    ) {
-        renderer.render_surface(&self.x.surface, x, y, max_width, max_height)
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+        renderer.render_surface(&self.x.surface, x, y, bounds)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
