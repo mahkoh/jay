@@ -1,0 +1,24 @@
+# requests
+
+msg destroy = 0 {
+}
+
+# events
+
+msg closed = 0 {
+}
+
+msg done = 1 {
+}
+
+msg title = 2 {
+    title: str,
+}
+
+msg app_id = 3 {
+    app_id: str,
+}
+
+msg identifier = 4 {
+    identifier: str,
+}

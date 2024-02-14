@@ -3,6 +3,7 @@ use {
         backend::Backend,
         client::Client,
         ifs::{
+            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
@@ -164,6 +165,7 @@ impl Globals {
         add_singleton!(WpCursorShapeManagerV1Global);
         add_singleton!(WpContentTypeManagerV1Global);
         add_singleton!(XdgActivationV1Global);
+        add_singleton!(ExtForeignToplevelListV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

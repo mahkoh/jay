@@ -1102,7 +1102,7 @@ impl Wm {
         }
         let title = buf.as_bstr().to_string();
         if let Some(window) = data.window.get() {
-            *window.toplevel_data.title.borrow_mut() = title.clone();
+            window.toplevel_data.set_title(&title);
             window.tl_title_changed();
         }
         *data.info.title.borrow_mut() = Some(title);

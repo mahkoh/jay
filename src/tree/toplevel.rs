@@ -1,11 +1,22 @@
 use {
     crate::{
-        client::Client,
-        ifs::wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
+        client::{Client, ClientId},
+        ifs::{
+            ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
+            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
+            wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
+        },
         rect::Rect,
         state::State,
         tree::{ContainingNode, Direction, Node, OutputNode, PlaceholderNode, WorkspaceNode},
-        utils::{clonecell::CloneCell, smallmap::SmallMap, threshold_counter::ThresholdCounter},
+        utils::{
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            smallmap::SmallMap,
+            threshold_counter::ThresholdCounter,
+            toplevel_identifier::{toplevel_identifier, ToplevelIdentifier},
+        },
+        wire::ExtForeignToplevelHandleV1Id,
     },
     std::{
         cell::{Cell, RefCell},
@@ -176,6 +187,10 @@ pub struct ToplevelData {
     pub seat_state: NodeSeatState,
     pub wants_attention: Cell<bool>,
     pub requested_attention: Cell<bool>,
+    pub app_id: RefCell<String>,
+    pub identifier: Cell<ToplevelIdentifier>,
+    pub handles:
+        CopyHashMap<(ClientId, ExtForeignToplevelHandleV1Id), Rc<ExtForeignToplevelHandleV1>>,
 }
 
 impl ToplevelData {
@@ -199,6 +214,9 @@ impl ToplevelData {
             seat_state: Default::default(),
             wants_attention: Cell::new(false),
             requested_attention: Cell::new(false),
+            app_id: Default::default(),
+            identifier: Cell::new(toplevel_identifier()),
+            handles: Default::default(),
         }
     }
 
@@ -216,6 +234,13 @@ impl ToplevelData {
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
+        self.identifier.set(toplevel_identifier());
+        {
+            let mut handles = self.handles.lock();
+            for (_, handle) in handles.drain() {
+                handle.send_closed();
+            }
+        }
         if let Some(fd) = self.fullscrceen_data.borrow_mut().take() {
             fd.placeholder.tl_destroy();
         }
@@ -225,6 +250,58 @@ impl ToplevelData {
         self.workspace.take();
         self.seat_state.destroy_node(node);
         self.focus_node.clear();
+    }
+
+    pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
+        let id = self.identifier.get().to_string();
+        let title = self.title.borrow();
+        let app_id = self.app_id.borrow();
+        for list in self.state.toplevel_lists.lock().values() {
+            self.send_once(&toplevel, list, &id, &title, &app_id);
+        }
+    }
+
+    pub fn send(&self, toplevel: Rc<dyn ToplevelNode>, list: &ExtForeignToplevelListV1) {
+        let id = self.identifier.get().to_string();
+        let title = self.title.borrow();
+        let app_id = self.app_id.borrow();
+        self.send_once(&toplevel, list, &id, &title, &app_id);
+    }
+
+    fn send_once(
+        &self,
+        toplevel: &Rc<dyn ToplevelNode>,
+        list: &ExtForeignToplevelListV1,
+        id: &str,
+        title: &str,
+        app_id: &str,
+    ) {
+        let handle = match list.publish_toplevel(toplevel) {
+            None => return,
+            Some(handle) => handle,
+        };
+        handle.send_identifier(id);
+        handle.send_title(title);
+        handle.send_app_id(app_id);
+        handle.send_done();
+        self.handles
+            .set((handle.client.id, handle.id), handle.clone());
+    }
+
+    pub fn set_title(&self, title: &str) {
+        *self.title.borrow_mut() = title.to_string();
+        for handle in self.handles.lock().values() {
+            handle.send_title(title);
+            handle.send_done();
+        }
+    }
+
+    pub fn set_app_id(&self, app_id: &str) {
+        *self.app_id.borrow_mut() = app_id.to_string();
+        for handle in self.handles.lock().values() {
+            handle.send_app_id(app_id);
+            handle.send_done();
+        }
     }
 
     pub fn set_fullscreen(

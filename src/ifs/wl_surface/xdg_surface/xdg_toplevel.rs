@@ -6,6 +6,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
+            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
         },
@@ -134,6 +135,10 @@ impl XdgToplevel {
         }
     }
 
+    pub fn send_to(self: &Rc<Self>, list: &ExtForeignToplevelListV1) {
+        self.toplevel_data.send(self.clone(), list);
+    }
+
     pub fn send_current_configure(&self) {
         let rect = self.xdg.absolute_desired_extents.get();
         self.send_configure_checked(rect.width(), rect.height());
@@ -222,13 +227,14 @@ impl XdgToplevel {
 
     fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
-        *self.toplevel_data.title.borrow_mut() = req.title.to_string();
+        self.toplevel_data.set_title(req.title);
         self.tl_title_changed();
         Ok(())
     }
 
     fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
         let req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
+        self.toplevel_data.set_app_id(req.app_id);
         self.bugs.set(bugs::get(req.app_id));
         Ok(())
     }
@@ -585,6 +591,7 @@ impl XdgSurfaceExt for XdgToplevel {
             //     }
             // }
             self.state.tree_changed();
+            self.toplevel_data.broadcast(self.clone());
         }
     }
 

@@ -18,6 +18,7 @@ use {
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
+            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_session_lock_v1::ExtSessionLockV1,
             jay_render_ctx::JayRenderCtx,
             jay_seat_events::JaySeatEvents,
@@ -50,7 +51,8 @@ use {
         video::drm::Drm,
         wheel::Wheel,
         wire::{
-            JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId, ZwpLinuxDmabufFeedbackV1Id,
+            ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
+            ZwpLinuxDmabufFeedbackV1Id,
         },
         xkbcommon::{XkbContext, XkbKeymap},
         xwayland::{self, XWaylandEvent},
@@ -136,6 +138,8 @@ pub struct State {
     pub default_workspace_capture: Cell<bool>,
     pub default_gfx_api: Cell<GfxApi>,
     pub activation_tokens: CopyHashMap<ActivationToken, ()>,
+    pub toplevel_lists:
+        CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
 }
 
 // impl Drop for State {
@@ -670,6 +674,7 @@ impl State {
         self.pending_float_titles.clear();
         self.render_ctx_watchers.clear();
         self.workspace_watchers.clear();
+        self.toplevel_lists.clear();
         self.slow_clients.clear();
         for (_, h) in self.input_device_handlers.borrow_mut().drain() {
             h.async_event.clear();

@@ -200,6 +200,7 @@ fn start_compositor2(
         default_workspace_capture: Cell::new(true),
         default_gfx_api: Cell::new(GfxApi::OpenGl),
         activation_tokens: Default::default(),
+        toplevel_lists: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
