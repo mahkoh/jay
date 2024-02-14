@@ -283,7 +283,10 @@ impl Xwindow {
         }
         match map_change {
             Change::Unmap => self.tl_set_visible(false),
-            Change::Map => self.tl_set_visible(true),
+            Change::Map => {
+                self.tl_set_visible(true);
+                self.toplevel_data.broadcast(self.clone());
+            }
             Change::None => {}
         }
         self.data.state.tree_changed();

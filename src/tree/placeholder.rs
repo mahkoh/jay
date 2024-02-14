@@ -33,7 +33,7 @@ impl PlaceholderNode {
             id: state.node_ids.next(),
             toplevel: ToplevelData::new(
                 state,
-                node.tl_data().title.borrow_mut().clone(),
+                node.tl_data().title.borrow().clone(),
                 node.node_client(),
             ),
             destroyed: Default::default(),
