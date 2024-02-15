@@ -338,7 +338,7 @@ impl VulkanRenderer {
                 rai = rai
                     .clear_value(ClearValue {
                         color: ClearColorValue {
-                            float32: clear.to_array_linear(),
+                            float32: clear.to_array_srgb(),
                         },
                     })
                     .load_op(AttachmentLoadOp::CLEAR);
@@ -413,7 +413,7 @@ impl VulkanRenderer {
                         pos: r.rect.to_vk(width, height),
                     };
                     let frag = FillFragPushConstants {
-                        color: r.color.to_array_linear(),
+                        color: r.color.to_array_srgb(),
                     };
                     unsafe {
                         dev.cmd_push_constants(
