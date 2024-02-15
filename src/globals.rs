@@ -4,6 +4,7 @@ use {
         client::Client,
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
+            ext_idle_notifier_v1::ExtIdleNotifierV1Global,
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
@@ -166,6 +167,8 @@ impl Globals {
         add_singleton!(WpContentTypeManagerV1Global);
         add_singleton!(XdgActivationV1Global);
         add_singleton!(ExtForeignToplevelListV1Global);
+        add_singleton!(ZwpIdleInhibitManagerV1Global);
+        add_singleton!(ExtIdleNotifierV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
@@ -173,9 +176,6 @@ impl Globals {
             ($name:ident) => {
                 self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
             };
-        }
-        if backend.supports_idle() {
-            add_singleton!(ZwpIdleInhibitManagerV1Global);
         }
         if backend.supports_presentation_feedback() {
             add_singleton!(WpPresentationGlobal);

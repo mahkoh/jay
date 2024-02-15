@@ -81,6 +81,10 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         unsafe { self.map.get().deref().is_empty() }
     }
 
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
     pub fn len(&self) -> usize {
         unsafe { self.map.get().deref().len() }
     }

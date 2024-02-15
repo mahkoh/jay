@@ -174,6 +174,24 @@ impl NodeSeatState {
 impl WlSeatGlobal {
     pub fn event(self: &Rc<Self>, dev: &DeviceHandlerData, event: InputEvent) {
         match event {
+            InputEvent::Key { time_usec, .. }
+            | InputEvent::ConnectorPosition { time_usec, .. }
+            | InputEvent::Motion { time_usec, .. }
+            | InputEvent::Button { time_usec, .. }
+            | InputEvent::AxisFrame { time_usec, .. } => {
+                self.last_input_usec.set(time_usec);
+                if self.idle_notifications.is_not_empty() {
+                    for (_, notification) in self.idle_notifications.lock().drain() {
+                        notification.resume.trigger();
+                    }
+                }
+            }
+            InputEvent::AxisPx { .. }
+            | InputEvent::AxisSource { .. }
+            | InputEvent::AxisStop { .. }
+            | InputEvent::Axis120 { .. } => {}
+        }
+        match event {
             InputEvent::Key {
                 time_usec,
                 key,

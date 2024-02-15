@@ -206,10 +206,6 @@ impl Backend for TestBackend {
 
     fn set_idle(&self, _idle: bool) {}
 
-    fn supports_idle(&self) -> bool {
-        true
-    }
-
     fn supports_presentation_feedback(&self) -> bool {
         true
     }

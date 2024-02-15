@@ -17,8 +17,9 @@ use {
         fixed::Fixed,
         globals::{Global, GlobalName},
         ifs::{
-            ipc,
+            ext_idle_notification_v1::ExtIdleNotificationV1,
             ipc::{
+                self,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_source::WlDataSource,
                 zwp_primary_selection_device_v1::{
@@ -42,6 +43,7 @@ use {
         object::Object,
         rect::Rect,
         state::State,
+        time::now_usec,
         tree::{
             generic_node_visitor, ContainerNode, ContainerSplit, Direction, FloatNode, FoundNode,
             Node, OutputNode, WorkspaceNode,
@@ -57,8 +59,8 @@ use {
             rc_eq::rc_eq,
         },
         wire::{
-            wl_seat::*, WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
-            ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
+            wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
+            WlSeatId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
         },
         xkbcommon::{XkbKeymap, XkbState},
     },
@@ -155,6 +157,8 @@ pub struct WlSeatGlobal {
     cursor_size: Cell<u32>,
     hardware_cursor: Cell<bool>,
     constraint: CloneCell<Option<Rc<SeatConstraint>>>,
+    idle_notifications: CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
+    last_input_usec: Cell<u64>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -209,6 +213,8 @@ impl WlSeatGlobal {
             cursor_size: Cell::new(DEFAULT_CURSOR_SIZE),
             hardware_cursor: Cell::new(state.globals.seats.len() == 0),
             constraint: Default::default(),
+            idle_notifications: Default::default(),
+            last_input_usec: Cell::new(now_usec()),
         });
         state.add_cursor_size(DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -921,6 +927,22 @@ impl WlSeatGlobal {
             bindings.insert(id, obj.clone());
         }
         Ok(())
+    }
+
+    pub fn add_idle_notification(&self, notification: &Rc<ExtIdleNotificationV1>) {
+        self.idle_notifications.set(
+            (notification.client.id, notification.id),
+            notification.clone(),
+        );
+    }
+
+    pub fn remove_idle_notification(&self, notification: &ExtIdleNotificationV1) {
+        self.idle_notifications
+            .remove(&(notification.client.id, notification.id));
+    }
+
+    pub fn last_input(&self) -> u64 {
+        self.last_input_usec.get()
     }
 }
 

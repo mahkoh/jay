@@ -1,0 +1,12 @@
+# requests
+
+msg destroy = 0 {
+}
+
+# events
+
+msg idled = 0 {
+}
+
+msg resumed = 1 {
+}
