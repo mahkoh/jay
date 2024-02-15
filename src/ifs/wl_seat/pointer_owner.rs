@@ -5,7 +5,10 @@ use {
         ifs::{
             ipc,
             ipc::{wl_data_device::ClipboardIpc, wl_data_source::WlDataSource},
-            wl_seat::{wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal},
+            wl_seat::{
+                wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal,
+                CHANGE_CURSOR_MOVED,
+            },
             wl_surface::WlSurface,
         },
         state::DeviceHandlerData,
@@ -131,6 +134,11 @@ impl PointerOwnerHolder {
 
     pub fn clear(&self) {
         self.owner.set(self.default.clone());
+    }
+
+    fn set_default_pointer_owner(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner.owner.set(self.default.clone());
+        seat.changes.or_assign(CHANGE_CURSOR_MOVED);
     }
 }
 
@@ -300,10 +308,8 @@ impl PointerOwner for GrabPointerOwner {
                 if self.buttons.is_empty() {
                     self.node.node_seat_state().remove_pointer_grab(seat);
                     // log::info!("button");
+                    seat.pointer_owner.set_default_pointer_owner(seat);
                     seat.tree_changed.trigger();
-                    seat.pointer_owner
-                        .owner
-                        .set(seat.pointer_owner.default.clone());
                 }
             }
             KeyState::Pressed => {
@@ -394,9 +400,7 @@ impl PointerOwner for GrabPointerOwner {
 
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
         self.node.node_seat_state().remove_pointer_grab(seat);
-        seat.pointer_owner
-            .owner
-            .set(seat.pointer_owner.default.clone());
+        seat.pointer_owner.set_default_pointer_owner(seat);
     }
 
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
@@ -438,10 +442,7 @@ impl PointerOwner for DndPointerOwner {
         if let Some(icon) = self.icon.get() {
             icon.dnd_icons.remove(&seat.id());
         }
-        seat.pointer_owner
-            .owner
-            .set(seat.pointer_owner.default.clone());
-        // log::info!("button2");
+        seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();
     }
 
@@ -511,10 +512,7 @@ impl PointerOwner for DndPointerOwner {
         if let Some(icon) = self.icon.get() {
             icon.dnd_icons.remove(&seat.id());
         }
-        seat.pointer_owner
-            .owner
-            .set(seat.pointer_owner.default.clone());
-        // log::info!("cancel_dnd");
+        seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();
     }
 
