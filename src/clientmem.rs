@@ -142,7 +142,7 @@ unsafe extern "C" fn sigbus(sig: i32, info: &c::siginfo_t, _ucontext: *mut c::c_
             lo as _,
             hi - lo,
             c::PROT_WRITE | c::PROT_READ,
-            c::MAP_ANONYMOUS | c::MAP_PRIVATE,
+            c::MAP_ANONYMOUS | c::MAP_PRIVATE | c::MAP_FIXED,
             -1,
             0,
         );
