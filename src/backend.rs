@@ -32,10 +32,6 @@ pub trait Backend {
         let _ = idle;
     }
 
-    fn supports_idle(&self) -> bool {
-        false
-    }
-
     fn import_environment(&self) -> bool {
         false
     }

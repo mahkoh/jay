@@ -13,9 +13,6 @@ use {
 };
 
 pub async fn idle(state: Rc<State>, backend: Rc<dyn Backend>) {
-    if !backend.supports_idle() {
-        return;
-    }
     let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
         Ok(t) => t,
         Err(e) => {

@@ -198,10 +198,6 @@ impl Backend for MetalBackend {
         }
     }
 
-    fn supports_idle(&self) -> bool {
-        true
-    }
-
     fn import_environment(&self) -> bool {
         true
     }

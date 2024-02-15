@@ -166,6 +166,7 @@ impl Globals {
         add_singleton!(WpContentTypeManagerV1Global);
         add_singleton!(XdgActivationV1Global);
         add_singleton!(ExtForeignToplevelListV1Global);
+        add_singleton!(ZwpIdleInhibitManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
@@ -173,9 +174,6 @@ impl Globals {
             ($name:ident) => {
                 self.add_global_no_broadcast(&Rc::new($name::new(self.name())));
             };
-        }
-        if backend.supports_idle() {
-            add_singleton!(ZwpIdleInhibitManagerV1Global);
         }
         if backend.supports_presentation_feedback() {
             add_singleton!(WpPresentationGlobal);
