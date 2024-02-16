@@ -265,7 +265,7 @@ impl WlSeatGlobal {
         for output in self.state.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
                 let render = render | output.hardware_cursor_needs_render.take();
-                let scale = output.preferred_scale.get();
+                let scale = output.global.preferred_scale.get();
                 let extents = cursor.extents_at_scale(scale);
                 if render {
                     let (max_width, max_height) = hc.max_size();

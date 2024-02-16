@@ -57,7 +57,6 @@ use {
         collections::VecDeque,
         error::Error,
         future::pending,
-        ops::DerefMut,
         rc::Rc,
     },
     thiserror::Error,
@@ -733,21 +732,13 @@ impl XBackend {
         image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
-            let mut rr = self.render_result.borrow_mut();
-            let fb = image.fb.get();
-            fb.render_node(
-                &*node,
-                &self.state,
-                Some(node.global.pos.get()),
-                Some(rr.deref_mut()),
-                node.preferred_scale.get(),
+            self.state.present_output(
+                &node,
+                &image.fb.get(),
+                &image.tex.get(),
+                &mut self.render_result.borrow_mut(),
                 true,
             );
-            for fr in rr.frame_requests.drain(..) {
-                fr.send_done();
-                let _ = fr.client.remove_obj(&*fr);
-            }
-            node.perform_screencopies(&*fb, &image.tex.get());
         }
 
         let pp = PresentPixmap {

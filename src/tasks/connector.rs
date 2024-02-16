@@ -2,7 +2,6 @@ use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         ifs::wl_output::WlOutputGlobal,
-        scale::Scale,
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, OutputRenderData},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
@@ -124,14 +123,13 @@ impl ConnectorHandler {
             scroll: Default::default(),
             pointer_positions: Default::default(),
             lock_surface: Default::default(),
-            preferred_scale: Cell::new(Scale::from_int(1)),
             hardware_cursor: Default::default(),
             jay_outputs: Default::default(),
             screencasts: Default::default(),
             update_render_data_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
         });
-        self.state.add_output_scale(on.preferred_scale.get());
+        self.state.add_output_scale(on.global.preferred_scale.get());
         let mode = info.initial_mode;
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
@@ -278,7 +276,8 @@ impl ConnectorHandler {
         if let Some(dev) = &self.data.drm_dev {
             dev.connectors.remove(&self.id);
         }
-        self.state.remove_output_scale(on.preferred_scale.get());
+        self.state
+            .remove_output_scale(on.global.preferred_scale.get());
         let _ = self.state.remove_global(&*global);
     }
 }

@@ -74,6 +74,7 @@ pub struct WlOutputGlobal {
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
+    pub preferred_scale: Cell<crate::scale::Scale>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -120,6 +121,7 @@ impl WlOutputGlobal {
             pending_captures: Default::default(),
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(1),
+            preferred_scale: Cell::new(crate::scale::Scale::from_int(1)),
         }
     }
 
@@ -200,7 +202,12 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
+    pub fn perform_screencopies(
+        &self,
+        fb: &dyn GfxFramebuffer,
+        tex: &Rc<dyn GfxTexture>,
+        render_hardware_cursors: bool,
+    ) {
         if self.pending_captures.is_empty() {
             return;
         }
@@ -276,7 +283,15 @@ impl WlOutputGlobal {
                         continue;
                     }
                 };
-                fb.copy_texture(tex, -capture.rect.x1(), -capture.rect.y1());
+                self.state.perform_screencopy(
+                    tex,
+                    &fb,
+                    self.preferred_scale.get(),
+                    self.pos.get(),
+                    render_hardware_cursors,
+                    -capture.rect.x1(),
+                    -capture.rect.y1(),
+                );
             }
             if capture.with_damage.get() {
                 capture.send_damage();

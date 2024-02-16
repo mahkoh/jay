@@ -380,22 +380,16 @@ impl MetalConnector {
             if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
                 let mut rr = self.render_result.borrow_mut();
                 let render_fb = buffer.render_fb();
-                render_fb.render_node(
-                    &*node,
-                    &self.state,
-                    Some(node.global.pos.get()),
-                    Some(&mut rr),
-                    node.preferred_scale.get(),
+                self.state.present_output(
+                    &node,
+                    &render_fb,
+                    &buffer.render_tex,
+                    &mut rr,
                     !self.cursor_enabled.get(),
                 );
                 if let Some(tex) = &buffer.dev_tex {
                     buffer.dev_fb.copy_texture(tex, 0, 0);
                 }
-                for fr in rr.frame_requests.drain(..) {
-                    fr.send_done();
-                    let _ = fr.client.remove_obj(&*fr);
-                }
-                node.perform_screencopies(&*render_fb, &buffer.render_tex);
             }
             changes.change_object(plane.id, |c| {
                 c.change(plane.fb_id, buffer.drm.id().0 as _);

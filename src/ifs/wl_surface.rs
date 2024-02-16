@@ -438,7 +438,7 @@ impl WlSurface {
         }
         output.global.send_enter(self);
         old.global.send_leave(self);
-        if old.preferred_scale.get() != output.preferred_scale.get() {
+        if old.global.preferred_scale.get() != output.global.preferred_scale.get() {
             self.on_scale_change();
         }
         let children = self.children.borrow_mut();

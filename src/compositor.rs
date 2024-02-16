@@ -392,7 +392,6 @@ fn create_dummy_output(state: &Rc<State>) {
         scroll: Default::default(),
         pointer_positions: Default::default(),
         lock_surface: Default::default(),
-        preferred_scale: Cell::new(Scale::from_int(1)),
         hardware_cursor: Default::default(),
         update_render_data_scheduled: Cell::new(false),
         screencasts: Default::default(),

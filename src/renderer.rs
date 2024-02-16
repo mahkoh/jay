@@ -139,7 +139,7 @@ impl Renderer<'_> {
             let c = theme.colors.attention_requested_background.get();
             self.base
                 .fill_boxes2(&rd.attention_requested_workspaces, &c, x, y);
-            let scale = output.preferred_scale.get();
+            let scale = output.global.preferred_scale.get();
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
                 self.base

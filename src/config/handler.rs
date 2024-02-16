@@ -717,7 +717,7 @@ impl ConfigProxyHandler {
     fn handle_connector_get_scale(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::ConnectorGetScale {
-            scale: connector.node.preferred_scale.get().to_f64(),
+            scale: connector.node.global.preferred_scale.get().to_f64(),
         });
         Ok(())
     }
