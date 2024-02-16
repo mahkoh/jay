@@ -741,11 +741,11 @@ impl State {
         render_hw_cursor: bool,
     ) {
         fb.render_node(
-            &*output,
+            output,
             self,
             Some(output.global.pos.get()),
             Some(rr),
-            output.preferred_scale.get(),
+            output.global.preferred_scale.get(),
             render_hw_cursor,
         );
         for fr in rr.frame_requests.drain(..) {

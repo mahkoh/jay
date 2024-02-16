@@ -59,7 +59,6 @@ pub struct OutputNode {
     pub scroll: Scroller,
     pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
-    pub preferred_scale: Cell<Scale>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
     pub hardware_cursor_needs_render: Cell<bool>,
     pub update_render_data_scheduled: Cell<bool>,
@@ -111,7 +110,7 @@ impl OutputNode {
     }
 
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
-        let old_scale = self.preferred_scale.replace(scale);
+        let old_scale = self.global.preferred_scale.replace(scale);
         if scale == old_scale {
             return;
         }
@@ -152,7 +151,7 @@ impl OutputNode {
         let font = self.state.theme.font.borrow_mut();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
-        let scale = self.preferred_scale.get();
+        let scale = self.global.preferred_scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
@@ -410,7 +409,7 @@ impl OutputNode {
         let mode = self.global.mode.get();
         let mut width = mode.width;
         let mut height = mode.height;
-        let scale = self.preferred_scale.get();
+        let scale = self.global.preferred_scale.get();
         if scale != 1 {
             let scale = scale.to_f64();
             width = (width as f64 / scale).round() as _;

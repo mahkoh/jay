@@ -733,7 +733,7 @@ impl XBackend {
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
             self.state.present_output(
-                &*node,
+                &node,
                 &image.fb.get(),
                 &image.tex.get(),
                 &mut self.render_result.borrow_mut(),

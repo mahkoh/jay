@@ -74,6 +74,7 @@ pub struct WlOutputGlobal {
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
+    pub preferred_scale: Cell<crate::scale::Scale>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -120,6 +121,7 @@ impl WlOutputGlobal {
             pending_captures: Default::default(),
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(1),
+            preferred_scale: Cell::new(crate::scale::Scale::from_int(1)),
         }
     }
 
