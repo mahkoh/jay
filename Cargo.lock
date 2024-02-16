@@ -499,7 +499,6 @@ dependencies = [
  "ash",
  "backtrace",
  "bincode",
- "bitflags 2.4.2",
  "bstr",
  "byteorder",
  "chrono",

@@ -30,8 +30,8 @@ use {
             },
         },
         utils::{
-            bitfield::Bitfield, bitflags::BitflagsExt, buf::TypedBuf, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            bitfield::Bitfield, buf::TypedBuf, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
         },
         video::dmabuf::DmaBuf,
     },

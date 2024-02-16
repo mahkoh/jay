@@ -6,7 +6,10 @@ use {
         ifs::{
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
-            xdg_positioner::{XdgPositioned, XdgPositioner, CA},
+            xdg_positioner::{
+                XdgPositioned, XdgPositioner, CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y,
+                CA_SLIDE_X, CA_SLIDE_Y,
+            },
         },
         leaks::Tracker,
         object::Object,
@@ -114,8 +117,8 @@ impl XdgPopup {
             let output_pos = ws.output.get().global.pos.get();
             let mut overflow = output_pos.get_overflow(&abs_pos);
             if !overflow.is_contained() {
-                let mut flip_x = positioner.ca.contains(CA::FLIP_X) && overflow.x_overflow();
-                let mut flip_y = positioner.ca.contains(CA::FLIP_Y) && overflow.y_overflow();
+                let mut flip_x = positioner.ca.contains(CA_FLIP_X) && overflow.x_overflow();
+                let mut flip_y = positioner.ca.contains(CA_FLIP_Y) && overflow.y_overflow();
                 if flip_x || flip_y {
                     let mut adj_rel = positioner.get_position(flip_x, flip_y);
                     let mut adj_abs = adj_rel.move_(parent_abs.x1(), parent_abs.y1());
@@ -141,14 +144,14 @@ impl XdgPopup {
                     }
                 }
                 let (mut dx, mut dy) = (0, 0);
-                if positioner.ca.contains(CA::SLIDE_X) && overflow.x_overflow() {
+                if positioner.ca.contains(CA_SLIDE_X) && overflow.x_overflow() {
                     dx = if overflow.left > 0 || overflow.left + overflow.right > 0 {
                         parent_abs.x1() - abs_pos.x1()
                     } else {
                         parent_abs.x2() - abs_pos.x2()
                     };
                 }
-                if positioner.ca.contains(CA::SLIDE_Y) && overflow.y_overflow() {
+                if positioner.ca.contains(CA_SLIDE_Y) && overflow.y_overflow() {
                     dy = if overflow.top > 0 || overflow.top + overflow.bottom > 0 {
                         parent_abs.y1() - abs_pos.y1()
                     } else {
@@ -161,11 +164,11 @@ impl XdgPopup {
                     overflow = output_pos.get_overflow(&abs_pos);
                 }
                 let (mut dx1, mut dx2, mut dy1, mut dy2) = (0, 0, 0, 0);
-                if positioner.ca.contains(CA::RESIZE_X) {
+                if positioner.ca.contains(CA_RESIZE_X) {
                     dx1 = overflow.left.max(0);
                     dx2 = -overflow.right.max(0);
                 }
-                if positioner.ca.contains(CA::RESIZE_Y) {
+                if positioner.ca.contains(CA_RESIZE_Y) {
                     dy1 = overflow.top.max(0);
                     dy2 = -overflow.bottom.max(0);
                 }

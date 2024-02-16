@@ -9,7 +9,7 @@ use {
                 },
                 PROCS,
             },
-            ext::{DisplayExt, GlExt},
+            ext::{GlExt, EXT_CREATE_CONTEXT_ROBUSTNESS},
             sys::{
                 GL_GUILTY_CONTEXT_RESET_ARB, GL_INNOCENT_CONTEXT_RESET_ARB,
                 GL_UNKNOWN_CONTEXT_RESET_ARB,
@@ -44,11 +44,7 @@ static mut CURRENT: EGLContext = EGLContext::none();
 
 impl EglContext {
     pub fn reset_status(&self) -> Option<ResetStatus> {
-        if !self
-            .dpy
-            .exts
-            .contains(DisplayExt::EXT_CREATE_CONTEXT_ROBUSTNESS)
-        {
+        if !self.dpy.exts.contains(EXT_CREATE_CONTEXT_ROBUSTNESS) {
             return None;
         }
         let status = self.with_current(|| unsafe {

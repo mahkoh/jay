@@ -23,7 +23,12 @@ use {
                 },
                 PROCS,
             },
-            ext::{get_display_ext, get_gl_ext, DisplayExt, GlExt},
+            ext::{
+                get_display_ext, get_gl_ext, DisplayExt, GlExt, EXT_CREATE_CONTEXT_ROBUSTNESS,
+                EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, GL_OES_EGL_IMAGE, GL_OES_EGL_IMAGE_EXTERNAL,
+                KHR_IMAGE_BASE, KHR_NO_CONFIG_CONTEXT, KHR_SURFACELESS_CONTEXT,
+                MESA_CONFIGLESS_CONTEXT,
+            },
             sys::{
                 eglInitialize, EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT,
                 EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR,
@@ -74,7 +79,7 @@ impl EglDisplay {
                 return Err(RenderError::GetDisplay);
             }
             let mut dpy = EglDisplay {
-                exts: DisplayExt::empty(),
+                exts: DisplayExt::none(),
                 formats: AHashMap::new(),
                 gbm: Rc::new(gbm),
                 dpy,
@@ -85,22 +90,19 @@ impl EglDisplay {
                 return Err(RenderError::Initialize);
             }
             dpy.exts = get_display_ext(dpy.dpy);
-            if !dpy.exts.intersects(DisplayExt::KHR_IMAGE_BASE) {
+            if !dpy.exts.intersects(KHR_IMAGE_BASE) {
                 return Err(RenderError::ImageBase);
             }
-            if !dpy
-                .exts
-                .intersects(DisplayExt::EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS)
-            {
+            if !dpy.exts.intersects(EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS) {
                 return Err(RenderError::DmaBufImport);
             }
             if !dpy
                 .exts
-                .intersects(DisplayExt::KHR_NO_CONFIG_CONTEXT | DisplayExt::MESA_CONFIGLESS_CONTEXT)
+                .intersects(KHR_NO_CONFIG_CONTEXT | MESA_CONFIGLESS_CONTEXT)
             {
                 return Err(RenderError::ConfiglessContext);
             }
-            if !dpy.exts.intersects(DisplayExt::KHR_SURFACELESS_CONTEXT) {
+            if !dpy.exts.intersects(KHR_SURFACELESS_CONTEXT) {
                 return Err(RenderError::SurfacelessContext);
             }
             dpy.formats = query_formats(dpy.dpy)?;
@@ -113,10 +115,7 @@ impl EglDisplay {
         self: &Rc<Self>,
     ) -> Result<Rc<EglContext>, RenderError> {
         let mut attrib = vec![EGL_CONTEXT_CLIENT_VERSION, 2];
-        if self
-            .exts
-            .contains(DisplayExt::EXT_CREATE_CONTEXT_ROBUSTNESS)
-        {
+        if self.exts.contains(EXT_CREATE_CONTEXT_ROBUSTNESS) {
             attrib.push(EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT);
             attrib.push(EGL_LOSE_CONTEXT_ON_RESET_EXT);
         } else {
@@ -136,17 +135,17 @@ impl EglDisplay {
         }
         let mut ctx = EglContext {
             dpy: self.clone(),
-            ext: GlExt::empty(),
+            ext: GlExt::none(),
             ctx,
             formats: Default::default(),
         };
         ctx.ext = ctx.with_current(|| Ok(get_gl_ext()))?;
-        if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE) {
+        if !ctx.ext.contains(GL_OES_EGL_IMAGE) {
             return Err(RenderError::OesEglImage);
         }
         ctx.formats = {
             let mut formats = AHashMap::new();
-            let supports_external_only = ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL);
+            let supports_external_only = ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL);
             for (&drm, format) in &self.formats {
                 if format.implicit_external_only && !supports_external_only {
                     continue;

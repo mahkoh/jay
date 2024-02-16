@@ -24,45 +24,41 @@ const BOTTOM_LEFT: u32 = 6;
 const TOP_RIGHT: u32 = 7;
 const BOTTOM_RIGHT: u32 = 8;
 
-bitflags::bitflags! {
-    #[derive(Copy, Clone, Default, Debug)]
-    pub struct Edge: u32 {
-        const TOP = 1 << 0;
-        const BOTTOM = 1 << 1;
-        const LEFT = 1 << 2;
-        const RIGHT = 1 << 3;
-    }
+bitflags! {
+    Edge: u32;
+        E_TOP = 1 << 0,
+        E_BOTTOM = 1 << 1,
+        E_LEFT = 1 << 2,
+        E_RIGHT = 1 << 3,
 }
 
 impl Edge {
     fn from_enum(e: u32) -> Option<Self> {
         let s = match e {
-            NONE => Edge::empty(),
-            TOP => Edge::TOP,
-            BOTTOM => Edge::BOTTOM,
-            LEFT => Edge::LEFT,
-            RIGHT => Edge::RIGHT,
-            TOP_LEFT => Edge::TOP | Edge::LEFT,
-            BOTTOM_LEFT => Edge::BOTTOM | Edge::LEFT,
-            TOP_RIGHT => Edge::TOP | Edge::RIGHT,
-            BOTTOM_RIGHT => Edge::BOTTOM | Edge::RIGHT,
+            NONE => Self::none(),
+            TOP => E_TOP,
+            BOTTOM => E_BOTTOM,
+            LEFT => E_LEFT,
+            RIGHT => E_RIGHT,
+            TOP_LEFT => E_TOP | E_LEFT,
+            BOTTOM_LEFT => E_BOTTOM | E_LEFT,
+            TOP_RIGHT => E_TOP | E_RIGHT,
+            BOTTOM_RIGHT => E_BOTTOM | E_RIGHT,
             _ => return None,
         };
         Some(s)
     }
 }
 
-bitflags::bitflags! {
-    #[derive(Copy, Clone, Default, Debug)]
-    pub struct CA: u32 {
-        const NONE = 0;
-        const SLIDE_X = 1;
-        const SLIDE_Y = 2;
-        const FLIP_X = 4;
-        const FLIP_Y = 8;
-        const RESIZE_X = 16;
-        const RESIZE_Y = 32;
-    }
+bitflags! {
+    CA: u32;
+        CA_NONE = 0,
+        CA_SLIDE_X = 1,
+        CA_SLIDE_Y = 2,
+        CA_FLIP_X = 4,
+        CA_FLIP_Y = 8,
+        CA_RESIZE_X = 16,
+        CA_RESIZE_Y = 32,
 }
 
 pub struct XdgPositioner {
@@ -98,42 +94,42 @@ impl XdgPositioned {
         let mut anchor = self.anchor;
         let mut gravity = self.gravity;
         if flip_x {
-            anchor ^= Edge::LEFT | Edge::RIGHT;
-            gravity ^= Edge::LEFT | Edge::RIGHT;
+            anchor ^= E_LEFT | E_RIGHT;
+            gravity ^= E_LEFT | E_RIGHT;
         }
         if flip_y {
-            anchor ^= Edge::TOP | Edge::BOTTOM;
-            gravity ^= Edge::TOP | Edge::BOTTOM;
+            anchor ^= E_TOP | E_BOTTOM;
+            gravity ^= E_TOP | E_BOTTOM;
         }
 
         let mut x1 = self.off_x;
         let mut y1 = self.off_x;
 
-        if anchor.contains(Edge::LEFT) {
+        if anchor.contains(E_LEFT) {
             x1 += self.ar.x1();
-        } else if anchor.contains(Edge::RIGHT) {
+        } else if anchor.contains(E_RIGHT) {
             x1 += self.ar.x2();
         } else {
             x1 += self.ar.x1() + self.ar.width() / 2;
         }
 
-        if anchor.contains(Edge::TOP) {
+        if anchor.contains(E_TOP) {
             y1 += self.ar.y1();
-        } else if anchor.contains(Edge::BOTTOM) {
+        } else if anchor.contains(E_BOTTOM) {
             y1 += self.ar.y2();
         } else {
             y1 += self.ar.y1() + self.ar.height() / 2;
         }
 
-        if gravity.contains(Edge::LEFT) {
+        if gravity.contains(E_LEFT) {
             x1 -= self.size_width;
-        } else if !gravity.contains(Edge::RIGHT) {
+        } else if !gravity.contains(E_RIGHT) {
             x1 -= self.size_width / 2;
         }
 
-        if gravity.contains(Edge::TOP) {
+        if gravity.contains(E_TOP) {
             y1 -= self.size_height;
-        } else if !gravity.contains(Edge::BOTTOM) {
+        } else if !gravity.contains(E_BOTTOM) {
             y1 -= self.size_height / 2;
         }
 
@@ -218,10 +214,10 @@ impl XdgPositioner {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), XdgPositionerError> {
         let req: SetConstraintAdjustment = self.client.parse(self, parser)?;
-        let ca = match CA::from_bits(req.constraint_adjustment) {
-            Some(c) => c,
-            _ => return Err(XdgPositionerError::UnknownCa(req.constraint_adjustment)),
-        };
+        let ca = CA(req.constraint_adjustment);
+        if !ca.is_valid() {
+            return Err(XdgPositionerError::UnknownCa(req.constraint_adjustment));
+        }
         self.position.borrow_mut().ca = ca;
         Ok(())
     }

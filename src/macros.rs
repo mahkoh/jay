@@ -526,7 +526,7 @@ macro_rules! containing_node_impl {
 
 macro_rules! bitflags {
     ($name:ident: $rep:ty; $($var:ident = $val:expr,)*) => {
-        #[derive(Copy, Clone, Eq, PartialEq)]
+        #[derive(Copy, Clone, Eq, PartialEq, Default)]
         pub struct $name(pub $rep);
 
         $(
@@ -543,18 +543,24 @@ macro_rules! bitflags {
             pub fn is_some(self) -> bool {
                 self.0 != 0
             }
-        }
 
-        impl crate::utils::bitflags::BitflagsExt for $name {
-            fn contains(self, other: Self) -> bool {
+            pub fn all() -> Self {
+                Self(0 $(| $val)*)
+            }
+
+            pub fn is_valid(self) -> bool {
+                Self::all().contains(self)
+            }
+
+            pub fn contains(self, other: Self) -> bool {
                 self.0 & other.0 == other.0
             }
 
-            fn not_contains(self, other: Self) -> bool {
+            pub fn not_contains(self, other: Self) -> bool {
                 self.0 & other.0 != other.0
             }
 
-            fn intersects(self, other: Self) -> bool {
+            pub fn intersects(self, other: Self) -> bool {
                 self.0 & other.0 != 0
             }
         }
@@ -584,6 +590,12 @@ macro_rules! bitflags {
         impl std::ops::BitAndAssign for $name {
             fn bitand_assign(&mut self, rhs: Self) {
                 self.0 &= rhs.0;
+            }
+        }
+
+        impl std::ops::BitXorAssign for $name {
+            fn bitxor_assign(&mut self, rhs: Self) {
+                self.0 ^= rhs.0;
             }
         }
 

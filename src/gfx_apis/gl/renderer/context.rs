@@ -7,7 +7,7 @@ use {
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay},
-            ext::GlExt,
+            ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
             },
@@ -100,7 +100,7 @@ impl GlRenderContext {
             tex_vert,
             include_str!("../shaders/tex-alpha.frag.glsl"),
         )?;
-        let tex_external = if ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL) {
+        let tex_external = if ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL) {
             let solid = GlProgram::from_shaders(
                 ctx,
                 tex_vert,
