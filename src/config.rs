@@ -13,6 +13,7 @@ use {
             unlink_on_drop::UnlinkOnDrop, xrd::xrd,
         },
     },
+    bincode::Options,
     jay_config::{
         _private::{
             bincode_ops,
@@ -175,8 +176,9 @@ impl ConfigProxy {
             timers_by_name: Default::default(),
             timers_by_id: Default::default(),
         });
-        let init_msg =
-            bincode::encode_to_vec(&InitMessage::V1(V1InitMessage {}), bincode_ops()).unwrap();
+        let init_msg = bincode_ops()
+            .serialize(&InitMessage::V1(V1InitMessage {}))
+            .unwrap();
         unsafe {
             let client_data = (entry.init)(
                 Rc::into_raw(data.clone()) as _,

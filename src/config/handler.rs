@@ -22,7 +22,7 @@ use {
         },
         xkbcommon::{XkbCommonError, XkbKeymap},
     },
-    bincode::error::DecodeError,
+    bincode::Options,
     jay_config::{
         _private::{
             bincode_ops,
@@ -89,7 +89,7 @@ impl ConfigProxyHandler {
     pub fn send(&self, msg: &ServerMessage) {
         let mut buf = self.bufs.pop().unwrap_or_default();
         buf.clear();
-        bincode::encode_into_std_write(msg, &mut buf, bincode_ops()).unwrap();
+        bincode_ops().serialize_into(&mut buf, msg).unwrap();
         unsafe {
             (self.handle_msg)(self.client_data.get(), buf.as_ptr(), buf.len());
         }
@@ -1097,11 +1097,10 @@ impl ConfigProxyHandler {
     }
 
     fn handle_request_(self: &Rc<Self>, msg: &[u8]) -> Result<(), CphError> {
-        let (request, _) =
-            match bincode::borrow_decode_from_slice::<ClientMessage, _>(msg, bincode_ops()) {
-                Ok(msg) => msg,
-                Err(e) => return Err(CphError::ParsingFailed(e)),
-            };
+        let request = match bincode_ops().deserialize::<ClientMessage>(msg) {
+            Ok(msg) => msg,
+            Err(e) => return Err(CphError::ParsingFailed(e)),
+        };
         match request {
             ClientMessage::Log {
                 level,
@@ -1367,7 +1366,7 @@ enum CphError {
     #[error("Sized element {0} is not known")]
     UnknownSized(u32),
     #[error("Could not parse the message")]
-    ParsingFailed(#[source] DecodeError),
+    ParsingFailed(#[source] bincode::Error),
     #[error("Could not process a `{0}` request")]
     FailedRequest(&'static str, #[source] Box<Self>),
     #[error(transparent)]

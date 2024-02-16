@@ -2,12 +2,12 @@
 
 use {
     crate::{keyboard::syms::KeySym, ModifiedKeySym},
-    bincode::{Decode, Encode},
+    serde::{Deserialize, Serialize},
     std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign},
 };
 
 /// Zero or more keyboard modifiers
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Default, Hash, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Default, Hash, Debug)]
 pub struct Modifiers(pub u32);
 
 /// The Shift modifier

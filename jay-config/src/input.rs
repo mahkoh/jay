@@ -9,11 +9,11 @@ use {
         keyboard::Keymap,
         Axis, Direction, ModifiedKeySym, Workspace,
     },
-    bincode::{Decode, Encode},
+    serde::{Deserialize, Serialize},
 };
 
 /// An input device.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct InputDevice(pub u64);
 
 impl InputDevice {
@@ -114,7 +114,7 @@ impl InputDevice {
 }
 
 /// A seat.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Seat(pub u64);
 
 impl Seat {

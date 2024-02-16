@@ -2,10 +2,10 @@
 //!
 //! See the libinput documentation for the meanings of these constants.
 
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// A capability of an input device.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Capability(pub u32);
 
 pub const CAP_KEYBOARD: Capability = Capability(0);
