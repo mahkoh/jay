@@ -13,6 +13,7 @@ use {
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
         drm_feedback::DrmFeedback,
+        fixed::Fixed,
         forker::ForkerProxy,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         gfx_apis::create_gfx_context,
@@ -36,9 +37,9 @@ use {
         leaks::Tracker,
         logger::Logger,
         rect::Rect,
-        renderer::RenderResult,
+        renderer::{renderer_base::RendererBase, RenderResult, Renderer},
         scale::Scale,
-        theme::Theme,
+        theme::{Color, Theme},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
             NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
@@ -752,6 +753,49 @@ impl State {
             fr.send_done();
             let _ = fr.client.remove_obj(&*fr);
         }
-        output.perform_screencopies(&**fb, tex);
+        output.perform_screencopies(&**fb, tex, !render_hw_cursor);
+    }
+
+    pub fn perform_screencopy(
+        &self,
+        src: &Rc<dyn GfxTexture>,
+        target: &Rc<dyn GfxFramebuffer>,
+        scale: Scale,
+        position: Rect,
+        render_hardware_cursors: bool,
+        x_off: i32,
+        y_off: i32,
+    ) {
+        let mut ops = target.take_render_ops();
+        let (width, height) = target.size();
+        let mut renderer = Renderer {
+            base: RendererBase {
+                ops: &mut ops,
+                scaled: scale != 1,
+                scale,
+                scalef: scale.to_f64(),
+            },
+            state: self,
+            result: None,
+            logical_extents: position.at_point(0, 0),
+            physical_extents: Rect::new_sized(0, 0, width, height).unwrap(),
+        };
+        renderer
+            .base
+            .render_texture(src, x_off, y_off, None, None, scale, None);
+        if render_hardware_cursors {
+            for seat in self.globals.lock_seats().values() {
+                if let Some(cursor) = seat.get_cursor() {
+                    let (mut x, mut y) = seat.get_position();
+                    if seat.hardware_cursor() {
+                        x = x + x_off - Fixed::from_int(position.x1());
+                        y = y + y_off - Fixed::from_int(position.y1());
+                        cursor.render(&mut renderer, x, y);
+                    }
+                }
+            }
+        }
+        let clear = target.format().has_alpha.then_some(&Color::TRANSPARENT);
+        target.render(ops, clear);
     }
 }

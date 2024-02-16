@@ -149,7 +149,12 @@ impl JayScreencast {
         });
     }
 
-    pub fn copy_texture(&self, on: &OutputNode, texture: &Rc<dyn GfxTexture>) {
+    pub fn copy_texture(
+        &self,
+        on: &OutputNode,
+        texture: &Rc<dyn GfxTexture>,
+        render_hardware_cursors: bool,
+    ) {
         if !self.running.get() {
             return;
         }
@@ -165,7 +170,15 @@ impl JayScreencast {
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
             if buffer.free {
-                buffer.fb.copy_texture(texture, 0, 0);
+                self.client.state.perform_screencopy(
+                    texture,
+                    &buffer.fb,
+                    on.global.preferred_scale.get(),
+                    on.global.pos.get(),
+                    render_hardware_cursors,
+                    0,
+                    0,
+                );
                 self.client.event(Ready {
                     self_id: self.id,
                     idx: idx as _,

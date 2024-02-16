@@ -202,7 +202,12 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
+    pub fn perform_screencopies(
+        &self,
+        fb: &dyn GfxFramebuffer,
+        tex: &Rc<dyn GfxTexture>,
+        render_hardware_cursors: bool,
+    ) {
         if self.pending_captures.is_empty() {
             return;
         }
@@ -278,7 +283,15 @@ impl WlOutputGlobal {
                         continue;
                     }
                 };
-                fb.copy_texture(tex, -capture.rect.x1(), -capture.rect.y1());
+                self.state.perform_screencopy(
+                    tex,
+                    &fb,
+                    self.preferred_scale.get(),
+                    self.pos.get(),
+                    render_hardware_cursors,
+                    -capture.rect.x1(),
+                    -capture.rect.y1(),
+                );
             }
             if capture.with_damage.get() {
                 capture.send_damage();

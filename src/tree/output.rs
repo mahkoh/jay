@@ -78,15 +78,21 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
-    pub fn perform_screencopies(&self, fb: &dyn GfxFramebuffer, tex: &Rc<dyn GfxTexture>) {
+    pub fn perform_screencopies(
+        &self,
+        fb: &dyn GfxFramebuffer,
+        tex: &Rc<dyn GfxTexture>,
+        render_hardware_cursor: bool,
+    ) {
         if let Some(workspace) = self.workspace.get() {
             if !workspace.capture.get() {
                 return;
             }
         }
-        self.global.perform_screencopies(fb, tex);
+        self.global
+            .perform_screencopies(fb, tex, render_hardware_cursor);
         for sc in self.screencasts.lock().values() {
-            sc.copy_texture(self, tex);
+            sc.copy_texture(self, tex, render_hardware_cursor);
         }
     }
 
