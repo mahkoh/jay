@@ -5,7 +5,7 @@ use {
             EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
             EGL_OPENGL_ES_API, EGL_TRUE,
         },
-        ext::{get_client_ext, ClientExt},
+        ext::{get_client_ext, ClientExt, EXT_PLATFORM_BASE, KHR_DEBUG, KHR_PLATFORM_GBM},
         proc::ExtProc,
         RenderError,
     },
@@ -32,13 +32,13 @@ pub(crate) static PROCS: Lazy<ExtProc> = Lazy::new(ExtProc::load);
 pub(crate) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
 
 pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
-    if !EXTS.contains(ClientExt::EXT_PLATFORM_BASE) {
+    if !EXTS.contains(EXT_PLATFORM_BASE) {
         return Err(RenderError::ExtPlatformBase);
     }
-    if !EXTS.contains(ClientExt::KHR_PLATFORM_GBM) {
+    if !EXTS.contains(KHR_PLATFORM_GBM) {
         return Err(RenderError::GbmExt);
     }
-    if EXTS.contains(ClientExt::KHR_DEBUG) {
+    if EXTS.contains(KHR_DEBUG) {
         let attrib: &[EGLAttrib] = &[
             EGL_DEBUG_MSG_CRITICAL_KHR as _,
             EGL_TRUE as _,

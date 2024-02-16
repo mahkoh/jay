@@ -3,7 +3,7 @@ use {
         format::Format,
         gfx_apis::gl::{
             egl::{context::EglContext, image::EglImage, PROCS},
-            ext::GlExt,
+            ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::sys::{
                 glBindTexture, glDeleteTextures, glGenTextures, glPixelStorei, glTexImage2D,
                 glTexParameteri, GLint, GLuint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
@@ -38,7 +38,7 @@ impl GlTexture {
         ctx: &Rc<EglContext>,
         img: &Rc<EglImage>,
     ) -> Result<GlTexture, RenderError> {
-        if !ctx.ext.contains(GlExt::GL_OES_EGL_IMAGE_EXTERNAL) {
+        if !ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL) {
             return Err(RenderError::ExternalUnsupported);
         }
         let target = image_target(img.external_only);
