@@ -14,7 +14,7 @@ use {
         dbus::Dbus,
         drm_feedback::DrmFeedback,
         forker::ForkerProxy,
-        gfx_api::{GfxContext, GfxError},
+        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -36,6 +36,7 @@ use {
         leaks::Tracker,
         logger::Logger,
         rect::Rect,
+        renderer::RenderResult,
         scale::Scale,
         theme::Theme,
         tree::{
@@ -729,5 +730,28 @@ impl State {
         for tester in testers.values() {
             f(tester);
         }
+    }
+
+    pub fn present_output(
+        &self,
+        output: &OutputNode,
+        fb: &Rc<dyn GfxFramebuffer>,
+        tex: &Rc<dyn GfxTexture>,
+        rr: &mut RenderResult,
+        render_hw_cursor: bool,
+    ) {
+        fb.render_node(
+            &*output,
+            self,
+            Some(output.global.pos.get()),
+            Some(rr),
+            output.preferred_scale.get(),
+            render_hw_cursor,
+        );
+        for fr in rr.frame_requests.drain(..) {
+            fr.send_done();
+            let _ = fr.client.remove_obj(&*fr);
+        }
+        output.perform_screencopies(&**fb, tex);
     }
 }
