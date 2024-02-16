@@ -5,6 +5,7 @@ use {
         it::test_error::{TestError, TestResult},
         utils::{copyhashmap::CopyHashMap, stack::Stack},
     },
+    bincode::Options,
     isnt::std_1::primitive::IsntConstPtrExt,
     jay_config::{
         _private::{
@@ -76,8 +77,8 @@ unsafe extern "C" fn unref(data: *const u8) {
 unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
     let tc = &*data.cast::<TestConfig>();
     let msg = std::slice::from_raw_parts(msg, size);
-    let res = bincode::borrow_decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
-    let (msg, _) = match res {
+    let res = bincode_ops().deserialize::<ServerMessage>(msg);
+    let msg = match res {
         Ok(msg) => msg,
         Err(e) => {
             log::error!("could not deserialize message: {}", e);
@@ -145,7 +146,7 @@ impl TestConfig {
             _ => bail!("srv not set"),
         };
         let mut buf = vec![];
-        bincode::encode_into_std_write(msg, &mut buf, bincode_ops()).unwrap();
+        bincode_ops().serialize_into(&mut buf, msg).unwrap();
         unsafe {
             (srv.srv_handler)(srv.srv_data, buf.as_ptr(), buf.len());
         }

@@ -8,11 +8,11 @@ use {
         video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi},
         Axis, Direction, PciId, Workspace,
     },
-    bincode::{BorrowDecode, Decode, Encode},
+    serde::{Deserialize, Serialize},
     std::time::Duration,
 };
 
-#[derive(Encode, BorrowDecode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Configure {
         reload: bool,
@@ -58,7 +58,7 @@ pub enum ServerMessage {
     DevicesEnumerated,
 }
 
-#[derive(Encode, BorrowDecode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ClientMessage<'a> {
     Reload,
     Quit,
@@ -340,7 +340,7 @@ pub enum ClientMessage<'a> {
     },
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Response {
     None,
     GetSeats {
@@ -442,10 +442,10 @@ pub enum Response {
     },
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum InitMessage {
     V1(V1InitMessage),
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct V1InitMessage {}

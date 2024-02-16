@@ -19,6 +19,7 @@ use {
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
+    bincode::Options,
     std::{
         cell::{Cell, RefCell},
         collections::{hash_map::Entry, HashMap},
@@ -171,7 +172,7 @@ impl Client {
     fn send(&self, msg: &ClientMessage) {
         let mut buf = self.bufs.borrow_mut().pop().unwrap_or_default();
         buf.clear();
-        bincode::encode_into_std_write(msg, &mut buf, bincode_ops()).unwrap();
+        bincode_ops().serialize_into(&mut buf, msg).unwrap();
         unsafe {
             (self.srv_handler)(self.srv_data, buf.as_ptr(), buf.len());
         }
@@ -700,8 +701,8 @@ impl Client {
     }
 
     fn handle_msg(&self, msg: &[u8]) {
-        let res = bincode::borrow_decode_from_slice::<ServerMessage, _>(msg, bincode_ops());
-        let (msg, _) = match res {
+        let res = bincode_ops().deserialize::<ServerMessage>(msg);
+        let msg = match res {
             Ok(msg) => msg,
             Err(e) => {
                 let msg = format!("could not deserialize message: {}", e);
@@ -787,7 +788,7 @@ impl Client {
     }
 
     fn handle_init_msg(&self, msg: &[u8]) {
-        let (init, _) = match bincode::decode_from_slice::<InitMessage, _>(msg, bincode_ops()) {
+        let init = match bincode_ops().deserialize::<InitMessage>(msg) {
             Ok(m) => m,
             Err(e) => {
                 let msg = format!("could not deserialize message: {}", e);

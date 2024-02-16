@@ -1,6 +1,6 @@
 //! Tools for configuring the look of the compositor.
 
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// A color.
 ///
@@ -15,7 +15,7 @@ use bincode::{Decode, Encode};
 ///
 /// When using hexadecimal notation, `#RRGGBBAA`, the RGB values are usually straight.
 // values are stored premultiplied
-#[derive(Encode, Decode, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Color {
     r: f32,
     g: f32,
@@ -160,11 +160,11 @@ pub fn reset_font() {
 pub mod colors {
     use {
         crate::theme::Color,
-        bincode::{Decode, Encode},
+        serde::{Deserialize, Serialize},
     };
 
     /// An element of the GUI whose color can be changed.
-    #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+    #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Colorable(#[doc(hidden)] pub u32);
 
     impl Colorable {
@@ -262,10 +262,10 @@ pub mod colors {
 
 /// Elements of the compositor whose size can be changed.
 pub mod sized {
-    use bincode::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     /// An element of the GUI whose size can be changed.
-    #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+    #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Resizable(#[doc(hidden)] pub u32);
 
     impl Resizable {

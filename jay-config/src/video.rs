@@ -10,7 +10,7 @@ use {
         },
         PciId,
     },
-    bincode::{Decode, Encode},
+    serde::{Deserialize, Serialize},
     std::str::FromStr,
 };
 
@@ -59,7 +59,7 @@ impl Mode {
 ///
 /// A connector is the part that sticks out of your graphics card. A graphics card usually
 /// has many connectors but one few of them are actually connected to a monitor.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Connector(pub u64);
 
 impl Connector {
@@ -286,10 +286,10 @@ impl ToConnectorId for &'_ str {
 
 /// Module containing all known connector types.
 pub mod connector_type {
-    use bincode::{Decode, Encode};
+    use serde::{Deserialize, Serialize};
 
     /// The type of a connector.
-    #[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+    #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
     pub struct ConnectorType(pub u32);
 
     pub const CON_UNKNOWN: ConnectorType = ConnectorType(0);
@@ -321,7 +321,7 @@ pub mod connector_type {
 /// It's easiest to think of a DRM device as a graphics card.
 /// There are also DRM devices that are emulated in software but you are unlikely to encounter
 /// those accidentally.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct DrmDevice(pub u64);
 
 impl DrmDevice {
@@ -373,7 +373,7 @@ impl DrmDevice {
 
 /// A graphics API.
 #[non_exhaustive]
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum GfxApi {
     OpenGl,
     Vulkan,

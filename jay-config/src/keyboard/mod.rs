@@ -2,7 +2,7 @@
 
 use {
     crate::keyboard::{mods::Modifiers, syms::KeySym},
-    bincode::{Decode, Encode},
+    serde::{Deserialize, Serialize},
     std::ops::{BitOr, BitOrAssign},
 };
 
@@ -10,7 +10,7 @@ pub mod mods;
 pub mod syms;
 
 /// A keysym with zero or more modifiers
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ModifiedKeySym {
     pub mods: Modifiers,
     pub sym: KeySym,
@@ -43,7 +43,7 @@ impl BitOrAssign<Modifiers> for ModifiedKeySym {
 }
 
 /// A keymap.
-#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Keymap(pub u64);
 
 impl Keymap {

@@ -2,10 +2,10 @@
 //!
 //! See the libinput documentation for details.
 
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// The acceleration profile of a device.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct AccelProfile(pub u32);
 
 /// A flat acceleration profile.

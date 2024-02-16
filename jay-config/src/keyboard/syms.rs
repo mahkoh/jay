@@ -2,10 +2,10 @@
 
 #![allow(non_upper_case_globals)]
 
-use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 /// A keysym.
-#[derive(Encode, Decode, Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct KeySym(pub u32);
 
 pub const SYM_BackSpace: KeySym = KeySym(0xff08);

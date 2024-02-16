@@ -1,5 +1,6 @@
 use {
-    bincode::{Decode, Encode},
+    bincode::Options,
+    serde::{de::DeserializeOwned, Serialize},
     std::{mem, rc::Rc},
 };
 
@@ -34,7 +35,7 @@ impl IoIn {
         self.incoming.get_fd().ok()
     }
 
-    pub async fn read_msg<T: Decode>(&mut self) -> Result<T, ForkerError> {
+    pub async fn read_msg<T: DeserializeOwned>(&mut self) -> Result<T, ForkerError> {
         let mut len = 0usize;
         if let Err(e) = self.incoming.read_full(&mut len).await {
             return Err(ForkerError::ReadFailed(e));
@@ -48,11 +49,9 @@ impl IoIn {
         unsafe {
             self.scratch.set_len(len);
         }
-        let res = bincode::decode_from_slice::<T, _>(&self.scratch, bincode_ops());
-        match res {
-            Ok((msg, _)) => Ok(msg),
-            Err(e) => Err(ForkerError::DecodeFailed(e)),
-        }
+        bincode_ops()
+            .deserialize::<T>(&self.scratch)
+            .map_err(ForkerError::DecodeFailed)
     }
 }
 
@@ -75,14 +74,13 @@ impl IoOut {
         self.fds.push(fd);
     }
 
-    pub async fn write_msg<T: Encode>(&mut self, msg: T) -> Result<(), ForkerError> {
+    pub async fn write_msg<T: Serialize>(&mut self, msg: T) -> Result<(), ForkerError> {
         self.scratch.clear();
         self.scratch.extend_from_slice(uapi::as_bytes(&0usize));
-        let res = bincode::encode_into_std_write(&msg, &mut self.scratch, bincode_ops());
-        let len = match res {
-            Ok(l) => l,
-            Err(e) => return Err(ForkerError::EncodeFailed(e)),
-        };
+        bincode_ops()
+            .serialize_into(&mut self.scratch, &msg)
+            .map_err(ForkerError::EncodeFailed)?;
+        let len = self.scratch.len() - mem::size_of_val(&0usize);
         self.scratch[..mem::size_of_val(&len)].copy_from_slice(uapi::as_bytes(&len));
         let mut buf = self.scratch.borrow();
         match self

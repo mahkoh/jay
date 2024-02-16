@@ -17,12 +17,10 @@ use {
         },
         xwayland,
     },
-    bincode::{
-        error::{DecodeError, EncodeError},
-        Decode, Encode,
-    },
+    bincode::Options,
     jay_config::_private::bincode_ops,
     log::Level,
+    serde::{Deserialize, Serialize},
     std::{
         cell::{Cell, RefCell},
         env,
@@ -65,9 +63,9 @@ pub enum ForkerError {
     #[error("Could not write the next message")]
     WriteFailed(#[source] BufFdError),
     #[error("Could not decode the next message")]
-    DecodeFailed(#[source] DecodeError),
+    DecodeFailed(#[source] bincode::Error),
     #[error("Could not encode the next message")]
-    EncodeFailed(#[source] EncodeError),
+    EncodeFailed(#[source] bincode::Error),
     #[error("Could not fork")]
     PidfdForkFailed,
 }
@@ -264,7 +262,7 @@ impl ForkerProxy {
     }
 }
 
-#[derive(Encode, Decode)]
+#[derive(Serialize, Deserialize)]
 enum ServerMessage {
     SetEnv {
         var: Vec<u8>,
@@ -281,7 +279,7 @@ enum ServerMessage {
     },
 }
 
-#[derive(Encode, Decode)]
+#[derive(Serialize, Deserialize)]
 enum ForkerMessage {
     Log {
         level: usize,
@@ -319,7 +317,7 @@ impl Forker {
                     level: log::Level::Error as _,
                     msg: format!("The ol' forker panicked: {}", pi),
                 };
-                let msg = bincode::encode_to_vec(msg, bincode_ops()).unwrap();
+                let msg = bincode_ops().serialize(&msg).unwrap();
                 let _ = Fd::new(socket).write_all(&msg);
             })
         });

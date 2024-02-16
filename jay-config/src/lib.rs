@@ -42,7 +42,7 @@
 
 use {
     crate::keyboard::ModifiedKeySym,
-    bincode::{Decode, Encode},
+    serde::{Deserialize, Serialize},
     std::fmt::{Debug, Display, Formatter},
 };
 
@@ -61,7 +61,7 @@ pub mod timer;
 pub mod video;
 
 /// A planar direction.
-#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Direction {
     Left,
     Down,
@@ -70,7 +70,7 @@ pub enum Direction {
 }
 
 /// A planar axis.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Axis {
     Horizontal,
     Vertical,
@@ -129,7 +129,7 @@ pub fn toggle_default_workspace_capture() {
 }
 
 /// A workspace.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Workspace(pub u64);
 
 impl Workspace {
@@ -170,7 +170,7 @@ pub fn get_workspace(name: &str) -> Workspace {
 /// PCI IDs can be used to identify a hardware component. See the Debian [documentation][pci].
 ///
 /// [pci]: https://wiki.debian.org/HowToIdentifyADevice/PCI
-#[derive(Encode, Decode, Debug, Copy, Clone, Hash, Eq, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Hash, Eq, PartialEq, Default)]
 pub struct PciId {
     pub vendor: u32,
     pub model: u32,

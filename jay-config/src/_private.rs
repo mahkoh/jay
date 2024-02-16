@@ -2,7 +2,7 @@ pub mod client;
 pub mod ipc;
 mod logging;
 
-use std::marker::PhantomData;
+use {bincode::Options, std::marker::PhantomData};
 
 pub const VERSION: u32 = 1;
 
@@ -26,9 +26,9 @@ pub struct ConfigEntryGen<T> {
 
 impl<T: Config> ConfigEntryGen<T> {}
 
-pub fn bincode_ops() -> impl bincode::config::Config {
-    bincode::config::standard()
-        .with_fixed_int_encoding()
+pub fn bincode_ops() -> impl Options {
+    bincode::DefaultOptions::new()
+        .with_fixint_encoding()
         .with_little_endian()
         .with_no_limit()
 }

@@ -1,12 +1,12 @@
 //! Timers for one-time or repeated actions.
 
 use {
-    bincode::{Decode, Encode},
+    serde::{Deserialize, Serialize},
     std::time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 /// A timer.
-#[derive(Encode, Decode, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Timer(pub u64);
 
 /// Creates a new timer or returns an existing one.
