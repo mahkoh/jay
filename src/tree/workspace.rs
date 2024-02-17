@@ -276,8 +276,7 @@ impl ContainingNode for WorkspaceNode {
         }
         if let Some(fs) = self.fullscreen.get() {
             if fs.tl_as_node().node_id() == child.node_id() {
-                self.discard_child_flags(&*fs);
-                self.fullscreen.set(None);
+                self.remove_fullscreen_node();
                 return;
             }
         }
