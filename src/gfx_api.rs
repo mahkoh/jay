@@ -267,6 +267,7 @@ pub trait GfxTexture: Debug {
         format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError>;
+    fn dmabuf(&self) -> Option<&DmaBuf>;
 }
 
 pub trait GfxContext: Debug {

@@ -259,10 +259,8 @@ impl EglDisplay {
         Ok(Rc::new(EglImage {
             dpy: self.clone(),
             img,
-            width: buf.width,
-            height: buf.height,
             external_only: format.external_only,
-            format: buf.format,
+            dmabuf: buf.clone(),
         }))
     }
 }

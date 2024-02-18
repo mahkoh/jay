@@ -17,11 +17,11 @@ pub struct Image {
 
 impl Image {
     pub fn width(&self) -> i32 {
-        self.gl.width
+        self.gl.dmabuf.width
     }
 
     pub fn height(&self) -> i32 {
-        self.gl.height
+        self.gl.dmabuf.height
     }
 
     fn to_texture(self: &Rc<Self>) -> Result<Rc<Texture>, RenderError> {

@@ -532,7 +532,7 @@ impl VulkanRenderer {
                       flag: u32|
          -> Result<(), VulkanError> {
             if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
-                for plane in &buf.template.planes {
+                for plane in &buf.template.dmabuf.planes {
                     let fd = dma_buf_export_sync_file(&plane.fd, flag)
                         .map_err(VulkanError::IoctlExportSyncFile)?;
                     let semaphore = self.allocate_semaphore()?;
@@ -573,7 +573,7 @@ impl VulkanRenderer {
         };
         let import = |img: &VulkanImage, flag: u32| {
             if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
-                for plane in &buf.template.planes {
+                for plane in &buf.template.dmabuf.planes {
                     let res = dma_buf_import_sync_file(&plane.fd, flag, &syncfile)
                         .map_err(VulkanError::IoctlImportSyncFile);
                     if let Err(e) = res {
@@ -764,7 +764,7 @@ impl VulkanRenderer {
         let mut semaphores = vec![];
         let mut semaphore_infos = vec![];
         if let VulkanImageMemory::DmaBuf(buf) = &tex.ty {
-            for plane in &buf.template.planes {
+            for plane in &buf.template.dmabuf.planes {
                 let fd = dma_buf_export_sync_file(&plane.fd, DMA_BUF_SYNC_READ)
                     .map_err(VulkanError::IoctlExportSyncFile)?;
                 let semaphore = self.allocate_semaphore()?;

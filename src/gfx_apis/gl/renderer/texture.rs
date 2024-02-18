@@ -3,6 +3,7 @@ use {
         format::Format,
         gfx_api::{GfxError, GfxTexture},
         gfx_apis::gl::{gl::texture::GlTexture, renderer::context::GlRenderContext, RenderError},
+        video::dmabuf::DmaBuf,
     },
     std::{
         any::Any,
@@ -57,5 +58,9 @@ impl GfxTexture for Texture {
         _shm: &[Cell<u8>],
     ) -> Result<(), GfxError> {
         Err(RenderError::UnsupportedOperation.into())
+    }
+
+    fn dmabuf(&self) -> Option<&DmaBuf> {
+        self.gl.img.as_ref().map(|i| &i.dmabuf)
     }
 }
