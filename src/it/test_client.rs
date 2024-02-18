@@ -85,7 +85,7 @@ impl TestClient {
 
     pub async fn take_screenshot(&self) -> Result<Vec<u8>, TestError> {
         let dmabuf = self.jc.take_screenshot().await?;
-        let qoi = buf_to_qoi(&dmabuf);
+        let qoi = buf_to_qoi(&self.server.state.dma_buf_ids, &dmabuf);
         Ok(qoi)
     }
 

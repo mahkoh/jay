@@ -393,9 +393,14 @@ impl XBackend {
             panic!("Neither linear nor invalid modifier is supported");
         };
         for image in &mut images {
-            let bo = self
-                .gbm
-                .create_bo(width, height, XRGB8888, modifier, usage)?;
+            let bo = self.gbm.create_bo(
+                &self.state.dma_buf_ids,
+                width,
+                height,
+                XRGB8888,
+                modifier,
+                usage,
+            )?;
             let dma = bo.dmabuf();
             assert!(dma.planes.len() == 1);
             let plane = dma.planes.first().unwrap();

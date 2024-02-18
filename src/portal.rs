@@ -23,6 +23,7 @@ use {
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             run_toplevel::RunToplevel, xrd::xrd,
         },
+        video::dmabuf::DmaBufIds,
         wheel::Wheel,
         wire_dbus::org,
     },
@@ -84,6 +85,7 @@ async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
         screencasts: Default::default(),
         next_id: NumCell::new(1),
         render_ctxs: Default::default(),
+        dma_buf_ids: Default::default(),
     });
     let _root = {
         let obj = state
@@ -143,6 +145,7 @@ struct PortalState {
     screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
     next_id: NumCell<u32>,
     render_ctxs: CopyHashMap<c::dev_t, Weak<PortalRenderCtx>>,
+    dma_buf_ids: Rc<DmaBufIds>,
 }
 
 impl PortalState {

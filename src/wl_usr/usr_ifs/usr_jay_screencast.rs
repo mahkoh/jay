@@ -123,6 +123,7 @@ impl UsrJayScreencast {
             _ => return Err(UsrJayScreencastError::UnknownFormat(ev.format)),
         };
         self.pending_buffers.borrow_mut().push(DmaBuf {
+            id: self.con.dma_buf_ids.next(),
             width: ev.width,
             height: ev.height,
             format,

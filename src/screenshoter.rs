@@ -60,6 +60,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
     };
     let gbm = ctx.gbm();
     let bo = gbm.create_bo(
+        &state.dma_buf_ids,
         extents.width(),
         extents.height(),
         XRGB8888,

@@ -247,7 +247,16 @@ async fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
         _ => return,
     };
     let path = format!("{}/{}", state.xrd, name);
-    let con = match UsrCon::new(&state.ring, &state.wheel, &state.eng, &path, num).await {
+    let con = match UsrCon::new(
+        &state.ring,
+        &state.wheel,
+        &state.eng,
+        &state.dma_buf_ids,
+        &path,
+        num,
+    )
+    .await
+    {
         Ok(c) => c,
         Err(e) => {
             log::error!(

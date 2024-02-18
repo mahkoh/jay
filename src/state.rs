@@ -50,7 +50,7 @@ use {
             linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
-        video::drm::Drm,
+        video::{dmabuf::DmaBufIds, drm::Drm},
         wheel::Wheel,
         wire::{
             ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
@@ -142,6 +142,7 @@ pub struct State {
     pub activation_tokens: CopyHashMap<ActivationToken, ()>,
     pub toplevel_lists:
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
+    pub dma_buf_ids: DmaBufIds,
 }
 
 // impl Drop for State {

@@ -236,9 +236,14 @@ impl JayScreencast {
                     }
                     false => &format.write_modifiers,
                 };
-                let buffer =
-                    ctx.gbm()
-                        .create_bo(mode.width, mode.height, XRGB8888, modifiers, usage)?;
+                let buffer = ctx.gbm().create_bo(
+                    &self.client.state.dma_buf_ids,
+                    mode.width,
+                    mode.height,
+                    XRGB8888,
+                    modifiers,
+                    usage,
+                )?;
                 let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
                 buffers.push(ScreencastBuffer {
                     dmabuf: buffer.dmabuf().clone(),

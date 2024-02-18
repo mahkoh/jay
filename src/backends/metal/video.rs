@@ -1692,9 +1692,14 @@ impl MetalBackend {
         if cursor {
             usage |= GBM_BO_USE_LINEAR;
         };
-        let dev_bo = dev
-            .gbm
-            .create_bo(width, height, format, &possible_modifiers, usage);
+        let dev_bo = dev.gbm.create_bo(
+            &self.state.dma_buf_ids,
+            width,
+            height,
+            format,
+            &possible_modifiers,
+            usage,
+        );
         let dev_bo = match dev_bo {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
@@ -1740,11 +1745,14 @@ impl MetalBackend {
                 return Err(MetalError::MissingRenderModifier(format.name));
             }
             usage = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
-            let render_bo =
-                render_ctx
-                    .gfx
-                    .gbm()
-                    .create_bo(width, height, format, &possible_modifiers, usage);
+            let render_bo = render_ctx.gfx.gbm().create_bo(
+                &self.state.dma_buf_ids,
+                width,
+                height,
+                format,
+                &possible_modifiers,
+                usage,
+            );
             let render_bo = match render_bo {
                 Ok(b) => b,
                 Err(e) => return Err(MetalError::ScanoutBuffer(e)),
