@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture},
+        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, TextureReservations},
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanMaxExtents,
             renderer::VulkanRenderer, util::OnDrop, VulkanError,
@@ -53,6 +53,7 @@ pub struct VulkanImage {
     pub(super) is_undefined: Cell<bool>,
     pub(super) ty: VulkanImageMemory,
     pub(super) render_ops: CloneCell<Vec<GfxApiOpt>>,
+    pub(super) resv: TextureReservations,
 }
 
 pub enum VulkanImageMemory {
@@ -211,6 +212,7 @@ impl VulkanRenderer {
             is_undefined: Cell::new(true),
             ty: VulkanImageMemory::Internal(shm),
             render_ops: Default::default(),
+            resv: Default::default(),
         }))
     }
 
@@ -480,6 +482,7 @@ impl VulkanDmaBufImageTemplate {
             }),
             format: self.dmabuf.format,
             is_undefined: Cell::new(true),
+            resv: Default::default(),
         }))
     }
 }
@@ -579,5 +582,9 @@ impl GfxTexture for VulkanImage {
             VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),
             VulkanImageMemory::Internal(_) => None,
         }
+    }
+
+    fn reservations(&self) -> &TextureReservations {
+        &self.resv
     }
 }

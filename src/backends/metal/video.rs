@@ -6,12 +6,14 @@ use {
             ConnectorKernelId, DrmDeviceId, HardwareCursor, MonitorInfo,
         },
         backends::metal::{MetalBackend, MetalError},
+        drm_feedback::DrmFeedback,
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
-        gfx_api::{GfxContext, GfxFramebuffer, GfxTexture},
+        gfx_api::{BufferPoints, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass, GfxTexture},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
+        tree::OutputNode,
         udev::UdevDevice,
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
@@ -19,6 +21,7 @@ use {
             oserror::OsError, syncqueue::SyncQueue,
         },
         video::{
+            dmabuf::DmaBufId,
             drm::{
                 drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector,
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmMaster, DrmModeInfo,
@@ -36,13 +39,14 @@ use {
     jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
+        collections::VecDeque,
         ffi::CString,
         fmt::{Debug, Formatter},
         mem,
         ops::DerefMut,
-        rc::Rc,
+        rc::{Rc, Weak},
     },
-    uapi::{c, c::dev_t},
+    uapi::c::{self, dev_t},
 };
 
 pub struct PendingDrmDevice {
@@ -202,6 +206,11 @@ pub struct MetalConnector {
     pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
     pub cursor_front_buffer: NumCell<usize>,
     pub cursor_swap_buffer: Cell<bool>,
+
+    pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
+    pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
+    pub active_framebuffers: RefCell<VecDeque<PresentFb>>,
+    pub direct_scanout_active: Cell<bool>,
 }
 
 #[derive(Debug)]
@@ -310,11 +319,39 @@ impl<T> Debug for OnChange<T> {
     }
 }
 
+#[derive(Debug)]
+pub struct DirectScanoutCache {
+    tex: Weak<dyn GfxTexture>,
+    fb: Option<Rc<DrmFramebuffer>>,
+}
+
+#[derive(Debug)]
+pub struct DirectScanoutData {
+    tex: Rc<dyn GfxTexture>,
+    fb: Rc<DrmFramebuffer>,
+    dma_buf_id: DmaBufId,
+    acquired: Cell<bool>,
+}
+
+impl Drop for DirectScanoutData {
+    fn drop(&mut self) {
+        if self.acquired.replace(false) {
+            self.tex.reservations().release();
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PresentFb {
+    fb: Rc<DrmFramebuffer>,
+    direct_scanout_data: Option<DirectScanoutData>,
+}
+
 impl MetalConnector {
     async fn present_loop(self: Rc<Self>) {
         loop {
             self.present_trigger.triggered().await;
-            self.present();
+            let _ = self.present(true);
         }
     }
 
@@ -351,49 +388,178 @@ impl MetalConnector {
         self.present_trigger.trigger();
     }
 
-    pub fn present(&self) {
-        let crtc = match self.crtc.get() {
-            Some(crtc) => crtc,
-            _ => return,
-        };
-        if (!self.has_damage.get() && !self.cursor_changed.get()) || !self.can_present.get() {
-            return;
+    fn trim_scanout_cache(&self) {
+        self.scanout_buffers
+            .borrow_mut()
+            .retain(|_, buffer| buffer.tex.strong_count() > 0);
+    }
+
+    fn prepare_direct_scanout(
+        &self,
+        pass: &GfxRenderPass,
+        plane: &Rc<MetalPlane>,
+    ) -> Option<DirectScanoutData> {
+        if pass.ops.len() != 1 {
+            return None;
         }
-        if !crtc.active.value.get() {
-            return;
+        let GfxApiOpt::CopyTexture(ct) = &pass.ops[0] else {
+            return None;
+        };
+        if ct.source != BufferPoints::identity() {
+            return None;
         }
-        let plane = match self.primary_plane.get() {
-            Some(p) => p,
-            _ => return,
+        if ct.target.x1 != 0.0
+            || ct.target.y1 != 0.0
+            || ct.target.x2 != plane.mode_w.get() as f32
+            || ct.target.y2 != plane.mode_h.get() as f32
+        {
+            return None;
+        }
+        let Some(dmabuf) = ct.tex.dmabuf() else {
+            return None;
         };
-        let buffers = match self.buffers.get() {
-            Some(b) => b,
-            _ => return,
-        };
-        let cursor = self.cursor_plane.get();
-        let mut changes = self.master.change();
-        if self.has_damage.get() {
-            if !self.backend.check_render_context(&self.dev) {
-                return;
+        let mut cache = self.scanout_buffers.borrow_mut();
+        if let Some(buffer) = cache.get(&dmabuf.id) {
+            return buffer.fb.as_ref().map(|fb| DirectScanoutData {
+                tex: buffer.tex.upgrade().unwrap(),
+                fb: fb.clone(),
+                dma_buf_id: dmabuf.id,
+                acquired: Default::default(),
+            });
+        }
+        let format = 'format: {
+            if let Some(f) = plane.formats.get(&dmabuf.format.drm) {
+                break 'format f;
             }
-            let buffer = &buffers[self.next_buffer.fetch_add(1) % buffers.len()];
-            if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
-                let mut rr = self.render_result.borrow_mut();
-                let render_fb = buffer.render_fb();
-                self.state.present_output(
-                    &node,
-                    &render_fb,
-                    &buffer.render_tex,
-                    &mut rr,
-                    !self.cursor_enabled.get(),
+            if let Some(opaque) = dmabuf.format.opaque {
+                if let Some(f) = plane.formats.get(&opaque.drm) {
+                    break 'format f;
+                }
+            }
+            return None;
+        };
+        if !format.modifiers.contains(&dmabuf.modifier) {
+            return None;
+        }
+        let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
+            Ok(fb) => Some(DirectScanoutData {
+                tex: ct.tex.clone(),
+                fb: Rc::new(fb),
+                dma_buf_id: dmabuf.id,
+                acquired: Default::default(),
+            }),
+            Err(e) => {
+                log::debug!(
+                    "Could not import dmabuf for direct scanout: {}",
+                    ErrorFmt(e)
                 );
+                None
+            }
+        };
+        cache.insert(
+            dmabuf.id,
+            DirectScanoutCache {
+                tex: Rc::downgrade(&ct.tex),
+                fb: data.as_ref().map(|dsd| dsd.fb.clone()),
+            },
+        );
+        data
+    }
+
+    fn prepare_present_fb(
+        &self,
+        rr: &mut RenderResult,
+        buffer: &RenderBuffer,
+        plane: &Rc<MetalPlane>,
+        output: &OutputNode,
+        try_direct_scanout: bool,
+    ) -> PresentFb {
+        self.trim_scanout_cache();
+        let buffer_fb = buffer.render_fb();
+        let render_hw_cursor = !self.cursor_enabled.get();
+        let pass = buffer_fb.create_render_pass(
+            output,
+            &self.state,
+            Some(output.global.pos.get()),
+            Some(rr),
+            output.global.preferred_scale.get(),
+            render_hw_cursor,
+        );
+        let try_direct_scanout = try_direct_scanout && !output.global.have_shm_screencopies();
+        let mut direct_scanout_data = None;
+        if try_direct_scanout {
+            if let Some(dsd) = self.prepare_direct_scanout(&pass, plane) {
+                output.perform_screencopies(None, &dsd.tex, !render_hw_cursor);
+                direct_scanout_data = Some(dsd);
+            }
+        }
+        let direct_scanout_active = direct_scanout_data.is_some();
+        if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
+            let change = match direct_scanout_active {
+                true => "Enabling",
+                false => "Disabling",
+            };
+            log::debug!("{} direct scanout on {}", change, self.kernel_id());
+        }
+        let fb = match &direct_scanout_data {
+            None => {
+                self.next_buffer.fetch_add(1);
+                buffer_fb.perform_render_pass(pass);
                 if let Some(tex) = &buffer.dev_tex {
                     buffer.dev_fb.copy_texture(tex, 0, 0);
                 }
+                output.perform_screencopies(
+                    Some(&*buffer_fb),
+                    &buffer.render_tex,
+                    !render_hw_cursor,
+                );
+                buffer.drm.clone()
             }
-            changes.change_object(plane.id, |c| {
-                c.change(plane.fb_id, buffer.drm.id().0 as _);
-            });
+            Some(dsd) => dsd.fb.clone(),
+        };
+        PresentFb {
+            fb,
+            direct_scanout_data,
+        }
+    }
+
+    pub fn present(&self, try_direct_scanout: bool) -> Result<(), ()> {
+        let crtc = match self.crtc.get() {
+            Some(crtc) => crtc,
+            _ => return Ok(()),
+        };
+        if (!self.has_damage.get() && !self.cursor_changed.get()) || !self.can_present.get() {
+            return Ok(());
+        }
+        if !crtc.active.value.get() {
+            return Ok(());
+        }
+        let plane = match self.primary_plane.get() {
+            Some(p) => p,
+            _ => return Ok(()),
+        };
+        let buffers = match self.buffers.get() {
+            Some(b) => b,
+            _ => return Ok(()),
+        };
+        let cursor = self.cursor_plane.get();
+        let mut new_fb = None;
+        let mut changes = self.master.change();
+        if self.has_damage.get() {
+            if !self.backend.check_render_context(&self.dev) {
+                return Ok(());
+            }
+            if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
+                let buffer = &buffers[self.next_buffer.get() % buffers.len()];
+                let mut rr = self.render_result.borrow_mut();
+                let fb =
+                    self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout);
+                rr.dispatch_frame_requests();
+                changes.change_object(plane.id, |c| {
+                    c.change(plane.fb_id, fb.fb.id().0 as _);
+                });
+                new_fb = Some(fb);
+            }
         }
         if self.cursor_changed.get() && cursor.is_some() {
             let plane = cursor.unwrap();
@@ -434,12 +600,63 @@ impl MetalConnector {
                 DrmError::Atomic(OsError(c::EACCES)) => {
                     log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
                 }
-                _ => log::error!("Could not set plane framebuffer: {}", ErrorFmt(e)),
+                _ => 'handle_failure: {
+                    if let Some(fb) = &new_fb {
+                        if let Some(dsd) = &fb.direct_scanout_data {
+                            if self.present(false).is_ok() {
+                                let mut cache = self.scanout_buffers.borrow_mut();
+                                if let Some(buffer) = cache.remove(&dsd.dma_buf_id) {
+                                    cache.insert(
+                                        dsd.dma_buf_id,
+                                        DirectScanoutCache {
+                                            tex: buffer.tex,
+                                            fb: None,
+                                        },
+                                    );
+                                }
+                                break 'handle_failure;
+                            }
+                        }
+                    }
+                    log::error!("Could not set plane framebuffer: {}", ErrorFmt(e));
+                }
             }
+            Err(())
         } else {
+            if let Some(fb) = new_fb {
+                if let Some(dsd) = &fb.direct_scanout_data {
+                    dsd.tex.reservations().acquire();
+                    dsd.acquired.set(true);
+                }
+                self.active_framebuffers.borrow_mut().push_back(fb);
+            }
             self.can_present.set(false);
             self.has_damage.set(false);
             self.cursor_changed.set(false);
+            Ok(())
+        }
+    }
+
+    pub fn update_drm_feedback(&self) {
+        let fb = self.compute_drm_feedback();
+        self.drm_feedback.set(fb);
+    }
+
+    fn compute_drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
+        let default = self.backend.default_feedback.get()?;
+        let plane = self.primary_plane.get()?;
+        let mut formats = vec![];
+        for (format, info) in &plane.formats {
+            for modifier in &info.modifiers {
+                formats.push((*format, *modifier));
+            }
+        }
+        match default.for_scanout(&self.state.drm_feedback_ids, self.dev.devnum, &formats) {
+            Ok(fb) => fb.map(Rc::new),
+            Err(e) => {
+                log::error!("Could not compute connector feedback: {}", ErrorFmt(e));
+                None
+            }
         }
     }
 }
@@ -488,6 +705,10 @@ impl Connector for MetalConnector {
             }
         }
     }
+
+    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
+        self.drm_feedback.get()
+    }
 }
 
 #[derive(Debug)]
@@ -522,7 +743,7 @@ pub enum PlaneType {
 
 #[derive(Debug)]
 pub struct PlaneFormat {
-    _format: &'static Format,
+    format: &'static Format,
     modifiers: IndexSet<Modifier>,
 }
 
@@ -537,6 +758,9 @@ pub struct MetalPlane {
     pub formats: AHashMap<u32, PlaneFormat>,
 
     pub assigned: Cell<bool>,
+
+    pub mode_w: Cell<i32>,
+    pub mode_h: Cell<i32>,
 
     pub crtc_id: MutableProperty<DrmCrtc>,
     pub crtc_x: MutableProperty<i32>,
@@ -611,6 +835,10 @@ fn create_connector(
         cursor_changed: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
+        drm_feedback: Default::default(),
+        scanout_buffers: Default::default(),
+        active_framebuffers: Default::default(),
+        direct_scanout_active: Cell::new(false),
     });
     let futures = ConnectorFutures {
         present: backend
@@ -786,7 +1014,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
                 formats.insert(
                     format.format,
                     PlaneFormat {
-                        _format: f,
+                        format: f,
                         modifiers: format.modifiers,
                     },
                 );
@@ -798,7 +1026,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
                 formats.insert(
                     format,
                     PlaneFormat {
-                        _format: f,
+                        format: f,
                         modifiers: indexset![INVALID_MODIFIER],
                     },
                 );
@@ -846,6 +1074,8 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         src_h: props.get("SRC_H")?.map(|v| v as u32),
         in_fence_fd: props.get("IN_FENCE_FD")?.id,
         assigned: Cell::new(false),
+        mode_w: Cell::new(0),
+        mode_h: Cell::new(0),
     })
 }
 
@@ -1294,6 +1524,12 @@ impl MetalBackend {
             _ => return,
         };
         connector.can_present.set(true);
+        {
+            let mut scanout_buffers = connector.active_framebuffers.borrow_mut();
+            while scanout_buffers.len() > 1 {
+                scanout_buffers.pop_front();
+            }
+        }
         if connector.has_damage.get() || connector.cursor_changed.get() {
             connector.schedule_present();
         }
@@ -1465,6 +1701,14 @@ impl MetalBackend {
         }
         let ctx = dev.ctx.get();
         self.state.set_render_ctx(Some(ctx.gfx.clone()));
+        let fb = match DrmFeedback::new(&self.state.drm_feedback_ids, &*ctx.gfx) {
+            Ok(fb) => Some(Rc::new(fb)),
+            Err(e) => {
+                log::error!("Could not create feedback for new context: {}", ErrorFmt(e));
+                None
+            }
+        };
+        self.default_feedback.set(fb);
         self.ctx.set(Some(ctx));
         for dev in self.device_holder.drm_devices.lock().values() {
             self.re_init_drm_device(&dev);
@@ -1562,6 +1806,7 @@ impl MetalBackend {
                 continue;
             }
             connector.send_hardware_cursor();
+            connector.update_drm_feedback();
         }
         Ok(())
     }
@@ -1704,7 +1949,7 @@ impl MetalBackend {
             Ok(b) => b,
             Err(e) => return Err(MetalError::ScanoutBuffer(e)),
         };
-        let drm_fb = match dev.master.add_fb(dev_bo.dmabuf()) {
+        let drm_fb = match dev.master.add_fb(dev_bo.dmabuf(), None) {
             Ok(fb) => Rc::new(fb),
             Err(e) => return Err(MetalError::Framebuffer(e)),
         };
@@ -1917,6 +2162,8 @@ impl MetalBackend {
             c.change(primary_plane.src_h.id, (mode.vdisplay as u64) << 16);
         });
         primary_plane.assigned.set(true);
+        primary_plane.mode_w.set(mode.hdisplay as _);
+        primary_plane.mode_h.set(mode.vdisplay as _);
         primary_plane.crtc_id.value.set(crtc.id);
         primary_plane.crtc_x.value.set(0);
         primary_plane.crtc_y.value.set(0);

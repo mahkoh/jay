@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxError, GfxTexture},
+        gfx_api::{GfxError, GfxTexture, TextureReservations},
         gfx_apis::gl::{gl::texture::GlTexture, renderer::context::GlRenderContext, RenderError},
         video::dmabuf::DmaBuf,
     },
@@ -16,6 +16,7 @@ use {
 pub struct Texture {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,
     pub(in crate::gfx_apis::gl) gl: GlTexture,
+    pub(in crate::gfx_apis::gl) resv: TextureReservations,
 }
 
 impl Debug for Texture {
@@ -62,5 +63,9 @@ impl GfxTexture for Texture {
 
     fn dmabuf(&self) -> Option<&DmaBuf> {
         self.gl.img.as_ref().map(|i| &i.dmabuf)
+    }
+
+    fn reservations(&self) -> &TextureReservations {
+        &self.resv
     }
 }

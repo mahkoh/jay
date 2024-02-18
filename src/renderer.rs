@@ -35,6 +35,15 @@ pub struct RenderResult {
     pub presentation_feedbacks: Vec<Rc<WpPresentationFeedback>>,
 }
 
+impl RenderResult {
+    pub fn dispatch_frame_requests(&mut self) {
+        for fr in self.frame_requests.drain(..) {
+            fr.send_done();
+            let _ = fr.client.remove_obj(&*fr);
+        }
+    }
+}
+
 impl Debug for RenderResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RenderResult").finish_non_exhaustive()

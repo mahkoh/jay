@@ -1,13 +1,14 @@
 use {
     crate::{
         client::{Client, ClientError},
-        drm_feedback::DrmFeedback,
+        drm_feedback::{DrmFeedback, DrmFeedbackId},
+        ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_linux_dmabuf_feedback_v1::*, ZwpLinuxDmabufFeedbackV1Id},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
     uapi::{c, OwnedFd},
 };
@@ -19,24 +20,37 @@ pub struct ZwpLinuxDmabufFeedbackV1 {
     pub id: ZwpLinuxDmabufFeedbackV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub last_feedback: Cell<Option<DrmFeedbackId>>,
+    pub surface: Option<Rc<WlSurface>>,
 }
 
 impl ZwpLinuxDmabufFeedbackV1 {
-    pub fn new(id: ZwpLinuxDmabufFeedbackV1Id, client: &Rc<Client>) -> Self {
+    pub fn new(
+        id: ZwpLinuxDmabufFeedbackV1Id,
+        client: &Rc<Client>,
+        surface: Option<&Rc<WlSurface>>,
+    ) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            last_feedback: Default::default(),
+            surface: surface.cloned(),
         }
     }
 
     pub fn send_feedback(&self, feedback: &DrmFeedback) {
-        self.send_format_table(&feedback.fd, feedback.size);
-        self.send_main_device(feedback.main_device);
-        self.send_tranche_target_device(feedback.main_device);
-        self.send_tranche_formats(&feedback.indices);
-        self.send_tranche_flags(0);
-        self.send_tranche_done();
+        if self.last_feedback.replace(Some(feedback.id)) == Some(feedback.id) {
+            return;
+        }
+        self.send_format_table(&feedback.shared.fd, feedback.shared.size);
+        self.send_main_device(feedback.shared.main_device);
+        for tranch in &feedback.tranches {
+            self.send_tranche_target_device(tranch.device);
+            self.send_tranche_formats(&tranch.indices);
+            self.send_tranche_flags(if tranch.scanout { SCANOUT } else { 0 });
+            self.send_tranche_done();
+        }
         self.send_done();
     }
 
@@ -96,6 +110,9 @@ impl ZwpLinuxDmabufFeedbackV1 {
             .state
             .drm_feedback_consumers
             .remove(&(self.client.id, self.id));
+        if let Some(surface) = &self.surface {
+            surface.drm_feedback.remove(&self.id);
+        }
     }
 }
 

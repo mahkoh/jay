@@ -80,7 +80,7 @@ pub async fn output_render_data(state: Rc<State>) {
 impl OutputNode {
     pub fn perform_screencopies(
         &self,
-        fb: &dyn GfxFramebuffer,
+        fb: Option<&dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
         render_hardware_cursor: bool,
     ) {

@@ -424,6 +424,10 @@ impl ToplevelNode for Xwindow {
         self.display_link.borrow_mut().take();
         self.x.surface.destroy_node();
     }
+
+    fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
+        Some(self.x.surface.clone())
+    }
 }
 
 impl StackedNode for Xwindow {

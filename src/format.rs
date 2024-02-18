@@ -26,6 +26,7 @@ pub struct Format {
     pub has_alpha: bool,
     pub shm_supported: bool,
     pub pipewire: SpaVideoFormat,
+    pub opaque: Option<&'static Format>,
 }
 
 impl PartialEq for Format {
@@ -87,7 +88,6 @@ pub fn map_wayland_format_id(id: u32) -> u32 {
     }
 }
 
-#[allow(dead_code)]
 pub static ARGB8888: &Format = &Format {
     name: "argb8888",
     bpp: 4,
@@ -100,6 +100,7 @@ pub static ARGB8888: &Format = &Format {
     has_alpha: true,
     shm_supported: true,
     pipewire: SPA_VIDEO_FORMAT_BGRA,
+    opaque: Some(XRGB8888),
 };
 
 pub static XRGB8888: &Format = &Format {
@@ -114,38 +115,43 @@ pub static XRGB8888: &Format = &Format {
     has_alpha: false,
     shm_supported: true,
     pipewire: SPA_VIDEO_FORMAT_BGRx,
+    opaque: None,
+};
+
+static ABGR8888: &Format = &Format {
+    name: "abgr8888",
+    bpp: 4,
+    gl_format: GL_RGBA,
+    gl_type: GL_UNSIGNED_BYTE,
+    vk_format: vk::Format::R8G8B8A8_UNORM,
+    drm: fourcc_code('A', 'B', '2', '4'),
+    wl_id: None,
+    external_only_guess: false,
+    has_alpha: true,
+    shm_supported: true,
+    pipewire: SPA_VIDEO_FORMAT_RGBA,
+    opaque: Some(XBGR8888),
+};
+
+static XBGR8888: &Format = &Format {
+    name: "xbgr8888",
+    bpp: 4,
+    gl_format: GL_RGBA,
+    gl_type: GL_UNSIGNED_BYTE,
+    vk_format: vk::Format::R8G8B8A8_UNORM,
+    drm: fourcc_code('X', 'B', '2', '4'),
+    wl_id: None,
+    external_only_guess: false,
+    has_alpha: false,
+    shm_supported: true,
+    pipewire: SPA_VIDEO_FORMAT_RGBx,
+    opaque: None,
 };
 
 pub static FORMATS: &[Format] = &[
-    *ARGB8888,
-    *XRGB8888,
+    *ARGB8888, *XRGB8888, *ABGR8888,
+    *XBGR8888,
     // *NV12,
-    Format {
-        name: "abgr8888",
-        bpp: 4,
-        gl_format: GL_RGBA,
-        gl_type: GL_UNSIGNED_BYTE,
-        vk_format: vk::Format::R8G8B8A8_UNORM,
-        drm: fourcc_code('A', 'B', '2', '4'),
-        wl_id: None,
-        external_only_guess: false,
-        has_alpha: true,
-        shm_supported: true,
-        pipewire: SPA_VIDEO_FORMAT_RGBA,
-    },
-    Format {
-        name: "xbgr8888",
-        bpp: 4,
-        gl_format: GL_RGBA,
-        gl_type: GL_UNSIGNED_BYTE,
-        vk_format: vk::Format::R8G8B8A8_UNORM,
-        drm: fourcc_code('X', 'B', '2', '4'),
-        wl_id: None,
-        external_only_guess: false,
-        has_alpha: false,
-        shm_supported: true,
-        pipewire: SPA_VIDEO_FORMAT_RGBx,
-    },
     // Format {
     //     name: "nv12",
     //     bpp: 1,                    // wrong but only used for shm

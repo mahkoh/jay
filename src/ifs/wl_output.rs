@@ -202,9 +202,13 @@ impl WlOutputGlobal {
         Ok(())
     }
 
+    pub fn have_shm_screencopies(&self) -> bool {
+        self.pending_captures.iter().any(|c| c.is_shm.get())
+    }
+
     pub fn perform_screencopies(
         &self,
-        fb: &dyn GfxFramebuffer,
+        fb: Option<&dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
         render_hardware_cursors: bool,
     ) {
@@ -232,12 +236,13 @@ impl WlOutputGlobal {
                 wl_buffer.storage.borrow_mut().deref()
             {
                 let acc = mem.access(|mem| {
-                    fb.copy_to_shm(
-                        rect.x1(),
-                        rect.y1(),
-                        rect.width(),
-                        rect.height(),
-                        XRGB8888,
+                    tex.clone().read_pixels(
+                        capture.rect.x1(),
+                        capture.rect.y1(),
+                        capture.rect.width(),
+                        capture.rect.height(),
+                        *stride,
+                        wl_buffer.format,
                         mem,
                     )
                 });
@@ -249,24 +254,25 @@ impl WlOutputGlobal {
                     }
                 };
                 if res.is_err() {
-                    let acc = mem.access(|mem| {
-                        tex.clone().read_pixels(
-                            capture.rect.x1(),
-                            capture.rect.y1(),
-                            capture.rect.width(),
-                            capture.rect.height(),
-                            *stride,
-                            wl_buffer.format,
-                            mem,
-                        )
-                    });
-                    res = match acc {
-                        Ok(res) => res,
-                        Err(e) => {
-                            capture.client.error(e);
-                            continue;
-                        }
-                    };
+                    if let Some(fb) = fb {
+                        let acc = mem.access(|mem| {
+                            fb.copy_to_shm(
+                                rect.x1(),
+                                rect.y1(),
+                                rect.width(),
+                                rect.height(),
+                                XRGB8888,
+                                mem,
+                            )
+                        });
+                        res = match acc {
+                            Ok(res) => res,
+                            Err(e) => {
+                                capture.client.error(e);
+                                continue;
+                            }
+                        };
+                    }
                 }
                 if let Err(e) = res {
                     log::warn!("Could not read texture to memory: {}", ErrorFmt(e));

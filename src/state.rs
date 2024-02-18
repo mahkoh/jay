@@ -12,7 +12,7 @@ use {
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
-        drm_feedback::DrmFeedback,
+        drm_feedback::{DrmFeedback, DrmFeedbackIds},
         fixed::Fixed,
         forker::ForkerProxy,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
@@ -143,6 +143,7 @@ pub struct State {
     pub toplevel_lists:
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
     pub dma_buf_ids: DmaBufIds,
+    pub drm_feedback_ids: DrmFeedbackIds,
 }
 
 // impl Drop for State {
@@ -348,7 +349,7 @@ impl State {
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
-                let feedback = match DrmFeedback::new(&**ctx) {
+                let feedback = match DrmFeedback::new(&self.drm_feedback_ids, &**ctx) {
                     Ok(fb) => fb,
                     Err(e) => {
                         log::error!("Could not create new DRM feedback: {}", ErrorFmt(e));
@@ -750,11 +751,8 @@ impl State {
             output.global.preferred_scale.get(),
             render_hw_cursor,
         );
-        for fr in rr.frame_requests.drain(..) {
-            fr.send_done();
-            let _ = fr.client.remove_obj(&*fr);
-        }
-        output.perform_screencopies(&**fb, tex, !render_hw_cursor);
+        output.perform_screencopies(Some(&**fb), tex, !render_hw_cursor);
+        rr.dispatch_frame_requests();
     }
 
     pub fn perform_screencopy(

@@ -14,6 +14,7 @@ use {
     crate::{
         backend::KeyState,
         client::{Client, ClientError, RequestParser},
+        drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{BufferPoint, BufferPoints},
         ifs::{
@@ -36,6 +37,7 @@ use {
             },
             wp_content_type_v1::ContentType,
             wp_presentation_feedback::WpPresentationFeedback,
+            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         leaks::Tracker,
         object::Object,
@@ -53,7 +55,10 @@ use {
             numcell::NumCell,
             smallmap::SmallMap,
         },
-        wire::{wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id},
+        wire::{
+            wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
+            ZwpLinuxDmabufFeedbackV1Id,
+        },
         xkbcommon::ModifierState,
         xwayland::XWaylandEvent,
     },
@@ -259,6 +264,7 @@ pub struct WlSurface {
     version: u32,
     pub has_content_type_manager: Cell<bool>,
     content_type: Cell<Option<ContentType>>,
+    pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
 }
 
 impl Debug for WlSurface {
@@ -411,6 +417,7 @@ impl WlSurface {
             version,
             has_content_type_manager: Default::default(),
             content_type: Default::default(),
+            drm_feedback: Default::default(),
         }
     }
 
@@ -762,7 +769,23 @@ impl WlSurface {
             if let Some(buffer) = self.buffer.take() {
                 old_raw_size = Some(buffer.rect);
                 if !buffer.destroyed() {
-                    buffer.send_release();
+                    'handle_release: {
+                        if let Some(tex) = buffer.texture.get() {
+                            let resv = tex.reservations();
+                            if resv.has_reservation() {
+                                let buffer = Rc::downgrade(&buffer);
+                                resv.on_released(move || {
+                                    if let Some(buffer) = buffer.upgrade() {
+                                        if !buffer.destroyed() {
+                                            buffer.send_release();
+                                        }
+                                    }
+                                });
+                                break 'handle_release;
+                            }
+                        }
+                        buffer.send_release();
+                    }
                 }
             }
             if let Some(buffer) = buffer_change {
@@ -1065,6 +1088,12 @@ impl WlSurface {
             tl.tl_data().request_attention(tl.tl_as_node());
         }
     }
+
+    pub fn send_feedback(&self, fb: &DrmFeedback) {
+        for consumer in self.drm_feedback.lock().values() {
+            consumer.send_feedback(fb);
+        }
+    }
 }
 
 object_base! {
@@ -1100,6 +1129,7 @@ impl Object for WlSurface {
         self.fractional_scale.take();
         self.tearing_control.take();
         self.constraints.clear();
+        self.drm_feedback.clear();
     }
 }
 

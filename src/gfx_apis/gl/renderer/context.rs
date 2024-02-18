@@ -186,6 +186,7 @@ impl GlRenderContext {
         Ok(Rc::new(Texture {
             ctx: self.clone(),
             gl,
+            resv: Default::default(),
         }))
     }
 }

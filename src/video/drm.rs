@@ -32,6 +32,7 @@ use {
 
 use crate::{
     backend,
+    format::Format,
     io_uring::{IoUring, IoUringError},
     utils::{buf::Buf, errorfmt::ErrorFmt, stack::Stack, syncqueue::SyncQueue, vec_ext::VecExt},
     video::{
@@ -306,7 +307,11 @@ impl DrmMaster {
         }
     }
 
-    pub fn add_fb(self: &Rc<Self>, dma: &DmaBuf) -> Result<DrmFramebuffer, DrmError> {
+    pub fn add_fb(
+        self: &Rc<Self>,
+        dma: &DmaBuf,
+        format: Option<&Format>,
+    ) -> Result<DrmFramebuffer, DrmError> {
         let mut modifier = 0;
         let mut flags = 0;
         if dma.modifier != INVALID_MODIFIER {
@@ -330,7 +335,7 @@ impl DrmMaster {
             self.raw(),
             dma.width as _,
             dma.height as _,
-            dma.format.drm,
+            format.unwrap_or(dma.format).drm,
             flags,
             handles,
             strides,
