@@ -338,6 +338,10 @@ pub enum ClientMessage<'a> {
         device: Option<DrmDevice>,
         api: GfxApi,
     },
+    SetDirectScanoutEnabled {
+        device: Option<DrmDevice>,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

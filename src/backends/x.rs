@@ -989,6 +989,10 @@ impl BackendDrmDevice for XDrmDevice {
     fn version(&self) -> Result<DrmVersion, DrmError> {
         self.backend.gbm.drm.version()
     }
+
+    fn set_direct_scanout_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 struct XOutput {

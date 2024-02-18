@@ -144,6 +144,7 @@ pub struct State {
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
     pub dma_buf_ids: DmaBufIds,
     pub drm_feedback_ids: DrmFeedbackIds,
+    pub direct_scanout_enabled: Cell<bool>,
 }
 
 // impl Drop for State {

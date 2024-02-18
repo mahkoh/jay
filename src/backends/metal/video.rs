@@ -81,6 +81,7 @@ pub struct MetalDrmDevice {
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
+    pub direct_scanout_enabled: Cell<Option<bool>>,
 }
 
 impl BackendDrmDevice for MetalDrmDevice {
@@ -114,6 +115,10 @@ impl BackendDrmDevice for MetalDrmDevice {
 
     fn version(&self) -> Result<DrmVersion, DrmError> {
         self.gbm.drm.version()
+    }
+
+    fn set_direct_scanout_enabled(&self, enabled: bool) {
+        self.direct_scanout_enabled.set(Some(enabled));
     }
 }
 
@@ -466,6 +471,13 @@ impl MetalConnector {
         data
     }
 
+    fn direct_scanout_enabled(&self) -> bool {
+        self.dev
+            .direct_scanout_enabled
+            .get()
+            .unwrap_or(self.state.direct_scanout_enabled.get())
+    }
+
     fn prepare_present_fb(
         &self,
         rr: &mut RenderResult,
@@ -485,7 +497,9 @@ impl MetalConnector {
             output.global.preferred_scale.get(),
             render_hw_cursor,
         );
-        let try_direct_scanout = try_direct_scanout && !output.global.have_shm_screencopies();
+        let try_direct_scanout = try_direct_scanout
+            && !output.global.have_shm_screencopies()
+            && self.direct_scanout_enabled();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
             if let Some(dsd) = self.prepare_direct_scanout(&pass, plane) {
@@ -1394,6 +1408,7 @@ impl MetalBackend {
             },
             ctx: CloneCell::new(ctx),
             on_change: Default::default(),
+            direct_scanout_enabled: Default::default(),
         });
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;

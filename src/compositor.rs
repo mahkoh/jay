@@ -203,6 +203,7 @@ fn start_compositor2(
         toplevel_lists: Default::default(),
         dma_buf_ids: Default::default(),
         drm_feedback_ids: Default::default(),
+        direct_scanout_enabled: Cell::new(true),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

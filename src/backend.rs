@@ -230,4 +230,5 @@ pub trait BackendDrmDevice {
     fn set_gfx_api(&self, api: GfxApi);
     fn gtx_api(&self) -> GfxApi;
     fn version(&self) -> Result<DrmVersion, DrmError>;
+    fn set_direct_scanout_enabled(&self, enabled: bool);
 }

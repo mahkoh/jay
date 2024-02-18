@@ -511,6 +511,10 @@ impl Client {
         self.send(&ClientMessage::SetGfxApi { device, api });
     }
 
+    pub fn set_direct_scanout_enabled(&self, device: Option<DrmDevice>, enabled: bool) {
+        self.send(&ClientMessage::SetDirectScanoutEnabled { device, enabled });
+    }
+
     pub fn connector_connected(&self, connector: Connector) -> bool {
         let res = self.send_with_response(&ClientMessage::ConnectorConnected { connector });
         get_response!(res, false, ConnectorConnected { connected });
