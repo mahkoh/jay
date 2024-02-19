@@ -385,14 +385,10 @@ impl ToplevelNode for Xwindow {
         self.x.surface.set_output(&ws.output.get());
     }
 
-    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
         // log::info!("xwin {} change_extents {:?}", self.data.window_id, rect);
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
-            if self.toplevel_data.is_floating.get() {
-                self.toplevel_data.float_width.set(rect.width());
-                self.toplevel_data.float_height.set(rect.height());
-            }
             if !self.data.info.override_redirect.get() {
                 self.data
                     .state

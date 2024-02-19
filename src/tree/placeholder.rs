@@ -156,7 +156,7 @@ impl ToplevelNode for PlaceholderNode {
         None
     }
 
-    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
         self.toplevel.pos.set(*rect);
         if let Some(p) = self.toplevel.parent.get() {
             p.node_child_size_changed(self.deref(), rect.width(), rect.height());

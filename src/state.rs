@@ -522,7 +522,7 @@ impl State {
     ) {
         node.clone().tl_set_workspace(workspace);
         width += 2 * self.theme.sizes.border_width.get();
-        height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get();
+        height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
         let output = workspace.output.get();
         let output_rect = output.global.pos.get();
         let position = {

@@ -1440,7 +1440,7 @@ impl ToplevelNode for ContainerNode {
         }
     }
 
-    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
         self.toplevel_data.pos.set(*rect);
         self.abs_x1.set(rect.x1());
         self.abs_y1.set(rect.y1());
