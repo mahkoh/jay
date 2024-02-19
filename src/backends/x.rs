@@ -19,12 +19,11 @@ use {
         },
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GbmDevice, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
-            INVALID_MODIFIER, LINEAR_MODIFIER,
+            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
-            CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffer,
+            CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffers,
             Dri3QueryVersion, Extension, FreePixmap, MapWindow, PresentCompleteNotify,
             PresentIdleNotify, PresentPixmap, PresentQueryVersion, PresentSelectInput,
             XiButtonPress, XiButtonRelease, XiDeviceInfo, XiEnter, XiEventMask,
@@ -383,28 +382,16 @@ impl XBackend {
             Some(f) => f,
             None => return Err(XBackendError::XRGB8888),
         };
-        let mut usage = GBM_BO_USE_RENDERING;
-        let modifier = if format.write_modifiers.contains(&LINEAR_MODIFIER) {
-            &[LINEAR_MODIFIER]
-        } else if format.write_modifiers.contains(&INVALID_MODIFIER) {
-            usage |= GBM_BO_USE_LINEAR;
-            &[INVALID_MODIFIER]
-        } else {
-            panic!("Neither linear nor invalid modifier is supported");
-        };
         for image in &mut images {
             let bo = self.gbm.create_bo(
                 &self.state.dma_buf_ids,
                 width,
                 height,
                 XRGB8888,
-                modifier,
-                usage,
+                &format.write_modifiers,
+                GBM_BO_USE_RENDERING,
             )?;
             let dma = bo.dmabuf();
-            assert!(dma.planes.len() == 1);
-            let plane = dma.planes.first().unwrap();
-            let size = plane.stride * dma.height as u32;
             let img = match self.ctx.clone().dmabuf_img(dma) {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateImage(e)),
@@ -417,17 +404,31 @@ impl XBackend {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateTexture(e)),
             };
+            macro_rules! pp {
+                ($num:expr, $field:ident) => {
+                    dma.planes.get($num).map(|p| p.$field).unwrap_or(0) as _
+                };
+            }
+            let buffers: Vec<_> = dma.planes.iter().map(|p| p.fd.clone()).collect();
             let pixmap = {
-                let pfb = Dri3PixmapFromBuffer {
+                let pfb = Dri3PixmapFromBuffers {
                     pixmap: self.c.generate_id()?,
-                    drawable: window,
-                    size,
+                    window,
+                    num_buffers: dma.planes.len() as _,
                     width: dma.width as _,
                     height: dma.height as _,
-                    stride: plane.stride as _,
+                    stride0: pp!(0, stride),
+                    offset0: pp!(0, offset),
+                    stride1: pp!(1, stride),
+                    offset1: pp!(1, offset),
+                    stride2: pp!(2, stride),
+                    offset2: pp!(2, offset),
+                    stride3: pp!(3, stride),
+                    offset3: pp!(3, offset),
                     depth: 24,
                     bpp: 32,
-                    pixmap_fd: plane.fd.clone(),
+                    modifier: dma.modifier,
+                    buffers: buffers.into(),
                 };
                 if let Err(e) = self.c.call(&pfb).await {
                     return Err(XBackendError::ImportBuffer(e));
