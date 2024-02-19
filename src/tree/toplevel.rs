@@ -149,8 +149,15 @@ pub trait ToplevelNode: Node {
     }
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
-        let _ = rect;
+        let data = self.tl_data();
+        if data.is_floating.get() {
+            data.float_width.set(rect.width());
+            data.float_height.set(rect.height());
+        }
+        self.tl_change_extents_impl(rect)
     }
+
+    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect);
 
     fn tl_close(self: Rc<Self>) {
         // nothing

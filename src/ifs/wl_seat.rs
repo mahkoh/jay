@@ -369,12 +369,7 @@ impl WlSeatGlobal {
         if old_ws.id == ws.id {
             return;
         }
-        let cn = match tl
-            .tl_data()
-            .parent
-            .get()
-            .and_then(|p| p.node_into_containing_node())
-        {
+        let cn = match tl.tl_data().parent.get() {
             Some(cn) => cn,
             _ => return,
         };

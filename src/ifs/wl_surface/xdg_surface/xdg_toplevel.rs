@@ -483,15 +483,11 @@ impl ToplevelNode for XdgToplevel {
         self.xdg.set_workspace(ws);
     }
 
-    fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
+    fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
         let nw = rect.width();
         let nh = rect.height();
         let de = self.xdg.absolute_desired_extents.get();
         if de.width() != nw || de.height() != nh {
-            if self.toplevel_data.is_floating.get() {
-                self.toplevel_data.float_width.set(rect.width());
-                self.toplevel_data.float_height.set(rect.height());
-            }
             self.send_configure_checked(nw, nh);
             self.xdg.do_send_configure();
             // self.xdg.surface.client.flush();
