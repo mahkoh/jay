@@ -18,7 +18,7 @@ use {
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
-            oserror::OsError, syncqueue::SyncQueue,
+            opaque_cell::OpaqueCell, oserror::OsError, syncqueue::SyncQueue,
         },
         video::{
             dmabuf::DmaBufId,
@@ -39,7 +39,6 @@ use {
     jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
-        collections::VecDeque,
         ffi::CString,
         fmt::{Debug, Formatter},
         mem,
@@ -223,7 +222,8 @@ pub struct MetalConnector {
 
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
-    pub active_framebuffers: RefCell<VecDeque<PresentFb>>,
+    pub active_framebuffer: OpaqueCell<Option<PresentFb>>,
+    pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
     pub direct_scanout_active: Cell<bool>,
 }
 
@@ -657,7 +657,7 @@ impl MetalConnector {
                     dsd.tex.reservations().acquire();
                     dsd.acquired.set(true);
                 }
-                self.active_framebuffers.borrow_mut().push_back(fb);
+                self.next_framebuffer.set(Some(fb));
             }
             self.can_present.set(false);
             self.has_damage.set(false);
@@ -869,7 +869,8 @@ fn create_connector(
         cursor_swap_buffer: Cell::new(false),
         drm_feedback: Default::default(),
         scanout_buffers: Default::default(),
-        active_framebuffers: Default::default(),
+        active_framebuffer: Default::default(),
+        next_framebuffer: Default::default(),
         direct_scanout_active: Cell::new(false),
     });
     let futures = ConnectorFutures {
@@ -1557,12 +1558,9 @@ impl MetalBackend {
             _ => return,
         };
         connector.can_present.set(true);
-        {
-            let mut scanout_buffers = connector.active_framebuffers.borrow_mut();
-            while scanout_buffers.len() > 1 {
-                scanout_buffers.pop_front();
-            }
-        }
+        connector
+            .active_framebuffer
+            .set(connector.next_framebuffer.take());
         if connector.has_damage.get() || connector.cursor_changed.get() {
             connector.schedule_present();
         }

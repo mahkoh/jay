@@ -20,6 +20,7 @@ pub mod num_cpus;
 pub mod numcell;
 pub mod once;
 pub mod opaque;
+pub mod opaque_cell;
 pub mod option_ext;
 pub mod oserror;
 pub mod page_size;
