@@ -17,17 +17,18 @@ pub struct Image {
 
 impl Image {
     pub fn width(&self) -> i32 {
-        self.gl.width
+        self.gl.dmabuf.width
     }
 
     pub fn height(&self) -> i32 {
-        self.gl.height
+        self.gl.dmabuf.height
     }
 
     fn to_texture(self: &Rc<Self>) -> Result<Rc<Texture>, RenderError> {
         Ok(Rc::new(Texture {
             ctx: self.ctx.clone(),
             gl: GlTexture::import_img(&self.ctx.ctx, &self.gl)?,
+            resv: Default::default(),
         }))
     }
 

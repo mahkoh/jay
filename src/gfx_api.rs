@@ -9,6 +9,7 @@ use {
         state::State,
         theme::Color,
         tree::Node,
+        utils::numcell::NumCell,
         video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
     },
     ahash::AHashMap,
@@ -31,7 +32,12 @@ pub enum GfxApiOpt {
     CopyTexture(CopyTexture),
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+pub struct GfxRenderPass {
+    pub ops: Vec<GfxApiOpt>,
+    pub clear: Option<Color>,
+}
+
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct BufferPoint {
     pub x: f32,
     pub y: f32,
@@ -41,9 +47,25 @@ impl BufferPoint {
     pub fn is_leq_1(&self) -> bool {
         self.x <= 1.0 && self.y <= 1.0
     }
+
+    pub fn top_left() -> Self {
+        Self { x: 0.0, y: 0.0 }
+    }
+
+    pub fn top_right() -> Self {
+        Self { x: 1.0, y: 0.0 }
+    }
+
+    pub fn bottom_left() -> Self {
+        Self { x: 0.0, y: 1.0 }
+    }
+
+    pub fn bottom_right() -> Self {
+        Self { x: 1.0, y: 1.0 }
+    }
 }
 
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct BufferPoints {
     pub top_left: BufferPoint,
     pub top_right: BufferPoint,
@@ -78,6 +100,15 @@ impl BufferPoints {
             && self.top_right.is_leq_1()
             && self.bottom_left.is_leq_1()
             && self.bottom_right.is_leq_1()
+    }
+
+    pub fn identity() -> Self {
+        Self {
+            top_left: BufferPoint::top_left(),
+            top_right: BufferPoint::top_right(),
+            bottom_left: BufferPoint::bottom_left(),
+            bottom_right: BufferPoint::bottom_right(),
+        }
     }
 }
 
@@ -172,7 +203,7 @@ impl dyn GfxFramebuffer {
         self.render(ops, clear);
     }
 
-    pub fn render_node(
+    pub fn create_render_pass(
         &self,
         node: &dyn Node,
         state: &State,
@@ -180,7 +211,7 @@ impl dyn GfxFramebuffer {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
-    ) {
+    ) -> GfxRenderPass {
         let mut ops = self.take_render_ops();
         let (width, height) = self.size();
         let mut renderer = Renderer {
@@ -221,7 +252,34 @@ impl dyn GfxFramebuffer {
             }
         }
         let c = state.theme.colors.background.get();
-        self.render(ops, Some(&c));
+        GfxRenderPass {
+            ops,
+            clear: Some(c),
+        }
+    }
+
+    pub fn perform_render_pass(&self, pass: GfxRenderPass) {
+        self.render(pass.ops, pass.clear.as_ref())
+    }
+
+    pub fn render_node(
+        &self,
+        node: &dyn Node,
+        state: &State,
+        cursor_rect: Option<Rect>,
+        result: Option<&mut RenderResult>,
+        scale: Scale,
+        render_hardware_cursor: bool,
+    ) {
+        let pass = self.create_render_pass(
+            node,
+            state,
+            cursor_rect,
+            result,
+            scale,
+            render_hardware_cursor,
+        );
+        self.perform_render_pass(pass);
     }
 
     pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale) {
@@ -253,6 +311,38 @@ pub trait GfxImage {
     fn height(&self) -> i32;
 }
 
+#[derive(Default)]
+pub struct TextureReservations {
+    reservations: NumCell<usize>,
+    on_release: Cell<Option<Box<dyn FnOnce()>>>,
+}
+
+impl TextureReservations {
+    pub fn has_reservation(&self) -> bool {
+        self.reservations.get() != 0
+    }
+
+    pub fn acquire(&self) {
+        self.reservations.fetch_add(1);
+    }
+
+    pub fn release(&self) {
+        if self.reservations.fetch_sub(1) == 1 {
+            if let Some(cb) = self.on_release.take() {
+                cb();
+            }
+        }
+    }
+
+    pub fn on_released<C: FnOnce() + 'static>(&self, cb: C) {
+        if self.has_reservation() {
+            self.on_release.set(Some(Box::new(cb)));
+        } else {
+            cb();
+        }
+    }
+}
+
 pub trait GfxTexture: Debug {
     fn size(&self) -> (i32, i32);
     fn as_any(&self) -> &dyn Any;
@@ -267,6 +357,8 @@ pub trait GfxTexture: Debug {
         format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError>;
+    fn dmabuf(&self) -> Option<&DmaBuf>;
+    fn reservations(&self) -> &TextureReservations;
 }
 
 pub trait GfxContext: Debug {

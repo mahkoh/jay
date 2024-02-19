@@ -112,6 +112,7 @@ impl ZwlrScreencopyManagerV1 {
             with_damage: Cell::new(false),
             output_link: Cell::new(None),
             buffer: Cell::new(None),
+            is_shm: Cell::new(false),
             version: self.version,
         });
         track!(self.client, frame);

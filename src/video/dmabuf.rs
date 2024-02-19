@@ -5,15 +5,18 @@ use {
     uapi::{c::ioctl, OwnedFd, _IOW, _IOWR},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DmaBufPlane {
     pub offset: u32,
     pub stride: u32,
     pub fd: Rc<OwnedFd>,
 }
 
-#[derive(Clone)]
+linear_ids!(DmaBufIds, DmaBufId);
+
+#[derive(Debug, Clone)]
 pub struct DmaBuf {
+    pub id: DmaBufId,
     pub width: i32,
     pub height: i32,
     pub format: &'static Format,

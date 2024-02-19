@@ -60,8 +60,8 @@ impl GlRenderBuffer {
             _tex: None,
             ctx: self.ctx.clone(),
             fbo,
-            width: self.img.width,
-            height: self.img.height,
+            width: self.img.dmabuf.width,
+            height: self.img.dmabuf.height,
         };
         if status != GL_FRAMEBUFFER_COMPLETE {
             return Err(RenderError::CreateFramebuffer);

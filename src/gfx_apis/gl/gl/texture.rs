@@ -56,10 +56,10 @@ impl GlTexture {
             ctx: ctx.clone(),
             img: Some(img.clone()),
             tex,
-            width: img.width,
-            height: img.height,
+            width: img.dmabuf.width,
+            height: img.dmabuf.height,
             external_only: img.external_only,
-            format: img.format,
+            format: img.dmabuf.format,
         })
     }
 

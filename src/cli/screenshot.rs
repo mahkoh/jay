@@ -5,7 +5,7 @@ use {
         tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
+            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
         },
@@ -55,7 +55,7 @@ async fn run(screenshot: Rc<Screenshot>) {
             fatal!("Could not take a screenshot: {}", e);
         }
     };
-    let data = buf_to_qoi(&buf);
+    let data = buf_to_qoi(&DmaBufIds::default(), &buf);
     let filename = screenshot
         .args
         .filename
@@ -67,7 +67,7 @@ async fn run(screenshot: Rc<Screenshot>) {
     }
 }
 
-pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
+pub fn buf_to_qoi(dma_buf_ids: &DmaBufIds, buf: &Dmabuf) -> Vec<u8> {
     let drm = match Drm::reopen(buf.drm_dev.raw(), false) {
         Ok(drm) => drm,
         Err(e) => {
@@ -87,6 +87,7 @@ pub fn buf_to_qoi(buf: &Dmabuf) -> Vec<u8> {
         fd: buf.fd.clone(),
     });
     let dmabuf = DmaBuf {
+        id: dma_buf_ids.next(),
         width: buf.width as _,
         height: buf.height as _,
         format: XRGB8888,

@@ -5,6 +5,7 @@ use {
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
+            wl_surface::WlSurface,
         },
         rect::Rect,
         state::State,
@@ -160,6 +161,10 @@ pub trait ToplevelNode: Node {
 
     fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
         self.tl_into_dyn()
+    }
+
+    fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
+        None
     }
 }
 
@@ -356,8 +361,8 @@ impl ToplevelData {
         });
         drop(data);
         self.is_fullscreen.set(true);
-        ws.set_fullscreen_node(&node);
         node.tl_set_parent(ws.clone());
+        ws.set_fullscreen_node(&node);
         node.clone().tl_set_workspace(ws);
         node.clone()
             .tl_change_extents(&ws.output.get().global.pos.get());

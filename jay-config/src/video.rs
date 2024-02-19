@@ -369,6 +369,11 @@ impl DrmDevice {
     pub fn set_gfx_api(self, gfx_api: GfxApi) {
         get!().set_gfx_api(Some(self), gfx_api);
     }
+
+    /// Enables or disables direct scanout of client surfaces for this device.
+    pub fn set_direct_scanout_enabled(self, enabled: bool) {
+        get!().set_direct_scanout_enabled(Some(self), enabled);
+    }
 }
 
 /// A graphics API.
@@ -388,4 +393,13 @@ pub enum GfxApi {
 /// This call has no effect on devices that have already been initialized.
 pub fn set_gfx_api(gfx_api: GfxApi) {
     get!().set_gfx_api(None, gfx_api);
+}
+
+/// Enables or disables direct scanout of client surfaces.
+///
+/// The default is `true`.
+///
+/// This setting can be overwritten per-device with [DrmDevice::set_direct_scanout_enabled].
+pub fn set_direct_scanout_enabled(enabled: bool) {
+    get!().set_direct_scanout_enabled(None, enabled);
 }

@@ -120,6 +120,6 @@ impl GfxFramebuffer for Framebuffer {
     }
 
     fn format(&self) -> &'static Format {
-        self.gl.rb.img.format
+        self.gl.rb.img.dmabuf.format
     }
 }

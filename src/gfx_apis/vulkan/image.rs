@@ -1,17 +1,14 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture},
+        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, TextureReservations},
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanMaxExtents,
             renderer::VulkanRenderer, util::OnDrop, VulkanError,
         },
         theme::Color,
         utils::clonecell::CloneCell,
-        video::{
-            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-            Modifier,
-        },
+        video::dmabuf::{DmaBuf, PlaneVec},
     },
     ash::vk::{
         BindImageMemoryInfo, BindImagePlaneMemoryInfo, ComponentMapping, ComponentSwizzle,
@@ -36,12 +33,10 @@ use {
 
 pub struct VulkanDmaBufImageTemplate {
     pub(super) renderer: Rc<VulkanRenderer>,
-    pub(super) format: &'static Format,
     pub(super) width: u32,
     pub(super) height: u32,
-    pub(super) modifier: Modifier,
     pub(super) disjoint: bool,
-    pub(super) planes: PlaneVec<DmaBufPlane>,
+    pub(super) dmabuf: DmaBuf,
     pub(super) render_max_extents: Option<VulkanMaxExtents>,
     pub(super) texture_max_extents: Option<VulkanMaxExtents>,
 }
@@ -58,6 +53,7 @@ pub struct VulkanImage {
     pub(super) is_undefined: Cell<bool>,
     pub(super) ty: VulkanImageMemory,
     pub(super) render_ops: CloneCell<Vec<GfxApiOpt>>,
+    pub(super) resv: TextureReservations,
 }
 
 pub enum VulkanImageMemory {
@@ -216,6 +212,7 @@ impl VulkanRenderer {
             is_undefined: Cell::new(true),
             ty: VulkanImageMemory::Internal(shm),
             render_ops: Default::default(),
+            resv: Default::default(),
         }))
     }
 
@@ -260,12 +257,10 @@ impl VulkanRenderer {
         }
         Ok(Rc::new(VulkanDmaBufImageTemplate {
             renderer: self.clone(),
-            format: dmabuf.format,
             width,
             height,
-            modifier: dmabuf.modifier,
             disjoint,
-            planes: dmabuf.planes.clone(),
+            dmabuf: dmabuf.clone(),
             render_max_extents: modifier.render_max_extents,
             texture_max_extents: modifier.texture_max_extents,
         }))
@@ -332,6 +327,7 @@ impl VulkanDmaBufImageTemplate {
         }
         let image = {
             let plane_layouts: PlaneVec<_> = self
+                .dmabuf
                 .planes
                 .iter()
                 .map(|p| SubresourceLayout {
@@ -343,7 +339,7 @@ impl VulkanDmaBufImageTemplate {
                 })
                 .collect();
             let mut mod_info = ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
-                .drm_format_modifier(self.modifier)
+                .drm_format_modifier(self.dmabuf.modifier)
                 .plane_layouts(&plane_layouts)
                 .build();
             let mut memory_image_create_info = ExternalMemoryImageCreateInfo::builder()
@@ -361,7 +357,7 @@ impl VulkanDmaBufImageTemplate {
                 };
             let create_info = ImageCreateInfo::builder()
                 .image_type(ImageType::TYPE_2D)
-                .format(self.format.vk_format)
+                .format(self.dmabuf.format.vk_format)
                 .mip_levels(1)
                 .array_layers(1)
                 .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
@@ -383,14 +379,14 @@ impl VulkanDmaBufImageTemplate {
         };
         let destroy_image = OnDrop(|| unsafe { device.device.destroy_image(image, None) });
         let num_device_memories = match self.disjoint {
-            true => self.planes.len(),
+            true => self.dmabuf.planes.len(),
             false => 1,
         };
         let mut device_memories = PlaneVec::new();
         let mut free_device_memories = PlaneVec::new();
         let mut bind_image_plane_memory_infos = PlaneVec::new();
         for plane_idx in 0..num_device_memories {
-            let dma_buf_plane = &self.planes[plane_idx];
+            let dma_buf_plane = &self.dmabuf.planes[plane_idx];
             let memory_fd_properties = unsafe {
                 device.external_memory_fd.get_memory_fd_properties(
                     ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
@@ -467,8 +463,8 @@ impl VulkanDmaBufImageTemplate {
         }
         let res = unsafe { device.device.bind_image_memory2(&bind_image_memory_infos) };
         res.map_err(VulkanError::BindImageMemory)?;
-        let texture_view = device.create_image_view(image, self.format, false)?;
-        let render_view = device.create_image_view(image, self.format, true)?;
+        let texture_view = device.create_image_view(image, self.dmabuf.format, false)?;
+        let render_view = device.create_image_view(image, self.dmabuf.format, true)?;
         free_device_memories.drain(..).for_each(mem::forget);
         mem::forget(destroy_image);
         Ok(Rc::new(VulkanImage {
@@ -484,8 +480,9 @@ impl VulkanDmaBufImageTemplate {
                 template: self.clone(),
                 mems: device_memories,
             }),
-            format: self.format,
+            format: self.dmabuf.format,
             is_undefined: Cell::new(true),
+            resv: Default::default(),
         }))
     }
 }
@@ -578,5 +575,16 @@ impl GfxTexture for VulkanImage {
         self.renderer
             .read_pixels(&self, x, y, width, height, stride, format, shm)
             .map_err(|e| e.into())
+    }
+
+    fn dmabuf(&self) -> Option<&DmaBuf> {
+        match &self.ty {
+            VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),
+            VulkanImageMemory::Internal(_) => None,
+        }
+    }
+
+    fn reservations(&self) -> &TextureReservations {
+        &self.resv
     }
 }

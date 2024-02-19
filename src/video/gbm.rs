@@ -5,7 +5,7 @@ use {
         format::{formats, Format},
         utils::oserror::OsError,
         video::{
-            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
+            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
             Modifier, INVALID_MODIFIER,
         },
@@ -150,8 +150,9 @@ impl GbmBoMap {
     }
 }
 
-unsafe fn export_bo(bo: *mut Bo) -> Result<DmaBuf, GbmError> {
+unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmError> {
     Ok(DmaBuf {
+        id: dmabuf_ids.next(),
         width: gbm_bo_get_width(bo) as _,
         height: gbm_bo_get_height(bo) as _,
         modifier: gbm_bo_get_modifier(bo),
@@ -199,6 +200,7 @@ impl GbmDevice {
 
     pub fn create_bo<'a>(
         &self,
+        dma_buf_ids: &DmaBufIds,
         width: i32,
         height: i32,
         format: &Format,
@@ -229,7 +231,7 @@ impl GbmDevice {
                 return Err(GbmError::CreateBo(OsError::default()));
             }
             let bo = BoHolder { bo };
-            let dma = export_bo(bo.bo)?;
+            let dma = export_bo(dma_buf_ids, bo.bo)?;
             Ok(GbmBo { bo, dmabuf: dma })
         }
     }

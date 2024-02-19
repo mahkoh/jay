@@ -114,6 +114,7 @@ impl ZwpLinuxBufferParamsV1 {
             return Err(ZwpLinuxBufferParamsV1Error::InvalidModifier(modifier));
         }
         let mut dmabuf = DmaBuf {
+            id: self.parent.client.state.dma_buf_ids.next(),
             width,
             height,
             format: format.format,

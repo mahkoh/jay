@@ -20,6 +20,7 @@ use {
             oserror::OsError,
             vec_ext::VecExt,
         },
+        video::dmabuf::DmaBufIds,
         wheel::Wheel,
         wire::wl_display,
         wl_usr::{
@@ -77,6 +78,7 @@ pub struct UsrCon {
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     pub owner: CloneCell<Option<Rc<dyn UsrConOwner>>>,
     dead: Cell<bool>,
+    dma_buf_ids: Rc<DmaBufIds>,
 }
 
 pub trait UsrConOwner {
@@ -88,6 +90,7 @@ impl UsrCon {
         ring: &Rc<IoUring>,
         wheel: &Rc<Wheel>,
         eng: &Rc<AsyncEngine>,
+        dma_buf_ids: &Rc<DmaBufIds>,
         path: &str,
         server_id: u32,
     ) -> Result<Rc<Self>, UsrConError> {
@@ -122,6 +125,7 @@ impl UsrCon {
             outgoing: Default::default(),
             owner: Default::default(),
             dead: Cell::new(false),
+            dma_buf_ids: dma_buf_ids.clone(),
         });
         slf.objects.set(
             WL_DISPLAY_ID.into(),

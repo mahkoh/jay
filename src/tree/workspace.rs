@@ -143,6 +143,11 @@ impl WorkspaceNode {
         if plane_was_visible {
             self.plane_set_visible(false);
         }
+        if let Some(surface) = node.tl_scanout_surface() {
+            if let Some(fb) = self.output.get().global.connector.connector.drm_feedback() {
+                surface.send_feedback(&fb);
+            }
+        }
     }
 
     pub fn remove_fullscreen_node(&self) {
@@ -150,6 +155,11 @@ impl WorkspaceNode {
             self.discard_child_flags(&*node);
             if self.visible.get() {
                 self.plane_set_visible(true);
+            }
+            if let Some(surface) = node.tl_scanout_surface() {
+                if let Some(fb) = surface.client.state.drm_feedback.get() {
+                    surface.send_feedback(&fb);
+                }
             }
         }
     }

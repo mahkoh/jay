@@ -590,6 +590,21 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_direct_scanout_enabled(
+        &self,
+        device: Option<DrmDevice>,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        match device {
+            Some(dev) => self
+                .get_drm_device(dev)?
+                .dev
+                .set_direct_scanout_enabled(enabled),
+            _ => self.state.direct_scanout_enabled.set(enabled),
+        }
+        Ok(())
+    }
+
     fn handle_get_default_workspace_capture(&self) {
         self.respond(Response::GetDefaultWorkspaceCapture {
             capture: self.state.default_workspace_capture.get(),
@@ -1320,6 +1335,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetGfxApi { device, api } => {
                 self.handle_set_gfx_api(device, api).wrn("set_gfx_api")?
             }
+            ClientMessage::SetDirectScanoutEnabled { device, enabled } => self
+                .handle_set_direct_scanout_enabled(device, enabled)
+                .wrn("set_direct_scanout_enabled")?,
         }
         Ok(())
     }

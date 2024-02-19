@@ -11,6 +11,7 @@ use {
         },
         backends::metal::video::{MetalDrmDeviceData, MetalRenderContext, PendingDrmDevice},
         dbus::{DbusError, SignalHandler},
+        drm_feedback::DrmFeedback,
         gfx_api::GfxError,
         libinput::{
             consts::{
@@ -130,6 +131,7 @@ pub struct MetalBackend {
     pause_handler: Cell<Option<SignalHandler>>,
     resume_handler: Cell<Option<SignalHandler>>,
     ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
+    default_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
 }
 
 impl Debug for MetalBackend {
@@ -253,6 +255,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         pause_handler: Default::default(),
         resume_handler: Default::default(),
         ctx: Default::default(),
+        default_feedback: Default::default(),
     });
     metal.pause_handler.set(Some({
         let mtl = metal.clone();

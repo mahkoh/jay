@@ -8,7 +8,10 @@ use {
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
-            wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+            wl_surface::{
+                xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+                WlSurface,
+            },
         },
         leaks::Tracker,
         object::Object,
@@ -544,6 +547,10 @@ impl ToplevelNode for XdgToplevel {
     //         self.map_tiled()
     //     }
     // }
+
+    fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
+        Some(self.xdg.surface.clone())
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {

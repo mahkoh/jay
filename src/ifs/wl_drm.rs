@@ -119,6 +119,7 @@ impl WlDrm {
             None => return Err(WlDrmError::InvalidFormat(req.format)),
         };
         let mut dmabuf = DmaBuf {
+            id: self.client.state.dma_buf_ids.next(),
             width: req.width,
             height: req.height,
             format,

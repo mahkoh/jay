@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::{
-            zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
+            wl_surface::WlSurface, zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         leaks::Tracker,
@@ -120,8 +120,9 @@ impl ZwpLinuxDmabufV1 {
     fn get_feedback(
         self: &Rc<Self>,
         id: ZwpLinuxDmabufFeedbackV1Id,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
-        let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(id, &self.client));
+        surface: Option<&Rc<WlSurface>>,
+    ) -> Result<Rc<ZwpLinuxDmabufFeedbackV1>, ZwpLinuxDmabufV1Error> {
+        let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(id, &self.client, surface));
         track!(self.client, fb);
         self.client.add_client_obj(&fb)?;
         self.client
@@ -131,7 +132,7 @@ impl ZwpLinuxDmabufV1 {
         if let Some(feedback) = self.client.state.drm_feedback.get() {
             fb.send_feedback(&feedback);
         }
-        Ok(())
+        Ok(fb)
     }
 
     fn get_default_feedback(
@@ -139,7 +140,8 @@ impl ZwpLinuxDmabufV1 {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), ZwpLinuxDmabufV1Error> {
         let req: GetDefaultFeedback = self.client.parse(&**self, parser)?;
-        self.get_feedback(req.id)
+        self.get_feedback(req.id, None)?;
+        Ok(())
     }
 
     fn get_surface_feedback(
@@ -147,8 +149,10 @@ impl ZwpLinuxDmabufV1 {
         parser: MsgParser<'_, '_>,
     ) -> Result<(), ZwpLinuxDmabufV1Error> {
         let req: GetSurfaceFeedback = self.client.parse(&**self, parser)?;
-        let _surface = self.client.lookup(req.surface)?;
-        self.get_feedback(req.id)
+        let surface = self.client.lookup(req.surface)?;
+        let fb = self.get_feedback(req.id, Some(&surface))?;
+        surface.drm_feedback.set(req.id, fb);
+        Ok(())
     }
 }
 

@@ -710,6 +710,7 @@ impl WindowData {
         }
         for _ in 0..NUM_BUFFERS {
             let bo = match ctx.ctx.gbm().create_bo(
+                &self.dpy.state.dma_buf_ids,
                 width,
                 height,
                 ARGB8888,

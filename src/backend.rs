@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
+        drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::GfxFramebuffer,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
@@ -79,6 +80,9 @@ pub trait Connector {
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
     fn set_enabled(&self, enabled: bool);
+    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -226,4 +230,5 @@ pub trait BackendDrmDevice {
     fn set_gfx_api(&self, api: GfxApi);
     fn gtx_api(&self) -> GfxApi;
     fn version(&self) -> Result<DrmVersion, DrmError>;
+    fn set_direct_scanout_enabled(&self, enabled: bool);
 }
