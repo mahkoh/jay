@@ -84,6 +84,15 @@ pub struct MetalDrmDevice {
     pub direct_scanout_enabled: Cell<Option<bool>>,
 }
 
+impl MetalDrmDevice {
+    pub fn is_render_device(&self) -> bool {
+        if let Some(ctx) = self.backend.ctx.get() {
+            return ctx.dev_id == self.id;
+        }
+        false
+    }
+}
+
 impl BackendDrmDevice for MetalDrmDevice {
     fn id(&self) -> DrmDeviceId {
         self.id
@@ -499,7 +508,13 @@ impl MetalConnector {
         );
         let try_direct_scanout = try_direct_scanout
             && !output.global.have_shm_screencopies()
-            && self.direct_scanout_enabled();
+            && self.direct_scanout_enabled()
+            // at least on AMD, using a FB on a different device for rendering will fail
+            // and destroy the render context. it's possible to work around this by waiting
+            // until the FB is no longer being scanned out, but if a notification pops up
+            // then we must be able to disable direct scanout immediately.
+            // https://gitlab.freedesktop.org/drm/amd/-/issues/3186
+            && self.dev.is_render_device();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
             if let Some(dsd) = self.prepare_direct_scanout(&pass, plane) {
@@ -657,6 +672,9 @@ impl MetalConnector {
     }
 
     fn compute_drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
+        if !self.dev.is_render_device() {
+            return None;
+        }
         let default = self.backend.default_feedback.get()?;
         let plane = self.primary_plane.get()?;
         let mut formats = vec![];
@@ -1751,13 +1769,7 @@ impl MetalBackend {
             dev_id: dev.id,
             gfx,
         }));
-        let mut is_render_ctx = false;
-        if let Some(render_ctx) = self.ctx.get() {
-            if render_ctx.dev_id == dev.id {
-                is_render_ctx = true;
-            }
-        }
-        if is_render_ctx {
+        if dev.is_render_device() {
             self.make_render_device(dev, true);
         } else {
             if let Some(dev) = self.device_holder.drm_devices.get(&dev.devnum) {
