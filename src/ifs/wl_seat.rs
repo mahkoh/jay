@@ -582,7 +582,9 @@ impl WlSeatGlobal {
     pub fn focus_parent(self: &Rc<Self>) {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
             if let Some(parent) = tl.tl_data().parent.get() {
-                self.focus_node(parent.cnode_into_node());
+                if let Some(tl) = parent.node_toplevel() {
+                    self.focus_node(tl.tl_into_node());
+                }
             }
         }
     }
