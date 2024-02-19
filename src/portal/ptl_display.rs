@@ -157,7 +157,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
     fn device(&self, fd: Rc<OwnedFd>) {
         self.render_ctx.take();
         let dev_id = match uapi::fstat(fd.raw()) {
-            Ok(s) => s.st_dev,
+            Ok(s) => s.st_rdev,
             Err(e) => {
                 log::error!("Could not fstat display device: {}", ErrorFmt(e));
                 return;
