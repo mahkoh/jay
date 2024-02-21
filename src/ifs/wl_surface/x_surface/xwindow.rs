@@ -379,7 +379,7 @@ impl ToplevelNodeBase for Xwindow {
         Some(self.x.surface.clone())
     }
 
-    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.x.surface.set_output(&ws.output.get());
     }
 

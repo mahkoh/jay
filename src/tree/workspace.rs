@@ -77,12 +77,11 @@ impl WorkspaceNode {
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
         if let Some(prev) = self.container.get() {
-            self.discard_child_flags(&*prev);
+            self.discard_child_properties(&*prev);
         }
-        self.apply_child_flags(&**container);
+        self.pull_child_properties(&**container);
         let pos = self.position.get();
         container.clone().tl_change_extents(&pos);
-        container.clone().tl_set_workspace(self);
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.stacked_visible());
         self.container.set(Some(container.clone()));
@@ -136,9 +135,9 @@ impl WorkspaceNode {
         let mut plane_was_visible = visible;
         if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
             plane_was_visible = false;
-            self.discard_child_flags(&*prev);
+            self.discard_child_properties(&*prev);
         }
-        self.apply_child_flags(&**node);
+        self.pull_child_properties(&**node);
         node.tl_set_visible(visible);
         if plane_was_visible {
             self.plane_set_visible(false);
@@ -152,7 +151,7 @@ impl WorkspaceNode {
 
     pub fn remove_fullscreen_node(&self) {
         if let Some(node) = self.fullscreen.take() {
-            self.discard_child_flags(&*node);
+            self.discard_child_properties(&*node);
             if self.visible.get() {
                 self.plane_set_visible(true);
             }
@@ -164,13 +163,13 @@ impl WorkspaceNode {
         }
     }
 
-    fn apply_child_flags(&self, child: &dyn ToplevelNode) {
+    fn pull_child_properties(&self, child: &dyn ToplevelNode) {
         if child.tl_data().wants_attention.get() {
             self.mod_attention_requested(true);
         }
     }
 
-    fn discard_child_flags(&self, child: &dyn ToplevelNode) {
+    fn discard_child_properties(&self, child: &dyn ToplevelNode) {
         if child.tl_data().wants_attention.get() {
             self.mod_attention_requested(false);
         }
@@ -279,7 +278,7 @@ impl ContainingNode for WorkspaceNode {
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
         if let Some(container) = self.container.get() {
             if container.node_id() == child.node_id() {
-                self.discard_child_flags(&*container);
+                self.discard_child_properties(&*container);
                 self.container.set(None);
                 return;
             }
@@ -299,5 +298,9 @@ impl ContainingNode for WorkspaceNode {
 
     fn cnode_child_attention_request_changed(self: Rc<Self>, _node: &dyn Node, set: bool) {
         self.mod_attention_requested(set);
+    }
+
+    fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
+        self
     }
 }

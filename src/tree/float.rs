@@ -115,14 +115,13 @@ impl FloatNode {
             seats: Default::default(),
             attention_requested: Cell::new(false),
         });
-        floater.apply_child_flags();
+        floater.pull_child_properties();
         floater
             .display_link
             .set(Some(state.root.stacked.add_last(floater.clone())));
         floater
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
-        child.clone().tl_set_workspace(ws);
         child.tl_set_parent(floater.clone());
         child.tl_set_visible(floater.visible.get());
         floater.schedule_layout();
@@ -349,7 +348,22 @@ impl FloatNode {
         self.stacked_set_visible(ws.stacked_visible());
     }
 
-    fn apply_child_flags(&self) {
+    fn update_child_title(self: &Rc<Self>, title: &str) {
+        let mut t = self.title.borrow_mut();
+        if t.deref() != title {
+            t.clear();
+            t.push_str(title);
+            self.schedule_render_titles();
+        }
+    }
+
+    fn update_child_active(self: &Rc<Self>, active: bool) {
+        if self.active.replace(active) != active {
+            self.schedule_render_titles();
+        }
+    }
+
+    fn pull_child_properties(self: &Rc<Self>) {
         let child = match self.child.get() {
             None => return,
             Some(c) => c,
@@ -360,11 +374,13 @@ impl FloatNode {
         if activation_requested {
             self.workspace
                 .get()
-                .cnode_child_attention_request_changed(self, true);
+                .cnode_child_attention_request_changed(&**self, true);
         }
+        self.update_child_title(&data.title.borrow());
+        self.update_child_active(data.active());
     }
 
-    fn discard_child_flags(&self) {
+    fn discard_child_properties(&self) {
         if self.attention_requested.get() {
             self.workspace
                 .get()
@@ -407,12 +423,7 @@ impl Node for FloatNode {
     }
 
     fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {
-        let mut t = self.title.borrow_mut();
-        if t.deref() != title {
-            t.clear();
-            t.push_str(title);
-            self.schedule_render_titles();
-        }
+        self.update_child_title(title);
     }
 
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -441,9 +452,7 @@ impl Node for FloatNode {
     }
 
     fn node_child_active_changed(self: Rc<Self>, _child: &dyn Node, active: bool, _depth: u32) {
-        if self.active.replace(active) != active {
-            self.schedule_render_titles();
-        }
+        self.update_child_active(active);
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
@@ -546,16 +555,16 @@ impl ContainingNode for FloatNode {
     containing_node_impl!();
 
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        self.discard_child_flags();
+        self.discard_child_properties();
         self.child.set(Some(new.clone()));
-        self.apply_child_flags();
         new.tl_set_parent(self.clone());
-        new.clone().tl_set_workspace(&self.workspace.get());
+        self.pull_child_properties();
+        new.tl_set_visible(self.visible.get());
         self.schedule_layout();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
-        self.discard_child_flags();
+        self.discard_child_properties();
         self.child.set(None);
         self.display_link.set(None);
         self.workspace_link.set(None);
@@ -571,6 +580,10 @@ impl ContainingNode for FloatNode {
                 .get()
                 .cnode_child_attention_request_changed(&*self, set);
         }
+    }
+
+    fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
+        self.workspace.get()
     }
 }
 

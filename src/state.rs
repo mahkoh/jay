@@ -520,7 +520,6 @@ impl State {
         mut height: i32,
         workspace: &Rc<WorkspaceNode>,
     ) {
-        node.clone().tl_set_workspace(workspace);
         width += 2 * self.theme.sizes.border_width.get();
         height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
         let output = workspace.output.get();

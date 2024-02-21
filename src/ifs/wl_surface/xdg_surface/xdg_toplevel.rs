@@ -477,7 +477,7 @@ impl ToplevelNodeBase for XdgToplevel {
         Some(self.xdg.surface.clone())
     }
 
-    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.xdg.set_workspace(ws);
     }
 

@@ -36,9 +36,8 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool);
     fn tl_title_changed(&self);
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>);
-    fn tl_active_changed(&self);
     fn tl_extents_changed(&self);
-    fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>);
+    fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>);
     fn tl_change_extents(self: Rc<Self>, rect: &Rect);
     fn tl_set_visible(&self, visible: bool);
     fn tl_destroy(&self);
@@ -103,36 +102,19 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let data = self.tl_data();
         data.parent.set(Some(parent.clone()));
         data.is_floating.set(parent.node_is_float());
-        self.tl_extents_changed();
-        self.tl_title_changed();
-        self.tl_active_changed();
-    }
-
-    fn tl_active_changed(&self) {
-        let data = self.tl_data();
-        let parent = match data.parent.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        let node = self.tl_as_node();
-        if data.active.get() || data.active_surfaces.active() {
-            parent.clone().node_child_active_changed(node, true, 1);
-        }
+        self.tl_set_workspace(&parent.cnode_workspace());
     }
 
     fn tl_extents_changed(&self) {
         let data = self.tl_data();
-        let parent = match data.parent.get() {
-            Some(p) => p,
-            _ => return,
-        };
-        let node = self.tl_as_node();
-        let pos = data.pos.get();
-        parent.node_child_size_changed(node, pos.width(), pos.height());
-        data.state.tree_changed();
+        if let Some(parent) = data.parent.get() {
+            let pos = data.pos.get();
+            parent.node_child_size_changed(self, pos.width(), pos.height());
+            data.state.tree_changed();
+        }
     }
 
-    fn tl_set_workspace(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
         data.workspace.set(Some(ws.clone()));
         self.tl_set_workspace_ext(ws);
@@ -184,7 +166,7 @@ pub trait ToplevelNodeBase: Node {
             .or_else(|| self.tl_default_focus_child())
     }
 
-    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         let _ = ws;
     }
 
@@ -257,6 +239,10 @@ impl ToplevelData {
             identifier: Cell::new(toplevel_identifier()),
             handles: Default::default(),
         }
+    }
+
+    pub fn active(&self) -> bool {
+        self.active_surfaces.active() || self.active.get()
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
@@ -401,7 +387,6 @@ impl ToplevelData {
         self.is_fullscreen.set(true);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
-        node.clone().tl_set_workspace(ws);
         node.clone()
             .tl_change_extents(&ws.output.get().global.pos.get());
         for seat in kb_foci {
