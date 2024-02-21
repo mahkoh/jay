@@ -11,7 +11,7 @@ use {
         text::{self, TextTexture},
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
-            ToplevelNode,
+            ToplevelNode, ToplevelNodeBase,
         },
         utils::{errorfmt::ErrorFmt, smallmap::SmallMap},
     },
@@ -145,15 +145,9 @@ impl Node for PlaceholderNode {
     }
 }
 
-impl ToplevelNode for PlaceholderNode {
-    tl_node_impl!();
-
+impl ToplevelNodeBase for PlaceholderNode {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel
-    }
-
-    fn tl_default_focus_child(&self) -> Option<Rc<dyn Node>> {
-        None
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
@@ -171,12 +165,15 @@ impl ToplevelNode for PlaceholderNode {
         });
     }
 
-    fn tl_set_visible(&self, visible: bool) {
-        self.toplevel.set_visible(self, visible);
+    fn tl_set_visible_impl(&self, _visible: bool) {
+        // nothing
     }
 
-    fn tl_destroy(&self) {
-        self.toplevel.destroy_node(self);
+    fn tl_destroy_impl(&self) {
         self.destroyed.set(true);
+    }
+
+    fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
+        self
     }
 }

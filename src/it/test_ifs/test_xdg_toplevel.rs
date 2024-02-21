@@ -7,7 +7,7 @@ use {
             test_transport::TestTransport,
             testrun::ParseFull,
         },
-        tree::{ContainerNode, ToplevelNode},
+        tree::{ContainerNode, ToplevelNodeBase},
         utils::buffd::MsgParser,
         wire::{xdg_toplevel::*, XdgToplevelId},
     },

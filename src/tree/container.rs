@@ -14,7 +14,7 @@ use {
         text::{self, TextTexture},
         tree::{
             walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
-            NodeId, ToplevelData, ToplevelNode, WorkspaceNode,
+            NodeId, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -1421,9 +1421,7 @@ impl ContainingNode for ContainerNode {
     }
 }
 
-impl ToplevelNode for ContainerNode {
-    tl_node_impl!();
-
+impl ToplevelNodeBase for ContainerNode {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel_data
     }
@@ -1479,7 +1477,7 @@ impl ToplevelNode for ContainerNode {
         }
     }
 
-    fn tl_set_visible(&self, visible: bool) {
+    fn tl_set_visible_impl(&self, visible: bool) {
         if let Some(mc) = self.mono_child.get() {
             mc.node.tl_set_visible(visible);
         } else {
@@ -1487,11 +1485,9 @@ impl ToplevelNode for ContainerNode {
                 child.node.tl_set_visible(visible);
             }
         }
-        self.toplevel_data.set_visible(self, visible);
     }
 
-    fn tl_destroy(&self) {
-        self.toplevel_data.destroy_node(self);
+    fn tl_destroy_impl(&self) {
         mem::take(self.seats.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
         for (_, n) in cn.drain() {

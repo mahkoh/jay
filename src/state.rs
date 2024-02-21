@@ -42,7 +42,8 @@ use {
         theme::{Color, Theme},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
-            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
+            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase,
+            WorkspaceNode,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, clonecell::CloneCell,
