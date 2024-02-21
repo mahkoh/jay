@@ -574,7 +574,7 @@ impl WlSeatGlobal {
             _ => return,
         };
         if let Some(pn) = pn.node_into_containing_node() {
-            let cn = ContainerNode::new(&self.state, &ws, pn.clone(), tl.clone(), axis);
+            let cn = ContainerNode::new(&self.state, &ws, tl.clone(), axis);
             pn.cnode_replace_child(tl.tl_as_node(), cn);
         }
     }

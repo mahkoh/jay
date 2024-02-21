@@ -93,7 +93,6 @@ pub struct ContainerRenderData {
 
 pub struct ContainerNode {
     pub id: ContainerNodeId,
-    pub parent: CloneCell<Rc<dyn ContainingNode>>,
     pub split: Cell<ContainerSplit>,
     pub mono_child: CloneCell<Option<NodeRef<ContainerChild>>>,
     pub mono_body: Cell<Rect>,
@@ -170,7 +169,6 @@ impl ContainerNode {
     pub fn new(
         state: &Rc<State>,
         workspace: &Rc<WorkspaceNode>,
-        parent: Rc<dyn ContainingNode>,
         child: Rc<dyn ToplevelNode>,
         split: ContainerSplit,
     ) -> Rc<Self> {
@@ -193,7 +191,6 @@ impl ContainerNode {
         child_nodes.insert(child.node_id(), child_node);
         let slf = Rc::new(Self {
             id: state.node_ids.next(),
-            parent: CloneCell::new(parent.clone()),
             split: Cell::new(split),
             mono_child: CloneCell::new(None),
             mono_body: Cell::new(Default::default()),
@@ -219,7 +216,6 @@ impl ContainerNode {
             toplevel_data: ToplevelData::new(state, Default::default(), None),
             attention_requests: Default::default(),
         });
-        slf.tl_set_parent(parent);
         child.tl_set_parent(slf.clone());
         slf.apply_child_flags(&child_node_ref);
         slf
@@ -821,6 +817,13 @@ impl ContainerNode {
         }
     }
 
+    fn parent_container(&self) -> Option<Rc<ContainerNode>> {
+        self.toplevel_data
+            .parent
+            .get()
+            .and_then(|p| p.node_into_container())
+    }
+
     pub fn move_focus_from_child(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
@@ -843,7 +846,7 @@ impl ContainerNode {
             }
         };
         if !in_line {
-            if let Some(c) = self.parent.get().node_into_container() {
+            if let Some(c) = self.parent_container() {
                 c.move_focus_from_child(seat, self.deref(), direction);
             }
             return;
@@ -862,7 +865,7 @@ impl ContainerNode {
         let sibling = match sibling {
             Some(s) => s,
             None => {
-                if let Some(c) = self.parent.get().node_into_container() {
+                if let Some(c) = self.parent_container() {
                     c.move_focus_from_child(seat, self.deref(), direction);
                 }
                 return;
@@ -879,11 +882,12 @@ impl ContainerNode {
     pub fn move_child(self: Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
-            let parent = self.parent.get();
-            if !self.toplevel_data.is_fullscreen.get()
-                && parent.cnode_accepts_child(child.tl_as_node())
-            {
-                parent.cnode_replace_child(self.deref(), child.clone());
+            if let Some(parent) = self.toplevel_data.parent.get() {
+                if !self.toplevel_data.is_fullscreen.get()
+                    && parent.cnode_accepts_child(child.tl_as_node())
+                {
+                    parent.cnode_replace_child(self.deref(), child.clone());
+                }
             }
             return;
         }
@@ -919,13 +923,13 @@ impl ContainerNode {
         }
         // CASE 3: We're moving the child out of the container.
         let mut neighbor = self.clone();
-        let mut parent_opt = self.parent.get().node_into_container();
+        let mut parent_opt = self.parent_container();
         while let Some(parent) = &parent_opt {
             if parent.split.get() == split {
                 break;
             }
             neighbor = parent.clone();
-            parent_opt = parent.parent.get().node_into_container();
+            parent_opt = parent.parent_container();
         }
         let parent = match parent_opt {
             Some(p) => p,
@@ -968,9 +972,9 @@ impl ContainerNode {
             self.toplevel_data.wants_attention.set(set);
         }
         if propagate {
-            self.parent
-                .get()
-                .cnode_child_attention_request_changed(self, set);
+            if let Some(parent) = self.toplevel_data.parent.get() {
+                parent.cnode_child_attention_request_changed(self, set);
+            }
         }
     }
 }
@@ -1078,7 +1082,9 @@ impl Node for ContainerNode {
 
     fn node_active_changed(&self, active: bool) {
         self.toplevel_data.active.set(active);
-        self.parent.get().node_child_active_changed(self, active, 1);
+        if let Some(parent) = self.toplevel_data.parent.get() {
+            parent.node_child_active_changed(self, active, 1);
+        }
     }
 
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
@@ -1135,9 +1141,9 @@ impl Node for ContainerNode {
         }
         // log::info!("node_child_active_changed");
         self.schedule_compute_render_data();
-        self.parent
-            .get()
-            .node_child_active_changed(self.deref(), active, depth + 1);
+        if let Some(parent) = self.toplevel_data.parent.get() {
+            parent.node_child_active_changed(self.deref(), active, depth + 1);
+        }
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
@@ -1430,10 +1436,6 @@ impl ToplevelNode for ContainerNode {
             .map(|tl| tl.tl_into_node())
     }
 
-    fn tl_after_parent_set(&self, parent: Rc<dyn ContainingNode>) {
-        self.parent.set(parent);
-    }
-
     fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
         for child in self.children.iter() {
             child.node.clone().tl_set_workspace(ws);
@@ -1452,9 +1454,9 @@ impl ToplevelNode for ContainerNode {
             // log::info!("tl_change_extents");
             self.perform_layout();
             self.cancel_seat_ops();
-            self.parent
-                .get()
-                .node_child_size_changed(self.deref(), rect.width(), rect.height());
+            if let Some(parent) = self.toplevel_data.parent.get() {
+                parent.node_child_size_changed(self.deref(), rect.width(), rect.height());
+            }
         } else {
             if let Some(c) = self.mono_child.get() {
                 let body = self

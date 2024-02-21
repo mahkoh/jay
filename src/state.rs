@@ -507,8 +507,7 @@ impl State {
                 c.append_child(node);
             }
         } else {
-            let container =
-                ContainerNode::new(self, ws, ws.clone(), node, ContainerSplit::Horizontal);
+            let container = ContainerNode::new(self, ws, node, ContainerSplit::Horizontal);
             ws.set_container(&container);
         }
     }

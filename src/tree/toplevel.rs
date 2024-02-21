@@ -107,11 +107,6 @@ pub trait ToplevelNode: Node {
         self.tl_extents_changed();
         self.tl_title_changed();
         self.tl_active_changed();
-        self.tl_after_parent_set(parent);
-    }
-
-    fn tl_after_parent_set(&self, parent: Rc<dyn ContainingNode>) {
-        let _ = parent;
     }
 
     fn tl_active_changed(&self) {
