@@ -346,6 +346,10 @@ impl ToplevelData {
             }
             Some(p) => p,
         };
+        if parent.node_is_workspace() {
+            log::warn!("Cannot fullscreen root container in a workspace");
+            return;
+        }
         let placeholder = Rc::new(PlaceholderNode::new_for(state, node.clone()));
         parent.cnode_replace_child(node.tl_as_node(), placeholder.clone());
         let mut kb_foci = Default::default();
