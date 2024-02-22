@@ -97,16 +97,17 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
     writeln!(f, "unsafe impl Send for ExtProc {{ }}")?;
     writeln!(f)?;
     writeln!(f, "impl ExtProc {{")?;
-    writeln!(f, "    pub fn load() -> Self {{")?;
-    writeln!(f, "        Self {{")?;
+    writeln!(f, "    pub fn load() -> Option<Self> {{")?;
+    writeln!(f, "        let egl = EGL.as_ref()?;")?;
+    writeln!(f, "        Some(Self {{")?;
     for (name, _, _) in map.iter().copied() {
         writeln!(
             f,
-            "            {}: unsafe {{ eglGetProcAddress(\"{}\\0\".as_ptr() as _) }},",
+            "            {}: unsafe {{ (egl.eglGetProcAddress)(\"{}\\0\".as_ptr() as _) }},",
             name, name
         )?;
     }
-    writeln!(f, "        }}")?;
+    writeln!(f, "        }})")?;
     writeln!(f, "    }}")?;
     for (name, ret, args) in map.iter().copied() {
         let mut args_names = String::new();

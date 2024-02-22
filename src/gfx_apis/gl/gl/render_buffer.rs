@@ -1,12 +1,10 @@
 use {
     crate::gfx_apis::gl::{
-        egl::{context::EglContext, image::EglImage, PROCS},
+        egl::{context::EglContext, image::EglImage},
         gl::{
             frame_buffer::GlFrameBuffer,
             sys::{
-                glBindFramebuffer, glBindRenderbuffer, glCheckFramebufferStatus,
-                glDeleteRenderbuffers, glFramebufferRenderbuffer, glGenFramebuffers,
-                glGenRenderbuffers, GLeglImageOES, GLuint, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
+                GLeglImageOES, GLuint, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
                 GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
             },
         },
@@ -29,11 +27,14 @@ impl GlRenderBuffer {
         if img.external_only {
             return Err(RenderError::ExternalOnly);
         }
+        let gles = ctx.dpy.gles;
         let mut rbo = 0;
-        glGenRenderbuffers(1, &mut rbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-        PROCS.glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, GLeglImageOES(img.img.0));
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        (gles.glGenRenderbuffers)(1, &mut rbo);
+        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
+        ctx.dpy
+            .procs
+            .glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, GLeglImageOES(img.img.0));
+        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
         Ok(Rc::new(GlRenderBuffer {
             img: img.clone(),
             ctx: ctx.clone(),
@@ -44,17 +45,18 @@ impl GlRenderBuffer {
     pub(in crate::gfx_apis::gl) unsafe fn create_framebuffer(
         self: &Rc<Self>,
     ) -> Result<GlFrameBuffer, RenderError> {
+        let gles = self.ctx.dpy.gles;
         let mut fbo = 0;
-        glGenFramebuffers(1, &mut fbo);
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        glFramebufferRenderbuffer(
+        (gles.glGenFramebuffers)(1, &mut fbo);
+        (gles.glBindFramebuffer)(GL_FRAMEBUFFER, fbo);
+        (gles.glFramebufferRenderbuffer)(
             GL_FRAMEBUFFER,
             GL_COLOR_ATTACHMENT0,
             GL_RENDERBUFFER,
             self.rbo,
         );
-        let status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        let status = (gles.glCheckFramebufferStatus)(GL_FRAMEBUFFER);
+        (gles.glBindFramebuffer)(GL_FRAMEBUFFER, 0);
         let fb = GlFrameBuffer {
             rb: self.clone(),
             _tex: None,
@@ -74,7 +76,7 @@ impl Drop for GlRenderBuffer {
     fn drop(&mut self) {
         let _ = self.ctx.with_current(|| {
             unsafe {
-                glDeleteRenderbuffers(1, &self.rbo);
+                (self.ctx.dpy.gles.glDeleteRenderbuffers)(1, &self.rbo);
             }
             Ok(())
         });

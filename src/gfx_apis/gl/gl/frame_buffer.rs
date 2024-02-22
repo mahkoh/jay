@@ -1,11 +1,7 @@
 use {
     crate::gfx_apis::gl::{
         egl::context::EglContext,
-        gl::{
-            render_buffer::GlRenderBuffer,
-            sys::{glDeleteFramebuffers, GLuint},
-            texture::GlTexture,
-        },
+        gl::{render_buffer::GlRenderBuffer, sys::GLuint, texture::GlTexture},
     },
     std::rc::Rc,
 };
@@ -23,7 +19,7 @@ impl Drop for GlFrameBuffer {
     fn drop(&mut self) {
         let _ = self.ctx.with_current(|| {
             unsafe {
-                glDeleteFramebuffers(1, &self.fbo);
+                (self.ctx.dpy.gles.glDeleteFramebuffers)(1, &self.fbo);
             }
             Ok(())
         });

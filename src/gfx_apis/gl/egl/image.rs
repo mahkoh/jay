@@ -3,7 +3,6 @@ use {
         gfx_apis::gl::egl::{
             display::EglDisplay,
             sys::{EGLImageKHR, EGL_FALSE},
-            PROCS,
         },
         video::dmabuf::DmaBuf,
     },
@@ -20,7 +19,7 @@ pub struct EglImage {
 impl Drop for EglImage {
     fn drop(&mut self) {
         unsafe {
-            if PROCS.eglDestroyImageKHR(self.dpy.dpy, self.img) == EGL_FALSE {
+            if self.dpy.procs.eglDestroyImageKHR(self.dpy.dpy, self.img) == EGL_FALSE {
                 log::warn!("`eglDestroyImageKHR` failed");
             }
         }

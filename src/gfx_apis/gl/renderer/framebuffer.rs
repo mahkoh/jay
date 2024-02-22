@@ -5,14 +5,11 @@ use {
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
-                sys::{
-                    glBindFramebuffer, glClear, glClearColor, glViewport, GL_COLOR_BUFFER_BIT,
-                    GL_FRAMEBUFFER,
-                },
+                sys::{GL_COLOR_BUFFER_BIT, GL_FRAMEBUFFER},
             },
             renderer::context::GlRenderContext,
             run_ops,
-            sys::{glBlendFunc, glFlush, glReadnPixels, GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
+            sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
         },
         theme::Color,
     },
@@ -46,12 +43,13 @@ impl Framebuffer {
         format: &Format,
         shm: &[Cell<u8>],
     ) {
+        let gles = self.ctx.ctx.dpy.gles;
         let y = self.gl.height - y - height;
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
-                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
-                glViewport(0, 0, self.gl.width, self.gl.height);
-                glReadnPixels(
+                (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
+                (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
+                (gles.glReadnPixels)(
                     x,
                     y,
                     width,
@@ -67,19 +65,20 @@ impl Framebuffer {
     }
 
     pub fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) {
+        let gles = self.ctx.ctx.dpy.gles;
         let _ = self.ctx.ctx.with_current(|| {
             unsafe {
-                glBindFramebuffer(GL_FRAMEBUFFER, self.gl.fbo);
-                glViewport(0, 0, self.gl.width, self.gl.height);
+                (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
+                (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
                 if let Some(c) = clear {
-                    glClearColor(c.r, c.g, c.b, c.a);
-                    glClear(GL_COLOR_BUFFER_BIT);
+                    (gles.glClearColor)(c.r, c.g, c.b, c.a);
+                    (gles.glClear)(GL_COLOR_BUFFER_BIT);
                 }
-                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+                (gles.glBlendFunc)(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
             run_ops(self, &ops);
             unsafe {
-                glFlush();
+                (gles.glFlush)();
             }
             Ok(())
         });

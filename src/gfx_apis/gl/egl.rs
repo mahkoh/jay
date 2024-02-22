@@ -1,12 +1,13 @@
 use {
     crate::gfx_apis::gl::{
         egl::sys::{
-            eglBindAPI, EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
+            EGLAttrib, EGLLabelKHR, EGLenum, EGLint, EGL_DEBUG_MSG_CRITICAL_KHR,
             EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR, EGL_DEBUG_MSG_WARN_KHR, EGL_NONE,
             EGL_OPENGL_ES_API, EGL_TRUE,
         },
         ext::{get_client_ext, ClientExt, EXT_PLATFORM_BASE, KHR_DEBUG, KHR_PLATFORM_GBM},
         proc::ExtProc,
+        sys::EGL,
         RenderError,
     },
     bstr::ByteSlice,
@@ -27,11 +28,17 @@ pub mod display;
 pub mod image;
 pub mod sys;
 
-pub(crate) static PROCS: Lazy<ExtProc> = Lazy::new(ExtProc::load);
+pub(crate) static PROCS: Lazy<Option<ExtProc>> = Lazy::new(ExtProc::load);
 
 pub(crate) static EXTS: Lazy<ClientExt> = Lazy::new(get_client_ext);
 
 pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
+    let Some(egl) = EGL.as_ref() else {
+        return Err(RenderError::LoadEgl);
+    };
+    let Some(procs) = PROCS.as_ref() else {
+        return Err(RenderError::LoadEglProcs);
+    };
     if !EXTS.contains(EXT_PLATFORM_BASE) {
         return Err(RenderError::ExtPlatformBase);
     }
@@ -51,10 +58,10 @@ pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
             EGL_NONE as _,
         ];
         unsafe {
-            PROCS.eglDebugMessageControlKHR(egl_log, attrib.as_ptr());
+            procs.eglDebugMessageControlKHR(egl_log, attrib.as_ptr());
         }
     }
-    if unsafe { eglBindAPI(EGL_OPENGL_ES_API) } != EGL_TRUE {
+    if unsafe { (egl.eglBindAPI)(EGL_OPENGL_ES_API) } != EGL_TRUE {
         return Err(RenderError::BindFailed);
     }
     Ok(())

@@ -1,8 +1,10 @@
 use {
     crate::{
         gfx_apis::gl::{
-            egl::sys::{eglQueryString, EGLDisplay, EGL_EXTENSIONS},
-            gl::sys::{glGetString, GL_EXTENSIONS},
+            egl::sys::{EGLDisplay, EGL_EXTENSIONS},
+            gl::sys::GL_EXTENSIONS,
+            sys::{EGL, GLESV2},
+            RenderError,
         },
         utils::trim::AsciiTrim,
     },
@@ -30,7 +32,7 @@ unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
 }
 
 unsafe fn get_dpy_extensions(dpy: EGLDisplay) -> Option<AHashSet<String>> {
-    let ext = eglQueryString(dpy, EGL_EXTENSIONS);
+    let ext = (EGL.as_ref()?.eglQueryString)(dpy, EGL_EXTENSIONS);
     get_extensions(ext)
 }
 
@@ -107,13 +109,16 @@ bitflags! {
         GL_OES_EGL_IMAGE_EXTERNAL = 1 << 1,
 }
 
-pub fn get_gl_ext() -> GlExt {
+pub fn get_gl_ext() -> Result<GlExt, RenderError> {
     let map = [
         ("GL_OES_EGL_image", GL_OES_EGL_IMAGE),
         ("GL_OES_EGL_image_external", GL_OES_EGL_IMAGE_EXTERNAL),
     ];
-    match unsafe { get_extensions(glGetString(GL_EXTENSIONS) as _) } {
-        Some(exts) => get_typed_ext(&exts, GlExt::none(), &map),
-        _ => GlExt::none(),
+    let Some(gles) = GLESV2.as_ref() else {
+        return Err(RenderError::LoadGlesV2);
+    };
+    match unsafe { get_extensions((gles.glGetString)(GL_EXTENSIONS) as _) } {
+        Some(exts) => Ok(get_typed_ext(&exts, GlExt::none(), &map)),
+        _ => Ok(GlExt::none()),
     }
 }
