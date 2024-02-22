@@ -14,11 +14,13 @@ pub mod consts;
 
 include!(concat!(env!("OUT_DIR"), "/pango_tys.rs"));
 
+#[repr(transparent)]
+struct cairo_surface_t(u8);
+#[repr(transparent)]
+struct cairo_t(u8);
+
 #[link(name = "cairo")]
 extern "C" {
-    type cairo_surface_t;
-    type cairo_t;
-
     fn cairo_image_surface_create(
         format: cairo_format_t,
         width: c::c_int,
@@ -41,26 +43,30 @@ extern "C" {
     fn cairo_move_to(cr: *mut cairo_t, x: f64, y: f64);
 }
 
+#[repr(transparent)]
+struct PangoContext_(u8);
+
 #[link(name = "pangocairo-1.0")]
 extern "C" {
-    type PangoContext_;
-
     fn pango_cairo_create_context(cr: *mut cairo_t) -> *mut PangoContext_;
     fn pango_cairo_show_layout(cr: *mut cairo_t, layout: *mut PangoLayout_);
 }
 
+#[repr(transparent)]
+struct GObject(u8);
+
 #[link(name = "gobject-2.0")]
 extern "C" {
-    type GObject;
-
     fn g_object_unref(object: *mut GObject);
 }
 
+#[repr(transparent)]
+struct PangoFontDescription_(u8);
+#[repr(transparent)]
+struct PangoLayout_(u8);
+
 #[link(name = "pango-1.0")]
 extern "C" {
-    type PangoFontDescription_;
-    type PangoLayout_;
-
     fn pango_font_description_from_string(str: *const c::c_char) -> *mut PangoFontDescription_;
     fn pango_font_description_free(desc: *mut PangoFontDescription_);
     fn pango_font_description_get_size(desc: *mut PangoFontDescription_) -> c::c_int;

@@ -9,14 +9,19 @@ pub type libinput_log_handler = unsafe extern "C" fn(
     args: VaList,
 );
 
+#[repr(transparent)]
+pub struct libinput(u8);
+#[repr(transparent)]
+pub struct libinput_device(u8);
+#[repr(transparent)]
+pub struct libinput_event(u8);
+#[repr(transparent)]
+pub struct libinput_event_keyboard(u8);
+#[repr(transparent)]
+pub struct libinput_event_pointer(u8);
+
 #[link(name = "input")]
 extern "C" {
-    pub type libinput;
-    pub type libinput_device;
-    pub type libinput_event;
-    pub type libinput_event_keyboard;
-    pub type libinput_event_pointer;
-
     pub fn libinput_log_set_handler(libinput: *mut libinput, log_handler: libinput_log_handler);
     pub fn libinput_log_set_priority(libinput: *mut libinput, priority: libinput_log_priority);
     pub fn libinput_path_create_context(
