@@ -4,10 +4,7 @@ use {
         gfx_apis::gl::{
             egl::{
                 display::EglDisplay,
-                sys::{
-                    eglDestroyContext, eglMakeCurrent, EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE,
-                },
-                PROCS,
+                sys::{EGLContext, EGLSurface, EGL_FALSE, EGL_TRUE},
             },
             ext::{GlExt, EXT_CREATE_CONTEXT_ROBUSTNESS},
             sys::{
@@ -32,7 +29,7 @@ pub struct EglContext {
 impl Drop for EglContext {
     fn drop(&mut self) {
         unsafe {
-            if eglDestroyContext(self.dpy.dpy, self.ctx) != EGL_TRUE {
+            if (self.dpy.egl.eglDestroyContext)(self.dpy.dpy, self.ctx) != EGL_TRUE {
                 log::warn!("`eglDestroyContext` failed");
             }
         }
@@ -48,7 +45,7 @@ impl EglContext {
             return None;
         }
         let status = self.with_current(|| unsafe {
-            let status = match PROCS.glGetGraphicsResetStatusKHR() {
+            let status = match self.dpy.procs.glGetGraphicsResetStatusKHR() {
                 0 => return Ok(None),
                 GL_GUILTY_CONTEXT_RESET_ARB => ResetStatus::Guilty,
                 GL_INNOCENT_CONTEXT_RESET_ARB => ResetStatus::Innocent,
@@ -78,7 +75,7 @@ impl EglContext {
         &self,
         f: F,
     ) -> Result<T, RenderError> {
-        if eglMakeCurrent(
+        if (self.dpy.egl.eglMakeCurrent)(
             self.dpy.dpy,
             EGLSurface::none(),
             EGLSurface::none(),
@@ -90,7 +87,9 @@ impl EglContext {
         let prev = CURRENT;
         CURRENT = self.ctx;
         let res = f();
-        if eglMakeCurrent(self.dpy.dpy, EGLSurface::none(), EGLSurface::none(), prev) == EGL_FALSE {
+        if (self.dpy.egl.eglMakeCurrent)(self.dpy.dpy, EGLSurface::none(), EGLSurface::none(), prev)
+            == EGL_FALSE
+        {
             panic!("Could not restore EGLContext");
         }
         CURRENT = prev;

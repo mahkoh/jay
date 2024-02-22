@@ -84,24 +84,25 @@ pub const EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT: EGLint = 0x344A;
 pub const EGL_IMAGE_PRESERVED_KHR: EGLint = 0x30D2;
 pub const EGL_LINUX_DMA_BUF_EXT: EGLint = 0x3270;
 
-#[link(name = "EGL")]
-extern "C" {
-    pub fn eglQueryString(dpy: EGLDisplay, name: EGLint) -> *const c::c_char;
-    pub fn eglGetProcAddress(procname: *const c::c_char) -> *mut u8;
-    pub fn eglBindAPI(api: EGLenum) -> EGLBoolean;
-    pub fn eglTerminate(dpy: EGLDisplay) -> EGLBoolean;
-    pub fn eglInitialize(dpy: EGLDisplay, major: *mut EGLint, minor: *mut EGLint) -> EGLBoolean;
-    pub fn eglCreateContext(
-        dpy: EGLDisplay,
-        config: EGLConfig,
-        share_context: EGLContext,
-        attrib_list: *const EGLint,
-    ) -> EGLContext;
-    pub fn eglDestroyContext(dpy: EGLDisplay, ctx: EGLContext) -> EGLBoolean;
-    pub fn eglMakeCurrent(
-        dpy: EGLDisplay,
-        draw: EGLSurface,
-        read: EGLSurface,
-        ctx: EGLContext,
-    ) -> EGLBoolean;
+dynload! {
+    EGL: Egl from "libEGL.so" {
+        eglQueryString: unsafe fn(dpy: EGLDisplay, name: EGLint) -> *const c::c_char,
+        eglGetProcAddress: unsafe fn(procname: *const c::c_char) -> *mut u8,
+        eglBindAPI: unsafe fn(api: EGLenum) -> EGLBoolean,
+        eglTerminate: unsafe fn(dpy: EGLDisplay) -> EGLBoolean,
+        eglInitialize: unsafe fn(dpy: EGLDisplay, major: *mut EGLint, minor: *mut EGLint) -> EGLBoolean,
+        eglCreateContext: unsafe fn(
+            dpy: EGLDisplay,
+            config: EGLConfig,
+            share_context: EGLContext,
+            attrib_list: *const EGLint,
+        ) -> EGLContext,
+        eglDestroyContext: unsafe fn(dpy: EGLDisplay, ctx: EGLContext) -> EGLBoolean,
+        eglMakeCurrent: unsafe fn(
+            dpy: EGLDisplay,
+            draw: EGLSurface,
+            read: EGLSurface,
+            ctx: EGLContext,
+        ) -> EGLBoolean,
+    }
 }

@@ -45,107 +45,105 @@ pub const GL_BLEND: GLenum = 0x0BE2;
 pub const GL_ONE: GLenum = 1;
 pub const GL_ONE_MINUS_SRC_ALPHA: GLenum = 0x0303;
 
-#[link(name = "GLESv2")]
-extern "C" {
-    pub fn glGetString(name: GLenum) -> *const u8;
-    pub fn glGenRenderbuffers(n: GLsizei, renderbuffers: *mut GLuint);
-    pub fn glDeleteRenderbuffers(n: GLsizei, renderbuffers: *const GLuint);
-    pub fn glBindRenderbuffer(target: GLenum, renderbuffer: GLuint);
-    pub fn glGenFramebuffers(n: GLsizei, framebuffers: *mut GLuint);
-    pub fn glDeleteFramebuffers(n: GLsizei, framebuffers: *const GLuint);
-    pub fn glBindFramebuffer(target: GLenum, framebuffer: GLuint);
-    pub fn glFramebufferRenderbuffer(
-        target: GLenum,
-        attachment: GLenum,
-        renderbuffertarget: GLenum,
-        renderbuffer: GLuint,
-    );
-    #[allow(dead_code)]
-    pub fn glFramebufferTexture2D(
-        target: GLenum,
-        attachment: GLenum,
-        textarget: GLenum,
-        texture: GLenum,
-        level: GLint,
-    );
-    pub fn glCheckFramebufferStatus(target: GLenum) -> GLenum;
-    pub fn glClear(mask: GLbitfield);
-    pub fn glBlendFunc(sfactor: GLenum, dfactor: GLenum);
-    pub fn glClearColor(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat);
-    #[allow(dead_code)]
-    pub fn glFlush();
+dynload! {
+    GLESV2: GlesV2 from "libGLESv2.so" {
+        glGetString: unsafe fn(name: GLenum) -> *const u8,
+        glGenRenderbuffers: unsafe fn(n: GLsizei, renderbuffers: *mut GLuint),
+        glDeleteRenderbuffers: unsafe fn(n: GLsizei, renderbuffers: *const GLuint),
+        glBindRenderbuffer: unsafe fn(target: GLenum, renderbuffer: GLuint),
+        glGenFramebuffers: unsafe fn(n: GLsizei, framebuffers: *mut GLuint),
+        glDeleteFramebuffers: unsafe fn(n: GLsizei, framebuffers: *const GLuint),
+        glBindFramebuffer: unsafe fn(target: GLenum, framebuffer: GLuint),
+        glFramebufferRenderbuffer: unsafe fn(
+            target: GLenum,
+            attachment: GLenum,
+            renderbuffertarget: GLenum,
+            renderbuffer: GLuint,
+        ),
+        glFramebufferTexture2D: unsafe fn(
+            target: GLenum,
+            attachment: GLenum,
+            textarget: GLenum,
+            texture: GLenum,
+            level: GLint,
+        ),
+        glCheckFramebufferStatus: unsafe fn(target: GLenum) -> GLenum,
+        glClear: unsafe fn(mask: GLbitfield),
+        glBlendFunc: unsafe fn(sfactor: GLenum, dfactor: GLenum),
+        glClearColor: unsafe fn(red: GLfloat, green: GLfloat, blue: GLfloat, alpha: GLfloat),
+        glFlush: unsafe fn(),
 
-    pub fn glReadnPixels(
-        x: GLint,
-        y: GLint,
-        width: GLsizei,
-        height: GLsizei,
-        format: GLenum,
-        ty: GLenum,
-        buf_size: GLsizei,
-        data: *mut c::c_void,
-    );
+        glReadnPixels: unsafe fn(
+            x: GLint,
+            y: GLint,
+            width: GLsizei,
+            height: GLsizei,
+            format: GLenum,
+            ty: GLenum,
+            buf_size: GLsizei,
+            data: *mut c::c_void,
+        ),
 
-    pub fn glGenTextures(n: GLsizei, textures: *mut GLuint);
-    pub fn glDeleteTextures(n: GLsizei, textures: *const GLuint);
-    pub fn glBindTexture(target: GLenum, texture: GLuint);
-    pub fn glTexParameteri(target: GLenum, pname: GLenum, param: GLint);
+        glGenTextures: unsafe fn(n: GLsizei, textures: *mut GLuint),
+        glDeleteTextures: unsafe fn(n: GLsizei, textures: *const GLuint),
+        glBindTexture: unsafe fn(target: GLenum, texture: GLuint),
+        glTexParameteri: unsafe fn(target: GLenum, pname: GLenum, param: GLint),
 
-    pub fn glPixelStorei(pname: GLenum, param: GLint);
+        glPixelStorei: unsafe fn(pname: GLenum, param: GLint),
 
-    pub fn glTexImage2D(
-        target: GLenum,
-        level: GLint,
-        internalformat: GLint,
-        width: GLsizei,
-        height: GLsizei,
-        border: GLint,
-        format: GLenum,
-        ty: GLenum,
-        pixels: *const c::c_void,
-    );
+        glTexImage2D: unsafe fn(
+            target: GLenum,
+            level: GLint,
+            internalformat: GLint,
+            width: GLsizei,
+            height: GLsizei,
+            border: GLint,
+            format: GLenum,
+            ty: GLenum,
+            pixels: *const c::c_void,
+        ),
 
-    pub fn glEnable(cap: GLenum);
-    pub fn glDisable(cap: GLenum);
-    pub fn glViewport(x: GLint, y: GLint, width: GLsizei, height: GLsizei);
+        glEnable: unsafe fn(cap: GLenum),
+        glDisable: unsafe fn(cap: GLenum),
+        glViewport: unsafe fn(x: GLint, y: GLint, width: GLsizei, height: GLsizei),
 
-    pub fn glCreateShader(ty: GLenum) -> GLuint;
-    pub fn glDeleteShader(shader: GLuint);
-    pub fn glShaderSource(
-        shader: GLuint,
-        count: GLsizei,
-        string: *const *const GLchar,
-        length: *const GLint,
-    );
-    pub fn glCompileShader(shader: GLuint);
-    pub fn glGetShaderiv(shader: GLuint, pname: GLenum, params: *mut GLint);
+        glCreateShader: unsafe fn(ty: GLenum) -> GLuint,
+        glDeleteShader: unsafe fn(shader: GLuint),
+        glShaderSource: unsafe fn(
+            shader: GLuint,
+            count: GLsizei,
+            string: *const *const GLchar,
+            length: *const GLint,
+        ),
+        glCompileShader: unsafe fn(shader: GLuint),
+        glGetShaderiv: unsafe fn(shader: GLuint, pname: GLenum, params: *mut GLint),
 
-    pub fn glCreateProgram() -> GLuint;
-    pub fn glDeleteProgram(prog: GLuint);
-    pub fn glAttachShader(prog: GLuint, shader: GLuint);
-    pub fn glDetachShader(prog: GLuint, shader: GLuint);
-    pub fn glLinkProgram(prog: GLuint);
-    pub fn glGetProgramiv(program: GLuint, pname: GLenum, params: *mut GLint);
-    pub fn glUseProgram(program: GLuint);
+        glCreateProgram: unsafe fn() -> GLuint,
+        glDeleteProgram: unsafe fn(prog: GLuint),
+        glAttachShader: unsafe fn(prog: GLuint, shader: GLuint),
+        glDetachShader: unsafe fn(prog: GLuint, shader: GLuint),
+        glLinkProgram: unsafe fn(prog: GLuint),
+        glGetProgramiv: unsafe fn(program: GLuint, pname: GLenum, params: *mut GLint),
+        glUseProgram: unsafe fn(program: GLuint),
 
-    pub fn glGetUniformLocation(prog: GLuint, name: *const GLchar) -> GLint;
-    pub fn glGetAttribLocation(prog: GLuint, name: *const GLchar) -> GLint;
-    pub fn glUniform1i(location: GLint, v0: GLint);
-    #[allow(dead_code)]
-    pub fn glUniform1f(location: GLint, v0: GLfloat);
-    pub fn glUniform4f(location: GLint, v0: GLfloat, v1: GLfloat, v2: GLfloat, v3: GLfloat);
-    pub fn glVertexAttribPointer(
-        index: GLuint,
-        size: GLint,
-        ty: GLenum,
-        normalized: GLboolean,
-        stride: GLsizei,
-        pointer: *const u8,
-    );
+        glGetUniformLocation: unsafe fn(prog: GLuint, name: *const GLchar) -> GLint,
+        glGetAttribLocation: unsafe fn(prog: GLuint, name: *const GLchar) -> GLint,
+        glUniform1i: unsafe fn(location: GLint, v0: GLint),
+        glUniform1f: unsafe fn(location: GLint, v0: GLfloat),
+        glUniform4f: unsafe fn(location: GLint, v0: GLfloat, v1: GLfloat, v2: GLfloat, v3: GLfloat),
+        glVertexAttribPointer: unsafe fn(
+            index: GLuint,
+            size: GLint,
+            ty: GLenum,
+            normalized: GLboolean,
+            stride: GLsizei,
+            pointer: *const u8,
+        ),
 
-    pub fn glActiveTexture(texture: GLuint);
+        glActiveTexture: unsafe fn(texture: GLuint),
 
-    pub fn glEnableVertexAttribArray(idx: GLuint);
-    pub fn glDisableVertexAttribArray(idx: GLuint);
-    pub fn glDrawArrays(mode: GLenum, first: GLint, count: GLsizei);
+        glEnableVertexAttribArray: unsafe fn(idx: GLuint),
+        glDisableVertexAttribArray: unsafe fn(idx: GLuint),
+        glDrawArrays: unsafe fn(mode: GLenum, first: GLint, count: GLsizei),
+    }
 }

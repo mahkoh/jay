@@ -18,6 +18,53 @@ macro_rules! egl_transparent {
     };
 }
 
+macro_rules! dynload {
+    (
+        $item:ident: $container:ident from $name:literal {
+            $(
+                $fun:ident: $ty:ty,
+            )*
+        }
+    ) => {
+        #[allow(non_snake_case)]
+        #[derive(Debug)]
+        pub struct $container {
+            _lib: libloading::Library,
+            $(
+                pub $fun: $ty,
+            )*
+        }
+
+        pub static $item: once_cell::sync::Lazy<Option<$container>> = once_cell::sync::Lazy::new(|| unsafe {
+            use crate::utils::errorfmt::ErrorFmt;
+            let lib = match libloading::Library::new($name) {
+                Ok(l) => l,
+                Err(e) => {
+                    log::error!("Could not load lib{}: {}", $name, ErrorFmt(e));
+                    return None;
+                }
+            };
+            $(
+                #[allow(non_snake_case)]
+                let $fun: $ty =
+                    match lib.get(stringify!($fun).as_bytes()) {
+                        Ok(s) => *s,
+                        Err(e) => {
+                            log::error!("Could not load {} from {}: {}", stringify!($fun), $name, ErrorFmt(e));
+                            return None;
+                        }
+                    };
+            )*
+            Some($container {
+                _lib: lib,
+                $(
+                    $fun,
+                )*
+            })
+        });
+    };
+}
+
 use {
     crate::{
         gfx_api::{
@@ -27,10 +74,8 @@ use {
             gl::texture::image_target,
             renderer::{context::GlRenderContext, framebuffer::Framebuffer, texture::Texture},
             sys::{
-                glActiveTexture, glBindTexture, glDisable, glDisableVertexAttribArray,
-                glDrawArrays, glEnable, glEnableVertexAttribArray, glTexParameteri, glUniform1i,
-                glUniform4f, glUseProgram, glVertexAttribPointer, GL_BLEND, GL_FALSE, GL_FLOAT,
-                GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_MIN_FILTER, GL_TRIANGLES, GL_TRIANGLE_STRIP,
+                GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_MIN_FILTER,
+                GL_TRIANGLES, GL_TRIANGLE_STRIP,
             },
         },
         theme::Color,
@@ -69,6 +114,12 @@ pub(super) fn create_gfx_context(drm: &Drm) -> Result<Rc<dyn GfxContext>, GfxErr
 
 #[derive(Debug, Error)]
 enum RenderError {
+    #[error("Could not load libEGL")]
+    LoadEgl,
+    #[error("Could not load libGLESv2")]
+    LoadGlesV2,
+    #[error("Could not load extension functions from libEGL")]
+    LoadEglProcs,
     #[error("EGL library does not support `EGL_EXT_platform_base`")]
     ExtPlatformBase,
     #[error("Could not compile a shader")]
@@ -221,10 +272,11 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
 }
 
 fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
+    let gles = ctx.ctx.dpy.gles;
     unsafe {
-        glUseProgram(ctx.fill_prog.prog);
-        glUniform4f(ctx.fill_prog_color, color.r, color.g, color.b, color.a);
-        glVertexAttribPointer(
+        (gles.glUseProgram)(ctx.fill_prog.prog);
+        (gles.glUniform4f)(ctx.fill_prog_color, color.r, color.g, color.b, color.a);
+        (gles.glVertexAttribPointer)(
             ctx.fill_prog_pos as _,
             2,
             GL_FLOAT,
@@ -232,9 +284,9 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
             0,
             boxes.as_ptr() as _,
         );
-        glEnableVertexAttribArray(ctx.fill_prog_pos as _);
-        glDrawArrays(GL_TRIANGLES, 0, (boxes.len() / 2) as _);
-        glDisableVertexAttribArray(ctx.fill_prog_pos as _);
+        (gles.glEnableVertexAttribArray)(ctx.fill_prog_pos as _);
+        (gles.glDrawArrays)(GL_TRIANGLES, 0, (boxes.len() / 2) as _);
+        (gles.glDisableVertexAttribArray)(ctx.fill_prog_pos as _);
     }
 }
 
@@ -248,13 +300,14 @@ fn render_texture(
     src: &BufferPoints,
 ) {
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
+    let gles = ctx.ctx.dpy.gles;
     unsafe {
-        glActiveTexture(GL_TEXTURE0);
+        (gles.glActiveTexture)(GL_TEXTURE0);
 
         let target = image_target(texture.gl.external_only);
 
-        glBindTexture(target, texture.gl.tex);
-        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        (gles.glBindTexture)(target, texture.gl.tex);
+        (gles.glTexParameteri)(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
         let progs = match texture.gl.external_only {
             true => match &ctx.tex_external {
@@ -268,18 +321,18 @@ fn render_texture(
         };
         let prog = match texture.gl.format.has_alpha {
             true => {
-                glEnable(GL_BLEND);
+                (gles.glEnable)(GL_BLEND);
                 &progs.alpha
             }
             false => {
-                glDisable(GL_BLEND);
+                (gles.glDisable)(GL_BLEND);
                 &progs.solid
             }
         };
 
-        glUseProgram(prog.prog.prog);
+        (gles.glUseProgram)(prog.prog.prog);
 
-        glUniform1i(prog.tex, 0);
+        (gles.glUniform1i)(prog.tex, 0);
 
         let texcoord = [
             src.top_right.x,
@@ -299,7 +352,7 @@ fn render_texture(
             x1, y2, // bottom left
         ];
 
-        glVertexAttribPointer(
+        (gles.glVertexAttribPointer)(
             prog.texcoord as _,
             2,
             GL_FLOAT,
@@ -307,17 +360,17 @@ fn render_texture(
             0,
             texcoord.as_ptr() as _,
         );
-        glVertexAttribPointer(prog.pos as _, 2, GL_FLOAT, GL_FALSE, 0, pos.as_ptr() as _);
+        (gles.glVertexAttribPointer)(prog.pos as _, 2, GL_FLOAT, GL_FALSE, 0, pos.as_ptr() as _);
 
-        glEnableVertexAttribArray(prog.texcoord as _);
-        glEnableVertexAttribArray(prog.pos as _);
+        (gles.glEnableVertexAttribArray)(prog.texcoord as _);
+        (gles.glEnableVertexAttribArray)(prog.pos as _);
 
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        (gles.glDrawArrays)(GL_TRIANGLE_STRIP, 0, 4);
 
-        glDisableVertexAttribArray(prog.texcoord as _);
-        glDisableVertexAttribArray(prog.pos as _);
+        (gles.glDisableVertexAttribArray)(prog.texcoord as _);
+        (gles.glDisableVertexAttribArray)(prog.pos as _);
 
-        glBindTexture(target, 0);
+        (gles.glBindTexture)(target, 0);
     }
 }
 

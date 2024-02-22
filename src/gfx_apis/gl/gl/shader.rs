@@ -1,10 +1,7 @@
 use {
     crate::gfx_apis::gl::{
         egl::context::EglContext,
-        gl::sys::{
-            glCompileShader, glCreateShader, glDeleteShader, glGetShaderiv, glShaderSource, GLenum,
-            GLuint, GL_COMPILE_STATUS, GL_FALSE,
-        },
+        gl::sys::{GLenum, GLuint, GL_COMPILE_STATUS, GL_FALSE},
         sys::GLint,
         RenderError,
     },
@@ -22,17 +19,18 @@ impl GlShader {
         ty: GLenum,
         src: &str,
     ) -> Result<Self, RenderError> {
-        let shader = glCreateShader(ty);
+        let gles = ctx.dpy.gles;
+        let shader = (gles.glCreateShader)(ty);
         let res = GlShader {
             ctx: ctx.clone(),
             shader,
         };
         let len = src.len() as _;
-        glShaderSource(shader, 1, &(src.as_ptr() as _), &len);
-        glCompileShader(shader);
+        (gles.glShaderSource)(shader, 1, &(src.as_ptr() as _), &len);
+        (gles.glCompileShader)(shader);
 
         let mut ok = 0;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &mut ok);
+        (gles.glGetShaderiv)(shader, GL_COMPILE_STATUS, &mut ok);
         if ok == GL_FALSE as GLint {
             return Err(RenderError::ShaderCompileFailed);
         }
@@ -43,7 +41,7 @@ impl GlShader {
 impl Drop for GlShader {
     fn drop(&mut self) {
         let _ = self.ctx.with_current(|| unsafe {
-            glDeleteShader(self.shader);
+            (self.ctx.dpy.gles.glDeleteShader)(self.shader);
             Ok(())
         });
     }

@@ -7,8 +7,8 @@ use {
                 context::EglContext,
                 image::EglImage,
                 sys::{
-                    eglCreateContext, eglTerminate, EGLClientBuffer, EGLConfig, EGLContext,
-                    EGLDisplay, EGLint, EGL_CONTEXT_CLIENT_VERSION, EGL_DMA_BUF_PLANE0_FD_EXT,
+                    EGLClientBuffer, EGLConfig, EGLContext, EGLDisplay, EGLint,
+                    EGL_CONTEXT_CLIENT_VERSION, EGL_DMA_BUF_PLANE0_FD_EXT,
                     EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT,
                     EGL_DMA_BUF_PLANE0_OFFSET_EXT, EGL_DMA_BUF_PLANE0_PITCH_EXT,
                     EGL_DMA_BUF_PLANE1_FD_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT,
@@ -29,9 +29,10 @@ use {
                 KHR_IMAGE_BASE, KHR_NO_CONFIG_CONTEXT, KHR_SURFACELESS_CONTEXT,
                 MESA_CONFIGLESS_CONTEXT,
             },
+            proc::ExtProc,
             sys::{
-                eglInitialize, EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT,
-                EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR,
+                Egl, GlesV2, EGL, EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT,
+                EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR, GLESV2,
             },
             RenderError,
         },
@@ -57,6 +58,9 @@ pub struct EglModifier {
 
 #[derive(Debug)]
 pub struct EglDisplay {
+    pub egl: &'static Egl,
+    pub gles: &'static GlesV2,
+    pub procs: &'static ExtProc,
     pub exts: DisplayExt,
     pub formats: AHashMap<u32, EglFormat>,
     pub gbm: Rc<GbmDevice>,
@@ -66,11 +70,20 @@ pub struct EglDisplay {
 impl EglDisplay {
     pub(in crate::gfx_apis::gl) fn create(drm: &Drm) -> Result<Rc<Self>, RenderError> {
         unsafe {
+            let Some(egl) = EGL.as_ref() else {
+                return Err(RenderError::LoadEgl);
+            };
+            let Some(gles) = GLESV2.as_ref() else {
+                return Err(RenderError::LoadGlesV2);
+            };
+            let Some(procs) = PROCS.as_ref() else {
+                return Err(RenderError::LoadEglProcs);
+            };
             let gbm = match GbmDevice::new(drm) {
                 Ok(gbm) => gbm,
                 Err(e) => return Err(RenderError::Gbm(e)),
             };
-            let dpy = PROCS.eglGetPlatformDisplayEXT(
+            let dpy = procs.eglGetPlatformDisplayEXT(
                 EGL_PLATFORM_GBM_KHR as _,
                 gbm.raw() as _,
                 ptr::null(),
@@ -79,6 +92,9 @@ impl EglDisplay {
                 return Err(RenderError::GetDisplay);
             }
             let mut dpy = EglDisplay {
+                egl,
+                gles,
+                procs,
                 exts: DisplayExt::none(),
                 formats: AHashMap::new(),
                 gbm: Rc::new(gbm),
@@ -86,7 +102,7 @@ impl EglDisplay {
             };
             let mut major = 0;
             let mut minor = 0;
-            if eglInitialize(dpy.dpy, &mut major, &mut minor) != EGL_TRUE {
+            if (egl.eglInitialize)(dpy.dpy, &mut major, &mut minor) != EGL_TRUE {
                 return Err(RenderError::Initialize);
             }
             dpy.exts = get_display_ext(dpy.dpy);
@@ -105,7 +121,7 @@ impl EglDisplay {
             if !dpy.exts.intersects(KHR_SURFACELESS_CONTEXT) {
                 return Err(RenderError::SurfacelessContext);
             }
-            dpy.formats = query_formats(dpy.dpy)?;
+            dpy.formats = query_formats(procs, dpy.dpy)?;
 
             Ok(Rc::new(dpy))
         }
@@ -123,7 +139,7 @@ impl EglDisplay {
         }
         attrib.push(EGL_NONE);
         let ctx = unsafe {
-            eglCreateContext(
+            (self.egl.eglCreateContext)(
                 self.dpy,
                 EGLConfig::none(),
                 EGLContext::none(),
@@ -139,7 +155,7 @@ impl EglDisplay {
             ctx,
             formats: Default::default(),
         };
-        ctx.ext = ctx.with_current(|| Ok(get_gl_ext()))?;
+        ctx.ext = ctx.with_current(get_gl_ext)?;
         if !ctx.ext.contains(GL_OES_EGL_IMAGE) {
             return Err(RenderError::OesEglImage);
         }
@@ -245,7 +261,7 @@ impl EglDisplay {
         }
         attribs.push(EGL_NONE);
         let img = unsafe {
-            PROCS.eglCreateImageKHR(
+            self.procs.eglCreateImageKHR(
                 self.dpy,
                 EGLContext::none(),
                 EGL_LINUX_DMA_BUF_EXT as _,
@@ -268,22 +284,25 @@ impl EglDisplay {
 impl Drop for EglDisplay {
     fn drop(&mut self) {
         unsafe {
-            if eglTerminate(self.dpy) != EGL_TRUE {
+            if (self.egl.eglTerminate)(self.dpy) != EGL_TRUE {
                 log::warn!("`eglTerminate` failed");
             }
         }
     }
 }
 
-unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, RenderError> {
+unsafe fn query_formats(
+    procs: &ExtProc,
+    dpy: EGLDisplay,
+) -> Result<AHashMap<u32, EglFormat>, RenderError> {
     let mut vec = vec![];
     let mut num = 0;
-    let res = PROCS.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num);
+    let res = procs.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num);
     if res != EGL_TRUE {
         return Err(RenderError::QueryDmaBufFormats);
     }
     vec.reserve_exact(num as usize);
-    let res = PROCS.eglQueryDmaBufFormatsEXT(dpy, num, vec.as_mut_ptr(), &mut num);
+    let res = procs.eglQueryDmaBufFormatsEXT(dpy, num, vec.as_mut_ptr(), &mut num);
     if res != EGL_TRUE {
         return Err(RenderError::QueryDmaBufFormats);
     }
@@ -292,7 +311,7 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
     let formats = formats();
     for fmt in vec {
         if let Some(format) = formats.get(&(fmt as u32)) {
-            let (modifiers, external_only) = query_modifiers(dpy, fmt, format)?;
+            let (modifiers, external_only) = query_modifiers(procs, dpy, fmt, format)?;
             res.insert(
                 format.drm,
                 EglFormat {
@@ -307,6 +326,7 @@ unsafe fn query_formats(dpy: EGLDisplay) -> Result<AHashMap<u32, EglFormat>, Ren
 }
 
 unsafe fn query_modifiers(
+    procs: &ExtProc,
     dpy: EGLDisplay,
     gl_format: EGLint,
     format: &'static Format,
@@ -314,7 +334,7 @@ unsafe fn query_modifiers(
     let mut mods = vec![];
     let mut ext_only = vec![];
     let mut num = 0;
-    let res = PROCS.eglQueryDmaBufModifiersEXT(
+    let res = procs.eglQueryDmaBufModifiersEXT(
         dpy,
         gl_format,
         num,
@@ -327,7 +347,7 @@ unsafe fn query_modifiers(
     }
     mods.reserve_exact(num as usize);
     ext_only.reserve_exact(num as usize);
-    let res = PROCS.eglQueryDmaBufModifiersEXT(
+    let res = procs.eglQueryDmaBufModifiersEXT(
         dpy,
         gl_format,
         num,

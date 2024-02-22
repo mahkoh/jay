@@ -2,11 +2,10 @@ use {
     crate::{
         format::Format,
         gfx_apis::gl::{
-            egl::{context::EglContext, image::EglImage, PROCS},
+            egl::{context::EglContext, image::EglImage},
             ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::sys::{
-                glBindTexture, glDeleteTextures, glGenTextures, glPixelStorei, glTexImage2D,
-                glTexParameteri, GLint, GLuint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
+                GLint, GLuint, GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
                 GL_TEXTURE_WRAP_T, GL_UNPACK_ROW_LENGTH_EXT,
             },
             sys::{GLeglImageOES, GLenum, GL_TEXTURE_EXTERNAL_OES},
@@ -41,15 +40,18 @@ impl GlTexture {
         if !ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL) {
             return Err(RenderError::ExternalUnsupported);
         }
+        let gles = ctx.dpy.gles;
         let target = image_target(img.external_only);
         let tex = ctx.with_current(|| unsafe {
             let mut tex = 0;
-            glGenTextures(1, &mut tex);
-            glBindTexture(target, tex);
-            glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            PROCS.glEGLImageTargetTexture2DOES(target, GLeglImageOES(img.img.0));
-            glBindTexture(target, 0);
+            (gles.glGenTextures)(1, &mut tex);
+            (gles.glBindTexture)(target, tex);
+            (gles.glTexParameteri)(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            (gles.glTexParameteri)(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            ctx.dpy
+                .procs
+                .glEGLImageTargetTexture2DOES(target, GLeglImageOES(img.img.0));
+            (gles.glBindTexture)(target, 0);
             Ok(tex)
         })?;
         Ok(GlTexture {
@@ -74,14 +76,15 @@ impl GlTexture {
         if (stride * height) as usize > data.len() {
             return Err(RenderError::SmallImageBuffer);
         }
+        let gles = ctx.dpy.gles;
         let tex = ctx.with_current(|| unsafe {
             let mut tex = 0;
-            glGenTextures(1, &mut tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, stride / format.bpp as GLint);
-            glTexImage2D(
+            (gles.glGenTextures)(1, &mut tex);
+            (gles.glBindTexture)(GL_TEXTURE_2D, tex);
+            (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            (gles.glPixelStorei)(GL_UNPACK_ROW_LENGTH_EXT, stride / format.bpp as GLint);
+            (gles.glTexImage2D)(
                 GL_TEXTURE_2D,
                 0,
                 format.gl_format,
@@ -92,8 +95,8 @@ impl GlTexture {
                 format.gl_type as _,
                 data.as_ptr() as _,
             );
-            glPixelStorei(GL_UNPACK_ROW_LENGTH_EXT, 0);
-            glBindTexture(GL_TEXTURE_2D, 0);
+            (gles.glPixelStorei)(GL_UNPACK_ROW_LENGTH_EXT, 0);
+            (gles.glBindTexture)(GL_TEXTURE_2D, 0);
             Ok(tex)
         })?;
         Ok(GlTexture {
@@ -111,7 +114,7 @@ impl GlTexture {
 impl Drop for GlTexture {
     fn drop(&mut self) {
         let _ = self.ctx.with_current(|| unsafe {
-            glDeleteTextures(1, &self.tex);
+            (self.ctx.dpy.gles.glDeleteTextures)(1, &self.tex);
             Ok(())
         });
     }
