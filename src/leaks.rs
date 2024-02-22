@@ -52,27 +52,27 @@ mod leaks {
         std::{
             alloc::{GlobalAlloc, Layout},
             any,
+            cell::Cell,
             marker::PhantomData,
             mem, ptr,
         },
         uapi::c,
     };
 
-    #[thread_local]
-    static mut MAP: *mut AHashMap<u64, Tracked> = ptr::null_mut();
-
-    #[thread_local]
-    static mut ID: u64 = 0;
+    thread_local! {
+        static MAP: Cell<*mut AHashMap<u64, Tracked>> = const { Cell::new(ptr::null_mut()) };
+        static ID: Cell<u64> = const { Cell::new(0) };
+    }
 
     pub fn init() {
         unsafe {
             if INITIALIZED {
                 return;
             }
-            MAP = Box::into_raw(Box::new(AHashMap::new()));
-            ALLOCATIONS = Box::into_raw(Box::new(AHashMap::new()));
-            IN_ALLOCATOR = 0;
-            INITIALIZED = true;
+            MAP.set(Box::into_raw(Box::new(AHashMap::new())));
+            ALLOCATIONS.set(Box::into_raw(Box::new(AHashMap::new())));
+            IN_ALLOCATOR.set(0);
+            INITIALIZED.set(true);
         }
     }
 
@@ -151,7 +151,7 @@ mod leaks {
 
     pub fn log_leaked() {
         unsafe {
-            IN_ALLOCATOR += 1;
+            IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut map: AHashMap<ClientId, Vec<(u64, Tracked)>> = AHashMap::new();
             for (id, obj) in MAP.deref_mut().drain() {
                 map.entry(obj.client).or_default().push((id, obj));
@@ -176,7 +176,7 @@ mod leaks {
                     }
                 }
             }
-            IN_ALLOCATOR -= 1;
+            IN_ALLOCATOR.set(IN_ALLOCATOR.get() - 1);
         }
     }
     //
@@ -210,8 +210,8 @@ mod leaks {
         fn default() -> Self {
             Self {
                 id: unsafe {
-                    let id = ID;
-                    ID += 1;
+                    let id = ID.get();
+                    ID.set(id + 1);
                     id
                 },
                 _phantom: Default::default(),
@@ -227,7 +227,7 @@ mod leaks {
                     tv_nsec: 0,
                 };
                 uapi::clock_gettime(c::CLOCK_REALTIME, &mut time).unwrap();
-                IN_ALLOCATOR += 1;
+                IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
                 MAP.deref_mut().insert(
                     self.id,
                     Tracked {
@@ -237,7 +237,7 @@ mod leaks {
                         time: (time.tv_sec as i64, time.tv_nsec as u32),
                     },
                 );
-                IN_ALLOCATOR -= 1;
+                IN_ALLOCATOR.set(IN_ALLOCATOR.get() - 1);
             }
         }
     }
@@ -262,20 +262,17 @@ mod leaks {
         pub backtrace: Backtrace,
     }
 
-    #[thread_local]
-    static mut ALLOCATIONS: *mut AHashMap<*mut u8, Allocation> = ptr::null_mut();
-
-    #[thread_local]
-    static mut IN_ALLOCATOR: u32 = 1;
-
-    #[thread_local]
-    static mut INITIALIZED: bool = false;
+    thread_local! {
+        static ALLOCATIONS: Cell<*mut AHashMap<*mut u8, Allocation>> = const { Cell::new(ptr::null_mut()) };
+        static IN_ALLOCATOR: Cell<u32> = const { Cell::new(1) };
+        static INITIALIZED: Cell<bool> = const { Cell::new(false) };
+    }
 
     unsafe impl GlobalAlloc for TracingAllocator {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
             let res = c::calloc(layout.size(), 1) as *mut u8;
-            if IN_ALLOCATOR == 0 {
-                IN_ALLOCATOR = 1;
+            if IN_ALLOCATOR.get() == 0 {
+                IN_ALLOCATOR.set(1);
                 ALLOCATIONS.deref_mut().insert(
                     res,
                     Allocation {
@@ -301,7 +298,7 @@ mod leaks {
 
     fn find_allocations_pointing_to(addr: *mut u8) -> Vec<(Allocation, usize)> {
         unsafe {
-            IN_ALLOCATOR += 1;
+            IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut res = vec![];
             for allocation in ALLOCATIONS.deref().values() {
                 let num = allocation.len / mem::size_of::<usize>();
@@ -313,14 +310,14 @@ mod leaks {
                     }
                 }
             }
-            IN_ALLOCATOR -= 1;
+            IN_ALLOCATOR.set(IN_ALLOCATOR.get() - 1);
             res
         }
     }
 
     fn find_allocation_containing(addr: usize) -> Option<Allocation> {
         unsafe {
-            IN_ALLOCATOR += 1;
+            IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut res = None;
             for allocation in ALLOCATIONS.deref().values() {
                 let aaddr = allocation.addr as usize;
@@ -329,7 +326,7 @@ mod leaks {
                     break;
                 }
             }
-            IN_ALLOCATOR -= 1;
+            IN_ALLOCATOR.set(IN_ALLOCATOR.get() - 1);
             res
         }
     }

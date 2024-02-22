@@ -1,6 +1,5 @@
 #![feature(
     c_variadic, // https://github.com/rust-lang/rust/issues/44930
-    thread_local, // https://github.com/rust-lang/rust/issues/29594
 )]
 #![allow(
     clippy::len_zero,

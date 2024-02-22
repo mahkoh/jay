@@ -15,7 +15,7 @@ use {
         },
     },
     ahash::AHashMap,
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
 };
 
 #[derive(Debug, Clone)]
@@ -36,8 +36,9 @@ impl Drop for EglContext {
     }
 }
 
-#[thread_local]
-static mut CURRENT: EGLContext = EGLContext::none();
+thread_local! {
+    static CURRENT: Cell<EGLContext> = const { Cell::new(EGLContext::none()) };
+}
 
 impl EglContext {
     pub fn reset_status(&self) -> Option<ResetStatus> {
@@ -63,7 +64,7 @@ impl EglContext {
         f: F,
     ) -> Result<T, RenderError> {
         unsafe {
-            if CURRENT == self.ctx {
+            if CURRENT.get() == self.ctx {
                 return f();
             }
             self.with_current_slow(f)
@@ -84,15 +85,15 @@ impl EglContext {
         {
             return Err(RenderError::MakeCurrent);
         }
-        let prev = CURRENT;
-        CURRENT = self.ctx;
+        let prev = CURRENT.get();
+        CURRENT.set(self.ctx);
         let res = f();
         if (self.dpy.egl.eglMakeCurrent)(self.dpy.dpy, EGLSurface::none(), EGLSurface::none(), prev)
             == EGL_FALSE
         {
             panic!("Could not restore EGLContext");
         }
-        CURRENT = prev;
+        CURRENT.set(prev);
         res
     }
 }

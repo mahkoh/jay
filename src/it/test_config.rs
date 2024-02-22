@@ -27,26 +27,25 @@ pub static TEST_CONFIG_ENTRY: ConfigEntry = ConfigEntry {
     handle_msg,
 };
 
-#[thread_local]
-static mut CONFIG: *const TestConfig = ptr::null();
+thread_local! {
+    static CONFIG: Cell<*const TestConfig> = const { Cell::new(ptr::null()) };
+}
 
 pub fn with_test_config<T, F>(f: F) -> T
 where
     F: FnOnce(Rc<TestConfig>) -> T,
 {
-    unsafe {
-        let tc = Rc::new(TestConfig {
-            srv: Cell::new(None),
-            responses: Default::default(),
-            invoked_shortcuts: Default::default(),
-            graphics_initialized: Cell::new(false),
-        });
-        let old = CONFIG;
-        CONFIG = tc.deref();
-        let res = f(tc.clone());
-        CONFIG = old;
-        res
-    }
+    let tc = Rc::new(TestConfig {
+        srv: Cell::new(None),
+        responses: Default::default(),
+        invoked_shortcuts: Default::default(),
+        graphics_initialized: Cell::new(false),
+    });
+    let old = CONFIG.get();
+    CONFIG.set(tc.deref());
+    let res = f(tc.clone());
+    CONFIG.set(old);
+    res
 }
 
 unsafe extern "C" fn init(
@@ -56,7 +55,7 @@ unsafe extern "C" fn init(
     _msg: *const u8,
     _size: usize,
 ) -> *const u8 {
-    let tc = CONFIG;
+    let tc = CONFIG.get();
     assert!(tc.is_not_null());
     Rc::increment_strong_count(tc);
     {

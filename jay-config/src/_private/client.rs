@@ -61,7 +61,7 @@ impl Drop for Client {
 }
 
 thread_local! {
-    pub(crate) static CLIENT: std::cell::Cell<*const Client> = const { std::cell::Cell::new(ptr::null()) };
+    pub(crate) static CLIENT: Cell<*const Client> = const { Cell::new(ptr::null()) };
 }
 
 unsafe fn with_client<T, F: FnOnce(&Client) -> T>(data: *const u8, f: F) -> T {

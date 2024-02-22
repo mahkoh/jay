@@ -88,12 +88,12 @@ impl ClientMemOffset {
             }
             let mref = MemRef {
                 mem: &*self.mem,
-                outer: MEM,
+                outer: MEM.get(),
             };
-            MEM = &mref;
+            MEM.set(&mref);
             compiler_fence(Ordering::SeqCst);
             let res = f(&*self.data);
-            MEM = mref.outer;
+            MEM.set(mref.outer);
             compiler_fence(Ordering::SeqCst);
             match self.mem.failed.get() {
                 true => Err(ClientMemError::Sigbus),
@@ -116,8 +116,9 @@ struct MemRef {
     outer: *const MemRef,
 }
 
-#[thread_local]
-static mut MEM: *const MemRef = ptr::null();
+thread_local! {
+    static MEM: Cell<*const MemRef> = const { Cell::new(ptr::null()) };
+}
 
 unsafe fn kill() -> ! {
     c::signal(c::SIGBUS, c::SIG_DFL);
@@ -127,7 +128,7 @@ unsafe fn kill() -> ! {
 
 unsafe extern "C" fn sigbus(sig: i32, info: &c::siginfo_t, _ucontext: *mut c::c_void) {
     assert_eq!(sig, c::SIGBUS);
-    let mut memr_ptr = MEM;
+    let mut memr_ptr = MEM.get();
     while !memr_ptr.is_null() {
         let memr = &*memr_ptr;
         let mem = &*memr.mem;

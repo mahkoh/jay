@@ -4,9 +4,11 @@ use {
     bstr::{BStr, BString, ByteSlice},
     log::{Level, Log, Metadata, Record},
     std::{
+        cell::Cell,
         fs::DirBuilder,
         io::Write,
         os::unix::{ffi::OsStringExt, fs::DirBuilderExt},
+        ptr,
         sync::{
             atomic::{AtomicU32, Ordering::Relaxed},
             Arc,
@@ -16,8 +18,9 @@ use {
     uapi::{c, format_ustr, Errno, Fd, OwnedFd},
 };
 
-#[thread_local]
-static mut BUFFER: Vec<u8> = Vec::new();
+thread_local! {
+    static BUFFER: Cell<*mut Vec<u8>> = const { Cell::new(ptr::null_mut()) };
+}
 
 pub struct Logger {
     level: AtomicU32,
@@ -141,7 +144,12 @@ impl Log for LogWrapper {
         if record.level() as u32 > self.logger.level.load(Relaxed) {
             return;
         }
-        let buffer = unsafe { &mut BUFFER };
+        let mut buffer = BUFFER.get();
+        if buffer.is_null() {
+            buffer = Box::into_raw(Box::default());
+            BUFFER.set(buffer);
+        }
+        let buffer = unsafe { &mut *buffer };
         buffer.clear();
         let now = SystemTime::now();
         let _ = if let Some(mp) = record.module_path() {
