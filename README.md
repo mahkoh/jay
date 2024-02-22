@@ -40,6 +40,8 @@ The following features have been implemented and should work:
 - Hardware cursors
 - Pointer constraints
 - Selecting the primary device in multi-GPU systems 
+- An OpenGL backend
+- A Vulkan backend
 
 ### Missing Features
 
@@ -56,7 +58,6 @@ automatically. It is however unavoidable that Jay depends on a number of native
 libraries:
 
 * **libinput.so**: For input event processing.
-* **libEGL.so**, **libGLESv2.so**: For OpenGL rendering.
 * **libgbm.so**: For graphics buffer allocation.
 * **libxkbcommon.so**: For keymap handling.
 * **libudev.so**: For device enumeration and hotplug support.
@@ -76,6 +77,8 @@ At runtime, Jay depends on the following services being available on the system:
   Jay as an X client.)
 * **Logind**: For the metal backend. (Only required if you want to run Jay from
   a TTY.)
+* **libEGL.so**, **libGLESv2.so**: For the OpenGL backend.
+* **libvulkan.so**: For the Vulkan backend.
 
 ## Building and Installing
 
