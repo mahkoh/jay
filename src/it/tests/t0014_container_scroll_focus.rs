@@ -4,7 +4,7 @@ use {
             test_error::{TestErrorExt, TestResult},
             testrun::TestRun,
         },
-        tree::ToplevelNode,
+        tree::ToplevelNodeBase,
     },
     jay_config::Axis,
     std::rc::Rc,

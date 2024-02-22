@@ -42,7 +42,8 @@ use {
         theme::{Color, Theme},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
-            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, WorkspaceNode,
+            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase,
+            WorkspaceNode,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, clonecell::CloneCell,
@@ -507,8 +508,7 @@ impl State {
                 c.append_child(node);
             }
         } else {
-            let container =
-                ContainerNode::new(self, ws, ws.clone(), node, ContainerSplit::Horizontal);
+            let container = ContainerNode::new(self, ws, node, ContainerSplit::Horizontal);
             ws.set_container(&container);
         }
     }
@@ -520,7 +520,6 @@ impl State {
         mut height: i32,
         workspace: &Rc<WorkspaceNode>,
     ) {
-        node.clone().tl_set_workspace(workspace);
         width += 2 * self.theme.sizes.border_width.get();
         height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
         let output = workspace.output.get();

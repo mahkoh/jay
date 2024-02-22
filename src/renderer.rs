@@ -15,7 +15,7 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelNode,
+            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelNodeBase,
             WorkspaceNode,
         },
     },

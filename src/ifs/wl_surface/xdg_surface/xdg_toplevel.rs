@@ -20,7 +20,7 @@ use {
         state::State,
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
-            ToplevelNode, ToplevelNodeId, WorkspaceNode,
+            ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -453,9 +453,7 @@ impl Node for XdgToplevel {
     }
 }
 
-impl ToplevelNode for XdgToplevel {
-    tl_node_impl!();
-
+impl ToplevelNodeBase for XdgToplevel {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel_data
     }
@@ -479,7 +477,7 @@ impl ToplevelNode for XdgToplevel {
         Some(self.xdg.surface.clone())
     }
 
-    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.xdg.set_workspace(ws);
     }
 
@@ -499,13 +497,12 @@ impl ToplevelNode for XdgToplevel {
         self.send_close();
     }
 
-    fn tl_set_visible(&self, visible: bool) {
+    fn tl_set_visible_impl(&self, visible: bool) {
         // log::info!("set_visible {}", visible);
         // if !visible {
         //     log::info!("\n{:?}", Backtrace::new());
         // }
         self.xdg.set_visible(visible);
-        self.toplevel_data.set_visible(self, visible);
         if self.xdg.base.version >= SUSPENDED_SINCE {
             if visible {
                 self.states.borrow_mut().remove(&STATE_SUSPENDED);
@@ -516,8 +513,7 @@ impl ToplevelNode for XdgToplevel {
         }
     }
 
-    fn tl_destroy(&self) {
-        self.toplevel_data.destroy_node(self);
+    fn tl_destroy_impl(&self) {
         self.xdg.destroy_node();
     }
 
@@ -543,6 +539,10 @@ impl ToplevelNode for XdgToplevel {
     //         self.map_tiled()
     //     }
     // }
+
+    fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
+        self
+    }
 
     fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
         Some(self.xdg.surface.clone())

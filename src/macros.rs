@@ -476,22 +476,6 @@ macro_rules! fatal {
     }}
 }
 
-macro_rules! tl_node_impl {
-    () => {
-        fn tl_as_node(&self) -> &dyn Node {
-            self
-        }
-
-        fn tl_into_node(self: Rc<Self>) -> Rc<dyn Node> {
-            self
-        }
-
-        fn tl_into_dyn(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
-            self
-        }
-    };
-}
-
 macro_rules! stacked_node_impl {
     () => {
         fn stacked_as_node(&self) -> &dyn Node {

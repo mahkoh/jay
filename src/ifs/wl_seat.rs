@@ -574,7 +574,7 @@ impl WlSeatGlobal {
             _ => return,
         };
         if let Some(pn) = pn.node_into_containing_node() {
-            let cn = ContainerNode::new(&self.state, &ws, pn.clone(), tl.clone(), axis);
+            let cn = ContainerNode::new(&self.state, &ws, tl.clone(), axis);
             pn.cnode_replace_child(tl.tl_as_node(), cn);
         }
     }
@@ -582,7 +582,10 @@ impl WlSeatGlobal {
     pub fn focus_parent(self: &Rc<Self>) {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
             if let Some(parent) = tl.tl_data().parent.get() {
-                self.focus_node(parent.cnode_into_node());
+                if let Some(tl) = parent.node_toplevel() {
+                    self.focus_node(tl.tl_into_node());
+                    self.state.damage();
+                }
             }
         }
     }

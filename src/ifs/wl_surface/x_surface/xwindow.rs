@@ -12,7 +12,7 @@ use {
         state::State,
         tree::{
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
-            ToplevelData, ToplevelNode, WorkspaceNode,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -357,9 +357,7 @@ impl Node for Xwindow {
     }
 }
 
-impl ToplevelNode for Xwindow {
-    tl_node_impl!();
-
+impl ToplevelNodeBase for Xwindow {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel_data
     }
@@ -381,7 +379,7 @@ impl ToplevelNode for Xwindow {
         Some(self.x.surface.clone())
     }
 
-    fn tl_set_workspace_ext(self: Rc<Self>, ws: &Rc<WorkspaceNode>) {
+    fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.x.surface.set_output(&ws.output.get());
     }
 
@@ -410,15 +408,17 @@ impl ToplevelNode for Xwindow {
             .push(XWaylandEvent::Close(self.data.clone()));
     }
 
-    fn tl_set_visible(&self, visible: bool) {
+    fn tl_set_visible_impl(&self, visible: bool) {
         self.x.surface.set_visible(visible);
-        self.toplevel_data.set_visible(self, visible);
     }
 
-    fn tl_destroy(&self) {
-        self.toplevel_data.destroy_node(self);
+    fn tl_destroy_impl(&self) {
         self.display_link.borrow_mut().take();
         self.x.surface.destroy_node();
+    }
+
+    fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
+        self
     }
 
     fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
