@@ -39,7 +39,6 @@ pub mod toplevel_identifier;
 pub mod tri;
 pub mod trim;
 pub mod unlink_on_drop;
-pub mod vasprintf;
 pub mod vec_ext;
 pub mod vecstorage;
 pub mod windows;

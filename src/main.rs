@@ -1,6 +1,3 @@
-#![feature(
-    c_variadic, // https://github.com/rust-lang/rust/issues/44930
-)]
 #![allow(
     clippy::len_zero,
     clippy::needless_lifetimes,

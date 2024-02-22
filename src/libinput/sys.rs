@@ -1,13 +1,8 @@
-use {std::ffi::VaList, uapi::c};
+use uapi::c;
 
 include!(concat!(env!("OUT_DIR"), "/libinput_tys.rs"));
 
-pub type libinput_log_handler = unsafe extern "C" fn(
-    libinput: *mut libinput,
-    priority: libinput_log_priority,
-    format: *const c::c_char,
-    args: VaList,
-);
+pub type libinput_log_handler = unsafe extern "C" fn();
 
 #[repr(transparent)]
 pub struct libinput(u8);

@@ -22,16 +22,11 @@ use {
             },
         },
         udev::UdevError,
-        utils::{
-            errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, trim::AsciiTrim,
-            vasprintf::vasprintf_,
-        },
+        utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, trim::AsciiTrim},
     },
     bstr::ByteSlice,
-    std::{
-        ffi::{CStr, VaList},
-        rc::Rc,
-    },
+    isnt::std_1::primitive::IsntConstPtrExt,
+    std::{ffi::CStr, rc::Rc},
     thiserror::Error,
     uapi::{c, Errno, IntoUstr, OwnedFd},
 };
@@ -91,6 +86,10 @@ pub struct LibInput {
     li: *mut libinput,
 }
 
+extern "C" {
+    fn jay_libinput_log_handler_bridge();
+}
+
 impl LibInput {
     pub fn new(adapter: Rc<dyn LibInputAdapter>) -> Result<Self, LibInputError> {
         let mut ud = Box::new(UserData { adapter });
@@ -101,7 +100,7 @@ impl LibInput {
             return Err(LibInputError::New);
         }
         unsafe {
-            libinput_log_set_handler(li, log_handler);
+            libinput_log_set_handler(li, jay_libinput_log_handler_bridge);
             let priority = if log::log_enabled!(log::Level::Debug) {
                 LIBINPUT_LOG_PRIORITY_DEBUG
             } else if log::log_enabled!(log::Level::Info) {
@@ -167,19 +166,14 @@ impl Drop for LibInput {
     }
 }
 
-unsafe extern "C" fn log_handler(
+#[no_mangle]
+unsafe extern "C" fn jay_libinput_log_handler(
     _libinput: *mut libinput,
     priority: libinput_log_priority,
-    format: *const c::c_char,
-    args: VaList,
+    line: *const c::c_char,
 ) {
-    let str = match vasprintf_(format, args) {
-        Some(s) => s,
-        _ => {
-            log::error!("Could not format log message");
-            return;
-        }
-    };
+    assert!(line.is_not_null());
+    let str = CStr::from_ptr(line);
     let priority = match LogPriority(priority as _) {
         LIBINPUT_LOG_PRIORITY_DEBUG => log::Level::Debug,
         LIBINPUT_LOG_PRIORITY_INFO => log::Level::Info,

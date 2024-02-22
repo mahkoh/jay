@@ -52,6 +52,7 @@ repc = "0.1.1"
 anyhow = "1.0.79"
 bstr = { version = "1.9.0", default-features = false, features = ["std"] }
 shaderc = "0.8.3"
+cc = "1.0.86"
 
 #[profile.dev.build-override]
 #opt-level = 3
