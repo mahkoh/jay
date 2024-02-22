@@ -1,7 +1,6 @@
 #![feature(
     c_variadic, // https://github.com/rust-lang/rust/issues/44930
     thread_local, // https://github.com/rust-lang/rust/issues/29594
-    c_str_literals, // https://github.com/rust-lang/rust/issues/105723
 )]
 #![allow(
     clippy::len_zero,
