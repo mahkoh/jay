@@ -88,13 +88,13 @@ only the latest stable version is supported.
 
 You can now build Jay using this command:
 ```sh
-RUSTC_BOOTSTRAP=1 cargo build --release
+cargo build --release
 ```
 The resulting binary will be located at `./target/release/jay`.
 
 Alternatively, cargo can also install the binary for you:
 ```sh
-RUSTC_BOOTSTRAP=1 cargo install --path .
+cargo install --path .
 ```
 This will install the binary at `$HOME/.cargo/bin/jay`. If you have not already
 done so, you can add `$HOME/.cargo/bin` to your path.
