@@ -8,5 +8,4 @@ tasks:
       rustup toolchain install stable
   - build: |
       cd jay
-      export RUSTC_BOOTSTRAP=1
       cargo build
