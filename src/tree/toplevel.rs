@@ -394,6 +394,7 @@ impl ToplevelData {
                 .tl_into_node()
                 .node_do_focus(&seat, Direction::Unspecified);
         }
+        state.damage();
     }
 
     pub fn unset_fullscreen(&self, state: &Rc<State>, node: Rc<dyn ToplevelNode>) {
@@ -438,6 +439,7 @@ impl ToplevelData {
         fd.placeholder
             .node_seat_state()
             .destroy_node(fd.placeholder.deref());
+        state.damage();
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
