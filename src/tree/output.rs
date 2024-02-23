@@ -477,6 +477,13 @@ impl OutputNode {
     fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
         self.pointer_positions.set(seat.id(), (x, y));
     }
+
+    pub fn has_fullscreen(&self) -> bool {
+        self.workspace
+            .get()
+            .map(|w| w.fullscreen.get().is_some())
+            .unwrap_or(false)
+    }
 }
 
 pub struct OutputTitle {

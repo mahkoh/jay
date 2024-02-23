@@ -505,6 +505,7 @@ impl MetalConnector {
             Some(rr),
             output.global.preferred_scale.get(),
             render_hw_cursor,
+            output.has_fullscreen(),
         );
         let try_direct_scanout = try_direct_scanout
             && !output.global.have_shm_screencopies()

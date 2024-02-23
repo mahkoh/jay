@@ -743,7 +743,7 @@ impl State {
         rr: &mut RenderResult,
         render_hw_cursor: bool,
     ) {
-        fb.render_node(
+        fb.render_output(
             output,
             self,
             Some(output.global.pos.get()),
@@ -794,7 +794,7 @@ impl State {
                 }
             }
         }
-        let clear = target.format().has_alpha.then_some(&Color::TRANSPARENT);
+        let clear = target.format().has_alpha.then_some(&Color::SOLID_BLACK);
         target.render(ops, clear);
     }
 }
