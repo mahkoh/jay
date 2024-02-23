@@ -9,8 +9,8 @@ use {
         ifs::wl_seat::SeatId,
         state::State,
         utils::{
-            clonecell::CloneCell, numcell::NumCell, oserror::OsError, ptr_ext::PtrExt,
-            unlink_on_drop::UnlinkOnDrop, xrd::xrd,
+            clonecell::CloneCell, numcell::NumCell, ptr_ext::PtrExt, unlink_on_drop::UnlinkOnDrop,
+            xrd::xrd,
         },
     },
     bincode::Options,
@@ -25,7 +25,7 @@ use {
         video::{Connector, DrmDevice},
     },
     libloading::Library,
-    std::{cell::Cell, mem, ptr, rc::Rc},
+    std::{cell::Cell, io, mem, ptr, rc::Rc},
     thiserror::Error,
 };
 
@@ -37,8 +37,8 @@ pub enum ConfigError {
     LibraryDoesNotContainEntry(#[source] libloading::Error),
     #[error("Could not determine the config directory")]
     ConfigDirNotSet,
-    #[error("Could not link the config file")]
-    LinkConfigFile(#[source] OsError),
+    #[error("Could not copy the config file")]
+    CopyConfigFile(#[source] io::Error),
     #[error("XDG_RUNTIME_DIR is not set")]
     XrdNotSet,
 }
@@ -233,24 +233,24 @@ impl ConfigProxy {
         // glibc will still not reload the library if we try to load it from
         // the canonical location ~/.config/jay/config.so since it already has
         // a library with that path loaded. To work around this, create a
-        // temporary symlink with an incrementing number and load the library
+        // temporary copy with an incrementing number and load the library
         // from there.
         let xrd = match xrd() {
             Some(x) => x,
             _ => return Err(ConfigError::XrdNotSet),
         };
-        let link = format!(
+        let copy = format!(
             "{}/.jay_config.so.{}.{}",
             xrd,
             uapi::getpid(),
             state.config_file_id.fetch_add(1)
         );
-        let _ = uapi::unlink(link.as_str());
-        if let Err(e) = uapi::symlink(path, link.as_str()) {
-            return Err(ConfigError::LinkConfigFile(e.into()));
+        let _ = uapi::unlink(copy.as_str());
+        if let Err(e) = std::fs::copy(path, &copy) {
+            return Err(ConfigError::CopyConfigFile(e));
         }
-        let _unlink = UnlinkOnDrop(&link);
-        let lib = match Library::new(&link) {
+        let _unlink = UnlinkOnDrop(&copy);
+        let lib = match Library::new(&copy) {
             Ok(l) => l,
             Err(e) => return Err(ConfigError::CouldNotLoadLibrary(e)),
         };
