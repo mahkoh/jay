@@ -133,12 +133,6 @@ configuration is the [default config crate][default].
 4. Build the crate with `cargo build`.
 5. Move `target/debug/libmy_jay_config.so` to `$HOME/.config/jay/config.so`.
 
-CAUTION: A common mistake is to use `cp` to copy the shared library to the
-config location. By default, `cp` will overwrite the file instead of replacing
-it with a new file. If you do this at runtime, `jay` will almost certainly
-crash. Instead use `mv` to move the file or first delete the old file before
-using `cp`.
-
 When you start Jay, you will be able to make use of your useful change. At
 runtime you can repeat steps 3 to 5 and reload the configuration. By default,
 the shortcut to reload the configuration is `ALT-r`.
