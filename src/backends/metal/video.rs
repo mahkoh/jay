@@ -9,10 +9,14 @@ use {
         drm_feedback::DrmFeedback,
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
-        gfx_api::{BufferPoints, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass, GfxTexture},
+        gfx_api::{
+            AbsoluteRect, BufferPoints, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass,
+            GfxTexture,
+        },
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
+        theme::Color,
         tree::OutputNode,
         udev::UdevDevice,
         utils::{
@@ -345,6 +349,17 @@ pub struct DirectScanoutData {
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
     acquired: Cell<bool>,
+    position: DirectScanoutPosition,
+}
+
+#[derive(Debug)]
+pub struct DirectScanoutPosition {
+    pub src_width: i32,
+    pub src_height: i32,
+    pub crtc_x: i32,
+    pub crtc_y: i32,
+    pub crtc_width: i32,
+    pub crtc_height: i32,
 }
 
 impl Drop for DirectScanoutData {
@@ -413,24 +428,95 @@ impl MetalConnector {
         pass: &GfxRenderPass,
         plane: &Rc<MetalPlane>,
     ) -> Option<DirectScanoutData> {
-        if pass.ops.len() != 1 {
-            return None;
-        }
-        let GfxApiOpt::CopyTexture(ct) = &pass.ops[0] else {
-            return None;
+        let plane_w = plane.mode_w.get();
+        let plane_h = plane.mode_h.get();
+        let ct = 'ct: {
+            let mut ops = pass.ops.iter().rev();
+            let ct = 'ct2: {
+                for opt in &mut ops {
+                    match opt {
+                        GfxApiOpt::Sync => {}
+                        GfxApiOpt::FillRect(_) => {
+                            // Top-most layer must be a texture.
+                            return None;
+                        }
+                        GfxApiOpt::CopyTexture(ct) => break 'ct2 ct,
+                    }
+                }
+                return None;
+            };
+            let plane_rect = AbsoluteRect {
+                x1: 0.0,
+                x2: plane_w as f32,
+                y1: 0.0,
+                y2: plane_h as f32,
+            };
+            if !ct.tex.format().has_alpha && ct.target == plane_rect {
+                // Texture covers the entire screen and is opaque.
+                break 'ct ct;
+            }
+            for opt in ops {
+                match opt {
+                    GfxApiOpt::Sync => {}
+                    GfxApiOpt::FillRect(fr) => {
+                        if fr.color == Color::SOLID_BLACK {
+                            // Black fills can be ignored because this is the CRTC background color.
+                            if fr.rect == plane_rect {
+                                // If fill covers the entire screen, we don't have to look further.
+                                break 'ct ct;
+                            }
+                        } else {
+                            // Fill could be visible.
+                            return None;
+                        }
+                    }
+                    GfxApiOpt::CopyTexture(_) => {
+                        // Texture could be visible.
+                        return None;
+                    }
+                }
+            }
+            if let Some(clear) = pass.clear {
+                if clear != Color::SOLID_BLACK {
+                    // Background could be visible.
+                    return None;
+                }
+            }
+            ct
         };
         if ct.source != BufferPoints::identity() {
+            // Non-trivial transforms are not supported.
             return None;
         }
-        if ct.target.x1 != 0.0
-            || ct.target.y1 != 0.0
-            || ct.target.x2 != plane.mode_w.get() as f32
-            || ct.target.y2 != plane.mode_h.get() as f32
+        if ct.target.x1 < 0.0
+            || ct.target.y1 < 0.0
+            || ct.target.x2 > plane_w as f32
+            || ct.target.y2 > plane_h as f32
         {
+            // Rendering outside the screen is not supported.
+            return None;
+        }
+        let (tex_w, tex_h) = ct.tex.size();
+        let (crtc_w, crtc_h) = (ct.target.x2 - ct.target.x1, ct.target.y2 - ct.target.y1);
+        if crtc_w < 0.0 || crtc_h < 0.0 {
+            // Flipping x or y axis is not supported.
+            return None;
+        }
+        if self.cursor_enabled.get() && (tex_w as f32, tex_h as f32) != (crtc_w, crtc_h) {
+            // If hardware cursors are used, we cannot scale the texture.
             return None;
         }
         let Some(dmabuf) = ct.tex.dmabuf() else {
+            // Shm buffers cannot be scanned out.
             return None;
+        };
+        let position = DirectScanoutPosition {
+            src_width: tex_w,
+            src_height: tex_h,
+            crtc_x: ct.target.x1 as _,
+            crtc_y: ct.target.y1 as _,
+            crtc_width: crtc_w as _,
+            crtc_height: crtc_h as _,
         };
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {
@@ -439,12 +525,14 @@ impl MetalConnector {
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
                 acquired: Default::default(),
+                position,
             });
         }
         let format = 'format: {
             if let Some(f) = plane.formats.get(&dmabuf.format.drm) {
                 break 'format f;
             }
+            // Try opaque format if possible.
             if let Some(opaque) = dmabuf.format.opaque {
                 if let Some(f) = plane.formats.get(&opaque.drm) {
                     break 'format f;
@@ -461,6 +549,7 @@ impl MetalConnector {
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
                 acquired: Default::default(),
+                position,
             }),
             Err(e) => {
                 log::debug!(
@@ -505,6 +594,7 @@ impl MetalConnector {
             Some(rr),
             output.global.preferred_scale.get(),
             render_hw_cursor,
+            output.has_fullscreen(),
         );
         let try_direct_scanout = try_direct_scanout
             && !output.global.have_shm_screencopies()
@@ -518,7 +608,14 @@ impl MetalConnector {
         let mut direct_scanout_data = None;
         if try_direct_scanout {
             if let Some(dsd) = self.prepare_direct_scanout(&pass, plane) {
-                output.perform_screencopies(None, &dsd.tex, !render_hw_cursor);
+                output.perform_screencopies(
+                    None,
+                    &dsd.tex,
+                    !render_hw_cursor,
+                    dsd.position.crtc_x,
+                    dsd.position.crtc_y,
+                    Some((dsd.position.crtc_width, dsd.position.crtc_height)),
+                );
                 direct_scanout_data = Some(dsd);
             }
         }
@@ -541,6 +638,9 @@ impl MetalConnector {
                     Some(&*buffer_fb),
                     &buffer.render_tex,
                     !render_hw_cursor,
+                    0,
+                    0,
+                    None,
                 );
                 buffer.drm.clone()
             }
@@ -584,8 +684,33 @@ impl MetalConnector {
                 let fb =
                     self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout);
                 rr.dispatch_frame_requests();
+                let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
+                    match &fb.direct_scanout_data {
+                        None => {
+                            let plane_w = plane.mode_w.get();
+                            let plane_h = plane.mode_h.get();
+                            (0, 0, plane_w, plane_h, plane_w, plane_h)
+                        }
+                        Some(dsd) => {
+                            let p = &dsd.position;
+                            (
+                                p.crtc_x,
+                                p.crtc_y,
+                                p.crtc_width,
+                                p.crtc_height,
+                                p.src_width,
+                                p.src_height,
+                            )
+                        }
+                    };
                 changes.change_object(plane.id, |c| {
                     c.change(plane.fb_id, fb.fb.id().0 as _);
+                    c.change(plane.src_w.id, (src_width as u64) << 16);
+                    c.change(plane.src_h.id, (src_height as u64) << 16);
+                    c.change(plane.crtc_x.id, crtc_x as u64);
+                    c.change(plane.crtc_y.id, crtc_y as u64);
+                    c.change(plane.crtc_w.id, crtc_w as u64);
+                    c.change(plane.crtc_h.id, crtc_h as u64);
                 });
                 new_fb = Some(fb);
             }

@@ -29,6 +29,7 @@ impl Image {
             ctx: self.ctx.clone(),
             gl: GlTexture::import_img(&self.ctx.ctx, &self.gl)?,
             resv: Default::default(),
+            format: self.gl.dmabuf.format,
         }))
     }
 

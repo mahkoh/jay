@@ -17,6 +17,7 @@ pub struct Texture {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,
     pub(in crate::gfx_apis::gl) gl: GlTexture,
     pub(in crate::gfx_apis::gl) resv: TextureReservations,
+    pub(in crate::gfx_apis::gl) format: &'static Format,
 }
 
 impl Debug for Texture {
@@ -67,5 +68,9 @@ impl GfxTexture for Texture {
 
     fn reservations(&self) -> &TextureReservations {
         &self.resv
+    }
+
+    fn format(&self) -> &'static Format {
+        self.format
     }
 }

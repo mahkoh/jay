@@ -65,7 +65,7 @@ impl RendererBase<'_> {
     }
 
     pub fn fill_boxes2(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
-        if boxes.is_empty() {
+        if boxes.is_empty() || *color == Color::TRANSPARENT {
             return;
         }
         let (dx, dy) = self.scale_point(dx, dy);
@@ -94,7 +94,7 @@ impl RendererBase<'_> {
         dx: f32,
         dy: f32,
     ) {
-        if boxes.is_empty() {
+        if boxes.is_empty() || *color == Color::TRANSPARENT {
             return;
         }
         let (dx, dy) = self.scale_point_f(dx, dy);

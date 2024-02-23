@@ -45,6 +45,13 @@ impl Color {
         a: 0.0,
     };
 
+    pub const SOLID_BLACK: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+
     pub fn from_gray(g: u8) -> Self {
         Self::from_rgb(g, g, g)
     }

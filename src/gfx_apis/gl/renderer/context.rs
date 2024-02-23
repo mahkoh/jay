@@ -187,6 +187,7 @@ impl GlRenderContext {
             ctx: self.clone(),
             gl,
             resv: Default::default(),
+            format,
         }))
     }
 }

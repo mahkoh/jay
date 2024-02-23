@@ -154,6 +154,9 @@ impl JayScreencast {
         on: &OutputNode,
         texture: &Rc<dyn GfxTexture>,
         render_hardware_cursors: bool,
+        x_off: i32,
+        y_off: i32,
+        size: Option<(i32, i32)>,
     ) {
         if !self.running.get() {
             return;
@@ -176,8 +179,9 @@ impl JayScreencast {
                     on.global.preferred_scale.get(),
                     on.global.pos.get(),
                     render_hardware_cursors,
-                    0,
-                    0,
+                    x_off,
+                    y_off,
+                    size,
                 );
                 self.client.event(Ready {
                     self_id: self.id,

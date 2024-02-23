@@ -8,7 +8,7 @@ use {
         scale::Scale,
         state::State,
         theme::Color,
-        tree::Node,
+        tree::{Node, OutputNode},
         utils::numcell::NumCell,
         video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
     },
@@ -112,7 +112,7 @@ impl BufferPoints {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AbsoluteRect {
     pub x1: f32,
     pub x2: f32,
@@ -211,6 +211,7 @@ impl dyn GfxFramebuffer {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
+        black_background: bool,
     ) -> GfxRenderPass {
         let mut ops = self.take_render_ops();
         let (width, height) = self.size();
@@ -251,7 +252,10 @@ impl dyn GfxFramebuffer {
                 }
             }
         }
-        let c = state.theme.colors.background.get();
+        let c = match black_background {
+            true => Color::SOLID_BLACK,
+            false => state.theme.colors.background.get(),
+        };
         GfxRenderPass {
             ops,
             clear: Some(c),
@@ -262,6 +266,26 @@ impl dyn GfxFramebuffer {
         self.render(pass.ops, pass.clear.as_ref())
     }
 
+    pub fn render_output(
+        &self,
+        node: &OutputNode,
+        state: &State,
+        cursor_rect: Option<Rect>,
+        result: Option<&mut RenderResult>,
+        scale: Scale,
+        render_hardware_cursor: bool,
+    ) {
+        self.render_node(
+            node,
+            state,
+            cursor_rect,
+            result,
+            scale,
+            render_hardware_cursor,
+            node.has_fullscreen(),
+        )
+    }
+
     pub fn render_node(
         &self,
         node: &dyn Node,
@@ -270,6 +294,7 @@ impl dyn GfxFramebuffer {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
+        black_background: bool,
     ) {
         let pass = self.create_render_pass(
             node,
@@ -278,6 +303,7 @@ impl dyn GfxFramebuffer {
             result,
             scale,
             render_hardware_cursor,
+            black_background,
         );
         self.perform_render_pass(pass);
     }
@@ -359,6 +385,7 @@ pub trait GfxTexture: Debug {
     ) -> Result<(), GfxError>;
     fn dmabuf(&self) -> Option<&DmaBuf>;
     fn reservations(&self) -> &TextureReservations;
+    fn format(&self) -> &'static Format;
 }
 
 pub trait GfxContext: Debug {

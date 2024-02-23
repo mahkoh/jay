@@ -743,7 +743,7 @@ impl State {
         rr: &mut RenderResult,
         render_hw_cursor: bool,
     ) {
-        fb.render_node(
+        fb.render_output(
             output,
             self,
             Some(output.global.pos.get()),
@@ -751,7 +751,7 @@ impl State {
             output.global.preferred_scale.get(),
             render_hw_cursor,
         );
-        output.perform_screencopies(Some(&**fb), tex, !render_hw_cursor);
+        output.perform_screencopies(Some(&**fb), tex, !render_hw_cursor, 0, 0, None);
         rr.dispatch_frame_requests();
     }
 
@@ -764,6 +764,7 @@ impl State {
         render_hardware_cursors: bool,
         x_off: i32,
         y_off: i32,
+        size: Option<(i32, i32)>,
     ) {
         let mut ops = target.take_render_ops();
         let (width, height) = target.size();
@@ -781,7 +782,7 @@ impl State {
         };
         renderer
             .base
-            .render_texture(src, x_off, y_off, None, None, scale, None);
+            .render_texture(src, x_off, y_off, None, size, scale, None);
         if render_hardware_cursors {
             for seat in self.globals.lock_seats().values() {
                 if let Some(cursor) = seat.get_cursor() {
@@ -794,7 +795,6 @@ impl State {
                 }
             }
         }
-        let clear = target.format().has_alpha.then_some(&Color::TRANSPARENT);
-        target.render(ops, clear);
+        target.render(ops, Some(&Color::SOLID_BLACK));
     }
 }
