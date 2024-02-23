@@ -112,7 +112,7 @@ impl BufferPoints {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AbsoluteRect {
     pub x1: f32,
     pub x2: f32,
@@ -385,6 +385,7 @@ pub trait GfxTexture: Debug {
     ) -> Result<(), GfxError>;
     fn dmabuf(&self) -> Option<&DmaBuf>;
     fn reservations(&self) -> &TextureReservations;
+    fn format(&self) -> &'static Format;
 }
 
 pub trait GfxContext: Debug {

@@ -587,4 +587,8 @@ impl GfxTexture for VulkanImage {
     fn reservations(&self) -> &TextureReservations {
         &self.resv
     }
+
+    fn format(&self) -> &'static Format {
+        self.format
+    }
 }

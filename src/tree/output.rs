@@ -83,6 +83,9 @@ impl OutputNode {
         fb: Option<&dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
         render_hardware_cursor: bool,
+        x_off: i32,
+        y_off: i32,
+        size: Option<(i32, i32)>,
     ) {
         if let Some(workspace) = self.workspace.get() {
             if !workspace.capture.get() {
@@ -90,9 +93,9 @@ impl OutputNode {
             }
         }
         self.global
-            .perform_screencopies(fb, tex, render_hardware_cursor);
+            .perform_screencopies(fb, tex, render_hardware_cursor, x_off, y_off, size);
         for sc in self.screencasts.lock().values() {
-            sc.copy_texture(self, tex, render_hardware_cursor);
+            sc.copy_texture(self, tex, render_hardware_cursor, x_off, y_off, size);
         }
     }
 

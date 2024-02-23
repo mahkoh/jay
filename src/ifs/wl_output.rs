@@ -211,6 +211,9 @@ impl WlOutputGlobal {
         fb: Option<&dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
         render_hardware_cursors: bool,
+        x_off: i32,
+        y_off: i32,
+        size: Option<(i32, i32)>,
     ) {
         if self.pending_captures.is_empty() {
             return;
@@ -295,8 +298,9 @@ impl WlOutputGlobal {
                     self.preferred_scale.get(),
                     self.pos.get(),
                     render_hardware_cursors,
-                    -capture.rect.x1(),
-                    -capture.rect.y1(),
+                    x_off - capture.rect.x1(),
+                    y_off - capture.rect.y1(),
+                    size,
                 );
             }
             if capture.with_damage.get() {
