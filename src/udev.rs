@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use {
     crate::utils::oserror::OsError,
     std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
@@ -5,14 +7,19 @@ use {
     uapi::{c, ustr, Errno, IntoUstr, Ustr},
 };
 
+#[repr(transparent)]
+struct udev(u8);
+#[repr(transparent)]
+struct udev_monitor(u8);
+#[repr(transparent)]
+struct udev_enumerate(u8);
+#[repr(transparent)]
+struct udev_list_entry(u8);
+#[repr(transparent)]
+struct udev_device(u8);
+
 #[link(name = "udev")]
 extern "C" {
-    type udev;
-    type udev_monitor;
-    type udev_enumerate;
-    type udev_list_entry;
-    type udev_device;
-
     fn udev_new() -> *mut udev;
     fn udev_unref(udev: *mut udev) -> *mut udev;
 

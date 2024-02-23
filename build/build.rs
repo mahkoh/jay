@@ -24,6 +24,7 @@ use std::{
 
 mod egl;
 mod enums;
+mod logging;
 mod tokens;
 mod vulkan;
 mod wire;
@@ -49,6 +50,7 @@ fn main() -> anyhow::Result<()> {
     enums::main()?;
     egl::main()?;
     vulkan::main()?;
+    logging::main()?;
 
     println!("cargo:rerun-if-changed=build/build.rs");
     Ok(())

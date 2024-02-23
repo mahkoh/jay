@@ -4,18 +4,17 @@ use {
         region::{extents, rects_to_bands, subtract, union},
         RectRaw,
     },
-    once_cell::unsync::Lazy,
     smallvec::SmallVec,
     std::{mem, ops::Deref, rc::Rc},
 };
 
-#[thread_local]
-static EMPTY: Lazy<Rc<Region>> = Lazy::new(|| {
-    Rc::new(Region {
-        rects: Default::default(),
-        extents: Default::default(),
-    })
-});
+thread_local! {
+    static EMPTY: Rc<Region> =
+        Rc::new(Region {
+            rects: Default::default(),
+            extents: Default::default(),
+        });
+}
 
 impl Region {
     pub fn new(rect: Rect) -> Rc<Self> {
@@ -28,7 +27,7 @@ impl Region {
     }
 
     pub fn empty() -> Rc<Self> {
-        EMPTY.clone()
+        EMPTY.with(|e| e.clone())
     }
 
     pub fn from_rects(rects: &[Rect]) -> Rc<Self> {

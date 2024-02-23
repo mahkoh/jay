@@ -13,8 +13,9 @@ use {
 
 static LEVEL: AtomicUsize = AtomicUsize::new(Level::Info as usize);
 
-#[thread_local]
-static FILE: CloneCell<Option<Rc<OwnedFd>>> = CloneCell::new(None);
+thread_local! {
+    static FILE: CloneCell<Option<Rc<OwnedFd>>> = CloneCell::new(None);
+}
 
 pub fn install() {
     log::set_logger(&Logger).unwrap();
@@ -27,11 +28,11 @@ pub fn set_level(level: Level) {
 }
 
 pub fn set_file(file: Rc<OwnedFd>) {
-    FILE.set(Some(file));
+    FILE.with(|f| f.set(Some(file)));
 }
 
 pub fn unset_file() {
-    FILE.set(None);
+    FILE.with(|f| f.set(None));
 }
 
 struct Logger;
@@ -65,7 +66,7 @@ impl Log for Logger {
                 record.args(),
             )
         };
-        let mut fd = match FILE.get() {
+        let mut fd = match FILE.with(|f| f.get()) {
             Some(f) => f.borrow(),
             _ => Fd::new(2),
         };

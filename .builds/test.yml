@@ -12,7 +12,6 @@ tasks:
       sudo chmod o+rw /dev/dri/card*
   - build: |
       cd jay
-      export RUSTC_BOOTSTRAP=1
       cargo build --features it
   - test: |
       cd jay

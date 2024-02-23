@@ -7,13 +7,8 @@ include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 pub use consts::*;
 use {
     bstr::{BStr, ByteSlice},
-    std::{
-        ffi::{CStr, VaList},
-        io::Write,
-        ops::Deref,
-        ptr,
-        rc::Rc,
-    },
+    isnt::std_1::primitive::IsntConstPtrExt,
+    std::{ffi::CStr, io::Write, ops::Deref, ptr, rc::Rc},
 };
 
 use {
@@ -69,15 +64,7 @@ extern "C" {
     fn xkb_context_new(flags: xkb_context_flags) -> *mut xkb_context;
     fn xkb_context_unref(context: *mut xkb_context);
     fn xkb_context_set_log_verbosity(context: *mut xkb_context, verbosity: c::c_int);
-    fn xkb_context_set_log_fn(
-        context: *mut xkb_context,
-        log_fn: unsafe extern "C" fn(
-            context: *mut xkb_context,
-            level: xkb_log_level,
-            format: *const c::c_char,
-            args: VaList,
-        ),
-    );
+    fn xkb_context_set_log_fn(context: *mut xkb_context, log_fn: unsafe extern "C" fn());
     fn xkb_keymap_new_from_buffer(
         context: *mut xkb_context,
         buffer: *const u8,
@@ -116,6 +103,10 @@ pub struct XkbContext {
     context: *mut xkb_context,
 }
 
+extern "C" {
+    fn jay_xkbcommon_log_handler_bridge();
+}
+
 impl XkbContext {
     pub fn new() -> Result<Self, XkbCommonError> {
         let res = unsafe { xkb_context_new(XKB_CONTEXT_NO_FLAGS.raw() as _) };
@@ -124,7 +115,7 @@ impl XkbContext {
         }
         unsafe {
             xkb_context_set_log_verbosity(res, 10);
-            xkb_context_set_log_fn(res, xkbcommon_logger);
+            xkb_context_set_log_fn(res, jay_xkbcommon_log_handler_bridge);
         }
         Ok(Self { context: res })
     }
@@ -303,22 +294,14 @@ impl Drop for XkbState {
     }
 }
 
-unsafe extern "C" fn xkbcommon_logger(
+#[no_mangle]
+unsafe extern "C" fn jay_xkbcommon_log_handler(
     _ctx: *mut xkb_context,
     level: xkb_log_level,
-    format: *const c::c_char,
-    args: VaList,
+    line: *const c::c_char,
 ) {
-    extern "C" {
-        fn vasprintf(buf: *mut *mut c::c_char, fmt: *const c::c_char, args: VaList) -> c::c_int;
-    }
-    let mut buf = ptr::null_mut();
-    let res = vasprintf(&mut buf, format, args);
-    if res < 0 {
-        log::error!("Could not vasprintf");
-        return;
-    }
-    let buf = std::slice::from_raw_parts(buf as *const u8, res as usize);
+    assert!(line.is_not_null());
+    let buf = CStr::from_ptr(line);
     let level = match XkbLogLevel(level) {
         XKB_LOG_LEVEL_CRITICAL | XKB_LOG_LEVEL_ERROR => log::Level::Error,
         XKB_LOG_LEVEL_WARNING => log::Level::Warn,
@@ -326,5 +309,5 @@ unsafe extern "C" fn xkbcommon_logger(
         XKB_LOG_LEVEL_DEBUG => log::Level::Debug,
         _ => log::Level::Error,
     };
-    log::log!(level, "xkbcommon: {}", buf.trim_end().as_bstr());
+    log::log!(level, "xkbcommon: {}", buf.to_bytes().trim_end().as_bstr());
 }
