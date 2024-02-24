@@ -97,8 +97,15 @@ impl ZwlrScreencopyManagerV1 {
         region: Option<Rect>,
     ) -> Result<(), ZwlrScreencopyManagerV1Error> {
         let output = self.client.lookup(output)?;
-        let mut rect = output.global.position().at_point(0, 0);
+        let mode = output.global.mode.get();
+        let mut rect = Rect::new_sized(0, 0, mode.width, mode.height).unwrap();
         if let Some(region) = region {
+            let scale = output.global.preferred_scale.get().to_f64();
+            let x1 = (region.x1() as f64 * scale).round() as i32;
+            let y1 = (region.y1() as f64 * scale).round() as i32;
+            let x2 = (region.x2() as f64 * scale).round() as i32;
+            let y2 = (region.y2() as f64 * scale).round() as i32;
+            let region = Rect::new(x1, y1, x2, y2).unwrap();
             rect = rect.intersect(region);
         }
         let frame = Rc::new(ZwlrScreencopyFrameV1 {
