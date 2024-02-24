@@ -52,12 +52,13 @@ impl ZwlrScreencopyFrameV1 {
     }
 
     pub fn send_damage(&self) {
+        let pos = self.output.pos.get();
         self.client.event(Damage {
             self_id: self.id,
             x: 0,
             y: 0,
-            width: self.rect.width() as _,
-            height: self.rect.height() as _,
+            width: pos.width() as _,
+            height: pos.height() as _,
         });
     }
 
