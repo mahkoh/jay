@@ -17,7 +17,7 @@ use {
         fixed::Fixed,
         forker::ForkerProxy,
         format::Format,
-        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
+        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture, SampleRect},
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -27,6 +27,7 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
+            wl_output::OutputId,
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
@@ -65,7 +66,10 @@ use {
     },
     ahash::AHashMap,
     bstr::ByteSlice,
-    jay_config::{video::GfxApi, PciId},
+    jay_config::{
+        video::{GfxApi, Transform},
+        PciId,
+    },
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -149,6 +153,7 @@ pub struct State {
     pub dma_buf_ids: DmaBufIds,
     pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
+    pub output_transforms: RefCell<AHashMap<Rc<OutputId>, Transform>>,
 }
 
 // impl Drop for State {
@@ -767,19 +772,30 @@ impl State {
         x_off: i32,
         y_off: i32,
         size: Option<(i32, i32)>,
+        transform: Transform,
     ) {
         let mut ops = target.take_render_ops();
-        let (width, height) = target.size();
         let mut renderer = Renderer {
-            base: target.renderer_base(&mut ops, Scale::from_int(1)),
+            base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
             state: self,
             result: None,
             logical_extents: position.at_point(0, 0),
-            physical_extents: Rect::new_sized(0, 0, width, height).unwrap(),
+            pixel_extents: {
+                let (width, height) = target.logical_size(Transform::None);
+                Rect::new_sized(0, 0, width, height).unwrap()
+            },
         };
-        renderer
-            .base
-            .render_texture(src, x_off, y_off, None, size, Scale::from_int(1), None);
+        let mut sample_rect = SampleRect::identity();
+        sample_rect.buffer_transform = transform;
+        renderer.base.render_texture(
+            src,
+            x_off,
+            y_off,
+            Some(sample_rect),
+            size,
+            Scale::from_int(1),
+            None,
+        );
         if render_hardware_cursors {
             for seat in self.globals.lock_seats().values() {
                 if let Some(cursor) = seat.get_cursor() {
@@ -817,13 +833,15 @@ impl State {
         mem: &ClientMemOffset,
         stride: i32,
         format: &'static Format,
+        transform: Transform,
     ) {
         let (src_width, src_height) = src.size();
         let mut needs_copy = capture.rect.x1() < x_off
             || capture.rect.x2() > x_off + src_width
             || capture.rect.y1() < y_off
             || capture.rect.y2() > y_off + src_height
-            || self.have_hardware_cursor();
+            || self.have_hardware_cursor()
+            || transform != Transform::None;
         if let Some((target_width, target_height)) = size {
             if (target_width, target_height) != (src_width, src_height) {
                 needs_copy = true;
@@ -853,6 +871,7 @@ impl State {
                 x_off - capture.rect.x1(),
                 y_off - capture.rect.y1(),
                 size,
+                transform,
             );
             mem.access(|mem| {
                 fb.copy_to_shm(

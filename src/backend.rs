@@ -100,7 +100,7 @@ pub trait HardwareCursor: Debug {
     fn set_position(&self, x: i32, y: i32);
     fn swap_buffer(&self);
     fn commit(&self);
-    fn max_size(&self) -> (i32, i32);
+    fn size(&self) -> (i32, i32);
 }
 
 pub type TransformMatrix = [[f64; 2]; 2];

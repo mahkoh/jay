@@ -358,7 +358,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
     } else {
         img.extents.move_(x.round_down(), y.round_down())
     };
-    if extents.intersects(&renderer.physical_extents()) {
+    if extents.intersects(&renderer.pixel_extents()) {
         renderer.base.render_texture(
             &img.tex,
             extents.x1(),

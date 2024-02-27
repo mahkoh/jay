@@ -16,6 +16,7 @@ use {
             wl_surface::{
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
                 zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, SurfaceSendPreferredScaleVisitor,
+                SurfaceSendPreferredTransformVisitor,
             },
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
         },
@@ -34,6 +35,7 @@ use {
         wire::{JayOutputId, JayScreencastId},
     },
     ahash::AHashMap,
+    jay_config::video::Transform,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -386,15 +388,30 @@ impl OutputNode {
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
+        self.update_mode_and_transform(mode, self.global.transform.get());
+    }
+
+    pub fn update_transform(self: &Rc<Self>, transform: Transform) {
+        self.update_mode_and_transform(self.global.mode.get(), transform);
+    }
+
+    pub fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
         let old_mode = self.global.mode.get();
-        if old_mode == mode {
+        let old_transform = self.global.transform.get();
+        if (old_mode, old_transform) == (mode, transform) {
             return;
         }
+        let (old_width, old_height) = self.global.pixel_size();
         self.global.mode.set(mode);
-        let rect = self.calculate_extents();
-        self.change_extents_(&rect);
+        self.state
+            .output_transforms
+            .borrow_mut()
+            .insert(self.global.output_id.clone(), transform);
+        self.global.transform.set(transform);
+        let (new_width, new_height) = self.global.pixel_size();
+        self.change_extents_(&self.calculate_extents());
 
-        if (old_mode.width, old_mode.height) != (mode.width, mode.height) {
+        if (old_width, old_height) != (new_width, new_height) {
             let mut to_destroy = vec![];
             if let Some(ctx) = self.state.render_ctx.get() {
                 for sc in self.screencasts.lock().values() {
@@ -411,12 +428,15 @@ impl OutputNode {
                 sc.do_destroy();
             }
         }
+
+        if transform != old_transform {
+            self.state.refresh_hardware_cursors();
+            self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
+        }
     }
 
     fn calculate_extents(&self) -> Rect {
-        let mode = self.global.mode.get();
-        let mut width = mode.width;
-        let mut height = mode.height;
+        let (mut width, mut height) = self.global.pixel_size();
         let scale = self.global.preferred_scale.get();
         if scale != 1 {
             let scale = scale.to_f64();

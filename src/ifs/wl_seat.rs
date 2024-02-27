@@ -57,6 +57,7 @@ use {
             linkedlist::LinkedNode,
             numcell::NumCell,
             rc_eq::rc_eq,
+            transform_ext::TransformExt,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
@@ -264,11 +265,13 @@ impl WlSeatGlobal {
         let (x, y) = self.get_position();
         for output in self.state.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
+                let transform = output.global.transform.get();
                 let render = render | output.hardware_cursor_needs_render.take();
                 let scale = output.global.preferred_scale.get();
                 let extents = cursor.extents_at_scale(scale);
+                let (hc_width, hc_height) = hc.size();
                 if render {
-                    let (max_width, max_height) = hc.max_size();
+                    let (max_width, max_height) = transform.maybe_swap((hc_width, hc_height));
                     if extents.width() > max_width || extents.height() > max_height {
                         hc.set_enabled(false);
                         hc.commit();
@@ -285,17 +288,25 @@ impl WlSeatGlobal {
                     x_rel = ((x - Fixed::from_int(opos.x1())).to_f64() * scalef).round() as i32;
                     y_rel = ((y - Fixed::from_int(opos.y1())).to_f64() * scalef).round() as i32;
                 }
-                let mode = output.global.mode.get();
-                if extents
-                    .intersects(&Rect::new_sized(-x_rel, -y_rel, mode.width, mode.height).unwrap())
-                {
+                let (width, height) = output.global.pixel_size();
+                if extents.intersects(&Rect::new_sized(-x_rel, -y_rel, width, height).unwrap()) {
                     if render {
                         let buffer = hc.get_buffer();
-                        buffer.render_hardware_cursor(cursor.deref(), &self.state, scale);
+                        buffer.render_hardware_cursor(
+                            cursor.deref(),
+                            &self.state,
+                            scale,
+                            transform,
+                        );
                         hc.swap_buffer();
                     }
                     hc.set_enabled(true);
-                    hc.set_position(x_rel + extents.x1(), y_rel + extents.y1());
+                    let mode = output.global.mode.get();
+                    let (x_rel, y_rel) =
+                        transform.apply_point(mode.width, mode.height, (x_rel, y_rel));
+                    let (hot_x, hot_y) =
+                        transform.apply_point(hc_width, hc_height, (-extents.x1(), -extents.y1()));
+                    hc.set_position(x_rel - hot_x, y_rel - hot_y);
                 } else {
                     if render {
                         output.hardware_cursor_needs_render.set(true);

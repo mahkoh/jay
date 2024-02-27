@@ -524,7 +524,7 @@ impl GfxFramebuffer for VulkanImage {
         self.render_ops.take()
     }
 
-    fn size(&self) -> (i32, i32) {
+    fn physical_size(&self) -> (i32, i32) {
         (self.width as _, self.height as _)
     }
 

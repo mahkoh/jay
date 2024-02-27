@@ -81,6 +81,7 @@ const INVALID_SIZE: u32 = 2;
 
 const OFFSET_SINCE: u32 = 5;
 const BUFFER_SCALE_SINCE: u32 = 6;
+const TRANSFORM_SINCE: u32 = 6;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SurfaceRole {
@@ -113,6 +114,14 @@ pub struct SurfaceSendPreferredScaleVisitor;
 impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
         node.on_scale_change();
+        node.node_visit_children(self);
+    }
+}
+
+pub struct SurfaceSendPreferredTransformVisitor;
+impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
+    fn visit_surface(&mut self, node: &Rc<WlSurface>) {
+        node.send_preferred_buffer_transform();
         node.node_visit_children(self);
     }
 }
@@ -350,6 +359,9 @@ impl WlSurface {
         if old.global.preferred_scale.get() != output.global.preferred_scale.get() {
             self.on_scale_change();
         }
+        if old.global.transform.get() != output.global.transform.get() {
+            self.send_preferred_buffer_transform();
+        }
         let children = self.children.borrow_mut();
         if let Some(children) = &*children {
             for ss in children.subsurfaces.values() {
@@ -438,6 +450,15 @@ impl WlSurface {
             self.client.event(PreferredBufferScale {
                 self_id: self.id,
                 factor: self.output.get().global.legacy_scale.get() as _,
+            });
+        }
+    }
+
+    pub fn send_preferred_buffer_transform(&self) {
+        if self.version >= TRANSFORM_SINCE {
+            self.client.event(PreferredBufferTransform {
+                self_id: self.id,
+                transform: self.output.get().global.transform.get().to_wl() as _,
             });
         }
     }

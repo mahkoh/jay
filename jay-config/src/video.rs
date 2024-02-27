@@ -158,6 +158,15 @@ impl Connector {
         }
         get!().connector_set_enabled(self, enabled);
     }
+
+    /// Sets the transformation to apply to the content of this connector.
+    pub fn set_transform(self, transform: Transform) {
+        if !self.exists() {
+            log::warn!("set_transform called on a connector that does not exist");
+            return;
+        }
+        get!().connector_set_transform(self, transform);
+    }
 }
 
 /// Returns all available DRM devices.

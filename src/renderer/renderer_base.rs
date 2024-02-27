@@ -6,6 +6,7 @@ use {
         theme::Color,
         utils::transform_ext::TransformExt,
     },
+    jay_config::video::Transform,
     std::rc::Rc,
 };
 
@@ -14,6 +15,7 @@ pub struct RendererBase<'a> {
     pub scaled: bool,
     pub scale: Scale,
     pub scalef: f64,
+    pub transform: Transform,
     pub fb_width: f32,
     pub fb_height: f32,
 }
@@ -78,6 +80,7 @@ impl RendererBase<'_> {
                     (bx.y1() + dy) as f32,
                     (bx.x2() + dx) as f32,
                     (bx.y2() + dy) as f32,
+                    self.transform,
                     self.fb_width,
                     self.fb_height,
                 ),
@@ -109,6 +112,7 @@ impl RendererBase<'_> {
                     y1 + dy,
                     x2 + dx,
                     y2 + dy,
+                    self.transform,
                     self.fb_width,
                     self.fb_height,
                 ),
@@ -158,6 +162,7 @@ impl RendererBase<'_> {
                 target_y[0] as f32,
                 target_x[1] as f32,
                 target_y[1] as f32,
+                self.transform,
                 self.fb_width,
                 self.fb_height,
             ),

@@ -97,7 +97,7 @@ impl GfxFramebuffer for Framebuffer {
         ops
     }
 
-    fn size(&self) -> (i32, i32) {
+    fn physical_size(&self) -> (i32, i32) {
         (self.gl.width, self.gl.height)
     }
 

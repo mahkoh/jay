@@ -20,6 +20,7 @@ use {
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
             opaque_cell::OpaqueCell, oserror::OsError, syncqueue::SyncQueue,
+            transform_ext::TransformExt,
         },
         video::{
             dmabuf::DmaBufId,
@@ -37,7 +38,7 @@ use {
     ahash::{AHashMap, AHashSet},
     bstr::{BString, ByteSlice},
     indexmap::{indexset, IndexSet},
-    jay_config::video::{GfxApi, Transform},
+    jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -284,7 +285,7 @@ impl HardwareCursor for MetalHardwareCursor {
         }
     }
 
-    fn max_size(&self) -> (i32, i32) {
+    fn size(&self) -> (i32, i32) {
         (
             self.connector.dev.cursor_width as _,
             self.connector.dev.cursor_height as _,
@@ -473,7 +474,7 @@ impl MetalConnector {
             }
             ct
         };
-        if ct.source.buffer_transform != Transform::None {
+        if ct.source.buffer_transform != ct.target.output_transform {
             // Rotations and mirroring are not supported.
             return None;
         }
@@ -489,11 +490,15 @@ impl MetalConnector {
         let (x1, x2, y1, y2) = {
             let plane_w = plane.mode_w.get() as f32;
             let plane_h = plane.mode_h.get() as f32;
+            let ((x1, x2), (y1, y2)) = ct
+                .target
+                .output_transform
+                .maybe_swap(((ct.target.x1, ct.target.x2), (ct.target.y1, ct.target.y2)));
             (
-                (ct.target.x1 + 1.0) * plane_w / 2.0,
-                (ct.target.x2 + 1.0) * plane_w / 2.0,
-                (ct.target.y1 + 1.0) * plane_h / 2.0,
-                (ct.target.y2 + 1.0) * plane_h / 2.0,
+                (x1 + 1.0) * plane_w / 2.0,
+                (x2 + 1.0) * plane_w / 2.0,
+                (y1 + 1.0) * plane_h / 2.0,
+                (y2 + 1.0) * plane_h / 2.0,
             )
         };
         let (crtc_w, crtc_h) = (x2 - x1, y2 - y1);
@@ -594,6 +599,7 @@ impl MetalConnector {
             output.global.preferred_scale.get(),
             render_hw_cursor,
             output.has_fullscreen(),
+            output.global.transform.get(),
         );
         let try_direct_scanout = try_direct_scanout
             && self.direct_scanout_enabled()
@@ -719,7 +725,7 @@ impl MetalConnector {
                         buffer.dev_fb.copy_texture(tex, 0, 0);
                     }
                 }
-                let (width, height) = buffer.dev_fb.size();
+                let (width, height) = buffer.dev_fb.physical_size();
                 changes.change_object(plane.id, |c| {
                     c.change(plane.fb_id, buffer.drm.id().0 as _);
                     c.change(plane.crtc_id.id, crtc.id.0 as _);

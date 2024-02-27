@@ -5,7 +5,7 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
-        video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi},
+        video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi, Transform},
         Axis, Direction, PciId, Workspace,
     },
     serde::{Deserialize, Serialize},
@@ -341,6 +341,10 @@ pub enum ClientMessage<'a> {
     SetDirectScanoutEnabled {
         device: Option<DrmDevice>,
         enabled: bool,
+    },
+    ConnectorSetTransform {
+        connector: Connector,
+        transform: Transform,
     },
 }
 

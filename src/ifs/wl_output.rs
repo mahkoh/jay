@@ -19,10 +19,12 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             linkedlist::LinkedList,
+            transform_ext::TransformExt,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
     ahash::AHashMap,
+    jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -73,9 +75,10 @@ pub struct WlOutputGlobal {
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
     pub preferred_scale: Cell<crate::scale::Scale>,
+    pub transform: Cell<Transform>,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Hash)]
 pub struct OutputId {
     pub manufacturer: String,
     pub model: String,
@@ -100,16 +103,24 @@ impl WlOutputGlobal {
         width_mm: i32,
         height_mm: i32,
     ) -> Self {
+        let output_id = Rc::new(OutputId {
+            manufacturer: manufacturer.to_string(),
+            model: product.to_string(),
+            serial_number: serial_number.to_string(),
+        });
+        let transform = state
+            .output_transforms
+            .borrow()
+            .get(&output_id)
+            .copied()
+            .unwrap_or(Transform::None);
+        let (width, height) = transform.maybe_swap((mode.width, mode.height));
         Self {
             name,
             state: state.clone(),
             connector: connector.clone(),
-            pos: Cell::new(Rect::new_sized(x1, 0, mode.width, mode.height).unwrap()),
-            output_id: Rc::new(OutputId {
-                manufacturer: manufacturer.to_string(),
-                model: product.to_string(),
-                serial_number: serial_number.to_string(),
-            }),
+            pos: Cell::new(Rect::new_sized(x1, 0, width, height).unwrap()),
+            output_id,
             mode: Cell::new(*mode),
             node: Default::default(),
             width_mm,
@@ -120,6 +131,7 @@ impl WlOutputGlobal {
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(1),
             preferred_scale: Cell::new(crate::scale::Scale::from_int(1)),
+            transform: Cell::new(transform),
         }
     }
 
@@ -240,6 +252,7 @@ impl WlOutputGlobal {
                     mem,
                     *stride,
                     wl_buffer.format,
+                    Transform::None,
                 );
             } else {
                 let fb = match wl_buffer.famebuffer.get() {
@@ -258,6 +271,7 @@ impl WlOutputGlobal {
                     x_off - capture.rect.x1(),
                     y_off - capture.rect.y1(),
                     size,
+                    Transform::None,
                 );
             }
             if capture.with_damage.get() {
@@ -268,6 +282,11 @@ impl WlOutputGlobal {
         for capture in captures {
             capture.output_link.take();
         }
+    }
+
+    pub fn pixel_size(&self) -> (i32, i32) {
+        let mode = self.mode.get();
+        self.transform.get().maybe_swap((mode.width, mode.height))
     }
 }
 
@@ -314,7 +333,7 @@ impl WlOutput {
             subpixel: SP_UNKNOWN,
             make: &self.global.output_id.manufacturer,
             model: &self.global.output_id.model,
-            transform: TF_NORMAL,
+            transform: self.global.transform.get().to_wl(),
         };
         self.client.event(event);
     }
