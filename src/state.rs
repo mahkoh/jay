@@ -40,7 +40,7 @@ use {
         leaks::Tracker,
         logger::Logger,
         rect::Rect,
-        renderer::{renderer_base::RendererBase, RenderResult, Renderer},
+        renderer::{RenderResult, Renderer},
         scale::Scale,
         theme::{Color, Theme},
         tree::{
@@ -771,12 +771,7 @@ impl State {
         let mut ops = target.take_render_ops();
         let (width, height) = target.size();
         let mut renderer = Renderer {
-            base: RendererBase {
-                ops: &mut ops,
-                scaled: false,
-                scale: Scale::from_int(1),
-                scalef: 1.0,
-            },
+            base: target.renderer_base(&mut ops, Scale::from_int(1)),
             state: self,
             result: None,
             logical_extents: position.at_point(0, 0),

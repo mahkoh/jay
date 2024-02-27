@@ -173,15 +173,19 @@ impl dyn GfxFramebuffer {
         self.render(ops, Some(&Color { r, g, b, a }));
     }
 
+    pub fn renderer_base<'a>(&self, ops: &'a mut Vec<GfxApiOpt>, scale: Scale) -> RendererBase<'a> {
+        RendererBase {
+            ops,
+            scaled: scale != 1,
+            scale,
+            scalef: scale.to_f64(),
+        }
+    }
+
     pub fn copy_texture(&self, texture: &Rc<dyn GfxTexture>, x: i32, y: i32) {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
-        let mut renderer = RendererBase {
-            ops: &mut ops,
-            scaled: false,
-            scale,
-            scalef: 1.0,
-        };
+        let mut renderer = self.renderer_base(&mut ops, scale);
         renderer.render_texture(texture, x, y, None, None, scale, None);
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear);
@@ -194,12 +198,7 @@ impl dyn GfxFramebuffer {
         f: &mut dyn FnMut(&mut RendererBase),
     ) {
         let mut ops = self.take_render_ops();
-        let mut renderer = RendererBase {
-            ops: &mut ops,
-            scaled: scale != 1,
-            scale,
-            scalef: scale.to_f64(),
-        };
+        let mut renderer = self.renderer_base(&mut ops, scale);
         f(&mut renderer);
         self.render(ops, clear);
     }
@@ -217,12 +216,7 @@ impl dyn GfxFramebuffer {
         let mut ops = self.take_render_ops();
         let (width, height) = self.size();
         let mut renderer = Renderer {
-            base: RendererBase {
-                ops: &mut ops,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
-            },
+            base: self.renderer_base(&mut ops, scale),
             state,
             result,
             logical_extents: node.node_absolute_position().at_point(0, 0),
@@ -313,12 +307,7 @@ impl dyn GfxFramebuffer {
         let mut ops = self.take_render_ops();
         let (width, height) = self.size();
         let mut renderer = Renderer {
-            base: RendererBase {
-                ops: &mut ops,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
-            },
+            base: self.renderer_base(&mut ops, scale),
             state,
             result: None,
             logical_extents: Rect::new_empty(0, 0),
