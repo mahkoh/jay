@@ -16,14 +16,10 @@ use {
         client::{Client, ClientError, RequestParser},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::{BufferPoint, BufferPoints},
+        gfx_api::SampleRect,
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
-            wl_output::{
-                TF_180, TF_270, TF_90, TF_FLIPPED, TF_FLIPPED_180, TF_FLIPPED_270, TF_FLIPPED_90,
-                TF_NORMAL,
-            },
             wl_seat::{
                 wl_pointer::PendingScroll, zwp_pointer_constraints_v1::SeatConstraint, Dnd,
                 NodeSeatState, SeatId, WlSeatGlobal,
@@ -54,6 +50,7 @@ use {
             linkedlist::LinkedList,
             numcell::NumCell,
             smallmap::SmallMap,
+            transform_ext::TransformExt,
         },
         wire::{
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
@@ -63,6 +60,7 @@ use {
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
+    jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -83,110 +81,6 @@ const INVALID_SIZE: u32 = 2;
 
 const OFFSET_SINCE: u32 = 5;
 const BUFFER_SCALE_SINCE: u32 = 6;
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Transform {
-    Normal,
-    Rotate90,
-    Rotate180,
-    Rotate270,
-    Flipped,
-    Flipped90,
-    Flipped180,
-    Flipped270,
-}
-
-impl Transform {
-    fn swaps_dimensions(self) -> bool {
-        match self {
-            Transform::Normal => false,
-            Transform::Rotate90 => true,
-            Transform::Rotate180 => false,
-            Transform::Rotate270 => true,
-            Transform::Flipped => false,
-            Transform::Flipped90 => true,
-            Transform::Flipped180 => false,
-            Transform::Flipped270 => true,
-        }
-    }
-}
-
-impl Transform {
-    fn apply_inv_sized(self, x1: f32, y1: f32, width: f32, height: f32) -> BufferPoints {
-        let x2 = x1 + width;
-        let y2 = y1 + height;
-        self.apply_inv(x1, y1, x2, y2)
-    }
-
-    fn apply_inv(self, x1: f32, y1: f32, x2: f32, y2: f32) -> BufferPoints {
-        macro_rules! bp {
-            (
-                $tl_x:expr, $tl_y:expr,
-                $tr_x:expr, $tr_y:expr,
-                $br_x:expr, $br_y:expr,
-                $bl_x:expr, $bl_y:expr,
-            ) => {
-                BufferPoints {
-                    top_left: BufferPoint { x: $tl_x, y: $tl_y },
-                    top_right: BufferPoint { x: $tr_x, y: $tr_y },
-                    bottom_right: BufferPoint { x: $br_x, y: $br_y },
-                    bottom_left: BufferPoint { x: $bl_x, y: $bl_y },
-                }
-            };
-        }
-        use Transform::*;
-        match self {
-            Normal => bp! {
-                x1, y1,
-                x2, y1,
-                x2, y2,
-                x1, y2,
-            },
-            Rotate90 => bp! {
-                y1, x2,
-                y1, x1,
-                y2, x1,
-                y2, x2,
-            },
-            Rotate180 => bp! {
-                x2, y2,
-                x1, y2,
-                x1, y1,
-                x2, y1,
-            },
-            Rotate270 => bp! {
-                y2, x1,
-                y2, x2,
-                y1, x2,
-                y1, x1,
-            },
-            Flipped => bp! {
-                x2, y1,
-                x1, y1,
-                x1, y2,
-                x2, y2,
-            },
-            Flipped90 => bp! {
-                y1, x1,
-                y1, x2,
-                y2, x2,
-                y2, x1,
-            },
-            Flipped180 => bp! {
-                x1, y2,
-                x2, y2,
-                x2, y1,
-                x1, y1,
-            },
-            Flipped270 => bp! {
-                y2, x2,
-                y2, x1,
-                y1, x1,
-                y1, x2,
-            },
-        }
-    }
-}
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SurfaceRole {
@@ -233,7 +127,7 @@ pub struct WlSurface {
     input_region: Cell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
-    pub buffer_points_norm: RefCell<BufferPoints>,
+    pub buffer_points_norm: RefCell<SampleRect>,
     buffer_transform: Cell<Transform>,
     buffer_scale: Cell<i32>,
     src_rect: Cell<Option<[Fixed; 4]>>,
@@ -271,6 +165,14 @@ impl Debug for WlSurface {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WlSurface").finish_non_exhaustive()
     }
+}
+
+#[derive(Default)]
+struct BufferPoints {
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -387,7 +289,7 @@ impl WlSurface {
             opaque_region: Default::default(),
             buffer_points: Default::default(),
             buffer_points_norm: Default::default(),
-            buffer_transform: Cell::new(Transform::Normal),
+            buffer_transform: Cell::new(Transform::None),
             buffer_scale: Cell::new(1),
             src_rect: Cell::new(None),
             dst_size: Cell::new(None),
@@ -823,10 +725,12 @@ impl WlSurface {
                         width *= scale;
                         height *= scale;
                     }
-                    *buffer_points = self
-                        .buffer_transform
-                        .get()
-                        .apply_inv_sized(x1, y1, width, height);
+                    *buffer_points = BufferPoints {
+                        x1,
+                        y1,
+                        x2: x1 + width,
+                        y2: y1 + height,
+                    };
                 }
                 let size = match self.dst_size.get() {
                     Some(ds) => ds,
@@ -838,10 +742,8 @@ impl WlSurface {
             }
             if let Some(buffer) = self.buffer.get() {
                 if new_size.is_none() {
-                    let (mut width, mut height) = buffer.rect.size();
-                    if self.buffer_transform.get().swaps_dimensions() {
-                        mem::swap(&mut width, &mut height);
-                    }
+                    let (mut width, mut height) =
+                        self.buffer_transform.get().maybe_swap(buffer.rect.size());
                     let scale = self.buffer_scale.get();
                     if scale != 1 {
                         width = (width + scale - 1) / scale;
@@ -850,19 +752,29 @@ impl WlSurface {
                     new_size = Some((width, height));
                 }
                 if transform_changed || Some(buffer.rect) != old_raw_size {
-                    if self.src_rect.get().is_none() {
-                        *buffer_points = self
-                            .buffer_transform
-                            .get()
-                            .apply_inv_sized(0.0, 0.0, 1.0, 1.0);
-                        *buffer_points_norm = *buffer_points;
+                    let (x1, y1, x2, y2) = if self.src_rect.get().is_none() {
+                        (0.0, 0.0, 1.0, 1.0)
                     } else {
-                        *buffer_points_norm = buffer_points
-                            .norm(buffer.rect.width() as f32, buffer.rect.height() as f32);
-                        if !buffer_points_norm.is_leq_1() {
+                        let (width, height) =
+                            self.buffer_transform.get().maybe_swap(buffer.rect.size());
+                        let width = width as f32;
+                        let height = height as f32;
+                        let x1 = buffer_points.x1 / width;
+                        let x2 = buffer_points.x2 / width;
+                        let y1 = buffer_points.y1 / height;
+                        let y2 = buffer_points.y2 / height;
+                        if x1 > 1.0 || x2 > 1.0 || y1 > 1.0 || y2 > 1.0 {
                             return Err(WlSurfaceError::ViewportOutsideBuffer);
                         }
-                    }
+                        (x1, y1, x2, y2)
+                    };
+                    *buffer_points_norm = SampleRect {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        buffer_transform: self.buffer_transform.get(),
+                    };
                 }
             }
             let (width, height) = new_size.unwrap_or_default();
@@ -932,17 +844,8 @@ impl WlSurface {
 
     fn set_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: SetBufferTransform = self.parse(parser)?;
-        use Transform::*;
-        let tf = match req.transform {
-            TF_NORMAL => Normal,
-            TF_90 => Rotate90,
-            TF_180 => Rotate180,
-            TF_270 => Rotate270,
-            TF_FLIPPED => Flipped,
-            TF_FLIPPED_90 => Flipped90,
-            TF_FLIPPED_180 => Flipped180,
-            TF_FLIPPED_270 => Flipped270,
-            _ => return Err(WlSurfaceError::UnknownBufferTransform(req.transform)),
+        let Some(tf) = Transform::from_wl(req.transform) else {
+            return Err(WlSurfaceError::UnknownBufferTransform(req.transform));
         };
         self.pending.transform.set(Some(tf));
         Ok(())

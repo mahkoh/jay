@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::{BufferPoints, GfxApiOpt},
+        gfx_api::{GfxApiOpt, SampleRect},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -350,7 +350,7 @@ impl Renderer<'_> {
         buffer: &WlBuffer,
         x: i32,
         y: i32,
-        tpoints: BufferPoints,
+        tpoints: SampleRect,
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {

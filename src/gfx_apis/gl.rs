@@ -68,7 +68,8 @@ macro_rules! dynload {
 use {
     crate::{
         gfx_api::{
-            BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
+            CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
+            SampleRect,
         },
         gfx_apis::gl::{
             gl::texture::image_target,
@@ -184,7 +185,7 @@ enum RenderError {
 
 #[derive(Default)]
 struct GfxGlState {
-    triangles: RefCell<Vec<f32>>,
+    triangles: RefCell<Vec<[f32; 2]>>,
     fill_rect: VecStorage<&'static FillRect>,
     copy_tex: VecStorage<&'static CopyTexture>,
 }
@@ -198,8 +199,6 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
     let copy_tex = &mut *copy_tex;
     let mut triangles = state.triangles.borrow_mut();
     let triangles = &mut *triangles;
-    let width = fb.gl.width as f32;
-    let height = fb.gl.height as f32;
     let mut i = 0;
     while i < ops.len() {
         macro_rules! has_ops {
@@ -240,19 +239,14 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
                         Some(c) if c == fr.color => {}
                         _ => break,
                     }
-                    let x1 = 2.0 * (fr.rect.x1 / width) - 1.0;
-                    let x2 = 2.0 * (fr.rect.x2 / width) - 1.0;
-                    let y1 = 2.0 * (fr.rect.y1 / height) - 1.0;
-                    let y2 = 2.0 * (fr.rect.y2 / height) - 1.0;
+                    let [top_right, top_left, bottom_right, bottom_left] = fr.rect.to_points();
                     triangles.extend_from_slice(&[
-                        // triangle 1
-                        x2, y1, // top right
-                        x1, y1, // top left
-                        x1, y2, // bottom left
-                        // triangle 2
-                        x2, y1, // top right
-                        x1, y2, // bottom left
-                        x2, y2, // bottom right
+                        top_right,
+                        top_left,
+                        bottom_left,
+                        top_right,
+                        bottom_left,
+                        bottom_right,
                     ]);
                     i += 1;
                 }
@@ -262,16 +256,12 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
             }
         }
         for tex in &*copy_tex {
-            let x1 = 2.0 * (tex.target.x1 / width) - 1.0;
-            let y1 = 2.0 * (tex.target.y1 / height) - 1.0;
-            let x2 = 2.0 * (tex.target.x2 / width) - 1.0;
-            let y2 = 2.0 * (tex.target.y2 / height) - 1.0;
-            render_texture(&fb.ctx, &tex.tex.as_gl(), x1, y1, x2, y2, &tex.source)
+            render_texture(&fb.ctx, &tex.tex.as_gl(), &tex.target, &tex.source)
         }
     }
 }
 
-fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
+fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
     let gles = ctx.ctx.dpy.gles;
     unsafe {
         (gles.glUseProgram)(ctx.fill_prog.prog);
@@ -285,7 +275,7 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
             boxes.as_ptr() as _,
         );
         (gles.glEnableVertexAttribArray)(ctx.fill_prog_pos as _);
-        (gles.glDrawArrays)(GL_TRIANGLES, 0, (boxes.len() / 2) as _);
+        (gles.glDrawArrays)(GL_TRIANGLES, 0, boxes.len() as _);
         (gles.glDisableVertexAttribArray)(ctx.fill_prog_pos as _);
     }
 }
@@ -293,11 +283,8 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[f32], color: &Color) {
 fn render_texture(
     ctx: &GlRenderContext,
     texture: &Texture,
-    x1: f32,
-    y1: f32,
-    x2: f32,
-    y2: f32,
-    src: &BufferPoints,
+    target_rect: &FramebufferRect,
+    src: &SampleRect,
 ) {
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
     let gles = ctx.ctx.dpy.gles;
@@ -334,23 +321,8 @@ fn render_texture(
 
         (gles.glUniform1i)(prog.tex, 0);
 
-        let texcoord = [
-            src.top_right.x,
-            src.top_right.y,
-            src.top_left.x,
-            src.top_left.y,
-            src.bottom_right.x,
-            src.bottom_right.y,
-            src.bottom_left.x,
-            src.bottom_left.y,
-        ];
-
-        let pos = [
-            x2, y1, // top right
-            x1, y1, // top left
-            x2, y2, // bottom right
-            x1, y2, // bottom left
-        ];
+        let texcoord = src.to_points();
+        let pos = target_rect.to_points();
 
         (gles.glVertexAttribPointer)(
             prog.texcoord as _,

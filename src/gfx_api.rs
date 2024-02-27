@@ -14,7 +14,7 @@ use {
     },
     ahash::AHashMap,
     indexmap::IndexSet,
-    jay_config::video::GfxApi,
+    jay_config::video::{GfxApi, Transform},
     std::{
         any::Any,
         cell::Cell,
@@ -38,98 +38,89 @@ pub struct GfxRenderPass {
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
-pub struct BufferPoint {
-    pub x: f32,
-    pub y: f32,
+pub struct SampleRect {
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
+    pub buffer_transform: Transform,
 }
 
-impl BufferPoint {
-    pub fn is_leq_1(&self) -> bool {
-        self.x <= 1.0 && self.y <= 1.0
-    }
-
-    pub fn top_left() -> Self {
-        Self { x: 0.0, y: 0.0 }
-    }
-
-    pub fn top_right() -> Self {
-        Self { x: 1.0, y: 0.0 }
-    }
-
-    pub fn bottom_left() -> Self {
-        Self { x: 0.0, y: 1.0 }
-    }
-
-    pub fn bottom_right() -> Self {
-        Self { x: 1.0, y: 1.0 }
-    }
-}
-
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
-pub struct BufferPoints {
-    pub top_left: BufferPoint,
-    pub top_right: BufferPoint,
-    pub bottom_left: BufferPoint,
-    pub bottom_right: BufferPoint,
-}
-
-impl BufferPoints {
-    pub fn norm(&self, width: f32, height: f32) -> Self {
+impl SampleRect {
+    pub fn identity() -> Self {
         Self {
-            top_left: BufferPoint {
-                x: self.top_left.x / width,
-                y: self.top_left.y / height,
-            },
-            top_right: BufferPoint {
-                x: self.top_right.x / width,
-                y: self.top_right.y / height,
-            },
-            bottom_left: BufferPoint {
-                x: self.bottom_left.x / width,
-                y: self.bottom_left.y / height,
-            },
-            bottom_right: BufferPoint {
-                x: self.bottom_right.x / width,
-                y: self.bottom_right.y / height,
-            },
+            x1: 0.0,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+            buffer_transform: Transform::None,
         }
     }
 
-    pub fn is_leq_1(&self) -> bool {
-        self.top_left.is_leq_1()
-            && self.top_right.is_leq_1()
-            && self.bottom_left.is_leq_1()
-            && self.bottom_right.is_leq_1()
+    pub fn is_covering(&self) -> bool {
+        self.x1 == 0.0 && self.y1 == 0.0 && self.x2 == 1.0 && self.y2 == 1.0
     }
 
-    pub fn identity() -> Self {
-        Self {
-            top_left: BufferPoint::top_left(),
-            top_right: BufferPoint::top_right(),
-            bottom_left: BufferPoint::bottom_left(),
-            bottom_right: BufferPoint::bottom_right(),
+    pub fn to_points(&self) -> [[f32; 2]; 4] {
+        use Transform::*;
+        let x1 = self.x1;
+        let x2 = self.x2;
+        let y1 = self.y1;
+        let y2 = self.y2;
+        match self.buffer_transform {
+            None => [[x2, y1], [x1, y1], [x2, y2], [x1, y2]],
+            Rotate90 => [[y1, x1], [y1, x2], [y2, x1], [y2, x2]],
+            Rotate180 => [[x1, y2], [x2, y2], [x1, y1], [x2, y1]],
+            Rotate270 => [[y2, x2], [y2, x1], [y1, x2], [y1, x1]],
+            Flip => [[x1, y1], [x2, y1], [x1, y2], [x2, y2]],
+            FlipRotate90 => [[y1, x2], [y1, x1], [y2, x2], [y2, x1]],
+            FlipRotate180 => [[x2, y2], [x1, y2], [x2, y1], [x1, y1]],
+            FlipRotate270 => [[y2, x1], [y2, x2], [y1, x1], [y1, x2]],
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct AbsoluteRect {
+pub struct FramebufferRect {
     pub x1: f32,
     pub x2: f32,
     pub y1: f32,
     pub y2: f32,
 }
 
+impl FramebufferRect {
+    pub fn new(x1: f32, y1: f32, x2: f32, y2: f32, width: f32, height: f32) -> Self {
+        Self {
+            x1: 2.0 * x1 / width - 1.0,
+            x2: 2.0 * x2 / width - 1.0,
+            y1: 2.0 * y1 / height - 1.0,
+            y2: 2.0 * y2 / height - 1.0,
+        }
+    }
+
+    pub fn to_points(&self) -> [[f32; 2]; 4] {
+        let x1 = self.x1;
+        let x2 = self.x2;
+        let y1 = self.y1;
+        let y2 = self.y2;
+        [[x2, y1], [x1, y1], [x2, y2], [x1, y2]]
+    }
+
+    pub fn is_covering(&self) -> bool {
+        self.x1 == -1.0 && self.y1 == -1.0 && self.x2 == 1.0 && self.y2 == 1.0
+    }
+}
+
 #[derive(Debug)]
 pub struct FillRect {
-    pub rect: AbsoluteRect,
+    pub rect: FramebufferRect,
     pub color: Color,
 }
 
 pub struct CopyTexture {
     pub tex: Rc<dyn GfxTexture>,
-    pub source: BufferPoints,
-    pub target: AbsoluteRect,
+    pub source: SampleRect,
+    pub target: FramebufferRect,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -174,11 +165,14 @@ impl dyn GfxFramebuffer {
     }
 
     pub fn renderer_base<'a>(&self, ops: &'a mut Vec<GfxApiOpt>, scale: Scale) -> RendererBase<'a> {
+        let (width, height) = self.size();
         RendererBase {
             ops,
             scaled: scale != 1,
             scale,
             scalef: scale.to_f64(),
+            fb_width: width as _,
+            fb_height: height as _,
         }
     }
 

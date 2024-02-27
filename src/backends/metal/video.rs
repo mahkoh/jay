@@ -9,10 +9,7 @@ use {
         drm_feedback::DrmFeedback,
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
-        gfx_api::{
-            AbsoluteRect, BufferPoints, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass,
-            GfxTexture,
-        },
+        gfx_api::{GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass, GfxTexture},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
@@ -40,7 +37,7 @@ use {
     ahash::{AHashMap, AHashSet},
     bstr::{BString, ByteSlice},
     indexmap::{indexset, IndexSet},
-    jay_config::video::GfxApi,
+    jay_config::video::{GfxApi, Transform},
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -428,8 +425,6 @@ impl MetalConnector {
         pass: &GfxRenderPass,
         plane: &Rc<MetalPlane>,
     ) -> Option<DirectScanoutData> {
-        let plane_w = plane.mode_w.get();
-        let plane_h = plane.mode_h.get();
         let ct = 'ct: {
             let mut ops = pass.ops.iter().rev();
             let ct = 'ct2: {
@@ -445,13 +440,7 @@ impl MetalConnector {
                 }
                 return None;
             };
-            let plane_rect = AbsoluteRect {
-                x1: 0.0,
-                x2: plane_w as f32,
-                y1: 0.0,
-                y2: plane_h as f32,
-            };
-            if !ct.tex.format().has_alpha && ct.target == plane_rect {
+            if !ct.tex.format().has_alpha && ct.target.is_covering() {
                 // Texture covers the entire screen and is opaque.
                 break 'ct ct;
             }
@@ -461,7 +450,7 @@ impl MetalConnector {
                     GfxApiOpt::FillRect(fr) => {
                         if fr.color == Color::SOLID_BLACK {
                             // Black fills can be ignored because this is the CRTC background color.
-                            if fr.rect == plane_rect {
+                            if fr.rect.is_covering() {
                                 // If fill covers the entire screen, we don't have to look further.
                                 break 'ct ct;
                             }
@@ -484,20 +473,30 @@ impl MetalConnector {
             }
             ct
         };
-        if ct.source != BufferPoints::identity() {
-            // Non-trivial transforms are not supported.
+        if ct.source.buffer_transform != Transform::None {
+            // Rotations and mirroring are not supported.
             return None;
         }
-        if ct.target.x1 < 0.0
-            || ct.target.y1 < 0.0
-            || ct.target.x2 > plane_w as f32
-            || ct.target.y2 > plane_h as f32
-        {
+        if !ct.source.is_covering() {
+            // Viewports are not supported.
+            return None;
+        }
+        if ct.target.x1 < -1.0 || ct.target.y1 < -1.0 || ct.target.x2 > 1.0 || ct.target.y2 > 1.0 {
             // Rendering outside the screen is not supported.
             return None;
         }
         let (tex_w, tex_h) = ct.tex.size();
-        let (crtc_w, crtc_h) = (ct.target.x2 - ct.target.x1, ct.target.y2 - ct.target.y1);
+        let (x1, x2, y1, y2) = {
+            let plane_w = plane.mode_w.get() as f32;
+            let plane_h = plane.mode_h.get() as f32;
+            (
+                (ct.target.x1 + 1.0) * plane_w / 2.0,
+                (ct.target.x2 + 1.0) * plane_w / 2.0,
+                (ct.target.y1 + 1.0) * plane_h / 2.0,
+                (ct.target.y2 + 1.0) * plane_h / 2.0,
+            )
+        };
+        let (crtc_w, crtc_h) = (x2 - x1, y2 - y1);
         if crtc_w < 0.0 || crtc_h < 0.0 {
             // Flipping x or y axis is not supported.
             return None;
@@ -513,8 +512,8 @@ impl MetalConnector {
         let position = DirectScanoutPosition {
             src_width: tex_w,
             src_height: tex_h,
-            crtc_x: ct.target.x1 as _,
-            crtc_y: ct.target.y1 as _,
+            crtc_x: x1 as _,
+            crtc_y: y1 as _,
             crtc_width: crtc_w as _,
             crtc_height: crtc_h as _,
         };

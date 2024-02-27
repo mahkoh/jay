@@ -1,11 +1,10 @@
 use {
     crate::{
-        gfx_api::{
-            AbsoluteRect, BufferPoint, BufferPoints, CopyTexture, FillRect, GfxApiOpt, GfxTexture,
-        },
+        gfx_api::{CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture, SampleRect},
         rect::Rect,
         scale::Scale,
         theme::Color,
+        utils::transform_ext::TransformExt,
     },
     std::rc::Rc,
 };
@@ -15,6 +14,8 @@ pub struct RendererBase<'a> {
     pub scaled: bool,
     pub scale: Scale,
     pub scalef: f64,
+    pub fb_width: f32,
+    pub fb_height: f32,
 }
 
 impl RendererBase<'_> {
@@ -72,12 +73,14 @@ impl RendererBase<'_> {
         for bx in boxes {
             let bx = self.scale_rect(*bx);
             self.ops.push(GfxApiOpt::FillRect(FillRect {
-                rect: AbsoluteRect {
-                    x1: (bx.x1() + dx) as f32,
-                    y1: (bx.y1() + dy) as f32,
-                    x2: (bx.x2() + dx) as f32,
-                    y2: (bx.y2() + dy) as f32,
-                },
+                rect: FramebufferRect::new(
+                    (bx.x1() + dx) as f32,
+                    (bx.y1() + dy) as f32,
+                    (bx.x2() + dx) as f32,
+                    (bx.y2() + dy) as f32,
+                    self.fb_width,
+                    self.fb_height,
+                ),
                 color: *color,
             }));
         }
@@ -101,12 +104,14 @@ impl RendererBase<'_> {
         for bx in boxes {
             let (x1, y1, x2, y2) = self.scale_rect_f(*bx);
             self.ops.push(GfxApiOpt::FillRect(FillRect {
-                rect: AbsoluteRect {
-                    x1: x1 + dx,
-                    y1: y1 + dy,
-                    x2: x2 + dx,
-                    y2: y2 + dy,
-                },
+                rect: FramebufferRect::new(
+                    x1 + dx,
+                    y1 + dy,
+                    x2 + dx,
+                    y2 + dy,
+                    self.fb_width,
+                    self.fb_height,
+                ),
                 color: *color,
             }));
         }
@@ -117,22 +122,17 @@ impl RendererBase<'_> {
         texture: &Rc<dyn GfxTexture>,
         x: i32,
         y: i32,
-        tpoints: Option<BufferPoints>,
+        tpoints: Option<SampleRect>,
         tsize: Option<(i32, i32)>,
         tscale: Scale,
         bounds: Option<&Rect>,
     ) {
-        let mut texcoord = tpoints.unwrap_or(BufferPoints {
-            top_left: BufferPoint { x: 0.0, y: 0.0 },
-            top_right: BufferPoint { x: 1.0, y: 0.0 },
-            bottom_left: BufferPoint { x: 0.0, y: 1.0 },
-            bottom_right: BufferPoint { x: 1.0, y: 1.0 },
-        });
+        let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
         let (twidth, theight) = if let Some(size) = tsize {
             size
         } else {
-            let (mut w, mut h) = texture.size();
+            let (mut w, mut h) = texcoord.buffer_transform.maybe_swap(texture.size());
             if tscale != self.scale {
                 let tscale = tscale.to_f64();
                 w = (w as f64 * self.scalef / tscale).round() as _;
@@ -145,86 +145,79 @@ impl RendererBase<'_> {
         let mut target_y = [y, y + theight];
 
         if let Some(bounds) = bounds {
-            #[cold]
-            fn cold() {}
-
-            let bounds_x = [bounds.x1(), bounds.x2()];
-            let bounds_y = [bounds.y1(), bounds.y2()];
-
-            macro_rules! clamp {
-                ($desired:ident, $bounds:ident, $test_idx:expr, $test_cmp:ident, $test_cmp_eq:ident, $([$modify:ident, $keep:ident],)*) => {{
-                    let desired_test = $desired[$test_idx];
-                    let desired_other = $desired[1 - $test_idx];
-                    let bound = $bounds[$test_idx];
-                    if desired_test.$test_cmp(&bound) {
-                        cold();
-                        if desired_other.$test_cmp_eq(&bound) {
-                            return;
-                        }
-                        let max = (desired_other - bound) as f32;
-                        let desired = ($desired[1] - $desired[0]) as f32;
-                        let factor = max.abs() / desired;
-                        $(
-                            let dx = (texcoord.$modify.x - texcoord.$keep.x) * factor;
-                            texcoord.$modify.x = texcoord.$keep.x + dx;
-                            let dy = (texcoord.$modify.y - texcoord.$keep.y) * factor;
-                            texcoord.$modify.y = texcoord.$keep.y + dy;
-                        )*
-                        $desired[$test_idx] = bound;
-                    }
-                }};
+            if bound_target(&mut target_x, &mut target_y, &mut texcoord, bounds) {
+                return;
             }
-
-            clamp!(
-                target_x,
-                bounds_x,
-                0,
-                lt,
-                le,
-                [top_left, top_right],
-                [bottom_left, bottom_right],
-            );
-
-            clamp!(
-                target_x,
-                bounds_x,
-                1,
-                gt,
-                ge,
-                [top_right, top_left],
-                [bottom_right, bottom_left],
-            );
-
-            clamp!(
-                target_y,
-                bounds_y,
-                0,
-                lt,
-                le,
-                [top_left, bottom_left],
-                [top_right, bottom_right],
-            );
-
-            clamp!(
-                target_y,
-                bounds_y,
-                1,
-                gt,
-                ge,
-                [bottom_left, top_left],
-                [bottom_right, top_right],
-            );
         }
 
         self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
             tex: texture.clone(),
             source: texcoord,
-            target: AbsoluteRect {
-                x1: target_x[0] as f32,
-                y1: target_y[0] as f32,
-                x2: target_x[1] as f32,
-                y2: target_y[1] as f32,
-            },
+            target: FramebufferRect::new(
+                target_x[0] as f32,
+                target_y[0] as f32,
+                target_x[1] as f32,
+                target_y[1] as f32,
+                self.fb_width,
+                self.fb_height,
+            ),
         }));
     }
+}
+
+#[inline]
+fn bound_target(
+    target_x: &mut [i32; 2],
+    target_y: &mut [i32; 2],
+    texcoord: &mut SampleRect,
+    bounds: &Rect,
+) -> bool {
+    let bounds_x = [bounds.x1(), bounds.x2()];
+    let bounds_y = [bounds.y1(), bounds.y2()];
+
+    if target_x[0] >= bounds_x[0]
+        && target_x[1] <= bounds_x[1]
+        && target_y[0] >= bounds_y[0]
+        && target_y[1] <= bounds_y[1]
+    {
+        return false;
+    }
+
+    #[cold]
+    fn cold() {}
+    cold();
+
+    let SampleRect {
+        x1: ref mut t_x1,
+        x2: ref mut t_x2,
+        y1: ref mut t_y1,
+        y2: ref mut t_y2,
+        ..
+    } = texcoord;
+
+    macro_rules! clamp {
+        ($desired:ident, $bounds:ident, $test_idx:expr, $test_cmp:ident, $test_cmp_eq:ident, $modify:ident, $keep:ident) => {{
+            let desired_test = $desired[$test_idx];
+            let desired_other = $desired[1 - $test_idx];
+            let bound = $bounds[$test_idx];
+            if desired_test.$test_cmp(&bound) {
+                cold();
+                if desired_other.$test_cmp_eq(&bound) {
+                    return true;
+                }
+                let max = (desired_other - bound) as f32;
+                let desired = ($desired[1] - $desired[0]) as f32;
+                let factor = max.abs() / desired;
+                *$modify = *$keep + (*$modify - *$keep) * factor;
+                $desired[$test_idx] = bound;
+            }
+        }};
+    }
+
+    clamp!(target_x, bounds_x, 0, lt, le, t_x1, t_x2);
+    clamp!(target_x, bounds_x, 1, gt, ge, t_x2, t_x1);
+    clamp!(target_y, bounds_y, 0, lt, le, t_y1, t_y2);
+    clamp!(target_y, bounds_y, 1, gt, ge, t_y2, t_y1);
+
+    false
 }
