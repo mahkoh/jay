@@ -176,7 +176,6 @@ impl JayScreencast {
                 self.client.state.perform_screencopy(
                     texture,
                     &buffer.fb,
-                    on.global.preferred_scale.get(),
                     on.global.pos.get(),
                     render_hardware_cursors,
                     x_off,

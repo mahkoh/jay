@@ -415,6 +415,14 @@ pub trait GfxContext: Debug {
     fn gbm(&self) -> &GbmDevice;
 
     fn gfx_api(&self) -> GfxApi;
+
+    fn create_fb(
+        self: Rc<Self>,
+        width: i32,
+        height: i32,
+        stride: i32,
+        format: &'static Format,
+    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
 }
 
 #[derive(Debug)]

@@ -597,7 +597,6 @@ impl MetalConnector {
             output.has_fullscreen(),
         );
         let try_direct_scanout = try_direct_scanout
-            && !output.global.have_shm_screencopies()
             && self.direct_scanout_enabled()
             // at least on AMD, using a FB on a different device for rendering will fail
             // and destroy the render context. it's possible to work around this by waiting

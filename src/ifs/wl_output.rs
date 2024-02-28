@@ -18,7 +18,6 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
@@ -201,10 +200,6 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn have_shm_screencopies(&self) -> bool {
-        self.pending_captures.iter().any(|c| c.is_shm.get())
-    }
-
     pub fn perform_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
@@ -235,30 +230,17 @@ impl WlOutputGlobal {
             if let Some(WlBufferStorage::Shm { mem, stride }) =
                 wl_buffer.storage.borrow_mut().deref()
             {
-                let acc = mem.access(|mem| {
-                    tex.clone().read_pixels(
-                        capture.rect.x1(),
-                        capture.rect.y1(),
-                        capture.rect.width(),
-                        capture.rect.height(),
-                        *stride,
-                        wl_buffer.format,
-                        mem,
-                    )
-                });
-                let res = match acc {
-                    Ok(res) => res,
-                    Err(e) => {
-                        capture.client.error(e);
-                        continue;
-                    }
-                };
-                if let Err(e) = res {
-                    log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
-                    capture.send_failed();
-                    continue;
-                }
-                // capture.send_flags(FLAGS_Y_INVERT);
+                self.state.perform_shm_screencopy(
+                    tex,
+                    self.pos.get(),
+                    x_off,
+                    y_off,
+                    size,
+                    &capture,
+                    mem,
+                    *stride,
+                    wl_buffer.format,
+                );
             } else {
                 let fb = match wl_buffer.famebuffer.get() {
                     Some(fb) => fb,
@@ -271,7 +253,6 @@ impl WlOutputGlobal {
                 self.state.perform_screencopy(
                     tex,
                     &fb,
-                    self.preferred_scale.get(),
                     self.pos.get(),
                     render_hardware_cursors,
                     x_off - capture.rect.x1(),

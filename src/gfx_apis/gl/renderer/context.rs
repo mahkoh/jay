@@ -255,4 +255,17 @@ impl GfxContext for GlRenderContext {
     fn gfx_api(&self) -> GfxApi {
         GfxApi::OpenGl
     }
+
+    fn create_fb(
+        self: Rc<Self>,
+        width: i32,
+        height: i32,
+        _stride: i32,
+        format: &'static Format,
+    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        let fb = self.ctx.with_current(|| unsafe {
+            GlRenderBuffer::new(&self.ctx, width, height, format)?.create_framebuffer()
+        })?;
+        Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
+    }
 }

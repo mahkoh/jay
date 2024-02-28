@@ -9,12 +9,14 @@ use {
         backends::dummy::DummyBackend,
         cli::RunArgs,
         client::{Client, ClientId, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
+        clientmem::ClientMemOffset,
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
         fixed::Fixed,
         forker::ForkerProxy,
+        format::Format,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
@@ -30,6 +32,7 @@ use {
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 NoneSurfaceExt, WlSurface,
             },
+            zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
         },
@@ -759,7 +762,6 @@ impl State {
         &self,
         src: &Rc<dyn GfxTexture>,
         target: &Rc<dyn GfxFramebuffer>,
-        scale: Scale,
         position: Rect,
         render_hardware_cursors: bool,
         x_off: i32,
@@ -771,9 +773,9 @@ impl State {
         let mut renderer = Renderer {
             base: RendererBase {
                 ops: &mut ops,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
+                scaled: false,
+                scale: Scale::from_int(1),
+                scalef: 1.0,
             },
             state: self,
             result: None,
@@ -782,7 +784,7 @@ impl State {
         };
         renderer
             .base
-            .render_texture(src, x_off, y_off, None, size, scale, None);
+            .render_texture(src, x_off, y_off, None, size, Scale::from_int(1), None);
         if render_hardware_cursors {
             for seat in self.globals.lock_seats().values() {
                 if let Some(cursor) = seat.get_cursor() {
@@ -796,5 +798,101 @@ impl State {
             }
         }
         target.render(ops, Some(&Color::SOLID_BLACK));
+    }
+
+    fn have_hardware_cursor(&self) -> bool {
+        for seat in self.globals.lock_seats().values() {
+            if seat.get_cursor().is_some() {
+                if seat.hardware_cursor() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn perform_shm_screencopy(
+        &self,
+        src: &Rc<dyn GfxTexture>,
+        position: Rect,
+        x_off: i32,
+        y_off: i32,
+        size: Option<(i32, i32)>,
+        capture: &ZwlrScreencopyFrameV1,
+        mem: &ClientMemOffset,
+        stride: i32,
+        format: &'static Format,
+    ) {
+        let (src_width, src_height) = src.size();
+        let mut needs_copy = capture.rect.x1() < x_off
+            || capture.rect.x2() > x_off + src_width
+            || capture.rect.y1() < y_off
+            || capture.rect.y2() > y_off + src_height
+            || self.have_hardware_cursor();
+        if let Some((target_width, target_height)) = size {
+            if (target_width, target_height) != (src_width, src_height) {
+                needs_copy = true;
+            }
+        }
+        let acc = if needs_copy {
+            let Some(ctx) = self.render_ctx.get() else {
+                log::warn!("Cannot perform shm screencopy because there is no render context");
+                return;
+            };
+            let fb =
+                match ctx.create_fb(capture.rect.width(), capture.rect.height(), stride, format) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        log::warn!(
+                            "Could not create temporary fb for screencopy: {}",
+                            ErrorFmt(e)
+                        );
+                        return;
+                    }
+                };
+            self.perform_screencopy(
+                src,
+                &fb,
+                position,
+                true,
+                x_off - capture.rect.x1(),
+                y_off - capture.rect.y1(),
+                size,
+            );
+            mem.access(|mem| {
+                fb.copy_to_shm(
+                    0,
+                    0,
+                    capture.rect.width(),
+                    capture.rect.height(),
+                    stride,
+                    format,
+                    mem,
+                )
+            })
+        } else {
+            mem.access(|mem| {
+                src.clone().read_pixels(
+                    capture.rect.x1() - x_off,
+                    capture.rect.y1() - y_off,
+                    capture.rect.width(),
+                    capture.rect.height(),
+                    stride,
+                    format,
+                    mem,
+                )
+            })
+        };
+        let res = match acc {
+            Ok(res) => res,
+            Err(e) => {
+                capture.client.error(e);
+                return;
+            }
+        };
+        if let Err(e) = res {
+            log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
+            capture.send_failed();
+        }
     }
 }
