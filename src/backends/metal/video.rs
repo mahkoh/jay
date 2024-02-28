@@ -609,7 +609,6 @@ impl MetalConnector {
         if try_direct_scanout {
             if let Some(dsd) = self.prepare_direct_scanout(&pass, plane) {
                 output.perform_screencopies(
-                    None,
                     &dsd.tex,
                     !render_hw_cursor,
                     dsd.position.crtc_x,
@@ -634,14 +633,7 @@ impl MetalConnector {
                 if let Some(tex) = &buffer.dev_tex {
                     buffer.dev_fb.copy_texture(tex, 0, 0);
                 }
-                output.perform_screencopies(
-                    Some(&*buffer_fb),
-                    &buffer.render_tex,
-                    !render_hw_cursor,
-                    0,
-                    0,
-                    None,
-                );
+                output.perform_screencopies(&buffer.render_tex, !render_hw_cursor, 0, 0, None);
                 buffer.drm.clone()
             }
             Some(dsd) => dsd.fb.clone(),

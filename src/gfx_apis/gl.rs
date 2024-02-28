@@ -178,8 +178,8 @@ enum RenderError {
     ExternalUnsupported,
     #[error("OpenGL context does not support any formats")]
     NoSupportedFormats,
-    #[error("Unsupported operation")]
-    UnsupportedOperation,
+    #[error("Cannot convert a shm texture into a framebuffer")]
+    ShmTextureToFb,
 }
 
 #[derive(Default)]

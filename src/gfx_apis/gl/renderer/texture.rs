@@ -2,7 +2,11 @@ use {
     crate::{
         format::Format,
         gfx_api::{GfxError, GfxTexture, TextureReservations},
-        gfx_apis::gl::{gl::texture::GlTexture, renderer::context::GlRenderContext, RenderError},
+        gfx_apis::gl::{
+            gl::texture::GlTexture,
+            renderer::{context::GlRenderContext, framebuffer::Framebuffer},
+            RenderError,
+        },
         video::dmabuf::DmaBuf,
     },
     std::{
@@ -34,6 +38,13 @@ impl Texture {
     pub fn height(&self) -> i32 {
         self.gl.height
     }
+
+    pub fn to_framebuffer(&self) -> Result<Rc<Framebuffer>, RenderError> {
+        match &self.gl.img {
+            Some(img) => self.ctx.image_to_fb(img),
+            _ => Err(RenderError::ShmTextureToFb),
+        }
+    }
 }
 
 impl GfxTexture for Texture {
@@ -51,15 +62,17 @@ impl GfxTexture for Texture {
 
     fn read_pixels(
         self: Rc<Self>,
-        _x: i32,
-        _y: i32,
-        _width: i32,
-        _height: i32,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
         _stride: i32,
-        _format: &Format,
-        _shm: &[Cell<u8>],
+        format: &Format,
+        shm: &[Cell<u8>],
     ) -> Result<(), GfxError> {
-        Err(RenderError::UnsupportedOperation.into())
+        self.to_framebuffer()?
+            .copy_to_shm(x, y, width, height, format, shm);
+        Ok(())
     }
 
     fn dmabuf(&self) -> Option<&DmaBuf> {

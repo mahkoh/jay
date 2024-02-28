@@ -106,15 +106,16 @@ impl GfxFramebuffer for Framebuffer {
     }
 
     fn copy_to_shm(
-        &self,
+        self: Rc<Self>,
         x: i32,
         y: i32,
         width: i32,
         height: i32,
-        format: &Format,
+        _stride: i32,
+        format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError> {
-        self.copy_to_shm(x, y, width, height, format, shm);
+        (*self).copy_to_shm(x, y, width, height, format, shm);
         Ok(())
     }
 

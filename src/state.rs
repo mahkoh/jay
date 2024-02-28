@@ -751,7 +751,7 @@ impl State {
             output.global.preferred_scale.get(),
             render_hw_cursor,
         );
-        output.perform_screencopies(Some(&**fb), tex, !render_hw_cursor, 0, 0, None);
+        output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
         rr.dispatch_frame_requests();
     }
 

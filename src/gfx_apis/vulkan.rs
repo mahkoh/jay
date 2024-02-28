@@ -173,8 +173,6 @@ pub enum VulkanError {
         height: i32,
         stride: i32,
     },
-    #[error("Unsupported operation")]
-    UnsupportedOperation,
 }
 
 impl From<VulkanError> for GfxError {

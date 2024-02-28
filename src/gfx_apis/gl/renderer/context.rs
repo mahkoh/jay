@@ -6,7 +6,7 @@ use {
             ResetStatus,
         },
         gfx_apis::gl::{
-            egl::{context::EglContext, display::EglDisplay},
+            egl::{context::EglContext, display::EglDisplay, image::EglImage},
             ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
@@ -189,6 +189,20 @@ impl GlRenderContext {
             resv: Default::default(),
             format,
         }))
+    }
+
+    pub fn image_to_fb(
+        self: &Rc<Self>,
+        img: &Rc<EglImage>,
+    ) -> Result<Rc<Framebuffer>, RenderError> {
+        self.ctx.with_current(|| unsafe {
+            let rb = GlRenderBuffer::from_image(img, &self.ctx)?;
+            let fb = rb.create_framebuffer()?;
+            Ok(Rc::new(Framebuffer {
+                ctx: self.clone(),
+                gl: fb,
+            }))
+        })
     }
 }
 

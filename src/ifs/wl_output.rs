@@ -2,8 +2,7 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
-        format::XRGB8888,
-        gfx_api::{GfxFramebuffer, GfxTexture},
+        gfx_api::GfxTexture,
         globals::{Global, GlobalName},
         ifs::{
             wl_buffer::WlBufferStorage, wl_surface::WlSurface,
@@ -208,7 +207,6 @@ impl WlOutputGlobal {
 
     pub fn perform_screencopies(
         &self,
-        fb: Option<&dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
         render_hardware_cursors: bool,
         x_off: i32,
@@ -234,7 +232,6 @@ impl WlOutputGlobal {
                 capture.send_failed();
                 continue;
             }
-            let rect = capture.rect;
             if let Some(WlBufferStorage::Shm { mem, stride }) =
                 wl_buffer.storage.borrow_mut().deref()
             {
@@ -249,34 +246,13 @@ impl WlOutputGlobal {
                         mem,
                     )
                 });
-                let mut res = match acc {
+                let res = match acc {
                     Ok(res) => res,
                     Err(e) => {
                         capture.client.error(e);
                         continue;
                     }
                 };
-                if res.is_err() {
-                    if let Some(fb) = fb {
-                        let acc = mem.access(|mem| {
-                            fb.copy_to_shm(
-                                rect.x1(),
-                                rect.y1(),
-                                rect.width(),
-                                rect.height(),
-                                XRGB8888,
-                                mem,
-                            )
-                        });
-                        res = match acc {
-                            Ok(res) => res,
-                            Err(e) => {
-                                capture.client.error(e);
-                                continue;
-                            }
-                        };
-                    }
-                }
                 if let Err(e) = res {
                     log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
                     capture.send_failed();

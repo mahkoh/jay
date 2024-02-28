@@ -150,12 +150,13 @@ pub trait GfxFramebuffer: Debug {
     fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>);
 
     fn copy_to_shm(
-        &self,
+        self: Rc<Self>,
         x: i32,
         y: i32,
         width: i32,
         height: i32,
-        format: &Format,
+        stride: i32,
+        format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError>;
 

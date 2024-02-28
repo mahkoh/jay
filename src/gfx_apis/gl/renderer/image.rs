@@ -2,9 +2,8 @@ use {
     crate::{
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         gfx_apis::gl::{
-            egl::image::EglImage,
-            gl::{render_buffer::GlRenderBuffer, texture::GlTexture},
-            Framebuffer, GlRenderContext, RenderError, Texture,
+            egl::image::EglImage, gl::texture::GlTexture, Framebuffer, GlRenderContext,
+            RenderError, Texture,
         },
     },
     std::rc::Rc,
@@ -34,14 +33,7 @@ impl Image {
     }
 
     fn to_framebuffer(&self) -> Result<Rc<Framebuffer>, RenderError> {
-        self.ctx.ctx.with_current(|| unsafe {
-            let rb = GlRenderBuffer::from_image(&self.gl, &self.ctx.ctx)?;
-            let fb = rb.create_framebuffer()?;
-            Ok(Rc::new(Framebuffer {
-                ctx: self.ctx.clone(),
-                gl: fb,
-            }))
-        })
+        self.ctx.image_to_fb(&self.gl)
     }
 }
 
