@@ -97,7 +97,7 @@ impl GfxFramebuffer for Framebuffer {
         ops
     }
 
-    fn size(&self) -> (i32, i32) {
+    fn physical_size(&self) -> (i32, i32) {
         (self.gl.width, self.gl.height)
     }
 
@@ -106,19 +106,20 @@ impl GfxFramebuffer for Framebuffer {
     }
 
     fn copy_to_shm(
-        &self,
+        self: Rc<Self>,
         x: i32,
         y: i32,
         width: i32,
         height: i32,
-        format: &Format,
+        _stride: i32,
+        format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError> {
-        self.copy_to_shm(x, y, width, height, format, shm);
+        (*self).copy_to_shm(x, y, width, height, format, shm);
         Ok(())
     }
 
     fn format(&self) -> &'static Format {
-        self.gl.rb.img.dmabuf.format
+        self.gl.rb.format
     }
 }

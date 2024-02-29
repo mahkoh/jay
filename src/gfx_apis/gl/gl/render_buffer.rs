@@ -1,25 +1,53 @@
 use {
-    crate::gfx_apis::gl::{
-        egl::{context::EglContext, image::EglImage},
-        gl::{
-            frame_buffer::GlFrameBuffer,
-            sys::{
-                GLeglImageOES, GLuint, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
-                GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+    crate::{
+        format::Format,
+        gfx_apis::gl::{
+            egl::{context::EglContext, image::EglImage},
+            gl::{
+                frame_buffer::GlFrameBuffer,
+                sys::{
+                    GLeglImageOES, GLuint, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER,
+                    GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
+                },
             },
+            RenderError,
         },
-        RenderError,
     },
     std::rc::Rc,
 };
 
 pub struct GlRenderBuffer {
-    pub img: Rc<EglImage>,
+    pub _img: Option<Rc<EglImage>>,
     pub ctx: Rc<EglContext>,
+    pub width: i32,
+    pub height: i32,
+    pub format: &'static Format,
     rbo: GLuint,
 }
 
 impl GlRenderBuffer {
+    pub(in crate::gfx_apis::gl) unsafe fn new(
+        ctx: &Rc<EglContext>,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+    ) -> Result<Rc<GlRenderBuffer>, RenderError> {
+        let gles = &ctx.dpy.gles;
+        let mut rbo = 0;
+        (gles.glGenRenderbuffers)(1, &mut rbo);
+        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
+        (gles.glRenderbufferStorage)(GL_RENDERBUFFER, format.gl_internal_format, width, height);
+        (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
+        Ok(Rc::new(GlRenderBuffer {
+            _img: None,
+            ctx: ctx.clone(),
+            width,
+            height,
+            format,
+            rbo,
+        }))
+    }
+
     pub(in crate::gfx_apis::gl) unsafe fn from_image(
         img: &Rc<EglImage>,
         ctx: &Rc<EglContext>,
@@ -36,8 +64,11 @@ impl GlRenderBuffer {
             .glEGLImageTargetRenderbufferStorageOES(GL_RENDERBUFFER, GLeglImageOES(img.img.0));
         (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
         Ok(Rc::new(GlRenderBuffer {
-            img: img.clone(),
+            _img: Some(img.clone()),
             ctx: ctx.clone(),
+            width: img.dmabuf.width,
+            height: img.dmabuf.height,
+            format: img.dmabuf.format,
             rbo,
         }))
     }
@@ -62,8 +93,8 @@ impl GlRenderBuffer {
             _tex: None,
             ctx: self.ctx.clone(),
             fbo,
-            width: self.img.dmabuf.width,
-            height: self.img.dmabuf.height,
+            width: self.width,
+            height: self.height,
         };
         if status != GL_FRAMEBUFFER_COMPLETE {
             return Err(RenderError::CreateFramebuffer);

@@ -2,8 +2,7 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
-        format::XRGB8888,
-        gfx_api::{GfxFramebuffer, GfxTexture},
+        gfx_api::GfxTexture,
         globals::{Global, GlobalName},
         ifs::{
             wl_buffer::WlBufferStorage, wl_surface::WlSurface,
@@ -19,12 +18,13 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
+            transform_ext::TransformExt,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
     ahash::AHashMap,
+    jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
@@ -75,9 +75,10 @@ pub struct WlOutputGlobal {
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
     pub preferred_scale: Cell<crate::scale::Scale>,
+    pub transform: Cell<Transform>,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Hash)]
 pub struct OutputId {
     pub manufacturer: String,
     pub model: String,
@@ -102,16 +103,24 @@ impl WlOutputGlobal {
         width_mm: i32,
         height_mm: i32,
     ) -> Self {
+        let output_id = Rc::new(OutputId {
+            manufacturer: manufacturer.to_string(),
+            model: product.to_string(),
+            serial_number: serial_number.to_string(),
+        });
+        let transform = state
+            .output_transforms
+            .borrow()
+            .get(&output_id)
+            .copied()
+            .unwrap_or(Transform::None);
+        let (width, height) = transform.maybe_swap((mode.width, mode.height));
         Self {
             name,
             state: state.clone(),
             connector: connector.clone(),
-            pos: Cell::new(Rect::new_sized(x1, 0, mode.width, mode.height).unwrap()),
-            output_id: Rc::new(OutputId {
-                manufacturer: manufacturer.to_string(),
-                model: product.to_string(),
-                serial_number: serial_number.to_string(),
-            }),
+            pos: Cell::new(Rect::new_sized(x1, 0, width, height).unwrap()),
+            output_id,
             mode: Cell::new(*mode),
             node: Default::default(),
             width_mm,
@@ -122,6 +131,7 @@ impl WlOutputGlobal {
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(1),
             preferred_scale: Cell::new(crate::scale::Scale::from_int(1)),
+            transform: Cell::new(transform),
         }
     }
 
@@ -202,13 +212,8 @@ impl WlOutputGlobal {
         Ok(())
     }
 
-    pub fn have_shm_screencopies(&self) -> bool {
-        self.pending_captures.iter().any(|c| c.is_shm.get())
-    }
-
     pub fn perform_screencopies(
         &self,
-        fb: Option<&dyn GfxFramebuffer>,
         tex: &Rc<dyn GfxTexture>,
         render_hardware_cursors: bool,
         x_off: i32,
@@ -234,55 +239,21 @@ impl WlOutputGlobal {
                 capture.send_failed();
                 continue;
             }
-            let rect = capture.rect;
             if let Some(WlBufferStorage::Shm { mem, stride }) =
                 wl_buffer.storage.borrow_mut().deref()
             {
-                let acc = mem.access(|mem| {
-                    tex.clone().read_pixels(
-                        capture.rect.x1(),
-                        capture.rect.y1(),
-                        capture.rect.width(),
-                        capture.rect.height(),
-                        *stride,
-                        wl_buffer.format,
-                        mem,
-                    )
-                });
-                let mut res = match acc {
-                    Ok(res) => res,
-                    Err(e) => {
-                        capture.client.error(e);
-                        continue;
-                    }
-                };
-                if res.is_err() {
-                    if let Some(fb) = fb {
-                        let acc = mem.access(|mem| {
-                            fb.copy_to_shm(
-                                rect.x1(),
-                                rect.y1(),
-                                rect.width(),
-                                rect.height(),
-                                XRGB8888,
-                                mem,
-                            )
-                        });
-                        res = match acc {
-                            Ok(res) => res,
-                            Err(e) => {
-                                capture.client.error(e);
-                                continue;
-                            }
-                        };
-                    }
-                }
-                if let Err(e) = res {
-                    log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
-                    capture.send_failed();
-                    continue;
-                }
-                // capture.send_flags(FLAGS_Y_INVERT);
+                self.state.perform_shm_screencopy(
+                    tex,
+                    self.pos.get(),
+                    x_off,
+                    y_off,
+                    size,
+                    &capture,
+                    mem,
+                    *stride,
+                    wl_buffer.format,
+                    Transform::None,
+                );
             } else {
                 let fb = match wl_buffer.famebuffer.get() {
                     Some(fb) => fb,
@@ -295,12 +266,12 @@ impl WlOutputGlobal {
                 self.state.perform_screencopy(
                     tex,
                     &fb,
-                    self.preferred_scale.get(),
                     self.pos.get(),
                     render_hardware_cursors,
                     x_off - capture.rect.x1(),
                     y_off - capture.rect.y1(),
                     size,
+                    Transform::None,
                 );
             }
             if capture.with_damage.get() {
@@ -311,6 +282,11 @@ impl WlOutputGlobal {
         for capture in captures {
             capture.output_link.take();
         }
+    }
+
+    pub fn pixel_size(&self) -> (i32, i32) {
+        let mode = self.mode.get();
+        self.transform.get().maybe_swap((mode.width, mode.height))
     }
 }
 
@@ -357,7 +333,7 @@ impl WlOutput {
             subpixel: SP_UNKNOWN,
             make: &self.global.output_id.manufacturer,
             model: &self.global.output_id.model,
-            transform: TF_NORMAL,
+            transform: self.global.transform.get().to_wl(),
         };
         self.client.event(event);
     }

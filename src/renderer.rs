@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_api::{BufferPoints, GfxApiOpt},
+        gfx_api::{GfxApiOpt, SampleRect},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -55,7 +55,7 @@ pub struct Renderer<'a> {
     pub state: &'a State,
     pub result: Option<&'a mut RenderResult>,
     pub logical_extents: Rect,
-    pub physical_extents: Rect,
+    pub pixel_extents: Rect,
 }
 
 impl Renderer<'_> {
@@ -63,8 +63,8 @@ impl Renderer<'_> {
         self.base.scale
     }
 
-    pub fn physical_extents(&self) -> Rect {
-        self.physical_extents
+    pub fn pixel_extents(&self) -> Rect {
+        self.pixel_extents
     }
 
     pub fn logical_extents(&self) -> Rect {
@@ -350,7 +350,7 @@ impl Renderer<'_> {
         buffer: &WlBuffer,
         x: i32,
         y: i32,
-        tpoints: BufferPoints,
+        tpoints: SampleRect,
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {

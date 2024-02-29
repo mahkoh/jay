@@ -10,6 +10,7 @@ use {
             INVALID_MODIFIER, LINEAR_MODIFIER,
         },
     },
+    jay_config::video::Transform,
     std::{ops::Deref, rc::Rc},
     thiserror::Error,
     uapi::OwnedFd,
@@ -76,6 +77,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         Scale::from_int(1),
         true,
         false,
+        Transform::None,
     );
     let drm = gbm.drm.dup_render()?.fd().clone();
     Ok(Screenshot { drm, bo })

@@ -158,6 +158,15 @@ impl Connector {
         }
         get!().connector_set_enabled(self, enabled);
     }
+
+    /// Sets the transformation to apply to the content of this connector.
+    pub fn set_transform(self, transform: Transform) {
+        if !self.exists() {
+            log::warn!("set_transform called on a connector that does not exist");
+            return;
+        }
+        get!().connector_set_transform(self, transform);
+    }
 }
 
 /// Returns all available DRM devices.
@@ -402,4 +411,26 @@ pub fn set_gfx_api(gfx_api: GfxApi) {
 /// This setting can be overwritten per-device with [DrmDevice::set_direct_scanout_enabled].
 pub fn set_direct_scanout_enabled(enabled: bool) {
     get!().set_direct_scanout_enabled(None, enabled);
+}
+
+/// A transformation.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+pub enum Transform {
+    /// No transformation.
+    #[default]
+    None,
+    /// Rotate 90 degrees counter-clockwise.
+    Rotate90,
+    /// Rotate 180 degrees counter-clockwise.
+    Rotate180,
+    /// Rotate 270 degrees counter-clockwise.
+    Rotate270,
+    /// Flip around the vertical axis.
+    Flip,
+    /// Flip around the vertical axis, then rotate 90 degrees counter-clockwise.
+    FlipRotate90,
+    /// Flip around the vertical axis, then rotate 180 degrees counter-clockwise.
+    FlipRotate180,
+    /// Flip around the vertical axis, then rotate 270 degrees counter-clockwise.
+    FlipRotate270,
 }

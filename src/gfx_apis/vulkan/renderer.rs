@@ -2,10 +2,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         format::Format,
-        gfx_api::{
-            AbsoluteRect, BufferPoint, BufferPoints, GfxApiOpt, GfxFormat, GfxFramebuffer,
-            GfxTexture,
-        },
+        gfx_api::{GfxApiOpt, GfxFormat, GfxFramebuffer, GfxTexture},
         gfx_apis::vulkan::{
             allocator::VulkanAllocator,
             command::{VulkanCommandBuffer, VulkanCommandPool},
@@ -386,12 +383,7 @@ impl VulkanRenderer {
         }
     }
 
-    fn record_draws(
-        &self,
-        buf: CommandBuffer,
-        fb: &VulkanImage,
-        opts: &[GfxApiOpt],
-    ) -> Result<(), VulkanError> {
+    fn record_draws(&self, buf: CommandBuffer, opts: &[GfxApiOpt]) -> Result<(), VulkanError> {
         let dev = &self.device.device;
         let mut current_pipeline = None;
         let mut bind = |pipeline: &VulkanPipeline| {
@@ -402,15 +394,13 @@ impl VulkanRenderer {
                 }
             }
         };
-        let width = fb.width as f32;
-        let height = fb.height as f32;
         for opt in opts {
             match opt {
                 GfxApiOpt::Sync => {}
                 GfxApiOpt::FillRect(r) => {
                     bind(&self.fill_pipeline);
                     let vert = FillVertPushConstants {
-                        pos: r.rect.to_vk(width, height),
+                        pos: r.rect.to_points(),
                     };
                     let frag = FillFragPushConstants {
                         color: r.color.to_array_srgb(),
@@ -437,8 +427,8 @@ impl VulkanRenderer {
                     let tex = c.tex.as_vk(&self.device.device);
                     bind(&self.tex_pipeline);
                     let vert = TexVertPushConstants {
-                        pos: c.target.to_vk(width, height),
-                        tex_pos: c.source.to_vk(),
+                        pos: c.target.to_points(),
+                        tex_pos: c.source.to_points(),
                     };
                     let image_info = DescriptorImageInfo::builder()
                         .image_view(tex.texture_view)
@@ -879,7 +869,7 @@ impl VulkanRenderer {
         self.secondary_barriers(buf.buffer);
         self.begin_rendering(buf.buffer, fb, clear);
         self.set_viewport(buf.buffer, fb);
-        self.record_draws(buf.buffer, fb, opts)?;
+        self.record_draws(buf.buffer, opts)?;
         self.end_rendering(buf.buffer);
         self.final_barriers(buf.buffer, fb);
         self.end_command_buffer(buf.buffer)?;
@@ -949,33 +939,6 @@ impl dyn GfxTexture {
             .expect("Non-vulkan texture passed into vulkan");
         img.assert_device(device);
         img
-    }
-}
-
-impl AbsoluteRect {
-    fn to_vk(&self, width: f32, height: f32) -> [[f32; 2]; 4] {
-        let x1 = 2.0 * self.x1 / width - 1.0;
-        let x2 = 2.0 * self.x2 / width - 1.0;
-        let y1 = 2.0 * self.y1 / height - 1.0;
-        let y2 = 2.0 * self.y2 / height - 1.0;
-        [[x2, y1], [x1, y1], [x2, y2], [x1, y2]]
-    }
-}
-
-impl BufferPoint {
-    fn to_vk(&self) -> [f32; 2] {
-        [self.x, self.y]
-    }
-}
-
-impl BufferPoints {
-    fn to_vk(&self) -> [[f32; 2]; 4] {
-        [
-            self.top_right.to_vk(),
-            self.top_left.to_vk(),
-            self.bottom_right.to_vk(),
-            self.bottom_left.to_vk(),
-        ]
     }
 }
 

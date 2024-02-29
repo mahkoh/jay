@@ -15,7 +15,7 @@ use {
         timer::Timer,
         video::{
             connector_type::{ConnectorType, CON_UNKNOWN},
-            Connector, DrmDevice, GfxApi, Mode,
+            Connector, DrmDevice, GfxApi, Mode, Transform,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
@@ -471,6 +471,13 @@ impl Client {
 
     pub fn connector_set_enabled(&self, connector: Connector, enabled: bool) {
         self.send(&ClientMessage::ConnectorSetEnabled { connector, enabled });
+    }
+
+    pub fn connector_set_transform(&self, connector: Connector, transform: Transform) {
+        self.send(&ClientMessage::ConnectorSetTransform {
+            connector,
+            transform,
+        });
     }
 
     pub fn device_connectors(&self, device: DrmDevice) -> Vec<Connector> {

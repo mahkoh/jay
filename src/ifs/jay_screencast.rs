@@ -176,12 +176,12 @@ impl JayScreencast {
                 self.client.state.perform_screencopy(
                     texture,
                     &buffer.fb,
-                    on.global.preferred_scale.get(),
                     on.global.pos.get(),
                     render_hardware_cursors,
                     x_off,
                     y_off,
                     size,
+                    on.global.transform.get(),
                 );
                 self.client.event(Ready {
                     self_id: self.id,
@@ -218,7 +218,7 @@ impl JayScreencast {
             _ => return Err(JayScreencastError::XRGB8888),
         };
         if let Some(output) = self.output.get() {
-            let mode = output.global.mode.get();
+            let (width, height) = output.global.pixel_size();
             let num = 3;
             for _ in 0..num {
                 let mut usage = GBM_BO_USE_RENDERING;
@@ -242,8 +242,8 @@ impl JayScreencast {
                 };
                 let buffer = ctx.gbm().create_bo(
                     &self.client.state.dma_buf_ids,
-                    mode.width,
-                    mode.height,
+                    width,
+                    height,
                     XRGB8888,
                     modifiers,
                     usage,
@@ -493,10 +493,7 @@ efrom!(JayScreencastError, ClientError);
 
 fn output_size(output: &Option<Rc<OutputNode>>) -> (i32, i32) {
     match output {
-        Some(o) => {
-            let mode = o.global.mode.get();
-            (mode.width, mode.height)
-        }
+        Some(o) => o.global.pixel_size(),
         _ => (0, 0),
     }
 }

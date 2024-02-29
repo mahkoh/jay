@@ -18,7 +18,9 @@ use {
     crate::{
         async_engine::AsyncEngine,
         format::Format,
-        gfx_api::{GfxContext, GfxError, GfxFormat, GfxImage, GfxTexture, ResetStatus},
+        gfx_api::{
+            GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture, ResetStatus,
+        },
         gfx_apis::vulkan::{
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
         },
@@ -173,8 +175,6 @@ pub enum VulkanError {
         height: i32,
         stride: i32,
     },
-    #[error("Unsupported operation")]
-    UnsupportedOperation,
 }
 
 impl From<VulkanError> for GfxError {
@@ -256,6 +256,19 @@ impl GfxContext for Context {
 
     fn gfx_api(&self) -> GfxApi {
         GfxApi::Vulkan
+    }
+
+    fn create_fb(
+        self: Rc<Self>,
+        width: i32,
+        height: i32,
+        stride: i32,
+        format: &'static Format,
+    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        let fb = self
+            .0
+            .create_shm_texture(format, width, height, stride, &[], true)?;
+        Ok(fb)
     }
 }
 

@@ -33,7 +33,6 @@ pub struct ZwlrScreencopyFrameV1 {
     pub with_damage: Cell<bool>,
     pub output_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     pub buffer: Cell<Option<Rc<WlBuffer>>>,
-    pub is_shm: Cell<bool>,
     pub version: u32,
 }
 
@@ -121,14 +120,6 @@ impl ZwlrScreencopyFrameV1 {
                 return Err(ZwlrScreencopyFrameV1Error::InvalidBufferStride);
             }
         }
-        let is_shm = match &*buffer.storage.borrow() {
-            None => false,
-            Some(s) => match s {
-                WlBufferStorage::Shm { .. } => true,
-                WlBufferStorage::Dmabuf(_) => false,
-            },
-        };
-        self.is_shm.set(is_shm);
         self.buffer.set(Some(buffer));
         if !with_damage {
             self.output.connector.connector.damage();

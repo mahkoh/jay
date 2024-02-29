@@ -6,7 +6,7 @@ use {
             ResetStatus,
         },
         gfx_apis::gl::{
-            egl::{context::EglContext, display::EglDisplay},
+            egl::{context::EglContext, display::EglDisplay, image::EglImage},
             ext::GL_OES_EGL_IMAGE_EXTERNAL,
             gl::{
                 program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
@@ -190,6 +190,20 @@ impl GlRenderContext {
             format,
         }))
     }
+
+    pub fn image_to_fb(
+        self: &Rc<Self>,
+        img: &Rc<EglImage>,
+    ) -> Result<Rc<Framebuffer>, RenderError> {
+        self.ctx.with_current(|| unsafe {
+            let rb = GlRenderBuffer::from_image(img, &self.ctx)?;
+            let fb = rb.create_framebuffer()?;
+            Ok(Rc::new(Framebuffer {
+                ctx: self.clone(),
+                gl: fb,
+            }))
+        })
+    }
 }
 
 impl GfxContext for GlRenderContext {
@@ -240,5 +254,18 @@ impl GfxContext for GlRenderContext {
 
     fn gfx_api(&self) -> GfxApi {
         GfxApi::OpenGl
+    }
+
+    fn create_fb(
+        self: Rc<Self>,
+        width: i32,
+        height: i32,
+        _stride: i32,
+        format: &'static Format,
+    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        let fb = self.ctx.with_current(|| unsafe {
+            GlRenderBuffer::new(&self.ctx, width, height, format)?.create_framebuffer()
+        })?;
+        Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
     }
 }

@@ -1,6 +1,6 @@
 use {
     crate::{
-        gfx_apis::gl::sys::{GLint, GL_BGRA_EXT, GL_RGBA, GL_UNSIGNED_BYTE},
+        gfx_apis::gl::sys::{GLenum, GLint, GL_BGRA_EXT, GL_RGBA, GL_RGBA8, GL_UNSIGNED_BYTE},
         pipewire::pw_pod::{
             SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA,
             SPA_VIDEO_FORMAT_RGBA,
@@ -18,6 +18,7 @@ pub struct Format {
     pub name: &'static str,
     pub bpp: u32,
     pub gl_format: GLint,
+    pub gl_internal_format: GLenum,
     pub gl_type: GLint,
     pub vk_format: vk::Format,
     pub drm: u32,
@@ -92,6 +93,7 @@ pub static ARGB8888: &Format = &Format {
     name: "argb8888",
     bpp: 4,
     gl_format: GL_BGRA_EXT,
+    gl_internal_format: GL_RGBA8,
     gl_type: GL_UNSIGNED_BYTE,
     vk_format: vk::Format::B8G8R8A8_UNORM,
     drm: ARGB8888_DRM,
@@ -107,6 +109,7 @@ pub static XRGB8888: &Format = &Format {
     name: "xrgb8888",
     bpp: 4,
     gl_format: GL_BGRA_EXT,
+    gl_internal_format: GL_RGBA8,
     gl_type: GL_UNSIGNED_BYTE,
     vk_format: vk::Format::B8G8R8A8_UNORM,
     drm: XRGB8888_DRM,
@@ -122,6 +125,7 @@ static ABGR8888: &Format = &Format {
     name: "abgr8888",
     bpp: 4,
     gl_format: GL_RGBA,
+    gl_internal_format: GL_RGBA8,
     gl_type: GL_UNSIGNED_BYTE,
     vk_format: vk::Format::R8G8B8A8_UNORM,
     drm: fourcc_code('A', 'B', '2', '4'),
@@ -137,6 +141,7 @@ static XBGR8888: &Format = &Format {
     name: "xbgr8888",
     bpp: 4,
     gl_format: GL_RGBA,
+    gl_internal_format: GL_RGBA8,
     gl_type: GL_UNSIGNED_BYTE,
     vk_format: vk::Format::R8G8B8A8_UNORM,
     drm: fourcc_code('X', 'B', '2', '4'),

@@ -269,8 +269,7 @@ impl ConnectorHandler {
         for seat in seats.values() {
             if seat.get_output().id == on.id {
                 let tpos = target.global.pos.get();
-                let tmode = target.global.mode.get();
-                seat.set_position(tpos.x1() + tmode.width / 2, tpos.y1() + tmode.height / 2);
+                seat.set_position((tpos.x1() + tpos.x2()) / 2, (tpos.y1() + tpos.y2()) / 2);
             }
         }
         if let Some(dev) = &self.data.drm_dev {

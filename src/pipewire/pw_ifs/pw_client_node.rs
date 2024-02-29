@@ -25,8 +25,9 @@ use {
                 SPA_PARAM_Meta, SpaDataFlags, SpaDataType, SpaDirection, SpaIoType,
                 SpaMediaSubtype, SpaMediaType, SpaMetaType, SpaNodeBuffersFlags, SpaNodeCommand,
                 SpaParamType, SpaVideoFormat, SPA_DATA_FLAG_READABLE, SPA_DIRECTION_INPUT,
-                SPA_DIRECTION_OUTPUT, SPA_NODE_BUFFERS_FLAG_ALLOC, SPA_PARAM_INFO_READ,
-                SPA_PORT_FLAG, SPA_PORT_FLAG_CAN_ALLOC_BUFFERS,
+                SPA_DIRECTION_OUTPUT, SPA_NODE_BUFFERS_FLAG_ALLOC, SPA_PARAM_INFO,
+                SPA_PARAM_INFO_READ, SPA_PARAM_INFO_SERIAL, SPA_PORT_FLAG,
+                SPA_PORT_FLAG_CAN_ALLOC_BUFFERS,
             },
         },
         utils::{
@@ -120,6 +121,8 @@ pub struct PwClientNodePort {
     pub buffer_config: Cell<Option<PwClientNodeBufferConfig>>,
 
     pub io_buffers: CopyHashMap<u32, Rc<PwMemTyped<spa_io_buffers>>>,
+
+    pub serial: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -255,6 +258,7 @@ impl PwClientNode {
             buffers: RefCell::new(vec![]),
             buffer_config: Cell::new(None),
             io_buffers: Default::default(),
+            serial: Cell::new(false),
         });
         self.ports.set((direction, port.id), port.clone());
         port
@@ -291,7 +295,14 @@ impl PwClientNode {
         });
     }
 
-    pub fn send_port_update(&self, port: &PwClientNodePort) {
+    pub fn send_port_update(&self, port: &PwClientNodePort, re_init: bool) {
+        if re_init {
+            port.serial.set(!port.serial.get());
+        }
+        let serial = match port.serial.get() {
+            true => SPA_PARAM_INFO_SERIAL,
+            false => SPA_PARAM_INFO::none(),
+        };
         self.con.send(self, PwClientNodeMethods::PortUpdate, |f| {
             f.write_struct(|f| {
                 // direction
@@ -437,11 +448,11 @@ impl PwClientNode {
                     f.write_uint(num_params);
                     if sf.is_some() {
                         f.write_id(SPA_PARAM_EnumFormat.0);
-                        f.write_uint(SPA_PARAM_INFO_READ.0);
+                        f.write_uint((SPA_PARAM_INFO_READ | serial).0);
                     }
                     if bc.is_some() {
                         f.write_id(SPA_PARAM_Buffers.0);
-                        f.write_uint(SPA_PARAM_INFO_READ.0);
+                        f.write_uint((SPA_PARAM_INFO_READ | serial).0);
                     }
                     f.write_id(SPA_PARAM_Meta.0);
                     f.write_uint(SPA_PARAM_INFO_READ.0);

@@ -9,12 +9,12 @@ use {
         state::State,
         theme::Color,
         tree::{Node, OutputNode},
-        utils::numcell::NumCell,
+        utils::{numcell::NumCell, transform_ext::TransformExt},
         video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
     },
     ahash::AHashMap,
     indexmap::IndexSet,
-    jay_config::video::GfxApi,
+    jay_config::video::{GfxApi, Transform},
     std::{
         any::Any,
         cell::Cell,
@@ -38,98 +38,109 @@ pub struct GfxRenderPass {
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
-pub struct BufferPoint {
-    pub x: f32,
-    pub y: f32,
+pub struct SampleRect {
+    pub x1: f32,
+    pub y1: f32,
+    pub x2: f32,
+    pub y2: f32,
+    pub buffer_transform: Transform,
 }
 
-impl BufferPoint {
-    pub fn is_leq_1(&self) -> bool {
-        self.x <= 1.0 && self.y <= 1.0
-    }
-
-    pub fn top_left() -> Self {
-        Self { x: 0.0, y: 0.0 }
-    }
-
-    pub fn top_right() -> Self {
-        Self { x: 1.0, y: 0.0 }
-    }
-
-    pub fn bottom_left() -> Self {
-        Self { x: 0.0, y: 1.0 }
-    }
-
-    pub fn bottom_right() -> Self {
-        Self { x: 1.0, y: 1.0 }
-    }
-}
-
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
-pub struct BufferPoints {
-    pub top_left: BufferPoint,
-    pub top_right: BufferPoint,
-    pub bottom_left: BufferPoint,
-    pub bottom_right: BufferPoint,
-}
-
-impl BufferPoints {
-    pub fn norm(&self, width: f32, height: f32) -> Self {
+impl SampleRect {
+    pub fn identity() -> Self {
         Self {
-            top_left: BufferPoint {
-                x: self.top_left.x / width,
-                y: self.top_left.y / height,
-            },
-            top_right: BufferPoint {
-                x: self.top_right.x / width,
-                y: self.top_right.y / height,
-            },
-            bottom_left: BufferPoint {
-                x: self.bottom_left.x / width,
-                y: self.bottom_left.y / height,
-            },
-            bottom_right: BufferPoint {
-                x: self.bottom_right.x / width,
-                y: self.bottom_right.y / height,
-            },
+            x1: 0.0,
+            y1: 0.0,
+            x2: 1.0,
+            y2: 1.0,
+            buffer_transform: Transform::None,
         }
     }
 
-    pub fn is_leq_1(&self) -> bool {
-        self.top_left.is_leq_1()
-            && self.top_right.is_leq_1()
-            && self.bottom_left.is_leq_1()
-            && self.bottom_right.is_leq_1()
+    pub fn is_covering(&self) -> bool {
+        self.x1 == 0.0 && self.y1 == 0.0 && self.x2 == 1.0 && self.y2 == 1.0
     }
 
-    pub fn identity() -> Self {
-        Self {
-            top_left: BufferPoint::top_left(),
-            top_right: BufferPoint::top_right(),
-            bottom_left: BufferPoint::bottom_left(),
-            bottom_right: BufferPoint::bottom_right(),
+    pub fn to_points(&self) -> [[f32; 2]; 4] {
+        use Transform::*;
+        let x1 = self.x1;
+        let x2 = self.x2;
+        let y1 = self.y1;
+        let y2 = self.y2;
+        match self.buffer_transform {
+            None => [[x2, y1], [x1, y1], [x2, y2], [x1, y2]],
+            Rotate90 => [[y1, x1], [y1, x2], [y2, x1], [y2, x2]],
+            Rotate180 => [[x1, y2], [x2, y2], [x1, y1], [x2, y1]],
+            Rotate270 => [[y2, x2], [y2, x1], [y1, x2], [y1, x1]],
+            Flip => [[x1, y1], [x2, y1], [x1, y2], [x2, y2]],
+            FlipRotate90 => [[y1, x2], [y1, x1], [y2, x2], [y2, x1]],
+            FlipRotate180 => [[x2, y2], [x1, y2], [x2, y1], [x1, y1]],
+            FlipRotate270 => [[y2, x1], [y2, x2], [y1, x1], [y1, x2]],
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct AbsoluteRect {
+pub struct FramebufferRect {
     pub x1: f32,
     pub x2: f32,
     pub y1: f32,
     pub y2: f32,
+    pub output_transform: Transform,
+}
+
+impl FramebufferRect {
+    pub fn new(
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        transform: Transform,
+        width: f32,
+        height: f32,
+    ) -> Self {
+        Self {
+            x1: 2.0 * x1 / width - 1.0,
+            x2: 2.0 * x2 / width - 1.0,
+            y1: 2.0 * y1 / height - 1.0,
+            y2: 2.0 * y2 / height - 1.0,
+            output_transform: transform,
+        }
+    }
+
+    pub fn to_points(&self) -> [[f32; 2]; 4] {
+        use Transform::*;
+        let x1 = self.x1;
+        let x2 = self.x2;
+        let y1 = self.y1;
+        let y2 = self.y2;
+        match self.output_transform {
+            None => [[x2, y1], [x1, y1], [x2, y2], [x1, y2]],
+            Rotate90 => [[y1, -x2], [y1, -x1], [y2, -x2], [y2, -x1]],
+            Rotate180 => [[-x2, -y1], [-x1, -y1], [-x2, -y2], [-x1, -y2]],
+            Rotate270 => [[-y1, x2], [-y1, x1], [-y2, x2], [-y2, x1]],
+            Flip => [[-x2, y1], [-x1, y1], [-x2, y2], [-x1, y2]],
+            FlipRotate90 => [[y1, x2], [y1, x1], [y2, x2], [y2, x1]],
+            FlipRotate180 => [[x2, -y1], [x1, -y1], [x2, -y2], [x1, -y2]],
+            FlipRotate270 => [[-y1, -x2], [-y1, -x1], [-y2, -x2], [-y2, -x1]],
+        }
+    }
+
+    pub fn is_covering(&self) -> bool {
+        self.x1 == -1.0 && self.y1 == -1.0 && self.x2 == 1.0 && self.y2 == 1.0
+    }
 }
 
 #[derive(Debug)]
 pub struct FillRect {
-    pub rect: AbsoluteRect,
+    pub rect: FramebufferRect,
     pub color: Color,
 }
 
 pub struct CopyTexture {
     pub tex: Rc<dyn GfxTexture>,
-    pub source: BufferPoints,
-    pub target: AbsoluteRect,
+    pub source: SampleRect,
+    pub target: FramebufferRect,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -145,17 +156,18 @@ pub trait GfxFramebuffer: Debug {
 
     fn take_render_ops(&self) -> Vec<GfxApiOpt>;
 
-    fn size(&self) -> (i32, i32);
+    fn physical_size(&self) -> (i32, i32);
 
     fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>);
 
     fn copy_to_shm(
-        &self,
+        self: Rc<Self>,
         x: i32,
         y: i32,
         width: i32,
         height: i32,
-        format: &Format,
+        stride: i32,
+        format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError>;
 
@@ -172,15 +184,32 @@ impl dyn GfxFramebuffer {
         self.render(ops, Some(&Color { r, g, b, a }));
     }
 
+    pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
+        transform.maybe_swap(self.physical_size())
+    }
+
+    pub fn renderer_base<'a>(
+        &self,
+        ops: &'a mut Vec<GfxApiOpt>,
+        scale: Scale,
+        transform: Transform,
+    ) -> RendererBase<'a> {
+        let (width, height) = self.logical_size(transform);
+        RendererBase {
+            ops,
+            scaled: scale != 1,
+            scale,
+            scalef: scale.to_f64(),
+            transform,
+            fb_width: width as _,
+            fb_height: height as _,
+        }
+    }
+
     pub fn copy_texture(&self, texture: &Rc<dyn GfxTexture>, x: i32, y: i32) {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
-        let mut renderer = RendererBase {
-            ops: &mut ops,
-            scaled: false,
-            scale,
-            scalef: 1.0,
-        };
+        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         renderer.render_texture(texture, x, y, None, None, scale, None);
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear);
@@ -193,12 +222,7 @@ impl dyn GfxFramebuffer {
         f: &mut dyn FnMut(&mut RendererBase),
     ) {
         let mut ops = self.take_render_ops();
-        let mut renderer = RendererBase {
-            ops: &mut ops,
-            scaled: scale != 1,
-            scale,
-            scalef: scale.to_f64(),
-        };
+        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
         self.render(ops, clear);
     }
@@ -212,20 +236,18 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         render_hardware_cursor: bool,
         black_background: bool,
+        transform: Transform,
     ) -> GfxRenderPass {
         let mut ops = self.take_render_ops();
-        let (width, height) = self.size();
         let mut renderer = Renderer {
-            base: RendererBase {
-                ops: &mut ops,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
-            },
+            base: self.renderer_base(&mut ops, scale, transform),
             state,
             result,
             logical_extents: node.node_absolute_position().at_point(0, 0),
-            physical_extents: Rect::new(0, 0, width, height).unwrap(),
+            pixel_extents: {
+                let (width, height) = self.logical_size(transform);
+                Rect::new(0, 0, width, height).unwrap()
+            },
         };
         node.node_render(&mut renderer, 0, 0, None);
         if let Some(rect) = cursor_rect {
@@ -283,6 +305,7 @@ impl dyn GfxFramebuffer {
             scale,
             render_hardware_cursor,
             node.has_fullscreen(),
+            node.global.transform.get(),
         )
     }
 
@@ -295,6 +318,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         render_hardware_cursor: bool,
         black_background: bool,
+        transform: Transform,
     ) {
         let pass = self.create_render_pass(
             node,
@@ -304,24 +328,28 @@ impl dyn GfxFramebuffer {
             scale,
             render_hardware_cursor,
             black_background,
+            transform,
         );
         self.perform_render_pass(pass);
     }
 
-    pub fn render_hardware_cursor(&self, cursor: &dyn Cursor, state: &State, scale: Scale) {
+    pub fn render_hardware_cursor(
+        &self,
+        cursor: &dyn Cursor,
+        state: &State,
+        scale: Scale,
+        transform: Transform,
+    ) {
         let mut ops = self.take_render_ops();
-        let (width, height) = self.size();
         let mut renderer = Renderer {
-            base: RendererBase {
-                ops: &mut ops,
-                scaled: scale != 1,
-                scale,
-                scalef: scale.to_f64(),
-            },
+            base: self.renderer_base(&mut ops, scale, transform),
             state,
             result: None,
             logical_extents: Rect::new_empty(0, 0),
-            physical_extents: Rect::new(0, 0, width, height).unwrap(),
+            pixel_extents: {
+                let (width, height) = self.logical_size(transform);
+                Rect::new(0, 0, width, height).unwrap()
+            },
         };
         cursor.render_hardware_cursor(&mut renderer);
         self.render(ops, Some(&Color::TRANSPARENT));
@@ -414,6 +442,14 @@ pub trait GfxContext: Debug {
     fn gbm(&self) -> &GbmDevice;
 
     fn gfx_api(&self) -> GfxApi;
+
+    fn create_fb(
+        self: Rc<Self>,
+        width: i32,
+        height: i32,
+        stride: i32,
+        format: &'static Format,
+    ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
 }
 
 #[derive(Debug)]

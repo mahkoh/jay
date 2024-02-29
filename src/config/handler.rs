@@ -40,7 +40,7 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
-        video::{Connector, DrmDevice, GfxApi},
+        video::{Connector, DrmDevice, GfxApi, Transform},
         Axis, Direction, Workspace,
     },
     libloading::Library,
@@ -751,6 +751,17 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_connector_set_transform(
+        &self,
+        connector: Connector,
+        transform: Transform,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        connector.node.update_transform(transform);
+        self.state.damage();
+        Ok(())
+    }
+
     fn handle_connector_set_position(
         &self,
         connector: Connector,
@@ -1338,6 +1349,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetDirectScanoutEnabled { device, enabled } => self
                 .handle_set_direct_scanout_enabled(device, enabled)
                 .wrn("set_direct_scanout_enabled")?,
+            ClientMessage::ConnectorSetTransform {
+                connector,
+                transform,
+            } => self
+                .handle_connector_set_transform(connector, transform)
+                .wrn("connector_set_transform")?,
         }
         Ok(())
     }

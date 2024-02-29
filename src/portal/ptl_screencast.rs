@@ -155,7 +155,7 @@ impl PwClientNodeOwner for StartingScreencast {
 
 impl PwClientNodeOwner for StartedScreencast {
     fn port_format_changed(&self, port: &Rc<PwClientNodePort>) {
-        self.node.send_port_update(port);
+        self.node.send_port_update(port, false);
     }
 
     fn use_buffers(&self, port: &Rc<PwClientNodePort>) {
@@ -300,7 +300,7 @@ impl UsrJayScreencastOwner for StartedScreencast {
             data_type: SPA_DATA_DmaBuf,
         };
         self.port.buffer_config.set(Some(bc));
-        self.node.send_port_update(&self.port);
+        self.node.send_port_update(&self.port, true);
         self.node.send_active(true);
         *self.buffers.borrow_mut() = buffers;
     }

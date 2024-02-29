@@ -107,7 +107,7 @@ impl VulkanDevice {
             let vertex_input_state = PipelineVertexInputStateCreateInfo::builder();
             let rasterization_state = PipelineRasterizationStateCreateInfo::builder()
                 .polygon_mode(PolygonMode::FILL)
-                .cull_mode(CullModeFlags::BACK)
+                .cull_mode(CullModeFlags::NONE)
                 .line_width(1.0)
                 .front_face(FrontFace::COUNTER_CLOCKWISE);
             let multisampling_state = PipelineMultisampleStateCreateInfo::builder()
