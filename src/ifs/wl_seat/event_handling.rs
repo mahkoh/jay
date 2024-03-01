@@ -100,7 +100,7 @@ impl NodeSeatState {
     fn release_kb_focus2(&self, focus_last: bool) {
         self.release_kb_grab();
         while let Some((_, seat)) = self.kb_foci.pop() {
-            seat.keyboard_node.set(seat.state.root.clone());
+            seat.kb_owner.set_kb_node(&seat, seat.state.root.clone());
             // log::info!("keyboard_node = root");
             if focus_last {
                 seat.output
@@ -149,9 +149,6 @@ impl NodeSeatState {
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
         if !visible {
-            if !self.kb_foci.is_empty() {
-                node.node_active_changed(false);
-            }
             self.destroy_node2(node, false);
         }
     }
