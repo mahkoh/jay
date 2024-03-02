@@ -5,7 +5,7 @@ use {
             test_error::TestError, test_ifs::test_screenshot::TestJayScreenshot,
             test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
         },
-        utils::buffd::MsgParser,
+        utils::{buffd::MsgParser, cell_ext::CellExt},
         wire::{
             jay_compositor::{self, *},
             jay_screenshot::Dmabuf,
@@ -23,7 +23,7 @@ pub struct TestJayCompositor {
 
 impl TestJayCompositor {
     pub async fn get_client_id(&self) -> Result<ClientId, TestError> {
-        if self.client_id.get().is_none() {
+        if self.client_id.is_none() {
             self.tran.send(GetClientId { self_id: self.id })?;
         }
         self.tran.sync().await;

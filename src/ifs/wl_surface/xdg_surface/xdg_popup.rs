@@ -355,7 +355,7 @@ impl XdgSurfaceExt for XdgPopup {
         };
         let surface = &self.xdg.surface;
         let state = &surface.client.state;
-        if surface.buffer.get().is_some() {
+        if surface.buffer.is_some() {
             if wl.is_none() {
                 self.xdg.set_workspace(&ws);
                 *wl = Some(ws.stacked.add_last(self.clone()));

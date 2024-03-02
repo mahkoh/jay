@@ -164,7 +164,7 @@ impl ConnectorHandler {
                 for ws in ws_to_move {
                     ws.set_output(&on);
                     on.workspaces.add_last_existing(&ws);
-                    if ws.visible_on_desired_output.get() && on.workspace.get().is_none() {
+                    if ws.visible_on_desired_output.get() && on.workspace.is_none() {
                         on.show_workspace(&ws);
                     } else {
                         ws.set_visible(false);
@@ -176,7 +176,7 @@ impl ConnectorHandler {
                         }
                     }
                 }
-                if source.node.workspace.get().is_none() {
+                if source.node.workspace.is_none() {
                     if let Some(ws) = source.node.workspaces.first() {
                         source.node.show_workspace(&ws);
                         ws.flush_jay_workspaces();
@@ -184,7 +184,7 @@ impl ConnectorHandler {
                 }
                 source.node.schedule_update_render_data();
             }
-            if on.workspace.get().is_none() {
+            if on.workspace.is_none() {
                 if let Some(ws) = on.workspaces.first() {
                     on.show_workspace(&ws);
                     ws.flush_jay_workspaces();

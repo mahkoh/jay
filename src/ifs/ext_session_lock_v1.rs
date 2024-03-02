@@ -63,7 +63,7 @@ impl ExtSessionLockV1 {
         self.client.add_client_obj(&new)?;
         if !output.global.destroyed.get() && !self.finished.get() {
             if let Some(node) = output.global.node.get() {
-                if node.lock_surface.get().is_some() {
+                if node.lock_surface.is_some() {
                     return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
                 }
                 node.lock_surface.set(Some(new.clone()));

@@ -4,7 +4,10 @@ use {
         ifs::wl_surface::{x_surface::XSurface, WlSurfaceError},
         leaks::Tracker,
         object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        utils::{
+            buffd::{MsgParser, MsgParserError},
+            cell_ext::CellExt,
+        },
         wire::{xwayland_surface_v1::*, XwaylandSurfaceV1Id},
     },
     std::rc::Rc,
@@ -21,7 +24,7 @@ pub struct XwaylandSurfaceV1 {
 impl XwaylandSurfaceV1 {
     fn set_serial(&self, parser: MsgParser<'_, '_>) -> Result<(), XwaylandSurfaceV1Error> {
         let req: SetSerial = self.client.parse(self, parser)?;
-        if self.x.surface.xwayland_serial.get().is_some() {
+        if self.x.surface.xwayland_serial.is_some() {
             return Err(XwaylandSurfaceV1Error::SerialAlreadySet);
         }
         let serial = req.serial_lo as u64 | ((req.serial_hi as u64) << 32);

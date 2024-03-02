@@ -49,7 +49,7 @@ impl<T> Default for TestExpectedEventHolder<T> {
 
 impl<T> TestExpectedEventHolder<T> {
     pub fn expect(self: &Rc<Self>) -> TestResult<TestExpectedEvent<T>> {
-        if self.data.get().is_some() {
+        if self.data.is_some() {
             bail!("There is already an expected event data");
         }
         let data = Rc::new(TestExpectedEventData {

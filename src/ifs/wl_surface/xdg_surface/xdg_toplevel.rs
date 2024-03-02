@@ -557,8 +557,8 @@ impl XdgSurfaceExt for XdgToplevel {
 
     fn post_commit(self: Rc<Self>) {
         let surface = &self.xdg.surface;
-        if self.toplevel_data.parent.get().is_some() {
-            if surface.buffer.get().is_none() {
+        if self.toplevel_data.parent.is_some() {
+            if surface.buffer.is_none() {
                 self.tl_destroy();
                 {
                     let new_parent = self.parent.get();
@@ -569,7 +569,7 @@ impl XdgSurfaceExt for XdgToplevel {
                 }
                 self.state.tree_changed();
             }
-        } else if surface.buffer.get().is_some() {
+        } else if surface.buffer.is_some() {
             if let Some(parent) = self.parent.get() {
                 self.map_child(&parent);
             } else {

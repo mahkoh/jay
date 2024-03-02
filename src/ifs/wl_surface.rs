@@ -45,6 +45,7 @@ use {
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
+            cell_ext::CellExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             linkedlist::LinkedList,
@@ -677,7 +678,7 @@ impl WlSurface {
         }
         if viewport_changed {
             if let Some(rect) = self.src_rect.get() {
-                if self.dst_size.get().is_none() {
+                if self.dst_size.is_none() {
                     if !rect[2].is_integer() || !rect[3].is_integer() {
                         return Err(WlSurfaceError::NonIntegerViewportSize);
                     }
@@ -773,7 +774,7 @@ impl WlSurface {
                     new_size = Some((width, height));
                 }
                 if transform_changed || Some(buffer.rect) != old_raw_size {
-                    let (x1, y1, x2, y2) = if self.src_rect.get().is_none() {
+                    let (x1, y1, x2, y2) = if self.src_rect.is_none() {
                         (0.0, 0.0, 1.0, 1.0)
                     } else {
                         let (width, height) =

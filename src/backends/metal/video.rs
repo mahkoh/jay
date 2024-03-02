@@ -408,7 +408,7 @@ impl MetalConnector {
         let dd = self.display.borrow_mut();
         self.enabled.get()
             && dd.connection == ConnectorStatus::Connected
-            && self.primary_plane.get().is_some()
+            && self.primary_plane.is_some()
     }
 
     pub fn schedule_present(&self) {
@@ -1631,7 +1631,7 @@ impl MetalBackend {
         let mut preserve = Preserve::default();
         self.init_drm_device(dev, &mut preserve)?;
         for connector in dev.connectors.lock().values() {
-            if connector.primary_plane.get().is_some() {
+            if connector.primary_plane.is_some() {
                 connector.schedule_present();
             }
         }
@@ -2194,7 +2194,7 @@ impl MetalBackend {
         }
         let crtc = 'crtc: {
             for crtc in dd.crtcs.values() {
-                if crtc.connector.get().is_none() {
+                if crtc.connector.is_none() {
                     break 'crtc crtc.clone();
                 }
             }

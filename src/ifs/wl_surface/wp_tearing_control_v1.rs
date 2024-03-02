@@ -22,7 +22,7 @@ pub struct WpTearingControlV1 {
 
 impl WpTearingControlV1 {
     pub fn install(self: &Rc<Self>) -> Result<(), WpTearingControlV1Error> {
-        if self.surface.tearing_control.get().is_some() {
+        if self.surface.tearing_control.is_some() {
             return Err(WpTearingControlV1Error::AlreadyAttached(self.surface.id));
         }
         self.surface.tearing_control.set(Some(self.clone()));

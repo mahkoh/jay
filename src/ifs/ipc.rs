@@ -3,7 +3,8 @@ use {
         client::{Client, ClientError, ClientId, WaylandObject},
         ifs::wl_seat::{WlSeatError, WlSeatGlobal},
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap,
+            bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell, numcell::NumCell,
+            smallmap::SmallMap,
         },
     },
     ahash::AHashSet,
@@ -164,11 +165,11 @@ pub fn attach_seat<T: IpcVtable>(
     }
     state |= SOURCE_STATE_USED;
     if role == Role::Dnd {
-        if data.actions.get().is_none() {
+        if data.actions.is_none() {
             return Err(IpcError::ActionsNotSet);
         }
     } else {
-        if data.actions.get().is_some() {
+        if data.actions.is_some() {
             return Err(IpcError::ActionsSet);
         }
     }

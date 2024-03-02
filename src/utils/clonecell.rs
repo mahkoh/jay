@@ -59,6 +59,19 @@ impl<T> CloneCell<T> {
     }
 }
 
+impl<T> CloneCell<Option<T>> {
+    #[inline(always)]
+    pub fn is_some(&self) -> bool {
+        unsafe { self.data.get().deref().is_some() }
+    }
+
+    #[inline(always)]
+    #[allow(dead_code)]
+    pub fn is_none(&self) -> bool {
+        unsafe { self.data.get().deref().is_none() }
+    }
+}
+
 impl<T: Default> Default for CloneCell<T> {
     fn default() -> Self {
         Self::new(Default::default())

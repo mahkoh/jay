@@ -16,6 +16,7 @@ use {
         utils::{
             bitflags::BitflagsExt,
             buffd::{MsgParser, MsgParserError},
+            cell_ext::CellExt,
             linkedlist::LinkedNode,
             numcell::NumCell,
         },
@@ -253,7 +254,7 @@ impl ZwlrLayerSurfaceV1 {
             }
             self.size.set((width, height));
         }
-        if self.acked_serial.get().is_none() {
+        if self.acked_serial.is_none() {
             send_configure = true;
         }
         if send_configure {

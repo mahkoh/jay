@@ -317,7 +317,7 @@ impl ContainerNode {
             sum_factors += factor;
         }
         self.sum_factors.set(sum_factors);
-        if self.mono_child.get().is_some() {
+        if self.mono_child.is_some() {
             self.activate_child(&new_ref);
         }
         // log::info!("add_child");
@@ -575,7 +575,7 @@ impl ContainerNode {
             }
             return;
         }
-        let new_cursor = if self.mono_child.get().is_some() {
+        let new_cursor = if self.mono_child.is_some() {
             KnownCursor::Default
         } else if self.split.get() == ContainerSplit::Horizontal {
             if y < title_height + 1 {
@@ -606,7 +606,7 @@ impl ContainerNode {
     fn update_title(&self) {
         let mut title = self.toplevel_data.title.borrow_mut();
         title.clear();
-        let split = match (self.mono_child.get().is_some(), self.split.get()) {
+        let split = match (self.mono_child.is_some(), self.split.get()) {
             (true, _) => "T",
             (_, ContainerSplit::Horizontal) => "H",
             (_, ContainerSplit::Vertical) => "V",
@@ -651,7 +651,7 @@ impl ContainerNode {
         rd.underline_rects.clear();
         rd.last_active_rect.take();
         let last_active = self.focus_history.last().map(|v| v.node.node_id());
-        let mono = self.mono_child.get().is_some();
+        let mono = self.mono_child.is_some();
         let split = self.split.get();
         let have_active = self.children.iter().any(|c| c.active.get());
         let scales = self.state.scales.lock();
@@ -762,7 +762,7 @@ impl ContainerNode {
     }
 
     pub fn set_mono(self: &Rc<Self>, child: Option<&dyn ToplevelNode>) {
-        if self.mono_child.get().is_some() == child.is_some() {
+        if self.mono_child.is_some() == child.is_some() {
             return;
         }
         let child = {
@@ -892,7 +892,7 @@ impl ContainerNode {
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
         if split == self.split.get()
-            || (split == ContainerSplit::Horizontal && self.mono_child.get().is_some())
+            || (split == ContainerSplit::Horizontal && self.mono_child.is_some())
         {
             let cc = match self.child_nodes.borrow().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
@@ -1194,7 +1194,7 @@ impl Node for ContainerNode {
                 return;
             }
             let (kind, child) = 'res: {
-                let mono = self.mono_child.get().is_some();
+                let mono = self.mono_child.is_some();
                 for child in self.children.iter() {
                     let rect = child.title_rect.get();
                     if rect.contains(seat_data.x, seat_data.y) {
