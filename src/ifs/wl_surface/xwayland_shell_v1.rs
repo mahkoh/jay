@@ -56,7 +56,7 @@ impl XwaylandShellV1 {
         let req: GetXwaylandSurface = self.client.parse(self, parser)?;
         let surface = self.client.lookup(req.surface)?;
         let xsurface = surface.get_xsurface()?;
-        if xsurface.xwayland_surface.get().is_some() {
+        if xsurface.xwayland_surface.is_some() {
             return Err(XwaylandShellV1Error::AlreadyAttached(surface.id));
         }
         let xws = Rc::new(XwaylandSurfaceV1 {

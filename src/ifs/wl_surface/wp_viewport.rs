@@ -29,7 +29,7 @@ impl WpViewport {
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), WpViewportError> {
-        if self.surface.viewporter.get().is_some() {
+        if self.surface.viewporter.is_some() {
             return Err(WpViewportError::ViewportExists);
         }
         self.surface.viewporter.set(Some(self.clone()));

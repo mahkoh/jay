@@ -26,9 +26,9 @@ use {
         time::Time,
         tree::{Node, ToplevelNode},
         utils::{
-            bitflags::BitflagsExt, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell, oserror::OsError,
-            rc_eq::rc_eq,
+            bitflags::BitflagsExt, buf::Buf, cell_ext::CellExt, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell,
+            oserror::OsError, rc_eq::rc_eq,
         },
         wire::{WlDataDeviceId, WlSurfaceId, ZwpPrimarySelectionDeviceV1Id},
         wire_xcon::{
@@ -1380,7 +1380,7 @@ impl Wm {
     }
 
     async fn create_window(&mut self, data: &Rc<XwindowData>, surface: Rc<WlSurface>) {
-        if data.window.get().is_some() {
+        if data.window.is_some() {
             log::error!("The xwindow has already been constructed");
             return;
         }
@@ -2283,7 +2283,7 @@ impl Wm {
             Some(w) => w,
             _ => return Ok(()),
         };
-        if data.info.pid.get().is_none() || data.info.pid.get() != fw.info.pid.get() {
+        if data.info.pid.is_none() || data.info.pid.get() != fw.info.pid.get() {
             return Ok(());
         }
         let win = match data.window.get() {
@@ -2398,7 +2398,7 @@ impl Wm {
             Some(d) => d.clone(),
             _ => return Ok(()),
         };
-        if data.surface_id.get().is_some() {
+        if data.surface_id.is_some() {
             log::error!("Surface id is already set");
             return Ok(());
         }

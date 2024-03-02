@@ -344,7 +344,7 @@ impl ToplevelData {
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        if ws.fullscreen.get().is_some() {
+        if ws.fullscreen.is_some() {
             log::info!("Cannot fullscreen a node on a workspace that already has a fullscreen node attached");
             return;
         }

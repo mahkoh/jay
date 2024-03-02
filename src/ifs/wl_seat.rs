@@ -432,7 +432,7 @@ impl WlSeatGlobal {
     }
 
     fn maybe_constrain(&self, surface: &WlSurface, x: Fixed, y: Fixed) {
-        if self.constraint.get().is_some() {
+        if self.constraint.is_some() {
             return;
         }
         let candidate = match surface.constraints.get(&self.id) {
@@ -543,8 +543,7 @@ impl WlSeatGlobal {
     }
 
     pub fn get_mono(&self) -> Option<bool> {
-        self.kb_parent_container()
-            .map(|c| c.mono_child.get().is_some())
+        self.kb_parent_container().map(|c| c.mono_child.is_some())
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {

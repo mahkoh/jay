@@ -30,7 +30,7 @@ impl SurfaceExt for XSurface {
     }
 
     fn on_surface_destroy(&self) -> Result<(), WlSurfaceError> {
-        if self.xwayland_surface.get().is_some() {
+        if self.xwayland_surface.is_some() {
             return Err(WlSurfaceError::ReloObjectStillExists);
         }
         self.surface.unset_ext();

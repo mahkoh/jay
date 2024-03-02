@@ -331,7 +331,7 @@ impl State {
         if let Some(config) = self.config.get() {
             config.devices_enumerated()
         }
-        if self.render_ctx.get().is_none() {
+        if self.render_ctx.is_none() {
             for dev in self.drm_devs.lock().values() {
                 if let Ok(version) = dev.dev.version() {
                     if version.name.contains_str("nvidia") {
@@ -339,11 +339,11 @@ impl State {
                     }
                 }
                 dev.make_render_device();
-                if self.render_ctx.get().is_some() {
+                if self.render_ctx.is_some() {
                     break;
                 }
             }
-            if self.render_ctx.get().is_none() {
+            if self.render_ctx.is_none() {
                 if let Some(dev) = self.drm_devs.lock().values().next() {
                     dev.make_render_device();
                 }

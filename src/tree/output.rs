@@ -350,7 +350,7 @@ impl OutputNode {
         ws.output_link
             .set(Some(self.workspaces.add_last(ws.clone())));
         self.state.workspaces.set(name.to_string(), ws.clone());
-        if self.workspace.get().is_none() {
+        if self.workspace.is_none() {
             self.show_workspace(&ws);
         }
         let mut clients_to_kill = AHashMap::new();
@@ -503,7 +503,7 @@ impl OutputNode {
     pub fn has_fullscreen(&self) -> bool {
         self.workspace
             .get()
-            .map(|w| w.fullscreen.get().is_some())
+            .map(|w| w.fullscreen.is_some())
             .unwrap_or(false)
     }
 }

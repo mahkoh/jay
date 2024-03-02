@@ -207,7 +207,7 @@ impl WlBuffer {
                 }
             }
             WlBufferStorage::Dmabuf(img) => {
-                if self.texture.get().is_none() {
+                if self.texture.is_none() {
                     self.texture.set(Some(img.clone().to_texture()?));
                 }
             }
@@ -226,7 +226,7 @@ impl WlBuffer {
                 // nothing
             }
             WlBufferStorage::Dmabuf(img) => {
-                if self.famebuffer.get().is_none() {
+                if self.famebuffer.is_none() {
                     self.famebuffer.set(Some(img.clone().to_framebuffer()?));
                 }
             }

@@ -184,7 +184,7 @@ impl XdgSurface {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
-        if self.ext.get().is_some() {
+        if self.ext.is_some() {
             return Err(XdgSurfaceError::RoleNotYetDestroyed(self.id));
         }
         {
@@ -202,7 +202,7 @@ impl XdgSurface {
     fn get_toplevel(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: GetToplevel = self.surface.client.parse(&**self, parser)?;
         self.set_role(XdgSurfaceRole::XdgToplevel)?;
-        if self.ext.get().is_some() {
+        if self.ext.is_some() {
             self.surface.client.protocol_error(
                 &**self,
                 ALREADY_CONSTRUCTED,
@@ -232,7 +232,7 @@ impl XdgSurface {
             parent = Some(self.surface.client.lookup(req.parent)?);
         }
         let positioner = self.surface.client.lookup(req.positioner)?;
-        if self.ext.get().is_some() {
+        if self.ext.is_some() {
             self.surface.client.protocol_error(
                 &**self,
                 ALREADY_CONSTRUCTED,

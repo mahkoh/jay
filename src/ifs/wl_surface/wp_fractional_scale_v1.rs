@@ -29,7 +29,7 @@ impl WpFractionalScaleV1 {
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), WpFractionalScaleError> {
-        if self.surface.fractional_scale.get().is_some() {
+        if self.surface.fractional_scale.is_some() {
             return Err(WpFractionalScaleError::Exists);
         }
         self.surface.fractional_scale.set(Some(self.clone()));

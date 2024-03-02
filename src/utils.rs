@@ -6,6 +6,7 @@ pub mod bitflags;
 pub mod buf;
 pub mod buffd;
 pub mod bufio;
+pub mod cell_ext;
 pub mod clonecell;
 pub mod copyhashmap;
 pub mod debug_fn;

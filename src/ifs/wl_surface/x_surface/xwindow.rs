@@ -202,7 +202,7 @@ impl Xwindow {
         surface: &Rc<WlSurface>,
     ) -> Result<Rc<Self>, XWindowError> {
         let xsurface = surface.get_xsurface()?;
-        if xsurface.xwindow.get().is_some() {
+        if xsurface.xwindow.is_some() {
             return Err(XWindowError::AlreadyAttached);
         }
         let tld = ToplevelData::new(
@@ -235,11 +235,11 @@ impl Xwindow {
     }
 
     pub fn is_mapped(&self) -> bool {
-        self.toplevel_data.parent.get().is_some() || self.display_link.borrow_mut().is_some()
+        self.toplevel_data.parent.is_some() || self.display_link.borrow_mut().is_some()
     }
 
     pub fn may_be_mapped(&self) -> bool {
-        self.x.surface.buffer.get().is_some() && self.data.info.mapped.get()
+        self.x.surface.buffer.is_some() && self.data.info.mapped.get()
     }
 
     fn map_change(&self) -> Change {

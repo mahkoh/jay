@@ -88,11 +88,11 @@ impl WorkspaceNode {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.stacked.is_empty() && self.fullscreen.get().is_none() && self.container.get().is_none()
+        self.stacked.is_empty() && self.fullscreen.is_none() && self.container.is_none()
     }
 
     pub fn stacked_visible(&self) -> bool {
-        self.visible.get() && self.fullscreen.get().is_none()
+        self.visible.get() && self.fullscreen.is_none()
     }
 
     pub fn change_extents(&self, rect: &Rect) {

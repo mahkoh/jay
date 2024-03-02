@@ -13,6 +13,7 @@ use {
         utils::{
             bitflags::BitflagsExt,
             buffd::{MsgParser, MsgParserError},
+            cell_ext::CellExt,
         },
         wire::{wl_data_source::*, WlDataSourceId},
         xwayland::XWaylandEvent,
@@ -186,7 +187,7 @@ impl WlDataSource {
 
     fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
         let req: SetActions = self.data.client.parse(self, parser)?;
-        if self.data.actions.get().is_some() {
+        if self.data.actions.is_some() {
             return Err(WlDataSourceError::AlreadySet);
         }
         if req.dnd_actions & !DND_ALL != 0 {
