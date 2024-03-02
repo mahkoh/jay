@@ -421,6 +421,9 @@ impl PointerOwner for DndPointerOwner {
         if button != self.button || state != KeyState::Released {
             return;
         }
+        if let Some(src) = &self.dnd.src {
+            src.on_drop();
+        }
         let should_drop = match &self.dnd.src {
             None => true,
             Some(s) => s.can_drop(),
