@@ -56,7 +56,7 @@ pub trait IpcVtable: Sized {
         data: OfferData<Self>,
     ) -> Result<Rc<Self::Offer>, ClientError>;
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>);
-    fn send_cancelled(source: &Rc<Self::Source>);
+    fn send_cancelled(source: &Rc<Self::Source>, seat: &Rc<WlSeatGlobal>);
     fn get_offer_id(offer: &Self::Offer) -> u64;
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>);
     fn send_mime_type(offer: &Rc<Self::Offer>, mime_type: &str);
@@ -102,13 +102,16 @@ const OFFER_STATE_DROPPED: u32 = 1 << 2;
 
 const SOURCE_STATE_USED: u32 = 1 << 1;
 const SOURCE_STATE_FINISHED: u32 = 1 << 2;
+const SOURCE_STATE_DROPPED: u32 = 1 << 3;
+const SOURCE_STATE_CANCELLED: u32 = 1 << 4;
+const SOURCE_STATE_DROPPED_OR_CANCELLED: u32 = SOURCE_STATE_DROPPED | SOURCE_STATE_CANCELLED;
 
 pub struct SourceData<T: IpcVtable> {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     offers: SmallMap<u64, Rc<T::Offer>, 1>,
     offer_client: Cell<ClientId>,
     mime_types: RefCell<AHashSet<String>>,
-    client: Rc<Client>,
+    pub client: Rc<Client>,
     state: NumCell<u32>,
     actions: Cell<Option<u32>>,
     role: Cell<Role>,
@@ -151,6 +154,16 @@ impl<T: IpcVtable> SourceData<T> {
             is_xwm,
         }
     }
+
+    pub fn was_used(&self) -> bool {
+        self.state.get().contains(SOURCE_STATE_USED)
+    }
+
+    pub fn was_dropped_or_cancelled(&self) -> bool {
+        self.state
+            .get()
+            .intersects(SOURCE_STATE_DROPPED_OR_CANCELLED)
+    }
 }
 
 pub fn attach_seat<T: IpcVtable>(
@@ -188,12 +201,12 @@ pub fn cancel_offers<T: IpcVtable>(src: &T::Source) {
     }
 }
 
-pub fn detach_seat<T: IpcVtable>(src: &Rc<T::Source>) {
+pub fn detach_seat<T: IpcVtable>(src: &Rc<T::Source>, seat: &Rc<WlSeatGlobal>) {
     let data = T::get_source_data(src);
     data.seat.set(None);
     cancel_offers::<T>(src);
     if !data.state.get().contains(SOURCE_STATE_FINISHED) {
-        T::send_cancelled(src);
+        T::send_cancelled(src, seat);
     }
     // data.client.flush();
 }

@@ -253,6 +253,12 @@ impl XdgPopup {
         self.xdg.destroy_node();
         self.seat_state.destroy_node(self);
     }
+
+    pub fn detach_node(&self) {
+        let _v = self.workspace_link.borrow_mut().take();
+        self.xdg.detach_node();
+        self.seat_state.destroy_node(self);
+    }
 }
 
 object_base! {

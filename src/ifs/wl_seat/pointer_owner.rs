@@ -10,6 +10,7 @@ use {
                 CHANGE_CURSOR_MOVED,
             },
             wl_surface::WlSurface,
+            xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         state::DeviceHandlerData,
         tree::{FoundNode, Node},
@@ -128,6 +129,10 @@ impl PointerOwnerHolder {
         self.owner.get().dnd_icon()
     }
 
+    pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
+        self.owner.get().toplevel_drag()
+    }
+
     pub fn remove_dnd_icon(&self) {
         self.owner.get().remove_dnd_icon()
     }
@@ -158,6 +163,7 @@ trait PointerOwner {
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>);
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>);
     fn dnd_icon(&self) -> Option<Rc<WlSurface>>;
+    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>>;
     fn remove_dnd_icon(&self);
 }
 
@@ -267,14 +273,14 @@ impl PointerOwner for DefaultPointerOwner {
 
     fn start_drag(
         &self,
-        _seat: &Rc<WlSeatGlobal>,
+        seat: &Rc<WlSeatGlobal>,
         _origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         _icon: Option<Rc<WlSurface>>,
         _serial: u32,
     ) -> Result<(), WlSeatError> {
         if let Some(src) = source {
-            src.send_cancelled();
+            src.send_cancelled(seat);
         }
         Ok(())
     }
@@ -292,6 +298,10 @@ impl PointerOwner for DefaultPointerOwner {
     }
 
     fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        None
+    }
+
+    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
         None
     }
 
@@ -362,6 +372,9 @@ impl PointerOwner for GrabPointerOwner {
         }
         if let Some(new) = &src {
             ipc::attach_seat::<ClipboardIpc>(new, seat, ipc::Role::Dnd)?;
+            if let Some(drag) = new.toplevel_drag.get() {
+                drag.start_drag();
+            }
         }
         *seat.dropped_dnd.borrow_mut() = None;
         let pointer_owner = Rc::new(DndPointerOwner {
@@ -411,6 +424,10 @@ impl PointerOwner for GrabPointerOwner {
         None
     }
 
+    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
+        None
+    }
+
     fn remove_dnd_icon(&self) {
         // nothing
     }
@@ -422,7 +439,7 @@ impl PointerOwner for DndPointerOwner {
             return;
         }
         if let Some(src) = &self.dnd.src {
-            src.on_drop();
+            src.on_drop(seat);
         }
         let should_drop = match &self.dnd.src {
             None => true,
@@ -439,7 +456,7 @@ impl PointerOwner for DndPointerOwner {
         target.node_seat_state().remove_dnd_target(seat);
         if !should_drop {
             if let Some(src) = &self.dnd.src {
-                ipc::detach_seat::<ClipboardIpc>(src);
+                ipc::detach_seat::<ClipboardIpc>(src, seat);
             }
         }
         if let Some(icon) = self.icon.get() {
@@ -493,14 +510,14 @@ impl PointerOwner for DndPointerOwner {
 
     fn start_drag(
         &self,
-        _seat: &Rc<WlSeatGlobal>,
+        seat: &Rc<WlSeatGlobal>,
         _origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
         _icon: Option<Rc<WlSurface>>,
         _serial: u32,
     ) -> Result<(), WlSeatError> {
         if let Some(src) = source {
-            src.send_cancelled();
+            src.send_cancelled(seat);
         }
         Ok(())
     }
@@ -510,7 +527,7 @@ impl PointerOwner for DndPointerOwner {
         target.node_on_dnd_leave(&self.dnd);
         target.node_seat_state().remove_dnd_target(seat);
         if let Some(src) = &self.dnd.src {
-            ipc::detach_seat::<ClipboardIpc>(src);
+            ipc::detach_seat::<ClipboardIpc>(src, seat);
         }
         if let Some(icon) = self.icon.get() {
             icon.dnd_icons.remove(&seat.id());
@@ -531,6 +548,14 @@ impl PointerOwner for DndPointerOwner {
 
     fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
         self.icon.get()
+    }
+
+    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
+        if let Some(src) = &self.dnd.src {
+            src.toplevel_drag.get()
+        } else {
+            None
+        }
     }
 
     fn remove_dnd_icon(&self) {

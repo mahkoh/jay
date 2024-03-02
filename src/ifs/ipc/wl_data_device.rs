@@ -246,8 +246,8 @@ impl IpcVtable for ClipboardIpc {
         dd.send_selection(offer);
     }
 
-    fn send_cancelled(source: &Rc<Self::Source>) {
-        source.send_cancelled();
+    fn send_cancelled(source: &Rc<Self::Source>, seat: &Rc<WlSeatGlobal>) {
+        source.send_cancelled(seat);
     }
 
     fn get_offer_id(offer: &Self::Offer) -> u64 {

@@ -38,6 +38,7 @@ use {
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
             wl_surface::WlSurface,
+            xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
         object::Object,
@@ -107,7 +108,7 @@ pub struct DroppedDnd {
 impl Drop for DroppedDnd {
     fn drop(&mut self) {
         if let Some(src) = self.dnd.src.take() {
-            ipc::detach_seat::<ClipboardIpc>(&src);
+            ipc::detach_seat::<ClipboardIpc>(&src, &self.dnd.seat);
         }
     }
 }
@@ -230,6 +231,10 @@ impl WlSeatGlobal {
         });
         slf.tree_changed_handler.set(Some(future));
         slf
+    }
+
+    pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
+        self.pointer_owner.toplevel_drag()
     }
 
     pub fn set_hardware_cursor(&self, hardware_cursor: bool) {
@@ -397,6 +402,7 @@ impl WlSeatGlobal {
                 tl.tl_data().float_width.get(),
                 tl.tl_data().float_height.get(),
                 ws,
+                None,
             );
         } else {
             self.state.map_tiled_on(tl, ws);
@@ -519,6 +525,11 @@ impl WlSeatGlobal {
         if let Some(dnd) = self.pointer_owner.dnd_icon() {
             dnd.set_output(output);
         }
+        if let Some(drag) = self.pointer_owner.toplevel_drag() {
+            if let Some(tl) = drag.toplevel.get() {
+                tl.xdg.set_output(output);
+            }
+        }
     }
 
     pub fn position(&self) -> (Fixed, Fixed) {
@@ -630,7 +641,7 @@ impl WlSeatGlobal {
             } else if let Some(ws) = data.workspace.get() {
                 cn.cnode_remove_child2(tl.tl_as_node(), true);
                 let (width, height) = data.float_size(&ws);
-                self.state.map_floating(tl, width, height, &ws);
+                self.state.map_floating(tl, width, height, &ws, None);
             }
         }
     }
@@ -700,7 +711,7 @@ impl WlSeatGlobal {
             ipc::attach_seat::<T>(new, self, ipc::Role::Selection)?;
         }
         if let Some(old) = field.set(src.clone()) {
-            ipc::detach_seat::<T>(&old);
+            ipc::detach_seat::<T>(&old, self);
         }
         if let Some(client) = self.keyboard_node.get().node_client() {
             match src {
@@ -743,6 +754,11 @@ impl WlSeatGlobal {
     ) -> Result<(), WlSeatError> {
         if let Some(serial) = serial {
             self.selection_serial.set(serial);
+        }
+        if let Some(selection) = &selection {
+            if selection.toplevel_drag.is_some() {
+                return Err(WlSeatError::OfferHasDrag);
+            }
         }
         self.set_selection_::<ClipboardIpc>(&self.selection, selection)
     }
@@ -1117,6 +1133,8 @@ pub enum WlSeatError {
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
+    #[error("Data source has a toplevel attached")]
+    OfferHasDrag,
 }
 efrom!(WlSeatError, ClientError);
 efrom!(WlSeatError, MsgParserError);

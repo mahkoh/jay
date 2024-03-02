@@ -1,0 +1,11 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg attach = 1 {
+    toplevel: id(xdg_toplevel),
+    x_offset: i32,
+    y_offset: i32,
+}
