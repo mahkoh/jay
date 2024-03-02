@@ -996,9 +996,6 @@ impl WlSurface {
             for seat in remove {
                 data.focus_node.remove(&seat);
             }
-            if self.seat_state.is_active() {
-                tl.tl_surface_active_changed(false);
-            }
         }
         self.send_seat_release_events();
         self.seat_state.destroy_node(self);
