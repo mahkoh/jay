@@ -808,9 +808,6 @@ impl WlSeatGlobal {
                 dd.send_drop();
             })
         }
-        if let Some(src) = &dnd.src {
-            src.on_drop();
-        }
         // surface.client.flush();
     }
 

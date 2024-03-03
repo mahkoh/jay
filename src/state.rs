@@ -527,12 +527,23 @@ impl State {
         mut width: i32,
         mut height: i32,
         workspace: &Rc<WorkspaceNode>,
+        abs_pos: Option<(i32, i32)>,
     ) {
         width += 2 * self.theme.sizes.border_width.get();
         height += 2 * self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
         let output = workspace.output.get();
         let output_rect = output.global.pos.get();
-        let position = {
+        let position = if let Some((mut x1, mut y1)) = abs_pos {
+            if y1 <= output_rect.y1() {
+                y1 = output_rect.y1() + 1;
+            }
+            if y1 > output_rect.y2() {
+                y1 = output_rect.y2();
+            }
+            y1 -= self.theme.sizes.border_width.get() + self.theme.sizes.title_height.get() + 1;
+            x1 -= self.theme.sizes.border_width.get();
+            Rect::new_sized(x1, y1, width, height).unwrap()
+        } else {
             let mut x1 = output_rect.x1();
             let mut y1 = output_rect.y1();
             if width < output_rect.width() {

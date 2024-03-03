@@ -972,6 +972,10 @@ impl WlSurface {
         self.seat_state.set_visible(self, visible);
     }
 
+    pub fn detach_node(&self) {
+        self.destroy_node();
+    }
+
     pub fn destroy_node(&self) {
         for (_, constraint) in &self.constraints {
             constraint.deactivate();

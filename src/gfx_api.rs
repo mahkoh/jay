@@ -253,18 +253,29 @@ impl dyn GfxFramebuffer {
         if let Some(rect) = cursor_rect {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
-                if let Some(cursor) = seat.get_cursor() {
-                    let (mut x, mut y) = seat.get_position();
-                    if let Some(dnd_icon) = seat.dnd_icon() {
-                        let extents = dnd_icon.extents.get().move_(
-                            x.round_down() + dnd_icon.buf_x.get(),
-                            y.round_down() + dnd_icon.buf_y.get(),
-                        );
-                        if extents.intersects(&rect) {
-                            let (x, y) = rect.translate(extents.x1(), extents.y1());
-                            renderer.render_surface(&dnd_icon, x, y, None);
+                let (mut x, mut y) = seat.get_position();
+                if let Some(drag) = seat.toplevel_drag() {
+                    if let Some(tl) = drag.toplevel.get() {
+                        if tl.xdg.surface.buffer.get().is_some() {
+                            let (x, y) = rect.translate(
+                                x.round_down() - drag.x_off.get(),
+                                y.round_down() - drag.y_off.get(),
+                            );
+                            renderer.render_xdg_surface(&tl.xdg, x, y, None)
                         }
                     }
+                }
+                if let Some(dnd_icon) = seat.dnd_icon() {
+                    let extents = dnd_icon.extents.get().move_(
+                        x.round_down() + dnd_icon.buf_x.get(),
+                        y.round_down() + dnd_icon.buf_y.get(),
+                    );
+                    if extents.intersects(&rect) {
+                        let (x, y) = rect.translate(extents.x1(), extents.y1());
+                        renderer.render_surface(&dnd_icon, x, y, None);
+                    }
+                }
+                if let Some(cursor) = seat.get_cursor() {
                     if render_hardware_cursor || !seat.hardware_cursor() {
                         cursor.tick();
                         x -= Fixed::from_int(rect.x1());

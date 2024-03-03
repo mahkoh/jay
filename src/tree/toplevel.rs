@@ -266,6 +266,10 @@ impl ToplevelData {
                 handle.send_closed();
             }
         }
+        self.detach_node(node);
+    }
+
+    pub fn detach_node(&self, node: &dyn Node) {
         if let Some(fd) = self.fullscrceen_data.borrow_mut().take() {
             fd.placeholder.tl_destroy();
         }

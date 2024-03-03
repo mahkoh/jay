@@ -1,0 +1,10 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg get_xdg_toplevel_drag = 1 {
+    id: id(xdg_toplevel_drag_v1),
+    data_source: id(wl_data_source),
+}

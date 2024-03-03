@@ -193,7 +193,7 @@ impl IpcVtable for PrimarySelectionIpc {
         dd.send_selection(offer);
     }
 
-    fn send_cancelled(source: &Rc<Self::Source>) {
+    fn send_cancelled(source: &Rc<Self::Source>, _seat: &Rc<WlSeatGlobal>) {
         source.send_cancelled();
     }
 

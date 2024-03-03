@@ -12,6 +12,7 @@ use {
                 xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
                 WlSurface,
             },
+            xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
         object::Object,
@@ -19,8 +20,8 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
-            ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
+            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -99,6 +100,8 @@ pub struct XdgToplevel {
     max_height: Cell<Option<i32>>,
     pub tracker: Tracker<Self>,
     toplevel_data: ToplevelData,
+    pub drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
+    is_mapped: Cell<bool>,
 }
 
 impl Debug for XdgToplevel {
@@ -135,6 +138,8 @@ impl XdgToplevel {
                 String::new(),
                 Some(surface.surface.client.clone()),
             ),
+            drag: Default::default(),
+            is_mapped: Cell::new(false),
         }
     }
 
@@ -351,21 +356,100 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>) {
+    fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
-            .map_floating(self.clone(), width, height, workspace);
+            .map_floating(self.clone(), width, height, workspace, abs_pos);
     }
 
-    fn map_child(self: &Rc<Self>, parent: &XdgToplevel) {
+    fn map_child(self: &Rc<Self>, parent: &XdgToplevel, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
+        if let Some((output, x, y)) = pos {
+            let w = output.ensure_workspace();
+            self.map_floating(&w, Some((x, y)));
+            return;
+        }
         match parent.xdg.workspace.get() {
-            Some(w) => self.map_floating(&w),
+            Some(w) => self.map_floating(&w, None),
             _ => self.map_tiled(),
         }
     }
 
     fn map_tiled(self: &Rc<Self>) {
         self.state.map_tiled(self.clone());
+    }
+
+    pub fn prepare_toplevel_drag(&self) {
+        if self.toplevel_data.parent.get().is_none() {
+            return;
+        }
+        self.toplevel_data.detach_node(self);
+        self.xdg.detach_node();
+    }
+
+    pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
+        assert!(self.toplevel_data.parent.is_none());
+        let extents = match self.xdg.geometry.get() {
+            None => self.xdg.extents.get(),
+            Some(g) => g,
+        };
+        self.toplevel_data.float_width.set(extents.width());
+        self.toplevel_data.float_height.set(extents.height());
+        self.clone().after_commit(Some((output, x, y)));
+    }
+
+    fn after_commit(self: &Rc<Self>, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
+        if pos.is_some() {
+            self.is_mapped.set(false);
+        }
+        let surface = &self.xdg.surface;
+        let should_be_mapped = surface.buffer.is_some();
+        if let Some(drag) = self.drag.get() {
+            if drag.is_ongoing() {
+                if should_be_mapped {
+                    if !self.is_mapped.replace(true) {
+                        if let Some(seat) = drag.source.data.seat.get() {
+                            self.xdg.set_output(&seat.get_output());
+                        }
+                        self.toplevel_data.broadcast(self.clone());
+                    }
+                    self.extents_changed();
+                }
+                return;
+            }
+        }
+        if self.is_mapped.replace(should_be_mapped) == should_be_mapped {
+            return;
+        }
+        if !should_be_mapped {
+            self.tl_destroy();
+            {
+                let new_parent = self.parent.get();
+                let mut children = self.children.borrow_mut();
+                for (_, child) in children.drain() {
+                    child.parent.set(new_parent.clone());
+                }
+            }
+            self.state.tree_changed();
+        } else {
+            if let Some(parent) = self.parent.get() {
+                self.map_child(&parent, pos);
+            } else {
+                self.map_tiled();
+            }
+            self.extents_changed();
+            if let Some(workspace) = self.xdg.workspace.get() {
+                let output = workspace.output.get();
+                surface.set_output(&output);
+            }
+            // {
+            //     let seats = surface.client.state.globals.lock_seats();
+            //     for seat in seats.values() {
+            //         seat.focus_toplevel(self.clone());
+            //     }
+            // }
+            self.state.tree_changed();
+            self.toplevel_data.broadcast(self.clone());
+        }
     }
 }
 
@@ -514,6 +598,9 @@ impl ToplevelNodeBase for XdgToplevel {
     }
 
     fn tl_destroy_impl(&self) {
+        if let Some(drag) = self.drag.take() {
+            drag.toplevel.take();
+        }
         self.xdg.destroy_node();
     }
 
@@ -556,39 +643,7 @@ impl XdgSurfaceExt for XdgToplevel {
     }
 
     fn post_commit(self: Rc<Self>) {
-        let surface = &self.xdg.surface;
-        if self.toplevel_data.parent.is_some() {
-            if surface.buffer.is_none() {
-                self.tl_destroy();
-                {
-                    let new_parent = self.parent.get();
-                    let mut children = self.children.borrow_mut();
-                    for (_, child) in children.drain() {
-                        child.parent.set(new_parent.clone());
-                    }
-                }
-                self.state.tree_changed();
-            }
-        } else if surface.buffer.is_some() {
-            if let Some(parent) = self.parent.get() {
-                self.map_child(&parent);
-            } else {
-                self.map_tiled();
-            }
-            self.extents_changed();
-            if let Some(workspace) = self.xdg.workspace.get() {
-                let output = workspace.output.get();
-                surface.set_output(&output);
-            }
-            // {
-            //     let seats = surface.client.state.globals.lock_seats();
-            //     for seat in seats.values() {
-            //         seat.focus_toplevel(self.clone());
-            //     }
-            // }
-            self.state.tree_changed();
-            self.toplevel_data.broadcast(self.clone());
-        }
+        self.after_commit(None);
     }
 
     fn extents_changed(&self) {

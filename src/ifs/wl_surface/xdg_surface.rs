@@ -17,7 +17,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        tree::{FindTreeResult, FoundNode, WorkspaceNode},
+        tree::{FindTreeResult, FoundNode, OutputNode, WorkspaceNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -131,6 +131,14 @@ impl XdgSurface {
         }
     }
 
+    pub fn set_output(&self, output: &Rc<OutputNode>) {
+        self.surface.set_output(output);
+        let pu = self.popups.lock();
+        for pu in pu.values() {
+            pu.xdg.set_output(output);
+        }
+    }
+
     fn set_role(&self, role: XdgSurfaceRole) -> Result<(), XdgSurfaceError> {
         use XdgSurfaceRole::*;
         match (self.role.get(), role) {
@@ -154,6 +162,15 @@ impl XdgSurface {
         let popups = self.popups.lock();
         for popup in popups.values() {
             popup.destroy_node();
+        }
+    }
+
+    fn detach_node(&self) {
+        self.workspace.set(None);
+        self.surface.detach_node();
+        let popups = self.popups.lock();
+        for popup in popups.values() {
+            popup.detach_node();
         }
     }
 

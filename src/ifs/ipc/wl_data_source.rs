@@ -1,12 +1,17 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::ipc::{
-            add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-            wl_data_device::ClipboardIpc,
-            wl_data_device_manager::{DND_ALL, DND_NONE},
-            wl_data_offer::WlDataOffer,
-            SharedState, SourceData, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
+        ifs::{
+            ipc::{
+                add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
+                wl_data_device::ClipboardIpc,
+                wl_data_device_manager::{DND_ALL, DND_NONE},
+                wl_data_offer::WlDataOffer,
+                SharedState, SourceData, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
+                SOURCE_STATE_CANCELLED, SOURCE_STATE_DROPPED,
+            },
+            wl_seat::WlSeatGlobal,
+            xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
         object::Object,
@@ -14,6 +19,7 @@ use {
             bitflags::BitflagsExt,
             buffd::{MsgParser, MsgParserError},
             cell_ext::CellExt,
+            clonecell::CloneCell,
         },
         wire::{wl_data_source::*, WlDataSourceId},
         xwayland::XWaylandEvent,
@@ -33,6 +39,7 @@ pub struct WlDataSource {
     pub data: SourceData<ClipboardIpc>,
     pub version: u32,
     pub tracker: Tracker<Self>,
+    pub toplevel_drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
 }
 
 impl WlDataSource {
@@ -42,6 +49,7 @@ impl WlDataSource {
             tracker: Default::default(),
             data: SourceData::new(client, is_xwm),
             version,
+            toplevel_drag: Default::default(),
         }
     }
 
@@ -100,13 +108,17 @@ impl WlDataSource {
         shared.selected_action.get() != 0 && shared.state.get().contains(OFFER_STATE_ACCEPTED)
     }
 
-    pub fn on_drop(&self) {
+    pub fn on_drop(&self, seat: &Rc<WlSeatGlobal>) {
+        self.data.state.or_assign(SOURCE_STATE_DROPPED);
+        if let Some(drag) = self.toplevel_drag.take() {
+            drag.finish_drag(seat);
+        }
         self.send_dnd_drop_performed();
         let shared = self.data.shared.get();
         shared.state.or_assign(OFFER_STATE_DROPPED);
     }
 
-    pub fn send_cancelled(self: &Rc<Self>) {
+    pub fn send_cancelled(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
         if self.data.is_xwm {
             self.data
                 .client
@@ -115,6 +127,10 @@ impl WlDataSource {
                 .queue
                 .push(XWaylandEvent::ClipboardCancelSource(self.clone()));
         } else {
+            self.data.state.or_assign(SOURCE_STATE_CANCELLED);
+            if let Some(drag) = self.toplevel_drag.take() {
+                drag.finish_drag(seat);
+            }
             self.data.client.event(Cancelled { self_id: self.id })
         }
     }
@@ -209,6 +225,7 @@ object_base! {
 impl Object for WlDataSource {
     fn break_loops(&self) {
         break_source_loops::<ClipboardIpc>(self);
+        self.toplevel_drag.take();
     }
 }
 
