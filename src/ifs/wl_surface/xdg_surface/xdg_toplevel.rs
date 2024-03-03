@@ -634,6 +634,10 @@ impl ToplevelNodeBase for XdgToplevel {
     fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
         Some(self.xdg.surface.clone())
     }
+
+    fn tl_restack_popups(&self) {
+        self.xdg.restack_popups();
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {

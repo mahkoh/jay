@@ -182,6 +182,9 @@ pub trait ToplevelNodeBase: Node {
     fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
         None
     }
+    fn tl_restack_popups(&self) {
+        // nothing
+    }
 }
 
 pub struct FullscreenedData {
