@@ -2290,9 +2290,13 @@ impl Wm {
             Some(w) => w,
             _ => return Ok(()),
         };
-        let seats = self.state.globals.seats.lock();
-        for (_, seat) in seats.deref() {
-            seat.focus_toplevel(win.clone());
+        if win.toplevel_data.visible.get() {
+            let seats = self.state.globals.seats.lock();
+            for (_, seat) in seats.deref() {
+                seat.focus_toplevel(win.clone());
+            }
+        } else {
+            win.x.surface.request_activation();
         }
         Ok(())
     }
