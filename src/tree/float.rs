@@ -34,7 +34,7 @@ pub struct FloatNode {
     pub state: Rc<State>,
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
-    pub display_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    pub display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
@@ -103,7 +103,7 @@ impl FloatNode {
             state: state.clone(),
             visible: Cell::new(ws.stacked_visible()),
             position: Cell::new(position),
-            display_link: Cell::new(None),
+            display_link: RefCell::new(None),
             workspace_link: Cell::new(None),
             workspace: CloneCell::new(ws.clone()),
             child: CloneCell::new(Some(child.clone())),
@@ -117,14 +117,13 @@ impl FloatNode {
             attention_requested: Cell::new(false),
         });
         floater.pull_child_properties();
-        floater
-            .display_link
-            .set(Some(state.root.stacked.add_last(floater.clone())));
+        *floater.display_link.borrow_mut() = Some(state.root.stacked.add_last(floater.clone()));
         floater
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
         child.tl_set_parent(floater.clone());
         child.tl_set_visible(floater.visible.get());
+        child.tl_restack_popups();
         floater.schedule_layout();
         floater
     }
@@ -389,6 +388,16 @@ impl FloatNode {
                 .cnode_child_attention_request_changed(self, false);
         }
     }
+
+    fn restack(&self) {
+        if let Some(dl) = &*self.display_link.borrow() {
+            self.state.root.stacked.add_last_existing(&dl);
+            if let Some(tl) = self.child.get() {
+                tl.tl_restack_popups();
+            }
+            self.state.tree_changed();
+        }
+    }
 }
 
 impl Debug for FloatNode {
@@ -496,6 +505,7 @@ impl Node for FloatNode {
             let pos = self.position.get();
             match seat_data.op_type {
                 OpType::Move => {
+                    self.restack();
                     seat_data.dist_hor = seat_data.x;
                     seat_data.dist_ver = seat_data.y;
                 }
@@ -579,7 +589,7 @@ impl ContainingNode for FloatNode {
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
         self.discard_child_properties();
         self.child.set(None);
-        self.display_link.set(None);
+        self.display_link.borrow_mut().take();
         self.workspace_link.set(None);
     }
 

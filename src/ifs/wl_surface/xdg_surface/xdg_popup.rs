@@ -259,6 +259,16 @@ impl XdgPopup {
         self.xdg.detach_node();
         self.seat_state.destroy_node(self);
     }
+
+    pub fn restack(&self) {
+        let state = &self.xdg.surface.client.state;
+        let dl = self.display_link.borrow();
+        if let Some(dl) = &*dl {
+            state.root.stacked.add_last_existing(dl);
+        }
+        self.xdg.restack_popups();
+        state.tree_changed();
+    }
 }
 
 object_base! {

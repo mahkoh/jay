@@ -328,6 +328,12 @@ impl XdgSurface {
             popup.set_visible(visible);
         }
     }
+
+    fn restack_popups(&self) {
+        for popup in self.popups.lock().values() {
+            popup.restack();
+        }
+    }
 }
 
 object_base! {

@@ -759,6 +759,7 @@ impl ContainerNode {
             }
             self.mono_child.set(Some(child.clone()));
             child.node.tl_set_visible(true);
+            child.node.tl_restack_popups();
             // log::info!("activate_child2");
             self.schedule_layout();
         }
@@ -797,6 +798,7 @@ impl ContainerNode {
                         .clone()
                         .node_do_focus(&seat, Direction::Unspecified);
                 }
+                child.node.tl_restack_popups();
             } else {
                 for child in self.children.iter() {
                     child.node.tl_set_visible(true);
@@ -1366,6 +1368,7 @@ impl ContainingNode for ContainerNode {
         let mut body = None;
         if was_mc {
             self.mono_child.set(Some(link.to_ref()));
+            link.node.tl_restack_popups();
             body = Some(self.mono_body.get());
         } else if !have_mc {
             body = Some(link.body.get());
@@ -1536,6 +1539,16 @@ impl ToplevelNodeBase for ContainerNode {
             return last.node.clone().tl_last_active_child();
         }
         self
+    }
+
+    fn tl_restack_popups(&self) {
+        if let Some(mc) = self.mono_child.get() {
+            mc.node.tl_restack_popups();
+        } else {
+            for child in self.children.iter() {
+                child.node.tl_restack_popups();
+            }
+        }
     }
 }
 
