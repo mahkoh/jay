@@ -615,6 +615,14 @@ impl ConfigProxyHandler {
         self.state.default_workspace_capture.set(capture);
     }
 
+    fn handle_set_double_click_interval_usec(&self, usec: u64) {
+        self.state.double_click_interval_usec.set(usec);
+    }
+
+    fn handle_set_double_click_distance(&self, dist: i32) {
+        self.state.double_click_distance.set(dist);
+    }
+
     fn handle_get_seat_workspace(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let output = seat.get_output();
@@ -1355,6 +1363,12 @@ impl ConfigProxyHandler {
             } => self
                 .handle_connector_set_transform(connector, transform)
                 .wrn("connector_set_transform")?,
+            ClientMessage::SetDoubleClickIntervalUsec { usec } => {
+                self.handle_set_double_click_interval_usec(usec)
+            }
+            ClientMessage::SetDoubleClickDistance { dist } => {
+                self.handle_set_double_click_distance(dist)
+            }
         }
         Ok(())
     }

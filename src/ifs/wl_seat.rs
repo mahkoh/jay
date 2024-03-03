@@ -47,7 +47,7 @@ use {
         time::now_usec,
         tree::{
             generic_node_visitor, ContainerNode, ContainerSplit, Direction, FloatNode, FoundNode,
-            Node, OutputNode, WorkspaceNode,
+            Node, OutputNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -623,6 +623,10 @@ impl WlSeatGlobal {
             Some(tl) => tl,
             _ => return,
         };
+        self.set_tl_floating(tl, floating);
+    }
+
+    pub fn set_tl_floating(self: &Rc<Self>, tl: Rc<dyn ToplevelNode>, floating: bool) {
         let data = tl.tl_data();
         if data.is_fullscreen.get() {
             return;
@@ -634,15 +638,13 @@ impl WlSeatGlobal {
             Some(p) => p,
             _ => return,
         };
-        if let Some(cn) = parent.node_into_containing_node() {
-            if !floating {
-                cn.cnode_remove_child2(tl.tl_as_node(), true);
-                self.state.map_tiled(tl);
-            } else if let Some(ws) = data.workspace.get() {
-                cn.cnode_remove_child2(tl.tl_as_node(), true);
-                let (width, height) = data.float_size(&ws);
-                self.state.map_floating(tl, width, height, &ws, None);
-            }
+        if !floating {
+            parent.cnode_remove_child2(tl.tl_as_node(), true);
+            self.state.map_tiled(tl);
+        } else if let Some(ws) = data.workspace.get() {
+            parent.cnode_remove_child2(tl.tl_as_node(), true);
+            let (width, height) = data.float_size(&ws);
+            self.state.map_floating(tl, width, height, &ws, None);
         }
     }
 

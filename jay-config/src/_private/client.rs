@@ -465,6 +465,14 @@ impl Client {
         *self.on_new_input_device.borrow_mut() = Some(Rc::new(f));
     }
 
+    pub fn set_double_click_interval(&self, usec: u64) {
+        self.send(&ClientMessage::SetDoubleClickIntervalUsec { usec });
+    }
+
+    pub fn set_double_click_distance(&self, dist: i32) {
+        self.send(&ClientMessage::SetDoubleClickDistance { dist });
+    }
+
     pub fn connector_set_position(&self, connector: Connector, x: i32, y: i32) {
         self.send(&ClientMessage::ConnectorSetPosition { connector, x, y });
     }

@@ -18,6 +18,7 @@ use {
         },
         utils::{
             clonecell::CloneCell,
+            double_click_state::DoubleClickState,
             errorfmt::ErrorFmt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
@@ -146,6 +147,7 @@ struct SeatState {
     x: i32,
     y: i32,
     op: Option<SeatOp>,
+    double_click_state: DoubleClickState,
 }
 
 impl ContainerChild {
@@ -521,6 +523,7 @@ impl ContainerNode {
             x,
             y,
             op: None,
+            double_click_state: Default::default(),
         });
         let mut changed = false;
         changed |= mem::replace(&mut seat_state.x, x) != x;
@@ -1176,7 +1179,7 @@ impl Node for ContainerNode {
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
-        _time_usec: u64,
+        time_usec: u64,
         button: u32,
         state: KeyState,
         _serial: u32,
@@ -1232,6 +1235,15 @@ impl Node for ContainerNode {
                 }
                 return;
             };
+            if seat_data
+                .double_click_state
+                .click(&self.state, time_usec, seat_data.x, seat_data.y)
+                && kind == SeatOpKind::Move
+            {
+                drop(seat_datas);
+                seat.set_tl_floating(child.node.clone(), true);
+                return;
+            }
             seat_data.op = Some(SeatOp { child, kind })
         } else if state == KeyState::Released {
             let op = seat_data.op.take().unwrap();

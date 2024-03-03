@@ -346,6 +346,12 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         transform: Transform,
     },
+    SetDoubleClickIntervalUsec {
+        usec: u64,
+    },
+    SetDoubleClickDistance {
+        dist: i32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -10,6 +10,7 @@ pub mod cell_ext;
 pub mod clonecell;
 pub mod copyhashmap;
 pub mod debug_fn;
+pub mod double_click_state;
 pub mod errorfmt;
 pub mod fdcloser;
 pub mod hex;

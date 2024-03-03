@@ -205,6 +205,8 @@ fn start_compositor2(
         drm_feedback_ids: Default::default(),
         direct_scanout_enabled: Cell::new(true),
         output_transforms: Default::default(),
+        double_click_interval_usec: Cell::new(400 * 1000),
+        double_click_distance: Cell::new(5),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

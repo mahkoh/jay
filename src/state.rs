@@ -154,6 +154,8 @@ pub struct State {
     pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
     pub output_transforms: RefCell<AHashMap<Rc<OutputId>, Transform>>,
+    pub double_click_interval_usec: Cell<u64>,
+    pub double_click_distance: Cell<i32>,
 }
 
 // impl Drop for State {

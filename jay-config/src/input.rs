@@ -10,6 +10,7 @@ use {
         Axis, Direction, ModifiedKeySym, Workspace,
     },
     serde::{Deserialize, Serialize},
+    std::time::Duration,
 };
 
 /// An input device.
@@ -257,6 +258,8 @@ impl Seat {
     }
 
     /// Toggles whether the currently focused window is floating.
+    ///
+    /// You can do the same by double-clicking on the header.
     pub fn toggle_floating(self) {
         get!().toggle_floating(self);
     }
@@ -328,4 +331,29 @@ pub fn on_new_seat<F: Fn(Seat) + 'static>(f: F) {
 /// Sets a closure to run when a new input device has been added.
 pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(f: F) {
     get!().on_new_input_device(f)
+}
+
+/// Sets the maximum time between two clicks to be registered as a double click by the
+/// compositor.
+///
+/// This only affects interactions with the compositor UI and has no effect on
+/// applications.
+///
+/// The default is 400 ms.
+pub fn set_double_click_time(duration: Duration) {
+    let usec = duration.as_micros().min(u64::MAX as u128);
+    get!().set_double_click_interval(usec as u64)
+}
+
+/// Sets the maximum distance between two clicks to be registered as a double click by the
+/// compositor.
+///
+/// This only affects interactions with the compositor UI and has no effect on
+/// applications.
+///
+/// Setting a negative distance disables double clicks.
+///
+/// The default is 5.
+pub fn set_double_click_distance(distance: i32) {
+    get!().set_double_click_distance(distance)
 }
