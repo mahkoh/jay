@@ -258,6 +258,16 @@ pub mod colors {
         /// Default: `#23092c`.
         const 14 => ATTENTION_REQUESTED_BACKGROUND_COLOR,
     }
+
+    /// Sets the color of GUI element.
+    pub fn set_color(element: Colorable, color: Color) {
+        get!().set_color(element, color);
+    }
+
+    /// Gets the color of GUI element.
+    pub fn get_color(element: Colorable) -> Color {
+        get!(Color::BLACK).get_color(element)
+    }
 }
 
 /// Elements of the compositor whose size can be changed.
