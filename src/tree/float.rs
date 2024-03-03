@@ -14,8 +14,8 @@ use {
             StackedNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            linkedlist::LinkedNode,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, double_click_state::DoubleClickState,
+            errorfmt::ErrorFmt, linkedlist::LinkedNode,
         },
     },
     ahash::AHashMap,
@@ -57,6 +57,7 @@ struct SeatState {
     op_active: bool,
     dist_hor: i32,
     dist_ver: i32,
+    double_click_state: DoubleClickState,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -228,6 +229,7 @@ impl FloatNode {
             op_active: false,
             dist_hor: 0,
             dist_ver: 0,
+            double_click_state: Default::default(),
         });
         seat_state.x = x;
         seat_state.y = y;
@@ -462,7 +464,7 @@ impl Node for FloatNode {
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,
-        _time_usec: u64,
+        time_usec: u64,
         button: u32,
         state: KeyState,
         _serial: u32,
@@ -478,6 +480,17 @@ impl Node for FloatNode {
         if !seat_data.op_active {
             if state != KeyState::Pressed {
                 return;
+            }
+            if seat_data
+                .double_click_state
+                .click(&self.state, time_usec, seat_data.x, seat_data.y)
+                && seat_data.op_type == OpType::Move
+            {
+                if let Some(tl) = self.child.get() {
+                    drop(seat_datas);
+                    seat.set_tl_floating(tl, false);
+                    return;
+                }
             }
             seat_data.op_active = true;
             let pos = self.position.get();
