@@ -758,7 +758,9 @@ impl ContainerNode {
                 }
             }
             self.mono_child.set(Some(child.clone()));
-            child.node.tl_set_visible(true);
+            if self.toplevel_data.visible.get() {
+                child.node.tl_set_visible(true);
+            }
             child.node.tl_restack_popups();
             // log::info!("activate_child2");
             self.schedule_layout();
