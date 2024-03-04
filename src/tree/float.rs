@@ -10,8 +10,8 @@ use {
         state::State,
         text::{self, TextTexture},
         tree::{
-            walker::NodeVisitor, ContainingNode, FindTreeResult, FoundNode, Node, NodeId,
-            StackedNode, ToplevelNode, WorkspaceNode,
+            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
+            NodeId, StackedNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, double_click_state::DoubleClickState,
@@ -489,6 +489,11 @@ impl Node for FloatNode {
         if !seat_data.op_active {
             if state != KeyState::Pressed {
                 return;
+            }
+            if seat_data.op_type == OpType::Move {
+                if let Some(tl) = self.child.get() {
+                    tl.node_do_focus(seat, Direction::Unspecified);
+                }
             }
             if seat_data
                 .double_click_state

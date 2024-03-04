@@ -134,7 +134,7 @@ pub struct WlSurface {
     visible: Cell<bool>,
     role: Cell<SurfaceRole>,
     pending: PendingState,
-    input_region: Cell<Option<Rc<Region>>>,
+    input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
     pub buffer_points_norm: RefCell<SampleRect>,
@@ -894,13 +894,25 @@ impl WlSurface {
         Ok(())
     }
 
-    fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
+    fn accepts_input_at(&self, x: i32, y: i32) -> bool {
         let rect = self.buffer_abs_pos.get().at_point(0, 0);
+        if !rect.contains(x, y) {
+            return false;
+        }
+        if let Some(ir) = self.input_region.get() {
+            if !ir.contains(x, y) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
         let children = self.children.borrow();
         let children = match children.deref() {
             Some(c) => c,
             _ => {
-                return if rect.contains(x, y) {
+                return if self.accepts_input_at(x, y) {
                     Some((self.clone(), x, y))
                 } else {
                     None
@@ -925,7 +937,7 @@ impl WlSurface {
         if let Some(res) = ss(&children.above) {
             return Some(res);
         }
-        if rect.contains(x, y) {
+        if self.accepts_input_at(x, y) {
             return Some((self.clone(), x, y));
         }
         if let Some(res) = ss(&children.below) {
