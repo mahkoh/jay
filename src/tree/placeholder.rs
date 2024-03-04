@@ -113,10 +113,7 @@ impl Node for PlaceholderNode {
     }
 
     fn node_active_changed(&self, active: bool) {
-        self.toplevel.active.set(active);
-        if let Some(parent) = self.toplevel.parent.get() {
-            parent.node_child_active_changed(self, active, 1);
-        }
+        self.toplevel.update_self_active(self, active);
     }
 
     fn node_find_tree_at(&self, _x: i32, _y: i32, _tree: &mut Vec<FoundNode>) -> FindTreeResult {

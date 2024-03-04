@@ -58,21 +58,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_surface_active_changed(&self, active: bool) {
         let data = self.tl_data();
-        if active {
-            if data.active_surfaces.inc() {
-                self.tl_set_active(true);
-                if let Some(parent) = data.parent.get() {
-                    parent.node_child_active_changed(self.tl_as_node(), true, 1);
-                }
-            }
-        } else {
-            if data.active_surfaces.dec() {
-                self.tl_set_active(false);
-                if let Some(parent) = data.parent.get() {
-                    parent.node_child_active_changed(self.tl_as_node(), false, 1);
-                }
-            }
-        }
+        data.update_active(self, || {
+            data.active_surfaces.adj(active);
+        });
     }
 
     fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool) {
@@ -193,7 +181,7 @@ pub struct FullscreenedData {
 }
 
 pub struct ToplevelData {
-    pub active: Cell<bool>,
+    pub self_active: Cell<bool>,
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
@@ -220,7 +208,7 @@ pub struct ToplevelData {
 impl ToplevelData {
     pub fn new(state: &Rc<State>, title: String, client: Option<Rc<Client>>) -> Self {
         Self {
-            active: Cell::new(false),
+            self_active: Cell::new(false),
             client,
             state: state.clone(),
             active_surfaces: Default::default(),
@@ -245,7 +233,23 @@ impl ToplevelData {
     }
 
     pub fn active(&self) -> bool {
-        self.active_surfaces.active() || self.active.get()
+        self.active_surfaces.active() || self.self_active.get()
+    }
+
+    fn update_active<T: ToplevelNode, F: FnOnce()>(&self, tl: &T, f: F) {
+        let active_old = self.active();
+        f();
+        let active_new = self.active();
+        if active_old != active_new {
+            tl.tl_set_active(active_new);
+            if let Some(parent) = self.parent.get() {
+                parent.node_child_active_changed(tl.tl_as_node(), active_new, 1);
+            }
+        }
+    }
+
+    pub fn update_self_active<T: ToplevelNode>(&self, node: &T, active: bool) {
+        self.update_active(node, || self.self_active.set(active));
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {

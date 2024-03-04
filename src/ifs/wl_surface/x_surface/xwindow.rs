@@ -322,6 +322,10 @@ impl Node for Xwindow {
         seat.focus_toplevel(self.clone());
     }
 
+    fn node_active_changed(&self, active: bool) {
+        self.toplevel_data.update_self_active(self, active);
+    }
+
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
         let rect = self.x.surface.buffer_abs_pos.get();
         if x < rect.width() && y < rect.height() {

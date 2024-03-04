@@ -1128,10 +1128,7 @@ impl Node for ContainerNode {
     }
 
     fn node_active_changed(&self, active: bool) {
-        self.toplevel_data.active.set(active);
-        if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.node_child_active_changed(self, active, 1);
-        }
+        self.toplevel_data.update_self_active(self, active);
     }
 
     fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
