@@ -570,6 +570,10 @@ impl Client {
         }
     }
 
+    pub fn connector_set_mode(&self, connector: Connector, mode: WireMode) {
+        self.send(&ClientMessage::ConnectorSetMode { connector, mode });
+    }
+
     pub fn connector_modes(&self, connector: Connector) -> Vec<Mode> {
         let res = self.send_with_response(&ClientMessage::ConnectorModes { connector });
         get_response!(res, Vec::new(), ConnectorModes { modes });

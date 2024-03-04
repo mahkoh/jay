@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+            Backend, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, Mode,
         },
         video::drm::ConnectorType,
     },
@@ -54,6 +54,10 @@ impl Connector for DummyOutput {
     }
 
     fn set_enabled(&self, _enabled: bool) {
+        // nothing
+    }
+
+    fn set_mode(&self, _mode: Mode) {
         // nothing
     }
 }

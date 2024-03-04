@@ -356,6 +356,10 @@ pub enum ClientMessage<'a> {
     ConnectorModes {
         connector: Connector,
     },
+    ConnectorSetMode {
+        connector: Connector,
+        mode: WireMode,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

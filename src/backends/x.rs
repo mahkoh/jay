@@ -1058,6 +1058,10 @@ impl Connector for XOutput {
     fn set_enabled(&self, _enabled: bool) {
         // nothing
     }
+
+    fn set_mode(&self, _mode: Mode) {
+        log::warn!("X backend doesn't support changing the connector mode");
+    }
 }
 
 struct XSeat {

@@ -695,6 +695,20 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_connector_set_mode(
+        &self,
+        connector: Connector,
+        mode: WireMode,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        connector.connector.connector.set_mode(backend::Mode {
+            width: mode.width,
+            height: mode.height,
+            refresh_rate_millihz: mode.refresh_millihz,
+        });
+        Ok(())
+    }
+
     fn handle_connector_modes(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output(connector)?;
         self.respond(Response::ConnectorModes {
@@ -1391,6 +1405,9 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorModes { connector } => self
                 .handle_connector_modes(connector)
                 .wrn("connector_modes")?,
+            ClientMessage::ConnectorSetMode { connector, mode } => self
+                .handle_connector_set_mode(connector, mode)
+                .wrn("connector_set_mode")?,
         }
         Ok(())
     }
