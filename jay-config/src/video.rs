@@ -21,7 +21,7 @@ use {
 /// - width in pixels
 /// - height in pixels
 /// - refresh rate in mhz.
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Mode {
     pub(crate) width: i32,
     pub(crate) height: i32,
@@ -110,6 +110,14 @@ impl Connector {
             return Mode::zeroed();
         }
         get!(Mode::zeroed()).connector_mode(self)
+    }
+
+    /// Returns the available modes of the connector.
+    pub fn modes(self) -> Vec<Mode> {
+        if !self.exists() {
+            return Vec::new();
+        }
+        get!(Vec::new()).connector_modes(self)
     }
 
     /// Returns the logical width of the connector.

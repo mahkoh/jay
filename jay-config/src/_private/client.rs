@@ -5,7 +5,7 @@ use {
         _private::{
             bincode_ops,
             ipc::{ClientMessage, InitMessage, Response, ServerMessage},
-            logging, Config, ConfigEntry, ConfigEntryGen, VERSION,
+            logging, Config, ConfigEntry, ConfigEntryGen, WireMode, VERSION,
         },
         exec::Command,
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
@@ -568,6 +568,12 @@ impl Client {
             height,
             refresh_millihz,
         }
+    }
+
+    pub fn connector_modes(&self, connector: Connector) -> Vec<Mode> {
+        let res = self.send_with_response(&ClientMessage::ConnectorModes { connector });
+        get_response!(res, Vec::new(), ConnectorModes { modes });
+        modes.into_iter().map(WireMode::to_mode).collect()
     }
 
     pub fn connector_size(&self, connector: Connector) -> (i32, i32) {

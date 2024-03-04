@@ -375,6 +375,7 @@ fn create_dummy_output(state: &Rc<State>) {
                 async_event: Default::default(),
             }),
             0,
+            Vec::new(),
             &backend::Mode {
                 width: 0,
                 height: 0,
