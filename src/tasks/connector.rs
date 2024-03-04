@@ -94,6 +94,7 @@ impl ConnectorHandler {
             &self.state,
             &self.data,
             x1,
+            info.modes.clone(),
             &info.initial_mode,
             &info.manufacturer,
             &info.product,

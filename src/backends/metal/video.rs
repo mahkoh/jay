@@ -3,7 +3,7 @@ use {
         async_engine::{Phase, SpawnedFuture},
         backend::{
             BackendDrmDevice, BackendEvent, Connector, ConnectorEvent, ConnectorId,
-            ConnectorKernelId, DrmDeviceId, HardwareCursor, MonitorInfo,
+            ConnectorKernelId, DrmDeviceId, HardwareCursor, Mode, MonitorInfo,
         },
         backends::metal::{MetalBackend, MetalError},
         drm_feedback::DrmFeedback,
@@ -155,7 +155,7 @@ pub struct ConnectorDisplayData {
     pub crtc_id: MutableProperty<DrmCrtc>,
     pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
     pub modes: Vec<DrmModeInfo>,
-    pub mode: Option<Rc<DrmModeInfo>>,
+    pub mode: Option<DrmModeInfo>,
     pub refresh: u32,
 
     pub monitor_manufacturer: String,
@@ -862,6 +862,44 @@ impl Connector for MetalConnector {
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         self.drm_feedback.get()
     }
+
+    fn set_mode(&self, be_mode: Mode) {
+        let mut dd = self.display.borrow_mut();
+        let Some(mode) = dd.modes.iter().find(|m| m.to_backend() == be_mode) else {
+            log::warn!("Connector does not support mode {:?}", be_mode);
+            return;
+        };
+        let prev = dd.mode.clone();
+        if prev.as_ref() == Some(mode) {
+            return;
+        }
+        if dd.connection != ConnectorStatus::Connected {
+            log::warn!("Cannot change mode of connector that is not connected");
+            return;
+        }
+        let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) else {
+            log::warn!("Cannot change mode because underlying device does not exist?");
+            return;
+        };
+        log::info!("Trying to change mode from {:?} to {:?}", prev, mode);
+        dd.mode = Some(mode.clone());
+        drop(dd);
+        let Err(e) = self.backend.handle_drm_change_(&dev, true) else {
+            self.on_change
+                .send_event(ConnectorEvent::ModeChanged(be_mode));
+            return;
+        };
+        log::warn!("Could not change mode: {}", ErrorFmt(&e));
+        self.display.borrow_mut().mode = prev;
+        if let MetalError::Modeset(DrmError::Atomic(OsError(c::EACCES))) = e {
+            log::warn!("Failed due to access denied. Resetting in memory only.");
+            return;
+        }
+        log::warn!("Trying to re-initialize the drm device");
+        if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
+            log::warn!("Could not restore the previous mode: {}", ErrorFmt(e));
+        };
+    }
 }
 
 #[derive(Debug)]
@@ -1021,7 +1059,7 @@ fn create_connector_display_data(
     let mut name = String::new();
     let mut manufacturer = String::new();
     let mut serial_number = String::new();
-    let mode = info.modes.first().cloned().map(Rc::new);
+    let mode = info.modes.first().cloned();
     let refresh = mode
         .as_ref()
         .map(|m| 1_000_000_000_000u64 / (m.refresh_rate_millihz() as u64))
@@ -1402,6 +1440,13 @@ impl MetalBackend {
                 }
             };
             let mut old = c.display.borrow_mut();
+            if old.is_same_monitor(&dd) {
+                if let Some(mode) = &old.mode {
+                    if dd.modes.contains(mode) {
+                        dd.mode = Some(mode.clone());
+                    }
+                }
+            }
             mem::swap(old.deref_mut(), &mut dd);
             if c.connect_sent.get() {
                 if !c.enabled.get()

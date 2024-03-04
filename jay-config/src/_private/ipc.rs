@@ -7,6 +7,7 @@ use {
         timer::Timer,
         video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi, Transform},
         Axis, Direction, PciId, Workspace,
+        _private::WireMode,
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -352,6 +353,13 @@ pub enum ClientMessage<'a> {
     SetDoubleClickDistance {
         dist: i32,
     },
+    ConnectorModes {
+        connector: Connector,
+    },
+    ConnectorSetMode {
+        connector: Connector,
+        mode: WireMode,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -453,6 +461,9 @@ pub enum Response {
     },
     GetWorkspaceCapture {
         capture: bool,
+    },
+    ConnectorModes {
+        modes: Vec<WireMode>,
     },
 }
 

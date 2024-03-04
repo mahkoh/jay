@@ -27,6 +27,7 @@ use {
         _private::{
             bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage},
+            WireMode,
         },
         input::{
             acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
@@ -690,6 +691,38 @@ impl ConfigProxyHandler {
             width: mode.width,
             height: mode.height,
             refresh_millihz: mode.refresh_rate_millihz,
+        });
+        Ok(())
+    }
+
+    fn handle_connector_set_mode(
+        &self,
+        connector: Connector,
+        mode: WireMode,
+    ) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        connector.connector.connector.set_mode(backend::Mode {
+            width: mode.width,
+            height: mode.height,
+            refresh_rate_millihz: mode.refresh_millihz,
+        });
+        Ok(())
+    }
+
+    fn handle_connector_modes(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        self.respond(Response::ConnectorModes {
+            modes: connector
+                .node
+                .global
+                .modes
+                .iter()
+                .map(|m| WireMode {
+                    width: m.width,
+                    height: m.height,
+                    refresh_millihz: m.refresh_rate_millihz,
+                })
+                .collect(),
         });
         Ok(())
     }
@@ -1369,6 +1402,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetDoubleClickDistance { dist } => {
                 self.handle_set_double_click_distance(dist)
             }
+            ClientMessage::ConnectorModes { connector } => self
+                .handle_connector_modes(connector)
+                .wrn("connector_modes")?,
+            ClientMessage::ConnectorSetMode { connector, mode } => self
+                .handle_connector_set_mode(connector, mode)
+                .wrn("connector_set_mode")?,
         }
         Ok(())
     }

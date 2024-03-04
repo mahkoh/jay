@@ -2,7 +2,12 @@ pub mod client;
 pub mod ipc;
 mod logging;
 
-use {bincode::Options, std::marker::PhantomData};
+use {
+    crate::video::Mode,
+    bincode::Options,
+    serde::{Deserialize, Serialize},
+    std::marker::PhantomData,
+};
 
 pub const VERSION: u32 = 1;
 
@@ -35,4 +40,21 @@ pub fn bincode_ops() -> impl Options {
 
 pub trait Config {
     extern "C" fn configure();
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct WireMode {
+    pub width: i32,
+    pub height: i32,
+    pub refresh_millihz: u32,
+}
+
+impl WireMode {
+    pub fn to_mode(self) -> Mode {
+        Mode {
+            width: self.width,
+            height: self.height,
+            refresh_millihz: self.refresh_millihz,
+        }
+    }
 }

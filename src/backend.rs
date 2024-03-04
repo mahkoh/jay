@@ -83,6 +83,7 @@ pub trait Connector {
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         None
     }
+    fn set_mode(&self, mode: Mode);
 }
 
 #[derive(Debug)]

@@ -9,6 +9,7 @@ use {
             CON_VIRTUAL, CON_WRITEBACK,
         },
         PciId,
+        _private::WireMode,
     },
     serde::{Deserialize, Serialize},
     std::str::FromStr,
@@ -21,7 +22,7 @@ use {
 /// - width in pixels
 /// - height in pixels
 /// - refresh rate in mhz.
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub struct Mode {
     pub(crate) width: i32,
     pub(crate) height: i32,
@@ -110,6 +111,50 @@ impl Connector {
             return Mode::zeroed();
         }
         get!(Mode::zeroed()).connector_mode(self)
+    }
+
+    /// Tries to set the mode of the connector.
+    ///
+    /// If the refresh rate is not specified, tries to use the first mode with the given
+    /// width and height.
+    ///
+    /// The default mode is the first mode advertised by the connector. This is usually
+    /// the native mode.
+    pub fn set_mode(self, width: i32, height: i32, refresh_millihz: Option<u32>) {
+        if !self.exists() {
+            log::warn!("set_mode called on a connector that does not exist");
+            return;
+        }
+        let refresh_millihz = match refresh_millihz {
+            Some(r) => r,
+            _ => match self
+                .modes()
+                .iter()
+                .find(|m| m.width == width && m.height == height)
+            {
+                Some(m) => m.refresh_millihz,
+                _ => {
+                    log::warn!("Could not find any mode with width {width} and height {height}");
+                    return;
+                }
+            },
+        };
+        get!().connector_set_mode(
+            self,
+            WireMode {
+                width,
+                height,
+                refresh_millihz,
+            },
+        )
+    }
+
+    /// Returns the available modes of the connector.
+    pub fn modes(self) -> Vec<Mode> {
+        if !self.exists() {
+            return Vec::new();
+        }
+        get!(Vec::new()).connector_modes(self)
     }
 
     /// Returns the logical width of the connector.
