@@ -539,6 +539,7 @@ dependencies = [
 name = "jay-config"
 version = "0.1.0"
 dependencies = [
+ "backtrace",
  "bincode",
  "futures-util",
  "log",

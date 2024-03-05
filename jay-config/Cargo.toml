@@ -12,3 +12,4 @@ log = "0.4.14"
 futures-util = {  version = "0.3.30", features = ["io"] }
 uapi = "0.2.10"
 thiserror = "1.0.57"
+backtrace = "0.3.69"

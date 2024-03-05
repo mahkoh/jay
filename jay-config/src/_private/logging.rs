@@ -1,11 +1,31 @@
 use {
     crate::logging::LogLevel,
+    backtrace::Backtrace,
     log::{Level, LevelFilter, Log, Metadata, Record},
 };
 
 pub fn init() {
     let _ = log::set_logger(&Logger);
     log::set_max_level(LevelFilter::Trace);
+    std::panic::set_hook(Box::new(|p| {
+        if let Some(loc) = p.location() {
+            log::error!(
+                "Panic at {} line {} column {}",
+                loc.file(),
+                loc.line(),
+                loc.column()
+            );
+        } else {
+            log::error!("Panic at unknown location");
+        }
+        if let Some(msg) = p.payload().downcast_ref::<&str>() {
+            log::error!("Message: {}", msg);
+        }
+        if let Some(msg) = p.payload().downcast_ref::<String>() {
+            log::error!("Message: {}", msg);
+        }
+        log::error!("Backtrace:\n{:?}", Backtrace::new());
+    }));
 }
 
 struct Logger;

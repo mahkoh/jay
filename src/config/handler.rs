@@ -55,6 +55,7 @@ use {
 };
 
 pub(super) struct ConfigProxyHandler {
+    pub path: Option<String>,
     pub client_data: Cell<*const u8>,
     pub dropped: Cell<bool>,
     pub _lib: Option<Library>,
@@ -100,6 +101,12 @@ impl ConfigProxyHandler {
         self.timers_by_id.clear();
 
         self.pollables.clear();
+
+        if let Some(path) = &self.path {
+            if let Err(e) = uapi::unlink(path.as_str()) {
+                log::error!("Could not unlink {}: {}", path, ErrorFmt(OsError(e.0)));
+            }
+        }
     }
 
     pub fn send(&self, msg: &ServerMessage) {
