@@ -13,6 +13,7 @@ pub mod debug_fn;
 pub mod double_click_state;
 pub mod errorfmt;
 pub mod fdcloser;
+pub mod gfx_api_ext;
 pub mod hex;
 pub mod linkedlist;
 pub mod log_on_drop;

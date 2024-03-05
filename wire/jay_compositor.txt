@@ -65,6 +65,10 @@ msg create_screencast = 15 {
     id: id(jay_screencast),
 }
 
+msg get_randr = 16 {
+    id: id(jay_randr),
+}
+
 # events
 
 msg client_id = 0 {

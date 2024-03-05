@@ -79,7 +79,12 @@ pub trait Connector {
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn damage(&self);
     fn drm_dev(&self) -> Option<DrmDeviceId>;
-    fn set_enabled(&self, enabled: bool);
+    fn enabled(&self) -> bool {
+        true
+    }
+    fn set_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
     fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
         None
     }
@@ -232,4 +237,5 @@ pub trait BackendDrmDevice {
     fn gtx_api(&self) -> GfxApi;
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
+    fn is_render_device(&self) -> bool;
 }

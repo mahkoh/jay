@@ -53,10 +53,6 @@ impl Connector for DummyOutput {
         None
     }
 
-    fn set_enabled(&self, _enabled: bool) {
-        // nothing
-    }
-
     fn set_mode(&self, _mode: Mode) {
         // nothing
     }

@@ -243,10 +243,6 @@ impl Connector for TestConnector {
         None
     }
 
-    fn set_enabled(&self, _enabled: bool) {
-        // todo
-    }
-
     fn set_mode(&self, _mode: Mode) {
         // todo
     }

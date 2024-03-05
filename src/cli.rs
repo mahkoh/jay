@@ -2,6 +2,7 @@ mod generate;
 mod idle;
 mod log;
 mod quit;
+mod randr;
 mod run_privileged;
 pub mod screenshot;
 mod seat_test;
@@ -9,7 +10,7 @@ mod set_log_level;
 mod unlock;
 
 use {
-    crate::{compositor::start_compositor, portal},
+    crate::{cli::randr::RandrArgs, compositor::start_compositor, portal},
     ::log::Level,
     clap::{Args, Parser, Subcommand, ValueEnum},
     clap_complete::Shell,
@@ -55,6 +56,8 @@ pub enum Cmd {
     SeatTest(SeatTestArgs),
     /// Run the desktop portal.
     Portal,
+    /// Inspect/modify graphics card and connector settings.
+    Randr(RandrArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -217,6 +220,7 @@ pub fn main() {
         Cmd::RunPrivileged(a) => run_privileged::main(cli.global, a),
         Cmd::SeatTest(a) => seat_test::main(cli.global, a),
         Cmd::Portal => portal::run(cli.global),
+        Cmd::Randr(a) => randr::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }
