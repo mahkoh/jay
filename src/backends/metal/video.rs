@@ -130,6 +130,10 @@ impl BackendDrmDevice for MetalDrmDevice {
     fn set_direct_scanout_enabled(&self, enabled: bool) {
         self.direct_scanout_enabled.set(Some(enabled));
     }
+
+    fn is_render_device(&self) -> bool {
+        Some(self.id) == self.backend.ctx.get().map(|c| c.dev_id)
+    }
 }
 
 pub struct HandleEvents {
@@ -844,6 +848,10 @@ impl Connector for MetalConnector {
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
         Some(self.dev.id)
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled.get()
     }
 
     fn set_enabled(&self, enabled: bool) {

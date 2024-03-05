@@ -994,6 +994,10 @@ impl BackendDrmDevice for XDrmDevice {
     fn set_direct_scanout_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn is_render_device(&self) -> bool {
+        true
+    }
 }
 
 struct XOutput {
@@ -1053,10 +1057,6 @@ impl Connector for XOutput {
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
         Some(self.backend.drm_device_id)
-    }
-
-    fn set_enabled(&self, _enabled: bool) {
-        // nothing
     }
 
     fn set_mode(&self, _mode: Mode) {
