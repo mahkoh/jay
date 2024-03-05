@@ -175,6 +175,8 @@ impl ConfigProxy {
             timer_ids: NumCell::new(1),
             timers_by_name: Default::default(),
             timers_by_id: Default::default(),
+            pollable_id: Default::default(),
+            pollables: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

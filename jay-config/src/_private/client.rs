@@ -5,12 +5,13 @@ use {
         _private::{
             bincode_ops,
             ipc::{ClientMessage, InitMessage, Response, ServerMessage},
-            logging, Config, ConfigEntry, ConfigEntryGen, WireMode, VERSION,
+            logging, Config, ConfigEntry, ConfigEntryGen, PollableId, WireMode, VERSION,
         },
         exec::Command,
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::Keymap,
         logging::LogLevel,
+        tasks::JoinSlot,
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
         video::{
@@ -20,13 +21,22 @@ use {
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
     bincode::Options,
+    futures_util::task::ArcWake,
     std::{
         cell::{Cell, RefCell},
-        collections::{hash_map::Entry, HashMap},
+        collections::{hash_map::Entry, HashMap, VecDeque},
+        future::Future,
+        mem,
         ops::Deref,
+        pin::Pin,
         ptr,
         rc::Rc,
         slice,
+        sync::{
+            atomic::{AtomicBool, Ordering::Relaxed},
+            Arc, Mutex,
+        },
+        task::{Context, Poll, Waker},
         time::Duration,
     },
 };
@@ -50,6 +60,40 @@ pub(crate) struct Client {
     on_idle: RefCell<Option<Rc<dyn Fn()>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
+    read_interests: RefCell<HashMap<PollableId, Interest>>,
+    write_interests: RefCell<HashMap<PollableId, Interest>>,
+    tasks: Tasks,
+}
+
+struct Interest {
+    result: Option<Result<(), String>>,
+    waker: Option<Waker>,
+}
+
+#[derive(Default)]
+struct Tasks {
+    last_id: Cell<u64>,
+    ready_front: RefCell<VecDeque<u64>>,
+    ready_back: Arc<TasksBackBuffer>,
+    tasks: RefCell<HashMap<u64, Rc<RefCell<Task>>>>,
+}
+
+#[derive(Default)]
+struct TasksBackBuffer {
+    any: AtomicBool,
+    tasks: Mutex<VecDeque<u64>>,
+}
+
+impl TasksBackBuffer {
+    fn append(&self, task: u64) {
+        self.tasks.lock().unwrap().push_back(task);
+        self.any.store(true, Relaxed);
+    }
+}
+
+struct Task {
+    task: Pin<Box<dyn Future<Output = ()>>>,
+    waker: Waker,
 }
 
 impl Drop for Client {
@@ -138,6 +182,9 @@ pub unsafe extern "C" fn init(
         on_idle: Default::default(),
         bufs: Default::default(),
         reload: Cell::new(false),
+        read_interests: Default::default(),
+        write_interests: Default::default(),
+        tasks: Default::default(),
     });
     let init = slice::from_raw_parts(init, size);
     client.handle_init_msg(init);
@@ -729,7 +776,122 @@ impl Client {
         })
     }
 
+    pub fn create_pollable(&self, fd: i32) -> Result<PollableId, String> {
+        let res = self.send_with_response(&ClientMessage::AddPollable { fd });
+        get_response!(
+            res,
+            Err("Compositor did not send a response".to_string()),
+            AddPollable { id }
+        );
+        id
+    }
+
+    pub fn remove_pollable(&self, id: PollableId) {
+        self.send(&ClientMessage::RemovePollable { id });
+        self.write_interests.borrow_mut().remove(&id);
+        self.read_interests.borrow_mut().remove(&id);
+    }
+
+    pub fn poll_io(
+        &self,
+        pollable: PollableId,
+        writable: bool,
+        ctx: &mut Context<'_>,
+    ) -> Poll<Result<(), String>> {
+        let interests = match writable {
+            true => &self.write_interests,
+            false => &self.read_interests,
+        };
+        let mut interests = interests.borrow_mut();
+        match interests.entry(pollable) {
+            Entry::Occupied(mut o) => {
+                let interest = o.get_mut();
+                if interest.result.is_some() {
+                    Poll::Ready(o.remove().result.unwrap())
+                } else {
+                    interest.waker = Some(ctx.waker().clone());
+                    Poll::Pending
+                }
+            }
+            Entry::Vacant(v) => {
+                self.send(&ClientMessage::AddInterest { pollable, writable });
+                v.insert(Interest {
+                    result: None,
+                    waker: Some(ctx.waker().clone()),
+                });
+                Poll::Pending
+            }
+        }
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
+        self.handle_msg2(msg);
+        self.dispatch_futures();
+    }
+
+    fn dispatch_futures(&self) {
+        let futures = &self.tasks;
+        if !futures.ready_back.any.load(Relaxed) {
+            return;
+        }
+        let mut ready = futures.ready_front.borrow_mut();
+        loop {
+            mem::swap(&mut *ready, &mut *futures.ready_back.tasks.lock().unwrap());
+            futures.ready_back.any.store(false, Relaxed);
+            while let Some(id) = ready.pop_front() {
+                let fut = futures.tasks.borrow_mut().get(&id).cloned();
+                if let Some(fut) = fut {
+                    let mut fut = fut.borrow_mut();
+                    let fut = &mut *fut;
+                    if let Poll::Ready(()) =
+                        fut.task.as_mut().poll(&mut Context::from_waker(&fut.waker))
+                    {
+                        futures.tasks.borrow_mut().remove(&id);
+                    }
+                }
+            }
+            if !futures.ready_back.any.load(Relaxed) {
+                return;
+            }
+        }
+    }
+
+    pub fn spawn_task<T: 'static>(&self, f: impl Future<Output = T> + 'static) -> Rc<JoinSlot<T>> {
+        struct Waker(Arc<TasksBackBuffer>, u64);
+        impl ArcWake for Waker {
+            fn wake_by_ref(arc_self: &Arc<Self>) {
+                arc_self.0.append(arc_self.1);
+            }
+        }
+        let tasks = &self.tasks;
+        let id = tasks.last_id.get() + 1;
+        tasks.last_id.set(id);
+        let waker = futures_util::task::waker(Arc::new(Waker(tasks.ready_back.clone(), id)));
+        tasks.ready_back.append(id);
+        let slot = Rc::new(JoinSlot {
+            task_id: id,
+            slot: Cell::new(None),
+            waker: Cell::new(None),
+        });
+        let slot2 = slot.clone();
+        let task = Rc::new(RefCell::new(Task {
+            task: Box::pin(async move {
+                slot2.slot.set(Some(f.await));
+                if let Some(waker) = slot2.waker.take() {
+                    waker.wake();
+                }
+            }),
+            waker,
+        }));
+        tasks.tasks.borrow_mut().insert(id, task);
+        slot
+    }
+
+    pub fn abort_task(&self, id: u64) {
+        self.tasks.tasks.borrow_mut().remove(&id);
+    }
+
+    fn handle_msg2(&self, msg: &[u8]) {
         let res = bincode_ops().deserialize::<ServerMessage>(msg);
         let msg = match res {
             Ok(msg) => msg,
@@ -811,6 +973,19 @@ impl Client {
             ServerMessage::DevicesEnumerated => {
                 if let Some(handler) = self.on_devices_enumerated.take() {
                     handler();
+                }
+            }
+            ServerMessage::InterestReady { id, writable, res } => {
+                let interests = match writable {
+                    true => &self.write_interests,
+                    false => &self.read_interests,
+                };
+                let mut interests = interests.borrow_mut();
+                if let Some(interest) = interests.get_mut(&id) {
+                    interest.result = Some(res);
+                    if let Some(waker) = interest.waker.take() {
+                        waker.wake();
+                    }
                 }
             }
         }
