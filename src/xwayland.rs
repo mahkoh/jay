@@ -198,7 +198,7 @@ async fn run(
     Ok(())
 }
 
-pub fn build_args(fds: &[OwnedFd]) -> (String, Vec<String>) {
+pub fn build_args() -> (String, Vec<String>) {
     let prog = "Xwayland".to_string();
     let args = vec![
         "-terminate".to_string(),
@@ -206,11 +206,11 @@ pub fn build_args(fds: &[OwnedFd]) -> (String, Vec<String>) {
         "-verbose".to_string(),
         10.to_string(),
         "-displayfd".to_string(),
-        fds[0].raw().to_string(),
+        "3".to_string(),
         "-listenfd".to_string(),
-        fds[1].raw().to_string(),
+        "4".to_string(),
         "-wm".to_string(),
-        fds[2].raw().to_string(),
+        "5".to_string(),
     ];
     (prog, args)
 }

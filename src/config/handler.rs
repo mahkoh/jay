@@ -1004,7 +1004,7 @@ impl ConfigProxyHandler {
             Some(f) => f,
             _ => return Err(CphError::NoForker),
         };
-        forker.spawn(prog.to_string(), args, env, None);
+        forker.spawn(prog.to_string(), args, env);
         Ok(())
     }
 
