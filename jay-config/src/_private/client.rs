@@ -28,6 +28,7 @@ use {
         future::Future,
         mem,
         ops::Deref,
+        panic::{catch_unwind, AssertUnwindSafe},
         pin::Pin,
         ptr,
         rc::Rc,
@@ -49,8 +50,14 @@ fn cb<T, F: FnMut(T) + 'static>(f: F) -> Callback<T> {
 
 fn run_cb<T>(name: &str, cb: &Callback<T>, t: T) {
     match cb.try_borrow_mut() {
-        Ok(mut cb) => cb(t),
+        Ok(mut cb) => ignore_panic(name, || cb(t)),
         Err(_) => log::error!("Cannot invoke {name} callback because it is already running"),
+    }
+}
+
+fn ignore_panic(name: &str, f: impl FnOnce()) {
+    if catch_unwind(AssertUnwindSafe(f)).is_err() {
+        log::error!("A panic occurred in a {name} callback");
     }
 }
 
@@ -863,10 +870,18 @@ impl Client {
                 if let Some(fut) = fut {
                     let mut fut = fut.borrow_mut();
                     let fut = &mut *fut;
-                    if let Poll::Ready(()) =
+                    let res = catch_unwind(AssertUnwindSafe(|| {
                         fut.task.as_mut().poll(&mut Context::from_waker(&fut.waker))
-                    {
-                        futures.tasks.borrow_mut().remove(&id);
+                    }));
+                    match res {
+                        Err(_) => {
+                            log::error!("A task panicked");
+                            futures.tasks.borrow_mut().remove(&id);
+                        }
+                        Ok(Poll::Ready(())) => {
+                            futures.tasks.borrow_mut().remove(&id);
+                        }
+                        Ok(_) => {}
                     }
                 }
             }
@@ -966,7 +981,7 @@ impl Client {
             }
             ServerMessage::GraphicsInitialized => {
                 if let Some(handler) = self.on_graphics_initialized.take() {
-                    handler();
+                    ignore_panic("graphics initialized", handler);
                 }
             }
             ServerMessage::Clear => {
@@ -992,7 +1007,7 @@ impl Client {
             }
             ServerMessage::DevicesEnumerated => {
                 if let Some(handler) = self.on_devices_enumerated.take() {
-                    handler();
+                    ignore_panic("devices enumerated", handler);
                 }
             }
             ServerMessage::InterestReady { id, writable, res } => {
