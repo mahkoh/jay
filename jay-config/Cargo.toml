@@ -9,3 +9,7 @@ description = "Configuration crate for the Jay compositor"
 bincode = "1.3.3"
 serde = { version = "1.0.196", features = ["derive"] }
 log = "0.4.14"
+futures-util = {  version = "0.3.30", features = ["io"] }
+uapi = "0.2.10"
+thiserror = "1.0.57"
+backtrace = "0.3.69"

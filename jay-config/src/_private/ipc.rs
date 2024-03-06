@@ -7,7 +7,7 @@ use {
         timer::Timer,
         video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi, Transform},
         Axis, Direction, PciId, Workspace,
-        _private::WireMode,
+        _private::{PollableId, WireMode},
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -57,6 +57,11 @@ pub enum ServerMessage {
     },
     Idle,
     DevicesEnumerated,
+    InterestReady {
+        id: PollableId,
+        writable: bool,
+        res: Result<(), String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -360,6 +365,16 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         mode: WireMode,
     },
+    AddPollable {
+        fd: i32,
+    },
+    RemovePollable {
+        id: PollableId,
+    },
+    AddInterest {
+        pollable: PollableId,
+        writable: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -464,6 +479,9 @@ pub enum Response {
     },
     ConnectorModes {
         modes: Vec<WireMode>,
+    },
+    AddPollable {
+        id: Result<PollableId, String>,
     },
 }
 

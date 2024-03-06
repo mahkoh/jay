@@ -8,15 +8,18 @@ use {
         compositor::MAX_EXTENTS,
         config::ConfigProxy,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
+        io_uring::TaskResultExt,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         theme::{Color, ThemeSized, DEFAULT_FONT},
         tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode},
         utils::{
+            asyncevent::AsyncEvent,
             copyhashmap::CopyHashMap,
             debug_fn::debug_fn,
             errorfmt::ErrorFmt,
             numcell::NumCell,
+            oserror::OsError,
             stack::Stack,
             timer::{TimerError, TimerFd},
         },
@@ -27,7 +30,7 @@ use {
         _private::{
             bincode_ops,
             ipc::{ClientMessage, Response, ServerMessage},
-            WireMode,
+            PollableId, WireMode,
         },
         input::{
             acceleration::{AccelProfile, ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
@@ -48,10 +51,11 @@ use {
     log::Level,
     std::{cell::Cell, ops::Deref, rc::Rc, time::Duration},
     thiserror::Error,
-    uapi::c,
+    uapi::{c, fcntl_dupfd_cloexec},
 };
 
 pub(super) struct ConfigProxyHandler {
+    pub path: Option<String>,
     pub client_data: Cell<*const u8>,
     pub dropped: Cell<bool>,
     pub _lib: Option<Library>,
@@ -70,6 +74,16 @@ pub(super) struct ConfigProxyHandler {
     pub timer_ids: NumCell<u64>,
     pub timers_by_name: CopyHashMap<Rc<String>, Rc<TimerData>>,
     pub timers_by_id: CopyHashMap<u64, Rc<TimerData>>,
+
+    pub pollable_id: NumCell<u64>,
+    pub pollables: CopyHashMap<PollableId, Rc<Pollable>>,
+}
+
+pub struct Pollable {
+    write_trigger: Rc<AsyncEvent>,
+    _write_future: SpawnedFuture<()>,
+    read_trigger: Rc<AsyncEvent>,
+    _read_future: SpawnedFuture<()>,
 }
 
 pub(super) struct TimerData {
@@ -85,6 +99,14 @@ impl ConfigProxyHandler {
 
         self.timers_by_name.clear();
         self.timers_by_id.clear();
+
+        self.pollables.clear();
+
+        if let Some(path) = &self.path {
+            if let Err(e) = uapi::unlink(path.as_str()) {
+                log::error!("Could not unlink {}: {}", path, ErrorFmt(OsError(e.0)));
+            }
+        }
     }
 
     pub fn send(&self, msg: &ServerMessage) {
@@ -1027,6 +1049,74 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_add_pollable(self: &Rc<Self>, fd: i32) -> Result<(), CphError> {
+        let fd = match fcntl_dupfd_cloexec(fd, 0) {
+            Ok(fd) => Rc::new(fd),
+            Err(e) => {
+                let err = format!(
+                    "Could not invoke F_DUPFD_CLOEXEC: {}",
+                    ErrorFmt(OsError::from(e))
+                );
+                log::error!("{}", err);
+                self.respond(Response::AddPollable { id: Err(err) });
+                return Ok(());
+            }
+        };
+        let id = self.pollable_id.fetch_add(1);
+        let id = PollableId(id);
+        let create = |writable: bool, events: c::c_short| {
+            let event = Rc::new(AsyncEvent::default());
+            let slf = self.clone();
+            let trigger = event.clone();
+            let fd = fd.clone();
+            let future = self.state.eng.spawn(async move {
+                loop {
+                    trigger.triggered().await;
+                    let res = slf.state.ring.poll(&fd, events).await.merge();
+                    if let Err(e) = &res {
+                        log::warn!("Could not poll fd: {}", ErrorFmt(e));
+                    }
+                    let res = res.map_err(|e| ErrorFmt(e).to_string()).map(drop);
+                    slf.send(&ServerMessage::InterestReady { id, writable, res });
+                }
+            });
+            (event, future)
+        };
+        let (read_trigger, _read_future) = create(false, c::POLLIN);
+        let (write_trigger, _write_future) = create(true, c::POLLOUT);
+        self.pollables.set(
+            id,
+            Rc::new(Pollable {
+                write_trigger,
+                _write_future,
+                read_trigger,
+                _read_future,
+            }),
+        );
+        self.respond(Response::AddPollable { id: Ok(id) });
+        Ok(())
+    }
+
+    fn handle_remove_pollable(self: &Rc<Self>, id: PollableId) {
+        self.pollables.remove(&id);
+    }
+
+    fn handle_add_interest(
+        self: &Rc<Self>,
+        id: PollableId,
+        writable: bool,
+    ) -> Result<(), CphError> {
+        let Some(pollable) = self.pollables.get(&id) else {
+            return Err(CphError::PollableDoesNotExist);
+        };
+        let trigger = match writable {
+            true => &pollable.write_trigger,
+            false => &pollable.read_trigger,
+        };
+        trigger.trigger();
+        Ok(())
+    }
+
     fn spaces_change(&self) {
         struct V;
         impl NodeVisitorBase for V {
@@ -1408,6 +1498,13 @@ impl ConfigProxyHandler {
             ClientMessage::ConnectorSetMode { connector, mode } => self
                 .handle_connector_set_mode(connector, mode)
                 .wrn("connector_set_mode")?,
+            ClientMessage::AddPollable { fd } => {
+                self.handle_add_pollable(fd).wrn("add_pollable")?
+            }
+            ClientMessage::RemovePollable { id } => self.handle_remove_pollable(id),
+            ClientMessage::AddInterest { pollable, writable } => self
+                .handle_add_interest(pollable, writable)
+                .wrn("add_interest")?,
         }
         Ok(())
     }
@@ -1465,6 +1562,8 @@ enum CphError {
     ScaleTooLarge(f64),
     #[error("Tried to set a negative cursor size")]
     NegativeCursorSize,
+    #[error("Config referred to a pollable that does not exist")]
+    PollableDoesNotExist,
 }
 
 trait WithRequestName {

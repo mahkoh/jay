@@ -156,9 +156,15 @@ unsafe extern "C" fn default_client_init(
 }
 
 impl ConfigProxy {
-    fn new(lib: Option<Library>, entry: &ConfigEntry, state: &Rc<State>) -> Self {
+    fn new(
+        lib: Option<Library>,
+        entry: &ConfigEntry,
+        state: &Rc<State>,
+        path: Option<String>,
+    ) -> Self {
         let version = entry.version.min(VERSION);
         let data = Rc::new(ConfigProxyHandler {
+            path,
             client_data: Cell::new(ptr::null()),
             dropped: Cell::new(false),
             _lib: lib,
@@ -175,6 +181,8 @@ impl ConfigProxy {
             timer_ids: NumCell::new(1),
             timers_by_name: Default::default(),
             timers_by_id: Default::default(),
+            pollable_id: Default::default(),
+            pollables: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))
@@ -205,12 +213,12 @@ impl ConfigProxy {
             unref: jay_config::_private::client::unref,
             handle_msg: jay_config::_private::client::handle_msg,
         };
-        Self::new(None, &entry, state)
+        Self::new(None, &entry, state, None)
     }
 
     #[cfg(feature = "it")]
     pub fn for_test(state: &Rc<State>) -> Self {
-        Self::new(None, &TEST_CONFIG_ENTRY, state)
+        Self::new(None, &TEST_CONFIG_ENTRY, state, None)
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
@@ -249,7 +257,7 @@ impl ConfigProxy {
         if let Err(e) = std::fs::copy(path, &copy) {
             return Err(ConfigError::CopyConfigFile(e));
         }
-        let _unlink = UnlinkOnDrop(&copy);
+        let unlink = UnlinkOnDrop(&copy);
         let lib = match Library::new(&copy) {
             Ok(l) => l,
             Err(e) => return Err(ConfigError::CouldNotLoadLibrary(e)),
@@ -259,7 +267,8 @@ impl ConfigProxy {
             Ok(e) => *e,
             Err(e) => return Err(ConfigError::LibraryDoesNotContainEntry(e)),
         };
-        Ok(Self::new(Some(lib), entry, state))
+        mem::forget(unlink);
+        Ok(Self::new(Some(lib), entry, state, Some(copy)))
     }
 }
 

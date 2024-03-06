@@ -1,6 +1,7 @@
 pub mod client;
 pub mod ipc;
 mod logging;
+pub(crate) mod string_error;
 
 use {
     crate::video::Mode,
@@ -58,3 +59,6 @@ impl WireMode {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct PollableId(pub u64);
