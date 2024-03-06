@@ -375,6 +375,12 @@ pub enum ClientMessage<'a> {
         pollable: PollableId,
         writable: bool,
     },
+    Run2 {
+        prog: &'a str,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
+        fds: Vec<(i32, i32)>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -170,8 +170,14 @@ impl ForkerProxy {
         self.pidfd(pidfd_id).await
     }
 
-    pub fn spawn(&self, prog: String, args: Vec<String>, env: Vec<(String, String)>) {
-        self.spawn_(prog, args, env, vec![], None)
+    pub fn spawn(
+        &self,
+        prog: String,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
+        fds: Vec<(i32, Rc<OwnedFd>)>,
+    ) {
+        self.spawn_(prog, args, env, fds, None)
     }
 
     fn spawn_(

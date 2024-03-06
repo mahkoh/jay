@@ -1,6 +1,6 @@
 //! Tools for spawning programs.
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, os::fd::OwnedFd};
 
 /// Sets an environment variable.
 ///
@@ -14,6 +14,7 @@ pub struct Command {
     pub(crate) prog: String,
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
+    pub(crate) fds: RefCell<HashMap<i32, OwnedFd>>,
 }
 
 impl Command {
@@ -28,6 +29,7 @@ impl Command {
             prog: prog.to_string(),
             args: vec![],
             env: Default::default(),
+            fds: Default::default(),
         }
     }
 
@@ -43,7 +45,39 @@ impl Command {
         self
     }
 
+    /// Sets a file descriptor of the process.
+    ///
+    /// By default, the process starts with exactly stdin, stdout, and stderr open and all
+    /// pointing to `/dev/null`.
+    pub fn fd<F: Into<OwnedFd>>(&mut self, idx: i32, fd: F) -> &mut Self {
+        self.fds.borrow_mut().insert(idx, fd.into());
+        self
+    }
+
+    /// Sets the stdin of the process.
+    ///
+    /// This is equivalent to `fd(0, fd)`.
+    pub fn stdin<F: Into<OwnedFd>>(&mut self, fd: F) -> &mut Self {
+        self.fd(0, fd)
+    }
+
+    /// Sets the stdout of the process.
+    ///
+    /// This is equivalent to `fd(1, fd)`.
+    pub fn stdout<F: Into<OwnedFd>>(&mut self, fd: F) -> &mut Self {
+        self.fd(1, fd)
+    }
+
+    /// Sets the stderr of the process.
+    ///
+    /// This is equivalent to `fd(2, fd)`.
+    pub fn stderr<F: Into<OwnedFd>>(&mut self, fd: F) -> &mut Self {
+        self.fd(2, fd)
+    }
+
     /// Executes the command.
+    ///
+    /// This consumes all attached file descriptors.
     pub fn spawn(&self) {
         get!().spawn(self);
     }

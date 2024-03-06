@@ -28,6 +28,7 @@ use {
         future::Future,
         mem,
         ops::Deref,
+        os::fd::IntoRawFd,
         panic::{catch_unwind, AssertUnwindSafe},
         pin::Pin,
         ptr,
@@ -264,11 +265,26 @@ impl Client {
             .iter()
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect();
-        self.send(&ClientMessage::Run {
-            prog: &command.prog,
-            args: command.args.clone(),
-            env,
-        });
+        let fds: Vec<_> = command
+            .fds
+            .borrow_mut()
+            .drain()
+            .map(|(a, b)| (a, b.into_raw_fd()))
+            .collect();
+        if fds.is_empty() {
+            self.send(&ClientMessage::Run {
+                prog: &command.prog,
+                args: command.args.clone(),
+                env,
+            });
+        } else {
+            self.send(&ClientMessage::Run2 {
+                prog: &command.prog,
+                args: command.args.clone(),
+                env,
+                fds,
+            });
+        }
     }
 
     pub fn grab(&self, kb: InputDevice, grab: bool) {
