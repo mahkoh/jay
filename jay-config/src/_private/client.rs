@@ -41,23 +41,36 @@ use {
     },
 };
 
+type Callback<T = ()> = Rc<RefCell<dyn FnMut(T)>>;
+
+fn cb<T, F: FnMut(T) + 'static>(f: F) -> Callback<T> {
+    Rc::new(RefCell::new(f))
+}
+
+fn run_cb<T>(name: &str, cb: &Callback<T>, t: T) {
+    match cb.try_borrow_mut() {
+        Ok(mut cb) => cb(t),
+        Err(_) => log::error!("Cannot invoke {name} callback because it is already running"),
+    }
+}
+
 pub(crate) struct Client {
     configure: extern "C" fn(),
     srv_data: *const u8,
     srv_unref: unsafe extern "C" fn(data: *const u8),
     srv_handler: unsafe extern "C" fn(data: *const u8, msg: *const u8, size: usize),
-    key_handlers: RefCell<HashMap<(Seat, ModifiedKeySym), Rc<dyn Fn()>>>,
-    timer_handlers: RefCell<HashMap<Timer, Rc<dyn Fn()>>>,
+    key_handlers: RefCell<HashMap<(Seat, ModifiedKeySym), Callback>>,
+    timer_handlers: RefCell<HashMap<Timer, Callback>>,
     response: RefCell<Vec<Response>>,
-    on_new_seat: RefCell<Option<Rc<dyn Fn(Seat)>>>,
-    on_new_input_device: RefCell<Option<Rc<dyn Fn(InputDevice)>>>,
-    on_connector_connected: RefCell<Option<Rc<dyn Fn(Connector)>>>,
+    on_new_seat: RefCell<Option<Callback<Seat>>>,
+    on_new_input_device: RefCell<Option<Callback<InputDevice>>>,
+    on_connector_connected: RefCell<Option<Callback<Connector>>>,
     on_graphics_initialized: Cell<Option<Box<dyn FnOnce()>>>,
     on_devices_enumerated: Cell<Option<Box<dyn FnOnce()>>>,
-    on_new_connector: RefCell<Option<Rc<dyn Fn(Connector)>>>,
-    on_new_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
-    on_del_drm_device: RefCell<Option<Rc<dyn Fn(DrmDevice)>>>,
-    on_idle: RefCell<Option<Rc<dyn Fn()>>>,
+    on_new_connector: RefCell<Option<Callback<Connector>>>,
+    on_new_drm_device: RefCell<Option<Callback<DrmDevice>>>,
+    on_del_drm_device: RefCell<Option<Callback<DrmDevice>>>,
+    on_idle: RefCell<Option<Callback>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
     read_interests: RefCell<HashMap<PollableId, Interest>>,
@@ -319,8 +332,10 @@ impl Client {
         });
     }
 
-    pub fn on_timer_tick<F: Fn() + 'static>(&self, timer: Timer, f: F) {
-        self.timer_handlers.borrow_mut().insert(timer, Rc::new(f));
+    pub fn on_timer_tick<F: FnMut() + 'static>(&self, timer: Timer, mut f: F) {
+        self.timer_handlers
+            .borrow_mut()
+            .insert(timer, cb(move |_| f()));
     }
 
     pub fn get_workspace(&self, name: &str) -> Workspace {
@@ -496,8 +511,8 @@ impl Client {
         devices
     }
 
-    pub fn on_new_seat<F: Fn(Seat) + 'static>(&self, f: F) {
-        *self.on_new_seat.borrow_mut() = Some(Rc::new(f));
+    pub fn on_new_seat<F: FnMut(Seat) + 'static>(&self, f: F) {
+        *self.on_new_seat.borrow_mut() = Some(cb(f));
     }
 
     pub fn quit(&self) {
@@ -508,8 +523,8 @@ impl Client {
         self.send(&ClientMessage::SwitchTo { vtnr })
     }
 
-    pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(&self, f: F) {
-        *self.on_new_input_device.borrow_mut() = Some(Rc::new(f));
+    pub fn on_new_input_device<F: FnMut(InputDevice) + 'static>(&self, f: F) {
+        *self.on_new_input_device.borrow_mut() = Some(cb(f));
     }
 
     pub fn set_double_click_interval(&self, usec: u64) {
@@ -639,24 +654,24 @@ impl Client {
         devices
     }
 
-    pub fn on_new_drm_device<F: Fn(DrmDevice) + 'static>(&self, f: F) {
-        *self.on_new_drm_device.borrow_mut() = Some(Rc::new(f));
+    pub fn on_new_drm_device<F: FnMut(DrmDevice) + 'static>(&self, f: F) {
+        *self.on_new_drm_device.borrow_mut() = Some(cb(f));
     }
 
-    pub fn on_del_drm_device<F: Fn(DrmDevice) + 'static>(&self, f: F) {
-        *self.on_del_drm_device.borrow_mut() = Some(Rc::new(f));
+    pub fn on_del_drm_device<F: FnMut(DrmDevice) + 'static>(&self, f: F) {
+        *self.on_del_drm_device.borrow_mut() = Some(cb(f));
     }
 
-    pub fn on_new_connector<F: Fn(Connector) + 'static>(&self, f: F) {
-        *self.on_new_connector.borrow_mut() = Some(Rc::new(f));
+    pub fn on_new_connector<F: FnMut(Connector) + 'static>(&self, f: F) {
+        *self.on_new_connector.borrow_mut() = Some(cb(f));
     }
 
-    pub fn on_idle<F: Fn() + 'static>(&self, f: F) {
-        *self.on_idle.borrow_mut() = Some(Rc::new(f));
+    pub fn on_idle<F: FnMut() + 'static>(&self, mut f: F) {
+        *self.on_idle.borrow_mut() = Some(cb(move |_| f()));
     }
 
-    pub fn on_connector_connected<F: Fn(Connector) + 'static>(&self, f: F) {
-        *self.on_connector_connected.borrow_mut() = Some(Rc::new(f));
+    pub fn on_connector_connected<F: FnMut(Connector) + 'static>(&self, f: F) {
+        *self.on_connector_connected.borrow_mut() = Some(cb(f));
     }
 
     pub fn on_graphics_initialized<F: FnOnce() + 'static>(&self, f: F) {
@@ -742,11 +757,16 @@ impl Client {
         keymap
     }
 
-    pub fn bind<T: Into<ModifiedKeySym>, F: Fn() + 'static>(&self, seat: Seat, mod_sym: T, f: F) {
+    pub fn bind<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(
+        &self,
+        seat: Seat,
+        mod_sym: T,
+        mut f: F,
+    ) {
         let mod_sym = mod_sym.into();
         let register = {
             let mut kh = self.key_handlers.borrow_mut();
-            let f = Rc::new(f);
+            let f = cb(move |_| f());
             match kh.entry((seat, mod_sym)) {
                 Entry::Occupied(mut o) => {
                     *o.get_mut() = f;
@@ -914,34 +934,34 @@ impl Client {
                 let ms = ModifiedKeySym { mods, sym };
                 let handler = self.key_handlers.borrow_mut().get(&(seat, ms)).cloned();
                 if let Some(handler) = handler {
-                    handler();
+                    run_cb("shortcut", &handler, ());
                 }
             }
             ServerMessage::NewInputDevice { device } => {
                 let handler = self.on_new_input_device.borrow_mut().clone();
                 if let Some(handler) = handler {
-                    handler(device);
+                    run_cb("new input device", &handler, device);
                 }
             }
             ServerMessage::DelInputDevice { .. } => {}
             ServerMessage::ConnectorConnect { device } => {
                 let handler = self.on_connector_connected.borrow_mut().clone();
                 if let Some(handler) = handler {
-                    handler(device);
+                    run_cb("connector connected", &handler, device);
                 }
             }
             ServerMessage::ConnectorDisconnect { .. } => {}
             ServerMessage::NewConnector { device } => {
                 let handler = self.on_new_connector.borrow_mut().clone();
                 if let Some(handler) = handler {
-                    handler(device);
+                    run_cb("new connector", &handler, device);
                 }
             }
             ServerMessage::DelConnector { .. } => {}
             ServerMessage::TimerExpired { timer } => {
                 let handler = self.timer_handlers.borrow_mut().get(&timer).cloned();
                 if let Some(handler) = handler {
-                    handler();
+                    run_cb("timer", &handler, ());
                 }
             }
             ServerMessage::GraphicsInitialized => {
@@ -955,19 +975,19 @@ impl Client {
             ServerMessage::NewDrmDev { device } => {
                 let handler = self.on_new_drm_device.borrow_mut();
                 if let Some(handler) = handler.deref() {
-                    handler(device);
+                    run_cb("new drm device", handler, device);
                 }
             }
             ServerMessage::DelDrmDev { device } => {
                 let handler = self.on_del_drm_device.borrow_mut();
                 if let Some(handler) = handler.deref() {
-                    handler(device);
+                    run_cb("del drm device", handler, device);
                 }
             }
             ServerMessage::Idle => {
                 let handler = self.on_idle.borrow_mut();
                 if let Some(handler) = handler.deref() {
-                    handler();
+                    run_cb("idle", handler, ());
                 }
             }
             ServerMessage::DevicesEnumerated => {

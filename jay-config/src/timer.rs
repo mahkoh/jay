@@ -53,7 +53,7 @@ impl Timer {
     }
 
     /// Sets the function to be executed when the timer expires.
-    pub fn on_tick<F: Fn() + 'static>(self, f: F) {
+    pub fn on_tick<F: FnMut() + 'static>(self, f: F) {
         get!().on_timer_tick(self, f);
     }
 }

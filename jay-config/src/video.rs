@@ -220,22 +220,22 @@ pub fn drm_devices() -> Vec<DrmDevice> {
 }
 
 /// Sets the callback to be called when a new DRM device appears.
-pub fn on_new_drm_device<F: Fn(DrmDevice) + 'static>(f: F) {
+pub fn on_new_drm_device<F: FnMut(DrmDevice) + 'static>(f: F) {
     get!().on_new_drm_device(f)
 }
 
 /// Sets the callback to be called when a DRM device is removed.
-pub fn on_drm_device_removed<F: Fn(DrmDevice) + 'static>(f: F) {
+pub fn on_drm_device_removed<F: FnMut(DrmDevice) + 'static>(f: F) {
     get!().on_del_drm_device(f)
 }
 
 /// Sets the callback to be called when a new connector appears.
-pub fn on_new_connector<F: Fn(Connector) + 'static>(f: F) {
+pub fn on_new_connector<F: FnMut(Connector) + 'static>(f: F) {
     get!().on_new_connector(f)
 }
 
 /// Sets the callback to be called when a connector becomes connected to an output device.
-pub fn on_connector_connected<F: Fn(Connector) + 'static>(f: F) {
+pub fn on_connector_connected<F: FnMut(Connector) + 'static>(f: F) {
     get!().on_connector_connected(f)
 }
 

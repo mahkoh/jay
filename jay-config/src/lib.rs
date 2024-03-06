@@ -185,7 +185,7 @@ impl Display for PciId {
 }
 
 /// Sets the callback to be called when the display goes idle.
-pub fn on_idle<F: Fn() + 'static>(f: F) {
+pub fn on_idle<F: FnMut() + 'static>(f: F) {
     get!().on_idle(f)
 }
 

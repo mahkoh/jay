@@ -161,7 +161,7 @@ impl Seat {
     ///
     /// CapsLock and NumLock are ignored during modifier evaluation. Therefore, bindings
     /// containing these modifiers will never be invoked.
-    pub fn bind<T: Into<ModifiedKeySym>, F: Fn() + 'static>(self, mod_sym: T, f: F) {
+    pub fn bind<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(self, mod_sym: T, f: F) {
         get!().bind(self, mod_sym, f)
     }
 
@@ -324,12 +324,12 @@ pub fn get_seat(name: &str) -> Seat {
 }
 
 /// Sets a closure to run when a new seat has been created.
-pub fn on_new_seat<F: Fn(Seat) + 'static>(f: F) {
+pub fn on_new_seat<F: FnMut(Seat) + 'static>(f: F) {
     get!().on_new_seat(f)
 }
 
 /// Sets a closure to run when a new input device has been added.
-pub fn on_new_input_device<F: Fn(InputDevice) + 'static>(f: F) {
+pub fn on_new_input_device<F: FnMut(InputDevice) + 'static>(f: F) {
     get!().on_new_input_device(f)
 }
 
