@@ -17,6 +17,7 @@ use {
         },
         xwayland,
     },
+    ahash::AHashMap,
     bincode::Options,
     jay_config::_private::bincode_ops,
     log::Level,
@@ -155,12 +156,18 @@ impl ForkerProxy {
         wmfd: Rc<OwnedFd>,
         waylandfd: Rc<OwnedFd>,
     ) -> Result<(Rc<OwnedFd>, c::pid_t), ForkerError> {
-        self.fds
-            .borrow_mut()
-            .extend([stderr, dfd, listenfd, wmfd, waylandfd]);
-        let id = self.next_id.fetch_add(1);
-        self.outgoing.push(ServerMessage::Xwayland { id });
-        self.pidfd(id).await
+        let (prog, args) = xwayland::build_args();
+        let env = vec![("WAYLAND_SOCKET".to_string(), "6".to_string())];
+        let fds = vec![
+            (2, stderr),
+            (3, dfd),
+            (4, listenfd),
+            (5, wmfd),
+            (6, waylandfd),
+        ];
+        let pidfd_id = self.next_id.fetch_add(1);
+        self.spawn_(prog, args, env, fds, Some(pidfd_id));
+        self.pidfd(pidfd_id).await
     }
 
     pub fn spawn(
@@ -168,17 +175,29 @@ impl ForkerProxy {
         prog: String,
         args: Vec<String>,
         env: Vec<(String, String)>,
-        stderr: Option<Rc<OwnedFd>>,
+        fds: Vec<(i32, Rc<OwnedFd>)>,
     ) {
-        let have_stderr = stderr.is_some();
-        if let Some(stderr) = stderr {
-            self.fds.borrow_mut().push(stderr);
+        self.spawn_(prog, args, env, fds, None)
+    }
+
+    fn spawn_(
+        &self,
+        prog: String,
+        args: Vec<String>,
+        env: Vec<(String, String)>,
+        fds: Vec<(i32, Rc<OwnedFd>)>,
+        pidfd_id: Option<u32>,
+    ) {
+        for (_, fd) in &fds {
+            self.fds.borrow_mut().push(fd.clone());
         }
+        let fds = fds.into_iter().map(|(a, _)| a).collect();
         self.outgoing.push(ServerMessage::Spawn {
             prog,
             args,
             env,
-            stderr: have_stderr,
+            fds,
+            pidfd_id,
         })
     }
 
@@ -272,10 +291,8 @@ enum ServerMessage {
         prog: String,
         args: Vec<String>,
         env: Vec<(String, String)>,
-        stderr: bool,
-    },
-    Xwayland {
-        id: u32,
+        fds: Vec<i32>,
+        pidfd_id: Option<u32>,
     },
 }
 
@@ -372,9 +389,9 @@ impl Forker {
                 prog,
                 args,
                 env,
-                stderr,
-            } => self.handle_spawn(prog, args, env, stderr, io),
-            ServerMessage::Xwayland { id } => self.handle_xwayland(io, id),
+                fds,
+                pidfd_id,
+            } => self.handle_spawn(prog, args, env, fds, io, pidfd_id),
         }
     }
 
@@ -386,32 +403,20 @@ impl Forker {
         }
     }
 
-    fn handle_xwayland(self: &Rc<Self>, io: &mut IoIn, id: u32) {
-        let stderr = io.pop_fd();
-        let fds = vec![
-            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
-            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
-            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
-            Rc::try_unwrap(io.pop_fd().unwrap()).unwrap(),
-        ];
-        let (prog, args) = xwayland::build_args(&fds);
-        let env = vec![("WAYLAND_SOCKET".to_string(), fds[3].raw().to_string())];
-        self.spawn(prog, args, env, stderr, fds, Some(id));
-    }
-
     fn handle_spawn(
         self: &Rc<Self>,
         prog: String,
         args: Vec<String>,
         env: Vec<(String, String)>,
-        stderr: bool,
+        fds: Vec<i32>,
         io: &mut IoIn,
+        pidfd_id: Option<u32>,
     ) {
-        let stderr = match stderr {
-            true => io.pop_fd(),
-            _ => None,
-        };
-        self.spawn(prog, args, env, stderr, vec![], None)
+        let fds = fds
+            .into_iter()
+            .map(|a| (a, Rc::try_unwrap(io.pop_fd().unwrap()).unwrap()))
+            .collect();
+        self.spawn(prog, args, env, fds, pidfd_id)
     }
 
     fn spawn(
@@ -419,8 +424,7 @@ impl Forker {
         prog: String,
         args: Vec<String>,
         env: Vec<(String, String)>,
-        stderr: Option<Rc<OwnedFd>>,
-        fds: Vec<OwnedFd>,
+        fds: Vec<(i32, OwnedFd)>,
         pidfd_id: Option<u32>,
     ) {
         let (read, mut write) = pipe2(c::O_CLOEXEC).unwrap();
@@ -476,9 +480,13 @@ impl Forker {
             }
             Forked::Child { .. } => {
                 let err = (|| {
-                    if let Some(stderr) = stderr {
-                        uapi::dup2(stderr.raw(), 2).unwrap();
+                    if let Some(max_desired) = fds.iter().map(|v| v.0).max() {
+                        match uapi::fcntl_dupfd_cloexec(write.raw(), max_desired.wrapping_add(1)) {
+                            Ok(new) => write = new,
+                            Err(e) => return Err(SpawnError::Dupfd(e.into())),
+                        }
                     }
+                    let fds = map_fds(fds)?;
                     for fd in fds {
                         let fd = fd.unwrap();
                         let res: Result<_, Errno> = (|| {
@@ -521,6 +529,8 @@ enum SpawnError {
     Exec(#[source] crate::utils::oserror::OsError),
     #[error("Could not unset cloexec flag")]
     Cloexec(#[source] crate::utils::oserror::OsError),
+    #[error("dupfd faild")]
+    Dupfd(#[source] crate::utils::oserror::OsError),
 }
 
 fn setup_fds(mut socket: OwnedFd) -> OwnedFd {
@@ -563,4 +573,36 @@ fn setup_name(name: &str) {
         let name = name.into_ustr();
         c::prctl(c::PR_SET_NAME, name.as_ptr());
     }
+}
+
+fn map_fds(fds: Vec<(i32, OwnedFd)>) -> Result<Vec<OwnedFd>, SpawnError> {
+    let mut desired: Vec<_> = fds.iter().map(|v| v.0).collect();
+    desired.sort_by(|a, b| b.cmp(a));
+    let mut existing_to_desired: AHashMap<_, _> = fds.iter().map(|v| (v.1.raw(), v.0)).collect();
+    let mut desired_to_existing: AHashMap<_, _> = fds.into_iter().map(|v| (v.0, v.1)).collect();
+    for desired in desired {
+        let existing = desired_to_existing.get(&desired).unwrap().raw();
+        if existing == desired {
+            continue;
+        }
+        if let Some(conflict_desired) = existing_to_desired.get(&desired).copied() {
+            match uapi::fcntl_dupfd_cloexec(desired, 0) {
+                Ok(new) => {
+                    existing_to_desired.remove(&desired);
+                    existing_to_desired.insert(new.raw(), conflict_desired);
+                    desired_to_existing.insert(conflict_desired, new);
+                }
+                Err(e) => return Err(SpawnError::Dupfd(e.into())),
+            }
+        }
+        match uapi::dup3(existing, desired, c::O_CLOEXEC) {
+            Ok(_) => {
+                existing_to_desired.remove(&existing);
+                existing_to_desired.insert(desired, desired);
+                desired_to_existing.insert(desired, OwnedFd::new(desired));
+            }
+            Err(e) => return Err(SpawnError::Dupfd(e.into())),
+        }
+    }
+    Ok(desired_to_existing.into_values().collect())
 }

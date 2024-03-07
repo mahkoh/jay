@@ -51,7 +51,7 @@ use {
     log::Level,
     std::{cell::Cell, ops::Deref, rc::Rc, time::Duration},
     thiserror::Error,
-    uapi::{c, fcntl_dupfd_cloexec},
+    uapi::{c, fcntl_dupfd_cloexec, OwnedFd},
 };
 
 pub(super) struct ConfigProxyHandler {
@@ -999,12 +999,17 @@ impl ConfigProxyHandler {
         prog: &str,
         args: Vec<String>,
         env: Vec<(String, String)>,
+        fds: Vec<(i32, i32)>,
     ) -> Result<(), CphError> {
+        let fds: Vec<_> = fds
+            .into_iter()
+            .map(|(a, b)| (a, Rc::new(OwnedFd::new(b))))
+            .collect();
         let forker = match self.state.forker.get() {
             Some(f) => f,
             _ => return Err(CphError::NoForker),
         };
-        forker.spawn(prog.to_string(), args, env, None);
+        forker.spawn(prog.to_string(), args, env, fds);
         Ok(())
     }
 
@@ -1305,7 +1310,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetSeats => self.handle_get_seats(),
             ClientMessage::RemoveSeat { .. } => {}
             ClientMessage::Run { prog, args, env } => {
-                self.handle_run(prog, args, env).wrn("run")?
+                self.handle_run(prog, args, env, vec![]).wrn("run")?
             }
             ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab).wrn("grab")?,
             ClientMessage::SetColor { colorable, color } => {
@@ -1505,6 +1510,12 @@ impl ConfigProxyHandler {
             ClientMessage::AddInterest { pollable, writable } => self
                 .handle_add_interest(pollable, writable)
                 .wrn("add_interest")?,
+            ClientMessage::Run2 {
+                prog,
+                args,
+                env,
+                fds,
+            } => self.handle_run(prog, args, env, fds).wrn("run")?,
         }
         Ok(())
     }
