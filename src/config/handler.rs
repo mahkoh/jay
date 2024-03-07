@@ -453,7 +453,7 @@ impl ConfigProxyHandler {
     fn get_seat(&self, seat: Seat) -> Result<Rc<WlSeatGlobal>, CphError> {
         let seats = self.state.globals.seats.lock();
         for seat_global in seats.values() {
-            if seat_global.id().raw() == seat.0 as _ {
+            if seat_global.id().raw() == seat.0 as u32 {
                 return Ok(seat_global.clone());
             }
         }
