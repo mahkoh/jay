@@ -36,10 +36,12 @@ use {
         },
     },
     ahash::{AHashMap, AHashSet},
+    arrayvec::ArrayVec,
     bstr::{BString, ByteSlice},
     indexmap::{indexset, IndexSet},
     jay_config::video::GfxApi,
     std::{
+        any::Any,
         cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Formatter},
@@ -222,7 +224,7 @@ pub struct MetalConnector {
     pub cursor_x: Cell<i32>,
     pub cursor_y: Cell<i32>,
     pub cursor_enabled: Cell<bool>,
-    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 3]>>>,
     pub cursor_front_buffer: NumCell<usize>,
     pub cursor_swap_buffer: Cell<bool>,
 
@@ -241,7 +243,7 @@ pub struct MetalHardwareCursor {
     pub cursor_enabled_pending: Cell<bool>,
     pub cursor_x_pending: Cell<i32>,
     pub cursor_y_pending: Cell<i32>,
-    pub cursor_buffers: Rc<[RenderBuffer; 2]>,
+    pub cursor_buffers: Rc<[RenderBuffer; 3]>,
     pub have_changes: Cell<bool>,
 }
 
@@ -253,7 +255,7 @@ impl HardwareCursor for MetalHardwareCursor {
     }
 
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer> {
-        let buffer = (self.connector.cursor_front_buffer.get() + 1) % 2;
+        let buffer = (self.connector.cursor_front_buffer.get() + 1) % self.cursor_buffers.len();
         self.cursor_buffers[buffer].render_fb()
     }
 
@@ -2090,7 +2092,7 @@ impl MetalBackend {
         true
     }
 
-    fn create_scanout_buffers(
+    fn create_scanout_buffers<const N: usize>(
         &self,
         dev: &Rc<MetalDrmDevice>,
         format: &Format,
@@ -2099,10 +2101,14 @@ impl MetalBackend {
         height: i32,
         ctx: &MetalRenderContext,
         cursor: bool,
-    ) -> Result<[RenderBuffer; 2], MetalError> {
+    ) -> Result<[RenderBuffer; N], MetalError> {
         let create =
             || self.create_scanout_buffer(dev, format, plane_modifiers, width, height, ctx, cursor);
-        Ok([create()?, create()?])
+        let mut array = ArrayVec::<_, N>::new();
+        for _ in 0..N {
+            array.push(create()?);
+        }
+        Ok(array.into_inner().unwrap())
     }
 
     fn create_scanout_buffer(
@@ -2279,7 +2285,7 @@ impl MetalBackend {
         connector: &Rc<MetalConnector>,
         changes: &mut Change,
         ctx: &MetalRenderContext,
-        old_buffers: &mut Vec<Rc<[RenderBuffer; 2]>>,
+        old_buffers: &mut Vec<Rc<dyn Any>>,
     ) -> Result<(), MetalError> {
         let dd = connector.display.borrow_mut();
         let crtc = match connector.crtc.get() {
