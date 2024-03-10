@@ -16,6 +16,7 @@ use {
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
     num_derive::FromPrimitive,
+    once_cell::sync::Lazy,
     std::{
         cell::Cell,
         convert::TryInto,
@@ -38,9 +39,19 @@ const XCURSOR_PATH_DEFAULT: &[u8] =
     b"~/.icons:/usr/share/icons:/usr/share/pixmaps:/usr/X11R6/lib/X11/icons";
 const XCURSOR_PATH: &str = "XCURSOR_PATH";
 const XCURSOR_THEME: &str = "XCURSOR_THEME";
+const XCURSOR_SIZE: &str = "XCURSOR_SIZE";
 const HOME: &str = "HOME";
 
 const HEADER_SIZE: u32 = 16;
+
+pub static DEFAULT_CURSOR_SIZE: Lazy<u32> = Lazy::new(|| {
+    if let Ok(size) = env::var(XCURSOR_SIZE) {
+        if let Ok(val) = size.parse() {
+            return val;
+        }
+    }
+    24
+});
 
 pub trait Cursor {
     fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed);

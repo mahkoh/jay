@@ -13,7 +13,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::{Client, ClientError, ClientId},
-        cursor::{Cursor, KnownCursor},
+        cursor::{Cursor, KnownCursor, DEFAULT_CURSOR_SIZE},
         fixed::Fixed,
         globals::{Global, GlobalName},
         ifs::{
@@ -166,8 +166,6 @@ pub struct WlSeatGlobal {
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
 const CHANGE_TREE: u32 = 1 << 1;
 
-const DEFAULT_CURSOR_SIZE: u32 = 16;
-
 impl Drop for WlSeatGlobal {
     fn drop(&mut self) {
         self.state.remove_cursor_size(self.cursor_size.get());
@@ -212,13 +210,13 @@ impl WlSeatGlobal {
             output: CloneCell::new(state.dummy_output.get().unwrap()),
             desired_known_cursor: Cell::new(None),
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
-            cursor_size: Cell::new(DEFAULT_CURSOR_SIZE),
+            cursor_size: Cell::new(*DEFAULT_CURSOR_SIZE),
             hardware_cursor: Cell::new(state.globals.seats.len() == 0),
             constraint: Default::default(),
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
         });
-        state.add_cursor_size(DEFAULT_CURSOR_SIZE);
+        state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
         let future = state.eng.spawn(async move {
             loop {
