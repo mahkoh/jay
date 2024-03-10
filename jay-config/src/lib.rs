@@ -37,7 +37,10 @@
 #![allow(
     clippy::zero_prefixed_literal,
     clippy::manual_range_contains,
-    clippy::uninlined_format_args
+    clippy::uninlined_format_args,
+    clippy::len_zero,
+    clippy::single_char_pattern,
+    clippy::single_char_add_str
 )]
 
 use {

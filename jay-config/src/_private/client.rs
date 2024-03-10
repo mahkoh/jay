@@ -11,7 +11,7 @@ use {
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::Keymap,
         logging::LogLevel,
-        tasks::JoinSlot,
+        tasks::{JoinHandle, JoinSlot},
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
         video::{
@@ -84,6 +84,8 @@ pub(crate) struct Client {
     read_interests: RefCell<HashMap<PollableId, Interest>>,
     write_interests: RefCell<HashMap<PollableId, Interest>>,
     tasks: Tasks,
+    status_task: Cell<Vec<JoinHandle<()>>>,
+    i3bar_separator: RefCell<Option<Rc<String>>>,
 }
 
 struct Interest {
@@ -206,6 +208,8 @@ pub unsafe extern "C" fn init(
         read_interests: Default::default(),
         write_interests: Default::default(),
         tasks: Default::default(),
+        status_task: Default::default(),
+        i3bar_separator: Default::default(),
     });
     let init = slice::from_raw_parts(init, size);
     client.handle_init_msg(init);
@@ -504,6 +508,20 @@ impl Client {
 
     pub fn set_status(&self, status: &str) {
         self.send(&ClientMessage::SetStatus { status });
+    }
+
+    pub fn set_status_tasks(&self, tasks: Vec<JoinHandle<()>>) {
+        for old in self.status_task.replace(tasks) {
+            old.abort();
+        }
+    }
+
+    pub fn set_i3bar_separator(&self, separator: &str) {
+        *self.i3bar_separator.borrow_mut() = Some(Rc::new(separator.to_string()));
+    }
+
+    pub fn get_i3bar_separator(&self) -> Option<Rc<String>> {
+        self.i3bar_separator.borrow().clone()
     }
 
     pub fn set_split(&self, seat: Seat, axis: Axis) {
