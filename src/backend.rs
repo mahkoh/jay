@@ -135,6 +135,9 @@ pub trait InputDevice {
     }
     fn set_transform_matrix(&self, matrix: TransformMatrix);
     fn name(&self) -> Rc<String>;
+    fn dev_t(&self) -> Option<c::dev_t> {
+        None
+    }
     fn tap_enabled(&self) -> Option<bool> {
         None
     }

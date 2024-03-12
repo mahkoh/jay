@@ -5,6 +5,7 @@ mod hardware_cursor;
 mod idle;
 mod input_device;
 mod slow_clients;
+mod udev_utils;
 
 use {
     crate::{

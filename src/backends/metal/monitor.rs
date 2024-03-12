@@ -278,7 +278,7 @@ impl MetalBackend {
         let dev = Rc::new(MetalInputDevice {
             slot,
             id: device_id,
-            _devnum: devnum,
+            devnum,
             fd: Default::default(),
             inputdev: Default::default(),
             devnode: devnode.to_owned(),

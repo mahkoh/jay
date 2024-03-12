@@ -281,7 +281,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
 struct MetalInputDevice {
     slot: usize,
     id: InputDeviceId,
-    _devnum: c::dev_t,
+    devnum: c::dev_t,
     fd: CloneCell<Option<Rc<OwnedFd>>>,
     inputdev: CloneCell<Option<Rc<RegisteredDevice>>>,
     devnode: CString,
@@ -507,6 +507,10 @@ impl InputDevice for MetalInputDevice {
 
     fn name(&self) -> Rc<String> {
         self.name.get()
+    }
+
+    fn dev_t(&self) -> Option<c::dev_t> {
+        Some(self.devnum)
     }
 
     fn set_tap_enabled(&self, enabled: bool) {
