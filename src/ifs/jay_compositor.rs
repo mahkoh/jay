@@ -4,10 +4,11 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::{
-            jay_idle::JayIdle, jay_log_file::JayLogFile, jay_output::JayOutput,
-            jay_pointer::JayPointer, jay_randr::JayRandr, jay_render_ctx::JayRenderCtx,
-            jay_screencast::JayScreencast, jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents, jay_workspace_watcher::JayWorkspaceWatcher,
+            jay_idle::JayIdle, jay_input::JayInput, jay_log_file::JayLogFile,
+            jay_output::JayOutput, jay_pointer::JayPointer, jay_randr::JayRandr,
+            jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast,
+            jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
+            jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
         object::Object,
@@ -316,6 +317,14 @@ impl JayCompositor {
         self.client.add_client_obj(&sc)?;
         Ok(())
     }
+
+    fn get_input(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: GetInput = self.client.parse(self, parser)?;
+        let sc = Rc::new(JayInput::new(req.id, &self.client));
+        track!(self.client, sc);
+        self.client.add_client_obj(&sc)?;
+        Ok(())
+    }
 }
 
 object_base! {
@@ -338,6 +347,7 @@ object_base! {
     WATCH_WORKSPACES => watch_workspaces,
     CREATE_SCREENCAST => create_screencast,
     GET_RANDR => get_randr,
+    GET_INPUT => get_input,
 }
 
 impl Object for JayCompositor {}

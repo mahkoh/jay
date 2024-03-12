@@ -16,10 +16,7 @@ use {
         libinput::{
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_DEVICE_CAP_GESTURE,
-                LIBINPUT_DEVICE_CAP_KEYBOARD, LIBINPUT_DEVICE_CAP_POINTER,
-                LIBINPUT_DEVICE_CAP_SWITCH, LIBINPUT_DEVICE_CAP_TABLET_PAD,
-                LIBINPUT_DEVICE_CAP_TABLET_TOOL, LIBINPUT_DEVICE_CAP_TOUCH,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
             },
             device::RegisteredDevice,
             LibInput, LibInputAdapter, LibInputError,
@@ -454,15 +451,7 @@ impl InputDevice for MetalInputDevice {
     }
 
     fn has_capability(&self, cap: InputDeviceCapability) -> bool {
-        let li = match cap {
-            InputDeviceCapability::Keyboard => LIBINPUT_DEVICE_CAP_KEYBOARD,
-            InputDeviceCapability::Pointer => LIBINPUT_DEVICE_CAP_POINTER,
-            InputDeviceCapability::Touch => LIBINPUT_DEVICE_CAP_TOUCH,
-            InputDeviceCapability::TabletTool => LIBINPUT_DEVICE_CAP_TABLET_TOOL,
-            InputDeviceCapability::TabletPad => LIBINPUT_DEVICE_CAP_TABLET_PAD,
-            InputDeviceCapability::Gesture => LIBINPUT_DEVICE_CAP_GESTURE,
-            InputDeviceCapability::Switch => LIBINPUT_DEVICE_CAP_SWITCH,
-        };
+        let li = cap.to_libinput();
         match self.inputdev.get() {
             Some(dev) => dev.device().has_cap(li),
             _ => false,

@@ -148,11 +148,15 @@ impl XkbContext {
         }))
     }
 
-    pub fn keymap_from_str(&self, s: &str) -> Result<Rc<XkbKeymap>, XkbCommonError> {
+    pub fn keymap_from_str<S>(&self, s: &S) -> Result<Rc<XkbKeymap>, XkbCommonError>
+    where
+        S: AsRef<[u8]> + ?Sized,
+    {
+        let s = s.as_ref();
         unsafe {
             let keymap = xkb_keymap_new_from_buffer(
                 self.context,
-                s.as_bytes().as_ptr(),
+                s.as_ptr(),
                 s.len(),
                 XKB_KEYMAP_FORMAT_TEXT_V1.raw(),
                 0,
