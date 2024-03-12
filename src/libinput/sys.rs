@@ -41,19 +41,29 @@ extern "C" {
         device: *mut libinput_device,
         cap: libinput_device_capability,
     ) -> c::c_int;
+    pub fn libinput_device_config_left_handed_is_available(
+        device: *mut libinput_device,
+    ) -> c::c_int;
+    pub fn libinput_device_config_left_handed_get(device: *mut libinput_device) -> c::c_int;
     pub fn libinput_device_config_left_handed_set(
         device: *mut libinput_device,
         left_handed: c::c_int,
     ) -> libinput_config_status;
+    pub fn libinput_device_config_accel_is_available(device: *mut libinput_device) -> c::c_int;
+    pub fn libinput_device_config_accel_get_profile(
+        device: *mut libinput_device,
+    ) -> libinput_config_accel_profile;
     pub fn libinput_device_config_accel_set_profile(
         device: *mut libinput_device,
         profile: libinput_config_accel_profile,
     ) -> libinput_config_status;
+    pub fn libinput_device_config_accel_get_speed(device: *mut libinput_device) -> f64;
     pub fn libinput_device_config_accel_set_speed(
         device: *mut libinput_device,
         speed: f64,
     ) -> libinput_config_status;
     pub fn libinput_device_get_name(device: *mut libinput_device) -> *const c::c_char;
+    pub fn libinput_device_config_tap_get_finger_count(device: *mut libinput_device) -> c::c_int;
     pub fn libinput_device_config_tap_set_enabled(
         device: *mut libinput_device,
         enable: libinput_config_tap_state,
@@ -80,6 +90,9 @@ extern "C" {
         enable: c::c_int,
     ) -> libinput_config_status;
     pub fn libinput_device_config_scroll_get_natural_scroll_enabled(
+        device: *mut libinput_device,
+    ) -> c::c_int;
+    pub fn libinput_device_config_scroll_has_natural_scroll(
         device: *mut libinput_device,
     ) -> c::c_int;
 

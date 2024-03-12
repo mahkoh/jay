@@ -290,17 +290,22 @@ struct MetalInputDevice {
     events: SyncQueue<InputEvent>,
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     name: CloneCell<Rc<String>>,
-    natural_scrolling: Cell<bool>,
+    transform_matrix: Cell<Option<TransformMatrix>>,
 
     // state
     pressed_keys: SmallMap<u32, (), 5>,
     pressed_buttons: SmallMap<u32, (), 2>,
 
     // config
+    desired: InputDeviceProperties,
+    effective: InputDeviceProperties,
+}
+
+#[derive(Default)]
+struct InputDeviceProperties {
     left_handed: Cell<Option<bool>>,
     accel_profile: Cell<Option<AccelProfile>>,
     accel_speed: Cell<Option<f64>>,
-    transform_matrix: Cell<Option<TransformMatrix>>,
     tap_enabled: Cell<Option<bool>>,
     drag_enabled: Cell<Option<bool>>,
     drag_lock_enabled: Cell<Option<bool>>,
@@ -341,30 +346,58 @@ impl LibInputAdapter for DeviceHolder {
 
 impl MetalInputDevice {
     fn apply_config(&self) {
-        let dev = match self.inputdev.get() {
-            Some(dev) => dev,
-            _ => return,
+        if self.inputdev.is_none() {
+            return;
+        }
+        if let Some(lh) = self.desired.left_handed.get() {
+            self.set_left_handed(lh);
+        }
+        if let Some(profile) = self.desired.accel_profile.get() {
+            self.set_accel_profile_(profile);
+        }
+        if let Some(speed) = self.desired.accel_speed.get() {
+            self.set_accel_speed(speed);
+        }
+        if let Some(enabled) = self.desired.tap_enabled.get() {
+            self.set_tap_enabled(enabled);
+        }
+        if let Some(enabled) = self.desired.drag_enabled.get() {
+            self.set_drag_enabled(enabled);
+        }
+        if let Some(enabled) = self.desired.drag_lock_enabled.get() {
+            self.set_drag_lock_enabled(enabled);
+        }
+        if let Some(enabled) = self.desired.natural_scrolling_enabled.get() {
+            self.set_natural_scrolling_enabled(enabled);
+        }
+        self.fetch_effective();
+    }
+
+    fn fetch_effective(&self) {
+        let Some(dev) = self.inputdev.get() else {
+            return;
         };
-        if let Some(lh) = self.left_handed.get() {
-            dev.device().set_left_handed(lh);
+        let device = dev.device();
+        if device.left_handed_available() {
+            self.effective.left_handed.set(Some(device.left_handed()));
         }
-        if let Some(profile) = self.accel_profile.get() {
-            dev.device().set_accel_profile(profile);
+        if device.accel_available() {
+            self.effective
+                .accel_profile
+                .set(Some(device.accel_profile()));
+            self.effective.accel_speed.set(Some(device.accel_speed()));
         }
-        if let Some(speed) = self.accel_speed.get() {
-            dev.device().set_accel_speed(speed);
+        if device.tap_available() {
+            self.effective.tap_enabled.set(Some(device.tap_enabled()));
+            self.effective.drag_enabled.set(Some(device.drag_enabled()));
+            self.effective
+                .drag_lock_enabled
+                .set(Some(device.drag_lock_enabled()));
         }
-        if let Some(enabled) = self.tap_enabled.get() {
-            dev.device().set_tap_enabled(enabled);
-        }
-        if let Some(enabled) = self.drag_enabled.get() {
-            dev.device().set_drag_enabled(enabled);
-        }
-        if let Some(enabled) = self.drag_lock_enabled.get() {
-            dev.device().set_drag_lock_enabled(enabled);
-        }
-        if let Some(enabled) = self.natural_scrolling_enabled.get() {
-            self.do_set_natural_scrolling_enabled(&dev, enabled);
+        if device.has_natural_scrolling() {
+            self.effective
+                .natural_scrolling_enabled
+                .set(Some(device.natural_scrolling_enabled()));
         }
     }
 
@@ -386,10 +419,16 @@ impl MetalInputDevice {
         }
     }
 
-    fn do_set_natural_scrolling_enabled(&self, dev: &RegisteredDevice, enabled: bool) {
-        dev.device().set_natural_scrolling_enabled(enabled);
-        self.natural_scrolling
-            .set(dev.device().natural_scrolling_enabled());
+    fn set_accel_profile_(&self, profile: AccelProfile) {
+        self.desired.accel_profile.set(Some(profile));
+        if let Some(dev) = self.inputdev.get() {
+            if dev.device().accel_available() {
+                dev.device().set_accel_profile(profile);
+                self.effective
+                    .accel_profile
+                    .set(Some(dev.device().accel_profile()));
+            }
+        }
     }
 }
 
@@ -431,9 +470,14 @@ impl InputDevice for MetalInputDevice {
     }
 
     fn set_left_handed(&self, left_handed: bool) {
-        self.left_handed.set(Some(left_handed));
+        self.desired.left_handed.set(Some(left_handed));
         if let Some(dev) = self.inputdev.get() {
-            dev.device().set_left_handed(left_handed);
+            if dev.device().left_handed_available() {
+                dev.device().set_left_handed(left_handed);
+                self.effective
+                    .left_handed
+                    .set(Some(dev.device().left_handed()));
+            }
         }
     }
 
@@ -442,16 +486,18 @@ impl InputDevice for MetalInputDevice {
             InputDeviceAccelProfile::Flat => LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
             InputDeviceAccelProfile::Adaptive => LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
         };
-        self.accel_profile.set(Some(profile));
-        if let Some(dev) = self.inputdev.get() {
-            dev.device().set_accel_profile(profile);
-        }
+        self.set_accel_profile_(profile);
     }
 
     fn set_accel_speed(&self, speed: f64) {
-        self.accel_speed.set(Some(speed));
+        self.desired.accel_speed.set(Some(speed));
         if let Some(dev) = self.inputdev.get() {
-            dev.device().set_accel_speed(speed);
+            if dev.device().accel_available() {
+                dev.device().set_accel_speed(speed);
+                self.effective
+                    .accel_speed
+                    .set(Some(dev.device().accel_speed()));
+            }
         }
     }
 
@@ -464,31 +510,89 @@ impl InputDevice for MetalInputDevice {
     }
 
     fn set_tap_enabled(&self, enabled: bool) {
-        self.tap_enabled.set(Some(enabled));
+        self.desired.tap_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
-            dev.device().set_tap_enabled(enabled);
+            if dev.device().tap_available() {
+                dev.device().set_tap_enabled(enabled);
+                self.effective
+                    .tap_enabled
+                    .set(Some(dev.device().tap_enabled()));
+            }
         }
     }
 
     fn set_drag_enabled(&self, enabled: bool) {
-        self.drag_enabled.set(Some(enabled));
+        self.desired.drag_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
-            dev.device().set_drag_enabled(enabled);
+            if dev.device().tap_available() {
+                dev.device().set_drag_enabled(enabled);
+                self.effective
+                    .drag_enabled
+                    .set(Some(dev.device().drag_enabled()));
+            }
         }
     }
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
-        self.drag_lock_enabled.set(Some(enabled));
+        self.desired.drag_lock_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
-            dev.device().set_drag_lock_enabled(enabled);
+            if dev.device().tap_available() {
+                dev.device().set_drag_lock_enabled(enabled);
+                self.effective
+                    .drag_lock_enabled
+                    .set(Some(dev.device().drag_lock_enabled()));
+            }
         }
     }
 
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
-        self.natural_scrolling_enabled.set(Some(enabled));
+        self.desired.natural_scrolling_enabled.set(Some(enabled));
         if let Some(dev) = self.inputdev.get() {
-            self.do_set_natural_scrolling_enabled(&dev, enabled);
+            if dev.device().has_natural_scrolling() {
+                dev.device().set_natural_scrolling_enabled(enabled);
+                self.effective
+                    .natural_scrolling_enabled
+                    .set(Some(dev.device().natural_scrolling_enabled()));
+            }
         }
+    }
+
+    fn left_handed(&self) -> Option<bool> {
+        self.effective.left_handed.get()
+    }
+
+    fn accel_profile(&self) -> Option<InputDeviceAccelProfile> {
+        let p = self.effective.accel_profile.get()?;
+        let p = match p {
+            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT => InputDeviceAccelProfile::Flat,
+            LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE => InputDeviceAccelProfile::Adaptive,
+            _ => return None,
+        };
+        Some(p)
+    }
+
+    fn accel_speed(&self) -> Option<f64> {
+        self.effective.accel_speed.get()
+    }
+
+    fn transform_matrix(&self) -> Option<TransformMatrix> {
+        self.transform_matrix.get()
+    }
+
+    fn tap_enabled(&self) -> Option<bool> {
+        self.effective.tap_enabled.get()
+    }
+
+    fn drag_enabled(&self) -> Option<bool> {
+        self.effective.drag_enabled.get()
+    }
+
+    fn drag_lock_enabled(&self) -> Option<bool> {
+        self.effective.drag_lock_enabled.get()
+    }
+
+    fn natural_scrolling_enabled(&self) -> Option<bool> {
+        self.effective.natural_scrolling_enabled.get()
     }
 }
 
