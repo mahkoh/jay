@@ -656,6 +656,7 @@ fn parser_cursor_file<R: BufRead + Seek>(
         size: u32,
         scale: Scale,
         best_fit: i64,
+        best_fit_size: u32,
     }
     let mut targets = Vec::new();
     for scale in scales {
@@ -668,6 +669,7 @@ fn parser_cursor_file<R: BufRead + Seek>(
                 size: *size,
                 scale: *scale,
                 best_fit: i64::MAX,
+                best_fit_size: 0,
             });
         }
     }
@@ -682,9 +684,10 @@ fn parser_cursor_file<R: BufRead + Seek>(
             let fit = (size as i64 - target.effective_size as i64).abs();
             if fit < target.best_fit {
                 target.best_fit = fit;
+                target.best_fit_size = size;
                 target.positions.clear();
             }
-            if fit == target.best_fit {
+            if size == target.best_fit_size {
                 target.positions.push(position);
             }
         }
