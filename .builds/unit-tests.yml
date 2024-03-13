@@ -6,6 +6,8 @@ tasks:
       sudo pacman -Syu --noconfirm
       sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon xorg-xwayland adwaita-icon-theme libxcursor cmake
       rustup toolchain install stable
+      cd jay
+      git submodule update --init
   - test: |
       cd jay
       cargo test

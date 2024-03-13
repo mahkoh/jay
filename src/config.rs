@@ -150,7 +150,7 @@ unsafe extern "C" fn default_client_init(
     size: usize,
 ) -> *const u8 {
     extern "C" fn configure() {
-        default_config::configure();
+        jay_toml_config::configure();
     }
     jay_config::_private::client::init(srv_data, srv_unref, srv_handler, msg, size, configure)
 }

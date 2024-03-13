@@ -1,0 +1,75 @@
+keymap = """
+    xkb_keymap {
+        xkb_keycodes { include "evdev+aliases(qwerty)" };
+        xkb_types    { include "complete"              };
+        xkb_compat   { include "complete"              };
+        xkb_symbols  { include "pc+us+inet(evdev)"     };
+    };
+    """
+
+on-graphics-initialized = { type = "exec", exec = "mako" }
+
+[shortcuts]
+alt-h = "focus-left"
+alt-j = "focus-down"
+alt-k = "focus-up"
+alt-l = "focus-right"
+
+alt-shift-h = "move-left"
+alt-shift-j = "move-down"
+alt-shift-k = "move-up"
+alt-shift-l = "move-right"
+
+alt-d = "split-horizontal"
+alt-v = "split-vertical"
+
+alt-t = "toggle-split"
+alt-m = "toggle-mono"
+alt-u = "toggle-fullscreen"
+
+alt-f = "focus-parent"
+alt-shift-c = "close"
+alt-shift-f = "toggle-floating"
+Super_L = { type = "exec", exec = "alacritty" }
+alt-p = { type = "exec", exec = "bemenu-run" }
+alt-q = "quit"
+alt-shift-r = "reload-config-toml"
+
+ctrl-alt-F1 = { type = "switch-to-vt", num = 1 }
+ctrl-alt-F2 = { type = "switch-to-vt", num = 2 }
+ctrl-alt-F3 = { type = "switch-to-vt", num = 3 }
+ctrl-alt-F4 = { type = "switch-to-vt", num = 4 }
+ctrl-alt-F5 = { type = "switch-to-vt", num = 5 }
+ctrl-alt-F6 = { type = "switch-to-vt", num = 6 }
+ctrl-alt-F7 = { type = "switch-to-vt", num = 7 }
+ctrl-alt-F8 = { type = "switch-to-vt", num = 8 }
+ctrl-alt-F9 = { type = "switch-to-vt", num = 9 }
+ctrl-alt-F10 = { type = "switch-to-vt", num = 10 }
+ctrl-alt-F11 = { type = "switch-to-vt", num = 11 }
+ctrl-alt-F12 = { type = "switch-to-vt", num = 12 }
+
+alt-F1 = { type = "show-workspace", name = "1" }
+alt-F2 = { type = "show-workspace", name = "2" }
+alt-F3 = { type = "show-workspace", name = "3" }
+alt-F4 = { type = "show-workspace", name = "4" }
+alt-F5 = { type = "show-workspace", name = "5" }
+alt-F6 = { type = "show-workspace", name = "6" }
+alt-F7 = { type = "show-workspace", name = "7" }
+alt-F8 = { type = "show-workspace", name = "8" }
+alt-F9 = { type = "show-workspace", name = "9" }
+alt-F10 = { type = "show-workspace", name = "10" }
+alt-F11 = { type = "show-workspace", name = "11" }
+alt-F12 = { type = "show-workspace", name = "12" }
+
+alt-shift-F1 = { type = "move-to-workspace", name = "1" }
+alt-shift-F2 = { type = "move-to-workspace", name = "2" }
+alt-shift-F3 = { type = "move-to-workspace", name = "3" }
+alt-shift-F4 = { type = "move-to-workspace", name = "4" }
+alt-shift-F5 = { type = "move-to-workspace", name = "5" }
+alt-shift-F6 = { type = "move-to-workspace", name = "6" }
+alt-shift-F7 = { type = "move-to-workspace", name = "7" }
+alt-shift-F8 = { type = "move-to-workspace", name = "8" }
+alt-shift-F9 = { type = "move-to-workspace", name = "9" }
+alt-shift-F10 = { type = "move-to-workspace", name = "10" }
+alt-shift-F11 = { type = "move-to-workspace", name = "11" }
+alt-shift-F12 = { type = "move-to-workspace", name = "12" }

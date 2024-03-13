@@ -1,0 +1,31 @@
+name: toml-spec
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Show env
+      run: |
+        uname -a
+        ldd --version
+    - name: Install
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+        rustup toolchain install nightly --allow-downgrade -c rustfmt
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Check
+      run: |
+        cd toml-spec
+        cargo run
+        git diff --exit-code
