@@ -782,6 +782,10 @@ impl Client {
         has
     }
 
+    pub fn destroy_keymap(&self, keymap: Keymap) {
+        self.send(&ClientMessage::DestroyKeymap { keymap })
+    }
+
     pub fn seat_set_keymap(&self, seat: Seat, keymap: Keymap) {
         self.send(&ClientMessage::SeatSetKeymap { seat, keymap })
     }

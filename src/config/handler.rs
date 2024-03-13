@@ -1250,6 +1250,10 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_destroy_keymap(&self, keymap: Keymap) {
+        self.keymaps.remove(&keymap);
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -1515,6 +1519,7 @@ impl ConfigProxyHandler {
                 fds,
             } => self.handle_run(prog, args, env, fds).wrn("run")?,
             ClientMessage::DisableDefaultSeat => self.state.create_default_seat.set(false),
+            ClientMessage::DestroyKeymap { keymap } => self.handle_destroy_keymap(keymap),
         }
         Ok(())
     }

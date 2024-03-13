@@ -382,6 +382,9 @@ pub enum ClientMessage<'a> {
         fds: Vec<(i32, i32)>,
     },
     DisableDefaultSeat,
+    DestroyKeymap {
+        keymap: Keymap,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
