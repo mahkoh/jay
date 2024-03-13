@@ -42,7 +42,10 @@
 use {
     crate::keyboard::ModifiedKeySym,
     serde::{Deserialize, Serialize},
-    std::fmt::{Debug, Display, Formatter},
+    std::{
+        fmt::{Debug, Display, Formatter},
+        time::Duration,
+    },
 };
 
 #[macro_use]
@@ -194,4 +197,21 @@ pub fn on_idle<F: FnMut() + 'static>(f: F) {
 /// good place to select the DRM device used for rendering.
 pub fn on_devices_enumerated<F: FnOnce() + 'static>(f: F) {
     get!().on_devices_enumerated(f)
+}
+
+/// Returns the Jay config directory.
+pub fn config_dir() -> String {
+    get!().config_dir()
+}
+
+/// Returns all visible workspaces.
+pub fn workspaces() -> Vec<Workspace> {
+    get!().workspaces()
+}
+
+/// Configures the idle timeout.
+///
+/// `None` disables the timeout.
+pub fn set_idle(timeout: Option<Duration>) {
+    get!().set_idle(timeout.unwrap_or_default())
 }

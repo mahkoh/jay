@@ -183,13 +183,26 @@ impl ConfigProxyHandler {
         res
     }
 
-    fn handle_get_drm_device_connectors(&self, dev: DrmDevice) -> Result<(), CphError> {
-        let dev = self.get_drm_device(dev)?;
-        let mut connectors = vec![];
-        for c in dev.connectors.lock().values() {
-            connectors.push(Connector(c.connector.id().raw() as _));
+    fn handle_get_connectors(
+        &self,
+        dev: Option<DrmDevice>,
+        connected_only: bool,
+    ) -> Result<(), CphError> {
+        let datas: Vec<_>;
+        if let Some(dev) = dev {
+            let dev = self.get_drm_device(dev)?;
+            datas = dev.connectors.lock().values().cloned().collect();
+        } else {
+            datas = self.state.connectors.lock().values().cloned().collect();
         }
-        self.respond(Response::GetDeviceConnectors { connectors });
+        let connectors = datas
+            .iter()
+            .flat_map(|d| match (connected_only, d.connected.get()) {
+                (false, _) | (true, true) => Some(Connector(d.connector.id().raw() as _)),
+                _ => None,
+            })
+            .collect();
+        self.respond(Response::GetConnectors { connectors });
         Ok(())
     }
 
@@ -197,6 +210,13 @@ impl ConfigProxyHandler {
         let dev = self.get_drm_device(dev)?;
         let syspath = dev.syspath.clone().unwrap_or_default();
         self.respond(Response::GetDrmDeviceSyspath { syspath });
+        Ok(())
+    }
+
+    fn handle_get_drm_device_devnode(&self, dev: DrmDevice) -> Result<(), CphError> {
+        let dev = self.get_drm_device(dev)?;
+        let devnode = dev.devnode.clone().unwrap_or_default();
+        self.respond(Response::GetDrmDeviceDevnode { devnode });
         Ok(())
     }
 
@@ -302,6 +322,35 @@ impl ConfigProxyHandler {
         if let Some(f) = self.state.forker.get() {
             f.setenv(key.as_bytes(), val.as_bytes());
         }
+    }
+
+    fn handle_unset_env(&self, key: &str) {
+        if let Some(f) = self.state.forker.get() {
+            f.unsetenv(key.as_bytes());
+        }
+    }
+
+    fn handle_get_config_dir(&self) {
+        let dir = self.state.config_dir.clone().unwrap_or_default();
+        self.respond(Response::GetConfigDir { dir });
+    }
+
+    fn handle_get_workspaces(&self) {
+        let mut workspaces = vec![];
+        for ws in self.state.workspaces.lock().values() {
+            let id = match self.workspaces_by_name.get(&ws.name) {
+                None => {
+                    let id = self.workspace_ids.fetch_add(1);
+                    let name = Rc::new(ws.name.clone());
+                    self.workspaces_by_name.set(name.clone(), id);
+                    self.workspaces_by_id.set(id, name);
+                    id
+                }
+                Some(id) => id,
+            };
+            workspaces.push(Workspace(id));
+        }
+        self.respond(Response::GetWorkspaces { workspaces });
     }
 
     fn handle_program_timer(
@@ -688,6 +737,26 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_input_device_syspath(&self, device: InputDevice) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        self.respond(Response::GetInputDeviceSyspath {
+            syspath: dev.syspath.clone().unwrap_or_default(),
+        });
+        Ok(())
+    }
+
+    fn handle_get_input_device_devnode(&self, device: InputDevice) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        self.respond(Response::GetInputDeviceDevnode {
+            devnode: dev.devnode.clone().unwrap_or_default(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_idle(&self, timeout: Duration) {
+        self.state.idle.set_timeout(timeout);
+    }
+
     fn handle_connector_connected(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
         self.respond(Response::ConnectorConnected {
@@ -743,6 +812,38 @@ impl ConfigProxyHandler {
                     refresh_millihz: m.refresh_rate_millihz,
                 })
                 .collect(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_name(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_connector(connector)?;
+        self.respond(Response::GetConnectorName {
+            name: connector.name.clone(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_model(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        self.respond(Response::GetConnectorModel {
+            model: connector.monitor_info.product.clone(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_manufacturer(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        self.respond(Response::GetConnectorManufacturer {
+            manufacturer: connector.monitor_info.manufacturer.clone(),
+        });
+        Ok(())
+    }
+
+    fn handle_connector_serial_number(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        self.respond(Response::GetConnectorSerialNumber {
+            serial_number: connector.monitor_info.serial_number.clone(),
         });
         Ok(())
     }
@@ -845,6 +946,13 @@ impl ConfigProxyHandler {
                 );
             }
         }
+        Ok(())
+    }
+
+    fn handle_connector_get_position(&self, connector: Connector) -> Result<(), CphError> {
+        let connector = self.get_output(connector)?;
+        let (x, y) = connector.node.global.pos.get().position();
+        self.respond(Response::ConnectorGetPosition { x, y });
         Ok(())
     }
 
@@ -1009,6 +1117,19 @@ impl ConfigProxyHandler {
         };
         forker.spawn(prog.to_string(), args, env, fds);
         Ok(())
+    }
+
+    fn handle_set_log_level(&self, level: LogLevel) {
+        let level = match level {
+            LogLevel::Error => Level::Error,
+            LogLevel::Warn => Level::Warn,
+            LogLevel::Info => Level::Info,
+            LogLevel::Debug => Level::Debug,
+            LogLevel::Trace => Level::Trace,
+        };
+        if let Some(logger) = &self.state.logger {
+            logger.set_level(level);
+        }
     }
 
     fn handle_grab(&self, kb: InputDevice, grab: bool) -> Result<(), CphError> {
@@ -1403,7 +1524,7 @@ impl ConfigProxyHandler {
             }
             ClientMessage::Reload => self.handle_reload(),
             ClientMessage::GetDeviceConnectors { device } => self
-                .handle_get_drm_device_connectors(device)
+                .handle_get_connectors(Some(device), false)
                 .wrn("get_device_connectors")?,
             ClientMessage::GetDrmDeviceSyspath { device } => self
                 .handle_get_drm_device_syspath(device)
@@ -1520,6 +1641,41 @@ impl ConfigProxyHandler {
             } => self.handle_run(prog, args, env, fds).wrn("run")?,
             ClientMessage::DisableDefaultSeat => self.state.create_default_seat.set(false),
             ClientMessage::DestroyKeymap { keymap } => self.handle_destroy_keymap(keymap),
+            ClientMessage::GetConnectorName { connector } => self
+                .handle_connector_name(connector)
+                .wrn("connector_name")?,
+            ClientMessage::GetConnectorModel { connector } => self
+                .handle_connector_model(connector)
+                .wrn("connector_model")?,
+            ClientMessage::GetConnectorManufacturer { connector } => self
+                .handle_connector_manufacturer(connector)
+                .wrn("connector_manufacturer")?,
+            ClientMessage::GetConnectorSerialNumber { connector } => self
+                .handle_connector_serial_number(connector)
+                .wrn("connector_serial_number")?,
+            ClientMessage::GetConnectors {
+                device,
+                connected_only,
+            } => self
+                .handle_get_connectors(device, connected_only)
+                .wrn("get_connectors")?,
+            ClientMessage::ConnectorGetPosition { connector } => self
+                .handle_connector_get_position(connector)
+                .wrn("connector_get_position")?,
+            ClientMessage::GetConfigDir => self.handle_get_config_dir(),
+            ClientMessage::GetWorkspaces => self.handle_get_workspaces(),
+            ClientMessage::UnsetEnv { key } => self.handle_unset_env(key),
+            ClientMessage::SetLogLevel { level } => self.handle_set_log_level(level),
+            ClientMessage::GetDrmDeviceDevnode { device } => self
+                .handle_get_drm_device_devnode(device)
+                .wrn("get_drm_device_devnode")?,
+            ClientMessage::GetInputDeviceSyspath { device } => self
+                .handle_get_input_device_syspath(device)
+                .wrn("get_input_device_syspath")?,
+            ClientMessage::GetInputDeviceDevnode { device } => self
+                .handle_get_input_device_devnode(device)
+                .wrn("get_input_device_devnode")?,
+            ClientMessage::SetIdle { timeout } => self.handle_set_idle(timeout),
         }
         Ok(())
     }

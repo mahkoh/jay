@@ -204,8 +204,8 @@ impl JayInput {
                 .map(|s| s.seat_name())
                 .unwrap_or_default(),
             id: data.id.raw(),
-            syspath: data.syspath.as_deref().unwrap_or_default(),
-            devnode: data.devnode.as_deref().unwrap_or_default(),
+            syspath: data.data.syspath.as_deref().unwrap_or_default(),
+            devnode: data.data.devnode.as_deref().unwrap_or_default(),
             name: dev.name().as_str(),
             capabilities: &caps,
             accel_available: accel_profile.is_some() as _,

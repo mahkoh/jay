@@ -14,3 +14,8 @@ pub enum LogLevel {
     Debug,
     Trace,
 }
+
+/// Sets the log level of the compositor.
+pub fn set_log_level(level: LogLevel) {
+    get!().set_log_level(level);
+}

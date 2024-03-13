@@ -385,6 +385,45 @@ pub enum ClientMessage<'a> {
     DestroyKeymap {
         keymap: Keymap,
     },
+    GetConnectorName {
+        connector: Connector,
+    },
+    GetConnectorModel {
+        connector: Connector,
+    },
+    GetConnectorManufacturer {
+        connector: Connector,
+    },
+    GetConnectorSerialNumber {
+        connector: Connector,
+    },
+    GetConnectors {
+        device: Option<DrmDevice>,
+        connected_only: bool,
+    },
+    ConnectorGetPosition {
+        connector: Connector,
+    },
+    GetConfigDir,
+    GetWorkspaces,
+    UnsetEnv {
+        key: &'a str,
+    },
+    SetLogLevel {
+        level: LogLevel,
+    },
+    GetDrmDeviceDevnode {
+        device: DrmDevice,
+    },
+    GetInputDeviceSyspath {
+        device: InputDevice,
+    },
+    GetInputDeviceDevnode {
+        device: InputDevice,
+    },
+    SetIdle {
+        timeout: Duration,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -444,7 +483,7 @@ pub enum Response {
     GetFullscreen {
         fullscreen: bool,
     },
-    GetDeviceConnectors {
+    GetConnectors {
         connectors: Vec<Connector>,
     },
     GetDrmDeviceSyspath {
@@ -492,6 +531,37 @@ pub enum Response {
     },
     AddPollable {
         id: Result<PollableId, String>,
+    },
+    GetConnectorName {
+        name: String,
+    },
+    GetConnectorModel {
+        model: String,
+    },
+    GetConnectorManufacturer {
+        manufacturer: String,
+    },
+    GetConnectorSerialNumber {
+        serial_number: String,
+    },
+    ConnectorGetPosition {
+        x: i32,
+        y: i32,
+    },
+    GetConfigDir {
+        dir: String,
+    },
+    GetWorkspaces {
+        workspaces: Vec<Workspace>,
+    },
+    GetDrmDeviceDevnode {
+        devnode: String,
+    },
+    GetInputDeviceSyspath {
+        syspath: String,
+    },
+    GetInputDeviceDevnode {
+        devnode: String,
     },
 }
 

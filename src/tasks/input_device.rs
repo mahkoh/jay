@@ -11,10 +11,16 @@ use {
 };
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
+    let props = match dev.dev_t() {
+        None => UdevProps::default(),
+        Some(dev_t) => udev_props(dev_t, 3),
+    };
     let data = Rc::new(DeviceHandlerData {
         seat: Default::default(),
         px_per_scroll_wheel: Cell::new(PX_PER_SCROLL),
         device: dev.clone(),
+        syspath: props.syspath,
+        devnode: props.devnode,
     });
     let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {
@@ -24,10 +30,6 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         ae: ae.clone(),
     };
     let handler = state.eng.spawn(oh.handle());
-    let props = match dev.dev_t() {
-        None => UdevProps::default(),
-        Some(dev_t) => udev_props(dev_t, 3),
-    };
     state.input_device_handlers.borrow_mut().insert(
         dev.id(),
         InputDeviceData {
@@ -35,8 +37,6 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
             id: dev.id(),
             data,
             async_event: ae,
-            syspath: props.syspath,
-            devnode: props.devnode,
         },
     );
 }

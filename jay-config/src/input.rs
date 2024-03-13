@@ -113,6 +113,20 @@ impl InputDevice {
     pub fn set_natural_scrolling_enabled(self, enabled: bool) {
         get!().set_input_natural_scrolling_enabled(self, enabled);
     }
+
+    /// Returns the syspath of this device.
+    ///
+    /// E.g. `/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.4/usb5/5-1/5-1.1/5-1.1.3/5-1.1.3:1.0`.
+    pub fn syspath(self) -> String {
+        get!(String::new()).input_device_syspath(self)
+    }
+
+    /// Returns the devnode of this device.
+    ///
+    /// E.g. `/dev/input/event7`.
+    pub fn devnode(self) -> String {
+        get!(String::new()).input_device_devnode(self)
+    }
 }
 
 /// A seat.

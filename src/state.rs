@@ -216,14 +216,14 @@ pub struct InputDeviceData {
     pub id: InputDeviceId,
     pub data: Rc<DeviceHandlerData>,
     pub async_event: Rc<AsyncEvent>,
-    pub syspath: Option<String>,
-    pub devnode: Option<String>,
 }
 
 pub struct DeviceHandlerData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     pub px_per_scroll_wheel: Cell<f64>,
     pub device: Rc<dyn InputDevice>,
+    pub syspath: Option<String>,
+    pub devnode: Option<String>,
 }
 
 pub struct ConnectorData {

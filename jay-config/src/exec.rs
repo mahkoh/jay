@@ -9,6 +9,13 @@ pub fn set_env(key: &str, val: &str) {
     get!().set_env(key, val);
 }
 
+/// Unsets an environment variable.
+///
+/// This does not affect the compositor itself but only programs spawned by the compositor.
+pub fn unset_env(key: &str) {
+    get!().unset_env(key);
+}
+
 /// A command to be spawned.
 pub struct Command {
     pub(crate) prog: String,

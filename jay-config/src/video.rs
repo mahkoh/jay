@@ -178,6 +178,14 @@ impl Connector {
         self.mode().refresh_millihz
     }
 
+    /// Retrieves the position of the output in the global compositor space.
+    pub fn position(self) -> (i32, i32) {
+        if !self.connected() {
+            return (0, 0);
+        }
+        get!().connector_get_position(self)
+    }
+
     /// Sets the position of the connector in the global compositor space.
     ///
     /// `x` and `y` must be non-negative and must not exceed a currently unspecified limit.
@@ -212,6 +220,34 @@ impl Connector {
         }
         get!().connector_set_transform(self, transform);
     }
+
+    pub fn name(self) -> String {
+        if !self.exists() {
+            return String::new();
+        }
+        get!(String::new()).connector_get_name(self)
+    }
+
+    pub fn model(self) -> String {
+        if !self.exists() {
+            return String::new();
+        }
+        get!(String::new()).connector_get_model(self)
+    }
+
+    pub fn manufacturer(self) -> String {
+        if !self.exists() {
+            return String::new();
+        }
+        get!(String::new()).connector_get_manufacturer(self)
+    }
+
+    pub fn serial_number(self) -> String {
+        if !self.exists() {
+            return String::new();
+        }
+        get!(String::new()).connector_get_serial_number(self)
+    }
 }
 
 /// Returns all available DRM devices.
@@ -245,6 +281,10 @@ pub fn on_connector_connected<F: FnMut(Connector) + 'static>(f: F) {
 /// to auto start graphical applications.
 pub fn on_graphics_initialized<F: FnOnce() + 'static>(f: F) {
     get!().on_graphics_initialized(f)
+}
+
+pub fn connectors() -> Vec<Connector> {
+    get!().connectors(None)
 }
 
 /// Returns the connector with the given id.
@@ -381,7 +421,14 @@ pub struct DrmDevice(pub u64);
 impl DrmDevice {
     /// Returns the connectors of this device.
     pub fn connectors(self) -> Vec<Connector> {
-        get!().device_connectors(self)
+        get!().connectors(Some(self))
+    }
+
+    /// Returns the devnode of this device.
+    ///
+    /// E.g. `/dev/dri/card0`.
+    pub fn devnode(self) -> String {
+        get!().drm_device_devnode(self)
     }
 
     /// Returns the syspath of this device.
