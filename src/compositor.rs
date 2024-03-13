@@ -39,7 +39,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::video::GfxApi,
+    jay_config::{_private::DEFAULT_SEAT_NAME, video::GfxApi},
     std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
@@ -207,6 +207,7 @@ fn start_compositor2(
         output_transforms: Default::default(),
         double_click_interval_usec: Cell::new(400 * 1000),
         double_click_distance: Cell::new(5),
+        create_default_seat: Cell::new(true),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -253,6 +254,10 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     let config = load_config(&state, is_test);
     config.configure(false);
     state.config.set(Some(Rc::new(config)));
+
+    if state.create_default_seat.get() && state.globals.seats.is_empty() {
+        state.create_seat(DEFAULT_SEAT_NAME);
+    }
 
     let _geh = start_global_event_handlers(&state, &backend);
     state.start_xwayland();

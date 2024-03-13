@@ -381,6 +381,7 @@ pub enum ClientMessage<'a> {
         env: Vec<(String, String)>,
         fds: Vec<(i32, i32)>,
     },
+    DisableDefaultSeat,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

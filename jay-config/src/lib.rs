@@ -12,23 +12,19 @@
 //! config!(configure);
 //! ```
 //!
-//! This configuration will not allow you to interact with the compositor at all nor exit it.
+//! This configuration will not allow you to exit the compositor.
 //! To add at least that much functionality, add the following code to `configure`:
 //!
 //! ```rust
 //! use jay_config::{config, quit};
-//! use jay_config::input::{get_seat, input_devices, on_new_input_device};
+//! use jay_config::input::{get_default_seat, input_devices, on_new_input_device};
 //! use jay_config::keyboard::mods::ALT;
 //! use jay_config::keyboard::syms::SYM_q;
 //!
 //! fn configure() {
-//!     // Create a seat.
-//!     let seat = get_seat("default");
+//!     let seat = get_default_seat();
 //!     // Create a key binding to exit the compositor.
 //!     seat.bind(ALT | SYM_q, || quit());
-//!     // Assign all current and future input devices to this seat.
-//!     input_devices().into_iter().for_each(move |d| d.set_seat(seat));
-//!     on_new_input_device(move |d| d.set_seat(seat));
 //! }
 //!
 //! config!(configure);

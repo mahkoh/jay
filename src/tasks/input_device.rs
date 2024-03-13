@@ -6,6 +6,7 @@ use {
         tasks::udev_utils::{udev_props, UdevProps},
         utils::asyncevent::AsyncEvent,
     },
+    jay_config::_private::DEFAULT_SEAT_NAME,
     std::{cell::Cell, rc::Rc},
 };
 
@@ -52,6 +53,12 @@ impl DeviceHandler {
         {
             let ae = self.ae.clone();
             self.dev.on_change(Rc::new(move || ae.trigger()));
+        }
+        for seat in self.state.globals.seats.lock().values() {
+            if seat.seat_name() == DEFAULT_SEAT_NAME {
+                self.data.seat.set(Some(seat.clone()));
+                break;
+            }
         }
         if let Some(config) = self.state.config.get() {
             config.new_input_device(self.dev.id());

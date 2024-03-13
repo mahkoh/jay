@@ -8,6 +8,7 @@ use {
         input::{acceleration::AccelProfile, capability::Capability},
         keyboard::Keymap,
         Axis, Direction, ModifiedKeySym, Workspace,
+        _private::DEFAULT_SEAT_NAME,
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -319,8 +320,18 @@ pub fn input_devices() -> Vec<InputDevice> {
 /// Returns or creates a seat.
 ///
 /// Seats are identified by their name. If no seat with the name exists, a new seat will be created.
+///
+/// NOTE: You should prefer [`get_default_seat`] instead. Most applications cannot handle more than
+/// one seat and will only process input from one of the seats.
 pub fn get_seat(name: &str) -> Seat {
     get!(Seat(0)).get_seat(name)
+}
+
+/// Returns or creates the default seat.
+///
+/// This is equivalent to `get_seat("default")`.
+pub fn get_default_seat() -> Seat {
+    get_seat(DEFAULT_SEAT_NAME)
 }
 
 /// Sets a closure to run when a new seat has been created.
@@ -356,4 +367,15 @@ pub fn set_double_click_time(duration: Duration) {
 /// The default is 5.
 pub fn set_double_click_distance(distance: i32) {
     get!().set_double_click_distance(distance)
+}
+
+/// Disables the creation of a default seat.
+///
+/// Unless this function is called at startup of the compositor, a seat called `default`
+/// will automatically be created.
+///
+/// When a new input device is attached and a seat called `default` exists, the input
+/// device is initially attached to this seat.
+pub fn disable_default_seat() {
+    get!().disable_default_seat();
 }

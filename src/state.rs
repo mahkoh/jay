@@ -156,6 +156,7 @@ pub struct State {
     pub output_transforms: RefCell<AHashMap<Rc<OutputId>, Transform>>,
     pub double_click_interval_usec: Cell<u64>,
     pub double_click_distance: Cell<i32>,
+    pub create_default_seat: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -923,5 +924,12 @@ impl State {
             log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
             capture.send_failed();
         }
+    }
+
+    pub fn create_seat(self: &Rc<Self>, name: &str) -> Rc<WlSeatGlobal> {
+        let global_name = self.globals.name();
+        let seat = WlSeatGlobal::new(global_name, name, self);
+        self.globals.add_global(self, &seat);
+        seat
     }
 }

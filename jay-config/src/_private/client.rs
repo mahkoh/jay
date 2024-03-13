@@ -576,6 +576,10 @@ impl Client {
         self.send(&ClientMessage::SetDoubleClickDistance { dist });
     }
 
+    pub fn disable_default_seat(&self) {
+        self.send(&ClientMessage::DisableDefaultSeat);
+    }
+
     pub fn connector_set_position(&self, connector: Connector, x: i32, y: i32) {
         self.send(&ClientMessage::ConnectorSetPosition { connector, x, y });
     }

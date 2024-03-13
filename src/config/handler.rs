@@ -164,9 +164,7 @@ impl ConfigProxyHandler {
                 return;
             }
         }
-        let global_name = self.state.globals.name();
-        let seat = WlSeatGlobal::new(global_name, name, &self.state);
-        self.state.globals.add_global(&self.state, &seat);
+        let seat = self.state.create_seat(name);
         self.respond(Response::GetSeat {
             seat: Seat(seat.id().raw() as _),
         });
@@ -1516,6 +1514,7 @@ impl ConfigProxyHandler {
                 env,
                 fds,
             } => self.handle_run(prog, args, env, fds).wrn("run")?,
+            ClientMessage::DisableDefaultSeat => self.state.create_default_seat.set(false),
         }
         Ok(())
     }

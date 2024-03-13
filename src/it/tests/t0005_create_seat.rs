@@ -12,13 +12,13 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let client = run.create_client().await?;
 
-    tassert!(client.registry.seats.is_empty());
+    tassert_eq!(client.registry.seats.len(), 1);
 
-    let seat = run.get_seat("default")?;
+    let seat = run.get_seat("new-seat")?;
 
     client.sync().await;
 
-    tassert_eq!(client.registry.seats.len(), 1);
+    tassert_eq!(client.registry.seats.len(), 2);
 
     let client_seat = client.registry.seats.get(&seat.name());
     tassert!(client_seat.is_some());
