@@ -278,7 +278,7 @@ impl MetalBackend {
         let dev = Rc::new(MetalInputDevice {
             slot,
             id: device_id,
-            _devnum: devnum,
+            devnum,
             fd: Default::default(),
             inputdev: Default::default(),
             devnode: devnode.to_owned(),
@@ -287,17 +287,11 @@ impl MetalBackend {
             events: Default::default(),
             cb: Default::default(),
             name: Default::default(),
-            natural_scrolling: Default::default(),
             pressed_keys: Default::default(),
             pressed_buttons: Default::default(),
-            left_handed: Default::default(),
-            accel_profile: Default::default(),
-            accel_speed: Default::default(),
+            desired: Default::default(),
             transform_matrix: Default::default(),
-            tap_enabled: Default::default(),
-            drag_enabled: Default::default(),
-            drag_lock_enabled: Default::default(),
-            natural_scrolling_enabled: Default::default(),
+            effective: Default::default(),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder
@@ -337,8 +331,6 @@ impl MetalBackend {
             };
             inputdev.device().set_slot(slot);
             dev.name.set(Rc::new(inputdev.device().name()));
-            dev.natural_scrolling
-                .set(inputdev.device().natural_scrolling_enabled());
             dev.inputdev.set(Some(inputdev));
             dev.apply_config();
             slf.state

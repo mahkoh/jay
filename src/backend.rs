@@ -5,6 +5,7 @@ use {
         fixed::Fixed,
         gfx_api::GfxFramebuffer,
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
+        libinput::consts::DeviceCapability,
         video::drm::{ConnectorType, DrmError, DrmVersion},
     },
     jay_config::video::GfxApi,
@@ -118,14 +119,41 @@ pub trait InputDevice {
     fn on_change(&self, cb: Rc<dyn Fn()>);
     fn grab(&self, grab: bool);
     fn has_capability(&self, cap: InputDeviceCapability) -> bool;
+    fn left_handed(&self) -> Option<bool> {
+        None
+    }
     fn set_left_handed(&self, left_handed: bool);
+    fn accel_profile(&self) -> Option<InputDeviceAccelProfile> {
+        None
+    }
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile);
+    fn accel_speed(&self) -> Option<f64> {
+        None
+    }
     fn set_accel_speed(&self, speed: f64);
+    fn transform_matrix(&self) -> Option<TransformMatrix> {
+        None
+    }
     fn set_transform_matrix(&self, matrix: TransformMatrix);
     fn name(&self) -> Rc<String>;
+    fn dev_t(&self) -> Option<c::dev_t> {
+        None
+    }
+    fn tap_enabled(&self) -> Option<bool> {
+        None
+    }
     fn set_tap_enabled(&self, enabled: bool);
+    fn drag_enabled(&self) -> Option<bool> {
+        None
+    }
     fn set_drag_enabled(&self, enabled: bool);
+    fn drag_lock_enabled(&self) -> Option<bool> {
+        None
+    }
     fn set_drag_lock_enabled(&self, enabled: bool);
+    fn natural_scrolling_enabled(&self) -> Option<bool> {
+        None
+    }
     fn set_natural_scrolling_enabled(&self, enabled: bool);
 }
 
@@ -138,6 +166,21 @@ pub enum InputDeviceCapability {
     TabletPad,
     Gesture,
     Switch,
+}
+
+impl InputDeviceCapability {
+    pub fn to_libinput(self) -> DeviceCapability {
+        use crate::libinput::consts::*;
+        match self {
+            InputDeviceCapability::Keyboard => LIBINPUT_DEVICE_CAP_KEYBOARD,
+            InputDeviceCapability::Pointer => LIBINPUT_DEVICE_CAP_POINTER,
+            InputDeviceCapability::Touch => LIBINPUT_DEVICE_CAP_TOUCH,
+            InputDeviceCapability::TabletTool => LIBINPUT_DEVICE_CAP_TABLET_TOOL,
+            InputDeviceCapability::TabletPad => LIBINPUT_DEVICE_CAP_TABLET_PAD,
+            InputDeviceCapability::Gesture => LIBINPUT_DEVICE_CAP_GESTURE,
+            InputDeviceCapability::Switch => LIBINPUT_DEVICE_CAP_SWITCH,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]

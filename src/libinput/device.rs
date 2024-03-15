@@ -7,13 +7,19 @@ use {
             LIBINPUT_CONFIG_TAP_DISABLED, LIBINPUT_CONFIG_TAP_ENABLED,
         },
         sys::{
-            libinput_device, libinput_device_config_accel_set_profile,
-            libinput_device_config_accel_set_speed, libinput_device_config_left_handed_set,
+            libinput_device, libinput_device_config_accel_get_profile,
+            libinput_device_config_accel_get_speed, libinput_device_config_accel_is_available,
+            libinput_device_config_accel_set_profile, libinput_device_config_accel_set_speed,
+            libinput_device_config_left_handed_get,
+            libinput_device_config_left_handed_is_available,
+            libinput_device_config_left_handed_set,
             libinput_device_config_scroll_get_natural_scroll_enabled,
+            libinput_device_config_scroll_has_natural_scroll,
             libinput_device_config_scroll_set_natural_scroll_enabled,
             libinput_device_config_tap_get_drag_enabled,
             libinput_device_config_tap_get_drag_lock_enabled,
-            libinput_device_config_tap_get_enabled, libinput_device_config_tap_set_drag_enabled,
+            libinput_device_config_tap_get_enabled, libinput_device_config_tap_get_finger_count,
+            libinput_device_config_tap_set_drag_enabled,
             libinput_device_config_tap_set_drag_lock_enabled,
             libinput_device_config_tap_set_enabled, libinput_device_get_name,
             libinput_device_get_user_data, libinput_device_has_capability,
@@ -64,10 +70,30 @@ impl<'a> LibInputDevice<'a> {
         res != 0
     }
 
+    pub fn left_handed_available(&self) -> bool {
+        unsafe { libinput_device_config_left_handed_is_available(self.dev) != 0 }
+    }
+
+    pub fn left_handed(&self) -> bool {
+        unsafe { libinput_device_config_left_handed_get(self.dev) != 0 }
+    }
+
     pub fn set_left_handed(&self, left_handed: bool) {
         unsafe {
             libinput_device_config_left_handed_set(self.dev, left_handed as _);
         }
+    }
+
+    pub fn accel_available(&self) -> bool {
+        unsafe { libinput_device_config_accel_is_available(self.dev) != 0 }
+    }
+
+    pub fn accel_profile(&self) -> AccelProfile {
+        unsafe { AccelProfile(libinput_device_config_accel_get_profile(self.dev)) }
+    }
+
+    pub fn accel_speed(&self) -> f64 {
+        unsafe { libinput_device_config_accel_get_speed(self.dev) }
     }
 
     pub fn set_accel_profile(&self, profile: AccelProfile) {
@@ -99,7 +125,10 @@ impl<'a> LibInputDevice<'a> {
         }
     }
 
-    #[allow(dead_code)]
+    pub fn tap_available(&self) -> bool {
+        unsafe { libinput_device_config_tap_get_finger_count(self.dev) != 0 }
+    }
+
     pub fn tap_enabled(&self) -> bool {
         let enabled = unsafe { ConfigTapState(libinput_device_config_tap_get_enabled(self.dev)) };
         match enabled {
@@ -157,6 +186,10 @@ impl<'a> LibInputDevice<'a> {
 
     pub fn natural_scrolling_enabled(&self) -> bool {
         unsafe { libinput_device_config_scroll_get_natural_scroll_enabled(self.dev) != 0 }
+    }
+
+    pub fn has_natural_scrolling(&self) -> bool {
+        unsafe { libinput_device_config_scroll_has_natural_scroll(self.dev) != 0 }
     }
 }
 

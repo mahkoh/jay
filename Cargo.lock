@@ -1042,9 +1042,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "uapi"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "651f13cef1d1988a4c73d215c39fec385fc1be4c7eb6daf89822d5021f7029f8"
+checksum = "3bf073840d1b16485bfe28b4e752eccee38d9ac53f152adf869708e3136561e6"
 dependencies = [
  "cc",
  "cfg-if",

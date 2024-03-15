@@ -215,6 +215,8 @@ pub struct InputDeviceData {
     pub id: InputDeviceId,
     pub data: Rc<DeviceHandlerData>,
     pub async_event: Rc<AsyncEvent>,
+    pub syspath: Option<String>,
+    pub devnode: Option<String>,
 }
 
 pub struct DeviceHandlerData {

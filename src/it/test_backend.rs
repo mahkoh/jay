@@ -492,6 +492,10 @@ impl<T: TestInputDevice> InputDevice for T {
         self.common().name.clone()
     }
 
+    fn dev_t(&self) -> Option<c::dev_t> {
+        None
+    }
+
     fn set_tap_enabled(&self, enabled: bool) {
         <Self as TestInputDevice>::set_tap_enabled(self, enabled)
     }

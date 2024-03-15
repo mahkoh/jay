@@ -231,6 +231,10 @@ impl WlSeatGlobal {
         slf
     }
 
+    pub fn keymap(&self) -> Rc<XkbKeymap> {
+        self.kb_map.get()
+    }
+
     pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
         self.pointer_owner.toplevel_drag()
     }

@@ -69,6 +69,10 @@ msg get_randr = 16 {
     id: id(jay_randr),
 }
 
+msg get_input = 17 {
+    id: id(jay_input),
+}
+
 # events
 
 msg client_id = 0 {

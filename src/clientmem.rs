@@ -1,4 +1,5 @@
 use {
+    crate::utils::vec_ext::VecExt,
     std::{
         cell::Cell,
         mem::MaybeUninit,
@@ -33,7 +34,7 @@ pub struct ClientMemOffset {
 }
 
 impl ClientMem {
-    pub fn new(fd: i32, len: usize) -> Result<Self, ClientMemError> {
+    pub fn new(fd: i32, len: usize, read_only: bool) -> Result<Self, ClientMemError> {
         let mut sigbus_impossible = false;
         if let Ok(seals) = uapi::fcntl_get_seals(fd) {
             if seals & c::F_SEAL_SHRINK != 0 {
@@ -45,15 +46,12 @@ impl ClientMem {
         let data = if len == 0 {
             &mut [][..]
         } else {
+            let prot = match read_only {
+                true => c::PROT_READ,
+                false => c::PROT_READ | c::PROT_WRITE,
+            };
             unsafe {
-                let data = c::mmap64(
-                    ptr::null_mut(),
-                    len,
-                    c::PROT_READ | c::PROT_WRITE,
-                    c::MAP_SHARED,
-                    fd,
-                    0,
-                );
+                let data = c::mmap64(ptr::null_mut(), len, prot, c::MAP_SHARED, fd, 0);
                 if data == c::MAP_FAILED {
                     return Err(ClientMemError::MmapFailed(uapi::Errno::default().into()));
                 }
@@ -100,6 +98,17 @@ impl ClientMemOffset {
                 _ => Ok(res),
             }
         }
+    }
+
+    pub fn read(&self, dst: &mut Vec<u8>) -> Result<(), ClientMemError> {
+        self.access(|v| {
+            dst.reserve(v.len());
+            let (_, unused) = dst.split_at_spare_mut_ext();
+            unused[..v.len()].copy_from_slice(uapi::as_maybe_uninit_bytes(v));
+            unsafe {
+                dst.set_len(dst.len() + v.len());
+            }
+        })
     }
 }
 

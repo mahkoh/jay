@@ -1,5 +1,6 @@
 mod generate;
 mod idle;
+mod input;
 mod log;
 mod quit;
 mod randr;
@@ -10,7 +11,11 @@ mod set_log_level;
 mod unlock;
 
 use {
-    crate::{cli::randr::RandrArgs, compositor::start_compositor, portal},
+    crate::{
+        cli::{input::InputArgs, randr::RandrArgs},
+        compositor::start_compositor,
+        portal,
+    },
     ::log::Level,
     clap::{Args, Parser, Subcommand, ValueEnum},
     clap_complete::Shell,
@@ -58,6 +63,8 @@ pub enum Cmd {
     Portal,
     /// Inspect/modify graphics card and connector settings.
     Randr(RandrArgs),
+    /// Inspect/modify input settings.
+    Input(InputArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -221,6 +228,7 @@ pub fn main() {
         Cmd::SeatTest(a) => seat_test::main(cli.global, a),
         Cmd::Portal => portal::run(cli.global),
         Cmd::Randr(a) => randr::main(cli.global, a),
+        Cmd::Input(a) => input::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }
