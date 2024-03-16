@@ -181,7 +181,7 @@ impl JayScreencast {
                     x_off,
                     y_off,
                     size,
-                    on.global.transform.get(),
+                    on.global.persistent.transform.get(),
                 );
                 self.client.event(Ready {
                     self_id: self.id,

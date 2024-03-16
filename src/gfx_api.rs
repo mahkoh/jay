@@ -316,7 +316,7 @@ impl dyn GfxFramebuffer {
             scale,
             render_hardware_cursor,
             node.has_fullscreen(),
-            node.global.transform.get(),
+            node.global.persistent.transform.get(),
         )
     }
 

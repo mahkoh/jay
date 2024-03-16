@@ -27,7 +27,7 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
-            wl_output::OutputId,
+            wl_output::{OutputId, PersistentOutputState},
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
@@ -153,7 +153,7 @@ pub struct State {
     pub dma_buf_ids: DmaBufIds,
     pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
-    pub output_transforms: RefCell<AHashMap<Rc<OutputId>, Transform>>,
+    pub persistent_output_states: CopyHashMap<Rc<OutputId>, Rc<PersistentOutputState>>,
     pub double_click_interval_usec: Cell<u64>,
     pub double_click_distance: Cell<i32>,
     pub create_default_seat: Cell<bool>,
@@ -772,7 +772,7 @@ impl State {
             self,
             Some(output.global.pos.get()),
             Some(rr),
-            output.global.preferred_scale.get(),
+            output.global.persistent.scale.get(),
             render_hw_cursor,
         );
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);

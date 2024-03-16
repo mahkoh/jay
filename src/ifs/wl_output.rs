@@ -13,7 +13,7 @@ use {
         rect::Rect,
         state::{ConnectorData, State},
         time::Time,
-        tree::OutputNode,
+        tree::{calculate_logical_size, OutputNode},
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -75,12 +75,18 @@ pub struct WlOutputGlobal {
     pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
-    pub preferred_scale: Cell<crate::scale::Scale>,
+    pub persistent: Rc<PersistentOutputState>,
+}
+
+pub struct PersistentOutputState {
     pub transform: Cell<Transform>,
+    pub scale: Cell<crate::scale::Scale>,
+    pub pos: Cell<(i32, i32)>,
 }
 
 #[derive(Eq, PartialEq, Hash)]
 pub struct OutputId {
+    pub connector: String,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,
@@ -96,33 +102,26 @@ impl WlOutputGlobal {
         name: GlobalName,
         state: &Rc<State>,
         connector: &Rc<ConnectorData>,
-        x1: i32,
         modes: Vec<backend::Mode>,
         mode: &backend::Mode,
-        manufacturer: &str,
-        product: &str,
-        serial_number: &str,
         width_mm: i32,
         height_mm: i32,
+        output_id: &Rc<OutputId>,
+        persistent_state: &Rc<PersistentOutputState>,
     ) -> Self {
-        let output_id = Rc::new(OutputId {
-            manufacturer: manufacturer.to_string(),
-            model: product.to_string(),
-            serial_number: serial_number.to_string(),
-        });
-        let transform = state
-            .output_transforms
-            .borrow()
-            .get(&output_id)
-            .copied()
-            .unwrap_or(Transform::None);
-        let (width, height) = transform.maybe_swap((mode.width, mode.height));
+        let (x, y) = persistent_state.pos.get();
+        let scale = persistent_state.scale.get();
+        let (width, height) = calculate_logical_size(
+            (mode.width, mode.height),
+            persistent_state.transform.get(),
+            scale,
+        );
         Self {
             name,
             state: state.clone(),
             connector: connector.clone(),
-            pos: Cell::new(Rect::new_sized(x1, 0, width, height).unwrap()),
-            output_id,
+            pos: Cell::new(Rect::new_sized(x, y, width, height).unwrap()),
+            output_id: output_id.clone(),
             mode: Cell::new(*mode),
             modes,
             node: Default::default(),
@@ -132,9 +131,8 @@ impl WlOutputGlobal {
             unused_captures: Default::default(),
             pending_captures: Default::default(),
             destroyed: Cell::new(false),
-            legacy_scale: Cell::new(1),
-            preferred_scale: Cell::new(crate::scale::Scale::from_int(1)),
-            transform: Cell::new(transform),
+            legacy_scale: Cell::new(scale.round_up()),
+            persistent: persistent_state.clone(),
         }
     }
 
@@ -289,7 +287,10 @@ impl WlOutputGlobal {
 
     pub fn pixel_size(&self) -> (i32, i32) {
         let mode = self.mode.get();
-        self.transform.get().maybe_swap((mode.width, mode.height))
+        self.persistent
+            .transform
+            .get()
+            .maybe_swap((mode.width, mode.height))
     }
 }
 
@@ -336,7 +337,7 @@ impl WlOutput {
             subpixel: SP_UNKNOWN,
             make: &self.global.output_id.manufacturer,
             model: &self.global.output_id.model,
-            transform: self.global.transform.get().to_wl(),
+            transform: self.global.persistent.transform.get().to_wl(),
         };
         self.client.event(event);
     }

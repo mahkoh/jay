@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
-        ifs::wl_output::WlOutputGlobal,
+        ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
         state::{ConnectorData, OutputData, State},
         tree::{OutputNode, OutputRenderData},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
@@ -80,27 +80,45 @@ impl ConnectorHandler {
         log::info!("Connector {} connected", self.data.connector.kernel_id());
         self.data.connected.set(true);
         let name = self.state.globals.name();
-        let x1 = self
-            .state
-            .root
-            .outputs
-            .lock()
-            .values()
-            .map(|o| o.global.pos.get().x2())
-            .max()
-            .unwrap_or(0);
+        let output_id = Rc::new(OutputId {
+            connector: self.data.name.clone(),
+            manufacturer: info.manufacturer.clone(),
+            model: info.product.clone(),
+            serial_number: info.serial_number.clone(),
+        });
+        let desired_state = match self.state.persistent_output_states.get(&output_id) {
+            Some(ds) => ds,
+            _ => {
+                let x1 = self
+                    .state
+                    .root
+                    .outputs
+                    .lock()
+                    .values()
+                    .map(|o| o.global.pos.get().x2())
+                    .max()
+                    .unwrap_or(0);
+                let ds = Rc::new(PersistentOutputState {
+                    transform: Default::default(),
+                    scale: Default::default(),
+                    pos: Cell::new((x1, 0)),
+                });
+                self.state
+                    .persistent_output_states
+                    .set(output_id.clone(), ds.clone());
+                ds
+            }
+        };
         let global = Rc::new(WlOutputGlobal::new(
             name,
             &self.state,
             &self.data,
-            x1,
             info.modes.clone(),
             &info.initial_mode,
-            &info.manufacturer,
-            &info.product,
-            &info.serial_number,
             info.width_mm,
             info.height_mm,
+            &output_id,
+            &desired_state,
         ));
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
@@ -130,8 +148,8 @@ impl ConnectorHandler {
             update_render_data_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
         });
-        self.state.add_output_scale(on.global.preferred_scale.get());
-        let mode = info.initial_mode;
+        self.state
+            .add_output_scale(on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: info,
@@ -140,8 +158,11 @@ impl ConnectorHandler {
         self.state.outputs.set(self.id, output_data);
         if self.state.outputs.len() == 1 {
             let seats = self.state.globals.seats.lock();
+            let pos = global.pos.get();
+            let x = (pos.x1() + pos.x2()) / 2;
+            let y = (pos.y1() + pos.y2()) / 2;
             for seat in seats.values() {
-                seat.set_position(x1 + mode.width / 2, mode.height / 2);
+                seat.set_position(x, y);
             }
         }
         global.node.set(Some(on.clone()));
@@ -277,7 +298,7 @@ impl ConnectorHandler {
             dev.connectors.remove(&self.id);
         }
         self.state
-            .remove_output_scale(on.global.preferred_scale.get());
+            .remove_output_scale(on.global.persistent.scale.get());
         let _ = self.state.remove_global(&*global);
     }
 }

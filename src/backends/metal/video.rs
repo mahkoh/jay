@@ -602,10 +602,10 @@ impl MetalConnector {
             &self.state,
             Some(output.global.pos.get()),
             Some(rr),
-            output.global.preferred_scale.get(),
+            output.global.persistent.scale.get(),
             render_hw_cursor,
             output.has_fullscreen(),
-            output.global.transform.get(),
+            output.global.persistent.transform.get(),
         );
         let try_direct_scanout = try_direct_scanout
             && self.direct_scanout_enabled()

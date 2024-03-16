@@ -7,6 +7,12 @@ const BASEF: f64 = BASE as f64;
 #[repr(transparent)]
 pub struct Scale(u32);
 
+impl Default for Scale {
+    fn default() -> Self {
+        Scale::from_int(1)
+    }
+}
+
 impl Scale {
     pub fn from_int(f: u32) -> Self {
         Self(f.saturating_mul(BASE))

@@ -44,7 +44,8 @@ impl WpFractionalScaleV1 {
                 .output
                 .get()
                 .global
-                .preferred_scale
+                .persistent
+                .scale
                 .get()
                 .to_wl(),
         });
