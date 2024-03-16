@@ -100,7 +100,7 @@ impl ZwlrScreencopyManagerV1 {
         let mode = output.global.mode.get();
         let mut rect = Rect::new_sized(0, 0, mode.width, mode.height).unwrap();
         if let Some(region) = region {
-            let scale = output.global.preferred_scale.get().to_f64();
+            let scale = output.global.persistent.scale.get().to_f64();
             let x1 = (region.x1() as f64 * scale).round() as i32;
             let y1 = (region.y1() as f64 * scale).round() as i32;
             let x2 = (region.x2() as f64 * scale).round() as i32;

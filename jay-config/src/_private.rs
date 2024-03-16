@@ -62,3 +62,5 @@ impl WireMode {
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PollableId(pub u64);
+
+pub const DEFAULT_SEAT_NAME: &str = "default";

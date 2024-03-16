@@ -30,7 +30,7 @@ use {
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            linkedlist::LinkedList, scroller::Scroller,
+            linkedlist::LinkedList, scroller::Scroller, transform_ext::TransformExt,
         },
         wire::{JayOutputId, JayScreencastId},
     },
@@ -120,7 +120,7 @@ impl OutputNode {
     }
 
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
-        let old_scale = self.global.preferred_scale.replace(scale);
+        let old_scale = self.global.persistent.scale.replace(scale);
         if scale == old_scale {
             return;
         }
@@ -161,7 +161,7 @@ impl OutputNode {
         let font = self.state.theme.font.borrow_mut();
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
-        let scale = self.global.preferred_scale.get();
+        let scale = self.global.persistent.scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
@@ -388,7 +388,7 @@ impl OutputNode {
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
-        self.update_mode_and_transform(mode, self.global.transform.get());
+        self.update_mode_and_transform(mode, self.global.persistent.transform.get());
     }
 
     pub fn update_transform(self: &Rc<Self>, transform: Transform) {
@@ -397,17 +397,13 @@ impl OutputNode {
 
     pub fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
         let old_mode = self.global.mode.get();
-        let old_transform = self.global.transform.get();
+        let old_transform = self.global.persistent.transform.get();
         if (old_mode, old_transform) == (mode, transform) {
             return;
         }
         let (old_width, old_height) = self.global.pixel_size();
         self.global.mode.set(mode);
-        self.state
-            .output_transforms
-            .borrow_mut()
-            .insert(self.global.output_id.clone(), transform);
-        self.global.transform.set(transform);
+        self.global.persistent.transform.set(transform);
         let (new_width, new_height) = self.global.pixel_size();
         self.change_extents_(&self.calculate_extents());
 
@@ -436,18 +432,18 @@ impl OutputNode {
     }
 
     fn calculate_extents(&self) -> Rect {
-        let (mut width, mut height) = self.global.pixel_size();
-        let scale = self.global.preferred_scale.get();
-        if scale != 1 {
-            let scale = scale.to_f64();
-            width = (width as f64 / scale).round() as _;
-            height = (height as f64 / scale).round() as _;
-        }
+        let mode = self.global.mode.get();
+        let (width, height) = calculate_logical_size(
+            (mode.width, mode.height),
+            self.global.persistent.transform.get(),
+            self.global.persistent.scale.get(),
+        );
         let pos = self.global.pos.get();
         pos.with_size(width, height).unwrap()
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
+        self.global.persistent.pos.set((rect.x1(), rect.y1()));
         self.global.pos.set(*rect);
         self.state.root.update_extents();
         self.schedule_update_render_data();
@@ -765,4 +761,18 @@ impl Node for OutputNode {
     fn node_is_output(&self) -> bool {
         true
     }
+}
+
+pub fn calculate_logical_size(
+    mode: (i32, i32),
+    transform: Transform,
+    scale: crate::scale::Scale,
+) -> (i32, i32) {
+    let (mut width, mut height) = transform.maybe_swap(mode);
+    if scale != 1 {
+        let scale = scale.to_f64();
+        width = (width as f64 / scale).round() as _;
+        height = (height as f64 / scale).round() as _;
+    }
+    (width, height)
 }

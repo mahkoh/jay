@@ -12,23 +12,19 @@
 //! config!(configure);
 //! ```
 //!
-//! This configuration will not allow you to interact with the compositor at all nor exit it.
+//! This configuration will not allow you to exit the compositor.
 //! To add at least that much functionality, add the following code to `configure`:
 //!
 //! ```rust
 //! use jay_config::{config, quit};
-//! use jay_config::input::{get_seat, input_devices, on_new_input_device};
+//! use jay_config::input::{get_default_seat, input_devices, on_new_input_device};
 //! use jay_config::keyboard::mods::ALT;
 //! use jay_config::keyboard::syms::SYM_q;
 //!
 //! fn configure() {
-//!     // Create a seat.
-//!     let seat = get_seat("default");
+//!     let seat = get_default_seat();
 //!     // Create a key binding to exit the compositor.
 //!     seat.bind(ALT | SYM_q, || quit());
-//!     // Assign all current and future input devices to this seat.
-//!     input_devices().into_iter().for_each(move |d| d.set_seat(seat));
-//!     on_new_input_device(move |d| d.set_seat(seat));
 //! }
 //!
 //! config!(configure);
@@ -46,7 +42,10 @@
 use {
     crate::keyboard::ModifiedKeySym,
     serde::{Deserialize, Serialize},
-    std::fmt::{Debug, Display, Formatter},
+    std::{
+        fmt::{Debug, Display, Formatter},
+        time::Duration,
+    },
 };
 
 #[macro_use]
@@ -198,4 +197,21 @@ pub fn on_idle<F: FnMut() + 'static>(f: F) {
 /// good place to select the DRM device used for rendering.
 pub fn on_devices_enumerated<F: FnOnce() + 'static>(f: F) {
     get!().on_devices_enumerated(f)
+}
+
+/// Returns the Jay config directory.
+pub fn config_dir() -> String {
+    get!().config_dir()
+}
+
+/// Returns all visible workspaces.
+pub fn workspaces() -> Vec<Workspace> {
+    get!().workspaces()
+}
+
+/// Configures the idle timeout.
+///
+/// `None` disables the timeout.
+pub fn set_idle(timeout: Option<Duration>) {
+    get!().set_idle(timeout.unwrap_or_default())
 }

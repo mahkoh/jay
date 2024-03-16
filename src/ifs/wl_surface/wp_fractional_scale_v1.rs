@@ -39,7 +39,15 @@ impl WpFractionalScaleV1 {
     pub fn send_preferred_scale(&self) {
         self.client.event(PreferredScale {
             self_id: self.id,
-            scale: self.surface.output.get().global.preferred_scale.get().0,
+            scale: self
+                .surface
+                .output
+                .get()
+                .global
+                .persistent
+                .scale
+                .get()
+                .to_wl(),
         });
     }
 

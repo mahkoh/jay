@@ -1,0 +1,3 @@
+[submodule "toml-config/toml-test"]
+	path = toml-config/toml-test
+	url = https://github.com/mahkoh/toml-tests.git

@@ -357,10 +357,10 @@ impl WlSurface {
         }
         output.global.send_enter(self);
         old.global.send_leave(self);
-        if old.global.preferred_scale.get() != output.global.preferred_scale.get() {
+        if old.global.persistent.scale.get() != output.global.persistent.scale.get() {
             self.on_scale_change();
         }
-        if old.global.transform.get() != output.global.transform.get() {
+        if old.global.persistent.transform.get() != output.global.persistent.transform.get() {
             self.send_preferred_buffer_transform();
         }
         let children = self.children.borrow_mut();
@@ -459,7 +459,7 @@ impl WlSurface {
         if self.version >= TRANSFORM_SINCE {
             self.client.event(PreferredBufferTransform {
                 self_id: self.id,
-                transform: self.output.get().global.transform.get().to_wl() as _,
+                transform: self.output.get().global.persistent.transform.get().to_wl() as _,
             });
         }
     }

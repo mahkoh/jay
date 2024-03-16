@@ -5,7 +5,13 @@ const BASEF: f64 = BASE as f64;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
-pub struct Scale(pub u32);
+pub struct Scale(u32);
+
+impl Default for Scale {
+    fn default() -> Self {
+        Scale::from_int(1)
+    }
+}
 
 impl Scale {
     pub fn from_int(f: u32) -> Self {
@@ -22,6 +28,14 @@ impl Scale {
 
     pub fn round_up(self) -> u32 {
         self.0.saturating_add(BASE - 1) / BASE
+    }
+
+    pub fn from_wl(wl: u32) -> Self {
+        Self(wl)
+    }
+
+    pub fn to_wl(self) -> u32 {
+        self.0
     }
 }
 

@@ -506,6 +506,14 @@ impl Client {
         self.send(&ClientMessage::SetEnv { key, val });
     }
 
+    pub fn set_log_level(&self, level: LogLevel) {
+        self.send(&ClientMessage::SetLogLevel { level })
+    }
+
+    pub fn unset_env(&self, key: &str) {
+        self.send(&ClientMessage::UnsetEnv { key });
+    }
+
     pub fn set_status(&self, status: &str) {
         self.send(&ClientMessage::SetStatus { status });
     }
@@ -576,6 +584,16 @@ impl Client {
         self.send(&ClientMessage::SetDoubleClickDistance { dist });
     }
 
+    pub fn disable_default_seat(&self) {
+        self.send(&ClientMessage::DisableDefaultSeat);
+    }
+
+    pub fn connector_get_position(&self, connector: Connector) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::ConnectorGetPosition { connector });
+        get_response!(res, (0, 0), ConnectorGetPosition { x, y });
+        (x, y)
+    }
+
     pub fn connector_set_position(&self, connector: Connector, x: i32, y: i32) {
         self.send(&ClientMessage::ConnectorSetPosition { connector, x, y });
     }
@@ -591,9 +609,49 @@ impl Client {
         });
     }
 
-    pub fn device_connectors(&self, device: DrmDevice) -> Vec<Connector> {
-        let res = self.send_with_response(&ClientMessage::GetDeviceConnectors { device });
-        get_response!(res, vec![], GetDeviceConnectors { connectors });
+    pub fn connector_get_name(&self, connector: Connector) -> String {
+        let res = self.send_with_response(&ClientMessage::GetConnectorName { connector });
+        get_response!(res, String::new(), GetConnectorName { name });
+        name
+    }
+
+    pub fn connector_get_model(&self, connector: Connector) -> String {
+        let res = self.send_with_response(&ClientMessage::GetConnectorModel { connector });
+        get_response!(res, String::new(), GetConnectorModel { model });
+        model
+    }
+
+    pub fn connector_get_manufacturer(&self, connector: Connector) -> String {
+        let res = self.send_with_response(&ClientMessage::GetConnectorManufacturer { connector });
+        get_response!(
+            res,
+            String::new(),
+            GetConnectorManufacturer { manufacturer }
+        );
+        manufacturer
+    }
+
+    pub fn connector_get_serial_number(&self, connector: Connector) -> String {
+        let res = self.send_with_response(&ClientMessage::GetConnectorSerialNumber { connector });
+        get_response!(
+            res,
+            String::new(),
+            GetConnectorSerialNumber { serial_number }
+        );
+        serial_number
+    }
+
+    pub fn connectors(&self, device: Option<DrmDevice>) -> Vec<Connector> {
+        if let Some(device) = device {
+            let res = self.send_with_response(&ClientMessage::GetDeviceConnectors { device });
+            get_response!(res, vec![], GetConnectors { connectors });
+            return connectors;
+        }
+        let res = self.send_with_response(&ClientMessage::GetConnectors {
+            device,
+            connected_only: false,
+        });
+        get_response!(res, vec![], GetConnectors { connectors });
         connectors
     }
 
@@ -601,6 +659,12 @@ impl Client {
         let res = self.send_with_response(&ClientMessage::GetDrmDeviceSyspath { device });
         get_response!(res, String::new(), GetDrmDeviceSyspath { syspath });
         syspath
+    }
+
+    pub fn drm_device_devnode(&self, device: DrmDevice) -> String {
+        let res = self.send_with_response(&ClientMessage::GetDrmDeviceDevnode { device });
+        get_response!(res, String::new(), GetDrmDeviceDevnode { devnode });
+        devnode
     }
 
     pub fn drm_device_vendor(&self, device: DrmDevice) -> String {
@@ -723,6 +787,22 @@ impl Client {
         self.on_devices_enumerated.set(Some(Box::new(f)));
     }
 
+    pub fn config_dir(&self) -> String {
+        let res = self.send_with_response(&ClientMessage::GetConfigDir);
+        get_response!(res, String::new(), GetConfigDir { dir });
+        dir
+    }
+
+    pub fn workspaces(&self) -> Vec<Workspace> {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaces);
+        get_response!(res, vec![], GetWorkspaces { workspaces });
+        workspaces
+    }
+
+    pub fn set_idle(&self, timeout: Duration) {
+        self.send(&ClientMessage::SetIdle { timeout })
+    }
+
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
         self.send(&ClientMessage::SetSeat { device, seat })
     }
@@ -772,10 +852,26 @@ impl Client {
         name
     }
 
+    pub fn input_device_syspath(&self, device: InputDevice) -> String {
+        let res = self.send_with_response(&ClientMessage::GetInputDeviceSyspath { device });
+        get_response!(res, String::new(), GetInputDeviceSyspath { syspath });
+        syspath
+    }
+
+    pub fn input_device_devnode(&self, device: InputDevice) -> String {
+        let res = self.send_with_response(&ClientMessage::GetInputDeviceDevnode { device });
+        get_response!(res, String::new(), GetInputDeviceDevnode { devnode });
+        devnode
+    }
+
     pub fn has_capability(&self, device: InputDevice, cap: Capability) -> bool {
         let res = self.send_with_response(&ClientMessage::HasCapability { device, cap });
         get_response!(res, false, HasCapability { has });
         has
+    }
+
+    pub fn destroy_keymap(&self, keymap: Keymap) {
+        self.send(&ClientMessage::DestroyKeymap { keymap })
     }
 
     pub fn seat_set_keymap(&self, seat: Seat, keymap: Keymap) {

@@ -1,0 +1,1100 @@
+{
+  "$id": "jay_toml_schema",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "AccelProfile": {
+      "type": "string",
+      "description": "The acceleration profile to apply to an input device.\n\nSee the libinput documentation for more details.\n",
+      "enum": [
+        "Flat",
+        "Adaptive"
+      ]
+    },
+    "Action": {
+      "description": "An `Action` is an action performed by the compositor.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+      "anyOf": [
+        {
+          "description": "The value should be the name of a `simple` action. See the description of that\nvariant for more details.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+          "$ref": "#/$defs/SimpleActionName"
+        },
+        {
+          "type": "array",
+          "description": "A list of actions to execute in sequence.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = [\n    { type = \"exec\", exec = [\"notify-send\", \"exiting\"] },\n    \"quit\",\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/Action"
+          }
+        },
+        {
+          "description": "",
+          "anyOf": [
+            {
+              "description": "A simple action that takes no arguments. These are usually written as plain\nstrings instead.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  alt-q = { type = \"simple\", cmd = \"quit\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "simple"
+                },
+                "cmd": {
+                  "description": "The simple action to execute.",
+                  "$ref": "#/$defs/SimpleActionName"
+                }
+              },
+              "required": [
+                "type",
+                "cmd"
+              ]
+            },
+            {
+              "description": "A list of actions to execute in sequence. These are usually written as plain\narrays instead.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  alt-q = { type = \"multi\", actions = [\"quit\", \"quit\"] }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  alt-q = [\"quit\", \"quit\"]\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "multi"
+                },
+                "actions": {
+                  "type": "array",
+                  "description": "The actions to execute.",
+                  "items": {
+                    "description": "",
+                    "$ref": "#/$defs/Action"
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "actions"
+              ]
+            },
+            {
+              "description": "Executes a program.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = \"alacritty\" }\n  ctrl-b = { type = \"exec\", exec = [\"notify-send\", \"hello world\"] }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "exec"
+                },
+                "exec": {
+                  "description": "The command to execute.",
+                  "$ref": "#/$defs/Exec"
+                }
+              },
+              "required": [
+                "type",
+                "exec"
+              ]
+            },
+            {
+              "description": "Switches to a virtual terminal.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  ctrl-alt-F1 = { type = \"switch-to-vt\", num = 1 }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "switch-to-vt"
+                },
+                "num": {
+                  "type": "integer",
+                  "description": "The VT number to switch to.\n",
+                  "minimum": 1.0
+                }
+              },
+              "required": [
+                "type",
+                "num"
+              ]
+            },
+            {
+              "description": "Switches to a workspace.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"show-workspace\", name = \"1\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "show-workspace"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the workspace."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "Moves the currently focused window to a workspace.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-workspace\", name = \"1\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "move-to-workspace"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the workspace."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "Applies a configuration to connectors.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = false } }\n  alt-k = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = true } }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "configure-connector"
+                },
+                "connector": {
+                  "description": "The connector configuration.",
+                  "$ref": "#/$defs/Connector"
+                }
+              },
+              "required": [
+                "type",
+                "connector"
+              ]
+            },
+            {
+              "description": "Applies a configuration to input devices.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"configure-input\", input = { match.tag = \"mouse\", left-handed = true } }\n  alt-r = { type = \"configure-input\", input = { match.tag = \"mouse\", left-handed = false } }\n\n  [[inputs]]\n  tag = \"mouse\"\n  match.is-pointer = true\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "configure-input"
+                },
+                "input": {
+                  "description": "The input configuration.",
+                  "$ref": "#/$defs/Input"
+                }
+              },
+              "required": [
+                "type",
+                "input"
+              ]
+            },
+            {
+              "description": "Configures the idle timeout.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"configure-idle\", idle.minutes = 0 }\n  alt-r = { type = \"configure-idle\", idle.minutes = 10 }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "configure-idle"
+                },
+                "idle": {
+                  "description": "The idle timeout.",
+                  "$ref": "#/$defs/Idle"
+                }
+              },
+              "required": [
+                "type",
+                "idle"
+              ]
+            },
+            {
+              "description": "Applies a configuration to input devices.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"configure-output\", output = { match.name = \"right\", transform = \"none\" } }\n  alt-r = { type = \"configure-output\", output = { match.name = \"right\", transform = \"rotate-90\" } }\n\n  [[outputs]]\n  name = \"right\"\n  match.serial-number = \"33K03894SL0\"\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "configure-output"
+                },
+                "output": {
+                  "description": "The output configuration.",
+                  "$ref": "#/$defs/Output"
+                }
+              },
+              "required": [
+                "type",
+                "output"
+              ]
+            },
+            {
+              "description": "Sets environment variables for all programs started afterwards.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"set-env\", env.GTK_THEME = \"Adwaita:dark\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-env"
+                },
+                "env": {
+                  "description": "The environment variables.",
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "description": ""
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "env"
+              ]
+            },
+            {
+              "description": "Unsets environment variables for all programs started afterwards.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"unset-env\", env = [\"Adwaita:dark\"] }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "unset-env"
+                },
+                "env": {
+                  "type": "array",
+                  "description": "The environment variables.",
+                  "items": {
+                    "type": "string",
+                    "description": ""
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "env"
+              ]
+            },
+            {
+              "description": "Sets the keymap.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-keymap\", keymap.name = \"laptop\" }\n  alt-k = { type = \"set-keymap\", keymap.name = \"external\" }\n\n  [[keymaps]]\n  name = \"laptop\"\n  path = \"./laptop-keymap.xkb\"\n\n  [[keymaps]]\n  name = \"external\"\n  path = \"./external-keymap.xkb\"\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-keymap"
+                },
+                "keymap": {
+                  "description": "The keymap.",
+                  "$ref": "#/$defs/Keymap"
+                }
+              },
+              "required": [
+                "type",
+                "keymap"
+              ]
+            },
+            {
+              "description": "Sets the status command.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-status\", status = { exec = \"i3status\" } }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-status"
+                },
+                "status": {
+                  "description": "The status setting.\n\nOmitting this causes the status to be reset to empty.\n",
+                  "$ref": "#/$defs/Status"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the theme.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-theme\", theme.bg-color = \"#ff0000\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-theme"
+                },
+                "theme": {
+                  "description": "The theme.",
+                  "$ref": "#/$defs/Theme"
+                }
+              },
+              "required": [
+                "type",
+                "theme"
+              ]
+            },
+            {
+              "description": "Sets the log level of the compositor..\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-log-level\", level = \"debug\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-log-level"
+                },
+                "theme": {
+                  "description": "The log level.",
+                  "$ref": "#/$defs/LogLevel"
+                }
+              },
+              "required": [
+                "type",
+                "theme"
+              ]
+            },
+            {
+              "description": "Sets the graphics API used by new DRM devices.\n\nSetting this after the compositor has started usually has no effect.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-gfx-api\", api = \"Vulan\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-gfx-api"
+                },
+                "api": {
+                  "description": "The API.",
+                  "$ref": "#/$defs/GfxApi"
+                }
+              },
+              "required": [
+                "type",
+                "api"
+              ]
+            },
+            {
+              "description": "Configure whether the compositor attempts direct scanout of client surfaces.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"configure-direct-scanout\", enabled = false }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "configure-direct-scanout"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Whether direct scanout is enabled."
+                }
+              },
+              "required": [
+                "type",
+                "enabled"
+              ]
+            },
+            {
+              "description": "Applies a configuration to DRM devices.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"configure-drm-device\", dev = { match.name = \"integrated\", gfx-api = \"Vulkan\" } }\n\n  [[drm-devices]]\n  name = \"integrated\"\n  match.syspath = \"/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.0\"\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "configure-drm-device"
+                },
+                "dev": {
+                  "description": "The DRM device configuration.",
+                  "$ref": "#/$defs/DrmDevice"
+                }
+              },
+              "required": [
+                "type",
+                "dev"
+              ]
+            },
+            {
+              "description": "Sets the render device used for compositing.\n\nChanging this after the compositor has started might cause client windows to\nbecome invisible until they are resized.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-render-device\", dev.name = \"integrated\" }\n\n  [[drm-devices]]\n  name = \"integrated\"\n  match.syspath = \"/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.0\"\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-render-device"
+                },
+                "dev": {
+                  "description": "The rule to find the device.\n\nThe first matching device is used.\n",
+                  "$ref": "#/$defs/DrmDeviceMatch"
+                }
+              },
+              "required": [
+                "type",
+                "dev"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Color": {
+      "type": "string",
+      "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
+    },
+    "Config": {
+      "description": "This is the top-level table.\n\n- Example:\n\n  ```toml\n  keymap = \"\"\"\n    xkb_keymap {\n        xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n        xkb_types    { include \"complete\"              };\n        xkb_compat   { include \"complete\"              };\n        xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n    };\n    \"\"\"\n\n  on-graphics-initialized = { type = \"exec\", exec = \"mako\" }\n\n  [shortcuts]\n  alt-h = \"focus-left\"\n  alt-j = \"focus-down\"\n  alt-k = \"focus-up\"\n  alt-l = \"focus-right\"\n\n  alt-shift-h = \"move-left\"\n  alt-shift-j = \"move-down\"\n  alt-shift-k = \"move-up\"\n  alt-shift-l = \"move-right\"\n\n  alt-d = \"split-horizontal\"\n  alt-v = \"split-vertical\"\n\n  alt-t = \"toggle-split\"\n  alt-m = \"toggle-mono\"\n  alt-u = \"toggle-fullscreen\"\n\n  alt-f = \"focus-parent\"\n  alt-shift-c = \"close\"\n  alt-shift-f = \"toggle-floating\"\n  Super_L = { type = \"exec\", exec = \"alacritty\" }\n  alt-p = { type = \"exec\", exec = \"bemenu-run\" }\n  alt-q = \"quit\"\n  alt-shift-r = \"reload-config-toml\"\n\n  ctrl-alt-F1 = { type = \"switch-to-vt\", num = 1 }\n  ctrl-alt-F2 = { type = \"switch-to-vt\", num = 2 }\n  # ...\n\n  alt-F1 = { type = \"show-workspace\", name = \"1\" }\n  alt-F2 = { type = \"show-workspace\", name = \"2\" }\n  # ...\n\n  alt-shift-F1 = { type = \"move-to-workspace\", name = \"1\" }\n  alt-shift-F2 = { type = \"move-to-workspace\", name = \"2\" }\n  # ...\n  ```\n",
+      "type": "object",
+      "properties": {
+        "keymap": {
+          "description": "The keymap to use.\n\n- Example:\n\n  ```toml\n  keymap = \"\"\"\n    xkb_keymap {\n        xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n        xkb_types    { include \"complete\"              };\n        xkb_compat   { include \"complete\"              };\n        xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n    };\n    \"\"\"\n  ```\n",
+          "$ref": "#/$defs/Keymap"
+        },
+        "shortcuts": {
+          "description": "The compositor shortcuts.\n\nThe keys should be in the following format:\n\n```\n(MOD-)*KEYSYM\n```\n\n`MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,\n`mod5`, `caps`, `alt`, `num`, or `logo`.\n\n`KEYSYM` should be the name of a keysym. The authorative location for these names\nis [1] with the `XKB_KEY_` prefix removed.\n\nThe keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.\n\n[1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+          "type": "object",
+          "additionalProperties": {
+            "description": "",
+            "$ref": "#/$defs/Action"
+          }
+        },
+        "on-graphics-initialized": {
+          "description": "An action to execute when the graphics have been initialized for the first time.\n\nThis is a good place to start graphical applications.\n\n- Example:\n\n  ```toml\n  on-graphics-initialized = { type = \"exec\", exec = \"mako\" }\n  ```\n",
+          "$ref": "#/$defs/Action"
+        },
+        "status": {
+          "description": "The status program that will be used for the status text.\n\n- Example:\n\n  ```toml\n  [status]\n  format = \"i3bar\"\n  exec = \"i3status\"\n  ```\n",
+          "$ref": "#/$defs/Status"
+        },
+        "outputs": {
+          "type": "array",
+          "description": "An array of output configurations.\n\nThis can be used to configure outputs and create named outputs that can be\nreferred to in actions.\n\nThe configurations defined here will only be applied the first time matching\noutputs are connected to the compositor after the compositor has started.\nIf you want change the configuration afterwards, use `jay randr` or a\n`configure-output` action.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  name = \"left\"\n  match.serial-number = \"33K03894SL0\"\n  x = 0\n  y = 0\n\n  [[outputs]]\n  name = \"right\"\n  match.serial-number = \"ETW1M02062SL0\"\n  x = 1920\n  y = 0\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/Output"
+          }
+        },
+        "connectors": {
+          "type": "array",
+          "description": "An array of connector configurations.\n\nThis can be used to configure connectors.\n\nThe configurations defined here will only be applied when the connector is first\ndiscovered by the compositor. This usually never happens after the compositor has\nstarted unless you attach an external graphics card.\n\n- Example:\n\n  ```toml\n  [[connectors]]\n  name = \"eDP-1\"\n  enabled = false\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/Connector"
+          }
+        },
+        "workspace-capture": {
+          "type": "boolean",
+          "description": "Configures whether newly created workspaces can be captured.\n\nThe default is `true`.\n"
+        },
+        "env": {
+          "description": "Defines environment variables that will be set for all applications.\n\n- Example:\n\n  ```toml\n  [env]\n  GTK_THEME = \"Adwaita:dark\"\n  ```\n",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "on-startup": {
+          "description": "An action to execute as early as possible when the compositor starts.\n\nAt this point, graphics have not yet been initialized. You should not use this\nto start graphical applications. See `on-graphics-initialized`.\n\nThis setting has no effect during configuration reloads.\n",
+          "$ref": "#/$defs/Action"
+        },
+        "keymaps": {
+          "type": "array",
+          "description": "Defines named keymaps.\n\nThese keymaps can be used to easily switch between keymaps for different\nkeyboards.\n\n- Example:\n\n  ```toml\n  keymap.name = \"laptop\"\n\n  [shortcuts]\n  alt-j = { type = \"set-keymap\", keymap.name = \"laptop\" }\n  alt-k = { type = \"set-keymap\", keymap.name = \"external\" }\n\n  [[keymaps]]\n  name = \"laptop\"\n  path = \"./laptop-keymap.xkb\"\n\n  [[keymaps]]\n  name = \"external\"\n  path = \"./external-keymap.xkb\"\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/Keymap"
+          }
+        },
+        "log-level": {
+          "description": "Sets the log level of the compositor.\n\nThis setting cannot be changed by re-loading the configuration. Use\n`jay set-log-level` instead.\n\n- Example:\n\n  ```toml\n  log-level = \"debug\"\n  ```\n",
+          "$ref": "#/$defs/LogLevel"
+        },
+        "theme": {
+          "description": "Sets the theme of the compositor.\n",
+          "$ref": "#/$defs/Theme"
+        },
+        "gfx-api": {
+          "description": "Sets the graphics API used for newly discovered DRM devices.\n\nChanging this setting after the compositor has started usually has no effect\nunless you attach an external graphics card. Use `jay randr` to change the API\nused by individual devices at runtime.\n\n- Example:\n\n  ```toml\n  gfx-api = \"Vulkan\"\n  ```\n",
+          "$ref": "#/$defs/GfxApi"
+        },
+        "drm-devices": {
+          "type": "array",
+          "description": "Names and configures DRM devices.\n\nThese settings are only applied to devices discovered after the configuration\nhas been loaded. Therefore changing these settings usually has no effect at\nruntime unless you attach an external graphics card. You can use `jay randr` or\na `configure-drm-device` Action to change these settings at runtime.\n\n- Example:\n\n  ```toml\n  render-device.name = \"dedicated\"\n\n  [[drm-devices]]\n  name = \"dedicated\"\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n\n  [[drm-devices]]\n  name = \"integrated\"\n  match = { pci-vendor = 0x1002, pci-model = 0x164e }\n  gfx-api = \"OpenGl\"\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/DrmDevice"
+          }
+        },
+        "direct-scanout": {
+          "type": "boolean",
+          "description": "Configured whether the compositor attempts direct scanout.\n"
+        },
+        "render-device": {
+          "description": "Selects the device to use for rendering in a system with multiple GPUs.\n\nThe first device that matches will be used.\n\n- Example:\n\n  ```toml\n  render-device.name = \"dedicated\"\n\n  [[drm-devices]]\n  name = \"dedicated\"\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n  ```\n",
+          "$ref": "#/$defs/DrmDeviceMatch"
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Names and configures input devices.\n\nThese settings are only applied to devices connected after the configuration\nhas been loaded. You can apply setting without re-connecting the device by using\n`jay input` or a `configure-input` Action.\n\n- Example:\n\n  ```toml\n  render-device.name = \"dedicated\"\n\n  [[inputs]]\n  match.is-pointer = true\n  left-handed = true\n  transform-matrix = [[0.35, 0], [0, 0.35]]\n  tap-enabled = true\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/Input"
+          }
+        },
+        "on-idle": {
+          "description": "An action to execute when the compositor becomes idle.\n\n- Example:\n\n  ```toml\n  on-idle = { type = \"exec\", exec = \"lock\" }\n  ```\n",
+          "$ref": "#/$defs/Action"
+        },
+        "idle": {
+          "description": "The configuration of the idle timeout.\n\nChanging thise field after compositor startup has no effect. Use `jay idle`\nor a `configure-idle` action to change the idle timeout at runtime.\n\n- Example:\n\n  ```toml\n  idle.minutes = 10\n  ```\n",
+          "$ref": "#/$defs/Idle"
+        }
+      },
+      "required": []
+    },
+    "Connector": {
+      "description": "Describes configuration to apply to a connector.\n\n- Example: To disable the built-in display of a laptop:\n\n  ```toml\n  [[connectors]]\n  match.name = \"eDP-1\"\n  enabled = false\n  ```\n",
+      "type": "object",
+      "properties": {
+        "match": {
+          "description": "The rule by which the connectors to modify are selected.\n",
+          "$ref": "#/$defs/ConnectorMatch"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "If specified, enables or disables the connector.\n"
+        }
+      },
+      "required": [
+        "match"
+      ]
+    },
+    "ConnectorMatch": {
+      "description": "Rules to match one of the connectors used by the compositor.\n",
+      "anyOf": [
+        {
+          "type": "array",
+          "description": "This rule matches if any of the rules in the array match.\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ConnectorMatch"
+          }
+        },
+        {
+          "description": "Describes a rule that matches a subset of connectors.\n\nThis rule matches if all of the specified fields match.\n\n- Example:\n\n  ```toml\n  [[connectors]]\n  match.name = \"DP-1\"\n  ```\n",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of the connector.\n\nThese values are not necessarily stable. You can find out the value by running\n`jay randr`.\n"
+            }
+          },
+          "required": []
+        }
+      ]
+    },
+    "DrmDevice": {
+      "description": "Describes configuration to apply to a DRM device (graphics card).\n\n- Example: To disable direct scanout on a device:\n\n  ```toml\n  [[drm-devices]]\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n  direct-scanout = false\n  ```\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Assigns a name to the rule in the `match` field.\n\nThis only has an effect when used in the top-level `drm-devices` array.\n"
+        },
+        "match": {
+          "description": "The rule by which the DRM devices to modify are selected.\n",
+          "$ref": "#/$defs/DrmDeviceMatch"
+        },
+        "direct-scanout": {
+          "type": "boolean",
+          "description": "If specified, enables or disables direct scanout on this device.\n"
+        },
+        "gfx-api": {
+          "description": "If specified, sets the graphics API to use for this device.\n",
+          "$ref": "#/$defs/GfxApi"
+        }
+      },
+      "required": [
+        "match"
+      ]
+    },
+    "DrmDeviceMatch": {
+      "description": "Rules to match one of the DRM devices (graphics cards) used by the compositor.\n",
+      "anyOf": [
+        {
+          "type": "array",
+          "description": "This rule matches if any of the rules in the array match.\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/DrmDeviceMatch"
+          }
+        },
+        {
+          "description": "Describes a rule that matches a subset of DRM devices.\n\nThis rule matches if all of the specified fields match.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"dedicated\"\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n  ```\n",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of another DrmDeviceMatch rule.\n\nFor this rule to match, the referenced rule must match. The name of the rule\nshould have been defined in the top-level `drm-devices` array.\n\nThis can be used to easily refer to DRM devices.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-v = { type = \"configure-drm-device\", dev = { match.name = \"dedicated\", gfx-api = \"Vulkan\" } }\n  alt-o = { type = \"configure-drm-device\", dev = { match.name = \"dedicated\", gfx-api = \"OpenGl\" } }\n\n  [[drm-devices]]\n  name = \"dedicated\"\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n  ```\n"
+            },
+            "syspath": {
+              "type": "string",
+              "description": "The syspath of the device.\n\nThis is useful if you have multiple copies of the same device installed so that\nthe PCI numbers are not unique.\n\nThe values are usually stable unless you re-configure your hardware.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.syspath = \"/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.0\"\n  ```\n"
+            },
+            "devnode": {
+              "type": "string",
+              "description": "The devnode of the device.\n\nThe values are usually not-stable across PC restarts.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.devnode = \"/dev/dri/card0\"\n  ```\n"
+            },
+            "vendor": {
+              "type": "string",
+              "description": "The name of the vendor.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.vendor = \"Advanced Micro Devices, Inc. [AMD/ATI]\"\n  ```\n"
+            },
+            "model": {
+              "type": "string",
+              "description": "The name of the model.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.vendor = \"Raphael\"\n  ```\n"
+            },
+            "pci-vendor": {
+              "type": "integer",
+              "description": "The PCI number of the vendor.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.pci-vendor = 0x1002\n  ```\n"
+            },
+            "pci-model": {
+              "type": "integer",
+              "description": "The PCI number of the model.\n\n- Example:\n\n  ```toml\n  [[drm-devices]]\n  name = \"integrated\"\n  match.pci-model = 0x164e\n  ```\n"
+            }
+          },
+          "required": []
+        }
+      ]
+    },
+    "Exec": {
+      "description": "Describes how to execute a program.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = \"alacritty\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = [\"notify-send\", \"hello world\"] }\n  ```\n\n- Example 3:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "The name of the executable to execute.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = \"alacritty\" }\n  ```\n"
+        },
+        {
+          "type": "array",
+          "description": "The name and arguments of the executable to execute.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = [\"notify-send\", \"hello world\"] }\n  ```\n",
+          "items": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        {
+          "description": "The name, arguments, and environment variables of the executable to execute.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  ctrl-a = { type = \"exec\", exec = { prog = \"notify-send\", args = [\"hello world\"], env.WAYLAND_DISPLAY = \"2\" } }\n  ```\n",
+          "type": "object",
+          "properties": {
+            "prog": {
+              "type": "string",
+              "description": "The name of the executable."
+            },
+            "args": {
+              "type": "array",
+              "description": "The arguments to pass to the executable.",
+              "items": {
+                "type": "string",
+                "description": ""
+              }
+            },
+            "env": {
+              "description": "The environment variables to pass to the executable.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "description": ""
+              }
+            }
+          },
+          "required": [
+            "prog"
+          ]
+        }
+      ]
+    },
+    "GfxApi": {
+      "type": "string",
+      "description": "A graphics API used for rendering.",
+      "enum": [
+        "OpenGl",
+        "Vulkan"
+      ]
+    },
+    "Idle": {
+      "description": "The definition of an idle timeout.\n\nOmitted values are set to 0. If all values are 0, the idle timeout is disabled.\n\n- Example:\n\n  ```toml\n  idle.minutes = 10\n  ```\n",
+      "type": "object",
+      "properties": {
+        "minutes": {
+          "type": "integer",
+          "description": "The number of minutes before going idle.",
+          "minimum": 0.0
+        },
+        "seconds": {
+          "type": "integer",
+          "description": "The number of seconds before going idle.",
+          "minimum": 0.0
+        }
+      },
+      "required": []
+    },
+    "Input": {
+      "description": "Describes configuration to apply to an input device.\n\n- Example: To make mice left handed:\n\n  ```toml\n  [[inputs]]\n  match.is-pointer = true\n  left-handed = true\n  ```\n",
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "description": "Assigns a name to the rule in the `match` field.\n\nThis only has an effect when used in the top-level `inputs` array.\n"
+        },
+        "match": {
+          "description": "The rule by which the input devices to modify are selected.\n",
+          "$ref": "#/$defs/InputMatch"
+        },
+        "accel-profile": {
+          "description": "The acceleration profile to use.\n\nSee the libinput documentation for more details.\n",
+          "$ref": "#/$defs/AccelProfile"
+        },
+        "accel-speed": {
+          "type": "number",
+          "description": "The acceleration speed to use.\n\nValues should be in the range -1 to 1.\n\nSee the libinput documentation for more details.\n"
+        },
+        "tap-enabled": {
+          "type": "boolean",
+          "description": "Whether tap is enabled for this device.\n\nSee the libinput documentation for more details.\n"
+        },
+        "tap-drag-enabled": {
+          "type": "boolean",
+          "description": "Whether tap drag is enabled for this device.\n\nSee the libinput documentation for more details.\n"
+        },
+        "tap-drag-lock-enabled": {
+          "type": "boolean",
+          "description": "Whether tap drag lock is enabled for this device.\n\nSee the libinput documentation for more details.\n"
+        },
+        "left-handed": {
+          "type": "boolean",
+          "description": "Whether the device is left handed.\n\nSee the libinput documentation for more details.\n"
+        },
+        "natural-scrolling": {
+          "type": "boolean",
+          "description": "Whether the device uses natural scrolling.\n\nSee the libinput documentation for more details.\n"
+        },
+        "px-per-wheel-scroll": {
+          "type": "boolean",
+          "description": "The number of pixels to scroll for each scroll wheel dedent.\n"
+        },
+        "transform-matrix": {
+          "type": "array",
+          "description": "A transformation matrix to apply to each motion event of this device.\nThe matrix should be 2x2.\n\n- Example: To slow down the mouse to 35% of normal speed:\n\n  ```toml\n  [[inputs]]\n  match.is-pointer = true\n  transform-matrix = [[0.35, 0], [0, 0.35]]\n  ```\n",
+          "items": {
+            "type": "array",
+            "description": "",
+            "items": {
+              "type": "number",
+              "description": ""
+            }
+          }
+        }
+      },
+      "required": [
+        "match"
+      ]
+    },
+    "InputMatch": {
+      "description": "Rules to match one of the input devices used by the compositor.\n",
+      "anyOf": [
+        {
+          "type": "array",
+          "description": "This rule matches if any of the rules in the array match.\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/InputMatch"
+          }
+        },
+        {
+          "description": "Describes a rule that matches a subset of input devices.\n\nThis rule matches if all of the specified fields match.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-pointer = true\n  left-handed = true\n  ```\n",
+          "type": "object",
+          "properties": {
+            "tag": {
+              "type": "string",
+              "description": "The tag of another InputMatch rule.\n\nFor this rule to match, the referenced rule must match. The name of the rule\nshould have been defined in the top-level `inputs` array.\n\nThis can be used to easily refer to input devices.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"configure-input\", input = { match.tag = \"mouse\", left-handed = true } }\n  alt-r = { type = \"configure-input\", input = { match.tag = \"mouse\", left-handed = false } }\n\n  [[inputs]]\n  tag = \"mouse\"\n  match.is-pointer = true\n  ```\n"
+            },
+            "name": {
+              "type": "string",
+              "description": "The libinput name of the device.\n\nYou can find out the name of the devices by running `jay input`.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.name = \"Logitech G300s Optical Gaming Mouse\"\n  left-handed = true\n  ```\n"
+            },
+            "syspath": {
+              "type": "string",
+              "description": "The syspath of the device.\n\nThis is useful if you have multiple copies of the same device installed so that\nthe name is not unique.\n\nThe values are usually stable unless you re-configure your hardware.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.syspath = \"/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.4/usb5/5-1/5-1.1/5-1.1.2/5-1.1.2:1.0\"\n  left-handed = true\n  ```\n"
+            },
+            "devnode": {
+              "type": "string",
+              "description": "The devnode of the device.\n\nThe values are usually not-stable across PC restarts.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.devnode = \"/dev/input/event4\"\n  left-handed = true\n  ```\n"
+            },
+            "is-keyboard": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a keyboard.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-keyboard = false\n  left-handed = true\n  ```\n"
+            },
+            "is-pointer": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a pointer.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-pointer = false\n  left-handed = true\n  ```\n"
+            },
+            "is-touch": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a touch device.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-touch = true\n  tap-enabled = true\n  ```\n"
+            },
+            "is-tablet-tool": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a tablet tool.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-tablet-tool = true\n  tap-enabled = true\n  ```\n"
+            },
+            "is-tablet-pad": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a tablet pad.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-tablet-tool = true\n  tap-enabled = true\n  ```\n"
+            },
+            "is-gesture": {
+              "type": "boolean",
+              "description": "Whether the devices has been identified as a switch.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.is-switch = true\n  ```\n"
+            }
+          },
+          "required": []
+        }
+      ]
+    },
+    "Keymap": {
+      "description": "A keymap.\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Defines a keymap by its XKB representation.\n\n- Example:\n\n  ```toml\n  keymap = \"\"\"\n      xkb_keymap {\n          xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n          xkb_types    { include \"complete\"              };\n          xkb_compat   { include \"complete\"              };\n          xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n      };\n      \"\"\"\n  ```\n"
+        },
+        {
+          "description": "Defines or references a keymap.\n\n- Example:\n\n  ```toml\n  keymap.name = \"my-keymap\"\n\n  [[keymaps]]\n  name = \"my-keymap\"\n  path = \"./my-keymap.xkb\"\n  ```\n",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Defines a keymap name or references a defined keymap.\n\nIf the value is set in the top-level `keymaps` array, it defines a named\nkeymap.\n\nOtherwise it references a named keymap that should have been defined in the\n`keymaps` array.\n"
+            },
+            "map": {
+              "type": "string",
+              "description": "Defines a keymap by its XKB representation.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of `map`\nand `path` has to be defined.\n"
+            },
+            "path": {
+              "type": "string",
+              "description": "Loads a keymap's XKB representation from a file.\n\nIf the path is relative, it will be interpreted relative to the Jay config\ndirectory.\n\nFor each keymap defined in the top-level `keymaps` array, exactly one of `map`\nand `path` has to be defined.\n"
+            }
+          },
+          "required": []
+        }
+      ]
+    },
+    "LogLevel": {
+      "type": "string",
+      "description": "A log level.",
+      "enum": [
+        "trace",
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ]
+    },
+    "MessageFormat": {
+      "type": "string",
+      "description": "A message format used by status programs.",
+      "enum": [
+        "plain",
+        "pango",
+        "i3bar"
+      ]
+    },
+    "Mode": {
+      "description": "The mode of a display.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  mode = { width = 1920, height = 1080, refresh-rate = 59.94 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "description": "The width of the mode."
+        },
+        "height": {
+          "type": "integer",
+          "description": "The height of the mode."
+        },
+        "refresh-rate": {
+          "type": "number",
+          "description": "The refresh rate of the mode in HZ."
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    },
+    "Output": {
+      "description": "Describes configuration to apply to an output.\n\n- Example: To set the scale of an output.\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  scale = 1.25\n  ```\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Assigns a name to the rule in the `match` field.\n\nThis only has an effect when used in the top-level `outputs` array.\n"
+        },
+        "match": {
+          "description": "The rule by which the outputs to modify are selected.\n",
+          "$ref": "#/$defs/OutputMatch"
+        },
+        "x": {
+          "type": "integer",
+          "description": "The x coordinate of the output in compositor space.\n",
+          "minimum": 0.0
+        },
+        "y": {
+          "type": "integer",
+          "description": "The y coordinate of the output in compositor space.\n",
+          "minimum": 0.0
+        },
+        "scale": {
+          "type": "number",
+          "description": "The scale of the output.\n",
+          "exclusiveMinimum": 0.0
+        },
+        "transform": {
+          "description": "The transform of the output.\n",
+          "$ref": "#/$defs/Transform"
+        },
+        "mode": {
+          "description": "The mode of the output.\n\nIf the refresh rate is not specified, the first mode with the specified width and\nheight is used.\n",
+          "$ref": "#/$defs/Mode"
+        }
+      },
+      "required": [
+        "match"
+      ]
+    },
+    "OutputMatch": {
+      "description": "Rules to match one of the outputs used by the compositor.\n",
+      "anyOf": [
+        {
+          "type": "array",
+          "description": "This rule matches if any of the rules in the array match.\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/OutputMatch"
+          }
+        },
+        {
+          "description": "Describes a rule that matches a subset of outputs.\n\nThis rule matches if all of the specified fields match.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  name = \"right\"\n  match.serial-number = \"33K03894SL0\"\n  x = 1920\n  y = 0\n  ```\n",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of another OutputMatch rule.\n\nFor this rule to match, the referenced rule must match. The name of the rule\nshould have been defined in the top-level `outputs` array.\n\nThis can be used to easily refer to outputs.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-l = { type = \"configure-output\", output = { match.name = \"right\", transform = \"none\" } }\n  alt-r = { type = \"configure-output\", output = { match.name = \"right\", transform = \"rotate-90\" } }\n\n  [[outputs]]\n  name = \"right\"\n  match.serial-number = \"33K03894SL0\"\n  ```\n"
+            },
+            "connector": {
+              "type": "string",
+              "description": "The name of the connector the output is connected to.\n\nYou can find out the name of the connector by running `jay randr`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.connector = \"DP-1\"\n  scale = 1.25\n  ```\n"
+            },
+            "serial-number": {
+              "type": "string",
+              "description": "The serial number of the output.\n\nYou can find out the serial number by running `jay randr`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  scale = 1.25\n  ```\n"
+            },
+            "manufacturer": {
+              "type": "string",
+              "description": "The manufacturer of the output.\n\nYou can find out the manufacturer by running `jay randr`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.manufacturer = \"BNQ\"\n  scale = 1.25\n  ```\n"
+            },
+            "model": {
+              "type": "string",
+              "description": "The model of the output.\n\nYou can find out the model by running `jay randr`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.model = \"BenQ GW2480\"\n  scale = 1.25\n  ```\n"
+            }
+          },
+          "required": []
+        }
+      ]
+    },
+    "SimpleActionName": {
+      "type": "string",
+      "description": "The name of a `simple` Action.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+      "enum": [
+        "focus-left",
+        "focus-down",
+        "focus-up",
+        "focus-right",
+        "move-left",
+        "move-down",
+        "move-up",
+        "move-right",
+        "move-right",
+        "split-horizontal",
+        "split-vertical",
+        "toggle-split",
+        "toggle-mono",
+        "toggle-fullscreen",
+        "focus-parent",
+        "close",
+        "disable-pointer-constraint",
+        "toggle-floating",
+        "quit",
+        "reload-config-toml",
+        "reload-config-to",
+        "none"
+      ]
+    },
+    "Status": {
+      "description": "The configuration of a status program whose output will be shown in the bar.\n\n- Example:\n\n  ```toml\n  [status]\n  format = \"i3bar\"\n  exec = \"i3status\"\n  ```\n",
+      "type": "object",
+      "properties": {
+        "format": {
+          "description": "The format used by the program.",
+          "$ref": "#/$defs/MessageFormat"
+        },
+        "exec": {
+          "description": "The program that will emit the status messages.",
+          "$ref": "#/$defs/Exec"
+        },
+        "i3bar-separator": {
+          "type": "string",
+          "description": "The separator to be used between i3bar components.\n\nThe default is ` | `.\n"
+        }
+      },
+      "required": [
+        "exec"
+      ]
+    },
+    "Theme": {
+      "description": "The theme of the compositor.\n",
+      "type": "object",
+      "properties": {
+        "attention-requested-bg-color": {
+          "description": "The background color of title that have requested attention.",
+          "$ref": "#/$defs/Color"
+        },
+        "bg-color": {
+          "description": "The background color of the desktop.",
+          "$ref": "#/$defs/Color"
+        },
+        "bar-bg-color": {
+          "description": "The background color of the bar.",
+          "$ref": "#/$defs/Color"
+        },
+        "bar-status-text-color": {
+          "description": "The color of the status text in the bar.",
+          "$ref": "#/$defs/Color"
+        },
+        "border-color": {
+          "description": "The color of the borders between windows.",
+          "$ref": "#/$defs/Color"
+        },
+        "captured-focused-title-bg-color": {
+          "description": "The background color of focused titles that are being recorded.",
+          "$ref": "#/$defs/Color"
+        },
+        "captured-unfocused-title-bg-color": {
+          "description": "The background color of unfocused titles that are being recorded.",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-inactive-title-bg-color": {
+          "description": "The background color of focused titles that are inactive.",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-inactive-title-text-color": {
+          "description": "The text color of focused titles that are inactive.",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-title-bg-color": {
+          "description": "The background color of focused titles.",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-title-text-color": {
+          "description": "The text color of focused titles.",
+          "$ref": "#/$defs/Color"
+        },
+        "separator-color": {
+          "description": "The color of the separator between titles and window content.",
+          "$ref": "#/$defs/Color"
+        },
+        "unfocused-title-bg-color": {
+          "description": "The background color of unfocused titles.",
+          "$ref": "#/$defs/Color"
+        },
+        "unfocused-title-text-color": {
+          "description": "The text color of unfocused titles.",
+          "$ref": "#/$defs/Color"
+        },
+        "border-width": {
+          "type": "integer",
+          "description": "The width of borders between windows.",
+          "minimum": 0.0
+        },
+        "title-height": {
+          "type": "integer",
+          "description": "The height of tabs.",
+          "minimum": 0.0
+        },
+        "font": {
+          "type": "string",
+          "description": "The name of the font to use."
+        }
+      },
+      "required": []
+    },
+    "Transform": {
+      "type": "string",
+      "description": "An output transformation.",
+      "enum": [
+        "none",
+        "rotate-90",
+        "rotate-180",
+        "rotate-270",
+        "flip",
+        "flip-rotate-90",
+        "flip-rotate-180",
+        "flip-rotate-270"
+      ]
+    }
+  }
+}

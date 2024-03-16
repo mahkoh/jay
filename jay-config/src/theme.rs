@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// When using hexadecimal notation, `#RRGGBBAA`, the RGB values are usually straight.
 // values are stored premultiplied
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct Color {
     r: f32,
     g: f32,
@@ -32,13 +32,13 @@ fn to_u8(c: f32) -> u8 {
 }
 
 fn validate_f32(f: f32) -> bool {
-    f.is_normal() && f >= 0.0 && f <= 1.0
+    f >= 0.0 && f <= 1.0
 }
 
 fn validate_f32_all(f: [f32; 4]) -> bool {
     if !f.into_iter().all(validate_f32) {
         log::warn!(
-            "f32 values {:?} are not in the valid color range. Using solid black instead",
+            "f32 values {:?} are not in the valid color range. Using solid black instead xyz",
             f
         );
         return false;
@@ -72,7 +72,7 @@ impl Color {
 
     /// Creates a new color from premultiplied `f32` RGBA values.
     pub fn new_f32_premultiplied(r: f32, g: f32, b: f32, a: f32) -> Self {
-        if validate_f32_all([r, g, b, a]) {
+        if !validate_f32_all([r, g, b, a]) {
             Self::BLACK
         } else if r > a || g > a || b > a {
             log::warn!("f32 values {:?} are not valid valid for a premultiplied color. Using solid black instead.", [r, g, b, a]);
@@ -84,7 +84,7 @@ impl Color {
 
     /// Creates a new color from straight `f32` RGBA values.
     pub fn new_f32_straight(r: f32, g: f32, b: f32, a: f32) -> Self {
-        if validate_f32_all([r, g, b, a]) {
+        if !validate_f32_all([r, g, b, a]) {
             Self::BLACK
         } else {
             Self {

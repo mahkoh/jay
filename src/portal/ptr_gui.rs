@@ -852,7 +852,7 @@ impl UsrWlBufferOwner for GuiBuffer {
 impl UsrWpFractionalScaleOwner for WindowData {
     fn preferred_scale(self: Rc<Self>, ev: &PreferredScale) {
         let mut layout = self.first_scale.replace(false);
-        let scale = Scale(ev.scale);
+        let scale = Scale::from_wl(ev.scale);
         layout |= self.scale.replace(scale) != scale;
         if layout {
             self.layout();

@@ -59,6 +59,15 @@ impl Keymap {
     pub fn is_invalid(self) -> bool {
         self == Self::INVALID
     }
+
+    /// Destroys this reference to the keymap.
+    ///
+    /// Seats that are currently using this keymap are unaffected.
+    pub fn destroy(self) {
+        if self.is_valid() {
+            get!().destroy_keymap(self);
+        }
+    }
 }
 
 /// Parses a keymap.

@@ -92,12 +92,12 @@ impl JayRandr {
             let pos = global.pos.get();
             self.client.event(Output {
                 self_id: self.id,
-                scale: global.preferred_scale.get().0,
+                scale: global.persistent.scale.get().to_wl(),
                 width: pos.width(),
                 height: pos.height(),
                 x: pos.x1(),
                 y: pos.y1(),
-                transform: global.transform.get().to_wl(),
+                transform: global.persistent.transform.get().to_wl(),
                 manufacturer: &output.monitor_info.manufacturer,
                 product: &output.monitor_info.product,
                 serial_number: &output.monitor_info.serial_number,
@@ -217,7 +217,7 @@ impl JayRandr {
         let Some(c) = self.get_output(req.output) else {
             return Ok(());
         };
-        c.node.set_preferred_scale(Scale(req.scale));
+        c.node.set_preferred_scale(Scale::from_wl(req.scale));
         Ok(())
     }
 

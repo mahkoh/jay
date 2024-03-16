@@ -16,7 +16,10 @@ use {
         dbus::Dbus,
         forker,
         globals::Globals,
-        ifs::{wl_output::WlOutputGlobal, wl_surface::NoneSurfaceExt},
+        ifs::{
+            wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+            wl_surface::NoneSurfaceExt,
+        },
         io_uring::{IoUring, IoUringError},
         leaks,
         logger::Logger,
@@ -39,7 +42,7 @@ use {
     },
     ahash::AHashSet,
     forker::ForkerProxy,
-    jay_config::video::GfxApi,
+    jay_config::{_private::DEFAULT_SEAT_NAME, video::GfxApi},
     std::{cell::Cell, env, future::Future, ops::Deref, rc::Rc, sync::Arc, time::Duration},
     thiserror::Error,
     uapi::c,
@@ -204,9 +207,10 @@ fn start_compositor2(
         dma_buf_ids: Default::default(),
         drm_feedback_ids: Default::default(),
         direct_scanout_enabled: Cell::new(true),
-        output_transforms: Default::default(),
+        persistent_output_states: Default::default(),
         double_click_interval_usec: Cell::new(400 * 1000),
         double_click_distance: Cell::new(5),
+        create_default_seat: Cell::new(true),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -253,6 +257,10 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     let config = load_config(&state, is_test);
     config.configure(false);
     state.config.set(Some(Rc::new(config)));
+
+    if state.create_default_seat.get() && state.globals.seats.is_empty() {
+        state.create_seat(DEFAULT_SEAT_NAME);
+    }
 
     let _geh = start_global_event_handlers(&state, &backend);
     state.start_xwayland();
@@ -359,6 +367,17 @@ fn init_fd_limit() {
 }
 
 fn create_dummy_output(state: &Rc<State>) {
+    let output_id = Rc::new(OutputId {
+        connector: "jay-dummy-connector".to_string(),
+        manufacturer: "jay".to_string(),
+        model: "jay-dummy-output".to_string(),
+        serial_number: "".to_string(),
+    });
+    let persistent_state = Rc::new(PersistentOutputState {
+        transform: Default::default(),
+        scale: Default::default(),
+        pos: Default::default(),
+    });
     let dummy_output = Rc::new(OutputNode {
         id: state.node_ids.next(),
         global: Rc::new(WlOutputGlobal::new(
@@ -374,18 +393,16 @@ fn create_dummy_output(state: &Rc<State>) {
                 drm_dev: None,
                 async_event: Default::default(),
             }),
-            0,
             Vec::new(),
             &backend::Mode {
                 width: 0,
                 height: 0,
                 refresh_rate_millihz: 0,
             },
-            "jay",
-            "dummy-output",
-            "0",
             0,
             0,
+            &output_id,
+            &persistent_state,
         )),
         jay_outputs: Default::default(),
         workspaces: Default::default(),

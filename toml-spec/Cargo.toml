@@ -1,0 +1,12 @@
+[package]
+name = "toml-spec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.197", features = ["derive"] }
+serde_yaml = "0.9.32"
+anyhow = "1.0.81"
+indexmap = { version = "2.2.5", features = ["serde"] }
+error_reporter = "1.0.0"
+serde_json = { version = "1.0.114", features = ["preserve_order"] }
