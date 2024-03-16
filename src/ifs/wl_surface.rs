@@ -1015,6 +1015,9 @@ impl WlSurface {
         }
         self.send_seat_release_events();
         self.seat_state.destroy_node(self);
+        if self.visible.get() {
+            self.client.state.damage();
+        }
     }
 
     pub fn set_content_type(&self, content_type: Option<ContentType>) {

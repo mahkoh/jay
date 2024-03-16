@@ -3,11 +3,12 @@ use {
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
         state::{ConnectorData, OutputData, State},
-        tree::{OutputNode, OutputRenderData},
+        tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
     },
     std::{
         cell::{Cell, RefCell},
+        collections::VecDeque,
         rc::Rc,
     },
 };
@@ -156,6 +157,8 @@ impl ConnectorHandler {
             node: on.clone(),
         });
         self.state.outputs.set(self.id, output_data);
+        global.node.set(Some(on.clone()));
+        let mut ws_to_move = VecDeque::new();
         if self.state.outputs.len() == 1 {
             let seats = self.state.globals.seats.lock();
             let pos = global.pos.get();
@@ -164,59 +167,45 @@ impl ConnectorHandler {
             for seat in seats.values() {
                 seat.set_position(x, y);
             }
+            let dummy = self.state.dummy_output.get().unwrap();
+            for ws in dummy.workspaces.iter() {
+                if ws.is_dummy {
+                    continue;
+                }
+                ws_to_move.push_back(ws);
+            }
         }
-        global.node.set(Some(on.clone()));
+        for source in self.state.outputs.lock().values() {
+            if source.node.id == on.id {
+                continue;
+            }
+            for ws in source.node.workspaces.iter() {
+                if ws.is_dummy {
+                    continue;
+                }
+                if ws.desired_output.get() == global.output_id {
+                    ws_to_move.push_back(ws.clone());
+                }
+            }
+        }
+        while let Some(ws) = ws_to_move.pop_front() {
+            let make_visible = (ws.visible_on_desired_output.get()
+                && ws.desired_output.get() == output_id)
+                || ws_to_move.is_empty();
+            let config = WsMoveConfig {
+                make_visible_if_empty: make_visible,
+                source_is_destroyed: false,
+            };
+            move_ws_to_output(&ws, &on, config);
+        }
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
-        {
-            for source in self.state.outputs.lock().values() {
-                if source.node.id == on.id {
-                    continue;
-                }
-                let mut ws_to_move = vec![];
-                for ws in source.node.workspaces.iter() {
-                    if ws.is_dummy {
-                        continue;
-                    }
-                    if ws.desired_output.get() == global.output_id {
-                        ws_to_move.push(ws.clone());
-                    }
-                }
-                for ws in ws_to_move {
-                    ws.set_output(&on);
-                    on.workspaces.add_last_existing(&ws);
-                    if ws.visible_on_desired_output.get() && on.workspace.is_none() {
-                        on.show_workspace(&ws);
-                    } else {
-                        ws.set_visible(false);
-                    }
-                    ws.flush_jay_workspaces();
-                    if let Some(visible) = source.node.workspace.get() {
-                        if visible.id == ws.id {
-                            source.node.workspace.take();
-                        }
-                    }
-                }
-                if source.node.workspace.is_none() {
-                    if let Some(ws) = source.node.workspaces.first() {
-                        source.node.show_workspace(&ws);
-                        ws.flush_jay_workspaces();
-                    }
-                }
-                source.node.schedule_update_render_data();
-            }
-            if on.workspace.is_none() {
-                if let Some(ws) = on.workspaces.first() {
-                    on.show_workspace(&ws);
-                    ws.flush_jay_workspaces();
-                }
-            }
-        }
-        on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.root.update_extents();
         self.state.add_global(&global);
+        self.state.tree_changed();
+        self.state.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
@@ -261,31 +250,19 @@ impl ConnectorHandler {
                 surface.send_closed();
             }
         }
-        let mut target_is_dummy = false;
         let target = match self.state.outputs.lock().values().next() {
             Some(o) => o.node.clone(),
-            _ => {
-                target_is_dummy = true;
-                self.state.dummy_output.get().unwrap()
-            }
+            _ => self.state.dummy_output.get().unwrap(),
         };
-        if !on.workspaces.is_empty() {
-            for ws in on.workspaces.iter() {
-                let is_visible =
-                    !target_is_dummy && target.workspaces.is_empty() && ws.visible.get();
+        for ws in on.workspaces.iter() {
+            if ws.desired_output.get() == output_id {
                 ws.visible_on_desired_output.set(ws.visible.get());
-                ws.set_output(&target);
-                target.workspaces.add_last_existing(&ws);
-                if is_visible {
-                    target.show_workspace(&ws);
-                } else if ws.visible.get() {
-                    ws.set_visible(false);
-                }
-                ws.flush_jay_workspaces();
             }
-            target.schedule_update_render_data();
-            self.state.tree_changed();
-            self.state.damage();
+            let config = WsMoveConfig {
+                make_visible_if_empty: ws.visible.get(),
+                source_is_destroyed: true,
+            };
+            move_ws_to_output(&ws, &target, config);
         }
         let seats = self.state.globals.seats.lock();
         for seat in seats.values() {
@@ -300,5 +277,7 @@ impl ConnectorHandler {
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
         let _ = self.state.remove_global(&*global);
+        self.state.tree_changed();
+        self.state.damage();
     }
 }
