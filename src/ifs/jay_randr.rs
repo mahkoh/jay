@@ -92,7 +92,7 @@ impl JayRandr {
             let pos = global.pos.get();
             self.client.event(Output {
                 self_id: self.id,
-                scale: global.preferred_scale.get().0,
+                scale: global.preferred_scale.get().to_wl(),
                 width: pos.width(),
                 height: pos.height(),
                 x: pos.x1(),
@@ -217,7 +217,7 @@ impl JayRandr {
         let Some(c) = self.get_output(req.output) else {
             return Ok(());
         };
-        c.node.set_preferred_scale(Scale(req.scale));
+        c.node.set_preferred_scale(Scale::from_wl(req.scale));
         Ok(())
     }
 

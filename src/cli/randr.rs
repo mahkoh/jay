@@ -310,7 +310,7 @@ impl Randr {
                 tc.send(jay_randr::SetScale {
                     self_id: randr,
                     output: &args.output,
-                    scale: scale.0,
+                    scale: scale.to_wl(),
                 });
             }
             OutputCommand::Mode(t) => {
@@ -557,7 +557,7 @@ impl Randr {
             let mut data = data.borrow_mut();
             let c = data.connectors.last_mut().unwrap();
             c.output = Some(Output {
-                scale: Scale(msg.scale).to_f64(),
+                scale: Scale::from_wl(msg.scale).to_f64(),
                 width: msg.width,
                 height: msg.height,
                 x: msg.x,
