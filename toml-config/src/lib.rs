@@ -75,6 +75,10 @@ impl Action {
                 let workspace = get_workspace(&name);
                 Box::new(move || s.show_workspace(workspace))
             }
+            Action::MoveToWorkspace { name } => {
+                let workspace = get_workspace(&name);
+                Box::new(move || s.set_workspace(workspace))
+            }
             Action::ConfigureConnector { con } => Box::new(move || {
                 for c in connectors() {
                     if con.match_.matches(c) {

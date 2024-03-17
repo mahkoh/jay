@@ -133,7 +133,7 @@ impl ActionParser<'_> {
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let name = ext.extract(str("name"))?.value.to_string();
-        Ok(Action::ShowWorkspace { name })
+        Ok(Action::MoveToWorkspace { name })
     }
 
     fn parse_configure_connector(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {

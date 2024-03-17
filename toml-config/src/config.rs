@@ -60,6 +60,7 @@ pub enum Action {
     ConfigureInput { input: Input },
     ConfigureOutput { out: Output },
     Exec { exec: Exec },
+    MoveToWorkspace { name: String },
     Multi { actions: Vec<Action> },
     SetEnv { env: Vec<(String, String)> },
     SetGfxApi { api: GfxApi },
