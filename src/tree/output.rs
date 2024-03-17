@@ -337,7 +337,7 @@ impl OutputNode {
             stacked: Default::default(),
             seat_state: Default::default(),
             name: name.to_string(),
-            output_link: Cell::new(None),
+            output_link: Default::default(),
             visible: Cell::new(false),
             fullscreen: Default::default(),
             visible_on_desired_output: Cell::new(false),
@@ -347,8 +347,7 @@ impl OutputNode {
             title_texture: Default::default(),
             attention_requests: Default::default(),
         });
-        ws.output_link
-            .set(Some(self.workspaces.add_last(ws.clone())));
+        *ws.output_link.borrow_mut() = Some(self.workspaces.add_last(ws.clone()));
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.is_none() {
             self.show_workspace(&ws);

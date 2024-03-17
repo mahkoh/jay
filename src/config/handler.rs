@@ -12,7 +12,10 @@ use {
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         theme::{Color, ThemeSized, DEFAULT_FONT},
-        tree::{ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase, OutputNode},
+        tree::{
+            move_ws_to_output, ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase,
+            OutputNode, WsMoveConfig,
+        },
         utils::{
             asyncevent::AsyncEvent,
             copyhashmap::CopyHashMap,
@@ -29,7 +32,7 @@ use {
     jay_config::{
         _private::{
             bincode_ops,
-            ipc::{ClientMessage, Response, ServerMessage},
+            ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
             PollableId, WireMode,
         },
         input::{
@@ -750,6 +753,45 @@ impl ConfigProxyHandler {
         self.respond(Response::GetInputDeviceDevnode {
             devnode: dev.devnode.clone().unwrap_or_default(),
         });
+        Ok(())
+    }
+
+    fn handle_move_to_output(
+        &self,
+        workspace: WorkspaceSource,
+        connector: Connector,
+    ) -> Result<(), CphError> {
+        let output = self.get_output(connector)?;
+        let ws = match workspace {
+            WorkspaceSource::Explicit(ws) => {
+                let name = self.get_workspace(ws)?;
+                match self.state.workspaces.get(name.as_str()) {
+                    Some(ws) => ws,
+                    _ => return Ok(()),
+                }
+            }
+            WorkspaceSource::Seat(s) => match self.get_seat(s)?.get_output().workspace.get() {
+                Some(ws) => ws,
+                _ => return Ok(()),
+            },
+        };
+        if ws.is_dummy || output.node.is_dummy {
+            return Ok(());
+        }
+        if ws.output.get().id == output.node.id {
+            return Ok(());
+        }
+        let link = match &*ws.output_link.borrow() {
+            None => return Ok(()),
+            Some(l) => l.to_ref(),
+        };
+        let config = WsMoveConfig {
+            make_visible_if_empty: true,
+            source_is_destroyed: false,
+        };
+        move_ws_to_output(&link, &output.node, config);
+        self.state.tree_changed();
+        self.state.damage();
         Ok(())
     }
 
@@ -1676,6 +1718,12 @@ impl ConfigProxyHandler {
                 .handle_get_input_device_devnode(device)
                 .wrn("get_input_device_devnode")?,
             ClientMessage::SetIdle { timeout } => self.handle_set_idle(timeout),
+            ClientMessage::MoveToOutput {
+                workspace,
+                connector,
+            } => self
+                .handle_move_to_output(workspace, connector)
+                .wrn("move_to_output")?,
         }
         Ok(())
     }

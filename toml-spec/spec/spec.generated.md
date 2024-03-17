@@ -214,6 +214,43 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a string.
 
+- `move-to-output`:
+
+  Moves a workspace to a different output.
+  
+  - Example 1:
+  
+    ```toml
+    [shortcuts]
+    alt-F1 = { type = "move-to-output", workspace = "1", output.name = "right" }
+    ```
+  
+  - Example 2:
+  
+    ```toml
+    [shortcuts]
+    alt-F1 = { type = "move-to-output", output.name = "right" }
+    ```
+
+  The table has the following fields:
+
+  - `workspace` (optional):
+
+    The name of the workspace.
+    
+    If this is omitted, the currently active workspace is moved.
+
+    The value of this field should be a string.
+
+  - `output` (required):
+
+    The output to move to.
+    
+    If multiple outputs match, the workspace is moved to the first matching
+    output.
+
+    The value of this field should be a [OutputMatch](#types-OutputMatch).
+
 - `configure-connector`:
 
   Applies a configuration to connectors.

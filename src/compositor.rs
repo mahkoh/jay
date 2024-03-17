@@ -440,9 +440,8 @@ fn create_dummy_output(state: &Rc<State>) {
         title_texture: Cell::new(None),
         attention_requests: Default::default(),
     });
-    dummy_workspace.output_link.set(Some(
-        dummy_output.workspaces.add_last(dummy_workspace.clone()),
-    ));
+    *dummy_workspace.output_link.borrow_mut() =
+        Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));
     dummy_output.show_workspace(&dummy_workspace);
     state.dummy_output.set(Some(dummy_output));
 }

@@ -154,6 +154,23 @@ impl Action {
                 })
             }
             Action::ConfigureIdle { idle } => Box::new(move || set_idle(Some(idle))),
+            Action::MoveToOutput { output, workspace } => {
+                let state = state.clone();
+                Box::new(move || {
+                    let output = 'get_output: {
+                        for connector in connectors() {
+                            if connector.connected() && output.matches(connector, &state) {
+                                break 'get_output connector;
+                            }
+                        }
+                        return;
+                    };
+                    match workspace {
+                        Some(ws) => ws.move_to_output(output),
+                        None => s.move_to_output(output),
+                    }
+                })
+            }
         }
     }
 }

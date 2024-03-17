@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rustfmt:
+  toml-spec:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2

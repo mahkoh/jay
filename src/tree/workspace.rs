@@ -24,7 +24,12 @@ use {
         },
         wire::JayWorkspaceId,
     },
-    std::{cell::Cell, fmt::Debug, ops::Deref, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        fmt::Debug,
+        ops::Deref,
+        rc::Rc,
+    },
 };
 
 tree_id!(WorkspaceNodeId);
@@ -38,7 +43,7 @@ pub struct WorkspaceNode {
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
     pub name: String,
-    pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
+    pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub visible_on_desired_output: Cell<bool>,
@@ -52,7 +57,7 @@ pub struct WorkspaceNode {
 impl WorkspaceNode {
     pub fn clear(&self) {
         self.container.set(None);
-        self.output_link.set(None);
+        *self.output_link.borrow_mut() = None;
         self.fullscreen.set(None);
         self.jay_workspaces.clear();
     }

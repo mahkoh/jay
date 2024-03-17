@@ -40,7 +40,7 @@
 )]
 
 use {
-    crate::keyboard::ModifiedKeySym,
+    crate::{_private::ipc::WorkspaceSource, keyboard::ModifiedKeySym, video::Connector},
     serde::{Deserialize, Serialize},
     std::{
         fmt::{Debug, Display, Formatter},
@@ -158,6 +158,13 @@ impl Workspace {
     pub fn toggle_capture(self) {
         let get = get!();
         get.set_workspace_capture(self, !get.get_workspace_capture(self));
+    }
+
+    /// Moves this workspace to another output.
+    ///
+    /// This has no effect if the workspace is not currently being shown.
+    pub fn move_to_output(self, output: Connector) {
+        get!().move_to_output(WorkspaceSource::Explicit(self), output);
     }
 }
 

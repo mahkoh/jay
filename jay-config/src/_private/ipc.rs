@@ -424,6 +424,16 @@ pub enum ClientMessage<'a> {
     SetIdle {
         timeout: Duration,
     },
+    MoveToOutput {
+        workspace: WorkspaceSource,
+        connector: Connector,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum WorkspaceSource {
+    Seat(Seat),
+    Explicit(Workspace),
 }
 
 #[derive(Serialize, Deserialize, Debug)]

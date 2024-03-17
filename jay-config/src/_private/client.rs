@@ -4,7 +4,7 @@ use {
     crate::{
         _private::{
             bincode_ops,
-            ipc::{ClientMessage, InitMessage, Response, ServerMessage},
+            ipc::{ClientMessage, InitMessage, Response, ServerMessage, WorkspaceSource},
             logging, Config, ConfigEntry, ConfigEntryGen, PollableId, WireMode, VERSION,
         },
         exec::Command,
@@ -419,6 +419,13 @@ impl Client {
 
     pub fn disable_pointer_constraint(&self, seat: Seat) {
         self.send(&ClientMessage::DisablePointerConstraint { seat });
+    }
+
+    pub fn move_to_output(&self, workspace: WorkspaceSource, connector: Connector) {
+        self.send(&ClientMessage::MoveToOutput {
+            workspace,
+            connector,
+        });
     }
 
     pub fn set_fullscreen(&self, seat: Seat, fullscreen: bool) {

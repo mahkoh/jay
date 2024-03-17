@@ -22,7 +22,7 @@ use {
         status::MessageFormat,
         theme::Color,
         video::{GfxApi, Transform},
-        Axis, Direction,
+        Axis, Direction, Workspace,
     },
     std::{
         error::Error,
@@ -53,26 +53,70 @@ pub enum SimpleCommand {
 
 #[derive(Debug, Clone)]
 pub enum Action {
-    ConfigureConnector { con: ConfigConnector },
-    ConfigureDirectScanout { enabled: bool },
-    ConfigureDrmDevice { dev: ConfigDrmDevice },
-    ConfigureIdle { idle: Duration },
-    ConfigureInput { input: Input },
-    ConfigureOutput { out: Output },
-    Exec { exec: Exec },
-    MoveToWorkspace { name: String },
-    Multi { actions: Vec<Action> },
-    SetEnv { env: Vec<(String, String)> },
-    SetGfxApi { api: GfxApi },
-    SetKeymap { map: ConfigKeymap },
-    SetLogLevel { level: LogLevel },
-    SetRenderDevice { dev: DrmDeviceMatch },
-    SetStatus { status: Option<Status> },
-    SetTheme { theme: Box<Theme> },
-    ShowWorkspace { name: String },
-    SimpleCommand { cmd: SimpleCommand },
-    SwitchToVt { num: u32 },
-    UnsetEnv { env: Vec<String> },
+    ConfigureConnector {
+        con: ConfigConnector,
+    },
+    ConfigureDirectScanout {
+        enabled: bool,
+    },
+    ConfigureDrmDevice {
+        dev: ConfigDrmDevice,
+    },
+    ConfigureIdle {
+        idle: Duration,
+    },
+    ConfigureInput {
+        input: Input,
+    },
+    ConfigureOutput {
+        out: Output,
+    },
+    Exec {
+        exec: Exec,
+    },
+    MoveToWorkspace {
+        name: String,
+    },
+    Multi {
+        actions: Vec<Action>,
+    },
+    SetEnv {
+        env: Vec<(String, String)>,
+    },
+    SetGfxApi {
+        api: GfxApi,
+    },
+    SetKeymap {
+        map: ConfigKeymap,
+    },
+    SetLogLevel {
+        level: LogLevel,
+    },
+    SetRenderDevice {
+        dev: DrmDeviceMatch,
+    },
+    SetStatus {
+        status: Option<Status>,
+    },
+    SetTheme {
+        theme: Box<Theme>,
+    },
+    ShowWorkspace {
+        name: String,
+    },
+    SimpleCommand {
+        cmd: SimpleCommand,
+    },
+    SwitchToVt {
+        num: u32,
+    },
+    UnsetEnv {
+        env: Vec<String>,
+    },
+    MoveToOutput {
+        workspace: Option<Workspace>,
+        output: OutputMatch,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
