@@ -591,6 +591,7 @@ impl State {
         ws.flush_jay_workspaces();
         output.schedule_update_render_data();
         self.tree_changed();
+        self.damage();
         // let seats = self.globals.seats.lock();
         // for seat in seats.values() {
         //     seat.workspace_changed(&output);

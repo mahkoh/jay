@@ -19,12 +19,17 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
-            linkedlist::{LinkedList, LinkedNode},
+            linkedlist::{LinkedList, LinkedNode, NodeRef},
             threshold_counter::ThresholdCounter,
         },
         wire::JayWorkspaceId,
     },
-    std::{cell::Cell, fmt::Debug, ops::Deref, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        fmt::Debug,
+        ops::Deref,
+        rc::Rc,
+    },
 };
 
 tree_id!(WorkspaceNodeId);
@@ -38,7 +43,7 @@ pub struct WorkspaceNode {
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
     pub seat_state: NodeSeatState,
     pub name: String,
-    pub output_link: Cell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
+    pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     pub visible_on_desired_output: Cell<bool>,
@@ -52,7 +57,7 @@ pub struct WorkspaceNode {
 impl WorkspaceNode {
     pub fn clear(&self) {
         self.container.set(None);
-        self.output_link.set(None);
+        *self.output_link.borrow_mut() = None;
         self.fullscreen.set(None);
         self.jay_workspaces.clear();
     }
@@ -302,5 +307,45 @@ impl ContainingNode for WorkspaceNode {
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self
+    }
+}
+
+pub struct WsMoveConfig {
+    pub make_visible_if_empty: bool,
+    pub source_is_destroyed: bool,
+}
+
+pub fn move_ws_to_output(
+    ws: &NodeRef<Rc<WorkspaceNode>>,
+    target: &Rc<OutputNode>,
+    config: WsMoveConfig,
+) {
+    let source = ws.output.get();
+    ws.set_output(&target);
+    target.workspaces.add_last_existing(&ws);
+    if config.make_visible_if_empty && target.workspace.is_none() && !target.is_dummy {
+        target.show_workspace(&ws);
+    } else {
+        ws.set_visible(false);
+    }
+    ws.flush_jay_workspaces();
+    if let Some(visible) = source.workspace.get() {
+        if visible.id == ws.id {
+            source.workspace.take();
+        }
+    }
+    if !config.source_is_destroyed && !source.is_dummy {
+        if source.workspace.is_none() {
+            if let Some(ws) = source.workspaces.first() {
+                source.show_workspace(&ws);
+                ws.flush_jay_workspaces();
+            }
+        }
+    }
+    if !target.is_dummy {
+        target.schedule_update_render_data();
+    }
+    if !source.is_dummy {
+        source.schedule_update_render_data();
     }
 }

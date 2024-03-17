@@ -16,19 +16,24 @@ use {
                 keymap::{KeymapParser, KeymapParserError},
                 log_level::{LogLevelParser, LogLevelParserError},
                 output::{OutputParser, OutputParserError},
+                output_match::{OutputMatchParser, OutputMatchParserError},
                 status::{StatusParser, StatusParserError},
                 theme::{ThemeParser, ThemeParserError},
                 StringParser, StringParserError,
             },
+            spanned::SpannedErrorExt,
             Action,
         },
         toml::{
-            toml_span::{Span, Spanned, SpannedExt},
+            toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
         },
     },
     indexmap::IndexMap,
-    jay_config::Axis::{Horizontal, Vertical},
+    jay_config::{
+        get_workspace,
+        Axis::{Horizontal, Vertical},
+    },
     thiserror::Error,
 };
 
@@ -45,31 +50,33 @@ pub enum ActionParserError {
     #[error(transparent)]
     Extract(#[from] ExtractorError),
     #[error("Could not parse the exec action")]
-    Exec(#[from] ExecParserError),
+    Exec(#[source] ExecParserError),
     #[error("Could not parse the configure-connector action")]
-    ConfigureConnector(#[from] ConnectorParserError),
+    ConfigureConnector(#[source] ConnectorParserError),
     #[error("Could not parse the configure-input action")]
-    ConfigureInput(#[from] InputParserError),
+    ConfigureInput(#[source] InputParserError),
     #[error("Could not parse the configure-output action")]
-    ConfigureOutput(#[from] OutputParserError),
+    ConfigureOutput(#[source] OutputParserError),
     #[error("Could not parse the environment variables")]
-    Env(#[from] EnvParserError),
+    Env(#[source] EnvParserError),
     #[error("Could not parse a set-keymap action")]
-    SetKeymap(#[from] KeymapParserError),
+    SetKeymap(#[source] KeymapParserError),
     #[error("Could not parse a set-status action")]
-    Status(#[from] StatusParserError),
+    Status(#[source] StatusParserError),
     #[error("Could not parse a set-theme action")]
-    Theme(#[from] ThemeParserError),
+    Theme(#[source] ThemeParserError),
     #[error("Could not parse a set-log-level action")]
-    SetLogLevel(#[from] LogLevelParserError),
+    SetLogLevel(#[source] LogLevelParserError),
     #[error("Could not parse a set-gfx-api action")]
-    GfxApi(#[from] GfxApiParserError),
+    GfxApi(#[source] GfxApiParserError),
     #[error("Could not parse a configure-drm-device action")]
-    DrmDevice(#[from] DrmDeviceParserError),
+    DrmDevice(#[source] DrmDeviceParserError),
     #[error("Could not parse a set-render-device action")]
-    SetRenderDevice(#[from] DrmDeviceMatchParserError),
+    SetRenderDevice(#[source] DrmDeviceMatchParserError),
     #[error("Could not parse a configure-idle action")]
-    ConfigureIdle(#[from] IdleParserError),
+    ConfigureIdle(#[source] IdleParserError),
+    #[error("Could not parse a move-to-output action")]
+    MoveToOutput(#[source] OutputMatchParserError),
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -117,7 +124,8 @@ impl ActionParser<'_> {
     fn parse_exec(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let exec = ext
             .extract(val("exec"))?
-            .parse_map(&mut ExecParser(self.0))?;
+            .parse_map(&mut ExecParser(self.0))
+            .map_spanned_err(ActionParserError::Exec)?;
         Ok(Action::Exec { exec })
     }
 
@@ -133,41 +141,52 @@ impl ActionParser<'_> {
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let name = ext.extract(str("name"))?.value.to_string();
-        Ok(Action::ShowWorkspace { name })
+        Ok(Action::MoveToWorkspace { name })
     }
 
     fn parse_configure_connector(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let con = ext
             .extract(val("connector"))?
-            .parse_map(&mut ConnectorParser(self.0))?;
+            .parse_map(&mut ConnectorParser(self.0))
+            .map_spanned_err(ActionParserError::ConfigureConnector)?;
         Ok(Action::ConfigureConnector { con })
     }
 
     fn parse_configure_input(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let input = ext.extract(val("input"))?.parse_map(&mut InputParser {
-            cx: self.0,
-            tag_ok: false,
-        })?;
+        let input = ext
+            .extract(val("input"))?
+            .parse_map(&mut InputParser {
+                cx: self.0,
+                tag_ok: false,
+            })
+            .map_spanned_err(ActionParserError::ConfigureInput)?;
         Ok(Action::ConfigureInput { input })
     }
 
     fn parse_configure_idle(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let idle = ext
             .extract(val("idle"))?
-            .parse_map(&mut IdleParser(self.0))?;
+            .parse_map(&mut IdleParser(self.0))
+            .map_spanned_err(ActionParserError::ConfigureIdle)?;
         Ok(Action::ConfigureIdle { idle })
     }
 
     fn parse_configure_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let out = ext.extract(val("output"))?.parse_map(&mut OutputParser {
-            cx: self.0,
-            name_ok: false,
-        })?;
+        let out = ext
+            .extract(val("output"))?
+            .parse_map(&mut OutputParser {
+                cx: self.0,
+                name_ok: false,
+            })
+            .map_spanned_err(ActionParserError::ConfigureOutput)?;
         Ok(Action::ConfigureOutput { out })
     }
 
     fn parse_set_env(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let env = ext.extract(val("env"))?.parse_map(&mut EnvParser)?;
+        let env = ext
+            .extract(val("env"))?
+            .parse_map(&mut EnvParser)
+            .map_spanned_err(ActionParserError::Env)?;
         Ok(Action::SetEnv { env })
     }
 
@@ -195,17 +214,23 @@ impl ActionParser<'_> {
     }
 
     fn parse_set_keymap(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let map = ext.extract(val("map"))?.parse_map(&mut KeymapParser {
-            cx: self.0,
-            definition: false,
-        })?;
+        let map = ext
+            .extract(val("map"))?
+            .parse_map(&mut KeymapParser {
+                cx: self.0,
+                definition: false,
+            })
+            .map_spanned_err(ActionParserError::SetKeymap)?;
         Ok(Action::SetKeymap { map })
     }
 
     fn parse_set_status(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let status = match ext.extract(opt(val("status")))? {
             None => None,
-            Some(v) => Some(v.parse_map(&mut StatusParser(self.0))?),
+            Some(v) => Some(
+                v.parse_map(&mut StatusParser(self.0))
+                    .map_spanned_err(ActionParserError::Status)?,
+            ),
         };
         Ok(Action::SetStatus { status })
     }
@@ -213,26 +238,34 @@ impl ActionParser<'_> {
     fn parse_set_theme(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let theme = ext
             .extract(val("theme"))?
-            .parse_map(&mut ThemeParser(self.0))?;
+            .parse_map(&mut ThemeParser(self.0))
+            .map_spanned_err(ActionParserError::Theme)?;
         Ok(Action::SetTheme {
             theme: Box::new(theme),
         })
     }
 
     fn parse_set_log_level(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let level = ext.extract(val("level"))?.parse_map(&mut LogLevelParser)?;
+        let level = ext
+            .extract(val("level"))?
+            .parse_map(&mut LogLevelParser)
+            .map_spanned_err(ActionParserError::SetLogLevel)?;
         Ok(Action::SetLogLevel { level })
     }
 
     fn parse_set_gfx_api(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let api = ext.extract(val("api"))?.parse_map(&mut GfxApiParser)?;
+        let api = ext
+            .extract(val("api"))?
+            .parse_map(&mut GfxApiParser)
+            .map_spanned_err(ActionParserError::GfxApi)?;
         Ok(Action::SetGfxApi { api })
     }
 
     fn parse_set_render_device(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let dev = ext
             .extract(val("dev"))?
-            .parse_map(&mut DrmDeviceMatchParser(self.0))?;
+            .parse_map(&mut DrmDeviceMatchParser(self.0))
+            .map_spanned_err(ActionParserError::SetRenderDevice)?;
         Ok(Action::SetRenderDevice { dev })
     }
 
@@ -242,11 +275,25 @@ impl ActionParser<'_> {
     }
 
     fn parse_configure_drm_device(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
-        let dev = ext.extract(val("dev"))?.parse_map(&mut DrmDeviceParser {
-            cx: self.0,
-            name_ok: false,
-        })?;
+        let dev = ext
+            .extract(val("dev"))?
+            .parse_map(&mut DrmDeviceParser {
+                cx: self.0,
+                name_ok: false,
+            })
+            .map_spanned_err(ActionParserError::DrmDevice)?;
         Ok(Action::ConfigureDrmDevice { dev })
+    }
+
+    fn parse_move_to_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let (ws, output) = ext.extract((opt(str("workspace")), val("output")))?;
+        let output = output
+            .parse_map(&mut OutputMatchParser(self.0))
+            .map_spanned_err(ActionParserError::MoveToOutput)?;
+        Ok(Action::MoveToOutput {
+            workspace: ws.despan().map(get_workspace),
+            output,
+        })
     }
 }
 
@@ -297,6 +344,7 @@ impl<'a> Parser for ActionParser<'a> {
             "configure-drm-device" => self.parse_configure_drm_device(&mut ext),
             "set-render-device" => self.parse_set_render_device(&mut ext),
             "configure-idle" => self.parse_configure_idle(&mut ext),
+            "move-to-output" => self.parse_move_to_output(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

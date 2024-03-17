@@ -75,6 +75,10 @@ impl Action {
                 let workspace = get_workspace(&name);
                 Box::new(move || s.show_workspace(workspace))
             }
+            Action::MoveToWorkspace { name } => {
+                let workspace = get_workspace(&name);
+                Box::new(move || s.set_workspace(workspace))
+            }
             Action::ConfigureConnector { con } => Box::new(move || {
                 for c in connectors() {
                     if con.match_.matches(c) {
@@ -150,6 +154,23 @@ impl Action {
                 })
             }
             Action::ConfigureIdle { idle } => Box::new(move || set_idle(Some(idle))),
+            Action::MoveToOutput { output, workspace } => {
+                let state = state.clone();
+                Box::new(move || {
+                    let output = 'get_output: {
+                        for connector in connectors() {
+                            if connector.connected() && output.matches(connector, &state) {
+                                break 'get_output connector;
+                            }
+                        }
+                        return;
+                    };
+                    match workspace {
+                        Some(ws) => ws.move_to_output(output),
+                        None => s.move_to_output(output),
+                    }
+                })
+            }
         }
     }
 }

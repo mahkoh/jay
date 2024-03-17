@@ -8,7 +8,8 @@ use {
         input::{acceleration::AccelProfile, capability::Capability},
         keyboard::Keymap,
         Axis, Direction, ModifiedKeySym, Workspace,
-        _private::DEFAULT_SEAT_NAME,
+        _private::{ipc::WorkspaceSource, DEFAULT_SEAT_NAME},
+        video::Connector,
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -318,6 +319,11 @@ impl Seat {
     /// Disables the currently active pointer constraint on this seat.
     pub fn disable_pointer_constraint(self) {
         get!().disable_pointer_constraint(self)
+    }
+
+    /// Moves the currently focused workspace to another output.
+    pub fn move_to_output(self, connector: Connector) {
+        get!().move_to_output(WorkspaceSource::Seat(self), connector);
     }
 }
 

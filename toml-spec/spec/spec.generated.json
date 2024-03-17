@@ -137,6 +137,27 @@
               ]
             },
             {
+              "description": "Moves a workspace to a different output.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-output\", workspace = \"1\", output.name = \"right\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  alt-F1 = { type = \"move-to-output\", output.name = \"right\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "move-to-output"
+                },
+                "workspace": {
+                  "type": "string",
+                  "description": "The name of the workspace.\n\nIf this is omitted, the currently active workspace is moved.\n"
+                },
+                "output": {
+                  "description": "The output to move to.\n\nIf multiple outputs match, the workspace is moved to the first matching\noutput.\n",
+                  "$ref": "#/$defs/OutputMatch"
+                }
+              },
+              "required": [
+                "type",
+                "output"
+              ]
+            },
+            {
               "description": "Applies a configuration to connectors.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = false } }\n  alt-k = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = true } }\n  ```\n",
               "type": "object",
               "properties": {
