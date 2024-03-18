@@ -147,6 +147,7 @@ pub struct CopyTexture {
     pub buffer_resv: Option<Rc<dyn BufferResv>>,
     pub acquire_sync: AcquireSync,
     pub release_sync: ReleaseSync,
+    pub alpha: Option<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -292,6 +293,7 @@ impl dyn GfxFramebuffer {
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         renderer.render_texture(
             texture,
+            None,
             x,
             y,
             None,

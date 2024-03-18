@@ -73,7 +73,11 @@ use {
         },
         gfx_apis::gl::{
             gl::texture::image_target,
-            renderer::{context::GlRenderContext, framebuffer::Framebuffer, texture::Texture},
+            renderer::{
+                context::{GlRenderContext, TexCopyType, TexSourceType},
+                framebuffer::Framebuffer,
+                texture::Texture,
+            },
             sys::{
                 GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE0, GL_TEXTURE_MIN_FILTER,
                 GL_TRIANGLES, GL_TRIANGLE_STRIP,
@@ -336,16 +340,20 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
             },
             false => &ctx.tex_internal,
         };
-        let prog = match texture.gl.format.has_alpha {
-            true => {
-                (gles.glEnable)(GL_BLEND);
-                &progs.alpha
-            }
-            false => {
-                (gles.glDisable)(GL_BLEND);
-                &progs.solid
-            }
+        let copy_type = match tex.alpha.is_some() {
+            true => TexCopyType::Multiply,
+            false => TexCopyType::Identity,
         };
+        let source_type = match texture.gl.format.has_alpha {
+            true => TexSourceType::HasAlpha,
+            false => TexSourceType::Opaque,
+        };
+        if (copy_type, source_type) == (TexCopyType::Identity, TexSourceType::Opaque) {
+            (gles.glDisable)(GL_BLEND);
+        } else {
+            (gles.glEnable)(GL_BLEND);
+        }
+        let prog = &progs[copy_type][source_type];
 
         (gles.glUseProgram)(prog.prog.prog);
 
@@ -353,6 +361,10 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
 
         let texcoord = tex.source.to_points();
         let pos = tex.target.to_points();
+
+        if let Some(alpha) = tex.alpha {
+            (gles.glUniform1f)(prog.alpha, alpha);
+        }
 
         (gles.glVertexAttribPointer)(
             prog.texcoord as _,

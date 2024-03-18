@@ -836,6 +836,7 @@ impl State {
         sample_rect.buffer_transform = transform;
         renderer.base.render_texture(
             src,
+            None,
             x_off,
             y_off,
             Some(sample_rect),

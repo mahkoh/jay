@@ -21,6 +21,7 @@ use {
         },
     },
     ahash::AHashMap,
+    enum_map::{enum_map, Enum, EnumMap},
     jay_config::video::GfxApi,
     std::{
         cell::{Cell, RefCell},
@@ -36,22 +37,35 @@ pub(crate) struct TexProg {
     pub(crate) pos: GLint,
     pub(crate) texcoord: GLint,
     pub(crate) tex: GLint,
+    pub(crate) alpha: GLint,
 }
 
 impl TexProg {
-    unsafe fn from(prog: GlProgram) -> Self {
+    unsafe fn from(prog: GlProgram, alpha_multiplier: bool) -> Self {
+        let alpha = match alpha_multiplier {
+            true => prog.get_uniform_location(ustr!("alpha")),
+            false => 0,
+        };
         Self {
             pos: prog.get_attrib_location(ustr!("pos")),
             texcoord: prog.get_attrib_location(ustr!("texcoord")),
             tex: prog.get_uniform_location(ustr!("tex")),
+            alpha,
             prog,
         }
     }
 }
 
-pub(crate) struct TexProgs {
-    pub alpha: TexProg,
-    pub solid: TexProg,
+#[derive(Copy, Clone, PartialEq, Enum)]
+pub(in crate::gfx_apis::gl) enum TexCopyType {
+    Identity,
+    Multiply,
+}
+
+#[derive(Copy, Clone, PartialEq, Enum)]
+pub(in crate::gfx_apis::gl) enum TexSourceType {
+    Opaque,
+    HasAlpha,
 }
 
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
@@ -61,8 +75,8 @@ pub(in crate::gfx_apis::gl) struct GlRenderContext {
 
     pub(crate) render_node: Rc<CString>,
 
-    pub(crate) tex_internal: TexProgs,
-    pub(crate) tex_external: Option<TexProgs>,
+    pub(crate) tex_internal: EnumMap<TexCopyType, EnumMap<TexSourceType, TexProg>>,
+    pub(crate) tex_external: Option<EnumMap<TexCopyType, EnumMap<TexSourceType, TexProg>>>,
 
     pub(crate) fill_prog: GlProgram,
     pub(crate) fill_prog_pos: GLint,
@@ -100,28 +114,37 @@ impl GlRenderContext {
 
     unsafe fn new(ctx: &Rc<EglContext>, node: &Rc<CString>) -> Result<Self, RenderError> {
         let tex_vert = include_str!("../shaders/tex.vert.glsl");
-        let tex_prog =
-            GlProgram::from_shaders(ctx, tex_vert, include_str!("../shaders/tex.frag.glsl"))?;
-        let tex_alpha_prog = GlProgram::from_shaders(
-            ctx,
-            tex_vert,
-            include_str!("../shaders/tex-alpha.frag.glsl"),
-        )?;
-        let tex_external = if ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL) {
-            let solid = GlProgram::from_shaders(
-                ctx,
-                tex_vert,
-                include_str!("../shaders/tex-external.frag.glsl"),
-            )?;
-            let alpha = GlProgram::from_shaders(
-                ctx,
-                tex_vert,
-                include_str!("../shaders/tex-external-alpha.frag.glsl"),
-            )?;
-            Some(TexProgs {
-                alpha: TexProg::from(alpha),
-                solid: TexProg::from(solid),
+        let tex_frag = include_str!("../shaders/tex.frag.glsl");
+        let create_programs = |external: bool| {
+            let create_program = |alpha_multiplier: bool, alpha: bool| {
+                let mut tex_frac_src = String::new();
+                if external {
+                    tex_frac_src.push_str("#define EXTERNAL\n");
+                }
+                if alpha_multiplier {
+                    tex_frac_src.push_str("#define ALPHA_MULTIPLIER\n");
+                }
+                if alpha {
+                    tex_frac_src.push_str("#define ALPHA\n");
+                }
+                tex_frac_src.push_str(tex_frag);
+                let prog = GlProgram::from_shaders(ctx, tex_vert, &tex_frac_src)?;
+                Ok::<_, RenderError>(TexProg::from(prog, alpha_multiplier))
+            };
+            Ok::<_, RenderError>(enum_map! {
+                TexCopyType::Identity => enum_map! {
+                    TexSourceType::Opaque => create_program(false, false)?,
+                    TexSourceType::HasAlpha => create_program(false, true)?,
+                },
+                TexCopyType::Multiply => enum_map! {
+                    TexSourceType::Opaque => create_program(true, false)?,
+                    TexSourceType::HasAlpha => create_program(true, true)?,
+                },
             })
+        };
+        let tex_internal = create_programs(false)?;
+        let tex_external = if ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL) {
+            Some(create_programs(true)?)
         } else {
             None
         };
@@ -137,10 +160,7 @@ impl GlRenderContext {
 
             render_node: node.clone(),
 
-            tex_internal: TexProgs {
-                solid: TexProg::from(tex_prog),
-                alpha: TexProg::from(tex_alpha_prog),
-            },
+            tex_internal,
             tex_external,
 
             fill_prog_pos: fill_prog.get_attrib_location(ustr!("pos")),

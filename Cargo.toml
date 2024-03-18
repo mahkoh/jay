@@ -55,6 +55,7 @@ ash = "0.37.3"
 gpu-alloc = "0.6.0"
 gpu-alloc-ash = "0.6.0"
 serde = { version = "1.0.196", features = ["derive"] }
+enum-map = "2.7.3"
 
 [build-dependencies]
 repc = "0.1.1"

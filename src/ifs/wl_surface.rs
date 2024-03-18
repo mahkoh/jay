@@ -2,6 +2,7 @@ pub mod commit_timeline;
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
+pub mod wp_alpha_modifier_surface_v1;
 pub mod wp_fractional_scale_v1;
 pub mod wp_linux_drm_syncobj_surface_v1;
 pub mod wp_tearing_control_v1;
@@ -30,6 +31,7 @@ use {
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
                 cursor::CursorSurface,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
+                wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
@@ -245,6 +247,8 @@ pub struct WlSurface {
     sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
     destroyed: Cell<bool>,
     commit_timeline: CommitTimeline,
+    alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
+    alpha: Cell<Option<f32>>,
 }
 
 impl Debug for WlSurface {
@@ -366,6 +370,7 @@ struct PendingState {
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
 }
 
@@ -416,6 +421,7 @@ impl PendingState {
         opt!(xwayland_serial);
         opt!(tearing);
         opt!(content_type);
+        opt!(alpha_multiplier);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -525,6 +531,8 @@ impl WlSurface {
             sync_obj_surface: Default::default(),
             destroyed: Cell::new(false),
             commit_timeline: client.commit_timelines.create_timeline(),
+            alpha_modifier: Default::default(),
+            alpha: Default::default(),
         }
     }
 
@@ -915,6 +923,11 @@ impl WlSurface {
                 }
             }
         }
+        let mut alpha_changed = false;
+        if let Some(alpha) = pending.alpha_multiplier.take() {
+            alpha_changed = true;
+            self.alpha.set(alpha);
+        }
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (dx, dy) = mem::take(&mut pending.offset);
@@ -1076,7 +1089,7 @@ impl WlSurface {
         if self.need_extents_update.get() {
             self.calculate_extents();
         }
-        if buffer_changed || transform_changed {
+        if buffer_changed || transform_changed || alpha_changed {
             for (_, cursor) in &self.cursors {
                 cursor.handle_buffer_change();
                 cursor.update_hardware_cursor();
@@ -1278,6 +1291,10 @@ impl WlSurface {
         }
         self.set_visible(self.dnd_icons.is_not_empty() && self.client.state.root_visible());
     }
+
+    pub fn alpha(&self) -> Option<f32> {
+        self.alpha.get()
+    }
 }
 
 object_base! {
@@ -1304,6 +1321,7 @@ impl Object for WlSurface {
         self.constraints.clear();
         self.drm_feedback.clear();
         self.commit_timeline.clear(ClearReason::BreakLoops);
+        self.alpha_modifier.take();
     }
 }
 

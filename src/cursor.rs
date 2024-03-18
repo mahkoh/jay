@@ -377,6 +377,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
     if extents.intersects(&renderer.pixel_extents()) {
         renderer.base.render_texture(
             &img.tex,
+            None,
             extents.x1(),
             extents.y1(),
             None,
@@ -399,6 +400,7 @@ impl Cursor for StaticCursor {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
             renderer.base.render_texture(
                 &img.tex,
+                None,
                 0,
                 0,
                 None,
@@ -438,6 +440,7 @@ impl Cursor for AnimatedCursor {
         if let Some(img) = img.scales.get(&renderer.scale()) {
             renderer.base.render_texture(
                 &img.tex,
+                None,
                 0,
                 0,
                 None,
