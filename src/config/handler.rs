@@ -790,6 +790,7 @@ impl ConfigProxyHandler {
             source_is_destroyed: false,
         };
         move_ws_to_output(&link, &output.node, config);
+        ws.desired_output.set(output.node.global.output_id.clone());
         self.state.tree_changed();
         self.state.damage();
         Ok(())
