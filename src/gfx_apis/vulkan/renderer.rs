@@ -56,7 +56,8 @@ pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) fill_pipeline: Rc<VulkanPipeline>,
-    pub(super) tex_pipeline: Rc<VulkanPipeline>,
+    pub(super) tex_opaque_pipeline: Rc<VulkanPipeline>,
+    pub(super) tex_alpha_pipeline: Rc<VulkanPipeline>,
     pub(super) command_pool: Rc<VulkanCommandPool>,
     pub(super) command_buffers: Stack<Rc<VulkanCommandBuffer>>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -104,13 +105,18 @@ impl VulkanDevice {
         )?;
         let sampler = self.create_sampler()?;
         let tex_descriptor_set_layout = self.create_descriptor_set_layout(&sampler)?;
-        let tex_pipeline =
+        let tex_vert_shader = self.create_shader(TEX_VERT)?;
+        let tex_frag_shader = self.create_shader(TEX_FRAG)?;
+        let create_tex_pipeline = |alpha| {
             self.create_pipeline::<TexVertPushConstants, ()>(PipelineCreateInfo {
-                vert: self.create_shader(TEX_VERT)?,
-                frag: self.create_shader(TEX_FRAG)?,
-                alpha: true,
+                vert: tex_vert_shader.clone(),
+                frag: tex_frag_shader.clone(),
+                alpha,
                 frag_descriptor_set_layout: Some(tex_descriptor_set_layout.clone()),
-            })?;
+            })
+        };
+        let tex_opaque_pipeline = create_tex_pipeline(false)?;
+        let tex_alpha_pipeline = create_tex_pipeline(true)?;
         let command_pool = self.create_command_pool()?;
         let formats: AHashMap<u32, _> = self
             .formats
@@ -141,7 +147,8 @@ impl VulkanDevice {
             formats: Rc::new(formats),
             device: self.clone(),
             fill_pipeline,
-            tex_pipeline,
+            tex_opaque_pipeline,
+            tex_alpha_pipeline,
             command_pool,
             command_buffers: Default::default(),
             wait_semaphores: Default::default(),
@@ -425,7 +432,11 @@ impl VulkanRenderer {
                 }
                 GfxApiOpt::CopyTexture(c) => {
                     let tex = c.tex.as_vk(&self.device.device);
-                    bind(&self.tex_pipeline);
+                    let pipeline = match tex.format.has_alpha {
+                        true => &self.tex_alpha_pipeline,
+                        false => &self.tex_opaque_pipeline,
+                    };
+                    bind(pipeline);
                     let vert = TexVertPushConstants {
                         pos: c.target.to_points(),
                         tex_pos: c.source.to_points(),
@@ -441,13 +452,13 @@ impl VulkanRenderer {
                         self.device.push_descriptor.cmd_push_descriptor_set(
                             buf,
                             PipelineBindPoint::GRAPHICS,
-                            self.tex_pipeline.pipeline_layout,
+                            pipeline.pipeline_layout,
                             0,
                             slice::from_ref(&write_descriptor_set),
                         );
                         dev.cmd_push_constants(
                             buf,
-                            self.tex_pipeline.pipeline_layout,
+                            pipeline.pipeline_layout,
                             ShaderStageFlags::VERTEX,
                             0,
                             uapi::as_bytes(&vert),
