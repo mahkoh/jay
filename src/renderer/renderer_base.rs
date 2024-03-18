@@ -124,6 +124,7 @@ impl RendererBase<'_> {
     pub fn render_texture(
         &mut self,
         texture: &Rc<dyn GfxTexture>,
+        alpha: Option<f32>,
         x: i32,
         y: i32,
         tpoints: Option<SampleRect>,
@@ -166,6 +167,7 @@ impl RendererBase<'_> {
                 self.fb_width,
                 self.fb_height,
             ),
+            alpha,
         }));
     }
 }

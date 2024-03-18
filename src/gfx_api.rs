@@ -141,6 +141,7 @@ pub struct CopyTexture {
     pub tex: Rc<dyn GfxTexture>,
     pub source: SampleRect,
     pub target: FramebufferRect,
+    pub alpha: Option<f32>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -210,7 +211,7 @@ impl dyn GfxFramebuffer {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
-        renderer.render_texture(texture, x, y, None, None, scale, None);
+        renderer.render_texture(texture, None, x, y, None, None, scale, None);
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear);
     }

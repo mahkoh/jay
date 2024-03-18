@@ -22,6 +22,7 @@ use {
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
             wl_surface::xwayland_shell_v1::XwaylandShellV1Global,
+            wp_alpha_modifier_v1::WpAlphaModifierV1Global,
             wp_content_type_manager_v1::WpContentTypeManagerV1Global,
             wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
@@ -171,6 +172,7 @@ impl Globals {
         add_singleton!(ZwpIdleInhibitManagerV1Global);
         add_singleton!(ExtIdleNotifierV1Global);
         add_singleton!(XdgToplevelDragManagerV1Global);
+        add_singleton!(WpAlphaModifierV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

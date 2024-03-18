@@ -1,6 +1,7 @@
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
+pub mod wp_alpha_modifier_surface_v1;
 pub mod wp_fractional_scale_v1;
 pub mod wp_tearing_control_v1;
 pub mod wp_viewport;
@@ -26,6 +27,7 @@ use {
             },
             wl_surface::{
                 cursor::CursorSurface, wl_subsurface::WlSubsurface,
+                wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_tearing_control_v1::WpTearingControlV1, wp_viewport::WpViewport,
                 x_surface::XSurface, xdg_surface::XdgSurfaceError,
@@ -169,6 +171,8 @@ pub struct WlSurface {
     pub has_content_type_manager: Cell<bool>,
     content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
+    alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
+    alpha: Cell<Option<f32>>,
 }
 
 impl Debug for WlSurface {
@@ -272,6 +276,7 @@ struct PendingState {
     xwayland_serial: Cell<Option<u64>>,
     tearing: Cell<Option<bool>>,
     content_type: Cell<Option<Option<ContentType>>>,
+    alpha_multiplier: Cell<Option<Option<f32>>>,
 }
 
 #[derive(Default)]
@@ -330,6 +335,8 @@ impl WlSurface {
             has_content_type_manager: Default::default(),
             content_type: Default::default(),
             drm_feedback: Default::default(),
+            alpha_modifier: Default::default(),
+            alpha: Default::default(),
         }
     }
 
@@ -685,6 +692,11 @@ impl WlSurface {
                 }
             }
         }
+        let mut alpha_changed = false;
+        if let Some(alpha) = self.pending.alpha_multiplier.take() {
+            alpha_changed = true;
+            self.alpha.set(alpha);
+        }
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (dx, dy) = self.pending.offset.take();
@@ -847,7 +859,7 @@ impl WlSurface {
         if self.need_extents_update.get() {
             self.calculate_extents();
         }
-        if buffer_changed || transform_changed {
+        if buffer_changed || transform_changed || alpha_changed {
             for (_, cursor) in &self.cursors {
                 cursor.handle_buffer_change();
                 cursor.update_hardware_cursor();
@@ -1035,6 +1047,10 @@ impl WlSurface {
             consumer.send_feedback(fb);
         }
     }
+
+    pub fn alpha(&self) -> Option<f32> {
+        self.alpha.get()
+    }
 }
 
 object_base! {
@@ -1071,6 +1087,7 @@ impl Object for WlSurface {
         self.tearing_control.take();
         self.constraints.clear();
         self.drm_feedback.clear();
+        self.alpha_modifier.take();
     }
 }
 
