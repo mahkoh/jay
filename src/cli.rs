@@ -226,7 +226,7 @@ pub fn main() {
         Cmd::Unlock => unlock::main(cli.global),
         Cmd::RunPrivileged(a) => run_privileged::main(cli.global, a),
         Cmd::SeatTest(a) => seat_test::main(cli.global, a),
-        Cmd::Portal => portal::run(cli.global),
+        Cmd::Portal => portal::run_freestanding(cli.global),
         Cmd::Randr(a) => randr::main(cli.global, a),
         Cmd::Input(a) => input::main(cli.global, a),
         #[cfg(feature = "it")]

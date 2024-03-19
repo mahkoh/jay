@@ -88,11 +88,10 @@ impl JayCompositor {
         let log_file = Rc::new(JayLogFile::new(req.id, &self.client));
         track!(self.client, log_file);
         self.client.add_client_obj(&log_file)?;
-        let path = match &self.client.state.logger {
-            Some(logger) => logger.path(),
-            _ => "".as_bytes().as_bstr(),
+        match &self.client.state.logger {
+            Some(logger) => log_file.send_path(logger.path().as_bstr()),
+            _ => log_file.send_path(b"".as_bstr()),
         };
-        log_file.send_path(path);
         Ok(())
     }
 

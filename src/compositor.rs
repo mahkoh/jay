@@ -23,6 +23,7 @@ use {
         io_uring::{IoUring, IoUringError},
         leaks,
         logger::Logger,
+        portal::{self, PortalStartup},
         scale::Scale,
         sighand::{self, SighandError},
         state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
@@ -52,8 +53,16 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     let forker = create_forker();
+    let portal = portal::run_from_compositor(global.log_level.into());
     let logger = Logger::install_compositor(global.log_level.into());
-    let res = start_compositor2(Some(forker), Some(logger.clone()), args, None);
+    let portal = match portal {
+        Ok(p) => Some(p),
+        Err(e) => {
+            log::error!("Could not spawn portal: {}", ErrorFmt(e));
+            None
+        }
+    };
+    let res = start_compositor2(Some(forker), portal, Some(logger.clone()), args, None);
     leaks::log_leaked();
     if let Err(e) = res {
         let e = ErrorFmt(e);
@@ -67,7 +76,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, RunArgs::default(), Some(future));
+    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future));
     leaks::log_leaked();
     res
 }
@@ -106,6 +115,7 @@ pub type TestFuture = Box<dyn Fn(&Rc<State>) -> Box<dyn Future<Output = ()>>>;
 
 fn start_compositor2(
     forker: Option<Rc<ForkerProxy>>,
+    portal: Option<PortalStartup>,
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
     test_future: Option<TestFuture>,
@@ -161,7 +171,7 @@ fn start_compositor2(
         pending_float_titles: Default::default(),
         dbus: Dbus::new(&engine, &ring, &run_toplevel),
         fdcloser: FdCloser::new(),
-        logger,
+        logger: logger.clone(),
         connectors: Default::default(),
         outputs: Default::default(),
         drm_devs: Default::default(),
@@ -224,6 +234,10 @@ fn start_compositor2(
         for (key, val) in STATIC_VARS {
             forker.setenv(key.as_bytes(), val.as_bytes());
         }
+    }
+    let mut _portal = None;
+    if let (Some(portal), Some(logger)) = (portal, &logger) {
+        _portal = Some(engine.spawn(portal.spawn(engine.clone(), ring.clone(), logger.clone())));
     }
     let _compositor = engine.spawn(start_compositor3(state.clone(), test_future));
     ring.run()?;
