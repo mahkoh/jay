@@ -23,10 +23,15 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             numcell::NumCell,
+            option_ext::OptionExt,
         },
         wire::{xdg_surface::*, WlSurfaceId, XdgPopupId, XdgSurfaceId},
     },
-    std::{cell::Cell, fmt::Debug, rc::Rc},
+    std::{
+        cell::{Cell, RefMut},
+        fmt::Debug,
+        rc::Rc,
+    },
     thiserror::Error,
 };
 
@@ -65,14 +70,13 @@ pub struct XdgSurface {
     pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
-    pending: PendingXdgSurfaceData,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
 }
 
 #[derive(Default, Debug)]
-struct PendingXdgSurfaceData {
-    geometry: Cell<Option<Rect>>,
+pub struct PendingXdgSurfaceData {
+    geometry: Option<Rect>,
 }
 
 pub trait XdgSurfaceExt: Debug {
@@ -103,7 +107,6 @@ impl XdgSurface {
             absolute_desired_extents: Cell::new(Default::default()),
             ext: Default::default(),
             popups: Default::default(),
-            pending: Default::default(),
             workspace: Default::default(),
             tracker: Default::default(),
         }
@@ -270,6 +273,12 @@ impl XdgSurface {
         Ok(())
     }
 
+    fn pending(&self) -> RefMut<Box<PendingXdgSurfaceData>> {
+        RefMut::map(self.surface.pending.borrow_mut(), |p| {
+            p.xdg_surface.get_or_insert_default_ext()
+        })
+    }
+
     fn set_window_geometry(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
         let req: SetWindowGeometry = self.surface.client.parse(self, parser)?;
         if req.height == 0 && req.width == 0 {
@@ -280,7 +289,7 @@ impl XdgSurface {
             return Err(XdgSurfaceError::NonPositiveWidthHeight);
         }
         let extents = Rect::new_sized(req.x, req.y, req.width, req.height).unwrap();
-        self.pending.geometry.set(Some(extents));
+        self.pending().geometry = Some(extents);
         Ok(())
     }
 
@@ -359,7 +368,7 @@ dedicated_add_obj!(XdgSurface, XdgSurfaceId, xdg_surfaces);
 impl SurfaceExt for XdgSurface {
     fn before_apply_commit(
         self: Rc<Self>,
-        _pending: &mut PendingState,
+        pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
         {
             let ase = self.acked_serial.get();
@@ -373,9 +382,11 @@ impl SurfaceExt for XdgSurface {
                 }
             }
         }
-        if let Some(geometry) = self.pending.geometry.take() {
-            self.geometry.set(Some(geometry));
-            self.update_extents();
+        if let Some(pending) = &mut pending.xdg_surface {
+            if let Some(geometry) = pending.geometry.take() {
+                self.geometry.set(Some(geometry));
+                self.update_extents();
+            }
         }
         Ok(())
     }

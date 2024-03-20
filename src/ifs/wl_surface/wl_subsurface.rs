@@ -12,11 +12,12 @@ use {
             buffd::{MsgParser, MsgParserError},
             linkedlist::LinkedNode,
             numcell::NumCell,
+            option_ext::OptionExt,
         },
         wire::{wl_subsurface::*, WlSubsurfaceId},
     },
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, RefCell, RefMut},
         ops::Deref,
         rc::Rc,
     },
@@ -37,14 +38,13 @@ pub struct WlSubsurface {
     sync_ancestor: Cell<bool>,
     node: RefCell<Option<LinkedNode<StackElement>>>,
     depth: NumCell<u32>,
-    pending: PendingSubsurfaceData,
     pub tracker: Tracker<Self>,
 }
 
 #[derive(Default)]
-struct PendingSubsurfaceData {
-    node: RefCell<Option<LinkedNode<StackElement>>>,
-    position: Cell<Option<(i32, i32)>>,
+pub struct PendingSubsurfaceData {
+    node: Option<LinkedNode<StackElement>>,
+    position: Option<(i32, i32)>,
 }
 
 fn update_children_sync(surface: &WlSubsurface, sync: bool) {
@@ -92,9 +92,14 @@ impl WlSubsurface {
             sync_ancestor: Cell::new(false),
             node: RefCell::new(None),
             depth: NumCell::new(0),
-            pending: Default::default(),
             tracker: Default::default(),
         }
+    }
+
+    fn pending(&self) -> RefMut<Box<PendingSubsurfaceData>> {
+        RefMut::map(self.surface.pending.borrow_mut(), |m| {
+            m.subsurface.get_or_insert_default_ext()
+        })
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), WlSubsurfaceError> {
@@ -128,7 +133,7 @@ impl WlSubsurface {
                 sub_surface: self.clone(),
             })
         };
-        *self.pending.node.borrow_mut() = Some(node);
+        self.pending().node = Some(node);
         self.surface.set_toplevel(self.parent.toplevel.get());
         self.sync_ancestor.set(sync_ancestor);
         self.depth.set(depth);
@@ -140,7 +145,7 @@ impl WlSubsurface {
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
         self.surface.unset_ext();
-        *self.pending.node.borrow_mut() = None;
+        self.surface.pending.borrow_mut().subsurface.take();
         *self.node.borrow_mut() = None;
         {
             let mut children = self.parent.children.borrow_mut();
@@ -164,7 +169,7 @@ impl WlSubsurface {
 
     fn set_position(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
         let req: SetPosition = self.surface.client.parse(self, parser)?;
-        self.pending.position.set(Some((req.x, req.y)));
+        self.pending().position = Some((req.x, req.y));
         Ok(())
     }
 
@@ -188,7 +193,7 @@ impl WlSubsurface {
                     Some(s) => s,
                     _ => return Err(WlSubsurfaceError::NotASibling(sibling, self.surface.id)),
                 };
-                let node = match sibling.pending.node.borrow().deref() {
+                let node = match &sibling.pending().node {
                     Some(n) => n.to_ref(),
                     _ => match sibling.node.borrow().deref() {
                         Some(n) => n.to_ref(),
@@ -200,7 +205,7 @@ impl WlSubsurface {
                     _ => node.prepend(element),
                 }
             };
-            self.pending.node.borrow_mut().replace(node);
+            self.pending().node.replace(node);
         }
         Ok(())
     }
@@ -256,7 +261,6 @@ object_base! {
 
 impl Object for WlSubsurface {
     fn break_loops(&self) {
-        *self.pending.node.borrow_mut() = None;
         *self.node.borrow_mut() = None;
     }
 }
@@ -272,15 +276,17 @@ impl SurfaceExt for WlSubsurface {
         CommitAction::ContinueCommit
     }
 
-    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
-        if let Some(v) = self.pending.node.take() {
-            v.pending.set(false);
-            self.node.borrow_mut().replace(v);
-        }
-        if let Some((x, y)) = self.pending.position.take() {
-            self.position
-                .set(self.surface.buffer_abs_pos.get().at_point(x, y));
-            self.parent.need_extents_update.set(true);
+    fn after_apply_commit(self: Rc<Self>, pending: &mut PendingState) {
+        if let Some(pending) = &mut pending.subsurface {
+            if let Some(v) = pending.node.take() {
+                v.pending.set(false);
+                self.node.borrow_mut().replace(v);
+            }
+            if let Some((x, y)) = pending.position.take() {
+                self.position
+                    .set(self.surface.buffer_abs_pos.get().at_point(x, y));
+                self.parent.need_extents_update.set(true);
+            }
         }
     }
 

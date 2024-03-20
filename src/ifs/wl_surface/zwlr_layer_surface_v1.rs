@@ -17,10 +17,16 @@ use {
             cell_ext::CellExt,
             linkedlist::LinkedNode,
             numcell::NumCell,
+            option_ext::OptionExt,
         },
         wire::{zwlr_layer_surface_v1::*, WlSurfaceId, ZwlrLayerSurfaceV1Id},
     },
-    std::{cell::Cell, ops::Deref, rc::Rc},
+    std::{
+        cell::{Cell, RefMut},
+        mem,
+        ops::Deref,
+        rc::Rc,
+    },
     thiserror::Error,
 };
 
@@ -48,7 +54,6 @@ pub struct ZwlrLayerSurfaceV1 {
     pos: Cell<Rect>,
     mapped: Cell<bool>,
     layer: Cell<u32>,
-    pending: Pending,
     requested_serial: NumCell<u32>,
     acked_serial: Cell<Option<u32>>,
     size: Cell<(i32, i32)>,
@@ -61,14 +66,14 @@ pub struct ZwlrLayerSurfaceV1 {
 }
 
 #[derive(Default)]
-struct Pending {
-    size: Cell<Option<(i32, i32)>>,
-    anchor: Cell<Option<u32>>,
-    exclusive_zone: Cell<Option<i32>>,
-    margin: Cell<Option<(i32, i32, i32, i32)>>,
-    keyboard_interactivity: Cell<Option<u32>>,
-    layer: Cell<Option<u32>>,
-    any: Cell<bool>,
+pub struct PendingLayerSurfaceData {
+    size: Option<(i32, i32)>,
+    anchor: Option<u32>,
+    exclusive_zone: Option<i32>,
+    margin: Option<(i32, i32, i32, i32)>,
+    keyboard_interactivity: Option<u32>,
+    layer: Option<u32>,
+    any: bool,
 }
 
 impl ZwlrLayerSurfaceV1 {
@@ -93,7 +98,6 @@ impl ZwlrLayerSurfaceV1 {
             pos: Default::default(),
             mapped: Cell::new(false),
             layer: Cell::new(layer),
-            pending: Default::default(),
             requested_serial: Default::default(),
             acked_serial: Cell::new(None),
             size: Cell::new((0, 0)),
@@ -129,15 +133,20 @@ impl ZwlrLayerSurfaceV1 {
         self.client.event(Closed { self_id: self.id });
     }
 
+    fn pending(&self) -> RefMut<Box<PendingLayerSurfaceData>> {
+        RefMut::map(self.surface.pending.borrow_mut(), |m| {
+            m.layer_surface.get_or_insert_default_ext()
+        })
+    }
+
     fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetSize = self.client.parse(self, parser)?;
         if req.width > u16::MAX as u32 || req.height > u16::MAX as u32 {
             return Err(ZwlrLayerSurfaceV1Error::ExcessiveSize);
         }
-        self.pending
-            .size
-            .set(Some((req.width as _, req.height as _)));
-        self.pending.any.set(true);
+        let mut pending = self.pending();
+        pending.size = Some((req.width as _, req.height as _));
+        pending.any = true;
         Ok(())
     }
 
@@ -146,24 +155,25 @@ impl ZwlrLayerSurfaceV1 {
         if req.anchor & !(LEFT | RIGHT | TOP | BOTTOM) != 0 {
             return Err(ZwlrLayerSurfaceV1Error::UnknownAnchor(req.anchor));
         }
-        self.pending.anchor.set(Some(req.anchor));
-        self.pending.any.set(true);
+        let mut pending = self.pending();
+        pending.anchor = Some(req.anchor);
+        pending.any = true;
         Ok(())
     }
 
     fn set_exclusive_zone(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetExclusiveZone = self.client.parse(self, parser)?;
-        self.pending.exclusive_zone.set(Some(req.zone));
-        self.pending.any.set(true);
+        let mut pending = self.pending();
+        pending.exclusive_zone = Some(req.zone);
+        pending.any = true;
         Ok(())
     }
 
     fn set_margin(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let req: SetMargin = self.client.parse(self, parser)?;
-        self.pending
-            .margin
-            .set(Some((req.top, req.right, req.bottom, req.left)));
-        self.pending.any.set(true);
+        let mut pending = self.pending();
+        pending.margin = Some((req.top, req.right, req.bottom, req.left));
+        pending.any = true;
         Ok(())
     }
 
@@ -177,10 +187,9 @@ impl ZwlrLayerSurfaceV1 {
                 req.keyboard_interactivity,
             ));
         }
-        self.pending
-            .keyboard_interactivity
-            .set(Some(req.keyboard_interactivity));
-        self.pending.any.set(true);
+        let mut pending = self.pending();
+        pending.keyboard_interactivity = Some(req.keyboard_interactivity);
+        pending.any = true;
         Ok(())
     }
 
@@ -208,29 +217,31 @@ impl ZwlrLayerSurfaceV1 {
         if req.layer > OVERLAY {
             return Err(ZwlrLayerSurfaceV1Error::UnknownLayer(req.layer));
         }
-        self.pending.layer.set(Some(req.layer));
-        self.pending.any.set(true);
+        let mut pending = self.pending();
+        pending.layer = Some(req.layer);
+        pending.any = true;
         Ok(())
     }
 
-    fn pre_commit(&self) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let mut send_configure = self.pending.any.replace(false);
-        if let Some(size) = self.pending.size.take() {
+    fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
+        let pending = pending.layer_surface.get_or_insert_default_ext();
+        let mut send_configure = mem::replace(&mut pending.any, false);
+        if let Some(size) = pending.size.take() {
             self.size.set(size);
         }
-        if let Some(anchor) = self.pending.anchor.take() {
+        if let Some(anchor) = pending.anchor.take() {
             self.anchor.set(anchor);
         }
-        if let Some(ez) = self.pending.exclusive_zone.take() {
+        if let Some(ez) = pending.exclusive_zone.take() {
             self.exclusive_zone.set(ez);
         }
-        if let Some(margin) = self.pending.margin.take() {
+        if let Some(margin) = pending.margin.take() {
             self.margin.set(margin);
         }
-        if let Some(ki) = self.pending.keyboard_interactivity.take() {
+        if let Some(ki) = pending.keyboard_interactivity.take() {
             self.keyboard_interactivity.set(ki);
         }
-        if let Some(layer) = self.pending.layer.take() {
+        if let Some(layer) = pending.layer.take() {
             self.layer.set(layer);
         }
         {
@@ -313,9 +324,9 @@ impl ZwlrLayerSurfaceV1 {
 impl SurfaceExt for ZwlrLayerSurfaceV1 {
     fn before_apply_commit(
         self: Rc<Self>,
-        _pending: &mut PendingState,
+        pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
-        self.deref().pre_commit()?;
+        self.deref().pre_commit(pending)?;
         Ok(())
     }
 

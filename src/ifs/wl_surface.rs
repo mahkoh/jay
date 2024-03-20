@@ -25,11 +25,14 @@ use {
                 NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
-                cursor::CursorSurface, wl_subsurface::WlSubsurface,
+                cursor::CursorSurface,
+                wl_subsurface::{PendingSubsurfaceData, WlSubsurface},
                 wp_fractional_scale_v1::WpFractionalScaleV1,
-                wp_tearing_control_v1::WpTearingControlV1, wp_viewport::WpViewport,
-                x_surface::XSurface, xdg_surface::XdgSurfaceError,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
+                wp_tearing_control_v1::WpTearingControlV1,
+                wp_viewport::WpViewport,
+                x_surface::XSurface,
+                xdg_surface::{PendingXdgSurfaceData, XdgSurfaceError},
+                zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
             wp_presentation_feedback::WpPresentationFeedback,
@@ -281,6 +284,9 @@ struct PendingState {
     xwayland_serial: Option<u64>,
     tearing: Option<bool>,
     content_type: Option<Option<ContentType>>,
+    subsurface: Option<Box<PendingSubsurfaceData>>,
+    xdg_surface: Option<Box<PendingXdgSurfaceData>>,
+    layer_surface: Option<Box<PendingLayerSurfaceData>>,
 }
 
 #[derive(Default)]
