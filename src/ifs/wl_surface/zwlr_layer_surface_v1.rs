@@ -76,6 +76,25 @@ pub struct PendingLayerSurfaceData {
     any: bool,
 }
 
+impl PendingLayerSurfaceData {
+    pub fn merge(&mut self, next: &mut Self) {
+        macro_rules! opt {
+            ($name:ident) => {
+                if let Some(n) = next.$name.take() {
+                    self.$name = Some(n);
+                }
+            };
+        }
+        opt!(size);
+        opt!(anchor);
+        opt!(exclusive_zone);
+        opt!(margin);
+        opt!(keyboard_interactivity);
+        opt!(layer);
+        self.any |= mem::take(&mut next.any);
+    }
+}
+
 impl ZwlrLayerSurfaceV1 {
     pub fn new(
         id: ZwlrLayerSurfaceV1Id,

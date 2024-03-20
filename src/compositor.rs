@@ -221,6 +221,7 @@ fn start_compositor2(
         double_click_interval_usec: Cell::new(400 * 1000),
         double_click_distance: Cell::new(5),
         create_default_seat: Cell::new(true),
+        subsurface_ids: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

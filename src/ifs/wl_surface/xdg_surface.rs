@@ -79,6 +79,19 @@ pub struct PendingXdgSurfaceData {
     geometry: Option<Rect>,
 }
 
+impl PendingXdgSurfaceData {
+    pub fn merge(&mut self, next: &mut Self) {
+        macro_rules! opt {
+            ($name:ident) => {
+                if let Some(n) = next.$name.take() {
+                    self.$name = Some(n);
+                }
+            };
+        }
+        opt!(geometry);
+    }
+}
+
 pub trait XdgSurfaceExt: Debug {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         Ok(())

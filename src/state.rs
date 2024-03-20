@@ -30,6 +30,7 @@ use {
             wl_output::{OutputId, PersistentOutputState},
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
+                wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 NoneSurfaceExt, WlSurface,
             },
@@ -157,6 +158,7 @@ pub struct State {
     pub double_click_interval_usec: Cell<u64>,
     pub double_click_distance: Cell<i32>,
     pub create_default_seat: Cell<bool>,
+    pub subsurface_ids: SubsurfaceIds,
 }
 
 // impl Drop for State {

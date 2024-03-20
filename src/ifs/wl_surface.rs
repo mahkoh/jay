@@ -26,7 +26,7 @@ use {
             },
             wl_surface::{
                 cursor::CursorSurface,
-                wl_subsurface::{PendingSubsurfaceData, WlSubsurface},
+                wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_tearing_control_v1::WpTearingControlV1,
                 wp_viewport::WpViewport,
@@ -67,6 +67,7 @@ use {
     jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
+        collections::hash_map::{Entry, OccupiedEntry},
         fmt::{Debug, Formatter},
         mem,
         ops::{Deref, DerefMut},
@@ -189,20 +190,13 @@ struct BufferPoints {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum CommitContext {
-    RootCommit,
-    ChildCommit,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum CommitAction {
     ContinueCommit,
     AbortCommit,
 }
 
 trait SurfaceExt {
-    fn prepare_commit(&self, ctx: CommitContext, pending: &mut PendingState) -> CommitAction {
-        let _ = ctx;
+    fn commit_requested(self: Rc<Self>, pending: &mut PendingState) -> CommitAction {
         let _ = pending;
         CommitAction::ContinueCommit
     }
@@ -258,6 +252,17 @@ trait SurfaceExt {
     fn into_xsurface(self: Rc<Self>) -> Option<Rc<XSurface>> {
         None
     }
+
+    fn consume_pending_child(
+        &self,
+        surface: &WlSurface,
+        child: SubsurfaceId,
+        consume: &mut dyn FnMut(
+            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+        ) -> Result<(), WlSurfaceError>,
+    ) -> Result<(), WlSurfaceError> {
+        surface.pending.borrow_mut().consume_child(child, consume)
+    }
 }
 
 pub struct NoneSurfaceExt;
@@ -287,6 +292,98 @@ struct PendingState {
     subsurface: Option<Box<PendingSubsurfaceData>>,
     xdg_surface: Option<Box<PendingXdgSurfaceData>>,
     layer_surface: Option<Box<PendingLayerSurfaceData>>,
+    subsurfaces: AHashMap<SubsurfaceId, CommittedSubsurface>,
+}
+
+struct CommittedSubsurface {
+    subsurface: Rc<WlSubsurface>,
+    state: PendingState,
+}
+
+impl PendingState {
+    fn merge(&mut self, next: &mut Self, client: &Rc<Client>) {
+        // discard state
+
+        if next.buffer.is_some() {
+            if let Some(Some(prev)) = self.buffer.take() {
+                if !prev.destroyed() {
+                    prev.send_release();
+                }
+            }
+        }
+        for fb in self.presentation_feedback.drain(..) {
+            fb.send_discarded();
+            let _ = client.remove_obj(&*fb);
+        }
+
+        // overwrite state
+
+        macro_rules! opt {
+            ($name:ident) => {
+                if let Some(n) = next.$name.take() {
+                    self.$name = Some(n);
+                }
+            };
+        }
+        opt!(buffer);
+        opt!(opaque_region);
+        opt!(input_region);
+        opt!(src_rect);
+        opt!(dst_size);
+        opt!(scale);
+        opt!(transform);
+        opt!(xwayland_serial);
+        opt!(tearing);
+        opt!(content_type);
+        {
+            let (dx1, dy1) = self.offset;
+            let (dx2, dy2) = mem::take(&mut next.offset);
+            self.offset = (dx1 + dx2, dy1 + dy2);
+        }
+        self.frame_request.append(&mut next.frame_request);
+        self.damage |= mem::take(&mut next.damage);
+        mem::swap(
+            &mut self.presentation_feedback,
+            &mut next.presentation_feedback,
+        );
+        macro_rules! merge_ext {
+            ($name:ident) => {
+                if let Some(e) = &mut self.$name {
+                    if let Some(n) = &mut next.$name {
+                        e.merge(n);
+                    }
+                } else {
+                    self.$name = next.$name.take();
+                }
+            };
+        }
+        merge_ext!(subsurface);
+        merge_ext!(xdg_surface);
+        merge_ext!(layer_surface);
+        for (id, mut state) in next.subsurfaces.drain() {
+            match self.subsurfaces.entry(id) {
+                Entry::Occupied(mut o) => {
+                    o.get_mut().state.merge(&mut state.state, client);
+                }
+                Entry::Vacant(v) => {
+                    v.insert(state);
+                }
+            }
+        }
+    }
+
+    fn consume_child(
+        &mut self,
+        child: SubsurfaceId,
+        consume: impl FnOnce(
+            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+        ) -> Result<(), WlSurfaceError>,
+    ) -> Result<(), WlSurfaceError> {
+        match self.subsurfaces.entry(child) {
+            Entry::Occupied(oe) => consume(oe),
+            _ => Ok(()),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -660,21 +757,14 @@ impl WlSurface {
         Ok(())
     }
 
-    fn do_commit(self: &Rc<Self>, ctx: CommitContext) -> Result<(), WlSurfaceError> {
-        let ext = self.ext.get();
-        let pending = &mut *self.pending.borrow_mut();
-        if ext.prepare_commit(ctx, pending) == CommitAction::AbortCommit {
-            return Ok(());
+    fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        for (_, mut subsurface) in pending.subsurfaces.drain() {
+            subsurface
+                .subsurface
+                .surface
+                .apply_state(&mut subsurface.state)?;
         }
-        ext.clone().before_apply_commit(pending)?;
-        {
-            let children = self.children.borrow();
-            if let Some(children) = children.deref() {
-                for child in children.subsurfaces.values() {
-                    child.surface.do_commit(CommitContext::ChildCommit)?;
-                }
-            }
-        }
+        self.ext.get().before_apply_commit(pending)?;
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
             scale_changed = true;
@@ -869,14 +959,18 @@ impl WlSurface {
                 cursor.update_hardware_cursor();
             }
         }
-        ext.after_apply_commit(pending);
+        self.ext.get().after_apply_commit(pending);
         self.client.state.damage();
         Ok(())
     }
 
     fn commit(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Commit = self.parse(parser)?;
-        self.do_commit(CommitContext::RootCommit)?;
+        let ext = self.ext.get();
+        let pending = &mut *self.pending.borrow_mut();
+        if ext.commit_requested(pending) == CommitAction::ContinueCommit {
+            self.apply_state(pending)?;
+        }
         Ok(())
     }
 
@@ -1050,6 +1144,18 @@ impl WlSurface {
         for consumer in self.drm_feedback.lock().values() {
             consumer.send_feedback(fb);
         }
+    }
+
+    fn consume_pending_child(
+        &self,
+        child: SubsurfaceId,
+        mut consume: impl FnMut(
+            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+        ) -> Result<(), WlSurfaceError>,
+    ) -> Result<(), WlSurfaceError> {
+        self.ext
+            .get()
+            .consume_pending_child(self, child, &mut consume)
     }
 }
 

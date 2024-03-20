@@ -29,6 +29,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     nss.set_position(100, 100)?;
     let buffer = client.shm.create_buffer(100, 100)?;
     ns.attach(buffer.id)?;
+    ns.commit()?;
 
     run.cfg.set_fullscreen(ds.seat.id(), true)?;
     client.sync().await;
