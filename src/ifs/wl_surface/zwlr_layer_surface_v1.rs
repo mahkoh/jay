@@ -3,9 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::{
             wl_seat::NodeSeatState,
-            wl_surface::{
-                CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-            },
+            wl_surface::{PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
             zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY},
         },
         leaks::Tracker,
@@ -313,12 +311,15 @@ impl ZwlrLayerSurfaceV1 {
 }
 
 impl SurfaceExt for ZwlrLayerSurfaceV1 {
-    fn pre_commit(self: Rc<Self>, _ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
+    fn before_apply_commit(
+        self: Rc<Self>,
+        _pending: &mut PendingState,
+    ) -> Result<(), WlSurfaceError> {
         self.deref().pre_commit()?;
-        Ok(CommitAction::ContinueCommit)
+        Ok(())
     }
 
-    fn post_commit(self: Rc<Self>) {
+    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
         let buffer = self.surface.buffer.get();
         if self.mapped.get() {
             if buffer.is_none() {

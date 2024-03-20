@@ -2,8 +2,8 @@ use {
     crate::{
         client::ClientError,
         ifs::wl_surface::{
-            CommitAction, CommitContext, StackElement, SurfaceExt, SurfaceRole, WlSurface,
-            WlSurfaceError, WlSurfaceId,
+            CommitAction, CommitContext, PendingState, StackElement, SurfaceExt, SurfaceRole,
+            WlSurface, WlSurfaceError, WlSurfaceId,
         },
         leaks::Tracker,
         object::Object,
@@ -264,15 +264,15 @@ impl Object for WlSubsurface {
 simple_add_obj!(WlSubsurface);
 
 impl SurfaceExt for WlSubsurface {
-    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
+    fn prepare_commit(&self, ctx: CommitContext, _pending: &mut PendingState) -> CommitAction {
         if ctx == CommitContext::RootCommit && self.sync() {
             log::debug!("Aborting commit due to sync");
-            return Ok(CommitAction::AbortCommit);
+            return CommitAction::AbortCommit;
         }
-        Ok(CommitAction::ContinueCommit)
+        CommitAction::ContinueCommit
     }
 
-    fn post_commit(self: Rc<Self>) {
+    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
         if let Some(v) = self.pending.node.take() {
             v.pending.set(false);
             self.node.borrow_mut().replace(v);

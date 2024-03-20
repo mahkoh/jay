@@ -10,7 +10,7 @@ use {
                     xdg_popup::{XdgPopup, XdgPopupError},
                     xdg_toplevel::{XdgToplevel, WM_CAPABILITIES_SINCE},
                 },
-                CommitAction, CommitContext, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
             },
             xdg_wm_base::XdgWmBase,
         },
@@ -357,7 +357,10 @@ impl Object for XdgSurface {
 dedicated_add_obj!(XdgSurface, XdgSurfaceId, xdg_surfaces);
 
 impl SurfaceExt for XdgSurface {
-    fn pre_commit(self: Rc<Self>, _ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
+    fn before_apply_commit(
+        self: Rc<Self>,
+        _pending: &mut PendingState,
+    ) -> Result<(), WlSurfaceError> {
         {
             let ase = self.acked_serial.get();
             let rse = self.requested_serial.get();
@@ -368,17 +371,16 @@ impl SurfaceExt for XdgSurface {
                     }
                     self.send_configure(rse);
                 }
-                // return CommitAction::AbortCommit;
             }
         }
         if let Some(geometry) = self.pending.geometry.take() {
             self.geometry.set(Some(geometry));
             self.update_extents();
         }
-        Ok(CommitAction::ContinueCommit)
+        Ok(())
     }
 
-    fn post_commit(self: Rc<Self>) {
+    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
         if let Some(ext) = self.ext.get() {
             ext.post_commit();
         }

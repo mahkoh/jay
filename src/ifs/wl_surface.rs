@@ -198,13 +198,22 @@ enum CommitAction {
 }
 
 trait SurfaceExt {
-    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
+    fn prepare_commit(&self, ctx: CommitContext, pending: &mut PendingState) -> CommitAction {
         let _ = ctx;
-        Ok(CommitAction::ContinueCommit)
+        let _ = pending;
+        CommitAction::ContinueCommit
     }
 
-    fn post_commit(self: Rc<Self>) {
-        // nothing
+    fn before_apply_commit(
+        self: Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), WlSurfaceError> {
+        let _ = pending;
+        Ok(())
+    }
+
+    fn after_apply_commit(self: Rc<Self>, pending: &mut PendingState) {
+        let _ = pending;
     }
 
     fn is_some(&self) -> bool {
@@ -647,9 +656,11 @@ impl WlSurface {
 
     fn do_commit(self: &Rc<Self>, ctx: CommitContext) -> Result<(), WlSurfaceError> {
         let ext = self.ext.get();
-        if ext.clone().pre_commit(ctx)? == CommitAction::AbortCommit {
+        let pending = &mut *self.pending.borrow_mut();
+        if ext.prepare_commit(ctx, pending) == CommitAction::AbortCommit {
             return Ok(());
         }
+        ext.clone().before_apply_commit(pending)?;
         {
             let children = self.children.borrow();
             if let Some(children) = children.deref() {
@@ -658,7 +669,6 @@ impl WlSurface {
                 }
             }
         }
-        let pending = &mut *self.pending.borrow_mut();
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
             scale_changed = true;
@@ -853,7 +863,7 @@ impl WlSurface {
                 cursor.update_hardware_cursor();
             }
         }
-        ext.post_commit();
+        ext.after_apply_commit(pending);
         self.client.state.damage();
         Ok(())
     }
