@@ -152,12 +152,12 @@ impl Renderer<'_> {
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
                 self.base
-                    .render_texture(&title.tex, x, y, None, None, scale, None);
+                    .render_texture(&title.tex, None, x, y, None, None, scale, None);
             }
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
                 self.base
-                    .render_texture(&status.tex.texture, x, y, None, None, scale, None);
+                    .render_texture(&status.tex.texture, None, x, y, None, None, scale, None);
             }
         }
         if let Some(ws) = output.workspace.get() {
@@ -194,7 +194,7 @@ impl Renderer<'_> {
             let x = x + (pos.width() - tex_width) / 2;
             let y = y + (pos.height() - tex_height) / 2;
             self.base
-                .render_texture(&tex.texture, x, y, None, None, self.base.scale, None);
+                .render_texture(&tex.texture, None, x, y, None, None, self.base.scale, None);
         }
     }
 
@@ -225,6 +225,7 @@ impl Renderer<'_> {
                     let (x, y) = self.base.scale_point(x + title.x, y + title.y);
                     self.base.render_texture(
                         &title.tex.texture,
+                        None,
                         x,
                         y,
                         None,
@@ -305,6 +306,7 @@ impl Renderer<'_> {
         } else {
             size = self.base.scale_point(size.0, size.1);
         }
+        let alpha = surface.alpha();
         if let Some(children) = children.deref() {
             macro_rules! render {
                 ($children:expr) => {
@@ -326,10 +328,10 @@ impl Renderer<'_> {
                 };
             }
             render!(&children.below);
-            self.render_buffer(&buffer, x, y, *tpoints, size, bounds);
+            self.render_buffer(&buffer, alpha, x, y, *tpoints, size, bounds);
             render!(&children.above);
         } else {
-            self.render_buffer(&buffer, x, y, *tpoints, size, bounds);
+            self.render_buffer(&buffer, alpha, x, y, *tpoints, size, bounds);
         }
         if let Some(result) = self.result.as_deref_mut() {
             {
@@ -346,6 +348,7 @@ impl Renderer<'_> {
     pub fn render_buffer(
         &mut self,
         buffer: &WlBuffer,
+        alpha: Option<f32>,
         x: i32,
         y: i32,
         tpoints: SampleRect,
@@ -355,6 +358,7 @@ impl Renderer<'_> {
         if let Some(tex) = buffer.texture.get() {
             self.base.render_texture(
                 &tex,
+                alpha,
                 x,
                 y,
                 Some(tpoints),
@@ -369,7 +373,11 @@ impl Renderer<'_> {
                     Some(bounds) => rect.intersect(*bounds),
                 };
                 if !rect.is_empty() {
-                    self.base.fill_boxes(&[rect], color);
+                    let mut color = *color;
+                    if let Some(alpha) = alpha {
+                        color = color * alpha;
+                    }
+                    self.base.fill_boxes(&[rect], &color);
                 }
             }
         } else {
@@ -409,8 +417,16 @@ impl Renderer<'_> {
         self.base.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_textures.get(&self.base.scale) {
             let (x, y) = self.base.scale_point(x + bw, y + bw);
-            self.base
-                .render_texture(&title.texture, x, y, None, None, self.base.scale, None);
+            self.base.render_texture(
+                &title.texture,
+                None,
+                x,
+                y,
+                None,
+                None,
+                self.base.scale,
+                None,
+            );
         }
         let body = Rect::new_sized(
             x + bw,
