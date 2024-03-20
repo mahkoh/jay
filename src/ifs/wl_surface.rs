@@ -133,7 +133,7 @@ pub struct WlSurface {
     pub client: Rc<Client>,
     visible: Cell<bool>,
     role: Cell<SurfaceRole>,
-    pending: PendingState,
+    pending: RefCell<PendingState>,
     input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
@@ -258,20 +258,20 @@ impl SurfaceExt for NoneSurfaceExt {
 
 #[derive(Default)]
 struct PendingState {
-    buffer: Cell<Option<Option<Rc<WlBuffer>>>>,
-    offset: Cell<(i32, i32)>,
-    opaque_region: Cell<Option<Option<Rc<Region>>>>,
-    input_region: Cell<Option<Option<Rc<Region>>>>,
-    frame_request: RefCell<Vec<Rc<WlCallback>>>,
-    damage: Cell<bool>,
-    presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
-    src_rect: Cell<Option<Option<[Fixed; 4]>>>,
-    dst_size: Cell<Option<Option<(i32, i32)>>>,
-    scale: Cell<Option<i32>>,
-    transform: Cell<Option<Transform>>,
-    xwayland_serial: Cell<Option<u64>>,
-    tearing: Cell<Option<bool>>,
-    content_type: Cell<Option<Option<ContentType>>>,
+    buffer: Option<Option<Rc<WlBuffer>>>,
+    offset: (i32, i32),
+    opaque_region: Option<Option<Rc<Region>>>,
+    input_region: Option<Option<Rc<Region>>>,
+    frame_request: Vec<Rc<WlCallback>>,
+    damage: bool,
+    presentation_feedback: Vec<Rc<WpPresentationFeedback>>,
+    src_rect: Option<Option<[Fixed; 4]>>,
+    dst_size: Option<Option<(i32, i32)>>,
+    scale: Option<i32>,
+    transform: Option<Transform>,
+    xwayland_serial: Option<u64>,
+    tearing: Option<bool>,
+    content_type: Option<Option<ContentType>>,
 }
 
 #[derive(Default)]
@@ -400,8 +400,8 @@ impl WlSurface {
 
     pub fn add_presentation_feedback(&self, fb: &Rc<WpPresentationFeedback>) {
         self.pending
-            .presentation_feedback
             .borrow_mut()
+            .presentation_feedback
             .push(fb.clone());
     }
 
@@ -591,25 +591,26 @@ impl WlSurface {
 
     fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Attach = self.parse(parser)?;
+        let pending = &mut *self.pending.borrow_mut();
         if self.version >= OFFSET_SINCE {
             if req.x != 0 || req.y != 0 {
                 return Err(WlSurfaceError::OffsetInAttach);
             }
         } else {
-            self.pending.offset.set((req.x, req.y));
+            pending.offset = (req.x, req.y);
         }
         let buf = if req.buffer.is_some() {
             Some(self.client.lookup(req.buffer)?)
         } else {
             None
         };
-        self.pending.buffer.set(Some(buf));
+        pending.buffer = Some(buf);
         Ok(())
     }
 
     fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Damage = self.parse(parser)?;
-        self.pending.damage.set(true);
+        self.pending.borrow_mut().damage = true;
         Ok(())
     }
 
@@ -618,7 +619,7 @@ impl WlSurface {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
-        self.pending.frame_request.borrow_mut().push(cb);
+        self.pending.borrow_mut().frame_request.push(cb);
         Ok(())
     }
 
@@ -629,7 +630,7 @@ impl WlSurface {
         } else {
             None
         };
-        self.pending.opaque_region.set(Some(region));
+        self.pending.borrow_mut().opaque_region = Some(region);
         Ok(())
     }
 
@@ -640,7 +641,7 @@ impl WlSurface {
         } else {
             None
         };
-        self.pending.input_region.set(Some(region));
+        self.pending.borrow_mut().input_region = Some(region);
         Ok(())
     }
 
@@ -657,22 +658,23 @@ impl WlSurface {
                 }
             }
         }
+        let pending = &mut *self.pending.borrow_mut();
         let mut scale_changed = false;
-        if let Some(scale) = self.pending.scale.take() {
+        if let Some(scale) = pending.scale.take() {
             scale_changed = true;
             self.buffer_scale.set(scale);
         }
         let mut buffer_transform_changed = false;
-        if let Some(transform) = self.pending.transform.take() {
+        if let Some(transform) = pending.transform.take() {
             buffer_transform_changed = true;
             self.buffer_transform.set(transform);
         }
         let mut viewport_changed = false;
-        if let Some(dst_size) = self.pending.dst_size.take() {
+        if let Some(dst_size) = pending.dst_size.take() {
             viewport_changed = true;
             self.dst_size.set(dst_size);
         }
-        if let Some(src_rect) = self.pending.src_rect.take() {
+        if let Some(src_rect) = pending.src_rect.take() {
             viewport_changed = true;
             self.src_rect.set(src_rect);
         }
@@ -687,8 +689,8 @@ impl WlSurface {
         }
         let mut buffer_changed = false;
         let mut old_raw_size = None;
-        let (dx, dy) = self.pending.offset.take();
-        if let Some(buffer_change) = self.pending.buffer.take() {
+        let (dx, dy) = mem::take(&mut pending.offset);
+        if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
                 old_raw_size = Some(buffer.rect);
@@ -806,34 +808,32 @@ impl WlSurface {
             self.buffer_abs_pos
                 .set(self.buffer_abs_pos.get().with_size(width, height).unwrap());
         }
-        {
-            let mut pfr = self.pending.frame_request.borrow_mut();
-            self.frame_requests.borrow_mut().extend(pfr.drain(..));
-        }
+        self.frame_requests
+            .borrow_mut()
+            .extend(pending.frame_request.drain(..));
         {
             let mut fbs = self.presentation_feedback.borrow_mut();
             for fb in fbs.drain(..) {
                 fb.send_discarded();
                 let _ = self.client.remove_obj(&*fb);
             }
-            let mut pfbs = self.pending.presentation_feedback.borrow_mut();
-            mem::swap(fbs.deref_mut(), pfbs.deref_mut());
+            mem::swap(fbs.deref_mut(), &mut pending.presentation_feedback);
         }
         {
-            if let Some(region) = self.pending.input_region.take() {
+            if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
             }
-            if let Some(region) = self.pending.opaque_region.take() {
+            if let Some(region) = pending.opaque_region.take() {
                 self.opaque_region.set(region);
             }
         }
-        if let Some(tearing) = self.pending.tearing.take() {
+        if let Some(tearing) = pending.tearing.take() {
             self.tearing.set(tearing);
         }
-        if let Some(content_type) = self.pending.content_type.take() {
+        if let Some(content_type) = pending.content_type.take() {
             self.content_type.set(content_type);
         }
-        if let Some(xwayland_serial) = self.pending.xwayland_serial.take() {
+        if let Some(xwayland_serial) = pending.xwayland_serial.take() {
             self.xwayland_serial.set(Some(xwayland_serial));
             self.client
                 .surfaces_by_xwayland_serial
@@ -869,7 +869,7 @@ impl WlSurface {
         let Some(tf) = Transform::from_wl(req.transform) else {
             return Err(WlSurfaceError::UnknownBufferTransform(req.transform));
         };
-        self.pending.transform.set(Some(tf));
+        self.pending.borrow_mut().transform = Some(tf);
         Ok(())
     }
 
@@ -878,19 +878,19 @@ impl WlSurface {
         if req.scale < 1 {
             return Err(WlSurfaceError::NonPositiveBufferScale);
         }
-        self.pending.scale.set(Some(req.scale));
+        self.pending.borrow_mut().scale = Some(req.scale);
         Ok(())
     }
 
     fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: DamageBuffer = self.parse(parser)?;
-        self.pending.damage.set(true);
+        self.pending.borrow_mut().damage = true;
         Ok(())
     }
 
     fn offset(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Offset = self.parse(parser)?;
-        self.pending.offset.set((req.x, req.y));
+        self.pending.borrow_mut().offset = (req.x, req.y);
         Ok(())
     }
 
@@ -1021,7 +1021,7 @@ impl WlSurface {
     }
 
     pub fn set_content_type(&self, content_type: Option<ContentType>) {
-        self.pending.content_type.set(Some(content_type));
+        self.pending.borrow_mut().content_type = Some(content_type);
     }
 
     pub fn request_activation(&self) {
@@ -1064,7 +1064,7 @@ impl Object for WlSurface {
         self.buffer.set(None);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
-        self.pending.presentation_feedback.borrow_mut().clear();
+        mem::take(self.pending.borrow_mut().deref_mut());
         self.presentation_feedback.borrow_mut().clear();
         self.viewporter.take();
         self.fractional_scale.take();

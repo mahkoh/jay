@@ -38,8 +38,9 @@ impl WpViewport {
 
     fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), WpViewportError> {
         let _req: Destroy = self.client.parse(self, msg)?;
-        self.surface.pending.src_rect.set(Some(None));
-        self.surface.pending.dst_size.set(Some(None));
+        let pending = &mut *self.surface.pending.borrow_mut();
+        pending.src_rect = Some(None);
+        pending.dst_size = Some(None);
         self.surface.viewporter.take();
         self.client.remove_obj(self)?;
         Ok(())
@@ -56,7 +57,7 @@ impl WpViewport {
             }
             Some([req.x, req.y, req.width, req.height])
         };
-        self.surface.pending.src_rect.set(Some(rect));
+        self.surface.pending.borrow_mut().src_rect = Some(rect);
         Ok(())
     }
 
@@ -69,7 +70,7 @@ impl WpViewport {
         } else {
             Some((req.width, req.height))
         };
-        self.surface.pending.dst_size.set(Some(size));
+        self.surface.pending.borrow_mut().dst_size = Some(size);
         Ok(())
     }
 }

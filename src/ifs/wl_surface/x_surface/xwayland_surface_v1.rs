@@ -32,7 +32,7 @@ impl XwaylandSurfaceV1 {
             return Err(XwaylandSurfaceV1Error::NonMonotonicSerial);
         }
         self.client.last_xwayland_serial.set(serial);
-        self.x.surface.pending.xwayland_serial.set(Some(serial));
+        self.x.surface.pending.borrow_mut().xwayland_serial = Some(serial);
         Ok(())
     }
 
