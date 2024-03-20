@@ -30,6 +30,7 @@ pub fn fork_with_pidfd(pidfd_for_child: bool) -> Result<Forked, ForkerError> {
     let mut args = clone_args {
         flags: c::CLONE_PIDFD as u64,
         pidfd: (&mut pidfd as *mut c::c_int) as _,
+        exit_signal: c::SIGCHLD as _,
         ..Default::default()
     };
     let mut child_pidfd = None;

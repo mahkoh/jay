@@ -1,18 +1,19 @@
-mod clone3;
 mod io;
 
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         compositor::{DISPLAY, WAYLAND_DISPLAY},
-        forker::{
-            clone3::{fork_with_pidfd, Forked},
-            io::{IoIn, IoOut},
-        },
+        forker::io::{IoIn, IoOut},
         io_uring::IoUring,
         state::State,
         utils::{
-            buffd::BufFdError, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
+            buffd::BufFdError,
+            clone3::{fork_with_pidfd, Forked},
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            process_name::set_process_name,
             queue::AsyncQueue,
         },
         xwayland,
@@ -323,7 +324,7 @@ impl Forker {
         env::set_var("XDG_SESSION_TYPE", "wayland");
         env::remove_var(DISPLAY);
         env::remove_var(WAYLAND_DISPLAY);
-        setup_name("the ol' forker");
+        set_process_name("the ol' forker");
         setup_deathsig(ppid);
         reset_signals();
         let socket = Rc::new(setup_fds(socket));
@@ -565,13 +566,6 @@ fn setup_deathsig(ppid: c::pid_t) {
         if ppid != uapi::getppid() {
             std::process::exit(0);
         }
-    }
-}
-
-fn setup_name(name: &str) {
-    unsafe {
-        let name = name.into_ustr();
-        c::prctl(c::PR_SET_NAME, name.as_ptr());
     }
 }
 

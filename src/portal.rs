@@ -11,8 +11,9 @@ use {
             Dbus, DbusSocket, BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE,
             DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
         },
+        forker::ForkerError,
         io_uring::IoUring,
-        logger,
+        logger::Logger,
         pipewire::pw_con::{PwCon, PwConHolder, PwConOwner},
         portal::{
             ptl_display::{watch_displays, PortalDisplay, PortalDisplayId},
@@ -20,15 +21,29 @@ use {
             ptl_screencast::{add_screencast_dbus_members, ScreencastSession},
         },
         utils::{
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            run_toplevel::RunToplevel, xrd::xrd,
+            buf::Buf,
+            clone3::{fork_with_pidfd, Forked},
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            oserror::OsError,
+            process_name::set_process_name,
+            run_toplevel::RunToplevel,
+            vecdeque_ext::VecDequeExt,
+            xrd::xrd,
         },
         video::dmabuf::DmaBufIds,
         wheel::Wheel,
         wire_dbus::org,
     },
-    std::rc::{Rc, Weak},
-    uapi::c,
+    log::Level,
+    std::{
+        collections::VecDeque,
+        rc::{Rc, Weak},
+        sync::Arc,
+    },
+    thiserror::Error,
+    uapi::{c, OwnedFd},
 };
 
 const PORTAL_SUCCESS: u32 = 0;
@@ -37,8 +52,110 @@ const PORTAL_CANCELLED: u32 = 1;
 #[allow(dead_code)]
 const PORTAL_ENDED: u32 = 2;
 
-pub fn run(global: GlobalArgs) {
-    logger::Logger::install_stderr(global.log_level.into());
+pub fn run_freestanding(global: GlobalArgs) {
+    let logger = Logger::install_stderr(global.log_level.into());
+    run(logger);
+}
+
+#[derive(Debug, Error)]
+pub enum PortalError {
+    #[error("Could not create pipe")]
+    CreatePipe(#[source] OsError),
+    #[error("Could not fork")]
+    Fork(#[source] ForkerError),
+}
+
+pub struct PortalStartup {
+    logs: Rc<OwnedFd>,
+    pid: c::pid_t,
+    pidfd: Rc<OwnedFd>,
+}
+
+impl PortalStartup {
+    pub async fn spawn(self, eng: Rc<AsyncEngine>, ring: Rc<IoUring>, logger: Arc<Logger>) {
+        let f1 = eng.spawn({
+            let ring = ring.clone();
+            async move {
+                if let Err(e) = ring.readable(&self.pidfd).await {
+                    log::error!(
+                        "Could not wait for portal pidfd to become readable: {}",
+                        ErrorFmt(e)
+                    );
+                    return;
+                }
+                let (_, status) = match uapi::waitpid(self.pid, 0) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!(
+                            "Could not retrieve exit status of portal ({}): {}",
+                            self.pid,
+                            ErrorFmt(OsError::from(e))
+                        );
+                        return;
+                    }
+                };
+                let status = uapi::WEXITSTATUS(status);
+                if status != 0 {
+                    log::error!("Portal exited with non-0 exit code: {status}");
+                }
+            }
+        });
+        let f2 = eng.spawn({
+            let ring = ring.clone();
+            let logger = logger.clone();
+            async move {
+                let mut buf = VecDeque::<u8>::new();
+                let mut buf2 = Buf::new(1024);
+                let mut done = false;
+                while !done {
+                    match ring.read(&self.logs, buf2.clone()).await {
+                        Ok(n) if n > 0 => buf.extend(&buf2[..n]),
+                        Ok(_) => done = true,
+                        Err(e) => {
+                            log::error!("Could not read portal logs: {}", ErrorFmt(e));
+                            return;
+                        }
+                    };
+                    while let Some(pos) = buf.iter().position(|b| b == &b'\n') {
+                        let (left, right) = buf.get_slices(..pos);
+                        logger.write_raw(left);
+                        logger.write_raw(right);
+                        logger.write_raw(b" (portal)\n");
+                        buf.drain(..=pos);
+                    }
+                }
+            }
+        });
+        f1.await;
+        f2.await;
+    }
+}
+
+pub fn run_from_compositor(level: Level) -> Result<PortalStartup, PortalError> {
+    let (read, write) = match uapi::pipe2(c::O_CLOEXEC) {
+        Ok(p) => p,
+        Err(e) => return Err(PortalError::CreatePipe(e.into())),
+    };
+    let fork = match fork_with_pidfd(false) {
+        Ok(f) => f,
+        Err(e) => return Err(PortalError::Fork(e)),
+    };
+    match fork {
+        Forked::Parent { pidfd, pid } => Ok(PortalStartup {
+            logs: Rc::new(read),
+            pid,
+            pidfd: Rc::new(pidfd),
+        }),
+        Forked::Child { .. } => {
+            drop(read);
+            let logger = Logger::install_pipe(write, level);
+            run(logger);
+            std::process::exit(0);
+        }
+    }
+}
+
+fn run(logger: Arc<Logger>) {
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
         Ok(r) => r,
@@ -46,13 +163,16 @@ pub fn run(global: GlobalArgs) {
             fatal!("Could not create an IO-uring: {}", ErrorFmt(e));
         }
     };
-    let _f = eng.spawn(run_async(eng.clone(), ring.clone()));
+    let _f = eng.spawn(run_async(eng.clone(), ring.clone(), logger));
     if let Err(e) = ring.run() {
         fatal!("The IO-uring returned an error: {}", ErrorFmt(e));
     }
 }
 
-async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
+async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>, logger: Arc<Logger>) {
+    let (_rtl_future, rtl) = RunToplevel::install(&eng);
+    let dbus = Dbus::new(&eng, &ring, &rtl);
+    let dbus = init_dbus_session(&dbus, logger).await;
     let xrd = match xrd() {
         Some(xrd) => xrd,
         _ => {
@@ -71,9 +191,6 @@ async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
             fatal!("Could not connect to pipewire: {}", ErrorFmt(e));
         }
     };
-    let (_rtl_future, rtl) = RunToplevel::install(&eng);
-    let dbus = Dbus::new(&eng, &ring, &rtl);
-    let dbus = init_dbus_session(&dbus).await;
     let state = Rc::new(PortalState {
         xrd,
         ring,
@@ -101,37 +218,53 @@ async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>) {
 
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
 
-async fn init_dbus_session(dbus: &Dbus) -> Rc<DbusSocket> {
+async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>) -> Rc<DbusSocket> {
     let session = match dbus.session().await {
         Ok(s) => s,
         Err(e) => {
             fatal!("Could not connect to dbus session daemon: {}", ErrorFmt(e));
         }
     };
-    session.call(
-        BUS_DEST,
-        BUS_PATH,
-        org::freedesktop::dbus::RequestName {
-            name: UNIQUE_NAME.into(),
-            flags: DBUS_NAME_FLAG_DO_NOT_QUEUE,
-        },
-        |rv| match rv {
-            Ok(r) if r.rv == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER => {
-                log::info!("Acquired unique name {}", UNIQUE_NAME);
-                return;
+    let rv = session
+        .call_async(
+            BUS_DEST,
+            BUS_PATH,
+            org::freedesktop::dbus::RequestName {
+                name: UNIQUE_NAME.into(),
+                flags: DBUS_NAME_FLAG_DO_NOT_QUEUE,
+            },
+        )
+        .await;
+    match rv {
+        Ok(r) if r.get().rv == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER => {
+            log::info!("Acquired unique name {}", UNIQUE_NAME);
+            logger.redirect("portal");
+            let fork = match fork_with_pidfd(false) {
+                Ok(f) => f,
+                Err(e) => fatal!("Could not fork: {}", ErrorFmt(e)),
+            };
+            match fork {
+                Forked::Parent { .. } => std::process::exit(0),
+                Forked::Child { .. } => {
+                    if let Err(e) = uapi::setsid() {
+                        log::error!("setsid failed: {}", ErrorFmt(OsError::from(e)));
+                    }
+                }
             }
-            Ok(r) => {
-                fatal!("Could not acquire unique name {}: {}", UNIQUE_NAME, r.rv);
-            }
-            Err(e) => {
-                fatal!(
-                    "Could not communicate with the session bus: {}",
-                    ErrorFmt(e)
-                );
-            }
-        },
-    );
-    session
+            set_process_name("jay portal");
+            session
+        }
+        Ok(_) => {
+            log::info!("Portal is already running");
+            std::process::exit(0);
+        }
+        Err(e) => {
+            fatal!(
+                "Could not communicate with the session bus: {}",
+                ErrorFmt(e)
+            );
+        }
+    }
 }
 
 struct PortalState {

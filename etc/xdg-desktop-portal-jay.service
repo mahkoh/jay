@@ -1,7 +1,0 @@
-[Unit]
-Description=Jay Portal
-
-[Service]
-Type=dbus
-BusName=org.freedesktop.impl.portal.desktop.jay
-ExecStart=/home/julian/bin/jay portal

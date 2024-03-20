@@ -1,4 +1,0 @@
-[D-BUS Service]
-Name=org.freedesktop.impl.portal.desktop.jay
-Exec=/bin/false
-SystemdService=xdg-desktop-portal-jay.service
