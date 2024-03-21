@@ -2,7 +2,9 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         format::Format,
-        gfx_api::{GfxApiOpt, GfxFormat, GfxFramebuffer, GfxTexture},
+        gfx_api::{
+            BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer, GfxTexture, SyncFile,
+        },
         gfx_apis::vulkan::{
             allocator::VulkanAllocator,
             command::{VulkanCommandBuffer, VulkanCommandPool},
@@ -21,10 +23,7 @@ use {
         io_uring::IoUring,
         theme::Color,
         utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, stack::Stack},
-        video::dmabuf::{
-            dma_buf_export_sync_file, dma_buf_import_sync_file, DMA_BUF_SYNC_READ,
-            DMA_BUF_SYNC_WRITE,
-        },
+        video::dmabuf::{dma_buf_export_sync_file, DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE},
     },
     ahash::AHashMap,
     ash::{
@@ -49,7 +48,6 @@ use {
         rc::Rc,
         slice,
     },
-    uapi::OwnedFd,
 };
 
 pub struct VulkanRenderer {
@@ -66,6 +64,12 @@ pub struct VulkanRenderer {
     pub(super) pending_frames: CopyHashMap<u64, Rc<PendingFrame>>,
     pub(super) allocator: Rc<VulkanAllocator>,
     pub(super) last_point: NumCell<u64>,
+    pub(super) buffer_resv_user: BufferResvUser,
+}
+
+pub(super) struct UsedTexture {
+    tex: Rc<VulkanImage>,
+    resv: Option<Rc<dyn BufferResv>>,
 }
 
 #[derive(Default)]
@@ -73,20 +77,20 @@ pub(super) struct Memory {
     sample: Vec<Rc<VulkanImage>>,
     flush: Vec<Rc<VulkanImage>>,
     flush_staging: Vec<(Rc<VulkanImage>, VulkanStagingBuffer)>,
-    textures: Vec<Rc<VulkanImage>>,
+    textures: Vec<UsedTexture>,
     image_barriers: Vec<ImageMemoryBarrier2>,
     shm_barriers: Vec<BufferMemoryBarrier2>,
     wait_semaphores: Vec<Rc<VulkanSemaphore>>,
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo>,
     release_fence: Option<Rc<VulkanFence>>,
-    release_syncfile: Option<Rc<OwnedFd>>,
+    release_sync_file: Option<SyncFile>,
 }
 
 pub(super) struct PendingFrame {
     point: u64,
     renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
-    _textures: Vec<Rc<VulkanImage>>,
+    _textures: Vec<UsedTexture>,
     _staging: Vec<(Rc<VulkanImage>, VulkanStagingBuffer)>,
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
@@ -157,6 +161,7 @@ impl VulkanDevice {
             pending_frames: Default::default(),
             allocator,
             last_point: Default::default(),
+            buffer_resv_user: Default::default(),
         }))
     }
 }
@@ -177,7 +182,10 @@ impl VulkanRenderer {
                         }
                     }
                 }
-                memory.textures.push(tex);
+                memory.textures.push(UsedTexture {
+                    tex,
+                    resv: c.buffer_resv.clone(),
+                });
             }
         }
     }
@@ -537,7 +545,7 @@ impl VulkanRenderer {
                     let fd = dma_buf_export_sync_file(&plane.fd, flag)
                         .map_err(VulkanError::IoctlExportSyncFile)?;
                     let semaphore = self.allocate_semaphore()?;
-                    semaphore.import_syncfile(fd)?;
+                    semaphore.import_sync_file(fd)?;
                     infos.push(
                         SemaphoreSubmitInfo::builder()
                             .semaphore(semaphore.semaphore)
@@ -553,7 +561,7 @@ impl VulkanRenderer {
             import(
                 &mut memory.wait_semaphore_infos,
                 &mut memory.wait_semaphores,
-                texture,
+                &texture.tex,
                 DMA_BUF_SYNC_READ,
             )?;
         }
@@ -567,27 +575,25 @@ impl VulkanRenderer {
     }
 
     fn import_release_semaphore(&self, fb: &VulkanImage) {
-        let memory = self.memory.borrow();
-        let syncfile = match memory.release_syncfile.as_ref() {
-            Some(syncfile) => syncfile,
+        let memory = &mut *self.memory.borrow_mut();
+        let sync_file = match memory.release_sync_file.as_ref() {
+            Some(sync_file) => sync_file,
             _ => return,
         };
-        let import = |img: &VulkanImage, flag: u32| {
-            if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
-                for plane in &buf.template.dmabuf.planes {
-                    let res = dma_buf_import_sync_file(&plane.fd, flag, &syncfile)
-                        .map_err(VulkanError::IoctlImportSyncFile);
-                    if let Err(e) = res {
-                        log::error!("Could not import syncfile into dmabuf: {}", ErrorFmt(e));
-                        log::warn!("Relying on implicit sync");
-                    }
+        let import = |img: &VulkanImage, resv: Option<Rc<dyn BufferResv>>, flag: u32| {
+            if let Some(resv) = resv {
+                resv.set_sync_file(self.buffer_resv_user, sync_file);
+            } else if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
+                if let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file) {
+                    log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
+                    log::warn!("Relying on implicit sync");
                 }
             }
         };
-        for texture in &memory.textures {
-            import(texture, DMA_BUF_SYNC_WRITE);
+        for texture in &mut memory.textures {
+            import(&texture.tex, texture.resv.take(), DMA_BUF_SYNC_READ);
         }
-        import(fb, DMA_BUF_SYNC_READ | DMA_BUF_SYNC_WRITE);
+        import(fb, None, DMA_BUF_SYNC_WRITE);
     }
 
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
@@ -610,15 +616,15 @@ impl VulkanRenderer {
                 )
                 .map_err(VulkanError::Submit)?;
         }
-        let release_syncfile = match release_fence.export_syncfile() {
+        let release_sync_file = match release_fence.export_sync_file() {
             Ok(s) => Some(s),
             Err(e) => {
-                log::error!("Could not export syncfile from fence: {}", ErrorFmt(e));
+                log::error!("Could not export sync file from fence: {}", ErrorFmt(e));
                 None
             }
         };
         memory.release_fence = Some(release_fence);
-        memory.release_syncfile = release_syncfile;
+        memory.release_sync_file = release_sync_file;
         Ok(())
     }
 
@@ -650,7 +656,7 @@ impl VulkanRenderer {
         });
         self.pending_frames.set(frame.point, frame.clone());
         let future = self.device.instance.eng.spawn(await_release(
-            memory.release_syncfile.take(),
+            memory.release_sync_file.take(),
             self.device.instance.ring.clone(),
             frame.clone(),
             self.clone(),
@@ -769,7 +775,7 @@ impl VulkanRenderer {
                 let fd = dma_buf_export_sync_file(&plane.fd, DMA_BUF_SYNC_READ)
                     .map_err(VulkanError::IoctlExportSyncFile)?;
                 let semaphore = self.allocate_semaphore()?;
-                semaphore.import_syncfile(fd)?;
+                semaphore.import_sync_file(fd)?;
                 let semaphore_info = SemaphoreSubmitInfo::builder()
                     .semaphore(semaphore.semaphore)
                     .stage_mask(PipelineStageFlags2::TOP_OF_PIPE)
@@ -841,7 +847,7 @@ impl VulkanRenderer {
             memory.sample.clear();
             memory.wait_semaphores.clear();
             memory.release_fence.take();
-            memory.release_syncfile.take();
+            memory.release_sync_file.take();
         }
         res
     }
@@ -964,14 +970,14 @@ fn image_barrier() -> ImageMemoryBarrier2Builder<'static> {
 }
 
 async fn await_release(
-    syncfile: Option<Rc<OwnedFd>>,
+    sync_file: Option<SyncFile>,
     ring: Rc<IoUring>,
     frame: Rc<PendingFrame>,
     renderer: Rc<VulkanRenderer>,
 ) {
     let mut is_released = false;
-    if let Some(syncfile) = syncfile {
-        if let Err(e) = ring.readable(&syncfile).await {
+    if let Some(sync_file) = sync_file {
+        if let Err(e) = ring.readable(&sync_file).await {
             log::error!(
                 "Could not wait for release semaphore to be signaled: {}",
                 ErrorFmt(e)

@@ -71,7 +71,7 @@ impl XdgToplevelDragV1 {
             return Err(XdgToplevelDragV1Error::AlreadyDragged);
         }
         if let Some(prev) = self.toplevel.set(Some(toplevel)) {
-            if prev.xdg.surface.buffer.get().is_some() {
+            if prev.xdg.surface.buffer.is_some() {
                 return Err(XdgToplevelDragV1Error::ToplevelAttached);
             }
             if prev.id != req.toplevel {

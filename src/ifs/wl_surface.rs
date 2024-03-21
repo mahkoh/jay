@@ -16,7 +16,7 @@ use {
         client::{Client, ClientError, RequestParser},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::SampleRect,
+        gfx_api::{BufferResv, BufferResvUser, SampleRect, SyncFile},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -51,11 +51,13 @@ use {
             cell_ext::CellExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
             numcell::NumCell,
             smallmap::SmallMap,
             transform_ext::TransformExt,
         },
+        video::dmabuf::DMA_BUF_SYNC_READ,
         wire::{
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
             ZwpLinuxDmabufFeedbackV1Id,
@@ -131,6 +133,39 @@ impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
     }
 }
 
+pub struct SurfaceBuffer {
+    pub buffer: Rc<WlBuffer>,
+    sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
+}
+
+impl Drop for SurfaceBuffer {
+    fn drop(&mut self) {
+        let sync_files = self.sync_files.take();
+        if let Some(dmabuf) = &self.buffer.dmabuf {
+            for (_, sync_file) in &sync_files {
+                if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
+                    log::error!("Could not import sync file: {}", ErrorFmt(e));
+                }
+            }
+        }
+        if !self.buffer.destroyed() {
+            self.buffer.send_release();
+        }
+    }
+}
+
+impl Debug for SurfaceBuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SurfaceBuffer").finish_non_exhaustive()
+    }
+}
+
+impl BufferResv for SurfaceBuffer {
+    fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile) {
+        self.sync_files.insert(user, sync_file.clone());
+    }
+}
+
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
@@ -149,7 +184,7 @@ pub struct WlSurface {
     pub extents: Cell<Rect>,
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
-    pub buffer: CloneCell<Option<Rc<WlBuffer>>>,
+    pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
@@ -683,11 +718,7 @@ impl WlSurface {
             }
             *children = None;
         }
-        if let Some(buffer) = self.buffer.set(None) {
-            if !buffer.destroyed() {
-                buffer.send_release();
-            }
-        }
+        self.buffer.set(None);
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -799,30 +830,15 @@ impl WlSurface {
         if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
-                old_raw_size = Some(buffer.rect);
-                if !buffer.destroyed() {
-                    'handle_release: {
-                        if let Some(tex) = buffer.texture.get() {
-                            let resv = tex.reservations();
-                            if resv.has_reservation() {
-                                let buffer = Rc::downgrade(&buffer);
-                                resv.on_released(move || {
-                                    if let Some(buffer) = buffer.upgrade() {
-                                        if !buffer.destroyed() {
-                                            buffer.send_release();
-                                        }
-                                    }
-                                });
-                                break 'handle_release;
-                            }
-                        }
-                        buffer.send_release();
-                    }
-                }
+                old_raw_size = Some(buffer.buffer.rect);
             }
             if let Some(buffer) = buffer_change {
                 buffer.update_texture_or_log();
-                self.buffer.set(Some(buffer));
+                let surface_buffer = SurfaceBuffer {
+                    buffer,
+                    sync_files: Default::default(),
+                };
+                self.buffer.set(Some(Rc::new(surface_buffer)));
                 self.buf_x.fetch_add(dx);
                 self.buf_y.fetch_add(dy);
                 if (dx, dy) != (0, 0) {
@@ -872,8 +888,10 @@ impl WlSurface {
             }
             if let Some(buffer) = self.buffer.get() {
                 if new_size.is_none() {
-                    let (mut width, mut height) =
-                        self.buffer_transform.get().maybe_swap(buffer.rect.size());
+                    let (mut width, mut height) = self
+                        .buffer_transform
+                        .get()
+                        .maybe_swap(buffer.buffer.rect.size());
                     let scale = self.buffer_scale.get();
                     if scale != 1 {
                         width = (width + scale - 1) / scale;
@@ -881,12 +899,14 @@ impl WlSurface {
                     }
                     new_size = Some((width, height));
                 }
-                if transform_changed || Some(buffer.rect) != old_raw_size {
+                if transform_changed || Some(buffer.buffer.rect) != old_raw_size {
                     let (x1, y1, x2, y2) = if self.src_rect.is_none() {
                         (0.0, 0.0, 1.0, 1.0)
                     } else {
-                        let (width, height) =
-                            self.buffer_transform.get().maybe_swap(buffer.rect.size());
+                        let (width, height) = self
+                            .buffer_transform
+                            .get()
+                            .maybe_swap(buffer.buffer.rect.size());
                         let width = width as f32;
                         let height = height as f32;
                         let x1 = buffer_points.x1 / width;

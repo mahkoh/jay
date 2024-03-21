@@ -9,7 +9,7 @@ use {
         drm_feedback::DrmFeedback,
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
-        gfx_api::{GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass, GfxTexture},
+        gfx_api::{BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass, GfxTexture},
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
@@ -350,9 +350,9 @@ pub struct DirectScanoutCache {
 #[derive(Debug)]
 pub struct DirectScanoutData {
     tex: Rc<dyn GfxTexture>,
+    _resv: Option<Rc<dyn BufferResv>>,
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
-    acquired: Cell<bool>,
     position: DirectScanoutPosition,
 }
 
@@ -364,14 +364,6 @@ pub struct DirectScanoutPosition {
     pub crtc_y: i32,
     pub crtc_width: i32,
     pub crtc_height: i32,
-}
-
-impl Drop for DirectScanoutData {
-    fn drop(&mut self) {
-        if self.acquired.replace(false) {
-            self.tex.reservations().release();
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -532,9 +524,9 @@ impl MetalConnector {
         if let Some(buffer) = cache.get(&dmabuf.id) {
             return buffer.fb.as_ref().map(|fb| DirectScanoutData {
                 tex: buffer.tex.upgrade().unwrap(),
+                _resv: ct.buffer_resv.clone(),
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
-                acquired: Default::default(),
                 position,
             });
         }
@@ -556,9 +548,9 @@ impl MetalConnector {
         let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
             Ok(fb) => Some(DirectScanoutData {
                 tex: ct.tex.clone(),
+                _resv: ct.buffer_resv.clone(),
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
-                acquired: Default::default(),
                 position,
             }),
             Err(e) => {
@@ -780,10 +772,6 @@ impl MetalConnector {
             Err(())
         } else {
             if let Some(fb) = new_fb {
-                if let Some(dsd) = &fb.direct_scanout_data {
-                    dsd.tex.reservations().acquire();
-                    dsd.acquired.set(true);
-                }
                 self.next_framebuffer.set(Some(fb));
             }
             self.can_present.set(false);

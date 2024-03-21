@@ -378,6 +378,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             None,
             scale,
             None,
+            None,
         );
     }
 }
@@ -391,7 +392,7 @@ impl Cursor for StaticCursor {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
             renderer
                 .base
-                .render_texture(&img.tex, 0, 0, None, None, renderer.scale(), None);
+                .render_texture(&img.tex, 0, 0, None, None, renderer.scale(), None, None);
         }
     }
 
@@ -421,7 +422,7 @@ impl Cursor for AnimatedCursor {
         if let Some(img) = img.scales.get(&renderer.scale()) {
             renderer
                 .base
-                .render_texture(&img.tex, 0, 0, None, None, renderer.scale(), None);
+                .render_texture(&img.tex, 0, 0, None, None, renderer.scale(), None, None);
         }
     }
 

@@ -408,7 +408,7 @@ impl State {
                 }
                 fn visit_surface(&mut self, node: &Rc<WlSurface>) {
                     if let Some(buffer) = node.buffer.get() {
-                        buffer.handle_gfx_context_change();
+                        buffer.buffer.handle_gfx_context_change();
                     }
                     node.node_visit_children(self);
                 }
@@ -813,6 +813,7 @@ impl State {
             Some(sample_rect),
             size,
             Scale::from_int(1),
+            None,
             None,
         );
         if render_hardware_cursors {

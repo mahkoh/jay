@@ -222,6 +222,7 @@ impl GuiElement for Button {
                 None,
                 r.scale(),
                 None,
+                None,
             );
         }
     }
@@ -322,6 +323,7 @@ impl GuiElement for Label {
                 None,
                 None,
                 r.scale(),
+                None,
                 None,
             );
         }

@@ -48,6 +48,13 @@ impl DmaBuf {
         }
         false
     }
+
+    pub fn import_sync_file(&self, flags: u32, sync_file: &OwnedFd) -> Result<(), OsError> {
+        for plane in &self.planes {
+            dma_buf_import_sync_file(&plane.fd, flags, sync_file)?;
+        }
+        Ok(())
+    }
 }
 
 const DMA_BUF_BASE: u64 = b'b' as _;

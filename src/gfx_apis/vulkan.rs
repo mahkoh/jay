@@ -153,8 +153,6 @@ pub enum VulkanError {
     IoctlExportSyncFile(#[source] OsError),
     #[error("Could not import a sync file into a semaphore")]
     ImportSyncFile(#[source] vk::Result),
-    #[error("Could not import a sync file into a dma-buf")]
-    IoctlImportSyncFile(#[source] OsError),
     #[error("Could not export a sync file from a semaphore")]
     ExportSyncFile(#[source] vk::Result),
     #[error("Could not fetch the render node of the device")]

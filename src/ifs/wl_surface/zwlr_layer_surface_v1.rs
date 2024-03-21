@@ -350,9 +350,9 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     }
 
     fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
-        let buffer = self.surface.buffer.get();
+        let buffer_is_some = self.surface.buffer.is_some();
         if self.mapped.get() {
-            if buffer.is_none() {
+            if !buffer_is_some {
                 self.destroy_node();
             } else {
                 let pos = self.pos.get();
@@ -361,7 +361,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                     self.compute_position();
                 }
             }
-        } else if buffer.is_some() {
+        } else if buffer_is_some {
             let layer = &self.output.layers[self.layer.get() as usize];
             self.link.set(Some(layer.add_last(self.clone())));
             self.mapped.set(true);

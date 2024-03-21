@@ -2,10 +2,10 @@ use {
     crate::{
         gfx_api::{GfxApiOpt, SampleRect},
         ifs::{
-            wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_surface::{
-                xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, WlSurface,
+                xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, SurfaceBuffer,
+                WlSurface,
             },
             wp_presentation_feedback::WpPresentationFeedback,
         },
@@ -152,12 +152,12 @@ impl Renderer<'_> {
             for title in &rd.titles {
                 let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
                 self.base
-                    .render_texture(&title.tex, x, y, None, None, scale, None);
+                    .render_texture(&title.tex, x, y, None, None, scale, None, None);
             }
             if let Some(status) = &rd.status {
                 let (x, y) = self.base.scale_point(x + status.tex_x, y + status.tex_y);
                 self.base
-                    .render_texture(&status.tex.texture, x, y, None, None, scale, None);
+                    .render_texture(&status.tex.texture, x, y, None, None, scale, None, None);
             }
         }
         if let Some(ws) = output.workspace.get() {
@@ -194,7 +194,7 @@ impl Renderer<'_> {
             let x = x + (pos.width() - tex_width) / 2;
             let y = y + (pos.height() - tex_height) / 2;
             self.base
-                .render_texture(&tex.texture, x, y, None, None, self.base.scale, None);
+                .render_texture(&tex.texture, x, y, None, None, self.base.scale, None, None);
         }
     }
 
@@ -230,6 +230,7 @@ impl Renderer<'_> {
                         None,
                         None,
                         self.base.scale,
+                        None,
                         None,
                     );
                 }
@@ -345,14 +346,14 @@ impl Renderer<'_> {
 
     pub fn render_buffer(
         &mut self,
-        buffer: &WlBuffer,
+        buffer: &Rc<SurfaceBuffer>,
         x: i32,
         y: i32,
         tpoints: SampleRect,
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {
-        if let Some(tex) = buffer.texture.get() {
+        if let Some(tex) = buffer.buffer.texture.get() {
             self.base.render_texture(
                 &tex,
                 x,
@@ -361,8 +362,9 @@ impl Renderer<'_> {
                 Some(tsize),
                 self.base.scale,
                 bounds,
+                Some(buffer.clone()),
             );
-        } else if let Some(color) = &buffer.color {
+        } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
                 let rect = match bounds {
                     None => rect,
@@ -409,8 +411,16 @@ impl Renderer<'_> {
         self.base.fill_boxes(&title_underline, &uc);
         if let Some(title) = floating.title_textures.get(&self.base.scale) {
             let (x, y) = self.base.scale_point(x + bw, y + bw);
-            self.base
-                .render_texture(&title.texture, x, y, None, None, self.base.scale, None);
+            self.base.render_texture(
+                &title.texture,
+                x,
+                y,
+                None,
+                None,
+                self.base.scale,
+                None,
+                None,
+            );
         }
         let body = Rect::new_sized(
             x + bw,

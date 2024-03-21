@@ -9,7 +9,7 @@ use {
         state::State,
         theme::Color,
         tree::{Node, OutputNode},
-        utils::{numcell::NumCell, transform_ext::TransformExt},
+        utils::{clonecell::UnsafeCellCloneSafe, transform_ext::TransformExt},
         video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
     },
     ahash::AHashMap,
@@ -21,9 +21,12 @@ use {
         error::Error,
         ffi::CString,
         fmt::{Debug, Formatter},
+        ops::Deref,
         rc::Rc,
+        sync::atomic::{AtomicU64, Ordering::Relaxed},
     },
     thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub enum GfxApiOpt {
@@ -141,6 +144,34 @@ pub struct CopyTexture {
     pub tex: Rc<dyn GfxTexture>,
     pub source: SampleRect,
     pub target: FramebufferRect,
+    pub buffer_resv: Option<Rc<dyn BufferResv>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SyncFile(pub Rc<OwnedFd>);
+
+impl Deref for SyncFile {
+    type Target = Rc<OwnedFd>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+unsafe impl UnsafeCellCloneSafe for SyncFile {}
+
+pub trait BufferResv: Debug {
+    fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile);
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct BufferResvUser(u64);
+
+impl Default for BufferResvUser {
+    fn default() -> Self {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        Self(NEXT_ID.fetch_add(1, Relaxed))
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -210,7 +241,7 @@ impl dyn GfxFramebuffer {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
-        renderer.render_texture(texture, x, y, None, None, scale, None);
+        renderer.render_texture(texture, x, y, None, None, scale, None, None);
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear);
     }
@@ -376,38 +407,6 @@ pub trait GfxImage {
     fn height(&self) -> i32;
 }
 
-#[derive(Default)]
-pub struct TextureReservations {
-    reservations: NumCell<usize>,
-    on_release: Cell<Option<Box<dyn FnOnce()>>>,
-}
-
-impl TextureReservations {
-    pub fn has_reservation(&self) -> bool {
-        self.reservations.get() != 0
-    }
-
-    pub fn acquire(&self) {
-        self.reservations.fetch_add(1);
-    }
-
-    pub fn release(&self) {
-        if self.reservations.fetch_sub(1) == 1 {
-            if let Some(cb) = self.on_release.take() {
-                cb();
-            }
-        }
-    }
-
-    pub fn on_released<C: FnOnce() + 'static>(&self, cb: C) {
-        if self.has_reservation() {
-            self.on_release.set(Some(Box::new(cb)));
-        } else {
-            cb();
-        }
-    }
-}
-
 pub trait GfxTexture: Debug {
     fn size(&self) -> (i32, i32);
     fn as_any(&self) -> &dyn Any;
@@ -423,7 +422,6 @@ pub trait GfxTexture: Debug {
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError>;
     fn dmabuf(&self) -> Option<&DmaBuf>;
-    fn reservations(&self) -> &TextureReservations;
     fn format(&self) -> &'static Format;
 }
 
