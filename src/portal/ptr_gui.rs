@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{GfxContext, GfxFramebuffer},
+        gfx_api::{AcquireSync, GfxContext, GfxFramebuffer, ReleaseSync},
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
         renderer::renderer_base::RendererBase,
@@ -223,6 +223,8 @@ impl GuiElement for Button {
                 r.scale(),
                 None,
                 None,
+                AcquireSync::None,
+                ReleaseSync::None,
             );
         }
     }
@@ -325,6 +327,8 @@ impl GuiElement for Label {
                 r.scale(),
                 None,
                 None,
+                AcquireSync::None,
+                ReleaseSync::None,
             );
         }
     }

@@ -306,7 +306,8 @@ impl WlSeatGlobal {
                             transform,
                         );
                         match res {
-                            Ok(_) => {
+                            Ok(sync_file) => {
+                                hc.set_sync_file(sync_file);
                                 hc.swap_buffer();
                             }
                             Err(e) => {

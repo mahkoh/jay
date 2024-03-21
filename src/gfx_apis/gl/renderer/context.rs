@@ -2,8 +2,8 @@ use {
     crate::{
         format::{Format, XRGB8888},
         gfx_api::{
-            GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture,
-            ResetStatus,
+            BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
+            GfxTexture, ResetStatus,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -65,6 +65,8 @@ pub(in crate::gfx_apis::gl) struct GlRenderContext {
 
     pub(crate) gfx_ops: RefCell<Vec<GfxApiOpt>>,
     pub(in crate::gfx_apis::gl) gl_state: RefCell<GfxGlState>,
+
+    pub(in crate::gfx_apis::gl) buffer_resv_user: BufferResvUser,
 }
 
 impl Debug for GlRenderContext {
@@ -141,6 +143,8 @@ impl GlRenderContext {
 
             gfx_ops: Default::default(),
             gl_state: Default::default(),
+
+            buffer_resv_user: Default::default(),
         })
     }
 

@@ -145,6 +145,8 @@ pub struct CopyTexture {
     pub source: SampleRect,
     pub target: FramebufferRect,
     pub buffer_resv: Option<Rc<dyn BufferResv>>,
+    pub acquire_sync: AcquireSync,
+    pub release_sync: ReleaseSync,
 }
 
 #[derive(Clone, Debug)]
@@ -159,6 +161,40 @@ impl Deref for SyncFile {
 }
 
 unsafe impl UnsafeCellCloneSafe for SyncFile {}
+
+#[derive(Clone)]
+pub enum AcquireSync {
+    None,
+    Implicit,
+    SyncFile { sync_file: SyncFile },
+}
+
+impl AcquireSync {
+    pub fn from_sync_file(sync_file: Option<SyncFile>) -> Self {
+        match sync_file {
+            None => Self::Implicit,
+            Some(sync_file) => Self::SyncFile { sync_file },
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ReleaseSync {
+    None,
+    Implicit,
+    Explicit,
+}
+
+impl Debug for AcquireSync {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            AcquireSync::None => "None",
+            AcquireSync::Implicit => "Implicit",
+            AcquireSync::SyncFile { .. } => "SyncFile",
+        };
+        f.debug_struct(name).finish_non_exhaustive()
+    }
+}
 
 pub trait BufferResv: Debug {
     fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile);
@@ -189,7 +225,11 @@ pub trait GfxFramebuffer: Debug {
 
     fn physical_size(&self) -> (i32, i32);
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), GfxError>;
+    fn render(
+        &self,
+        ops: Vec<GfxApiOpt>,
+        clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, GfxError>;
 
     fn copy_to_shm(
         self: Rc<Self>,
@@ -206,11 +246,11 @@ pub trait GfxFramebuffer: Debug {
 }
 
 impl dyn GfxFramebuffer {
-    pub fn clear(&self) -> Result<(), GfxError> {
+    pub fn clear(&self) -> Result<Option<SyncFile>, GfxError> {
         self.clear_with(0.0, 0.0, 0.0, 0.0)
     }
 
-    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<(), GfxError> {
+    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<Option<SyncFile>, GfxError> {
         let ops = self.take_render_ops();
         self.render(ops, Some(&Color { r, g, b, a }))
     }
@@ -240,13 +280,26 @@ impl dyn GfxFramebuffer {
     pub fn copy_texture(
         &self,
         texture: &Rc<dyn GfxTexture>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
         x: i32,
         y: i32,
-    ) -> Result<(), GfxError> {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
-        renderer.render_texture(texture, x, y, None, None, scale, None, None);
+        renderer.render_texture(
+            texture,
+            x,
+            y,
+            None,
+            None,
+            scale,
+            None,
+            None,
+            acquire_sync,
+            release_sync,
+        );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(ops, clear)
     }
@@ -256,7 +309,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         clear: Option<&Color>,
         f: &mut dyn FnMut(&mut RendererBase),
-    ) -> Result<(), GfxError> {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = self.take_render_ops();
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
@@ -331,7 +384,7 @@ impl dyn GfxFramebuffer {
         }
     }
 
-    pub fn perform_render_pass(&self, pass: GfxRenderPass) -> Result<(), GfxError> {
+    pub fn perform_render_pass(&self, pass: GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
         self.render(pass.ops, pass.clear.as_ref())
     }
 
@@ -343,7 +396,7 @@ impl dyn GfxFramebuffer {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
-    ) -> Result<(), GfxError> {
+    ) -> Result<Option<SyncFile>, GfxError> {
         self.render_node(
             node,
             state,
@@ -366,7 +419,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
-    ) -> Result<(), GfxError> {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let pass = self.create_render_pass(
             node,
             state,
@@ -386,7 +439,7 @@ impl dyn GfxFramebuffer {
         state: &State,
         scale: Scale,
         transform: Transform,
-    ) -> Result<(), GfxError> {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = self.take_render_ops();
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),

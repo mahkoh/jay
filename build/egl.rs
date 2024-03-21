@@ -80,6 +80,34 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
             &[("target", "GLenum"), ("image", "GLeglImageOES")][..],
         ),
         ("glGetGraphicsResetStatusKHR", "GLenum", &[][..]),
+        (
+            "eglCreateSyncKHR",
+            "EGLSyncKHR",
+            &[
+                ("dpy", "EGLDisplay"),
+                ("ty", "EGLenum"),
+                ("attrib_list", "*const EGLint"),
+            ][..],
+        ),
+        (
+            "eglDestroySyncKHR",
+            "EGLBoolean",
+            &[("dpy", "EGLDisplay"), ("sync", "EGLSyncKHR")][..],
+        ),
+        (
+            "eglDupNativeFenceFDANDROID",
+            "EGLint",
+            &[("dpy", "EGLDisplay"), ("sync", "EGLSyncKHR")][..],
+        ),
+        (
+            "eglWaitSyncKHR",
+            "EGLint",
+            &[
+                ("dpy", "EGLDisplay"),
+                ("sync", "EGLSyncKHR"),
+                ("flags", "EGLint"),
+            ][..],
+        ),
     ];
 
     writeln!(f, "use std::ptr;")?;

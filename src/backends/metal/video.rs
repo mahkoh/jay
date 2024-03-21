@@ -9,7 +9,10 @@ use {
         drm_feedback::DrmFeedback,
         edid::Descriptor,
         format::{Format, ARGB8888, XRGB8888},
-        gfx_api::{BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass, GfxTexture},
+        gfx_api::{
+            AcquireSync, BufferResv, GfxApiOpt, GfxContext, GfxFramebuffer, GfxRenderPass,
+            GfxTexture, ReleaseSync, SyncFile,
+        },
         ifs::wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC},
         renderer::RenderResult,
         state::State,
@@ -227,6 +230,7 @@ pub struct MetalConnector {
     pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 3]>>>,
     pub cursor_front_buffer: NumCell<usize>,
     pub cursor_swap_buffer: Cell<bool>,
+    pub cursor_sync_file: CloneCell<Option<SyncFile>>,
 
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
@@ -244,6 +248,7 @@ pub struct MetalHardwareCursor {
     pub cursor_x_pending: Cell<i32>,
     pub cursor_y_pending: Cell<i32>,
     pub cursor_buffers: Rc<[RenderBuffer; 3]>,
+    pub sync_file: CloneCell<Option<SyncFile>>,
     pub have_changes: Cell<bool>,
 }
 
@@ -270,6 +275,11 @@ impl HardwareCursor for MetalHardwareCursor {
         self.have_changes.set(true);
     }
 
+    fn set_sync_file(&self, sync_file: Option<SyncFile>) {
+        self.sync_file.set(sync_file);
+        self.have_changes.set(true);
+    }
+
     fn commit(&self) {
         if self.generation != self.connector.cursor_generation.get() {
             return;
@@ -285,6 +295,7 @@ impl HardwareCursor for MetalHardwareCursor {
         if self.cursor_swap_buffer.take() {
             self.connector.cursor_swap_buffer.set(true);
         }
+        self.connector.cursor_sync_file.set(self.sync_file.take());
         self.connector.cursor_changed.set(true);
         if self.connector.can_present.get() {
             self.connector.schedule_present();
@@ -350,6 +361,7 @@ pub struct DirectScanoutCache {
 #[derive(Debug)]
 pub struct DirectScanoutData {
     tex: Rc<dyn GfxTexture>,
+    acquire_sync: AcquireSync,
     _resv: Option<Rc<dyn BufferResv>>,
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
@@ -370,6 +382,7 @@ pub struct DirectScanoutPosition {
 pub struct PresentFb {
     fb: Rc<DrmFramebuffer>,
     direct_scanout_data: Option<DirectScanoutData>,
+    sync_file: Option<SyncFile>,
 }
 
 impl MetalConnector {
@@ -396,6 +409,7 @@ impl MetalConnector {
                 cursor_x_pending: Cell::new(self.cursor_x.get()),
                 cursor_y_pending: Cell::new(self.cursor_y.get()),
                 cursor_buffers: cp.clone(),
+                sync_file: Default::default(),
                 have_changes: Cell::new(false),
             }) as _),
             _ => None,
@@ -474,6 +488,10 @@ impl MetalConnector {
             }
             ct
         };
+        if let AcquireSync::None = ct.acquire_sync {
+            // Cannot perform scanout without sync.
+            return None;
+        }
         if ct.source.buffer_transform != ct.target.output_transform {
             // Rotations and mirroring are not supported.
             return None;
@@ -526,6 +544,7 @@ impl MetalConnector {
         if let Some(buffer) = cache.get(&dmabuf.id) {
             return buffer.fb.as_ref().map(|fb| DirectScanoutData {
                 tex: buffer.tex.upgrade().unwrap(),
+                acquire_sync: ct.acquire_sync.clone(),
                 _resv: ct.buffer_resv.clone(),
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
@@ -550,6 +569,7 @@ impl MetalConnector {
         let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
             Ok(fb) => Some(DirectScanoutData {
                 tex: ct.tex.clone(),
+                acquire_sync: ct.acquire_sync.clone(),
                 _resv: ct.buffer_resv.clone(),
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
@@ -630,21 +650,31 @@ impl MetalConnector {
             };
             log::debug!("{} direct scanout on {}", change, self.kernel_id());
         }
-        let fb = match &direct_scanout_data {
+        let sync_file;
+        let fb;
+        match &direct_scanout_data {
             None => {
-                buffer_fb
+                let sf = buffer_fb
                     .perform_render_pass(pass)
                     .map_err(MetalError::RenderFrame)?;
-                buffer.copy_to_dev()?;
+                sync_file = buffer.copy_to_dev(sf)?;
                 self.next_buffer.fetch_add(1);
                 output.perform_screencopies(&buffer.render_tex, !render_hw_cursor, 0, 0, None);
-                buffer.drm.clone()
+                fb = buffer.drm.clone();
             }
-            Some(dsd) => dsd.fb.clone(),
+            Some(dsd) => {
+                sync_file = match &dsd.acquire_sync {
+                    AcquireSync::None => None,
+                    AcquireSync::Implicit => None,
+                    AcquireSync::SyncFile { sync_file } => Some(sync_file.clone()),
+                };
+                fb = dsd.fb.clone();
+            }
         };
         Ok(PresentFb {
             fb,
             direct_scanout_data,
+            sync_file,
         })
     }
 
@@ -699,6 +729,7 @@ impl MetalConnector {
                             )
                         }
                     };
+                let in_fence = fb.sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
                 changes.change_object(plane.id, |c| {
                     c.change(plane.fb_id, fb.fb.id().0 as _);
                     c.change(plane.src_w.id, (src_width as u64) << 16);
@@ -707,11 +738,13 @@ impl MetalConnector {
                     c.change(plane.crtc_y.id, crtc_y as u64);
                     c.change(plane.crtc_w.id, crtc_w as u64);
                     c.change(plane.crtc_h.id, crtc_h as u64);
+                    c.change(plane.in_fence_fd, in_fence as u64);
                 });
                 new_fb = Some(fb);
             }
         }
         let mut cursor_swap_buffer = false;
+        let mut cursor_sync_file = None;
         if self.cursor_changed.get() && cursor.is_some() {
             let plane = cursor.unwrap();
             if self.cursor_enabled.get() {
@@ -719,12 +752,14 @@ impl MetalConnector {
                 let mut front_buffer = self.cursor_front_buffer.get();
                 if cursor_swap_buffer {
                     front_buffer = front_buffer.wrapping_add(1);
+                    cursor_sync_file = self.cursor_sync_file.get();
                 }
                 let buffers = self.cursor_buffers.get().unwrap();
                 let buffer = &buffers[front_buffer % buffers.len()];
                 if cursor_swap_buffer {
-                    buffer.copy_to_dev()?;
+                    cursor_sync_file = buffer.copy_to_dev(cursor_sync_file)?;
                 }
+                let in_fence = cursor_sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
                 let (width, height) = buffer.dev_fb.physical_size();
                 changes.change_object(plane.id, |c| {
                     c.change(plane.fb_id, buffer.drm.id().0 as _);
@@ -737,6 +772,7 @@ impl MetalConnector {
                     c.change(plane.src_y.id, 0);
                     c.change(plane.src_w.id, (width as u64) << 16);
                     c.change(plane.src_h.id, (height as u64) << 16);
+                    c.change(plane.in_fence_fd, in_fence as u64);
                 });
             } else {
                 changes.change_object(plane.id, |c| {
@@ -775,6 +811,7 @@ impl MetalConnector {
             if cursor_swap_buffer {
                 self.cursor_swap_buffer.set(false);
                 self.cursor_front_buffer.fetch_add(1);
+                self.cursor_sync_file.take();
             }
             self.can_present.set(false);
             self.has_damage.set(false);
@@ -1026,6 +1063,7 @@ fn create_connector(
         cursor_changed: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
+        cursor_sync_file: Default::default(),
         drm_feedback: Default::default(),
         scanout_buffers: Default::default(),
         active_framebuffer: Default::default(),
@@ -2426,12 +2464,13 @@ impl RenderBuffer {
             .unwrap_or_else(|| self.dev_fb.clone())
     }
 
-    fn copy_to_dev(&self) -> Result<(), MetalError> {
+    fn copy_to_dev(&self, sync_file: Option<SyncFile>) -> Result<Option<SyncFile>, MetalError> {
         let Some(tex) = &self.dev_tex else {
-            return Ok(());
+            return Ok(sync_file);
         };
+        let acquire_point = AcquireSync::from_sync_file(sync_file);
         self.dev_fb
-            .copy_texture(tex, 0, 0)
+            .copy_texture(tex, acquire_point, ReleaseSync::Implicit, 0, 0)
             .map_err(MetalError::CopyToOutput)
     }
 }

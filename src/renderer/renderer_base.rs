@@ -1,7 +1,8 @@
 use {
     crate::{
         gfx_api::{
-            BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture, SampleRect,
+            AcquireSync, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture,
+            ReleaseSync, SampleRect,
         },
         rect::Rect,
         scale::Scale,
@@ -133,6 +134,8 @@ impl RendererBase<'_> {
         tscale: Scale,
         bounds: Option<&Rect>,
         buffer_resv: Option<Rc<dyn BufferResv>>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
     ) {
         let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
@@ -172,6 +175,8 @@ impl RendererBase<'_> {
             source: texcoord,
             target,
             buffer_resv,
+            acquire_sync,
+            release_sync,
         }));
     }
 }

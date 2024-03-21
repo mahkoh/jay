@@ -78,6 +78,9 @@ bitflags! {
         KHR_SURFACELESS_CONTEXT            = 1 << 5,
         IMG_CONTEXT_PRIORITY               = 1 << 6,
         EXT_CREATE_CONTEXT_ROBUSTNESS      = 1 << 7,
+        KHR_FENCE_SYNC                     = 1 << 8,
+        KHR_WAIT_SYNC                      = 1 << 9,
+        ANDROID_NATIVE_FENCE_SYNC          = 1 << 10,
 }
 
 pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
@@ -96,6 +99,9 @@ pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
             "EGL_EXT_create_context_robustness",
             EXT_CREATE_CONTEXT_ROBUSTNESS,
         ),
+        ("EGL_KHR_fence_sync", KHR_FENCE_SYNC),
+        ("EGL_KHR_wait_sync", KHR_WAIT_SYNC),
+        ("EGL_ANDROID_native_fence_sync", ANDROID_NATIVE_FENCE_SYNC),
     ];
     match get_dpy_extensions(dpy) {
         Some(exts) => get_typed_ext(&exts, DisplayExt::none(), &map),

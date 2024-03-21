@@ -47,8 +47,8 @@ impl VulkanSemaphore {
                 .external_semaphore_fd
                 .import_semaphore_fd(&fd_info)
         };
-        mem::forget(sync_file);
         res.map_err(VulkanError::ImportSyncFile)?;
+        mem::forget(sync_file);
         Ok(())
     }
 }

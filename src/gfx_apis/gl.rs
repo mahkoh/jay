@@ -68,8 +68,8 @@ macro_rules! dynload {
 use {
     crate::{
         gfx_api::{
-            CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
-            SampleRect,
+            AcquireSync, CopyTexture, FillRect, GfxApiOpt, GfxContext, GfxError, GfxTexture,
+            ReleaseSync, SyncFile,
         },
         gfx_apis::gl::{
             gl::texture::image_target,
@@ -80,8 +80,9 @@ use {
             },
         },
         theme::Color,
-        utils::{rc_eq::rc_eq, vecstorage::VecStorage},
+        utils::{errorfmt::ErrorFmt, rc_eq::rc_eq, vecstorage::VecStorage},
         video::{
+            dmabuf::DMA_BUF_SYNC_READ,
             drm::{Drm, DrmError},
             gbm::GbmError,
         },
@@ -181,6 +182,14 @@ enum RenderError {
     NoSupportedFormats,
     #[error("Cannot convert a shm texture into a framebuffer")]
     ShmTextureToFb,
+    #[error("Could not create EGLSyncKHR")]
+    CreateEglSync,
+    #[error("Could not destroy EGLSyncKHR")]
+    DestroyEglSync,
+    #[error("Could not export sync file")]
+    ExportSyncFile,
+    #[error("Could not insert wait for EGLSyncKHR")]
+    WaitSync,
 }
 
 #[derive(Default)]
@@ -190,7 +199,7 @@ struct GfxGlState {
     copy_tex: VecStorage<&'static CopyTexture>,
 }
 
-fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
+fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<SyncFile> {
     let mut state = fb.ctx.gl_state.borrow_mut();
     let state = &mut *state;
     let mut fill_rect = state.fill_rect.take();
@@ -256,9 +265,30 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) {
             }
         }
         for tex in &*copy_tex {
-            render_texture(&fb.ctx, &tex.tex.as_gl(), &tex.target, &tex.source)
+            render_texture(&fb.ctx, tex);
         }
     }
+    if fb.ctx.ctx.dpy.explicit_sync {
+        let file = match fb.ctx.ctx.export_sync_file() {
+            Ok(f) => SyncFile(Rc::new(f)),
+            Err(e) => {
+                log::error!("Could not create sync file: {}", ErrorFmt(e));
+                return None;
+            }
+        };
+        let user = fb.ctx.buffer_resv_user;
+        for op in ops {
+            if let GfxApiOpt::CopyTexture(ct) = op {
+                if ct.release_sync == ReleaseSync::Explicit {
+                    if let Some(resv) = &ct.buffer_resv {
+                        resv.set_sync_file(user, &file);
+                    }
+                }
+            }
+        }
+        return Some(file);
+    }
+    None
 }
 
 fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
@@ -280,15 +310,13 @@ fn fill_boxes3(ctx: &GlRenderContext, boxes: &[[f32; 2]], color: &Color) {
     }
 }
 
-fn render_texture(
-    ctx: &GlRenderContext,
-    texture: &Texture,
-    target_rect: &FramebufferRect,
-    src: &SampleRect,
-) {
+fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
+    let texture = tex.tex.as_gl();
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
     let gles = ctx.ctx.dpy.gles;
     unsafe {
+        handle_explicit_sync(ctx, texture, &tex.acquire_sync);
+
         (gles.glActiveTexture)(GL_TEXTURE0);
 
         let target = image_target(texture.gl.external_only);
@@ -321,8 +349,8 @@ fn render_texture(
 
         (gles.glUniform1i)(prog.tex, 0);
 
-        let texcoord = src.to_points();
-        let pos = target_rect.to_points();
+        let texcoord = tex.source.to_points();
+        let pos = tex.target.to_points();
 
         (gles.glVertexAttribPointer)(
             prog.texcoord as _,
@@ -343,6 +371,36 @@ fn render_texture(
         (gles.glDisableVertexAttribArray)(prog.pos as _);
 
         (gles.glBindTexture)(target, 0);
+    }
+}
+
+fn handle_explicit_sync(ctx: &GlRenderContext, texture: &Texture, sync: &AcquireSync) {
+    let sync_file = match sync {
+        AcquireSync::None | AcquireSync::Implicit => return,
+        AcquireSync::SyncFile { sync_file } => sync_file,
+    };
+    let sync_file = match uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0) {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Could not dup sync file: {}", ErrorFmt(e));
+            return;
+        }
+    };
+    if ctx.ctx.dpy.explicit_sync {
+        let sync = match ctx.ctx.create_sync(Some(sync_file)) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("Could import sync file: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        sync.wait();
+    } else {
+        if let Some(img) = &texture.gl.img {
+            if let Err(e) = img.dmabuf.import_sync_file(DMA_BUF_SYNC_READ, &sync_file) {
+                log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
+            }
+        }
     }
 }
 

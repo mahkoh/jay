@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture},
+        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, SyncFile},
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanMaxExtents,
             renderer::VulkanRenderer, util::OnDrop, VulkanError,
@@ -525,7 +525,11 @@ impl GfxFramebuffer for VulkanImage {
         (self.width as _, self.height as _)
     }
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), GfxError> {
+    fn render(
+        &self,
+        ops: Vec<GfxApiOpt>,
+        clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, GfxError> {
         self.renderer
             .execute(self, &ops, clear)
             .map_err(|e| e.into())

@@ -3,7 +3,8 @@ use {
         async_engine::SpawnedFuture,
         format::Format,
         gfx_api::{
-            BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer, GfxTexture, SyncFile,
+            AcquireSync, BufferResv, BufferResvUser, GfxApiOpt, GfxFormat, GfxFramebuffer,
+            GfxTexture, ReleaseSync, SyncFile,
         },
         gfx_apis::vulkan::{
             allocator::VulkanAllocator,
@@ -48,6 +49,7 @@ use {
         rc::Rc,
         slice,
     },
+    uapi::OwnedFd,
 };
 
 pub struct VulkanRenderer {
@@ -70,6 +72,8 @@ pub struct VulkanRenderer {
 pub(super) struct UsedTexture {
     tex: Rc<VulkanImage>,
     resv: Option<Rc<dyn BufferResv>>,
+    acquire_sync: AcquireSync,
+    release_sync: ReleaseSync,
 }
 
 #[derive(Default)]
@@ -185,6 +189,8 @@ impl VulkanRenderer {
                 memory.textures.push(UsedTexture {
                     tex,
                     resv: c.buffer_resv.clone(),
+                    acquire_sync: c.acquire_sync.clone(),
+                    release_sync: c.release_sync,
                 });
             }
         }
@@ -538,12 +544,11 @@ impl VulkanRenderer {
         let import = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
                       semaphores: &mut Vec<Rc<VulkanSemaphore>>,
                       img: &VulkanImage,
+                      sync: &AcquireSync,
                       flag: u32|
          -> Result<(), VulkanError> {
             if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
-                for plane in &buf.template.dmabuf.planes {
-                    let fd = dma_buf_export_sync_file(&plane.fd, flag)
-                        .map_err(VulkanError::IoctlExportSyncFile)?;
+                let mut import_sync_file = |fd: OwnedFd| -> Result<(), VulkanError> {
                     let semaphore = self.allocate_semaphore()?;
                     semaphore.import_sync_file(fd)?;
                     infos.push(
@@ -553,6 +558,22 @@ impl VulkanRenderer {
                             .build(),
                     );
                     semaphores.push(semaphore);
+                    Ok(())
+                };
+                match sync {
+                    AcquireSync::None => {}
+                    AcquireSync::Implicit { .. } => {
+                        for plane in &buf.template.dmabuf.planes {
+                            let fd = dma_buf_export_sync_file(&plane.fd, flag)
+                                .map_err(VulkanError::IoctlExportSyncFile)?;
+                            import_sync_file(fd)?;
+                        }
+                    }
+                    AcquireSync::SyncFile { sync_file } => {
+                        let fd = uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0)
+                            .map_err(|e| VulkanError::Dupfd(e.into()))?;
+                        import_sync_file(fd)?;
+                    }
                 }
             }
             Ok(())
@@ -562,6 +583,7 @@ impl VulkanRenderer {
                 &mut memory.wait_semaphore_infos,
                 &mut memory.wait_semaphores,
                 &texture.tex,
+                &texture.acquire_sync,
                 DMA_BUF_SYNC_READ,
             )?;
         }
@@ -569,6 +591,7 @@ impl VulkanRenderer {
             &mut memory.wait_semaphore_infos,
             &mut memory.wait_semaphores,
             fb,
+            &AcquireSync::Implicit,
             DMA_BUF_SYNC_WRITE,
         )?;
         Ok(())
@@ -580,20 +603,31 @@ impl VulkanRenderer {
             Some(sync_file) => sync_file,
             _ => return,
         };
-        let import = |img: &VulkanImage, resv: Option<Rc<dyn BufferResv>>, flag: u32| {
-            if let Some(resv) = resv {
-                resv.set_sync_file(self.buffer_resv_user, sync_file);
-            } else if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
-                if let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file) {
-                    log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
-                    log::warn!("Relying on implicit sync");
+        let import =
+            |img: &VulkanImage, sync: ReleaseSync, resv: Option<Rc<dyn BufferResv>>, flag: u32| {
+                if sync == ReleaseSync::None {
+                    return;
                 }
-            }
-        };
+                if let Some(resv) = resv {
+                    resv.set_sync_file(self.buffer_resv_user, sync_file);
+                } else if sync == ReleaseSync::Implicit {
+                    if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
+                        if let Err(e) = buf.template.dmabuf.import_sync_file(flag, sync_file) {
+                            log::error!("Could not import sync file into dmabuf: {}", ErrorFmt(e));
+                            log::warn!("Relying on implicit sync");
+                        }
+                    }
+                }
+            };
         for texture in &mut memory.textures {
-            import(&texture.tex, texture.resv.take(), DMA_BUF_SYNC_READ);
+            import(
+                &texture.tex,
+                texture.release_sync,
+                texture.resv.take(),
+                DMA_BUF_SYNC_READ,
+            );
         }
-        import(fb, None, DMA_BUF_SYNC_WRITE);
+        import(fb, ReleaseSync::Implicit, None, DMA_BUF_SYNC_WRITE);
     }
 
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
@@ -656,7 +690,7 @@ impl VulkanRenderer {
         });
         self.pending_frames.set(frame.point, frame.clone());
         let future = self.device.instance.eng.spawn(await_release(
-            memory.release_sync_file.take(),
+            memory.release_sync_file.clone(),
             self.device.instance.ring.clone(),
             frame.clone(),
             self.clone(),
@@ -699,7 +733,13 @@ impl VulkanRenderer {
             true,
         )?;
         (&*tmp_tex as &dyn GfxFramebuffer)
-            .copy_texture(&(tex.clone() as _), x, y)
+            .copy_texture(
+                &(tex.clone() as _),
+                AcquireSync::None,
+                ReleaseSync::None,
+                x,
+                y,
+            )
             .map_err(VulkanError::GfxError)?;
         self.read_all_pixels(&tmp_tex, stride, dst)
     }
@@ -839,9 +879,9 @@ impl VulkanRenderer {
         fb: &VulkanImage,
         opts: &[GfxApiOpt],
         clear: Option<&Color>,
-    ) -> Result<(), VulkanError> {
+    ) -> Result<Option<SyncFile>, VulkanError> {
         let res = self.try_execute(fb, opts, clear);
-        {
+        let sync_file = {
             let mut memory = self.memory.borrow_mut();
             memory.flush.clear();
             memory.textures.clear();
@@ -849,9 +889,9 @@ impl VulkanRenderer {
             memory.sample.clear();
             memory.wait_semaphores.clear();
             memory.release_fence.take();
-            memory.release_sync_file.take();
-        }
-        res
+            memory.release_sync_file.take()
+        };
+        res.map(|_| sync_file)
     }
 
     fn allocate_command_buffer(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {

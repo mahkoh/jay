@@ -1,7 +1,7 @@
 use {
     crate::{
         format::Format,
-        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer},
+        gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, SyncFile},
         gfx_apis::gl::{
             gl::{
                 frame_buffer::GlFrameBuffer,
@@ -65,7 +65,11 @@ impl Framebuffer {
         });
     }
 
-    pub fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), RenderError> {
+    pub fn render(
+        &self,
+        ops: Vec<GfxApiOpt>,
+        clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
         let res = self.ctx.ctx.with_current(|| {
             unsafe {
@@ -77,11 +81,13 @@ impl Framebuffer {
                 }
                 (gles.glBlendFunc)(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             }
-            run_ops(self, &ops);
-            unsafe {
-                (gles.glFlush)();
+            let fd = run_ops(self, &ops);
+            if fd.is_none() {
+                unsafe {
+                    (gles.glFlush)();
+                }
             }
-            Ok(())
+            Ok(fd)
         });
         *self.ctx.gfx_ops.borrow_mut() = ops;
         res
@@ -103,7 +109,11 @@ impl GfxFramebuffer for Framebuffer {
         (self.gl.width, self.gl.height)
     }
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), GfxError> {
+    fn render(
+        &self,
+        ops: Vec<GfxApiOpt>,
+        clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, GfxError> {
         self.render(ops, clear).map_err(|e| e.into())
     }
 

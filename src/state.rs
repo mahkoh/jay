@@ -17,7 +17,10 @@ use {
         fixed::Fixed,
         forker::ForkerProxy,
         format::Format,
-        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture, SampleRect},
+        gfx_api::{
+            AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync, SampleRect,
+            SyncFile,
+        },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -770,8 +773,8 @@ impl State {
         tex: &Rc<dyn GfxTexture>,
         rr: &mut RenderResult,
         render_hw_cursor: bool,
-    ) -> Result<(), GfxError> {
-        fb.render_output(
+    ) -> Result<Option<SyncFile>, GfxError> {
+        let sync_file = fb.render_output(
             output,
             self,
             Some(output.global.pos.get()),
@@ -781,7 +784,7 @@ impl State {
         )?;
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
         rr.dispatch_frame_requests();
-        Ok(())
+        Ok(sync_file)
     }
 
     pub fn perform_screencopy(
@@ -794,7 +797,7 @@ impl State {
         y_off: i32,
         size: Option<(i32, i32)>,
         transform: Transform,
-    ) -> Result<(), GfxError> {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = target.take_render_ops();
         let mut renderer = Renderer {
             base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
@@ -817,6 +820,8 @@ impl State {
             Scale::from_int(1),
             None,
             None,
+            AcquireSync::None,
+            ReleaseSync::Implicit,
         );
         if render_hardware_cursors {
             for seat in self.globals.lock_seats().values() {

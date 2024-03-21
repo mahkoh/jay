@@ -16,7 +16,7 @@ use {
         client::{Client, ClientError, RequestParser},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::{BufferResv, BufferResvUser, SampleRect, SyncFile},
+        gfx_api::{AcquireSync, BufferResv, BufferResvUser, SampleRect, SyncFile},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -136,6 +136,7 @@ impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
 pub struct SurfaceBuffer {
     pub buffer: Rc<WlBuffer>,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
+    pub sync: AcquireSync,
 }
 
 impl Drop for SurfaceBuffer {
@@ -837,6 +838,7 @@ impl WlSurface {
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     sync_files: Default::default(),
+                    sync: AcquireSync::Implicit,
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
                 self.buf_x.fetch_add(dx);
