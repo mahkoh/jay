@@ -709,16 +709,18 @@ impl MetalConnector {
                 new_fb = Some(fb);
             }
         }
+        let mut cursor_swap_buffer = false;
         if self.cursor_changed.get() && cursor.is_some() {
             let plane = cursor.unwrap();
             if self.cursor_enabled.get() {
-                let swap_buffer = self.cursor_swap_buffer.take();
-                if swap_buffer {
-                    self.cursor_front_buffer.fetch_add(1);
+                cursor_swap_buffer = self.cursor_swap_buffer.get();
+                let mut front_buffer = self.cursor_front_buffer.get();
+                if cursor_swap_buffer {
+                    front_buffer = front_buffer.wrapping_add(1);
                 }
                 let buffers = self.cursor_buffers.get().unwrap();
-                let buffer = &buffers[self.cursor_front_buffer.get() % buffers.len()];
-                if swap_buffer {
+                let buffer = &buffers[front_buffer % buffers.len()];
+                if cursor_swap_buffer {
                     if let Some(tex) = &buffer.dev_tex {
                         buffer.dev_fb.copy_texture(tex, 0, 0);
                     }
@@ -773,6 +775,10 @@ impl MetalConnector {
         } else {
             if let Some(fb) = new_fb {
                 self.next_framebuffer.set(Some(fb));
+            }
+            if cursor_swap_buffer {
+                self.cursor_swap_buffer.set(false);
+                self.cursor_front_buffer.fetch_add(1);
             }
             self.can_present.set(false);
             self.has_damage.set(false);
