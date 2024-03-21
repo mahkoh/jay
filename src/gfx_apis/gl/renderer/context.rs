@@ -14,7 +14,11 @@ use {
             renderer::{framebuffer::Framebuffer, image::Image},
             GfxGlState, RenderError, Texture,
         },
-        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice},
+        video::{
+            dmabuf::DmaBuf,
+            drm::{sync_obj::SyncObjCtx, Drm},
+            gbm::GbmDevice,
+        },
     },
     ahash::AHashMap,
     jay_config::video::GfxApi,
@@ -53,6 +57,7 @@ pub(crate) struct TexProgs {
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
     pub gbm: Rc<GbmDevice>,
+    pub sync_ctx: Rc<SyncObjCtx>,
 
     pub(crate) render_node: Rc<CString>,
 
@@ -128,6 +133,7 @@ impl GlRenderContext {
         Ok(Self {
             ctx: ctx.clone(),
             gbm: ctx.dpy.gbm.clone(),
+            sync_ctx: Rc::new(SyncObjCtx::new(ctx.dpy.gbm.drm.fd())),
 
             render_node: node.clone(),
 
@@ -270,5 +276,9 @@ impl GfxContext for GlRenderContext {
             GlRenderBuffer::new(&self.ctx, width, height, format)?.create_framebuffer()
         })?;
         Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
+    }
+
+    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx> {
+        &self.sync_ctx
     }
 }

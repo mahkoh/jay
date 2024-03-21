@@ -67,7 +67,7 @@ impl Framebuffer {
 
     pub fn render(
         &self,
-        ops: Vec<GfxApiOpt>,
+        mut ops: Vec<GfxApiOpt>,
         clear: Option<&Color>,
     ) -> Result<Option<SyncFile>, RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
@@ -89,6 +89,7 @@ impl Framebuffer {
             }
             Ok(fd)
         });
+        ops.clear();
         *self.ctx.gfx_ops.borrow_mut() = ops;
         res
     }
@@ -100,9 +101,7 @@ impl GfxFramebuffer for Framebuffer {
     }
 
     fn take_render_ops(&self) -> Vec<GfxApiOpt> {
-        let mut ops = mem::take(&mut *self.ctx.gfx_ops.borrow_mut());
-        ops.clear();
-        ops
+        mem::take(&mut *self.ctx.gfx_ops.borrow_mut())
     }
 
     fn physical_size(&self) -> (i32, i32) {

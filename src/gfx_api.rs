@@ -10,7 +10,7 @@ use {
         theme::Color,
         tree::{Node, OutputNode},
         utils::{clonecell::UnsafeCellCloneSafe, transform_ext::TransformExt},
-        video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
+        video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, gbm::GbmDevice, Modifier},
     },
     ahash::AHashMap,
     indexmap::IndexSet,
@@ -167,6 +167,7 @@ pub enum AcquireSync {
     None,
     Implicit,
     SyncFile { sync_file: SyncFile },
+    Unnecessary,
 }
 
 impl AcquireSync {
@@ -191,6 +192,7 @@ impl Debug for AcquireSync {
             AcquireSync::None => "None",
             AcquireSync::Implicit => "Implicit",
             AcquireSync::SyncFile { .. } => "SyncFile",
+            AcquireSync::Unnecessary => "Unnecessary",
         };
         f.debug_struct(name).finish_non_exhaustive()
     }
@@ -517,6 +519,8 @@ pub trait GfxContext: Debug {
         stride: i32,
         format: &'static Format,
     ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+
+    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx>;
 }
 
 #[derive(Debug)]

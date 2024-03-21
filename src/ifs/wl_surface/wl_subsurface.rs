@@ -313,7 +313,7 @@ impl Object for WlSubsurface {
 simple_add_obj!(WlSubsurface);
 
 impl SurfaceExt for WlSubsurface {
-    fn commit_requested(self: Rc<Self>, pending: &mut PendingState) -> CommitAction {
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         if self.sync() {
             let mut parent_pending = self.parent.pending.borrow_mut();
             match parent_pending.subsurfaces.entry(self.unique_id) {

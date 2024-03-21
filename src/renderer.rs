@@ -386,10 +386,6 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
     ) {
         if let Some(tex) = buffer.buffer.texture.get() {
-            let release_sync = match buffer.sync {
-                AcquireSync::Implicit => ReleaseSync::Implicit,
-                AcquireSync::None | AcquireSync::SyncFile { .. } => ReleaseSync::Explicit,
-            };
             self.base.render_texture(
                 &tex,
                 x,
@@ -400,7 +396,7 @@ impl Renderer<'_> {
                 bounds,
                 Some(buffer.clone()),
                 buffer.sync.clone(),
-                release_sync,
+                buffer.release_sync,
             );
         } else if let Some(color) = &buffer.buffer.color {
             if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {

@@ -1,4 +1,6 @@
+pub mod sync_obj;
 mod sys;
+pub mod wait_for_sync_obj;
 
 use {
     crate::{
@@ -52,7 +54,7 @@ pub use sys::{
 #[derive(Debug, Error)]
 pub enum DrmError {
     #[error("Could not reopen a node")]
-    ReopenNode(#[source] crate::utils::oserror::OsError),
+    ReopenNode(#[source] OsError),
     #[error("Could not retrieve the render node name")]
     RenderNodeName(#[source] OsError),
     #[error("Could not retrieve the device node name")]
@@ -113,6 +115,28 @@ pub enum DrmError {
     Version(#[source] OsError),
     #[error("Format of IN_FORMATS property is invalid")]
     InFormats,
+    #[error("Could not import a sync obj")]
+    ImportSyncObj(#[source] OsError),
+    #[error("Could not create a sync obj")]
+    CreateSyncObj(#[source] OsError),
+    #[error("Could not export a sync obj")]
+    ExportSyncObj(#[source] OsError),
+    #[error("Could not register an eventfd with a sync obj")]
+    RegisterEventfd(#[source] OsError),
+    #[error("Could not create an eventfd")]
+    EventFd(#[source] OsError),
+    #[error("Could not read from an eventfd")]
+    ReadEventFd(#[source] IoUringError),
+    #[error("No sync obj context available")]
+    NoSyncObjContextAvailable,
+    #[error("Could not signal the sync obj")]
+    SignalSyncObj(#[source] OsError),
+    #[error("Could not transfer a sync obj point")]
+    TransferPoint(#[source] OsError),
+    #[error("Could not merge two sync files")]
+    Merge(#[source] OsError),
+    #[error("Could not import a sync file into a sync obj")]
+    ImportSyncFile(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {

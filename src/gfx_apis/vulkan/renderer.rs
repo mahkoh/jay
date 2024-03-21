@@ -574,6 +574,7 @@ impl VulkanRenderer {
                             .map_err(|e| VulkanError::Dupfd(e.into()))?;
                         import_sync_file(fd)?;
                     }
+                    AcquireSync::Unnecessary => {}
                 }
             }
             Ok(())

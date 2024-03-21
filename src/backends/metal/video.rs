@@ -667,6 +667,7 @@ impl MetalConnector {
                     AcquireSync::None => None,
                     AcquireSync::Implicit => None,
                     AcquireSync::SyncFile { sync_file } => Some(sync_file.clone()),
+                    AcquireSync::Unnecessary => None,
                 };
                 fb = dsd.fb.clone();
             }

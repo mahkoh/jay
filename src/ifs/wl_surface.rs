@@ -1,7 +1,9 @@
+pub mod commit_timeline;
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_fractional_scale_v1;
+pub mod wp_linux_drm_syncobj_surface_v1;
 pub mod wp_tearing_control_v1;
 pub mod wp_viewport;
 pub mod x_surface;
@@ -16,7 +18,7 @@ use {
         client::{Client, ClientError, RequestParser},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::{AcquireSync, BufferResv, BufferResvUser, SampleRect, SyncFile},
+        gfx_api::{AcquireSync, BufferResv, BufferResvUser, ReleaseSync, SampleRect, SyncFile},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -25,9 +27,11 @@ use {
                 NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
+                commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
                 cursor::CursorSurface,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_fractional_scale_v1::WpFractionalScaleV1,
+                wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
                 wp_viewport::WpViewport,
                 x_surface::XSurface,
@@ -57,7 +61,10 @@ use {
             smallmap::SmallMap,
             transform_ext::TransformExt,
         },
-        video::dmabuf::DMA_BUF_SYNC_READ,
+        video::{
+            dmabuf::DMA_BUF_SYNC_READ,
+            drm::sync_obj::{SyncObj, SyncObjPoint},
+        },
         wire::{
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
             ZwpLinuxDmabufFeedbackV1Id,
@@ -66,6 +73,7 @@ use {
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
+    isnt::std_1::primitive::IsntSliceExt,
     jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
@@ -133,15 +141,46 @@ impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
     }
 }
 
+struct SurfaceBufferExplicitRelease {
+    sync_obj: Rc<SyncObj>,
+    point: SyncObjPoint,
+}
+
 pub struct SurfaceBuffer {
     pub buffer: Rc<WlBuffer>,
     sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
     pub sync: AcquireSync,
+    pub release_sync: ReleaseSync,
+    release: Option<SurfaceBufferExplicitRelease>,
 }
 
 impl Drop for SurfaceBuffer {
     fn drop(&mut self) {
         let sync_files = self.sync_files.take();
+        if let Some(release) = &self.release {
+            let Some(ctx) = self.buffer.client.state.render_ctx.get() else {
+                log::error!("Cannot signal release point because there is no render context");
+                return;
+            };
+            let ctx = ctx.sync_obj_ctx();
+            if sync_files.is_not_empty() {
+                let res = ctx.import_sync_files(
+                    &release.sync_obj,
+                    release.point,
+                    sync_files.iter().map(|f| &f.1),
+                );
+                match res {
+                    Ok(_) => return,
+                    Err(e) => {
+                        log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
+                    }
+                }
+            }
+            if let Err(e) = ctx.signal(&release.sync_obj, release.point) {
+                log::error!("Could not signal release point: {}", ErrorFmt(e));
+            }
+            return;
+        }
         if let Some(dmabuf) = &self.buffer.dmabuf {
             for (_, sync_file) in &sync_files {
                 if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
@@ -173,7 +212,7 @@ pub struct WlSurface {
     pub client: Rc<Client>,
     visible: Cell<bool>,
     role: Cell<SurfaceRole>,
-    pending: RefCell<PendingState>,
+    pending: RefCell<Box<PendingState>>,
     input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
@@ -209,6 +248,9 @@ pub struct WlSurface {
     pub has_content_type_manager: Cell<bool>,
     content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
+    sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
+    destroyed: Cell<bool>,
+    commit_timeline: CommitTimeline,
 }
 
 impl Debug for WlSurface {
@@ -232,7 +274,7 @@ enum CommitAction {
 }
 
 trait SurfaceExt {
-    fn commit_requested(self: Rc<Self>, pending: &mut PendingState) -> CommitAction {
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
         let _ = pending;
         CommitAction::ContinueCommit
     }
@@ -329,11 +371,14 @@ struct PendingState {
     xdg_surface: Option<Box<PendingXdgSurfaceData>>,
     layer_surface: Option<Box<PendingLayerSurfaceData>>,
     subsurfaces: AHashMap<SubsurfaceId, CommittedSubsurface>,
+    acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    explicit_sync: bool,
 }
 
 struct CommittedSubsurface {
     subsurface: Rc<WlSubsurface>,
-    state: PendingState,
+    state: Box<PendingState>,
 }
 
 impl PendingState {
@@ -341,7 +386,9 @@ impl PendingState {
         // discard state
 
         if next.buffer.is_some() {
-            if let Some(Some(prev)) = self.buffer.take() {
+            if let Some((sync_obj, point)) = self.release_point.take() {
+                client.state.signal_point(&sync_obj, point);
+            } else if let Some(Some(prev)) = self.buffer.take() {
                 if !prev.destroyed() {
                     prev.send_release();
                 }
@@ -371,6 +418,8 @@ impl PendingState {
         opt!(xwayland_serial);
         opt!(tearing);
         opt!(content_type);
+        opt!(acquire_point);
+        opt!(release_point);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
@@ -478,6 +527,9 @@ impl WlSurface {
             has_content_type_manager: Default::default(),
             content_type: Default::default(),
             drm_feedback: Default::default(),
+            sync_obj_surface: Default::default(),
+            destroyed: Cell::new(false),
+            commit_timeline: client.commit_timelines.create_timeline(),
         }
     }
 
@@ -706,6 +758,7 @@ impl WlSurface {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Destroy = self.parse(parser)?;
+        self.commit_timeline.clear(ClearReason::Destroy);
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
@@ -730,6 +783,7 @@ impl WlSurface {
         self.client.remove_obj(self)?;
         self.idle_inhibitors.clear();
         self.constraints.take();
+        self.destroyed.set(true);
         Ok(())
     }
 
@@ -796,6 +850,9 @@ impl WlSurface {
                 .surface
                 .apply_state(&mut subsurface.state)?;
         }
+        if self.destroyed.get() {
+            return Ok(());
+        }
         self.ext.get().before_apply_commit(pending)?;
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
@@ -835,10 +892,20 @@ impl WlSurface {
             }
             if let Some(buffer) = buffer_change {
                 buffer.update_texture_or_log();
+                let (sync, release_sync) = match pending.explicit_sync {
+                    false => (AcquireSync::Implicit, ReleaseSync::Implicit),
+                    true => (AcquireSync::Unnecessary, ReleaseSync::Explicit),
+                };
+                let release = pending
+                    .release_point
+                    .take()
+                    .map(|(sync_obj, point)| SurfaceBufferExplicitRelease { sync_obj, point });
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     sync_files: Default::default(),
-                    sync: AcquireSync::Implicit,
+                    sync,
+                    release_sync,
+                    release,
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
                 self.buf_x.fetch_add(dx);
@@ -990,10 +1057,32 @@ impl WlSurface {
         let _req: Commit = self.parse(parser)?;
         let ext = self.ext.get();
         let pending = &mut *self.pending.borrow_mut();
+        self.verify_explicit_sync(pending)?;
         if ext.commit_requested(pending) == CommitAction::ContinueCommit {
-            self.apply_state(pending)?;
+            self.commit_timeline.commit(self, pending)?;
         }
         Ok(())
+    }
+
+    fn verify_explicit_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        pending.explicit_sync = self.sync_obj_surface.is_some();
+        if !pending.explicit_sync {
+            return Ok(());
+        }
+        let have_new_buffer = match &pending.buffer {
+            None => false,
+            Some(b) => b.is_some(),
+        };
+        match (
+            pending.release_point.is_some(),
+            pending.acquire_point.is_some(),
+            have_new_buffer,
+        ) {
+            (true, true, true) => Ok(()),
+            (false, false, false) => Ok(()),
+            (_, _, true) => Err(WlSurfaceError::MissingSyncPoints),
+            (_, _, false) => Err(WlSurfaceError::UnexpectedSyncPoints),
+        }
     }
 
     fn set_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
@@ -1215,6 +1304,7 @@ impl Object for WlSurface {
         self.tearing_control.take();
         self.constraints.clear();
         self.drm_feedback.clear();
+        self.commit_timeline.clear(ClearReason::BreakLoops);
     }
 }
 
@@ -1381,8 +1471,15 @@ pub enum WlSurfaceError {
     ViewportOutsideBuffer,
     #[error("attach request must not contain offset")]
     OffsetInAttach,
+    #[error(transparent)]
+    CommitTimelineError(Box<CommitTimelineError>),
+    #[error("Explicit sync buffer is attached but acquire or release points are not set")]
+    MissingSyncPoints,
+    #[error("No buffer is attached but acquire or release point is set")]
+    UnexpectedSyncPoints,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
 efrom!(WlSurfaceError, MsgParserError);
+efrom!(WlSurfaceError, CommitTimelineError);

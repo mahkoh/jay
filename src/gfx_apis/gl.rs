@@ -376,7 +376,7 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
 
 fn handle_explicit_sync(ctx: &GlRenderContext, texture: &Texture, sync: &AcquireSync) {
     let sync_file = match sync {
-        AcquireSync::None | AcquireSync::Implicit => return,
+        AcquireSync::None | AcquireSync::Implicit | AcquireSync::Unnecessary => return,
         AcquireSync::SyncFile { sync_file } => sync_file,
     };
     let sync_file = match uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0) {

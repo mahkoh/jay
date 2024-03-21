@@ -37,6 +37,7 @@ use {
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 NoneSurfaceExt, WlSurface,
             },
+            wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
@@ -59,7 +60,14 @@ use {
             linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
-        video::{dmabuf::DmaBufIds, drm::Drm},
+        video::{
+            dmabuf::DmaBufIds,
+            drm::{
+                sync_obj::{SyncObj, SyncObjPoint},
+                wait_for_sync_obj::WaitForSyncObj,
+                Drm,
+            },
+        },
         wheel::Wheel,
         wire::{
             ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
@@ -163,6 +171,7 @@ pub struct State {
     pub double_click_distance: Cell<i32>,
     pub create_default_seat: Cell<bool>,
     pub subsurface_ids: SubsurfaceIds,
+    pub wait_for_sync_obj: Rc<WaitForSyncObj>,
 }
 
 // impl Drop for State {
@@ -367,6 +376,8 @@ impl State {
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
         self.drm_feedback.set(None);
+        self.wait_for_sync_obj
+            .set_ctx(ctx.as_ref().map(|c| c.sync_obj_ctx().clone()));
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
@@ -435,11 +446,18 @@ impl State {
             seat.render_ctx_changed();
         }
 
-        if ctx.is_some() && !self.render_ctx_ever_initialized.replace(true) {
-            self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
-            self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
-            if let Some(config) = self.config.get() {
-                config.graphics_initialized();
+        if let Some(ctx) = &ctx {
+            if !self.render_ctx_ever_initialized.replace(true) {
+                self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
+                self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
+                if ctx.sync_obj_ctx().supports_async_wait() {
+                    self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
+                        self.globals.name(),
+                    )));
+                }
+                if let Some(config) = self.config.get() {
+                    config.graphics_initialized();
+                }
             }
         }
 
@@ -930,6 +948,16 @@ impl State {
         let seat = WlSeatGlobal::new(global_name, name, self);
         self.globals.add_global(self, &seat);
         seat
+    }
+
+    pub fn signal_point(&self, sync_obj: &SyncObj, point: SyncObjPoint) {
+        let Some(ctx) = self.render_ctx.get() else {
+            log::error!("Cannot signal sync obj point because there is no render context");
+            return;
+        };
+        if let Err(e) = ctx.sync_obj_ctx().signal(sync_obj, point) {
+            log::error!("Could not signal sync obj: {}", ErrorFmt(e));
+        }
     }
 }
 
