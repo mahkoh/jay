@@ -189,7 +189,7 @@ pub trait GfxFramebuffer: Debug {
 
     fn physical_size(&self) -> (i32, i32);
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>);
+    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), GfxError>;
 
     fn copy_to_shm(
         self: Rc<Self>,
@@ -206,13 +206,13 @@ pub trait GfxFramebuffer: Debug {
 }
 
 impl dyn GfxFramebuffer {
-    pub fn clear(&self) {
-        self.clear_with(0.0, 0.0, 0.0, 0.0);
+    pub fn clear(&self) -> Result<(), GfxError> {
+        self.clear_with(0.0, 0.0, 0.0, 0.0)
     }
 
-    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) {
+    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<(), GfxError> {
         let ops = self.take_render_ops();
-        self.render(ops, Some(&Color { r, g, b, a }));
+        self.render(ops, Some(&Color { r, g, b, a }))
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
@@ -237,13 +237,18 @@ impl dyn GfxFramebuffer {
         }
     }
 
-    pub fn copy_texture(&self, texture: &Rc<dyn GfxTexture>, x: i32, y: i32) {
+    pub fn copy_texture(
+        &self,
+        texture: &Rc<dyn GfxTexture>,
+        x: i32,
+        y: i32,
+    ) -> Result<(), GfxError> {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         renderer.render_texture(texture, x, y, None, None, scale, None, None);
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(ops, clear);
+        self.render(ops, clear)
     }
 
     pub fn render_custom(
@@ -251,11 +256,11 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         clear: Option<&Color>,
         f: &mut dyn FnMut(&mut RendererBase),
-    ) {
+    ) -> Result<(), GfxError> {
         let mut ops = self.take_render_ops();
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(ops, clear);
+        self.render(ops, clear)
     }
 
     pub fn create_render_pass(
@@ -326,7 +331,7 @@ impl dyn GfxFramebuffer {
         }
     }
 
-    pub fn perform_render_pass(&self, pass: GfxRenderPass) {
+    pub fn perform_render_pass(&self, pass: GfxRenderPass) -> Result<(), GfxError> {
         self.render(pass.ops, pass.clear.as_ref())
     }
 
@@ -338,7 +343,7 @@ impl dyn GfxFramebuffer {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
-    ) {
+    ) -> Result<(), GfxError> {
         self.render_node(
             node,
             state,
@@ -361,7 +366,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
-    ) {
+    ) -> Result<(), GfxError> {
         let pass = self.create_render_pass(
             node,
             state,
@@ -372,7 +377,7 @@ impl dyn GfxFramebuffer {
             black_background,
             transform,
         );
-        self.perform_render_pass(pass);
+        self.perform_render_pass(pass)
     }
 
     pub fn render_hardware_cursor(
@@ -381,7 +386,7 @@ impl dyn GfxFramebuffer {
         state: &State,
         scale: Scale,
         transform: Transform,
-    ) {
+    ) -> Result<(), GfxError> {
         let mut ops = self.take_render_ops();
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
@@ -394,7 +399,7 @@ impl dyn GfxFramebuffer {
             },
         };
         cursor.render_hardware_cursor(&mut renderer);
-        self.render(ops, Some(&Color::TRANSPARENT));
+        self.render(ops, Some(&Color::TRANSPARENT))
     }
 }
 

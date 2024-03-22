@@ -525,8 +525,10 @@ impl GfxFramebuffer for VulkanImage {
         (self.width as _, self.height as _)
     }
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) {
-        self.renderer.execute(self, &ops, clear).unwrap();
+    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), GfxError> {
+        self.renderer
+            .execute(self, &ops, clear)
+            .map_err(|e| e.into())
     }
 
     fn copy_to_shm(

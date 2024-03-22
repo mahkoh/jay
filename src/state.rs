@@ -81,6 +81,7 @@ use {
         sync::Arc,
         time::Duration,
     },
+    thiserror::Error,
 };
 
 pub struct State {
@@ -769,7 +770,7 @@ impl State {
         tex: &Rc<dyn GfxTexture>,
         rr: &mut RenderResult,
         render_hw_cursor: bool,
-    ) {
+    ) -> Result<(), GfxError> {
         fb.render_output(
             output,
             self,
@@ -777,9 +778,10 @@ impl State {
             Some(rr),
             output.global.persistent.scale.get(),
             render_hw_cursor,
-        );
+        )?;
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
         rr.dispatch_frame_requests();
+        Ok(())
     }
 
     pub fn perform_screencopy(
@@ -792,7 +794,7 @@ impl State {
         y_off: i32,
         size: Option<(i32, i32)>,
         transform: Transform,
-    ) {
+    ) -> Result<(), GfxError> {
         let mut ops = target.take_render_ops();
         let mut renderer = Renderer {
             base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
@@ -828,7 +830,7 @@ impl State {
                 }
             }
         }
-        target.render(ops, Some(&Color::SOLID_BLACK));
+        target.render(ops, Some(&Color::SOLID_BLACK))
     }
 
     fn have_hardware_cursor(&self) -> bool {
@@ -854,7 +856,7 @@ impl State {
         stride: i32,
         format: &'static Format,
         transform: Transform,
-    ) {
+    ) -> Result<(), ShmScreencopyError> {
         let (src_width, src_height) = src.size();
         let mut needs_copy = capture.rect.x1() < x_off
             || capture.rect.x2() > x_off + src_width
@@ -869,20 +871,11 @@ impl State {
         }
         let acc = if needs_copy {
             let Some(ctx) = self.render_ctx.get() else {
-                log::warn!("Cannot perform shm screencopy because there is no render context");
-                return;
+                return Err(ShmScreencopyError::NoRenderContext);
             };
-            let fb =
-                match ctx.create_fb(capture.rect.width(), capture.rect.height(), stride, format) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        log::warn!(
-                            "Could not create temporary fb for screencopy: {}",
-                            ErrorFmt(e)
-                        );
-                        return;
-                    }
-                };
+            let fb = ctx
+                .create_fb(capture.rect.width(), capture.rect.height(), stride, format)
+                .map_err(ShmScreencopyError::CreateTemporaryFb)?;
             self.perform_screencopy(
                 src,
                 &fb,
@@ -892,7 +885,8 @@ impl State {
                 y_off - capture.rect.y1(),
                 size,
                 transform,
-            );
+            )
+            .map_err(ShmScreencopyError::CopyToTemporary)?;
             mem.access(|mem| {
                 fb.copy_to_shm(
                     0,
@@ -917,16 +911,12 @@ impl State {
                 )
             })
         };
-        let res = match acc {
-            Ok(res) => res,
+        match acc {
+            Ok(res) => res.map_err(ShmScreencopyError::ReadPixels),
             Err(e) => {
                 capture.client.error(e);
-                return;
+                Ok(())
             }
-        };
-        if let Err(e) = res {
-            log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
-            capture.send_failed();
         }
     }
 
@@ -936,4 +926,16 @@ impl State {
         self.globals.add_global(self, &seat);
         seat
     }
+}
+
+#[derive(Debug, Error)]
+pub enum ShmScreencopyError {
+    #[error("There is no render context")]
+    NoRenderContext,
+    #[error("Could not create a bridge framebuffer")]
+    CreateTemporaryFb(#[source] GfxError),
+    #[error("Could not copy texture to bridge framebuffer")]
+    CopyToTemporary(#[source] GfxError),
+    #[error("Could not read pixels from texture")]
+    ReadPixels(#[source] GfxError),
 }

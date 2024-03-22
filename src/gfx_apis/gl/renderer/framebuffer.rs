@@ -10,6 +10,7 @@ use {
             renderer::context::GlRenderContext,
             run_ops,
             sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
+            RenderError,
         },
         theme::Color,
     },
@@ -64,9 +65,9 @@ impl Framebuffer {
         });
     }
 
-    pub fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) {
+    pub fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
-        let _ = self.ctx.ctx.with_current(|| {
+        let res = self.ctx.ctx.with_current(|| {
             unsafe {
                 (gles.glBindFramebuffer)(GL_FRAMEBUFFER, self.gl.fbo);
                 (gles.glViewport)(0, 0, self.gl.width, self.gl.height);
@@ -83,6 +84,7 @@ impl Framebuffer {
             Ok(())
         });
         *self.ctx.gfx_ops.borrow_mut() = ops;
+        res
     }
 }
 
@@ -101,8 +103,8 @@ impl GfxFramebuffer for Framebuffer {
         (self.gl.width, self.gl.height)
     }
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) {
-        self.render(ops, clear);
+    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>) -> Result<(), GfxError> {
+        self.render(ops, clear).map_err(|e| e.into())
     }
 
     fn copy_to_shm(

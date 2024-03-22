@@ -114,6 +114,14 @@ pub enum MetalError {
     MissingDevModifier(&'static str),
     #[error("Device GFX API cannot read any buffers writable by the render GFX API (format {0})")]
     MissingRenderModifier(&'static str),
+    #[error("Could not render the frame")]
+    RenderFrame(#[source] GfxError),
+    #[error("Could not copy frame to output device")]
+    CopyToOutput(#[source] GfxError),
+    #[error("Could not perform atomic commit")]
+    Commit(#[source] DrmError),
+    #[error("Could not clear framebuffer")]
+    Clear(#[source] GfxError),
 }
 
 pub struct MetalBackend {

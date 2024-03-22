@@ -173,6 +173,8 @@ pub enum VulkanError {
         height: i32,
         stride: i32,
     },
+    #[error(transparent)]
+    GfxError(GfxError),
 }
 
 impl From<VulkanError> for GfxError {

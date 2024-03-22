@@ -376,7 +376,9 @@ impl MetalConnector {
     async fn present_loop(self: Rc<Self>) {
         loop {
             self.present_trigger.triggered().await;
-            let _ = self.present(true);
+            if let Err(e) = self.present(true) {
+                log::error!("Could not present: {}", ErrorFmt(e));
+            }
         }
     }
 
@@ -585,7 +587,7 @@ impl MetalConnector {
         plane: &Rc<MetalPlane>,
         output: &OutputNode,
         try_direct_scanout: bool,
-    ) -> PresentFb {
+    ) -> Result<PresentFb, MetalError> {
         self.trim_scanout_cache();
         let buffer_fb = buffer.render_fb();
         let render_hw_cursor = !self.cursor_enabled.get();
@@ -630,23 +632,23 @@ impl MetalConnector {
         }
         let fb = match &direct_scanout_data {
             None => {
+                buffer_fb
+                    .perform_render_pass(pass)
+                    .map_err(MetalError::RenderFrame)?;
+                buffer.copy_to_dev()?;
                 self.next_buffer.fetch_add(1);
-                buffer_fb.perform_render_pass(pass);
-                if let Some(tex) = &buffer.dev_tex {
-                    buffer.dev_fb.copy_texture(tex, 0, 0);
-                }
                 output.perform_screencopies(&buffer.render_tex, !render_hw_cursor, 0, 0, None);
                 buffer.drm.clone()
             }
             Some(dsd) => dsd.fb.clone(),
         };
-        PresentFb {
+        Ok(PresentFb {
             fb,
             direct_scanout_data,
-        }
+        })
     }
 
-    pub fn present(&self, try_direct_scanout: bool) -> Result<(), ()> {
+    pub fn present(&self, try_direct_scanout: bool) -> Result<(), MetalError> {
         let crtc = match self.crtc.get() {
             Some(crtc) => crtc,
             _ => return Ok(()),
@@ -676,7 +678,7 @@ impl MetalConnector {
                 let buffer = &buffers[self.next_buffer.get() % buffers.len()];
                 let mut rr = self.render_result.borrow_mut();
                 let fb =
-                    self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout);
+                    self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
                 rr.dispatch_frame_requests();
                 let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
                     match &fb.direct_scanout_data {
@@ -721,9 +723,7 @@ impl MetalConnector {
                 let buffers = self.cursor_buffers.get().unwrap();
                 let buffer = &buffers[front_buffer % buffers.len()];
                 if cursor_swap_buffer {
-                    if let Some(tex) = &buffer.dev_tex {
-                        buffer.dev_fb.copy_texture(tex, 0, 0);
-                    }
+                    buffer.copy_to_dev()?;
                 }
                 let (width, height) = buffer.dev_fb.physical_size();
                 changes.change_object(plane.id, |c| {
@@ -746,32 +746,28 @@ impl MetalConnector {
             }
         }
         if let Err(e) = changes.commit(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT, 0) {
-            match e {
-                DrmError::Atomic(OsError(c::EACCES)) => {
-                    log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
-                }
-                _ => 'handle_failure: {
-                    if let Some(fb) = &new_fb {
-                        if let Some(dsd) = &fb.direct_scanout_data {
-                            if self.present(false).is_ok() {
-                                let mut cache = self.scanout_buffers.borrow_mut();
-                                if let Some(buffer) = cache.remove(&dsd.dma_buf_id) {
-                                    cache.insert(
-                                        dsd.dma_buf_id,
-                                        DirectScanoutCache {
-                                            tex: buffer.tex,
-                                            fb: None,
-                                        },
-                                    );
-                                }
-                                break 'handle_failure;
-                            }
+            if let DrmError::Atomic(OsError(c::EACCES)) = e {
+                log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
+                return Ok(());
+            }
+            if let Some(fb) = &new_fb {
+                if let Some(dsd) = &fb.direct_scanout_data {
+                    if self.present(false).is_ok() {
+                        let mut cache = self.scanout_buffers.borrow_mut();
+                        if let Some(buffer) = cache.remove(&dsd.dma_buf_id) {
+                            cache.insert(
+                                dsd.dma_buf_id,
+                                DirectScanoutCache {
+                                    tex: buffer.tex,
+                                    fb: None,
+                                },
+                            );
                         }
+                        return Ok(());
                     }
-                    log::error!("Could not set plane framebuffer: {}", ErrorFmt(e));
                 }
             }
-            Err(())
+            Err(MetalError::Commit(e))
         } else {
             if let Some(fb) = new_fb {
                 self.next_framebuffer.set(Some(fb));
@@ -2160,7 +2156,7 @@ impl MetalBackend {
             Ok(fb) => fb,
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
-        dev_fb.clear();
+        dev_fb.clear().map_err(MetalError::Clear)?;
         let (dev_tex, render_tex, render_fb) = if dev.id == render_ctx.dev_id {
             let render_tex = match dev_img.to_texture() {
                 Ok(fb) => fb,
@@ -2209,7 +2205,7 @@ impl MetalBackend {
                 Ok(fb) => fb,
                 Err(e) => return Err(MetalError::ImportFb(e)),
             };
-            render_fb.clear();
+            render_fb.clear().map_err(MetalError::Clear)?;
             let render_tex = match render_img.to_texture() {
                 Ok(fb) => fb,
                 Err(e) => return Err(MetalError::ImportTexture(e)),
@@ -2428,6 +2424,15 @@ impl RenderBuffer {
         self.render_fb
             .clone()
             .unwrap_or_else(|| self.dev_fb.clone())
+    }
+
+    fn copy_to_dev(&self) -> Result<(), MetalError> {
+        let Some(tex) = &self.dev_tex else {
+            return Ok(());
+        };
+        self.dev_fb
+            .copy_texture(tex, 0, 0)
+            .map_err(MetalError::CopyToOutput)
     }
 }
 

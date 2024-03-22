@@ -173,7 +173,7 @@ impl JayScreencast {
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
             if buffer.free {
-                self.client.state.perform_screencopy(
+                let res = self.client.state.perform_screencopy(
                     texture,
                     &buffer.fb,
                     on.global.pos.get(),
@@ -183,12 +183,20 @@ impl JayScreencast {
                     size,
                     on.global.persistent.transform.get(),
                 );
-                self.client.event(Ready {
-                    self_id: self.id,
-                    idx: idx as _,
-                });
-                buffer.free = false;
-                return;
+                match res {
+                    Ok(_) => {
+                        self.client.event(Ready {
+                            self_id: self.id,
+                            idx: idx as _,
+                        });
+                        buffer.free = false;
+                        return;
+                    }
+                    Err(e) => {
+                        log::error!("Could not perform screencopy: {}", ErrorFmt(e));
+                        break;
+                    }
+                }
             }
         }
         self.missed_frame.set(true);

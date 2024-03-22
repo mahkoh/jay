@@ -299,13 +299,20 @@ impl WlSeatGlobal {
                 if extents.intersects(&Rect::new_sized(-x_rel, -y_rel, width, height).unwrap()) {
                     if render {
                         let buffer = hc.get_buffer();
-                        buffer.render_hardware_cursor(
+                        let res = buffer.render_hardware_cursor(
                             cursor.deref(),
                             &self.state,
                             scale,
                             transform,
                         );
-                        hc.swap_buffer();
+                        match res {
+                            Ok(_) => {
+                                hc.swap_buffer();
+                            }
+                            Err(e) => {
+                                log::error!("Could not render hardware cursor: {}", ErrorFmt(e));
+                            }
+                        }
                     }
                     hc.set_enabled(true);
                     let mode = output.global.mode.get();

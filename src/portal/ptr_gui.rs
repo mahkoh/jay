@@ -628,6 +628,19 @@ impl WindowData {
             }
             return;
         };
+
+        let res = buf
+            .fb
+            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
+                if let Some(content) = self.content.get() {
+                    content.render_at(r, 0.0, 0.0)
+                }
+            });
+        if let Err(e) = res {
+            log::error!("Could not render frame: {}", ErrorFmt(e));
+            return;
+        }
+
         self.frame_missed.set(false);
 
         self.surface.frame({
@@ -642,13 +655,6 @@ impl WindowData {
 
         self.have_frame.set(false);
         buf.free.set(false);
-
-        buf.fb
-            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
-                if let Some(content) = self.content.get() {
-                    content.render_at(r, 0.0, 0.0)
-                }
-            });
 
         self.surface.attach(&buf.wl);
         self.surface.commit();

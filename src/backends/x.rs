@@ -738,13 +738,17 @@ impl XBackend {
         image.last_serial.set(serial);
 
         if let Some(node) = self.state.root.outputs.get(&output.id) {
-            self.state.present_output(
+            let res = self.state.present_output(
                 &node,
                 &image.fb.get(),
                 &image.tex.get(),
                 &mut self.render_result.borrow_mut(),
                 true,
             );
+            if let Err(e) = res {
+                log::error!("Could not render screen: {}", ErrorFmt(e));
+                return;
+            }
         }
 
         let pp = PresentPixmap {

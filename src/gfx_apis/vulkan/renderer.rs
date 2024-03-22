@@ -698,7 +698,9 @@ impl VulkanRenderer {
             &[],
             true,
         )?;
-        (&*tmp_tex as &dyn GfxFramebuffer).copy_texture(&(tex.clone() as _), x, y);
+        (&*tmp_tex as &dyn GfxFramebuffer)
+            .copy_texture(&(tex.clone() as _), x, y)
+            .map_err(VulkanError::GfxError)?;
         self.read_all_pixels(&tmp_tex, stride, dst)
     }
 
