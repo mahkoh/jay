@@ -18,7 +18,7 @@ use {
         io_uring::IoUringError,
         state::State,
         user_session::import_environment,
-        utils::{buf::Buf, errorfmt::ErrorFmt, oserror::OsError},
+        utils::{errorfmt::ErrorFmt, line_logger::log_lines, oserror::OsError},
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{
@@ -217,29 +217,12 @@ pub fn build_args() -> (String, Vec<String>) {
 
 async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
     let stderr = Rc::new(stderr);
-    let mut buf = vec![];
-    let mut buf2 = Buf::new(128);
-    let mut done = false;
-    while !done {
-        loop {
-            match state.ring.read(&stderr, buf2.clone()).await {
-                Ok(n) if n > 0 => {
-                    buf.extend_from_slice(&buf2[..n]);
-                }
-                Ok(_) => {
-                    done = true;
-                    break;
-                }
-                Err(e) => {
-                    log::error!("Could not read from stderr fd: {}", ErrorFmt(e));
-                    return;
-                }
-            }
-        }
-        for line in buf.lines() {
-            log::info!("Xwayland: {}", line.as_bstr());
-        }
-        buf.clear();
+    let res = log_lines(&state.ring, &stderr, |left, right| {
+        log::info!("Xwayland: {}{}", left.as_bstr(), right.as_bstr());
+    })
+    .await;
+    if let Err(e) = res {
+        log::error!("Could not read from stderr fd: {}", ErrorFmt(e));
     }
 }
 
