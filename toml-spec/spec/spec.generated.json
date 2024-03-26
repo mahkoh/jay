@@ -498,6 +498,10 @@
           "type": "boolean",
           "description": "Configured whether the compositor attempts direct scanout.\n"
         },
+        "explicit-sync": {
+          "type": "boolean",
+          "description": "Configures whether the compositor supports explicit sync.\n\nThis cannot be changed after the compositor has started.\n\nThe default is `true`.\n"
+        },
         "render-device": {
           "description": "Selects the device to use for rendering in a system with multiple GPUs.\n\nThe first device that matches will be used.\n\n- Example:\n\n  ```toml\n  render-device.name = \"dedicated\"\n\n  [[drm-devices]]\n  name = \"dedicated\"\n  match = { pci-vendor = 0x1002, pci-model = 0x73ff }\n  ```\n",
           "$ref": "#/$defs/DrmDeviceMatch"

@@ -172,6 +172,7 @@ pub struct State {
     pub create_default_seat: Cell<bool>,
     pub subsurface_ids: SubsurfaceIds,
     pub wait_for_sync_obj: Rc<WaitForSyncObj>,
+    pub explicit_sync_enabled: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -450,7 +451,7 @@ impl State {
             if !self.render_ctx_ever_initialized.replace(true) {
                 self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
                 self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
-                if ctx.sync_obj_ctx().supports_async_wait() {
+                if ctx.sync_obj_ctx().supports_async_wait() && self.explicit_sync_enabled.get() {
                     self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
                         self.globals.name(),
                     )));

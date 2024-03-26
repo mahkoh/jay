@@ -887,6 +887,16 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `explicit-sync` (optional):
+
+  Configures whether the compositor supports explicit sync.
+  
+  This cannot be changed after the compositor has started.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
 - `render-device` (optional):
 
   Selects the device to use for rendering in a system with multiple GPUs.

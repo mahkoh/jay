@@ -19,7 +19,8 @@ use {
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
         logging::set_log_level,
-        on_devices_enumerated, on_idle, quit, reload, set_default_workspace_capture, set_idle,
+        on_devices_enumerated, on_idle, quit, reload, set_default_workspace_capture,
+        set_explicit_sync_enabled, set_idle,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
@@ -788,6 +789,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     }
     if let Some(dse) = config.direct_scanout_enabled {
         set_direct_scanout_enabled(dse);
+    }
+    if let Some(ese) = config.explicit_sync_enabled {
+        set_explicit_sync_enabled(ese);
     }
     on_new_drm_device({
         let state = state.clone();

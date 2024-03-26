@@ -289,6 +289,7 @@ pub struct Config {
     pub render_device: Option<DrmDeviceMatch>,
     pub inputs: Vec<Input>,
     pub idle: Option<Duration>,
+    pub explicit_sync_enabled: Option<bool>,
 }
 
 #[derive(Debug, Error)]

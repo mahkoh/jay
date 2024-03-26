@@ -810,6 +810,10 @@ impl Client {
         self.send(&ClientMessage::SetIdle { timeout })
     }
 
+    pub fn set_explicit_sync_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetExplicitSyncEnabled { enabled })
+    }
+
     pub fn set_seat(&self, device: InputDevice, seat: Seat) {
         self.send(&ClientMessage::SetSeat { device, seat })
     }

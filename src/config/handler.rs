@@ -800,6 +800,10 @@ impl ConfigProxyHandler {
         self.state.idle.set_timeout(timeout);
     }
 
+    fn handle_set_explicit_sync_enabled(&self, enabled: bool) {
+        self.state.explicit_sync_enabled.set(enabled);
+    }
+
     fn handle_connector_connected(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
         self.respond(Response::ConnectorConnected {
@@ -1725,6 +1729,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_move_to_output(workspace, connector)
                 .wrn("move_to_output")?,
+            ClientMessage::SetExplicitSyncEnabled { enabled } => {
+                self.handle_set_explicit_sync_enabled(enabled)
+            }
         }
         Ok(())
     }

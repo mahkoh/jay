@@ -428,6 +428,9 @@ pub enum ClientMessage<'a> {
         workspace: WorkspaceSource,
         connector: Connector,
     },
+    SetExplicitSyncEnabled {
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
