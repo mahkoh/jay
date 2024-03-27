@@ -646,7 +646,8 @@ impl ToplevelNodeBase for XdgToplevel {
 
 impl XdgSurfaceExt for XdgToplevel {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
-        self.send_configure(0, 0);
+        let rect = self.xdg.absolute_desired_extents.get();
+        self.send_configure(rect.width(), rect.height());
         Ok(())
     }
 
