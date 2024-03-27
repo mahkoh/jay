@@ -96,7 +96,7 @@ impl WlSubsurface {
             surface: surface.clone(),
             parent: parent.clone(),
             position: Cell::new(Default::default()),
-            sync_requested: Cell::new(false),
+            sync_requested: Cell::new(true),
             sync_ancestor: Cell::new(false),
             node: RefCell::new(None),
             latest_node: Default::default(),
