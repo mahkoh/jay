@@ -42,6 +42,7 @@ The following features have been implemented and should work:
 - Selecting the primary device in multi-GPU systems 
 - An OpenGL backend
 - A Vulkan backend
+- Explicit sync
 
 ### Missing Features
 
