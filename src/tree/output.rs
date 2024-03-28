@@ -279,6 +279,7 @@ impl OutputNode {
                 tex: title,
             });
         }
+        self.state.damage();
     }
 
     pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
