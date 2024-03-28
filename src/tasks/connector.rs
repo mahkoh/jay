@@ -201,11 +201,11 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
+        on.schedule_update_render_data();
         self.state.root.outputs.set(self.id, on.clone());
         self.state.root.update_extents();
         self.state.add_global(&global);
         self.state.tree_changed();
-        self.state.damage();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
