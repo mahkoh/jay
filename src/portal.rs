@@ -21,15 +21,14 @@ use {
             ptl_screencast::{add_screencast_dbus_members, ScreencastSession},
         },
         utils::{
-            buf::Buf,
             clone3::{fork_with_pidfd, Forked},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            line_logger::log_lines,
             numcell::NumCell,
             oserror::OsError,
             process_name::set_process_name,
             run_toplevel::RunToplevel,
-            vecdeque_ext::VecDequeExt,
             xrd::xrd,
         },
         video::dmabuf::DmaBufIds,
@@ -38,7 +37,6 @@ use {
     },
     log::Level,
     std::{
-        collections::VecDeque,
         rc::{Rc, Weak},
         sync::Arc,
     },
@@ -104,25 +102,14 @@ impl PortalStartup {
             let ring = ring.clone();
             let logger = logger.clone();
             async move {
-                let mut buf = VecDeque::<u8>::new();
-                let mut buf2 = Buf::new(1024);
-                let mut done = false;
-                while !done {
-                    match ring.read(&self.logs, buf2.clone()).await {
-                        Ok(n) if n > 0 => buf.extend(&buf2[..n]),
-                        Ok(_) => done = true,
-                        Err(e) => {
-                            log::error!("Could not read portal logs: {}", ErrorFmt(e));
-                            return;
-                        }
-                    };
-                    while let Some(pos) = buf.iter().position(|b| b == &b'\n') {
-                        let (left, right) = buf.get_slices(..pos);
-                        logger.write_raw(left);
-                        logger.write_raw(right);
-                        logger.write_raw(b" (portal)\n");
-                        buf.drain(..=pos);
-                    }
+                let res = log_lines(&ring, &self.logs, |left, right| {
+                    logger.write_raw(left);
+                    logger.write_raw(right);
+                    logger.write_raw(b" (portal)\n");
+                })
+                .await;
+                if let Err(e) = res {
+                    log::error!("Could not read portal logs: {}", ErrorFmt(e));
                 }
             }
         });

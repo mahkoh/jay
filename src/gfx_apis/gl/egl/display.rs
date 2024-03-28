@@ -24,9 +24,10 @@ use {
                 PROCS,
             },
             ext::{
-                get_display_ext, get_gl_ext, DisplayExt, GlExt, EXT_CREATE_CONTEXT_ROBUSTNESS,
-                EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, GL_OES_EGL_IMAGE, GL_OES_EGL_IMAGE_EXTERNAL,
-                KHR_IMAGE_BASE, KHR_NO_CONFIG_CONTEXT, KHR_SURFACELESS_CONTEXT,
+                get_display_ext, get_gl_ext, DisplayExt, GlExt, ANDROID_NATIVE_FENCE_SYNC,
+                EXT_CREATE_CONTEXT_ROBUSTNESS, EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS,
+                GL_OES_EGL_IMAGE, GL_OES_EGL_IMAGE_EXTERNAL, KHR_FENCE_SYNC, KHR_IMAGE_BASE,
+                KHR_NO_CONFIG_CONTEXT, KHR_SURFACELESS_CONTEXT, KHR_WAIT_SYNC,
                 MESA_CONFIGLESS_CONTEXT,
             },
             proc::ExtProc,
@@ -65,6 +66,7 @@ pub struct EglDisplay {
     pub formats: AHashMap<u32, EglFormat>,
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
+    pub explicit_sync: bool,
 }
 
 impl EglDisplay {
@@ -99,6 +101,7 @@ impl EglDisplay {
                 formats: AHashMap::new(),
                 gbm: Rc::new(gbm),
                 dpy,
+                explicit_sync: false,
             };
             let mut major = 0;
             let mut minor = 0;
@@ -122,6 +125,9 @@ impl EglDisplay {
                 return Err(RenderError::SurfacelessContext);
             }
             dpy.formats = query_formats(procs, dpy.dpy)?;
+            dpy.explicit_sync = dpy
+                .exts
+                .contains(KHR_FENCE_SYNC | KHR_WAIT_SYNC | ANDROID_NATIVE_FENCE_SYNC);
 
             Ok(Rc::new(dpy))
         }

@@ -17,7 +17,10 @@ use {
         fixed::Fixed,
         forker::ForkerProxy,
         format::Format,
-        gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture, SampleRect},
+        gfx_api::{
+            AcquireSync, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync, SampleRect,
+            SyncFile,
+        },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, WaylandGlobal},
         ifs::{
@@ -30,9 +33,11 @@ use {
             wl_output::{OutputId, PersistentOutputState},
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
+                wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 NoneSurfaceExt, WlSurface,
             },
+            wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
             zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global,
@@ -55,7 +60,14 @@ use {
             linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
-        video::{dmabuf::DmaBufIds, drm::Drm},
+        video::{
+            dmabuf::DmaBufIds,
+            drm::{
+                sync_obj::{SyncObj, SyncObjPoint},
+                wait_for_sync_obj::WaitForSyncObj,
+                Drm,
+            },
+        },
         wheel::Wheel,
         wire::{
             ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
@@ -80,6 +92,7 @@ use {
         sync::Arc,
         time::Duration,
     },
+    thiserror::Error,
 };
 
 pub struct State {
@@ -157,6 +170,9 @@ pub struct State {
     pub double_click_interval_usec: Cell<u64>,
     pub double_click_distance: Cell<i32>,
     pub create_default_seat: Cell<bool>,
+    pub subsurface_ids: SubsurfaceIds,
+    pub wait_for_sync_obj: Rc<WaitForSyncObj>,
+    pub explicit_sync_enabled: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -361,6 +377,8 @@ impl State {
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
         self.drm_feedback.set(None);
+        self.wait_for_sync_obj
+            .set_ctx(ctx.as_ref().map(|c| c.sync_obj_ctx().clone()));
 
         'handle_new_feedback: {
             if let Some(ctx) = &ctx {
@@ -406,7 +424,7 @@ impl State {
                 }
                 fn visit_surface(&mut self, node: &Rc<WlSurface>) {
                     if let Some(buffer) = node.buffer.get() {
-                        buffer.handle_gfx_context_change();
+                        buffer.buffer.handle_gfx_context_change();
                     }
                     node.node_visit_children(self);
                 }
@@ -429,11 +447,18 @@ impl State {
             seat.render_ctx_changed();
         }
 
-        if ctx.is_some() && !self.render_ctx_ever_initialized.replace(true) {
-            self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
-            self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
-            if let Some(config) = self.config.get() {
-                config.graphics_initialized();
+        if let Some(ctx) = &ctx {
+            if !self.render_ctx_ever_initialized.replace(true) {
+                self.add_global(&Rc::new(WlDrmGlobal::new(self.globals.name())));
+                self.add_global(&Rc::new(ZwpLinuxDmabufV1Global::new(self.globals.name())));
+                if ctx.sync_obj_ctx().supports_async_wait() && self.explicit_sync_enabled.get() {
+                    self.add_global(&Rc::new(WpLinuxDrmSyncobjManagerV1Global::new(
+                        self.globals.name(),
+                    )));
+                }
+                if let Some(config) = self.config.get() {
+                    config.graphics_initialized();
+                }
             }
         }
 
@@ -767,17 +792,18 @@ impl State {
         tex: &Rc<dyn GfxTexture>,
         rr: &mut RenderResult,
         render_hw_cursor: bool,
-    ) {
-        fb.render_output(
+    ) -> Result<Option<SyncFile>, GfxError> {
+        let sync_file = fb.render_output(
             output,
             self,
             Some(output.global.pos.get()),
             Some(rr),
             output.global.persistent.scale.get(),
             render_hw_cursor,
-        );
+        )?;
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
         rr.dispatch_frame_requests();
+        Ok(sync_file)
     }
 
     pub fn perform_screencopy(
@@ -790,7 +816,7 @@ impl State {
         y_off: i32,
         size: Option<(i32, i32)>,
         transform: Transform,
-    ) {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = target.take_render_ops();
         let mut renderer = Renderer {
             base: target.renderer_base(&mut ops, Scale::from_int(1), Transform::None),
@@ -812,6 +838,9 @@ impl State {
             size,
             Scale::from_int(1),
             None,
+            None,
+            AcquireSync::None,
+            ReleaseSync::Implicit,
         );
         if render_hardware_cursors {
             for seat in self.globals.lock_seats().values() {
@@ -825,7 +854,7 @@ impl State {
                 }
             }
         }
-        target.render(ops, Some(&Color::SOLID_BLACK));
+        target.render(ops, Some(&Color::SOLID_BLACK))
     }
 
     fn have_hardware_cursor(&self) -> bool {
@@ -851,7 +880,7 @@ impl State {
         stride: i32,
         format: &'static Format,
         transform: Transform,
-    ) {
+    ) -> Result<(), ShmScreencopyError> {
         let (src_width, src_height) = src.size();
         let mut needs_copy = capture.rect.x1() < x_off
             || capture.rect.x2() > x_off + src_width
@@ -866,20 +895,11 @@ impl State {
         }
         let acc = if needs_copy {
             let Some(ctx) = self.render_ctx.get() else {
-                log::warn!("Cannot perform shm screencopy because there is no render context");
-                return;
+                return Err(ShmScreencopyError::NoRenderContext);
             };
-            let fb =
-                match ctx.create_fb(capture.rect.width(), capture.rect.height(), stride, format) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        log::warn!(
-                            "Could not create temporary fb for screencopy: {}",
-                            ErrorFmt(e)
-                        );
-                        return;
-                    }
-                };
+            let fb = ctx
+                .create_fb(capture.rect.width(), capture.rect.height(), stride, format)
+                .map_err(ShmScreencopyError::CreateTemporaryFb)?;
             self.perform_screencopy(
                 src,
                 &fb,
@@ -889,7 +909,8 @@ impl State {
                 y_off - capture.rect.y1(),
                 size,
                 transform,
-            );
+            )
+            .map_err(ShmScreencopyError::CopyToTemporary)?;
             mem.access(|mem| {
                 fb.copy_to_shm(
                     0,
@@ -914,16 +935,12 @@ impl State {
                 )
             })
         };
-        let res = match acc {
-            Ok(res) => res,
+        match acc {
+            Ok(res) => res.map_err(ShmScreencopyError::ReadPixels),
             Err(e) => {
                 capture.client.error(e);
-                return;
+                Ok(())
             }
-        };
-        if let Err(e) = res {
-            log::warn!("Could not read texture to memory: {}", ErrorFmt(e));
-            capture.send_failed();
         }
     }
 
@@ -933,4 +950,26 @@ impl State {
         self.globals.add_global(self, &seat);
         seat
     }
+
+    pub fn signal_point(&self, sync_obj: &SyncObj, point: SyncObjPoint) {
+        let Some(ctx) = self.render_ctx.get() else {
+            log::error!("Cannot signal sync obj point because there is no render context");
+            return;
+        };
+        if let Err(e) = ctx.sync_obj_ctx().signal(sync_obj, point) {
+            log::error!("Could not signal sync obj: {}", ErrorFmt(e));
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ShmScreencopyError {
+    #[error("There is no render context")]
+    NoRenderContext,
+    #[error("Could not create a bridge framebuffer")]
+    CreateTemporaryFb(#[source] GfxError),
+    #[error("Could not copy texture to bridge framebuffer")]
+    CopyToTemporary(#[source] GfxError),
+    #[error("Could not read pixels from texture")]
+    ReadPixels(#[source] GfxError),
 }

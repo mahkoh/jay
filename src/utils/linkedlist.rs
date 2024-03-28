@@ -46,6 +46,23 @@ impl<T> LinkedList<T> {
         }
     }
 
+    pub fn append_all(&self, other: &LinkedList<T>) {
+        if other.is_empty() {
+            return;
+        }
+        unsafe {
+            let o_root = other.root.data.as_ref();
+            let o_first = o_root.next.get();
+            let o_last = o_root.prev.get();
+            let s_first = self.root.data;
+            let s_last = s_first.as_ref().prev.get();
+            o_first.as_ref().prev.set(s_last);
+            s_last.as_ref().next.set(o_first);
+            o_last.as_ref().next.set(s_first);
+            s_first.as_ref().prev.set(o_last);
+        }
+    }
+
     fn endpoint(&self, ep: NonNull<NodeData<T>>) -> Option<NodeRef<T>> {
         unsafe {
             if ep != self.root.data {
@@ -57,9 +74,12 @@ impl<T> LinkedList<T> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.last().is_none()
+    }
+
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
     }
 
     pub fn last(&self) -> Option<NodeRef<T>> {

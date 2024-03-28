@@ -58,6 +58,10 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         unsafe { self.m.get().deref().is_empty() }
     }
 
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
     pub fn remove(&self, k: &K) -> Option<V> {
         unsafe { self.m.get().deref_mut().remove(k) }
     }

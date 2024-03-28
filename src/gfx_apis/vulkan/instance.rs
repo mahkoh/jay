@@ -146,8 +146,7 @@ impl Drop for VulkanInstance {
 
 const REQUIRED_INSTANCE_EXTENSIONS: &[&CStr] = &[ExtDebugUtilsFn::name()];
 
-const VALIDATION_LAYER: &CStr =
-    unsafe { CStr::from_bytes_with_nul_unchecked(b"VK_LAYER_KHRONOS_validation\0") };
+const VALIDATION_LAYER: &CStr = c"VK_LAYER_KHRONOS_validation";
 
 pub type Extensions = AHashMap<CString, u32>;
 

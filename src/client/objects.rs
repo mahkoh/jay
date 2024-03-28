@@ -19,6 +19,7 @@ use {
                 xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
             },
+            wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
             xdg_positioner::XdgPositioner,
             xdg_wm_base::XdgWmBase,
         },
@@ -29,8 +30,9 @@ use {
         },
         wire::{
             JayOutputId, JayScreencastId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
-            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId, XdgPositionerId,
-            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
+            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId,
+            WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId, XdgSurfaceId, XdgToplevelId,
+            XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -56,6 +58,7 @@ pub struct Objects {
     pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
     pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
     pub screencasts: CopyHashMap<JayScreencastId, Rc<JayScreencast>>,
+    pub timelines: CopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -83,6 +86,7 @@ impl Objects {
             xdg_wm_bases: Default::default(),
             seats: Default::default(),
             screencasts: Default::default(),
+            timelines: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }

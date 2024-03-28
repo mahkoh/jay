@@ -3,7 +3,7 @@ use {
         async_engine::SpawnedFuture,
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::GfxFramebuffer,
+        gfx_api::{GfxFramebuffer, SyncFile},
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         libinput::consts::DeviceCapability,
         video::drm::{ConnectorType, DrmError, DrmVersion},
@@ -106,6 +106,7 @@ pub trait HardwareCursor: Debug {
     fn get_buffer(&self) -> Rc<dyn GfxFramebuffer>;
     fn set_position(&self, x: i32, y: i32);
     fn swap_buffer(&self);
+    fn set_sync_file(&self, sync_file: Option<SyncFile>);
     fn commit(&self);
     fn size(&self) -> (i32, i32);
 }

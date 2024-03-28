@@ -1,6 +1,9 @@
 use {
     crate::{
-        gfx_api::{CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture, SampleRect},
+        gfx_api::{
+            AcquireSync, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt, GfxTexture,
+            ReleaseSync, SampleRect,
+        },
         rect::Rect,
         scale::Scale,
         theme::Color,
@@ -130,6 +133,9 @@ impl RendererBase<'_> {
         tsize: Option<(i32, i32)>,
         tscale: Scale,
         bounds: Option<&Rect>,
+        buffer_resv: Option<Rc<dyn BufferResv>>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
     ) {
         let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
@@ -154,18 +160,23 @@ impl RendererBase<'_> {
             }
         }
 
+        let target = FramebufferRect::new(
+            target_x[0] as f32,
+            target_y[0] as f32,
+            target_x[1] as f32,
+            target_y[1] as f32,
+            self.transform,
+            self.fb_width,
+            self.fb_height,
+        );
+
         self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
             tex: texture.clone(),
             source: texcoord,
-            target: FramebufferRect::new(
-                target_x[0] as f32,
-                target_y[0] as f32,
-                target_x[1] as f32,
-                target_y[1] as f32,
-                self.transform,
-                self.fb_width,
-                self.fb_height,
-            ),
+            target,
+            buffer_resv,
+            acquire_sync,
+            release_sync,
         }));
     }
 }

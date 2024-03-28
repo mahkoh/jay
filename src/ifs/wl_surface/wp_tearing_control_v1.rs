@@ -39,13 +39,13 @@ impl WpTearingControlV1 {
             ASYNC => true,
             _ => return Err(WpTearingControlV1Error::UnknownPresentationHint(req.hint)),
         };
-        self.surface.pending.tearing.set(Some(tearing));
+        self.surface.pending.borrow_mut().tearing = Some(tearing);
         Ok(())
     }
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WpTearingControlV1Error> {
         let _req: Destroy = self.surface.client.parse(self, parser)?;
-        self.surface.pending.tearing.set(Some(false));
+        self.surface.pending.borrow_mut().tearing = Some(false);
         self.surface.tearing_control.take();
         self.surface.client.remove_obj(self)?;
         Ok(())

@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_surface::{
             x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
-            SurfaceExt, WlSurface, WlSurfaceError,
+            PendingState, SurfaceExt, WlSurface, WlSurfaceError,
         },
         leaks::Tracker,
         tree::ToplevelNode,
@@ -23,7 +23,7 @@ pub struct XSurface {
 }
 
 impl SurfaceExt for XSurface {
-    fn post_commit(self: Rc<Self>) {
+    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
         if let Some(xwindow) = self.xwindow.get() {
             xwindow.map_status_changed();
         }

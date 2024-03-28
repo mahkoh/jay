@@ -36,9 +36,9 @@ impl VulkanDevice {
 }
 
 impl VulkanSemaphore {
-    pub fn import_syncfile(&self, syncfile: OwnedFd) -> Result<(), VulkanError> {
+    pub fn import_sync_file(&self, sync_file: OwnedFd) -> Result<(), VulkanError> {
         let fd_info = ImportSemaphoreFdInfoKHR::builder()
-            .fd(syncfile.raw())
+            .fd(sync_file.raw())
             .flags(SemaphoreImportFlags::TEMPORARY)
             .handle_type(ExternalSemaphoreHandleTypeFlags::SYNC_FD)
             .semaphore(self.semaphore);
@@ -47,8 +47,8 @@ impl VulkanSemaphore {
                 .external_semaphore_fd
                 .import_semaphore_fd(&fd_info)
         };
-        mem::forget(syncfile);
         res.map_err(VulkanError::ImportSyncFile)?;
+        mem::forget(sync_file);
         Ok(())
     }
 }

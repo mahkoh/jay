@@ -2,8 +2,8 @@ use {
     crate::{
         format::{Format, XRGB8888},
         gfx_api::{
-            GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage, GfxTexture,
-            ResetStatus,
+            BufferResvUser, GfxApiOpt, GfxContext, GfxError, GfxFormat, GfxFramebuffer, GfxImage,
+            GfxTexture, ResetStatus,
         },
         gfx_apis::gl::{
             egl::{context::EglContext, display::EglDisplay, image::EglImage},
@@ -14,7 +14,11 @@ use {
             renderer::{framebuffer::Framebuffer, image::Image},
             GfxGlState, RenderError, Texture,
         },
-        video::{dmabuf::DmaBuf, drm::Drm, gbm::GbmDevice},
+        video::{
+            dmabuf::DmaBuf,
+            drm::{sync_obj::SyncObjCtx, Drm},
+            gbm::GbmDevice,
+        },
     },
     ahash::AHashMap,
     jay_config::video::GfxApi,
@@ -53,6 +57,7 @@ pub(crate) struct TexProgs {
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
     pub gbm: Rc<GbmDevice>,
+    pub sync_ctx: Rc<SyncObjCtx>,
 
     pub(crate) render_node: Rc<CString>,
 
@@ -65,6 +70,8 @@ pub(in crate::gfx_apis::gl) struct GlRenderContext {
 
     pub(crate) gfx_ops: RefCell<Vec<GfxApiOpt>>,
     pub(in crate::gfx_apis::gl) gl_state: RefCell<GfxGlState>,
+
+    pub(in crate::gfx_apis::gl) buffer_resv_user: BufferResvUser,
 }
 
 impl Debug for GlRenderContext {
@@ -126,6 +133,7 @@ impl GlRenderContext {
         Ok(Self {
             ctx: ctx.clone(),
             gbm: ctx.dpy.gbm.clone(),
+            sync_ctx: Rc::new(SyncObjCtx::new(ctx.dpy.gbm.drm.fd())),
 
             render_node: node.clone(),
 
@@ -141,6 +149,8 @@ impl GlRenderContext {
 
             gfx_ops: Default::default(),
             gl_state: Default::default(),
+
+            buffer_resv_user: Default::default(),
         })
     }
 
@@ -186,7 +196,6 @@ impl GlRenderContext {
         Ok(Rc::new(Texture {
             ctx: self.clone(),
             gl,
-            resv: Default::default(),
             format,
         }))
     }
@@ -267,5 +276,9 @@ impl GfxContext for GlRenderContext {
             GlRenderBuffer::new(&self.ctx, width, height, format)?.create_framebuffer()
         })?;
         Ok(Rc::new(Framebuffer { ctx: self, gl: fb }))
+    }
+
+    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx> {
+        &self.sync_ctx
     }
 }

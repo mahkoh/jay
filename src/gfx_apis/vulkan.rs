@@ -28,7 +28,7 @@ use {
         utils::oserror::OsError,
         video::{
             dmabuf::DmaBuf,
-            drm::{Drm, DrmError},
+            drm::{sync_obj::SyncObjCtx, Drm, DrmError},
             gbm::{GbmDevice, GbmError},
         },
     },
@@ -93,7 +93,7 @@ pub enum VulkanError {
     LoadImageProperties(#[source] vk::Result),
     #[error("Device does not support rending and texturing from the XRGB8888 format")]
     XRGB8888,
-    #[error("Device does not support syncobj import")]
+    #[error("Device does not support sync obj import")]
     SyncobjImport,
     #[error("Could not start a command buffer")]
     BeginCommandBuffer(vk::Result),
@@ -153,8 +153,6 @@ pub enum VulkanError {
     IoctlExportSyncFile(#[source] OsError),
     #[error("Could not import a sync file into a semaphore")]
     ImportSyncFile(#[source] vk::Result),
-    #[error("Could not import a sync file into a dma-buf")]
-    IoctlImportSyncFile(#[source] OsError),
     #[error("Could not export a sync file from a semaphore")]
     ExportSyncFile(#[source] vk::Result),
     #[error("Could not fetch the render node of the device")]
@@ -175,6 +173,8 @@ pub enum VulkanError {
         height: i32,
         stride: i32,
     },
+    #[error(transparent)]
+    GfxError(GfxError),
 }
 
 impl From<VulkanError> for GfxError {
@@ -269,6 +269,10 @@ impl GfxContext for Context {
             .0
             .create_shm_texture(format, width, height, stride, &[], true)?;
         Ok(fb)
+    }
+
+    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx> {
+        &self.0.device.sync_ctx
     }
 }
 

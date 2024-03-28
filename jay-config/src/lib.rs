@@ -222,3 +222,12 @@ pub fn workspaces() -> Vec<Workspace> {
 pub fn set_idle(timeout: Option<Duration>) {
     get!().set_idle(timeout.unwrap_or_default())
 }
+
+/// Enables or disables explicit sync.
+///
+/// Calling this after the compositor has started has no effect.
+///
+/// The default is `true`.
+pub fn set_explicit_sync_enabled(enabled: bool) {
+    get!().set_explicit_sync_enabled(enabled);
+}

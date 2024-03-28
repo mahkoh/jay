@@ -10,7 +10,10 @@ use {
             util::OnDrop,
             VulkanError,
         },
-        video::{drm::Drm, gbm::GbmDevice},
+        video::{
+            drm::{sync_obj::SyncObjCtx, Drm},
+            gbm::GbmDevice,
+        },
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
@@ -43,6 +46,7 @@ pub struct VulkanDevice {
     pub(super) physical_device: PhysicalDevice,
     pub(super) render_node: Rc<CString>,
     pub(super) gbm: GbmDevice,
+    pub(super) sync_ctx: Rc<SyncObjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
     pub(super) device: Device,
     pub(super) external_memory_fd: ExternalMemoryFd,
@@ -279,6 +283,7 @@ impl VulkanInstance {
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
+            sync_ctx: Rc::new(SyncObjCtx::new(gbm.drm.fd())),
             gbm,
             instance: self.clone(),
             device,

@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{GfxContext, GfxFramebuffer},
+        gfx_api::{AcquireSync, GfxContext, GfxFramebuffer, ReleaseSync},
         ifs::zwlr_layer_shell_v1::OVERLAY,
         portal::ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
         renderer::renderer_base::RendererBase,
@@ -222,6 +222,9 @@ impl GuiElement for Button {
                 None,
                 r.scale(),
                 None,
+                None,
+                AcquireSync::None,
+                ReleaseSync::None,
             );
         }
     }
@@ -323,6 +326,9 @@ impl GuiElement for Label {
                 None,
                 r.scale(),
                 None,
+                None,
+                AcquireSync::None,
+                ReleaseSync::None,
             );
         }
     }
@@ -626,6 +632,19 @@ impl WindowData {
             }
             return;
         };
+
+        let res = buf
+            .fb
+            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
+                if let Some(content) = self.content.get() {
+                    content.render_at(r, 0.0, 0.0)
+                }
+            });
+        if let Err(e) = res {
+            log::error!("Could not render frame: {}", ErrorFmt(e));
+            return;
+        }
+
         self.frame_missed.set(false);
 
         self.surface.frame({
@@ -640,13 +659,6 @@ impl WindowData {
 
         self.have_frame.set(false);
         buf.free.set(false);
-
-        buf.fb
-            .render_custom(self.scale.get(), Some(&Color::from_gray(0)), &mut |r| {
-                if let Some(content) = self.content.get() {
-                    content.render_at(r, 0.0, 0.0)
-                }
-            });
 
         self.surface.attach(&buf.wl);
         self.surface.commit();

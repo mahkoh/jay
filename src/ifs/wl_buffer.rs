@@ -35,7 +35,7 @@ pub struct WlBuffer {
     pub client: Rc<Client>,
     pub rect: Rect,
     pub format: &'static Format,
-    dmabuf: Option<DmaBuf>,
+    pub dmabuf: Option<DmaBuf>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     pub color: Option<Color>,

@@ -6,6 +6,7 @@ pub type EGLBoolean = c::c_uint;
 #[allow(dead_code)]
 pub type EGLuint64KHR = u64;
 pub type EGLAttrib = isize;
+pub type EGLSyncKHR = *mut u8;
 
 egl_transparent!(EGLDisplay);
 egl_transparent!(EGLSurface);
@@ -83,6 +84,8 @@ pub const EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT: EGLint = 0x3449;
 pub const EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT: EGLint = 0x344A;
 pub const EGL_IMAGE_PRESERVED_KHR: EGLint = 0x30D2;
 pub const EGL_LINUX_DMA_BUF_EXT: EGLint = 0x3270;
+pub const EGL_SYNC_NATIVE_FENCE_ANDROID: EGLenum = 0x3144;
+pub const EGL_SYNC_NATIVE_FENCE_FD_ANDROID: EGLint = 0x3145;
 
 dynload! {
     EGL: Egl from "libEGL.so" {

@@ -78,7 +78,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
         true,
         false,
         Transform::None,
-    );
+    )?;
     let drm = gbm.drm.dup_render()?.fd().clone();
     Ok(Screenshot { drm, bo })
 }

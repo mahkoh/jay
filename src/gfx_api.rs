@@ -9,8 +9,8 @@ use {
         state::State,
         theme::Color,
         tree::{Node, OutputNode},
-        utils::{numcell::NumCell, transform_ext::TransformExt},
-        video::{dmabuf::DmaBuf, gbm::GbmDevice, Modifier},
+        utils::{clonecell::UnsafeCellCloneSafe, transform_ext::TransformExt},
+        video::{dmabuf::DmaBuf, drm::sync_obj::SyncObjCtx, gbm::GbmDevice, Modifier},
     },
     ahash::AHashMap,
     indexmap::IndexSet,
@@ -21,9 +21,12 @@ use {
         error::Error,
         ffi::CString,
         fmt::{Debug, Formatter},
+        ops::Deref,
         rc::Rc,
+        sync::atomic::{AtomicU64, Ordering::Relaxed},
     },
     thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub enum GfxApiOpt {
@@ -141,6 +144,72 @@ pub struct CopyTexture {
     pub tex: Rc<dyn GfxTexture>,
     pub source: SampleRect,
     pub target: FramebufferRect,
+    pub buffer_resv: Option<Rc<dyn BufferResv>>,
+    pub acquire_sync: AcquireSync,
+    pub release_sync: ReleaseSync,
+}
+
+#[derive(Clone, Debug)]
+pub struct SyncFile(pub Rc<OwnedFd>);
+
+impl Deref for SyncFile {
+    type Target = Rc<OwnedFd>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+unsafe impl UnsafeCellCloneSafe for SyncFile {}
+
+#[derive(Clone)]
+pub enum AcquireSync {
+    None,
+    Implicit,
+    SyncFile { sync_file: SyncFile },
+    Unnecessary,
+}
+
+impl AcquireSync {
+    pub fn from_sync_file(sync_file: Option<SyncFile>) -> Self {
+        match sync_file {
+            None => Self::Implicit,
+            Some(sync_file) => Self::SyncFile { sync_file },
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ReleaseSync {
+    None,
+    Implicit,
+    Explicit,
+}
+
+impl Debug for AcquireSync {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            AcquireSync::None => "None",
+            AcquireSync::Implicit => "Implicit",
+            AcquireSync::SyncFile { .. } => "SyncFile",
+            AcquireSync::Unnecessary => "Unnecessary",
+        };
+        f.debug_struct(name).finish_non_exhaustive()
+    }
+}
+
+pub trait BufferResv: Debug {
+    fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile);
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct BufferResvUser(u64);
+
+impl Default for BufferResvUser {
+    fn default() -> Self {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        Self(NEXT_ID.fetch_add(1, Relaxed))
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -158,7 +227,11 @@ pub trait GfxFramebuffer: Debug {
 
     fn physical_size(&self) -> (i32, i32);
 
-    fn render(&self, ops: Vec<GfxApiOpt>, clear: Option<&Color>);
+    fn render(
+        &self,
+        ops: Vec<GfxApiOpt>,
+        clear: Option<&Color>,
+    ) -> Result<Option<SyncFile>, GfxError>;
 
     fn copy_to_shm(
         self: Rc<Self>,
@@ -175,13 +248,13 @@ pub trait GfxFramebuffer: Debug {
 }
 
 impl dyn GfxFramebuffer {
-    pub fn clear(&self) {
-        self.clear_with(0.0, 0.0, 0.0, 0.0);
+    pub fn clear(&self) -> Result<Option<SyncFile>, GfxError> {
+        self.clear_with(0.0, 0.0, 0.0, 0.0)
     }
 
-    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) {
+    pub fn clear_with(&self, r: f32, g: f32, b: f32, a: f32) -> Result<Option<SyncFile>, GfxError> {
         let ops = self.take_render_ops();
-        self.render(ops, Some(&Color { r, g, b, a }));
+        self.render(ops, Some(&Color { r, g, b, a }))
     }
 
     pub fn logical_size(&self, transform: Transform) -> (i32, i32) {
@@ -206,13 +279,31 @@ impl dyn GfxFramebuffer {
         }
     }
 
-    pub fn copy_texture(&self, texture: &Rc<dyn GfxTexture>, x: i32, y: i32) {
+    pub fn copy_texture(
+        &self,
+        texture: &Rc<dyn GfxTexture>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        x: i32,
+        y: i32,
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = self.take_render_ops();
         let scale = Scale::from_int(1);
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
-        renderer.render_texture(texture, x, y, None, None, scale, None);
+        renderer.render_texture(
+            texture,
+            x,
+            y,
+            None,
+            None,
+            scale,
+            None,
+            None,
+            acquire_sync,
+            release_sync,
+        );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
-        self.render(ops, clear);
+        self.render(ops, clear)
     }
 
     pub fn render_custom(
@@ -220,11 +311,11 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         clear: Option<&Color>,
         f: &mut dyn FnMut(&mut RendererBase),
-    ) {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = self.take_render_ops();
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
         f(&mut renderer);
-        self.render(ops, clear);
+        self.render(ops, clear)
     }
 
     pub fn create_render_pass(
@@ -295,7 +386,7 @@ impl dyn GfxFramebuffer {
         }
     }
 
-    pub fn perform_render_pass(&self, pass: GfxRenderPass) {
+    pub fn perform_render_pass(&self, pass: GfxRenderPass) -> Result<Option<SyncFile>, GfxError> {
         self.render(pass.ops, pass.clear.as_ref())
     }
 
@@ -307,7 +398,7 @@ impl dyn GfxFramebuffer {
         result: Option<&mut RenderResult>,
         scale: Scale,
         render_hardware_cursor: bool,
-    ) {
+    ) -> Result<Option<SyncFile>, GfxError> {
         self.render_node(
             node,
             state,
@@ -330,7 +421,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
-    ) {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let pass = self.create_render_pass(
             node,
             state,
@@ -341,7 +432,7 @@ impl dyn GfxFramebuffer {
             black_background,
             transform,
         );
-        self.perform_render_pass(pass);
+        self.perform_render_pass(pass)
     }
 
     pub fn render_hardware_cursor(
@@ -350,7 +441,7 @@ impl dyn GfxFramebuffer {
         state: &State,
         scale: Scale,
         transform: Transform,
-    ) {
+    ) -> Result<Option<SyncFile>, GfxError> {
         let mut ops = self.take_render_ops();
         let mut renderer = Renderer {
             base: self.renderer_base(&mut ops, scale, transform),
@@ -363,7 +454,7 @@ impl dyn GfxFramebuffer {
             },
         };
         cursor.render_hardware_cursor(&mut renderer);
-        self.render(ops, Some(&Color::TRANSPARENT));
+        self.render(ops, Some(&Color::TRANSPARENT))
     }
 }
 
@@ -374,38 +465,6 @@ pub trait GfxImage {
 
     fn width(&self) -> i32;
     fn height(&self) -> i32;
-}
-
-#[derive(Default)]
-pub struct TextureReservations {
-    reservations: NumCell<usize>,
-    on_release: Cell<Option<Box<dyn FnOnce()>>>,
-}
-
-impl TextureReservations {
-    pub fn has_reservation(&self) -> bool {
-        self.reservations.get() != 0
-    }
-
-    pub fn acquire(&self) {
-        self.reservations.fetch_add(1);
-    }
-
-    pub fn release(&self) {
-        if self.reservations.fetch_sub(1) == 1 {
-            if let Some(cb) = self.on_release.take() {
-                cb();
-            }
-        }
-    }
-
-    pub fn on_released<C: FnOnce() + 'static>(&self, cb: C) {
-        if self.has_reservation() {
-            self.on_release.set(Some(Box::new(cb)));
-        } else {
-            cb();
-        }
-    }
 }
 
 pub trait GfxTexture: Debug {
@@ -423,7 +482,6 @@ pub trait GfxTexture: Debug {
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError>;
     fn dmabuf(&self) -> Option<&DmaBuf>;
-    fn reservations(&self) -> &TextureReservations;
     fn format(&self) -> &'static Format;
 }
 
@@ -461,6 +519,8 @@ pub trait GfxContext: Debug {
         stride: i32,
         format: &'static Format,
     ) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+
+    fn sync_obj_ctx(&self) -> &Rc<SyncObjCtx>;
 }
 
 #[derive(Debug)]

@@ -1875,6 +1875,15 @@ Config:
       required: false
       description: |
         Configured whether the compositor attempts direct scanout.
+    explicit-sync:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether the compositor supports explicit sync.
+        
+        This cannot be changed after the compositor has started.
+        
+        The default is `true`.
     render-device:
       ref: DrmDeviceMatch
       required: false

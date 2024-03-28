@@ -96,9 +96,7 @@ impl<'a> Lexer<'a> {
 
         self.skip_ws();
 
-        let Some(c) = get!(0) else {
-            return None;
-        };
+        let c = get!(0)?;
         let pos = self.pos;
 
         macro_rules! span {

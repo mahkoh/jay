@@ -38,6 +38,7 @@ use {
             oserror::OsError, queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
             tri::Try,
         },
+        video::drm::wait_for_sync_obj::WaitForSyncObj,
         wheel::{Wheel, WheelError},
         xkbcommon::XkbContext,
     },
@@ -221,6 +222,9 @@ fn start_compositor2(
         double_click_interval_usec: Cell::new(400 * 1000),
         double_click_distance: Cell::new(5),
         create_default_seat: Cell::new(true),
+        subsurface_ids: Default::default(),
+        wait_for_sync_obj: Rc::new(WaitForSyncObj::new(&ring, &engine)),
+        explicit_sync_enabled: Cell::new(true),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

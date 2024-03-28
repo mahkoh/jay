@@ -1,7 +1,9 @@
+pub mod commit_timeline;
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_fractional_scale_v1;
+pub mod wp_linux_drm_syncobj_surface_v1;
 pub mod wp_tearing_control_v1;
 pub mod wp_viewport;
 pub mod x_surface;
@@ -16,7 +18,7 @@ use {
         client::{Client, ClientError, RequestParser},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::SampleRect,
+        gfx_api::{AcquireSync, BufferResv, BufferResvUser, ReleaseSync, SampleRect, SyncFile},
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -25,11 +27,16 @@ use {
                 NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
-                cursor::CursorSurface, wl_subsurface::WlSubsurface,
+                commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
+                cursor::CursorSurface,
+                wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_fractional_scale_v1::WpFractionalScaleV1,
-                wp_tearing_control_v1::WpTearingControlV1, wp_viewport::WpViewport,
-                x_surface::XSurface, xdg_surface::XdgSurfaceError,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error,
+                wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
+                wp_tearing_control_v1::WpTearingControlV1,
+                wp_viewport::WpViewport,
+                x_surface::XSurface,
+                xdg_surface::{PendingXdgSurfaceData, XdgSurfaceError},
+                zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
             wp_presentation_feedback::WpPresentationFeedback,
@@ -48,10 +55,15 @@ use {
             cell_ext::CellExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
             numcell::NumCell,
             smallmap::SmallMap,
             transform_ext::TransformExt,
+        },
+        video::{
+            dmabuf::DMA_BUF_SYNC_READ,
+            drm::sync_obj::{SyncObj, SyncObjPoint},
         },
         wire::{
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
@@ -61,9 +73,11 @@ use {
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
+    isnt::std_1::primitive::IsntSliceExt,
     jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
+        collections::hash_map::{Entry, OccupiedEntry},
         fmt::{Debug, Formatter},
         mem,
         ops::{Deref, DerefMut},
@@ -127,13 +141,78 @@ impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
     }
 }
 
+struct SurfaceBufferExplicitRelease {
+    sync_obj: Rc<SyncObj>,
+    point: SyncObjPoint,
+}
+
+pub struct SurfaceBuffer {
+    pub buffer: Rc<WlBuffer>,
+    sync_files: SmallMap<BufferResvUser, SyncFile, 1>,
+    pub sync: AcquireSync,
+    pub release_sync: ReleaseSync,
+    release: Option<SurfaceBufferExplicitRelease>,
+}
+
+impl Drop for SurfaceBuffer {
+    fn drop(&mut self) {
+        let sync_files = self.sync_files.take();
+        if let Some(release) = &self.release {
+            let Some(ctx) = self.buffer.client.state.render_ctx.get() else {
+                log::error!("Cannot signal release point because there is no render context");
+                return;
+            };
+            let ctx = ctx.sync_obj_ctx();
+            if sync_files.is_not_empty() {
+                let res = ctx.import_sync_files(
+                    &release.sync_obj,
+                    release.point,
+                    sync_files.iter().map(|f| &f.1),
+                );
+                match res {
+                    Ok(_) => return,
+                    Err(e) => {
+                        log::error!("Could not import sync files into sync obj: {}", ErrorFmt(e));
+                    }
+                }
+            }
+            if let Err(e) = ctx.signal(&release.sync_obj, release.point) {
+                log::error!("Could not signal release point: {}", ErrorFmt(e));
+            }
+            return;
+        }
+        if let Some(dmabuf) = &self.buffer.dmabuf {
+            for (_, sync_file) in &sync_files {
+                if let Err(e) = dmabuf.import_sync_file(DMA_BUF_SYNC_READ, sync_file) {
+                    log::error!("Could not import sync file: {}", ErrorFmt(e));
+                }
+            }
+        }
+        if !self.buffer.destroyed() {
+            self.buffer.send_release();
+        }
+    }
+}
+
+impl Debug for SurfaceBuffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SurfaceBuffer").finish_non_exhaustive()
+    }
+}
+
+impl BufferResv for SurfaceBuffer {
+    fn set_sync_file(&self, user: BufferResvUser, sync_file: &SyncFile) {
+        self.sync_files.insert(user, sync_file.clone());
+    }
+}
+
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
     pub client: Rc<Client>,
     visible: Cell<bool>,
     role: Cell<SurfaceRole>,
-    pending: PendingState,
+    pending: RefCell<Box<PendingState>>,
     input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
@@ -145,7 +224,7 @@ pub struct WlSurface {
     pub extents: Cell<Rect>,
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
-    pub buffer: CloneCell<Option<Rc<WlBuffer>>>,
+    pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
@@ -169,6 +248,9 @@ pub struct WlSurface {
     pub has_content_type_manager: Cell<bool>,
     content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
+    sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
+    destroyed: Cell<bool>,
+    commit_timeline: CommitTimeline,
 }
 
 impl Debug for WlSurface {
@@ -186,25 +268,27 @@ struct BufferPoints {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum CommitContext {
-    RootCommit,
-    ChildCommit,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum CommitAction {
     ContinueCommit,
     AbortCommit,
 }
 
 trait SurfaceExt {
-    fn pre_commit(self: Rc<Self>, ctx: CommitContext) -> Result<CommitAction, WlSurfaceError> {
-        let _ = ctx;
-        Ok(CommitAction::ContinueCommit)
+    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+        let _ = pending;
+        CommitAction::ContinueCommit
     }
 
-    fn post_commit(self: Rc<Self>) {
-        // nothing
+    fn before_apply_commit(
+        self: Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), WlSurfaceError> {
+        let _ = pending;
+        Ok(())
+    }
+
+    fn after_apply_commit(self: Rc<Self>, pending: &mut PendingState) {
+        let _ = pending;
     }
 
     fn is_some(&self) -> bool {
@@ -246,6 +330,17 @@ trait SurfaceExt {
     fn into_xsurface(self: Rc<Self>) -> Option<Rc<XSurface>> {
         None
     }
+
+    fn consume_pending_child(
+        &self,
+        surface: &WlSurface,
+        child: SubsurfaceId,
+        consume: &mut dyn FnMut(
+            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+        ) -> Result<(), WlSurfaceError>,
+    ) -> Result<(), WlSurfaceError> {
+        surface.pending.borrow_mut().consume_child(child, consume)
+    }
 }
 
 pub struct NoneSurfaceExt;
@@ -258,20 +353,122 @@ impl SurfaceExt for NoneSurfaceExt {
 
 #[derive(Default)]
 struct PendingState {
-    buffer: Cell<Option<Option<Rc<WlBuffer>>>>,
-    offset: Cell<(i32, i32)>,
-    opaque_region: Cell<Option<Option<Rc<Region>>>>,
-    input_region: Cell<Option<Option<Rc<Region>>>>,
-    frame_request: RefCell<Vec<Rc<WlCallback>>>,
-    damage: Cell<bool>,
-    presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
-    src_rect: Cell<Option<Option<[Fixed; 4]>>>,
-    dst_size: Cell<Option<Option<(i32, i32)>>>,
-    scale: Cell<Option<i32>>,
-    transform: Cell<Option<Transform>>,
-    xwayland_serial: Cell<Option<u64>>,
-    tearing: Cell<Option<bool>>,
-    content_type: Cell<Option<Option<ContentType>>>,
+    buffer: Option<Option<Rc<WlBuffer>>>,
+    offset: (i32, i32),
+    opaque_region: Option<Option<Rc<Region>>>,
+    input_region: Option<Option<Rc<Region>>>,
+    frame_request: Vec<Rc<WlCallback>>,
+    damage: bool,
+    presentation_feedback: Vec<Rc<WpPresentationFeedback>>,
+    src_rect: Option<Option<[Fixed; 4]>>,
+    dst_size: Option<Option<(i32, i32)>>,
+    scale: Option<i32>,
+    transform: Option<Transform>,
+    xwayland_serial: Option<u64>,
+    tearing: Option<bool>,
+    content_type: Option<Option<ContentType>>,
+    subsurface: Option<Box<PendingSubsurfaceData>>,
+    xdg_surface: Option<Box<PendingXdgSurfaceData>>,
+    layer_surface: Option<Box<PendingLayerSurfaceData>>,
+    subsurfaces: AHashMap<SubsurfaceId, CommittedSubsurface>,
+    acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
+    explicit_sync: bool,
+}
+
+struct CommittedSubsurface {
+    subsurface: Rc<WlSubsurface>,
+    state: Box<PendingState>,
+}
+
+impl PendingState {
+    fn merge(&mut self, next: &mut Self, client: &Rc<Client>) {
+        // discard state
+
+        if next.buffer.is_some() {
+            if let Some((sync_obj, point)) = self.release_point.take() {
+                client.state.signal_point(&sync_obj, point);
+            } else if let Some(Some(prev)) = self.buffer.take() {
+                if !prev.destroyed() {
+                    prev.send_release();
+                }
+            }
+        }
+        for fb in self.presentation_feedback.drain(..) {
+            fb.send_discarded();
+            let _ = client.remove_obj(&*fb);
+        }
+
+        // overwrite state
+
+        macro_rules! opt {
+            ($name:ident) => {
+                if let Some(n) = next.$name.take() {
+                    self.$name = Some(n);
+                }
+            };
+        }
+        opt!(buffer);
+        opt!(opaque_region);
+        opt!(input_region);
+        opt!(src_rect);
+        opt!(dst_size);
+        opt!(scale);
+        opt!(transform);
+        opt!(xwayland_serial);
+        opt!(tearing);
+        opt!(content_type);
+        opt!(acquire_point);
+        opt!(release_point);
+        {
+            let (dx1, dy1) = self.offset;
+            let (dx2, dy2) = mem::take(&mut next.offset);
+            self.offset = (dx1 + dx2, dy1 + dy2);
+        }
+        self.frame_request.append(&mut next.frame_request);
+        self.damage |= mem::take(&mut next.damage);
+        mem::swap(
+            &mut self.presentation_feedback,
+            &mut next.presentation_feedback,
+        );
+        macro_rules! merge_ext {
+            ($name:ident) => {
+                if let Some(e) = &mut self.$name {
+                    if let Some(n) = &mut next.$name {
+                        e.merge(n);
+                    }
+                } else {
+                    self.$name = next.$name.take();
+                }
+            };
+        }
+        merge_ext!(subsurface);
+        merge_ext!(xdg_surface);
+        merge_ext!(layer_surface);
+        for (id, mut state) in next.subsurfaces.drain() {
+            match self.subsurfaces.entry(id) {
+                Entry::Occupied(mut o) => {
+                    o.get_mut().state.merge(&mut state.state, client);
+                }
+                Entry::Vacant(v) => {
+                    v.insert(state);
+                }
+            }
+        }
+    }
+
+    fn consume_child(
+        &mut self,
+        child: SubsurfaceId,
+        consume: impl FnOnce(
+            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+        ) -> Result<(), WlSurfaceError>,
+    ) -> Result<(), WlSurfaceError> {
+        match self.subsurfaces.entry(child) {
+            Entry::Occupied(oe) => consume(oe),
+            _ => Ok(()),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -330,6 +527,9 @@ impl WlSurface {
             has_content_type_manager: Default::default(),
             content_type: Default::default(),
             drm_feedback: Default::default(),
+            sync_obj_surface: Default::default(),
+            destroyed: Cell::new(false),
+            commit_timeline: client.commit_timelines.create_timeline(),
         }
     }
 
@@ -400,8 +600,8 @@ impl WlSurface {
 
     pub fn add_presentation_feedback(&self, fb: &Rc<WpPresentationFeedback>) {
         self.pending
-            .presentation_feedback
             .borrow_mut()
+            .presentation_feedback
             .push(fb.clone());
     }
 
@@ -558,6 +758,7 @@ impl WlSurface {
 
     fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Destroy = self.parse(parser)?;
+        self.commit_timeline.clear(ClearReason::Destroy);
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
@@ -571,11 +772,7 @@ impl WlSurface {
             }
             *children = None;
         }
-        if let Some(buffer) = self.buffer.set(None) {
-            if !buffer.destroyed() {
-                buffer.send_release();
-            }
-        }
+        self.buffer.set(None);
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -586,30 +783,32 @@ impl WlSurface {
         self.client.remove_obj(self)?;
         self.idle_inhibitors.clear();
         self.constraints.take();
+        self.destroyed.set(true);
         Ok(())
     }
 
     fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Attach = self.parse(parser)?;
+        let pending = &mut *self.pending.borrow_mut();
         if self.version >= OFFSET_SINCE {
             if req.x != 0 || req.y != 0 {
                 return Err(WlSurfaceError::OffsetInAttach);
             }
         } else {
-            self.pending.offset.set((req.x, req.y));
+            pending.offset = (req.x, req.y);
         }
         let buf = if req.buffer.is_some() {
             Some(self.client.lookup(req.buffer)?)
         } else {
             None
         };
-        self.pending.buffer.set(Some(buf));
+        pending.buffer = Some(buf);
         Ok(())
     }
 
     fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Damage = self.parse(parser)?;
-        self.pending.damage.set(true);
+        self.pending.borrow_mut().damage = true;
         Ok(())
     }
 
@@ -618,7 +817,7 @@ impl WlSurface {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
-        self.pending.frame_request.borrow_mut().push(cb);
+        self.pending.borrow_mut().frame_request.push(cb);
         Ok(())
     }
 
@@ -629,7 +828,7 @@ impl WlSurface {
         } else {
             None
         };
-        self.pending.opaque_region.set(Some(region));
+        self.pending.borrow_mut().opaque_region = Some(region);
         Ok(())
     }
 
@@ -640,39 +839,37 @@ impl WlSurface {
         } else {
             None
         };
-        self.pending.input_region.set(Some(region));
+        self.pending.borrow_mut().input_region = Some(region);
         Ok(())
     }
 
-    fn do_commit(self: &Rc<Self>, ctx: CommitContext) -> Result<(), WlSurfaceError> {
-        let ext = self.ext.get();
-        if ext.clone().pre_commit(ctx)? == CommitAction::AbortCommit {
+    fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        for (_, mut subsurface) in pending.subsurfaces.drain() {
+            subsurface
+                .subsurface
+                .surface
+                .apply_state(&mut subsurface.state)?;
+        }
+        if self.destroyed.get() {
             return Ok(());
         }
-        {
-            let children = self.children.borrow();
-            if let Some(children) = children.deref() {
-                for child in children.subsurfaces.values() {
-                    child.surface.do_commit(CommitContext::ChildCommit)?;
-                }
-            }
-        }
+        self.ext.get().before_apply_commit(pending)?;
         let mut scale_changed = false;
-        if let Some(scale) = self.pending.scale.take() {
+        if let Some(scale) = pending.scale.take() {
             scale_changed = true;
             self.buffer_scale.set(scale);
         }
         let mut buffer_transform_changed = false;
-        if let Some(transform) = self.pending.transform.take() {
+        if let Some(transform) = pending.transform.take() {
             buffer_transform_changed = true;
             self.buffer_transform.set(transform);
         }
         let mut viewport_changed = false;
-        if let Some(dst_size) = self.pending.dst_size.take() {
+        if let Some(dst_size) = pending.dst_size.take() {
             viewport_changed = true;
             self.dst_size.set(dst_size);
         }
-        if let Some(src_rect) = self.pending.src_rect.take() {
+        if let Some(src_rect) = pending.src_rect.take() {
             viewport_changed = true;
             self.src_rect.set(src_rect);
         }
@@ -687,34 +884,30 @@ impl WlSurface {
         }
         let mut buffer_changed = false;
         let mut old_raw_size = None;
-        let (dx, dy) = self.pending.offset.take();
-        if let Some(buffer_change) = self.pending.buffer.take() {
+        let (dx, dy) = mem::take(&mut pending.offset);
+        if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
-                old_raw_size = Some(buffer.rect);
-                if !buffer.destroyed() {
-                    'handle_release: {
-                        if let Some(tex) = buffer.texture.get() {
-                            let resv = tex.reservations();
-                            if resv.has_reservation() {
-                                let buffer = Rc::downgrade(&buffer);
-                                resv.on_released(move || {
-                                    if let Some(buffer) = buffer.upgrade() {
-                                        if !buffer.destroyed() {
-                                            buffer.send_release();
-                                        }
-                                    }
-                                });
-                                break 'handle_release;
-                            }
-                        }
-                        buffer.send_release();
-                    }
-                }
+                old_raw_size = Some(buffer.buffer.rect);
             }
             if let Some(buffer) = buffer_change {
                 buffer.update_texture_or_log();
-                self.buffer.set(Some(buffer));
+                let (sync, release_sync) = match pending.explicit_sync {
+                    false => (AcquireSync::Implicit, ReleaseSync::Implicit),
+                    true => (AcquireSync::Unnecessary, ReleaseSync::Explicit),
+                };
+                let release = pending
+                    .release_point
+                    .take()
+                    .map(|(sync_obj, point)| SurfaceBufferExplicitRelease { sync_obj, point });
+                let surface_buffer = SurfaceBuffer {
+                    buffer,
+                    sync_files: Default::default(),
+                    sync,
+                    release_sync,
+                    release,
+                };
+                self.buffer.set(Some(Rc::new(surface_buffer)));
                 self.buf_x.fetch_add(dx);
                 self.buf_y.fetch_add(dy);
                 if (dx, dy) != (0, 0) {
@@ -764,8 +957,10 @@ impl WlSurface {
             }
             if let Some(buffer) = self.buffer.get() {
                 if new_size.is_none() {
-                    let (mut width, mut height) =
-                        self.buffer_transform.get().maybe_swap(buffer.rect.size());
+                    let (mut width, mut height) = self
+                        .buffer_transform
+                        .get()
+                        .maybe_swap(buffer.buffer.rect.size());
                     let scale = self.buffer_scale.get();
                     if scale != 1 {
                         width = (width + scale - 1) / scale;
@@ -773,12 +968,14 @@ impl WlSurface {
                     }
                     new_size = Some((width, height));
                 }
-                if transform_changed || Some(buffer.rect) != old_raw_size {
+                if transform_changed || Some(buffer.buffer.rect) != old_raw_size {
                     let (x1, y1, x2, y2) = if self.src_rect.is_none() {
                         (0.0, 0.0, 1.0, 1.0)
                     } else {
-                        let (width, height) =
-                            self.buffer_transform.get().maybe_swap(buffer.rect.size());
+                        let (width, height) = self
+                            .buffer_transform
+                            .get()
+                            .maybe_swap(buffer.buffer.rect.size());
                         let width = width as f32;
                         let height = height as f32;
                         let x1 = buffer_points.x1 / width;
@@ -806,34 +1003,32 @@ impl WlSurface {
             self.buffer_abs_pos
                 .set(self.buffer_abs_pos.get().with_size(width, height).unwrap());
         }
-        {
-            let mut pfr = self.pending.frame_request.borrow_mut();
-            self.frame_requests.borrow_mut().extend(pfr.drain(..));
-        }
+        self.frame_requests
+            .borrow_mut()
+            .extend(pending.frame_request.drain(..));
         {
             let mut fbs = self.presentation_feedback.borrow_mut();
             for fb in fbs.drain(..) {
                 fb.send_discarded();
                 let _ = self.client.remove_obj(&*fb);
             }
-            let mut pfbs = self.pending.presentation_feedback.borrow_mut();
-            mem::swap(fbs.deref_mut(), pfbs.deref_mut());
+            mem::swap(fbs.deref_mut(), &mut pending.presentation_feedback);
         }
         {
-            if let Some(region) = self.pending.input_region.take() {
+            if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
             }
-            if let Some(region) = self.pending.opaque_region.take() {
+            if let Some(region) = pending.opaque_region.take() {
                 self.opaque_region.set(region);
             }
         }
-        if let Some(tearing) = self.pending.tearing.take() {
+        if let Some(tearing) = pending.tearing.take() {
             self.tearing.set(tearing);
         }
-        if let Some(content_type) = self.pending.content_type.take() {
+        if let Some(content_type) = pending.content_type.take() {
             self.content_type.set(content_type);
         }
-        if let Some(xwayland_serial) = self.pending.xwayland_serial.take() {
+        if let Some(xwayland_serial) = pending.xwayland_serial.take() {
             self.xwayland_serial.set(Some(xwayland_serial));
             self.client
                 .surfaces_by_xwayland_serial
@@ -853,15 +1048,41 @@ impl WlSurface {
                 cursor.update_hardware_cursor();
             }
         }
-        ext.post_commit();
+        self.ext.get().after_apply_commit(pending);
         self.client.state.damage();
         Ok(())
     }
 
     fn commit(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: Commit = self.parse(parser)?;
-        self.do_commit(CommitContext::RootCommit)?;
+        let ext = self.ext.get();
+        let pending = &mut *self.pending.borrow_mut();
+        self.verify_explicit_sync(pending)?;
+        if ext.commit_requested(pending) == CommitAction::ContinueCommit {
+            self.commit_timeline.commit(self, pending)?;
+        }
         Ok(())
+    }
+
+    fn verify_explicit_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        pending.explicit_sync = self.sync_obj_surface.is_some();
+        if !pending.explicit_sync {
+            return Ok(());
+        }
+        let have_new_buffer = match &pending.buffer {
+            None => false,
+            Some(b) => b.is_some(),
+        };
+        match (
+            pending.release_point.is_some(),
+            pending.acquire_point.is_some(),
+            have_new_buffer,
+        ) {
+            (true, true, true) => Ok(()),
+            (false, false, false) => Ok(()),
+            (_, _, true) => Err(WlSurfaceError::MissingSyncPoints),
+            (_, _, false) => Err(WlSurfaceError::UnexpectedSyncPoints),
+        }
     }
 
     fn set_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
@@ -869,7 +1090,7 @@ impl WlSurface {
         let Some(tf) = Transform::from_wl(req.transform) else {
             return Err(WlSurfaceError::UnknownBufferTransform(req.transform));
         };
-        self.pending.transform.set(Some(tf));
+        self.pending.borrow_mut().transform = Some(tf);
         Ok(())
     }
 
@@ -878,19 +1099,19 @@ impl WlSurface {
         if req.scale < 1 {
             return Err(WlSurfaceError::NonPositiveBufferScale);
         }
-        self.pending.scale.set(Some(req.scale));
+        self.pending.borrow_mut().scale = Some(req.scale);
         Ok(())
     }
 
     fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let _req: DamageBuffer = self.parse(parser)?;
-        self.pending.damage.set(true);
+        self.pending.borrow_mut().damage = true;
         Ok(())
     }
 
     fn offset(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
         let req: Offset = self.parse(parser)?;
-        self.pending.offset.set((req.x, req.y));
+        self.pending.borrow_mut().offset = (req.x, req.y);
         Ok(())
     }
 
@@ -1021,7 +1242,7 @@ impl WlSurface {
     }
 
     pub fn set_content_type(&self, content_type: Option<ContentType>) {
-        self.pending.content_type.set(Some(content_type));
+        self.pending.borrow_mut().content_type = Some(content_type);
     }
 
     pub fn request_activation(&self) {
@@ -1034,6 +1255,18 @@ impl WlSurface {
         for consumer in self.drm_feedback.lock().values() {
             consumer.send_feedback(fb);
         }
+    }
+
+    fn consume_pending_child(
+        &self,
+        child: SubsurfaceId,
+        mut consume: impl FnMut(
+            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+        ) -> Result<(), WlSurfaceError>,
+    ) -> Result<(), WlSurfaceError> {
+        self.ext
+            .get()
+            .consume_pending_child(self, child, &mut consume)
     }
 }
 
@@ -1064,13 +1297,14 @@ impl Object for WlSurface {
         self.buffer.set(None);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
-        self.pending.presentation_feedback.borrow_mut().clear();
+        mem::take(self.pending.borrow_mut().deref_mut());
         self.presentation_feedback.borrow_mut().clear();
         self.viewporter.take();
         self.fractional_scale.take();
         self.tearing_control.take();
         self.constraints.clear();
         self.drm_feedback.clear();
+        self.commit_timeline.clear(ClearReason::BreakLoops);
     }
 }
 
@@ -1237,8 +1471,15 @@ pub enum WlSurfaceError {
     ViewportOutsideBuffer,
     #[error("attach request must not contain offset")]
     OffsetInAttach,
+    #[error(transparent)]
+    CommitTimelineError(Box<CommitTimelineError>),
+    #[error("Explicit sync buffer is attached but acquire or release points are not set")]
+    MissingSyncPoints,
+    #[error("No buffer is attached but acquire or release point is set")]
+    UnexpectedSyncPoints,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
 efrom!(WlSurfaceError, MsgParserError);
+efrom!(WlSurfaceError, CommitTimelineError);

@@ -37,6 +37,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     buffer.fill(Color::from_rgba_straight(255, 255, 255, 255));
 
     child.attach(buffer.id)?;
+    child.commit()?;
 
     parent.map().await?;
 
@@ -45,10 +46,12 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     client.compare_screenshot("1").await?;
 
     sub.place_below(parent.surface.id)?;
+    child.commit()?;
     parent.map().await?;
     client.compare_screenshot("2").await?;
 
     sub.place_above(parent.surface.id)?;
+    child.commit()?;
     parent.map().await?;
     client.compare_screenshot("1").await?;
 

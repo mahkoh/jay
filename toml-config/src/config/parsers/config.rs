@@ -95,6 +95,7 @@ impl Parser for ConfigParser<'_> {
                 _,
                 idle_val,
             ),
+            (explicit_sync,),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -120,6 +121,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("$schema")),
                 opt(val("idle")),
             ),
+            (recover(opt(bol("explicit-sync"))),),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -271,6 +273,7 @@ impl Parser for ConfigParser<'_> {
             gfx_api,
             drm_devices,
             direct_scanout_enabled: direct_scanout.despan(),
+            explicit_sync_enabled: explicit_sync.despan(),
             render_device,
             inputs,
             idle,

@@ -18,6 +18,7 @@ use {
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
             linkedlist::LinkedList,
             transform_ext::TransformExt,
         },
@@ -243,7 +244,7 @@ impl WlOutputGlobal {
             if let Some(WlBufferStorage::Shm { mem, stride }) =
                 wl_buffer.storage.borrow_mut().deref()
             {
-                self.state.perform_shm_screencopy(
+                let res = self.state.perform_shm_screencopy(
                     tex,
                     self.pos.get(),
                     x_off,
@@ -255,6 +256,11 @@ impl WlOutputGlobal {
                     wl_buffer.format,
                     Transform::None,
                 );
+                if let Err(e) = res {
+                    log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
+                    capture.send_failed();
+                    continue;
+                }
             } else {
                 let fb = match wl_buffer.famebuffer.get() {
                     Some(fb) => fb,
@@ -264,7 +270,7 @@ impl WlOutputGlobal {
                         continue;
                     }
                 };
-                self.state.perform_screencopy(
+                let res = self.state.perform_screencopy(
                     tex,
                     &fb,
                     self.pos.get(),
@@ -274,6 +280,11 @@ impl WlOutputGlobal {
                     size,
                     Transform::None,
                 );
+                if let Err(e) = res {
+                    log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
+                    capture.send_failed();
+                    continue;
+                }
             }
             if capture.with_damage.get() {
                 capture.send_damage();
