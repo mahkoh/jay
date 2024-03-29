@@ -32,7 +32,7 @@ impl ZwpIdleInhibitorV1 {
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), ZwpIdleInhibitorV1Error> {
-        self.surface.idle_inhibitors.set(self.id, self.clone());
+        self.surface.idle_inhibitors.insert(self.id, self.clone());
         if self.surface.visible.get() {
             self.activate();
         }

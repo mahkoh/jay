@@ -236,7 +236,7 @@ pub struct WlSurface {
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
     pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
-    idle_inhibitors: CopyHashMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>>,
+    idle_inhibitors: SmallMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>, 1>,
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
     output: CloneCell<Rc<OutputNode>>,
     fractional_scale: CloneCell<Option<Rc<WpFractionalScaleV1>>>,
@@ -1186,7 +1186,7 @@ impl WlSurface {
 
     pub fn set_visible(&self, visible: bool) {
         self.visible.set(visible);
-        for inhibitor in self.idle_inhibitors.lock().values() {
+        for (_, inhibitor) in &self.idle_inhibitors {
             if visible {
                 inhibitor.activate();
             } else {
@@ -1213,7 +1213,7 @@ impl WlSurface {
         for (_, constraint) in &self.constraints {
             constraint.deactivate();
         }
-        for (_, inhibitor) in self.idle_inhibitors.lock().drain() {
+        for (_, inhibitor) in &self.idle_inhibitors {
             inhibitor.deactivate();
         }
         let children = self.children.borrow();
