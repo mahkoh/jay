@@ -620,7 +620,6 @@ impl WlSurface {
         let cursor = Rc::new(CursorSurface::new(seat, self));
         track!(self.client, cursor);
         cursor.handle_buffer_change();
-        self.cursors.insert(seat.id(), cursor.clone());
         Ok(cursor)
     }
 

@@ -123,6 +123,10 @@ impl Cursor for CursorSurface {
         self.surface.set_output(output);
     }
 
+    fn handle_set(self: Rc<Self>) {
+        self.surface.cursors.insert(self.seat.id(), self.clone());
+    }
+
     fn handle_unset(&self) {
         self.surface.cursors.remove(&self.seat.id());
     }

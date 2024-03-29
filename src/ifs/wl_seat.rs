@@ -879,6 +879,7 @@ impl WlSeatGlobal {
             old.handle_unset();
         }
         if let Some(cursor) = cursor.as_ref() {
+            cursor.clone().handle_set();
             cursor.set_output(&self.output.get());
         }
         self.cursor.set(cursor.clone());
