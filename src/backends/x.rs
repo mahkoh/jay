@@ -772,6 +772,8 @@ impl XBackend {
             log::error!("Could not present image: {:?}", e);
             return;
         }
+
+        self.state.set_backend_idle(false);
     }
 
     async fn handle_input_event(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {

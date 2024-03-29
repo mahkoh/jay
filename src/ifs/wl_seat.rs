@@ -981,6 +981,20 @@ impl WlSeatGlobal {
     pub fn last_input(&self) -> u64 {
         self.last_input_usec.get()
     }
+
+    pub fn set_visible(&self, visible: bool) {
+        if let Some(cursor) = self.cursor.get() {
+            cursor.set_visible(visible);
+        }
+        if let Some(icon) = self.dnd_icon() {
+            icon.set_visible(visible);
+        }
+        if let Some(tl_drag) = self.toplevel_drag() {
+            if let Some(tl) = tl_drag.toplevel.get() {
+                tl.tl_set_visible(visible);
+            }
+        }
+    }
 }
 
 global_base!(WlSeatGlobal, WlSeat, WlSeatError);

@@ -5,6 +5,7 @@ use {
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
         rect::Rect,
         renderer::Renderer,
+        state::State,
         tree::{
             walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, StackedNode,
         },
@@ -59,6 +60,21 @@ impl DisplayNode {
             y2 = 0;
         }
         self.extents.set(Rect::new(x1, y1, x2, y2).unwrap());
+    }
+
+    pub fn update_visible(&self, state: &State) {
+        let visible = state.root_visible();
+        for output in self.outputs.lock().values() {
+            output.update_visible();
+        }
+        for stacked in self.stacked.iter() {
+            if !stacked.stacked_has_workspace_link() {
+                stacked.stacked_set_visible(visible);
+            }
+        }
+        for seat in state.globals.seats.lock().values() {
+            seat.set_visible(visible);
+        }
     }
 }
 

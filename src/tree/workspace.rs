@@ -88,7 +88,7 @@ impl WorkspaceNode {
         let pos = self.position.get();
         container.clone().tl_change_extents(&pos);
         container.tl_set_parent(self.clone());
-        container.tl_set_visible(self.stacked_visible());
+        container.tl_set_visible(self.container_visible());
         self.container.set(Some(container.clone()));
     }
 
@@ -96,7 +96,7 @@ impl WorkspaceNode {
         self.stacked.is_empty() && self.fullscreen.is_none() && self.container.is_none()
     }
 
-    pub fn stacked_visible(&self) -> bool {
+    pub fn container_visible(&self) -> bool {
         self.visible.get() && self.fullscreen.is_none()
     }
 
@@ -113,39 +113,37 @@ impl WorkspaceNode {
         }
     }
 
-    fn plane_set_visible(&self, visible: bool) {
-        if let Some(container) = self.container.get() {
-            container.tl_set_visible(visible);
-        }
-        for stacked in self.stacked.iter() {
-            stacked.stacked_set_visible(visible);
-        }
-    }
-
     pub fn set_visible(&self, visible: bool) {
+        self.visible.set(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
         }
-        self.visible.set(visible);
+        for stacked in self.stacked.iter() {
+            stacked.stacked_prepare_set_visible();
+        }
         if let Some(fs) = self.fullscreen.get() {
             fs.tl_set_visible(visible);
-        } else {
-            self.plane_set_visible(visible);
+        }
+        if let Some(container) = self.container.get() {
+            container.tl_set_visible(self.container_visible());
+        }
+        for stacked in self.stacked.iter() {
+            if stacked.stacked_needs_set_visible() {
+                stacked.stacked_set_visible(self.container_visible());
+            }
         }
         self.seat_state.set_visible(self, visible);
     }
 
     pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
-        let visible = self.visible.get();
-        let mut plane_was_visible = visible;
         if let Some(prev) = self.fullscreen.set(Some(node.clone())) {
-            plane_was_visible = false;
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**node);
-        node.tl_set_visible(visible);
-        if plane_was_visible {
-            self.plane_set_visible(false);
+        if self.visible.get() {
+            self.output.get().update_visible();
+        } else {
+            node.tl_set_visible(false);
         }
         if let Some(surface) = node.tl_scanout_surface() {
             if let Some(fb) = self.output.get().global.connector.connector.drm_feedback() {
@@ -158,7 +156,7 @@ impl WorkspaceNode {
         if let Some(node) = self.fullscreen.take() {
             self.discard_child_properties(&*node);
             if self.visible.get() {
-                self.plane_set_visible(true);
+                self.output.get().update_visible();
             }
             if let Some(surface) = node.tl_scanout_surface() {
                 if let Some(fb) = surface.client.state.drm_feedback.get() {

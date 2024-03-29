@@ -101,7 +101,7 @@ impl FloatNode {
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
-            visible: Cell::new(ws.stacked_visible()),
+            visible: Cell::new(ws.container_visible()),
             position: Cell::new(position),
             display_link: RefCell::new(None),
             workspace_link: Cell::new(None),
@@ -346,7 +346,7 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
-        self.stacked_set_visible(ws.stacked_visible());
+        self.stacked_set_visible(ws.container_visible());
     }
 
     fn update_child_title(self: &Rc<Self>, title: &str) {
@@ -624,5 +624,9 @@ impl StackedNode for FloatNode {
             child.tl_set_visible(visible);
         }
         self.seat_state.set_visible(self, visible);
+    }
+
+    fn stacked_has_workspace_link(&self) -> bool {
+        true
     }
 }

@@ -389,6 +389,7 @@ impl XdgToplevel {
         }
         self.toplevel_data.detach_node(self);
         self.xdg.detach_node();
+        self.tl_set_visible(self.state.root_visible());
     }
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {

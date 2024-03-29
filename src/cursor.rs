@@ -69,6 +69,10 @@ pub trait Cursor {
     fn time_until_tick(&self) -> Duration {
         Duration::new(0, 0)
     }
+
+    fn set_visible(&self, visible: bool) {
+        let _ = visible;
+    }
 }
 
 pub struct ServerCursors {

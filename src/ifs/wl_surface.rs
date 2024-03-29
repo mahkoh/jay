@@ -234,7 +234,7 @@ pub struct WlSurface {
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
-    pub dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
     idle_inhibitors: SmallMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>, 1>,
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
@@ -489,7 +489,7 @@ impl WlSurface {
             id,
             node_id: client.state.node_ids.next(),
             client: client.clone(),
-            visible: Default::default(),
+            visible: Cell::new(false),
             role: Cell::new(SurfaceRole::None),
             pending: Default::default(),
             input_region: Default::default(),
@@ -1184,7 +1184,9 @@ impl WlSurface {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        self.visible.set(visible);
+        if self.visible.replace(visible) == visible {
+            return;
+        }
         for (_, inhibitor) in &self.idle_inhibitors {
             if visible {
                 inhibitor.activate();
@@ -1204,11 +1206,7 @@ impl WlSurface {
         self.seat_state.set_visible(self, visible);
     }
 
-    pub fn detach_node(&self) {
-        self.destroy_node();
-    }
-
-    pub fn destroy_node(&self) {
+    pub fn detach_node(&self, set_invisible: bool) {
         for (_, constraint) in &self.constraints {
             constraint.deactivate();
         }
@@ -1218,7 +1216,7 @@ impl WlSurface {
         let children = self.children.borrow();
         if let Some(ch) = children.deref() {
             for ss in ch.subsurfaces.values() {
-                ss.surface.destroy_node();
+                ss.surface.detach_node(set_invisible);
             }
         }
         if let Some(tl) = self.toplevel.get() {
@@ -1238,6 +1236,13 @@ impl WlSurface {
         if self.visible.get() {
             self.client.state.damage();
         }
+        if set_invisible {
+            self.visible.set(false);
+        }
+    }
+
+    pub fn destroy_node(&self) {
+        self.detach_node(true);
     }
 
     pub fn set_content_type(&self, content_type: Option<ContentType>) {
@@ -1266,6 +1271,18 @@ impl WlSurface {
         self.ext
             .get()
             .consume_pending_child(self, child, &mut consume)
+    }
+
+    pub fn set_dnd_icon_seat(&self, id: SeatId, seat: Option<&Rc<WlSeatGlobal>>) {
+        match seat {
+            None => {
+                self.dnd_icons.remove(&id);
+            }
+            Some(seat) => {
+                self.dnd_icons.insert(id, seat.clone());
+            }
+        }
+        self.set_visible(self.dnd_icons.is_not_empty() && self.client.state.root_visible());
     }
 }
 

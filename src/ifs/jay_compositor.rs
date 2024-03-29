@@ -190,7 +190,7 @@ impl JayCompositor {
                 lock.finish();
             }
             for output in state.outputs.lock().values() {
-                if let Some(surface) = output.node.lock_surface.take() {
+                if let Some(surface) = output.node.set_lock_surface(None) {
                     surface.destroy_node();
                 }
             }

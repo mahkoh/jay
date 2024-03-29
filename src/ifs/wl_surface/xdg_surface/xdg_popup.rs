@@ -47,6 +47,7 @@ pub struct XdgPopup {
     pos: RefCell<XdgPositioned>,
     pub tracker: Tracker<Self>,
     seat_state: NodeSeatState,
+    set_visible_prepared: Cell<bool>,
 }
 
 impl Debug for XdgPopup {
@@ -77,6 +78,7 @@ impl XdgPopup {
             pos: RefCell::new(pos),
             tracker: Default::default(),
             seat_state: Default::default(),
+            set_visible_prepared: Cell::new(false),
         })
     }
 
@@ -243,6 +245,7 @@ impl XdgPopup {
 
     pub fn set_visible(&self, visible: bool) {
         // log::info!("set visible = {}", visible);
+        self.set_visible_prepared.set(false);
         self.xdg.set_visible(visible);
         self.seat_state.set_visible(self, visible);
     }
@@ -340,8 +343,20 @@ impl Node for XdgPopup {
 impl StackedNode for XdgPopup {
     stacked_node_impl!();
 
+    fn stacked_prepare_set_visible(&self) {
+        self.set_visible_prepared.set(true);
+    }
+
+    fn stacked_needs_set_visible(&self) -> bool {
+        self.set_visible_prepared.get()
+    }
+
     fn stacked_set_visible(&self, visible: bool) {
-        self.xdg.set_visible(visible);
+        self.set_visible(visible);
+    }
+
+    fn stacked_has_workspace_link(&self) -> bool {
+        self.workspace_link.borrow().is_some()
     }
 
     fn stacked_absolute_position_constrains_input(&self) -> bool {

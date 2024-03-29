@@ -436,6 +436,10 @@ impl StackedNode for Xwindow {
     fn stacked_set_visible(&self, visible: bool) {
         self.tl_set_visible(visible);
     }
+
+    fn stacked_has_workspace_link(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Error)]

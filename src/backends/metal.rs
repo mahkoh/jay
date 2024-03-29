@@ -196,7 +196,9 @@ impl Backend for MetalBackend {
                 return;
             }
         }
-        if !idle {
+        if idle {
+            self.state.set_backend_idle(true);
+        } else {
             for device in devices.values() {
                 for connector in device.connectors.lock().values() {
                     connector.schedule_present();

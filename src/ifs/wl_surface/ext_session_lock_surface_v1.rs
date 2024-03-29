@@ -74,7 +74,7 @@ impl ExtSessionLockSurfaceV1 {
         if let Some(output) = &self.output {
             if let Some(ls) = output.lock_surface.get() {
                 if ls.node_id == self.node_id {
-                    output.lock_surface.take();
+                    output.set_lock_surface(None);
                     self.client.state.tree_changed();
                 }
             }

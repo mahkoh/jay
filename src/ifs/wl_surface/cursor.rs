@@ -125,9 +125,20 @@ impl Cursor for CursorSurface {
 
     fn handle_set(self: Rc<Self>) {
         self.surface.cursors.insert(self.seat.id(), self.clone());
+        if self.surface.cursors.is_not_empty() {
+            self.surface
+                .set_visible(self.surface.client.state.root_visible());
+        }
     }
 
     fn handle_unset(&self) {
         self.surface.cursors.remove(&self.seat.id());
+        if self.surface.cursors.is_empty() {
+            self.surface.set_visible(false);
+        }
+    }
+
+    fn set_visible(&self, visible: bool) {
+        self.surface.set_visible(visible);
     }
 }
