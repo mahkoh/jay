@@ -47,6 +47,7 @@ pub struct TestBackend {
 
 impl TestBackend {
     pub fn new(state: &Rc<State>, future: TestFuture) -> Self {
+        state.set_backend_idle(false);
         let default_connector = Rc::new(TestConnector {
             id: state.connector_ids.next(),
             kernel_id: ConnectorKernelId {

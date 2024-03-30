@@ -317,7 +317,7 @@ impl OutputNode {
                 old.flush_jay_workspaces();
             }
         }
-        ws.set_visible(true);
+        self.update_visible();
         if let Some(fs) = ws.fullscreen.get() {
             fs.tl_change_extents(&self.global.pos.get());
         }
@@ -502,6 +502,44 @@ impl OutputNode {
             .map(|w| w.fullscreen.is_some())
             .unwrap_or(false)
     }
+
+    pub fn set_lock_surface(
+        &self,
+        surface: Option<Rc<ExtSessionLockSurfaceV1>>,
+    ) -> Option<Rc<ExtSessionLockSurfaceV1>> {
+        let prev = self.lock_surface.set(surface);
+        self.update_visible();
+        prev
+    }
+
+    pub fn update_visible(&self) {
+        let mut visible = self.state.root_visible();
+        if self.state.lock.locked.get() {
+            if let Some(surface) = self.lock_surface.get() {
+                surface.surface.set_visible(visible);
+            }
+            visible = false;
+        }
+        macro_rules! set_layer_visible {
+            ($layer:expr, $visible:expr) => {
+                for ls in $layer.iter() {
+                    ls.surface.set_visible($visible);
+                }
+            };
+        }
+        let mut have_fullscreen = false;
+        if let Some(ws) = self.workspace.get() {
+            have_fullscreen = ws.fullscreen.is_some();
+        }
+        let lower_visible = visible && have_fullscreen;
+        set_layer_visible!(self.layers[0], lower_visible);
+        set_layer_visible!(self.layers[1], lower_visible);
+        if let Some(ws) = self.workspace.get() {
+            ws.set_visible(visible);
+        }
+        set_layer_visible!(self.layers[2], visible);
+        set_layer_visible!(self.layers[3], visible);
+    }
 }
 
 pub struct OutputTitle {
@@ -607,16 +645,6 @@ impl Node for OutputNode {
                 return res;
             }
         }
-        if let Some(ws) = self.workspace.get() {
-            if let Some(fs) = ws.fullscreen.get() {
-                tree.push(FoundNode {
-                    node: fs.clone().tl_into_node(),
-                    x,
-                    y,
-                });
-                return fs.tl_as_node().node_find_tree_at(x, y, tree);
-            }
-        }
         {
             let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
             for stacked in self.state.root.stacked.rev_iter() {
@@ -647,23 +675,36 @@ impl Node for OutputNode {
                 }
             }
         }
-        let bar_height = self.state.theme.sizes.title_height.get() + 1;
-        if y >= bar_height {
-            y -= bar_height;
-            let len = tree.len();
-            if let Some(ws) = self.workspace.get() {
-                tree.push(FoundNode {
-                    node: ws.clone(),
-                    x,
-                    y,
-                });
-                ws.node_find_tree_at(x, y, tree);
-            }
-            if tree.len() == len {
-                self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree);
-            }
+        let mut fullscreen = None;
+        if let Some(ws) = self.workspace.get() {
+            fullscreen = ws.fullscreen.get();
         }
-        FindTreeResult::AcceptsInput
+        if let Some(fs) = fullscreen {
+            tree.push(FoundNode {
+                node: fs.clone().tl_into_node(),
+                x,
+                y,
+            });
+            fs.tl_as_node().node_find_tree_at(x, y, tree)
+        } else {
+            let bar_height = self.state.theme.sizes.title_height.get() + 1;
+            if y >= bar_height {
+                y -= bar_height;
+                let len = tree.len();
+                if let Some(ws) = self.workspace.get() {
+                    tree.push(FoundNode {
+                        node: ws.clone(),
+                        x,
+                        y,
+                    });
+                    ws.node_find_tree_at(x, y, tree);
+                }
+                if tree.len() == len {
+                    self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree);
+                }
+            }
+            FindTreeResult::AcceptsInput
+        }
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {

@@ -184,6 +184,7 @@ fn start_compositor2(
             timeout_changed: Default::default(),
             inhibitors: Default::default(),
             inhibitors_changed: Default::default(),
+            backend_idle: Cell::new(true),
         },
         run_args,
         xwayland: XWaylandState {

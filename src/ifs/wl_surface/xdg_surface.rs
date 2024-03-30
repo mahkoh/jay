@@ -183,7 +183,7 @@ impl XdgSurface {
 
     fn detach_node(&self) {
         self.workspace.set(None);
-        self.surface.detach_node();
+        self.surface.detach_node(false);
         let popups = self.popups.lock();
         for popup in popups.values() {
             popup.detach_node();

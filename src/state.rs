@@ -205,6 +205,7 @@ pub struct IdleState {
     pub timeout_changed: Cell<bool>,
     pub inhibitors: CopyHashMap<IdleInhibitorId, Rc<ZwpIdleInhibitorV1>>,
     pub inhibitors_changed: Cell<bool>,
+    pub backend_idle: Cell<bool>,
 }
 
 impl IdleState {
@@ -959,6 +960,16 @@ impl State {
         if let Err(e) = ctx.sync_obj_ctx().signal(sync_obj, point) {
             log::error!("Could not signal sync obj: {}", ErrorFmt(e));
         }
+    }
+
+    pub fn set_backend_idle(&self, idle: bool) {
+        if self.idle.backend_idle.replace(idle) != idle {
+            self.root.update_visible(self);
+        }
+    }
+
+    pub fn root_visible(&self) -> bool {
+        !self.idle.backend_idle.get()
     }
 }
 

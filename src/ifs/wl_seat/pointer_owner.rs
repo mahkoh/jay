@@ -368,7 +368,7 @@ impl PointerOwner for GrabPointerOwner {
             return Ok(());
         }
         if let Some(icon) = &icon {
-            icon.dnd_icons.insert(seat.id(), seat.clone());
+            icon.set_dnd_icon_seat(seat.id, Some(seat));
         }
         if let Some(new) = &src {
             ipc::attach_seat::<ClipboardIpc>(new, seat, ipc::Role::Dnd)?;
@@ -460,7 +460,7 @@ impl PointerOwner for DndPointerOwner {
             }
         }
         if let Some(icon) = self.icon.get() {
-            icon.dnd_icons.remove(&seat.id());
+            icon.set_dnd_icon_seat(seat.id(), None);
         }
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();
@@ -530,7 +530,7 @@ impl PointerOwner for DndPointerOwner {
             ipc::detach_seat::<ClipboardIpc>(src, seat);
         }
         if let Some(icon) = self.icon.get() {
-            icon.dnd_icons.remove(&seat.id());
+            icon.set_dnd_icon_seat(seat.id(), None);
         }
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();

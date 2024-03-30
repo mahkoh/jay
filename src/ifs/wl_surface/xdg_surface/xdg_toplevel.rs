@@ -156,7 +156,12 @@ impl XdgToplevel {
     fn send_configure_checked(&self, mut width: i32, mut height: i32) {
         width = width.max(1);
         height = height.max(1);
-        if self.bugs.get().respect_min_max_size {
+        let bugs = self.bugs.get();
+        if let Some((mw, mh)) = bugs.min_size {
+            width = width.max(mw);
+            height = height.max(mh);
+        }
+        if bugs.respect_min_max_size {
             if let Some(min) = self.min_width.get() {
                 width = width.max(min);
             }
@@ -384,6 +389,7 @@ impl XdgToplevel {
         }
         self.toplevel_data.detach_node(self);
         self.xdg.detach_node();
+        self.tl_set_visible(self.state.root_visible());
     }
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
@@ -647,7 +653,11 @@ impl ToplevelNodeBase for XdgToplevel {
 impl XdgSurfaceExt for XdgToplevel {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         let rect = self.xdg.absolute_desired_extents.get();
-        self.send_configure(rect.width(), rect.height());
+        if rect.is_empty() {
+            self.send_configure(0, 0);
+        } else {
+            self.send_configure_checked(rect.width(), rect.height());
+        }
         Ok(())
     }
 

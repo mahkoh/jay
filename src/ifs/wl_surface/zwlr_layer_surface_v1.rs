@@ -351,6 +351,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
 
     fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
         let buffer_is_some = self.surface.buffer.is_some();
+        let was_mapped = self.mapped.get();
         if self.mapped.get() {
             if !buffer_is_some {
                 self.destroy_node();
@@ -366,6 +367,9 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             self.link.set(Some(layer.add_last(self.clone())));
             self.mapped.set(true);
             self.compute_position();
+        }
+        if self.mapped.get() != was_mapped {
+            self.output.update_visible();
         }
         if self.mapped.get() {
             match self.keyboard_interactivity.get() {

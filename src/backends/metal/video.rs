@@ -389,8 +389,11 @@ impl MetalConnector {
     async fn present_loop(self: Rc<Self>) {
         loop {
             self.present_trigger.triggered().await;
-            if let Err(e) = self.present(true) {
-                log::error!("Could not present: {}", ErrorFmt(e));
+            match self.present(true) {
+                Ok(_) => self.state.set_backend_idle(false),
+                Err(e) => {
+                    log::error!("Could not present: {}", ErrorFmt(e));
+                }
             }
         }
     }

@@ -46,6 +46,7 @@ pub struct WlSubsurface {
     latest_node: CloneCell<Option<NodeRef<StackElement>>>,
     depth: NumCell<u32>,
     pub tracker: Tracker<Self>,
+    had_buffer: Cell<bool>,
 }
 
 #[derive(Default)]
@@ -102,6 +103,7 @@ impl WlSubsurface {
             latest_node: Default::default(),
             depth: NumCell::new(0),
             tracker: Default::default(),
+            had_buffer: Cell::new(false),
         }
     }
 
@@ -178,6 +180,7 @@ impl WlSubsurface {
             }
         }
         self.surface.client.remove_obj(self)?;
+        self.surface.destroy_node();
         Ok(())
     }
 
@@ -342,6 +345,16 @@ impl SurfaceExt for WlSubsurface {
                 self.position
                     .set(self.surface.buffer_abs_pos.get().at_point(x, y));
                 self.parent.need_extents_update.set(true);
+            }
+        }
+        let has_buffer = self.surface.buffer.is_some();
+        if self.had_buffer.replace(has_buffer) != has_buffer {
+            if has_buffer {
+                if self.parent.visible.get() {
+                    self.surface.set_visible(true);
+                }
+            } else {
+                self.surface.destroy_node();
             }
         }
     }

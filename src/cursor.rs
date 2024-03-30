@@ -60,6 +60,7 @@ pub trait Cursor {
     fn set_output(&self, output: &Rc<OutputNode>) {
         let _ = output;
     }
+    fn handle_set(self: Rc<Self>) {}
     fn handle_unset(&self) {}
     fn tick(&self) {}
     fn needs_tick(&self) -> bool {
@@ -67,6 +68,10 @@ pub trait Cursor {
     }
     fn time_until_tick(&self) -> Duration {
         Duration::new(0, 0)
+    }
+
+    fn set_visible(&self, visible: bool) {
+        let _ = visible;
     }
 }
 
