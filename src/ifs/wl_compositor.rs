@@ -49,8 +49,16 @@ impl WlCompositorGlobal {
 
 impl WlCompositor {
     fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), WlCompositorError> {
+        let Some(commit_timelines) = self.client.commit_timelines.get() else {
+            return Err(WlCompositorError::CommitTimelines);
+        };
         let surface: CreateSurface = self.client.parse(self, parser)?;
-        let surface = Rc::new(WlSurface::new(surface.id, &self.client, self.version));
+        let surface = Rc::new(WlSurface::new(
+            surface.id,
+            &self.client,
+            self.version,
+            &commit_timelines,
+        ));
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         if self.client.is_xwayland {
@@ -103,6 +111,8 @@ pub enum WlCompositorError {
     ClientError(Box<ClientError>),
     #[error("Parsing failed")]
     MsgParserError(#[source] Box<MsgParserError>),
+    #[error("Commit timelines are not available")]
+    CommitTimelines,
 }
 
 efrom!(WlCompositorError, ClientError);
