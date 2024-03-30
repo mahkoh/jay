@@ -4,6 +4,7 @@ pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
+pub mod wp_fifo_v1;
 pub mod wp_fractional_scale_v1;
 pub mod wp_linux_drm_syncobj_surface_v1;
 pub mod wp_tearing_control_v1;
@@ -40,11 +41,14 @@ use {
                 Dnd, NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
-                commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
+                commit_timeline::{
+                    ClearReason, CommitTimeline, CommitTimelineError, CommitTimelines,
+                },
                 cursor::CursorSurface,
                 dnd_icon::DndIcon,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
+                wp_fifo_v1::WpFifoV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
@@ -298,6 +302,7 @@ pub struct WlSurface {
     alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
     alpha: Cell<Option<f32>>,
     pub text_input_connections: SmallMap<SeatId, Rc<TextInputConnection>, 1>,
+    fifo: CloneCell<Option<Rc<WpFifoV1>>>,
 }
 
 impl Debug for WlSurface {
@@ -419,6 +424,8 @@ struct PendingState {
     release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     alpha_multiplier: Option<Option<f32>>,
     explicit_sync: bool,
+    fifo_barrier_set: bool,
+    fifo_barrier_wait: bool,
 }
 
 struct AttachedSubsurfaceState {
@@ -496,6 +503,8 @@ impl PendingState {
             &mut self.presentation_feedback,
             &mut next.presentation_feedback,
         );
+        self.fifo_barrier_set |= mem::take(&mut next.fifo_barrier_set);
+        self.fifo_barrier_wait |= mem::take(&mut next.fifo_barrier_wait);
         macro_rules! merge_ext {
             ($name:ident) => {
                 if let Some(e) = &mut self.$name {
@@ -558,7 +567,12 @@ pub struct StackElement {
 }
 
 impl WlSurface {
-    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version) -> Self {
+    pub fn new(
+        id: WlSurfaceId,
+        client: &Rc<Client>,
+        version: Version,
+        commit_timelines: &Rc<CommitTimelines>,
+    ) -> Self {
         Self {
             id,
             node_id: client.state.node_ids.next(),
@@ -607,10 +621,11 @@ impl WlSurface {
             drm_feedback: Default::default(),
             sync_obj_surface: Default::default(),
             destroyed: Cell::new(false),
-            commit_timeline: client.commit_timelines.create_timeline(),
+            commit_timeline: commit_timelines.create_timeline(),
             alpha_modifier: Default::default(),
             alpha: Default::default(),
             text_input_connections: Default::default(),
+            fifo: Default::default(),
         }
     }
 
@@ -641,6 +656,7 @@ impl WlSurface {
         if old.id == output.id {
             return;
         }
+        self.commit_timeline.clear_fifo_barrier();
         output.global.send_enter(self);
         old.global.send_leave(self);
         if old.global.persistent.scale.get() != output.global.persistent.scale.get() {
@@ -1315,6 +1331,12 @@ impl WlSurface {
                 }
             }
         }
+        pending.fifo_barrier_wait = false;
+        let fifo_barrier_set = mem::take(&mut pending.fifo_barrier_set);
+        if fifo_barrier_set && self.visible.get() {
+            self.commit_timeline.set_fifo_barrier();
+            self.output.get().global.connector.connector.damage();
+        }
         Ok(())
     }
 
@@ -1469,12 +1491,16 @@ impl WlSurface {
                 }
             }
         }
+        if !visible {
+            self.commit_timeline.clear_fifo_barrier();
+        }
         self.seat_state.set_visible(self, visible);
     }
 
     pub fn presented(&self, on: OutputNodeId) {
         if on == self.output.get().id {
             self.buffer_presented.set(true);
+            self.commit_timeline.clear_fifo_barrier();
         }
     }
 
@@ -1509,6 +1535,7 @@ impl WlSurface {
         }
         if set_invisible {
             self.visible.set(false);
+            self.commit_timeline.clear_fifo_barrier();
         }
     }
 

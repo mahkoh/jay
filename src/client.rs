@@ -14,6 +14,7 @@ use {
             activation_token::ActivationToken,
             asyncevent::AsyncEvent,
             buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
+            clonecell::CloneCell,
             copyhashmap::{CopyHashMap, Locked},
             errorfmt::ErrorFmt,
             numcell::NumCell,
@@ -184,13 +185,15 @@ impl Clients {
             last_xwayland_serial: Cell::new(0),
             surfaces_by_xwayland_serial: Default::default(),
             activation_tokens: Default::default(),
-            commit_timelines: Rc::new(CommitTimelines::new(&global.wait_for_sync_obj)),
+            commit_timelines: Default::default(),
         });
         track!(data, data);
         let display = Rc::new(WlDisplay::new(&data));
         track!(data, display);
         data.objects.display.set(Some(display.clone()));
         data.objects.add_client_object(display).expect("");
+        let commit_timelines = Rc::new(CommitTimelines::new(&data));
+        data.commit_timelines.set(Some(commit_timelines));
         let client = ClientHolder {
             _handler: global.eng.spawn(tasks::client(data.clone())),
             data: data.clone(),
@@ -258,7 +261,9 @@ impl Drop for ClientHolder {
         self.data.shutdown.clear();
         self.data.surfaces_by_xwayland_serial.clear();
         self.data.remove_activation_tokens();
-        self.data.commit_timelines.clear();
+        if let Some(ct) = self.data.commit_timelines.take() {
+            ct.clear();
+        }
     }
 }
 
@@ -300,7 +305,7 @@ pub struct Client {
     pub last_xwayland_serial: Cell<u64>,
     pub surfaces_by_xwayland_serial: CopyHashMap<u64, Rc<WlSurface>>,
     pub activation_tokens: RefCell<VecDeque<ActivationToken>>,
-    pub commit_timelines: Rc<CommitTimelines>,
+    pub commit_timelines: CloneCell<Option<Rc<CommitTimelines>>>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;

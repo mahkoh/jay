@@ -1,5 +1,7 @@
 use {
     crate::{
+        async_engine::SpawnedFuture,
+        client::Client,
         ifs::wl_surface::{PendingState, WlSurface, WlSurfaceError},
         utils::{
             clonecell::CloneCell,
@@ -7,6 +9,7 @@ use {
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
+            queue::AsyncQueue,
         },
         video::drm::{
             sync_obj::{SyncObj, SyncObjPoint},
@@ -34,6 +37,8 @@ pub struct CommitTimelines {
     wfs: Rc<WaitForSyncObj>,
     depth: NumCell<usize>,
     gc: CopyHashMap<CommitTimelineId, LinkedList<Entry>>,
+    flips: Rc<Flips>,
+    _flips_future: SpawnedFuture<()>,
 }
 
 pub struct CommitTimeline {
@@ -41,6 +46,8 @@ pub struct CommitTimeline {
     own_timeline: Rc<Inner>,
     effective_timeline: CloneCell<Rc<Inner>>,
     effective_timeline_id: Cell<CommitTimelineId>,
+    fifo_barrier_set: Cell<bool>,
+    fifo_waiter: Cell<Option<NodeRef<Entry>>>,
 }
 
 struct Inner {
@@ -79,11 +86,18 @@ pub enum CommitTimelineError {
 }
 
 impl CommitTimelines {
-    pub fn new(wfs: &Rc<WaitForSyncObj>) -> Self {
+    pub fn new(client: &Rc<Client>) -> Self {
+        let state = &client.state;
+        let flips = Rc::new(Flips::default());
+        let flips_future = state
+            .eng
+            .spawn(process_flips(client.clone(), flips.clone()));
         Self {
+            flips,
+            _flips_future: flips_future,
             next_id: Default::default(),
             depth: NumCell::new(0),
-            wfs: wfs.clone(),
+            wfs: state.wait_for_sync_obj.clone(),
             gc: Default::default(),
         }
     }
@@ -99,10 +113,13 @@ impl CommitTimelines {
             own_timeline: timeline.clone(),
             effective_timeline: CloneCell::new(timeline),
             effective_timeline_id: Cell::new(id),
+            fifo_barrier_set: Cell::new(false),
+            fifo_waiter: Default::default(),
         }
     }
 
     pub fn clear(&self) {
+        self.flips.flip_waiters.clear();
         for list in self.gc.lock().drain_values() {
             break_loops(&list);
         }
@@ -126,8 +143,12 @@ fn break_loops(list: &LinkedList<Entry>) {
 impl CommitTimeline {
     pub fn clear(&self, reason: ClearReason) {
         match reason {
-            ClearReason::BreakLoops => break_loops(&self.own_timeline.entries),
+            ClearReason::BreakLoops => {
+                self.fifo_waiter.take();
+                break_loops(&self.own_timeline.entries)
+            }
             ClearReason::Destroy => {
+                self.clear_fifo_barrier();
                 if self.own_timeline.entries.is_not_empty() {
                     let list = LinkedList::new();
                     list.append_all(&self.own_timeline.entries);
@@ -145,7 +166,10 @@ impl CommitTimeline {
     ) -> Result<(), CommitTimelineError> {
         let mut points = SmallVec::new();
         consume_acquire_points(pending, &mut points);
-        if points.is_empty() && self.own_timeline.entries.is_empty() {
+        let must_be_queued = points.is_not_empty()
+            || self.own_timeline.entries.is_not_empty()
+            || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
+        if !must_be_queued {
             return surface
                 .apply_state(pending)
                 .map_err(CommitTimelineError::ImmediateCommit);
@@ -154,6 +178,10 @@ impl CommitTimeline {
             return Err(CommitTimelineError::Depth);
         }
         set_effective_timeline(self, pending, &self.own_timeline);
+        let commit_fifo_state = match pending.fifo_barrier_wait {
+            true => CommitFifoState::Queued,
+            false => CommitFifoState::Mailbox,
+        };
         let noderef = add_entry(
             &self.own_timeline.entries,
             &self.shared,
@@ -162,11 +190,12 @@ impl CommitTimeline {
                 pending: RefCell::new(mem::take(pending)),
                 sync_obj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
+                fifo_state: Cell::new(commit_fifo_state),
             }),
         );
         if points.is_not_empty() {
             let mut wait_handles = SmallVec::new();
-            let noderef = Rc::new(noderef);
+            let noderef = Rc::new(noderef.clone());
             for (sync_obj, point) in points {
                 let handle = self
                     .shared
@@ -180,7 +209,21 @@ impl CommitTimeline {
             };
             commit.wait_handles.set(wait_handles);
         }
+        if commit_fifo_state == CommitFifoState::Queued {
+            flush_from(noderef).map_err(CommitTimelineError::ImmediateCommit)?;
+        }
         Ok(())
+    }
+
+    pub fn set_fifo_barrier(&self) {
+        self.fifo_barrier_set.set(true);
+    }
+
+    pub fn clear_fifo_barrier(&self) {
+        self.fifo_barrier_set.set(false);
+        if let Some(waiter) = self.fifo_waiter.take() {
+            self.shared.flips.flip_waiters.push(waiter);
+        }
     }
 }
 
@@ -221,6 +264,7 @@ struct Commit {
     pending: RefCell<Box<PendingState>>,
     sync_obj: NumCell<usize>,
     wait_handles: Cell<SmallVec<[WaitForSyncObjHandle; 1]>>,
+    fifo_state: Cell<CommitFifoState>,
 }
 
 fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
@@ -245,6 +289,18 @@ impl NodeRef<Entry> {
             EntryKind::Commit(c) => {
                 if c.sync_obj.get() > 0 {
                     return Ok(false);
+                }
+                let tl = &c.surface.commit_timeline;
+                if tl.fifo_barrier_set.get() {
+                    match c.fifo_state.get() {
+                        CommitFifoState::Queued => {
+                            tl.fifo_waiter.set(Some(self.clone()));
+                            c.fifo_state.set(CommitFifoState::Registered);
+                            return Ok(false);
+                        }
+                        CommitFifoState::Registered => return Ok(false),
+                        CommitFifoState::Mailbox => {}
+                    }
                 }
                 c.surface.apply_state(c.pending.borrow_mut().deref_mut())?;
                 Ok(true)
@@ -300,4 +356,28 @@ fn set_effective_timeline(
             set_effective_timeline(&ss.subsurface.surface.commit_timeline, state, effective);
         }
     }
+}
+
+#[derive(Default)]
+struct Flips {
+    flip_waiters: AsyncQueue<NodeRef<Entry>>,
+}
+
+async fn process_flips(client: Rc<Client>, flips: Rc<Flips>) {
+    loop {
+        flips.flip_waiters.non_empty().await;
+        while let Some(entry) = flips.flip_waiters.try_pop() {
+            if let Err(e) = flush_from(entry) {
+                client.error(e);
+                return;
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum CommitFifoState {
+    Queued,
+    Registered,
+    Mailbox,
 }

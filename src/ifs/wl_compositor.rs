@@ -50,7 +50,15 @@ impl WlCompositorRequestHandler for WlCompositor {
     type Error = WlCompositorError;
 
     fn create_surface(&self, req: CreateSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let surface = Rc::new(WlSurface::new(req.id, &self.client, self.version));
+        let Some(commit_timelines) = self.client.commit_timelines.get() else {
+            return Err(WlCompositorError::CommitTimelines);
+        };
+        let surface = Rc::new(WlSurface::new(
+            req.id,
+            &self.client,
+            self.version,
+            &commit_timelines,
+        ));
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         if self.client.is_xwayland {
@@ -98,6 +106,8 @@ simple_add_obj!(WlCompositor);
 pub enum WlCompositorError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Commit timelines are not available")]
+    CommitTimelines,
 }
 
 efrom!(WlCompositorError, ClientError);

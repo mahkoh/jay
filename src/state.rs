@@ -862,6 +862,7 @@ impl State {
         rr: &mut RenderResult,
         render_hw_cursor: bool,
     ) -> Result<Option<SyncFile>, GfxError> {
+        rr.output_id = output.id;
         let sync_file = fb.render_output(
             output,
             self,

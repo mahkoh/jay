@@ -36,6 +36,7 @@ use {
             wp_alpha_modifier_v1::WpAlphaModifierV1Global,
             wp_content_type_manager_v1::WpContentTypeManagerV1Global,
             wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
+            wp_fifo_manager_v1::WpFifoManagerV1Global,
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
             wp_presentation::WpPresentationGlobal,
             wp_security_context_manager_v1::WpSecurityContextManagerV1Global,
@@ -197,6 +198,7 @@ impl Globals {
         add_singleton!(ZwpPointerGesturesV1Global);
         add_singleton!(ZwpTabletManagerV2Global);
         add_singleton!(JayDamageTrackingGlobal);
+        add_singleton!(WpFifoManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
