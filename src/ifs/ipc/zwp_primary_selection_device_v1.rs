@@ -5,8 +5,8 @@ use {
             ipc::{
                 break_device_loops, destroy_data_device,
                 zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DataOfferId,
-                DeviceData, IpcVtable, OfferData, Role, SourceData,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DeviceData,
+                IpcVtable, OfferData, Role, XIpcVtable,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
@@ -21,7 +21,6 @@ use {
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::OwnedFd,
 };
 
 pub struct ZwpPrimarySelectionDeviceV1 {
@@ -29,7 +28,7 @@ pub struct ZwpPrimarySelectionDeviceV1 {
     pub client: Rc<Client>,
     pub version: u32,
     pub seat: Rc<WlSeatGlobal>,
-    data: DeviceData<PrimarySelectionIpc>,
+    data: DeviceData<ZwpPrimarySelectionOfferV1>,
     pub tracker: Tracker<Self>,
 }
 
@@ -112,7 +111,7 @@ impl ZwpPrimarySelectionDeviceV1 {
         } else {
             Some(self.client.lookup(req.source)?)
         };
-        self.seat.set_primary_selection(src, Some(req.serial))?;
+        self.seat.set_zwp_primary_selection(src, Some(req.serial))?;
         Ok(())
     }
 
@@ -127,12 +126,22 @@ impl ZwpPrimarySelectionDeviceV1 {
 
 pub struct PrimarySelectionIpc;
 
+impl XIpcVtable for PrimarySelectionIpc {
+    fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
+        ZwpPrimarySelectionSourceV1::new(ZwpPrimarySelectionSourceV1Id::NONE, client, true)
+    }
+
+    fn remove_from_seat(device: &Self::Device) {
+        device.seat.remove_primary_selection_device(device);
+    }
+}
+
 impl IpcVtable for PrimarySelectionIpc {
     type Device = ZwpPrimarySelectionDeviceV1;
     type Source = ZwpPrimarySelectionSourceV1;
     type Offer = ZwpPrimarySelectionOfferV1;
 
-    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self> {
+    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self::Offer> {
         &dd.data
     }
 
@@ -140,24 +149,12 @@ impl IpcVtable for PrimarySelectionIpc {
         dd.seat.clone()
     }
 
-    fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
-        ZwpPrimarySelectionSourceV1::new(ZwpPrimarySelectionSourceV1Id::NONE, client, true)
-    }
-
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
         serial: Option<u32>,
     ) -> Result<(), WlSeatError> {
-        seat.set_primary_selection(Some(source.clone()), serial)
-    }
-
-    fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self> {
-        &offer.data
-    }
-
-    fn get_source_data(src: &Self::Source) -> &SourceData<Self> {
-        &src.data
+        seat.set_zwp_primary_selection(Some(source.clone()), serial)
     }
 
     fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
@@ -170,7 +167,7 @@ impl IpcVtable for PrimarySelectionIpc {
     fn create_offer(
         client: &Rc<Client>,
         device: &Rc<ZwpPrimarySelectionDeviceV1>,
-        offer_data: OfferData<Self>,
+        offer_data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError> {
         let id = if device.data.is_xwm {
             ZwpPrimarySelectionOfferV1Id::NONE
@@ -193,36 +190,12 @@ impl IpcVtable for PrimarySelectionIpc {
         dd.send_selection(offer);
     }
 
-    fn send_cancelled(source: &Rc<Self::Source>, _seat: &Rc<WlSeatGlobal>) {
-        source.send_cancelled();
-    }
-
-    fn get_offer_id(offer: &Self::Offer) -> DataOfferId {
-        offer.offer_id
-    }
-
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>) {
         dd.send_data_offer(offer);
     }
 
-    fn send_mime_type(offer: &Rc<Self::Offer>, mime_type: &str) {
-        offer.send_offer(mime_type);
-    }
-
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
         seat.unset_primary_selection();
-    }
-
-    fn send_send(src: &Rc<Self::Source>, mime_type: &str, fd: Rc<OwnedFd>) {
-        src.send_send(mime_type, fd);
-    }
-
-    fn remove_from_seat(device: &Self::Device) {
-        device.seat.remove_primary_selection_device(device);
-    }
-
-    fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal> {
-        offer.seat.clone()
     }
 }
 

@@ -5,8 +5,7 @@ use {
         ifs::{
             ipc::{
                 break_device_loops, destroy_data_device, wl_data_offer::WlDataOffer,
-                wl_data_source::WlDataSource, DataOfferId, DeviceData, IpcVtable, OfferData, Role,
-                SourceData,
+                wl_data_source::WlDataSource, DeviceData, IpcVtable, OfferData, Role, XIpcVtable,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
             wl_surface::{SurfaceRole, WlSurfaceError},
@@ -19,7 +18,6 @@ use {
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::OwnedFd,
 };
 
 #[allow(dead_code)]
@@ -30,7 +28,7 @@ pub struct WlDataDevice {
     pub client: Rc<Client>,
     pub version: u32,
     pub seat: Rc<WlSeatGlobal>,
-    pub data: DeviceData<ClipboardIpc>,
+    pub data: DeviceData<WlDataOffer>,
     pub tracker: Tracker<Self>,
 }
 
@@ -171,7 +169,8 @@ impl WlDataDevice {
         } else {
             Some(self.client.lookup(req.source)?)
         };
-        self.seat.set_selection(src, Some(req.serial))?;
+        self.seat
+            .set_wl_data_source_selection(src, Some(req.serial))?;
         Ok(())
     }
 
@@ -186,12 +185,22 @@ impl WlDataDevice {
 
 pub struct ClipboardIpc;
 
+impl XIpcVtable for ClipboardIpc {
+    fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
+        WlDataSource::new(WlDataSourceId::NONE, client, true, 3)
+    }
+
+    fn remove_from_seat(device: &Self::Device) {
+        device.seat.remove_data_device(device);
+    }
+}
+
 impl IpcVtable for ClipboardIpc {
     type Device = WlDataDevice;
     type Source = WlDataSource;
     type Offer = WlDataOffer;
 
-    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self> {
+    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self::Offer> {
         &dd.data
     }
 
@@ -199,24 +208,12 @@ impl IpcVtable for ClipboardIpc {
         dd.seat.clone()
     }
 
-    fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
-        WlDataSource::new(WlDataSourceId::NONE, client, true, 3)
-    }
-
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
         serial: Option<u32>,
     ) -> Result<(), WlSeatError> {
-        seat.set_selection(Some(source.clone()), serial)
-    }
-
-    fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self> {
-        &offer.data
-    }
-
-    fn get_source_data(src: &Self::Source) -> &SourceData<Self> {
-        &src.data
+        seat.set_wl_data_source_selection(Some(source.clone()), serial)
     }
 
     fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
@@ -229,7 +226,7 @@ impl IpcVtable for ClipboardIpc {
     fn create_offer(
         client: &Rc<Client>,
         device: &Rc<WlDataDevice>,
-        offer_data: OfferData<Self>,
+        offer_data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError> {
         let rc = Rc::new(WlDataOffer {
             id: client.new_id()?,
@@ -247,20 +244,8 @@ impl IpcVtable for ClipboardIpc {
         dd.send_selection(offer);
     }
 
-    fn send_cancelled(source: &Rc<Self::Source>, seat: &Rc<WlSeatGlobal>) {
-        source.send_cancelled(seat);
-    }
-
-    fn get_offer_id(offer: &Self::Offer) -> DataOfferId {
-        offer.offer_id
-    }
-
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>) {
         dd.send_data_offer(offer);
-    }
-
-    fn send_mime_type(offer: &Rc<Self::Offer>, mime_type: &str) {
-        offer.send_offer(mime_type);
     }
 
     fn unset(seat: &Rc<WlSeatGlobal>, role: Role) {
@@ -268,18 +253,6 @@ impl IpcVtable for ClipboardIpc {
             Role::Selection => seat.unset_selection(),
             Role::Dnd => seat.cancel_dnd(),
         }
-    }
-
-    fn send_send(src: &Rc<Self::Source>, mime_type: &str, fd: Rc<OwnedFd>) {
-        src.send_send(mime_type, fd);
-    }
-
-    fn remove_from_seat(device: &Self::Device) {
-        device.seat.remove_data_device(device);
-    }
-
-    fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal> {
-        offer.device.seat.clone()
     }
 }
 

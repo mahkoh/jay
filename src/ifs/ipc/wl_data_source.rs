@@ -4,11 +4,12 @@ use {
         ifs::{
             ipc::{
                 add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
+                detach_seat, offer_source_to,
                 wl_data_device::ClipboardIpc,
                 wl_data_device_manager::{DND_ALL, DND_NONE},
-                wl_data_offer::WlDataOffer,
-                SharedState, SourceData, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
-                SOURCE_STATE_CANCELLED, SOURCE_STATE_DROPPED,
+                DataSource, DynDataOffer, DynDataSource, SharedState, SourceData,
+                OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED, SOURCE_STATE_CANCELLED,
+                SOURCE_STATE_DROPPED,
             },
             wl_seat::WlSeatGlobal,
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
@@ -36,10 +37,50 @@ const INVALID_SOURCE: u32 = 1;
 
 pub struct WlDataSource {
     pub id: WlDataSourceId,
-    pub data: SourceData<ClipboardIpc>,
+    pub data: SourceData,
     pub version: u32,
     pub tracker: Tracker<Self>,
     pub toplevel_drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
+}
+
+impl DataSource for WlDataSource {
+    fn send_cancelled(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        WlDataSource::send_cancelled(self, seat);
+    }
+}
+
+impl DynDataSource for WlDataSource {
+    fn source_data(&self) -> &SourceData {
+        &self.data
+    }
+
+    fn send_send(self: Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) {
+        WlDataSource::send_send(&self, mime_type, fd);
+    }
+
+    fn offer_to(self: Rc<Self>, client: &Rc<Client>) {
+        offer_source_to::<ClipboardIpc, Self>(&self, client);
+    }
+
+    fn detach_seat(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        detach_seat::<ClipboardIpc>(&self, seat);
+    }
+
+    fn cancel_offers(&self) {
+        cancel_offers::<ClipboardIpc>(self);
+    }
+
+    fn send_target(&self, mime_type: Option<&str>) {
+        WlDataSource::send_target(self, mime_type);
+    }
+
+    fn send_dnd_finished(&self) {
+        WlDataSource::send_dnd_finished(self);
+    }
+
+    fn update_selected_action(&self) {
+        WlDataSource::update_selected_action(self);
+    }
 }
 
 impl WlDataSource {
@@ -97,9 +138,9 @@ impl WlDataSource {
         }
     }
 
-    pub fn for_each_data_offer<C: FnMut(&WlDataOffer)>(&self, mut f: C) {
+    pub fn for_each_data_offer<C: FnMut(&dyn DynDataOffer)>(&self, mut f: C) {
         for (_, offer) in &self.data.offers {
-            f(&offer);
+            f(&*offer);
         }
     }
 

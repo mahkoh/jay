@@ -12,7 +12,7 @@ use {
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
-                IpcVtable,
+                DataOffer, DynDataOffer, DynDataSource, IpcVtable, XIpcVtable,
             },
             wl_seat::{SeatId, WlSeatGlobal},
             wl_surface::{
@@ -181,7 +181,7 @@ impl<T: IpcVtable> Default for SelectionData<T> {
     }
 }
 
-impl<T: IpcVtable> SelectionData<T> {
+impl<T: XIpcVtable> SelectionData<T> {
     fn destroy(&self) {
         for (_, offer) in self.offers.lock().drain() {
             destroy_data_offer::<T>(&offer.offer);
@@ -202,7 +202,7 @@ impl<T: IpcVtable> SelectionData<T> {
 
     fn seat_removed(&self, id: SeatId) {
         if let Some(offer) = self.active_offer.get() {
-            if T::get_offer_seat(&offer.offer).id() == id {
+            if offer.offer.get_seat().id() == id {
                 self.active_offer.take();
             }
         }
@@ -657,7 +657,7 @@ impl Wm {
         offer: Rc<T::Offer>,
         mt: String,
     ) {
-        let seat = T::get_offer_seat(&offer);
+        let seat = offer.get_seat();
         let enhanced = match sd.offers.get(&seat.id()) {
             Some(r) if !rc_eq(&r.offer, &offer) => {
                 return;
@@ -678,15 +678,15 @@ impl Wm {
     }
 
     async fn dd_set_offer<T: IpcVtable>(&mut self, sd: &SelectionData<T>, offer: Rc<T::Offer>) {
-        let seat = T::get_offer_seat(&offer);
+        let seat = offer.get_seat();
         let mut mime_types = vec![];
         if let Some(offer) = sd.offers.remove(&seat.id()) {
             destroy_data_offer::<T>(&offer.offer);
             mime_types = mem::take(offer.mime_types.borrow_mut().deref_mut());
         }
-        match T::get_offer_data(&offer).source() {
+        match offer.offer_data().source() {
             None => return,
-            Some(s) if T::get_source_data(&s).is_xwm => return,
+            Some(s) if s.source_data().is_xwm => return,
             _ => {}
         }
         sd.offers.set(
@@ -801,7 +801,7 @@ impl Wm {
         mime_type: String,
         fd: Rc<OwnedFd>,
     ) {
-        let seat = match T::get_source_data(src).seat.get() {
+        let seat = match src.source_data().seat.get() {
             Some(s) => s,
             _ => return,
         };
@@ -839,7 +839,7 @@ impl Wm {
     }
 
     fn dd_cancel_source<T: IpcVtable>(&mut self, sd: &SelectionData<T>, src: &Rc<T::Source>) {
-        if let Some(seat) = T::get_source_data(src).seat.get() {
+        if let Some(seat) = src.source_data().seat.get() {
             if let Some(cur) = sd.sources.get(&seat.id()) {
                 if rc_eq(src, &cur) {
                     sd.sources.remove(&seat.id());
@@ -1508,7 +1508,7 @@ impl Wm {
         }
     }
 
-    async fn handle_xfixes_selection_notify_<T: IpcVtable>(
+    async fn handle_xfixes_selection_notify_<T: XIpcVtable>(
         &mut self,
         sd: &SelectionData<T>,
         event: &XfixesSelectionNotify,
@@ -1663,7 +1663,7 @@ impl Wm {
         }
     }
 
-    async fn handle_selection_notify_<T: IpcVtable>(
+    async fn handle_selection_notify_<T: XIpcVtable>(
         &mut self,
         sd: &SelectionData<T>,
         event: &SelectionNotify,

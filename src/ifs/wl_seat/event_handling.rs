@@ -1,15 +1,13 @@
 use {
     crate::{
         backend::{ConnectorId, InputEvent, KeyState, AXIS_120},
-        client::{Client, ClientId},
+        client::ClientId,
         fixed::Fixed,
         ifs::{
             ipc,
             ipc::{
                 wl_data_device::{ClipboardIpc, WlDataDevice},
-                zwp_primary_selection_device_v1::{
-                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
-                },
+                zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
             },
             wl_seat::{
                 wl_keyboard::{self, WlKeyboard},
@@ -27,7 +25,7 @@ use {
         },
         state::DeviceHandlerData,
         tree::{Direction, FloatNode, Node, ToplevelNode},
-        utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
+        utils::{bitflags::BitflagsExt, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
@@ -429,19 +427,6 @@ impl WlSeatGlobal {
         self.kb_owner.set_kb_node(self, node);
     }
 
-    fn offer_selection<T: ipc::IpcVtable>(
-        &self,
-        field: &CloneCell<Option<Rc<T::Source>>>,
-        client: &Rc<Client>,
-    ) {
-        match field.get() {
-            Some(sel) => ipc::offer_source_to::<T>(&sel, client),
-            None => T::for_each_device(self, client.id, |dd| {
-                T::send_selection(dd, None);
-            }),
-        }
-    }
-
     fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlSeat>),
@@ -757,8 +742,22 @@ impl WlSeatGlobal {
         });
 
         if self.keyboard_node.get().node_client_id() != Some(surface.client.id) {
-            self.offer_selection::<ClipboardIpc>(&self.selection, &surface.client);
-            self.offer_selection::<PrimarySelectionIpc>(&self.primary_selection, &surface.client);
+            match self.selection.get() {
+                Some(sel) => sel.offer_to(&surface.client),
+                None => {
+                    self.for_each_data_device(0, surface.client.id, |dd| {
+                        dd.send_selection(None);
+                    });
+                }
+            }
+            match self.primary_selection.get() {
+                Some(sel) => sel.offer_to(&surface.client),
+                None => {
+                    self.for_each_primary_selection_device(0, surface.client.id, |dd| {
+                        dd.send_selection(None);
+                    });
+                }
+            }
         }
     }
 }
@@ -820,9 +819,9 @@ impl WlSeatGlobal {
         serial: u32,
     ) {
         if let Some(src) = &dnd.src {
-            ipc::offer_source_to::<ClipboardIpc>(src, &surface.client);
+            ipc::offer_source_to::<ClipboardIpc, _>(src, &surface.client);
             src.for_each_data_offer(|offer| {
-                offer.device.send_enter(surface.id, x, y, offer.id, serial);
+                offer.send_enter(surface.id, x, y, serial);
                 offer.send_source_actions();
             })
         } else if surface.client.id == dnd.client.id {

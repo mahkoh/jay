@@ -371,7 +371,7 @@ impl PointerOwner for GrabPointerOwner {
             icon.set_dnd_icon_seat(seat.id, Some(seat));
         }
         if let Some(new) = &src {
-            ipc::attach_seat::<ClipboardIpc>(new, seat, ipc::Role::Dnd)?;
+            ipc::attach_seat(&**new, seat, ipc::Role::Dnd)?;
             if let Some(drag) = new.toplevel_drag.get() {
                 drag.start_drag();
             }

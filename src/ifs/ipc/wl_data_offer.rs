@@ -1,12 +1,16 @@
 use {
     crate::{
-        client::{Client, ClientError},
-        ifs::ipc::{
-            break_offer_loops, destroy_data_offer, receive_data_offer,
-            wl_data_device::{ClipboardIpc, WlDataDevice},
-            wl_data_device_manager::DND_ALL,
-            DataOfferId, OfferData, Role, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
-            OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
+        client::{Client, ClientError, ClientId},
+        fixed::Fixed,
+        ifs::{
+            ipc::{
+                break_offer_loops, cancel_offer, destroy_data_offer, receive_data_offer,
+                wl_data_device::{ClipboardIpc, WlDataDevice},
+                wl_data_device_manager::DND_ALL,
+                DataOffer, DataOfferId, DynDataOffer, OfferData, Role, OFFER_STATE_ACCEPTED,
+                OFFER_STATE_DROPPED, OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
+            },
+            wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
         object::Object,
@@ -14,7 +18,7 @@ use {
             bitflags::BitflagsExt,
             buffd::{MsgParser, MsgParserError},
         },
-        wire::{wl_data_offer::*, WlDataOfferId},
+        wire::{wl_data_offer::*, WlDataOfferId, WlSurfaceId},
         xwayland::XWaylandEvent,
     },
     std::rc::Rc,
@@ -35,15 +39,61 @@ pub struct WlDataOffer {
     pub offer_id: DataOfferId,
     pub client: Rc<Client>,
     pub device: Rc<WlDataDevice>,
-    pub data: OfferData<ClipboardIpc>,
+    pub data: OfferData<WlDataDevice>,
     pub tracker: Tracker<Self>,
+}
+
+impl DataOffer for WlDataOffer {
+    type Device = WlDataDevice;
+
+    fn offer_data(&self) -> &OfferData<Self::Device> {
+        &self.data
+    }
+}
+
+impl DynDataOffer for WlDataOffer {
+    fn offer_id(&self) -> DataOfferId {
+        self.offer_id
+    }
+
+    fn client_id(&self) -> ClientId {
+        self.client.id
+    }
+
+    fn send_action(&self, action: u32) {
+        WlDataOffer::send_action(self, action);
+    }
+
+    fn send_offer(self: Rc<Self>, mime_type: &str) {
+        WlDataOffer::send_offer(&self, mime_type);
+    }
+
+    fn destroy(&self) {
+        destroy_data_offer::<ClipboardIpc>(self);
+    }
+
+    fn cancel(&self) {
+        cancel_offer::<ClipboardIpc>(self);
+    }
+
+    fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u32) {
+        self.device.send_enter(surface, x, y, self.id, serial);
+    }
+
+    fn send_source_actions(&self) {
+        WlDataOffer::send_source_actions(self);
+    }
+
+    fn get_seat(&self) -> Rc<WlSeatGlobal> {
+        self.device.seat.clone()
+    }
 }
 
 impl WlDataOffer {
     pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
         if self.data.is_xwm {
             if let Some(src) = self.data.source.get() {
-                if !src.data.is_xwm {
+                if !src.source_data().is_xwm {
                     self.client.state.xwayland.queue.push(
                         XWaylandEvent::ClipboardAddOfferMimeType(
                             self.clone(),
@@ -63,7 +113,7 @@ impl WlDataOffer {
     pub fn send_source_actions(&self) {
         if !self.data.is_xwm {
             if let Some(src) = self.data.source.get() {
-                if let Some(source_actions) = src.data.actions.get() {
+                if let Some(source_actions) = src.source_data().actions.get() {
                     self.client.event(SourceActions {
                         self_id: self.id,
                         source_actions,
@@ -134,7 +184,7 @@ impl WlDataOffer {
         }
         state |= OFFER_STATE_FINISHED;
         if let Some(src) = self.data.source.get() {
-            src.data.state.or_assign(SOURCE_STATE_FINISHED);
+            src.source_data().state.or_assign(SOURCE_STATE_FINISHED);
             src.send_dnd_finished();
         } else {
             log::error!("no source");

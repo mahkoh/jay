@@ -26,7 +26,7 @@ use {
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-                IpcError,
+                DynDataSource, IpcError,
             },
             wl_seat::{
                 kb_owner::KbOwnerHolder,
@@ -143,9 +143,9 @@ pub struct WlSeatGlobal {
     kb_state: RefCell<XkbState>,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     tree_changed: Rc<AsyncEvent>,
-    selection: CloneCell<Option<Rc<WlDataSource>>>,
+    selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
     selection_serial: Cell<u32>,
-    primary_selection: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
+    primary_selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
     primary_selection_serial: Cell<u32>,
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
@@ -709,25 +709,26 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_selection_<T: ipc::IpcVtable>(
+    fn set_selection_<T: ipc::IpcVtable, S: DynDataSource>(
         self: &Rc<Self>,
-        field: &CloneCell<Option<Rc<T::Source>>>,
-        src: Option<Rc<T::Source>>,
+        field: &CloneCell<Option<Rc<dyn DynDataSource>>>,
+        src: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
         if let (Some(new), Some(old)) = (&src, &field.get()) {
-            if T::get_source_data(new).id == T::get_source_data(old).id {
+            if new.source_data().id == old.source_data().id {
                 return Ok(());
             }
         }
         if let Some(new) = &src {
-            ipc::attach_seat::<T>(new, self, ipc::Role::Selection)?;
+            ipc::attach_seat(&**new, self, ipc::Role::Selection)?;
         }
-        if let Some(old) = field.set(src.clone()) {
-            ipc::detach_seat::<T>(&old, self);
+        let src_dyn = src.clone().map(|s| s as Rc<dyn DynDataSource>);
+        if let Some(old) = field.set(src_dyn) {
+            old.detach_seat(self);
         }
         if let Some(client) = self.keyboard_node.get().node_client() {
             match src {
-                Some(src) => ipc::offer_source_to::<T>(&src, &client),
+                Some(src) => ipc::offer_source_to::<T, _>(&src, &client),
                 _ => T::for_each_device(self, client.id, |device| {
                     T::send_selection(device, None);
                 }),
@@ -756,10 +757,10 @@ impl WlSeatGlobal {
     }
 
     pub fn unset_selection(self: &Rc<Self>) {
-        let _ = self.set_selection(None, None);
+        let _ = self.set_wl_data_source_selection(None, None);
     }
 
-    pub fn set_selection(
+    pub fn set_wl_data_source_selection(
         self: &Rc<Self>,
         selection: Option<Rc<WlDataSource>>,
         serial: Option<u32>,
@@ -772,7 +773,14 @@ impl WlSeatGlobal {
                 return Err(WlSeatError::OfferHasDrag);
             }
         }
-        self.set_selection_::<ClipboardIpc>(&self.selection, selection)
+        self.set_selection(selection)
+    }
+
+    pub fn set_selection<S: DynDataSource>(
+        self: &Rc<Self>,
+        selection: Option<Rc<S>>,
+    ) -> Result<(), WlSeatError> {
+        self.set_selection_::<ClipboardIpc, _>(&self.selection, selection)
     }
 
     pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
@@ -795,10 +803,10 @@ impl WlSeatGlobal {
     }
 
     pub fn unset_primary_selection(self: &Rc<Self>) {
-        let _ = self.set_primary_selection(None, None);
+        let _ = self.set_zwp_primary_selection(None, None);
     }
 
-    pub fn set_primary_selection(
+    pub fn set_zwp_primary_selection(
         self: &Rc<Self>,
         selection: Option<Rc<ZwpPrimarySelectionSourceV1>>,
         serial: Option<u32>,
@@ -806,7 +814,14 @@ impl WlSeatGlobal {
         if let Some(serial) = serial {
             self.primary_selection_serial.set(serial);
         }
-        self.set_selection_::<PrimarySelectionIpc>(&self.primary_selection, selection)
+        self.set_primary_selection(selection)
+    }
+
+    pub fn set_primary_selection<S: DynDataSource>(
+        self: &Rc<Self>,
+        selection: Option<Rc<S>>,
+    ) -> Result<(), WlSeatError> {
+        self.set_selection_::<PrimarySelectionIpc, _>(&self.primary_selection, selection)
     }
 
     pub fn reload_known_cursor(&self) {

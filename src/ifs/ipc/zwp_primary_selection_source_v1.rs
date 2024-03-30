@@ -1,9 +1,13 @@
 use {
     crate::{
         client::{Client, ClientError},
-        ifs::ipc::{
-            add_data_source_mime_type, break_source_loops, destroy_data_source,
-            zwp_primary_selection_device_v1::PrimarySelectionIpc, SourceData,
+        ifs::{
+            ipc::{
+                add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
+                detach_seat, offer_source_to, zwp_primary_selection_device_v1::PrimarySelectionIpc,
+                DataSource, DynDataSource, SourceData,
+            },
+            wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
         object::Object,
@@ -18,8 +22,36 @@ use {
 
 pub struct ZwpPrimarySelectionSourceV1 {
     pub id: ZwpPrimarySelectionSourceV1Id,
-    pub data: SourceData<PrimarySelectionIpc>,
+    pub data: SourceData,
     pub tracker: Tracker<Self>,
+}
+
+impl DataSource for ZwpPrimarySelectionSourceV1 {
+    fn send_cancelled(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+        ZwpPrimarySelectionSourceV1::send_cancelled(self);
+    }
+}
+
+impl DynDataSource for ZwpPrimarySelectionSourceV1 {
+    fn source_data(&self) -> &SourceData {
+        &self.data
+    }
+
+    fn send_send(self: Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) {
+        ZwpPrimarySelectionSourceV1::send_send(&self, mime_type, fd)
+    }
+
+    fn offer_to(self: Rc<Self>, client: &Rc<Client>) {
+        offer_source_to::<PrimarySelectionIpc, Self>(&self, client);
+    }
+
+    fn detach_seat(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+        detach_seat::<PrimarySelectionIpc>(&self, seat);
+    }
+
+    fn cancel_offers(&self) {
+        cancel_offers::<PrimarySelectionIpc>(self);
+    }
 }
 
 impl ZwpPrimarySelectionSourceV1 {

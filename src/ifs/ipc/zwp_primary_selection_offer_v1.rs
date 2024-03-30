@@ -1,10 +1,13 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientError, ClientId},
         ifs::{
             ipc::{
-                break_offer_loops, destroy_data_offer, receive_data_offer,
-                zwp_primary_selection_device_v1::PrimarySelectionIpc, DataOfferId, OfferData,
+                break_offer_loops, cancel_offer, destroy_data_offer, receive_data_offer,
+                zwp_primary_selection_device_v1::{
+                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
+                },
+                DataOffer, DataOfferId, DynDataOffer, OfferData,
             },
             wl_seat::WlSeatGlobal,
         },
@@ -23,15 +26,49 @@ pub struct ZwpPrimarySelectionOfferV1 {
     pub offer_id: DataOfferId,
     pub seat: Rc<WlSeatGlobal>,
     pub client: Rc<Client>,
-    pub data: OfferData<PrimarySelectionIpc>,
+    pub data: OfferData<ZwpPrimarySelectionDeviceV1>,
     pub tracker: Tracker<Self>,
+}
+
+impl DataOffer for ZwpPrimarySelectionOfferV1 {
+    type Device = ZwpPrimarySelectionDeviceV1;
+
+    fn offer_data(&self) -> &OfferData<Self::Device> {
+        &self.data
+    }
+}
+
+impl DynDataOffer for ZwpPrimarySelectionOfferV1 {
+    fn offer_id(&self) -> DataOfferId {
+        self.offer_id
+    }
+
+    fn client_id(&self) -> ClientId {
+        self.client.id
+    }
+
+    fn send_offer(self: Rc<Self>, mime_type: &str) {
+        ZwpPrimarySelectionOfferV1::send_offer(&self, mime_type);
+    }
+
+    fn destroy(&self) {
+        destroy_data_offer::<PrimarySelectionIpc>(self);
+    }
+
+    fn cancel(&self) {
+        cancel_offer::<PrimarySelectionIpc>(self);
+    }
+
+    fn get_seat(&self) -> Rc<WlSeatGlobal> {
+        self.seat.clone()
+    }
 }
 
 impl ZwpPrimarySelectionOfferV1 {
     pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
         if self.data.is_xwm {
             if let Some(src) = self.data.source.get() {
-                if !src.data.is_xwm {
+                if !src.source_data().is_xwm {
                     self.client.state.xwayland.queue.push(
                         XWaylandEvent::PrimarySelectionAddOfferMimeType(
                             self.clone(),
