@@ -15,8 +15,8 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelNodeBase,
-            WorkspaceNode,
+            ContainerNode, DisplayNode, FloatNode, OutputNode, OutputNodeId, PlaceholderNode,
+            ToplevelNodeBase, WorkspaceNode,
         },
     },
     std::{
@@ -29,10 +29,20 @@ use {
 
 pub mod renderer_base;
 
-#[derive(Default)]
 pub struct RenderResult {
     pub frame_requests: Vec<Rc<WlCallback>>,
     pub presentation_feedbacks: Vec<Rc<WpPresentationFeedback>>,
+    pub output_id: OutputNodeId,
+}
+
+impl Default for RenderResult {
+    fn default() -> Self {
+        Self {
+            frame_requests: Default::default(),
+            presentation_feedbacks: Default::default(),
+            output_id: OutputNodeId::none(),
+        }
+    }
 }
 
 impl RenderResult {
@@ -373,6 +383,7 @@ impl Renderer<'_> {
                 let mut fbs = surface.presentation_feedback.borrow_mut();
                 result.presentation_feedbacks.extend(fbs.drain(..));
             }
+            surface.presented(result.output_id);
         }
     }
 

@@ -1,0 +1,10 @@
+# requests
+
+msg destroy = 0 {
+
+}
+
+msg get_fifo = 1 {
+    id: id(wp_fifo_v1),
+    surface: id(wl_surface),
+}

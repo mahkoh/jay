@@ -2,6 +2,7 @@ pub mod commit_timeline;
 pub mod cursor;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
+pub mod wp_fifo_v1;
 pub mod wp_fractional_scale_v1;
 pub mod wp_linux_drm_syncobj_surface_v1;
 pub mod wp_tearing_control_v1;
@@ -27,9 +28,12 @@ use {
                 NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
-                commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
+                commit_timeline::{
+                    ClearReason, CommitTimeline, CommitTimelineError, CommitTimelines,
+                },
                 cursor::CursorSurface,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
+                wp_fifo_v1::WpFifoV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
@@ -48,7 +52,7 @@ use {
         renderer::Renderer,
         tree::{
             FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode,
-            ToplevelNode,
+            OutputNodeId, ToplevelNode,
         },
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -251,6 +255,7 @@ pub struct WlSurface {
     sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
     destroyed: Cell<bool>,
     commit_timeline: CommitTimeline,
+    fifo: CloneCell<Option<Rc<WpFifoV1>>>,
 }
 
 impl Debug for WlSurface {
@@ -374,6 +379,7 @@ struct PendingState {
     acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     explicit_sync: bool,
+    fifo: bool,
 }
 
 struct CommittedSubsurface {
@@ -484,7 +490,12 @@ pub struct StackElement {
 }
 
 impl WlSurface {
-    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: u32) -> Self {
+    pub fn new(
+        id: WlSurfaceId,
+        client: &Rc<Client>,
+        version: u32,
+        commit_timelines: &Rc<CommitTimelines>,
+    ) -> Self {
         Self {
             id,
             node_id: client.state.node_ids.next(),
@@ -529,7 +540,8 @@ impl WlSurface {
             drm_feedback: Default::default(),
             sync_obj_surface: Default::default(),
             destroyed: Cell::new(false),
-            commit_timeline: client.commit_timelines.create_timeline(),
+            commit_timeline: commit_timelines.create_timeline(),
+            fifo: Default::default(),
         }
     }
 
@@ -852,6 +864,7 @@ impl WlSurface {
         if self.destroyed.get() {
             return Ok(());
         }
+        pending.fifo = false;
         self.ext.get().before_apply_commit(pending)?;
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
@@ -914,6 +927,9 @@ impl WlSurface {
                     for (_, cursor) in &self.cursors {
                         cursor.dec_hotspot(dx, dy);
                     }
+                }
+                if self.visible.get() {
+                    self.commit_timeline.committed();
                 }
             } else {
                 self.buf_x.set(0);
@@ -1202,8 +1218,15 @@ impl WlSurface {
         }
         if !visible {
             self.send_seat_release_events();
+            self.commit_timeline.presented();
         }
         self.seat_state.set_visible(self, visible);
+    }
+
+    pub fn presented(&self, on: OutputNodeId) {
+        if on == self.output.get().id {
+            self.commit_timeline.presented();
+        }
     }
 
     pub fn detach_node(&self, set_invisible: bool) {
@@ -1238,6 +1261,7 @@ impl WlSurface {
         }
         if set_invisible {
             self.visible.set(false);
+            self.commit_timeline.presented();
         }
     }
 
