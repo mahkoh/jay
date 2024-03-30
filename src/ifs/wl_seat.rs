@@ -715,7 +715,7 @@ impl WlSeatGlobal {
         src: Option<Rc<T::Source>>,
     ) -> Result<(), WlSeatError> {
         if let (Some(new), Some(old)) = (&src, &field.get()) {
-            if T::source_eq(old, new) {
+            if T::get_source_data(new).id == T::get_source_data(old).id {
                 return Ok(());
             }
         }

@@ -5,7 +5,8 @@ use {
         ifs::{
             ipc::{
                 break_device_loops, destroy_data_device, wl_data_offer::WlDataOffer,
-                wl_data_source::WlDataSource, DeviceData, IpcVtable, OfferData, Role, SourceData,
+                wl_data_source::WlDataSource, DataOfferId, DeviceData, IpcVtable, OfferData, Role,
+                SourceData,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
             wl_surface::{SurfaceRole, WlSurfaceError},
@@ -232,7 +233,7 @@ impl IpcVtable for ClipboardIpc {
     ) -> Result<Rc<Self::Offer>, ClientError> {
         let rc = Rc::new(WlDataOffer {
             id: client.new_id()?,
-            u64_id: client.state.data_offer_ids.fetch_add(1),
+            offer_id: client.state.data_offer_ids.next(),
             client: client.clone(),
             device: device.clone(),
             data: offer_data,
@@ -250,8 +251,8 @@ impl IpcVtable for ClipboardIpc {
         source.send_cancelled(seat);
     }
 
-    fn get_offer_id(offer: &Self::Offer) -> u64 {
-        offer.u64_id
+    fn get_offer_id(offer: &Self::Offer) -> DataOfferId {
+        offer.offer_id
     }
 
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>) {
@@ -279,10 +280,6 @@ impl IpcVtable for ClipboardIpc {
 
     fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal> {
         offer.device.seat.clone()
-    }
-
-    fn source_eq(left: &Self::Source, right: &Self::Source) -> bool {
-        left as *const _ == right as *const _
     }
 }
 

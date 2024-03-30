@@ -5,8 +5,8 @@ use {
             ipc::{
                 break_device_loops, destroy_data_device,
                 zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DeviceData,
-                IpcVtable, OfferData, Role, SourceData,
+                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DataOfferId,
+                DeviceData, IpcVtable, OfferData, Role, SourceData,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
@@ -179,7 +179,7 @@ impl IpcVtable for PrimarySelectionIpc {
         };
         let rc = Rc::new(ZwpPrimarySelectionOfferV1 {
             id,
-            u64_id: client.state.data_offer_ids.fetch_add(1),
+            offer_id: client.state.data_offer_ids.next(),
             seat: device.seat.clone(),
             client: client.clone(),
             data: offer_data,
@@ -197,8 +197,8 @@ impl IpcVtable for PrimarySelectionIpc {
         source.send_cancelled();
     }
 
-    fn get_offer_id(offer: &Self::Offer) -> u64 {
-        offer.u64_id
+    fn get_offer_id(offer: &Self::Offer) -> DataOfferId {
+        offer.offer_id
     }
 
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>) {
@@ -223,10 +223,6 @@ impl IpcVtable for PrimarySelectionIpc {
 
     fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal> {
         offer.seat.clone()
-    }
-
-    fn source_eq(left: &Self::Source, right: &Self::Source) -> bool {
-        left as *const _ == right as *const _
     }
 }
 

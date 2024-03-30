@@ -5,8 +5,8 @@ use {
             break_offer_loops, destroy_data_offer, receive_data_offer,
             wl_data_device::{ClipboardIpc, WlDataDevice},
             wl_data_device_manager::DND_ALL,
-            OfferData, Role, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED, OFFER_STATE_FINISHED,
-            SOURCE_STATE_FINISHED,
+            DataOfferId, OfferData, Role, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
+            OFFER_STATE_FINISHED, SOURCE_STATE_FINISHED,
         },
         leaks::Tracker,
         object::Object,
@@ -32,7 +32,7 @@ const INVALID_OFFER: u32 = 3;
 
 pub struct WlDataOffer {
     pub id: WlDataOfferId,
-    pub u64_id: u64,
+    pub offer_id: DataOfferId,
     pub client: Rc<Client>,
     pub device: Rc<WlDataDevice>,
     pub data: OfferData<ClipboardIpc>,

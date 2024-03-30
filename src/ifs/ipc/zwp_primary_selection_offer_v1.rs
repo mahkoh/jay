@@ -4,7 +4,7 @@ use {
         ifs::{
             ipc::{
                 break_offer_loops, destroy_data_offer, receive_data_offer,
-                zwp_primary_selection_device_v1::PrimarySelectionIpc, OfferData,
+                zwp_primary_selection_device_v1::PrimarySelectionIpc, DataOfferId, OfferData,
             },
             wl_seat::WlSeatGlobal,
         },
@@ -20,7 +20,7 @@ use {
 
 pub struct ZwpPrimarySelectionOfferV1 {
     pub id: ZwpPrimarySelectionOfferV1Id,
-    pub u64_id: u64,
+    pub offer_id: DataOfferId,
     pub seat: Rc<WlSeatGlobal>,
     pub client: Rc<Client>,
     pub data: OfferData<PrimarySelectionIpc>,

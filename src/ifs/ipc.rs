@@ -26,6 +26,9 @@ pub mod zwp_primary_selection_device_v1;
 pub mod zwp_primary_selection_offer_v1;
 pub mod zwp_primary_selection_source_v1;
 
+linear_ids!(DataSourceIds, DataSourceId, u64);
+linear_ids!(DataOfferIds, DataOfferId, u64);
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Role {
     Selection,
@@ -57,14 +60,13 @@ pub trait IpcVtable: Sized {
     ) -> Result<Rc<Self::Offer>, ClientError>;
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>);
     fn send_cancelled(source: &Rc<Self::Source>, seat: &Rc<WlSeatGlobal>);
-    fn get_offer_id(offer: &Self::Offer) -> u64;
+    fn get_offer_id(offer: &Self::Offer) -> DataOfferId;
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>);
     fn send_mime_type(offer: &Rc<Self::Offer>, mime_type: &str);
     fn unset(seat: &Rc<WlSeatGlobal>, role: Role);
     fn send_send(src: &Rc<Self::Source>, mime_type: &str, fd: Rc<OwnedFd>);
     fn remove_from_seat(device: &Self::Device);
     fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal>;
-    fn source_eq(left: &Self::Source, right: &Self::Source) -> bool;
 }
 
 pub struct DeviceData<T: IpcVtable> {
@@ -108,7 +110,8 @@ const SOURCE_STATE_DROPPED_OR_CANCELLED: u32 = SOURCE_STATE_DROPPED | SOURCE_STA
 
 pub struct SourceData<T: IpcVtable> {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
-    offers: SmallMap<u64, Rc<T::Offer>, 1>,
+    pub id: DataSourceId,
+    offers: SmallMap<DataOfferId, Rc<T::Offer>, 1>,
     offer_client: Cell<ClientId>,
     mime_types: RefCell<AHashSet<String>>,
     pub client: Rc<Client>,
@@ -143,6 +146,7 @@ impl<T: IpcVtable> SourceData<T> {
     fn new(client: &Rc<Client>, is_xwm: bool) -> Self {
         Self {
             seat: Default::default(),
+            id: client.state.data_source_ids.next(),
             offers: Default::default(),
             offer_client: Cell::new(client.id),
             mime_types: Default::default(),
