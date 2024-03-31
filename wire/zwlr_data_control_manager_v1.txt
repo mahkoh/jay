@@ -1,0 +1,14 @@
+# requests
+
+msg create_data_source = 0 {
+    id: id(zwlr_data_control_source_v1),
+}
+
+msg get_data_device = 1 {
+    id: id(zwlr_data_control_device_v1),
+    seat: id(wl_seat),
+}
+
+msg destroy = 2 {
+
+}

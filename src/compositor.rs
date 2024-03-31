@@ -191,6 +191,7 @@ fn start_compositor2(
             enabled: Cell::new(true),
             handler: Default::default(),
             queue: Default::default(),
+            ipc_device_ids: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),
@@ -200,6 +201,7 @@ fn start_compositor2(
         config_file_id: NumCell::new(1),
         tracker: Default::default(),
         data_offer_ids: Default::default(),
+        data_source_ids: Default::default(),
         drm_dev_ids: Default::default(),
         ring: ring.clone(),
         lock: ScreenlockState {

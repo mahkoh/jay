@@ -4,7 +4,7 @@ use {
         fixed::Fixed,
         ifs::{
             ipc,
-            ipc::{wl_data_device::ClipboardIpc, wl_data_source::WlDataSource},
+            ipc::wl_data_source::WlDataSource,
             wl_seat::{
                 wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal,
                 CHANGE_CURSOR_MOVED,
@@ -371,7 +371,7 @@ impl PointerOwner for GrabPointerOwner {
             icon.set_dnd_icon_seat(seat.id, Some(seat));
         }
         if let Some(new) = &src {
-            ipc::attach_seat::<ClipboardIpc>(new, seat, ipc::Role::Dnd)?;
+            ipc::attach_seat(&**new, seat, ipc::Role::Dnd)?;
             if let Some(drag) = new.toplevel_drag.get() {
                 drag.start_drag();
             }
@@ -456,7 +456,7 @@ impl PointerOwner for DndPointerOwner {
         target.node_seat_state().remove_dnd_target(seat);
         if !should_drop {
             if let Some(src) = &self.dnd.src {
-                ipc::detach_seat::<ClipboardIpc>(src, seat);
+                ipc::detach_seat(&**src, seat);
             }
         }
         if let Some(icon) = self.icon.get() {
@@ -527,7 +527,7 @@ impl PointerOwner for DndPointerOwner {
         target.node_on_dnd_leave(&self.dnd);
         target.node_seat_state().remove_dnd_target(seat);
         if let Some(src) = &self.dnd.src {
-            ipc::detach_seat::<ClipboardIpc>(src, seat);
+            ipc::detach_seat(&**src, seat);
         }
         if let Some(icon) = self.icon.get() {
             icon.set_dnd_icon_seat(seat.id(), None);

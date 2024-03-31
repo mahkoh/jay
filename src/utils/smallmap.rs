@@ -76,6 +76,10 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         unsafe { self.m.get().deref_mut().take() }
     }
 
+    pub fn replace(&self, other: SmallVec<[(K, V); N]>) -> SmallVec<[(K, V); N]> {
+        unsafe { mem::replace(&mut self.m.get().deref_mut().m, other) }
+    }
+
     pub fn pop(&self) -> Option<(K, V)> {
         unsafe { self.m.get().deref_mut().pop() }
     }

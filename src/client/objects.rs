@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                wl_data_source::WlDataSource,
+                wl_data_source::WlDataSource, zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
             },
             jay_output::JayOutput,
@@ -32,7 +32,7 @@ use {
             JayOutputId, JayScreencastId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
             WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId,
             WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId, XdgSurfaceId, XdgToplevelId,
-            XdgWmBaseId, ZwpPrimarySelectionSourceV1Id,
+            XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -59,6 +59,7 @@ pub struct Objects {
     pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
     pub screencasts: CopyHashMap<JayScreencastId, Rc<JayScreencast>>,
     pub timelines: CopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
+    pub zwlr_data_sources: CopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -87,6 +88,7 @@ impl Objects {
             seats: Default::default(),
             screencasts: Default::default(),
             timelines: Default::default(),
+            zwlr_data_sources: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -118,6 +120,8 @@ impl Objects {
         self.seats.clear();
         self.pointers.clear();
         self.screencasts.clear();
+        self.timelines.clear();
+        self.zwlr_data_sources.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

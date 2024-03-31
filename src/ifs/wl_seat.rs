@@ -22,11 +22,15 @@ use {
                 self,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_source::WlDataSource,
+                x_data_device::{XClipboardIpc, XIpcDevice, XIpcDeviceId, XPrimarySelectionIpc},
+                zwlr_data_control_device_v1::{
+                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
+                },
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-                IpcError,
+                DynDataSource, IpcError,
             },
             wl_seat::{
                 kb_owner::KbOwnerHolder,
@@ -58,11 +62,13 @@ use {
             linkedlist::LinkedNode,
             numcell::NumCell,
             rc_eq::rc_eq,
+            smallmap::SmallMap,
             transform_ext::TransformExt,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
+            WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
+            ZwpRelativePointerV1Id,
         },
         xkbcommon::{XkbKeymap, XkbState},
     },
@@ -108,7 +114,7 @@ pub struct DroppedDnd {
 impl Drop for DroppedDnd {
     fn drop(&mut self) {
         if let Some(src) = self.dnd.src.take() {
-            ipc::detach_seat::<ClipboardIpc>(&src, &self.dnd.seat);
+            ipc::detach_seat(&*src, &self.dnd.seat);
         }
     }
 }
@@ -131,6 +137,7 @@ pub struct WlSeatGlobal {
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
+    x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
     data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,
     primary_selection_devices: RefCell<
         AHashMap<
@@ -138,14 +145,16 @@ pub struct WlSeatGlobal {
             AHashMap<ZwpPrimarySelectionDeviceV1Id, Rc<ZwpPrimarySelectionDeviceV1>>,
         >,
     >,
+    wlr_data_devices:
+        CopyHashMap<(ClientId, ZwlrDataControlDeviceV1Id), Rc<ZwlrDataControlDeviceV1>>,
     repeat_rate: Cell<(i32, i32)>,
     kb_map: CloneCell<Rc<XkbKeymap>>,
     kb_state: RefCell<XkbState>,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     tree_changed: Rc<AsyncEvent>,
-    selection: CloneCell<Option<Rc<WlDataSource>>>,
+    selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
     selection_serial: Cell<u32>,
-    primary_selection: CloneCell<Option<Rc<ZwpPrimarySelectionSourceV1>>>,
+    primary_selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
     primary_selection_serial: Cell<u32>,
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
@@ -190,6 +199,7 @@ impl WlSeatGlobal {
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
+            x_data_devices: Default::default(),
             data_devices: RefCell::new(Default::default()),
             primary_selection_devices: RefCell::new(Default::default()),
             repeat_rate: Cell::new((25, 250)),
@@ -215,6 +225,7 @@ impl WlSeatGlobal {
             constraint: Default::default(),
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
+            wlr_data_devices: Default::default(),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -349,6 +360,20 @@ impl WlSeatGlobal {
             .insert(device.id, device.clone());
     }
 
+    pub fn set_x_data_device(&self, device: &Rc<XIpcDevice>) {
+        self.x_data_devices.insert(device.id, device.clone());
+    }
+
+    pub fn unset_x_data_device(&self, id: XIpcDeviceId) {
+        self.x_data_devices.remove(&id);
+    }
+
+    pub fn for_each_x_data_device(&self, mut f: impl FnMut(&Rc<XIpcDevice>)) {
+        for (_, dev) in &self.x_data_devices {
+            f(&dev);
+        }
+    }
+
     pub fn remove_data_device(&self, device: &WlDataDevice) {
         let mut dd = self.data_devices.borrow_mut();
         if let Entry::Occupied(mut e) = dd.entry(device.client.id) {
@@ -374,6 +399,15 @@ impl WlSeatGlobal {
                 e.remove();
             }
         }
+    }
+
+    pub fn add_wlr_device(&self, device: &Rc<ZwlrDataControlDeviceV1>) {
+        self.wlr_data_devices
+            .set((device.client.id, device.id), device.clone());
+    }
+
+    pub fn remove_wlr_device(&self, device: &ZwlrDataControlDeviceV1) {
+        self.wlr_data_devices.remove(&(device.client.id, device.id));
     }
 
     pub fn get_output(&self) -> Rc<OutputNode> {
@@ -709,32 +743,64 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_selection_<T: ipc::IpcVtable>(
+    fn set_selection_<T, X, W, S>(
         self: &Rc<Self>,
-        field: &CloneCell<Option<Rc<T::Source>>>,
-        src: Option<Rc<T::Source>>,
-    ) -> Result<(), WlSeatError> {
+        field: &CloneCell<Option<Rc<dyn DynDataSource>>>,
+        src: Option<Rc<S>>,
+    ) -> Result<(), WlSeatError>
+    where
+        T: ipc::IterableIpcVtable,
+        X: ipc::IpcVtable<Device = XIpcDevice>,
+        W: ipc::WlrIpcVtable,
+        S: DynDataSource,
+    {
         if let (Some(new), Some(old)) = (&src, &field.get()) {
-            if T::source_eq(old, new) {
+            if new.source_data().id == old.source_data().id {
                 return Ok(());
             }
         }
         if let Some(new) = &src {
-            ipc::attach_seat::<T>(new, self, ipc::Role::Selection)?;
+            ipc::attach_seat(&**new, self, ipc::Role::Selection)?;
         }
-        if let Some(old) = field.set(src.clone()) {
-            ipc::detach_seat::<T>(&old, self);
+        let src_dyn = src.clone().map(|s| s as Rc<dyn DynDataSource>);
+        if let Some(old) = field.set(src_dyn) {
+            old.detach_seat(self);
         }
         if let Some(client) = self.keyboard_node.get().node_client() {
-            match src {
-                Some(src) => ipc::offer_source_to::<T>(&src, &client),
+            self.offer_selection_to_client::<T, X>(src.clone().map(|v| v as Rc<_>), &client);
+            // client.flush();
+        }
+        W::for_each_device(self, |device| match &src {
+            Some(src) => src.clone().offer_to_wlr_device(device),
+            _ => W::send_selection(device, None),
+        });
+        Ok(())
+    }
+
+    fn offer_selection_to_client<T, X>(
+        &self,
+        selection: Option<Rc<dyn DynDataSource>>,
+        client: &Rc<Client>,
+    ) where
+        T: ipc::IterableIpcVtable,
+        X: ipc::IpcVtable<Device = XIpcDevice>,
+    {
+        if let Some(src) = &selection {
+            src.cancel_unprivileged_offers();
+        }
+        if client.is_xwayland {
+            self.for_each_x_data_device(|dd| match &selection {
+                Some(src) => src.clone().offer_to_x(&dd),
+                _ => X::send_selection(&dd, None),
+            });
+        } else {
+            match selection {
+                Some(src) => src.offer_to_regular_client(client),
                 _ => T::for_each_device(self, client.id, |device| {
                     T::send_selection(device, None);
                 }),
             }
-            // client.flush();
         }
-        Ok(())
     }
 
     pub fn start_drag(
@@ -756,10 +822,10 @@ impl WlSeatGlobal {
     }
 
     pub fn unset_selection(self: &Rc<Self>) {
-        let _ = self.set_selection(None, None);
+        let _ = self.set_wl_data_source_selection(None, None);
     }
 
-    pub fn set_selection(
+    pub fn set_wl_data_source_selection(
         self: &Rc<Self>,
         selection: Option<Rc<WlDataSource>>,
         serial: Option<u32>,
@@ -772,7 +838,21 @@ impl WlSeatGlobal {
                 return Err(WlSeatError::OfferHasDrag);
             }
         }
-        self.set_selection_::<ClipboardIpc>(&self.selection, selection)
+        self.set_selection(selection)
+    }
+
+    pub fn set_selection<S: DynDataSource>(
+        self: &Rc<Self>,
+        selection: Option<Rc<S>>,
+    ) -> Result<(), WlSeatError> {
+        self.set_selection_::<ClipboardIpc, XClipboardIpc, WlrClipboardIpc, _>(
+            &self.selection,
+            selection,
+        )
+    }
+
+    pub fn get_selection(&self) -> Option<Rc<dyn DynDataSource>> {
+        self.selection.get()
     }
 
     pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
@@ -795,10 +875,10 @@ impl WlSeatGlobal {
     }
 
     pub fn unset_primary_selection(self: &Rc<Self>) {
-        let _ = self.set_primary_selection(None, None);
+        let _ = self.set_zwp_primary_selection(None, None);
     }
 
-    pub fn set_primary_selection(
+    pub fn set_zwp_primary_selection(
         self: &Rc<Self>,
         selection: Option<Rc<ZwpPrimarySelectionSourceV1>>,
         serial: Option<u32>,
@@ -806,7 +886,21 @@ impl WlSeatGlobal {
         if let Some(serial) = serial {
             self.primary_selection_serial.set(serial);
         }
-        self.set_selection_::<PrimarySelectionIpc>(&self.primary_selection, selection)
+        self.set_primary_selection(selection)
+    }
+
+    pub fn set_primary_selection<S: DynDataSource>(
+        self: &Rc<Self>,
+        selection: Option<Rc<S>>,
+    ) -> Result<(), WlSeatError> {
+        self.set_selection_::<PrimarySelectionIpc, XPrimarySelectionIpc, WlrPrimarySelectionIpc, _>(
+            &self.primary_selection,
+            selection,
+        )
+    }
+
+    pub fn get_primary_selection(&self) -> Option<Rc<dyn DynDataSource>> {
+        self.primary_selection.get()
     }
 
     pub fn reload_known_cursor(&self) {
@@ -916,6 +1010,7 @@ impl WlSeatGlobal {
         self.bindings.borrow_mut().clear();
         self.data_devices.borrow_mut().clear();
         self.primary_selection_devices.borrow_mut().clear();
+        self.wlr_data_devices.clear();
         self.cursor.set(None);
         self.selection.set(None);
         self.primary_selection.set(None);

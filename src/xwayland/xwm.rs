@@ -8,11 +8,11 @@ use {
             ipc::{
                 add_data_source_mime_type, destroy_data_device, destroy_data_offer,
                 destroy_data_source, receive_data_offer,
-                wl_data_device::{ClipboardIpc, WlDataDevice},
-                zwp_primary_selection_device_v1::{
-                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
-                },
-                IpcVtable,
+                x_data_device::{XClipboardIpc, XIpc, XIpcDevice, XPrimarySelectionIpc},
+                x_data_offer::XDataOffer,
+                x_data_source::XDataSource,
+                DataOfferId, DataSourceId, DynDataOffer, DynDataSource, IpcLocation, IpcVtable,
+                SourceData,
             },
             wl_seat::{SeatId, WlSeatGlobal},
             wl_surface::{
@@ -30,7 +30,7 @@ use {
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell,
             oserror::OsError, rc_eq::rc_eq,
         },
-        wire::{WlDataDeviceId, WlSurfaceId, ZwpPrimarySelectionDeviceV1Id},
+        wire::WlSurfaceId,
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
             ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues,
@@ -67,6 +67,7 @@ use {
     std::{
         borrow::Cow,
         cell::{Cell, RefCell},
+        marker::PhantomData,
         mem::{self},
         ops::{Deref, DerefMut},
         rc::Rc,
@@ -151,47 +152,30 @@ atoms! {
     XdndTypeList,
 }
 
-struct EnhancedOffer<T: IpcVtable> {
-    offer: Rc<T::Offer>,
+struct EnhancedOffer {
+    offer: Rc<XDataOffer>,
     mime_types: RefCell<Vec<u32>>,
     active: Cell<bool>,
 }
 
-struct SelectionData<T: IpcVtable> {
-    devices: CopyHashMap<SeatId, Rc<T::Device>>,
-    sources: CopyHashMap<SeatId, Rc<T::Source>>,
-    offers: CopyHashMap<SeatId, Rc<EnhancedOffer<T>>>,
-    active_offer: CloneCell<Option<Rc<EnhancedOffer<T>>>>,
+#[derive(Default)]
+struct SelectionData<T: XIpc> {
+    sources: CopyHashMap<SeatId, Rc<XDataSource>>,
+    offers: CopyHashMap<SeatId, Rc<EnhancedOffer>>,
+    active_offer: CloneCell<Option<Rc<EnhancedOffer>>>,
     win: Cell<u32>,
     selection: Cell<u32>,
     pending_transfers: RefCell<Vec<PendingTransfer>>,
+    _phantom: PhantomData<T>,
 }
 
-impl<T: IpcVtable> Default for SelectionData<T> {
-    fn default() -> Self {
-        Self {
-            devices: Default::default(),
-            sources: Default::default(),
-            offers: Default::default(),
-            active_offer: Default::default(),
-            win: Cell::new(0),
-            selection: Cell::new(0),
-            pending_transfers: RefCell::new(vec![]),
-        }
-    }
-}
-
-impl<T: IpcVtable> SelectionData<T> {
+impl<T: XIpc> SelectionData<T> {
     fn destroy(&self) {
         for (_, offer) in self.offers.lock().drain() {
             destroy_data_offer::<T>(&offer.offer);
         }
         self.active_offer.take();
         self.destroy_sources();
-        for (_, device) in self.devices.lock().drain() {
-            destroy_data_device::<T>(&device);
-            T::remove_from_seat(&device);
-        }
     }
 
     fn destroy_sources(&self) {
@@ -202,20 +186,20 @@ impl<T: IpcVtable> SelectionData<T> {
 
     fn seat_removed(&self, id: SeatId) {
         if let Some(offer) = self.active_offer.get() {
-            if T::get_offer_seat(&offer.offer).id() == id {
+            if offer.offer.get_seat().id() == id {
                 self.active_offer.take();
             }
         }
         self.offers.remove(&id);
         self.sources.remove(&id);
-        self.devices.remove(&id);
     }
 }
 
 #[derive(Default)]
 pub struct XwmShared {
-    data: SelectionData<ClipboardIpc>,
-    primary_selection: SelectionData<PrimarySelectionIpc>,
+    devices: CopyHashMap<SeatId, Rc<XIpcDevice>>,
+    data: SelectionData<XClipboardIpc>,
+    primary_selection: SelectionData<XPrimarySelectionIpc>,
     transfers: CopyHashMap<u64, SpawnedFuture<()>>,
 }
 
@@ -223,6 +207,11 @@ impl Drop for XwmShared {
     fn drop(&mut self) {
         self.data.destroy();
         self.primary_selection.destroy();
+        for (_, device) in self.devices.lock().drain() {
+            destroy_data_device::<XClipboardIpc>(&device);
+            destroy_data_device::<XPrimarySelectionIpc>(&device);
+            device.seat.unset_x_data_device(device.id);
+        }
         self.transfers.clear();
     }
 }
@@ -557,27 +546,19 @@ impl Wm {
         for seat in removed_seats {
             self.shared.data.seat_removed(seat);
             self.shared.primary_selection.seat_removed(seat);
+            self.shared.devices.remove(&seat);
         }
         for seat in new_seats {
-            let dd = Rc::new(WlDataDevice::new(
-                WlDataDeviceId::NONE,
-                &self.client,
-                1,
-                &seat,
-                true,
-            ));
-            seat.add_data_device(&dd);
-            self.shared.data.devices.set(seat.id(), dd);
-
-            let dd = Rc::new(ZwpPrimarySelectionDeviceV1::new(
-                ZwpPrimarySelectionDeviceV1Id::NONE,
-                &self.client,
-                1,
-                &seat,
-                true,
-            ));
-            seat.add_primary_selection_device(&dd);
-            self.shared.primary_selection.devices.set(seat.id(), dd);
+            let dd = Rc::new(XIpcDevice {
+                id: self.state.xwayland.ipc_device_ids.next(),
+                clipboard: Default::default(),
+                primary_selection: Default::default(),
+                seat: seat.clone(),
+                state: self.state.clone(),
+                client: self.client.clone(),
+            });
+            seat.set_x_data_device(&dd);
+            self.shared.devices.set(seat.id(), dd.clone());
         }
         self.known_seats = current_seats;
     }
@@ -611,55 +592,121 @@ impl Wm {
             XWaylandEvent::ActivateRoot => self.activate_window(None, Initiator::Wayland).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
             XWaylandEvent::SeatChanged => self.seats_changed(),
-            XWaylandEvent::PrimarySelectionCancelSource(src) => {
-                self.dd_cancel_source(&self.shared.clone().primary_selection, &src)
-            }
-            XWaylandEvent::PrimarySelectionSendSource(src, mime_type, fd) => {
-                self.dd_send_source(&self.shared.clone().primary_selection, &src, mime_type, fd)
-                    .await;
-            }
-            XWaylandEvent::PrimarySelectionSetOffer(offer) => {
-                self.dd_set_offer(&self.shared.clone().primary_selection, offer)
-                    .await;
-            }
-            XWaylandEvent::PrimarySelectionSetSelection(seat, offer) => {
-                self.dd_set_selection(&self.shared.clone().primary_selection, seat, offer)
-                    .await;
-            }
-            XWaylandEvent::PrimarySelectionAddOfferMimeType(offer, mt) => {
-                self.dd_add_offer_mime_type(&self.shared.clone().primary_selection, offer, mt)
-                    .await;
-            }
-            XWaylandEvent::ClipboardCancelSource(src) => {
-                self.dd_cancel_source(&self.shared.clone().data, &src)
-            }
-            XWaylandEvent::ClipboardSendSource(src, mime_type, fd) => {
-                self.dd_send_source(&self.shared.clone().data, &src, mime_type, fd)
-                    .await;
-            }
-            XWaylandEvent::ClipboardSetOffer(offer) => {
-                self.dd_set_offer(&self.shared.clone().data, offer).await;
-            }
-            XWaylandEvent::ClipboardSetSelection(seat, offer) => {
-                self.dd_set_selection(&self.shared.clone().data, seat, offer)
-                    .await;
-            }
-            XWaylandEvent::ClipboardAddOfferMimeType(offer, mt) => {
-                self.dd_add_offer_mime_type(&self.shared.clone().data, offer, mt)
-                    .await;
-            }
+            XWaylandEvent::IpcCancelSource {
+                location,
+                seat,
+                source,
+            } => match location {
+                IpcLocation::Clipboard => {
+                    self.dd_cancel_source::<XClipboardIpc>(&self.shared.clone().data, seat, source)
+                }
+                IpcLocation::PrimarySelection => self.dd_cancel_source::<XPrimarySelectionIpc>(
+                    &self.shared.clone().primary_selection,
+                    seat,
+                    source,
+                ),
+            },
+            XWaylandEvent::IpcSendSource {
+                location,
+                seat,
+                source,
+                mime_type,
+                fd,
+            } => match location {
+                IpcLocation::Clipboard => {
+                    self.dd_send_source::<XClipboardIpc>(
+                        &self.shared.clone().data,
+                        seat,
+                        source,
+                        mime_type,
+                        fd,
+                    )
+                    .await
+                }
+                IpcLocation::PrimarySelection => {
+                    self.dd_send_source::<XPrimarySelectionIpc>(
+                        &self.shared.clone().primary_selection,
+                        seat,
+                        source,
+                        mime_type,
+                        fd,
+                    )
+                    .await
+                }
+            },
+            XWaylandEvent::IpcSetOffer {
+                location,
+                seat,
+                offer,
+            } => match location {
+                IpcLocation::Clipboard => {
+                    self.dd_set_offer::<XClipboardIpc>(&self.shared.clone().data, seat, offer)
+                        .await
+                }
+                IpcLocation::PrimarySelection => {
+                    self.dd_set_offer::<XPrimarySelectionIpc>(
+                        &self.shared.clone().primary_selection,
+                        seat,
+                        offer,
+                    )
+                    .await
+                }
+            },
+            XWaylandEvent::IpcSetSelection {
+                seat,
+                location,
+                offer,
+            } => match location {
+                IpcLocation::Clipboard => {
+                    self.dd_set_selection::<XClipboardIpc>(&self.shared.clone().data, seat, offer)
+                        .await
+                }
+                IpcLocation::PrimarySelection => {
+                    self.dd_set_selection::<XPrimarySelectionIpc>(
+                        &self.shared.clone().primary_selection,
+                        seat,
+                        offer,
+                    )
+                    .await
+                }
+            },
+            XWaylandEvent::IpcAddOfferMimeType {
+                location,
+                seat,
+                offer,
+                mime_type,
+            } => match location {
+                IpcLocation::Clipboard => {
+                    self.dd_add_offer_mime_type::<XClipboardIpc>(
+                        &self.shared.clone().data,
+                        seat,
+                        offer,
+                        mime_type,
+                    )
+                    .await
+                }
+                IpcLocation::PrimarySelection => {
+                    self.dd_add_offer_mime_type::<XPrimarySelectionIpc>(
+                        &self.shared.clone().primary_selection,
+                        seat,
+                        offer,
+                        mime_type,
+                    )
+                    .await
+                }
+            },
         }
     }
 
-    async fn dd_add_offer_mime_type<T: IpcVtable>(
+    async fn dd_add_offer_mime_type<T: XIpc>(
         &mut self,
         sd: &SelectionData<T>,
-        offer: Rc<T::Offer>,
+        seat: SeatId,
+        offer: DataOfferId,
         mt: String,
     ) {
-        let seat = T::get_offer_seat(&offer);
-        let enhanced = match sd.offers.get(&seat.id()) {
-            Some(r) if !rc_eq(&r.offer, &offer) => {
+        let enhanced = match sd.offers.get(&seat) {
+            Some(r) if r.offer.offer_id != offer => {
                 return;
             }
             None => {
@@ -677,20 +724,19 @@ impl Wm {
         enhanced.mime_types.borrow_mut().push(mt);
     }
 
-    async fn dd_set_offer<T: IpcVtable>(&mut self, sd: &SelectionData<T>, offer: Rc<T::Offer>) {
-        let seat = T::get_offer_seat(&offer);
+    async fn dd_set_offer<T: XIpc>(
+        &mut self,
+        sd: &SelectionData<T>,
+        seat: SeatId,
+        offer: Rc<XDataOffer>,
+    ) {
         let mut mime_types = vec![];
-        if let Some(offer) = sd.offers.remove(&seat.id()) {
+        if let Some(offer) = sd.offers.remove(&seat) {
             destroy_data_offer::<T>(&offer.offer);
             mime_types = mem::take(offer.mime_types.borrow_mut().deref_mut());
         }
-        match T::get_offer_data(&offer).source() {
-            None => return,
-            Some(s) if T::get_source_data(&s).is_xwm => return,
-            _ => {}
-        }
         sd.offers.set(
-            seat.id(),
+            seat,
             Rc::new(EnhancedOffer {
                 offer,
                 mime_types: RefCell::new(mime_types),
@@ -699,11 +745,11 @@ impl Wm {
         );
     }
 
-    async fn dd_set_selection<T: IpcVtable>(
+    async fn dd_set_selection<T: XIpc>(
         &mut self,
         sd: &SelectionData<T>,
         seat: SeatId,
-        offer: Option<Rc<T::Offer>>,
+        offer: Option<Rc<XDataOffer>>,
     ) {
         let offer = match offer {
             None => {
@@ -794,22 +840,19 @@ impl Wm {
         }
     }
 
-    async fn dd_send_source<T: IpcVtable>(
+    async fn dd_send_source<T: XIpc>(
         &mut self,
         sd: &SelectionData<T>,
-        src: &Rc<T::Source>,
+        seat: SeatId,
+        src: DataSourceId,
         mime_type: String,
         fd: Rc<OwnedFd>,
     ) {
-        let seat = match T::get_source_data(src).seat.get() {
-            Some(s) => s,
-            _ => return,
-        };
-        let actual_src = match sd.sources.get(&seat.id()) {
+        let actual_src = match sd.sources.get(&seat) {
             None => return,
             Some(src) => src,
         };
-        if !rc_eq(src, &actual_src) {
+        if actual_src.source_data().id != src {
             return;
         }
         let mime_type = match self.mime_type_to_atom(mime_type).await {
@@ -838,13 +881,16 @@ impl Wm {
             .push(PendingTransfer { mime_type, fd });
     }
 
-    fn dd_cancel_source<T: IpcVtable>(&mut self, sd: &SelectionData<T>, src: &Rc<T::Source>) {
-        if let Some(seat) = T::get_source_data(src).seat.get() {
-            if let Some(cur) = sd.sources.get(&seat.id()) {
-                if rc_eq(src, &cur) {
-                    sd.sources.remove(&seat.id());
-                    destroy_data_source::<T>(&cur);
-                }
+    fn dd_cancel_source<T: XIpc>(
+        &mut self,
+        sd: &SelectionData<T>,
+        seat: SeatId,
+        source: DataSourceId,
+    ) {
+        if let Some(cur) = sd.sources.get(&seat) {
+            if cur.source_data().id == source {
+                sd.sources.remove(&seat);
+                destroy_data_source::<T>(&cur);
             }
         }
     }
@@ -1508,7 +1554,7 @@ impl Wm {
         }
     }
 
-    async fn handle_xfixes_selection_notify_<T: IpcVtable>(
+    async fn handle_xfixes_selection_notify_<T: XIpc>(
         &mut self,
         sd: &SelectionData<T>,
         event: &XfixesSelectionNotify,
@@ -1562,7 +1608,7 @@ impl Wm {
         }
     }
 
-    async fn handle_selection_request_<T: IpcVtable>(
+    async fn handle_selection_request_<T: XIpc>(
         &mut self,
         sd: &SelectionData<T>,
         event: &SelectionRequest,
@@ -1663,7 +1709,7 @@ impl Wm {
         }
     }
 
-    async fn handle_selection_notify_<T: IpcVtable>(
+    async fn handle_selection_notify_<T: XIpc>(
         &mut self,
         sd: &SelectionData<T>,
         event: &SelectionNotify,
@@ -1676,18 +1722,23 @@ impl Wm {
         }
         if event.target == self.atoms.TARGETS {
             let targets = self.get_selection_mime_types(sd.win.get()).await?;
-            for dev in sd.devices.lock().values() {
+            for dev in self.shared.devices.lock().values() {
                 let seat = T::get_device_seat(dev);
                 if !seat.may_modify_primary_selection(&self.client, None) {
                     continue;
                 }
-                let source = Rc::new(T::create_xwm_source(&self.client));
+                let source = Rc::new(XDataSource {
+                    state: self.state.clone(),
+                    device: dev.clone(),
+                    data: SourceData::new(&self.client),
+                    location: T::LOCATION,
+                });
+                for target in &targets {
+                    add_data_source_mime_type::<T>(&source, target);
+                }
                 if let Err(e) = T::set_seat_selection(&seat, &source, None) {
                     log::error!("Could not set selection: {}", ErrorFmt(e));
                     return Ok(());
-                }
-                for target in &targets {
-                    add_data_source_mime_type::<T>(&source, target);
                 }
                 sd.sources.set(seat.id(), source);
             }

@@ -26,6 +26,7 @@ use {
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_session_lock_v1::ExtSessionLockV1,
+            ipc::{x_data_device::XIpcDeviceIds, DataOfferIds, DataSourceIds},
             jay_render_ctx::JayRenderCtx,
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
@@ -149,7 +150,8 @@ pub struct State {
     pub config_dir: Option<String>,
     pub config_file_id: NumCell<u64>,
     pub tracker: Tracker<Self>,
-    pub data_offer_ids: NumCell<u64>,
+    pub data_offer_ids: DataOfferIds,
+    pub data_source_ids: DataSourceIds,
     pub ring: Rc<IoUring>,
     pub lock: ScreenlockState,
     pub scales: RefCounted<Scale>,
@@ -196,6 +198,7 @@ pub struct XWaylandState {
     pub enabled: Cell<bool>,
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
     pub queue: Rc<AsyncQueue<XWaylandEvent>>,
+    pub ipc_device_ids: XIpcDeviceIds,
 }
 
 pub struct IdleState {

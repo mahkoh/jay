@@ -1,14 +1,23 @@
 use {
     crate::{
-        client::{Client, ClientError, ClientId, WaylandObject},
-        ifs::wl_seat::{WlSeatError, WlSeatGlobal},
+        client::{Client, ClientError, ClientId},
+        fixed::Fixed,
+        ifs::{
+            ipc::{
+                x_data_device::XIpcDevice, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
+            },
+            wl_seat::{WlSeatError, WlSeatGlobal},
+        },
         utils::{
             bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell, numcell::NumCell,
             smallmap::SmallMap,
         },
+        wire::WlSurfaceId,
     },
     ahash::AHashSet,
+    smallvec::SmallVec,
     std::{
+        any,
         cell::{Cell, RefCell},
         ops::Deref,
         rc::Rc,
@@ -21,10 +30,26 @@ pub mod wl_data_device;
 pub mod wl_data_device_manager;
 pub mod wl_data_offer;
 pub mod wl_data_source;
+pub mod x_data_device;
+pub mod x_data_offer;
+pub mod x_data_source;
+pub mod zwlr_data_control_device_v1;
+pub mod zwlr_data_control_manager_v1;
+pub mod zwlr_data_control_offer_v1;
+pub mod zwlr_data_control_source_v1;
 pub mod zwp_primary_selection_device_manager_v1;
 pub mod zwp_primary_selection_device_v1;
 pub mod zwp_primary_selection_offer_v1;
 pub mod zwp_primary_selection_source_v1;
+
+linear_ids!(DataSourceIds, DataSourceId, u64);
+linear_ids!(DataOfferIds, DataOfferId, u64);
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum IpcLocation {
+    Clipboard,
+    PrimarySelection,
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Role {
@@ -32,58 +57,137 @@ pub enum Role {
     Dnd,
 }
 
-pub trait IpcVtable: Sized {
-    type Device;
-    type Source;
-    type Offer: WaylandObject;
+pub trait DataSource: DynDataSource {
+    fn send_cancelled(&self, seat: &Rc<WlSeatGlobal>);
+}
 
-    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self>;
+pub trait DynDataSource: 'static {
+    fn source_data(&self) -> &SourceData;
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>);
+    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>);
+    fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>);
+    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>);
+    fn detach_seat(&self, seat: &Rc<WlSeatGlobal>);
+    fn cancel_unprivileged_offers(&self);
+
+    fn send_target(&self, mime_type: Option<&str>) {
+        let _ = mime_type;
+        log::warn!(
+            "send_target called on data source of type {}",
+            any::type_name_of_val(self)
+        )
+    }
+    fn send_dnd_finished(&self) {
+        log::warn!(
+            "send_dnd_finished called on data source of type {}",
+            any::type_name_of_val(self)
+        )
+    }
+    fn update_selected_action(&self) {
+        log::warn!(
+            "update_selected_action called on data source of type {}",
+            any::type_name_of_val(self)
+        )
+    }
+}
+
+pub trait DataOffer: DynDataOffer {
+    type Device;
+
+    fn offer_data(&self) -> &OfferData<Self::Device>;
+}
+
+pub trait DynDataOffer: 'static {
+    fn offer_id(&self) -> DataOfferId;
+    fn client_id(&self) -> ClientId;
+    fn send_offer(&self, mime_type: &str);
+    fn destroy(&self);
+    fn cancel(&self);
+    fn get_seat(&self) -> Rc<WlSeatGlobal>;
+
+    fn is_privileged(&self) -> bool {
+        false
+    }
+
+    fn send_action(&self, action: u32) {
+        let _ = action;
+        log::warn!(
+            "send_action called on data source of type {}",
+            any::type_name_of_val(self)
+        )
+    }
+    fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u32) {
+        let _ = surface;
+        let _ = x;
+        let _ = y;
+        let _ = serial;
+        log::warn!(
+            "send_enter called on data source of type {}",
+            any::type_name_of_val(self)
+        )
+    }
+    fn send_source_actions(&self) {
+        log::warn!(
+            "send_source_actions called on data source of type {}",
+            any::type_name_of_val(self)
+        )
+    }
+}
+
+pub trait IterableIpcVtable: IpcVtable {
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>);
+}
+
+pub trait WlrIpcVtable: IpcVtable<Device = ZwlrDataControlDeviceV1> {
+    fn for_each_device<C>(seat: &WlSeatGlobal, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>);
+}
+
+pub trait IpcVtable: Sized {
+    const LOCATION: IpcLocation;
+
+    type Device;
+    type Source: DataSource;
+    type Offer: DataOffer<Device = Self::Device>;
+
+    fn get_device_data(dd: &Self::Device) -> &DeviceData<Self::Offer>;
     fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal>;
-    fn create_xwm_source(client: &Rc<Client>) -> Self::Source;
     fn set_seat_selection(
         seat: &Rc<WlSeatGlobal>,
         source: &Rc<Self::Source>,
         serial: Option<u32>,
     ) -> Result<(), WlSeatError>;
-    fn get_offer_data(offer: &Self::Offer) -> &OfferData<Self>;
-    fn get_source_data(src: &Self::Source) -> &SourceData<Self>;
-    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
-    where
-        C: FnMut(&Rc<Self::Device>);
     fn create_offer(
-        client: &Rc<Client>,
         dd: &Rc<Self::Device>,
-        data: OfferData<Self>,
+        data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError>;
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>);
-    fn send_cancelled(source: &Rc<Self::Source>, seat: &Rc<WlSeatGlobal>);
-    fn get_offer_id(offer: &Self::Offer) -> u64;
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>);
-    fn send_mime_type(offer: &Rc<Self::Offer>, mime_type: &str);
     fn unset(seat: &Rc<WlSeatGlobal>, role: Role);
-    fn send_send(src: &Rc<Self::Source>, mime_type: &str, fd: Rc<OwnedFd>);
-    fn remove_from_seat(device: &Self::Device);
-    fn get_offer_seat(offer: &Self::Offer) -> Rc<WlSeatGlobal>;
-    fn source_eq(left: &Self::Source, right: &Self::Source) -> bool;
+    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client>;
 }
 
-pub struct DeviceData<T: IpcVtable> {
-    selection: CloneCell<Option<Rc<T::Offer>>>,
-    dnd: CloneCell<Option<Rc<T::Offer>>>,
-    pub is_xwm: bool,
+pub struct DeviceData<O> {
+    selection: CloneCell<Option<Rc<O>>>,
+    dnd: CloneCell<Option<Rc<O>>>,
 }
 
-pub struct OfferData<T: IpcVtable> {
-    device: CloneCell<Option<Rc<T::Device>>>,
-    source: CloneCell<Option<Rc<T::Source>>>,
-    shared: Rc<SharedState>,
-    pub is_xwm: bool,
-}
-
-impl<T: IpcVtable> OfferData<T> {
-    pub fn source(&self) -> Option<Rc<T::Source>> {
-        self.source.get()
+impl<O> Default for DeviceData<O> {
+    fn default() -> Self {
+        Self {
+            selection: Default::default(),
+            dnd: Default::default(),
+        }
     }
+}
+
+pub struct OfferData<D> {
+    device: CloneCell<Option<Rc<D>>>,
+    source: CloneCell<Option<Rc<dyn DynDataSource>>>,
+    shared: Rc<SharedState>,
 }
 
 #[derive(Debug, Error)]
@@ -106,17 +210,16 @@ const SOURCE_STATE_DROPPED: u32 = 1 << 3;
 const SOURCE_STATE_CANCELLED: u32 = 1 << 4;
 const SOURCE_STATE_DROPPED_OR_CANCELLED: u32 = SOURCE_STATE_DROPPED | SOURCE_STATE_CANCELLED;
 
-pub struct SourceData<T: IpcVtable> {
+pub struct SourceData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
-    offers: SmallMap<u64, Rc<T::Offer>, 1>,
-    offer_client: Cell<ClientId>,
+    pub id: DataSourceId,
+    offers: SmallMap<DataOfferId, Rc<dyn DynDataOffer>, 1>,
     mime_types: RefCell<AHashSet<String>>,
     pub client: Rc<Client>,
     state: NumCell<u32>,
     actions: Cell<Option<u32>>,
     role: Cell<Role>,
     shared: CloneCell<Rc<SharedState>>,
-    pub is_xwm: bool,
 }
 
 struct SharedState {
@@ -139,19 +242,18 @@ impl Default for SharedState {
     }
 }
 
-impl<T: IpcVtable> SourceData<T> {
-    fn new(client: &Rc<Client>, is_xwm: bool) -> Self {
+impl SourceData {
+    pub fn new(client: &Rc<Client>) -> Self {
         Self {
             seat: Default::default(),
+            id: client.state.data_source_ids.next(),
             offers: Default::default(),
-            offer_client: Cell::new(client.id),
             mime_types: Default::default(),
             client: client.clone(),
             state: NumCell::new(0),
             actions: Cell::new(None),
             role: Cell::new(Role::Selection),
             shared: Default::default(),
-            is_xwm,
         }
     }
 
@@ -166,12 +268,12 @@ impl<T: IpcVtable> SourceData<T> {
     }
 }
 
-pub fn attach_seat<T: IpcVtable>(
-    src: &T::Source,
+pub fn attach_seat<S: DynDataSource>(
+    src: &S,
     seat: &Rc<WlSeatGlobal>,
     role: Role,
 ) -> Result<(), IpcError> {
-    let data = T::get_source_data(src);
+    let data = src.source_data();
     let mut state = data.state.get();
     if state.contains(SOURCE_STATE_USED) {
         return Err(IpcError::AlreadyAttached);
@@ -192,27 +294,99 @@ pub fn attach_seat<T: IpcVtable>(
     Ok(())
 }
 
-pub fn cancel_offers<T: IpcVtable>(src: &T::Source) {
-    let data = T::get_source_data(src);
-    while let Some((_, offer)) = data.offers.pop() {
-        let data = T::get_offer_data(&offer);
-        data.source.take();
-        destroy_data_offer::<T>(&offer);
-    }
+pub fn cancel_offers<S: DynDataSource>(src: &S, cancel_privileged: bool) {
+    let data = src.source_data();
+    let mut offers = data.offers.take();
+    offers.retain(|o| {
+        let retain = !cancel_privileged && o.1.is_privileged();
+        if !retain {
+            o.1.cancel();
+        }
+        retain
+    });
+    data.offers.replace(offers);
 }
 
-pub fn detach_seat<T: IpcVtable>(src: &Rc<T::Source>, seat: &Rc<WlSeatGlobal>) {
-    let data = T::get_source_data(src);
+pub fn cancel_offer<T: IpcVtable>(offer: &T::Offer) {
+    let data = offer.offer_data();
+    data.source.take();
+    destroy_data_offer::<T>(&offer);
+}
+
+pub fn detach_seat<S: DataSource>(src: &S, seat: &Rc<WlSeatGlobal>) {
+    let data = src.source_data();
     data.seat.set(None);
-    cancel_offers::<T>(src);
+    cancel_offers(src, true);
     if !data.state.get().contains(SOURCE_STATE_FINISHED) {
-        T::send_cancelled(src, seat);
+        src.send_cancelled(seat);
     }
     // data.client.flush();
 }
 
-pub fn offer_source_to<T: IpcVtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
-    let data = T::get_source_data(src);
+fn offer_source_to_device<T: IpcVtable, S: DynDataSource>(
+    src: &Rc<S>,
+    dd: &Rc<T::Device>,
+    data: &SourceData,
+    shared: Rc<SharedState>,
+) {
+    let device_data = T::get_device_data(dd);
+    let offer_data = OfferData {
+        device: CloneCell::new(Some(dd.clone())),
+        source: CloneCell::new(Some(src.clone())),
+        shared: shared.clone(),
+    };
+    let offer = match T::create_offer(dd, offer_data) {
+        Ok(o) => o,
+        Err(e) => {
+            T::device_client(dd).error(e);
+            return;
+        }
+    };
+    data.offers.insert(offer.offer_id(), offer.clone());
+    let mt = data.mime_types.borrow_mut();
+    T::send_offer(dd, &offer);
+    for mt in mt.deref() {
+        offer.clone().send_offer(mt);
+    }
+    match data.role.get() {
+        Role::Selection => {
+            T::send_selection(dd, Some(&offer));
+            device_data.selection.set(Some(offer.clone()));
+        }
+        Role::Dnd => {
+            device_data.dnd.set(Some(offer.clone()));
+        }
+    }
+}
+
+fn offer_source_to_x<T, S>(src: &Rc<S>, dd: &Rc<XIpcDevice>)
+where
+    T: IpcVtable<Device = XIpcDevice>,
+    S: DynDataSource,
+{
+    let data = src.source_data();
+    src.cancel_unprivileged_offers();
+    let shared = data.shared.get();
+    shared.role.set(data.role.get());
+    offer_source_to_device::<T, S>(src, dd, data, shared);
+}
+
+pub fn offer_source_to_wlr_device<T, S>(src: &Rc<S>, dd: &Rc<T::Device>)
+where
+    T: IpcVtable<Device = ZwlrDataControlDeviceV1>,
+    S: DynDataSource,
+{
+    let data = src.source_data();
+    let shared = data.shared.get();
+    shared.role.set(data.role.get());
+    offer_source_to_device::<T, _>(src, dd, data, shared);
+}
+
+fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
+    src: &Rc<S>,
+    client: &Rc<Client>,
+) {
+    let data = src.source_data();
     let seat = match data.seat.get() {
         Some(a) => a,
         _ => {
@@ -220,51 +394,19 @@ pub fn offer_source_to<T: IpcVtable>(src: &Rc<T::Source>, client: &Rc<Client>) {
             return;
         }
     };
-    cancel_offers::<T>(src);
-    data.offer_client.set(client.id);
+    src.cancel_unprivileged_offers();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
     T::for_each_device(&seat, client.id, |dd| {
-        let device_data = T::get_device_data(dd);
-        let offer_data = OfferData {
-            device: CloneCell::new(Some(dd.clone())),
-            source: CloneCell::new(Some(src.clone())),
-            shared: shared.clone(),
-            is_xwm: device_data.is_xwm,
-        };
-        let offer = match T::create_offer(client, dd, offer_data) {
-            Ok(o) => o,
-            Err(e) => {
-                client.error(e);
-                return;
-            }
-        };
-        data.offers.insert(T::get_offer_id(&offer), offer.clone());
-        let mt = data.mime_types.borrow_mut();
-        T::send_offer(dd, &offer);
-        for mt in mt.deref() {
-            T::send_mime_type(&offer, mt);
-        }
-        match data.role.get() {
-            Role::Selection => {
-                T::send_selection(dd, Some(&offer));
-                device_data.selection.set(Some(offer.clone()));
-            }
-            Role::Dnd => {
-                device_data.dnd.set(Some(offer.clone()));
-            }
-        }
-        if !device_data.is_xwm {
-            client.add_server_obj(&offer);
-        }
+        offer_source_to_device::<T, S>(src, dd, data, shared.clone());
     });
 }
 
 pub fn add_data_source_mime_type<T: IpcVtable>(src: &T::Source, mime_type: &str) {
-    let data = T::get_source_data(src);
+    let data = src.source_data();
     if data.mime_types.borrow_mut().insert(mime_type.to_string()) {
         for (_, offer) in &data.offers {
-            T::send_mime_type(&offer, mime_type);
+            offer.send_offer(mime_type);
             // let data = T::get_offer_data(&offer);
             // data.client.flush();
         }
@@ -272,14 +414,14 @@ pub fn add_data_source_mime_type<T: IpcVtable>(src: &T::Source, mime_type: &str)
 }
 
 pub fn destroy_data_source<T: IpcVtable>(src: &T::Source) {
-    let data = T::get_source_data(src);
+    let data = src.source_data();
     if let Some(seat) = data.seat.take() {
         T::unset(&seat, data.role.get());
     }
 }
 
 pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
-    let data = T::get_offer_data(offer);
+    let data = offer.offer_data();
     if let Some(device) = data.device.take() {
         let device_data = T::get_device_data(&device);
         match data.shared.role.get() {
@@ -293,8 +435,8 @@ pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
         }
     }
     if let Some(src) = data.source.take() {
-        let src_data = T::get_source_data(&src);
-        src_data.offers.remove(&T::get_offer_id(offer));
+        let src_data = src.source_data();
+        src_data.offers.remove(&offer.offer_id());
         if src_data.offers.is_empty()
             && src_data.role.get() == Role::Dnd
             && data.shared.state.get().contains(OFFER_STATE_DROPPED)
@@ -310,21 +452,27 @@ pub fn destroy_data_device<T: IpcVtable>(dd: &T::Device) {
     let data = T::get_device_data(dd);
     let offers = [data.selection.take(), data.dnd.take()];
     for offer in offers.into_iter().flat_map(|o| o.into_iter()) {
-        T::get_offer_data(&offer).device.take();
+        offer.offer_data().device.take();
         destroy_data_offer::<T>(&offer);
     }
 }
 
 fn break_source_loops<T: IpcVtable>(src: &T::Source) {
-    let data = T::get_source_data(src);
-    if data.offer_client.get() == data.client.id {
-        data.offers.take();
+    let data = src.source_data();
+    let mut remove = SmallVec::<[DataOfferId; 1]>::new();
+    for (id, offer) in &data.offers {
+        if offer.client_id() == data.client.id {
+            remove.push(id);
+        }
+    }
+    while let Some(id) = remove.pop() {
+        data.offers.remove(&id);
     }
     destroy_data_source::<T>(src);
 }
 
 fn break_offer_loops<T: IpcVtable>(offer: &T::Offer) {
-    let data = T::get_offer_data(offer);
+    let data = offer.offer_data();
     data.device.set(None);
     destroy_data_offer::<T>(offer);
 }
@@ -337,9 +485,9 @@ fn break_device_loops<T: IpcVtable>(dd: &T::Device) {
 }
 
 pub fn receive_data_offer<T: IpcVtable>(offer: &T::Offer, mime_type: &str, fd: Rc<OwnedFd>) {
-    let data = T::get_offer_data(offer);
+    let data = offer.offer_data();
     if let Some(src) = data.source.get() {
-        T::send_send(&src, mime_type, fd);
+        src.send_send(mime_type, fd);
         // let data = T::get_source_data(&src);
         // data.client.flush();
     }

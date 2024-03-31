@@ -4,11 +4,15 @@ use {
         ifs::{
             ipc::{
                 add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
+                detach_seat, offer_source_to_regular_client, offer_source_to_wlr_device,
+                offer_source_to_x,
                 wl_data_device::ClipboardIpc,
                 wl_data_device_manager::{DND_ALL, DND_NONE},
-                wl_data_offer::WlDataOffer,
-                SharedState, SourceData, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
-                SOURCE_STATE_CANCELLED, SOURCE_STATE_DROPPED,
+                x_data_device::{XClipboardIpc, XIpcDevice},
+                zwlr_data_control_device_v1::{WlrClipboardIpc, ZwlrDataControlDeviceV1},
+                DataSource, DynDataOffer, DynDataSource, SharedState, SourceData,
+                OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED, SOURCE_STATE_CANCELLED,
+                SOURCE_STATE_DROPPED,
             },
             wl_seat::WlSeatGlobal,
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
@@ -22,7 +26,6 @@ use {
             clonecell::CloneCell,
         },
         wire::{wl_data_source::*, WlDataSourceId},
-        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -36,18 +39,66 @@ const INVALID_SOURCE: u32 = 1;
 
 pub struct WlDataSource {
     pub id: WlDataSourceId,
-    pub data: SourceData<ClipboardIpc>,
+    pub data: SourceData,
     pub version: u32,
     pub tracker: Tracker<Self>,
     pub toplevel_drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
 }
 
+impl DataSource for WlDataSource {
+    fn send_cancelled(&self, seat: &Rc<WlSeatGlobal>) {
+        WlDataSource::send_cancelled(self, seat);
+    }
+}
+
+impl DynDataSource for WlDataSource {
+    fn source_data(&self) -> &SourceData {
+        &self.data
+    }
+
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+        WlDataSource::send_send(self, mime_type, fd);
+    }
+
+    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>) {
+        offer_source_to_regular_client::<ClipboardIpc, Self>(&self, client);
+    }
+
+    fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>) {
+        offer_source_to_x::<XClipboardIpc, Self>(&self, dd);
+    }
+
+    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>) {
+        offer_source_to_wlr_device::<WlrClipboardIpc, Self>(&self, dd)
+    }
+
+    fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {
+        detach_seat(self, seat);
+    }
+
+    fn cancel_unprivileged_offers(&self) {
+        cancel_offers(self, false);
+    }
+
+    fn send_target(&self, mime_type: Option<&str>) {
+        WlDataSource::send_target(self, mime_type);
+    }
+
+    fn send_dnd_finished(&self) {
+        WlDataSource::send_dnd_finished(self);
+    }
+
+    fn update_selected_action(&self) {
+        WlDataSource::update_selected_action(self);
+    }
+}
+
 impl WlDataSource {
-    pub fn new(id: WlDataSourceId, client: &Rc<Client>, is_xwm: bool, version: u32) -> Self {
+    pub fn new(id: WlDataSourceId, client: &Rc<Client>, version: u32) -> Self {
         Self {
             id,
             tracker: Default::default(),
-            data: SourceData::new(client, is_xwm),
+            data: SourceData::new(client),
             version,
             toplevel_drag: Default::default(),
         }
@@ -67,7 +118,7 @@ impl WlDataSource {
         self.data.shared.set(Rc::new(SharedState::default()));
         self.send_target(None);
         self.send_action(DND_NONE);
-        cancel_offers::<ClipboardIpc>(self);
+        cancel_offers(self, false);
     }
 
     pub fn update_selected_action(&self) {
@@ -97,9 +148,9 @@ impl WlDataSource {
         }
     }
 
-    pub fn for_each_data_offer<C: FnMut(&WlDataOffer)>(&self, mut f: C) {
+    pub fn for_each_data_offer<C: FnMut(&dyn DynDataOffer)>(&self, mut f: C) {
         for (_, offer) in &self.data.offers {
-            f(&offer);
+            f(&*offer);
         }
     }
 
@@ -118,74 +169,44 @@ impl WlDataSource {
         shared.state.or_assign(OFFER_STATE_DROPPED);
     }
 
-    pub fn send_cancelled(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        if self.data.is_xwm {
-            self.data
-                .client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::ClipboardCancelSource(self.clone()));
-        } else {
-            self.data.state.or_assign(SOURCE_STATE_CANCELLED);
-            if let Some(drag) = self.toplevel_drag.take() {
-                drag.finish_drag(seat);
-            }
-            self.data.client.event(Cancelled { self_id: self.id })
+    pub fn send_cancelled(&self, seat: &Rc<WlSeatGlobal>) {
+        self.data.state.or_assign(SOURCE_STATE_CANCELLED);
+        if let Some(drag) = self.toplevel_drag.take() {
+            drag.finish_drag(seat);
         }
+        self.data.client.event(Cancelled { self_id: self.id })
     }
 
-    pub fn send_send(self: &Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) {
-        if self.data.is_xwm {
-            self.data
-                .client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::ClipboardSendSource(
-                    self.clone(),
-                    mime_type.to_string(),
-                    fd,
-                ));
-        } else {
-            self.data.client.event(Send {
-                self_id: self.id,
-                mime_type,
-                fd,
-            })
-        }
+    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+        self.data.client.event(Send {
+            self_id: self.id,
+            mime_type,
+            fd,
+        })
     }
 
     pub fn send_target(&self, mime_type: Option<&str>) {
-        if !self.data.is_xwm {
-            self.data.client.event(Target {
-                self_id: self.id,
-                mime_type,
-            })
-        }
+        self.data.client.event(Target {
+            self_id: self.id,
+            mime_type,
+        })
     }
 
     pub fn send_dnd_finished(&self) {
-        if !self.data.is_xwm {
-            self.data.client.event(DndFinished { self_id: self.id })
-        }
+        self.data.client.event(DndFinished { self_id: self.id })
     }
 
     pub fn send_action(&self, dnd_action: u32) {
-        if !self.data.is_xwm {
-            self.data.client.event(Action {
-                self_id: self.id,
-                dnd_action,
-            })
-        }
+        self.data.client.event(Action {
+            self_id: self.id,
+            dnd_action,
+        })
     }
 
     pub fn send_dnd_drop_performed(&self) {
-        if !self.data.is_xwm {
-            self.data
-                .client
-                .event(DndDropPerformed { self_id: self.id })
-        }
+        self.data
+            .client
+            .event(DndDropPerformed { self_id: self.id })
     }
 
     fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
