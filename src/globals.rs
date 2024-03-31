@@ -8,6 +8,7 @@ use {
             ext_session_lock_manager_v1::ExtSessionLockManagerV1Global,
             ipc::{
                 wl_data_device_manager::WlDataDeviceManagerGlobal,
+                zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global,
                 zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
             },
             jay_compositor::JayCompositorGlobal,
@@ -171,6 +172,7 @@ impl Globals {
         add_singleton!(ZwpIdleInhibitManagerV1Global);
         add_singleton!(ExtIdleNotifierV1Global);
         add_singleton!(XdgToplevelDragManagerV1Global);
+        add_singleton!(ZwlrDataControlManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

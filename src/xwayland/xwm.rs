@@ -1733,12 +1733,12 @@ impl Wm {
                     data: SourceData::new(&self.client),
                     location: T::LOCATION,
                 });
+                for target in &targets {
+                    add_data_source_mime_type::<T>(&source, target);
+                }
                 if let Err(e) = T::set_seat_selection(&seat, &source, None) {
                     log::error!("Could not set selection: {}", ErrorFmt(e));
                     return Ok(());
-                }
-                for target in &targets {
-                    add_data_source_mime_type::<T>(&source, target);
                 }
                 sd.sources.set(seat.id(), source);
             }

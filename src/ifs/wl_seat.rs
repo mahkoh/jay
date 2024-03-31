@@ -23,6 +23,9 @@ use {
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_source::WlDataSource,
                 x_data_device::{XClipboardIpc, XIpcDevice, XIpcDeviceId, XPrimarySelectionIpc},
+                zwlr_data_control_device_v1::{
+                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
+                },
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
@@ -64,7 +67,8 @@ use {
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
+            WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
+            ZwpRelativePointerV1Id,
         },
         xkbcommon::{XkbKeymap, XkbState},
     },
@@ -141,6 +145,8 @@ pub struct WlSeatGlobal {
             AHashMap<ZwpPrimarySelectionDeviceV1Id, Rc<ZwpPrimarySelectionDeviceV1>>,
         >,
     >,
+    wlr_data_devices:
+        CopyHashMap<(ClientId, ZwlrDataControlDeviceV1Id), Rc<ZwlrDataControlDeviceV1>>,
     repeat_rate: Cell<(i32, i32)>,
     kb_map: CloneCell<Rc<XkbKeymap>>,
     kb_state: RefCell<XkbState>,
@@ -219,6 +225,7 @@ impl WlSeatGlobal {
             constraint: Default::default(),
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
+            wlr_data_devices: Default::default(),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -392,6 +399,15 @@ impl WlSeatGlobal {
                 e.remove();
             }
         }
+    }
+
+    pub fn add_wlr_device(&self, device: &Rc<ZwlrDataControlDeviceV1>) {
+        self.wlr_data_devices
+            .set((device.client.id, device.id), device.clone());
+    }
+
+    pub fn remove_wlr_device(&self, device: &ZwlrDataControlDeviceV1) {
+        self.wlr_data_devices.remove(&(device.client.id, device.id));
     }
 
     pub fn get_output(&self) -> Rc<OutputNode> {
@@ -727,7 +743,7 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_selection_<T, X, S>(
+    fn set_selection_<T, X, W, S>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<dyn DynDataSource>>>,
         src: Option<Rc<S>>,
@@ -735,6 +751,7 @@ impl WlSeatGlobal {
     where
         T: ipc::IterableIpcVtable,
         X: ipc::IpcVtable<Device = XIpcDevice>,
+        W: ipc::WlrIpcVtable,
         S: DynDataSource,
     {
         if let (Some(new), Some(old)) = (&src, &field.get()) {
@@ -750,9 +767,13 @@ impl WlSeatGlobal {
             old.detach_seat(self);
         }
         if let Some(client) = self.keyboard_node.get().node_client() {
-            self.offer_selection_to_client::<T, X>(src.map(|v| v as Rc<_>), &client);
+            self.offer_selection_to_client::<T, X>(src.clone().map(|v| v as Rc<_>), &client);
             // client.flush();
         }
+        W::for_each_device(self, |device| match &src {
+            Some(src) => src.clone().offer_to_wlr_device(device),
+            _ => W::send_selection(device, None),
+        });
         Ok(())
     }
 
@@ -765,7 +786,7 @@ impl WlSeatGlobal {
         X: ipc::IpcVtable<Device = XIpcDevice>,
     {
         if let Some(src) = &selection {
-            src.cancel_offers();
+            src.cancel_unprivileged_offers();
         }
         if client.is_xwayland {
             self.for_each_x_data_device(|dd| match &selection {
@@ -824,7 +845,14 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         selection: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
-        self.set_selection_::<ClipboardIpc, XClipboardIpc, _>(&self.selection, selection)
+        self.set_selection_::<ClipboardIpc, XClipboardIpc, WlrClipboardIpc, _>(
+            &self.selection,
+            selection,
+        )
+    }
+
+    pub fn get_selection(&self) -> Option<Rc<dyn DynDataSource>> {
+        self.selection.get()
     }
 
     pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
@@ -865,10 +893,14 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         selection: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
-        self.set_selection_::<PrimarySelectionIpc, XPrimarySelectionIpc, _>(
+        self.set_selection_::<PrimarySelectionIpc, XPrimarySelectionIpc, WlrPrimarySelectionIpc, _>(
             &self.primary_selection,
             selection,
         )
+    }
+
+    pub fn get_primary_selection(&self) -> Option<Rc<dyn DynDataSource>> {
+        self.primary_selection.get()
     }
 
     pub fn reload_known_cursor(&self) {
@@ -978,6 +1010,7 @@ impl WlSeatGlobal {
         self.bindings.borrow_mut().clear();
         self.data_devices.borrow_mut().clear();
         self.primary_selection_devices.borrow_mut().clear();
+        self.wlr_data_devices.clear();
         self.cursor.set(None);
         self.selection.set(None);
         self.primary_selection.set(None);

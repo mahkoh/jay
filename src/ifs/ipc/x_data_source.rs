@@ -4,9 +4,14 @@ use {
         ifs::{
             ipc::{
                 cancel_offers, detach_seat, offer_source_to_regular_client,
-                wl_data_device::ClipboardIpc, x_data_device::XIpcDevice,
-                zwp_primary_selection_device_v1::PrimarySelectionIpc, DataSource, DynDataSource,
-                IpcLocation, SourceData,
+                offer_source_to_wlr_device,
+                wl_data_device::ClipboardIpc,
+                x_data_device::XIpcDevice,
+                zwlr_data_control_device_v1::{
+                    WlrClipboardIpc, WlrPrimarySelectionIpc, ZwlrDataControlDeviceV1,
+                },
+                zwp_primary_selection_device_v1::PrimarySelectionIpc,
+                DataSource, DynDataSource, IpcLocation, SourceData,
             },
             wl_seat::WlSeatGlobal,
         },
@@ -61,7 +66,7 @@ impl DynDataSource for XDataSource {
     }
 
     fn offer_to_x(self: Rc<Self>, _dd: &Rc<XIpcDevice>) {
-        self.cancel_offers();
+        self.cancel_unprivileged_offers();
         self.state.xwayland.queue.push(IpcSetSelection {
             location: self.location,
             seat: self.device.seat.id(),
@@ -69,11 +74,22 @@ impl DynDataSource for XDataSource {
         });
     }
 
+    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>) {
+        match self.location {
+            IpcLocation::Clipboard => {
+                offer_source_to_wlr_device::<WlrClipboardIpc, Self>(&self, dd)
+            }
+            IpcLocation::PrimarySelection => {
+                offer_source_to_wlr_device::<WlrPrimarySelectionIpc, Self>(&self, dd)
+            }
+        }
+    }
+
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {
         detach_seat(self, seat);
     }
 
-    fn cancel_offers(&self) {
-        cancel_offers(self)
+    fn cancel_unprivileged_offers(&self) {
+        cancel_offers(self, false)
     }
 }

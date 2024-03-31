@@ -4,10 +4,12 @@ use {
         ifs::{
             ipc::{
                 add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-                detach_seat, offer_source_to_regular_client, offer_source_to_x,
+                detach_seat, offer_source_to_regular_client, offer_source_to_wlr_device,
+                offer_source_to_x,
                 wl_data_device::ClipboardIpc,
                 wl_data_device_manager::{DND_ALL, DND_NONE},
                 x_data_device::{XClipboardIpc, XIpcDevice},
+                zwlr_data_control_device_v1::{WlrClipboardIpc, ZwlrDataControlDeviceV1},
                 DataSource, DynDataOffer, DynDataSource, SharedState, SourceData,
                 OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED, SOURCE_STATE_CANCELLED,
                 SOURCE_STATE_DROPPED,
@@ -66,12 +68,16 @@ impl DynDataSource for WlDataSource {
         offer_source_to_x::<XClipboardIpc, Self>(&self, dd);
     }
 
+    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>) {
+        offer_source_to_wlr_device::<WlrClipboardIpc, Self>(&self, dd)
+    }
+
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {
         detach_seat(self, seat);
     }
 
-    fn cancel_offers(&self) {
-        cancel_offers(self);
+    fn cancel_unprivileged_offers(&self) {
+        cancel_offers(self, false);
     }
 
     fn send_target(&self, mime_type: Option<&str>) {
@@ -112,7 +118,7 @@ impl WlDataSource {
         self.data.shared.set(Rc::new(SharedState::default()));
         self.send_target(None);
         self.send_action(DND_NONE);
-        cancel_offers(self);
+        cancel_offers(self, false);
     }
 
     pub fn update_selected_action(&self) {

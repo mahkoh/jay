@@ -3,7 +3,9 @@ use {
         client::{Client, ClientError, ClientId},
         fixed::Fixed,
         ifs::{
-            ipc::x_data_device::XIpcDevice,
+            ipc::{
+                x_data_device::XIpcDevice, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
+            },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
         utils::{
@@ -31,6 +33,10 @@ pub mod wl_data_source;
 pub mod x_data_device;
 pub mod x_data_offer;
 pub mod x_data_source;
+pub mod zwlr_data_control_device_v1;
+pub mod zwlr_data_control_manager_v1;
+pub mod zwlr_data_control_offer_v1;
+pub mod zwlr_data_control_source_v1;
 pub mod zwp_primary_selection_device_manager_v1;
 pub mod zwp_primary_selection_device_v1;
 pub mod zwp_primary_selection_offer_v1;
@@ -60,8 +66,9 @@ pub trait DynDataSource: 'static {
     fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>);
     fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>);
     fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>);
+    fn offer_to_wlr_device(self: Rc<Self>, dd: &Rc<ZwlrDataControlDeviceV1>);
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>);
-    fn cancel_offers(&self);
+    fn cancel_unprivileged_offers(&self);
 
     fn send_target(&self, mime_type: Option<&str>) {
         let _ = mime_type;
@@ -98,6 +105,10 @@ pub trait DynDataOffer: 'static {
     fn cancel(&self);
     fn get_seat(&self) -> Rc<WlSeatGlobal>;
 
+    fn is_privileged(&self) -> bool {
+        false
+    }
+
     fn send_action(&self, action: u32) {
         let _ = action;
         log::warn!(
@@ -125,6 +136,12 @@ pub trait DynDataOffer: 'static {
 
 pub trait IterableIpcVtable: IpcVtable {
     fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>);
+}
+
+pub trait WlrIpcVtable: IpcVtable<Device = ZwlrDataControlDeviceV1> {
+    fn for_each_device<C>(seat: &WlSeatGlobal, f: C)
     where
         C: FnMut(&Rc<Self::Device>);
 }
@@ -277,11 +294,17 @@ pub fn attach_seat<S: DynDataSource>(
     Ok(())
 }
 
-pub fn cancel_offers<S: DynDataSource>(src: &S) {
+pub fn cancel_offers<S: DynDataSource>(src: &S, cancel_privileged: bool) {
     let data = src.source_data();
-    while let Some((_, offer)) = data.offers.pop() {
-        offer.cancel();
-    }
+    let mut offers = data.offers.take();
+    offers.retain(|o| {
+        let retain = !cancel_privileged && o.1.is_privileged();
+        if !retain {
+            o.1.cancel();
+        }
+        retain
+    });
+    data.offers.replace(offers);
 }
 
 pub fn cancel_offer<T: IpcVtable>(offer: &T::Offer) {
@@ -293,7 +316,7 @@ pub fn cancel_offer<T: IpcVtable>(offer: &T::Offer) {
 pub fn detach_seat<S: DataSource>(src: &S, seat: &Rc<WlSeatGlobal>) {
     let data = src.source_data();
     data.seat.set(None);
-    cancel_offers(src);
+    cancel_offers(src, true);
     if !data.state.get().contains(SOURCE_STATE_FINISHED) {
         src.send_cancelled(seat);
     }
@@ -342,10 +365,21 @@ where
     S: DynDataSource,
 {
     let data = src.source_data();
-    src.cancel_offers();
+    src.cancel_unprivileged_offers();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
     offer_source_to_device::<T, S>(src, dd, data, shared);
+}
+
+pub fn offer_source_to_wlr_device<T, S>(src: &Rc<S>, dd: &Rc<T::Device>)
+where
+    T: IpcVtable<Device = ZwlrDataControlDeviceV1>,
+    S: DynDataSource,
+{
+    let data = src.source_data();
+    let shared = data.shared.get();
+    shared.role.set(data.role.get());
+    offer_source_to_device::<T, _>(src, dd, data, shared);
 }
 
 fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
@@ -360,7 +394,7 @@ fn offer_source_to_regular_client<T: IterableIpcVtable, S: DynDataSource>(
             return;
         }
     };
-    src.cancel_offers();
+    src.cancel_unprivileged_offers();
     let shared = data.shared.get();
     shared.role.set(data.role.get());
     T::for_each_device(&seat, client.id, |dd| {
