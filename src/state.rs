@@ -26,7 +26,7 @@ use {
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_session_lock_v1::ExtSessionLockV1,
-            ipc::{DataOfferIds, DataSourceIds},
+            ipc::{x_data_device::XIpcDeviceIds, DataOfferIds, DataSourceIds},
             jay_render_ctx::JayRenderCtx,
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
@@ -198,6 +198,7 @@ pub struct XWaylandState {
     pub enabled: Cell<bool>,
     pub handler: RefCell<Option<SpawnedFuture<()>>>,
     pub queue: Rc<AsyncQueue<XWaylandEvent>>,
+    pub ipc_device_ids: XIpcDeviceIds,
 }
 
 pub struct IdleState {

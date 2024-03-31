@@ -4,7 +4,9 @@ use {
         ifs::{
             ipc::{
                 add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-                detach_seat, offer_source_to, zwp_primary_selection_device_v1::PrimarySelectionIpc,
+                detach_seat, offer_source_to_regular_client, offer_source_to_x,
+                x_data_device::{XIpcDevice, XPrimarySelectionIpc},
+                zwp_primary_selection_device_v1::PrimarySelectionIpc,
                 DataSource, DynDataSource, SourceData,
             },
             wl_seat::WlSeatGlobal,
@@ -13,7 +15,6 @@ use {
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_primary_selection_source_v1::*, ZwpPrimarySelectionSourceV1Id},
-        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -27,7 +28,7 @@ pub struct ZwpPrimarySelectionSourceV1 {
 }
 
 impl DataSource for ZwpPrimarySelectionSourceV1 {
-    fn send_cancelled(self: &Rc<Self>, _seat: &Rc<WlSeatGlobal>) {
+    fn send_cancelled(&self, _seat: &Rc<WlSeatGlobal>) {
         ZwpPrimarySelectionSourceV1::send_cancelled(self);
     }
 }
@@ -37,64 +38,46 @@ impl DynDataSource for ZwpPrimarySelectionSourceV1 {
         &self.data
     }
 
-    fn send_send(self: Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) {
-        ZwpPrimarySelectionSourceV1::send_send(&self, mime_type, fd)
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+        ZwpPrimarySelectionSourceV1::send_send(self, mime_type, fd)
     }
 
-    fn offer_to(self: Rc<Self>, client: &Rc<Client>) {
-        offer_source_to::<PrimarySelectionIpc, Self>(&self, client);
+    fn offer_to_regular_client(self: Rc<Self>, client: &Rc<Client>) {
+        offer_source_to_regular_client::<PrimarySelectionIpc, Self>(&self, client);
     }
 
-    fn detach_seat(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        detach_seat::<PrimarySelectionIpc>(&self, seat);
+    fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>) {
+        offer_source_to_x::<XPrimarySelectionIpc, Self>(&self, dd);
+    }
+
+    fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {
+        detach_seat(self, seat);
     }
 
     fn cancel_offers(&self) {
-        cancel_offers::<PrimarySelectionIpc>(self);
+        cancel_offers(self);
     }
 }
 
 impl ZwpPrimarySelectionSourceV1 {
-    pub fn new(id: ZwpPrimarySelectionSourceV1Id, client: &Rc<Client>, is_xwm: bool) -> Self {
+    pub fn new(id: ZwpPrimarySelectionSourceV1Id, client: &Rc<Client>) -> Self {
         Self {
             id,
-            data: SourceData::new(client, is_xwm),
+            data: SourceData::new(client),
             tracker: Default::default(),
         }
     }
 
-    pub fn send_cancelled(self: &Rc<Self>) {
-        if self.data.is_xwm {
-            self.data
-                .client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::PrimarySelectionCancelSource(self.clone()));
-        } else {
-            self.data.client.event(Cancelled { self_id: self.id });
-        }
+    pub fn send_cancelled(&self) {
+        self.data.client.event(Cancelled { self_id: self.id });
     }
 
-    pub fn send_send(self: &Rc<Self>, mime_type: &str, fd: Rc<OwnedFd>) {
-        if self.data.is_xwm {
-            self.data
-                .client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::PrimarySelectionSendSource(
-                    self.clone(),
-                    mime_type.to_string(),
-                    fd,
-                ));
-        } else {
-            self.data.client.event(Send {
-                self_id: self.id,
-                mime_type,
-                fd,
-            })
-        }
+    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+        self.data.client.event(Send {
+            self_id: self.id,
+            mime_type,
+            fd,
+        })
     }
 
     fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionSourceV1Error> {

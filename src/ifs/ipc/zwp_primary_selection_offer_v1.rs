@@ -15,7 +15,6 @@ use {
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_primary_selection_offer_v1::*, ZwpPrimarySelectionOfferV1Id},
-        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -47,8 +46,8 @@ impl DynDataOffer for ZwpPrimarySelectionOfferV1 {
         self.client.id
     }
 
-    fn send_offer(self: Rc<Self>, mime_type: &str) {
-        ZwpPrimarySelectionOfferV1::send_offer(&self, mime_type);
+    fn send_offer(&self, mime_type: &str) {
+        ZwpPrimarySelectionOfferV1::send_offer(self, mime_type);
     }
 
     fn destroy(&self) {
@@ -65,24 +64,11 @@ impl DynDataOffer for ZwpPrimarySelectionOfferV1 {
 }
 
 impl ZwpPrimarySelectionOfferV1 {
-    pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
-        if self.data.is_xwm {
-            if let Some(src) = self.data.source.get() {
-                if !src.source_data().is_xwm {
-                    self.client.state.xwayland.queue.push(
-                        XWaylandEvent::PrimarySelectionAddOfferMimeType(
-                            self.clone(),
-                            mime_type.to_string(),
-                        ),
-                    );
-                }
-            }
-        } else {
-            self.client.event(Offer {
-                self_id: self.id,
-                mime_type,
-            })
-        }
+    pub fn send_offer(&self, mime_type: &str) {
+        self.client.event(Offer {
+            self_id: self.id,
+            mime_type,
+        })
     }
 
     fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionOfferV1Error> {

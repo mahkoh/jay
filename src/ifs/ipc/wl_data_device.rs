@@ -5,7 +5,8 @@ use {
         ifs::{
             ipc::{
                 break_device_loops, destroy_data_device, wl_data_offer::WlDataOffer,
-                wl_data_source::WlDataSource, DeviceData, IpcVtable, OfferData, Role, XIpcVtable,
+                wl_data_source::WlDataSource, DeviceData, IpcLocation, IpcVtable,
+                IterableIpcVtable, OfferData, Role,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
             wl_surface::{SurfaceRole, WlSurfaceError},
@@ -13,8 +14,7 @@ use {
         leaks::Tracker,
         object::Object,
         utils::buffd::{MsgParser, MsgParserError},
-        wire::{wl_data_device::*, WlDataDeviceId, WlDataOfferId, WlDataSourceId, WlSurfaceId},
-        xwayland::XWaylandEvent,
+        wire::{wl_data_device::*, WlDataDeviceId, WlDataOfferId, WlSurfaceId},
     },
     std::rc::Rc,
     thiserror::Error,
@@ -38,60 +38,34 @@ impl WlDataDevice {
         client: &Rc<Client>,
         version: u32,
         seat: &Rc<WlSeatGlobal>,
-        is_xwm: bool,
     ) -> Self {
         Self {
             id,
             client: client.clone(),
             version,
             seat: seat.clone(),
-            data: DeviceData {
-                selection: Default::default(),
-                dnd: Default::default(),
-                is_xwm,
-            },
+            data: Default::default(),
             tracker: Default::default(),
         }
     }
 
     pub fn send_data_offer(&self, offer: &Rc<WlDataOffer>) {
-        if self.data.is_xwm {
-            self.client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::ClipboardSetOffer(offer.clone()));
-        } else {
-            self.client.event(DataOffer {
-                self_id: self.id,
-                id: offer.id,
-            })
-        }
+        self.client.event(DataOffer {
+            self_id: self.id,
+            id: offer.id,
+        })
     }
 
     pub fn send_selection(&self, offer: Option<&Rc<WlDataOffer>>) {
-        if self.data.is_xwm {
-            self.client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::ClipboardSetSelection(
-                    self.seat.id(),
-                    offer.cloned(),
-                ));
-        } else {
-            let id = offer.map(|o| o.id).unwrap_or(WlDataOfferId::NONE);
-            self.client.event(Selection {
-                self_id: self.id,
-                id,
-            })
-        }
+        let id = offer.map(|o| o.id).unwrap_or(WlDataOfferId::NONE);
+        self.client.event(Selection {
+            self_id: self.id,
+            id,
+        })
     }
 
     pub fn send_leave(&self) {
-        if !self.data.is_xwm {
-            self.client.event(Leave { self_id: self.id })
-        }
+        self.client.event(Leave { self_id: self.id })
     }
 
     pub fn send_enter(
@@ -102,33 +76,27 @@ impl WlDataDevice {
         offer: WlDataOfferId,
         serial: u32,
     ) {
-        if !self.data.is_xwm {
-            self.client.event(Enter {
-                self_id: self.id,
-                serial,
-                surface,
-                x,
-                y,
-                id: offer,
-            })
-        }
+        self.client.event(Enter {
+            self_id: self.id,
+            serial,
+            surface,
+            x,
+            y,
+            id: offer,
+        })
     }
 
     pub fn send_motion(&self, time_usec: u64, x: Fixed, y: Fixed) {
-        if !self.data.is_xwm {
-            self.client.event(Motion {
-                self_id: self.id,
-                time: (time_usec / 1000) as _,
-                x,
-                y,
-            })
-        }
+        self.client.event(Motion {
+            self_id: self.id,
+            time: (time_usec / 1000) as _,
+            x,
+            y,
+        })
     }
 
     pub fn send_drop(&self) {
-        if !self.data.is_xwm {
-            self.client.event(Drop { self_id: self.id })
-        }
+        self.client.event(Drop { self_id: self.id })
     }
 
     fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
@@ -185,17 +153,18 @@ impl WlDataDevice {
 
 pub struct ClipboardIpc;
 
-impl XIpcVtable for ClipboardIpc {
-    fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
-        WlDataSource::new(WlDataSourceId::NONE, client, true, 3)
-    }
-
-    fn remove_from_seat(device: &Self::Device) {
-        device.seat.remove_data_device(device);
+impl IterableIpcVtable for ClipboardIpc {
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>),
+    {
+        seat.for_each_data_device(0, client, f);
     }
 }
 
 impl IpcVtable for ClipboardIpc {
+    const LOCATION: IpcLocation = IpcLocation::Clipboard;
+
     type Device = WlDataDevice;
     type Source = WlDataSource;
     type Offer = WlDataOffer;
@@ -216,27 +185,20 @@ impl IpcVtable for ClipboardIpc {
         seat.set_wl_data_source_selection(Some(source.clone()), serial)
     }
 
-    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
-    where
-        C: FnMut(&Rc<Self::Device>),
-    {
-        seat.for_each_data_device(0, client, f);
-    }
-
     fn create_offer(
-        client: &Rc<Client>,
         device: &Rc<WlDataDevice>,
         offer_data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError> {
         let rc = Rc::new(WlDataOffer {
-            id: client.new_id()?,
-            offer_id: client.state.data_offer_ids.next(),
-            client: client.clone(),
+            id: device.client.new_id()?,
+            offer_id: device.client.state.data_offer_ids.next(),
+            client: device.client.clone(),
             device: device.clone(),
             data: offer_data,
             tracker: Default::default(),
         });
-        track!(client, rc);
+        track!(device.client, rc);
+        device.client.add_server_obj(&rc);
         Ok(rc)
     }
 
@@ -253,6 +215,10 @@ impl IpcVtable for ClipboardIpc {
             Role::Selection => seat.unset_selection(),
             Role::Dnd => seat.cancel_dnd(),
         }
+    }
+
+    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client> {
+        &dd.client
     }
 }
 

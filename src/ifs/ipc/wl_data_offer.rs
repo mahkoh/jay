@@ -19,7 +19,6 @@ use {
             buffd::{MsgParser, MsgParserError},
         },
         wire::{wl_data_offer::*, WlDataOfferId, WlSurfaceId},
-        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -64,8 +63,8 @@ impl DynDataOffer for WlDataOffer {
         WlDataOffer::send_action(self, action);
     }
 
-    fn send_offer(self: Rc<Self>, mime_type: &str) {
-        WlDataOffer::send_offer(&self, mime_type);
+    fn send_offer(&self, mime_type: &str) {
+        WlDataOffer::send_offer(self, mime_type);
     }
 
     fn destroy(&self) {
@@ -90,46 +89,29 @@ impl DynDataOffer for WlDataOffer {
 }
 
 impl WlDataOffer {
-    pub fn send_offer(self: &Rc<Self>, mime_type: &str) {
-        if self.data.is_xwm {
-            if let Some(src) = self.data.source.get() {
-                if !src.source_data().is_xwm {
-                    self.client.state.xwayland.queue.push(
-                        XWaylandEvent::ClipboardAddOfferMimeType(
-                            self.clone(),
-                            mime_type.to_string(),
-                        ),
-                    );
-                }
-            }
-        } else {
-            self.client.event(Offer {
-                self_id: self.id,
-                mime_type,
-            })
-        }
+    pub fn send_offer(&self, mime_type: &str) {
+        self.client.event(Offer {
+            self_id: self.id,
+            mime_type,
+        })
     }
 
     pub fn send_source_actions(&self) {
-        if !self.data.is_xwm {
-            if let Some(src) = self.data.source.get() {
-                if let Some(source_actions) = src.source_data().actions.get() {
-                    self.client.event(SourceActions {
-                        self_id: self.id,
-                        source_actions,
-                    })
-                }
+        if let Some(src) = self.data.source.get() {
+            if let Some(source_actions) = src.source_data().actions.get() {
+                self.client.event(SourceActions {
+                    self_id: self.id,
+                    source_actions,
+                })
             }
         }
     }
 
     pub fn send_action(&self, dnd_action: u32) {
-        if !self.data.is_xwm {
-            self.client.event(Action {
-                self_id: self.id,
-                dnd_action,
-            })
-        }
+        self.client.event(Action {
+            self_id: self.id,
+            dnd_action,
+        })
     }
 
     fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {

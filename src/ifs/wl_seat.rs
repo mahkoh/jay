@@ -22,6 +22,7 @@ use {
                 self,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_source::WlDataSource,
+                x_data_device::{XClipboardIpc, XIpcDevice, XIpcDeviceId, XPrimarySelectionIpc},
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
@@ -58,6 +59,7 @@ use {
             linkedlist::LinkedNode,
             numcell::NumCell,
             rc_eq::rc_eq,
+            smallmap::SmallMap,
             transform_ext::TransformExt,
         },
         wire::{
@@ -108,7 +110,7 @@ pub struct DroppedDnd {
 impl Drop for DroppedDnd {
     fn drop(&mut self) {
         if let Some(src) = self.dnd.src.take() {
-            ipc::detach_seat::<ClipboardIpc>(&src, &self.dnd.seat);
+            ipc::detach_seat(&*src, &self.dnd.seat);
         }
     }
 }
@@ -131,6 +133,7 @@ pub struct WlSeatGlobal {
     keyboard_node: CloneCell<Rc<dyn Node>>,
     pressed_keys: RefCell<AHashSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
+    x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
     data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,
     primary_selection_devices: RefCell<
         AHashMap<
@@ -190,6 +193,7 @@ impl WlSeatGlobal {
             keyboard_node: CloneCell::new(state.root.clone()),
             pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
+            x_data_devices: Default::default(),
             data_devices: RefCell::new(Default::default()),
             primary_selection_devices: RefCell::new(Default::default()),
             repeat_rate: Cell::new((25, 250)),
@@ -347,6 +351,20 @@ impl WlSeatGlobal {
         dd.entry(device.client.id)
             .or_default()
             .insert(device.id, device.clone());
+    }
+
+    pub fn set_x_data_device(&self, device: &Rc<XIpcDevice>) {
+        self.x_data_devices.insert(device.id, device.clone());
+    }
+
+    pub fn unset_x_data_device(&self, id: XIpcDeviceId) {
+        self.x_data_devices.remove(&id);
+    }
+
+    pub fn for_each_x_data_device(&self, mut f: impl FnMut(&Rc<XIpcDevice>)) {
+        for (_, dev) in &self.x_data_devices {
+            f(&dev);
+        }
     }
 
     pub fn remove_data_device(&self, device: &WlDataDevice) {
@@ -709,11 +727,16 @@ impl WlSeatGlobal {
         }
     }
 
-    fn set_selection_<T: ipc::IpcVtable, S: DynDataSource>(
+    fn set_selection_<T, X, S>(
         self: &Rc<Self>,
         field: &CloneCell<Option<Rc<dyn DynDataSource>>>,
         src: Option<Rc<S>>,
-    ) -> Result<(), WlSeatError> {
+    ) -> Result<(), WlSeatError>
+    where
+        T: ipc::IterableIpcVtable,
+        X: ipc::IpcVtable<Device = XIpcDevice>,
+        S: DynDataSource,
+    {
         if let (Some(new), Some(old)) = (&src, &field.get()) {
             if new.source_data().id == old.source_data().id {
                 return Ok(());
@@ -727,15 +750,36 @@ impl WlSeatGlobal {
             old.detach_seat(self);
         }
         if let Some(client) = self.keyboard_node.get().node_client() {
-            match src {
-                Some(src) => ipc::offer_source_to::<T, _>(&src, &client),
+            self.offer_selection_to_client::<T, X>(src.map(|v| v as Rc<_>), &client);
+            // client.flush();
+        }
+        Ok(())
+    }
+
+    fn offer_selection_to_client<T, X>(
+        &self,
+        selection: Option<Rc<dyn DynDataSource>>,
+        client: &Rc<Client>,
+    ) where
+        T: ipc::IterableIpcVtable,
+        X: ipc::IpcVtable<Device = XIpcDevice>,
+    {
+        if let Some(src) = &selection {
+            src.cancel_offers();
+        }
+        if client.is_xwayland {
+            self.for_each_x_data_device(|dd| match &selection {
+                Some(src) => src.clone().offer_to_x(&dd),
+                _ => X::send_selection(&dd, None),
+            });
+        } else {
+            match selection {
+                Some(src) => src.offer_to_regular_client(client),
                 _ => T::for_each_device(self, client.id, |device| {
                     T::send_selection(device, None);
                 }),
             }
-            // client.flush();
         }
-        Ok(())
     }
 
     pub fn start_drag(
@@ -780,7 +824,7 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         selection: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
-        self.set_selection_::<ClipboardIpc, _>(&self.selection, selection)
+        self.set_selection_::<ClipboardIpc, XClipboardIpc, _>(&self.selection, selection)
     }
 
     pub fn may_modify_selection(&self, client: &Rc<Client>, serial: u32) -> bool {
@@ -821,7 +865,10 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         selection: Option<Rc<S>>,
     ) -> Result<(), WlSeatError> {
-        self.set_selection_::<PrimarySelectionIpc, _>(&self.primary_selection, selection)
+        self.set_selection_::<PrimarySelectionIpc, XPrimarySelectionIpc, _>(
+            &self.primary_selection,
+            selection,
+        )
     }
 
     pub fn reload_known_cursor(&self) {

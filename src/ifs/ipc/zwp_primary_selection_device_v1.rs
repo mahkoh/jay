@@ -6,7 +6,7 @@ use {
                 break_device_loops, destroy_data_device,
                 zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1, DeviceData,
-                IpcVtable, OfferData, Role, XIpcVtable,
+                IpcLocation, IpcVtable, IterableIpcVtable, OfferData, Role,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
@@ -15,9 +15,8 @@ use {
         utils::buffd::{MsgParser, MsgParserError},
         wire::{
             zwp_primary_selection_device_v1::*, ZwpPrimarySelectionDeviceV1Id,
-            ZwpPrimarySelectionOfferV1Id, ZwpPrimarySelectionSourceV1Id,
+            ZwpPrimarySelectionOfferV1Id,
         },
-        xwayland::XWaylandEvent,
     },
     std::rc::Rc,
     thiserror::Error,
@@ -38,56 +37,32 @@ impl ZwpPrimarySelectionDeviceV1 {
         client: &Rc<Client>,
         version: u32,
         seat: &Rc<WlSeatGlobal>,
-        is_xwm: bool,
     ) -> Self {
         Self {
             id,
             client: client.clone(),
             version,
             seat: seat.clone(),
-            data: DeviceData {
-                selection: Default::default(),
-                dnd: Default::default(),
-                is_xwm,
-            },
+            data: Default::default(),
             tracker: Default::default(),
         }
     }
 
     pub fn send_data_offer(&self, offer: &Rc<ZwpPrimarySelectionOfferV1>) {
-        if self.data.is_xwm {
-            self.client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::PrimarySelectionSetOffer(offer.clone()));
-        } else {
-            self.client.event(DataOffer {
-                self_id: self.id,
-                offer: offer.id,
-            })
-        }
+        self.client.event(DataOffer {
+            self_id: self.id,
+            offer: offer.id,
+        })
     }
 
     pub fn send_selection(&self, offer: Option<&Rc<ZwpPrimarySelectionOfferV1>>) {
-        if self.data.is_xwm {
-            self.client
-                .state
-                .xwayland
-                .queue
-                .push(XWaylandEvent::PrimarySelectionSetSelection(
-                    self.seat.id(),
-                    offer.cloned(),
-                ));
-        } else {
-            let id = offer
-                .map(|o| o.id)
-                .unwrap_or(ZwpPrimarySelectionOfferV1Id::NONE);
-            self.client.event(Selection {
-                self_id: self.id,
-                id,
-            })
-        }
+        let id = offer
+            .map(|o| o.id)
+            .unwrap_or(ZwpPrimarySelectionOfferV1Id::NONE);
+        self.client.event(Selection {
+            self_id: self.id,
+            id,
+        })
     }
 
     fn set_selection(
@@ -126,17 +101,18 @@ impl ZwpPrimarySelectionDeviceV1 {
 
 pub struct PrimarySelectionIpc;
 
-impl XIpcVtable for PrimarySelectionIpc {
-    fn create_xwm_source(client: &Rc<Client>) -> Self::Source {
-        ZwpPrimarySelectionSourceV1::new(ZwpPrimarySelectionSourceV1Id::NONE, client, true)
-    }
-
-    fn remove_from_seat(device: &Self::Device) {
-        device.seat.remove_primary_selection_device(device);
+impl IterableIpcVtable for PrimarySelectionIpc {
+    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
+    where
+        C: FnMut(&Rc<Self::Device>),
+    {
+        seat.for_each_primary_selection_device(0, client, f)
     }
 }
 
 impl IpcVtable for PrimarySelectionIpc {
+    const LOCATION: IpcLocation = IpcLocation::PrimarySelection;
+
     type Device = ZwpPrimarySelectionDeviceV1;
     type Source = ZwpPrimarySelectionSourceV1;
     type Offer = ZwpPrimarySelectionOfferV1;
@@ -157,32 +133,20 @@ impl IpcVtable for PrimarySelectionIpc {
         seat.set_zwp_primary_selection(Some(source.clone()), serial)
     }
 
-    fn for_each_device<C>(seat: &WlSeatGlobal, client: ClientId, f: C)
-    where
-        C: FnMut(&Rc<Self::Device>),
-    {
-        seat.for_each_primary_selection_device(0, client, f)
-    }
-
     fn create_offer(
-        client: &Rc<Client>,
         device: &Rc<ZwpPrimarySelectionDeviceV1>,
         offer_data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError> {
-        let id = if device.data.is_xwm {
-            ZwpPrimarySelectionOfferV1Id::NONE
-        } else {
-            client.new_id()?
-        };
         let rc = Rc::new(ZwpPrimarySelectionOfferV1 {
-            id,
-            offer_id: client.state.data_offer_ids.next(),
+            id: device.client.new_id()?,
+            offer_id: device.client.state.data_offer_ids.next(),
             seat: device.seat.clone(),
-            client: client.clone(),
+            client: device.client.clone(),
             data: offer_data,
             tracker: Default::default(),
         });
-        track!(client, rc);
+        track!(device.client, rc);
+        device.client.add_server_obj(&rc);
         Ok(rc)
     }
 
@@ -196,6 +160,10 @@ impl IpcVtable for PrimarySelectionIpc {
 
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
         seat.unset_primary_selection();
+    }
+
+    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client> {
+        &dd.client
     }
 }
 

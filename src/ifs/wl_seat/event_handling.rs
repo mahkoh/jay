@@ -4,10 +4,13 @@ use {
         client::ClientId,
         fixed::Fixed,
         ifs::{
-            ipc,
             ipc::{
                 wl_data_device::{ClipboardIpc, WlDataDevice},
-                zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
+                x_data_device::{XClipboardIpc, XPrimarySelectionIpc},
+                zwp_primary_selection_device_v1::{
+                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
+                },
+                DynDataSource,
             },
             wl_seat::{
                 wl_keyboard::{self, WlKeyboard},
@@ -742,22 +745,14 @@ impl WlSeatGlobal {
         });
 
         if self.keyboard_node.get().node_client_id() != Some(surface.client.id) {
-            match self.selection.get() {
-                Some(sel) => sel.offer_to(&surface.client),
-                None => {
-                    self.for_each_data_device(0, surface.client.id, |dd| {
-                        dd.send_selection(None);
-                    });
-                }
-            }
-            match self.primary_selection.get() {
-                Some(sel) => sel.offer_to(&surface.client),
-                None => {
-                    self.for_each_primary_selection_device(0, surface.client.id, |dd| {
-                        dd.send_selection(None);
-                    });
-                }
-            }
+            self.offer_selection_to_client::<ClipboardIpc, XClipboardIpc>(
+                self.selection.get(),
+                &surface.client,
+            );
+            self.offer_selection_to_client::<PrimarySelectionIpc, XPrimarySelectionIpc>(
+                self.primary_selection.get(),
+                &surface.client,
+            );
         }
     }
 }
@@ -819,7 +814,9 @@ impl WlSeatGlobal {
         serial: u32,
     ) {
         if let Some(src) = &dnd.src {
-            ipc::offer_source_to::<ClipboardIpc, _>(src, &surface.client);
+            if !surface.client.is_xwayland {
+                src.clone().offer_to_regular_client(&surface.client);
+            }
             src.for_each_data_offer(|offer| {
                 offer.send_enter(surface.id, x, y, serial);
                 offer.send_source_actions();

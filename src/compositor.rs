@@ -191,6 +191,7 @@ fn start_compositor2(
             enabled: Cell::new(true),
             handler: Default::default(),
             queue: Default::default(),
+            ipc_device_ids: Default::default(),
         },
         acceptor: Default::default(),
         serial: Default::default(),

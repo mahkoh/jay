@@ -7,11 +7,7 @@ use {
         compositor::DISPLAY,
         forker::{ForkerError, ForkerProxy},
         ifs::{
-            ipc::{
-                wl_data_offer::WlDataOffer, wl_data_source::WlDataSource,
-                zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1,
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-            },
+            ipc::{x_data_offer::XDataOffer, DataOfferId, DataSourceId, IpcLocation},
             wl_seat::SeatId,
             wl_surface::x_surface::xwindow::{Xwindow, XwindowData},
         },
@@ -237,15 +233,32 @@ pub enum XWaylandEvent {
     #[allow(dead_code)]
     SeatChanged,
 
-    PrimarySelectionCancelSource(Rc<ZwpPrimarySelectionSourceV1>),
-    PrimarySelectionSendSource(Rc<ZwpPrimarySelectionSourceV1>, String, Rc<OwnedFd>),
-    PrimarySelectionSetOffer(Rc<ZwpPrimarySelectionOfferV1>),
-    PrimarySelectionSetSelection(SeatId, Option<Rc<ZwpPrimarySelectionOfferV1>>),
-    PrimarySelectionAddOfferMimeType(Rc<ZwpPrimarySelectionOfferV1>, String),
-
-    ClipboardCancelSource(Rc<WlDataSource>),
-    ClipboardSendSource(Rc<WlDataSource>, String, Rc<OwnedFd>),
-    ClipboardSetOffer(Rc<WlDataOffer>),
-    ClipboardSetSelection(SeatId, Option<Rc<WlDataOffer>>),
-    ClipboardAddOfferMimeType(Rc<WlDataOffer>, String),
+    IpcCancelSource {
+        location: IpcLocation,
+        seat: SeatId,
+        source: DataSourceId,
+    },
+    IpcSendSource {
+        location: IpcLocation,
+        seat: SeatId,
+        source: DataSourceId,
+        mime_type: String,
+        fd: Rc<OwnedFd>,
+    },
+    IpcSetOffer {
+        location: IpcLocation,
+        seat: SeatId,
+        offer: Rc<XDataOffer>,
+    },
+    IpcSetSelection {
+        location: IpcLocation,
+        seat: SeatId,
+        offer: Option<Rc<XDataOffer>>,
+    },
+    IpcAddOfferMimeType {
+        location: IpcLocation,
+        seat: SeatId,
+        offer: DataOfferId,
+        mime_type: String,
+    },
 }
