@@ -401,6 +401,12 @@ impl PendingState {
 
         // overwrite state
 
+        if let Some(buffer) = next.buffer.take() {
+            self.buffer = Some(buffer);
+            self.acquire_point = next.acquire_point.take();
+            self.release_point = next.release_point.take();
+            self.explicit_sync = mem::take(&mut next.explicit_sync);
+        }
         macro_rules! opt {
             ($name:ident) => {
                 if let Some(n) = next.$name.take() {
@@ -408,7 +414,6 @@ impl PendingState {
                 }
             };
         }
-        opt!(buffer);
         opt!(opaque_region);
         opt!(input_region);
         opt!(src_rect);
@@ -418,8 +423,6 @@ impl PendingState {
         opt!(xwayland_serial);
         opt!(tearing);
         opt!(content_type);
-        opt!(acquire_point);
-        opt!(release_point);
         {
             let (dx1, dy1) = self.offset;
             let (dx2, dy2) = mem::take(&mut next.offset);
