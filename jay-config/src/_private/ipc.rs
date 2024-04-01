@@ -431,6 +431,7 @@ pub enum ClientMessage<'a> {
     SetExplicitSyncEnabled {
         enabled: bool,
     },
+    GetSocketPath,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -575,6 +576,9 @@ pub enum Response {
     },
     GetInputDeviceDevnode {
         devnode: String,
+    },
+    GetSocketPath {
+        path: String,
     },
 }
 

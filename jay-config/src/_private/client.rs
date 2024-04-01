@@ -944,6 +944,12 @@ impl Client {
         })
     }
 
+    pub fn get_socket_path(&self) -> Option<String> {
+        let res = self.send_with_response(&ClientMessage::GetSocketPath);
+        get_response!(res, None, GetSocketPath { path });
+        Some(path)
+    }
+
     pub fn create_pollable(&self, fd: i32) -> Result<PollableId, String> {
         let res = self.send_with_response(&ClientMessage::AddPollable { fd });
         get_response!(

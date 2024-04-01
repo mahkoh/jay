@@ -82,6 +82,21 @@ impl Command {
         self.fd(2, fd)
     }
 
+    /// Runs the application with access to privileged wayland protocols.
+    ///
+    /// The default is `false`.
+    pub fn privileged(&mut self) -> &mut Self {
+        match get!(self).get_socket_path() {
+            Some(path) => {
+                self.env("WAYLAND_DISPLAY", &format!("{path}.jay"));
+            }
+            _ => {
+                log::error!("Compositor did not send the socket path");
+            }
+        }
+        self
+    }
+
     /// Executes the command.
     ///
     /// This consumes all attached file descriptors.

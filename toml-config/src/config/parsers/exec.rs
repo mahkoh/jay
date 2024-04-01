@@ -2,7 +2,7 @@ use {
     crate::{
         config::{
             context::Context,
-            extractor::{arr, opt, str, val, Extractor, ExtractorError},
+            extractor::{arr, bol, opt, recover, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 env::{EnvParser, EnvParserError},
@@ -11,7 +11,7 @@ use {
             Exec,
         },
         toml::{
-            toml_span::{Span, Spanned, SpannedExt},
+            toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
         },
     },
@@ -45,6 +45,7 @@ impl Parser for ExecParser<'_> {
             prog: string.to_string(),
             args: vec![],
             envs: vec![],
+            privileged: false,
         })
     }
 
@@ -61,6 +62,7 @@ impl Parser for ExecParser<'_> {
             prog,
             args,
             envs: vec![],
+            privileged: false,
         })
     }
 
@@ -70,8 +72,12 @@ impl Parser for ExecParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (prog, args_val, envs_val) =
-            ext.extract((str("prog"), opt(arr("args")), opt(val("env"))))?;
+        let (prog, args_val, envs_val, privileged) = ext.extract((
+            str("prog"),
+            opt(arr("args")),
+            opt(val("env")),
+            recover(opt(bol("privileged"))),
+        ))?;
         let mut args = vec![];
         if let Some(args_val) = args_val {
             for arg in args_val.value {
@@ -86,6 +92,7 @@ impl Parser for ExecParser<'_> {
             prog: prog.value.to_string(),
             args,
             envs,
+            privileged: privileged.despan().unwrap_or(false),
         })
     }
 }

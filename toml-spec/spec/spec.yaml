@@ -583,6 +583,13 @@ Exec:
           values:
             kind: string
           description: The environment variables to pass to the executable.
+        privileged:
+          kind: boolean
+          required: false
+          description: |
+            If `true`, the executable gets access to privileged wayland protocols.
+            
+            The default is `false`.
 
 
 SimpleActionName:

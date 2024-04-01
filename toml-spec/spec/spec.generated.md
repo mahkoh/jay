@@ -1308,6 +1308,14 @@ The table has the following fields:
 
   The value of this field should be a table whose values are strings.
 
+- `privileged` (optional):
+
+  If `true`, the executable gets access to privileged wayland protocols.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-GfxApi"></a>
 ### `GfxApi`

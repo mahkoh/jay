@@ -823,6 +823,9 @@ fn create_command(exec: &Exec) -> Command {
     for (k, v) in &exec.envs {
         command.env(k, v);
     }
+    if exec.privileged {
+        command.privileged();
+    }
     command
 }
 

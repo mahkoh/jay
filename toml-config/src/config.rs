@@ -245,6 +245,7 @@ pub struct Exec {
     pub prog: String,
     pub args: Vec<String>,
     pub envs: Vec<(String, String)>,
+    pub privileged: bool,
 }
 
 #[derive(Debug, Clone)]
