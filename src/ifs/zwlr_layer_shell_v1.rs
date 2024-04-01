@@ -113,6 +113,10 @@ impl Global for ZwlrLayerShellV1Global {
     fn version(&self) -> u32 {
         4
     }
+
+    fn secure(&self) -> bool {
+        true
+    }
 }
 
 simple_add_global!(ZwlrLayerShellV1Global);
