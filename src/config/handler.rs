@@ -804,6 +804,19 @@ impl ConfigProxyHandler {
         self.state.explicit_sync_enabled.set(enabled);
     }
 
+    fn handle_get_socket_path(&self) {
+        match self.state.acceptor.get() {
+            Some(a) => {
+                self.respond(Response::GetSocketPath {
+                    path: a.socket_name().to_string(),
+                });
+            }
+            _ => {
+                log::warn!("There is no acceptor");
+            }
+        }
+    }
+
     fn handle_connector_connected(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_connector(connector)?;
         self.respond(Response::ConnectorConnected {
@@ -1732,6 +1745,7 @@ impl ConfigProxyHandler {
             ClientMessage::SetExplicitSyncEnabled { enabled } => {
                 self.handle_set_explicit_sync_enabled(enabled)
             }
+            ClientMessage::GetSocketPath => self.handle_get_socket_path(),
         }
         Ok(())
     }

@@ -677,6 +677,10 @@
                 "type": "string",
                 "description": ""
               }
+            },
+            "privileged": {
+              "type": "boolean",
+              "description": "If `true`, the executable gets access to privileged wayland protocols.\n\nThe default is `false`.\n"
             }
           },
           "required": [

@@ -7,7 +7,7 @@ keymap = """
     };
     """
 
-on-graphics-initialized = { type = "exec", exec = "mako" }
+on-graphics-initialized = { type = "exec", exec = { prog = "mako", privileged = true } }
 
 [shortcuts]
 alt-h = "focus-left"
