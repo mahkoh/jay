@@ -3,7 +3,7 @@ use {
         ifs::wl_surface::WlSurface,
         it::{
             test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
+            test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{wl_surface::*, WlBufferId, WlSurfaceId},
@@ -16,6 +16,7 @@ pub struct TestSurface {
     pub tran: Rc<TestTransport>,
     pub server: Rc<WlSurface>,
     pub destroyed: Cell<bool>,
+    pub preferred_buffer_scale: TEEH<i32>,
 }
 
 impl TestSurface {
@@ -59,6 +60,12 @@ impl TestSurface {
         let _ev = Leave::parse_full(parser)?;
         Ok(())
     }
+
+    fn handle_preferred_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
+        let ev = PreferredBufferScale::parse_full(parser)?;
+        self.preferred_buffer_scale.push(ev.factor);
+        Ok(())
+    }
 }
 
 impl Drop for TestSurface {
@@ -72,6 +79,7 @@ test_object! {
 
     ENTER => handle_enter,
     LEAVE => handle_leave,
+    PREFERRED_BUFFER_SCALE => handle_preferred_buffer_scale,
 }
 
 impl TestObject for TestSurface {}

@@ -46,6 +46,7 @@ mod t0017_remove_unused_ws;
 mod t0018_click_to_active_ws;
 mod t0019_natural_scrolling;
 mod t0020_surface_offset;
+mod t0021_preferred_buffer_scale;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -85,5 +86,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0018_click_to_active_ws,
         t0019_natural_scrolling,
         t0020_surface_offset,
+        t0021_preferred_buffer_scale,
     }
 }
