@@ -124,7 +124,7 @@ impl TestRegistry {
             id: self.tran.id(),
             tran: self.tran.clone(),
         });
-        self.bind(&jc, singletons.wl_compositor, 4)?;
+        self.bind(&jc, singletons.wl_compositor, 6)?;
         self.compositor.set(Some(jc.clone()));
         Ok(jc)
     }

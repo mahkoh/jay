@@ -45,6 +45,7 @@ mod t0016_scroll_ws;
 mod t0017_remove_unused_ws;
 mod t0018_click_to_active_ws;
 mod t0019_natural_scrolling;
+mod t0020_surface_offset;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -62,6 +63,7 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
             ]
         }
     }
+
     tests! {
         t0001_shm_formats,
         t0002_window,
@@ -82,5 +84,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0017_remove_unused_ws,
         t0018_click_to_active_ws,
         t0019_natural_scrolling,
+        t0020_surface_offset,
     }
 }

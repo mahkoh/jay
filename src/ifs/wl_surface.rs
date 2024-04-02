@@ -910,20 +910,20 @@ impl WlSurface {
                     release,
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
-                self.buf_x.fetch_add(dx);
-                self.buf_y.fetch_add(dy);
-                if (dx, dy) != (0, 0) {
-                    self.need_extents_update.set(true);
-                    for (_, cursor) in &self.cursors {
-                        cursor.dec_hotspot(dx, dy);
-                    }
-                }
             } else {
                 self.buf_x.set(0);
                 self.buf_y.set(0);
                 for (_, cursor) in &self.cursors {
                     cursor.set_hotspot(0, 0);
                 }
+            }
+        }
+        if self.buffer.is_some() && (dx, dy) != (0, 0) {
+            self.buf_x.fetch_add(dx);
+            self.buf_y.fetch_add(dy);
+            self.need_extents_update.set(true);
+            for (_, cursor) in &self.cursors {
+                cursor.dec_hotspot(dx, dy);
             }
         }
         let transform_changed = viewport_changed || scale_changed || buffer_transform_changed;

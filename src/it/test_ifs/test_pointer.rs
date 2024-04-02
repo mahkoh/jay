@@ -2,8 +2,9 @@ use {
     crate::{
         ifs::wl_seat::wl_pointer::WlPointer,
         it::{
-            test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH, testrun::ParseFull,
+            test_error::TestResult, test_ifs::test_surface::TestSurface, test_object::TestObject,
+            test_transport::TestTransport, test_utils::test_expected_event::TEEH,
+            testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell},
         wire::{wl_pointer::*, WlPointerId},
@@ -27,6 +28,23 @@ impl TestPointer {
         if !self.destroyed.replace(true) {
             self.tran.send(Release { self_id: self.id })?;
         }
+        Ok(())
+    }
+
+    pub fn set_cursor(
+        &self,
+        serial: u32,
+        surface: &TestSurface,
+        hotspot_x: i32,
+        hotspot_y: i32,
+    ) -> TestResult {
+        self.tran.send(SetCursor {
+            self_id: self.id,
+            serial,
+            surface: surface.id,
+            hotspot_x,
+            hotspot_y,
+        })?;
         Ok(())
     }
 

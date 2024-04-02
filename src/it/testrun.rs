@@ -113,7 +113,9 @@ impl TestRun {
             .set_input_device_seat(self.backend.default_kb.common.id, seat.id())?;
         self.cfg
             .set_input_device_seat(self.backend.default_mouse.common.id, seat.id())?;
+        self.backend.default_mouse.click(1);
         self.state.eng.yield_now().await;
+        self.cfg.show_workspace(seat.id(), "")?;
         Ok(DefaultSetup {
             connector: self.backend.default_connector.clone(),
             output,

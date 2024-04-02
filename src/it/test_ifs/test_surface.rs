@@ -36,6 +36,15 @@ impl TestSurface {
         Ok(())
     }
 
+    pub fn offset(&self, dx: i32, dy: i32) -> Result<(), TestError> {
+        self.tran.send(Offset {
+            self_id: self.id,
+            x: dx,
+            y: dy,
+        })?;
+        Ok(())
+    }
+
     pub fn commit(&self) -> Result<(), TestError> {
         self.tran.send(Commit { self_id: self.id })?;
         Ok(())
