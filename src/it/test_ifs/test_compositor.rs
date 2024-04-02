@@ -35,6 +35,7 @@ impl TestCompositor {
             server,
             destroyed: Cell::new(false),
             preferred_buffer_scale: Rc::new(Default::default()),
+            preferred_buffer_transform: Rc::new(Default::default()),
         });
         self.tran.add_obj(surface.clone())?;
         Ok(surface)

@@ -17,6 +17,7 @@ pub struct TestSurface {
     pub server: Rc<WlSurface>,
     pub destroyed: Cell<bool>,
     pub preferred_buffer_scale: TEEH<i32>,
+    pub preferred_buffer_transform: TEEH<u32>,
 }
 
 impl TestSurface {
@@ -66,6 +67,15 @@ impl TestSurface {
         self.preferred_buffer_scale.push(ev.factor);
         Ok(())
     }
+
+    fn handle_preferred_buffer_transform(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), TestError> {
+        let ev = PreferredBufferTransform::parse_full(parser)?;
+        self.preferred_buffer_transform.push(ev.transform);
+        Ok(())
+    }
 }
 
 impl Drop for TestSurface {
@@ -80,6 +90,7 @@ test_object! {
     ENTER => handle_enter,
     LEAVE => handle_leave,
     PREFERRED_BUFFER_SCALE => handle_preferred_buffer_scale,
+    PREFERRED_BUFFER_TRANSFORM => handle_preferred_buffer_transform,
 }
 
 impl TestObject for TestSurface {}

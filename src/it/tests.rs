@@ -56,6 +56,7 @@ mod t0022_toplevel_suspended;
 mod t0023_xdg_activation;
 mod t0024_foreign_toplevel_list;
 mod t0025_dnd_focus_change;
+mod t0026_output_transform;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -100,5 +101,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0023_xdg_activation,
         t0024_foreign_toplevel_list,
         t0025_dnd_focus_change,
+        t0026_output_transform,
     }
 }

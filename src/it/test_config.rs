@@ -16,7 +16,7 @@ use {
         },
         input::{InputDevice, Seat},
         keyboard::{Keymap, ModifiedKeySym},
-        video::Connector,
+        video::{Connector, Transform},
         Axis, Direction,
     },
     std::{cell::Cell, ops::Deref, ptr, rc::Rc},
@@ -258,6 +258,13 @@ impl TestConfig {
         self.send(ClientMessage::ConnectorSetScale {
             connector: Connector(output.global.connector.connector.id().raw() as _),
             scale,
+        })
+    }
+
+    pub fn set_output_transform(&self, output: &OutputNode, transform: Transform) -> TestResult {
+        self.send(ClientMessage::ConnectorSetTransform {
+            connector: Connector(output.global.connector.connector.id().raw() as _),
+            transform,
         })
     }
 }
