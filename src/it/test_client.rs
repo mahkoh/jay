@@ -6,10 +6,10 @@ use {
         it::{
             test_error::{TestError, TestResult},
             test_ifs::{
-                test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_keyboard::TestKeyboard, test_pointer::TestPointer,
-                test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
-                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_compositor::TestCompositor, test_data_device_manager::TestDataDeviceManager,
+                test_jay_compositor::TestJayCompositor, test_keyboard::TestKeyboard,
+                test_pointer::TestPointer, test_registry::TestRegistry, test_seat::TestSeat,
+                test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
                 test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
@@ -35,6 +35,7 @@ pub struct TestClient {
     pub viewporter: Rc<TestViewporter>,
     pub xdg: Rc<TestXdgWmBase>,
     pub activation: Rc<TestXdgActivation>,
+    pub data_device_manager: Rc<TestDataDeviceManager>,
 }
 
 pub struct DefaultSeat {

@@ -5,7 +5,7 @@ use {
         it::{
             test_error::TestError,
             test_ifs::{
-                test_compositor::TestCompositor,
+                test_compositor::TestCompositor, test_data_device_manager::TestDataDeviceManager,
                 test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
                 test_jay_compositor::TestJayCompositor, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
@@ -41,6 +41,7 @@ pub struct TestRegistrySingletons {
     pub wp_viewporter: u32,
     pub xdg_activation_v1: u32,
     pub ext_foreign_toplevel_list_v1: u32,
+    pub wl_data_device_manager: u32,
 }
 
 pub struct TestRegistry {
@@ -57,6 +58,7 @@ pub struct TestRegistry {
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
     pub activation: CloneCell<Option<Rc<TestXdgActivation>>>,
     pub foreign_toplevel_list: CloneCell<Option<Rc<TestExtForeignToplevelList>>>,
+    pub data_device_manager: CloneCell<Option<Rc<TestDataDeviceManager>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -108,6 +110,7 @@ impl TestRegistry {
             wp_viewporter,
             xdg_activation_v1,
             ext_foreign_toplevel_list_v1,
+            wl_data_device_manager,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -237,6 +240,19 @@ impl TestRegistry {
         });
         self.bind(&jc, singletons.ext_foreign_toplevel_list_v1, 1)?;
         self.foreign_toplevel_list.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_data_device_manager(&self) -> Result<Rc<TestDataDeviceManager>, TestError> {
+        singleton!(self.data_device_manager);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.data_device_manager);
+        let jc = Rc::new(TestDataDeviceManager {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+        });
+        self.bind(&jc, singletons.wl_data_device_manager, 3)?;
+        self.data_device_manager.set(Some(jc.clone()));
         Ok(jc)
     }
 

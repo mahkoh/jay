@@ -1,6 +1,10 @@
 mod test_buffer;
 pub mod test_callback;
 pub mod test_compositor;
+pub mod test_data_device;
+pub mod test_data_device_manager;
+pub mod test_data_offer;
+pub mod test_data_source;
 pub mod test_display;
 pub mod test_ext_foreign_toplevel_handle;
 pub mod test_ext_foreign_toplevel_list;

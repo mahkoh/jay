@@ -20,6 +20,7 @@ pub struct TestPointer {
     pub leave: TEEH<Leave>,
     pub enter: TEEH<Enter>,
     pub motion: TEEH<Motion>,
+    pub button: TEEH<Button>,
     pub axis_relative_direction: TEEH<AxisRelativeDirection>,
 }
 
@@ -67,7 +68,8 @@ impl TestPointer {
     }
 
     fn handle_button(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Button::parse_full(parser)?;
+        let ev = Button::parse_full(parser)?;
+        self.button.push(ev);
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-use crate::tree::ToplevelNode;
+use crate::{it::test_utils::test_rect_ext::TestRectExt, tree::ToplevelNode};
 
 pub trait TestToplevelNodeExt {
     fn center(&self) -> (i32, i32);
@@ -6,7 +6,6 @@ pub trait TestToplevelNodeExt {
 
 impl TestToplevelNodeExt for dyn ToplevelNode {
     fn center(&self) -> (i32, i32) {
-        let rect = self.node_absolute_position();
-        ((rect.x1() + rect.x2()) / 2, (rect.y1() + rect.y2()) / 2)
+        self.node_absolute_position().center()
     }
 }

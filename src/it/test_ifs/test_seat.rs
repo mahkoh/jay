@@ -66,6 +66,7 @@ impl TestSeat {
             leave: Rc::new(Default::default()),
             enter: Rc::new(Default::default()),
             motion: Rc::new(Default::default()),
+            button: Rc::new(Default::default()),
             axis_relative_direction: Rc::new(Default::default()),
         });
         self.tran.add_obj(pointer.clone())?;

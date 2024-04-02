@@ -89,6 +89,7 @@ impl TestRun {
             viewporter: registry.get_viewporter().await?,
             xdg: registry.get_xdg().await?,
             activation: registry.get_activation().await?,
+            data_device_manager: registry.get_data_device_manager().await?,
             registry,
         }))
     }
