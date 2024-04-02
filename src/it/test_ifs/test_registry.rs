@@ -6,7 +6,8 @@ use {
             test_error::TestError,
             test_ifs::{
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_shm::TestShm, test_subcompositor::TestSubcompositor,
+                test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
                 test_xdg_base::TestXdgWmBase,
             },
             test_object::TestObject,
@@ -31,6 +32,8 @@ pub struct TestRegistrySingletons {
     pub wl_subcompositor: u32,
     pub wl_shm: u32,
     pub xdg_wm_base: u32,
+    pub wp_single_pixel_buffer_manager_v1: u32,
+    pub wp_viewporter: u32,
 }
 
 pub struct TestRegistry {
@@ -42,6 +45,8 @@ pub struct TestRegistry {
     pub compositor: CloneCell<Option<Rc<TestCompositor>>>,
     pub subcompositor: CloneCell<Option<Rc<TestSubcompositor>>>,
     pub shm: CloneCell<Option<Rc<TestShm>>>,
+    pub spbm: CloneCell<Option<Rc<TestSinglePixelBufferManager>>>,
+    pub viewporter: CloneCell<Option<Rc<TestViewporter>>>,
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
@@ -90,6 +95,8 @@ impl TestRegistry {
             wl_subcompositor,
             wl_shm,
             xdg_wm_base,
+            wp_single_pixel_buffer_manager_v1,
+            wp_viewporter,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -148,6 +155,32 @@ impl TestRegistry {
         });
         self.bind(&jc, singletons.wl_shm, 1)?;
         self.shm.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_spbm(&self) -> Result<Rc<TestSinglePixelBufferManager>, TestError> {
+        singleton!(self.spbm);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.spbm);
+        let jc = Rc::new(TestSinglePixelBufferManager {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+        });
+        self.bind(&jc, singletons.wp_single_pixel_buffer_manager_v1, 1)?;
+        self.spbm.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_viewporter(&self) -> Result<Rc<TestViewporter>, TestError> {
+        singleton!(self.viewporter);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.viewporter);
+        let jc = Rc::new(TestViewporter {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+        });
+        self.bind(&jc, singletons.wp_viewporter, 1)?;
+        self.viewporter.set(Some(jc.clone()));
         Ok(jc)
     }
 

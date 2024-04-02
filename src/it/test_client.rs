@@ -2,7 +2,6 @@ use {
     crate::{
         cli::screenshot::buf_to_qoi,
         client::Client,
-        format::ARGB8888,
         globals::GlobalBase,
         it::{
             test_error::{TestError, TestResult},
@@ -10,14 +9,15 @@ use {
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
                 test_keyboard::TestKeyboard, test_pointer::TestPointer,
                 test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
-                test_subcompositor::TestSubcompositor, test_xdg_base::TestXdgWmBase,
+                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
+                test_xdg_base::TestXdgWmBase,
             },
             test_transport::TestTransport,
             test_utils::test_window::TestWindow,
             testrun::TestRun,
         },
         theme::Color,
-        utils::clonecell::CloneCell,
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -31,6 +31,8 @@ pub struct TestClient {
     pub comp: Rc<TestCompositor>,
     pub sub: Rc<TestSubcompositor>,
     pub shm: Rc<TestShm>,
+    pub spbm: Rc<TestSinglePixelBufferManager>,
+    pub viewporter: Rc<TestViewporter>,
     pub xdg: Rc<TestXdgWmBase>,
 }
 
@@ -114,19 +116,18 @@ impl TestClient {
 
     pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
         let surface = self.comp.create_surface().await?;
-        let shm = self.shm.create_pool(0)?;
-        let buffer = shm.create_buffer(0, 0, 0, 0, ARGB8888)?;
+        let viewport = self.viewporter.get_viewport(&surface)?;
         let xdg = self.xdg.create_xdg_surface(surface.id).await?;
         let tl = xdg.create_toplevel().await?;
         surface.commit()?;
         self.sync().await;
         Ok(Rc::new(TestWindow {
             surface,
+            spbm: self.spbm.clone(),
+            viewport,
             xdg,
             tl,
-            shm,
-            buffer: CloneCell::new(buffer),
-            color: Cell::new(Color::from_rgba_straight(0, 0, 0, 0)),
+            color: Cell::new(Color::SOLID_BLACK),
         }))
     }
 }

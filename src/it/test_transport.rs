@@ -56,6 +56,8 @@ impl TestTransport {
             compositor: Default::default(),
             subcompositor: Default::default(),
             shm: Default::default(),
+            spbm: Default::default(),
+            viewporter: Default::default(),
             xdg: Default::default(),
             seats: Default::default(),
         });

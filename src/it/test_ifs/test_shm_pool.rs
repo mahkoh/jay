@@ -2,8 +2,11 @@ use {
     crate::{
         format::Format,
         it::{
-            test_error::TestError, test_ifs::test_shm_buffer::TestShmBuffer, test_mem::TestMem,
-            test_object::TestObject, test_transport::TestTransport,
+            test_error::TestError,
+            test_ifs::{test_buffer::TestBuffer, test_shm_buffer::TestShmBuffer},
+            test_mem::TestMem,
+            test_object::TestObject,
+            test_transport::TestTransport,
         },
         utils::clonecell::CloneCell,
         wire::{wl_shm_pool::*, WlShmPoolId},
@@ -19,6 +22,7 @@ pub struct TestShmPool {
 }
 
 impl TestShmPool {
+    #[allow(dead_code)]
     pub fn create_buffer(
         &self,
         offset: i32,
@@ -35,17 +39,19 @@ impl TestShmPool {
             bail!("Out-of-bounds buffer");
         }
         let buffer = Rc::new(TestShmBuffer {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
+            buffer: Rc::new(TestBuffer {
+                id: self.tran.id(),
+                tran: self.tran.clone(),
+                released: Cell::new(true),
+                destroyed: Cell::new(false),
+            }),
             range: start..end,
             mem,
-            released: Cell::new(true),
-            destroyed: Cell::new(false),
         });
-        self.tran.add_obj(buffer.clone())?;
+        self.tran.add_obj(buffer.buffer.clone())?;
         self.tran.send(CreateBuffer {
             self_id: self.id,
-            id: buffer.id,
+            id: buffer.buffer.id,
             offset,
             width,
             height,
@@ -55,6 +61,7 @@ impl TestShmPool {
         Ok(buffer)
     }
 
+    #[allow(dead_code)]
     pub fn resize(&self, size: usize) -> Result<(), TestError> {
         let mem = self.mem.get().grow(size)?;
         self.mem.set(mem);

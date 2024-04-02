@@ -1,6 +1,5 @@
 use {
     crate::{
-        format::ARGB8888,
         it::{test_error::TestError, testrun::TestRun},
         theme::Color,
     },
@@ -26,17 +25,20 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     parent.set_color(0, 0, 0, 255);
 
     let child = client.comp.create_surface().await?;
+    let child_viewport = client.viewporter.get_viewport(&child)?;
     let sub = client
         .sub
         .get_subsurface(child.id, parent.surface.id)
         .await?;
     sub.set_position(100, 100)?;
 
-    let pool = client.shm.create_pool(100 * 100 * 4)?;
-    let buffer = pool.create_buffer(0, 100, 100, 100 * 4, ARGB8888)?;
-    buffer.fill(Color::from_rgba_straight(255, 255, 255, 255));
+    let buffer = client
+        .spbm
+        .create_buffer(Color::from_rgba_straight(255, 255, 255, 255))?;
 
     child.attach(buffer.id)?;
+    child_viewport.set_source(0, 0, 1, 1)?;
+    child_viewport.set_destination(100, 100)?;
     child.commit()?;
 
     parent.map().await?;

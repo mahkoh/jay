@@ -1,3 +1,4 @@
+mod test_buffer;
 pub mod test_callback;
 pub mod test_compositor;
 pub mod test_display;
@@ -11,9 +12,12 @@ pub mod test_seat;
 pub mod test_shm;
 pub mod test_shm_buffer;
 pub mod test_shm_pool;
+pub mod test_single_pixel_buffer_manager;
 pub mod test_subcompositor;
 pub mod test_subsurface;
 pub mod test_surface;
+pub mod test_viewport;
+pub mod test_viewporter;
 pub mod test_xdg_base;
 pub mod test_xdg_surface;
 pub mod test_xdg_toplevel;

@@ -83,6 +83,8 @@ impl TestRun {
             comp: registry.get_compositor().await?,
             sub: registry.get_subcompositor().await?,
             shm: registry.get_shm().await?,
+            spbm: registry.get_spbm().await?,
+            viewporter: registry.get_viewporter().await?,
             xdg: registry.get_xdg().await?,
             registry,
         }))
