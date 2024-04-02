@@ -1,6 +1,8 @@
 mod test_buffer;
 pub mod test_callback;
 pub mod test_compositor;
+pub mod test_cursor_shape_device;
+pub mod test_cursor_shape_manager;
 pub mod test_data_device;
 pub mod test_data_device_manager;
 pub mod test_data_offer;

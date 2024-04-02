@@ -909,6 +909,11 @@ impl WlSeatGlobal {
         }
     }
 
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    pub fn get_desired_known_cursor(&self) -> Option<KnownCursor> {
+        self.desired_known_cursor.get()
+    }
+
     pub fn set_known_cursor(&self, cursor: KnownCursor) {
         self.desired_known_cursor.set(Some(cursor));
         let cursors = match self.state.cursors.get() {

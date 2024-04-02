@@ -90,6 +90,7 @@ impl TestRun {
             xdg: registry.get_xdg().await?,
             activation: registry.get_activation().await?,
             data_device_manager: registry.get_data_device_manager().await?,
+            cursor_shape_manager: registry.get_cursor_shape_manager().await?,
             registry,
         }))
     }
