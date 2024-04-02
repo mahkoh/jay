@@ -2,8 +2,11 @@ use {
     crate::{
         client::ClientId,
         it::{
-            test_error::TestError, test_ifs::test_screenshot::TestJayScreenshot,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
+            test_error::{TestError, TestResult},
+            test_ifs::test_screenshot::TestJayScreenshot,
+            test_object::TestObject,
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         utils::{buffd::MsgParser, cell_ext::CellExt},
         wire::{
@@ -31,6 +34,11 @@ impl TestJayCompositor {
             Some(c) => Ok(c),
             _ => bail!("Compositor did not send a client id"),
         }
+    }
+
+    pub fn enable_symmetric_delete(&self) -> TestResult {
+        self.tran.send(EnableSymmetricDelete { self_id: self.id })?;
+        Ok(())
     }
 
     pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Dmabuf, TestError> {

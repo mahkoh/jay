@@ -5,8 +5,10 @@ use {
         it::{
             test_error::TestError,
             test_ifs::{
-                test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_compositor::TestCompositor,
+                test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
+                test_jay_compositor::TestJayCompositor, test_shm::TestShm,
+                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
                 test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
@@ -17,7 +19,10 @@ use {
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
         wire::{wl_registry::*, WlRegistryId, WlSeat},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    },
 };
 
 pub struct TestGlobal {
@@ -35,6 +40,7 @@ pub struct TestRegistrySingletons {
     pub wp_single_pixel_buffer_manager_v1: u32,
     pub wp_viewporter: u32,
     pub xdg_activation_v1: u32,
+    pub ext_foreign_toplevel_list_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -50,6 +56,7 @@ pub struct TestRegistry {
     pub viewporter: CloneCell<Option<Rc<TestViewporter>>>,
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
     pub activation: CloneCell<Option<Rc<TestXdgActivation>>>,
+    pub foreign_toplevel_list: CloneCell<Option<Rc<TestExtForeignToplevelList>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -100,6 +107,7 @@ impl TestRegistry {
             wp_single_pixel_buffer_manager_v1,
             wp_viewporter,
             xdg_activation_v1,
+            ext_foreign_toplevel_list_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -212,6 +220,23 @@ impl TestRegistry {
         });
         self.bind(&jc, singletons.xdg_wm_base, 6)?;
         self.xdg.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_foreign_toplevel_list(
+        &self,
+    ) -> Result<Rc<TestExtForeignToplevelList>, TestError> {
+        singleton!(self.foreign_toplevel_list);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.foreign_toplevel_list);
+        let jc = Rc::new(TestExtForeignToplevelList {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+            destroyed: Cell::new(false),
+            toplevels: RefCell::new(vec![]),
+        });
+        self.bind(&jc, singletons.ext_foreign_toplevel_list_v1, 1)?;
+        self.foreign_toplevel_list.set(Some(jc.clone()));
         Ok(jc)
     }
 

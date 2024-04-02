@@ -2,6 +2,8 @@ mod test_buffer;
 pub mod test_callback;
 pub mod test_compositor;
 pub mod test_display;
+pub mod test_ext_foreign_toplevel_handle;
+pub mod test_ext_foreign_toplevel_list;
 pub mod test_jay_compositor;
 pub mod test_keyboard;
 pub mod test_pointer;

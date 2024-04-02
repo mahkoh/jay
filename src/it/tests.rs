@@ -54,6 +54,7 @@ mod t0020_surface_offset;
 mod t0021_preferred_buffer_scale;
 mod t0022_toplevel_suspended;
 mod t0023_xdg_activation;
+mod t0024_foreign_toplevel_list;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -96,5 +97,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0021_preferred_buffer_scale,
         t0022_toplevel_suspended,
         t0023_xdg_activation,
+        t0024_foreign_toplevel_list,
     }
 }

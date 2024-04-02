@@ -60,6 +60,7 @@ impl TestTransport {
             viewporter: Default::default(),
             xdg: Default::default(),
             activation: Default::default(),
+            foreign_toplevel_list: Default::default(),
             seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {

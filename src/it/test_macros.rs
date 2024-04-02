@@ -13,18 +13,20 @@ macro_rules! tassert {
 
 macro_rules! tassert_eq {
     ($left:expr, $right:expr) => {{
-        let left = $left;
-        let right = $right;
-        if left != right {
-            bail!(
-                "Assert `{} = {:?} = {:?} = {}` failed ({}:{})",
-                stringify!($left),
-                left,
-                right,
-                stringify!($right),
-                file!(),
-                line!()
-            );
+        match ($left, $right) {
+            (left, right) => {
+                if left != right {
+                    bail!(
+                        "Assert `{} = {:?} = {:?} = {}` failed ({}:{})",
+                        stringify!($left),
+                        left,
+                        right,
+                        stringify!($right),
+                        file!(),
+                        line!()
+                    );
+                }
+            }
         }
     }};
 }

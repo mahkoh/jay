@@ -74,6 +74,7 @@ impl TestRun {
         tran.init();
         let registry = tran.get_registry();
         let jc = registry.get_jay_compositor().await?;
+        jc.enable_symmetric_delete()?;
         let client_id = jc.get_client_id().await?;
         let client = self.state.clients.get(client_id)?;
         Ok(Rc::new(TestClient {

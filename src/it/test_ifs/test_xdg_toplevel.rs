@@ -56,6 +56,14 @@ impl TestXdgToplevelCore {
         Ok(())
     }
 
+    pub fn set_title(&self, title: &str) -> Result<(), TestError> {
+        self.tran.send(SetTitle {
+            self_id: self.id,
+            title,
+        })?;
+        Ok(())
+    }
+
     fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = Configure::parse_full(parser)?;
         self.width.set(ev.width);
