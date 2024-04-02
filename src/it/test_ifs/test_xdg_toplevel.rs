@@ -7,7 +7,7 @@ use {
             test_transport::TestTransport,
             testrun::ParseFull,
         },
-        tree::{ContainerNode, ToplevelNodeBase},
+        tree::{ContainerNode, ContainingNode, FloatNode, ToplevelNodeBase},
         utils::buffd::MsgParser,
         wire::{xdg_toplevel::*, XdgToplevelId},
     },
@@ -36,14 +36,26 @@ pub struct TestXdgToplevel {
 }
 
 impl TestXdgToplevel {
-    pub fn container_parent(&self) -> TestResult<Rc<ContainerNode>> {
-        let parent = match self.server.tl_data().parent.get() {
-            Some(p) => p,
+    pub fn parent(&self) -> TestResult<Rc<dyn ContainingNode>> {
+        match self.server.tl_data().parent.get() {
+            Some(p) => Ok(p),
             _ => bail!("toplevel has no parent"),
-        };
+        }
+    }
+
+    pub fn container_parent(&self) -> TestResult<Rc<ContainerNode>> {
+        let parent = self.parent()?;
         match parent.node_into_container() {
             Some(p) => Ok(p),
             _ => bail!("toplevel parent is not a container"),
+        }
+    }
+
+    pub fn float_parent(&self) -> TestResult<Rc<FloatNode>> {
+        let parent = self.parent()?;
+        match parent.node_into_float() {
+            Some(p) => Ok(p),
+            _ => bail!("toplevel parent is not a float"),
         }
     }
 }

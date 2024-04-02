@@ -136,7 +136,7 @@ impl FloatNode {
         self.schedule_render_titles();
     }
 
-    fn schedule_layout(self: &Rc<Self>) {
+    pub fn schedule_layout(self: &Rc<Self>) {
         if !self.layout_scheduled.replace(true) {
             self.state.pending_float_layout.push(self.clone());
         }
