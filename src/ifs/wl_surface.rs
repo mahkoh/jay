@@ -246,7 +246,7 @@ pub struct WlSurface {
     tearing: Cell<bool>,
     version: u32,
     pub has_content_type_manager: Cell<bool>,
-    content_type: Cell<Option<ContentType>>,
+    pub content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
     sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
     destroyed: Cell<bool>,

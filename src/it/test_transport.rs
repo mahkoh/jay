@@ -64,6 +64,7 @@ impl TestTransport {
             data_device_manager: Default::default(),
             cursor_shape_manager: Default::default(),
             syncobj_manager: Default::default(),
+            content_type_manager: Default::default(),
             seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {

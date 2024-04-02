@@ -62,6 +62,7 @@ mod t0028_top_level_restacking;
 mod t0029_double_click_float;
 mod t0030_cursor_shape;
 mod t0031_syncobj;
+mod t0032_content_type;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
