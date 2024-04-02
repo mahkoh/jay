@@ -67,7 +67,7 @@ impl TestClient {
             caps: Cell::new(0),
             name: Default::default(),
         });
-        self.registry.bind(&tseat, seat.name().raw(), 7)?;
+        self.registry.bind(&tseat, seat.name().raw(), 9)?;
         self.tran.sync().await;
         let server = self.tran.get_server_obj(tseat.id)?;
         tseat.server.set(Some(server));

@@ -19,6 +19,7 @@ pub struct TestPointer {
     pub leave: TEEH<Leave>,
     pub enter: TEEH<Enter>,
     pub motion: TEEH<Motion>,
+    pub axis_relative_direction: TEEH<AxisRelativeDirection>,
 }
 
 impl TestPointer {
@@ -76,6 +77,12 @@ impl TestPointer {
         let _ev = AxisDiscrete::parse_full(parser)?;
         Ok(())
     }
+
+    fn handle_axis_relative_direction(&self, parser: MsgParser<'_, '_>) -> TestResult {
+        let ev = AxisRelativeDirection::parse_full(parser)?;
+        self.axis_relative_direction.push(ev);
+        Ok(())
+    }
 }
 
 impl Drop for TestPointer {
@@ -96,6 +103,7 @@ test_object! {
     AXIS_SOURCE => handle_axis_source,
     AXIS_STOP => handle_axis_stop,
     AXIS_DISCRETE => handle_axis_discrete,
+    AXIS_RELATIVE_DIRECTION => handle_axis_relative_direction,
 }
 
 impl TestObject for TestPointer {}

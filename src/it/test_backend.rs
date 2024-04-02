@@ -319,13 +319,17 @@ impl TestBackendMouse {
     }
 
     pub fn scroll_px(&self, dy: i32) {
+        self.scroll_px2(dy, false);
+    }
+
+    pub fn scroll_px2(&self, dy: i32, inverted: bool) {
         self.common.event(InputEvent::AxisSource {
             source: AxisSource::Finger,
         });
         self.common.event(InputEvent::AxisPx {
             dist: Fixed::from_int(dy),
             axis: ScrollAxis::Vertical,
-            inverted: false,
+            inverted,
         });
         self.common.event(InputEvent::AxisFrame {
             time_usec: now_usec(),

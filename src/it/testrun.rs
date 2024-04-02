@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{ClientId, RequestParser},
+        fixed::Fixed,
         ifs::wl_seat::WlSeatGlobal,
         it::{
             test_backend::{TestBackend, TestBackendKb, TestBackendMouse, TestConnector},
@@ -145,4 +146,13 @@ pub struct DefaultSetup {
     pub kb: Rc<TestBackendKb>,
     pub mouse: Rc<TestBackendMouse>,
     pub seat: Rc<WlSeatGlobal>,
+}
+
+impl DefaultSetup {
+    pub fn move_to(&self, x: i32, y: i32) {
+        let (ox, oy) = self.seat.position();
+        let (nx, ny) = (Fixed::from_int(x), Fixed::from_int(y));
+        let (dx, dy) = (nx - ox, ny - oy);
+        self.mouse.rel(dx.to_f64(), dy.to_f64())
+    }
 }
