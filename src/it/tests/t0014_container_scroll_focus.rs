@@ -35,7 +35,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     //     | w_tiled | [ w_mono1 | w_mono2 ] | with w_mono2 visible and active
 
     client.sync().await;
-    tassert_eq!(w_tiled.tl.width.get(), w_mono2.tl.width.get());
+    tassert_eq!(w_tiled.tl.core.width.get(), w_mono2.tl.core.width.get());
 
     let enters = dss.kb.enter.expect()?;
 

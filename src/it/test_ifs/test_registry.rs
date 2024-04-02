@@ -193,7 +193,7 @@ impl TestRegistry {
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
         });
-        self.bind(&jc, singletons.xdg_wm_base, 3)?;
+        self.bind(&jc, singletons.xdg_wm_base, 6)?;
         self.xdg.set(Some(jc.clone()));
         Ok(jc)
     }

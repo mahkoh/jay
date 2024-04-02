@@ -18,9 +18,9 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let window = client.create_window().await?;
     window.map().await?;
 
-    tassert_eq!(window.tl.width.get(), 800);
+    tassert_eq!(window.tl.core.width.get(), 800);
     tassert_eq!(
-        window.tl.height.get(),
+        window.tl.core.height.get(),
         600 - 2 * (run.state.theme.sizes.title_height.get() + 1)
     );
 
@@ -29,8 +29,8 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         Rect::new_sized(
             0,
             2 * (run.state.theme.sizes.title_height.get() + 1),
-            window.tl.width.get(),
-            window.tl.height.get(),
+            window.tl.core.width.get(),
+            window.tl.core.height.get(),
         )
         .unwrap()
     );

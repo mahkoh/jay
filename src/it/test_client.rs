@@ -81,6 +81,7 @@ impl TestClient {
     }
 
     pub async fn sync(&self) {
+        self.run.state.eng.yield_now().await;
         self.run.sync().await;
         self.tran.sync().await;
     }

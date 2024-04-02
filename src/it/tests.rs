@@ -23,6 +23,11 @@ macro_rules! testcase {
                 Box::new(test(testrun))
             }
         }
+
+        #[test]
+        fn single() {
+            crate::it::run_tests_(vec![&Test])
+        }
     };
 }
 
@@ -47,6 +52,7 @@ mod t0018_click_to_active_ws;
 mod t0019_natural_scrolling;
 mod t0020_surface_offset;
 mod t0021_preferred_buffer_scale;
+mod t0022_toplevel_suspended;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -87,5 +93,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0019_natural_scrolling,
         t0020_surface_offset,
         t0021_preferred_buffer_scale,
+        t0022_toplevel_suspended,
     }
 }

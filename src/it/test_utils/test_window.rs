@@ -28,7 +28,7 @@ impl TestWindow {
         self.surface.attach(buffer.id)?;
         self.viewport.set_source(0, 0, 1, 1)?;
         self.viewport
-            .set_destination(self.tl.width.get(), self.tl.height.get())?;
+            .set_destination(self.tl.core.width.get(), self.tl.core.height.get())?;
         self.xdg.ack_configure(self.xdg.last_serial.get())?;
         self.surface.commit()?;
         self.surface.tran.sync().await;

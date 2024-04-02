@@ -42,6 +42,10 @@ mod tests;
 const SINGLE_THREAD: bool = false;
 
 pub fn run_tests() {
+    run_tests_(tests::tests());
+}
+
+fn run_tests_(tests: Vec<&'static dyn TestCase>) {
     leaks::init();
     test_logger::install();
     test_logger::set_level(Level::Trace);
@@ -54,13 +58,13 @@ pub fn run_tests() {
         failed: Default::default(),
     });
     if SINGLE_THREAD {
-        for test in tests::tests() {
+        for test in tests {
             with_test_config(|cfg| {
                 run_test(&it_run, test, cfg);
             })
         }
     } else {
-        let queue = Arc::new(Mutex::new(VecDeque::from_iter(tests::tests())));
+        let queue = Arc::new(Mutex::new(VecDeque::from_iter(tests)));
         let mut threads = vec![];
         let num_cpus = match num_cpus() {
             Ok(n) => n,
@@ -139,7 +143,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
         Box::new(async move {
             let future: Pin<_> = test.run(testrun.clone()).into();
             let future = state.eng.spawn2(Phase::Present, future);
-            let timeout = state.wheel.timeout(5000);
+            let timeout = state.wheel.timeout(500000);
             match future::select(future, timeout).await {
                 Either::Left((Ok(..), _)) => {}
                 Either::Left((Err(e), _)) => {

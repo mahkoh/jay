@@ -2,8 +2,11 @@ use {
     crate::{
         ifs::wl_surface::xdg_surface::XdgSurface,
         it::{
-            test_error::TestError, test_ifs::test_xdg_toplevel::TestXdgToplevel,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
+            test_error::TestError,
+            test_ifs::test_xdg_toplevel::{TestXdgToplevel, TestXdgToplevelCore},
+            test_object::TestObject,
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{xdg_surface::*, XdgSurfaceId},
@@ -33,20 +36,20 @@ impl TestXdgSurface {
             self_id: self.id,
             id,
         })?;
-        self.tran.sync().await;
-        let client = self.tran.get_client()?;
-        let server = client.lookup(id)?;
-        let tl = Rc::new(TestXdgToplevel {
+        let core = Rc::new(TestXdgToplevelCore {
             id,
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
-            server,
             width: Cell::new(0),
             height: Cell::new(0),
             states: Default::default(),
             close_requested: Cell::new(false),
         });
-        self.tran.add_obj(tl.clone())?;
+        self.tran.add_obj(core.clone())?;
+        self.tran.sync().await;
+        let client = self.tran.get_client()?;
+        let server = client.lookup(id)?;
+        let tl = Rc::new(TestXdgToplevel { core, server });
         Ok(tl)
     }
 
