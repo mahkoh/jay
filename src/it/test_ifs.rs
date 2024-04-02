@@ -18,6 +18,8 @@ pub mod test_subsurface;
 pub mod test_surface;
 pub mod test_viewport;
 pub mod test_viewporter;
+pub mod test_xdg_activation;
+pub mod test_xdg_activation_token;
 pub mod test_xdg_base;
 pub mod test_xdg_surface;
 pub mod test_xdg_toplevel;

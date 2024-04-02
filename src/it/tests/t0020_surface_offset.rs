@@ -44,12 +44,12 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let enter = enter.next()?;
     seat.pointer.set_cursor(enter.serial, &surface, 0, 0)?;
 
-    client.compare_screenshot("1").await?;
+    client.compare_screenshot("1", true).await?;
 
     surface.offset(-100, -100)?;
     surface.commit()?;
 
-    client.compare_screenshot("2").await?;
+    client.compare_screenshot("2", true).await?;
 
     Ok(())
 }

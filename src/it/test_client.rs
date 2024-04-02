@@ -11,7 +11,7 @@ use {
                 test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
-                test_xdg_base::TestXdgWmBase,
+                test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
             test_transport::TestTransport,
             test_utils::test_window::TestWindow,
@@ -34,6 +34,7 @@ pub struct TestClient {
     pub spbm: Rc<TestSinglePixelBufferManager>,
     pub viewporter: Rc<TestViewporter>,
     pub xdg: Rc<TestXdgWmBase>,
+    pub activation: Rc<TestXdgActivation>,
 }
 
 pub struct DefaultSeat {
@@ -86,22 +87,26 @@ impl TestClient {
         self.tran.sync().await;
     }
 
-    pub async fn take_screenshot(&self) -> Result<Vec<u8>, TestError> {
-        let dmabuf = self.jc.take_screenshot().await?;
+    pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Vec<u8>, TestError> {
+        let dmabuf = self.jc.take_screenshot(include_cursor).await?;
         let qoi = buf_to_qoi(&self.server.state.dma_buf_ids, &dmabuf);
         Ok(qoi)
     }
 
     #[allow(dead_code)]
-    pub async fn save_screenshot(&self, name: &str) -> Result<(), TestError> {
-        let qoi = self.take_screenshot().await?;
+    pub async fn save_screenshot(&self, name: &str, include_cursor: bool) -> Result<(), TestError> {
+        let qoi = self.take_screenshot(include_cursor).await?;
         let path = format!("{}/screenshot_{}.qoi", self.run.out_dir, name);
         std::fs::write(path, qoi)?;
         Ok(())
     }
 
-    pub async fn compare_screenshot(&self, name: &str) -> Result<(), TestError> {
-        let actual = self.take_screenshot().await?;
+    pub async fn compare_screenshot(
+        &self,
+        name: &str,
+        include_cursor: bool,
+    ) -> Result<(), TestError> {
+        let actual = self.take_screenshot(include_cursor).await?;
         let expected_path = format!("{}/screenshot_{}.qoi", self.run.in_dir, name);
         let expected = std::fs::read(expected_path)?;
         if actual != expected {

@@ -33,14 +33,15 @@ impl TestJayCompositor {
         }
     }
 
-    pub async fn take_screenshot(&self) -> Result<Dmabuf, TestError> {
+    pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Dmabuf, TestError> {
         let js = Rc::new(TestJayScreenshot {
             id: self.tran.id(),
             result: Cell::new(None),
         });
-        self.tran.send(TakeScreenshot {
+        self.tran.send(TakeScreenshot2 {
             self_id: self.id,
             id: js.id,
+            include_cursor: include_cursor as _,
         })?;
         self.tran.add_obj(js.clone())?;
         self.tran.sync().await;

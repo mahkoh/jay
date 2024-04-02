@@ -8,7 +8,7 @@ use {
                 test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
                 test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
-                test_xdg_base::TestXdgWmBase,
+                test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
             test_object::TestObject,
             test_transport::TestTransport,
@@ -34,6 +34,7 @@ pub struct TestRegistrySingletons {
     pub xdg_wm_base: u32,
     pub wp_single_pixel_buffer_manager_v1: u32,
     pub wp_viewporter: u32,
+    pub xdg_activation_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -48,6 +49,7 @@ pub struct TestRegistry {
     pub spbm: CloneCell<Option<Rc<TestSinglePixelBufferManager>>>,
     pub viewporter: CloneCell<Option<Rc<TestViewporter>>>,
     pub xdg: CloneCell<Option<Rc<TestXdgWmBase>>>,
+    pub activation: CloneCell<Option<Rc<TestXdgActivation>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -97,6 +99,7 @@ impl TestRegistry {
             xdg_wm_base,
             wp_single_pixel_buffer_manager_v1,
             wp_viewporter,
+            xdg_activation_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -181,6 +184,20 @@ impl TestRegistry {
         });
         self.bind(&jc, singletons.wp_viewporter, 1)?;
         self.viewporter.set(Some(jc.clone()));
+        Ok(jc)
+    }
+
+    pub async fn get_activation(&self) -> Result<Rc<TestXdgActivation>, TestError> {
+        singleton!(self.activation);
+        let singletons = self.get_singletons().await?;
+        singleton!(self.activation);
+        let jc = Rc::new(TestXdgActivation {
+            id: self.tran.id(),
+            tran: self.tran.clone(),
+            destroyed: Cell::new(false),
+        });
+        self.bind(&jc, singletons.xdg_activation_v1, 1)?;
+        self.activation.set(Some(jc.clone()));
         Ok(jc)
     }
 

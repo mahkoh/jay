@@ -87,6 +87,7 @@ impl TestRun {
             spbm: registry.get_spbm().await?,
             viewporter: registry.get_viewporter().await?,
             xdg: registry.get_xdg().await?,
+            activation: registry.get_activation().await?,
             registry,
         }))
     }

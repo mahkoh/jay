@@ -59,6 +59,7 @@ impl TestTransport {
             spbm: Default::default(),
             viewporter: Default::default(),
             xdg: Default::default(),
+            activation: Default::default(),
             seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {
@@ -161,7 +162,12 @@ impl TestTransport {
             _ => bail!("Object with id {} has already been deleted", msg.id()),
         };
         if obj.interface().name() != msg.interface().name() {
-            bail!("Object with id {} has an incompatible interface", msg.id());
+            bail!(
+                "Object with id {} has an incompatible interface: {} != {}",
+                msg.id(),
+                obj.interface().name(),
+                msg.interface().name()
+            );
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();

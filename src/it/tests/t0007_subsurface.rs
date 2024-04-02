@@ -43,19 +43,17 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
 
     parent.map().await?;
 
-    seat.set_app_cursor(None);
-
-    client.compare_screenshot("1").await?;
+    client.compare_screenshot("1", false).await?;
 
     sub.place_below(parent.surface.id)?;
     child.commit()?;
     parent.map().await?;
-    client.compare_screenshot("2").await?;
+    client.compare_screenshot("2", false).await?;
 
     sub.place_above(parent.surface.id)?;
     child.commit()?;
     parent.map().await?;
-    client.compare_screenshot("1").await?;
+    client.compare_screenshot("1", false).await?;
 
     Ok(())
 }
