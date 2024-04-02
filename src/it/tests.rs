@@ -59,6 +59,7 @@ mod t0025_dnd_focus_change;
 mod t0026_output_transform;
 mod t0027_input_region;
 mod t0028_top_level_restacking;
+mod t0029_double_click_float;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -106,5 +107,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0026_output_transform,
         t0027_input_region,
         t0028_top_level_restacking,
+        t0029_double_click_float,
     }
 }
