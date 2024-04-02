@@ -2,8 +2,12 @@ use {
     crate::{
         ifs::wl_surface::WlSurface,
         it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH, testrun::ParseFull,
+            test_error::{TestError, TestResult},
+            test_ifs::test_region::TestRegion,
+            test_object::TestObject,
+            test_transport::TestTransport,
+            test_utils::test_expected_event::TEEH,
+            testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{wl_surface::*, WlBufferId, WlSurfaceId},
@@ -43,6 +47,14 @@ impl TestSurface {
             self_id: self.id,
             x: dx,
             y: dy,
+        })?;
+        Ok(())
+    }
+
+    pub fn set_input_region(&self, region: &TestRegion) -> TestResult {
+        self.tran.send(SetInputRegion {
+            self_id: self.id,
+            region: region.id,
         })?;
         Ok(())
     }

@@ -246,6 +246,13 @@ impl TestConfig {
         })
     }
 
+    pub fn set_floating(&self, seat: SeatId, floating: bool) -> TestResult {
+        self.send(ClientMessage::SetFloating {
+            seat: Seat(seat.raw() as _),
+            floating,
+        })
+    }
+
     fn clear(&self) {
         unsafe {
             if let Some(srv) = self.srv.take() {

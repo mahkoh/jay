@@ -1019,6 +1019,7 @@ impl WlSurface {
         {
             if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
+                self.client.state.tree_changed();
             }
             if let Some(region) = pending.opaque_region.take() {
                 self.opaque_region.set(region);

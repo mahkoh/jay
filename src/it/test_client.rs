@@ -86,6 +86,7 @@ impl TestClient {
         self.run.state.eng.yield_now().await;
         self.run.sync().await;
         self.tran.sync().await;
+        self.run.state.eng.yield_now().await;
     }
 
     pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Vec<u8>, TestError> {
