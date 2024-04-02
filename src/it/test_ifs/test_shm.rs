@@ -23,6 +23,15 @@ pub struct TestShm {
 }
 
 impl TestShm {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            formats: Default::default(),
+            formats_awaited: Cell::new(false),
+        }
+    }
+
     pub async fn formats(&self) -> &CopyHashMap<u32, ()> {
         if !self.formats_awaited.replace(true) {
             self.tran.sync().await;

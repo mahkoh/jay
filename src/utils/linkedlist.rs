@@ -194,6 +194,7 @@ impl<T> Drop for RevLinkedListIter<T> {
 }
 
 #[repr(transparent)]
+#[must_use]
 pub struct LinkedNode<T> {
     data: NonNull<NodeData<T>>,
 }

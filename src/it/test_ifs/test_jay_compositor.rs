@@ -25,6 +25,14 @@ pub struct TestJayCompositor {
 }
 
 impl TestJayCompositor {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            client_id: Cell::new(None),
+        }
+    }
+
     pub async fn get_client_id(&self) -> Result<ClientId, TestError> {
         if self.client_id.is_none() {
             self.tran.send(GetClientId { self_id: self.id })?;

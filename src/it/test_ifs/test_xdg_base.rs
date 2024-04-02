@@ -17,6 +17,14 @@ pub struct TestXdgWmBase {
 }
 
 impl TestXdgWmBase {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            destroyed: Cell::new(false),
+        }
+    }
+
     pub fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;

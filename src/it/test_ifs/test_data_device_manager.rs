@@ -20,6 +20,13 @@ pub struct TestDataDeviceManager {
 }
 
 impl TestDataDeviceManager {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+        }
+    }
+
     pub fn create_data_source(&self) -> TestResult<Rc<TestDataSource>> {
         let data_source = Rc::new(TestDataSource {
             id: self.tran.id(),

@@ -20,6 +20,14 @@ pub struct TestCursorShapeManager {
 }
 
 impl TestCursorShapeManager {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            destroyed: Cell::new(false),
+        }
+    }
+
     #[allow(dead_code)]
     pub fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {

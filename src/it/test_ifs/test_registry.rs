@@ -10,8 +10,9 @@ use {
                 test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
                 test_jay_compositor::TestJayCompositor, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
-                test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
-                test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
+                test_subcompositor::TestSubcompositor, test_syncobj_manager::TestSyncobjManager,
+                test_viewporter::TestViewporter, test_xdg_activation::TestXdgActivation,
+                test_xdg_base::TestXdgWmBase,
             },
             test_object::TestObject,
             test_transport::TestTransport,
@@ -20,10 +21,7 @@ use {
         utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
         wire::{wl_registry::*, WlRegistryId, WlSeat},
     },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
+    std::rc::Rc,
 };
 
 pub struct TestGlobal {
@@ -44,6 +42,7 @@ pub struct TestRegistrySingletons {
     pub ext_foreign_toplevel_list_v1: u32,
     pub wl_data_device_manager: u32,
     pub wp_cursor_shape_manager_v1: u32,
+    pub wp_linux_drm_syncobj_manager_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -62,6 +61,7 @@ pub struct TestRegistry {
     pub foreign_toplevel_list: CloneCell<Option<Rc<TestExtForeignToplevelList>>>,
     pub data_device_manager: CloneCell<Option<Rc<TestDataDeviceManager>>>,
     pub cursor_shape_manager: CloneCell<Option<Rc<TestCursorShapeManager>>>,
+    pub syncobj_manager: CloneCell<Option<Rc<TestSyncobjManager>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -69,6 +69,20 @@ macro_rules! singleton {
     ($field:expr) => {
         if let Some(s) = $field.get() {
             return Ok(s);
+        }
+    };
+}
+
+macro_rules! create_singleton {
+    ($fn:ident, $field:ident, $name:ident, $ver:expr, $ty:ident) => {
+        pub async fn $fn(&self) -> Result<Rc<$ty>, TestError> {
+            singleton!(self.$field);
+            let singletons = self.get_singletons().await?;
+            singleton!(self.$field);
+            let jc = Rc::new($ty::new(&self.tran));
+            self.bind(&jc, singletons.$name, $ver)?;
+            self.$field.set(Some(jc.clone()));
+            Ok(jc)
         }
     };
 }
@@ -81,7 +95,7 @@ impl TestRegistry {
         macro_rules! singleton {
             ($($name:ident,)*) => {{
                 $(
-                    let mut $name = 0;
+                    let mut $name = u32::MAX;
                 )*
                 for global in self.globals.lock().values() {
                     match global.interface.as_str() {
@@ -93,12 +107,7 @@ impl TestRegistry {
                 }
                 Rc::new(TestRegistrySingletons {
                     $(
-                        $name: {
-                            if $name == 0 {
-                                bail!("Compositor did not send {} singleton", stringify!($name));
-                            }
-                            $name
-                        },
+                        $name,
                     )*
                 })
             }}
@@ -115,164 +124,72 @@ impl TestRegistry {
             ext_foreign_toplevel_list_v1,
             wl_data_device_manager,
             wp_cursor_shape_manager_v1,
+            wp_linux_drm_syncobj_manager_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
     }
 
-    pub async fn get_jay_compositor(&self) -> Result<Rc<TestJayCompositor>, TestError> {
-        singleton!(self.jay_compositor);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.jay_compositor);
-        let jc = Rc::new(TestJayCompositor {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            client_id: Default::default(),
-        });
-        self.bind(&jc, singletons.jay_compositor, 1)?;
-        self.jay_compositor.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_compositor(&self) -> Result<Rc<TestCompositor>, TestError> {
-        singleton!(self.compositor);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.compositor);
-        let jc = Rc::new(TestCompositor {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-        });
-        self.bind(&jc, singletons.wl_compositor, 6)?;
-        self.compositor.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_subcompositor(&self) -> Result<Rc<TestSubcompositor>, TestError> {
-        singleton!(self.subcompositor);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.subcompositor);
-        let jc = Rc::new(TestSubcompositor {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-        });
-        self.bind(&jc, singletons.wl_subcompositor, 1)?;
-        self.subcompositor.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_shm(&self) -> Result<Rc<TestShm>, TestError> {
-        singleton!(self.shm);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.shm);
-        let jc = Rc::new(TestShm {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            formats: Default::default(),
-            formats_awaited: Cell::new(false),
-        });
-        self.bind(&jc, singletons.wl_shm, 1)?;
-        self.shm.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_spbm(&self) -> Result<Rc<TestSinglePixelBufferManager>, TestError> {
-        singleton!(self.spbm);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.spbm);
-        let jc = Rc::new(TestSinglePixelBufferManager {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-        });
-        self.bind(&jc, singletons.wp_single_pixel_buffer_manager_v1, 1)?;
-        self.spbm.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_viewporter(&self) -> Result<Rc<TestViewporter>, TestError> {
-        singleton!(self.viewporter);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.viewporter);
-        let jc = Rc::new(TestViewporter {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-        });
-        self.bind(&jc, singletons.wp_viewporter, 1)?;
-        self.viewporter.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_activation(&self) -> Result<Rc<TestXdgActivation>, TestError> {
-        singleton!(self.activation);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.activation);
-        let jc = Rc::new(TestXdgActivation {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-        });
-        self.bind(&jc, singletons.xdg_activation_v1, 1)?;
-        self.activation.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_xdg(&self) -> Result<Rc<TestXdgWmBase>, TestError> {
-        singleton!(self.xdg);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.xdg);
-        let jc = Rc::new(TestXdgWmBase {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-        });
-        self.bind(&jc, singletons.xdg_wm_base, 6)?;
-        self.xdg.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_foreign_toplevel_list(
-        &self,
-    ) -> Result<Rc<TestExtForeignToplevelList>, TestError> {
-        singleton!(self.foreign_toplevel_list);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.foreign_toplevel_list);
-        let jc = Rc::new(TestExtForeignToplevelList {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-            toplevels: RefCell::new(vec![]),
-        });
-        self.bind(&jc, singletons.ext_foreign_toplevel_list_v1, 1)?;
-        self.foreign_toplevel_list.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_data_device_manager(&self) -> Result<Rc<TestDataDeviceManager>, TestError> {
-        singleton!(self.data_device_manager);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.data_device_manager);
-        let jc = Rc::new(TestDataDeviceManager {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-        });
-        self.bind(&jc, singletons.wl_data_device_manager, 3)?;
-        self.data_device_manager.set(Some(jc.clone()));
-        Ok(jc)
-    }
-
-    pub async fn get_cursor_shape_manager(&self) -> Result<Rc<TestCursorShapeManager>, TestError> {
-        singleton!(self.cursor_shape_manager);
-        let singletons = self.get_singletons().await?;
-        singleton!(self.cursor_shape_manager);
-        let jc = Rc::new(TestCursorShapeManager {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-        });
-        self.bind(&jc, singletons.wp_cursor_shape_manager_v1, 1)?;
-        self.cursor_shape_manager.set(Some(jc.clone()));
-        Ok(jc)
-    }
+    create_singleton!(
+        get_jay_compositor,
+        jay_compositor,
+        jay_compositor,
+        1,
+        TestJayCompositor
+    );
+    create_singleton!(get_compositor, compositor, wl_compositor, 6, TestCompositor);
+    create_singleton!(
+        get_subcompositor,
+        subcompositor,
+        wl_subcompositor,
+        1,
+        TestSubcompositor
+    );
+    create_singleton!(get_shm, shm, wl_shm, 1, TestShm);
+    create_singleton!(
+        get_spbm,
+        spbm,
+        wp_single_pixel_buffer_manager_v1,
+        1,
+        TestSinglePixelBufferManager
+    );
+    create_singleton!(get_viewporter, viewporter, wp_viewporter, 1, TestViewporter);
+    create_singleton!(
+        get_activation,
+        activation,
+        xdg_activation_v1,
+        1,
+        TestXdgActivation
+    );
+    create_singleton!(get_xdg, xdg, xdg_wm_base, 6, TestXdgWmBase);
+    create_singleton!(
+        get_foreign_toplevel_list,
+        foreign_toplevel_list,
+        ext_foreign_toplevel_list_v1,
+        1,
+        TestExtForeignToplevelList
+    );
+    create_singleton!(
+        get_data_device_manager,
+        data_device_manager,
+        wl_data_device_manager,
+        3,
+        TestDataDeviceManager
+    );
+    create_singleton!(
+        get_cursor_shape_manager,
+        cursor_shape_manager,
+        wp_cursor_shape_manager_v1,
+        1,
+        TestCursorShapeManager
+    );
+    create_singleton!(
+        get_syncobj_manager,
+        syncobj_manager,
+        wp_linux_drm_syncobj_manager_v1,
+        1,
+        TestSyncobjManager
+    );
 
     pub fn bind<O: TestObject>(
         &self,

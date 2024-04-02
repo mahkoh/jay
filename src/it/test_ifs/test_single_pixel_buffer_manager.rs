@@ -16,6 +16,13 @@ pub struct TestSinglePixelBufferManager {
 }
 
 impl TestSinglePixelBufferManager {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+        }
+    }
+
     pub fn create_buffer(&self, color: Color) -> TestResult<Rc<TestBuffer>> {
         let obj = Rc::new(TestBuffer {
             id: self.tran.id(),

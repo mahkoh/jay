@@ -61,6 +61,7 @@ mod t0027_input_region;
 mod t0028_top_level_restacking;
 mod t0029_double_click_float;
 mod t0030_cursor_shape;
+mod t0031_syncobj;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -110,5 +111,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0028_top_level_restacking,
         t0029_double_click_float,
         t0030_cursor_shape,
+        t0031_syncobj,
     }
 }

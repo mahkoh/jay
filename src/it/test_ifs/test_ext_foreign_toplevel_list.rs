@@ -24,6 +24,15 @@ pub struct TestExtForeignToplevelList {
 }
 
 impl TestExtForeignToplevelList {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            destroyed: Cell::new(false),
+            toplevels: RefCell::new(vec![]),
+        }
+    }
+
     #[allow(dead_code)]
     pub fn stop(&self) -> TestResult {
         self.tran.send(Stop { self_id: self.id })?;

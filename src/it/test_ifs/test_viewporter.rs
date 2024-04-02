@@ -17,6 +17,13 @@ pub struct TestViewporter {
 }
 
 impl TestViewporter {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+        }
+    }
+
     pub fn get_viewport(&self, surface: &TestSurface) -> TestResult<Rc<TestViewport>> {
         let obj = Rc::new(TestViewport {
             id: self.tran.id(),

@@ -20,6 +20,13 @@ pub struct TestCompositor {
 }
 
 impl TestCompositor {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+        }
+    }
+
     pub async fn create_surface(&self) -> Result<Rc<TestSurface>, TestError> {
         let id = self.tran.id();
         self.tran.send(CreateSurface {
