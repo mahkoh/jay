@@ -64,6 +64,7 @@ mod t0030_cursor_shape;
 mod t0031_syncobj;
 mod t0032_content_type;
 mod t0032_data_control;
+mod t0033_float_size_memoization;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -115,5 +116,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0030_cursor_shape,
         t0031_syncobj,
         t0032_data_control,
+        t0033_float_size_memoization,
     }
 }
