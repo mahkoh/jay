@@ -19,7 +19,7 @@ use {
         video::{Connector, Transform},
         Axis, Direction,
     },
-    std::{cell::Cell, ops::Deref, ptr, rc::Rc},
+    std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
 };
 
 pub static TEST_CONFIG_ENTRY: ConfigEntry = ConfigEntry {
@@ -244,6 +244,10 @@ impl TestConfig {
             seat: Seat(seat.raw() as _),
             fullscreen: fs,
         })
+    }
+
+    pub fn set_idle(&self, timeout: Duration) -> TestResult {
+        self.send(ClientMessage::SetIdle { timeout })
     }
 
     pub fn set_floating(&self, seat: SeatId, floating: bool) -> TestResult {

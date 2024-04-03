@@ -11,7 +11,7 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::GfxError,
-        it::test_error::TestResult,
+        it::{test_error::TestResult, test_utils::test_expected_event::TEEH},
         state::State,
         time::now_usec,
         utils::{
@@ -46,6 +46,7 @@ pub struct TestBackend {
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
     pub render_context_installed: Cell<bool>,
+    pub idle: TEEH<bool>,
 }
 
 impl TestBackend {
@@ -114,6 +115,7 @@ impl TestBackend {
             default_mouse,
             default_kb,
             render_context_installed: Cell::new(false),
+            idle: Rc::new(Default::default()),
         }
     }
 
@@ -210,7 +212,9 @@ impl Backend for TestBackend {
         let _ = vtnr;
     }
 
-    fn set_idle(&self, _idle: bool) {}
+    fn set_idle(&self, idle: bool) {
+        self.idle.push(idle);
+    }
 
     fn supports_presentation_feedback(&self) -> bool {
         true
