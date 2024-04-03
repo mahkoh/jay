@@ -14,7 +14,8 @@ use {
         state::State,
         time::now_usec,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, on_change::OnChange, oserror::OsError,
+            syncqueue::SyncQueue,
         },
         video::drm::{ConnectorType, Drm},
     },
@@ -39,6 +40,7 @@ pub enum TestBackendError {
 pub struct TestBackend {
     pub state: Rc<State>,
     pub test_future: TestFuture,
+    pub default_monitor_info: MonitorInfo,
     pub default_connector: Rc<TestConnector>,
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
@@ -55,7 +57,6 @@ impl TestBackend {
                 idx: 1,
             },
             events: Default::default(),
-            on_change: Default::default(),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -89,9 +90,24 @@ impl TestBackend {
                 name: Rc::new("default-keyboard".to_string()),
             },
         });
+        let mode = Mode {
+            width: 800,
+            height: 600,
+            refresh_rate_millihz: 60_000,
+        };
+        let default_monitor_info = MonitorInfo {
+            modes: vec![mode],
+            manufacturer: "jay".to_string(),
+            product: "TestConnector".to_string(),
+            serial_number: default_connector.id.to_string(),
+            initial_mode: mode,
+            width_mm: 80,
+            height_mm: 60,
+        };
         Self {
             state: state.clone(),
             test_future: future,
+            default_monitor_info,
             default_connector,
             default_mouse,
             default_kb,
@@ -113,22 +129,9 @@ impl TestBackend {
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(self.default_connector.clone()));
-        let mode = Mode {
-            width: 800,
-            height: 600,
-            refresh_rate_millihz: 60_000,
-        };
         self.default_connector
             .events
-            .push(ConnectorEvent::Connected(MonitorInfo {
-                modes: vec![mode],
-                manufacturer: "jay".to_string(),
-                product: "TestConnector".to_string(),
-                serial_number: self.default_connector.id.to_string(),
-                initial_mode: mode,
-                width_mm: 80,
-                height_mm: 60,
-            }));
+            .send_event(ConnectorEvent::Connected(self.default_monitor_info.clone()));
         self.state
             .backend_events
             .push(BackendEvent::NewInputDevice(self.default_kb.clone()));
@@ -215,8 +218,7 @@ impl Backend for TestBackend {
 pub struct TestConnector {
     pub id: ConnectorId,
     pub kernel_id: ConnectorKernelId,
-    pub events: SyncQueue<ConnectorEvent>,
-    pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
+    pub events: OnChange<ConnectorEvent>,
 }
 
 impl Connector for TestConnector {
@@ -229,11 +231,11 @@ impl Connector for TestConnector {
     }
 
     fn event(&self) -> Option<ConnectorEvent> {
-        self.events.pop()
+        self.events.events.pop()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
-        self.on_change.set(Some(cb));
+        self.events.on_change.set(Some(cb));
     }
 
     fn damage(&self) {

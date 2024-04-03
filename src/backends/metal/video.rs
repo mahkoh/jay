@@ -22,7 +22,7 @@ use {
         utils::{
             asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
-            opaque_cell::OpaqueCell, oserror::OsError, syncqueue::SyncQueue,
+            on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
             transform_ext::TransformExt,
         },
         video::{
@@ -317,38 +317,6 @@ pub struct ConnectorFutures {
 impl Debug for ConnectorFutures {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConnectorFutures").finish_non_exhaustive()
-    }
-}
-
-pub struct OnChange<T> {
-    pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
-    pub events: SyncQueue<T>,
-}
-
-impl<T> OnChange<T> {
-    pub fn send_event(&self, event: T) {
-        self.events.push(event);
-        if let Some(cb) = self.on_change.get() {
-            cb();
-        }
-    }
-}
-
-impl<T> Default for OnChange<T> {
-    fn default() -> Self {
-        Self {
-            on_change: Default::default(),
-            events: Default::default(),
-        }
-    }
-}
-
-impl<T> Debug for OnChange<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self.on_change.get() {
-            None => f.write_str("None"),
-            Some(_) => f.write_str("Some"),
-        }
     }
 }
 

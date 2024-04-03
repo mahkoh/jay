@@ -65,6 +65,7 @@ mod t0031_syncobj;
 mod t0032_content_type;
 mod t0032_data_control;
 mod t0033_float_size_memoization;
+mod t0034_workspace_restoration;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -117,5 +118,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0031_syncobj,
         t0032_data_control,
         t0033_float_size_memoization,
+        t0034_workspace_restoration,
     }
 }

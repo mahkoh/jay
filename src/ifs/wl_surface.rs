@@ -553,6 +553,11 @@ impl WlSurface {
         Ok(ext.into_xsurface().unwrap())
     }
 
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    pub fn get_output(&self) -> Rc<OutputNode> {
+        self.output.get()
+    }
+
     pub fn set_output(&self, output: &Rc<OutputNode>) {
         let old = self.output.set(output.clone());
         if old.id == output.id {
