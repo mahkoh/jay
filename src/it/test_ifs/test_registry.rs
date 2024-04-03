@@ -224,7 +224,7 @@ impl TestRegistry {
             name,
             interface: obj.interface().name(),
             version,
-            id: obj.id().into(),
+            id: obj.id(),
         })?;
         self.tran.add_obj(obj.clone())?;
         Ok(())
