@@ -8,7 +8,7 @@ use {
                 test_compositor::TestCompositor, test_content_type_manager::TestContentTypeManager,
                 test_cursor_shape_manager::TestCursorShapeManager,
                 test_data_control_manager::TestDataControlManager,
-                test_data_device_manager::TestDataDeviceManager,
+                test_data_device_manager::TestDataDeviceManager, test_dmabuf::TestDmabuf,
                 test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
                 test_jay_compositor::TestJayCompositor, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
@@ -47,6 +47,7 @@ pub struct TestRegistrySingletons {
     pub wp_linux_drm_syncobj_manager_v1: u32,
     pub wp_content_type_manager_v1: u32,
     pub zwlr_data_control_manager_v1: u32,
+    pub zwp_linux_dmabuf_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -68,6 +69,7 @@ pub struct TestRegistry {
     pub syncobj_manager: CloneCell<Option<Rc<TestSyncobjManager>>>,
     pub content_type_manager: CloneCell<Option<Rc<TestContentTypeManager>>>,
     pub data_control_manager: CloneCell<Option<Rc<TestDataControlManager>>>,
+    pub dmabuf: CloneCell<Option<Rc<TestDmabuf>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -133,6 +135,7 @@ impl TestRegistry {
             wp_linux_drm_syncobj_manager_v1,
             wp_content_type_manager_v1,
             zwlr_data_control_manager_v1,
+            zwp_linux_dmabuf_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -212,6 +215,7 @@ impl TestRegistry {
         2,
         TestDataControlManager
     );
+    create_singleton!(get_dmabuf, dmabuf, zwp_linux_dmabuf_v1, 5, TestDmabuf);
 
     pub fn bind<O: TestObject>(
         &self,

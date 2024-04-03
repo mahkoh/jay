@@ -8,6 +8,7 @@ use {
             ScrollAxis, TransformMatrix,
         },
         compositor::TestFuture,
+        drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::GfxError,
         it::test_error::TestResult,
@@ -57,6 +58,7 @@ impl TestBackend {
                 idx: 1,
             },
             events: Default::default(),
+            feedback: Default::default(),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -219,6 +221,7 @@ pub struct TestConnector {
     pub id: ConnectorId,
     pub kernel_id: ConnectorKernelId,
     pub events: OnChange<ConnectorEvent>,
+    pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
 }
 
 impl Connector for TestConnector {
@@ -248,6 +251,10 @@ impl Connector for TestConnector {
 
     fn set_mode(&self, _mode: Mode) {
         // todo
+    }
+
+    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
+        self.feedback.get()
     }
 }
 

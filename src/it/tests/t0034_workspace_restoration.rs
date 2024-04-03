@@ -28,6 +28,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
             idx: 2,
         },
         events: Default::default(),
+        feedback: Default::default(),
     });
     let new_monitor_info = MonitorInfo {
         modes: vec![],
