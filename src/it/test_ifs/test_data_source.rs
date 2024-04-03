@@ -2,18 +2,20 @@ use {
     crate::{
         it::{
             test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
+            test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
         utils::buffd::MsgParser,
         wire::{wl_data_source::*, WlDataSourceId},
     },
     std::{cell::Cell, rc::Rc},
+    uapi::OwnedFd,
 };
 
 pub struct TestDataSource {
     pub id: WlDataSourceId,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
+    pub sends: TEEH<(String, Rc<OwnedFd>)>,
 }
 
 impl TestDataSource {
@@ -48,7 +50,8 @@ impl TestDataSource {
     }
 
     fn handle_send(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Send::parse_full(parser)?;
+        let ev = Send::parse_full(parser)?;
+        self.sends.push((ev.mime_type.to_string(), ev.fd));
         Ok(())
     }
 

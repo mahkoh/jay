@@ -32,6 +32,7 @@ impl TestDataDeviceManager {
             id: self.tran.id(),
             tran: self.tran.clone(),
             destroyed: Cell::new(false),
+            sends: Rc::new(Default::default()),
         });
         self.tran.add_obj(data_source.clone())?;
         self.tran.send(CreateDataSource {

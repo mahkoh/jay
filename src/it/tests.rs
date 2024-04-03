@@ -63,6 +63,7 @@ mod t0029_double_click_float;
 mod t0030_cursor_shape;
 mod t0031_syncobj;
 mod t0032_content_type;
+mod t0032_data_control;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -113,5 +114,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0029_double_click_float,
         t0030_cursor_shape,
         t0031_syncobj,
+        t0032_data_control,
     }
 }
