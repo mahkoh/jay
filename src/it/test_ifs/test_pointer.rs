@@ -7,7 +7,7 @@ use {
             testrun::ParseFull,
         },
         utils::{buffd::MsgParser, clonecell::CloneCell},
-        wire::{wl_pointer::*, WlPointerId},
+        wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -35,14 +35,14 @@ impl TestPointer {
     pub fn set_cursor(
         &self,
         serial: u32,
-        surface: &TestSurface,
+        surface: Option<&TestSurface>,
         hotspot_x: i32,
         hotspot_y: i32,
     ) -> TestResult {
         self.tran.send(SetCursor {
             self_id: self.id,
             serial,
-            surface: surface.id,
+            surface: surface.map(|s| s.id).unwrap_or(WlSurfaceId::NONE),
             hotspot_x,
             hotspot_y,
         })?;

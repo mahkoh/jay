@@ -35,6 +35,8 @@ pub mod test_surface;
 pub mod test_syncobj_manager;
 pub mod test_syncobj_surface;
 pub mod test_syncobj_timeline;
+pub mod test_toplevel_drag;
+pub mod test_toplevel_drag_manager;
 pub mod test_viewport;
 pub mod test_viewporter;
 pub mod test_xdg_activation;

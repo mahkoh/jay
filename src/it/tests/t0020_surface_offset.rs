@@ -42,7 +42,8 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
 
     client.sync().await;
     let enter = enter.next()?;
-    seat.pointer.set_cursor(enter.serial, &surface, 0, 0)?;
+    seat.pointer
+        .set_cursor(enter.serial, Some(&surface), 0, 0)?;
 
     client.compare_screenshot("1", true).await?;
 

@@ -13,6 +13,7 @@ use {
                 test_jay_compositor::TestJayCompositor, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_syncobj_manager::TestSyncobjManager,
+                test_toplevel_drag_manager::TestToplevelDragManager,
                 test_viewporter::TestViewporter, test_xdg_activation::TestXdgActivation,
                 test_xdg_base::TestXdgWmBase,
             },
@@ -48,6 +49,7 @@ pub struct TestRegistrySingletons {
     pub wp_content_type_manager_v1: u32,
     pub zwlr_data_control_manager_v1: u32,
     pub zwp_linux_dmabuf_v1: u32,
+    pub xdg_toplevel_drag_manager_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -70,6 +72,7 @@ pub struct TestRegistry {
     pub content_type_manager: CloneCell<Option<Rc<TestContentTypeManager>>>,
     pub data_control_manager: CloneCell<Option<Rc<TestDataControlManager>>>,
     pub dmabuf: CloneCell<Option<Rc<TestDmabuf>>>,
+    pub drag_manager: CloneCell<Option<Rc<TestToplevelDragManager>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -136,6 +139,7 @@ impl TestRegistry {
             wp_content_type_manager_v1,
             zwlr_data_control_manager_v1,
             zwp_linux_dmabuf_v1,
+            xdg_toplevel_drag_manager_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -216,6 +220,13 @@ impl TestRegistry {
         TestDataControlManager
     );
     create_singleton!(get_dmabuf, dmabuf, zwp_linux_dmabuf_v1, 5, TestDmabuf);
+    create_singleton!(
+        get_drag_manager,
+        drag_manager,
+        xdg_toplevel_drag_manager_v1,
+        1,
+        TestToplevelDragManager
+    );
 
     pub fn bind<O: TestObject>(
         &self,
