@@ -294,9 +294,12 @@ impl VulkanRenderer {
     fn copy_shm_to_image(&self, cmd: CommandBuffer) {
         let memory = self.memory.borrow_mut();
         for (img, staging) in &memory.flush_staging {
+            let Some(shm_info) = &img.format.shm_info else {
+                continue;
+            };
             let cpy = BufferImageCopy2::builder()
                 .buffer_image_height(img.height)
-                .buffer_row_length(img.stride / img.format.bpp)
+                .buffer_row_length(img.stride / shm_info.bpp)
                 .image_extent(Extent3D {
                     width: img.width,
                     height: img.height,
@@ -751,7 +754,10 @@ impl VulkanRenderer {
         stride: u32,
         dst: &[Cell<u8>],
     ) -> Result<(), VulkanError> {
-        if stride < tex.width * tex.format.bpp || stride % tex.format.bpp != 0 {
+        let Some(shm_info) = &tex.format.shm_info else {
+            return Err(VulkanError::UnsupportedShmFormat(tex.format.name));
+        };
+        if stride < tex.width * shm_info.bpp || stride % shm_info.bpp != 0 {
             return Err(VulkanError::InvalidStride);
         }
         let size = stride as u64 * tex.height as u64;
@@ -759,7 +765,7 @@ impl VulkanRenderer {
             return Err(VulkanError::InvalidBufferSize);
         }
         let region = BufferImageCopy::builder()
-            .buffer_row_length(stride / tex.format.bpp)
+            .buffer_row_length(stride / shm_info.bpp)
             .buffer_image_height(tex.height)
             .image_subresource(ImageSubresourceLayers {
                 aspect_mask: ImageAspectFlags::COLOR,

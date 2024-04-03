@@ -130,6 +130,9 @@ impl VulkanInstance {
         format: &Format,
         props: &FormatProperties2,
     ) -> Result<Option<VulkanShmFormat>, VulkanError> {
+        if format.shm_info.is_none() {
+            return Ok(None);
+        }
         if !props
             .format_properties
             .optimal_tiling_features

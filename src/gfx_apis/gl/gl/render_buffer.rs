@@ -32,11 +32,14 @@ impl GlRenderBuffer {
         height: i32,
         format: &'static Format,
     ) -> Result<Rc<GlRenderBuffer>, RenderError> {
+        let Some(shm_info) = &format.shm_info else {
+            return Err(RenderError::UnsupportedShmFormat(format.name));
+        };
         let gles = &ctx.dpy.gles;
         let mut rbo = 0;
         (gles.glGenRenderbuffers)(1, &mut rbo);
         (gles.glBindRenderbuffer)(GL_RENDERBUFFER, rbo);
-        (gles.glRenderbufferStorage)(GL_RENDERBUFFER, format.gl_internal_format, width, height);
+        (gles.glRenderbufferStorage)(GL_RENDERBUFFER, shm_info.gl_internal_format, width, height);
         (gles.glBindRenderbuffer)(GL_RENDERBUFFER, 0);
         Ok(Rc::new(GlRenderBuffer {
             _img: None,

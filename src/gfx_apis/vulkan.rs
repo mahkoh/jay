@@ -175,6 +175,8 @@ pub enum VulkanError {
     },
     #[error(transparent)]
     GfxError(GfxError),
+    #[error("Buffer format {0} is not supported for shm buffers in Vulkan context")]
+    UnsupportedShmFormat(&'static str),
 }
 
 impl From<VulkanError> for GfxError {

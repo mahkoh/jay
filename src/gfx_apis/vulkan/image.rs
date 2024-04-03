@@ -120,13 +120,16 @@ impl VulkanRenderer {
         data: &[Cell<u8>],
         for_download: bool,
     ) -> Result<Rc<VulkanImage>, VulkanError> {
+        let Some(shm_info) = &format.shm_info else {
+            return Err(VulkanError::UnsupportedShmFormat(format.name));
+        };
         if width <= 0 || height <= 0 || stride <= 0 {
             return Err(VulkanError::NonPositiveImageSize);
         }
         let width = width as u32;
         let height = height as u32;
         let stride = stride as u32;
-        if stride % format.bpp != 0 || stride / format.bpp < width {
+        if stride % shm_info.bpp != 0 || stride / shm_info.bpp < width {
             return Err(VulkanError::InvalidStride);
         }
         let vk_format = self

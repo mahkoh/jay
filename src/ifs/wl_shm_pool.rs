@@ -45,7 +45,7 @@ impl WlShmPool {
         let req: CreateBuffer = self.client.parse(self, parser)?;
         let drm_format = map_wayland_format_id(req.format);
         let format = match formats().get(&drm_format) {
-            Some(f) if f.shm_supported => *f,
+            Some(f) if f.shm_info.is_some() => *f,
             _ => return Err(WlShmPoolError::InvalidFormat(req.format)),
         };
         if req.height < 0 || req.width < 0 || req.stride < 0 || req.offset < 0 {
