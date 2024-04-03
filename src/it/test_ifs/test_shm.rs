@@ -23,6 +23,15 @@ pub struct TestShm {
 }
 
 impl TestShm {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            formats: Default::default(),
+            formats_awaited: Cell::new(false),
+        }
+    }
+
     pub async fn formats(&self) -> &CopyHashMap<u32, ()> {
         if !self.formats_awaited.replace(true) {
             self.tran.sync().await;
@@ -30,6 +39,7 @@ impl TestShm {
         &self.formats
     }
 
+    #[allow(dead_code)]
     pub fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
         let mem = TestMem::new(size)?;
         let pool = Rc::new(TestShmPool {
@@ -48,6 +58,7 @@ impl TestShm {
         Ok(pool)
     }
 
+    #[allow(dead_code)]
     pub fn create_buffer(&self, width: i32, height: i32) -> TestResult<Rc<TestShmBuffer>> {
         let pool = self.create_pool((width * height * 4) as _)?;
         pool.create_buffer(0, width, height, width * 4, ARGB8888)

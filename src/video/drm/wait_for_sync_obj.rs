@@ -27,6 +27,7 @@ pub trait SyncObjWaiter {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 struct JobId(u64);
 
+#[must_use]
 pub struct WaitForSyncObjHandle {
     inner: Rc<Inner>,
     id: JobId,

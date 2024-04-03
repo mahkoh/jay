@@ -2,22 +2,23 @@ use {
     crate::{
         cli::screenshot::buf_to_qoi,
         client::Client,
-        format::ARGB8888,
         globals::GlobalBase,
         it::{
             test_error::{TestError, TestResult},
             test_ifs::{
-                test_compositor::TestCompositor, test_jay_compositor::TestJayCompositor,
-                test_keyboard::TestKeyboard, test_pointer::TestPointer,
-                test_registry::TestRegistry, test_seat::TestSeat, test_shm::TestShm,
-                test_subcompositor::TestSubcompositor, test_xdg_base::TestXdgWmBase,
+                test_compositor::TestCompositor, test_cursor_shape_manager::TestCursorShapeManager,
+                test_data_device_manager::TestDataDeviceManager,
+                test_jay_compositor::TestJayCompositor, test_keyboard::TestKeyboard,
+                test_pointer::TestPointer, test_registry::TestRegistry, test_seat::TestSeat,
+                test_shm::TestShm, test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
+                test_subcompositor::TestSubcompositor, test_viewporter::TestViewporter,
+                test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
             test_transport::TestTransport,
             test_utils::test_window::TestWindow,
             testrun::TestRun,
         },
         theme::Color,
-        utils::clonecell::CloneCell,
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -31,7 +32,12 @@ pub struct TestClient {
     pub comp: Rc<TestCompositor>,
     pub sub: Rc<TestSubcompositor>,
     pub shm: Rc<TestShm>,
+    pub spbm: Rc<TestSinglePixelBufferManager>,
+    pub viewporter: Rc<TestViewporter>,
     pub xdg: Rc<TestXdgWmBase>,
+    pub activation: Rc<TestXdgActivation>,
+    pub data_device_manager: Rc<TestDataDeviceManager>,
+    pub cursor_shape_manager: Rc<TestCursorShapeManager>,
 }
 
 pub struct DefaultSeat {
@@ -65,7 +71,7 @@ impl TestClient {
             caps: Cell::new(0),
             name: Default::default(),
         });
-        self.registry.bind(&tseat, seat.name().raw(), 7)?;
+        self.registry.bind(&tseat, seat.name().raw(), 9)?;
         self.tran.sync().await;
         let server = self.tran.get_server_obj(tseat.id)?;
         tseat.server.set(Some(server));
@@ -79,26 +85,32 @@ impl TestClient {
     }
 
     pub async fn sync(&self) {
+        self.run.state.eng.yield_now().await;
         self.run.sync().await;
         self.tran.sync().await;
+        self.run.state.eng.yield_now().await;
     }
 
-    pub async fn take_screenshot(&self) -> Result<Vec<u8>, TestError> {
-        let dmabuf = self.jc.take_screenshot().await?;
+    pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Vec<u8>, TestError> {
+        let dmabuf = self.jc.take_screenshot(include_cursor).await?;
         let qoi = buf_to_qoi(&self.server.state.dma_buf_ids, &dmabuf);
         Ok(qoi)
     }
 
     #[allow(dead_code)]
-    pub async fn save_screenshot(&self, name: &str) -> Result<(), TestError> {
-        let qoi = self.take_screenshot().await?;
+    pub async fn save_screenshot(&self, name: &str, include_cursor: bool) -> Result<(), TestError> {
+        let qoi = self.take_screenshot(include_cursor).await?;
         let path = format!("{}/screenshot_{}.qoi", self.run.out_dir, name);
         std::fs::write(path, qoi)?;
         Ok(())
     }
 
-    pub async fn compare_screenshot(&self, name: &str) -> Result<(), TestError> {
-        let actual = self.take_screenshot().await?;
+    pub async fn compare_screenshot(
+        &self,
+        name: &str,
+        include_cursor: bool,
+    ) -> Result<(), TestError> {
+        let actual = self.take_screenshot(include_cursor).await?;
         let expected_path = format!("{}/screenshot_{}.qoi", self.run.in_dir, name);
         let expected = std::fs::read(expected_path)?;
         if actual != expected {
@@ -114,19 +126,18 @@ impl TestClient {
 
     pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
         let surface = self.comp.create_surface().await?;
-        let shm = self.shm.create_pool(0)?;
-        let buffer = shm.create_buffer(0, 0, 0, 0, ARGB8888)?;
+        let viewport = self.viewporter.get_viewport(&surface)?;
         let xdg = self.xdg.create_xdg_surface(surface.id).await?;
         let tl = xdg.create_toplevel().await?;
         surface.commit()?;
         self.sync().await;
         Ok(Rc::new(TestWindow {
             surface,
+            spbm: self.spbm.clone(),
+            viewport,
             xdg,
             tl,
-            shm,
-            buffer: CloneCell::new(buffer),
-            color: Cell::new(Color::from_rgba_straight(0, 0, 0, 0)),
+            color: Cell::new(Color::SOLID_BLACK),
         }))
     }
 }

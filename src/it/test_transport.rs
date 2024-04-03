@@ -56,7 +56,18 @@ impl TestTransport {
             compositor: Default::default(),
             subcompositor: Default::default(),
             shm: Default::default(),
+            spbm: Default::default(),
+            viewporter: Default::default(),
             xdg: Default::default(),
+            activation: Default::default(),
+            foreign_toplevel_list: Default::default(),
+            data_device_manager: Default::default(),
+            cursor_shape_manager: Default::default(),
+            syncobj_manager: Default::default(),
+            content_type_manager: Default::default(),
+            data_control_manager: Default::default(),
+            dmabuf: Default::default(),
+            drag_manager: Default::default(),
             seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {
@@ -159,7 +170,12 @@ impl TestTransport {
             _ => bail!("Object with id {} has already been deleted", msg.id()),
         };
         if obj.interface().name() != msg.interface().name() {
-            bail!("Object with id {} has an incompatible interface", msg.id());
+            bail!(
+                "Object with id {} has an incompatible interface: {} != {}",
+                msg.id(),
+                obj.interface().name(),
+                msg.interface().name()
+            );
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();
@@ -186,7 +202,7 @@ struct Outgoing {
 }
 
 impl Outgoing {
-    async fn run(mut self: Self) {
+    async fn run(mut self) {
         loop {
             self.tc.flush_request.triggered().await;
             if let Err(e) = self.flush().await {
@@ -224,7 +240,7 @@ struct Incoming {
 }
 
 impl Incoming {
-    async fn run(mut self: Self) {
+    async fn run(mut self) {
         loop {
             if let Err(e) = self.handle_msg().await {
                 let msg = format!(

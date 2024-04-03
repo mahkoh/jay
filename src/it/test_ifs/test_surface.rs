@@ -2,7 +2,11 @@ use {
     crate::{
         ifs::wl_surface::WlSurface,
         it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
+            test_error::{TestError, TestResult},
+            test_ifs::test_region::TestRegion,
+            test_object::TestObject,
+            test_transport::TestTransport,
+            test_utils::test_expected_event::TEEH,
             testrun::ParseFull,
         },
         utils::buffd::MsgParser,
@@ -16,6 +20,8 @@ pub struct TestSurface {
     pub tran: Rc<TestTransport>,
     pub server: Rc<WlSurface>,
     pub destroyed: Cell<bool>,
+    pub preferred_buffer_scale: TEEH<i32>,
+    pub preferred_buffer_transform: TEEH<u32>,
 }
 
 impl TestSurface {
@@ -36,6 +42,23 @@ impl TestSurface {
         Ok(())
     }
 
+    pub fn offset(&self, dx: i32, dy: i32) -> Result<(), TestError> {
+        self.tran.send(Offset {
+            self_id: self.id,
+            x: dx,
+            y: dy,
+        })?;
+        Ok(())
+    }
+
+    pub fn set_input_region(&self, region: &TestRegion) -> TestResult {
+        self.tran.send(SetInputRegion {
+            self_id: self.id,
+            region: region.id,
+        })?;
+        Ok(())
+    }
+
     pub fn commit(&self) -> Result<(), TestError> {
         self.tran.send(Commit { self_id: self.id })?;
         Ok(())
@@ -48,6 +71,21 @@ impl TestSurface {
 
     fn handle_leave(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let _ev = Leave::parse_full(parser)?;
+        Ok(())
+    }
+
+    fn handle_preferred_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
+        let ev = PreferredBufferScale::parse_full(parser)?;
+        self.preferred_buffer_scale.push(ev.factor);
+        Ok(())
+    }
+
+    fn handle_preferred_buffer_transform(
+        &self,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), TestError> {
+        let ev = PreferredBufferTransform::parse_full(parser)?;
+        self.preferred_buffer_transform.push(ev.transform);
         Ok(())
     }
 }
@@ -63,6 +101,8 @@ test_object! {
 
     ENTER => handle_enter,
     LEAVE => handle_leave,
+    PREFERRED_BUFFER_SCALE => handle_preferred_buffer_scale,
+    PREFERRED_BUFFER_TRANSFORM => handle_preferred_buffer_transform,
 }
 
 impl TestObject for TestSurface {}

@@ -23,6 +23,11 @@ macro_rules! testcase {
                 Box::new(test(testrun))
             }
         }
+
+        #[test]
+        fn single() {
+            crate::it::run_tests_(vec![&Test])
+        }
     };
 }
 
@@ -44,6 +49,26 @@ mod t0015_scroll_partial;
 mod t0016_scroll_ws;
 mod t0017_remove_unused_ws;
 mod t0018_click_to_active_ws;
+mod t0019_natural_scrolling;
+mod t0020_surface_offset;
+mod t0021_preferred_buffer_scale;
+mod t0022_toplevel_suspended;
+mod t0023_xdg_activation;
+mod t0024_foreign_toplevel_list;
+mod t0025_dnd_focus_change;
+mod t0026_output_transform;
+mod t0027_input_region;
+mod t0028_top_level_restacking;
+mod t0029_double_click_float;
+mod t0030_cursor_shape;
+mod t0031_syncobj;
+mod t0032_content_type;
+mod t0032_data_control;
+mod t0033_float_size_memoization;
+mod t0034_workspace_restoration;
+mod t0035_scanout_feedback;
+mod t0036_idle;
+mod t0037_toplevel_drag;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -61,6 +86,7 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
             ]
         }
     }
+
     tests! {
         t0001_shm_formats,
         t0002_window,
@@ -80,5 +106,24 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0016_scroll_ws,
         t0017_remove_unused_ws,
         t0018_click_to_active_ws,
+        t0019_natural_scrolling,
+        t0020_surface_offset,
+        t0021_preferred_buffer_scale,
+        t0022_toplevel_suspended,
+        t0023_xdg_activation,
+        t0024_foreign_toplevel_list,
+        t0025_dnd_focus_change,
+        t0026_output_transform,
+        t0027_input_region,
+        t0028_top_level_restacking,
+        t0029_double_click_float,
+        t0030_cursor_shape,
+        t0031_syncobj,
+        t0032_data_control,
+        t0033_float_size_memoization,
+        t0034_workspace_restoration,
+        t0035_scanout_feedback,
+        t0036_idle,
+        t0037_toplevel_drag,
     }
 }

@@ -65,15 +65,13 @@ mod leaks {
     }
 
     pub fn init() {
-        unsafe {
-            if INITIALIZED {
-                return;
-            }
-            MAP.set(Box::into_raw(Box::new(AHashMap::new())));
-            ALLOCATIONS.set(Box::into_raw(Box::new(AHashMap::new())));
-            IN_ALLOCATOR.set(0);
-            INITIALIZED.set(true);
+        if INITIALIZED.get() {
+            return;
         }
+        MAP.set(Box::into_raw(Box::new(AHashMap::new())));
+        ALLOCATIONS.set(Box::into_raw(Box::new(AHashMap::new())));
+        IN_ALLOCATOR.set(0);
+        INITIALIZED.set(true);
     }
 
     fn log_containers(
@@ -153,7 +151,7 @@ mod leaks {
         unsafe {
             IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut map: AHashMap<ClientId, Vec<(u64, Tracked)>> = AHashMap::new();
-            for (id, obj) in MAP.deref_mut().drain() {
+            for (id, obj) in MAP.get().deref_mut().drain() {
                 map.entry(obj.client).or_default().push((id, obj));
             }
             if map.is_empty() {
@@ -166,7 +164,8 @@ mod leaks {
                 objs.sort_by_key(|o| o.0);
                 log::info!("Client {} leaked {} objects", objs[0].1.client, objs.len());
                 for (_, obj) in objs {
-                    let time = chrono::NaiveDateTime::from_timestamp(obj.time.0, obj.time.1);
+                    let time =
+                        chrono::NaiveDateTime::from_timestamp_opt(obj.time.0, obj.time.1).unwrap();
                     log::info!("  [{}] {}", time.format("%H:%M:%S%.3f"), obj.ty,);
                     match find_allocation_containing(obj.addr) {
                         Some(mut alloc) => {
@@ -209,7 +208,7 @@ mod leaks {
     impl<T> Default for Tracker<T> {
         fn default() -> Self {
             Self {
-                id: unsafe {
+                id: {
                     let id = ID.get();
                     ID.set(id + 1);
                     id
@@ -228,7 +227,7 @@ mod leaks {
                 };
                 uapi::clock_gettime(c::CLOCK_REALTIME, &mut time).unwrap();
                 IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
-                MAP.deref_mut().insert(
+                MAP.get().deref_mut().insert(
                     self.id,
                     Tracked {
                         addr: self as *const _ as usize,
@@ -245,7 +244,7 @@ mod leaks {
     impl<T> Drop for Tracker<T> {
         fn drop(&mut self) {
             unsafe {
-                MAP.deref_mut().remove(&self.id);
+                MAP.get().deref_mut().remove(&self.id);
             }
         }
     }
@@ -273,7 +272,7 @@ mod leaks {
             let res = c::calloc(layout.size(), 1) as *mut u8;
             if IN_ALLOCATOR.get() == 0 {
                 IN_ALLOCATOR.set(1);
-                ALLOCATIONS.deref_mut().insert(
+                ALLOCATIONS.get().deref_mut().insert(
                     res,
                     Allocation {
                         addr: res,
@@ -282,14 +281,14 @@ mod leaks {
                     },
                 );
                 // log::info!("allocated [0x{:x}, 0x{:x})", res as usize, res as usize + layout.size());
-                IN_ALLOCATOR = 0;
+                IN_ALLOCATOR.set(0);
             }
             res
         }
 
         unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-            if INITIALIZED {
-                ALLOCATIONS.deref_mut().remove(&ptr);
+            if INITIALIZED.get() {
+                ALLOCATIONS.get().deref_mut().remove(&ptr);
             }
             // c::memset(ptr as _, 0, layout.size());
             c::free(ptr as _);
@@ -300,7 +299,7 @@ mod leaks {
         unsafe {
             IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut res = vec![];
-            for allocation in ALLOCATIONS.deref().values() {
+            for allocation in ALLOCATIONS.get().deref().values() {
                 let num = allocation.len / mem::size_of::<usize>();
                 let elements = std::slice::from_raw_parts(allocation.addr as *const *mut u8, num);
                 for (offset, pos) in elements.iter().enumerate() {
@@ -319,7 +318,7 @@ mod leaks {
         unsafe {
             IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
             let mut res = None;
-            for allocation in ALLOCATIONS.deref().values() {
+            for allocation in ALLOCATIONS.get().deref().values() {
                 let aaddr = allocation.addr as usize;
                 if aaddr <= addr && addr < aaddr + allocation.len {
                     res = Some(allocation.clone());

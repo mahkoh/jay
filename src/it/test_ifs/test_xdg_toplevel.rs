@@ -7,7 +7,7 @@ use {
             test_transport::TestTransport,
             testrun::ParseFull,
         },
-        tree::{ContainerNode, ToplevelNodeBase},
+        tree::{ContainerNode, ContainingNode, FloatNode, ToplevelNodeBase},
         utils::buffd::MsgParser,
         wire::{xdg_toplevel::*, XdgToplevelId},
     },
@@ -18,11 +18,10 @@ use {
     },
 };
 
-pub struct TestXdgToplevel {
+pub struct TestXdgToplevelCore {
     pub id: XdgToplevelId,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
-    pub server: Rc<XdgToplevel>,
 
     pub width: Cell<i32>,
     pub height: Cell<i32>,
@@ -31,7 +30,37 @@ pub struct TestXdgToplevel {
     pub close_requested: Cell<bool>,
 }
 
+pub struct TestXdgToplevel {
+    pub core: Rc<TestXdgToplevelCore>,
+    pub server: Rc<XdgToplevel>,
+}
+
 impl TestXdgToplevel {
+    pub fn parent(&self) -> TestResult<Rc<dyn ContainingNode>> {
+        match self.server.tl_data().parent.get() {
+            Some(p) => Ok(p),
+            _ => bail!("toplevel has no parent"),
+        }
+    }
+
+    pub fn container_parent(&self) -> TestResult<Rc<ContainerNode>> {
+        let parent = self.parent()?;
+        match parent.node_into_container() {
+            Some(p) => Ok(p),
+            _ => bail!("toplevel parent is not a container"),
+        }
+    }
+
+    pub fn float_parent(&self) -> TestResult<Rc<FloatNode>> {
+        let parent = self.parent()?;
+        match parent.node_into_float() {
+            Some(p) => Ok(p),
+            _ => bail!("toplevel parent is not a float"),
+        }
+    }
+}
+
+impl TestXdgToplevelCore {
     pub fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
@@ -39,15 +68,12 @@ impl TestXdgToplevel {
         Ok(())
     }
 
-    pub fn container_parent(&self) -> TestResult<Rc<ContainerNode>> {
-        let parent = match self.server.tl_data().parent.get() {
-            Some(p) => p,
-            _ => bail!("toplevel has no parent"),
-        };
-        match parent.node_into_container() {
-            Some(p) => Ok(p),
-            _ => bail!("toplevel parent is not a container"),
-        }
+    pub fn set_title(&self, title: &str) -> Result<(), TestError> {
+        self.tran.send(SetTitle {
+            self_id: self.id,
+            title,
+        })?;
+        Ok(())
     }
 
     fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
@@ -68,20 +94,26 @@ impl TestXdgToplevel {
         let _ev = ConfigureBounds::parse_full(parser)?;
         Ok(())
     }
+
+    fn handle_wm_capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
+        let _ev = WmCapabilities::parse_full(parser)?;
+        Ok(())
+    }
 }
 
-impl Drop for TestXdgToplevel {
+impl Drop for TestXdgToplevelCore {
     fn drop(&mut self) {
         let _ = self.destroy();
     }
 }
 
 test_object! {
-    TestXdgToplevel, XdgToplevel;
+    TestXdgToplevelCore, XdgToplevel;
 
     CONFIGURE => handle_configure,
     CLOSE => handle_close,
     CONFIGURE_BOUNDS => handle_configure_bounds,
+    WM_CAPABILITIES => handle_wm_capabilities,
 }
 
-impl TestObject for TestXdgToplevel {}
+impl TestObject for TestXdgToplevelCore {}

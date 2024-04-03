@@ -3,6 +3,7 @@ use {
         backend::InputDeviceId,
         ifs::wl_seat::SeatId,
         it::test_error::{TestError, TestResult},
+        tree::OutputNode,
         utils::{copyhashmap::CopyHashMap, stack::Stack},
     },
     bincode::Options,
@@ -15,9 +16,10 @@ use {
         },
         input::{InputDevice, Seat},
         keyboard::{Keymap, ModifiedKeySym},
+        video::{Connector, Transform},
         Axis, Direction,
     },
-    std::{cell::Cell, ops::Deref, ptr, rc::Rc},
+    std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
 };
 
 pub static TEST_CONFIG_ENTRY: ConfigEntry = ConfigEntry {
@@ -244,12 +246,37 @@ impl TestConfig {
         })
     }
 
+    pub fn set_idle(&self, timeout: Duration) -> TestResult {
+        self.send(ClientMessage::SetIdle { timeout })
+    }
+
+    pub fn set_floating(&self, seat: SeatId, floating: bool) -> TestResult {
+        self.send(ClientMessage::SetFloating {
+            seat: Seat(seat.raw() as _),
+            floating,
+        })
+    }
+
     fn clear(&self) {
         unsafe {
             if let Some(srv) = self.srv.take() {
                 (srv.srv_unref)(srv.srv_data);
             }
         }
+    }
+
+    pub fn set_scale(&self, output: &OutputNode, scale: f64) -> TestResult {
+        self.send(ClientMessage::ConnectorSetScale {
+            connector: Connector(output.global.connector.connector.id().raw() as _),
+            scale,
+        })
+    }
+
+    pub fn set_output_transform(&self, output: &OutputNode, transform: Transform) -> TestResult {
+        self.send(ClientMessage::ConnectorSetTransform {
+            connector: Connector(output.global.connector.connector.id().raw() as _),
+            transform,
+        })
     }
 }
 

@@ -237,6 +237,7 @@ impl ConnectorHandler {
         }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
+        self.state.root.update_extents();
         self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
         on.lock_surface.take();

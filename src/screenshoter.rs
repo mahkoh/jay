@@ -39,7 +39,10 @@ pub struct Screenshot {
     pub bo: GbmBo,
 }
 
-pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> {
+pub fn take_screenshot(
+    state: &State,
+    include_cursor: bool,
+) -> Result<Screenshot, ScreenshooterError> {
     let ctx = match state.render_ctx.get() {
         Some(ctx) => ctx,
         _ => return Err(ScreenshooterError::NoRenderContext),
@@ -72,7 +75,7 @@ pub fn take_screenshot(state: &State) -> Result<Screenshot, ScreenshooterError> 
     fb.render_node(
         state.root.deref(),
         state,
-        Some(state.root.extents.get()),
+        include_cursor.then_some(state.root.extents.get()),
         None,
         Scale::from_int(1),
         true,

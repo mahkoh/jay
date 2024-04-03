@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{ClientId, RequestParser},
+        fixed::Fixed,
         ifs::wl_seat::WlSeatGlobal,
         it::{
             test_backend::{TestBackend, TestBackendKb, TestBackendMouse, TestConnector},
@@ -73,6 +74,7 @@ impl TestRun {
         tran.init();
         let registry = tran.get_registry();
         let jc = registry.get_jay_compositor().await?;
+        jc.enable_symmetric_delete()?;
         let client_id = jc.get_client_id().await?;
         let client = self.state.clients.get(client_id)?;
         Ok(Rc::new(TestClient {
@@ -83,7 +85,12 @@ impl TestRun {
             comp: registry.get_compositor().await?,
             sub: registry.get_subcompositor().await?,
             shm: registry.get_shm().await?,
+            spbm: registry.get_spbm().await?,
+            viewporter: registry.get_viewporter().await?,
             xdg: registry.get_xdg().await?,
+            activation: registry.get_activation().await?,
+            data_device_manager: registry.get_data_device_manager().await?,
+            cursor_shape_manager: registry.get_cursor_shape_manager().await?,
             registry,
         }))
     }
@@ -110,7 +117,9 @@ impl TestRun {
             .set_input_device_seat(self.backend.default_kb.common.id, seat.id())?;
         self.cfg
             .set_input_device_seat(self.backend.default_mouse.common.id, seat.id())?;
+        self.backend.default_mouse.click(1);
         self.state.eng.yield_now().await;
+        self.cfg.show_workspace(seat.id(), "")?;
         Ok(DefaultSetup {
             connector: self.backend.default_connector.clone(),
             output,
@@ -143,4 +152,13 @@ pub struct DefaultSetup {
     pub kb: Rc<TestBackendKb>,
     pub mouse: Rc<TestBackendMouse>,
     pub seat: Rc<WlSeatGlobal>,
+}
+
+impl DefaultSetup {
+    pub fn move_to(&self, x: i32, y: i32) {
+        let (ox, oy) = self.seat.position();
+        let (nx, ny) = (Fixed::from_int(x), Fixed::from_int(y));
+        let (dx, dy) = (nx - ox, ny - oy);
+        self.mouse.rel(dx.to_f64(), dy.to_f64())
+    }
 }

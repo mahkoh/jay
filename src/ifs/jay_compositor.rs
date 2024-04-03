@@ -18,7 +18,7 @@ use {
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
         },
-        wire::{jay_compositor::*, JayCompositorId},
+        wire::{jay_compositor::*, JayCompositorId, JayScreenshotId},
     },
     bstr::ByteSlice,
     log::Level,
@@ -125,14 +125,27 @@ impl JayCompositor {
 
     fn take_screenshot(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
         let req: TakeScreenshot = self.client.parse(self, parser)?;
+        self.take_screenshot_impl(req.id, false)
+    }
+
+    fn take_screenshot2(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
+        let req: TakeScreenshot2 = self.client.parse(self, parser)?;
+        self.take_screenshot_impl(req.id, req.include_cursor != 0)
+    }
+
+    fn take_screenshot_impl(
+        &self,
+        id: JayScreenshotId,
+        include_cursor: bool,
+    ) -> Result<(), JayCompositorError> {
         let ss = Rc::new(JayScreenshot {
-            id: req.id,
+            id,
             client: self.client.clone(),
             tracker: Default::default(),
         });
         track!(self.client, ss);
         self.client.add_client_obj(&ss)?;
-        match take_screenshot(&self.client.state) {
+        match take_screenshot(&self.client.state, include_cursor) {
             Ok(s) => {
                 let dmabuf = s.bo.dmabuf();
                 let plane = &dmabuf.planes[0];
@@ -347,6 +360,7 @@ object_base! {
     CREATE_SCREENCAST => create_screencast,
     GET_RANDR => get_randr,
     GET_INPUT => get_input,
+    TAKE_SCREENSHOT2 => take_screenshot2,
 }
 
 impl Object for JayCompositor {}

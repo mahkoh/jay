@@ -33,6 +33,7 @@ fn to_f32(c: u8) -> f32 {
     c as f32 / 255f32
 }
 
+#[allow(dead_code)]
 fn to_u8(c: f32) -> u8 {
     (c * 255f32) as u8
 }
@@ -87,7 +88,7 @@ impl Color {
         }
     }
 
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    #[allow(dead_code)]
     pub fn to_rgba_premultiplied(self) -> [u8; 4] {
         [to_u8(self.r), to_u8(self.g), to_u8(self.b), to_u8(self.a)]
     }

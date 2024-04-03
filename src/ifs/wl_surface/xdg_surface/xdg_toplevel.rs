@@ -64,7 +64,7 @@ const STATE_TILED_LEFT: u32 = 5;
 const STATE_TILED_RIGHT: u32 = 6;
 const STATE_TILED_TOP: u32 = 7;
 const STATE_TILED_BOTTOM: u32 = 8;
-const STATE_SUSPENDED: u32 = 9;
+pub const STATE_SUSPENDED: u32 = 9;
 
 #[allow(dead_code)]
 const CAP_WINDOW_MENU: u32 = 1;

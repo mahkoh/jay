@@ -1,5 +1,6 @@
 use {
     crate::{
+        client::MIN_SERVER_ID,
         it::{
             test_error::TestError, test_object::TestObject, test_transport::TestTransport,
             testrun::ParseFull,
@@ -36,7 +37,9 @@ impl TestDisplay {
             }
             Some(obj) => {
                 obj.on_remove(&self.tran);
-                self.tran.obj_ids.borrow_mut().release(ev.id);
+                if ev.id < MIN_SERVER_ID {
+                    self.tran.obj_ids.borrow_mut().release(ev.id);
+                }
             }
         }
         Ok(())

@@ -5,6 +5,7 @@ use {
             test_error::{TestErrorExt, TestResult},
             testrun::TestRun,
         },
+        theme::Color,
     },
     std::rc::Rc,
 };
@@ -25,10 +26,13 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     window.map().await?;
 
     let ns = client.comp.create_surface().await?;
+    let nsv = client.viewporter.get_viewport(&ns)?;
     let nss = client.sub.get_subsurface(ns.id, window.surface.id).await?;
     nss.set_position(100, 100)?;
-    let buffer = client.shm.create_buffer(100, 100)?;
+    let buffer = client.spbm.create_buffer(Color::SOLID_BLACK)?;
     ns.attach(buffer.id)?;
+    nsv.set_source(0, 0, 1, 1)?;
+    nsv.set_destination(100, 100)?;
     ns.commit()?;
 
     run.cfg.set_fullscreen(ds.seat.id(), true)?;

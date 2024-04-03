@@ -246,7 +246,7 @@ pub struct WlSurface {
     tearing: Cell<bool>,
     version: u32,
     pub has_content_type_manager: Cell<bool>,
-    content_type: Cell<Option<ContentType>>,
+    pub content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
     sync_obj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
     destroyed: Cell<bool>,
@@ -551,6 +551,11 @@ impl WlSurface {
             ext = xsurface;
         }
         Ok(ext.into_xsurface().unwrap())
+    }
+
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    pub fn get_output(&self) -> Rc<OutputNode> {
+        self.output.get()
     }
 
     pub fn set_output(&self, output: &Rc<OutputNode>) {
@@ -910,20 +915,20 @@ impl WlSurface {
                     release,
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
-                self.buf_x.fetch_add(dx);
-                self.buf_y.fetch_add(dy);
-                if (dx, dy) != (0, 0) {
-                    self.need_extents_update.set(true);
-                    for (_, cursor) in &self.cursors {
-                        cursor.dec_hotspot(dx, dy);
-                    }
-                }
             } else {
                 self.buf_x.set(0);
                 self.buf_y.set(0);
                 for (_, cursor) in &self.cursors {
                     cursor.set_hotspot(0, 0);
                 }
+            }
+        }
+        if self.buffer.is_some() && (dx, dy) != (0, 0) {
+            self.buf_x.fetch_add(dx);
+            self.buf_y.fetch_add(dy);
+            self.need_extents_update.set(true);
+            for (_, cursor) in &self.cursors {
+                cursor.dec_hotspot(dx, dy);
             }
         }
         let transform_changed = viewport_changed || scale_changed || buffer_transform_changed;
@@ -1019,6 +1024,7 @@ impl WlSurface {
         {
             if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
+                self.client.state.tree_changed();
             }
             if let Some(region) = pending.opaque_region.take() {
                 self.opaque_region.set(region);

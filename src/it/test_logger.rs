@@ -14,7 +14,7 @@ use {
 static LEVEL: AtomicUsize = AtomicUsize::new(Level::Info as usize);
 
 thread_local! {
-    static FILE: CloneCell<Option<Rc<OwnedFd>>> = CloneCell::new(None);
+    static FILE: CloneCell<Option<Rc<OwnedFd>>> = const { CloneCell::new(None) };
 }
 
 pub fn install() {

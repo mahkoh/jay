@@ -73,6 +73,11 @@ msg get_input = 17 {
     id: id(jay_input),
 }
 
+msg take_screenshot2 = 18 {
+    id: id(jay_screenshot),
+    include_cursor: u32,
+}
+
 # events
 
 msg client_id = 0 {

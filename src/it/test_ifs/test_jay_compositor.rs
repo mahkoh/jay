@@ -2,8 +2,11 @@ use {
     crate::{
         client::ClientId,
         it::{
-            test_error::TestError, test_ifs::test_screenshot::TestJayScreenshot,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
+            test_error::{TestError, TestResult},
+            test_ifs::test_screenshot::TestJayScreenshot,
+            test_object::TestObject,
+            test_transport::TestTransport,
+            testrun::ParseFull,
         },
         utils::{buffd::MsgParser, cell_ext::CellExt},
         wire::{
@@ -22,6 +25,14 @@ pub struct TestJayCompositor {
 }
 
 impl TestJayCompositor {
+    pub fn new(tran: &Rc<TestTransport>) -> Self {
+        Self {
+            id: tran.id(),
+            tran: tran.clone(),
+            client_id: Cell::new(None),
+        }
+    }
+
     pub async fn get_client_id(&self) -> Result<ClientId, TestError> {
         if self.client_id.is_none() {
             self.tran.send(GetClientId { self_id: self.id })?;
@@ -33,14 +44,20 @@ impl TestJayCompositor {
         }
     }
 
-    pub async fn take_screenshot(&self) -> Result<Dmabuf, TestError> {
+    pub fn enable_symmetric_delete(&self) -> TestResult {
+        self.tran.send(EnableSymmetricDelete { self_id: self.id })?;
+        Ok(())
+    }
+
+    pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Dmabuf, TestError> {
         let js = Rc::new(TestJayScreenshot {
             id: self.tran.id(),
             result: Cell::new(None),
         });
-        self.tran.send(TakeScreenshot {
+        self.tran.send(TakeScreenshot2 {
             self_id: self.id,
             id: js.id,
+            include_cursor: include_cursor as _,
         })?;
         self.tran.add_obj(js.clone())?;
         self.tran.sync().await;

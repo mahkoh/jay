@@ -52,6 +52,11 @@ impl SyncObj {
             importers: Default::default(),
         }
     }
+
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
+    pub fn fd(&self) -> &Rc<OwnedFd> {
+        &self.fd
+    }
 }
 
 impl Drop for SyncObj {

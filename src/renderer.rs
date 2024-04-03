@@ -405,6 +405,7 @@ impl Renderer<'_> {
                     Some(bounds) => rect.intersect(*bounds),
                 };
                 if !rect.is_empty() {
+                    self.base.ops.push(GfxApiOpt::Sync);
                     self.base.fill_boxes(&[rect], color);
                 }
             }

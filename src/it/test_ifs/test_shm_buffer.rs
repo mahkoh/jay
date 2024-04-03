@@ -1,12 +1,8 @@
 use {
     crate::{
-        it::{
-            test_error::TestError, test_mem::TestMem, test_object::TestObject,
-            test_transport::TestTransport, testrun::ParseFull,
-        },
+        it::{test_ifs::test_buffer::TestBuffer, test_mem::TestMem},
         theme::Color,
-        utils::{buffd::MsgParser, windows::WindowsExt},
-        wire::{wl_buffer::*, WlBufferId},
+        utils::windows::WindowsExt,
     },
     std::{
         cell::Cell,
@@ -16,15 +12,13 @@ use {
 };
 
 pub struct TestShmBuffer {
-    pub id: WlBufferId,
-    pub tran: Rc<TestTransport>,
+    pub buffer: Rc<TestBuffer>,
     pub range: Range<usize>,
     pub mem: Rc<TestMem>,
-    pub released: Cell<bool>,
-    pub destroyed: Cell<bool>,
 }
 
 impl TestShmBuffer {
+    #[allow(dead_code)]
     pub fn fill(&self, color: Color) {
         let [cr, cg, cb, ca] = color.to_rgba_premultiplied();
         for [b, g, r, a] in self.deref().array_chunks_ext::<4>() {
@@ -33,20 +27,6 @@ impl TestShmBuffer {
             b.set(cb);
             a.set(ca);
         }
-    }
-
-    pub fn destroy(&self) -> Result<(), TestError> {
-        if self.destroyed.replace(true) {
-            return Ok(());
-        }
-        self.tran.send(Destroy { self_id: self.id })?;
-        Ok(())
-    }
-
-    fn handle_release(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Release::parse_full(parser)?;
-        self.released.set(true);
-        Ok(())
     }
 }
 
@@ -57,17 +37,3 @@ impl Deref for TestShmBuffer {
         &self.mem[self.range.clone()]
     }
 }
-
-impl Drop for TestShmBuffer {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestShmBuffer, WlBuffer;
-
-    RELEASE => handle_release,
-}
-
-impl TestObject for TestShmBuffer {}

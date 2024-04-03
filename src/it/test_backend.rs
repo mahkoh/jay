@@ -8,13 +8,15 @@ use {
             ScrollAxis, TransformMatrix,
         },
         compositor::TestFuture,
+        drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::GfxError,
-        it::test_error::TestResult,
+        it::{test_error::TestResult, test_utils::test_expected_event::TEEH},
         state::State,
         time::now_usec,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, oserror::OsError, syncqueue::SyncQueue,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, on_change::OnChange, oserror::OsError,
+            syncqueue::SyncQueue,
         },
         video::drm::{ConnectorType, Drm},
     },
@@ -39,10 +41,12 @@ pub enum TestBackendError {
 pub struct TestBackend {
     pub state: Rc<State>,
     pub test_future: TestFuture,
+    pub default_monitor_info: MonitorInfo,
     pub default_connector: Rc<TestConnector>,
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
     pub render_context_installed: Cell<bool>,
+    pub idle: TEEH<bool>,
 }
 
 impl TestBackend {
@@ -55,7 +59,7 @@ impl TestBackend {
                 idx: 1,
             },
             events: Default::default(),
-            on_change: Default::default(),
+            feedback: Default::default(),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -89,13 +93,29 @@ impl TestBackend {
                 name: Rc::new("default-keyboard".to_string()),
             },
         });
+        let mode = Mode {
+            width: 800,
+            height: 600,
+            refresh_rate_millihz: 60_000,
+        };
+        let default_monitor_info = MonitorInfo {
+            modes: vec![mode],
+            manufacturer: "jay".to_string(),
+            product: "TestConnector".to_string(),
+            serial_number: default_connector.id.to_string(),
+            initial_mode: mode,
+            width_mm: 80,
+            height_mm: 60,
+        };
         Self {
             state: state.clone(),
             test_future: future,
+            default_monitor_info,
             default_connector,
             default_mouse,
             default_kb,
             render_context_installed: Cell::new(false),
+            idle: Rc::new(Default::default()),
         }
     }
 
@@ -113,22 +133,9 @@ impl TestBackend {
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(self.default_connector.clone()));
-        let mode = Mode {
-            width: 800,
-            height: 600,
-            refresh_rate_millihz: 60_000,
-        };
         self.default_connector
             .events
-            .push(ConnectorEvent::Connected(MonitorInfo {
-                modes: vec![mode],
-                manufacturer: "jay".to_string(),
-                product: "TestConnector".to_string(),
-                serial_number: self.default_connector.id.to_string(),
-                initial_mode: mode,
-                width_mm: 80,
-                height_mm: 60,
-            }));
+            .send_event(ConnectorEvent::Connected(self.default_monitor_info.clone()));
         self.state
             .backend_events
             .push(BackendEvent::NewInputDevice(self.default_kb.clone()));
@@ -205,7 +212,9 @@ impl Backend for TestBackend {
         let _ = vtnr;
     }
 
-    fn set_idle(&self, _idle: bool) {}
+    fn set_idle(&self, idle: bool) {
+        self.idle.push(idle);
+    }
 
     fn supports_presentation_feedback(&self) -> bool {
         true
@@ -215,8 +224,8 @@ impl Backend for TestBackend {
 pub struct TestConnector {
     pub id: ConnectorId,
     pub kernel_id: ConnectorKernelId,
-    pub events: SyncQueue<ConnectorEvent>,
-    pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
+    pub events: OnChange<ConnectorEvent>,
+    pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
 }
 
 impl Connector for TestConnector {
@@ -229,11 +238,11 @@ impl Connector for TestConnector {
     }
 
     fn event(&self) -> Option<ConnectorEvent> {
-        self.events.pop()
+        self.events.events.pop()
     }
 
     fn on_change(&self, cb: Rc<dyn Fn()>) {
-        self.on_change.set(Some(cb));
+        self.events.on_change.set(Some(cb));
     }
 
     fn damage(&self) {
@@ -246,6 +255,10 @@ impl Connector for TestConnector {
 
     fn set_mode(&self, _mode: Mode) {
         // todo
+    }
+
+    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
+        self.feedback.get()
     }
 }
 
@@ -319,13 +332,17 @@ impl TestBackendMouse {
     }
 
     pub fn scroll_px(&self, dy: i32) {
+        self.scroll_px2(dy, false);
+    }
+
+    pub fn scroll_px2(&self, dy: i32, inverted: bool) {
         self.common.event(InputEvent::AxisSource {
             source: AxisSource::Finger,
         });
         self.common.event(InputEvent::AxisPx {
             dist: Fixed::from_int(dy),
             axis: ScrollAxis::Vertical,
-            inverted: false,
+            inverted,
         });
         self.common.event(InputEvent::AxisFrame {
             time_usec: now_usec(),
