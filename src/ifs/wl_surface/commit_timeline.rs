@@ -269,7 +269,9 @@ fn consume_acquire_points(pending: &mut PendingState, points: &mut SmallVec<[Poi
         points.push(point);
     }
     for ss in pending.subsurfaces.values_mut() {
-        consume_acquire_points(&mut ss.state, points);
+        if let Some(state) = &mut ss.pending.state {
+            consume_acquire_points(state, points);
+        }
     }
 }
 
@@ -290,6 +292,8 @@ fn set_effective_timeline(
         }
     }
     for ss in pending.subsurfaces.values() {
-        set_effective_timeline(&ss.subsurface.surface.commit_timeline, &ss.state, effective);
+        if let Some(state) = &ss.pending.state {
+            set_effective_timeline(&ss.subsurface.surface.commit_timeline, state, effective);
+        }
     }
 }

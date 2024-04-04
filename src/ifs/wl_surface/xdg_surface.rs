@@ -404,7 +404,7 @@ impl SurfaceExt for XdgSurface {
         Ok(())
     }
 
-    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
+    fn after_apply_commit(self: Rc<Self>) {
         if let Some(ext) = self.ext.get() {
             ext.post_commit();
         }

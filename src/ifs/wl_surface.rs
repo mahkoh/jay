@@ -287,8 +287,8 @@ trait SurfaceExt {
         Ok(())
     }
 
-    fn after_apply_commit(self: Rc<Self>, pending: &mut PendingState) {
-        let _ = pending;
+    fn after_apply_commit(self: Rc<Self>) {
+        // nothing
     }
 
     fn is_some(&self) -> bool {
@@ -336,7 +336,7 @@ trait SurfaceExt {
         surface: &WlSurface,
         child: SubsurfaceId,
         consume: &mut dyn FnMut(
-            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         surface.pending.borrow_mut().consume_child(child, consume)
@@ -367,18 +367,17 @@ struct PendingState {
     xwayland_serial: Option<u64>,
     tearing: Option<bool>,
     content_type: Option<Option<ContentType>>,
-    subsurface: Option<Box<PendingSubsurfaceData>>,
     xdg_surface: Option<Box<PendingXdgSurfaceData>>,
     layer_surface: Option<Box<PendingLayerSurfaceData>>,
-    subsurfaces: AHashMap<SubsurfaceId, CommittedSubsurface>,
+    subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     release_point: Option<(Rc<SyncObj>, SyncObjPoint)>,
     explicit_sync: bool,
 }
 
-struct CommittedSubsurface {
+struct AttachedSubsurfaceState {
     subsurface: Rc<WlSubsurface>,
-    state: Box<PendingState>,
+    pending: PendingSubsurfaceData,
 }
 
 impl PendingState {
@@ -445,13 +444,12 @@ impl PendingState {
                 }
             };
         }
-        merge_ext!(subsurface);
         merge_ext!(xdg_surface);
         merge_ext!(layer_surface);
         for (id, mut state) in next.subsurfaces.drain() {
             match self.subsurfaces.entry(id) {
                 Entry::Occupied(mut o) => {
-                    o.get_mut().state.merge(&mut state.state, client);
+                    o.get_mut().pending.merge(&mut state.pending, client);
                 }
                 Entry::Vacant(v) => {
                     v.insert(state);
@@ -464,7 +462,7 @@ impl PendingState {
         &mut self,
         child: SubsurfaceId,
         consume: impl FnOnce(
-            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         match self.subsurfaces.entry(child) {
@@ -851,11 +849,8 @@ impl WlSurface {
     }
 
     fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
-        for (_, mut subsurface) in pending.subsurfaces.drain() {
-            subsurface
-                .subsurface
-                .surface
-                .apply_state(&mut subsurface.state)?;
+        for (_, pending) in &mut pending.subsurfaces {
+            pending.subsurface.apply_state(&mut pending.pending)?;
         }
         if self.destroyed.get() {
             return Ok(());
@@ -1056,7 +1051,7 @@ impl WlSurface {
                 cursor.update_hardware_cursor();
             }
         }
-        self.ext.get().after_apply_commit(pending);
+        self.ext.get().after_apply_commit();
         self.client.state.damage();
         Ok(())
     }
@@ -1274,7 +1269,7 @@ impl WlSurface {
         &self,
         child: SubsurfaceId,
         mut consume: impl FnMut(
-            OccupiedEntry<SubsurfaceId, CommittedSubsurface>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         self.ext

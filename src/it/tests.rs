@@ -69,6 +69,7 @@ mod t0034_workspace_restoration;
 mod t0035_scanout_feedback;
 mod t0036_idle;
 mod t0037_toplevel_drag;
+mod t0038_subsurface_parent_state;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -125,5 +126,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0035_scanout_feedback,
         t0036_idle,
         t0037_toplevel_drag,
+        t0038_subsurface_parent_state,
     }
 }
