@@ -2,8 +2,12 @@ use {
     crate::{
         gfx_apis::gl::sys::{GLenum, GLint, GL_BGRA_EXT, GL_RGBA, GL_RGBA8, GL_UNSIGNED_BYTE},
         pipewire::pw_pod::{
-            SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx, SpaVideoFormat, SPA_VIDEO_FORMAT_BGRA,
-            SPA_VIDEO_FORMAT_RGBA,
+            SPA_VIDEO_FORMAT_BGRx, SPA_VIDEO_FORMAT_RGBx, SPA_VIDEO_FORMAT_xBGR_210LE,
+            SPA_VIDEO_FORMAT_xRGB_210LE, SpaVideoFormat, SPA_VIDEO_FORMAT_ABGR_210LE,
+            SPA_VIDEO_FORMAT_ARGB_210LE, SPA_VIDEO_FORMAT_BGR, SPA_VIDEO_FORMAT_BGR15,
+            SPA_VIDEO_FORMAT_BGR16, SPA_VIDEO_FORMAT_BGRA, SPA_VIDEO_FORMAT_GRAY8,
+            SPA_VIDEO_FORMAT_RGB, SPA_VIDEO_FORMAT_RGB16, SPA_VIDEO_FORMAT_RGBA,
+            SPA_VIDEO_FORMAT_UNKNOWN,
         },
         utils::debug_fn::debug_fn,
     },
@@ -13,21 +17,39 @@ use {
     std::fmt::{Debug, Write},
 };
 
-#[derive(Copy, Clone, Debug, Eq)]
-pub struct Format {
-    pub name: &'static str,
+#[derive(Copy, Clone, Debug)]
+pub struct FormatShmInfo {
     pub bpp: u32,
     pub gl_format: GLint,
     pub gl_internal_format: GLenum,
     pub gl_type: GLint,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Format {
+    pub name: &'static str,
     pub vk_format: vk::Format,
     pub drm: u32,
     pub wl_id: Option<u32>,
     pub external_only_guess: bool,
     pub has_alpha: bool,
-    pub shm_supported: bool,
     pub pipewire: SpaVideoFormat,
     pub opaque: Option<&'static Format>,
+    pub shm_info: Option<FormatShmInfo>,
+}
+
+const fn default() -> Format {
+    Format {
+        name: "",
+        vk_format: vk::Format::UNDEFINED,
+        drm: 0,
+        wl_id: None,
+        external_only_guess: false,
+        has_alpha: false,
+        pipewire: SPA_VIDEO_FORMAT_UNKNOWN,
+        opaque: None,
+        shm_info: None,
+    }
 }
 
 impl PartialEq for Format {
@@ -35,6 +57,8 @@ impl PartialEq for Format {
         self.drm == other.drm
     }
 }
+
+impl Eq for Format {}
 
 static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
     let mut map = AHashMap::new();
@@ -91,514 +115,315 @@ pub fn map_wayland_format_id(id: u32) -> u32 {
 
 pub static ARGB8888: &Format = &Format {
     name: "argb8888",
-    bpp: 4,
-    gl_format: GL_BGRA_EXT,
-    gl_internal_format: GL_RGBA8,
-    gl_type: GL_UNSIGNED_BYTE,
+    shm_info: Some(FormatShmInfo {
+        bpp: 4,
+        gl_format: GL_BGRA_EXT,
+        gl_internal_format: GL_RGBA8,
+        gl_type: GL_UNSIGNED_BYTE,
+    }),
     vk_format: vk::Format::B8G8R8A8_UNORM,
     drm: ARGB8888_DRM,
     wl_id: Some(ARGB8888_ID),
     external_only_guess: false,
     has_alpha: true,
-    shm_supported: true,
     pipewire: SPA_VIDEO_FORMAT_BGRA,
     opaque: Some(XRGB8888),
 };
 
 pub static XRGB8888: &Format = &Format {
     name: "xrgb8888",
-    bpp: 4,
-    gl_format: GL_BGRA_EXT,
-    gl_internal_format: GL_RGBA8,
-    gl_type: GL_UNSIGNED_BYTE,
+    shm_info: Some(FormatShmInfo {
+        bpp: 4,
+        gl_format: GL_BGRA_EXT,
+        gl_internal_format: GL_RGBA8,
+        gl_type: GL_UNSIGNED_BYTE,
+    }),
     vk_format: vk::Format::B8G8R8A8_UNORM,
     drm: XRGB8888_DRM,
     wl_id: Some(XRGB8888_ID),
     external_only_guess: false,
     has_alpha: false,
-    shm_supported: true,
     pipewire: SPA_VIDEO_FORMAT_BGRx,
     opaque: None,
 };
 
 static ABGR8888: &Format = &Format {
     name: "abgr8888",
-    bpp: 4,
-    gl_format: GL_RGBA,
-    gl_internal_format: GL_RGBA8,
-    gl_type: GL_UNSIGNED_BYTE,
+    shm_info: Some(FormatShmInfo {
+        bpp: 4,
+        gl_format: GL_RGBA,
+        gl_internal_format: GL_RGBA8,
+        gl_type: GL_UNSIGNED_BYTE,
+    }),
     vk_format: vk::Format::R8G8B8A8_UNORM,
     drm: fourcc_code('A', 'B', '2', '4'),
     wl_id: None,
     external_only_guess: false,
     has_alpha: true,
-    shm_supported: true,
     pipewire: SPA_VIDEO_FORMAT_RGBA,
     opaque: Some(XBGR8888),
 };
 
 static XBGR8888: &Format = &Format {
     name: "xbgr8888",
-    bpp: 4,
-    gl_format: GL_RGBA,
-    gl_internal_format: GL_RGBA8,
-    gl_type: GL_UNSIGNED_BYTE,
+    shm_info: Some(FormatShmInfo {
+        bpp: 4,
+        gl_format: GL_RGBA,
+        gl_internal_format: GL_RGBA8,
+        gl_type: GL_UNSIGNED_BYTE,
+    }),
     vk_format: vk::Format::R8G8B8A8_UNORM,
     drm: fourcc_code('X', 'B', '2', '4'),
     wl_id: None,
     external_only_guess: false,
     has_alpha: false,
-    shm_supported: true,
     pipewire: SPA_VIDEO_FORMAT_RGBx,
     opaque: None,
 };
 
+static R8: &Format = &Format {
+    name: "r8",
+    vk_format: vk::Format::R8_UNORM,
+    drm: fourcc_code('R', '8', ' ', ' '),
+    pipewire: SPA_VIDEO_FORMAT_GRAY8,
+    ..default()
+};
+
+static GR88: &Format = &Format {
+    name: "gr88",
+    vk_format: vk::Format::R8G8_UNORM,
+    drm: fourcc_code('G', 'R', '8', '8'),
+    ..default()
+};
+
+static RGB888: &Format = &Format {
+    name: "rgb888",
+    vk_format: vk::Format::B8G8R8_UNORM,
+    drm: fourcc_code('R', 'G', '2', '4'),
+    pipewire: SPA_VIDEO_FORMAT_BGR,
+    ..default()
+};
+
+static BGR888: &Format = &Format {
+    name: "bgr888",
+    vk_format: vk::Format::R8G8B8_UNORM,
+    drm: fourcc_code('B', 'G', '2', '4'),
+    pipewire: SPA_VIDEO_FORMAT_RGB,
+    ..default()
+};
+
+static RGBA4444: &Format = &Format {
+    name: "rgba4444",
+    vk_format: vk::Format::R4G4B4A4_UNORM_PACK16,
+    drm: fourcc_code('R', 'A', '1', '2'),
+    has_alpha: true,
+    opaque: Some(RGBX4444),
+    ..default()
+};
+
+static RGBX4444: &Format = &Format {
+    name: "rgbx4444",
+    vk_format: vk::Format::R4G4B4A4_UNORM_PACK16,
+    drm: fourcc_code('R', 'X', '1', '2'),
+    ..default()
+};
+
+static BGRA4444: &Format = &Format {
+    name: "bgra4444",
+    vk_format: vk::Format::B4G4R4A4_UNORM_PACK16,
+    drm: fourcc_code('B', 'A', '1', '2'),
+    has_alpha: true,
+    opaque: Some(BGRX4444),
+    ..default()
+};
+
+static BGRX4444: &Format = &Format {
+    name: "bgrx4444",
+    vk_format: vk::Format::B4G4R4A4_UNORM_PACK16,
+    drm: fourcc_code('B', 'X', '1', '2'),
+    ..default()
+};
+
+static RGB565: &Format = &Format {
+    name: "rgb565",
+    vk_format: vk::Format::R5G6B5_UNORM_PACK16,
+    drm: fourcc_code('R', 'G', '1', '6'),
+    pipewire: SPA_VIDEO_FORMAT_BGR16,
+    ..default()
+};
+
+static BGR565: &Format = &Format {
+    name: "bgr565",
+    vk_format: vk::Format::B5G6R5_UNORM_PACK16,
+    drm: fourcc_code('B', 'G', '1', '6'),
+    pipewire: SPA_VIDEO_FORMAT_RGB16,
+    ..default()
+};
+
+static RGBA5551: &Format = &Format {
+    name: "rgba5551",
+    vk_format: vk::Format::R5G5B5A1_UNORM_PACK16,
+    drm: fourcc_code('R', 'A', '1', '5'),
+    has_alpha: true,
+    opaque: Some(RGBX5551),
+    ..default()
+};
+
+static RGBX5551: &Format = &Format {
+    name: "rgbx5551",
+    vk_format: vk::Format::R5G5B5A1_UNORM_PACK16,
+    drm: fourcc_code('R', 'X', '1', '5'),
+    ..default()
+};
+
+static BGRA5551: &Format = &Format {
+    name: "bgra5551",
+    vk_format: vk::Format::B5G5R5A1_UNORM_PACK16,
+    drm: fourcc_code('B', 'A', '1', '5'),
+    has_alpha: true,
+    opaque: Some(BGRX5551),
+    ..default()
+};
+
+static BGRX5551: &Format = &Format {
+    name: "bgrx5551",
+    vk_format: vk::Format::B5G5R5A1_UNORM_PACK16,
+    drm: fourcc_code('B', 'X', '1', '5'),
+    ..default()
+};
+
+static ARGB1555: &Format = &Format {
+    name: "argb1555",
+    vk_format: vk::Format::A1R5G5B5_UNORM_PACK16,
+    drm: fourcc_code('A', 'R', '1', '5'),
+    has_alpha: true,
+    opaque: Some(XRGB1555),
+    ..default()
+};
+
+static XRGB1555: &Format = &Format {
+    name: "xrgb1555",
+    vk_format: vk::Format::A1R5G5B5_UNORM_PACK16,
+    drm: fourcc_code('X', 'R', '1', '5'),
+    pipewire: SPA_VIDEO_FORMAT_BGR15,
+    ..default()
+};
+
+static ARGB2101010: &Format = &Format {
+    name: "argb2101010",
+    vk_format: vk::Format::A2R10G10B10_UNORM_PACK32,
+    drm: fourcc_code('A', 'R', '3', '0'),
+    has_alpha: true,
+    opaque: Some(XRGB2101010),
+    pipewire: SPA_VIDEO_FORMAT_ARGB_210LE,
+    ..default()
+};
+
+static XRGB2101010: &Format = &Format {
+    name: "xrgb2101010",
+    vk_format: vk::Format::A2R10G10B10_UNORM_PACK32,
+    drm: fourcc_code('X', 'R', '3', '0'),
+    pipewire: SPA_VIDEO_FORMAT_xRGB_210LE,
+    ..default()
+};
+
+static ABGR2101010: &Format = &Format {
+    name: "abgr2101010",
+    vk_format: vk::Format::A2B10G10R10_UNORM_PACK32,
+    drm: fourcc_code('A', 'B', '3', '0'),
+    has_alpha: true,
+    opaque: Some(XBGR2101010),
+    pipewire: SPA_VIDEO_FORMAT_ABGR_210LE,
+    ..default()
+};
+
+static XBGR2101010: &Format = &Format {
+    name: "xbgr2101010",
+    vk_format: vk::Format::A2B10G10R10_UNORM_PACK32,
+    drm: fourcc_code('X', 'B', '3', '0'),
+    pipewire: SPA_VIDEO_FORMAT_xBGR_210LE,
+    ..default()
+};
+
+static ABGR16161616: &Format = &Format {
+    name: "abgr16161616",
+    vk_format: vk::Format::R16G16B16A16_UNORM,
+    drm: fourcc_code('A', 'B', '4', '8'),
+    has_alpha: true,
+    opaque: Some(XBGR16161616),
+    ..default()
+};
+
+static XBGR16161616: &Format = &Format {
+    name: "xbgr16161616",
+    vk_format: vk::Format::R16G16B16A16_UNORM,
+    drm: fourcc_code('X', 'B', '4', '8'),
+    ..default()
+};
+
+static ABGR16161616F: &Format = &Format {
+    name: "abgr16161616f",
+    vk_format: vk::Format::R16G16B16A16_SFLOAT,
+    drm: fourcc_code('A', 'B', '4', 'H'),
+    has_alpha: true,
+    opaque: Some(XBGR16161616F),
+    ..default()
+};
+
+static XBGR16161616F: &Format = &Format {
+    name: "xbgr16161616f",
+    vk_format: vk::Format::R16G16B16A16_SFLOAT,
+    drm: fourcc_code('X', 'B', '4', 'H'),
+    ..default()
+};
+
 pub static FORMATS: &[Format] = &[
-    *ARGB8888, *XRGB8888, *ABGR8888,
+    *ARGB8888,
+    *XRGB8888,
+    *ABGR8888,
     *XBGR8888,
-    // *NV12,
-    // Format {
-    //     name: "nv12",
-    //     bpp: 1,                    // wrong but only used for shm
-    //     gl_format: 0,              // wrong but only used for shm
-    //     gl_type: GL_UNSIGNED_BYTE, // wrong but only used for shm
-    //     drm: fourcc_code('N', 'V', '1', '2'),
-    //     wl_id: None,
-    //     external_only_guess: true,
-    //     has_alpha: false,
-    //     shm_supported: false,
-    //     pipewire: SPA_VIDEO_FORMAT_NV12,
-    // },
-    // Format {
-    //     id: fourcc_code('C', '8', ' ', ' '),
-    //     name: "c8",
-    // },
-    // Format {
-    //     id: fourcc_code('R', '8', ' ', ' '),
-    //     name: "r8",
-    // },
-    // Format {
-    //     id: fourcc_code('R', '1', '6', ' '),
-    //     name: "r16",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'G', '8', '8'),
-    //     name: "rg88",
-    // },
-    // Format {
-    //     id: fourcc_code('G', 'R', '8', '8'),
-    //     name: "gr88",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'G', '3', '2'),
-    //     name: "rg1616",
-    // },
-    // Format {
-    //     id: fourcc_code('G', 'R', '3', '2'),
-    //     name: "gr1616",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'G', 'B', '8'),
-    //     name: "rgb332",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'G', 'R', '8'),
-    //     name: "bgr233",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', '1', '2'),
-    //     name: "xrgb4444",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', '1', '2'),
-    //     name: "xbgr4444",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'X', '1', '2'),
-    //     name: "rgbx4444",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'X', '1', '2'),
-    //     name: "bgrx4444",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'R', '1', '2'),
-    //     name: "argb4444",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '1', '2'),
-    //     name: "abgr4444",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'A', '1', '2'),
-    //     name: "rgba4444",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'A', '1', '2'),
-    //     name: "bgra4444",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', '1', '5'),
-    //     name: "xrgb1555",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', '1', '5'),
-    //     name: "xbgr1555",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'X', '1', '5'),
-    //     name: "rgbx5551",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'X', '1', '5'),
-    //     name: "bgrx5551",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'R', '1', '5'),
-    //     name: "argb1555",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '1', '5'),
-    //     name: "abgr1555",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'A', '1', '5'),
-    //     name: "rgba5551",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'A', '1', '5'),
-    //     name: "bgra5551",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'G', '1', '6'),
-    //     name: "rgb565",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'G', '1', '6'),
-    //     name: "bgr565",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'G', '2', '4'),
-    //     name: "rgb888",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'G', '2', '4'),
-    //     name: "bgr888",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', '2', '4'),
-    //     name: "xrgb8888",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', '2', '4'),
-    //     name: "xbgr8888",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'X', '2', '4'),
-    //     name: "rgbx8888",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'X', '2', '4'),
-    //     name: "bgrx8888",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'R', '2', '4'),
-    //     name: "argb8888",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '2', '4'),
-    //     name: "abgr8888",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'A', '2', '4'),
-    //     name: "rgba8888",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'A', '2', '4'),
-    //     name: "bgra8888",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', '3', '0'),
-    //     name: "xrgb2101010",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', '3', '0'),
-    //     name: "xbgr2101010",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'X', '3', '0'),
-    //     name: "rgbx1010102",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'X', '3', '0'),
-    //     name: "bgrx1010102",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'R', '3', '0'),
-    //     name: "argb2101010",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '3', '0'),
-    //     name: "abgr2101010",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'A', '3', '0'),
-    //     name: "rgba1010102",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'A', '3', '0'),
-    //     name: "bgra1010102",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', '4', '8'),
-    //     name: "xrgb16161616",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', '4', '8'),
-    //     name: "xbgr16161616",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'R', '4', '8'),
-    //     name: "argb16161616",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '4', '8'),
-    //     name: "abgr16161616",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', '4', 'H'),
-    //     name: "xrgb16161616f",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', '4', 'H'),
-    //     name: "xbgr16161616f",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'R', '4', 'H'),
-    //     name: "argb16161616f",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '4', 'H'),
-    //     name: "abgr16161616f",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'B', '1', '0'),
-    //     name: "axbxgxrx106106106106",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', 'Y', 'V'),
-    //     name: "yuyv",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'V', 'Y', 'U'),
-    //     name: "yvyu",
-    // },
-    // Format {
-    //     id: fourcc_code('U', 'Y', 'V', 'Y'),
-    //     name: "uyvy",
-    // },
-    // Format {
-    //     id: fourcc_code('V', 'Y', 'U', 'Y'),
-    //     name: "vyuy",
-    // },
-    // Format {
-    //     id: fourcc_code('A', 'Y', 'U', 'V'),
-    //     name: "ayuv",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'Y', 'U', 'V'),
-    //     name: "xyuv8888",
-    // },
-    // Format {
-    //     id: fourcc_code('V', 'U', '2', '4'),
-    //     name: "vuy888",
-    // },
-    // Format {
-    //     id: fourcc_code('V', 'U', '3', '0'),
-    //     name: "vuy101010",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '2', '1', '0'),
-    //     name: "y210",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '2', '1', '2'),
-    //     name: "y212",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '2', '1', '6'),
-    //     name: "y216",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '4', '1', '0'),
-    //     name: "y410",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '4', '1', '2'),
-    //     name: "y412",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '4', '1', '6'),
-    //     name: "y416",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'V', '3', '0'),
-    //     name: "xvyu2101010",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'V', '3', '6'),
-    //     name: "xvyu12_16161616",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'V', '4', '8'),
-    //     name: "xvyu16161616",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '0', 'L', '0'),
-    //     name: "y0l0",
-    // },
-    // Format {
-    //     id: fourcc_code('X', '0', 'L', '0'),
-    //     name: "x0l0",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', '0', 'L', '2'),
-    //     name: "y0l2",
-    // },
-    // Format {
-    //     id: fourcc_code('X', '0', 'L', '2'),
-    //     name: "x0l2",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', '0', '8'),
-    //     name: "yuv420_8bit",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', '1', '0'),
-    //     name: "yuv420_10bit",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'R', 'A', '8'),
-    //     name: "xrgb8888_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('X', 'B', 'A', '8'),
-    //     name: "xbgr8888_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('R', 'X', 'A', '8'),
-    //     name: "rgbx8888_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('B', 'X', 'A', '8'),
-    //     name: "bgrx8888_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('R', '8', 'A', '8'),
-    //     name: "rgb888_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('B', '8', 'A', '8'),
-    //     name: "bgr888_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('R', '5', 'A', '8'),
-    //     name: "rgb565_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('B', '5', 'A', '8'),
-    //     name: "bgr565_a8",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '1', '2'),
-    //     name: "nv12",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '2', '1'),
-    //     name: "nv21",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '1', '6'),
-    //     name: "nv16",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '6', '1'),
-    //     name: "nv61",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '2', '4'),
-    //     name: "nv24",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '4', '2'),
-    //     name: "nv42",
-    // },
-    // Format {
-    //     id: fourcc_code('N', 'V', '1', '5'),
-    //     name: "nv15",
-    // },
-    // Format {
-    //     id: fourcc_code('P', '2', '1', '0'),
-    //     name: "p210",
-    // },
-    // Format {
-    //     id: fourcc_code('P', '0', '1', '0'),
-    //     name: "p010",
-    // },
-    // Format {
-    //     id: fourcc_code('P', '0', '1', '2'),
-    //     name: "p012",
-    // },
-    // Format {
-    //     id: fourcc_code('P', '0', '1', '6'),
-    //     name: "p016",
-    // },
-    // Format {
-    //     id: fourcc_code('Q', '4', '1', '0'),
-    //     name: "q410",
-    // },
-    // Format {
-    //     id: fourcc_code('Q', '4', '0', '1'),
-    //     name: "q401",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', 'V', '9'),
-    //     name: "yuv410",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'V', 'U', '9'),
-    //     name: "yvu410",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', '1', '1'),
-    //     name: "yuv411",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'V', '1', '1'),
-    //     name: "yvu411",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', '1', '2'),
-    //     name: "yuv420",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'V', '1', '2'),
-    //     name: "yvu420",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', '1', '6'),
-    //     name: "yuv422",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'V', '1', '6'),
-    //     name: "yvu422",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'U', '2', '4'),
-    //     name: "yuv444",
-    // },
-    // Format {
-    //     id: fourcc_code('Y', 'V', '2', '4'),
-    //     name: "yvu444",
-    // },
+    *R8,
+    *GR88,
+    *RGB888,
+    *BGR888,
+    #[cfg(target_endian = "little")]
+    *RGBA4444,
+    #[cfg(target_endian = "little")]
+    *RGBX4444,
+    #[cfg(target_endian = "little")]
+    *BGRA4444,
+    #[cfg(target_endian = "little")]
+    *BGRX4444,
+    #[cfg(target_endian = "little")]
+    *RGB565,
+    #[cfg(target_endian = "little")]
+    *BGR565,
+    #[cfg(target_endian = "little")]
+    *RGBA5551,
+    #[cfg(target_endian = "little")]
+    *RGBX5551,
+    #[cfg(target_endian = "little")]
+    *BGRA5551,
+    #[cfg(target_endian = "little")]
+    *BGRX5551,
+    #[cfg(target_endian = "little")]
+    *ARGB1555,
+    #[cfg(target_endian = "little")]
+    *XRGB1555,
+    #[cfg(target_endian = "little")]
+    *ARGB2101010,
+    #[cfg(target_endian = "little")]
+    *XRGB2101010,
+    #[cfg(target_endian = "little")]
+    *ABGR2101010,
+    #[cfg(target_endian = "little")]
+    *XBGR2101010,
+    #[cfg(target_endian = "little")]
+    *ABGR16161616,
+    #[cfg(target_endian = "little")]
+    *XBGR16161616,
+    #[cfg(target_endian = "little")]
+    *ABGR16161616F,
+    #[cfg(target_endian = "little")]
+    *XBGR16161616F,
 ];

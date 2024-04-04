@@ -43,7 +43,10 @@ impl Framebuffer {
         height: i32,
         format: &Format,
         shm: &[Cell<u8>],
-    ) {
+    ) -> Result<(), RenderError> {
+        let Some(shm_info) = &format.shm_info else {
+            return Err(RenderError::UnsupportedShmFormat(format.name));
+        };
         let gles = self.ctx.ctx.dpy.gles;
         let y = self.gl.height - y - height;
         let _ = self.ctx.ctx.with_current(|| {
@@ -55,14 +58,15 @@ impl Framebuffer {
                     y,
                     width,
                     height,
-                    format.gl_format as _,
-                    format.gl_type as _,
+                    shm_info.gl_format as _,
+                    shm_info.gl_type as _,
                     shm.len() as _,
                     shm.as_ptr() as _,
                 );
             }
             Ok(())
         });
+        Ok(())
     }
 
     pub fn render(
@@ -126,8 +130,9 @@ impl GfxFramebuffer for Framebuffer {
         format: &'static Format,
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError> {
-        (*self).copy_to_shm(x, y, width, height, format, shm);
-        Ok(())
+        (*self)
+            .copy_to_shm(x, y, width, height, format, shm)
+            .map_err(|e| e.into())
     }
 
     fn format(&self) -> &'static Format {

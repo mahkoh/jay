@@ -90,13 +90,16 @@ impl WlBuffer {
         format: &'static Format,
         mem: &Rc<ClientMem>,
     ) -> Result<Self, WlBufferError> {
+        let Some(shm_info) = &format.shm_info else {
+            return Err(WlBufferError::UnsupportedShmFormat(format.name));
+        };
         let bytes = stride as u64 * height as u64;
         let required = bytes + offset as u64;
         if required > mem.len() as u64 {
             return Err(WlBufferError::OutOfBounds);
         }
         let mem = mem.offset(offset);
-        let min_row_size = width as u64 * format.bpp as u64;
+        let min_row_size = width as u64 * shm_info.bpp as u64;
         if (stride as u64) < min_row_size {
             return Err(WlBufferError::StrideTooSmall);
         }
@@ -270,6 +273,8 @@ pub enum WlBufferError {
     MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Buffer format {0} is not supported for shm buffers")]
+    UnsupportedShmFormat(&'static str),
 }
 efrom!(WlBufferError, ClientMemError);
 efrom!(WlBufferError, MsgParserError);

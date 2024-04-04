@@ -70,8 +70,8 @@ impl GfxTexture for Texture {
         shm: &[Cell<u8>],
     ) -> Result<(), GfxError> {
         self.to_framebuffer()?
-            .copy_to_shm(x, y, width, height, format, shm);
-        Ok(())
+            .copy_to_shm(x, y, width, height, format, shm)
+            .map_err(|e| e.into())
     }
 
     fn dmabuf(&self) -> Option<&DmaBuf> {

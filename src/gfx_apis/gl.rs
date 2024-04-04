@@ -190,6 +190,8 @@ enum RenderError {
     ExportSyncFile,
     #[error("Could not insert wait for EGLSyncKHR")]
     WaitSync,
+    #[error("Buffer format {0} is not supported for shm buffers in OpenGL context")]
+    UnsupportedShmFormat(&'static str),
 }
 
 #[derive(Default)]

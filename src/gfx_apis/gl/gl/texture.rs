@@ -73,6 +73,9 @@ impl GlTexture {
         height: i32,
         stride: i32,
     ) -> Result<GlTexture, RenderError> {
+        let Some(shm_info) = &format.shm_info else {
+            return Err(RenderError::UnsupportedShmFormat(format.name));
+        };
         if (stride * height) as usize > data.len() {
             return Err(RenderError::SmallImageBuffer);
         }
@@ -83,16 +86,16 @@ impl GlTexture {
             (gles.glBindTexture)(GL_TEXTURE_2D, tex);
             (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             (gles.glTexParameteri)(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            (gles.glPixelStorei)(GL_UNPACK_ROW_LENGTH_EXT, stride / format.bpp as GLint);
+            (gles.glPixelStorei)(GL_UNPACK_ROW_LENGTH_EXT, stride / shm_info.bpp as GLint);
             (gles.glTexImage2D)(
                 GL_TEXTURE_2D,
                 0,
-                format.gl_format,
+                shm_info.gl_format,
                 width,
                 height,
                 0,
-                format.gl_format as _,
-                format.gl_type as _,
+                shm_info.gl_format as _,
+                shm_info.gl_type as _,
                 data.as_ptr() as _,
             );
             (gles.glPixelStorei)(GL_UNPACK_ROW_LENGTH_EXT, 0);
