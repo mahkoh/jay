@@ -349,7 +349,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn after_apply_commit(self: Rc<Self>, _pending: &mut PendingState) {
+    fn after_apply_commit(self: Rc<Self>) {
         let buffer_is_some = self.surface.buffer.is_some();
         let was_mapped = self.mapped.get();
         if self.mapped.get() {
