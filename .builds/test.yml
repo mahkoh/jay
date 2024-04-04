@@ -8,8 +8,9 @@ tasks:
       rustup toolchain install stable
   - configure: |
       sudo rmmod bochs
-      sudo modprobe vkms
-      sudo chmod o+rw /dev/dri/card*
+      sudo modprobe vgem
+      sudo chmod a+rw /dev/dri/*
+      sudo rm /dev/dri/renderD*
   - build: |
       cd jay
       cargo build --features it

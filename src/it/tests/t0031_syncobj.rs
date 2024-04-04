@@ -26,8 +26,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let syncobj = match eng.sync_obj_ctx().create_sync_obj() {
         Ok(s) => Rc::new(s),
         Err(e) => {
-            log::warn!("Cannot test explicit sync on this system: {}", ErrorFmt(e));
-            return Ok(());
+            bail!("Cannot test explicit sync on this system: {}", ErrorFmt(e));
         }
     };
     let _wait_handle =
