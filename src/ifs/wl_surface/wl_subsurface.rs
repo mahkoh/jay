@@ -76,21 +76,16 @@ impl PendingSubsurfaceData {
     }
 }
 
-fn update_children_attach(
-    surface: &WlSubsurface,
-    mut sync: bool,
-    depth: u32,
-) -> Result<(), WlSubsurfaceError> {
+fn update_children_attach(surface: &WlSubsurface) -> Result<(), WlSubsurfaceError> {
+    if surface.depth.get() > MAX_SUBSURFACE_DEPTH {
+        return Err(WlSubsurfaceError::MaxDepthExceeded);
+    }
     let children = surface.surface.children.borrow();
     if let Some(children) = &*children {
         for child in children.subsurfaces.values() {
-            child.depth.set(depth + 1);
-            if depth + 1 > MAX_SUBSURFACE_DEPTH {
-                return Err(WlSubsurfaceError::MaxDepthExceeded);
-            }
-            child.sync_ancestor.set(sync);
-            sync |= child.sync_requested.get();
-            update_children_attach(child, sync, depth + 1)?;
+            child.sync_ancestor.set(surface.sync());
+            child.depth.set(surface.depth.get() + 1);
+            update_children_attach(child)?;
         }
     }
     Ok(())
@@ -108,7 +103,7 @@ impl WlSubsurface {
             sync_ancestor: Cell::new(false),
             node: RefCell::new(None),
             latest_node: Default::default(),
-            depth: NumCell::new(0),
+            depth: NumCell::new(1),
             tracker: Default::default(),
             had_buffer: Cell::new(false),
         }
@@ -154,16 +149,9 @@ impl WlSubsurface {
         if self.surface.id == self.parent.get_root().id {
             return Err(WlSubsurfaceError::Ancestor(self.surface.id, self.parent.id));
         }
-        let mut sync_ancestor = false;
-        let mut depth = 1;
-        {
-            if let Some(ss) = self.parent.ext.get().into_subsurface() {
-                sync_ancestor = ss.sync();
-                depth = ss.depth.get() + 1;
-                if depth >= MAX_SUBSURFACE_DEPTH {
-                    return Err(WlSubsurfaceError::MaxDepthExceeded);
-                }
-            }
+        if let Some(ss) = self.parent.ext.get().into_subsurface() {
+            self.sync_ancestor.set(ss.sync());
+            self.depth.set(ss.depth.get() + 1);
         }
         let node = {
             let mut data = self.parent.children.borrow_mut();
@@ -177,10 +165,8 @@ impl WlSubsurface {
         self.latest_node.set(Some(node.to_ref()));
         self.pending().node = Some(node);
         self.surface.set_toplevel(self.parent.toplevel.get());
-        self.sync_ancestor.set(sync_ancestor);
-        self.depth.set(depth);
         self.surface.ext.set(self.clone());
-        update_children_attach(self, sync_ancestor, depth)?;
+        update_children_attach(self)?;
         Ok(())
     }
 
