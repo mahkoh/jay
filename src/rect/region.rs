@@ -1,6 +1,6 @@
 use {
     crate::rect::{Rect, Region},
-    algorithms::rect::{
+    jay_algorithms::rect::{
         region::{extents, rects_to_bands, subtract, union},
         RectRaw,
     },

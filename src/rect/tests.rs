@@ -1,6 +1,6 @@
 use {
     crate::rect::{Rect, Region},
-    algorithms::rect::RectRaw,
+    jay_algorithms::rect::RectRaw,
 };
 
 #[test]
