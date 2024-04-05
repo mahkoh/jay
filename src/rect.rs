@@ -5,7 +5,7 @@ mod tests;
 
 pub use region::RegionBuilder;
 use {
-    algorithms::rect::RectRaw,
+    jay_algorithms::rect::RectRaw,
     smallvec::SmallVec,
     std::fmt::{Debug, Formatter},
 };

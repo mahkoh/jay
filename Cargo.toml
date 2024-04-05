@@ -1,8 +1,16 @@
 [package]
-name = "jay"
+name = "jay-compositor"
 version = "0.1.0"
 edition = "2021"
 build = "build/build.rs"
+license = "GPL-3.0-only"
+description = "The Jay compositor"
+repository = "https://github.com/mahkoh/jay"
+default-run = "jay"
+
+[[bin]]
+name = "jay"
+path = "src/main.rs"
 
 [workspace]
 members = ["jay-config", "toml-config", "algorithms", "toml-spec"]
@@ -14,6 +22,10 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+jay-config = { path = "jay-config" }
+jay-toml-config = { path = "toml-config" }
+jay-algorithms = { path = "algorithms" }
+
 uapi = "0.2.13"
 thiserror = "1.0.56"
 ahash = "0.8.7"
@@ -29,9 +41,6 @@ rand = "0.8.5"
 smallvec = { version = "1.11.1", features = ["const_generics", "const_new", "union"] }
 byteorder = "1.5.0"
 bincode = "1.3.3"
-jay-config = { path = "jay-config" }
-jay-toml-config = { path = "toml-config" }
-algorithms = { path = "algorithms" }
 pin-project = "1.1.4"
 clap = { version = "4.4.18", features = ["derive", "wrap_help"] }
 clap_complete = "4.4.10"
@@ -57,7 +66,7 @@ cc = "1.0.86"
 #[profile.dev.build-override]
 #opt-level = 3
 
-[profile.dev.package."algorithms"]
+[profile.dev.package."jay-algorithms"]
 opt-level = 3
 
 [profile.dev.package."smallvec"]

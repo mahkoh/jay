@@ -405,6 +405,25 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [Keymap](#types-Keymap).
 
+- `set-repeat-rate`:
+
+  Sets the keyboard repeat rate.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-repeat-rate", rate = { rate = 25, delay = 250 } }
+    ```
+
+  The table has the following fields:
+
+  - `rate` (required):
+
+    The rate.
+
+    The value of this field should be a [RepeatRate](#types-RepeatRate).
+
 - `set-status`:
 
   Sets the status command.
@@ -651,6 +670,18 @@ The table has the following fields:
     ```
 
   The value of this field should be a [Keymap](#types-Keymap).
+
+- `repeat-rate` (optional):
+
+  The keyboard repeat rate.
+  
+  - Example:
+    
+    ```toml
+    repeat-rate = { rate = 25, delay = 250 }
+    ```
+
+  The value of this field should be a [RepeatRate](#types-RepeatRate).
 
 - `shortcuts` (optional):
 
@@ -2036,6 +2067,38 @@ The table has the following fields:
     ```
 
   The value of this field should be a string.
+
+
+<a name="types-RepeatRate"></a>
+### `RepeatRate`
+
+Describes a keyboard repeat rate.
+
+- Example:
+
+  ```toml
+  repeat-rate = { rate = 25, delay = 250 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `rate` (required):
+
+  The number of times to repeat per second.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `delay` (required):
+
+  The number of milliseconds after a key is pressed before repeating begins.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
 
 
 <a name="types-SimpleActionName"></a>

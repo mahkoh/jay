@@ -16,6 +16,7 @@ use {
                 keymap::KeymapParser,
                 log_level::LogLevelParser,
                 output::OutputsParser,
+                repeat_rate::RepeatRateParser,
                 shortcuts::{ShortcutsParser, ShortcutsParserError},
                 status::StatusParser,
                 theme::ThemeParser,
@@ -95,7 +96,7 @@ impl Parser for ConfigParser<'_> {
                 _,
                 idle_val,
             ),
-            (explicit_sync,),
+            (explicit_sync, repeat_rate_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -121,7 +122,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("$schema")),
                 opt(val("idle")),
             ),
-            (recover(opt(bol("explicit-sync"))),),
+            (recover(opt(bol("explicit-sync"))), opt(val("repeat-rate"))),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -256,8 +257,18 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut repeat_rate = None;
+        if let Some(value) = repeat_rate_val {
+            match value.parse(&mut RepeatRateParser(self.0)) {
+                Ok(v) => repeat_rate = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse the repeat rate: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
+            repeat_rate,
             shortcuts,
             on_graphics_initialized,
             on_idle,

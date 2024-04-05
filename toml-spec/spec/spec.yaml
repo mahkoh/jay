@@ -382,6 +382,21 @@ Action:
               description: The keymap.
               required: true
               ref: Keymap
+        set-repeat-rate:
+          description: |
+            Sets the keyboard repeat rate.
+
+            - Example:
+            
+              ```toml
+              [shortcuts]
+              alt-x = { type = "set-repeat-rate", rate = { rate = 25, delay = 250 } }
+              ```
+          fields:
+            rate:
+              description: The rate.
+              required: true
+              ref: RepeatRate
         set-status:
           description: |
             Sets the status command.
@@ -1649,6 +1664,17 @@ Config:
             };
             """
           ```
+    repeat-rate:
+      ref: RepeatRate
+      required: false
+      description: |
+        The keyboard repeat rate.
+
+        - Example:
+          
+          ```toml
+          repeat-rate = { rate = 25, delay = 250 }
+          ```
     shortcuts:
       kind: map
       values:
@@ -1983,3 +2009,27 @@ Idle:
       integer_only: true
       minimum: 0
       required: false
+
+
+RepeatRate:
+  kind: table
+  description: |
+    Describes a keyboard repeat rate.
+    
+    - Example:
+    
+      ```toml
+      repeat-rate = { rate = 25, delay = 250 }
+      ```
+  fields:
+    rate:
+      kind: number
+      integer_only: true
+      required: true
+      description: The number of times to repeat per second.
+    delay:
+      kind: number
+      integer_only: true
+      required: true
+      description: |
+        The number of milliseconds after a key is pressed before repeating begins.

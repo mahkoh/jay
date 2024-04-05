@@ -285,6 +285,23 @@
               ]
             },
             {
+              "description": "Sets the keyboard repeat rate.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-repeat-rate\", rate = { rate = 25, delay = 250 } }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-repeat-rate"
+                },
+                "rate": {
+                  "description": "The rate.",
+                  "$ref": "#/$defs/RepeatRate"
+                }
+              },
+              "required": [
+                "type",
+                "rate"
+              ]
+            },
+            {
               "description": "Sets the status command.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-status\", status = { exec = \"i3status\" } }\n  ```\n",
               "type": "object",
               "properties": {
@@ -417,6 +434,10 @@
         "keymap": {
           "description": "The keymap to use.\n\n- Example:\n\n  ```toml\n  keymap = \"\"\"\n    xkb_keymap {\n        xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n        xkb_types    { include \"complete\"              };\n        xkb_compat   { include \"complete\"              };\n        xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n    };\n    \"\"\"\n  ```\n",
           "$ref": "#/$defs/Keymap"
+        },
+        "repeat-rate": {
+          "description": "The keyboard repeat rate.\n\n- Example:\n  \n  ```toml\n  repeat-rate = { rate = 25, delay = 250 }\n  ```\n",
+          "$ref": "#/$defs/RepeatRate"
         },
         "shortcuts": {
           "description": "The compositor shortcuts.\n\nThe keys should be in the following format:\n\n```\n(MOD-)*KEYSYM\n```\n\n`MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,\n`mod5`, `caps`, `alt`, `num`, or `logo`.\n\n`KEYSYM` should be the name of a keysym. The authorative location for these names\nis [1] with the `XKB_KEY_` prefix removed.\n\nThe keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.\n\n[1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
@@ -983,6 +1004,24 @@
           },
           "required": []
         }
+      ]
+    },
+    "RepeatRate": {
+      "description": "Describes a keyboard repeat rate.\n\n- Example:\n\n  ```toml\n  repeat-rate = { rate = 25, delay = 250 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "rate": {
+          "type": "integer",
+          "description": "The number of times to repeat per second."
+        },
+        "delay": {
+          "type": "integer",
+          "description": "The number of milliseconds after a key is pressed before repeating begins.\n"
+        }
+      },
+      "required": [
+        "rate",
+        "delay"
       ]
     },
     "SimpleActionName": {

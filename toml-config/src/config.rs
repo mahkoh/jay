@@ -117,6 +117,9 @@ pub enum Action {
         workspace: Option<Workspace>,
         output: OutputMatch,
     },
+    SetRepeatRate {
+        rate: RepeatRate,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -270,8 +273,15 @@ pub enum ConfigKeymap {
 }
 
 #[derive(Debug, Clone)]
+pub struct RepeatRate {
+    pub rate: i32,
+    pub delay: i32,
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub keymap: Option<ConfigKeymap>,
+    pub repeat_rate: Option<RepeatRate>,
     pub shortcuts: Vec<(ModifiedKeySym, Action)>,
     pub on_graphics_initialized: Option<Action>,
     pub on_idle: Option<Action>,

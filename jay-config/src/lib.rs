@@ -3,32 +3,34 @@
 //! A minimal example configuration looks as follows:
 //!
 //! ```rust
-//! use jay_config::config;
-//!
-//! fn configure() {
-//!
-//! }
-//!
-//! config!(configure);
-//! ```
-//!
-//! This configuration will not allow you to exit the compositor.
-//! To add at least that much functionality, add the following code to `configure`:
-//!
-//! ```rust
-//! use jay_config::{config, quit};
-//! use jay_config::input::{get_default_seat, input_devices, on_new_input_device};
+//! use jay_config::{config, quit, reload};
+//! use jay_config::input::get_default_seat;
 //! use jay_config::keyboard::mods::ALT;
-//! use jay_config::keyboard::syms::SYM_q;
+//! use jay_config::keyboard::syms::{SYM_q, SYM_r};
 //!
 //! fn configure() {
 //!     let seat = get_default_seat();
 //!     // Create a key binding to exit the compositor.
 //!     seat.bind(ALT | SYM_q, || quit());
+//!     // Reload the configuration.
+//!     seat.bind(ALT | SYM_r, || reload());
 //! }
 //!
 //! config!(configure);
 //! ```
+//!
+//! You should configure your crate to be compiled as a shared library:
+//!
+//! ```toml
+//! [lib]
+//! crate-type = ["cdylib"]
+//! ```
+//!
+//! After compiling it, copy the shared library to `$HOME/.config/jay/config.so` and restart
+//! the compositor. It should then use your configuration file.
+//!
+//! Note that you do not have to restart the compositor every time you want to reload your
+//! configuration afterwards. Instead, simply invoke the [`reload`] function via a shortcut.
 
 #![allow(
     clippy::zero_prefixed_literal,

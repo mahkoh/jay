@@ -17,6 +17,7 @@ use {
                 log_level::{LogLevelParser, LogLevelParserError},
                 output::{OutputParser, OutputParserError},
                 output_match::{OutputMatchParser, OutputMatchParserError},
+                repeat_rate::{RepeatRateParser, RepeatRateParserError},
                 status::{StatusParser, StatusParserError},
                 theme::{ThemeParser, ThemeParserError},
                 StringParser, StringParserError,
@@ -77,6 +78,8 @@ pub enum ActionParserError {
     ConfigureIdle(#[source] IdleParserError),
     #[error("Could not parse a move-to-output action")]
     MoveToOutput(#[source] OutputMatchParserError),
+    #[error("Could not parse a set-repeat-rate action")]
+    RepeatRate(#[source] RepeatRateParserError),
 }
 
 pub struct ActionParser<'a>(pub &'a Context<'a>);
@@ -295,6 +298,14 @@ impl ActionParser<'_> {
             output,
         })
     }
+
+    fn parse_set_repeat_rate(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+        let rate = ext
+            .extract(val("rate"))?
+            .parse_map(&mut RepeatRateParser(self.0))
+            .map_spanned_err(ActionParserError::RepeatRate)?;
+        Ok(Action::SetRepeatRate { rate })
+    }
 }
 
 impl<'a> Parser for ActionParser<'a> {
@@ -345,6 +356,7 @@ impl<'a> Parser for ActionParser<'a> {
             "set-render-device" => self.parse_set_render_device(&mut ext),
             "configure-idle" => self.parse_configure_idle(&mut ext),
             "move-to-output" => self.parse_move_to_output(&mut ext),
+            "set-repeat-rate" => self.parse_set_repeat_rate(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

@@ -14,8 +14,8 @@ use {
             jay_screenshot::{Dmabuf, Error},
         },
     },
-    algorithms::qoi::xrgb8888_encode_qoi,
     chrono::Local,
+    jay_algorithms::qoi::xrgb8888_encode_qoi,
     std::rc::Rc,
 };
 

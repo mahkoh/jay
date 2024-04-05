@@ -40,13 +40,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "algorithms"
-version = "0.1.0"
-dependencies = [
- "smallvec",
-]
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -500,11 +493,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 
 [[package]]
-name = "jay"
+name = "jay-algorithms"
+version = "0.1.0"
+dependencies = [
+ "smallvec",
+]
+
+[[package]]
+name = "jay-compositor"
 version = "0.1.0"
 dependencies = [
  "ahash",
- "algorithms",
  "anyhow",
  "arrayvec",
  "ash",
@@ -523,6 +522,7 @@ dependencies = [
  "humantime",
  "indexmap",
  "isnt",
+ "jay-algorithms",
  "jay-config",
  "jay-toml-config",
  "libloading 0.8.1",
