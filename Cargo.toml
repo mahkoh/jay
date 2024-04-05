@@ -6,6 +6,7 @@ build = "build/build.rs"
 license = "GPL-3.0-only"
 description = "The Jay compositor"
 repository = "https://github.com/mahkoh/jay"
+default-run = "jay"
 
 [[bin]]
 name = "jay"
