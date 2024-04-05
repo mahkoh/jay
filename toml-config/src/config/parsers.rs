@@ -25,6 +25,7 @@ mod mode;
 pub mod modified_keysym;
 mod output;
 mod output_match;
+mod repeat_rate;
 pub mod shortcuts;
 mod status;
 mod theme;

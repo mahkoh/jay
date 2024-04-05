@@ -172,6 +172,9 @@ impl Action {
                     }
                 })
             }
+            Action::SetRepeatRate { rate } => {
+                Box::new(move || s.set_repeat_rate(rate.rate, rate.delay))
+            }
         }
     }
 }
@@ -727,6 +730,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     state.apply_shortcuts(config.shortcuts);
     if let Some(keymap) = config.keymap {
         state.set_keymap(&keymap);
+    }
+    if let Some(repeat_rate) = config.repeat_rate {
+        persistent
+            .seat
+            .set_repeat_rate(repeat_rate.rate, repeat_rate.delay);
     }
     on_new_connector(move |c| {
         for connector in &config.connectors {
