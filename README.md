@@ -1,5 +1,7 @@
 # Jay
 
+![birb.svg](./static/birb.svg)
+
 Jay is a Wayland compositor.
 
 ![screenshot.png](static/screenshot.png)
