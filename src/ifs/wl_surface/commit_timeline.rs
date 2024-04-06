@@ -116,6 +116,9 @@ pub enum ClearReason {
 fn break_loops(list: &LinkedList<Entry>) {
     for entry in list.iter() {
         entry.link.take();
+        if let EntryKind::Commit(c) = &entry.kind {
+            c.wait_handles.take();
+        }
     }
 }
 
