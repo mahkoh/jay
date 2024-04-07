@@ -9,7 +9,7 @@ description = "Internal dependency of the Jay compositor"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-jay-config = { path = "../jay-config" }
+jay-config = { version = "1.0.0", path = "../jay-config" }
 log = "0.4.14"
 thiserror = "1.0.57"
 error_reporter = "1.0.0"
