@@ -1,5 +1,7 @@
 # Jay
 
+[![crates.io](https://img.shields.io/crates/v/jay-compositor.svg)](http://crates.io/crates/jay-compositor)
+
 Jay is a Wayland compositor.
 
 ![screenshot.png](static/screenshot.png)
