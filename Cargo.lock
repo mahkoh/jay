@@ -501,7 +501,7 @@ dependencies = [
 
 [[package]]
 name = "jay-compositor"
-version = "0.1.0"
+version = "1.0.1"
 dependencies = [
  "ahash",
  "anyhow",
@@ -543,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "jay-config"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "backtrace",
  "bincode",
