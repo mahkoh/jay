@@ -59,6 +59,10 @@ impl Global for ZwlrScreencopyManagerV1Global {
     fn version(&self) -> u32 {
         3
     }
+
+    fn secure(&self) -> bool {
+        true
+    }
 }
 
 pub struct ZwlrScreencopyManagerV1 {
