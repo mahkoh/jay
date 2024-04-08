@@ -5,7 +5,7 @@ use {
         fixed::Fixed,
         ifs::{wl_seat::WlSeat, wl_surface::WlSurfaceError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
     },
@@ -31,13 +31,13 @@ pub const WHEEL_TILT: u32 = 3;
 pub const IDENTICAL: u32 = 0;
 pub const INVERTED: u32 = 1;
 
-pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
-pub const AXIS_SOURCE_SINCE_VERSION: u32 = 5;
-pub const AXIS_DISCRETE_SINCE_VERSION: u32 = 5;
-pub const AXIS_STOP_SINCE_VERSION: u32 = 5;
-pub const WHEEL_TILT_SINCE_VERSION: u32 = 6;
-pub const AXIS_VALUE120_SINCE_VERSION: u32 = 8;
-pub const AXIS_RELATIVE_DIRECTION_SINCE_VERSION: u32 = 9;
+pub const POINTER_FRAME_SINCE_VERSION: Version = Version(5);
+pub const AXIS_SOURCE_SINCE_VERSION: Version = Version(5);
+pub const AXIS_DISCRETE_SINCE_VERSION: Version = Version(5);
+pub const AXIS_STOP_SINCE_VERSION: Version = Version(5);
+pub const WHEEL_TILT_SINCE_VERSION: Version = Version(6);
+pub const AXIS_VALUE120_SINCE_VERSION: Version = Version(8);
+pub const AXIS_RELATIVE_DIRECTION_SINCE_VERSION: Version = Version(9);
 
 #[derive(Default, Debug)]
 pub struct PendingScroll {

@@ -3,7 +3,7 @@ use {
         client::Client,
         globals::{Global, GlobalName, GlobalsError},
         leaks::Tracker,
-        object::{Interface, Object},
+        object::{Interface, Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_registry::*, WlRegistryId},
     },
@@ -62,7 +62,7 @@ impl WlRegistry {
                 actual: bind.version,
             }));
         }
-        global.bind(&self.client, bind.id, bind.version)?;
+        global.bind(&self.client, bind.id, Version(bind.version))?;
         Ok(())
     }
 }

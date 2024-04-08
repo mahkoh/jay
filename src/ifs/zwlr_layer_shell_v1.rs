@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_layer_shell_v1::*, ZwlrLayerShellV1Id},
     },
@@ -24,7 +24,7 @@ pub struct ZwlrLayerShellV1Global {
 pub struct ZwlrLayerShellV1 {
     pub id: ZwlrLayerShellV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -37,7 +37,7 @@ impl ZwlrLayerShellV1Global {
         self: Rc<Self>,
         id: ZwlrLayerShellV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZwlrLayerShellV1Error> {
         let obj = Rc::new(ZwlrLayerShellV1 {
             id,

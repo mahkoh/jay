@@ -7,7 +7,7 @@ use {
             zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_data_control_manager_v1::*, ZwlrDataControlManagerV1Id},
     },
@@ -22,7 +22,7 @@ pub struct ZwlrDataControlManagerV1Global {
 pub struct ZwlrDataControlManagerV1 {
     pub id: ZwlrDataControlManagerV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     tracker: Tracker<Self>,
 }
 
@@ -35,7 +35,7 @@ impl ZwlrDataControlManagerV1Global {
         self: Rc<Self>,
         id: ZwlrDataControlManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZwlrDataControlManagerV1Error> {
         let obj = Rc::new(ZwlrDataControlManagerV1 {
             id,

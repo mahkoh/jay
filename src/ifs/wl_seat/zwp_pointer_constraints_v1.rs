@@ -11,7 +11,7 @@ use {
             wl_surface::WlSurface,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Region,
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -154,7 +154,7 @@ impl ZwpPointerConstraintsV1Global {
         self: Rc<Self>,
         id: ZwpPointerConstraintsV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), ZwpPointerConstraintsV1Error> {
         let cs = Rc::new(ZwpPointerConstraintsV1 {
             id,

@@ -11,7 +11,7 @@ use {
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{
             zwp_primary_selection_device_v1::*, ZwpPrimarySelectionDeviceV1Id,
@@ -25,7 +25,7 @@ use {
 pub struct ZwpPrimarySelectionDeviceV1 {
     pub id: ZwpPrimarySelectionDeviceV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub seat: Rc<WlSeatGlobal>,
     data: DeviceData<ZwpPrimarySelectionOfferV1>,
     pub tracker: Tracker<Self>,
@@ -35,7 +35,7 @@ impl ZwpPrimarySelectionDeviceV1 {
     pub fn new(
         id: ZwpPrimarySelectionDeviceV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
         seat: &Rc<WlSeatGlobal>,
     ) -> Self {
         Self {
@@ -106,7 +106,7 @@ impl IterableIpcVtable for PrimarySelectionIpc {
     where
         C: FnMut(&Rc<Self::Device>),
     {
-        seat.for_each_primary_selection_device(0, client, f)
+        seat.for_each_primary_selection_device(Version::ALL, client, f)
     }
 }
 

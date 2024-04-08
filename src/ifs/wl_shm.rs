@@ -5,7 +5,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_shm_pool::{WlShmPool, WlShmPoolError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_shm::*, WlShmId},
     },
@@ -21,7 +21,7 @@ pub struct WlShm {
     _global: Rc<WlShmGlobal>,
     id: WlShmId,
     client: Rc<Client>,
-    version: u32,
+    version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -34,7 +34,7 @@ impl WlShmGlobal {
         self: Rc<Self>,
         id: WlShmId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlShmError> {
         let obj = Rc::new(WlShm {
             _global: self,

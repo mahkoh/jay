@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::ipc::{wl_data_device::WlDataDevice, wl_data_source::WlDataSource},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_data_device_manager::*, WlDataDeviceManagerId},
     },
@@ -28,7 +28,7 @@ pub struct WlDataDeviceManagerGlobal {
 pub struct WlDataDeviceManager {
     pub id: WlDataDeviceManagerId,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     tracker: Tracker<Self>,
 }
 
@@ -41,7 +41,7 @@ impl WlDataDeviceManagerGlobal {
         self: Rc<Self>,
         id: WlDataDeviceManagerId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlDataDeviceManagerError> {
         let obj = Rc::new(WlDataDeviceManager {
             id,

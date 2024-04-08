@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{xdg_toplevel_drag_manager_v1::*, XdgToplevelDragManagerV1Id},
     },
@@ -25,7 +25,7 @@ impl XdgToplevelDragManagerV1Global {
         self: Rc<Self>,
         id: XdgToplevelDragManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), XdgToplevelDragManagerV1Error> {
         let mgr = Rc::new(XdgToplevelDragManagerV1 {
             id,
@@ -61,7 +61,7 @@ pub struct XdgToplevelDragManagerV1 {
     pub id: XdgToplevelDragManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: u32,
+    pub version: Version,
 }
 
 impl XdgToplevelDragManagerV1 {

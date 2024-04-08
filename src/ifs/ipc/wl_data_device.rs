@@ -12,7 +12,7 @@ use {
             wl_surface::{SurfaceRole, WlSurfaceError},
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_data_device::*, WlDataDeviceId, WlDataOfferId, WlSurfaceId},
     },
@@ -26,7 +26,7 @@ const ROLE: u32 = 0;
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub seat: Rc<WlSeatGlobal>,
     pub data: DeviceData<WlDataOffer>,
     pub tracker: Tracker<Self>,
@@ -36,7 +36,7 @@ impl WlDataDevice {
     pub fn new(
         id: WlDataDeviceId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
         seat: &Rc<WlSeatGlobal>,
     ) -> Self {
         Self {
@@ -158,7 +158,7 @@ impl IterableIpcVtable for ClipboardIpc {
     where
         C: FnMut(&Rc<Self::Device>),
     {
-        seat.for_each_data_device(0, client, f);
+        seat.for_each_data_device(Version::ALL, client, f);
     }
 }
 

@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::wp_fractional_scale_v1::{WpFractionalScaleError, WpFractionalScaleV1},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wp_fractional_scale_manager_v1::*, WpFractionalScaleManagerV1Id},
     },
@@ -31,7 +31,7 @@ impl WpFractionalScaleManagerV1Global {
         self: Rc<Self>,
         id: WpFractionalScaleManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WpFractionalScaleManagerError> {
         let obj = Rc::new(WpFractionalScaleManagerV1 {
             id,

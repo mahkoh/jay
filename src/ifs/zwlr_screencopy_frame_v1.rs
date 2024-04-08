@@ -7,7 +7,7 @@ use {
             wl_output::WlOutputGlobal,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -33,7 +33,7 @@ pub struct ZwlrScreencopyFrameV1 {
     pub with_damage: Cell<bool>,
     pub output_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     pub buffer: Cell<Option<Rc<WlBuffer>>>,
-    pub version: u32,
+    pub version: Version,
 }
 
 impl ZwlrScreencopyFrameV1 {

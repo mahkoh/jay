@@ -5,7 +5,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         video::{
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
@@ -33,7 +33,7 @@ impl WlDrmGlobal {
         self: Rc<Self>,
         id: WlDrmId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlDrmError> {
         let obj = Rc::new(WlDrm {
             id,
@@ -68,7 +68,7 @@ simple_add_global!(WlDrmGlobal);
 pub struct WlDrm {
     id: WlDrmId,
     pub client: Rc<Client>,
-    version: u32,
+    version: Version,
     tracker: Tracker<Self>,
 }
 

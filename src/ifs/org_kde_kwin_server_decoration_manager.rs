@@ -6,7 +6,7 @@ use {
             OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{org_kde_kwin_server_decoration_manager::*, OrgKdeKwinServerDecorationManagerId},
     },
@@ -32,7 +32,7 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
         self: Rc<Self>,
         id: OrgKdeKwinServerDecorationManagerId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), OrgKdeKwinServerDecorationManagerError> {
         let obj = Rc::new(OrgKdeKwinServerDecorationManager {
             id,
@@ -68,7 +68,7 @@ simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
 pub struct OrgKdeKwinServerDecorationManager {
     id: OrgKdeKwinServerDecorationManagerId,
     client: Rc<Client>,
-    _version: u32,
+    _version: Version,
     pub tracker: Tracker<Self>,
 }
 

@@ -17,7 +17,7 @@ use {
             wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_data_control_source_v1::*, ZwlrDataControlSourceV1Id},
     },
@@ -29,7 +29,7 @@ use {
 pub struct ZwlrDataControlSourceV1 {
     pub id: ZwlrDataControlSourceV1Id,
     pub data: SourceData,
-    pub version: u32,
+    pub version: Version,
     pub location: Cell<IpcLocation>,
     pub used: Cell<bool>,
     pub tracker: Tracker<Self>,
@@ -91,7 +91,7 @@ impl DynDataSource for ZwlrDataControlSourceV1 {
 }
 
 impl ZwlrDataControlSourceV1 {
-    pub fn new(id: ZwlrDataControlSourceV1Id, client: &Rc<Client>, version: u32) -> Self {
+    pub fn new(id: ZwlrDataControlSourceV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             tracker: Default::default(),

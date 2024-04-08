@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::ext_session_lock_v1::ExtSessionLockV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{ext_session_lock_manager_v1::*, ExtSessionLockManagerV1Id},
     },
@@ -25,7 +25,7 @@ impl ExtSessionLockManagerV1Global {
         self: Rc<Self>,
         id: ExtSessionLockManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), ExtSessionLockManagerV1Error> {
         let obj = Rc::new(ExtSessionLockManagerV1 {
             id,

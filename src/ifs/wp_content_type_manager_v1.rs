@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wp_content_type_v1::WpContentTypeV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wp_content_type_manager_v1::*, WpContentTypeManagerV1Id},
     },
@@ -25,7 +25,7 @@ impl WpContentTypeManagerV1Global {
         self: Rc<Self>,
         id: WpContentTypeManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WpContentTypeManagerV1Error> {
         let mgr = Rc::new(WpContentTypeManagerV1 {
             id,
@@ -61,7 +61,7 @@ pub struct WpContentTypeManagerV1 {
     pub id: WpContentTypeManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: u32,
+    pub version: Version,
 }
 
 impl WpContentTypeManagerV1 {

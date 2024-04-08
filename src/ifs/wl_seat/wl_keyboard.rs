@@ -3,7 +3,7 @@ use {
         client::ClientError,
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::{
             buffd::{MsgParser, MsgParserError},
             oserror::OsError,
@@ -15,7 +15,7 @@ use {
     uapi::OwnedFd,
 };
 
-pub const REPEAT_INFO_SINCE: u32 = 4;
+pub const REPEAT_INFO_SINCE: Version = Version(4);
 
 #[allow(dead_code)]
 const NO_KEYMAP: u32 = 0;

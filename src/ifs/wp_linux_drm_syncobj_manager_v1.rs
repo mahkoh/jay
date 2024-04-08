@@ -9,7 +9,7 @@ use {
             wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         video::drm::sync_obj::SyncObj,
         wire::{wp_linux_drm_syncobj_manager_v1::*, WpLinuxDrmSyncobjManagerV1Id},
@@ -37,7 +37,7 @@ impl WpLinuxDrmSyncobjManagerV1Global {
         self: Rc<Self>,
         id: WpLinuxDrmSyncobjManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WpLinuxDrmSyncobjManagerV1Error> {
         let obj = Rc::new(WpLinuxDrmSyncobjManagerV1 {
             id,

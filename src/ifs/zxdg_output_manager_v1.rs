@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::zxdg_output_v1::ZxdgOutputV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zxdg_output_manager_v1::*, ZxdgOutputManagerV1Id},
     },
@@ -19,7 +19,7 @@ pub struct ZxdgOutputManagerV1Global {
 pub struct ZxdgOutputManagerV1 {
     pub id: ZxdgOutputManagerV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -32,7 +32,7 @@ impl ZxdgOutputManagerV1Global {
         self: Rc<Self>,
         id: ZxdgOutputManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZxdgOutputManagerV1Error> {
         let obj = Rc::new(ZxdgOutputManagerV1 {
             id,

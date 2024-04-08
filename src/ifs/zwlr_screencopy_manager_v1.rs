@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         utils::buffd::{MsgParser, MsgParserError},
         wire::{
@@ -29,7 +29,7 @@ impl ZwlrScreencopyManagerV1Global {
         self: Rc<Self>,
         id: ZwlrScreencopyManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZwlrScreencopyManagerV1Error> {
         let mgr = Rc::new(ZwlrScreencopyManagerV1 {
             id,
@@ -69,7 +69,7 @@ pub struct ZwlrScreencopyManagerV1 {
     pub id: ZwlrScreencopyManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: u32,
+    pub version: Version,
 }
 
 impl ZwlrScreencopyManagerV1 {

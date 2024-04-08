@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::ext_idle_notification_v1::ExtIdleNotificationV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         time::now_usec,
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -29,7 +29,7 @@ impl ExtIdleNotifierV1Global {
         self: Rc<Self>,
         id: ExtIdleNotifierV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), ExtIdleNotifierV1Error> {
         let obj = Rc::new(ExtIdleNotifierV1 {
             id,

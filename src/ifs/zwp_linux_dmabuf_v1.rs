@@ -7,7 +7,7 @@ use {
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id},
     },
@@ -28,7 +28,7 @@ impl ZwpLinuxDmabufV1Global {
         self: Rc<Self>,
         id: ZwpLinuxDmabufV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZwpLinuxDmabufV1Error> {
         let obj = Rc::new(ZwpLinuxDmabufV1 {
             id,
@@ -55,8 +55,8 @@ impl ZwpLinuxDmabufV1Global {
     }
 }
 
-const MODIFIERS_SINCE_VERSION: u32 = 3;
-const FEEDBACK_SINCE_VERSION: u32 = 4;
+const MODIFIERS_SINCE_VERSION: Version = Version(3);
+const FEEDBACK_SINCE_VERSION: Version = Version(4);
 
 global_base!(
     ZwpLinuxDmabufV1Global,
@@ -79,7 +79,7 @@ simple_add_global!(ZwpLinuxDmabufV1Global);
 pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -161,8 +161,8 @@ object_base! {
 
     DESTROY => destroy,
     CREATE_PARAMS => create_params,
-    GET_DEFAULT_FEEDBACK => get_default_feedback if self.version >= 4,
-    GET_SURFACE_FEEDBACK => get_surface_feedback if self.version >= 4,
+    GET_DEFAULT_FEEDBACK => get_default_feedback if self.version.0 >= 4,
+    GET_SURFACE_FEEDBACK => get_surface_feedback if self.version.0 >= 4,
 }
 
 impl Object for ZwpLinuxDmabufV1 {}

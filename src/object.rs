@@ -2,6 +2,7 @@ use {
     crate::{client::ClientError, utils::buffd::MsgParser, wire::WlDisplayId},
     std::{
         any::Any,
+        cmp::Ordering,
         fmt::{Display, Formatter},
         rc::Rc,
     },
@@ -52,5 +53,24 @@ pub struct Interface(pub &'static str);
 impl Interface {
     pub fn name(self) -> &'static str {
         self.0
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct Version(pub u32);
+
+impl Version {
+    pub const ALL: Version = Version(0);
+}
+
+impl PartialEq<u32> for Version {
+    fn eq(&self, other: &u32) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialOrd<u32> for Version {
+    fn partial_cmp(&self, other: &u32) -> Option<Ordering> {
+        self.0.partial_cmp(other)
     }
 }

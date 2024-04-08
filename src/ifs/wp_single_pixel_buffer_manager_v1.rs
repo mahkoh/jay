@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wp_single_pixel_buffer_manager_v1::*, WpSinglePixelBufferManagerV1Id},
     },
@@ -25,7 +25,7 @@ impl WpSinglePixelBufferManagerV1Global {
         self: Rc<Self>,
         id: WpSinglePixelBufferManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WpSinglePixelBufferManagerV1Error> {
         let obj = Rc::new(WpSinglePixelBufferManagerV1 {
             id,

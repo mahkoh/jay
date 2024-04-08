@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::{x_surface::xwayland_surface_v1::XwaylandSurfaceV1, WlSurfaceError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{xwayland_shell_v1::*, WlSurfaceId, XwaylandShellV1Id},
     },
@@ -19,7 +19,7 @@ pub struct XwaylandShellV1Global {
 pub struct XwaylandShellV1 {
     id: XwaylandShellV1Id,
     client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -32,7 +32,7 @@ impl XwaylandShellV1Global {
         self: Rc<Self>,
         id: XwaylandShellV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), XwaylandShellV1Error> {
         let obj = Rc::new(XwaylandShellV1 {
             id,

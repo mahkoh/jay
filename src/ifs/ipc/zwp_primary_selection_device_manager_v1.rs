@@ -7,7 +7,7 @@ use {
             zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_primary_selection_device_manager_v1::*, ZwpPrimarySelectionDeviceManagerV1Id},
     },
@@ -22,7 +22,7 @@ pub struct ZwpPrimarySelectionDeviceManagerV1Global {
 pub struct ZwpPrimarySelectionDeviceManagerV1 {
     pub id: ZwpPrimarySelectionDeviceManagerV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -35,7 +35,7 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
         self: Rc<Self>,
         id: ZwpPrimarySelectionDeviceManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
         let obj = Rc::new(ZwpPrimarySelectionDeviceManagerV1 {
             id,

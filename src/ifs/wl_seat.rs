@@ -45,7 +45,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         state::State,
         time::now_usec,
@@ -96,7 +96,7 @@ const MISSING_CAPABILITY: u32 = 0;
 
 pub const BTN_LEFT: u32 = 0x110;
 
-pub const SEAT_NAME_SINCE: u32 = 2;
+pub const SEAT_NAME_SINCE: Version = Version(2);
 
 pub const PX_PER_SCROLL: f64 = 15.0;
 
@@ -1040,7 +1040,7 @@ impl WlSeatGlobal {
         self: Rc<Self>,
         id: WlSeatId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlSeatError> {
         let obj = Rc::new(WlSeat {
             global: self.clone(),
@@ -1124,11 +1124,11 @@ pub struct WlSeat {
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
-    version: u32,
+    version: Version,
     tracker: Tracker<Self>,
 }
 
-const READ_ONLY_KEYMAP_SINCE: u32 = 7;
+const READ_ONLY_KEYMAP_SINCE: Version = Version(7);
 
 impl WlSeat {
     fn send_capabilities(self: &Rc<Self>) {

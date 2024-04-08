@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::wp_tearing_control_v1::{WpTearingControlV1, WpTearingControlV1Error},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{
             wp_tearing_control_manager_v1::{GET_TEARING_CONTROL, *},
@@ -28,7 +28,7 @@ impl WpTearingControlManagerV1Global {
         self: Rc<Self>,
         id: WpTearingControlManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WpTearingControlManagerV1Error> {
         let obj = Rc::new(WpTearingControlManagerV1 {
             id,

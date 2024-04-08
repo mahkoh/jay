@@ -18,7 +18,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::{
             bitflags::BitflagsExt,
             buffd::{MsgParser, MsgParserError},
@@ -40,7 +40,7 @@ const INVALID_SOURCE: u32 = 1;
 pub struct WlDataSource {
     pub id: WlDataSourceId,
     pub data: SourceData,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
     pub toplevel_drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
 }
@@ -94,7 +94,7 @@ impl DynDataSource for WlDataSource {
 }
 
 impl WlDataSource {
-    pub fn new(id: WlDataSourceId, client: &Rc<Client>, version: u32) -> Self {
+    pub fn new(id: WlDataSourceId, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             tracker: Default::default(),

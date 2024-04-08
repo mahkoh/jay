@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_subcompositor::*, WlSubcompositorId},
     },
@@ -34,7 +34,7 @@ impl WlSubcompositorGlobal {
         self: Rc<Self>,
         id: WlSubcompositorId,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WlSubcompositorError> {
         let obj = Rc::new(WlSubcompositor {
             id,

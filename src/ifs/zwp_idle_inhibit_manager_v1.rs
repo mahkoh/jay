@@ -7,7 +7,7 @@ use {
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_idle_inhibit_manager_v1::*, ZwpIdleInhibitManagerV1Id},
     },
@@ -28,7 +28,7 @@ impl ZwpIdleInhibitManagerV1Global {
         self: Rc<Self>,
         id: ZwpIdleInhibitManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZxdgDecorationManagerV1Error> {
         let obj = Rc::new(ZwpIdleInhibitManagerV1 {
             id,
@@ -63,7 +63,7 @@ simple_add_global!(ZwpIdleInhibitManagerV1Global);
 pub struct ZwpIdleInhibitManagerV1 {
     pub id: ZwpIdleInhibitManagerV1Id,
     pub client: Rc<Client>,
-    pub _version: u32,
+    pub _version: Version,
     pub tracker: Tracker<Self>,
 }
 

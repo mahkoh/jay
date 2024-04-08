@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_relative_pointer_manager_v1::*, ZwpRelativePointerManagerV1Id},
     },
@@ -31,7 +31,7 @@ impl ZwpRelativePointerManagerV1Global {
         self: Rc<Self>,
         id: ZwpRelativePointerManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), ZwpRelativePointerManagerV1Error> {
         let obj = Rc::new(ZwpRelativePointerManagerV1 {
             id,

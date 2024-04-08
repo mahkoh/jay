@@ -9,7 +9,7 @@ use {
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zxdg_output_v1::ZxdgOutputV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
         time::Time,
@@ -183,7 +183,7 @@ impl WlOutputGlobal {
         self: Rc<Self>,
         id: WlOutputId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlOutputError> {
         let obj = Rc::new(WlOutput {
             global: self.clone(),
@@ -328,13 +328,13 @@ pub struct WlOutput {
     pub id: WlOutputId,
     pub xdg_outputs: CopyHashMap<ZxdgOutputV1Id, Rc<ZxdgOutputV1>>,
     client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     tracker: Tracker<Self>,
 }
 
-pub const SEND_DONE_SINCE: u32 = 2;
-pub const SEND_SCALE_SINCE: u32 = 2;
-pub const SEND_NAME_SINCE: u32 = 4;
+pub const SEND_DONE_SINCE: Version = Version(2);
+pub const SEND_SCALE_SINCE: Version = Version(2);
+pub const SEND_NAME_SINCE: Version = Version(4);
 
 impl WlOutput {
     fn send_geometry(&self) {

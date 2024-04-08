@@ -11,7 +11,7 @@ use {
             jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         screenshoter::take_screenshot,
         utils::{
             buffd::{MsgParser, MsgParserError},
@@ -39,7 +39,7 @@ impl JayCompositorGlobal {
         self: Rc<Self>,
         id: JayCompositorId,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), JayCompositorError> {
         let obj = Rc::new(JayCompositor {
             id,

@@ -104,7 +104,7 @@ macro_rules! global_base {
                 self: std::rc::Rc<Self>,
                 client: &'a std::rc::Rc<crate::client::Client>,
                 id: crate::object::ObjectId,
-                version: u32,
+                version: crate::object::Version,
             ) -> Result<(), crate::globals::GlobalsError> {
                 if let Err(e) = self.bind_(id.into(), client, version) {
                     return Err(crate::globals::GlobalsError::GlobalError(e.into()));

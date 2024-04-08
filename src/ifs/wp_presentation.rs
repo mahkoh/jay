@@ -5,7 +5,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wp_presentation_feedback::WpPresentationFeedback,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
     },
     std::rc::Rc,
@@ -26,7 +26,7 @@ impl WpPresentationGlobal {
         self: Rc<Self>,
         id: WpPresentationId,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WpPresentationError> {
         let obj = Rc::new(WpPresentation {
             id,

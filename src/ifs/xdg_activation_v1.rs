@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::xdg_activation_token_v1::XdgActivationTokenV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::{
             activation_token::ActivationToken,
             buffd::{MsgParser, MsgParserError},
@@ -29,7 +29,7 @@ impl XdgActivationV1Global {
         self: Rc<Self>,
         id: XdgActivationV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), XdgActivationV1Error> {
         let mgr = Rc::new(XdgActivationV1 {
             id,
@@ -61,7 +61,7 @@ pub struct XdgActivationV1 {
     pub id: XdgActivationV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: u32,
+    pub version: Version,
 }
 
 impl XdgActivationV1 {

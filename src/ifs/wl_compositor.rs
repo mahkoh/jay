@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{wl_region::WlRegion, wl_surface::WlSurface},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_compositor::*, WlCompositorId},
         xwayland::XWaylandEvent,
@@ -20,7 +20,7 @@ pub struct WlCompositorGlobal {
 pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
-    version: u32,
+    version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -33,7 +33,7 @@ impl WlCompositorGlobal {
         self: Rc<Self>,
         id: WlCompositorId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlCompositorError> {
         let obj = Rc::new(WlCompositor {
             id,

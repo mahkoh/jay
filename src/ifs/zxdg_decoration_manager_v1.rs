@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zxdg_decoration_manager_v1::*, ZxdgDecorationManagerV1Id},
     },
@@ -25,7 +25,7 @@ impl ZxdgDecorationManagerV1Global {
         self: Rc<Self>,
         id: ZxdgDecorationManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZxdgDecorationManagerV1Error> {
         let obj = Rc::new(ZxdgDecorationManagerV1 {
             id,
@@ -60,7 +60,7 @@ simple_add_global!(ZxdgDecorationManagerV1Global);
 pub struct ZxdgDecorationManagerV1 {
     id: ZxdgDecorationManagerV1Id,
     client: Rc<Client>,
-    _version: u32,
+    _version: Version,
     tracker: Tracker<Self>,
 }
 

@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_output::{WlOutput, SEND_DONE_SINCE},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{zxdg_output_v1::*, ZxdgOutputV1Id},
     },
@@ -11,14 +11,14 @@ use {
     thiserror::Error,
 };
 
-pub const NAME_SINCE: u32 = 2;
+pub const NAME_SINCE: Version = Version(2);
 #[allow(dead_code)]
-pub const DESCRIPTION_SINCE: u32 = 2;
-pub const NO_DONE_SINCE: u32 = 3;
+pub const DESCRIPTION_SINCE: Version = Version(2);
+pub const NO_DONE_SINCE: Version = Version(3);
 
 pub struct ZxdgOutputV1 {
     pub id: ZxdgOutputV1Id,
-    pub version: u32,
+    pub version: Version,
     pub client: Rc<Client>,
     pub output: Rc<WlOutput>,
     pub tracker: Tracker<Self>,

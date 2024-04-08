@@ -7,7 +7,7 @@ use {
             wl_surface::{x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel},
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         tree::{NodeVisitorBase, ToplevelNode},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{
@@ -32,7 +32,7 @@ impl ExtForeignToplevelListV1Global {
         self: Rc<Self>,
         id: ExtForeignToplevelListV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), ExtForeignToplevelListV1Error> {
         let obj = Rc::new(ExtForeignToplevelListV1 {
             id,

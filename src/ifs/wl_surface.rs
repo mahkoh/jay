@@ -43,7 +43,7 @@ use {
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::{Rect, Region},
         renderer::Renderer,
         tree::{
@@ -94,9 +94,9 @@ const INVALID_TRANSFORM: u32 = 1;
 #[allow(dead_code)]
 const INVALID_SIZE: u32 = 2;
 
-const OFFSET_SINCE: u32 = 5;
-const BUFFER_SCALE_SINCE: u32 = 6;
-const TRANSFORM_SINCE: u32 = 6;
+const OFFSET_SINCE: Version = Version(5);
+const BUFFER_SCALE_SINCE: Version = Version(6);
+const TRANSFORM_SINCE: Version = Version(6);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SurfaceRole {
@@ -244,7 +244,7 @@ pub struct WlSurface {
     xwayland_serial: Cell<Option<u64>>,
     tearing_control: CloneCell<Option<Rc<WpTearingControlV1>>>,
     tearing: Cell<bool>,
-    version: u32,
+    version: Version,
     pub has_content_type_manager: Cell<bool>,
     pub content_type: Cell<Option<ContentType>>,
     pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
@@ -485,7 +485,7 @@ pub struct StackElement {
 }
 
 impl WlSurface {
-    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: u32) -> Self {
+    pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             node_id: client.state.node_ids.next(),

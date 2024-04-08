@@ -15,7 +15,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         renderer::Renderer,
         state::State,
@@ -74,8 +74,8 @@ const CAP_FULLSCREEN: u32 = 3;
 #[allow(dead_code)]
 const CAP_MINIMIZE: u32 = 4;
 
-pub const WM_CAPABILITIES_SINCE: u32 = 5;
-pub const SUSPENDED_SINCE: u32 = 6;
+pub const WM_CAPABILITIES_SINCE: Version = Version(5);
+pub const SUSPENDED_SINCE: Version = Version(6);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {

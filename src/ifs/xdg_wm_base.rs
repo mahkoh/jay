@@ -7,7 +7,7 @@ use {
             xdg_positioner::XdgPositioner,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::{
             buffd::{MsgParser, MsgParserError},
             copyhashmap::CopyHashMap,
@@ -37,7 +37,7 @@ pub struct XdgWmBaseGlobal {
 pub struct XdgWmBase {
     id: XdgWmBaseId,
     client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub(super) surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
     pub tracker: Tracker<Self>,
 }
@@ -51,7 +51,7 @@ impl XdgWmBaseGlobal {
         self: Rc<Self>,
         id: XdgWmBaseId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), XdgWmBaseError> {
         let obj = Rc::new(XdgWmBase {
             id,

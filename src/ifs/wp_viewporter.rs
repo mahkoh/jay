@@ -4,7 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::wp_viewport::{WpViewport, WpViewportError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         utils::buffd::{MsgParser, MsgParserError},
         wire::{wp_viewporter::*, WpViewporterId},
     },
@@ -25,7 +25,7 @@ impl WpViewporterGlobal {
         self: Rc<Self>,
         id: WpViewporterId,
         client: &Rc<Client>,
-        _version: u32,
+        _version: Version,
     ) -> Result<(), WpViewporterError> {
         let obj = Rc::new(WpViewporter {
             id,
