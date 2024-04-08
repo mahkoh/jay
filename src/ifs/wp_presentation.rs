@@ -6,7 +6,6 @@ use {
         ifs::wp_presentation_feedback::WpPresentationFeedback,
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
     },
     std::rc::Rc,
     thiserror::Error,
@@ -26,12 +25,13 @@ impl WpPresentationGlobal {
         self: Rc<Self>,
         id: WpPresentationId,
         client: &Rc<Client>,
-        _version: Version,
+        version: Version,
     ) -> Result<(), WpPresentationError> {
         let obj = Rc::new(WpPresentation {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -58,6 +58,7 @@ pub struct WpPresentation {
     pub id: WpPresentationId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl WpPresentation {
@@ -67,21 +68,24 @@ impl WpPresentation {
             clk_id: c::CLOCK_MONOTONIC as _,
         });
     }
+}
 
-    pub fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WpPresentationError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl WpPresentationRequestHandler for WpPresentation {
+    type Error = WpPresentationError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    pub fn feedback(&self, parser: MsgParser<'_, '_>) -> Result<(), WpPresentationError> {
-        let req: Feedback = self.client.parse(self, parser)?;
+    fn feedback(&self, req: Feedback, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let fb = Rc::new(WpPresentationFeedback {
             id: req.callback,
             client: self.client.clone(),
             surface: surface.clone(),
             tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, fb);
         self.client.add_client_obj(&fb)?;
@@ -92,9 +96,7 @@ impl WpPresentation {
 
 object_base! {
     self = WpPresentation;
-
-    DESTROY => destroy,
-    FEEDBACK => feedback,
+    version = self.version;
 }
 
 impl Object for WpPresentation {}
@@ -103,10 +105,7 @@ simple_add_obj!(WpPresentation);
 
 #[derive(Debug, Error)]
 pub enum WpPresentationError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(WpPresentationError, MsgParserError);
 efrom!(WpPresentationError, ClientError);

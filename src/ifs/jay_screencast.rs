@@ -5,14 +5,10 @@ use {
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         ifs::jay_output::JayOutput,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         tree::{OutputNode, WorkspaceNodeId},
         utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            option_ext::OptionExt,
+            clonecell::CloneCell, errorfmt::ErrorFmt, numcell::NumCell, option_ext::OptionExt,
         },
         video::{
             dmabuf::DmaBuf,
@@ -26,7 +22,7 @@ use {
     once_cell::sync::Lazy,
     std::{
         cell::{Cell, RefCell},
-        ops::{Deref, DerefMut},
+        ops::DerefMut,
         rc::Rc,
     },
     thiserror::Error,
@@ -277,16 +273,16 @@ impl JayScreencast {
     }
 }
 
-impl JayScreencast {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl JayScreencastRequestHandler for JayScreencast {
+    type Error = JayScreencastError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_output(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: SetOutput = self.client.parse(self, parser)?;
+    fn set_output(&self, req: SetOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let output = if req.output.is_some() {
             Some(self.client.lookup(req.output)?)
         } else {
@@ -301,9 +297,9 @@ impl JayScreencast {
 
     fn set_allow_all_workspaces(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), JayScreencastError> {
-        let req: SetAllowAllWorkspaces = self.client.parse(self, parser)?;
+        req: SetAllowAllWorkspaces,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
         }
@@ -311,8 +307,7 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn allow_workspace(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: AllowWorkspace = self.client.parse(self, parser)?;
+    fn allow_workspace(&self, req: AllowWorkspace, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let ws = self.client.lookup(req.workspace)?;
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
@@ -327,9 +322,9 @@ impl JayScreencast {
 
     fn touch_allowed_workspaces(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), JayScreencastError> {
-        let _req: TouchAllowedWorkspaces = self.client.parse(self, parser)?;
+        _req: TouchAllowedWorkspaces,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
         }
@@ -340,8 +335,11 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn set_use_linear_buffers(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: SetUseLinearBuffers = self.client.parse(self, parser)?;
+    fn set_use_linear_buffers(
+        &self,
+        req: SetUseLinearBuffers,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
         }
@@ -349,8 +347,7 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn set_running(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: SetRunning = self.client.parse(self, parser)?;
+    fn set_running(&self, req: SetRunning, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
         }
@@ -358,9 +355,7 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn configure(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let _req: Configure = self.client.parse(self.deref(), parser)?;
-
+    fn configure(&self, _req: Configure, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
         }
@@ -377,7 +372,7 @@ impl JayScreencast {
                 if new.screencasts.is_empty() {
                     new.state.damage();
                 }
-                new.screencasts.set((self.client.id, self.id), self.clone());
+                new.screencasts.set((self.client.id, self.id), slf.clone());
             }
             self.output.set(output);
         }
@@ -414,8 +409,7 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn ack_buffers(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: AckBuffers = self.client.parse(self, parser)?;
+    fn ack_buffers(&self, req: AckBuffers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() {
             return Ok(());
         }
@@ -425,8 +419,7 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn ack_config(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: AckConfig = self.client.parse(self, parser)?;
+    fn ack_config(&self, req: AckConfig, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() {
             return Ok(());
         }
@@ -436,8 +429,7 @@ impl JayScreencast {
         Ok(())
     }
 
-    fn release_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), JayScreencastError> {
-        let req: ReleaseBuffer = self.client.parse(self, parser)?;
+    fn release_buffer(&self, req: ReleaseBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() || !self.buffers_acked.get() {
             return Ok(());
         }
@@ -455,18 +447,7 @@ impl JayScreencast {
 
 object_base! {
     self = JayScreencast;
-
-    DESTROY => destroy,
-    SET_OUTPUT => set_output,
-    SET_ALLOW_ALL_WORKSPACES => set_allow_all_workspaces,
-    ALLOW_WORKSPACE => allow_workspace,
-    TOUCH_ALLOWED_WORKSPACES => touch_allowed_workspaces,
-    SET_USE_LINEAR_BUFFERS => set_use_linear_buffers,
-    SET_RUNNING => set_running,
-    CONFIGURE => configure,
-    ACK_CONFIG => ack_config,
-    ACK_BUFFERS => ack_buffers,
-    RELEASE_BUFFER => release_buffer,
+    version = Version(1);
 }
 
 impl Object for JayScreencast {
@@ -479,8 +460,6 @@ dedicated_add_obj!(JayScreencast, JayScreencastId, screencasts);
 
 #[derive(Debug, Error)]
 pub enum JayScreencastError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Buffer index {0} is out-of-bounds")]
@@ -496,7 +475,6 @@ pub enum JayScreencastError {
     #[error("Render context supports neither linear or invalid modifier")]
     Modifier,
 }
-efrom!(JayScreencastError, MsgParserError);
 efrom!(JayScreencastError, ClientError);
 
 fn output_size(output: &Option<Rc<OutputNode>>) -> (i32, i32) {

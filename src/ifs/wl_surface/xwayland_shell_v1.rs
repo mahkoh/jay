@@ -5,7 +5,6 @@ use {
         ifs::wl_surface::{x_surface::xwayland_surface_v1::XwaylandSurfaceV1, WlSurfaceError},
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{xwayland_shell_v1::*, WlSurfaceId, XwaylandShellV1Id},
     },
     std::rc::Rc,
@@ -45,15 +44,19 @@ impl XwaylandShellV1Global {
         Ok(())
     }
 }
-impl XwaylandShellV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XwaylandShellV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl XwaylandShellV1RequestHandler for XwaylandShellV1 {
+    type Error = XwaylandShellV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_xwayland_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), XwaylandShellV1Error> {
-        let req: GetXwaylandSurface = self.client.parse(self, parser)?;
+    fn get_xwayland_surface(
+        &self,
+        req: GetXwaylandSurface,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let xsurface = surface.get_xsurface()?;
         if xsurface.xwayland_surface.is_some() {
@@ -64,6 +67,7 @@ impl XwaylandShellV1 {
             client: self.client.clone(),
             x: xsurface,
             tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, xws);
         xws.x.xwayland_surface.set(Some(xws.clone()));
@@ -92,9 +96,7 @@ simple_add_global!(XwaylandShellV1Global);
 
 object_base! {
     self = XwaylandShellV1;
-
-    DESTROY => destroy,
-    GET_XWAYLAND_SURFACE => get_xwayland_surface,
+    version = self.version;
 }
 
 impl Object for XwaylandShellV1 {}
@@ -105,12 +107,9 @@ simple_add_obj!(XwaylandShellV1);
 pub enum XwaylandShellV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The `wl_surface` {0} already has an extension object")]
     AlreadyAttached(WlSurfaceId),
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
 }
 efrom!(XwaylandShellV1Error, ClientError);
-efrom!(XwaylandShellV1Error, MsgParserError);

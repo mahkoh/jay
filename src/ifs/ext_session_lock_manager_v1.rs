@@ -5,7 +5,6 @@ use {
         ifs::ext_session_lock_v1::ExtSessionLockV1,
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{ext_session_lock_manager_v1::*, ExtSessionLockManagerV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -25,12 +24,13 @@ impl ExtSessionLockManagerV1Global {
         self: Rc<Self>,
         id: ExtSessionLockManagerV1Id,
         client: &Rc<Client>,
-        _version: Version,
+        version: Version,
     ) -> Result<(), ExtSessionLockManagerV1Error> {
         let obj = Rc::new(ExtSessionLockManagerV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -42,17 +42,18 @@ pub struct ExtSessionLockManagerV1 {
     pub id: ExtSessionLockManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
-impl ExtSessionLockManagerV1 {
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
+    type Error = ExtSessionLockManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn lock(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockManagerV1Error> {
-        let req: Lock = self.client.parse(self, msg)?;
+    fn lock(&self, req: Lock, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let did_lock = self.client.state.lock.locked.get() == false;
         let new = Rc::new(ExtSessionLockV1 {
             id: req.id,
@@ -60,6 +61,7 @@ impl ExtSessionLockManagerV1 {
             tracker: Default::default(),
             did_lock,
             finished: Cell::new(false),
+            version: self.version,
         });
         track!(new.client, new);
         self.client.add_client_obj(&new)?;
@@ -105,9 +107,7 @@ simple_add_global!(ExtSessionLockManagerV1Global);
 
 object_base! {
     self = ExtSessionLockManagerV1;
-
-    DESTROY => destroy,
-    LOCK => lock,
+    version = self.version;
 }
 
 impl Object for ExtSessionLockManagerV1 {}
@@ -116,10 +116,7 @@ simple_add_obj!(ExtSessionLockManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtSessionLockManagerV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ExtSessionLockManagerV1Error, MsgParserError);
 efrom!(ExtSessionLockManagerV1Error, ClientError);

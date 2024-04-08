@@ -19,12 +19,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        utils::{
-            bitflags::BitflagsExt,
-            buffd::{MsgParser, MsgParserError},
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-        },
+        utils::{bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell},
         wire::{wl_data_source::*, WlDataSourceId},
     },
     std::rc::Rc,
@@ -208,22 +203,23 @@ impl WlDataSource {
             .client
             .event(DndDropPerformed { self_id: self.id })
     }
+}
 
-    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
-        let req: Offer = self.data.client.parse(self, parser)?;
+impl WlDataSourceRequestHandler for WlDataSource {
+    type Error = WlDataSourceError;
+
+    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<ClipboardIpc>(self, req.mime_type);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
-        let _req: Destroy = self.data.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_source::<ClipboardIpc>(self);
         self.data.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataSourceError> {
-        let req: SetActions = self.data.client.parse(self, parser)?;
+    fn set_actions(&self, req: SetActions, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.data.actions.is_some() {
             return Err(WlDataSourceError::AlreadySet);
         }
@@ -237,10 +233,7 @@ impl WlDataSource {
 
 object_base! {
     self = WlDataSource;
-
-    OFFER => offer,
-    DESTROY => destroy,
-    SET_ACTIONS => set_actions if self.version >= 3,
+    version = self.version;
 }
 
 impl Object for WlDataSource {
@@ -254,8 +247,6 @@ dedicated_add_obj!(WlDataSource, WlDataSourceId, wl_data_source);
 
 #[derive(Debug, Error)]
 pub enum WlDataSourceError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("The set of actions is invalid")]
@@ -264,4 +255,3 @@ pub enum WlDataSourceError {
     AlreadySet,
 }
 efrom!(WlDataSourceError, ClientError);
-efrom!(WlDataSourceError, MsgParserError);

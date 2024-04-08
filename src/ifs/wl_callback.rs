@@ -2,10 +2,10 @@ use {
     crate::{
         client::Client,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         wire::{wl_callback::*, WlCallbackId},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
     thiserror::Error,
 };
 
@@ -32,8 +32,13 @@ impl WlCallback {
     }
 }
 
+impl WlCallbackRequestHandler for WlCallback {
+    type Error = Infallible;
+}
+
 object_base! {
     self = WlCallback;
+    version = Version(1);
 }
 
 impl Object for WlCallback {}

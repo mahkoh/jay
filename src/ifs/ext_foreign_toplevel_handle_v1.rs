@@ -2,9 +2,8 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         tree::ToplevelNode,
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{ext_foreign_toplevel_handle_v1::*, ExtForeignToplevelHandleV1Id},
     },
     std::rc::Rc,
@@ -16,6 +15,7 @@ pub struct ExtForeignToplevelHandleV1 {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub toplevel: Rc<dyn ToplevelNode>,
+    pub version: Version,
 }
 
 impl ExtForeignToplevelHandleV1 {
@@ -25,14 +25,19 @@ impl ExtForeignToplevelHandleV1 {
             .handles
             .remove(&(self.client.id, self.id));
     }
+}
 
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ExtForeignToplevelHandleV1RequestHandler for ExtForeignToplevelHandleV1 {
+    type Error = ExtForeignToplevelHandleV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
         self.client.remove_obj(self)?;
         Ok(())
     }
+}
 
+impl ExtForeignToplevelHandleV1 {
     pub fn send_closed(&self) {
         self.client.event(Closed { self_id: self.id });
     }
@@ -65,8 +70,7 @@ impl ExtForeignToplevelHandleV1 {
 
 object_base! {
     self = ExtForeignToplevelHandleV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ExtForeignToplevelHandleV1 {
@@ -78,11 +82,8 @@ impl Object for ExtForeignToplevelHandleV1 {
 simple_add_obj!(ExtForeignToplevelHandleV1);
 
 #[derive(Debug, Error)]
-pub enum ExtSessionLockV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
+pub enum ExtForeignToplevelHandleV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ExtSessionLockV1Error, MsgParserError);
-efrom!(ExtSessionLockV1Error, ClientError);
+efrom!(ExtForeignToplevelHandleV1Error, ClientError);

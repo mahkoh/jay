@@ -6,7 +6,6 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{
             zwlr_screencopy_manager_v1::*, WlOutputId, ZwlrScreencopyFrameV1Id,
             ZwlrScreencopyManagerV1Id,
@@ -72,20 +71,18 @@ pub struct ZwlrScreencopyManagerV1 {
     pub version: Version,
 }
 
-impl ZwlrScreencopyManagerV1 {
-    fn capture_output(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrScreencopyManagerV1Error> {
-        let req: CaptureOutput = self.client.parse(self, parser)?;
+impl ZwlrScreencopyManagerV1RequestHandler for ZwlrScreencopyManagerV1 {
+    type Error = ZwlrScreencopyManagerV1Error;
+
+    fn capture_output(&self, req: CaptureOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.do_capture_output(req.output, req.overlay_cursor != 0, req.frame, None)
     }
 
     fn capture_output_region(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrScreencopyManagerV1Error> {
-        let req: CaptureOutputRegion = self.client.parse(self, parser)?;
+        req: CaptureOutputRegion,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let region = match Rect::new_sized(req.x, req.y, req.width, req.height) {
             Some(r) => r,
             _ => return Err(ZwlrScreencopyManagerV1Error::InvalidRegion),
@@ -93,6 +90,13 @@ impl ZwlrScreencopyManagerV1 {
         self.do_capture_output(req.output, req.overlay_cursor != 0, req.frame, Some(region))
     }
 
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+}
+
+impl ZwlrScreencopyManagerV1 {
     fn do_capture_output(
         &self,
         output: WlOutputId,
@@ -137,20 +141,11 @@ impl ZwlrScreencopyManagerV1 {
             .set(Some(output.global.unused_captures.add_last(frame.clone())));
         Ok(())
     }
-
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrScreencopyManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
 }
 
 object_base! {
     self = ZwlrScreencopyManagerV1;
-
-    CAPTURE_OUTPUT => capture_output,
-    CAPTURE_OUTPUT_REGION => capture_output_region,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwlrScreencopyManagerV1 {}
@@ -161,10 +156,7 @@ simple_add_obj!(ZwlrScreencopyManagerV1);
 pub enum ZwlrScreencopyManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The passed region is invalid")]
     InvalidRegion,
 }
 efrom!(ZwlrScreencopyManagerV1Error, ClientError);
-efrom!(ZwlrScreencopyManagerV1Error, MsgParserError);

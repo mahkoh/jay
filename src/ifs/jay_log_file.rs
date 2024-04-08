@@ -2,8 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{jay_log_file::*, JayLogFileId},
     },
     bstr::BStr,
@@ -26,12 +25,6 @@ impl JayLogFile {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayLogFileError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
     pub fn send_path(&self, path: &BStr) {
         self.client.event(Path {
             self_id: self.id,
@@ -40,10 +33,18 @@ impl JayLogFile {
     }
 }
 
+impl JayLogFileRequestHandler for JayLogFile {
+    type Error = JayLogFileError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+}
+
 object_base! {
     self = JayLogFile;
-
-    DESTROY => destroy,
+    version = Version(1);
 }
 
 impl Object for JayLogFile {}
@@ -52,10 +53,7 @@ simple_add_obj!(JayLogFile);
 
 #[derive(Debug, Error)]
 pub enum JayLogFileError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(JayLogFileError, ClientError);
-efrom!(JayLogFileError, MsgParserError);

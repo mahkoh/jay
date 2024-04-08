@@ -5,7 +5,6 @@ use {
         ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_layer_shell_v1::*, ZwlrLayerShellV1Id},
     },
     std::rc::Rc,
@@ -51,18 +50,10 @@ impl ZwlrLayerShellV1Global {
     }
 }
 
-impl ZwlrLayerShellV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
+impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
+    type Error = ZwlrLayerShellV1Error;
 
-    fn get_layer_surface(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrLayerShellV1Error> {
-        let req: GetLayerSurface = self.client.parse(&**self, parser)?;
+    fn get_layer_surface(&self, req: GetLayerSurface, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let output = 'get_output: {
             if req.output.is_some() {
@@ -86,7 +77,7 @@ impl ZwlrLayerShellV1 {
         }
         let surface = Rc::new(ZwlrLayerSurfaceV1::new(
             req.id,
-            self,
+            slf,
             &surface,
             &output,
             req.layer,
@@ -95,6 +86,11 @@ impl ZwlrLayerShellV1 {
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         surface.install()?;
+        Ok(())
+    }
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
         Ok(())
     }
 }
@@ -123,9 +119,7 @@ simple_add_global!(ZwlrLayerShellV1Global);
 
 object_base! {
     self = ZwlrLayerShellV1;
-
-    GET_LAYER_SURFACE => get_layer_surface,
-    DESTROY => destroy if self.version >= 3,
+    version = self.version;
 }
 
 simple_add_obj!(ZwlrLayerShellV1);
@@ -134,8 +128,6 @@ impl Object for ZwlrLayerShellV1 {}
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerShellV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Unknown layer {0}")]
@@ -146,5 +138,4 @@ pub enum ZwlrLayerShellV1Error {
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
 }
 efrom!(ZwlrLayerShellV1Error, ClientError);
-efrom!(ZwlrLayerShellV1Error, MsgParserError);
 efrom!(ZwlrLayerShellV1Error, ZwlrLayerSurfaceV1Error);

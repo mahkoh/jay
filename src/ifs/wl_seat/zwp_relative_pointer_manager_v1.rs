@@ -5,7 +5,6 @@ use {
         ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1,
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{zwp_relative_pointer_manager_v1::*, ZwpRelativePointerManagerV1Id},
     },
     std::rc::Rc,
@@ -20,6 +19,7 @@ pub struct ZwpRelativePointerManagerV1 {
     pub id: ZwpRelativePointerManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl ZwpRelativePointerManagerV1Global {
@@ -31,12 +31,13 @@ impl ZwpRelativePointerManagerV1Global {
         self: Rc<Self>,
         id: ZwpRelativePointerManagerV1Id,
         client: &Rc<Client>,
-        _version: Version,
+        version: Version,
     ) -> Result<(), ZwpRelativePointerManagerV1Error> {
         let obj = Rc::new(ZwpRelativePointerManagerV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -62,24 +63,26 @@ impl Global for ZwpRelativePointerManagerV1Global {
 
 simple_add_global!(ZwpRelativePointerManagerV1Global);
 
-impl ZwpRelativePointerManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpRelativePointerManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
+    type Error = ZwpRelativePointerManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
     fn get_relative_pointer(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpRelativePointerManagerV1Error> {
-        let req: GetRelativePointer = self.client.parse(self, parser)?;
+        req: GetRelativePointer,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let pointer = self.client.lookup(req.pointer)?;
         let rp = Rc::new(ZwpRelativePointerV1 {
             id: req.id,
             client: self.client.clone(),
             seat: pointer.seat.clone(),
             tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, rp);
         self.client.add_client_obj(&rp)?;
@@ -90,9 +93,7 @@ impl ZwpRelativePointerManagerV1 {
 
 object_base! {
     self = ZwpRelativePointerManagerV1;
-
-    DESTROY => destroy,
-    GET_RELATIVE_POINTER => get_relative_pointer,
+    version = self.version;
 }
 
 impl Object for ZwpRelativePointerManagerV1 {}
@@ -101,10 +102,7 @@ simple_add_obj!(ZwpRelativePointerManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpRelativePointerManagerV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ZwpRelativePointerManagerV1Error, MsgParserError);
 efrom!(ZwpRelativePointerManagerV1Error, ClientError);

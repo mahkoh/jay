@@ -4,8 +4,7 @@ use {
         cursor::KnownCursor,
         ifs::wl_seat::WlSeatGlobal,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{jay_pointer::*, JayPointerId},
     },
     num_traits::FromPrimitive,
@@ -20,15 +19,15 @@ pub struct JayPointer {
     pub tracker: Tracker<Self>,
 }
 
-impl JayPointer {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayPointerError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl JayPointerRequestHandler for JayPointer {
+    type Error = JayPointerError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_known_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), JayPointerError> {
-        let req: SetKnownCursor = self.client.parse(self, parser)?;
+    fn set_known_cursor(&self, req: SetKnownCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cursor = match KnownCursor::from_u32(req.idx) {
             Some(c) => c,
             _ => return Err(JayPointerError::OutOfBounds),
@@ -50,9 +49,7 @@ impl JayPointer {
 
 object_base! {
     self = JayPointer;
-
-    DESTROY => destroy,
-    SET_KNOWN_CURSOR => set_known_cursor,
+    version = Version(1);
 }
 
 impl Object for JayPointer {}
@@ -61,12 +58,9 @@ simple_add_obj!(JayPointer);
 
 #[derive(Debug, Error)]
 pub enum JayPointerError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Cursor index is out of bounds")]
     OutOfBounds,
 }
-efrom!(JayPointerError, MsgParserError);
 efrom!(JayPointerError, ClientError);

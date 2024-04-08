@@ -4,7 +4,6 @@ use {
         globals::{Global, GlobalName, GlobalsError},
         leaks::Tracker,
         object::{Interface, Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_registry::*, WlRegistryId},
     },
     std::rc::Rc,
@@ -41,9 +40,12 @@ impl WlRegistry {
             name: name.raw(),
         })
     }
+}
 
-    fn bind(&self, parser: MsgParser<'_, '_>) -> Result<(), WlRegistryError> {
-        let bind: Bind = self.client.parse(self, parser)?;
+impl WlRegistryRequestHandler for WlRegistry {
+    type Error = WlRegistryError;
+
+    fn bind(&self, bind: Bind, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let name = GlobalName::from_raw(bind.name);
         let globals = &self.client.state.globals;
         let global = globals.get(name, self.client.secure, self.client.is_xwayland)?;
@@ -69,8 +71,7 @@ impl WlRegistry {
 
 object_base! {
     self = WlRegistry;
-
-    BIND => bind,
+    version = Version(1);
 }
 
 impl Object for WlRegistry {}
@@ -79,8 +80,6 @@ dedicated_add_obj!(WlRegistry, WlRegistryId, registries);
 
 #[derive(Debug, Error)]
 pub enum WlRegistryError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     GlobalsError(Box<GlobalsError>),
     #[error("Tried to bind to global {} of type {} using interface {}", .0.name, .0.interface.name(), .0.actual)]
@@ -88,7 +87,6 @@ pub enum WlRegistryError {
     #[error("Tried to bind to global {} of type {} and version {} using version {}", .0.name, .0.interface.name(), .0.version, .0.actual)]
     InvalidVersion(VersionError),
 }
-efrom!(WlRegistryError, MsgParserError);
 efrom!(WlRegistryError, GlobalsError);
 
 #[derive(Debug)]

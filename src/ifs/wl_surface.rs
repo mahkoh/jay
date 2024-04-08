@@ -15,7 +15,7 @@ pub mod zwp_idle_inhibitor_v1;
 use {
     crate::{
         backend::KeyState,
-        client::{Client, ClientError, RequestParser},
+        client::{Client, ClientError},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, BufferResvUser, ReleaseSync, SampleRect, SyncFile},
@@ -51,14 +51,8 @@ use {
             ToplevelNode,
         },
         utils::{
-            buffd::{MsgParser, MsgParserError},
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            linkedlist::LinkedList,
-            numcell::NumCell,
-            smallmap::SmallMap,
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
             transform_ext::TransformExt,
         },
         video::{
@@ -742,13 +736,6 @@ impl WlSurface {
         root
     }
 
-    fn parse<'a, T: RequestParser<'a>>(
-        &self,
-        parser: MsgParser<'_, 'a>,
-    ) -> Result<T, MsgParserError> {
-        self.client.parse(self, parser)
-    }
-
     fn unset_cursors(&self) {
         while let Some((_, cursor)) = self.cursors.pop() {
             cursor.handle_surface_destroy();
@@ -760,9 +747,12 @@ impl WlSurface {
             seat.remove_dnd_icon()
         }
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let _req: Destroy = self.parse(parser)?;
+impl WlSurfaceRequestHandler for WlSurface {
+    type Error = WlSurfaceError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.commit_timeline.clear(ClearReason::Destroy);
         self.unset_dnd_icons();
         self.unset_cursors();
@@ -792,8 +782,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let req: Attach = self.parse(parser)?;
+    fn attach(&self, req: Attach, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = &mut *self.pending.borrow_mut();
         if self.version >= OFFSET_SINCE {
             if req.x != 0 || req.y != 0 {
@@ -811,14 +800,12 @@ impl WlSurface {
         Ok(())
     }
 
-    fn damage(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let _req: Damage = self.parse(parser)?;
+    fn damage(&self, _req: Damage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending.borrow_mut().damage = true;
         Ok(())
     }
 
-    fn frame(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let req: Frame = self.parse(parser)?;
+    fn frame(&self, req: Frame, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
@@ -826,8 +813,11 @@ impl WlSurface {
         Ok(())
     }
 
-    fn set_opaque_region(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let region: SetOpaqueRegion = self.parse(parser)?;
+    fn set_opaque_region(
+        &self,
+        region: SetOpaqueRegion,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let region = if region.region.is_some() {
             Some(self.client.lookup(region.region)?.region())
         } else {
@@ -837,8 +827,7 @@ impl WlSurface {
         Ok(())
     }
 
-    fn set_input_region(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let req: SetInputRegion = self.parse(parser)?;
+    fn set_input_region(&self, req: SetInputRegion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let region = if req.region.is_some() {
             Some(self.client.lookup(req.region)?.region())
         } else {
@@ -848,6 +837,48 @@ impl WlSurface {
         Ok(())
     }
 
+    fn commit(&self, _req: Commit, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let ext = self.ext.get();
+        let pending = &mut *self.pending.borrow_mut();
+        self.verify_explicit_sync(pending)?;
+        if ext.commit_requested(pending) == CommitAction::ContinueCommit {
+            self.commit_timeline.commit(slf, pending)?;
+        }
+        Ok(())
+    }
+
+    fn set_buffer_transform(
+        &self,
+        req: SetBufferTransform,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(tf) = Transform::from_wl(req.transform) else {
+            return Err(WlSurfaceError::UnknownBufferTransform(req.transform));
+        };
+        self.pending.borrow_mut().transform = Some(tf);
+        Ok(())
+    }
+
+    fn set_buffer_scale(&self, req: SetBufferScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if req.scale < 1 {
+            return Err(WlSurfaceError::NonPositiveBufferScale);
+        }
+        self.pending.borrow_mut().scale = Some(req.scale);
+        Ok(())
+    }
+
+    fn damage_buffer(&self, _req: DamageBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.pending.borrow_mut().damage = true;
+        Ok(())
+    }
+
+    fn offset(&self, req: Offset, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.pending.borrow_mut().offset = (req.x, req.y);
+        Ok(())
+    }
+}
+
+impl WlSurface {
     fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
         for (_, pending) in &mut pending.subsurfaces {
             pending.subsurface.apply_state(&mut pending.pending)?;
@@ -1056,17 +1087,6 @@ impl WlSurface {
         Ok(())
     }
 
-    fn commit(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let _req: Commit = self.parse(parser)?;
-        let ext = self.ext.get();
-        let pending = &mut *self.pending.borrow_mut();
-        self.verify_explicit_sync(pending)?;
-        if ext.commit_requested(pending) == CommitAction::ContinueCommit {
-            self.commit_timeline.commit(self, pending)?;
-        }
-        Ok(())
-    }
-
     fn verify_explicit_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
         pending.explicit_sync = self.sync_obj_surface.is_some();
         if !pending.explicit_sync {
@@ -1086,36 +1106,6 @@ impl WlSurface {
             (_, _, true) => Err(WlSurfaceError::MissingSyncPoints),
             (_, _, false) => Err(WlSurfaceError::UnexpectedSyncPoints),
         }
-    }
-
-    fn set_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let req: SetBufferTransform = self.parse(parser)?;
-        let Some(tf) = Transform::from_wl(req.transform) else {
-            return Err(WlSurfaceError::UnknownBufferTransform(req.transform));
-        };
-        self.pending.borrow_mut().transform = Some(tf);
-        Ok(())
-    }
-
-    fn set_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let req: SetBufferScale = self.parse(parser)?;
-        if req.scale < 1 {
-            return Err(WlSurfaceError::NonPositiveBufferScale);
-        }
-        self.pending.borrow_mut().scale = Some(req.scale);
-        Ok(())
-    }
-
-    fn damage_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let _req: DamageBuffer = self.parse(parser)?;
-        self.pending.borrow_mut().damage = true;
-        Ok(())
-    }
-
-    fn offset(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSurfaceError> {
-        let req: Offset = self.parse(parser)?;
-        self.pending.borrow_mut().offset = (req.x, req.y);
-        Ok(())
     }
 
     fn accepts_input_at(&self, x: i32, y: i32) -> bool {
@@ -1292,18 +1282,7 @@ impl WlSurface {
 
 object_base! {
     self = WlSurface;
-
-    DESTROY => destroy,
-    ATTACH => attach,
-    DAMAGE => damage,
-    FRAME => frame,
-    SET_OPAQUE_REGION => set_opaque_region,
-    SET_INPUT_REGION => set_input_region,
-    COMMIT => commit,
-    SET_BUFFER_TRANSFORM => set_buffer_transform if self.version >= 2,
-    SET_BUFFER_SCALE => set_buffer_scale if self.version >= 3,
-    DAMAGE_BUFFER => damage_buffer if self.version >= 4,
-    OFFSET => offset if self.version >= 5,
+    version = self.version;
 }
 
 impl Object for WlSurface {
@@ -1479,8 +1458,6 @@ pub enum WlSurfaceError {
     },
     #[error("Cannot destroy a `wl_surface` before its role object")]
     ReloObjectStillExists,
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Buffer scale is not positive")]
     NonPositiveBufferScale,
     #[error("Unknown buffer transform {0}")]
@@ -1501,5 +1478,4 @@ pub enum WlSurfaceError {
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
-efrom!(WlSurfaceError, MsgParserError);
 efrom!(WlSurfaceError, CommitTimelineError);

@@ -8,7 +8,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_data_control_manager_v1::*, ZwlrDataControlManagerV1Id},
     },
     std::rc::Rc,
@@ -49,12 +48,14 @@ impl ZwlrDataControlManagerV1Global {
     }
 }
 
-impl ZwlrDataControlManagerV1 {
+impl ZwlrDataControlManagerV1RequestHandler for ZwlrDataControlManagerV1 {
+    type Error = ZwlrDataControlManagerV1Error;
+
     fn create_data_source(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrDataControlManagerV1Error> {
-        let req: CreateDataSource = self.client.parse(self, parser)?;
+        req: CreateDataSource,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let res = Rc::new(ZwlrDataControlSourceV1::new(
             req.id,
             &self.client,
@@ -65,11 +66,7 @@ impl ZwlrDataControlManagerV1 {
         Ok(())
     }
 
-    fn get_data_device(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrDataControlManagerV1Error> {
-        let req: GetDataDevice = self.client.parse(&**self, parser)?;
+    fn get_data_device(&self, req: GetDataDevice, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(ZwlrDataControlDeviceV1::new(
             req.id,
@@ -93,8 +90,7 @@ impl ZwlrDataControlManagerV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -124,10 +120,7 @@ simple_add_global!(ZwlrDataControlManagerV1Global);
 
 object_base! {
     self = ZwlrDataControlManagerV1;
-
-    CREATE_DATA_SOURCE => create_data_source,
-    GET_DATA_DEVICE => get_data_device,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwlrDataControlManagerV1 {}
@@ -138,8 +131,5 @@ simple_add_obj!(ZwlrDataControlManagerV1);
 pub enum ZwlrDataControlManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwlrDataControlManagerV1Error, ClientError);
-efrom!(ZwlrDataControlManagerV1Error, MsgParserError);

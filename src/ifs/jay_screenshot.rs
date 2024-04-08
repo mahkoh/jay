@@ -2,10 +2,10 @@ use {
     crate::{
         client::Client,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         wire::{jay_screenshot::*, JayScreenshotId},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
     uapi::OwnedFd,
 };
 
@@ -47,8 +47,13 @@ impl JayScreenshot {
     }
 }
 
+impl JayScreenshotRequestHandler for JayScreenshot {
+    type Error = Infallible;
+}
+
 object_base! {
     self = JayScreenshot;
+    version = Version(1);
 }
 
 impl Object for JayScreenshot {}

@@ -2,8 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         video::drm::sync_obj::SyncObj,
         wire::{wp_linux_drm_syncobj_timeline_v1::*, WpLinuxDrmSyncobjTimelineV1Id},
     },
@@ -16,6 +15,7 @@ pub struct WpLinuxDrmSyncobjTimelineV1 {
     client: Rc<Client>,
     pub sync_obj: Rc<SyncObj>,
     pub tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpLinuxDrmSyncobjTimelineV1 {
@@ -23,17 +23,22 @@ impl WpLinuxDrmSyncobjTimelineV1 {
         id: WpLinuxDrmSyncobjTimelineV1Id,
         client: &Rc<Client>,
         sync_obj: &Rc<SyncObj>,
+        version: Version,
     ) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
             sync_obj: sync_obj.clone(),
+            version,
         }
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WpLinuxDrmSyncobjTimelineV1Error> {
-        let _destroy: Destroy = self.client.parse(self, parser)?;
+impl WpLinuxDrmSyncobjTimelineV1RequestHandler for WpLinuxDrmSyncobjTimelineV1 {
+    type Error = WpLinuxDrmSyncobjTimelineV1Error;
+
+    fn destroy(&self, _destroy: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -41,8 +46,7 @@ impl WpLinuxDrmSyncobjTimelineV1 {
 
 object_base! {
     self = WpLinuxDrmSyncobjTimelineV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for WpLinuxDrmSyncobjTimelineV1 {}
@@ -55,10 +59,7 @@ dedicated_add_obj!(
 
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjTimelineV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(WpLinuxDrmSyncobjTimelineV1Error, MsgParserError);
 efrom!(WpLinuxDrmSyncobjTimelineV1Error, ClientError);

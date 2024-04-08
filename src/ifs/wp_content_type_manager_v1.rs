@@ -5,7 +5,6 @@ use {
         ifs::wp_content_type_v1::WpContentTypeV1,
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wp_content_type_manager_v1::*, WpContentTypeManagerV1Id},
     },
     std::rc::Rc,
@@ -64,18 +63,19 @@ pub struct WpContentTypeManagerV1 {
     pub version: Version,
 }
 
-impl WpContentTypeManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WpContentTypeManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl WpContentTypeManagerV1RequestHandler for WpContentTypeManagerV1 {
+    type Error = WpContentTypeManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
     fn get_surface_content_type(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WpContentTypeManagerV1Error> {
-        let req: GetSurfaceContentType = self.client.parse(self, parser)?;
+        req: GetSurfaceContentType,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         if surface.has_content_type_manager.replace(true) {
             return Err(WpContentTypeManagerV1Error::DuplicateContentType);
@@ -85,6 +85,7 @@ impl WpContentTypeManagerV1 {
             client: self.client.clone(),
             surface,
             tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, device);
         self.client.add_client_obj(&device)?;
@@ -94,9 +95,7 @@ impl WpContentTypeManagerV1 {
 
 object_base! {
     self = WpContentTypeManagerV1;
-
-    DESTROY => destroy,
-    GET_SURFACE_CONTENT_TYPE => get_surface_content_type,
+    version = self.version;
 }
 
 impl Object for WpContentTypeManagerV1 {}
@@ -107,10 +106,7 @@ simple_add_obj!(WpContentTypeManagerV1);
 pub enum WpContentTypeManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Surface already has a content type object")]
     DuplicateContentType,
 }
 efrom!(WpContentTypeManagerV1Error, ClientError);
-efrom!(WpContentTypeManagerV1Error, MsgParserError);

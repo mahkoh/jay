@@ -5,8 +5,7 @@ use {
             ExtSessionLockSurfaceV1, ExtSessionLockSurfaceV1Error,
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{ext_session_lock_v1::*, ExtSessionLockV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -19,6 +18,7 @@ pub struct ExtSessionLockV1 {
     pub tracker: Tracker<Self>,
     pub did_lock: bool,
     pub finished: Cell<bool>,
+    pub version: Version,
 }
 
 impl ExtSessionLockV1 {
@@ -34,9 +34,12 @@ impl ExtSessionLockV1 {
         self.send_finished();
         self.finished.set(true);
     }
+}
 
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
+    type Error = ExtSessionLockV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.finished.get() {
             self.client.state.lock.lock.take();
         }
@@ -44,8 +47,7 @@ impl ExtSessionLockV1 {
         Ok(())
     }
 
-    fn get_lock_surface(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockV1Error> {
-        let req: GetLockSurface = self.client.parse(self, msg)?;
+    fn get_lock_surface(&self, req: GetLockSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let output = self.client.lookup(req.output)?;
         let surface = self.client.lookup(req.surface)?;
         let new = Rc::new(ExtSessionLockSurfaceV1 {
@@ -57,6 +59,7 @@ impl ExtSessionLockV1 {
             serial: Default::default(),
             output: output.global.node.get(),
             seat_state: Default::default(),
+            version: self.version,
         });
         track!(new.client, new);
         new.install()?;
@@ -75,8 +78,11 @@ impl ExtSessionLockV1 {
         Ok(())
     }
 
-    fn unlock_and_destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockV1Error> {
-        let _req: UnlockAndDestroy = self.client.parse(self, msg)?;
+    fn unlock_and_destroy(
+        &self,
+        _req: UnlockAndDestroy,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         if !self.did_lock {
             return Err(ExtSessionLockV1Error::NeverLocked);
         }
@@ -99,10 +105,7 @@ impl ExtSessionLockV1 {
 
 object_base! {
     self = ExtSessionLockV1;
-
-    DESTROY => destroy,
-    GET_LOCK_SURFACE => get_lock_surface,
-    UNLOCK_AND_DESTROY => unlock_and_destroy,
+    version = self.version;
 }
 
 impl Object for ExtSessionLockV1 {
@@ -117,8 +120,6 @@ simple_add_obj!(ExtSessionLockV1);
 
 #[derive(Debug, Error)]
 pub enum ExtSessionLockV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("The lock was not accepted")]
@@ -128,5 +129,4 @@ pub enum ExtSessionLockV1Error {
     #[error(transparent)]
     ExtSessionLockSurfaceV1Error(#[from] ExtSessionLockSurfaceV1Error),
 }
-efrom!(ExtSessionLockV1Error, MsgParserError);
 efrom!(ExtSessionLockV1Error, ClientError);

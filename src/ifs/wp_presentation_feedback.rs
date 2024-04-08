@@ -3,10 +3,10 @@ use {
         client::Client,
         ifs::{wl_output::WlOutput, wl_surface::WlSurface},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         wire::{wp_presentation_feedback::*, WpPresentationFeedbackId},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
     thiserror::Error,
 };
 
@@ -15,6 +15,7 @@ pub struct WpPresentationFeedback {
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 pub const KIND_VSYNC: u32 = 0x1;
@@ -50,8 +51,13 @@ impl WpPresentationFeedback {
     }
 }
 
+impl WpPresentationFeedbackRequestHandler for WpPresentationFeedback {
+    type Error = Infallible;
+}
+
 object_base! {
     self = WpPresentationFeedback;
+    version = self.version;
 }
 
 impl Object for WpPresentationFeedback {}

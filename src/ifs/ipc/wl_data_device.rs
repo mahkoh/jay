@@ -13,7 +13,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_data_device::*, WlDataDeviceId, WlDataOfferId, WlSurfaceId},
     },
     std::rc::Rc,
@@ -98,9 +97,12 @@ impl WlDataDevice {
     pub fn send_drop(&self) {
         self.client.event(Drop { self_id: self.id })
     }
+}
 
-    fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
-        let req: StartDrag = self.client.parse(self, parser)?;
+impl WlDataDeviceRequestHandler for WlDataDevice {
+    type Error = WlDataDeviceError;
+
+    fn start_drag(&self, req: StartDrag, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.client.valid_serial(req.serial) {
             log::warn!("Client tried to start_drag with an invalid serial");
             return Ok(());
@@ -122,8 +124,7 @@ impl WlDataDevice {
         Ok(())
     }
 
-    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
-        let req: SetSelection = self.client.parse(self, parser)?;
+    fn set_selection(&self, req: SetSelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_selection with an invalid serial");
             return Ok(());
@@ -142,8 +143,7 @@ impl WlDataDevice {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
-        let _req: Release = self.client.parse(self, parser)?;
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<ClipboardIpc>(self);
         self.seat.remove_data_device(self);
         self.client.remove_obj(self)?;
@@ -224,10 +224,7 @@ impl IpcVtable for ClipboardIpc {
 
 object_base! {
     self = WlDataDevice;
-
-    START_DRAG => start_drag,
-    SET_SELECTION => set_selection,
-    RELEASE => release if self.version >= 2,
+    version = self.version;
 }
 
 impl Object for WlDataDevice {
@@ -241,8 +238,6 @@ simple_add_obj!(WlDataDevice);
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
@@ -250,7 +245,6 @@ pub enum WlDataDeviceError {
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(WlDataDeviceError, MsgParserError);
 efrom!(WlDataDeviceError, ClientError);
 efrom!(WlDataDeviceError, WlSeatError);
 efrom!(WlDataDeviceError, WlSurfaceError);

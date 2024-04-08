@@ -18,7 +18,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_data_control_source_v1::*, ZwlrDataControlSourceV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -113,9 +112,12 @@ impl ZwlrDataControlSourceV1 {
     pub fn send_cancelled(&self) {
         self.data.client.event(Cancelled { self_id: self.id })
     }
+}
 
-    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlSourceV1Error> {
-        let req: Offer = self.data.client.parse(self, parser)?;
+impl ZwlrDataControlSourceV1RequestHandler for ZwlrDataControlSourceV1 {
+    type Error = ZwlrDataControlSourceV1Error;
+
+    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.used.get() {
             return Err(ZwlrDataControlSourceV1Error::AlreadyUsed);
         }
@@ -123,8 +125,7 @@ impl ZwlrDataControlSourceV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlSourceV1Error> {
-        let _req: Destroy = self.data.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         match self.location.get() {
             IpcLocation::Clipboard => destroy_data_source::<WlrClipboardIpc>(self),
             IpcLocation::PrimarySelection => destroy_data_source::<WlrPrimarySelectionIpc>(self),
@@ -136,9 +137,7 @@ impl ZwlrDataControlSourceV1 {
 
 object_base! {
     self = ZwlrDataControlSourceV1;
-
-    OFFER => offer,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwlrDataControlSourceV1 {
@@ -158,12 +157,9 @@ dedicated_add_obj!(
 
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlSourceV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("The source has already been used")]
     AlreadyUsed,
 }
 efrom!(ZwlrDataControlSourceV1Error, ClientError);
-efrom!(ZwlrDataControlSourceV1Error, MsgParserError);

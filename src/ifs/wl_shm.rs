@@ -6,7 +6,6 @@ use {
         ifs::wl_shm_pool::{WlShmPool, WlShmPoolError},
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_shm::*, WlShmId},
     },
     std::rc::Rc,
@@ -57,9 +56,10 @@ impl WlShmGlobal {
     }
 }
 
-impl WlShm {
-    fn create_pool(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmError> {
-        let create: CreatePool = self.client.parse(self, parser)?;
+impl WlShmRequestHandler for WlShm {
+    type Error = WlShmError;
+
+    fn create_pool(&self, create: CreatePool, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if create.size < 0 {
             return Err(WlShmError::NegativeSize);
         }
@@ -68,14 +68,14 @@ impl WlShm {
             &self.client,
             create.fd,
             create.size as usize,
+            self.version,
         )?);
         track!(self.client, pool);
         self.client.add_client_obj(&pool)?;
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmError> {
-        let _req: Release = self.client.parse(self, parser)?;
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -97,9 +97,7 @@ simple_add_global!(WlShmGlobal);
 
 object_base! {
     self = WlShm;
-
-    CREATE_POOL => create_pool,
-    RELEASE => release if self.version >= 2,
+    version = self.version;
 }
 
 impl Object for WlShm {}
@@ -110,13 +108,10 @@ simple_add_obj!(WlShm);
 pub enum WlShmError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The passed size is negative")]
     NegativeSize,
     #[error(transparent)]
     WlShmPoolError(Box<WlShmPoolError>),
 }
 efrom!(WlShmError, ClientError);
-efrom!(WlShmError, MsgParserError);
 efrom!(WlShmError, WlShmPoolError);

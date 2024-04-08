@@ -6,10 +6,9 @@ use {
             SurfaceRole, WlSurface, WlSurfaceError, WlSurfaceId,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         utils::{
-            buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
             numcell::NumCell,
@@ -20,7 +19,6 @@ use {
         cell::{Cell, RefCell, RefMut},
         collections::hash_map::OccupiedEntry,
         mem,
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -46,6 +44,7 @@ pub struct WlSubsurface {
     depth: NumCell<u32>,
     pub tracker: Tracker<Self>,
     had_buffer: Cell<bool>,
+    version: Version,
 }
 
 #[derive(Default)]
@@ -92,7 +91,12 @@ fn update_children_attach(surface: &WlSubsurface) -> Result<(), WlSubsurfaceErro
 }
 
 impl WlSubsurface {
-    pub fn new(id: WlSubsurfaceId, surface: &Rc<WlSurface>, parent: &Rc<WlSurface>) -> Self {
+    pub fn new(
+        id: WlSubsurfaceId,
+        surface: &Rc<WlSurface>,
+        parent: &Rc<WlSurface>,
+        version: Version,
+    ) -> Self {
         Self {
             id,
             unique_id: surface.client.state.subsurface_ids.next(),
@@ -106,6 +110,7 @@ impl WlSubsurface {
             depth: NumCell::new(1),
             tracker: Default::default(),
             had_buffer: Cell::new(false),
+            version,
         }
     }
 
@@ -170,45 +175,6 @@ impl WlSubsurface {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
-        let _req: Destroy = self.surface.client.parse(self, parser)?;
-        self.surface.unset_ext();
-        self.parent.consume_pending_child(self.unique_id, |oe| {
-            let oe = oe.remove();
-            if let Some(mut state) = oe.pending.state {
-                self.surface.apply_state(&mut state)?;
-            }
-            Ok(())
-        })?;
-        *self.node.borrow_mut() = None;
-        self.latest_node.take();
-        {
-            let mut children = self.parent.children.borrow_mut();
-            if let Some(children) = &mut *children {
-                children.subsurfaces.remove(&self.surface.id);
-            }
-        }
-        if !self.surface.extents.get().is_empty() {
-            let mut parent_opt = Some(self.parent.clone());
-            while let Some(parent) = parent_opt.take() {
-                if !parent.need_extents_update.get() {
-                    break;
-                }
-                parent.calculate_extents();
-                parent_opt = parent.ext.get().subsurface_parent();
-            }
-        }
-        self.surface.client.remove_obj(self)?;
-        self.surface.destroy_node();
-        Ok(())
-    }
-
-    fn set_position(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
-        let req: SetPosition = self.surface.client.parse(&**self, parser)?;
-        self.pending().position = Some((req.x, req.y));
-        Ok(())
-    }
-
     fn place(self: &Rc<Self>, sibling: WlSurfaceId, above: bool) -> Result<(), WlSubsurfaceError> {
         if sibling == self.surface.id {
             return Err(WlSubsurfaceError::AboveSelf(sibling));
@@ -241,18 +207,6 @@ impl WlSubsurface {
             self.latest_node.set(Some(node.to_ref()));
             self.pending().node.replace(node);
         }
-        Ok(())
-    }
-
-    fn place_above(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
-        let req: PlaceAbove = self.surface.client.parse(self.deref(), parser)?;
-        self.place(req.sibling, true)?;
-        Ok(())
-    }
-
-    fn place_below(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
-        let req: PlaceBelow = self.surface.client.parse(self.deref(), parser)?;
-        self.place(req.sibling, false)?;
         Ok(())
     }
 
@@ -298,15 +252,64 @@ impl WlSubsurface {
         }
         Ok(())
     }
+}
 
-    fn set_sync(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
-        let _req: SetSync = self.surface.client.parse(self, parser)?;
+impl WlSubsurfaceRequestHandler for WlSubsurface {
+    type Error = WlSubsurfaceError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.surface.unset_ext();
+        self.parent.consume_pending_child(self.unique_id, |oe| {
+            let oe = oe.remove();
+            if let Some(mut state) = oe.pending.state {
+                self.surface.apply_state(&mut state)?;
+            }
+            Ok(())
+        })?;
+        *self.node.borrow_mut() = None;
+        self.latest_node.take();
+        {
+            let mut children = self.parent.children.borrow_mut();
+            if let Some(children) = &mut *children {
+                children.subsurfaces.remove(&self.surface.id);
+            }
+        }
+        if !self.surface.extents.get().is_empty() {
+            let mut parent_opt = Some(self.parent.clone());
+            while let Some(parent) = parent_opt.take() {
+                if !parent.need_extents_update.get() {
+                    break;
+                }
+                parent.calculate_extents();
+                parent_opt = parent.ext.get().subsurface_parent();
+            }
+        }
+        self.surface.client.remove_obj(self)?;
+        self.surface.destroy_node();
+        Ok(())
+    }
+
+    fn set_position(&self, req: SetPosition, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        slf.pending().position = Some((req.x, req.y));
+        Ok(())
+    }
+
+    fn place_above(&self, req: PlaceAbove, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        slf.place(req.sibling, true)?;
+        Ok(())
+    }
+
+    fn place_below(&self, req: PlaceBelow, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        slf.place(req.sibling, false)?;
+        Ok(())
+    }
+
+    fn set_sync(&self, _req: SetSync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.update_sync(true)?;
         Ok(())
     }
 
-    fn set_desync(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubsurfaceError> {
-        let _req: SetDesync = self.surface.client.parse(self, parser)?;
+    fn set_desync(&self, _req: SetDesync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.update_sync(false)?;
         Ok(())
     }
@@ -314,13 +317,7 @@ impl WlSubsurface {
 
 object_base! {
     self = WlSubsurface;
-
-    DESTROY => destroy,
-    SET_POSITION => set_position,
-    PLACE_ABOVE => place_above,
-    PLACE_BELOW => place_below,
-    SET_SYNC => set_sync,
-    SET_DESYNC => set_desync,
+    version = self.version;
 }
 
 impl Object for WlSubsurface {
@@ -404,13 +401,10 @@ pub enum WlSubsurfaceError {
     WlSurfaceError(Box<WlSurfaceError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Cannot place {0} above/below itself")]
     AboveSelf(WlSurfaceId),
     #[error("{0} is not a sibling of {1}")]
     NotASibling(WlSurfaceId, WlSurfaceId),
 }
 efrom!(WlSubsurfaceError, WlSurfaceError);
-efrom!(WlSubsurfaceError, MsgParserError);
 efrom!(WlSubsurfaceError, ClientError);

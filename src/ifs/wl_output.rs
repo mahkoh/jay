@@ -15,12 +15,8 @@ use {
         time::Time,
         tree::{calculate_logical_size, OutputNode},
         utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            linkedlist::LinkedList,
-            transform_ext::TransformExt,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            linkedlist::LinkedList, transform_ext::TransformExt,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
@@ -393,9 +389,12 @@ impl WlOutput {
             }
         }
     }
+}
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlOutputError> {
-        let _req: Release = self.client.parse(self, parser)?;
+impl WlOutputRequestHandler for WlOutput {
+    type Error = WlOutputError;
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.xdg_outputs.clear();
         self.remove_binding();
         self.client.remove_obj(self)?;
@@ -405,8 +404,7 @@ impl WlOutput {
 
 object_base! {
     self = WlOutput;
-
-    RELEASE => release if self.version >= 3,
+    version = self.version;
 }
 
 impl Object for WlOutput {
@@ -422,8 +420,5 @@ dedicated_add_obj!(WlOutput, WlOutputId, outputs);
 pub enum WlOutputError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlOutputError, ClientError);
-efrom!(WlOutputError, MsgParserError);

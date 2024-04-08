@@ -6,7 +6,6 @@ use {
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         video::{
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
             INVALID_MODIFIER,
@@ -73,42 +72,50 @@ pub struct WlDrm {
 }
 
 impl WlDrm {
-    fn send_device(self: &Rc<Self>, device: &Rc<CString>) {
+    fn send_device(&self, device: &Rc<CString>) {
         self.client.event(Device {
             self_id: self.id,
             name: device.as_bytes().as_bstr(),
         })
     }
 
-    fn send_authenticated(self: &Rc<Self>) {
+    fn send_authenticated(&self) {
         self.client.event(Authenticated { self_id: self.id })
     }
 
-    fn send_capabilities(self: &Rc<Self>, value: u32) {
+    fn send_capabilities(&self, value: u32) {
         self.client.event(Capabilities {
             self_id: self.id,
             value,
         })
     }
+}
 
-    fn authenticate(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
-        let _req: Authenticate = self.client.parse(&**self, parser)?;
+impl WlDrmRequestHandler for WlDrm {
+    type Error = WlDrmError;
+
+    fn authenticate(&self, _req: Authenticate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_authenticated();
         Ok(())
     }
 
-    fn create_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
-        let _req: CreateBuffer = self.client.parse(&**self, parser)?;
+    fn create_buffer(&self, _req: CreateBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Err(WlDrmError::Unsupported)
     }
 
-    fn create_planar_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
-        let _req: CreatePlanarBuffer = self.client.parse(&**self, parser)?;
+    fn create_planar_buffer(
+        &self,
+        _req: CreatePlanarBuffer,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         Err(WlDrmError::Unsupported)
     }
 
-    fn create_prime_buffer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlDrmError> {
-        let req: CreatePrimeBuffer = self.client.parse(&**self, parser)?;
+    fn create_prime_buffer(
+        &self,
+        req: CreatePrimeBuffer,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let ctx = match self.client.state.render_ctx.get() {
             Some(ctx) => ctx,
             None => return Err(WlDrmError::NoRenderContext),
@@ -163,11 +170,7 @@ impl WlDrm {
 
 object_base! {
     self = WlDrm;
-
-    AUTHENTICATE => authenticate,
-    CREATE_BUFFER => create_buffer,
-    CREATE_PLANAR_BUFFER => create_planar_buffer,
-    CREATE_PRIME_BUFFER => create_prime_buffer if self.version >= 2,
+    version = self.version;
 }
 
 impl Object for WlDrm {}
@@ -176,8 +179,6 @@ simple_add_obj!(WlDrm);
 
 #[derive(Debug, Error)]
 pub enum WlDrmError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("This api is not supported")]
@@ -190,4 +191,3 @@ pub enum WlDrmError {
     ImportError(#[from] GfxError),
 }
 efrom!(WlDrmError, ClientError);
-efrom!(WlDrmError, MsgParserError);

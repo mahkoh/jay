@@ -5,7 +5,6 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{xdg_positioner::*, XdgPositionerId},
     },
     std::{cell::RefCell, rc::Rc},
@@ -151,15 +150,17 @@ impl XdgPositioner {
     pub fn value(&self) -> XdgPositioned {
         *self.position.borrow()
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl XdgPositionerRequestHandler for XdgPositioner {
+    type Error = XdgPositionerError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetSize = self.client.parse(self, parser)?;
+    fn set_size(&self, req: SetSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.width <= 0 || req.height <= 0 {
             self.client.protocol_error(
                 self,
@@ -174,8 +175,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    fn set_anchor_rect(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetAnchorRect = self.client.parse(self, parser)?;
+    fn set_anchor_rect(&self, req: SetAnchorRect, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.width < 0 || req.height < 0 {
             self.client.protocol_error(
                 self,
@@ -189,8 +189,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    fn set_anchor(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetAnchor = self.client.parse(self, parser)?;
+    fn set_anchor(&self, req: SetAnchor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let anchor = match Edge::from_enum(req.anchor) {
             Some(a) => a,
             _ => return Err(XdgPositionerError::UnknownAnchor(req.anchor)),
@@ -199,8 +198,7 @@ impl XdgPositioner {
         Ok(())
     }
 
-    fn set_gravity(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetGravity = self.client.parse(self, parser)?;
+    fn set_gravity(&self, req: SetGravity, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let gravity = match Edge::from_enum(req.gravity) {
             Some(a) => a,
             _ => return Err(XdgPositionerError::UnknownGravity(req.gravity)),
@@ -211,9 +209,9 @@ impl XdgPositioner {
 
     fn set_constraint_adjustment(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgPositionerError> {
-        let req: SetConstraintAdjustment = self.client.parse(self, parser)?;
+        req: SetConstraintAdjustment,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let ca = CA(req.constraint_adjustment);
         if !ca.is_valid() {
             return Err(XdgPositionerError::UnknownCa(req.constraint_adjustment));
@@ -222,22 +220,19 @@ impl XdgPositioner {
         Ok(())
     }
 
-    fn set_offset(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetOffset = self.client.parse(self, parser)?;
+    fn set_offset(&self, req: SetOffset, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut position = self.position.borrow_mut();
         position.off_x = req.x;
         position.off_y = req.y;
         Ok(())
     }
 
-    fn set_reactive(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let _req: SetReactive = self.client.parse(self, parser)?;
+    fn set_reactive(&self, _req: SetReactive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.position.borrow_mut().reactive = true;
         Ok(())
     }
 
-    fn set_parent_size(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetParentSize = self.client.parse(self, parser)?;
+    fn set_parent_size(&self, req: SetParentSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.parent_width < 0 || req.parent_height < 0 {
             self.client.protocol_error(
                 self,
@@ -252,8 +247,11 @@ impl XdgPositioner {
         Ok(())
     }
 
-    fn set_parent_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPositionerError> {
-        let req: SetParentConfigure = self.client.parse(self, parser)?;
+    fn set_parent_configure(
+        &self,
+        req: SetParentConfigure,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.position.borrow_mut().parent_serial = req.serial;
         Ok(())
     }
@@ -261,17 +259,7 @@ impl XdgPositioner {
 
 object_base! {
     self = XdgPositioner;
-
-    DESTROY => destroy,
-    SET_SIZE => set_size,
-    SET_ANCHOR_RECT => set_anchor_rect,
-    SET_ANCHOR => set_anchor,
-    SET_GRAVITY => set_gravity,
-    SET_CONSTRAINT_ADJUSTMENT => set_constraint_adjustment,
-    SET_OFFSET => set_offset,
-    SET_REACTIVE => set_reactive if self.base.version >= 3,
-    SET_PARENT_SIZE => set_parent_size if self.base.version >= 3,
-    SET_PARENT_CONFIGURE => set_parent_configure if self.base.version >= 3,
+    version = self.base.version;
 }
 
 impl Object for XdgPositioner {}
@@ -290,12 +278,9 @@ pub enum XdgPositionerError {
     UnknownGravity(u32),
     #[error("Unknown constraint adjustment {0}")]
     UnknownCa(u32),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Cannot set a negative parent size")]
     NegativeParentSize,
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(XdgPositionerError, MsgParserError);
 efrom!(XdgPositionerError, ClientError);

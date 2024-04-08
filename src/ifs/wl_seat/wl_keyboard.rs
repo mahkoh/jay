@@ -4,10 +4,7 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::{Object, Version},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            oserror::OsError,
-        },
+        utils::oserror::OsError,
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
     },
     std::rc::Rc,
@@ -100,9 +97,12 @@ impl WlKeyboard {
             delay,
         })
     }
+}
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlKeyboardError> {
-        let _req: Release = self.seat.client.parse(self, parser)?;
+impl WlKeyboardRequestHandler for WlKeyboard {
+    type Error = WlKeyboardError;
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.keyboards.remove(&self.id);
         self.seat.client.remove_obj(self)?;
         Ok(())
@@ -111,8 +111,7 @@ impl WlKeyboard {
 
 object_base! {
     self = WlKeyboard;
-
-    RELEASE => release if self.seat.version >= 3,
+    version = self.seat.version;
 }
 
 impl Object for WlKeyboard {}
@@ -127,8 +126,5 @@ pub enum WlKeyboardError {
     KeymapMemfd(#[source] OsError),
     #[error("Could not copy the keymap")]
     KeymapCopy(#[source] OsError),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlKeyboardError, ClientError);
-efrom!(WlKeyboardError, MsgParserError);

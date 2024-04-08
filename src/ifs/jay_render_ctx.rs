@@ -3,11 +3,8 @@ use {
         client::{Client, ClientError},
         gfx_api::GfxContext,
         leaks::Tracker,
-        object::Object,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            errorfmt::ErrorFmt,
-        },
+        object::{Object, Version},
+        utils::errorfmt::ErrorFmt,
         wire::{jay_render_ctx::*, JayRenderCtxId},
     },
     std::rc::Rc,
@@ -42,13 +39,6 @@ impl JayRenderCtx {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRenderCtxError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.remove_from_state();
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
     fn remove_from_state(&self) {
         self.client
             .state
@@ -57,10 +47,19 @@ impl JayRenderCtx {
     }
 }
 
+impl JayRenderCtxRequestHandler for JayRenderCtx {
+    type Error = JayRenderCtxError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.remove_from_state();
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+}
+
 object_base! {
     self = JayRenderCtx;
-
-    DESTROY => destroy,
+    version = Version(1);
 }
 
 impl Object for JayRenderCtx {
@@ -73,10 +72,7 @@ simple_add_obj!(JayRenderCtx);
 
 #[derive(Debug, Error)]
 pub enum JayRenderCtxError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(JayRenderCtxError, MsgParserError);
 efrom!(JayRenderCtxError, ClientError);

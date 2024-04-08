@@ -6,7 +6,6 @@ use {
         ifs::{wl_seat::WlSeat, wl_surface::WlSurfaceError},
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
     },
     std::{cell::Cell, rc::Rc},
@@ -174,9 +173,12 @@ impl WlPointer {
             value120,
         })
     }
+}
 
-    fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), WlPointerError> {
-        let req: SetCursor = self.seat.client.parse(self, parser)?;
+impl WlPointerRequestHandler for WlPointer {
+    type Error = WlPointerError;
+
+    fn set_cursor(&self, req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.seat.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_cursor with an invalid serial");
             return Ok(());
@@ -213,8 +215,7 @@ impl WlPointer {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlPointerError> {
-        let _req: Release = self.seat.client.parse(self, parser)?;
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.pointers.remove(&self.id);
         self.seat.client.remove_obj(self)?;
         Ok(())
@@ -223,9 +224,7 @@ impl WlPointer {
 
 object_base! {
     self = WlPointer;
-
-    SET_CURSOR => set_cursor,
-    RELEASE => release if self.seat.version >= 3,
+    version = self.seat.version;
 }
 
 impl Object for WlPointer {}
@@ -236,11 +235,8 @@ dedicated_add_obj!(WlPointer, WlPointerId, pointers);
 pub enum WlPointerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(WlPointerError, ClientError);
-efrom!(WlPointerError, MsgParserError);
 efrom!(WlPointerError, WlSurfaceError);

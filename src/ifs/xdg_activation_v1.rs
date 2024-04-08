@@ -5,11 +5,7 @@ use {
         ifs::xdg_activation_token_v1::XdgActivationTokenV1,
         leaks::Tracker,
         object::{Object, Version},
-        utils::{
-            activation_token::ActivationToken,
-            buffd::{MsgParser, MsgParserError},
-            opaque::OpaqueError,
-        },
+        utils::{activation_token::ActivationToken, opaque::OpaqueError},
         wire::{xdg_activation_v1::*, XdgActivationV1Id},
     },
     std::rc::Rc,
@@ -64,23 +60,30 @@ pub struct XdgActivationV1 {
     pub version: Version,
 }
 
-impl XdgActivationV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl XdgActivationV1RequestHandler for XdgActivationV1 {
+    type Error = XdgActivationV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_activation_token(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationV1Error> {
-        let req: GetActivationToken = self.client.parse(self, parser)?;
-        let token = Rc::new(XdgActivationTokenV1::new(req.id, &self.client));
+    fn get_activation_token(
+        &self,
+        req: GetActivationToken,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let token = Rc::new(XdgActivationTokenV1::new(
+            req.id,
+            &self.client,
+            self.version,
+        ));
         track!(self.client, token);
         self.client.add_client_obj(&token)?;
         Ok(())
     }
 
-    fn activate(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationV1Error> {
-        let req: Activate = self.client.parse(self, parser)?;
+    fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let token: ActivationToken = req.token.parse()?;
         let surface = self.client.lookup(req.surface)?;
         if self.client.state.activation_tokens.remove(&token).is_none() {
@@ -97,10 +100,7 @@ impl XdgActivationV1 {
 
 object_base! {
     self = XdgActivationV1;
-
-    DESTROY => destroy,
-    GET_ACTIVATION_TOKEN => get_activation_token,
-    ACTIVATE => activate,
+    version = self.version;
 }
 
 impl Object for XdgActivationV1 {}
@@ -111,10 +111,7 @@ simple_add_obj!(XdgActivationV1);
 pub enum XdgActivationV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Could not parse the activation token")]
     ParseActivationToken(#[from] OpaqueError),
 }
 efrom!(XdgActivationV1Error, ClientError);
-efrom!(XdgActivationV1Error, MsgParserError);

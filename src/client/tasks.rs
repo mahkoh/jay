@@ -71,7 +71,7 @@ async fn receive(data: Rc<Client>) {
             }
             // log::trace!("{:x?}", data_buf);
             let parser = MsgParser::new(&mut buf, &data_buf[..]);
-            if let Err(e) = obj.handle_request(request, parser) {
+            if let Err(e) = obj.handle_request(&data, request, parser) {
                 if let ClientError::InvalidMethod = e {
                     if let Ok(obj) = data.objects.get_obj(obj_id) {
                         data.invalid_request(&*obj, request);

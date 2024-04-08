@@ -7,13 +7,10 @@ use {
             wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            numcell::NumCell,
-        },
+        utils::numcell::NumCell,
         wire::{ext_session_lock_surface_v1::*, ExtSessionLockSurfaceV1Id, WlSurfaceId},
     },
     std::rc::Rc,
@@ -29,6 +26,7 @@ pub struct ExtSessionLockSurfaceV1 {
     pub serial: NumCell<u32>,
     pub output: Option<Rc<OutputNode>>,
     pub seat_state: NodeSeatState,
+    pub version: Version,
 }
 
 impl ExtSessionLockSurfaceV1 {
@@ -56,20 +54,24 @@ impl ExtSessionLockSurfaceV1 {
             height: height as _,
         });
     }
+}
 
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockSurfaceV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
+    type Error = ExtSessionLockSurfaceV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
         self.surface.unset_ext();
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn ack_configure(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtSessionLockSurfaceV1Error> {
-        let _req: AckConfigure = self.client.parse(self, msg)?;
+    fn ack_configure(&self, _req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
+}
 
+impl ExtSessionLockSurfaceV1 {
     pub fn destroy_node(&self) {
         if let Some(output) = &self.output {
             if let Some(ls) = output.lock_surface.get() {
@@ -131,9 +133,7 @@ impl Node for ExtSessionLockSurfaceV1 {
 
 object_base! {
     self = ExtSessionLockSurfaceV1;
-
-    DESTROY => destroy,
-    ACK_CONFIGURE => ack_configure,
+    version = self.version;
 }
 
 impl Object for ExtSessionLockSurfaceV1 {
@@ -146,8 +146,6 @@ simple_add_obj!(ExtSessionLockSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum ExtSessionLockSurfaceV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
@@ -155,5 +153,4 @@ pub enum ExtSessionLockSurfaceV1Error {
     #[error("Surface {0} cannot be turned into an ext_session_lock_surface because it already has an attached ext_session_lock_surface")]
     AlreadyAttached(WlSurfaceId),
 }
-efrom!(ExtSessionLockSurfaceV1Error, MsgParserError);
 efrom!(ExtSessionLockSurfaceV1Error, ClientError);

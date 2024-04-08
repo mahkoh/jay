@@ -4,14 +4,10 @@ use {
         client::{Client, ClientError},
         compositor::MAX_EXTENTS,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         scale::Scale,
         state::{ConnectorData, DrmDevData, OutputData},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            gfx_api_ext::GfxApiExt,
-            transform_ext::TransformExt,
-        },
+        utils::{gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
         wire::{jay_randr::*, JayRandrId},
     },
     jay_config::video::{GfxApi, Transform},
@@ -32,25 +28,6 @@ impl JayRandr {
             client: client.clone(),
             tracker: Default::default(),
         }
-    }
-
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
-    fn get(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let _req: Get = self.client.parse(self, parser)?;
-        let state = &self.client.state;
-        self.send_global();
-        for dev in state.drm_devs.lock().values() {
-            self.send_drm_device(dev);
-        }
-        for connector in state.connectors.lock().values() {
-            self.send_connector(connector);
-        }
-        Ok(())
     }
 
     fn send_global(&self) {
@@ -167,9 +144,29 @@ impl JayRandr {
         }
         None
     }
+}
 
-    fn set_api(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetApi = self.client.parse(self, parser)?;
+impl JayRandrRequestHandler for JayRandr {
+    type Error = JayRandrError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+
+    fn get(&self, _req: Get, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let state = &self.client.state;
+        self.send_global();
+        for dev in state.drm_devs.lock().values() {
+            self.send_drm_device(dev);
+        }
+        for connector in state.connectors.lock().values() {
+            self.send_connector(connector);
+        }
+        Ok(())
+    }
+
+    fn set_api(&self, req: SetApi, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
@@ -181,8 +178,11 @@ impl JayRandr {
         Ok(())
     }
 
-    fn make_render_device(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: MakeRenderDevice = self.client.parse(self, parser)?;
+    fn make_render_device(
+        &self,
+        req: MakeRenderDevice,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
@@ -190,8 +190,11 @@ impl JayRandr {
         Ok(())
     }
 
-    fn set_direct_scanout(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetDirectScanout = self.client.parse(self, parser)?;
+    fn set_direct_scanout(
+        &self,
+        req: SetDirectScanout,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
@@ -199,8 +202,7 @@ impl JayRandr {
         Ok(())
     }
 
-    fn set_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetTransform = self.client.parse(self, parser)?;
+    fn set_transform(&self, req: SetTransform, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output(req.output) else {
             return Ok(());
         };
@@ -212,8 +214,7 @@ impl JayRandr {
         Ok(())
     }
 
-    fn set_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetScale = self.client.parse(self, parser)?;
+    fn set_scale(&self, req: SetScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output(req.output) else {
             return Ok(());
         };
@@ -221,8 +222,7 @@ impl JayRandr {
         Ok(())
     }
 
-    fn set_mode(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetMode = self.client.parse(self, parser)?;
+    fn set_mode(&self, req: SetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output(req.output) else {
             return Ok(());
         };
@@ -234,8 +234,7 @@ impl JayRandr {
         Ok(())
     }
 
-    fn set_position(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetPosition = self.client.parse(self, parser)?;
+    fn set_position(&self, req: SetPosition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output(req.output) else {
             return Ok(());
         };
@@ -251,8 +250,7 @@ impl JayRandr {
         Ok(())
     }
 
-    fn set_enabled(&self, parser: MsgParser<'_, '_>) -> Result<(), JayRandrError> {
-        let req: SetEnabled = self.client.parse(self, parser)?;
+    fn set_enabled(&self, req: SetEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
@@ -263,17 +261,7 @@ impl JayRandr {
 
 object_base! {
     self = JayRandr;
-
-    DESTROY => destroy,
-    GET => get,
-    SET_API => set_api,
-    MAKE_RENDER_DEVICE => make_render_device,
-    SET_DIRECT_SCANOUT => set_direct_scanout,
-    SET_TRANSFORM => set_transform,
-    SET_SCALE => set_scale,
-    SET_MODE => set_mode,
-    SET_POSITION => set_position,
-    SET_ENABLED => set_enabled,
+    version = Version(1);
 }
 
 impl Object for JayRandr {}
@@ -282,10 +270,7 @@ simple_add_obj!(JayRandr);
 
 #[derive(Debug, Error)]
 pub enum JayRandrError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(JayRandrError, MsgParserError);
 efrom!(JayRandrError, ClientError);

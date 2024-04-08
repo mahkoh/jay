@@ -2,12 +2,9 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         tree::OutputNode,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        utils::clonecell::CloneCell,
         wire::{jay_output::*, JayOutputId},
     },
     std::rc::Rc,
@@ -35,13 +32,6 @@ impl JayOutput {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayOutputError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.remove_from_node();
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
     fn remove_from_node(&self) {
         if let Some(output) = self.output.get() {
             output.jay_outputs.remove(&(self.client.id, self.id));
@@ -49,10 +39,19 @@ impl JayOutput {
     }
 }
 
+impl JayOutputRequestHandler for JayOutput {
+    type Error = JayOutputError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.remove_from_node();
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+}
+
 object_base! {
     self = JayOutput;
-
-    DESTROY => destroy,
+    version = Version(1);
 }
 
 impl Object for JayOutput {
@@ -65,10 +64,7 @@ dedicated_add_obj!(JayOutput, JayOutputId, jay_outputs);
 
 #[derive(Debug, Error)]
 pub enum JayOutputError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(JayOutputError, MsgParserError);
 efrom!(JayOutputError, ClientError);

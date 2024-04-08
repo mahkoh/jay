@@ -10,7 +10,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         video::drm::sync_obj::SyncObj,
         wire::{wp_linux_drm_syncobj_manager_v1::*, WpLinuxDrmSyncobjManagerV1Id},
     },
@@ -26,6 +25,7 @@ pub struct WpLinuxDrmSyncobjManagerV1 {
     pub id: WpLinuxDrmSyncobjManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl WpLinuxDrmSyncobjManagerV1Global {
@@ -37,12 +37,13 @@ impl WpLinuxDrmSyncobjManagerV1Global {
         self: Rc<Self>,
         id: WpLinuxDrmSyncobjManagerV1Id,
         client: &Rc<Client>,
-        _version: Version,
+        version: Version,
     ) -> Result<(), WpLinuxDrmSyncobjManagerV1Error> {
         let obj = Rc::new(WpLinuxDrmSyncobjManagerV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -68,20 +69,21 @@ impl Global for WpLinuxDrmSyncobjManagerV1Global {
 
 simple_add_global!(WpLinuxDrmSyncobjManagerV1Global);
 
-impl WpLinuxDrmSyncobjManagerV1 {
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), WpLinuxDrmSyncobjManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
+    type Error = WpLinuxDrmSyncobjManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_surface(&self, msg: MsgParser<'_, '_>) -> Result<(), WpLinuxDrmSyncobjManagerV1Error> {
-        let req: GetSurface = self.client.parse(self, msg)?;
+    fn get_surface(&self, req: GetSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let sync = Rc::new(WpLinuxDrmSyncobjSurfaceV1::new(
             req.id,
             &self.client,
             &surface,
+            self.version,
         ));
         track!(self.client, sync);
         sync.install()?;
@@ -89,16 +91,13 @@ impl WpLinuxDrmSyncobjManagerV1 {
         Ok(())
     }
 
-    fn import_timeline(
-        &self,
-        msg: MsgParser<'_, '_>,
-    ) -> Result<(), WpLinuxDrmSyncobjManagerV1Error> {
-        let req: ImportTimeline = self.client.parse(self, msg)?;
+    fn import_timeline(&self, req: ImportTimeline, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sync_obj = Rc::new(SyncObj::new(&req.fd));
         let sync = Rc::new(WpLinuxDrmSyncobjTimelineV1::new(
             req.id,
             &self.client,
             &sync_obj,
+            self.version,
         ));
         self.client.add_client_obj(&sync)?;
         Ok(())
@@ -107,10 +106,7 @@ impl WpLinuxDrmSyncobjManagerV1 {
 
 object_base! {
     self = WpLinuxDrmSyncobjManagerV1;
-
-    DESTROY => destroy,
-    GET_SURFACE => get_surface,
-    IMPORT_TIMELINE => import_timeline,
+    version = self.version;
 }
 
 impl Object for WpLinuxDrmSyncobjManagerV1 {}
@@ -119,12 +115,9 @@ simple_add_obj!(WpLinuxDrmSyncobjManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjManagerV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WpLinuxDrmSyncobjSurfaceV1Error(#[from] WpLinuxDrmSyncobjSurfaceV1Error),
 }
-efrom!(WpLinuxDrmSyncobjManagerV1Error, MsgParserError);
 efrom!(WpLinuxDrmSyncobjManagerV1Error, ClientError);

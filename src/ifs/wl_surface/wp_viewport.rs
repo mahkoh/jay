@@ -3,8 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wp_viewport::*, WpViewportId},
     },
     std::rc::Rc,
@@ -16,15 +15,17 @@ pub struct WpViewport {
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl WpViewport {
-    pub fn new(id: WpViewportId, surface: &Rc<WlSurface>) -> Self {
+    pub fn new(id: WpViewportId, surface: &Rc<WlSurface>, version: Version) -> Self {
         Self {
             id,
             client: surface.client.clone(),
             surface: surface.clone(),
             tracker: Default::default(),
+            version,
         }
     }
 
@@ -35,9 +36,12 @@ impl WpViewport {
         self.surface.viewporter.set(Some(self.clone()));
         Ok(())
     }
+}
 
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), WpViewportError> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl WpViewportRequestHandler for WpViewport {
+    type Error = WpViewportError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = &mut *self.surface.pending.borrow_mut();
         pending.src_rect = Some(None);
         pending.dst_size = Some(None);
@@ -46,8 +50,7 @@ impl WpViewport {
         Ok(())
     }
 
-    fn set_source(&self, msg: MsgParser<'_, '_>) -> Result<(), WpViewportError> {
-        let req: SetSource = self.client.parse(self, msg)?;
+    fn set_source(&self, req: SetSource, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let rect = if req.x == -1 && req.y == -1 && req.width == -1 && req.height == -1 {
             None
         } else {
@@ -61,8 +64,7 @@ impl WpViewport {
         Ok(())
     }
 
-    fn set_destination(&self, msg: MsgParser<'_, '_>) -> Result<(), WpViewportError> {
-        let req: SetDestination = self.client.parse(self, msg)?;
+    fn set_destination(&self, req: SetDestination, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let size = if req.width == -1 && req.height == -1 {
             None
         } else if req.width <= 0 || req.height <= 0 {
@@ -77,10 +79,7 @@ impl WpViewport {
 
 object_base! {
     self = WpViewport;
-
-    DESTROY => destroy,
-    SET_SOURCE => set_source,
-    SET_DESTINATION => set_destination,
+    version = self.version;
 }
 
 impl Object for WpViewport {}
@@ -89,8 +88,6 @@ simple_add_obj!(WpViewport);
 
 #[derive(Debug, Error)]
 pub enum WpViewportError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("The surface already has a viewport")]
@@ -100,5 +97,4 @@ pub enum WpViewportError {
     #[error("Rectangle is empty")]
     InvalidDestRect,
 }
-efrom!(WpViewportError, MsgParserError);
 efrom!(WpViewportError, ClientError);

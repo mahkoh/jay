@@ -4,7 +4,6 @@ use {
         ifs::wl_output::{WlOutput, SEND_DONE_SINCE},
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{zxdg_output_v1::*, ZxdgOutputV1Id},
     },
     std::rc::Rc,
@@ -75,9 +74,12 @@ impl ZxdgOutputV1 {
             self.send_done();
         }
     }
+}
 
-    pub fn destroy(&self, msg: MsgParser) -> Result<(), ZxdgOutputV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
+    type Error = ZxdgOutputV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.output.xdg_outputs.remove(&self.id);
         self.client.remove_obj(self)?;
         Ok(())
@@ -86,8 +88,7 @@ impl ZxdgOutputV1 {
 
 object_base! {
     self = ZxdgOutputV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZxdgOutputV1 {}
@@ -96,10 +97,7 @@ simple_add_obj!(ZxdgOutputV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgOutputV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ZxdgOutputV1Error, MsgParserError);
 efrom!(ZxdgOutputV1Error, ClientError);

@@ -13,11 +13,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         screenshoter::take_screenshot,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-        },
+        utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
         wire::{jay_compositor::*, JayCompositorId, JayScreenshotId},
     },
     bstr::ByteSlice,
@@ -77,62 +73,6 @@ pub struct JayCompositor {
 }
 
 impl JayCompositor {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
-    fn get_log_file(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetLogFile = self.client.parse(self, parser)?;
-        let log_file = Rc::new(JayLogFile::new(req.id, &self.client));
-        track!(self.client, log_file);
-        self.client.add_client_obj(&log_file)?;
-        match &self.client.state.logger {
-            Some(logger) => log_file.send_path(logger.path().as_bstr()),
-            _ => log_file.send_path(b"".as_bstr()),
-        };
-        Ok(())
-    }
-
-    fn quit(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: Quit = self.client.parse(self, parser)?;
-        log::info!("Quitting");
-        self.client.state.ring.stop();
-        Ok(())
-    }
-
-    fn set_log_level(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: SetLogLevel = self.client.parse(self, parser)?;
-        const ERROR: u32 = CliLogLevel::Error as u32;
-        const WARN: u32 = CliLogLevel::Warn as u32;
-        const INFO: u32 = CliLogLevel::Info as u32;
-        const DEBUG: u32 = CliLogLevel::Debug as u32;
-        const TRACE: u32 = CliLogLevel::Trace as u32;
-        let level = match req.level {
-            ERROR => Level::Error,
-            WARN => Level::Warn,
-            INFO => Level::Info,
-            DEBUG => Level::Debug,
-            TRACE => Level::Trace,
-            _ => return Err(JayCompositorError::UnknownLogLevel(req.level)),
-        };
-        if let Some(logger) = &self.client.state.logger {
-            logger.set_level(level);
-        }
-        Ok(())
-    }
-
-    fn take_screenshot(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: TakeScreenshot = self.client.parse(self, parser)?;
-        self.take_screenshot_impl(req.id, false)
-    }
-
-    fn take_screenshot2(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: TakeScreenshot2 = self.client.parse(self, parser)?;
-        self.take_screenshot_impl(req.id, req.include_cursor != 0)
-    }
-
     fn take_screenshot_impl(
         &self,
         id: JayScreenshotId,
@@ -167,9 +107,62 @@ impl JayCompositor {
         self.client.remove_obj(ss.deref())?;
         Ok(())
     }
+}
 
-    fn get_idle(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetIdle = self.client.parse(self, parser)?;
+impl JayCompositorRequestHandler for JayCompositor {
+    type Error = JayCompositorError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+
+    fn get_log_file(&self, req: GetLogFile, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let log_file = Rc::new(JayLogFile::new(req.id, &self.client));
+        track!(self.client, log_file);
+        self.client.add_client_obj(&log_file)?;
+        match &self.client.state.logger {
+            Some(logger) => log_file.send_path(logger.path().as_bstr()),
+            _ => log_file.send_path(b"".as_bstr()),
+        };
+        Ok(())
+    }
+
+    fn quit(&self, _req: Quit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        log::info!("Quitting");
+        self.client.state.ring.stop();
+        Ok(())
+    }
+
+    fn set_log_level(&self, req: SetLogLevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        const ERROR: u32 = CliLogLevel::Error as u32;
+        const WARN: u32 = CliLogLevel::Warn as u32;
+        const INFO: u32 = CliLogLevel::Info as u32;
+        const DEBUG: u32 = CliLogLevel::Debug as u32;
+        const TRACE: u32 = CliLogLevel::Trace as u32;
+        let level = match req.level {
+            ERROR => Level::Error,
+            WARN => Level::Warn,
+            INFO => Level::Info,
+            DEBUG => Level::Debug,
+            TRACE => Level::Trace,
+            _ => return Err(JayCompositorError::UnknownLogLevel(req.level)),
+        };
+        if let Some(logger) = &self.client.state.logger {
+            logger.set_level(level);
+        }
+        Ok(())
+    }
+
+    fn take_screenshot(&self, req: TakeScreenshot, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.take_screenshot_impl(req.id, false)
+    }
+
+    fn take_screenshot2(&self, req: TakeScreenshot2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.take_screenshot_impl(req.id, req.include_cursor != 0)
+    }
+
+    fn get_idle(&self, req: GetIdle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let idle = Rc::new(JayIdle {
             id: req.id,
             client: self.client.clone(),
@@ -180,8 +173,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn get_client_id(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: GetClientId = self.client.parse(self, parser)?;
+    fn get_client_id(&self, _req: GetClientId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.event(ClientId {
             self_id: self.id,
             client_id: self.client.id.raw(),
@@ -189,14 +181,16 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn enable_symmetric_delete(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: EnableSymmetricDelete = self.client.parse(self, parser)?;
+    fn enable_symmetric_delete(
+        &self,
+        _req: EnableSymmetricDelete,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.client.symmetric_delete.set(true);
         Ok(())
     }
 
-    fn unlock(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: Unlock = self.client.parse(self, parser)?;
+    fn unlock(&self, _req: Unlock, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let state = &self.client.state;
         if state.lock.locked.replace(false) {
             if let Some(lock) = state.lock.lock.take() {
@@ -214,8 +208,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn get_seats(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let _req: GetSeats = self.client.parse(self, parser)?;
+    fn get_seats(&self, _req: GetSeats, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         for seat in self.client.state.globals.seats.lock().values() {
             self.client.event(Seat {
                 self_id: self.id,
@@ -226,8 +219,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn seat_events(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: SeatEvents = self.client.parse(self, parser)?;
+    fn seat_events(&self, req: SeatEvents, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let se = Rc::new(JaySeatEvents {
             id: req.id,
             client: self.client.clone(),
@@ -243,8 +235,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn get_output(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetOutput = self.client.parse(self, parser)?;
+    fn get_output(&self, req: GetOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let output = self.client.lookup(req.output)?;
         let jo = Rc::new(JayOutput {
             id: req.id,
@@ -263,8 +254,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn get_pointer(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetPointer = self.client.parse(self, parser)?;
+    fn get_pointer(&self, req: GetPointer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
         let ctx = Rc::new(JayPointer {
             id: req.id,
@@ -277,8 +267,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn get_render_ctx(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetRenderCtx = self.client.parse(self, parser)?;
+    fn get_render_ctx(&self, req: GetRenderCtx, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let ctx = Rc::new(JayRenderCtx {
             id: req.id,
             client: self.client.clone(),
@@ -295,8 +284,7 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn watch_workspaces(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: WatchWorkspaces = self.client.parse(self, parser)?;
+    fn watch_workspaces(&self, req: WatchWorkspaces, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let watcher = Rc::new(JayWorkspaceWatcher {
             id: req.id,
             client: self.client.clone(),
@@ -314,24 +302,21 @@ impl JayCompositor {
         Ok(())
     }
 
-    fn create_screencast(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: CreateScreencast = self.client.parse(self, parser)?;
+    fn create_screencast(&self, req: CreateScreencast, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sc = Rc::new(JayScreencast::new(req.id, &self.client));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
         Ok(())
     }
 
-    fn get_randr(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetRandr = self.client.parse(self, parser)?;
+    fn get_randr(&self, req: GetRandr, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sc = Rc::new(JayRandr::new(req.id, &self.client));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
         Ok(())
     }
 
-    fn get_input(&self, parser: MsgParser<'_, '_>) -> Result<(), JayCompositorError> {
-        let req: GetInput = self.client.parse(self, parser)?;
+    fn get_input(&self, req: GetInput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sc = Rc::new(JayInput::new(req.id, &self.client));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
@@ -341,26 +326,7 @@ impl JayCompositor {
 
 object_base! {
     self = JayCompositor;
-
-    DESTROY => destroy,
-    GET_LOG_FILE => get_log_file,
-    QUIT => quit,
-    SET_LOG_LEVEL => set_log_level,
-    TAKE_SCREENSHOT => take_screenshot,
-    GET_IDLE => get_idle,
-    GET_CLIENT_ID => get_client_id,
-    ENABLE_SYMMETRIC_DELETE => enable_symmetric_delete,
-    UNLOCK => unlock,
-    GET_SEATS => get_seats,
-    SEAT_EVENTS => seat_events,
-    GET_OUTPUT => get_output,
-    GET_POINTER => get_pointer,
-    GET_RENDER_CTX => get_render_ctx,
-    WATCH_WORKSPACES => watch_workspaces,
-    CREATE_SCREENCAST => create_screencast,
-    GET_RANDR => get_randr,
-    GET_INPUT => get_input,
-    TAKE_SCREENSHOT2 => take_screenshot2,
+    version = Version(1);
 }
 
 impl Object for JayCompositor {}
@@ -369,12 +335,9 @@ simple_add_obj!(JayCompositor);
 
 #[derive(Debug, Error)]
 pub enum JayCompositorError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Unknown log level {0}")]
     UnknownLogLevel(u32),
 }
 efrom!(JayCompositorError, ClientError);
-efrom!(JayCompositorError, MsgParserError);

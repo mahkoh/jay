@@ -2,12 +2,9 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         tree::{OutputNode, WorkspaceNode},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        utils::clonecell::CloneCell,
         wire::{jay_workspace::*, JayWorkspaceId},
     },
     std::rc::Rc,
@@ -58,13 +55,6 @@ impl JayWorkspace {
         });
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayWorkspaceError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.remove_from_node();
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
     fn remove_from_node(&self) {
         if let Some(ws) = self.workspace.take() {
             ws.jay_workspaces.remove(&(self.client.id, self.id));
@@ -72,10 +62,19 @@ impl JayWorkspace {
     }
 }
 
+impl JayWorkspaceRequestHandler for JayWorkspace {
+    type Error = JayWorkspaceError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.remove_from_node();
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+}
+
 object_base! {
     self = JayWorkspace;
-
-    DESTROY => destroy,
+    version = Version(1);
 }
 
 impl Object for JayWorkspace {
@@ -88,10 +87,7 @@ dedicated_add_obj!(JayWorkspace, JayWorkspaceId, jay_workspaces);
 
 #[derive(Debug, Error)]
 pub enum JayWorkspaceError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(JayWorkspaceError, MsgParserError);
 efrom!(JayWorkspaceError, ClientError);

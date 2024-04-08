@@ -12,7 +12,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{
             zwp_primary_selection_device_v1::*, ZwpPrimarySelectionDeviceV1Id,
             ZwpPrimarySelectionOfferV1Id,
@@ -64,12 +63,12 @@ impl ZwpPrimarySelectionDeviceV1 {
             id,
         })
     }
+}
 
-    fn set_selection(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpPrimarySelectionDeviceV1Error> {
-        let req: SetSelection = self.client.parse(self, parser)?;
+impl ZwpPrimarySelectionDeviceV1RequestHandler for ZwpPrimarySelectionDeviceV1 {
+    type Error = ZwpPrimarySelectionDeviceV1Error;
+
+    fn set_selection(&self, req: SetSelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_selection with an invalid serial");
             return Ok(());
@@ -90,8 +89,7 @@ impl ZwpPrimarySelectionDeviceV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionDeviceV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<PrimarySelectionIpc>(self);
         self.seat.remove_primary_selection_device(self);
         self.client.remove_obj(self)?;
@@ -144,6 +142,7 @@ impl IpcVtable for PrimarySelectionIpc {
             client: device.client.clone(),
             data: offer_data,
             tracker: Default::default(),
+            version: device.version,
         });
         track!(device.client, rc);
         device.client.add_server_obj(&rc);
@@ -169,9 +168,7 @@ impl IpcVtable for PrimarySelectionIpc {
 
 object_base! {
     self = ZwpPrimarySelectionDeviceV1;
-
-    SET_SELECTION => set_selection,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwpPrimarySelectionDeviceV1 {
@@ -187,11 +184,8 @@ simple_add_obj!(ZwpPrimarySelectionDeviceV1);
 pub enum ZwpPrimarySelectionDeviceV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlSeatError(Box<WlSeatError>),
 }
 efrom!(ZwpPrimarySelectionDeviceV1Error, ClientError);
-efrom!(ZwpPrimarySelectionDeviceV1Error, MsgParserError);
 efrom!(ZwpPrimarySelectionDeviceV1Error, WlSeatError);

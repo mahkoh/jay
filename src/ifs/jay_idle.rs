@@ -3,8 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{jay_idle::*, JayIdleId},
     },
     std::{rc::Rc, time::Duration},
@@ -36,9 +35,12 @@ impl JayIdle {
             comm: &surface.client.pid_info.comm,
         });
     }
+}
 
-    fn get_status(&self, parser: MsgParser<'_, '_>) -> Result<(), JayIdleError> {
-        let _req: GetStatus = self.client.parse(self, parser)?;
+impl JayIdleRequestHandler for JayIdle {
+    type Error = JayIdleError;
+
+    fn get_status(&self, _req: GetStatus, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_interval();
         {
             let inhibitors = self.client.state.idle.inhibitors.lock();
@@ -49,8 +51,7 @@ impl JayIdle {
         Ok(())
     }
 
-    fn set_interval(&self, parser: MsgParser<'_, '_>) -> Result<(), JayIdleError> {
-        let req: SetInterval = self.client.parse(self, parser)?;
+    fn set_interval(&self, req: SetInterval, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let interval = Duration::from_secs(req.interval);
         self.client.state.idle.set_timeout(interval);
         Ok(())
@@ -59,9 +60,7 @@ impl JayIdle {
 
 object_base! {
     self = JayIdle;
-
-    GET_STATUS => get_status,
-    SET_INTERVAL => set_interval,
+    version = Version(1);
 }
 
 impl Object for JayIdle {}
@@ -70,10 +69,7 @@ simple_add_obj!(JayIdle);
 
 #[derive(Debug, Error)]
 pub enum JayIdleError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(JayIdleError, ClientError);
-efrom!(JayIdleError, MsgParserError);

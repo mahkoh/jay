@@ -9,12 +9,9 @@ use {
             AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
             LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
         },
-        object::Object,
+        object::{Object, Version},
         state::{DeviceHandlerData, InputDeviceData},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            errorfmt::ErrorFmt,
-        },
+        utils::errorfmt::ErrorFmt,
         wire::{jay_input::*, JayInputId},
         xkbcommon::XkbCommonError,
     },
@@ -37,59 +34,6 @@ impl JayInput {
         }
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
-    fn get_all(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let _req: GetAll = self.client.parse(self, parser)?;
-        let state = &self.client.state;
-        for seat in state.globals.seats.lock().values() {
-            self.send_seat(seat);
-        }
-        for dev in state.input_device_handlers.borrow().values() {
-            self.send_input_device(dev);
-        }
-        Ok(())
-    }
-
-    fn get_seat(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: GetSeat = self.client.parse(self, parser)?;
-        self.or_error(|| {
-            let seat = self.seat(req.name)?;
-            self.send_seat(&seat);
-            for dev in self.client.state.input_device_handlers.borrow().values() {
-                if let Some(attached) = dev.data.seat.get() {
-                    if attached.id() == seat.id() {
-                        self.send_input_device(dev);
-                    }
-                }
-            }
-            Ok(())
-        })
-    }
-
-    fn get_device(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: GetDevice = self.client.parse(self, parser)?;
-        self.or_error(|| {
-            match self
-                .client
-                .state
-                .input_device_handlers
-                .borrow()
-                .get(&InputDeviceId::from_raw(req.id))
-            {
-                None => Err(JayInputError::DeviceDoesNotExist(req.id)),
-                Some(d) => {
-                    self.send_input_device(d);
-                    Ok(())
-                }
-            }
-        })
-    }
-
     fn seat(&self, name: &str) -> Result<Rc<WlSeatGlobal>, JayInputError> {
         for seat in self.client.state.globals.seats.lock().values() {
             if seat.seat_name() == name {
@@ -104,52 +48,6 @@ impl JayInput {
             self.send_error(&ErrorFmt(e).to_string());
         }
         Ok(())
-    }
-
-    fn set_repeat_rate(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetRepeatRate = self.client.parse(self, parser)?;
-        self.or_error(|| {
-            if req.repeat_rate < 0 {
-                return Err(JayInputError::NegativeRepeatRate);
-            }
-            if req.repeat_delay < 0 {
-                return Err(JayInputError::NegativeRepeatDelay);
-            }
-            let seat = self.seat(req.seat)?;
-            seat.set_rate(req.repeat_rate, req.repeat_delay);
-            Ok(())
-        })
-    }
-
-    fn set_keymap(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetKeymap = self.client.parse(self, parser)?;
-        let cm = Rc::new(ClientMem::new(req.keymap.raw(), req.keymap_len as _, true)?).offset(0);
-        let mut map = vec![];
-        cm.read(&mut map)?;
-        self.or_error(|| {
-            let map = self.client.state.xkb_ctx.keymap_from_str(&map)?;
-            let seat = self.seat(req.seat)?;
-            seat.set_keymap(&map);
-            Ok(())
-        })
-    }
-
-    fn get_keymap(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: GetKeymap = self.client.parse(self, parser)?;
-        self.or_error(|| {
-            let seat = self.seat(req.seat)?;
-            self.send_keymap(&seat);
-            Ok(())
-        })
-    }
-
-    fn use_hardware_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: UseHardwareCursor = self.client.parse(self, parser)?;
-        self.or_error(|| {
-            let seat = self.seat(req.seat)?;
-            seat.set_hardware_cursor(req.use_hardware_cursor != 0);
-            Ok(())
-        })
     }
 
     fn send_seat(&self, data: &WlSeatGlobal) {
@@ -240,9 +138,74 @@ impl JayInput {
             Some(d) => Ok(d.data.clone()),
         }
     }
+}
 
-    fn set_accel_profile(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetAccelProfile = self.client.parse(self, parser)?;
+impl JayInputRequestHandler for JayInput {
+    type Error = JayInputError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+
+    fn get_all(&self, _req: GetAll, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let state = &self.client.state;
+        for seat in state.globals.seats.lock().values() {
+            self.send_seat(seat);
+        }
+        for dev in state.input_device_handlers.borrow().values() {
+            self.send_input_device(dev);
+        }
+        Ok(())
+    }
+
+    fn set_repeat_rate(&self, req: SetRepeatRate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            if req.repeat_rate < 0 {
+                return Err(JayInputError::NegativeRepeatRate);
+            }
+            if req.repeat_delay < 0 {
+                return Err(JayInputError::NegativeRepeatDelay);
+            }
+            let seat = self.seat(req.seat)?;
+            seat.set_rate(req.repeat_rate, req.repeat_delay);
+            Ok(())
+        })
+    }
+
+    fn set_keymap(&self, req: SetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let cm = Rc::new(ClientMem::new(req.keymap.raw(), req.keymap_len as _, true)?).offset(0);
+        let mut map = vec![];
+        cm.read(&mut map)?;
+        self.or_error(|| {
+            let map = self.client.state.xkb_ctx.keymap_from_str(&map)?;
+            let seat = self.seat(req.seat)?;
+            seat.set_keymap(&map);
+            Ok(())
+        })
+    }
+
+    fn use_hardware_cursor(
+        &self,
+        req: UseHardwareCursor,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let seat = self.seat(req.seat)?;
+            seat.set_hardware_cursor(req.use_hardware_cursor != 0);
+            Ok(())
+        })
+    }
+
+    fn get_keymap(&self, req: GetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let seat = self.seat(req.seat)?;
+            self.send_keymap(&seat);
+            Ok(())
+        })
+    }
+
+    fn set_accel_profile(&self, req: SetAccelProfile, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             let profile = match AccelProfile(req.profile) {
@@ -255,8 +218,7 @@ impl JayInput {
         })
     }
 
-    fn set_accel_speed(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetAccelSpeed = self.client.parse(self, parser)?;
+    fn set_accel_speed(&self, req: SetAccelSpeed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device.set_accel_speed(req.speed);
@@ -264,8 +226,7 @@ impl JayInput {
         })
     }
 
-    fn set_tap_enabled(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetTapEnabled = self.client.parse(self, parser)?;
+    fn set_tap_enabled(&self, req: SetTapEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device.set_tap_enabled(req.enabled != 0);
@@ -273,8 +234,11 @@ impl JayInput {
         })
     }
 
-    fn set_tap_drag_enabled(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetTapDragEnabled = self.client.parse(self, parser)?;
+    fn set_tap_drag_enabled(
+        &self,
+        req: SetTapDragEnabled,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device.set_drag_enabled(req.enabled != 0);
@@ -282,8 +246,11 @@ impl JayInput {
         })
     }
 
-    fn set_tap_drag_lock_enabled(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetTapDragEnabled = self.client.parse(self, parser)?;
+    fn set_tap_drag_lock_enabled(
+        &self,
+        req: SetTapDragLockEnabled,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device.set_drag_lock_enabled(req.enabled != 0);
@@ -291,8 +258,7 @@ impl JayInput {
         })
     }
 
-    fn set_left_handed(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetLeftHanded = self.client.parse(self, parser)?;
+    fn set_left_handed(&self, req: SetLeftHanded, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device.set_left_handed(req.enabled != 0);
@@ -300,8 +266,11 @@ impl JayInput {
         })
     }
 
-    fn set_natural_scrolling(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetNaturalScrolling = self.client.parse(self, parser)?;
+    fn set_natural_scrolling(
+        &self,
+        req: SetNaturalScrolling,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device.set_natural_scrolling_enabled(req.enabled != 0);
@@ -309,8 +278,11 @@ impl JayInput {
         })
     }
 
-    fn set_px_per_wheel_scroll(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetPxPerWheelScroll = self.client.parse(self, parser)?;
+    fn set_px_per_wheel_scroll(
+        &self,
+        req: SetPxPerWheelScroll,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.px_per_scroll_wheel.set(req.px);
@@ -318,8 +290,11 @@ impl JayInput {
         })
     }
 
-    fn set_transform_matrix(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetTransformMatrix = self.client.parse(self, parser)?;
+    fn set_transform_matrix(
+        &self,
+        req: SetTransformMatrix,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.device
@@ -328,8 +303,7 @@ impl JayInput {
         })
     }
 
-    fn set_cursor_size(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: SetCursorSize = self.client.parse(self, parser)?;
+    fn set_cursor_size(&self, req: SetCursorSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             seat.set_cursor_size(req.size);
@@ -337,8 +311,7 @@ impl JayInput {
         })
     }
 
-    fn attach(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: Attach = self.client.parse(self, parser)?;
+    fn attach(&self, req: Attach, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             let dev = self.device(req.id)?;
@@ -347,39 +320,51 @@ impl JayInput {
         })
     }
 
-    fn detach(&self, parser: MsgParser<'_, '_>) -> Result<(), JayInputError> {
-        let req: Detach = self.client.parse(self, parser)?;
+    fn detach(&self, req: Detach, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
             dev.seat.set(None);
             Ok(())
         })
     }
+
+    fn get_seat(&self, req: GetSeat, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let seat = self.seat(req.name)?;
+            self.send_seat(&seat);
+            for dev in self.client.state.input_device_handlers.borrow().values() {
+                if let Some(attached) = dev.data.seat.get() {
+                    if attached.id() == seat.id() {
+                        self.send_input_device(dev);
+                    }
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn get_device(&self, req: GetDevice, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            match self
+                .client
+                .state
+                .input_device_handlers
+                .borrow()
+                .get(&InputDeviceId::from_raw(req.id))
+            {
+                None => Err(JayInputError::DeviceDoesNotExist(req.id)),
+                Some(d) => {
+                    self.send_input_device(d);
+                    Ok(())
+                }
+            }
+        })
+    }
 }
 
 object_base! {
     self = JayInput;
-
-    DESTROY => destroy,
-    GET_ALL => get_all,
-    SET_REPEAT_RATE => set_repeat_rate,
-    SET_KEYMAP => set_keymap,
-    USE_HARDWARE_CURSOR => use_hardware_cursor,
-    GET_KEYMAP => get_keymap,
-    SET_ACCEL_PROFILE => set_accel_profile,
-    SET_ACCEL_SPEED => set_accel_speed,
-    SET_TAP_ENABLED => set_tap_enabled,
-    SET_TAP_DRAG_ENABLED => set_tap_drag_enabled,
-    SET_TAP_DRAG_LOCK_ENABLED => set_tap_drag_lock_enabled,
-    SET_LEFT_HANDED => set_left_handed,
-    SET_NATURAL_SCROLLING => set_natural_scrolling,
-    SET_PX_PER_WHEEL_SCROLL => set_px_per_wheel_scroll,
-    SET_TRANSFORM_MATRIX => set_transform_matrix,
-    SET_CURSOR_SIZE => set_cursor_size,
-    ATTACH => attach,
-    DETACH => detach,
-    GET_SEAT => get_seat,
-    GET_DEVICE => get_device,
+    version = Version(1);
 }
 
 impl Object for JayInput {}
@@ -388,8 +373,6 @@ simple_add_obj!(JayInput);
 
 #[derive(Debug, Error)]
 pub enum JayInputError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("There is no seat called {0}")]
@@ -407,5 +390,4 @@ pub enum JayInputError {
     #[error("Could not parse keymap")]
     XkbCommonError(#[from] XkbCommonError),
 }
-efrom!(JayInputError, MsgParserError);
 efrom!(JayInputError, ClientError);

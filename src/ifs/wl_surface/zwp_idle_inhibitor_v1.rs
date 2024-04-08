@@ -3,8 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_idle_inhibitor_v1::*, ZwpIdleInhibitorV1Id},
     },
     std::rc::Rc,
@@ -19,18 +18,22 @@ pub struct ZwpIdleInhibitorV1 {
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
-impl ZwpIdleInhibitorV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpIdleInhibitorV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZwpIdleInhibitorV1RequestHandler for ZwpIdleInhibitorV1 {
+    type Error = ZwpIdleInhibitorV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         if self.surface.idle_inhibitors.remove(&self.id).is_some() {
             self.deactivate();
         }
         Ok(())
     }
+}
 
+impl ZwpIdleInhibitorV1 {
     pub fn install(self: &Rc<Self>) -> Result<(), ZwpIdleInhibitorV1Error> {
         self.surface.idle_inhibitors.insert(self.id, self.clone());
         if self.surface.visible.get() {
@@ -50,8 +53,7 @@ impl ZwpIdleInhibitorV1 {
 
 object_base! {
     self = ZwpIdleInhibitorV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwpIdleInhibitorV1 {
@@ -64,10 +66,7 @@ simple_add_obj!(ZwpIdleInhibitorV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpIdleInhibitorV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(ZwpIdleInhibitorV1Error, ClientError);
-efrom!(ZwpIdleInhibitorV1Error, MsgParserError);

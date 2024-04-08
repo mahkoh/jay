@@ -5,7 +5,6 @@ use {
         ifs::wl_surface::wl_subsurface::{WlSubsurface, WlSubsurfaceError},
         leaks::Tracker,
         object::{Object, Version},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_subcompositor::*, WlSubcompositorId},
     },
     std::rc::Rc,
@@ -23,6 +22,7 @@ pub struct WlSubcompositor {
     id: WlSubcompositorId,
     client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WlSubcompositorGlobal {
@@ -34,12 +34,13 @@ impl WlSubcompositorGlobal {
         self: Rc<Self>,
         id: WlSubcompositorId,
         client: &Rc<Client>,
-        _version: Version,
+        version: Version,
     ) -> Result<(), WlSubcompositorError> {
         let obj = Rc::new(WlSubcompositor {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -47,18 +48,18 @@ impl WlSubcompositorGlobal {
     }
 }
 
-impl WlSubcompositor {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubcompositorError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl WlSubcompositorRequestHandler for WlSubcompositor {
+    type Error = WlSubcompositorError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_subsurface(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSubcompositorError> {
-        let req: GetSubsurface = self.client.parse(self, parser)?;
+    fn get_subsurface(&self, req: GetSubsurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let parent = self.client.lookup(req.parent)?;
-        let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent));
+        let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent, self.version));
         track!(self.client, subsurface);
         self.client.add_client_obj(&subsurface)?;
         subsurface.install()?;
@@ -82,9 +83,7 @@ simple_add_global!(WlSubcompositorGlobal);
 
 object_base! {
     self = WlSubcompositor;
-
-    DESTROY => destroy,
-    GET_SUBSURFACE => get_subsurface,
+    version = self.version;
 }
 
 impl Object for WlSubcompositor {}
@@ -95,11 +94,8 @@ simple_add_obj!(WlSubcompositor);
 pub enum WlSubcompositorError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlSubsurfaceError(Box<WlSubsurfaceError>),
 }
 efrom!(WlSubcompositorError, ClientError);
-efrom!(WlSubcompositorError, MsgParserError);
 efrom!(WlSubcompositorError, WlSubsurfaceError);

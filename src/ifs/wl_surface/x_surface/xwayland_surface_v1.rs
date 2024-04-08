@@ -3,11 +3,8 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::{x_surface::XSurface, WlSurfaceError},
         leaks::Tracker,
-        object::Object,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            cell_ext::CellExt,
-        },
+        object::{Object, Version},
+        utils::cell_ext::CellExt,
         wire::{xwayland_surface_v1::*, XwaylandSurfaceV1Id},
     },
     std::rc::Rc,
@@ -19,11 +16,13 @@ pub struct XwaylandSurfaceV1 {
     pub client: Rc<Client>,
     pub x: Rc<XSurface>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
-impl XwaylandSurfaceV1 {
-    fn set_serial(&self, parser: MsgParser<'_, '_>) -> Result<(), XwaylandSurfaceV1Error> {
-        let req: SetSerial = self.client.parse(self, parser)?;
+impl XwaylandSurfaceV1RequestHandler for XwaylandSurfaceV1 {
+    type Error = XwaylandSurfaceV1Error;
+
+    fn set_serial(&self, req: SetSerial, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.x.surface.xwayland_serial.is_some() {
             return Err(XwaylandSurfaceV1Error::SerialAlreadySet);
         }
@@ -36,8 +35,7 @@ impl XwaylandSurfaceV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XwaylandSurfaceV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.x.xwayland_surface.set(None);
         self.client.remove_obj(self)?;
         Ok(())
@@ -46,9 +44,7 @@ impl XwaylandSurfaceV1 {
 
 object_base! {
     self = XwaylandSurfaceV1;
-
-    SET_SERIAL => set_serial,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for XwaylandSurfaceV1 {
@@ -67,10 +63,7 @@ pub enum XwaylandSurfaceV1Error {
     NonMonotonicSerial,
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(XwaylandSurfaceV1Error, MsgParserError);
 efrom!(XwaylandSurfaceV1Error, ClientError);

@@ -2,9 +2,8 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::{Rect, Region, RegionBuilder},
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_region::*, WlRegionId},
     },
     std::{cell::RefCell, rc::Rc},
@@ -16,40 +15,43 @@ pub struct WlRegion {
     client: Rc<Client>,
     region: RefCell<RegionBuilder>,
     pub tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WlRegion {
-    pub fn new(id: WlRegionId, client: &Rc<Client>) -> Self {
+    pub fn new(id: WlRegionId, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             client: client.clone(),
             region: Default::default(),
             tracker: Default::default(),
+            version,
         }
     }
 
     pub fn region(&self) -> Rc<Region> {
         self.region.borrow_mut().get()
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlRegionError> {
-        let _destroy: Destroy = self.client.parse(self, parser)?;
+impl WlRegionRequestHandler for WlRegion {
+    type Error = WlRegionError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn add(&self, parser: MsgParser<'_, '_>) -> Result<(), WlRegionError> {
-        let add: Add = self.client.parse(self, parser)?;
-        if add.width < 0 || add.height < 0 {
+    fn add(&self, req: Add, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if req.width < 0 || req.height < 0 {
             return Err(WlRegionError::NegativeExtents);
         }
         let mut region = self.region.borrow_mut();
-        region.add(Rect::new_sized(add.x, add.y, add.width, add.height).unwrap());
+        region.add(Rect::new_sized(req.x, req.y, req.width, req.height).unwrap());
         Ok(())
     }
 
-    fn subtract(&self, parser: MsgParser<'_, '_>) -> Result<(), WlRegionError> {
-        let req: Subtract = self.client.parse(self, parser)?;
+    fn subtract(&self, req: Subtract, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.width < 0 || req.height < 0 {
             return Err(WlRegionError::NegativeExtents);
         }
@@ -61,10 +63,7 @@ impl WlRegion {
 
 object_base! {
     self = WlRegion;
-
-    DESTROY => destroy,
-    ADD => add,
-    SUBTRACT => subtract,
+    version = self.version;
 }
 
 impl Object for WlRegion {}
@@ -73,12 +72,9 @@ dedicated_add_obj!(WlRegion, WlRegionId, regions);
 
 #[derive(Debug, Error)]
 pub enum WlRegionError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("width and/or height are negative")]
     NegativeExtents,
 }
-efrom!(WlRegionError, MsgParserError);
 efrom!(WlRegionError, ClientError);
