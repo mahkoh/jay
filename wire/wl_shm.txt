@@ -6,7 +6,7 @@ request create_pool {
     size: i32,
 }
 
-request release {
+request release (since = 2) {
 }
 
 # events

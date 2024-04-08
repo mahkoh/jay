@@ -31,22 +31,22 @@ request set_input_region {
 request commit {
 }
 
-request set_buffer_transform {
+request set_buffer_transform (since = 2) {
     transform: i32,
 }
 
-request set_buffer_scale {
+request set_buffer_scale (since = 3) {
     scale: i32,
 }
 
-request damage_buffer {
+request damage_buffer (since = 4) {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-request offset {
+request offset (since = 5) {
     x: i32,
     y: i32,
 }

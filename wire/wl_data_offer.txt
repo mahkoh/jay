@@ -13,10 +13,10 @@ request receive {
 request destroy {
 }
 
-request finish {
+request finish (since = 3) {
 }
 
-request set_actions {
+request set_actions (since = 3) {
     dnd_actions: u32,
     preferred_action: u32,
 }

@@ -1,6 +1,6 @@
 # requests
 
-request release {
+request release (since = 3) {
 
 }
 

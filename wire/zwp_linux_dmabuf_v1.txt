@@ -6,11 +6,11 @@ request create_params {
     params_id: id(zwp_linux_buffer_params_v1),
 }
 
-request get_default_feedback {
+request get_default_feedback (since = 4) {
     id: id(zwp_linux_dmabuf_feedback_v1),
 }
 
-request get_surface_feedback {
+request get_surface_feedback (since = 4) {
     id: id(zwp_linux_dmabuf_feedback_v1),
     surface: id(wl_surface),
 }

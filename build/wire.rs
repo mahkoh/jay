@@ -52,7 +52,6 @@ struct Token<'a> {
 #[derive(Debug)]
 enum TokenKind<'a> {
     Ident(&'a str),
-    #[allow(dead_code)]
     Num(u32),
     Tree {
         delim: TreeDelim,
@@ -233,6 +232,13 @@ struct Message {
     camel_name: String,
     id: u32,
     fields: Vec<Lined<Field>>,
+    #[allow(dead_code)]
+    attribs: MessageAttribs,
+}
+
+#[derive(Debug, Default)]
+struct MessageAttribs {
+    since: Option<u32>,
 }
 
 struct Parser<'a> {
@@ -279,9 +285,32 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn parse_message_attribs(&mut self, attribs: &mut MessageAttribs) -> Result<()> {
+        let (_, tokens) = self.expect_tree(TreeDelim::Paren)?;
+        let mut parser = Parser { pos: 0, tokens };
+        while !parser.eof() {
+            let (line, name) = parser.expect_ident()?;
+            parser.expect_symbol(Symbol::Equals)?;
+            match name {
+                "since" => attribs.since = Some(parser.expect_number()?.1),
+                _ => bail!("In line {}: Unexpected attribute {}", line, name),
+            }
+        }
+        Ok(())
+    }
+
     fn parse_message(&mut self, id: u32) -> Result<Lined<Message>> {
         let (line, name) = self.expect_ident()?;
         let res: Result<_> = (|| {
+            self.not_eof()?;
+            let mut attribs = MessageAttribs::default();
+            if let TokenKind::Tree {
+                delim: TreeDelim::Paren,
+                ..
+            } = self.tokens[self.pos].kind
+            {
+                self.parse_message_attribs(&mut attribs)?;
+            }
             let (_, body) = self.expect_tree(TreeDelim::Brace)?;
             let mut parser = Parser {
                 pos: 0,
@@ -298,6 +327,7 @@ impl<'a> Parser<'a> {
                     camel_name: to_camel(name),
                     id,
                     fields,
+                    attribs,
                 },
             })
         })();
@@ -337,7 +367,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    #[allow(dead_code)]
     fn expect_number(&mut self) -> Result<(u32, u32)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];

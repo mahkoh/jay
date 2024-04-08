@@ -7,7 +7,7 @@ request grab {
     serial: u32,
 }
 
-request reposition {
+request reposition (since = 3) {
     positioner: id(xdg_positioner),
     token: u32,
 }

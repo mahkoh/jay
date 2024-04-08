@@ -31,15 +31,15 @@ request set_offset {
     y: i32,
 }
 
-request set_reactive {
+request set_reactive (since = 3) {
 
 }
 
-request set_parent_size {
+request set_parent_size (since = 3) {
     parent_width: i32,
     parent_height: i32,
 }
 
-request set_parent_configure {
+request set_parent_configure (since = 3) {
     serial: u32,
 }

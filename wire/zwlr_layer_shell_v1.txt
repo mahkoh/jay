@@ -8,5 +8,5 @@ request get_layer_surface {
     namespace: str,
 }
 
-request destroy {
+request destroy (since = 3) {
 }

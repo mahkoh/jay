@@ -18,7 +18,7 @@ request create {
     flags: u32,
 }
 
-request create_immed {
+request create_immed (since = 2) {
     buffer_id: id(wl_buffer),
     width: i32,
     height: i32,

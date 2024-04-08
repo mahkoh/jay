@@ -7,7 +7,7 @@ request set_cursor {
     hotspot_y: i32,
 }
 
-request release {
+request release (since = 3) {
 
 }
 

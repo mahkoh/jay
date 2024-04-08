@@ -12,7 +12,7 @@ request set_selection {
     serial: u32,
 }
 
-request release {
+request release (since = 2) {
 
 }
 

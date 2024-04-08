@@ -8,7 +8,7 @@ request destroy {
 
 }
 
-request set_primary_selection {
+request set_primary_selection (since = 2) {
     source: id(zwlr_data_control_source_v1),
 }
 

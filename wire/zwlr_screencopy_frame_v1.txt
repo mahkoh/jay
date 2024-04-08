@@ -7,7 +7,7 @@ request copy {
 request destroy {
 }
 
-request copy_with_damage {
+request copy_with_damage (since = 2) {
     buffer: id(wl_buffer),
 }
 

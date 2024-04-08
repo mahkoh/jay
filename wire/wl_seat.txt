@@ -12,7 +12,7 @@ request get_touch {
     id: id(wl_touch),
 }
 
-request release {
+request release (since = 5) {
 }
 
 # events

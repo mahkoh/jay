@@ -8,7 +8,7 @@ request destroy {
 
 }
 
-request set_actions {
+request set_actions (since = 3) {
     dnd_actions: u32,
 }
 

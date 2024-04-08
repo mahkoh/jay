@@ -34,7 +34,7 @@ request ack_configure {
 
 request destroy { }
 
-request set_layer {
+request set_layer (since = 2) {
     layer: u32,
 }
 

@@ -27,7 +27,7 @@ request create_planar_buffer {
     stride2: i32,
 }
 
-request create_prime_buffer {
+request create_prime_buffer (since = 2) {
     id: id(wl_buffer),
     name: fd,
     width    : i32,
