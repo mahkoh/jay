@@ -1,8 +1,8 @@
 # requests
 
-msg destroy = 0 { }
+request destroy = 0 { }
 
-msg create_inhibitor = 1 {
+request create_inhibitor = 1 {
     id: id(zwp_idle_inhibitor_v1),
     surface: id(wl_surface),
 }

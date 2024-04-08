@@ -1,9 +1,9 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 }
 
-msg get_idle_notification = 1 {
+request get_idle_notification = 1 {
     id: id(ext_idle_notification_v1),
     timeout: u32,
     seat: id(wl_seat),

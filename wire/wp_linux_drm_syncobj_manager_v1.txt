@@ -1,15 +1,15 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 
 }
 
-msg get_surface = 1 {
+request get_surface = 1 {
     id: id(wp_linux_drm_syncobj_surface_v1),
     surface: id(wl_surface),
 }
 
-msg import_timeline = 2 {
+request import_timeline = 2 {
     id: id(wp_linux_drm_syncobj_timeline_v1),
     fd: fd,
 }

@@ -1,15 +1,15 @@
 # requests
 
-msg release = 0 {
+request release = 0 {
 
 }
 
-msg request_mode = 1 {
+request request_mode = 1 {
     mode: u32,
 }
 
 # events
 
-msg mode = 0 {
+event mode = 0 {
     mode: u32,
 }

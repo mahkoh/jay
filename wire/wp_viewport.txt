@@ -1,16 +1,16 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 }
 
-msg set_source = 1 {
+request set_source = 1 {
     x: fixed,
     y: fixed,
     width: fixed,
     height: fixed,
 }
 
-msg set_destination = 2 {
+request set_destination = 2 {
     width: i32,
     height: i32,
 }

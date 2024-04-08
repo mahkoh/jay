@@ -1,25 +1,25 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 
 }
 
-msg get_lock_surface = 1 {
+request get_lock_surface = 1 {
     id: id(ext_session_lock_surface_v1),
     surface: id(wl_surface),
     output: id(wl_output),
 }
 
-msg unlock_and_destroy = 2 {
+request unlock_and_destroy = 2 {
 
 }
 
 # events
 
-msg locked = 0 {
+event locked = 0 {
 
 }
 
-msg finished = 1 {
+event finished = 1 {
 
 }

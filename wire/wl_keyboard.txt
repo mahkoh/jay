@@ -1,36 +1,36 @@
 # requests
 
-msg release = 0 {
+request release = 0 {
 
 }
 
 # events
 
-msg keymap = 0 {
+event keymap = 0 {
     format: u32,
     fd: fd,
     size: u32,
 }
 
-msg enter = 1 {
+event enter = 1 {
     serial: u32,
     surface: id(wl_surface),
     keys: array(u32),
 }
 
-msg leave = 2 {
+event leave = 2 {
     serial: u32,
     surface: id(wl_surface),
 }
 
-msg key = 3 {
+event key = 3 {
     serial: u32,
     time: u32,
     key: u32,
     state: u32,
 }
 
-msg modifiers = 4 {
+event modifiers = 4 {
     serial: u32,
     mods_depressed: u32,
     mods_latched: u32,
@@ -38,7 +38,7 @@ msg modifiers = 4 {
     group: u32,
 }
 
-msg repeat_info = 5 {
+event repeat_info = 5 {
     rate: i32,
     delay: i32,
 }

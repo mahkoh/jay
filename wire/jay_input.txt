@@ -1,75 +1,75 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 
 }
 
-msg get_all = 1 {
+request get_all = 1 {
 
 }
 
-msg set_repeat_rate = 2 {
+request set_repeat_rate = 2 {
     seat: str,
     repeat_rate: i32,
     repeat_delay: i32,
 }
 
-msg set_keymap = 3 {
+request set_keymap = 3 {
     seat: str,
     keymap: fd,
     keymap_len: u32,
 }
 
-msg use_hardware_cursor = 4 {
+request use_hardware_cursor = 4 {
     seat: str,
     use_hardware_cursor: u32,
 }
 
-msg get_keymap = 5 {
+request get_keymap = 5 {
     seat: str,
 }
 
-msg set_accel_profile = 6 {
+request set_accel_profile = 6 {
     id: u32,
     profile: i32,
 }
 
-msg set_accel_speed = 7 {
+request set_accel_speed = 7 {
     id: u32,
     speed: pod(f64),
 }
 
-msg set_tap_enabled = 8 {
+request set_tap_enabled = 8 {
     id: u32,
     enabled: u32,
 }
 
-msg set_tap_drag_enabled = 9 {
+request set_tap_drag_enabled = 9 {
     id: u32,
     enabled: u32,
 }
 
-msg set_tap_drag_lock_enabled = 10 {
+request set_tap_drag_lock_enabled = 10 {
     id: u32,
     enabled: u32,
 }
 
-msg set_left_handed = 11 {
+request set_left_handed = 11 {
     id: u32,
     enabled: u32,
 }
 
-msg set_natural_scrolling = 12 {
+request set_natural_scrolling = 12 {
     id: u32,
     enabled: u32,
 }
 
-msg set_px_per_wheel_scroll = 13 {
+request set_px_per_wheel_scroll = 13 {
     id: u32,
     px: pod(f64),
 }
 
-msg set_transform_matrix = 14 {
+request set_transform_matrix = 14 {
     id: u32,
     m11: pod(f64),
     m12: pod(f64),
@@ -77,38 +77,38 @@ msg set_transform_matrix = 14 {
     m22: pod(f64),
 }
 
-msg set_cursor_size = 15 {
+request set_cursor_size = 15 {
     seat: str,
     size: u32,
 }
 
-msg attach = 16 {
+request attach = 16 {
     id: u32,
     seat: str,
 }
 
-msg detach = 17 {
+request detach = 17 {
     id: u32,
 }
 
-msg get_seat = 18 {
+request get_seat = 18 {
     name: str,
 }
 
-msg get_device = 19 {
+request get_device = 19 {
     id: u32,
 }
 
 # events
 
-msg seat = 0 {
+event seat = 0 {
     name: str,
     repeat_rate: i32,
     repeat_delay: i32,
     hardware_cursor: u32,
 }
 
-msg input_device = 1 {
+event input_device = 1 {
     id: u32,
     name: str,
     seat: str,
@@ -130,11 +130,11 @@ msg input_device = 1 {
     transform_matrix: array(pod(u8)),
 }
 
-msg error = 2 {
+event error = 2 {
     msg: str,
 }
 
-msg keymap = 3 {
+event keymap = 3 {
     keymap: fd,
     keymap_len: u32,
 }

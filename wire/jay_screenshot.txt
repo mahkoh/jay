@@ -1,6 +1,6 @@
 # events
 
-msg dmabuf = 0 {
+event dmabuf = 0 {
     drm_dev: fd,
     fd: fd,
     width: u32,
@@ -11,6 +11,6 @@ msg dmabuf = 0 {
     modifier_hi: u32,
 }
 
-msg error = 1 {
+event error = 1 {
     msg: str,
 }

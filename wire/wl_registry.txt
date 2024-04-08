@@ -1,6 +1,6 @@
 # requests
 
-msg bind = 0 {
+request bind = 0 {
     name: u32,
     interface: str,
     version: u32,
@@ -9,12 +9,12 @@ msg bind = 0 {
 
 # events
 
-msg global = 0 {
+event global = 0 {
     name: u32,
     interface: str,
     version: u32,
 }
 
-msg global_remove = 1 {
+event global_remove = 1 {
     name: u32,
 }

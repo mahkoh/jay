@@ -1,18 +1,18 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 
 }
 
-msg set_mode = 1 {
+request set_mode = 1 {
     mode: u32,
 }
 
-msg unset_mode = 2 {
+request unset_mode = 2 {
 }
 
 # events
 
-msg configure = 0 {
+event configure = 0 {
     mode: u32,
 }

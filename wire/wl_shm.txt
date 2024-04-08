@@ -1,16 +1,16 @@
 # requests
 
-msg create_pool = 0 {
+request create_pool = 0 {
     id: id(wl_shm_pool),
     fd: fd,
     size: i32,
 }
 
-msg release = 1 {
+request release = 1 {
 }
 
 # events
 
-msg format = 0 {
+event format = 0 {
     format: u32,
 }

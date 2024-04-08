@@ -1,73 +1,73 @@
 # requests
 
-msg set_cursor = 0 {
+request set_cursor = 0 {
     serial: u32,
     surface: id(wl_surface),
     hotspot_x: i32,
     hotspot_y: i32,
 }
 
-msg release = 1 {
+request release = 1 {
 
 }
 
 # events
 
-msg enter = 0 {
+event enter = 0 {
     serial: u32,
     surface: id(wl_surface),
     surface_x: fixed,
     surface_y: fixed,
 }
 
-msg leave = 1 {
+event leave = 1 {
     serial: u32,
     surface: id(wl_surface),
 }
 
-msg motion = 2 {
+event motion = 2 {
     time: u32,
     surface_x: fixed,
     surface_y: fixed,
 }
 
-msg button = 3 {
+event button = 3 {
     serial: u32,
     time: u32,
     button: u32,
     state: u32,
 }
 
-msg axis = 4 {
+event axis = 4 {
     time: u32,
     axis: u32,
     value: fixed,
 }
 
-msg frame = 5 {
+event frame = 5 {
 
 }
 
-msg axis_source = 6 {
+event axis_source = 6 {
     axis_source: u32,
 }
 
-msg axis_stop = 7 {
+event axis_stop = 7 {
     time: u32,
     axis: u32,
 }
 
-msg axis_discrete = 8 {
+event axis_discrete = 8 {
     axis: u32,
     discrete: i32,
 }
 
-msg axis_value120 = 9 {
+event axis_value120 = 9 {
     axis: u32,
     value120: i32,
 }
 
-msg axis_relative_direction = 10 {
+event axis_relative_direction = 10 {
     axis: u32,
     direction: u32,
 }

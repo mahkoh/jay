@@ -1,26 +1,26 @@
 # requests
 
-msg get_pointer = 0 {
+request get_pointer = 0 {
     id: id(wl_pointer),
 }
 
-msg get_keyboard = 1 {
+request get_keyboard = 1 {
     id: id(wl_keyboard),
 }
 
-msg get_touch = 2 {
+request get_touch = 2 {
     id: id(wl_touch),
 }
 
-msg release = 3 {
+request release = 3 {
 }
 
 # events
 
-msg capabilities = 0 {
+event capabilities = 0 {
     capabilities: u32,
 }
 
-msg name = 1 {
+event name = 1 {
     name: str,
 }

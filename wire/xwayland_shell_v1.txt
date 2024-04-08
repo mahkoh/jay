@@ -1,8 +1,8 @@
 # requests
 
-msg destroy = 0 { }
+request destroy = 0 { }
 
-msg get_xwayland_surface = 1 {
+request get_xwayland_surface = 1 {
     id: id(xwayland_surface_v1),
     surface: id(wl_surface),
 }

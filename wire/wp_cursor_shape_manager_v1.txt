@@ -1,14 +1,14 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 }
 
-msg get_pointer = 1 {
+request get_pointer = 1 {
     cursor_shape_device: id(wp_cursor_shape_device_v1),
     pointer: id(wl_pointer),
 }
 
-msg get_tablet_tool_v2 = 2 {
+request get_tablet_tool_v2 = 2 {
     cursor_shape_device: id(wp_cursor_shape_device_v1),
     tablet_tool: id(zwp_tablet_tool_v2),
 }

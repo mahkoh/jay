@@ -1,9 +1,9 @@
 # requests
 
-msg destroy = 0 {
+request destroy = 0 {
 }
 
-msg set_shape = 1 {
+request set_shape = 1 {
     serial: u32,
     shape: u32,
 }

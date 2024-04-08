@@ -1,10 +1,10 @@
 # requests
 
-msg authenticate = 0 {
+request authenticate = 0 {
     id: u32,
 }
 
-msg create_buffer = 1 {
+request create_buffer = 1 {
     id: id(wl_buffer),
     name: u32,
     width: i32,
@@ -13,7 +13,7 @@ msg create_buffer = 1 {
     format: u32,
 }
 
-msg create_planar_buffer = 2 {
+request create_planar_buffer = 2 {
     id: id(wl_buffer),
     name:    u32,
     width:   i32,
@@ -27,7 +27,7 @@ msg create_planar_buffer = 2 {
     stride2: i32,
 }
 
-msg create_prime_buffer = 3 {
+request create_prime_buffer = 3 {
     id: id(wl_buffer),
     name: fd,
     width    : i32,
@@ -43,18 +43,18 @@ msg create_prime_buffer = 3 {
 
 # events
 
-msg device = 0 {
+event device = 0 {
     name: bstr,
 }
 
-msg format = 1 {
+event format = 1 {
     format: u32,
 }
 
-msg authenticated = 2 {
+event authenticated = 2 {
 
 }
 
-msg capabilities = 3 {
+event capabilities = 3 {
     value: u32,
 }

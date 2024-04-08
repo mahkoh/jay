@@ -1,14 +1,14 @@
 # requests
 
-msg receive = 0 {
+request receive = 0 {
     mime_type: str,
     fd: fd,
 }
 
-msg destroy = 1 { }
+request destroy = 1 { }
 
 # events
 
-msg offer   = 0 {
+event offer   = 0 {
     mime_type: str,
 }

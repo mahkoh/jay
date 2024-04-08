@@ -1,12 +1,12 @@
 # requests
 
-msg release = 0 {
+request release = 0 {
 
 }
 
 # events
 
-msg geometry = 0 {
+event geometry = 0 {
     x               : i32,
     y               : i32,
     physical_width  : i32,
@@ -17,25 +17,25 @@ msg geometry = 0 {
     transform       : i32,
 }
 
-msg mode = 1 {
+event mode = 1 {
     flags    : u32,
     width    : i32,
     height   : i32,
     refresh  : i32,
 }
 
-msg done = 2 {
+event done = 2 {
 
 }
 
-msg scale = 3 {
+event scale = 3 {
     factor: i32,
 }
 
-msg name = 4 {
+event name = 4 {
     name: str,
 }
 
-msg description = 5 {
+event description = 5 {
     description: str,
 }

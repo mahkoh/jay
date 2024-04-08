@@ -1,10 +1,10 @@
 # events
 
-msg sync_output = 0 {
+event sync_output = 0 {
     output: id(wl_output),
 }
 
-msg presented = 1 {
+event presented = 1 {
     tv_sec_hi   : u32,
     tv_sec_lo   : u32,
     tv_nsec     : u32,
@@ -14,6 +14,6 @@ msg presented = 1 {
     flags       : u32,
 }
 
-msg discarded = 2 {
+event discarded = 2 {
 
 }

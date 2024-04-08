@@ -1,51 +1,51 @@
 # requests
 
-msg copy = 0 {
+request copy = 0 {
     buffer: id(wl_buffer),
 }
 
-msg destroy = 1 {
+request destroy = 1 {
 }
 
-msg copy_with_damage = 2 {
+request copy_with_damage = 2 {
     buffer: id(wl_buffer),
 }
 
 # events
 
-msg buffer = 0 {
+event buffer = 0 {
     format: u32,
     width: u32,
     height: u32,
     stride: u32,
 }
 
-msg flags = 1 {
+event flags = 1 {
     flags: u32,
 }
 
-msg ready = 2 {
+event ready = 2 {
     tv_sec_hi: u32,
     tv_sec_lo: u32,
     tv_nsec: u32,
 }
 
-msg failed = 3 {
+event failed = 3 {
 
 }
 
-msg damage = 4 {
+event damage = 4 {
     x: u32,
     y: u32,
     width: u32,
     height: u32,
 }
 
-msg linux_dmabuf = 5 {
+event linux_dmabuf = 5 {
     format: u32,
     width: u32,
     height: u32,
 }
 
-msg buffer_done = 6 {
+event buffer_done = 6 {
 }

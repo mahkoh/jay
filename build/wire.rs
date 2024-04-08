@@ -243,12 +243,21 @@ struct Parser<'a> {
 impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<Vec<Lined<Message>>> {
         let mut res = vec![];
+        let mut requests = 0;
+        let mut events = 0;
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
-            match ty.as_bytes() {
-                b"msg" => res.push(self.parse_message()?),
+            let num = match ty.as_bytes() {
+                b"request" => &mut requests,
+                b"event" => &mut events,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
+            };
+            let msg = self.parse_message()?;
+            if msg.val.id.val != *num {
+                bail!("{} != {}", msg.val.id.val, *num);
             }
+            *num += 1;
+            res.push(msg);
         }
         Ok(res)
     }

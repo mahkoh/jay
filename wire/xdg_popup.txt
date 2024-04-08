@@ -1,30 +1,30 @@
 # requests
 
-msg destroy = 0 { }
+request destroy = 0 { }
 
-msg grab = 1 {
+request grab = 1 {
     seat: id(wl_seat),
     serial: u32,
 }
 
-msg reposition = 2 {
+request reposition = 2 {
     positioner: id(xdg_positioner),
     token: u32,
 }
 
 # events
 
-msg configure = 0 {
+event configure = 0 {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-msg popup_done = 1 {
+event popup_done = 1 {
 
 }
 
-msg repositioned = 2 {
+event repositioned = 2 {
     token: u32,
 }

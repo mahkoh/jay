@@ -1,16 +1,16 @@
 # requests
 
-msg stop = 0 {
+request stop = 0 {
 }
 
-msg destroy = 1 {
+request destroy = 1 {
 }
 
 # events
 
-msg toplevel = 0 {
+event toplevel = 0 {
     toplevel: id(ext_foreign_toplevel_handle_v1),
 }
 
-msg finished = 1 {
+event finished = 1 {
 }
