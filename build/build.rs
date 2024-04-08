@@ -10,7 +10,8 @@
     clippy::too_many_arguments,
     clippy::iter_skip_next,
     clippy::uninlined_format_args,
-    clippy::manual_is_ascii_check
+    clippy::manual_is_ascii_check,
+    clippy::single_char_pattern
 )]
 
 extern crate core;

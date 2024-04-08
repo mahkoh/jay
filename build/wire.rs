@@ -1,7 +1,6 @@
 use {
     crate::open,
     anyhow::{bail, Context, Result},
-    bstr::{BStr, BString, ByteSlice},
     std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
 };
 
@@ -52,7 +51,7 @@ struct Token<'a> {
 
 #[derive(Debug)]
 enum TokenKind<'a> {
-    Ident(&'a BStr),
+    Ident(&'a str),
     #[allow(dead_code)]
     Num(u32),
     Tree {
@@ -143,7 +142,7 @@ impl<'a> Tokenizer<'a> {
                 while !c.eof() && matches!(c.s[c.pos], b'a'..=b'z' | b'_' | b'0'..=b'9') {
                     c.pos += 1;
                 }
-                TokenKind::Ident(c.s[b_pos..c.pos].as_bstr())
+                TokenKind::Ident(std::str::from_utf8(&c.s[b_pos..c.pos])?)
             }
             b'0'..=b'9' => {
                 c.pos -= 1;
@@ -210,7 +209,7 @@ struct Lined<T> {
 
 #[derive(Debug)]
 enum Type {
-    Id(BString),
+    Id(String),
     U32,
     I32,
     Str,
@@ -219,19 +218,19 @@ enum Type {
     Fixed,
     Fd,
     Array(Box<Type>),
-    Pod(BString),
+    Pod(String),
 }
 
 #[derive(Debug)]
 struct Field {
-    name: BString,
+    name: String,
     ty: Lined<Type>,
 }
 
 #[derive(Debug)]
 struct Message {
-    name: BString,
-    camel_name: BString,
+    name: String,
+    camel_name: String,
     id: u32,
     fields: Vec<Lined<Field>>,
 }
@@ -324,7 +323,7 @@ impl<'a> Parser<'a> {
         res.with_context(|| format!("While parsing field starting at line {}", line))
     }
 
-    fn expect_ident(&mut self) -> Result<(u32, &'a BStr)> {
+    fn expect_ident(&mut self) -> Result<(u32, &'a str)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];
         self.pos += 1;
@@ -392,8 +391,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_rust_path(&mut self) -> Result<Lined<BString>> {
-        let mut path = Vec::new();
+    fn parse_rust_path(&mut self) -> Result<Lined<String>> {
+        let mut path = String::new();
         let mut line = None;
         loop {
             self.not_eof()?;
@@ -401,17 +400,17 @@ impl<'a> Parser<'a> {
             if line.is_none() {
                 line = Some(l);
             }
-            path.extend_from_slice(id.as_bytes());
+            path.push_str(id);
             if self.eof() {
                 break;
             }
             self.expect_symbol(Symbol::Colon)?;
             self.expect_symbol(Symbol::Colon)?;
-            path.extend_from_slice(b"::");
+            path.push_str("::");
         }
         Ok(Lined {
             line: line.unwrap(),
-            val: path.into(),
+            val: path,
         })
     }
 
@@ -494,9 +493,9 @@ fn parse_messages(s: &[u8]) -> Result<Vec<Lined<Message>>> {
     parser.parse()
 }
 
-fn to_camel(s: &BStr) -> BString {
+fn to_camel(s: &str) -> String {
     let mut last_was_underscore = true;
-    let mut res = vec![];
+    let mut res = String::new();
     for mut b in s.as_bytes().iter().copied() {
         if b == b'_' {
             last_was_underscore = true;
@@ -504,11 +503,11 @@ fn to_camel(s: &BStr) -> BString {
             if last_was_underscore {
                 b = b.to_ascii_uppercase()
             }
-            res.push(b);
+            res.push(b as char);
             last_was_underscore = false;
         }
     }
-    res.into()
+    res
 }
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
@@ -540,7 +539,7 @@ fn write_field<W: Write>(f: &mut W, field: &Field) -> Result<()> {
 
 fn write_message_type<W: Write>(
     f: &mut W,
-    obj: &BStr,
+    obj: &str,
     message: &Message,
     needs_lifetime: bool,
 ) -> Result<()> {
@@ -581,13 +580,12 @@ fn write_message_type<W: Write>(
     Ok(())
 }
 
-fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<()> {
+fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()> {
     let has_reference_type = message.fields.iter().any(|f| match &f.val.ty.val {
         Type::OptStr | Type::Str | Type::BStr | Type::Array(..) => true,
         _ => false,
     });
     let uppercase = message.name.to_ascii_uppercase();
-    let uppercase = uppercase.as_bstr();
     writeln!(f)?;
     writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id)?;
     write_message_type(f, obj, message, has_reference_type)?;
@@ -681,9 +679,9 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
 
 fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     let file_name = file.file_name();
-    let file_name = file_name.as_bytes().as_bstr();
+    let file_name = std::str::from_utf8(file_name.as_bytes())?;
     println!("cargo:rerun-if-changed=wire/{}", file_name);
-    let obj_name = file_name.split_str(".").next().unwrap().as_bstr();
+    let obj_name = file_name.split(".").next().unwrap();
     let camel_obj_name = to_camel(obj_name);
     writeln!(f)?;
     writeln!(f, "id!({}Id);", camel_obj_name)?;
@@ -702,7 +700,7 @@ fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     writeln!(f, "pub mod {} {{", obj_name)?;
     writeln!(f, "    use super::*;")?;
     for message in &messages {
-        write_message(f, camel_obj_name.as_bstr(), &message.val)?;
+        write_message(f, &camel_obj_name, &message.val)?;
     }
     writeln!(f, "}}")?;
     Ok(())
