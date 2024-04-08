@@ -32,6 +32,10 @@ msg button = 3 {
     state: u32,
 }
 
+msg unused = 4 {
+
+}
+
 msg axis_source = 5 {
     source: u32,
 }

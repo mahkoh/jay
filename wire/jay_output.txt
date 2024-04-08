@@ -10,6 +10,10 @@ msg linear_id = 0 {
     linear_id: u32,
 }
 
+msg unused = 1 {
+
+}
+
 msg destroyed = 2 {
 
 }
