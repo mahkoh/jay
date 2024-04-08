@@ -1,16 +1,16 @@
 # request
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request ack_configure = 1 {
+request ack_configure {
     serial: u32,
 }
 
 # events
 
-event configure = 0 {
+event configure {
     serial: u32,
     width: u32,
     height: u32,

@@ -1,9 +1,9 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
-request get_surface_content_type = 1 {
+request get_surface_content_type {
     id: id(wp_content_type_v1),
     surface: id(wl_surface),
 }

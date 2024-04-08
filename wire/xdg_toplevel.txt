@@ -1,78 +1,78 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request set_parent = 1 {
+request set_parent {
     parent: id(xdg_toplevel),
 }
 
-request set_title = 2 {
+request set_title {
     title: str,
 }
 
-request set_app_id = 3 {
+request set_app_id {
     app_id: str,
 }
 
-request show_window_menu = 4 {
+request show_window_menu {
     seat: id(wl_seat),
     serial: u32,
     x: i32,
     y: i32,
 }
 
-request move = 5 {
+request move {
     seat: id(wl_seat),
     serial: u32,
 }
 
-request resize = 6 {
+request resize {
     seat: id(wl_seat),
     serial: u32,
     edges: u32,
 }
 
-request set_max_size = 7 {
+request set_max_size {
     width: i32,
     height: i32,
 }
 
-request set_min_size = 8 {
+request set_min_size {
     width: i32,
     height: i32,
 }
 
-request set_maximized = 9 { }
+request set_maximized { }
 
-request unset_maximized = 10 { }
+request unset_maximized { }
 
-request set_fullscreen = 11 {
+request set_fullscreen {
     output: id(wl_output),
 }
 
-request unset_fullscreen = 12 {
+request unset_fullscreen {
 
 }
 
-request set_minimized = 13 { }
+request set_minimized { }
 
 # events
 
-event configure = 0 {
+event configure {
     width: i32,
     height: i32,
     states: array(u32),
 }
 
-event close = 1 { }
+event close { }
 
-event configure_bounds = 2 {
+event configure_bounds {
     width: i32,
     height: i32,
 }
 
-event wm_capabilities = 3 {
+event wm_capabilities {
     capabilities: array(u32),
 }

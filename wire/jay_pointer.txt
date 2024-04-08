@@ -1,9 +1,9 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request set_known_cursor = 1 {
+request set_known_cursor {
     idx: u32,
 }

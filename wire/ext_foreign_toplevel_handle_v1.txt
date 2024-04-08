@@ -1,24 +1,24 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
 # events
 
-event closed = 0 {
+event closed {
 }
 
-event done = 1 {
+event done {
 }
 
-event title = 2 {
+event title {
     title: str,
 }
 
-event app_id = 3 {
+event app_id {
     app_id: str,
 }
 
-event identifier = 4 {
+event identifier {
     identifier: str,
 }

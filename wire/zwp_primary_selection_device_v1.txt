@@ -1,18 +1,18 @@
 # requests
 
-request set_selection = 0 {
+request set_selection {
     source: id(zwp_primary_selection_source_v1),
     serial: u32,
 }
 
-request destroy       = 1 { }
+request destroy       { }
 
 # events
 
-event data_offer    = 0 {
+event data_offer    {
     offer: id(zwp_primary_selection_offer_v1),
 }
 
-event selection     = 1 {
+event selection     {
     id: id(zwp_primary_selection_offer_v1),
 }

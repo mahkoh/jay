@@ -1,10 +1,10 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
 # events
 
-event path = 0 {
+event path {
     path: bstr,
 }

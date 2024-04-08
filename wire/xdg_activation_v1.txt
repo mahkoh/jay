@@ -1,14 +1,14 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request get_activation_token = 1 {
+request get_activation_token {
     id: id(xdg_activation_token_v1),
 }
 
-request activate = 2 {
+request activate {
     token: str,
     surface: id(wl_surface),
 }

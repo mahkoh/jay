@@ -1,70 +1,70 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
-request attach = 1 {
+request attach {
     buffer: id(wl_buffer),
     x: i32,
     y: i32,
 }
 
-request damage = 2 {
+request damage {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-request frame = 3 {
+request frame {
     callback: id(wl_callback),
 }
 
-request set_opaque_region = 4 {
+request set_opaque_region {
     region: id(wl_region),
 }
 
-request set_input_region = 5 {
+request set_input_region {
     region: id(wl_region),
 }
 
-request commit = 6 {
+request commit {
 }
 
-request set_buffer_transform = 7 {
+request set_buffer_transform {
     transform: i32,
 }
 
-request set_buffer_scale = 8 {
+request set_buffer_scale {
     scale: i32,
 }
 
-request damage_buffer = 9 {
+request damage_buffer {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-request offset = 10 {
+request offset {
     x: i32,
     y: i32,
 }
 
 # events
 
-event enter = 0 {
+event enter {
     output: id(wl_output),
 }
 
-event leave = 1 {
+event leave {
     output: id(wl_output),
 }
 
-event preferred_buffer_scale = 2 {
+event preferred_buffer_scale {
     factor: i32,
 }
 
-event preferred_buffer_transform = 3 {
+event preferred_buffer_transform {
     transform: u32,
 }

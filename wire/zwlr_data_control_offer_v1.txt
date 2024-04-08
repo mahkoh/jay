@@ -1,16 +1,16 @@
 # requests
 
-request receive = 0 {
+request receive {
     mime_type: str,
     fd: fd,
 }
 
-request destroy = 1 {
+request destroy {
 
 }
 
 # events
 
-event offer = 0 {
+event offer {
     mime_type: str,
 }

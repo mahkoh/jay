@@ -1,6 +1,6 @@
 # requests
 
-request get_layer_surface = 0 {
+request get_layer_surface {
     id: id(zwlr_layer_surface_v1),
     surface: id(wl_surface),
     output: id(wl_output),
@@ -8,5 +8,5 @@ request get_layer_surface = 0 {
     namespace: str,
 }
 
-request destroy = 1 {
+request destroy {
 }

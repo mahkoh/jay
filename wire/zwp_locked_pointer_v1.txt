@@ -1,21 +1,21 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
-request set_cursor_position_hint = 1 {
+request set_cursor_position_hint {
     surface_x: fixed,
     surface_y: fixed,
 }
 
-request set_region = 2 {
+request set_region {
     region: id(wl_region),
 }
 
 # events
 
-event locked = 0 {
+event locked {
 }
 
-event unlocked = 1 {
+event unlocked {
 }

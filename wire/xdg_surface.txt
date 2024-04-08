@@ -1,30 +1,30 @@
 # requests
 
-request destroy = 0 { }
+request destroy { }
 
-request get_toplevel = 1 {
+request get_toplevel {
     id: id(xdg_toplevel),
 }
 
-request get_popup = 2 {
+request get_popup {
     id: id(xdg_popup),
     parent: id(xdg_surface),
     positioner: id(xdg_positioner),
 }
 
-request set_window_geometry = 3 {
+request set_window_geometry {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-request ack_configure = 4 {
+request ack_configure {
     serial: u32,
 }
 
 # events
 
-event configure = 0 {
+event configure {
     serial: u32,
 }

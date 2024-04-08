@@ -1,17 +1,17 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request add = 1 {
+request add {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-request subtract = 2 {
+request subtract {
     x: i32,
     y: i32,
     width: i32,

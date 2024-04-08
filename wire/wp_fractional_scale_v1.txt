@@ -1,11 +1,11 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-event preferred_scale = 0 {
+event preferred_scale {
     scale: u32,
 }

@@ -1,12 +1,12 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-event new = 0 {
+event new {
     id: id(jay_workspace),
     linear_id: u32,
 }

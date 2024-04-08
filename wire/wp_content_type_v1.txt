@@ -1,8 +1,8 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
-request set_content_type = 1 {
+request set_content_type {
     content_type: u32,
 }

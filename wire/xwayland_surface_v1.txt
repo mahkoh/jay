@@ -1,8 +1,8 @@
 # requests
 
-request set_serial = 0 {
+request set_serial {
     serial_lo: u32,
     serial_hi: u32,
 }
 
-request destroy = 1 { }
+request destroy { }

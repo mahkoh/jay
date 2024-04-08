@@ -53,6 +53,7 @@ struct Token<'a> {
 #[derive(Debug)]
 enum TokenKind<'a> {
     Ident(&'a BStr),
+    #[allow(dead_code)]
     Num(u32),
     Tree {
         delim: TreeDelim,
@@ -231,7 +232,7 @@ struct Field {
 struct Message {
     name: BString,
     camel_name: BString,
-    id: Lined<u32>,
+    id: u32,
     fields: Vec<Lined<Field>>,
 }
 
@@ -252,12 +253,8 @@ impl<'a> Parser<'a> {
                 b"event" => &mut events,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
             };
-            let msg = self.parse_message()?;
-            if msg.val.id.val != *num {
-                bail!("{} != {}", msg.val.id.val, *num);
-            }
+            res.push(self.parse_message(*num)?);
             *num += 1;
-            res.push(msg);
         }
         Ok(res)
     }
@@ -283,11 +280,9 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_message(&mut self) -> Result<Lined<Message>> {
+    fn parse_message(&mut self, id: u32) -> Result<Lined<Message>> {
         let (line, name) = self.expect_ident()?;
         let res: Result<_> = (|| {
-            self.expect_symbol(Symbol::Equals)?;
-            let (num_line, val) = self.expect_number()?;
             let (_, body) = self.expect_tree(TreeDelim::Brace)?;
             let mut parser = Parser {
                 pos: 0,
@@ -302,10 +297,7 @@ impl<'a> Parser<'a> {
                 val: Message {
                     name: name.to_owned(),
                     camel_name: to_camel(name),
-                    id: Lined {
-                        line: num_line,
-                        val,
-                    },
+                    id,
                     fields,
                 },
             })
@@ -346,6 +338,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[allow(dead_code)]
     fn expect_number(&mut self) -> Result<(u32, u32)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];
@@ -596,7 +589,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     let uppercase = message.name.to_ascii_uppercase();
     let uppercase = uppercase.as_bstr();
     writeln!(f)?;
-    writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id.val)?;
+    writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id)?;
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
@@ -615,7 +608,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
         "        type Generic<'b> = {}{};",
         message.camel_name, lifetime_b,
     )?;
-    writeln!(f, "        const ID: u32 = {};", message.id.val,)?;
+    writeln!(f, "        const ID: u32 = {};", message.id)?;
     writeln!(
         f,
         "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",

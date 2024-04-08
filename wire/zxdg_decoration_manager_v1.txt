@@ -1,8 +1,8 @@
 # requests
 
-request destroy = 0 { }
+request destroy { }
 
-request get_toplevel_decoration = 1 {
+request get_toplevel_decoration {
     id: id(zxdg_toplevel_decoration_v1),
     toplevel: id(xdg_toplevel),
 }

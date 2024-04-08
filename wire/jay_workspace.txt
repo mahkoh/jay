@@ -1,31 +1,31 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-event linear_id = 0 {
+event linear_id {
     linear_id: u32,
 }
 
-event name = 1 {
+event name {
     name: str,
 }
 
-event destroyed = 2 {
+event destroyed {
 
 }
 
-event done = 3 {
+event done {
 
 }
 
-event output = 4 {
+event output {
     global_name: u32,
 }
 
-event visible = 5 {
+event visible {
     visible: u32,
 }

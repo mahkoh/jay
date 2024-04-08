@@ -1,11 +1,11 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-event release = 0 {
+event release {
 
 }

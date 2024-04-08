@@ -1,28 +1,28 @@
 # requests
 
-request start_drag = 0 {
+request start_drag {
     source: id(wl_data_source),
     origin: id(wl_surface),
     icon: id(wl_surface),
     serial: u32,
 }
 
-request set_selection = 1 {
+request set_selection {
     source: id(wl_data_source),
     serial: u32,
 }
 
-request release = 2 {
+request release {
 
 }
 
 # events
 
-event data_offer = 0 {
+event data_offer {
     id: id(wl_data_offer),
 }
 
-event enter = 1 {
+event enter {
     serial: u32,
     surface: id(wl_surface),
     x: fixed,
@@ -30,20 +30,20 @@ event enter = 1 {
     id: id(wl_data_offer),
 }
 
-event leave = 2 {
+event leave {
 
 }
 
-event motion = 3 {
+event motion {
     time: u32,
     x: fixed,
     y: fixed,
 }
 
-event drop = 4 {
+event drop {
 
 }
 
-event selection = 5 {
+event selection {
     id: id(wl_data_offer),
 }

@@ -1,8 +1,8 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
-request lock = 1 {
+request lock {
     id: id(ext_session_lock_v1),
 }

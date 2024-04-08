@@ -1,8 +1,8 @@
 # requests
 
-request destroy = 0 { }
+request destroy { }
 
-request get_xdg_output = 1 {
+request get_xdg_output {
     id: id(zxdg_output_v1),
     output: id(wl_output),
 }

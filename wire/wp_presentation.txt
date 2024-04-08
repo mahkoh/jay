@@ -1,15 +1,15 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 }
 
-request feedback = 1 {
+request feedback {
     surface: id(wl_surface),
     callback: id(wp_presentation_feedback),
 }
 
 # events
 
-event clock_id = 0 {
+event clock_id {
     clk_id: u32,
 }

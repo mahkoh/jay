@@ -1,20 +1,20 @@
 # requests
 
-request destroy = 0 { }
+request destroy { }
 
-request set_position = 1 {
+request set_position {
     x: i32,
     y: i32,
 }
 
-request place_above = 2 {
+request place_above {
     sibling: id(wl_surface),
 }
 
-request place_below = 3 {
+request place_below {
     sibling: id(wl_surface),
 }
 
-request set_sync = 4 { }
+request set_sync { }
 
-request set_desync = 5 { }
+request set_desync { }

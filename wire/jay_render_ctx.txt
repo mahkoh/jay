@@ -1,15 +1,15 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-event no_device = 0 {
+event no_device {
 
 }
 
-event device = 1 {
+event device {
     fd: fd,
 }

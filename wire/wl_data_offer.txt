@@ -1,36 +1,36 @@
 # requests
 
-request accept = 0 {
+request accept {
     serial: u32,
     mime_type: optstr,
 }
 
-request receive = 1 {
+request receive {
     mime_type: str,
     fd: fd,
 }
 
-request destroy = 2 {
+request destroy {
 }
 
-request finish = 3 {
+request finish {
 }
 
-request set_actions = 4 {
+request set_actions {
     dnd_actions: u32,
     preferred_action: u32,
 }
 
 # events
 
-event offer = 0 {
+event offer {
     mime_type: str,
 }
 
-event source_actions = 1 {
+event source_actions {
     source_actions: u32,
 }
 
-event action = 2 {
+event action {
     dnd_action: u32,
 }

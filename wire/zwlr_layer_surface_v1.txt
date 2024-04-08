@@ -1,49 +1,49 @@
 # requests
 
-request set_size = 0 {
+request set_size {
     width: u32,
     height: u32,
 }
 
-request set_anchor = 1 {
+request set_anchor {
     anchor: u32,
 }
 
-request set_exclusive_zone = 2 {
+request set_exclusive_zone {
     zone: i32,
 }
 
-request set_margin = 3 {
+request set_margin {
     top: i32,
     right: i32,
     bottom: i32,
     left: i32,
 }
 
-request set_keyboard_interactivity = 4 {
+request set_keyboard_interactivity {
     keyboard_interactivity: u32,
 }
 
-request get_popup = 5 {
+request get_popup {
     popup: id(xdg_popup),
 }
 
-request ack_configure = 6 {
+request ack_configure {
     serial: u32,
 }
 
-request destroy = 7 { }
+request destroy { }
 
-request set_layer = 8 {
+request set_layer {
     layer: u32,
 }
 
 # events
 
-event configure = 0 {
+event configure {
     serial: u32,
     width: u32,
     height: u32,
 }
 
-event closed = 1 { }
+event closed { }

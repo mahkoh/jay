@@ -1,99 +1,99 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request set_output = 1 {
+request set_output {
     output: id(jay_output),
 }
 
-request set_allow_all_workspaces = 2 {
+request set_allow_all_workspaces {
     allow_all: u32,
 }
 
-request allow_workspace = 3 {
+request allow_workspace {
     workspace: id(jay_workspace),
 }
 
-request touch_allowed_workspaces = 4 {
+request touch_allowed_workspaces {
 }
 
-request set_use_linear_buffers = 5 {
+request set_use_linear_buffers {
     use_linear: u32,
 }
 
-request set_running = 6 {
+request set_running {
     running: u32,
 }
 
-request configure = 7 {
+request configure {
 
 }
 
-request ack_buffers = 8 {
+request ack_buffers {
     serial: u32,
 }
 
-request ack_config = 9 {
+request ack_config {
     serial: u32,
 }
 
-request release_buffer = 10 {
+request release_buffer {
     idx: u32,
 }
 
 # events
 
-event plane = 0 {
+event plane {
     fd: fd,
     offset: u32,
     stride: u32,
 }
 
-event buffer = 1 {
+event buffer {
     format: u32,
     modifier: pod(u64),
     width: i32,
     height: i32,
 }
 
-event buffers_done = 2 {
+event buffers_done {
     serial: u32,
 }
 
-event ready = 3 {
+event ready {
     idx: u32,
 }
 
-event destroyed = 4 {
+event destroyed {
 
 }
 
-event missed_frame = 5 {
+event missed_frame {
 
 }
 
-event config_output = 6 {
+event config_output {
     linear_id: u32,
 }
 
-event config_allow_all_workspaces = 7 {
+event config_allow_all_workspaces {
     allow_all: u32,
 }
 
-event config_allow_workspace = 8 {
+event config_allow_workspace {
     linear_id: u32,
 }
 
-event config_use_linear_buffers = 9 {
+event config_use_linear_buffers {
     use_linear: u32,
 }
 
-event config_running = 10 {
+event config_running {
     running: u32,
 }
 
-event config_done = 11 {
+event config_done {
     serial: u32,
 }

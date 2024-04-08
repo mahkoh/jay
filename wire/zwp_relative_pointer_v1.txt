@@ -1,12 +1,12 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-event relative_motion = 0 {
+event relative_motion {
     utime_hi: u32,
     utime_lo: u32,
     dx: fixed,

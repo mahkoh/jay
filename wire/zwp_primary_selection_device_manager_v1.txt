@@ -1,12 +1,12 @@
 # requests
 
-request create_source = 0 {
+request create_source {
     id: id(zwp_primary_selection_source_v1),
 }
 
-request get_device    = 1 {
+request get_device    {
     id: id(zwp_primary_selection_device_v1),
     seat: id(wl_seat),
 }
 
-request destroy       = 2 { }
+request destroy       { }

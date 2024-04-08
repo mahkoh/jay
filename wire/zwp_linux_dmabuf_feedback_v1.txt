@@ -1,32 +1,32 @@
 # requests
 
-request destroy = 0 { }
+request destroy { }
 
 # events
 
-event done = 0 { }
+event done { }
 
-event format_table = 1 {
+event format_table {
     fd: fd,
     size: u32,
 }
 
-event main_device = 2 {
+event main_device {
     device: pod(uapi::c::dev_t),
 }
 
-event tranche_done = 3 {
+event tranche_done {
 
 }
 
-event tranche_target_device = 4 {
+event tranche_target_device {
     device: pod(uapi::c::dev_t),
 }
 
-event tranche_formats = 5 {
+event tranche_formats {
     indices: array(pod(u16)),
 }
 
-event tranche_flags = 6 {
+event tranche_flags {
     flags: u32,
 }

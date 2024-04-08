@@ -1,10 +1,10 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request get_subsurface = 1 {
+request get_subsurface {
     id: id(wl_subsurface),
     surface: id(wl_surface),
     parent: id(wl_surface),

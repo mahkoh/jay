@@ -1,16 +1,16 @@
 # requests
 
-request destroy = 0 {
+request destroy {
 
 }
 
-request set_acquire_point = 1 {
+request set_acquire_point {
     timeline: id(wp_linux_drm_syncobj_timeline_v1),
     point_hi: u32,
     point_lo: u32,
 }
 
-request set_release_point = 2 {
+request set_release_point {
     timeline: id(wp_linux_drm_syncobj_timeline_v1),
     point_hi: u32,
     point_lo: u32,

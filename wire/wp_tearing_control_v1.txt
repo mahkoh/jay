@@ -1,9 +1,9 @@
 # requests
 
-request set_presentation_hint = 0 {
+request set_presentation_hint {
     hint: u32,
 }
 
-request destroy = 1 {
+request destroy {
 
 }

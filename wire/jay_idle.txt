@@ -1,19 +1,19 @@
 # requests
 
-request get_status = 0 {
+request get_status {
 }
 
-request set_interval = 1 {
+request set_interval {
     interval: pod(u64),
 }
 
 # events
 
-event interval = 0 {
+event interval {
     interval: pod(u64),
 }
 
-event inhibitor = 1 {
+event inhibitor {
     surface: id(wl_surface),
     client_id: pod(u64),
     pid: pod(u64),

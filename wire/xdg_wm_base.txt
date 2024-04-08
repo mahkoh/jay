@@ -1,22 +1,22 @@
 # requests
 
-request destroy = 0 { }
+request destroy { }
 
-request create_positioner = 1 {
+request create_positioner {
     id: id(xdg_positioner),
 }
 
-request get_xdg_surface = 2 {
+request get_xdg_surface {
     id: id(xdg_surface),
     surface: id(wl_surface),
 }
 
-request pong = 3 {
+request pong {
     serial: u32,
 }
 
 # events
 
-event ping = 0 {
+event ping {
     serial: u32,
 }
