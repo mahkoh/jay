@@ -1,21 +1,21 @@
 # requests
 
-msg sync = 0 {
+request sync {
     callback: id(wl_callback),
 }
 
-msg get_registry = 1 {
+request get_registry {
     registry: id(wl_registry),
 }
 
 # events
 
-msg error = 0 {
+event error {
     object_id: id(object),
     code: u32,
     message: str,
 }
 
-msg delete_id = 1 {
+event delete_id {
     id: u32,
 }

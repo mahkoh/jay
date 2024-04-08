@@ -9,18 +9,14 @@ use {
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zxdg_output_v1::ZxdgOutputV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
         time::Time,
         tree::{calculate_logical_size, OutputNode},
         utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            linkedlist::LinkedList,
-            transform_ext::TransformExt,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            linkedlist::LinkedList, transform_ext::TransformExt,
         },
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
@@ -183,7 +179,7 @@ impl WlOutputGlobal {
         self: Rc<Self>,
         id: WlOutputId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlOutputError> {
         let obj = Rc::new(WlOutput {
             global: self.clone(),
@@ -328,13 +324,13 @@ pub struct WlOutput {
     pub id: WlOutputId,
     pub xdg_outputs: CopyHashMap<ZxdgOutputV1Id, Rc<ZxdgOutputV1>>,
     client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     tracker: Tracker<Self>,
 }
 
-pub const SEND_DONE_SINCE: u32 = 2;
-pub const SEND_SCALE_SINCE: u32 = 2;
-pub const SEND_NAME_SINCE: u32 = 4;
+pub const SEND_DONE_SINCE: Version = Version(2);
+pub const SEND_SCALE_SINCE: Version = Version(2);
+pub const SEND_NAME_SINCE: Version = Version(4);
 
 impl WlOutput {
     fn send_geometry(&self) {
@@ -393,9 +389,12 @@ impl WlOutput {
             }
         }
     }
+}
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlOutputError> {
-        let _req: Release = self.client.parse(self, parser)?;
+impl WlOutputRequestHandler for WlOutput {
+    type Error = WlOutputError;
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.xdg_outputs.clear();
         self.remove_binding();
         self.client.remove_obj(self)?;
@@ -405,8 +404,7 @@ impl WlOutput {
 
 object_base! {
     self = WlOutput;
-
-    RELEASE => release if self.version >= 3,
+    version = self.version;
 }
 
 impl Object for WlOutput {
@@ -422,8 +420,5 @@ dedicated_add_obj!(WlOutput, WlOutputId, outputs);
 pub enum WlOutputError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlOutputError, ClientError);
-efrom!(WlOutputError, MsgParserError);

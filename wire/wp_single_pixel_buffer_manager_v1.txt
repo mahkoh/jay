@@ -1,9 +1,9 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 }
 
-msg create_u32_rgba_buffer = 1 {
+request create_u32_rgba_buffer {
     id: id(wl_buffer),
     r: u32,
     g: u32,

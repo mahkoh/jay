@@ -45,7 +45,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         state::State,
         time::now_usec,
@@ -54,16 +54,9 @@ use {
             Node, OutputNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
-            asyncevent::AsyncEvent,
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            linkedlist::LinkedNode,
-            numcell::NumCell,
-            rc_eq::rc_eq,
-            smallmap::SmallMap,
-            transform_ext::TransformExt,
+            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt, linkedlist::LinkedNode, numcell::NumCell, rc_eq::rc_eq,
+            smallmap::SmallMap, transform_ext::TransformExt,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
@@ -96,7 +89,7 @@ const MISSING_CAPABILITY: u32 = 0;
 
 pub const BTN_LEFT: u32 = 0x110;
 
-pub const SEAT_NAME_SINCE: u32 = 2;
+pub const SEAT_NAME_SINCE: Version = Version(2);
 
 pub const PX_PER_SCROLL: f64 = 15.0;
 
@@ -1040,7 +1033,7 @@ impl WlSeatGlobal {
         self: Rc<Self>,
         id: WlSeatId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlSeatError> {
         let obj = Rc::new(WlSeat {
             global: self.clone(),
@@ -1124,11 +1117,11 @@ pub struct WlSeat {
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
-    version: u32,
+    version: Version,
     tracker: Tracker<Self>,
 }
 
-const READ_ONLY_KEYMAP_SINCE: u32 = 7;
+const READ_ONLY_KEYMAP_SINCE: Version = Version(7);
 
 impl WlSeat {
     fn send_capabilities(self: &Rc<Self>) {
@@ -1147,34 +1140,6 @@ impl WlSeat {
 
     pub fn move_(&self, node: &Rc<FloatNode>) {
         self.global.move_(node);
-    }
-
-    fn get_pointer(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
-        let req: GetPointer = self.client.parse(&**self, parser)?;
-        let p = Rc::new(WlPointer::new(req.id, self));
-        track!(self.client, p);
-        self.client.add_client_obj(&p)?;
-        self.pointers.set(req.id, p);
-        Ok(())
-    }
-
-    fn get_keyboard(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
-        let req: GetKeyboard = self.client.parse(&**self, parser)?;
-        let p = Rc::new(WlKeyboard::new(req.id, self));
-        track!(self.client, p);
-        self.client.add_client_obj(&p)?;
-        self.keyboards.set(req.id, p.clone());
-        let keymap = self.global.kb_map.get();
-        p.send_keymap(
-            wl_keyboard::XKB_V1,
-            self.keymap_fd(&keymap)?,
-            keymap.map_len as _,
-        );
-        if self.version >= REPEAT_INFO_SINCE {
-            let (rate, delay) = self.global.repeat_rate.get();
-            p.send_repeat_info(rate, delay);
-        }
-        Ok(())
     }
 
     pub fn keymap_fd(&self, keymap: &XkbKeymap) -> Result<Rc<OwnedFd>, WlKeyboardError> {
@@ -1197,17 +1162,45 @@ impl WlSeat {
         }
         Ok(Rc::new(fd))
     }
+}
 
-    fn get_touch(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
-        let req: GetTouch = self.client.parse(&**self, parser)?;
-        let p = Rc::new(WlTouch::new(req.id, self));
+impl WlSeatRequestHandler for WlSeat {
+    type Error = WlSeatError;
+
+    fn get_pointer(&self, req: GetPointer, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let p = Rc::new(WlPointer::new(req.id, slf));
+        track!(self.client, p);
+        self.client.add_client_obj(&p)?;
+        self.pointers.set(req.id, p);
+        Ok(())
+    }
+
+    fn get_keyboard(&self, req: GetKeyboard, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let p = Rc::new(WlKeyboard::new(req.id, slf));
+        track!(self.client, p);
+        self.client.add_client_obj(&p)?;
+        self.keyboards.set(req.id, p.clone());
+        let keymap = self.global.kb_map.get();
+        p.send_keymap(
+            wl_keyboard::XKB_V1,
+            self.keymap_fd(&keymap)?,
+            keymap.map_len as _,
+        );
+        if self.version >= REPEAT_INFO_SINCE {
+            let (rate, delay) = self.global.repeat_rate.get();
+            p.send_repeat_info(rate, delay);
+        }
+        Ok(())
+    }
+
+    fn get_touch(&self, req: GetTouch, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let p = Rc::new(WlTouch::new(req.id, slf));
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlSeatError> {
-        let _req: Release = self.client.parse(self, parser)?;
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         {
             let mut bindings = self.global.bindings.borrow_mut();
             if let Entry::Occupied(mut hm) = bindings.entry(self.client.id) {
@@ -1224,11 +1217,7 @@ impl WlSeat {
 
 object_base! {
     self = WlSeat;
-
-    GET_POINTER => get_pointer,
-    GET_KEYBOARD => get_keyboard,
-    GET_TOUCH => get_touch,
-    RELEASE => release if self.version >= 5,
+    version = self.version;
 }
 
 impl Object for WlSeat {
@@ -1256,15 +1245,12 @@ pub enum WlSeatError {
     ClientError(Box<ClientError>),
     #[error(transparent)]
     IpcError(#[from] IpcError),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
     #[error("Data source has a toplevel attached")]
     OfferHasDrag,
 }
 efrom!(WlSeatError, ClientError);
-efrom!(WlSeatError, MsgParserError);
 efrom!(WlSeatError, WlKeyboardError);
 
 pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {

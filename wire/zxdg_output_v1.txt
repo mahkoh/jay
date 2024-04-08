@@ -1,25 +1,25 @@
 # requests
 
-msg destroy = 0 { }
+request destroy { }
 
 # events
 
-msg logical_position = 0 {
+event logical_position {
     x: i32,
     y: i32,
 }
 
-msg logical_size = 1 {
+event logical_size {
     width: i32,
     height: i32,
 }
 
-msg done = 2 { }
+event done { }
 
-msg name = 3 {
+event name {
     name: str,
 }
 
-msg description = 4 {
+event description {
     description: str,
 }

@@ -3,8 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::{wl_callback::WlCallback, wl_registry::WlRegistry},
         leaks::Tracker,
-        object::{Object, ObjectId, WL_DISPLAY_ID},
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, ObjectId, Version, WL_DISPLAY_ID},
         wire::{wl_display::*, WlDisplayId},
     },
     std::rc::Rc,
@@ -31,10 +30,13 @@ impl WlDisplay {
             tracker: Default::default(),
         }
     }
+}
 
-    fn sync(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDisplayError> {
-        let sync: Sync = self.client.parse(self, parser)?;
-        let cb = Rc::new(WlCallback::new(sync.callback, &self.client));
+impl WlDisplayRequestHandler for WlDisplay {
+    type Error = WlDisplayError;
+
+    fn sync(&self, req: Sync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
         cb.send_done();
@@ -42,15 +44,16 @@ impl WlDisplay {
         Ok(())
     }
 
-    fn get_registry(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDisplayError> {
-        let gr: GetRegistry = self.client.parse(self, parser)?;
-        let registry = Rc::new(WlRegistry::new(gr.registry, &self.client));
+    fn get_registry(&self, req: GetRegistry, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let registry = Rc::new(WlRegistry::new(req.registry, &self.client));
         track!(self.client, registry);
         self.client.add_client_obj(&registry)?;
         self.client.state.globals.notify_all(&registry);
         Ok(())
     }
+}
 
+impl WlDisplay {
     pub fn send_error<O: Into<ObjectId>>(&self, object_id: O, code: u32, message: &str) {
         self.client.event(Error {
             self_id: self.id,
@@ -90,19 +93,14 @@ impl WlDisplay {
 
 object_base! {
     self = WlDisplay;
-
-    SYNC => sync,
-    GET_REGISTRY => get_registry,
+    version = Version(1);
 }
 
 impl Object for WlDisplay {}
 
 #[derive(Debug, Error)]
 pub enum WlDisplayError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(WlDisplayError, MsgParserError);
 efrom!(WlDisplayError, ClientError);

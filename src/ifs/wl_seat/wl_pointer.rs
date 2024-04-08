@@ -5,8 +5,7 @@ use {
         fixed::Fixed,
         ifs::{wl_seat::WlSeat, wl_surface::WlSurfaceError},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wl_pointer::*, WlPointerId, WlSurfaceId},
     },
     std::{cell::Cell, rc::Rc},
@@ -31,13 +30,13 @@ pub const WHEEL_TILT: u32 = 3;
 pub const IDENTICAL: u32 = 0;
 pub const INVERTED: u32 = 1;
 
-pub const POINTER_FRAME_SINCE_VERSION: u32 = 5;
-pub const AXIS_SOURCE_SINCE_VERSION: u32 = 5;
-pub const AXIS_DISCRETE_SINCE_VERSION: u32 = 5;
-pub const AXIS_STOP_SINCE_VERSION: u32 = 5;
-pub const WHEEL_TILT_SINCE_VERSION: u32 = 6;
-pub const AXIS_VALUE120_SINCE_VERSION: u32 = 8;
-pub const AXIS_RELATIVE_DIRECTION_SINCE_VERSION: u32 = 9;
+pub const POINTER_FRAME_SINCE_VERSION: Version = Version(5);
+pub const AXIS_SOURCE_SINCE_VERSION: Version = Version(5);
+pub const AXIS_DISCRETE_SINCE_VERSION: Version = Version(5);
+pub const AXIS_STOP_SINCE_VERSION: Version = Version(5);
+pub const WHEEL_TILT_SINCE_VERSION: Version = Version(6);
+pub const AXIS_VALUE120_SINCE_VERSION: Version = Version(8);
+pub const AXIS_RELATIVE_DIRECTION_SINCE_VERSION: Version = Version(9);
 
 #[derive(Default, Debug)]
 pub struct PendingScroll {
@@ -174,9 +173,12 @@ impl WlPointer {
             value120,
         })
     }
+}
 
-    fn set_cursor(&self, parser: MsgParser<'_, '_>) -> Result<(), WlPointerError> {
-        let req: SetCursor = self.seat.client.parse(self, parser)?;
+impl WlPointerRequestHandler for WlPointer {
+    type Error = WlPointerError;
+
+    fn set_cursor(&self, req: SetCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.seat.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_cursor with an invalid serial");
             return Ok(());
@@ -213,8 +215,7 @@ impl WlPointer {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlPointerError> {
-        let _req: Release = self.seat.client.parse(self, parser)?;
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.pointers.remove(&self.id);
         self.seat.client.remove_obj(self)?;
         Ok(())
@@ -223,9 +224,7 @@ impl WlPointer {
 
 object_base! {
     self = WlPointer;
-
-    SET_CURSOR => set_cursor,
-    RELEASE => release if self.seat.version >= 3,
+    version = self.seat.version;
 }
 
 impl Object for WlPointer {}
@@ -236,11 +235,8 @@ dedicated_add_obj!(WlPointer, WlPointerId, pointers);
 pub enum WlPointerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(WlPointerError, ClientError);
-efrom!(WlPointerError, MsgParserError);
 efrom!(WlPointerError, WlSurfaceError);

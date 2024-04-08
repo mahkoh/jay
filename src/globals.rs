@@ -39,7 +39,7 @@ use {
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global,
             zxdg_output_manager_v1::ZxdgOutputManagerV1Global,
         },
-        object::{Interface, ObjectId},
+        object::{Interface, ObjectId, Version},
         state::State,
         utils::{
             copyhashmap::{CopyHashMap, Locked},
@@ -97,7 +97,7 @@ pub trait GlobalBase {
         self: Rc<Self>,
         client: &'a Rc<Client>,
         id: ObjectId,
-        version: u32,
+        version: Version,
     ) -> Result<(), GlobalsError>;
     fn interface(&self) -> Interface;
 }

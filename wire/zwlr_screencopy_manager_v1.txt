@@ -1,12 +1,12 @@
 # requests
 
-msg capture_output = 0 {
+request capture_output {
     frame: id(zwlr_screencopy_frame_v1),
     overlay_cursor: i32,
     output: id(wl_output),
 }
 
-msg capture_output_region = 1 {
+request capture_output_region {
     frame: id(zwlr_screencopy_frame_v1),
     overlay_cursor: i32,
     output: id(wl_output),
@@ -16,5 +16,5 @@ msg capture_output_region = 1 {
     height: i32,
 }
 
-msg destroy = 2 {
+request destroy {
 }

@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wp_single_pixel_buffer_manager_v1::*, WpSinglePixelBufferManagerV1Id},
     },
     std::rc::Rc,
@@ -25,12 +24,13 @@ impl WpSinglePixelBufferManagerV1Global {
         self: Rc<Self>,
         id: WpSinglePixelBufferManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        version: Version,
     ) -> Result<(), WpSinglePixelBufferManagerV1Error> {
         let obj = Rc::new(WpSinglePixelBufferManagerV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -60,23 +60,22 @@ pub struct WpSinglePixelBufferManagerV1 {
     pub id: WpSinglePixelBufferManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
-impl WpSinglePixelBufferManagerV1 {
-    pub fn destroy(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WpSinglePixelBufferManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1 {
+    type Error = WpSinglePixelBufferManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    pub fn create_u32_rgba_buffer(
+    fn create_u32_rgba_buffer(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WpSinglePixelBufferManagerV1Error> {
-        let req: CreateU32RgbaBuffer = self.client.parse(self, parser)?;
+        req: CreateU32RgbaBuffer,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let buffer = Rc::new(WlBuffer::new_single_pixel(
             req.id,
             &self.client,
@@ -93,9 +92,7 @@ impl WpSinglePixelBufferManagerV1 {
 
 object_base! {
     self = WpSinglePixelBufferManagerV1;
-
-    DESTROY => destroy,
-    CREATE_U32_RGBA_BUFFER => create_u32_rgba_buffer,
+    version = self.version;
 }
 
 impl Object for WpSinglePixelBufferManagerV1 {}
@@ -104,10 +101,7 @@ simple_add_obj!(WpSinglePixelBufferManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpSinglePixelBufferManagerV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(WpSinglePixelBufferManagerV1Error, ClientError);
-efrom!(WpSinglePixelBufferManagerV1Error, MsgParserError);

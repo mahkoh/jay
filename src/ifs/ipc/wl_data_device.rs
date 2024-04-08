@@ -12,8 +12,7 @@ use {
             wl_surface::{SurfaceRole, WlSurfaceError},
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wl_data_device::*, WlDataDeviceId, WlDataOfferId, WlSurfaceId},
     },
     std::rc::Rc,
@@ -26,7 +25,7 @@ const ROLE: u32 = 0;
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub seat: Rc<WlSeatGlobal>,
     pub data: DeviceData<WlDataOffer>,
     pub tracker: Tracker<Self>,
@@ -36,7 +35,7 @@ impl WlDataDevice {
     pub fn new(
         id: WlDataDeviceId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
         seat: &Rc<WlSeatGlobal>,
     ) -> Self {
         Self {
@@ -98,9 +97,12 @@ impl WlDataDevice {
     pub fn send_drop(&self) {
         self.client.event(Drop { self_id: self.id })
     }
+}
 
-    fn start_drag(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
-        let req: StartDrag = self.client.parse(self, parser)?;
+impl WlDataDeviceRequestHandler for WlDataDevice {
+    type Error = WlDataDeviceError;
+
+    fn start_drag(&self, req: StartDrag, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.client.valid_serial(req.serial) {
             log::warn!("Client tried to start_drag with an invalid serial");
             return Ok(());
@@ -122,8 +124,7 @@ impl WlDataDevice {
         Ok(())
     }
 
-    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
-        let req: SetSelection = self.client.parse(self, parser)?;
+    fn set_selection(&self, req: SetSelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.client.valid_serial(req.serial) {
             log::warn!("Client tried to set_selection with an invalid serial");
             return Ok(());
@@ -142,8 +143,7 @@ impl WlDataDevice {
         Ok(())
     }
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataDeviceError> {
-        let _req: Release = self.client.parse(self, parser)?;
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<ClipboardIpc>(self);
         self.seat.remove_data_device(self);
         self.client.remove_obj(self)?;
@@ -158,7 +158,7 @@ impl IterableIpcVtable for ClipboardIpc {
     where
         C: FnMut(&Rc<Self::Device>),
     {
-        seat.for_each_data_device(0, client, f);
+        seat.for_each_data_device(Version::ALL, client, f);
     }
 }
 
@@ -224,10 +224,7 @@ impl IpcVtable for ClipboardIpc {
 
 object_base! {
     self = WlDataDevice;
-
-    START_DRAG => start_drag,
-    SET_SELECTION => set_selection,
-    RELEASE => release if self.version >= 2,
+    version = self.version;
 }
 
 impl Object for WlDataDevice {
@@ -241,8 +238,6 @@ simple_add_obj!(WlDataDevice);
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
@@ -250,7 +245,6 @@ pub enum WlDataDeviceError {
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(WlDataDeviceError, MsgParserError);
 efrom!(WlDataDeviceError, ClientError);
 efrom!(WlDataDeviceError, WlSeatError);
 efrom!(WlDataDeviceError, WlSurfaceError);

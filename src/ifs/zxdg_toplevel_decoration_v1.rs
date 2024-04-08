@@ -3,8 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zxdg_toplevel_decoration_v1::*, ZxdgToplevelDecorationV1Id},
     },
     std::rc::Rc,
@@ -19,6 +18,7 @@ pub struct ZxdgToplevelDecorationV1 {
     pub client: Rc<Client>,
     pub toplevel: Rc<XdgToplevel>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl ZxdgToplevelDecorationV1 {
@@ -26,12 +26,14 @@ impl ZxdgToplevelDecorationV1 {
         id: ZxdgToplevelDecorationV1Id,
         client: &Rc<Client>,
         toplevel: &Rc<XdgToplevel>,
+        version: Version,
     ) -> Self {
         Self {
             id,
             client: client.clone(),
             toplevel: toplevel.clone(),
             tracker: Default::default(),
+            version,
         }
     }
 
@@ -50,27 +52,22 @@ impl ZxdgToplevelDecorationV1 {
         self.send_configure(mode);
         self.toplevel.send_current_configure();
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgToplevelDecorationV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZxdgToplevelDecorationV1RequestHandler for ZxdgToplevelDecorationV1 {
+    type Error = ZxdgToplevelDecorationV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_mode(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZxdgToplevelDecorationV1Error> {
-        let _req: SetMode = self.client.parse(&**self, parser)?;
+    fn set_mode(&self, _req: SetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.do_send_configure();
         Ok(())
     }
 
-    fn unset_mode(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZxdgToplevelDecorationV1Error> {
-        let _req: UnsetMode = self.client.parse(&**self, parser)?;
+    fn unset_mode(&self, _req: UnsetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.do_send_configure();
         Ok(())
     }
@@ -78,10 +75,7 @@ impl ZxdgToplevelDecorationV1 {
 
 object_base! {
     self = ZxdgToplevelDecorationV1;
-
-    DESTROY => destroy,
-    SET_MODE => set_mode,
-    UNSET_MODE => unset_mode,
+    version = self.version;
 }
 
 impl Object for ZxdgToplevelDecorationV1 {}
@@ -90,10 +84,7 @@ simple_add_obj!(ZxdgToplevelDecorationV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgToplevelDecorationV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(ZxdgToplevelDecorationV1Error, ClientError);
-efrom!(ZxdgToplevelDecorationV1Error, MsgParserError);

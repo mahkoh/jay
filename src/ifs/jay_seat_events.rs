@@ -5,11 +5,11 @@ use {
         fixed::Fixed,
         ifs::wl_seat::{wl_pointer::PendingScroll, SeatId},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         wire::{jay_seat_events::*, JaySeatEventsId},
         xkbcommon::ModifierState,
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct JaySeatEvents {
@@ -124,8 +124,13 @@ impl JaySeatEvents {
     }
 }
 
+impl JaySeatEventsRequestHandler for JaySeatEvents {
+    type Error = Infallible;
+}
+
 object_base! {
     self = JaySeatEvents;
+    version = Version(1);
 }
 
 impl Object for JaySeatEvents {

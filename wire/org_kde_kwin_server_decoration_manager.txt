@@ -1,12 +1,12 @@
 # requests
 
-msg create = 0 {
+request create {
     id: id(org_kde_kwin_server_decoration),
     surface: id(wl_surface),
 }
 
 # events
 
-msg default_mode = 0 {
+event default_mode {
     mode: u32,
 }

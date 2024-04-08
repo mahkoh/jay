@@ -1,10 +1,10 @@
 # requests
 
-msg create_data_source = 0 {
+request create_data_source {
     id: id(wl_data_source),
 }
 
-msg get_data_device = 1 {
+request get_data_device {
     id: id(wl_data_device),
     seat: id(wl_seat),
 }

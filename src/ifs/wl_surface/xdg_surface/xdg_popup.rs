@@ -16,11 +16,7 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode, WorkspaceNode},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            linkedlist::LinkedNode,
-        },
+        utils::{clonecell::CloneCell, linkedlist::LinkedNode},
         wire::{xdg_popup::*, XdgPopupId},
     },
     std::{
@@ -205,9 +201,12 @@ impl XdgPopup {
                 .set_absolute_desired_extents(&rel.move_(parent.x1(), parent.y1()));
         }
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPopupError> {
-        let _req: Destroy = self.xdg.surface.client.parse(self, parser)?;
+impl XdgPopupRequestHandler for XdgPopup {
+    type Error = XdgPopupError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
         {
             if let Some(parent) = self.parent.take() {
@@ -221,13 +220,11 @@ impl XdgPopup {
         Ok(())
     }
 
-    fn grab(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgPopupError> {
-        let _req: Grab = self.xdg.surface.client.parse(self, parser)?;
+    fn grab(&self, _req: Grab, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn reposition(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgPopupError> {
-        let req: Reposition = self.xdg.surface.client.parse(&**self, parser)?;
+    fn reposition(&self, req: Reposition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
             self.update_position(&parent)?;
@@ -238,7 +235,9 @@ impl XdgPopup {
         }
         Ok(())
     }
+}
 
+impl XdgPopup {
     fn get_parent_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.parent.get()?.workspace.get()
     }
@@ -276,10 +275,7 @@ impl XdgPopup {
 
 object_base! {
     self = XdgPopup;
-
-    DESTROY => destroy,
-    GRAB => grab,
-    REPOSITION => reposition if self.xdg.base.version >= 3,
+    version = self.xdg.base.version;
 }
 
 impl Object for XdgPopup {
@@ -419,10 +415,7 @@ impl XdgSurfaceExt for XdgPopup {
 pub enum XdgPopupError {
     #[error("The `xdg_positioner` is incomplete")]
     Incomplete,
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(XdgPopupError, MsgParserError);
 efrom!(XdgPopupError, ClientError);

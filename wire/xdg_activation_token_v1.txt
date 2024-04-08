@@ -1,28 +1,28 @@
 # requests
 
-msg set_serial = 0 {
+request set_serial {
     serial: u32,
     seat: id(wl_seat),
 }
 
-msg set_app_id = 1 {
+request set_app_id {
     app_id: str,
 }
 
-msg set_surface = 2 {
+request set_surface {
     surface: id(wl_surface),
 }
 
-msg commit = 3 {
+request commit {
 
 }
 
-msg destroy = 4 {
+request destroy {
 
 }
 
 # events
 
-msg done = 0 {
+event done {
     token: str,
 }

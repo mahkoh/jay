@@ -2,8 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{org_kde_kwin_server_decoration::*, OrgKdeKwinServerDecorationId},
     },
     std::{cell::Cell, rc::Rc},
@@ -21,36 +20,37 @@ pub struct OrgKdeKwinServerDecoration {
     client: Rc<Client>,
     requested: Cell<bool>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl OrgKdeKwinServerDecoration {
-    pub fn new(id: OrgKdeKwinServerDecorationId, client: &Rc<Client>) -> Self {
+    pub fn new(id: OrgKdeKwinServerDecorationId, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             client: client.clone(),
             requested: Cell::new(false),
             tracker: Default::default(),
+            version,
         }
     }
 
-    pub fn send_mode(self: &Rc<Self>, mode: u32) {
+    pub fn send_mode(&self, mode: u32) {
         self.client.event(Mode {
             self_id: self.id,
             mode,
         })
     }
+}
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), OrgKdeKwinServerDecorationError> {
-        let _req: Release = self.client.parse(self, parser)?;
+impl OrgKdeKwinServerDecorationRequestHandler for OrgKdeKwinServerDecoration {
+    type Error = OrgKdeKwinServerDecorationError;
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn request_mode(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), OrgKdeKwinServerDecorationError> {
-        let req: RequestMode = self.client.parse(&**self, parser)?;
+    fn request_mode(&self, req: RequestMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.mode > SERVER {
             return Err(OrgKdeKwinServerDecorationError::InvalidMode(req.mode));
         }
@@ -66,9 +66,7 @@ impl OrgKdeKwinServerDecoration {
 
 object_base! {
     self = OrgKdeKwinServerDecoration;
-
-    RELEASE => release,
-    REQUEST_MODE => request_mode,
+    version = self.version;
 }
 
 impl Object for OrgKdeKwinServerDecoration {}
@@ -81,8 +79,5 @@ pub enum OrgKdeKwinServerDecorationError {
     ClientError(Box<ClientError>),
     #[error("Mode {0} does not exist")]
     InvalidMode(u32),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(OrgKdeKwinServerDecorationError, ClientError);
-efrom!(OrgKdeKwinServerDecorationError, MsgParserError);

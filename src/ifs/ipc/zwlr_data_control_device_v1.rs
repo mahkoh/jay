@@ -14,8 +14,7 @@ use {
             wl_seat::{WlSeatError, WlSeatGlobal},
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{
             zwlr_data_control_device_v1::*, ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id,
             ZwlrDataControlSourceV1Id,
@@ -25,12 +24,12 @@ use {
     thiserror::Error,
 };
 
-pub const PRIMARY_SELECTION_SINCE: u32 = 2;
+pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 
 pub struct ZwlrDataControlDeviceV1 {
     pub id: ZwlrDataControlDeviceV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub seat: Rc<WlSeatGlobal>,
     pub clipboard_data: DeviceData<ZwlrDataControlOfferV1>,
     pub primary_selection_data: DeviceData<ZwlrDataControlOfferV1>,
@@ -41,7 +40,7 @@ impl ZwlrDataControlDeviceV1 {
     pub fn new(
         id: ZwlrDataControlDeviceV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
         seat: &Rc<WlSeatGlobal>,
     ) -> Self {
         Self {
@@ -98,16 +97,18 @@ impl ZwlrDataControlDeviceV1 {
             Ok(Some(src))
         }
     }
+}
 
-    fn set_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlDeviceV1Error> {
-        let req: SetSelection = self.client.parse(self, parser)?;
+impl ZwlrDataControlDeviceV1RequestHandler for ZwlrDataControlDeviceV1 {
+    type Error = ZwlrDataControlDeviceV1Error;
+
+    fn set_selection(&self, req: SetSelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let src = self.use_source(req.source, IpcLocation::Clipboard)?;
         self.seat.set_selection(src)?;
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlDeviceV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<WlrClipboardIpc>(self);
         destroy_data_device::<WlrPrimarySelectionIpc>(self);
         self.seat.remove_wlr_device(self);
@@ -117,9 +118,9 @@ impl ZwlrDataControlDeviceV1 {
 
     fn set_primary_selection(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrDataControlDeviceV1Error> {
-        let req: SetPrimarySelection = self.client.parse(self, parser)?;
+        req: SetPrimarySelection,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let src = self.use_source(req.source, IpcLocation::PrimarySelection)?;
         self.seat.set_primary_selection(src)?;
         Ok(())
@@ -137,7 +138,7 @@ pub type WlrClipboardIpc = WlrIpcImpl<WlrClipboardIpcCore>;
 pub type WlrPrimarySelectionIpc = WlrIpcImpl<WlrPrimarySelectionIpcCore>;
 
 trait WlrIpc {
-    const MIN_VERSION: u32;
+    const MIN_VERSION: Version;
     const LOCATION: IpcLocation;
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1>;
@@ -153,7 +154,7 @@ trait WlrIpc {
 }
 
 impl WlrIpc for WlrClipboardIpcCore {
-    const MIN_VERSION: u32 = 1;
+    const MIN_VERSION: Version = Version::ALL;
     const LOCATION: IpcLocation = IpcLocation::Clipboard;
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1> {
@@ -180,7 +181,7 @@ impl WlrIpc for WlrClipboardIpcCore {
 }
 
 impl WlrIpc for WlrPrimarySelectionIpcCore {
-    const MIN_VERSION: u32 = PRIMARY_SELECTION_SINCE;
+    const MIN_VERSION: Version = PRIMARY_SELECTION_SINCE;
     const LOCATION: IpcLocation = IpcLocation::PrimarySelection;
 
     fn wlr_get_device_data(dd: &ZwlrDataControlDeviceV1) -> &DeviceData<ZwlrDataControlOfferV1> {
@@ -276,10 +277,7 @@ impl<T: WlrIpc> IpcVtable for WlrIpcImpl<T> {
 
 object_base! {
     self = ZwlrDataControlDeviceV1;
-
-    SET_SELECTION => set_selection,
-    DESTROY => destroy,
-    SET_PRIMARY_SELECTION => set_primary_selection if self.version >= 2,
+    version = self.version;
 }
 
 impl Object for ZwlrDataControlDeviceV1 {
@@ -292,8 +290,6 @@ simple_add_obj!(ZwlrDataControlDeviceV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlDeviceV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
@@ -301,6 +297,5 @@ pub enum ZwlrDataControlDeviceV1Error {
     #[error("The source has already been used")]
     AlreadyUsed,
 }
-efrom!(ZwlrDataControlDeviceV1Error, MsgParserError);
 efrom!(ZwlrDataControlDeviceV1Error, ClientError);
 efrom!(ZwlrDataControlDeviceV1Error, WlSeatError);

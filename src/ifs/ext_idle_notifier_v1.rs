@@ -4,12 +4,9 @@ use {
         globals::{Global, GlobalName},
         ifs::ext_idle_notification_v1::ExtIdleNotificationV1,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         time::now_usec,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            errorfmt::ErrorFmt,
-        },
+        utils::errorfmt::ErrorFmt,
         wire::{ext_idle_notifier_v1::*, ExtIdleNotifierV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -29,12 +26,13 @@ impl ExtIdleNotifierV1Global {
         self: Rc<Self>,
         id: ExtIdleNotifierV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        version: Version,
     ) -> Result<(), ExtIdleNotifierV1Error> {
         let obj = Rc::new(ExtIdleNotifierV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -46,17 +44,22 @@ pub struct ExtIdleNotifierV1 {
     pub id: ExtIdleNotifierV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
-impl ExtIdleNotifierV1 {
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtIdleNotifierV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
+    type Error = ExtIdleNotifierV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_idle_notification(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtIdleNotifierV1Error> {
-        let req: GetIdleNotification = self.client.parse(self, msg)?;
+    fn get_idle_notification(
+        &self,
+        req: GetIdleNotification,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
         let notification = Rc::new(ExtIdleNotificationV1 {
             id: req.id,
@@ -66,6 +69,7 @@ impl ExtIdleNotifierV1 {
             task: Cell::new(None),
             seat: seat.global.clone(),
             duration_usec: (req.timeout as u64).max(1000).saturating_mul(1000),
+            version: self.version,
         });
         self.client.add_client_obj(&notification)?;
         let future = self.client.state.eng.spawn(run(notification.clone()));
@@ -122,9 +126,7 @@ simple_add_global!(ExtIdleNotifierV1Global);
 
 object_base! {
     self = ExtIdleNotifierV1;
-
-    DESTROY => destroy,
-    GET_IDLE_NOTIFICATION => get_idle_notification,
+    version = self.version;
 }
 
 impl Object for ExtIdleNotifierV1 {}
@@ -133,10 +135,7 @@ simple_add_obj!(ExtIdleNotifierV1);
 
 #[derive(Debug, Error)]
 pub enum ExtIdleNotifierV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ExtIdleNotifierV1Error, MsgParserError);
 efrom!(ExtIdleNotifierV1Error, ClientError);

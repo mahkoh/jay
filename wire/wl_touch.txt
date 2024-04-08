@@ -1,12 +1,12 @@
 # requests
 
-msg release = 0 {
+request release (since = 3) {
 
 }
 
 # events
 
-msg down = 0 {
+event down {
     serial: u32,
     time: u32,
     surface: id(wl_surface),
@@ -15,34 +15,34 @@ msg down = 0 {
     y: fixed,
 }
 
-msg up = 1 {
+event up {
     serial: u32,
     time: u32,
     id: i32,
 }
 
-msg motion = 2 {
+event motion {
     time: u32,
     id: u32,
     x: fixed,
     y: fixed,
 }
 
-msg frame = 3 {
+event frame {
 
 }
 
-msg cancel = 4 {
+event cancel {
 
 }
 
-msg shape = 5 {
+event shape {
     id: i32,
     major: fixed,
     minor: fixed,
 }
 
-msg orientation = 6 {
+event orientation {
     id: i32,
     orientation: fixed,
 }

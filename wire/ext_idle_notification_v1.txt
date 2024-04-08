@@ -1,12 +1,12 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 }
 
 # events
 
-msg idled = 0 {
+event idled {
 }
 
-msg resumed = 1 {
+event resumed {
 }

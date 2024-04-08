@@ -12,8 +12,7 @@ use {
             wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_primary_selection_offer_v1::*, ZwpPrimarySelectionOfferV1Id},
     },
     std::rc::Rc,
@@ -27,6 +26,7 @@ pub struct ZwpPrimarySelectionOfferV1 {
     pub client: Rc<Client>,
     pub data: OfferData<ZwpPrimarySelectionDeviceV1>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl DataOffer for ZwpPrimarySelectionOfferV1 {
@@ -70,15 +70,17 @@ impl ZwpPrimarySelectionOfferV1 {
             mime_type,
         })
     }
+}
 
-    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionOfferV1Error> {
-        let req: Receive = self.client.parse(self, parser)?;
+impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
+    type Error = ZwpPrimarySelectionOfferV1Error;
+
+    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         receive_data_offer::<PrimarySelectionIpc>(self, req.mime_type, req.fd);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionOfferV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_offer::<PrimarySelectionIpc>(self);
         self.client.remove_obj(self)?;
         Ok(())
@@ -87,9 +89,7 @@ impl ZwpPrimarySelectionOfferV1 {
 
 object_base! {
     self = ZwpPrimarySelectionOfferV1;
-
-    RECEIVE => receive,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwpPrimarySelectionOfferV1 {
@@ -102,10 +102,7 @@ simple_add_obj!(ZwpPrimarySelectionOfferV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPrimarySelectionOfferV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
 efrom!(ZwpPrimarySelectionOfferV1Error, ClientError);
-efrom!(ZwpPrimarySelectionOfferV1Error, MsgParserError);

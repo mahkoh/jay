@@ -1,8 +1,8 @@
 # requests
 
-msg destroy = 0 { }
+request destroy { }
 
-msg add = 1 {
+request add {
     fd: fd,
     plane_idx: u32,
     offset: u32,
@@ -11,14 +11,14 @@ msg add = 1 {
     modifier_lo: u32,
 }
 
-msg create = 2 {
+request create {
     width: i32,
     height: i32,
     format: u32,
     flags: u32,
 }
 
-msg create_immed = 3 {
+request create_immed (since = 2) {
     buffer_id: id(wl_buffer),
     width: i32,
     height: i32,
@@ -28,10 +28,10 @@ msg create_immed = 3 {
 
 # events
 
-msg created = 0 {
+event created {
     buffer: id(wl_buffer),
 }
 
-msg failed = 1 {
+event failed {
 
 }

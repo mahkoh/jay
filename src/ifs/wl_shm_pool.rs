@@ -5,11 +5,8 @@ use {
         format::{formats, map_wayland_format_id},
         ifs::wl_buffer::{WlBuffer, WlBufferError},
         leaks::Tracker,
-        object::Object,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::{Object, Version},
+        utils::clonecell::CloneCell,
         wire::{wl_shm_pool::*, WlShmPoolId},
     },
     std::rc::Rc,
@@ -23,6 +20,7 @@ pub struct WlShmPool {
     fd: Rc<OwnedFd>,
     mem: CloneCell<Rc<ClientMem>>,
     pub tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WlShmPool {
@@ -31,6 +29,7 @@ impl WlShmPool {
         client: &Rc<Client>,
         fd: Rc<OwnedFd>,
         len: usize,
+        version: Version,
     ) -> Result<Self, WlShmPoolError> {
         Ok(Self {
             id,
@@ -38,11 +37,15 @@ impl WlShmPool {
             mem: CloneCell::new(Rc::new(ClientMem::new(fd.raw(), len, false)?)),
             fd,
             tracker: Default::default(),
+            version,
         })
     }
+}
 
-    fn create_buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmPoolError> {
-        let req: CreateBuffer = self.client.parse(self, parser)?;
+impl WlShmPoolRequestHandler for WlShmPool {
+    type Error = WlShmPoolError;
+
+    fn create_buffer(&self, req: CreateBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let drm_format = map_wayland_format_id(req.format);
         let format = match formats().get(&drm_format) {
             Some(f) if f.shm_info.is_some() => *f,
@@ -66,14 +69,12 @@ impl WlShmPool {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmPoolError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), WlShmPoolError> {
-        let req: Resize = self.client.parse(self, parser)?;
+    fn resize(&self, req: Resize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.size < 0 {
             return Err(WlShmPoolError::NegativeSize);
         }
@@ -91,10 +92,7 @@ impl WlShmPool {
 
 object_base! {
     self = WlShmPool;
-
-    CREATE_BUFFER => create_buffer,
-    DESTROY => destroy,
-    RESIZE => resize,
+    version = self.version;
 }
 
 impl Object for WlShmPool {}
@@ -107,8 +105,6 @@ pub enum WlShmPoolError {
     ClientError(Box<ClientError>),
     #[error(transparent)]
     ClientMemError(Box<ClientMemError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Tried to shrink the pool")]
     CannotShrink,
     #[error("Requested size is negative")]
@@ -123,4 +119,3 @@ pub enum WlShmPoolError {
 efrom!(WlShmPoolError, ClientError);
 efrom!(WlShmPoolError, ClientMemError);
 efrom!(WlShmPoolError, WlBufferError);
-efrom!(WlShmPoolError, MsgParserError);

@@ -1,4 +1,11 @@
 # requests
 
-msg destroy = 1 {
+request set_cursor {
+    serial: u32,
+    surface: id(wl_surface),
+    hotspot_x: i32,
+    hotspot_y: i32,
+}
+
+request destroy {
 }

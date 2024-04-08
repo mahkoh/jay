@@ -1,9 +1,9 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 }
 
-msg get_viewport = 1 {
+request get_viewport {
     id: id(wp_viewport),
     surface: id(wl_surface),
 }

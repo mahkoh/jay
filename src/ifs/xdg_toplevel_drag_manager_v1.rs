@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{xdg_toplevel_drag_manager_v1::*, XdgToplevelDragManagerV1Id},
     },
     std::rc::Rc,
@@ -25,7 +24,7 @@ impl XdgToplevelDragManagerV1Global {
         self: Rc<Self>,
         id: XdgToplevelDragManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), XdgToplevelDragManagerV1Error> {
         let mgr = Rc::new(XdgToplevelDragManagerV1 {
             id,
@@ -61,21 +60,22 @@ pub struct XdgToplevelDragManagerV1 {
     pub id: XdgToplevelDragManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: u32,
+    pub version: Version,
 }
 
-impl XdgToplevelDragManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelDragManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl XdgToplevelDragManagerV1RequestHandler for XdgToplevelDragManagerV1 {
+    type Error = XdgToplevelDragManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
     fn get_xdg_toplevel_drag(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgToplevelDragManagerV1Error> {
-        let req: GetXdgToplevelDrag = self.client.parse(self, parser)?;
+        req: GetXdgToplevelDrag,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let source = self.client.lookup(req.data_source)?;
         if source.data.was_used() {
             return Err(XdgToplevelDragManagerV1Error::AlreadyUsed);
@@ -83,7 +83,7 @@ impl XdgToplevelDragManagerV1 {
         if source.toplevel_drag.get().is_some() {
             return Err(XdgToplevelDragManagerV1Error::HasDrag);
         }
-        let drag = Rc::new(XdgToplevelDragV1::new(req.id, &source));
+        let drag = Rc::new(XdgToplevelDragV1::new(req.id, &source, self.version));
         track!(&self.client, drag);
         self.client.add_client_obj(&drag)?;
         source.toplevel_drag.set(Some(drag));
@@ -93,9 +93,7 @@ impl XdgToplevelDragManagerV1 {
 
 object_base! {
     self = XdgToplevelDragManagerV1;
-
-    DESTROY => destroy,
-    GET_XDG_TOPLEVEL_DRAG => get_xdg_toplevel_drag,
+    version = self.version;
 }
 
 impl Object for XdgToplevelDragManagerV1 {}
@@ -106,12 +104,9 @@ simple_add_obj!(XdgToplevelDragManagerV1);
 pub enum XdgToplevelDragManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The data source has already been used")]
     AlreadyUsed,
     #[error("The source already has a drag object")]
     HasDrag,
 }
 efrom!(XdgToplevelDragManagerV1Error, ClientError);
-efrom!(XdgToplevelDragManagerV1Error, MsgParserError);

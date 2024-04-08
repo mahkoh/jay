@@ -7,8 +7,7 @@ use {
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_linux_dmabuf_v1::*, ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id},
     },
     std::rc::Rc,
@@ -28,7 +27,7 @@ impl ZwpLinuxDmabufV1Global {
         self: Rc<Self>,
         id: ZwpLinuxDmabufV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZwpLinuxDmabufV1Error> {
         let obj = Rc::new(ZwpLinuxDmabufV1 {
             id,
@@ -55,8 +54,8 @@ impl ZwpLinuxDmabufV1Global {
     }
 }
 
-const MODIFIERS_SINCE_VERSION: u32 = 3;
-const FEEDBACK_SINCE_VERSION: u32 = 4;
+const MODIFIERS_SINCE_VERSION: Version = Version(3);
+const FEEDBACK_SINCE_VERSION: Version = Version(4);
 
 global_base!(
     ZwpLinuxDmabufV1Global,
@@ -79,7 +78,7 @@ simple_add_global!(ZwpLinuxDmabufV1Global);
 pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -100,29 +99,17 @@ impl ZwpLinuxDmabufV1 {
         })
     }
 
-    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxDmabufV1Error> {
-        let _req: Destroy = self.client.parse(&**self, parser)?;
-        self.client.remove_obj(&**self)?;
-        Ok(())
-    }
-
-    fn create_params(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
-        let req: CreateParams = self.client.parse(&**self, parser)?;
-        let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, self));
-        track!(self.client, params);
-        self.client.add_client_obj(&params)?;
-        Ok(())
-    }
-
     fn get_feedback(
-        self: &Rc<Self>,
+        &self,
         id: ZwpLinuxDmabufFeedbackV1Id,
         surface: Option<&Rc<WlSurface>>,
     ) -> Result<Rc<ZwpLinuxDmabufFeedbackV1>, ZwpLinuxDmabufV1Error> {
-        let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(id, &self.client, surface));
+        let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(
+            id,
+            &self.client,
+            surface,
+            self.version,
+        ));
         track!(self.client, fb);
         self.client.add_client_obj(&fb)?;
         self.client
@@ -134,21 +121,37 @@ impl ZwpLinuxDmabufV1 {
         }
         Ok(fb)
     }
+}
+
+impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
+    type Error = ZwpLinuxDmabufV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+
+    fn create_params(&self, req: CreateParams, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, slf));
+        track!(self.client, params);
+        self.client.add_client_obj(&params)?;
+        Ok(())
+    }
 
     fn get_default_feedback(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
-        let req: GetDefaultFeedback = self.client.parse(&**self, parser)?;
+        &self,
+        req: GetDefaultFeedback,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.get_feedback(req.id, None)?;
         Ok(())
     }
 
     fn get_surface_feedback(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
-        let req: GetSurfaceFeedback = self.client.parse(&**self, parser)?;
+        &self,
+        req: GetSurfaceFeedback,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let fb = self.get_feedback(req.id, Some(&surface))?;
         surface.drm_feedback.set(req.id, fb);
@@ -158,11 +161,7 @@ impl ZwpLinuxDmabufV1 {
 
 object_base! {
     self = ZwpLinuxDmabufV1;
-
-    DESTROY => destroy,
-    CREATE_PARAMS => create_params,
-    GET_DEFAULT_FEEDBACK => get_default_feedback if self.version >= 4,
-    GET_SURFACE_FEEDBACK => get_surface_feedback if self.version >= 4,
+    version = self.version;
 }
 
 impl Object for ZwpLinuxDmabufV1 {}
@@ -173,8 +172,5 @@ simple_add_obj!(ZwpLinuxDmabufV1);
 pub enum ZwpLinuxDmabufV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwpLinuxDmabufV1Error, ClientError);
-efrom!(ZwpLinuxDmabufV1Error, MsgParserError);

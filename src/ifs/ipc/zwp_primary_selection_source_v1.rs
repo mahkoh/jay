@@ -14,8 +14,7 @@ use {
             wl_seat::WlSeatGlobal,
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_primary_selection_source_v1::*, ZwpPrimarySelectionSourceV1Id},
     },
     std::rc::Rc,
@@ -27,6 +26,7 @@ pub struct ZwpPrimarySelectionSourceV1 {
     pub id: ZwpPrimarySelectionSourceV1Id,
     pub data: SourceData,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl DataSource for ZwpPrimarySelectionSourceV1 {
@@ -66,11 +66,12 @@ impl DynDataSource for ZwpPrimarySelectionSourceV1 {
 }
 
 impl ZwpPrimarySelectionSourceV1 {
-    pub fn new(id: ZwpPrimarySelectionSourceV1Id, client: &Rc<Client>) -> Self {
+    pub fn new(id: ZwpPrimarySelectionSourceV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             data: SourceData::new(client),
             tracker: Default::default(),
+            version,
         }
     }
 
@@ -85,15 +86,17 @@ impl ZwpPrimarySelectionSourceV1 {
             fd,
         })
     }
+}
 
-    fn offer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
-        let req: Offer = self.data.client.parse(self, parser)?;
+impl ZwpPrimarySelectionSourceV1RequestHandler for ZwpPrimarySelectionSourceV1 {
+    type Error = ZwpPrimarySelectionSourceV1Error;
+
+    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<PrimarySelectionIpc>(self, req.mime_type);
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpPrimarySelectionSourceV1Error> {
-        let _req: Destroy = self.data.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_source::<PrimarySelectionIpc>(self);
         self.data.client.remove_obj(self)?;
         Ok(())
@@ -102,9 +105,7 @@ impl ZwpPrimarySelectionSourceV1 {
 
 object_base! {
     self = ZwpPrimarySelectionSourceV1;
-
-    OFFER => offer,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwpPrimarySelectionSourceV1 {
@@ -123,8 +124,5 @@ dedicated_add_obj!(
 pub enum ZwpPrimarySelectionSourceV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwpPrimarySelectionSourceV1Error, ClientError);
-efrom!(ZwpPrimarySelectionSourceV1Error, MsgParserError);

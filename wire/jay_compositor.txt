@@ -1,90 +1,90 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 
 }
 
-msg get_log_file = 1 {
+request get_log_file {
     id: id(jay_log_file),
 }
 
-msg quit = 2 {
+request quit {
 }
 
-msg set_log_level = 3 {
+request set_log_level {
     level: u32,
 }
 
-msg take_screenshot = 4 {
+request take_screenshot {
     id: id(jay_screenshot),
 }
 
-msg get_idle = 5 {
+request get_idle {
     id: id(jay_idle),
 }
 
-msg get_client_id = 6 {
+request get_client_id {
 
 }
 
-msg enable_symmetric_delete = 7 {
+request enable_symmetric_delete {
 
 }
 
-msg unlock = 8 {
+request unlock {
 
 }
 
-msg get_seats = 9 {
+request get_seats {
 
 }
 
-msg seat_events = 10 {
+request seat_events {
     id: id(jay_seat_events),
 }
 
-msg get_output = 11 {
+request get_output {
     id: id(jay_output),
     output: id(wl_output),
 }
 
-msg get_pointer = 12 {
+request get_pointer {
     id: id(jay_pointer),
     seat: id(wl_seat),
 }
 
-msg get_render_ctx = 13 {
+request get_render_ctx {
     id: id(jay_render_ctx),
 }
 
-msg watch_workspaces = 14 {
+request watch_workspaces {
     id: id(jay_workspace_watcher),
 }
 
-msg create_screencast = 15 {
+request create_screencast {
     id: id(jay_screencast),
 }
 
-msg get_randr = 16 {
+request get_randr {
     id: id(jay_randr),
 }
 
-msg get_input = 17 {
+request get_input {
     id: id(jay_input),
 }
 
-msg take_screenshot2 = 18 {
+request take_screenshot2 {
     id: id(jay_screenshot),
     include_cursor: u32,
 }
 
 # events
 
-msg client_id = 0 {
+event client_id {
     client_id: pod(u64),
 }
 
-msg seat = 1 {
+event seat {
     id: u32,
     name: str,
 }

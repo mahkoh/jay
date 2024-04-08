@@ -19,11 +19,7 @@ use {
         rect::Rect,
         tree::{FindTreeResult, FoundNode, OutputNode, WorkspaceNode},
         utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            numcell::NumCell,
-            option_ext::OptionExt,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, numcell::NumCell, option_ext::OptionExt,
         },
         wire::{xdg_surface::*, WlSurfaceId, XdgPopupId, XdgSurfaceId},
     },
@@ -215,8 +211,17 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
-        let _req: Destroy = self.surface.client.parse(self, parser)?;
+    fn pending(&self) -> RefMut<Box<PendingXdgSurfaceData>> {
+        RefMut::map(self.surface.pending.borrow_mut(), |p| {
+            p.xdg_surface.get_or_insert_default_ext()
+        })
+    }
+}
+
+impl XdgSurfaceRequestHandler for XdgSurface {
+    type Error = XdgSurfaceError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.ext.is_some() {
             return Err(XdgSurfaceError::RoleNotYetDestroyed(self.id));
         }
@@ -232,12 +237,11 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn get_toplevel(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
-        let req: GetToplevel = self.surface.client.parse(&**self, parser)?;
+    fn get_toplevel(&self, req: GetToplevel, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_role(XdgSurfaceRole::XdgToplevel)?;
         if self.ext.is_some() {
             self.surface.client.protocol_error(
-                &**self,
+                self,
                 ALREADY_CONSTRUCTED,
                 &format!(
                     "wl_surface {} already has an assigned xdg_toplevel",
@@ -246,7 +250,7 @@ impl XdgSurface {
             );
             return Err(XdgSurfaceError::AlreadyConstructed);
         }
-        let toplevel = Rc::new(XdgToplevel::new(req.id, self));
+        let toplevel = Rc::new(XdgToplevel::new(req.id, slf));
         track!(self.surface.client, toplevel);
         self.surface.client.add_client_obj(&toplevel)?;
         self.ext.set(Some(toplevel.clone()));
@@ -257,8 +261,7 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn get_popup(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
-        let req: GetPopup = self.surface.client.parse(&**self, parser)?;
+    fn get_popup(&self, req: GetPopup, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_role(XdgSurfaceRole::XdgPopup)?;
         let mut parent = None;
         if req.parent.is_some() {
@@ -267,7 +270,7 @@ impl XdgSurface {
         let positioner = self.surface.client.lookup(req.positioner)?;
         if self.ext.is_some() {
             self.surface.client.protocol_error(
-                &**self,
+                self,
                 ALREADY_CONSTRUCTED,
                 &format!(
                     "wl_surface {} already has an assigned xdg_popup",
@@ -276,7 +279,7 @@ impl XdgSurface {
             );
             return Err(XdgSurfaceError::AlreadyConstructed);
         }
-        let popup = Rc::new(XdgPopup::new(req.id, self, parent.as_ref(), &positioner)?);
+        let popup = Rc::new(XdgPopup::new(req.id, slf, parent.as_ref(), &positioner)?);
         track!(self.surface.client, popup);
         self.surface.client.add_client_obj(&popup)?;
         if let Some(parent) = &parent {
@@ -286,14 +289,11 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn pending(&self) -> RefMut<Box<PendingXdgSurfaceData>> {
-        RefMut::map(self.surface.pending.borrow_mut(), |p| {
-            p.xdg_surface.get_or_insert_default_ext()
-        })
-    }
-
-    fn set_window_geometry(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
-        let req: SetWindowGeometry = self.surface.client.parse(self, parser)?;
+    fn set_window_geometry(
+        &self,
+        req: SetWindowGeometry,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         if req.height == 0 && req.width == 0 {
             // TODO: https://crbug.com/1329214
             return Ok(());
@@ -306,14 +306,15 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgSurfaceError> {
-        let req: AckConfigure = self.surface.client.parse(self, parser)?;
+    fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.requested_serial.get() == req.serial {
             self.acked_serial.set(Some(req.serial));
         }
         Ok(())
     }
+}
 
+impl XdgSurface {
     fn update_extents(&self) {
         let old_extents = self.extents.get();
         let mut new_extents = self.surface.extents.get();
@@ -360,12 +361,7 @@ impl XdgSurface {
 
 object_base! {
     self = XdgSurface;
-
-    DESTROY => destroy,
-    GET_TOPLEVEL => get_toplevel,
-    GET_POPUP => get_popup,
-    SET_WINDOW_GEOMETRY => set_window_geometry,
-    ACK_CONFIGURE => ack_configure,
+    version = self.base.version;
 }
 
 impl Object for XdgSurface {
@@ -429,8 +425,6 @@ pub enum XdgSurfaceError {
     },
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Tried no set a non-positive width/height")]
     NonPositiveWidthHeight,
     #[error("Cannot destroy xdg_surface {0} because it's associated xdg_toplevel/popup is not yet destroyed")]
@@ -444,4 +438,3 @@ pub enum XdgSurfaceError {
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 efrom!(XdgSurfaceError, ClientError);
-efrom!(XdgSurfaceError, MsgParserError);

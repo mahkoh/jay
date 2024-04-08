@@ -5,14 +5,10 @@ use {
         format::{Format, ARGB8888},
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         theme::Color,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-        },
+        utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
         video::dmabuf::DmaBuf,
         wire::{wl_buffer::*, WlBufferId},
     },
@@ -237,22 +233,24 @@ impl WlBuffer {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlBufferError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.client.remove_obj(self)?;
-        self.destroyed.set(true);
-        Ok(())
-    }
-
     pub fn send_release(&self) {
         self.client.event(Release { self_id: self.id })
     }
 }
 
+impl WlBufferRequestHandler for WlBuffer {
+    type Error = WlBufferError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        self.destroyed.set(true);
+        Ok(())
+    }
+}
+
 object_base! {
     self = WlBuffer;
-
-    DESTROY => destroy,
+    version = Version(1);
 }
 
 impl Object for WlBuffer {}
@@ -269,13 +267,10 @@ pub enum WlBufferError {
     ClientMemError(#[source] Box<ClientMemError>),
     #[error("The graphics library could not import the client image")]
     GfxError(#[from] GfxError),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Buffer format {0} is not supported for shm buffers")]
     UnsupportedShmFormat(&'static str),
 }
 efrom!(WlBufferError, ClientMemError);
-efrom!(WlBufferError, MsgParserError);
 efrom!(WlBufferError, ClientError);

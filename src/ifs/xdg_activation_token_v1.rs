@@ -2,11 +2,8 @@ use {
     crate::{
         client::{Client, ClientError},
         leaks::Tracker,
-        object::Object,
-        utils::{
-            activation_token::{activation_token, ActivationToken},
-            buffd::{MsgParser, MsgParserError},
-        },
+        object::{Object, Version},
+        utils::activation_token::{activation_token, ActivationToken},
         wire::{xdg_activation_token_v1::*, XdgActivationTokenV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -20,36 +17,38 @@ pub struct XdgActivationTokenV1 {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     already_used: Cell<bool>,
+    version: Version,
 }
 
 impl XdgActivationTokenV1 {
-    pub fn new(id: XdgActivationTokenV1Id, client: &Rc<Client>) -> Self {
+    pub fn new(id: XdgActivationTokenV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
             already_used: Cell::new(false),
+            version,
         }
     }
+}
 
-    fn set_serial(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationTokenV1Error> {
-        let _req: SetSerial = self.client.parse(self, parser)?;
+impl XdgActivationTokenV1RequestHandler for XdgActivationTokenV1 {
+    type Error = XdgActivationTokenV1Error;
+
+    fn set_serial(&self, _req: SetSerial, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationTokenV1Error> {
-        let _req: SetAppId = self.client.parse(self, parser)?;
+    fn set_app_id(&self, _req: SetAppId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn set_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationTokenV1Error> {
-        let req: SetSurface = self.client.parse(self, parser)?;
+    fn set_surface(&self, req: SetSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.lookup(req.surface)?;
         Ok(())
     }
 
-    fn commit(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationTokenV1Error> {
-        let _req: Commit = self.client.parse(self, parser)?;
+    fn commit(&self, _req: Commit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.already_used.replace(true) {
             return Err(XdgActivationTokenV1Error::AlreadyUsed);
         }
@@ -66,12 +65,13 @@ impl XdgActivationTokenV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgActivationTokenV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
+}
 
+impl XdgActivationTokenV1 {
     fn send_done(&self, token: ActivationToken) {
         let token = token.to_string();
         self.client.event(Done {
@@ -83,12 +83,7 @@ impl XdgActivationTokenV1 {
 
 object_base! {
     self = XdgActivationTokenV1;
-
-    SET_SERIAL => set_serial,
-    SET_APP_ID => set_app_id,
-    SET_SURFACE => set_surface,
-    COMMIT => commit,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for XdgActivationTokenV1 {}
@@ -99,10 +94,7 @@ simple_add_obj!(XdgActivationTokenV1);
 pub enum XdgActivationTokenV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The activation token has already been used")]
     AlreadyUsed,
 }
 efrom!(XdgActivationTokenV1Error, ClientError);
-efrom!(XdgActivationTokenV1Error, MsgParserError);

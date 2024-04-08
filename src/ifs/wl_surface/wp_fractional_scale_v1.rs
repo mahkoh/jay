@@ -3,8 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wp_fractional_scale_v1::*, WpFractionalScaleV1Id},
     },
     std::rc::Rc,
@@ -16,15 +15,17 @@ pub struct WpFractionalScaleV1 {
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl WpFractionalScaleV1 {
-    pub fn new(id: WpFractionalScaleV1Id, surface: &Rc<WlSurface>) -> Self {
+    pub fn new(id: WpFractionalScaleV1Id, surface: &Rc<WlSurface>, version: Version) -> Self {
         Self {
             id,
             client: surface.client.clone(),
             surface: surface.clone(),
             tracker: Default::default(),
+            version,
         }
     }
 
@@ -50,9 +51,12 @@ impl WpFractionalScaleV1 {
                 .to_wl(),
         });
     }
+}
 
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), WpFractionalScaleError> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl WpFractionalScaleV1RequestHandler for WpFractionalScaleV1 {
+    type Error = WpFractionalScaleError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.fractional_scale.take();
         self.client.remove_obj(self)?;
         Ok(())
@@ -61,8 +65,7 @@ impl WpFractionalScaleV1 {
 
 object_base! {
     self = WpFractionalScaleV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for WpFractionalScaleV1 {}
@@ -71,12 +74,9 @@ simple_add_obj!(WpFractionalScaleV1);
 
 #[derive(Debug, Error)]
 pub enum WpFractionalScaleError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("The surface already has a fractional scale extension attached")]
     Exists,
 }
-efrom!(WpFractionalScaleError, MsgParserError);
 efrom!(WpFractionalScaleError, ClientError);

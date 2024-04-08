@@ -3,22 +3,21 @@ use {
         client::{Client, ClientError},
         ifs::wl_output::{WlOutput, SEND_DONE_SINCE},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zxdg_output_v1::*, ZxdgOutputV1Id},
     },
     std::rc::Rc,
     thiserror::Error,
 };
 
-pub const NAME_SINCE: u32 = 2;
+pub const NAME_SINCE: Version = Version(2);
 #[allow(dead_code)]
-pub const DESCRIPTION_SINCE: u32 = 2;
-pub const NO_DONE_SINCE: u32 = 3;
+pub const DESCRIPTION_SINCE: Version = Version(2);
+pub const NO_DONE_SINCE: Version = Version(3);
 
 pub struct ZxdgOutputV1 {
     pub id: ZxdgOutputV1Id,
-    pub version: u32,
+    pub version: Version,
     pub client: Rc<Client>,
     pub output: Rc<WlOutput>,
     pub tracker: Tracker<Self>,
@@ -75,9 +74,12 @@ impl ZxdgOutputV1 {
             self.send_done();
         }
     }
+}
 
-    pub fn destroy(&self, msg: MsgParser) -> Result<(), ZxdgOutputV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
+    type Error = ZxdgOutputV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.output.xdg_outputs.remove(&self.id);
         self.client.remove_obj(self)?;
         Ok(())
@@ -86,8 +88,7 @@ impl ZxdgOutputV1 {
 
 object_base! {
     self = ZxdgOutputV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZxdgOutputV1 {}
@@ -96,10 +97,7 @@ simple_add_obj!(ZxdgOutputV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgOutputV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ZxdgOutputV1Error, MsgParserError);
 efrom!(ZxdgOutputV1Error, ClientError);

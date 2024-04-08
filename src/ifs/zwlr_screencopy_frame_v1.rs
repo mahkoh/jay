@@ -7,12 +7,9 @@ use {
             wl_output::WlOutputGlobal,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            linkedlist::LinkedNode,
-        },
+        utils::linkedlist::LinkedNode,
         wire::{zwlr_screencopy_frame_v1::*, WlBufferId, ZwlrScreencopyFrameV1Id},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
@@ -33,7 +30,7 @@ pub struct ZwlrScreencopyFrameV1 {
     pub with_damage: Cell<bool>,
     pub output_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     pub buffer: Cell<Option<Rc<WlBuffer>>>,
-    pub version: u32,
+    pub version: Version,
 }
 
 impl ZwlrScreencopyFrameV1 {
@@ -129,34 +126,29 @@ impl ZwlrScreencopyFrameV1 {
         self.output_link.set(Some(link));
         Ok(())
     }
+}
 
-    fn copy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrScreencopyFrameV1Error> {
-        let req: Copy = self.client.parse(self, parser)?;
+impl ZwlrScreencopyFrameV1RequestHandler for ZwlrScreencopyFrameV1 {
+    type Error = ZwlrScreencopyFrameV1Error;
+
+    fn copy(&self, req: Copy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.do_copy(req.buffer, false)
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrScreencopyFrameV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         self.output_link.take();
         Ok(())
     }
 
-    fn copy_with_damage(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrScreencopyFrameV1Error> {
-        let req: CopyWithDamage = self.client.parse(self, parser)?;
+    fn copy_with_damage(&self, req: CopyWithDamage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.do_copy(req.buffer, true)
     }
 }
 
 object_base! {
     self = ZwlrScreencopyFrameV1;
-
-    COPY => copy,
-    DESTROY => destroy,
-    COPY_WITH_DAMAGE => copy_with_damage if self.version >= 2,
+    version = self.version;
 }
 
 simple_add_obj!(ZwlrScreencopyFrameV1);
@@ -181,9 +173,6 @@ pub enum ZwlrScreencopyFrameV1Error {
     WlBufferError(Box<WlBufferError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error(transparent)]
-    MsgParserError(Box<MsgParserError>),
 }
 efrom!(ZwlrScreencopyFrameV1Error, WlBufferError);
 efrom!(ZwlrScreencopyFrameV1Error, ClientError);
-efrom!(ZwlrScreencopyFrameV1Error, MsgParserError);

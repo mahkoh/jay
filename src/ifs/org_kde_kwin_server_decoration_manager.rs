@@ -6,8 +6,7 @@ use {
             OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError,
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{org_kde_kwin_server_decoration_manager::*, OrgKdeKwinServerDecorationManagerId},
     },
     std::rc::Rc,
@@ -32,12 +31,12 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
         self: Rc<Self>,
         id: OrgKdeKwinServerDecorationManagerId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), OrgKdeKwinServerDecorationManagerError> {
         let obj = Rc::new(OrgKdeKwinServerDecorationManager {
             id,
             client: client.clone(),
-            _version: version,
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -68,7 +67,7 @@ simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
 pub struct OrgKdeKwinServerDecorationManager {
     id: OrgKdeKwinServerDecorationManagerId,
     client: Rc<Client>,
-    _version: u32,
+    version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -79,11 +78,18 @@ impl OrgKdeKwinServerDecorationManager {
             mode,
         })
     }
+}
 
-    fn create(&self, parser: MsgParser<'_, '_>) -> Result<(), OrgKdeKwinServerDecorationError> {
-        let req: Create = self.client.parse(self, parser)?;
+impl OrgKdeKwinServerDecorationManagerRequestHandler for OrgKdeKwinServerDecorationManager {
+    type Error = OrgKdeKwinServerDecorationError;
+
+    fn create(&self, req: Create, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let _ = self.client.lookup(req.surface)?;
-        let obj = Rc::new(OrgKdeKwinServerDecoration::new(req.id, &self.client));
+        let obj = Rc::new(OrgKdeKwinServerDecoration::new(
+            req.id,
+            &self.client,
+            self.version,
+        ));
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         obj.send_mode(SERVER);
@@ -93,8 +99,7 @@ impl OrgKdeKwinServerDecorationManager {
 
 object_base! {
     self = OrgKdeKwinServerDecorationManager;
-
-    CREATE => create,
+    version = self.version;
 }
 
 impl Object for OrgKdeKwinServerDecorationManager {}
@@ -105,8 +110,5 @@ simple_add_obj!(OrgKdeKwinServerDecorationManager);
 pub enum OrgKdeKwinServerDecorationManagerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(OrgKdeKwinServerDecorationManagerError, ClientError);
-efrom!(OrgKdeKwinServerDecorationManagerError, MsgParserError);

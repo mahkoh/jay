@@ -4,7 +4,6 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{wl_touch::*, WlTouchId},
     },
     std::rc::Rc,
@@ -40,9 +39,12 @@ impl WlTouch {
             tracker: Default::default(),
         }
     }
+}
 
-    fn release(&self, parser: MsgParser<'_, '_>) -> Result<(), WlTouchError> {
-        let _req: Release = self.seat.client.parse(self, parser)?;
+impl WlTouchRequestHandler for WlTouch {
+    type Error = WlTouchError;
+
+    fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.client.remove_obj(self)?;
         Ok(())
     }
@@ -50,8 +52,7 @@ impl WlTouch {
 
 object_base! {
     self = WlTouch;
-
-    RELEASE => release if self.seat.version >= 3,
+    version = self.seat.version;
 }
 
 impl Object for WlTouch {}
@@ -62,8 +63,5 @@ simple_add_obj!(WlTouch);
 pub enum WlTouchError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlTouchError, ClientError);
-efrom!(WlTouchError, MsgParserError);

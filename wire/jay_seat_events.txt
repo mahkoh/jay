@@ -1,20 +1,20 @@
 # events
 
-msg key = 0 {
+event key {
     seat: u32,
     time_usec: pod(u64),
     key: u32,
     state: u32,
 }
 
-msg pointer_abs = 1 {
+event pointer_abs {
     seat: u32,
     time_usec: pod(u64),
     x: fixed,
     y: fixed,
 }
 
-msg pointer_rel = 2 {
+event pointer_rel {
     seat: u32,
     time_usec: pod(u64),
     x: fixed,
@@ -25,43 +25,47 @@ msg pointer_rel = 2 {
     dy_unaccelerated: fixed,
 }
 
-msg button = 3 {
+event button {
     seat: u32,
     time_usec: pod(u64),
     button: u32,
     state: u32,
 }
 
-msg axis_source = 5 {
+event unused {
+
+}
+
+event axis_source {
     source: u32,
 }
 
-msg axis_px = 6 {
+event axis_px {
     dist: fixed,
     axis: u32,
 }
 
-msg axis_stop = 7 {
+event axis_stop {
     axis: u32,
 }
 
-msg axis_120 = 8 {
+event axis_120 {
     dist: i32,
     axis: u32,
 }
 
-msg axis_frame = 9 {
+event axis_frame {
     seat: u32,
     time_usec: pod(u64),
 }
 
-msg modifiers = 10 {
+event modifiers {
     seat: u32,
     modifiers: u32,
     group: u32,
 }
 
-msg axis_inverted = 11 {
+event axis_inverted {
     inverted: u32,
     axis: u32,
 }

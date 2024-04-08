@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::{wl_region::WlRegion, wl_surface::WlSurface},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wl_compositor::*, WlCompositorId},
         xwayland::XWaylandEvent,
     },
@@ -20,7 +19,7 @@ pub struct WlCompositorGlobal {
 pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
-    version: u32,
+    version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -33,7 +32,7 @@ impl WlCompositorGlobal {
         self: Rc<Self>,
         id: WlCompositorId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlCompositorError> {
         let obj = Rc::new(WlCompositor {
             id,
@@ -47,10 +46,11 @@ impl WlCompositorGlobal {
     }
 }
 
-impl WlCompositor {
-    fn create_surface(&self, parser: MsgParser<'_, '_>) -> Result<(), WlCompositorError> {
-        let surface: CreateSurface = self.client.parse(self, parser)?;
-        let surface = Rc::new(WlSurface::new(surface.id, &self.client, self.version));
+impl WlCompositorRequestHandler for WlCompositor {
+    type Error = WlCompositorError;
+
+    fn create_surface(&self, req: CreateSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let surface = Rc::new(WlSurface::new(req.id, &self.client, self.version));
         track!(self.client, surface);
         self.client.add_client_obj(&surface)?;
         if self.client.is_xwayland {
@@ -63,9 +63,8 @@ impl WlCompositor {
         Ok(())
     }
 
-    fn create_region(&self, parser: MsgParser<'_, '_>) -> Result<(), WlCompositorError> {
-        let region: CreateRegion = self.client.parse(self, parser)?;
-        let region = Rc::new(WlRegion::new(region.id, &self.client));
+    fn create_region(&self, req: CreateRegion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let region = Rc::new(WlRegion::new(req.id, &self.client, self.version));
         track!(self.client, region);
         self.client.add_client_obj(&region)?;
         Ok(())
@@ -88,9 +87,7 @@ simple_add_global!(WlCompositorGlobal);
 
 object_base! {
     self = WlCompositor;
-
-    CREATE_SURFACE => create_surface,
-    CREATE_REGION => create_region,
+    version = self.version;
 }
 
 impl Object for WlCompositor {}
@@ -101,9 +98,6 @@ simple_add_obj!(WlCompositor);
 pub enum WlCompositorError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 
 efrom!(WlCompositorError, ClientError);
-efrom!(WlCompositorError, MsgParserError);

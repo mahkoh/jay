@@ -1,30 +1,30 @@
 # requests
 
-msg set_selection = 0 {
+request set_selection {
     source: id(zwlr_data_control_source_v1),
 }
 
-msg destroy = 1 {
+request destroy {
 
 }
 
-msg set_primary_selection = 2 {
+request set_primary_selection (since = 2) {
     source: id(zwlr_data_control_source_v1),
 }
 
 # events
 
-msg data_offer = 0 {
+event data_offer {
     id: id(zwlr_data_control_offer_v1),
 }
 
-msg selection = 1 {
+event selection {
     id: id(zwlr_data_control_offer_v1),
 }
 
-msg finished = 2 {
+event finished {
 }
 
-msg primary_selection = 3 {
+event primary_selection {
     id: id(zwlr_data_control_offer_v1),
 }

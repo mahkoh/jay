@@ -7,11 +7,8 @@ use {
             xdg_positioner::XdgPositioner,
         },
         leaks::Tracker,
-        object::Object,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            copyhashmap::CopyHashMap,
-        },
+        object::{Object, Version},
+        utils::copyhashmap::CopyHashMap,
         wire::{xdg_wm_base::*, XdgSurfaceId, XdgWmBaseId},
     },
     std::rc::Rc,
@@ -37,7 +34,7 @@ pub struct XdgWmBaseGlobal {
 pub struct XdgWmBase {
     id: XdgWmBaseId,
     client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub(super) surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
     pub tracker: Tracker<Self>,
 }
@@ -51,7 +48,7 @@ impl XdgWmBaseGlobal {
         self: Rc<Self>,
         id: XdgWmBaseId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), XdgWmBaseError> {
         let obj = Rc::new(XdgWmBase {
             id,
@@ -66,9 +63,10 @@ impl XdgWmBaseGlobal {
     }
 }
 
-impl XdgWmBase {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl XdgWmBaseRequestHandler for XdgWmBase {
+    type Error = XdgWmBaseError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if !self.surfaces.is_empty() {
             self.client.protocol_error(
                 self,
@@ -84,18 +82,16 @@ impl XdgWmBase {
         Ok(())
     }
 
-    fn create_positioner(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
-        let req: CreatePositioner = self.client.parse(&**self, parser)?;
-        let pos = Rc::new(XdgPositioner::new(self, req.id, &self.client));
+    fn create_positioner(&self, req: CreatePositioner, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let pos = Rc::new(XdgPositioner::new(slf, req.id, &self.client));
         track!(self.client, pos);
         self.client.add_client_obj(&pos)?;
         Ok(())
     }
 
-    fn get_xdg_surface(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
-        let req: GetXdgSurface = self.client.parse(&**self, parser)?;
+    fn get_xdg_surface(&self, req: GetXdgSurface, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
-        let xdg_surface = Rc::new(XdgSurface::new(self, req.id, &surface));
+        let xdg_surface = Rc::new(XdgSurface::new(slf, req.id, &surface));
         track!(self.client, xdg_surface);
         self.client.add_client_obj(&xdg_surface)?;
         xdg_surface.install()?;
@@ -103,8 +99,7 @@ impl XdgWmBase {
         Ok(())
     }
 
-    fn pong(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgWmBaseError> {
-        let _req: Pong = self.client.parse(self, parser)?;
+    fn pong(&self, _req: Pong, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -125,11 +120,7 @@ simple_add_global!(XdgWmBaseGlobal);
 
 object_base! {
     self = XdgWmBase;
-
-    DESTROY => destroy,
-    CREATE_POSITIONER => create_positioner,
-    GET_XDG_SURFACE => get_xdg_surface,
-    PONG => pong,
+    version = self.version;
 }
 
 dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
@@ -144,13 +135,10 @@ impl Object for XdgWmBase {
 pub enum XdgWmBaseError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Tried to destroy xdg_wm_base object before destroying its surfaces")]
     DefunctSurfaces,
     #[error(transparent)]
     XdgSurfaceError(Box<XdgSurfaceError>),
 }
 efrom!(XdgWmBaseError, ClientError);
-efrom!(XdgWmBaseError, MsgParserError);
 efrom!(XdgWmBaseError, XdgSurfaceError);

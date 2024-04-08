@@ -3,8 +3,7 @@ use {
         client::ClientError,
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wp_tearing_control_v1::*, WlSurfaceId, WpTearingControlV1Id},
     },
     std::{fmt::Debug, rc::Rc},
@@ -18,6 +17,7 @@ pub struct WpTearingControlV1 {
     pub id: WpTearingControlV1Id,
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl WpTearingControlV1 {
@@ -28,12 +28,16 @@ impl WpTearingControlV1 {
         self.surface.tearing_control.set(Some(self.clone()));
         Ok(())
     }
+}
+
+impl WpTearingControlV1RequestHandler for WpTearingControlV1 {
+    type Error = WpTearingControlV1Error;
 
     fn set_presentation_hint(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WpTearingControlV1Error> {
-        let req: SetPresentationHint = self.surface.client.parse(self, parser)?;
+        req: SetPresentationHint,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let tearing = match req.hint {
             VSYNC => false,
             ASYNC => true,
@@ -43,8 +47,7 @@ impl WpTearingControlV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WpTearingControlV1Error> {
-        let _req: Destroy = self.surface.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.pending.borrow_mut().tearing = Some(false);
         self.surface.tearing_control.take();
         self.surface.client.remove_obj(self)?;
@@ -54,9 +57,7 @@ impl WpTearingControlV1 {
 
 object_base! {
     self = WpTearingControlV1;
-
-    SET_PRESENTATION_HINT => set_presentation_hint,
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for WpTearingControlV1 {}
@@ -71,8 +72,5 @@ pub enum WpTearingControlV1Error {
     UnknownPresentationHint(u32),
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WpTearingControlV1Error, ClientError);
-efrom!(WpTearingControlV1Error, MsgParserError);

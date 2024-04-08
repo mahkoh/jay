@@ -12,11 +12,7 @@ use {
         renderer::Renderer,
         tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
         utils::{
-            bitflags::BitflagsExt,
-            buffd::{MsgParser, MsgParserError},
-            cell_ext::CellExt,
-            linkedlist::LinkedNode,
-            numcell::NumCell,
+            bitflags::BitflagsExt, cell_ext::CellExt, linkedlist::LinkedNode, numcell::NumCell,
             option_ext::OptionExt,
         },
         wire::{zwlr_layer_surface_v1::*, WlSurfaceId, ZwlrLayerSurfaceV1Id},
@@ -157,9 +153,12 @@ impl ZwlrLayerSurfaceV1 {
             m.layer_surface.get_or_insert_default_ext()
         })
     }
+}
 
-    fn set_size(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: SetSize = self.client.parse(self, parser)?;
+impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
+    type Error = ZwlrLayerSurfaceV1Error;
+
+    fn set_size(&self, req: SetSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.width > u16::MAX as u32 || req.height > u16::MAX as u32 {
             return Err(ZwlrLayerSurfaceV1Error::ExcessiveSize);
         }
@@ -169,8 +168,7 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn set_anchor(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: SetAnchor = self.client.parse(self, parser)?;
+    fn set_anchor(&self, req: SetAnchor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.anchor & !(LEFT | RIGHT | TOP | BOTTOM) != 0 {
             return Err(ZwlrLayerSurfaceV1Error::UnknownAnchor(req.anchor));
         }
@@ -180,16 +178,18 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn set_exclusive_zone(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: SetExclusiveZone = self.client.parse(self, parser)?;
+    fn set_exclusive_zone(
+        &self,
+        req: SetExclusiveZone,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let mut pending = self.pending();
         pending.exclusive_zone = Some(req.zone);
         pending.any = true;
         Ok(())
     }
 
-    fn set_margin(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: SetMargin = self.client.parse(self, parser)?;
+    fn set_margin(&self, req: SetMargin, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut pending = self.pending();
         pending.margin = Some((req.top, req.right, req.bottom, req.left));
         pending.any = true;
@@ -198,9 +198,9 @@ impl ZwlrLayerSurfaceV1 {
 
     fn set_keyboard_interactivity(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: SetKeyboardInteractivity = self.client.parse(self, parser)?;
+        req: SetKeyboardInteractivity,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         if req.keyboard_interactivity > KI_ON_DEMAND {
             return Err(ZwlrLayerSurfaceV1Error::UnknownKi(
                 req.keyboard_interactivity,
@@ -212,27 +212,23 @@ impl ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn get_popup(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let _req: GetPopup = self.client.parse(self, parser)?;
+    fn get_popup(&self, _req: GetPopup, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn ack_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: AckConfigure = self.client.parse(self, parser)?;
+    fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.acked_serial.set(Some(req.serial));
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
         self.client.remove_obj(self)?;
         self.surface.unset_ext();
         Ok(())
     }
 
-    fn set_layer(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let req: SetLayer = self.client.parse(self, parser)?;
+    fn set_layer(&self, req: SetLayer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.layer > OVERLAY {
             return Err(ZwlrLayerSurfaceV1Error::UnknownLayer(req.layer));
         }
@@ -241,7 +237,9 @@ impl ZwlrLayerSurfaceV1 {
         pending.any = true;
         Ok(())
     }
+}
 
+impl ZwlrLayerSurfaceV1 {
     fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let pending = pending.layer_surface.get_or_insert_default_ext();
         let mut send_configure = mem::replace(&mut pending.any, false);
@@ -437,16 +435,7 @@ impl Node for ZwlrLayerSurfaceV1 {
 
 object_base! {
     self = ZwlrLayerSurfaceV1;
-
-    SET_SIZE                   => set_size,
-    SET_ANCHOR                 => set_anchor,
-    SET_EXCLUSIVE_ZONE         => set_exclusive_zone,
-    SET_MARGIN                 => set_margin,
-    SET_KEYBOARD_INTERACTIVITY => set_keyboard_interactivity,
-    GET_POPUP                  => get_popup,
-    ACK_CONFIGURE              => ack_configure,
-    DESTROY                    => destroy,
-    SET_LAYER                  => set_layer if self.shell.version >= 2,
+    version = self.shell.version;
 }
 
 impl Object for ZwlrLayerSurfaceV1 {
@@ -468,8 +457,6 @@ pub enum ZwlrLayerSurfaceV1Error {
     HeightZero,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("Unknown layer {0}")]
@@ -482,5 +469,4 @@ pub enum ZwlrLayerSurfaceV1Error {
     UnknownKi(u32),
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
-efrom!(ZwlrLayerSurfaceV1Error, MsgParserError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);

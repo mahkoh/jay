@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zxdg_decoration_manager_v1::*, ZxdgDecorationManagerV1Id},
     },
     std::rc::Rc,
@@ -25,12 +24,12 @@ impl ZxdgDecorationManagerV1Global {
         self: Rc<Self>,
         id: ZxdgDecorationManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZxdgDecorationManagerV1Error> {
         let obj = Rc::new(ZxdgDecorationManagerV1 {
             id,
             client: client.clone(),
-            _version: version,
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -60,24 +59,30 @@ simple_add_global!(ZxdgDecorationManagerV1Global);
 pub struct ZxdgDecorationManagerV1 {
     id: ZxdgDecorationManagerV1Id,
     client: Rc<Client>,
-    _version: u32,
+    version: Version,
     tracker: Tracker<Self>,
 }
 
-impl ZxdgDecorationManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgDecorationManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZxdgDecorationManagerV1RequestHandler for ZxdgDecorationManagerV1 {
+    type Error = ZxdgDecorationManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
     fn get_toplevel_decoration(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZxdgDecorationManagerV1Error> {
-        let req: GetToplevelDecoration = self.client.parse(self, parser)?;
+        req: GetToplevelDecoration,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let tl = self.client.lookup(req.toplevel)?;
-        let obj = Rc::new(ZxdgToplevelDecorationV1::new(req.id, &self.client, &tl));
+        let obj = Rc::new(ZxdgToplevelDecorationV1::new(
+            req.id,
+            &self.client,
+            &tl,
+            self.version,
+        ));
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         obj.do_send_configure();
@@ -87,9 +92,7 @@ impl ZxdgDecorationManagerV1 {
 
 object_base! {
     self = ZxdgDecorationManagerV1;
-
-    DESTROY => destroy,
-    GET_TOPLEVEL_DECORATION => get_toplevel_decoration,
+    version = self.version;
 }
 
 impl Object for ZxdgDecorationManagerV1 {}
@@ -100,8 +103,5 @@ simple_add_obj!(ZxdgDecorationManagerV1);
 pub enum ZxdgDecorationManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZxdgDecorationManagerV1Error, ClientError);
-efrom!(ZxdgDecorationManagerV1Error, MsgParserError);

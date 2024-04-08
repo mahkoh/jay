@@ -25,8 +25,6 @@ pub enum ClientError {
     UnalignedMessage,
     #[error("The requested client {0} does not exist")]
     ClientDoesNotExist(ClientId),
-    #[error("Cannot parse the message")]
-    ParserError(#[source] Box<MsgParserError>),
     #[error("Server tried to allocate more than 0x1_00_00_00 ids")]
     TooManyIds,
     #[error("The server object id is out of bounds")]
@@ -39,35 +37,27 @@ pub enum ClientError {
     ClientIdOutOfBounds,
     #[error("Object {0} is not a display")]
     NotADisplay(WlDisplayId),
-    #[error(transparent)]
-    ObjectError(ObjectError),
+    #[error("Could not process a `{}.{}` request", .interface.name(), .method)]
+    MethodError {
+        interface: Interface,
+        method: &'static str,
+        #[source]
+        error: Box<dyn Error + 'static>,
+    },
     #[error(transparent)]
     LookupError(LookupError),
     #[error("Could not add object {0} to the client")]
     AddObjectError(ObjectId, #[source] Box<ClientError>),
 }
-efrom!(ClientError, ParserError, MsgParserError);
+
+#[derive(Debug, Error)]
+#[error("Parsing failed")]
+pub struct ParserError(#[source] pub MsgParserError);
 
 impl ClientError {
     pub fn peer_closed(&self) -> bool {
         matches!(self, ClientError::Io(BufFdError::Closed))
     }
-}
-
-#[derive(Debug, Error)]
-#[error("Could not process a `{method}` request")]
-pub struct MethodError {
-    pub method: &'static str,
-    #[source]
-    pub error: Box<dyn Error + 'static>,
-}
-
-#[derive(Debug, Error)]
-#[error("An error occurred in a `{}`", .interface.name())]
-pub struct ObjectError {
-    pub interface: Interface,
-    #[source]
-    pub error: Box<dyn Error + 'static>,
 }
 
 #[derive(Debug, Error)]

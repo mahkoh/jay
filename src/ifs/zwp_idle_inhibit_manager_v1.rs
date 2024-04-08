@@ -7,8 +7,7 @@ use {
             zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error,
         },
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_idle_inhibit_manager_v1::*, ZwpIdleInhibitManagerV1Id},
     },
     std::rc::Rc,
@@ -28,12 +27,12 @@ impl ZwpIdleInhibitManagerV1Global {
         self: Rc<Self>,
         id: ZwpIdleInhibitManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZxdgDecorationManagerV1Error> {
         let obj = Rc::new(ZwpIdleInhibitManagerV1 {
             id,
             client: client.clone(),
-            _version: version,
+            version,
             tracker: Default::default(),
         });
         track!(client, obj);
@@ -63,22 +62,19 @@ simple_add_global!(ZwpIdleInhibitManagerV1Global);
 pub struct ZwpIdleInhibitManagerV1 {
     pub id: ZwpIdleInhibitManagerV1Id,
     pub client: Rc<Client>,
-    pub _version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
-impl ZwpIdleInhibitManagerV1 {
-    pub fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpIdleInhibitManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
+    type Error = ZwpIdleInhibitManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    pub fn create_inhibitor(
-        &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZwpIdleInhibitManagerV1Error> {
-        let req: CreateInhibitor = self.client.parse(self, parser)?;
+    fn create_inhibitor(&self, req: CreateInhibitor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let inhibit = Rc::new(ZwpIdleInhibitorV1 {
             id: req.id,
@@ -86,6 +82,7 @@ impl ZwpIdleInhibitManagerV1 {
             client: self.client.clone(),
             surface,
             tracker: Default::default(),
+            version: self.version,
         });
         track!(self.client, inhibit);
         self.client.add_client_obj(&inhibit)?;
@@ -96,9 +93,7 @@ impl ZwpIdleInhibitManagerV1 {
 
 object_base! {
     self = ZwpIdleInhibitManagerV1;
-
-    DESTROY => destroy,
-    CREATE_INHIBITOR => create_inhibitor,
+    version = self.version;
 }
 
 impl Object for ZwpIdleInhibitManagerV1 {}
@@ -107,12 +102,9 @@ simple_add_obj!(ZwpIdleInhibitManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpIdleInhibitManagerV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
     ZwpIdleInhibitorV1Error(#[from] ZwpIdleInhibitorV1Error),
 }
 efrom!(ZwpIdleInhibitManagerV1Error, ClientError);
-efrom!(ZwpIdleInhibitManagerV1Error, MsgParserError);

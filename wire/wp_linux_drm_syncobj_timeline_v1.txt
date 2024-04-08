@@ -1,5 +1,5 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 
 }

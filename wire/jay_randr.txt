@@ -1,62 +1,62 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 
 }
 
-msg get = 1 {
+request get {
 
 }
 
-msg set_api = 2 {
+request set_api {
     dev: str,
     api: str,
 }
 
-msg make_render_device = 3 {
+request make_render_device {
     dev: str,
 }
 
-msg set_direct_scanout = 4 {
+request set_direct_scanout {
     dev: str,
     enabled: u32,
 }
 
-msg set_transform = 5 {
+request set_transform {
     output: str,
     transform: i32,
 }
 
-msg set_scale = 6 {
+request set_scale {
     output: str,
     scale: u32,
 }
 
-msg set_mode = 7 {
+request set_mode {
     output: str,
     width: i32,
     height: i32,
     refresh_rate_millihz: u32,
 }
 
-msg set_position = 8 {
+request set_position {
     output: str,
     x: i32,
     y: i32,
 }
 
-msg set_enabled = 9 {
+request set_enabled {
     output: str,
     enabled: u32,
 }
 
 # events
 
-msg global = 0 {
+event global {
     default_gfx_api: str,
 }
 
-msg drm_device = 1 {
+event drm_device {
     id: pod(u64),
     syspath: str,
     vendor: u32,
@@ -68,14 +68,14 @@ msg drm_device = 1 {
     render_device: u32,
 }
 
-msg connector = 2 {
+event connector {
     id: pod(u64),
     drm_device: pod(u64),
     name: str,
     enabled: u32,
 }
 
-msg output = 3 {
+event output {
     scale: u32,
     width: i32,
     height: i32,
@@ -89,13 +89,13 @@ msg output = 3 {
     height_mm: i32,
 }
 
-msg mode = 4 {
+event mode {
     width: i32,
     height: i32,
     refresh_rate_millihz: u32,
     current: u32,
 }
 
-msg error = 5 {
+event error {
     msg: str,
 }

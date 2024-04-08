@@ -27,6 +27,7 @@ use {
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
+        object::Version,
         state::DeviceHandlerData,
         tree::{Direction, FloatNode, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, smallmap::SmallMap},
@@ -431,7 +432,7 @@ impl WlSeatGlobal {
         self.kb_owner.set_kb_node(self, node);
     }
 
-    fn for_each_seat<C>(&self, ver: u32, client: ClientId, mut f: C)
+    fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlSeat>),
     {
@@ -445,7 +446,7 @@ impl WlSeatGlobal {
         }
     }
 
-    fn for_each_pointer<C>(&self, ver: u32, client: ClientId, mut f: C)
+    fn for_each_pointer<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlPointer>),
     {
@@ -461,7 +462,7 @@ impl WlSeatGlobal {
     where
         C: FnMut(&Rc<ZwpRelativePointerV1>),
     {
-        self.for_each_seat(0, client, |seat| {
+        self.for_each_seat(Version::ALL, client, |seat| {
             let pointers = seat.relative_pointers.lock();
             for pointer in pointers.values() {
                 f(pointer);
@@ -469,7 +470,7 @@ impl WlSeatGlobal {
         })
     }
 
-    fn for_each_kb<C>(&self, ver: u32, client: ClientId, mut f: C)
+    fn for_each_kb<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlKeyboard>),
     {
@@ -481,7 +482,7 @@ impl WlSeatGlobal {
         })
     }
 
-    pub fn for_each_data_device<C>(&self, ver: u32, client: ClientId, mut f: C)
+    pub fn for_each_data_device<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlDataDevice>),
     {
@@ -495,7 +496,7 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn for_each_primary_selection_device<C>(&self, ver: u32, client: ClientId, mut f: C)
+    pub fn for_each_primary_selection_device<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<ZwpPrimarySelectionDeviceV1>),
     {
@@ -509,7 +510,7 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn for_each_wlr_data_device<C>(&self, ver: u32, mut f: C)
+    pub fn for_each_wlr_data_device<C>(&self, ver: Version, mut f: C)
     where
         C: FnMut(&Rc<ZwlrDataControlDeviceV1>),
     {
@@ -524,7 +525,7 @@ impl WlSeatGlobal {
         self.surface_pointer_event(POINTER_FRAME_SINCE_VERSION, surface, |p| p.send_frame());
     }
 
-    fn surface_pointer_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
+    fn surface_pointer_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlPointer>),
     {
@@ -545,7 +546,7 @@ impl WlSeatGlobal {
         });
     }
 
-    fn surface_kb_event<F>(&self, ver: u32, surface: &WlSurface, mut f: F)
+    fn surface_kb_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlKeyboard>),
     {
@@ -603,7 +604,9 @@ impl WlSeatGlobal {
             KeyState::Pressed => (wl_pointer::PRESSED, true),
         };
         let time = (time_usec / 1000) as u32;
-        self.surface_pointer_event(0, surface, |p| p.send_button(serial, time, button, state));
+        self.surface_pointer_event(Version::ALL, surface, |p| {
+            p.send_button(serial, time, button, state)
+        });
         self.surface_pointer_frame(surface);
         if pressed {
             if let Some(node) = surface.get_focus_node(self.id) {
@@ -625,7 +628,7 @@ impl WlSeatGlobal {
             self.surface_pointer_event(since, surface, |p| p.send_axis_source(source));
         }
         let time = (event.time_usec.get() / 1000) as _;
-        self.for_each_pointer(0, surface.client.id, |p| {
+        self.for_each_pointer(Version::ALL, surface.client.id, |p| {
             for i in 0..1 {
                 let axis = i as _;
                 if let Some(delta) = event.v120[i].get() {
@@ -666,7 +669,7 @@ impl WlSeatGlobal {
                 }
             }
             let time = (self.pos_time_usec.get() / 1000) as u32;
-            self.surface_pointer_event(0, n, |p| p.send_motion(time, x, y));
+            self.surface_pointer_event(Version::ALL, n, |p| p.send_motion(time, x, y));
         }
         self.surface_pointer_frame(n);
         self.maybe_constrain(n, x, y);
@@ -705,7 +708,7 @@ impl WlSeatGlobal {
     pub fn enter_surface(&self, n: &WlSurface, x: Fixed, y: Fixed) {
         let serial = n.client.next_serial();
         n.client.last_enter_serial.set(serial);
-        self.surface_pointer_event(0, n, |p| p.send_enter(serial, n.id, x, y));
+        self.surface_pointer_event(Version::ALL, n, |p| p.send_enter(serial, n.id, x, y));
         self.surface_pointer_frame(n);
         for (_, constraint) in &n.constraints {
             if constraint.status.get() == SeatConstraintStatus::ActivatableOnFocus {
@@ -723,7 +726,7 @@ impl WlSeatGlobal {
         for (_, constraint) in &n.constraints {
             constraint.deactivate();
         }
-        self.surface_pointer_event(0, n, |p| p.send_leave(serial, n.id));
+        self.surface_pointer_event(Version::ALL, n, |p| p.send_leave(serial, n.id));
         self.surface_pointer_frame(n);
     }
 }
@@ -732,7 +735,7 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
         let serial = surface.client.next_serial();
-        self.surface_kb_event(0, surface, |k| k.send_leave(serial, surface.id))
+        self.surface_kb_event(Version::ALL, surface, |k| k.send_leave(serial, surface.id))
     }
 }
 
@@ -741,7 +744,7 @@ impl WlSeatGlobal {
     pub fn focus_surface(&self, surface: &WlSurface) {
         let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
         let serial = surface.client.next_serial();
-        self.surface_kb_event(0, surface, |k| {
+        self.surface_kb_event(Version::ALL, surface, |k| {
             k.send_enter(serial, surface.id, &pressed_keys)
         });
         let ModifierState {
@@ -752,7 +755,7 @@ impl WlSeatGlobal {
             ..
         } = self.kb_state.borrow().mods();
         let serial = surface.client.next_serial();
-        self.surface_kb_event(0, surface, |k| {
+        self.surface_kb_event(Version::ALL, surface, |k| {
             k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
         });
 
@@ -774,7 +777,9 @@ impl WlSeatGlobal {
     pub fn key_surface(&self, surface: &WlSurface, time_usec: u64, key: u32, state: u32) {
         let serial = surface.client.next_serial();
         let time = (time_usec / 1000) as _;
-        self.surface_kb_event(0, surface, |k| k.send_key(serial, time, key, state));
+        self.surface_kb_event(Version::ALL, surface, |k| {
+            k.send_key(serial, time, key, state)
+        });
     }
 }
 
@@ -782,7 +787,7 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn mods_surface(&self, surface: &WlSurface, mods: ModifierState) {
         let serial = surface.client.next_serial();
-        self.surface_kb_event(0, surface, |k| {
+        self.surface_kb_event(Version::ALL, surface, |k| {
             k.send_modifiers(
                 serial,
                 mods.mods_depressed,
@@ -798,7 +803,7 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn dnd_surface_leave(&self, surface: &WlSurface, dnd: &Dnd) {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
-            self.for_each_data_device(0, surface.client.id, |dd| {
+            self.for_each_data_device(Version::ALL, surface.client.id, |dd| {
                 dd.send_leave();
             })
         }
@@ -810,7 +815,7 @@ impl WlSeatGlobal {
 
     pub fn dnd_surface_drop(&self, surface: &WlSurface, dnd: &Dnd) {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
-            self.for_each_data_device(0, surface.client.id, |dd| {
+            self.for_each_data_device(Version::ALL, surface.client.id, |dd| {
                 dd.send_drop();
             })
         }
@@ -834,7 +839,7 @@ impl WlSeatGlobal {
                 offer.send_source_actions();
             })
         } else if surface.client.id == dnd.client.id {
-            self.for_each_data_device(0, dnd.client.id, |dd| {
+            self.for_each_data_device(Version::ALL, dnd.client.id, |dd| {
                 dd.send_enter(surface.id, x, y, WlDataOfferId::NONE, serial);
             })
         }
@@ -850,7 +855,7 @@ impl WlSeatGlobal {
         y: Fixed,
     ) {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
-            self.for_each_data_device(0, surface.client.id, |dd| {
+            self.for_each_data_device(Version::ALL, surface.client.id, |dd| {
                 dd.send_motion(time_usec, x, y);
             })
         }

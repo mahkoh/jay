@@ -1,5 +1,5 @@
 # events
 
-msg done = 0 {
+event done {
     callback_data: u32,
 }

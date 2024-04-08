@@ -1,19 +1,19 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 
 }
 
-msg set_region = 1 {
+request set_region {
     region: id(wl_region),
 }
 
 # events
 
-msg confined = 0 {
+event confined {
 
 }
 
-msg unconfined = 1 {
+event unconfined {
 
 }

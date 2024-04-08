@@ -4,11 +4,8 @@ use {
         client::{Client, ClientError},
         ifs::wl_seat::WlSeatGlobal,
         leaks::Tracker,
-        object::Object,
-        utils::{
-            asyncevent::AsyncEvent,
-            buffd::{MsgParser, MsgParserError},
-        },
+        object::{Object, Version},
+        utils::asyncevent::AsyncEvent,
         wire::{ext_idle_notification_v1::*, ExtIdleNotificationV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -23,6 +20,7 @@ pub struct ExtIdleNotificationV1 {
     pub task: Cell<Option<SpawnedFuture<()>>>,
     pub seat: Rc<WlSeatGlobal>,
     pub duration_usec: u64,
+    pub version: Version,
 }
 
 impl ExtIdleNotificationV1 {
@@ -30,14 +28,19 @@ impl ExtIdleNotificationV1 {
         self.seat.remove_idle_notification(self);
         self.task.take();
     }
+}
 
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ExtIdleNotificationV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl ExtIdleNotificationV1RequestHandler for ExtIdleNotificationV1 {
+    type Error = ExtIdleNotificationV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
         self.client.remove_obj(self)?;
         Ok(())
     }
+}
 
+impl ExtIdleNotificationV1 {
     pub fn send_idled(&self) {
         self.client.event(Idled { self_id: self.id });
     }
@@ -49,8 +52,7 @@ impl ExtIdleNotificationV1 {
 
 object_base! {
     self = ExtIdleNotificationV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ExtIdleNotificationV1 {
@@ -63,10 +65,7 @@ simple_add_obj!(ExtIdleNotificationV1);
 
 #[derive(Debug, Error)]
 pub enum ExtIdleNotificationV1Error {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ExtIdleNotificationV1Error, MsgParserError);
 efrom!(ExtIdleNotificationV1Error, ClientError);

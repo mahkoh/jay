@@ -4,8 +4,7 @@ use {
         drm_feedback::{DrmFeedback, DrmFeedbackId},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_linux_dmabuf_feedback_v1::*, ZwpLinuxDmabufFeedbackV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -22,6 +21,7 @@ pub struct ZwpLinuxDmabufFeedbackV1 {
     pub tracker: Tracker<Self>,
     pub last_feedback: Cell<Option<DrmFeedbackId>>,
     pub surface: Option<Rc<WlSurface>>,
+    pub version: Version,
 }
 
 impl ZwpLinuxDmabufFeedbackV1 {
@@ -29,6 +29,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
         id: ZwpLinuxDmabufFeedbackV1Id,
         client: &Rc<Client>,
         surface: Option<&Rc<WlSurface>>,
+        version: Version,
     ) -> Self {
         Self {
             id,
@@ -36,6 +37,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
             tracker: Default::default(),
             last_feedback: Default::default(),
             surface: surface.cloned(),
+            version,
         }
     }
 
@@ -97,14 +99,19 @@ impl ZwpLinuxDmabufFeedbackV1 {
             flags,
         });
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpLinuxDmabufFeedbackV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZwpLinuxDmabufFeedbackV1RequestHandler for ZwpLinuxDmabufFeedbackV1 {
+    type Error = ZwpLinuxDmabufFeedbackV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
         self.client.remove_obj(self)?;
         Ok(())
     }
+}
 
+impl ZwpLinuxDmabufFeedbackV1 {
     fn detach(&self) {
         self.client
             .state
@@ -118,8 +125,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 
 object_base! {
     self = ZwpLinuxDmabufFeedbackV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwpLinuxDmabufFeedbackV1 {
@@ -134,8 +140,5 @@ simple_add_obj!(ZwpLinuxDmabufFeedbackV1);
 pub enum ZwpLinuxDmabufFeedbackV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwpLinuxDmabufFeedbackV1Error, ClientError);
-efrom!(ZwpLinuxDmabufFeedbackV1Error, MsgParserError);

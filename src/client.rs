@@ -35,7 +35,7 @@ use {
     uapi::{c, OwnedFd},
 };
 pub use {
-    error::{ClientError, MethodError, ObjectError},
+    error::{ClientError, ParserError},
     objects::MIN_SERVER_ID,
 };
 

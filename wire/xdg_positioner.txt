@@ -1,45 +1,45 @@
 # requests
 
-msg destroy = 0 { }
+request destroy { }
 
-msg set_size = 1 {
+request set_size {
     width: i32,
     height: i32,
 }
 
-msg set_anchor_rect = 2 {
+request set_anchor_rect {
     x: i32,
     y: i32,
     width: i32,
     height: i32,
 }
 
-msg set_anchor = 3 {
+request set_anchor {
     anchor: u32,
 }
 
-msg set_gravity = 4 {
+request set_gravity {
     gravity: u32,
 }
 
-msg set_constraint_adjustment = 5 {
+request set_constraint_adjustment {
     constraint_adjustment: u32,
 }
 
-msg set_offset = 6 {
+request set_offset {
     x: i32,
     y: i32,
 }
 
-msg set_reactive = 7 {
+request set_reactive (since = 3) {
 
 }
 
-msg set_parent_size = 8 {
+request set_parent_size (since = 3) {
     parent_width: i32,
     parent_height: i32,
 }
 
-msg set_parent_configure = 9 {
+request set_parent_configure (since = 3) {
     serial: u32,
 }

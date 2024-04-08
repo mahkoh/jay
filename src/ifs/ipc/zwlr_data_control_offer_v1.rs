@@ -13,7 +13,6 @@ use {
         },
         leaks::Tracker,
         object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
         wire::{zwlr_data_control_offer_v1::*, ZwlrDataControlOfferV1Id},
     },
     std::rc::Rc,
@@ -81,9 +80,12 @@ impl ZwlrDataControlOfferV1 {
             mime_type,
         })
     }
+}
 
-    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlOfferV1Error> {
-        let req: Receive = self.client.parse(self, parser)?;
+impl ZwlrDataControlOfferV1RequestHandler for ZwlrDataControlOfferV1 {
+    type Error = ZwlrDataControlOfferV1Error;
+
+    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         match self.location {
             IpcLocation::Clipboard => {
                 receive_data_offer::<WlrClipboardIpc>(self, req.mime_type, req.fd)
@@ -95,8 +97,7 @@ impl ZwlrDataControlOfferV1 {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwlrDataControlOfferV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         match self.location {
             IpcLocation::Clipboard => destroy_data_offer::<WlrClipboardIpc>(self),
             IpcLocation::PrimarySelection => destroy_data_offer::<WlrPrimarySelectionIpc>(self),
@@ -108,9 +109,7 @@ impl ZwlrDataControlOfferV1 {
 
 object_base! {
     self = ZwlrDataControlOfferV1;
-
-    RECEIVE => receive,
-    DESTROY => destroy,
+    version = self.device.version;
 }
 
 impl Object for ZwlrDataControlOfferV1 {
@@ -128,8 +127,5 @@ simple_add_obj!(ZwlrDataControlOfferV1);
 pub enum ZwlrDataControlOfferV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZwlrDataControlOfferV1Error, ClientError);
-efrom!(ZwlrDataControlOfferV1Error, MsgParserError);

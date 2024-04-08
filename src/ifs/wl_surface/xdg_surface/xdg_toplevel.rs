@@ -15,7 +15,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Rect,
         renderer::Renderer,
         state::State,
@@ -23,10 +23,7 @@ use {
             Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
         },
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        utils::clonecell::CloneCell,
         wire::{xdg_toplevel::*, XdgToplevelId},
     },
     ahash::{AHashMap, AHashSet},
@@ -35,7 +32,6 @@ use {
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
         mem,
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -74,8 +70,8 @@ const CAP_FULLSCREEN: u32 = 3;
 #[allow(dead_code)]
 const CAP_MINIMIZE: u32 = 4;
 
-pub const WM_CAPABILITIES_SINCE: u32 = 5;
-pub const SUSPENDED_SINCE: u32 = 6;
+pub const WM_CAPABILITIES_SINCE: Version = Version(5);
+pub const SUSPENDED_SINCE: Version = Version(6);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
@@ -199,9 +195,12 @@ impl XdgToplevel {
             capabilities: &[CAP_FULLSCREEN],
         })
     }
+}
 
-    fn destroy(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let _req: Destroy = self.xdg.surface.client.parse(self.deref(), parser)?;
+impl XdgToplevelRequestHandler for XdgToplevel {
+    type Error = XdgToplevelError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.tl_destroy();
         self.xdg.ext.set(None);
         {
@@ -223,13 +222,12 @@ impl XdgToplevel {
                 parent.children.borrow_mut().remove(&self.id);
             }
         }
-        self.xdg.surface.client.remove_obj(self.deref())?;
+        self.xdg.surface.client.remove_obj(self)?;
         self.xdg.surface.set_toplevel(None);
         Ok(())
     }
 
-    fn set_parent(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let req: SetParent = self.xdg.surface.client.parse(self, parser)?;
+    fn set_parent(&self, req: SetParent, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut parent = None;
         if req.parent.is_some() {
             parent = Some(self.xdg.surface.client.lookup(req.parent)?);
@@ -238,27 +236,23 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_title(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let req: SetTitle = self.xdg.surface.client.parse(self, parser)?;
+    fn set_title(&self, req: SetTitle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.set_title(req.title);
         self.tl_title_changed();
         Ok(())
     }
 
-    fn set_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let req: SetAppId = self.xdg.surface.client.parse(self, parser)?;
+    fn set_app_id(&self, req: SetAppId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.set_app_id(req.app_id);
         self.bugs.set(bugs::get(req.app_id));
         Ok(())
     }
 
-    fn show_window_menu(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let _req: ShowWindowMenu = self.xdg.surface.client.parse(self, parser)?;
+    fn show_window_menu(&self, _req: ShowWindowMenu, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn move_(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let req: Move = self.xdg.surface.client.parse(self, parser)?;
+    fn move_(&self, req: Move, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.xdg.surface.client.lookup(req.seat)?;
         if let Some(parent) = self.toplevel_data.parent.get() {
             if let Some(float) = parent.node_into_float() {
@@ -268,13 +262,11 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn resize(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let _req: Resize = self.xdg.surface.client.parse(self, parser)?;
+    fn resize(&self, _req: Resize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn set_max_size(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let req: SetMaxSize = self.xdg.surface.client.parse(self, parser)?;
+    fn set_max_size(&self, req: SetMaxSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.height < 0 || req.width < 0 {
             return Err(XdgToplevelError::NonNegative);
         }
@@ -291,8 +283,7 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_min_size(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let req: SetMinSize = self.xdg.surface.client.parse(self, parser)?;
+    fn set_min_size(&self, req: SetMinSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if req.height < 0 || req.width < 0 {
             return Err(XdgToplevelError::NonNegative);
         }
@@ -309,19 +300,16 @@ impl XdgToplevel {
         Ok(())
     }
 
-    fn set_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let _req: SetMaximized = self.xdg.surface.client.parse(self, parser)?;
+    fn set_maximized(&self, _req: SetMaximized, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn unset_maximized(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let _req: UnsetMaximized = self.xdg.surface.client.parse(self, parser)?;
+    fn unset_maximized(&self, _req: UnsetMaximized, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn set_fullscreen(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
+    fn set_fullscreen(&self, req: SetFullscreen, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let client = &self.xdg.surface.client;
-        let req: SetFullscreen = client.parse(self.deref(), parser)?;
         self.states.borrow_mut().insert(STATE_FULLSCREEN);
         'set_fullscreen: {
             let output = if req.output.is_some() {
@@ -338,29 +326,26 @@ impl XdgToplevel {
                 break 'set_fullscreen;
             };
             self.toplevel_data
-                .set_fullscreen(&client.state, self.clone(), &output);
+                .set_fullscreen(&client.state, slf.clone(), &output);
         }
         self.send_current_configure();
         Ok(())
     }
 
-    fn unset_fullscreen(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), XdgToplevelError> {
-        let _req: UnsetFullscreen = self.xdg.surface.client.parse(self.deref(), parser)?;
+    fn unset_fullscreen(&self, _req: UnsetFullscreen, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.states.borrow_mut().remove(&STATE_FULLSCREEN);
         self.toplevel_data
-            .unset_fullscreen(&self.state, self.clone());
+            .unset_fullscreen(&self.state, slf.clone());
         self.send_current_configure();
         Ok(())
     }
 
-    fn set_minimized(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelError> {
-        let _req: SetMinimized = self.xdg.surface.client.parse(self, parser)?;
+    fn set_minimized(&self, _req: SetMinimized, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
+}
 
+impl XdgToplevel {
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
@@ -461,21 +446,7 @@ impl XdgToplevel {
 
 object_base! {
     self = XdgToplevel;
-
-    DESTROY => destroy,
-    SET_PARENT => set_parent,
-    SET_TITLE => set_title,
-    SET_APP_ID => set_app_id,
-    SHOW_WINDOW_MENU => show_window_menu,
-    MOVE => move_,
-    RESIZE => resize,
-    SET_MAX_SIZE => set_max_size,
-    SET_MIN_SIZE => set_min_size,
-    SET_MAXIMIZED => set_maximized,
-    UNSET_MAXIMIZED => unset_maximized,
-    SET_FULLSCREEN => set_fullscreen,
-    UNSET_FULLSCREEN => unset_fullscreen,
-    SET_MINIMIZED => set_minimized,
+    version = self.xdg.base.version;
 }
 
 impl Object for XdgToplevel {
@@ -673,12 +644,9 @@ impl XdgSurfaceExt for XdgToplevel {
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error("width/height must be non-negative")]
     NonNegative,
 }
-efrom!(XdgToplevelError, MsgParserError);
 efrom!(XdgToplevelError, ClientError);

@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::zxdg_output_v1::ZxdgOutputV1,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zxdg_output_manager_v1::*, ZxdgOutputManagerV1Id},
     },
     std::rc::Rc,
@@ -19,7 +18,7 @@ pub struct ZxdgOutputManagerV1Global {
 pub struct ZxdgOutputManagerV1 {
     pub id: ZxdgOutputManagerV1Id,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -32,7 +31,7 @@ impl ZxdgOutputManagerV1Global {
         self: Rc<Self>,
         id: ZxdgOutputManagerV1Id,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), ZxdgOutputManagerV1Error> {
         let obj = Rc::new(ZxdgOutputManagerV1 {
             id,
@@ -46,18 +45,15 @@ impl ZxdgOutputManagerV1Global {
     }
 }
 
-impl ZxdgOutputManagerV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZxdgOutputManagerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
+    type Error = ZxdgOutputManagerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn get_xdg_output(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), ZxdgOutputManagerV1Error> {
-        let req: GetXdgOutput = self.client.parse(&**self, parser)?;
+    fn get_xdg_output(&self, req: GetXdgOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let output = self.client.lookup(req.output)?;
         let xdg_output = Rc::new(ZxdgOutputV1 {
             id: req.id,
@@ -94,9 +90,7 @@ simple_add_global!(ZxdgOutputManagerV1Global);
 
 object_base! {
     self = ZxdgOutputManagerV1;
-
-    DESTROY => destroy,
-    GET_XDG_OUTPUT => get_xdg_output,
+    version = self.version;
 }
 
 simple_add_obj!(ZxdgOutputManagerV1);
@@ -107,8 +101,5 @@ impl Object for ZxdgOutputManagerV1 {}
 pub enum ZxdgOutputManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(ZxdgOutputManagerV1Error, ClientError);
-efrom!(ZxdgOutputManagerV1Error, MsgParserError);

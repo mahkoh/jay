@@ -6,11 +6,8 @@ use {
             wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
         },
         leaks::Tracker,
-        object::Object,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::{Object, Version},
+        utils::clonecell::CloneCell,
         wire::{xdg_toplevel_drag_v1::*, XdgToplevelDragV1Id},
     },
     std::{cell::Cell, rc::Rc},
@@ -25,10 +22,11 @@ pub struct XdgToplevelDragV1 {
     pub toplevel: CloneCell<Option<Rc<XdgToplevel>>>,
     pub x_off: Cell<i32>,
     pub y_off: Cell<i32>,
+    pub version: Version,
 }
 
 impl XdgToplevelDragV1 {
-    pub fn new(id: XdgToplevelDragV1Id, source: &Rc<WlDataSource>) -> Self {
+    pub fn new(id: XdgToplevelDragV1Id, source: &Rc<WlDataSource>, version: Version) -> Self {
         Self {
             id,
             client: source.data.client.clone(),
@@ -37,6 +35,7 @@ impl XdgToplevelDragV1 {
             toplevel: Default::default(),
             x_off: Cell::new(0),
             y_off: Cell::new(0),
+            version,
         }
     }
 
@@ -50,9 +49,12 @@ impl XdgToplevelDragV1 {
             tl.drag.take();
         }
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelDragV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl XdgToplevelDragV1RequestHandler for XdgToplevelDragV1 {
+    type Error = XdgToplevelDragV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.is_ongoing() {
             return Err(XdgToplevelDragV1Error::ActiveDrag);
         }
@@ -61,13 +63,12 @@ impl XdgToplevelDragV1 {
         Ok(())
     }
 
-    fn attach(self: &Rc<Self>, parser: MsgParser<'_, '_>) -> Result<(), XdgToplevelDragV1Error> {
-        let req: Attach = self.client.parse(&**self, parser)?;
+    fn attach(&self, req: Attach, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.source.data.was_dropped_or_cancelled() {
             return Ok(());
         }
         let toplevel = self.client.lookup(req.toplevel)?;
-        if toplevel.drag.set(Some(self.clone())).is_some() {
+        if toplevel.drag.set(Some(slf.clone())).is_some() {
             return Err(XdgToplevelDragV1Error::AlreadyDragged);
         }
         if let Some(prev) = self.toplevel.set(Some(toplevel)) {
@@ -83,8 +84,10 @@ impl XdgToplevelDragV1 {
         self.start_drag();
         Ok(())
     }
+}
 
-    pub fn start_drag(self: &Rc<Self>) {
+impl XdgToplevelDragV1 {
+    pub fn start_drag(&self) {
         if !self.is_ongoing() {
             return;
         }
@@ -114,9 +117,7 @@ impl XdgToplevelDragV1 {
 
 object_base! {
     self = XdgToplevelDragV1;
-
-    DESTROY => destroy,
-    ATTACH => attach,
+    version = self.version;
 }
 
 impl Object for XdgToplevelDragV1 {
@@ -131,8 +132,6 @@ simple_add_obj!(XdgToplevelDragV1);
 pub enum XdgToplevelDragV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The toplevel already has a drag attached")]
     AlreadyDragged,
     #[error("There already is a mapped toplevel attached")]
@@ -141,4 +140,3 @@ pub enum XdgToplevelDragV1Error {
     ActiveDrag,
 }
 efrom!(XdgToplevelDragV1Error, ClientError);
-efrom!(XdgToplevelDragV1Error, MsgParserError);

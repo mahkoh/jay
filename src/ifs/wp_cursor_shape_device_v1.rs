@@ -4,8 +4,7 @@ use {
         cursor::KnownCursor,
         ifs::wl_seat::WlSeatGlobal,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wp_cursor_shape_device_v1::*, WpCursorShapeDeviceV1Id},
     },
     std::rc::Rc,
@@ -52,17 +51,18 @@ pub struct WpCursorShapeDeviceV1 {
     pub client: Rc<Client>,
     pub seat: Rc<WlSeatGlobal>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
-impl WpCursorShapeDeviceV1 {
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WpCursorShapeDeviceV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
+    type Error = WpCursorShapeDeviceV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn set_shape(&self, parser: MsgParser<'_, '_>) -> Result<(), WpCursorShapeDeviceV1Error> {
-        let req: SetShape = self.client.parse(self, parser)?;
+    fn set_shape(&self, req: SetShape, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cursor = match req.shape {
             DEFAULT => KnownCursor::Default,
             CONTEXT_MENU => KnownCursor::ContextMenu,
@@ -114,9 +114,7 @@ impl WpCursorShapeDeviceV1 {
 
 object_base! {
     self = WpCursorShapeDeviceV1;
-
-    DESTROY => destroy,
-    SET_SHAPE => set_shape,
+    version = self.version;
 }
 
 impl Object for WpCursorShapeDeviceV1 {}
@@ -127,10 +125,7 @@ simple_add_obj!(WpCursorShapeDeviceV1);
 pub enum WpCursorShapeDeviceV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("Shape {0} is unknown")]
     UnknownShape(u32),
 }
 efrom!(WpCursorShapeDeviceV1Error, ClientError);
-efrom!(WpCursorShapeDeviceV1Error, MsgParserError);

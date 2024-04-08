@@ -3,12 +3,9 @@ use {
         client::{Client, ClientError},
         ifs::jay_workspace::JayWorkspace,
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         tree::WorkspaceNode,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        utils::clonecell::CloneCell,
         wire::{jay_workspace_watcher::*, JayWorkspaceWatcherId},
     },
     std::rc::Rc,
@@ -47,13 +44,6 @@ impl JayWorkspaceWatcher {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), JayWorkspaceWatcherError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
-        self.remove_from_state();
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
     fn remove_from_state(&self) {
         self.client
             .state
@@ -62,10 +52,19 @@ impl JayWorkspaceWatcher {
     }
 }
 
+impl JayWorkspaceWatcherRequestHandler for JayWorkspaceWatcher {
+    type Error = JayWorkspaceWatcherError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.remove_from_state();
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+}
+
 object_base! {
     self = JayWorkspaceWatcher;
-
-    DESTROY => destroy,
+    version = Version(1);
 }
 
 impl Object for JayWorkspaceWatcher {
@@ -78,10 +77,7 @@ simple_add_obj!(JayWorkspaceWatcher);
 
 #[derive(Debug, Error)]
 pub enum JayWorkspaceWatcherError {
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(JayWorkspaceWatcherError, MsgParserError);
 efrom!(JayWorkspaceWatcherError, ClientError);

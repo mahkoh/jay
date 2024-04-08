@@ -11,12 +11,9 @@ use {
             wl_surface::WlSurface,
         },
         leaks::Tracker,
-        object::Object,
+        object::{Object, Version},
         rect::Region,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        utils::clonecell::CloneCell,
         wire::{
             zwp_pointer_constraints_v1::*, WlPointerId, WlRegionId, WlSurfaceId,
             ZwpPointerConstraintsV1Id,
@@ -38,6 +35,7 @@ pub struct ZwpPointerConstraintsV1 {
     pub id: ZwpPointerConstraintsV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -154,12 +152,13 @@ impl ZwpPointerConstraintsV1Global {
         self: Rc<Self>,
         id: ZwpPointerConstraintsV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        version: Version,
     ) -> Result<(), ZwpPointerConstraintsV1Error> {
         let cs = Rc::new(ZwpPointerConstraintsV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, cs);
         client.add_client_obj(&cs)?;
@@ -168,12 +167,6 @@ impl ZwpPointerConstraintsV1Global {
 }
 
 impl ZwpPointerConstraintsV1 {
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), ZwpPointerConstraintsV1Error> {
-        let _req: Destroy = self.client.parse(self, msg)?;
-        self.client.remove_obj(self)?;
-        Ok(())
-    }
-
     fn create_constraint(
         &self,
         ty: ConstraintType,
@@ -209,9 +202,17 @@ impl ZwpPointerConstraintsV1 {
             ty,
         }))
     }
+}
 
-    fn lock_pointer(&self, msg: MsgParser<'_, '_>) -> Result<(), ZwpPointerConstraintsV1Error> {
-        let req: LockPointer = self.client.parse(self, msg)?;
+impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
+    type Error = ZwpPointerConstraintsV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self)?;
+        Ok(())
+    }
+
+    fn lock_pointer(&self, req: LockPointer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let constraint = self.create_constraint(
             ConstraintType::Lock,
             req.pointer,
@@ -223,6 +224,7 @@ impl ZwpPointerConstraintsV1 {
             id: req.id,
             tracker: Default::default(),
             constraint,
+            version: self.version,
         });
         self.client.add_client_obj(&lp)?;
         lp.constraint.owner.set(Some(lp.clone()));
@@ -234,8 +236,7 @@ impl ZwpPointerConstraintsV1 {
         Ok(())
     }
 
-    fn confine_pointer(&self, msg: MsgParser<'_, '_>) -> Result<(), ZwpPointerConstraintsV1Error> {
-        let req: ConfinePointer = self.client.parse(self, msg)?;
+    fn confine_pointer(&self, req: ConfinePointer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let constraint = self.create_constraint(
             ConstraintType::Confine,
             req.pointer,
@@ -247,6 +248,7 @@ impl ZwpPointerConstraintsV1 {
             id: req.id,
             tracker: Default::default(),
             constraint,
+            version: self.version,
         });
         self.client.add_client_obj(&lp)?;
         lp.constraint.owner.set(Some(lp.clone()));
@@ -279,10 +281,7 @@ simple_add_global!(ZwpPointerConstraintsV1Global);
 
 object_base! {
     self = ZwpPointerConstraintsV1;
-
-    DESTROY => destroy,
-    LOCK_POINTER => lock_pointer,
-    CONFINE_POINTER => confine_pointer,
+    version = self.version;
 }
 
 impl Object for ZwpPointerConstraintsV1 {}
@@ -293,12 +292,9 @@ simple_add_obj!(ZwpPointerConstraintsV1);
 pub enum ZwpPointerConstraintsV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("The surface already has a constraint attached for the seat")]
     AlreadyConstrained,
     #[error("The constraint lifetime {0} is unknown")]
     UnknownLifetime(u32),
 }
 efrom!(ZwpPointerConstraintsV1Error, ClientError);
-efrom!(ZwpPointerConstraintsV1Error, MsgParserError);

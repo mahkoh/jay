@@ -1,9 +1,9 @@
 # requests
 
-msg create_surface = 0 {
+request create_surface {
     id: id(wl_surface),
 }
 
-msg create_region = 1 {
+request create_region {
     id: id(wl_region),
 }

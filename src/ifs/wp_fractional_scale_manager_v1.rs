@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::wl_surface::wp_fractional_scale_v1::{WpFractionalScaleError, WpFractionalScaleV1},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wp_fractional_scale_manager_v1::*, WpFractionalScaleManagerV1Id},
     },
     std::rc::Rc,
@@ -20,6 +19,7 @@ pub struct WpFractionalScaleManagerV1 {
     pub id: WpFractionalScaleManagerV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl WpFractionalScaleManagerV1Global {
@@ -31,12 +31,13 @@ impl WpFractionalScaleManagerV1Global {
         self: Rc<Self>,
         id: WpFractionalScaleManagerV1Id,
         client: &Rc<Client>,
-        _version: u32,
+        version: Version,
     ) -> Result<(), WpFractionalScaleManagerError> {
         let obj = Rc::new(WpFractionalScaleManagerV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -62,20 +63,21 @@ impl Global for WpFractionalScaleManagerV1Global {
 
 simple_add_global!(WpFractionalScaleManagerV1Global);
 
-impl WpFractionalScaleManagerV1 {
-    fn destroy(&self, msg: MsgParser<'_, '_>) -> Result<(), WpFractionalScaleManagerError> {
-        let _req: Destroy = self.client.parse(self, msg)?;
+impl WpFractionalScaleManagerV1RequestHandler for WpFractionalScaleManagerV1 {
+    type Error = WpFractionalScaleManagerError;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
         Ok(())
     }
 
     fn get_fractional_scale(
         &self,
-        msg: MsgParser<'_, '_>,
-    ) -> Result<(), WpFractionalScaleManagerError> {
-        let req: GetFractionalScale = self.client.parse(self, msg)?;
+        req: GetFractionalScale,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
-        let fs = Rc::new(WpFractionalScaleV1::new(req.id, &surface));
+        let fs = Rc::new(WpFractionalScaleV1::new(req.id, &surface, self.version));
         track!(self.client, fs);
         fs.install()?;
         self.client.add_client_obj(&fs)?;
@@ -86,9 +88,7 @@ impl WpFractionalScaleManagerV1 {
 
 object_base! {
     self = WpFractionalScaleManagerV1;
-
-    DESTROY => destroy,
-    GET_FRACTIONAL_SCALE => get_fractional_scale,
+    version = self.version;
 }
 
 impl Object for WpFractionalScaleManagerV1 {}
@@ -97,12 +97,9 @@ simple_add_obj!(WpFractionalScaleManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpFractionalScaleManagerError {
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error(transparent)]
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WpFractionalScaleError(#[from] WpFractionalScaleError),
 }
-efrom!(WpFractionalScaleManagerError, MsgParserError);
 efrom!(WpFractionalScaleManagerError, ClientError);

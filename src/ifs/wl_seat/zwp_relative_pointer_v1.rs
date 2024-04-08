@@ -4,8 +4,7 @@ use {
         fixed::Fixed,
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{zwp_relative_pointer_v1::*, ZwpRelativePointerV1Id},
     },
     std::rc::Rc,
@@ -17,6 +16,7 @@ pub struct ZwpRelativePointerV1 {
     pub client: Rc<Client>,
     pub seat: Rc<WlSeat>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
 impl ZwpRelativePointerV1 {
@@ -38,9 +38,12 @@ impl ZwpRelativePointerV1 {
             dy_unaccelerated,
         });
     }
+}
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), ZwpRelativePointerV1Error> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+impl ZwpRelativePointerV1RequestHandler for ZwpRelativePointerV1 {
+    type Error = ZwpRelativePointerV1Error;
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.relative_pointers.remove(&self.id);
         self.client.remove_obj(self)?;
         Ok(())
@@ -49,8 +52,7 @@ impl ZwpRelativePointerV1 {
 
 object_base! {
     self = ZwpRelativePointerV1;
-
-    DESTROY => destroy,
+    version = self.version;
 }
 
 impl Object for ZwpRelativePointerV1 {}
@@ -61,8 +63,5 @@ simple_add_obj!(ZwpRelativePointerV1);
 pub enum ZwpRelativePointerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(Box<MsgParserError>),
 }
 efrom!(ZwpRelativePointerV1Error, ClientError);
-efrom!(ZwpRelativePointerV1Error, MsgParserError);

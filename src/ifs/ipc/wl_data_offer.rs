@@ -14,10 +14,7 @@ use {
         },
         leaks::Tracker,
         object::Object,
-        utils::{
-            bitflags::BitflagsExt,
-            buffd::{MsgParser, MsgParserError},
-        },
+        utils::bitflags::BitflagsExt,
         wire::{wl_data_offer::*, WlDataOfferId, WlSurfaceId},
     },
     std::rc::Rc,
@@ -113,9 +110,12 @@ impl WlDataOffer {
             dnd_action,
         })
     }
+}
 
-    fn accept(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
-        let req: Accept = self.client.parse(self, parser)?;
+impl WlDataOfferRequestHandler for WlDataOffer {
+    type Error = WlDataOfferError;
+
+    fn accept(&self, req: Accept, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let _ = req.serial; // unused
         let mut state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
@@ -133,8 +133,7 @@ impl WlDataOffer {
         Ok(())
     }
 
-    fn receive(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
-        let req: Receive = self.client.parse(self, parser)?;
+    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.data.shared.state.get().contains(OFFER_STATE_FINISHED) {
             return Err(WlDataOfferError::AlreadyFinished);
         }
@@ -142,15 +141,13 @@ impl WlDataOffer {
         Ok(())
     }
 
-    fn destroy(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
-        let _req: Destroy = self.client.parse(self, parser)?;
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_offer::<ClipboardIpc>(self);
         self.client.remove_obj(self)?;
         Ok(())
     }
 
-    fn finish(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
-        let _req: Finish = self.client.parse(self, parser)?;
+    fn finish(&self, _req: Finish, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.data.shared.role.get() != Role::Dnd {
             return Err(WlDataOfferError::NotDnd);
         }
@@ -175,8 +172,7 @@ impl WlDataOffer {
         Ok(())
     }
 
-    fn set_actions(&self, parser: MsgParser<'_, '_>) -> Result<(), WlDataOfferError> {
-        let req: SetActions = self.client.parse(self, parser)?;
+    fn set_actions(&self, req: SetActions, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
             return Err(WlDataOfferError::AlreadyFinished);
@@ -201,12 +197,7 @@ impl WlDataOffer {
 
 object_base! {
     self = WlDataOffer;
-
-    ACCEPT => accept,
-    RECEIVE => receive,
-    DESTROY => destroy,
-    FINISH => finish if self.device.version >= 3,
-    SET_ACTIONS => set_actions if self.device.version >= 3,
+    version = self.device.version;
 }
 
 impl Object for WlDataOffer {
@@ -221,8 +212,6 @@ simple_add_obj!(WlDataOffer);
 pub enum WlDataOfferError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
     #[error("`finish` was already called")]
     AlreadyFinished,
     #[error("The drag operation is still ongoing")]
@@ -237,4 +226,3 @@ pub enum WlDataOfferError {
     MultiplePreferred,
 }
 efrom!(WlDataOfferError, ClientError);
-efrom!(WlDataOfferError, MsgParserError);

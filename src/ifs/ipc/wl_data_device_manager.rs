@@ -4,8 +4,7 @@ use {
         globals::{Global, GlobalName},
         ifs::ipc::{wl_data_device::WlDataDevice, wl_data_source::WlDataSource},
         leaks::Tracker,
-        object::Object,
-        utils::buffd::{MsgParser, MsgParserError},
+        object::{Object, Version},
         wire::{wl_data_device_manager::*, WlDataDeviceManagerId},
     },
     std::rc::Rc,
@@ -28,7 +27,7 @@ pub struct WlDataDeviceManagerGlobal {
 pub struct WlDataDeviceManager {
     pub id: WlDataDeviceManagerId,
     pub client: Rc<Client>,
-    pub version: u32,
+    pub version: Version,
     tracker: Tracker<Self>,
 }
 
@@ -41,7 +40,7 @@ impl WlDataDeviceManagerGlobal {
         self: Rc<Self>,
         id: WlDataDeviceManagerId,
         client: &Rc<Client>,
-        version: u32,
+        version: Version,
     ) -> Result<(), WlDataDeviceManagerError> {
         let obj = Rc::new(WlDataDeviceManager {
             id,
@@ -55,23 +54,21 @@ impl WlDataDeviceManagerGlobal {
     }
 }
 
-impl WlDataDeviceManager {
+impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
+    type Error = WlDataDeviceManagerError;
+
     fn create_data_source(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDataDeviceManagerError> {
-        let req: CreateDataSource = self.client.parse(self, parser)?;
+        req: CreateDataSource,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let res = Rc::new(WlDataSource::new(req.id, &self.client, self.version));
         track!(self.client, res);
         self.client.add_client_obj(&res)?;
         Ok(())
     }
 
-    fn get_data_device(
-        self: &Rc<Self>,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), WlDataDeviceManagerError> {
-        let req: GetDataDevice = self.client.parse(&**self, parser)?;
+    fn get_data_device(&self, req: GetDataDevice, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
         let dev = Rc::new(WlDataDevice::new(
             req.id,
@@ -106,9 +103,7 @@ simple_add_global!(WlDataDeviceManagerGlobal);
 
 object_base! {
     self = WlDataDeviceManager;
-
-    CREATE_DATA_SOURCE => create_data_source,
-    GET_DATA_DEVICE => get_data_device,
+    version = self.version;
 }
 
 impl Object for WlDataDeviceManager {}
@@ -119,8 +114,5 @@ simple_add_obj!(WlDataDeviceManager);
 pub enum WlDataDeviceManagerError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Parsing failed")]
-    MsgParserError(#[source] Box<MsgParserError>),
 }
 efrom!(WlDataDeviceManagerError, ClientError);
-efrom!(WlDataDeviceManagerError, MsgParserError);

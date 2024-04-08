@@ -1,15 +1,19 @@
 # requests
 
-msg destroy = 0 {
+request destroy {
 
 }
 
 # events
 
-msg linear_id = 0 {
+event linear_id {
     linear_id: u32,
 }
 
-msg destroyed = 2 {
+event unused {
+
+}
+
+event destroyed {
 
 }

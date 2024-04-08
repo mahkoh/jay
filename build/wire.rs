@@ -1,7 +1,6 @@
 use {
     crate::open,
     anyhow::{bail, Context, Result},
-    bstr::{BStr, BString, ByteSlice},
     std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
 };
 
@@ -52,7 +51,7 @@ struct Token<'a> {
 
 #[derive(Debug)]
 enum TokenKind<'a> {
-    Ident(&'a BStr),
+    Ident(&'a str),
     Num(u32),
     Tree {
         delim: TreeDelim,
@@ -142,7 +141,7 @@ impl<'a> Tokenizer<'a> {
                 while !c.eof() && matches!(c.s[c.pos], b'a'..=b'z' | b'_' | b'0'..=b'9') {
                     c.pos += 1;
                 }
-                TokenKind::Ident(c.s[b_pos..c.pos].as_bstr())
+                TokenKind::Ident(std::str::from_utf8(&c.s[b_pos..c.pos])?)
             }
             b'0'..=b'9' => {
                 c.pos -= 1;
@@ -209,7 +208,7 @@ struct Lined<T> {
 
 #[derive(Debug)]
 enum Type {
-    Id(BString),
+    Id(String),
     U32,
     I32,
     Str,
@@ -218,21 +217,29 @@ enum Type {
     Fixed,
     Fd,
     Array(Box<Type>),
-    Pod(BString),
+    Pod(String),
 }
 
 #[derive(Debug)]
 struct Field {
-    name: BString,
+    name: String,
     ty: Lined<Type>,
 }
 
 #[derive(Debug)]
 struct Message {
-    name: BString,
-    camel_name: BString,
-    id: Lined<u32>,
+    name: String,
+    camel_name: String,
+    safe_name: String,
+    id: u32,
     fields: Vec<Lined<Field>>,
+    attribs: MessageAttribs,
+    has_reference_type: bool,
+}
+
+#[derive(Debug, Default)]
+struct MessageAttribs {
+    since: Option<u32>,
 }
 
 struct Parser<'a> {
@@ -240,17 +247,25 @@ struct Parser<'a> {
     tokens: &'a [Token<'a>],
 }
 
+struct ParseResult {
+    requests: Vec<Lined<Message>>,
+    events: Vec<Lined<Message>>,
+}
+
 impl<'a> Parser<'a> {
-    fn parse(&mut self) -> Result<Vec<Lined<Message>>> {
-        let mut res = vec![];
+    fn parse(&mut self) -> Result<ParseResult> {
+        let mut requests = vec![];
+        let mut events = vec![];
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
-            match ty.as_bytes() {
-                b"msg" => res.push(self.parse_message()?),
+            let res = match ty.as_bytes() {
+                b"request" => &mut requests,
+                b"event" => &mut events,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
-            }
+            };
+            res.push(self.parse_message(res.len() as _)?);
         }
-        Ok(res)
+        Ok(ParseResult { requests, events })
     }
 
     fn eof(&self) -> bool {
@@ -274,11 +289,32 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_message(&mut self) -> Result<Lined<Message>> {
+    fn parse_message_attribs(&mut self, attribs: &mut MessageAttribs) -> Result<()> {
+        let (_, tokens) = self.expect_tree(TreeDelim::Paren)?;
+        let mut parser = Parser { pos: 0, tokens };
+        while !parser.eof() {
+            let (line, name) = parser.expect_ident()?;
+            parser.expect_symbol(Symbol::Equals)?;
+            match name {
+                "since" => attribs.since = Some(parser.expect_number()?.1),
+                _ => bail!("In line {}: Unexpected attribute {}", line, name),
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_message(&mut self, id: u32) -> Result<Lined<Message>> {
         let (line, name) = self.expect_ident()?;
         let res: Result<_> = (|| {
-            self.expect_symbol(Symbol::Equals)?;
-            let (num_line, val) = self.expect_number()?;
+            self.not_eof()?;
+            let mut attribs = MessageAttribs::default();
+            if let TokenKind::Tree {
+                delim: TreeDelim::Paren,
+                ..
+            } = self.tokens[self.pos].kind
+            {
+                self.parse_message_attribs(&mut attribs)?;
+            }
             let (_, body) = self.expect_tree(TreeDelim::Brace)?;
             let mut parser = Parser {
                 pos: 0,
@@ -288,16 +324,24 @@ impl<'a> Parser<'a> {
             while !parser.eof() {
                 fields.push(parser.parse_field()?);
             }
+            let has_reference_type = fields.iter().any(|f| match &f.val.ty.val {
+                Type::OptStr | Type::Str | Type::BStr | Type::Array(..) => true,
+                _ => false,
+            });
+            let safe_name = match name {
+                "move" => "move_",
+                _ => name,
+            };
             Ok(Lined {
                 line,
                 val: Message {
                     name: name.to_owned(),
                     camel_name: to_camel(name),
-                    id: Lined {
-                        line: num_line,
-                        val,
-                    },
+                    safe_name: safe_name.to_string(),
+                    id,
                     fields,
+                    attribs,
+                    has_reference_type,
                 },
             })
         })();
@@ -323,7 +367,7 @@ impl<'a> Parser<'a> {
         res.with_context(|| format!("While parsing field starting at line {}", line))
     }
 
-    fn expect_ident(&mut self) -> Result<(u32, &'a BStr)> {
+    fn expect_ident(&mut self) -> Result<(u32, &'a str)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];
         self.pos += 1;
@@ -390,8 +434,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_rust_path(&mut self) -> Result<Lined<BString>> {
-        let mut path = Vec::new();
+    fn parse_rust_path(&mut self) -> Result<Lined<String>> {
+        let mut path = String::new();
         let mut line = None;
         loop {
             self.not_eof()?;
@@ -399,17 +443,17 @@ impl<'a> Parser<'a> {
             if line.is_none() {
                 line = Some(l);
             }
-            path.extend_from_slice(id.as_bytes());
+            path.push_str(id);
             if self.eof() {
                 break;
             }
             self.expect_symbol(Symbol::Colon)?;
             self.expect_symbol(Symbol::Colon)?;
-            path.extend_from_slice(b"::");
+            path.push_str("::");
         }
         Ok(Lined {
             line: line.unwrap(),
-            val: path.into(),
+            val: path,
         })
     }
 
@@ -483,7 +527,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn parse_messages(s: &[u8]) -> Result<Vec<Lined<Message>>> {
+fn parse_messages(s: &[u8]) -> Result<ParseResult> {
     let tokens = tokenize(s)?;
     let mut parser = Parser {
         pos: 0,
@@ -492,9 +536,9 @@ fn parse_messages(s: &[u8]) -> Result<Vec<Lined<Message>>> {
     parser.parse()
 }
 
-fn to_camel(s: &BStr) -> BString {
+fn to_camel(s: &str) -> String {
     let mut last_was_underscore = true;
-    let mut res = vec![];
+    let mut res = String::new();
     for mut b in s.as_bytes().iter().copied() {
         if b == b'_' {
             last_was_underscore = true;
@@ -502,11 +546,11 @@ fn to_camel(s: &BStr) -> BString {
             if last_was_underscore {
                 b = b.to_ascii_uppercase()
             }
-            res.push(b);
+            res.push(b as char);
             last_was_underscore = false;
         }
     }
-    res.into()
+    res
 }
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
@@ -538,7 +582,7 @@ fn write_field<W: Write>(f: &mut W, field: &Field) -> Result<()> {
 
 fn write_message_type<W: Write>(
     f: &mut W,
-    obj: &BStr,
+    obj: &str,
     message: &Message,
     needs_lifetime: bool,
 ) -> Result<()> {
@@ -579,15 +623,11 @@ fn write_message_type<W: Write>(
     Ok(())
 }
 
-fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<()> {
-    let has_reference_type = message.fields.iter().any(|f| match &f.val.ty.val {
-        Type::OptStr | Type::Str | Type::BStr | Type::Array(..) => true,
-        _ => false,
-    });
+fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()> {
+    let has_reference_type = message.has_reference_type;
     let uppercase = message.name.to_ascii_uppercase();
-    let uppercase = uppercase.as_bstr();
     writeln!(f)?;
-    writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id.val)?;
+    writeln!(f, "    pub const {}: u32 = {};", uppercase, message.id)?;
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
@@ -606,7 +646,7 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
         "        type Generic<'b> = {}{};",
         message.camel_name, lifetime_b,
     )?;
-    writeln!(f, "        const ID: u32 = {};", message.id.val,)?;
+    writeln!(f, "        const ID: u32 = {};", message.id)?;
     writeln!(
         f,
         "        fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
@@ -677,11 +717,104 @@ fn write_message<W: Write>(f: &mut W, obj: &BStr, message: &Message) -> Result<(
     Ok(())
 }
 
+fn write_request_handler<W: Write>(
+    f: &mut W,
+    camel_obj_name: &str,
+    messages: &ParseResult,
+) -> Result<()> {
+    writeln!(f)?;
+    writeln!(
+        f,
+        "    pub trait {camel_obj_name}RequestHandler: crate::object::Object + Sized {{"
+    )?;
+    writeln!(f, "        type Error: std::error::Error;")?;
+    for message in &messages.requests {
+        let msg = &message.val;
+        let lt = match msg.has_reference_type {
+            true => "<'_>",
+            false => "",
+        };
+        writeln!(f)?;
+        writeln!(
+            f,
+            "        fn {}(&self, req: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
+            msg.safe_name, msg.camel_name
+        )?;
+    }
+    writeln!(f)?;
+    writeln!(f, "        #[inline(always)]")?;
+    writeln!(f, "        fn handle_request_impl(")?;
+    writeln!(f, "            self: Rc<Self>,")?;
+    writeln!(f, "            client: &crate::client::Client,")?;
+    writeln!(f, "            req: u32,")?;
+    writeln!(
+        f,
+        "            parser: crate::utils::buffd::MsgParser<'_, '_>,"
+    )?;
+    writeln!(f, "        ) -> Result<(), crate::client::ClientError> {{")?;
+    if messages.requests.is_empty() {
+        writeln!(f, "            #![allow(unused_variables)]")?;
+        writeln!(
+            f,
+            "            Err(crate::client::ClientError::InvalidMethod)"
+        )?;
+    } else {
+        writeln!(f, "            let method;")?;
+        writeln!(
+            f,
+            "            let error: Box<dyn std::error::Error> = match req {{"
+        )?;
+        for message in &messages.requests {
+            let msg = &message.val;
+            write!(f, "                {} ", msg.id)?;
+            if let Some(since) = msg.attribs.since {
+                write!(f, "if self.version() >= {since} ")?;
+            }
+            writeln!(f, "=> {{")?;
+            writeln!(f, "                    method = \"{}\";", msg.name)?;
+            writeln!(
+                f,
+                "                    match client.parse(&*self, parser) {{"
+            )?;
+            writeln!(
+                f,
+                "                        Ok(req) => match self.{}(req, &self) {{",
+                msg.safe_name
+            )?;
+            writeln!(f, "                            Ok(()) => return Ok(()),")?;
+            writeln!(f, "                            Err(e) => Box::new(e),")?;
+            writeln!(f, "                        }},")?;
+            writeln!(
+                f,
+                "                        Err(e) => Box::new(crate::client::ParserError(e)),"
+            )?;
+            writeln!(f, "                    }}")?;
+            writeln!(f, "                }},")?;
+        }
+        writeln!(
+            f,
+            "                _ => return Err(crate::client::ClientError::InvalidMethod),"
+        )?;
+        writeln!(f, "            }};")?;
+        writeln!(
+            f,
+            "            Err(crate::client::ClientError::MethodError {{"
+        )?;
+        writeln!(f, "                interface: {camel_obj_name},")?;
+        writeln!(f, "                method,")?;
+        writeln!(f, "                error,")?;
+        writeln!(f, "            }})")?;
+    }
+    writeln!(f, "        }}")?;
+    writeln!(f, "    }}")?;
+    Ok(())
+}
+
 fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     let file_name = file.file_name();
-    let file_name = file_name.as_bytes().as_bstr();
+    let file_name = std::str::from_utf8(file_name.as_bytes())?;
     println!("cargo:rerun-if-changed=wire/{}", file_name);
-    let obj_name = file_name.split_str(".").next().unwrap().as_bstr();
+    let obj_name = file_name.split(".").next().unwrap();
     let camel_obj_name = to_camel(obj_name);
     writeln!(f)?;
     writeln!(f, "id!({}Id);", camel_obj_name)?;
@@ -693,15 +826,13 @@ fn write_file<W: Write>(f: &mut W, file: &DirEntry) -> Result<()> {
     )?;
     let contents = std::fs::read(file.path())?;
     let messages = parse_messages(&contents)?;
-    if messages.is_empty() {
-        return Ok(());
-    }
     writeln!(f)?;
     writeln!(f, "pub mod {} {{", obj_name)?;
     writeln!(f, "    use super::*;")?;
-    for message in &messages {
-        write_message(f, camel_obj_name.as_bstr(), &message.val)?;
+    for message in messages.requests.iter().chain(messages.events.iter()) {
+        write_message(f, &camel_obj_name, &message.val)?;
     }
+    write_request_handler(f, &camel_obj_name, &messages)?;
     writeln!(f, "}}")?;
     Ok(())
 }
