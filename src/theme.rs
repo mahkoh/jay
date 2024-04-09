@@ -1,6 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     cmp::Ordering,
+    ops::Mul,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -20,6 +21,19 @@ impl Ord for Color {
             .then_with(|| self.g.total_cmp(&other.g))
             .then_with(|| self.b.total_cmp(&other.b))
             .then_with(|| self.a.total_cmp(&other.a))
+    }
+}
+
+impl Mul<f32> for Color {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            r: self.r * rhs,
+            g: self.g * rhs,
+            b: self.b * rhs,
+            a: self.a * rhs,
+        }
     }
 }
 

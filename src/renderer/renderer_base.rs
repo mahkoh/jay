@@ -127,6 +127,7 @@ impl RendererBase<'_> {
     pub fn render_texture(
         &mut self,
         texture: &Rc<dyn GfxTexture>,
+        alpha: Option<f32>,
         x: i32,
         y: i32,
         tpoints: Option<SampleRect>,
@@ -174,6 +175,7 @@ impl RendererBase<'_> {
             tex: texture.clone(),
             source: texcoord,
             target,
+            alpha,
             buffer_resv,
             acquire_sync,
             release_sync,

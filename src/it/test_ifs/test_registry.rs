@@ -5,7 +5,8 @@ use {
         it::{
             test_error::TestError,
             test_ifs::{
-                test_compositor::TestCompositor, test_content_type_manager::TestContentTypeManager,
+                test_alpha_modifier::TestAlphaModifier, test_compositor::TestCompositor,
+                test_content_type_manager::TestContentTypeManager,
                 test_cursor_shape_manager::TestCursorShapeManager,
                 test_data_control_manager::TestDataControlManager,
                 test_data_device_manager::TestDataDeviceManager, test_dmabuf::TestDmabuf,
@@ -50,6 +51,7 @@ pub struct TestRegistrySingletons {
     pub zwlr_data_control_manager_v1: u32,
     pub zwp_linux_dmabuf_v1: u32,
     pub xdg_toplevel_drag_manager_v1: u32,
+    pub wp_alpha_modifier_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -73,6 +75,7 @@ pub struct TestRegistry {
     pub data_control_manager: CloneCell<Option<Rc<TestDataControlManager>>>,
     pub dmabuf: CloneCell<Option<Rc<TestDmabuf>>>,
     pub drag_manager: CloneCell<Option<Rc<TestToplevelDragManager>>>,
+    pub alpha_modifier: CloneCell<Option<Rc<TestAlphaModifier>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -140,6 +143,7 @@ impl TestRegistry {
             zwlr_data_control_manager_v1,
             zwp_linux_dmabuf_v1,
             xdg_toplevel_drag_manager_v1,
+            wp_alpha_modifier_v1,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -226,6 +230,13 @@ impl TestRegistry {
         xdg_toplevel_drag_manager_v1,
         1,
         TestToplevelDragManager
+    );
+    create_singleton!(
+        get_alpha_modifier,
+        alpha_modifier,
+        wp_alpha_modifier_v1,
+        1,
+        TestAlphaModifier
     );
 
     pub fn bind<O: TestObject>(

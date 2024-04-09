@@ -216,6 +216,7 @@ impl GuiElement for Button {
             let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
             r.render_texture(
                 &tex.texture,
+                None,
                 tx.round() as _,
                 ty.round() as _,
                 None,
@@ -320,6 +321,7 @@ impl GuiElement for Label {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
                 &tex.texture,
+                None,
                 tx.round() as _,
                 ty.round() as _,
                 None,

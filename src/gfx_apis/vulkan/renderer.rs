@@ -15,8 +15,9 @@ use {
             pipeline::{PipelineCreateInfo, VulkanPipeline},
             semaphore::VulkanSemaphore,
             shaders::{
-                FillFragPushConstants, FillVertPushConstants, TexVertPushConstants, FILL_FRAG,
-                FILL_VERT, TEX_FRAG, TEX_VERT,
+                FillFragPushConstants, FillVertPushConstants, TexFragPushConstants,
+                TexVertPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG,
+                TEX_FRAG_MULT_ALPHA, TEX_FRAG_MULT_OPAQUE, TEX_VERT,
             },
             staging::VulkanStagingBuffer,
             VulkanError,
@@ -41,6 +42,7 @@ use {
         },
         Device,
     },
+    enum_map::{enum_map, Enum, EnumMap},
     isnt::std_1::collections::IsntHashMapExt,
     std::{
         cell::{Cell, RefCell},
@@ -56,8 +58,7 @@ pub struct VulkanRenderer {
     pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) fill_pipeline: Rc<VulkanPipeline>,
-    pub(super) tex_opaque_pipeline: Rc<VulkanPipeline>,
-    pub(super) tex_alpha_pipeline: Rc<VulkanPipeline>,
+    pub(super) tex_pipelines: EnumMap<TexCopyType, EnumMap<TexSourceType, Rc<VulkanPipeline>>>,
     pub(super) command_pool: Rc<VulkanCommandPool>,
     pub(super) command_buffers: Stack<Rc<VulkanCommandBuffer>>,
     pub(super) wait_semaphores: Stack<Rc<VulkanSemaphore>>,
@@ -74,6 +75,18 @@ pub(super) struct UsedTexture {
     resv: Option<Rc<dyn BufferResv>>,
     acquire_sync: AcquireSync,
     release_sync: ReleaseSync,
+}
+
+#[derive(Enum)]
+pub(super) enum TexCopyType {
+    Identity,
+    Multiply,
+}
+
+#[derive(Enum)]
+pub(super) enum TexSourceType {
+    Opaque,
+    HasAlpha,
 }
 
 #[derive(Default)]
@@ -115,6 +128,8 @@ impl VulkanDevice {
         let tex_descriptor_set_layout = self.create_descriptor_set_layout(&sampler)?;
         let tex_vert_shader = self.create_shader(TEX_VERT)?;
         let tex_frag_shader = self.create_shader(TEX_FRAG)?;
+        let tex_frag_mult_opaque_shader = self.create_shader(TEX_FRAG_MULT_OPAQUE)?;
+        let tex_frag_mult_alpha_shader = self.create_shader(TEX_FRAG_MULT_ALPHA)?;
         let create_tex_pipeline = |alpha| {
             self.create_pipeline::<TexVertPushConstants, ()>(PipelineCreateInfo {
                 vert: tex_vert_shader.clone(),
@@ -123,8 +138,18 @@ impl VulkanDevice {
                 frag_descriptor_set_layout: Some(tex_descriptor_set_layout.clone()),
             })
         };
+        let create_tex_mult_pipeline = |frag: &Rc<VulkanShader>| {
+            self.create_pipeline::<TexVertPushConstants, TexFragPushConstants>(PipelineCreateInfo {
+                vert: tex_vert_shader.clone(),
+                frag: frag.clone(),
+                alpha: true,
+                frag_descriptor_set_layout: Some(tex_descriptor_set_layout.clone()),
+            })
+        };
         let tex_opaque_pipeline = create_tex_pipeline(false)?;
         let tex_alpha_pipeline = create_tex_pipeline(true)?;
+        let tex_mult_opaque_pipeline = create_tex_mult_pipeline(&tex_frag_mult_opaque_shader)?;
+        let tex_mult_alpha_pipeline = create_tex_mult_pipeline(&tex_frag_mult_alpha_shader)?;
         let command_pool = self.create_command_pool()?;
         let formats: AHashMap<u32, _> = self
             .formats
@@ -155,8 +180,16 @@ impl VulkanDevice {
             formats: Rc::new(formats),
             device: self.clone(),
             fill_pipeline,
-            tex_opaque_pipeline,
-            tex_alpha_pipeline,
+            tex_pipelines: enum_map! {
+                TexCopyType::Identity => enum_map! {
+                    TexSourceType::HasAlpha => tex_alpha_pipeline.clone(),
+                    TexSourceType::Opaque => tex_opaque_pipeline.clone(),
+                },
+                TexCopyType::Multiply => enum_map! {
+                    TexSourceType::HasAlpha => tex_mult_alpha_pipeline.clone(),
+                    TexSourceType::Opaque => tex_mult_opaque_pipeline.clone(),
+                },
+            },
             command_pool,
             command_buffers: Default::default(),
             wait_semaphores: Default::default(),
@@ -449,10 +482,15 @@ impl VulkanRenderer {
                 }
                 GfxApiOpt::CopyTexture(c) => {
                     let tex = c.tex.as_vk(&self.device.device);
-                    let pipeline = match tex.format.has_alpha {
-                        true => &self.tex_alpha_pipeline,
-                        false => &self.tex_opaque_pipeline,
+                    let copy_type = match c.alpha.is_some() {
+                        true => TexCopyType::Multiply,
+                        false => TexCopyType::Identity,
                     };
+                    let source_type = match tex.format.has_alpha {
+                        true => TexSourceType::HasAlpha,
+                        false => TexSourceType::Opaque,
+                    };
+                    let pipeline = &self.tex_pipelines[copy_type][source_type];
                     bind(pipeline);
                     let vert = TexVertPushConstants {
                         pos: c.target.to_points(),
@@ -480,6 +518,16 @@ impl VulkanRenderer {
                             0,
                             uapi::as_bytes(&vert),
                         );
+                        if let Some(alpha) = c.alpha {
+                            let frag = TexFragPushConstants { alpha };
+                            dev.cmd_push_constants(
+                                buf,
+                                pipeline.pipeline_layout,
+                                ShaderStageFlags::FRAGMENT,
+                                mem::size_of_val(&vert) as _,
+                                uapi::as_bytes(&frag),
+                            );
+                        }
                         dev.cmd_draw(buf, 4, 1, 0, 0);
                     }
                 }

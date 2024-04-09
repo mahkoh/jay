@@ -1,0 +1,6 @@
+request destroy {
+}
+
+request set_multiplier {
+    factor: u32,
+}

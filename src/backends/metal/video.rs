@@ -426,6 +426,10 @@ impl MetalConnector {
                 }
                 return None;
             };
+            if ct.alpha.is_some() {
+                // Direct scanout with alpha factor is not supported.
+                return None;
+            }
             if !ct.tex.format().has_alpha && ct.target.is_covering() {
                 // Texture covers the entire screen and is opaque.
                 break 'ct ct;

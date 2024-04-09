@@ -1,4 +1,6 @@
-mod test_buffer;
+pub mod test_alpha_modifier;
+pub mod test_alpha_modifier_surface;
+pub mod test_buffer;
 pub mod test_callback;
 pub mod test_compositor;
 pub mod test_content_type;
