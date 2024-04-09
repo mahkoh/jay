@@ -45,9 +45,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     client.compare_screenshot("1", false).await?;
 
-    alpha1.set_multiplier(0.5)?;
+    alpha1.set_multiplier(0.51)?;
     ss1.commit()?;
-    alpha2.set_multiplier(0.5)?;
+    alpha2.set_multiplier(0.51)?;
     ss2.commit()?;
 
     client.compare_screenshot("2", false).await?;
