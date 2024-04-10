@@ -16,5 +16,4 @@ tasks:
   - test: |
       cd jay
       export RUST_BACKTRACE=1
-      export GALLIUM_DRIVER=softpipe
       ./target/debug/jay run-tests
