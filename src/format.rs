@@ -71,10 +71,18 @@ static FORMATS_MAP: Lazy<AHashMap<u32, &'static Format>> = Lazy::new(|| {
 static PW_FORMATS_MAP: Lazy<AHashMap<SpaVideoFormat, &'static Format>> = Lazy::new(|| {
     let mut map = AHashMap::new();
     for format in FORMATS {
-        assert!(map.insert(format.pipewire, format).is_none());
+        if format.pipewire != SPA_VIDEO_FORMAT_UNKNOWN {
+            assert!(map.insert(format.pipewire, format).is_none());
+        }
     }
     map
 });
+
+#[test]
+fn formats_dont_panic() {
+    formats();
+    pw_formats();
+}
 
 pub fn formats() -> &'static AHashMap<u32, &'static Format> {
     &FORMATS_MAP
