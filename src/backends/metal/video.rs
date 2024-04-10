@@ -634,7 +634,6 @@ impl MetalConnector {
                     .perform_render_pass(pass)
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;
-                self.next_buffer.fetch_add(1);
                 output.perform_screencopies(&buffer.render_tex, !render_hw_cursor, 0, 0, None);
                 fb = buffer.drm.clone();
             }
@@ -787,6 +786,9 @@ impl MetalConnector {
             Err(MetalError::Commit(e))
         } else {
             if let Some(fb) = new_fb {
+                if fb.direct_scanout_data.is_none() {
+                    self.next_buffer.fetch_add(1);
+                }
                 self.next_framebuffer.set(Some(fb));
             }
             if cursor_swap_buffer {
@@ -2407,6 +2409,7 @@ impl MetalBackend {
         if let Some(old) = connector.buffers.set(Some(buffers)) {
             old_buffers.push(old);
         }
+        connector.next_buffer.set(1);
         connector.primary_plane.set(Some(primary_plane.clone()));
         if let Some(cp) = &cursor_plane {
             cp.assigned.set(true);
