@@ -88,6 +88,7 @@ pub struct MetalDrmDevice {
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
+    pub is_nvidia: bool,
 }
 
 impl MetalDrmDevice {
@@ -714,7 +715,9 @@ impl MetalConnector {
                     c.change(plane.crtc_y.id, crtc_y as u64);
                     c.change(plane.crtc_w.id, crtc_w as u64);
                     c.change(plane.crtc_h.id, crtc_h as u64);
-                    c.change(plane.in_fence_fd, in_fence as u64);
+                    if !self.dev.is_nvidia {
+                        c.change(plane.in_fence_fd, in_fence as u64);
+                    }
                 });
                 new_fb = Some(fb);
             }
@@ -748,7 +751,9 @@ impl MetalConnector {
                     c.change(plane.src_y.id, 0);
                     c.change(plane.src_w.id, (width as u64) << 16);
                     c.change(plane.src_h.id, (height as u64) << 16);
-                    c.change(plane.in_fence_fd, in_fence as u64);
+                    if !self.dev.is_nvidia {
+                        c.change(plane.in_fence_fd, in_fence as u64);
+                    }
                 });
             } else {
                 changes.change_object(plane.id, |c| {
@@ -1586,6 +1591,22 @@ impl MetalBackend {
             Err(e) => return Err(MetalError::GbmDevice(e)),
         };
 
+        let mut is_nvidia = false;
+        match gbm.drm.version() {
+            Ok(v) => {
+                is_nvidia = v.name.contains_str("nvidia");
+                if is_nvidia {
+                    log::warn!(
+                        "Device {} use the nvidia driver. IN_FENCE_FD will not be used.",
+                        pending.devnode.as_bytes().as_bstr(),
+                    );
+                }
+            }
+            Err(e) => {
+                log::warn!("Could not fetch DRM version information: {}", ErrorFmt(e));
+            }
+        }
+
         let dev = Rc::new(MetalDrmDevice {
             backend: self.clone(),
             id: pending.id,
@@ -1608,6 +1629,7 @@ impl MetalBackend {
             ctx: CloneCell::new(ctx),
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
+            is_nvidia,
         });
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
