@@ -87,6 +87,7 @@ mod tree;
 mod udev;
 mod user_session;
 mod utils;
+mod version;
 mod video;
 mod wheel;
 mod wire;
