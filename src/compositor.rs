@@ -38,6 +38,7 @@ use {
             oserror::OsError, queue::AsyncQueue, refcounted::RefCounted, run_toplevel::RunToplevel,
             tri::Try,
         },
+        version::VERSION,
         video::drm::wait_for_sync_obj::WaitForSyncObj,
         wheel::{Wheel, WheelError},
         xkbcommon::XkbContext,
@@ -122,6 +123,7 @@ fn start_compositor2(
     test_future: Option<TestFuture>,
 ) -> Result<(), CompositorError> {
     log::info!("pid = {}", uapi::getpid());
+    log::info!("version = {VERSION}");
     init_fd_limit();
     leaks::init();
     clientmem::init()?;
