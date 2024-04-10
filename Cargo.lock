@@ -521,7 +521,7 @@ dependencies = [
 
 [[package]]
 name = "jay-compositor"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "ahash",
  "anyhow",
