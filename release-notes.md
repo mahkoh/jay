@@ -2,6 +2,10 @@
 
 - Add support for wp-alpha-modifier.
 
+# 1.0.3 (2024-04-11)
+
+- Partially disable explicit sync on nvidia drivers.
+
 # 1.0.2 (2024-04-10)
 
 - Fixed a bug that caused the portal to fail.

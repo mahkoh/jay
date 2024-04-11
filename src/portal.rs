@@ -31,6 +31,7 @@ use {
             run_toplevel::RunToplevel,
             xrd::xrd,
         },
+        version::VERSION,
         video::dmabuf::DmaBufIds,
         wheel::Wheel,
         wire_dbus::org,
@@ -226,6 +227,7 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>) -> Rc<DbusSocket> {
         Ok(r) if r.get().rv == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER => {
             log::info!("Acquired unique name {}", UNIQUE_NAME);
             logger.redirect("portal");
+            log::info!("version = {VERSION}");
             let fork = match fork_with_pidfd(false) {
                 Ok(f) => f,
                 Err(e) => fatal!("Could not fork: {}", ErrorFmt(e)),
