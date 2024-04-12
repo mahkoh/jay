@@ -56,7 +56,7 @@ use {
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, linkedlist::LinkedNode, numcell::NumCell, rc_eq::rc_eq,
-            smallmap::SmallMap, transform_ext::TransformExt,
+            smallmap::SmallMap, transform_ext::TransformExt, vecset::VecSet,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
@@ -65,7 +65,7 @@ use {
         },
         xkbcommon::{XkbKeymap, XkbState},
     },
-    ahash::{AHashMap, AHashSet},
+    ahash::AHashMap,
     jay_config::keyboard::mods::Modifiers,
     smallvec::SmallVec,
     std::{
@@ -128,7 +128,7 @@ pub struct WlSeatGlobal {
     pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
-    pressed_keys: RefCell<AHashSet<u32>>,
+    pressed_keys: RefCell<VecSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
     x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
     data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,

@@ -742,10 +742,10 @@ impl WlSeatGlobal {
 // Focus callbacks
 impl WlSeatGlobal {
     pub fn focus_surface(&self, surface: &WlSurface) {
-        let pressed_keys: Vec<_> = self.pressed_keys.borrow().iter().copied().collect();
+        let pressed_keys = &*self.pressed_keys.borrow();
         let serial = surface.client.next_serial();
         self.surface_kb_event(Version::ALL, surface, |k| {
-            k.send_enter(serial, surface.id, &pressed_keys)
+            k.send_enter(serial, surface.id, pressed_keys)
         });
         let ModifierState {
             mods_depressed,
