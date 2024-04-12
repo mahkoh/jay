@@ -1519,6 +1519,22 @@ The table has the following fields:
 
   The value of this field should be an array of arrays of numbers.
 
+- `keymap` (optional):
+
+  The keymap to use for this device.
+  
+  This overrides the global keymap. The keymap becomes active when a key is pressed.
+  
+  - Example:
+  
+    ```toml
+    [[inputs]]
+    match.name = "ZSA Technology Labs Inc ErgoDox EZ"
+    keymap.name = "external"
+    ```
+
+  The value of this field should be a [Keymap](#types-Keymap).
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`

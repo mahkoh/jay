@@ -432,6 +432,10 @@ pub enum ClientMessage<'a> {
         enabled: bool,
     },
     GetSocketPath,
+    DeviceSetKeymap {
+        device: InputDevice,
+        keymap: Keymap,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

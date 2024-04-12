@@ -19,7 +19,7 @@ use {
         ops::DerefMut,
         rc::Rc,
     },
-    uapi::c,
+    uapi::{c, OwnedFd},
 };
 
 #[derive(Args, Debug)]
@@ -119,6 +119,10 @@ pub enum DeviceCommand {
     SetPxPerWheelScroll(SetPxPerWheelScrollArgs),
     /// Set the transformation matrix.
     SetTransformMatrix(SetTransformMatrixArgs),
+    /// Set the keymap of this device.
+    SetKeymap(SetKeymapArgs),
+    /// Retrieve the keymap of this device.
+    Keymap,
     /// Attach the device to a seat.
     Attach(AttachArgs),
     /// Detach the device from its seat.
@@ -292,6 +296,47 @@ impl Input {
         });
     }
 
+    fn prepare_keymap(&self, a: &SetKeymapArgs) -> (Rc<OwnedFd>, usize) {
+        let map = match &a.file {
+            None => {
+                let mut map = vec![];
+                if let Err(e) = stdin().read_to_end(&mut map) {
+                    eprintln!("Could not read from stdin: {}", ErrorFmt(e));
+                    std::process::exit(1);
+                }
+                map
+            }
+            Some(f) => match std::fs::read(f) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("Could not read {}: {}", f, ErrorFmt(e));
+                    std::process::exit(1);
+                }
+            },
+        };
+        let mut memfd =
+            uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).unwrap();
+        memfd.write_all(&map).unwrap();
+        uapi::lseek(memfd.raw(), 0, c::SEEK_SET).unwrap();
+        uapi::fcntl_add_seals(
+            memfd.raw(),
+            c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
+        )
+        .unwrap();
+        (Rc::new(memfd), map.len())
+    }
+
+    async fn handle_keymap(&self, input: JayInputId) -> Vec<u8> {
+        let data = Rc::new(RefCell::new(Vec::new()));
+        jay_input::Keymap::handle(&self.tc, input, data.clone(), |d, map| {
+            let mem = Rc::new(ClientMem::new(map.keymap.raw(), map.keymap_len as _, true).unwrap())
+                .offset(0);
+            mem.read(d.borrow_mut().deref_mut()).unwrap();
+        });
+        self.tc.round_trip().await;
+        data.take()
+    }
+
     async fn seat(self: &Rc<Self>, input: JayInputId, args: SeatArgs) {
         let tc = &self.tc;
         match args.command.unwrap_or_default() {
@@ -318,40 +363,15 @@ impl Input {
                 });
             }
             SeatCommand::SetKeymap(a) => {
+                let (memfd, len) = self.prepare_keymap(&a);
                 self.handle_error(input, |e| {
                     eprintln!("Could not set keymap: {}", e);
                 });
-                let map = match &a.file {
-                    None => {
-                        let mut map = vec![];
-                        if let Err(e) = stdin().read_to_end(&mut map) {
-                            eprintln!("Could not read from stdin: {}", ErrorFmt(e));
-                            std::process::exit(1);
-                        }
-                        map
-                    }
-                    Some(f) => match std::fs::read(f) {
-                        Ok(m) => m,
-                        Err(e) => {
-                            eprintln!("Could not read {}: {}", f, ErrorFmt(e));
-                            std::process::exit(1);
-                        }
-                    },
-                };
-                let mut memfd =
-                    uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).unwrap();
-                memfd.write_all(&map).unwrap();
-                uapi::lseek(memfd.raw(), 0, c::SEEK_SET).unwrap();
-                uapi::fcntl_add_seals(
-                    memfd.raw(),
-                    c::F_SEAL_SEAL | c::F_SEAL_GROW | c::F_SEAL_SHRINK | c::F_SEAL_WRITE,
-                )
-                .unwrap();
                 tc.send(jay_input::SetKeymap {
                     self_id: input,
                     seat: &args.seat,
-                    keymap: Rc::new(memfd),
-                    keymap_len: map.len() as _,
+                    keymap: memfd,
+                    keymap_len: len as _,
                 });
             }
             SeatCommand::UseHardwareCursor(a) => {
@@ -368,20 +388,11 @@ impl Input {
                 self.handle_error(input, |e| {
                     eprintln!("Could not retrieve the keymap: {}", e);
                 });
-                let data = Rc::new(RefCell::new(Vec::new()));
-                jay_input::Keymap::handle(tc, input, data.clone(), |d, map| {
-                    let mem = Rc::new(
-                        ClientMem::new(map.keymap.raw(), map.keymap_len as _, true).unwrap(),
-                    )
-                    .offset(0);
-                    mem.read(d.borrow_mut().deref_mut()).unwrap();
-                });
                 tc.send(jay_input::GetKeymap {
                     self_id: input,
                     seat: &args.seat,
                 });
-                tc.round_trip().await;
-                let map = data.take();
+                let map = self.handle_keymap(input).await;
                 stdout().write_all(&map).unwrap();
             }
             SeatCommand::SetCursorSize(a) => {
@@ -529,6 +540,29 @@ impl Input {
                     self_id: input,
                     id: args.device,
                 });
+            }
+            DeviceCommand::SetKeymap(a) => {
+                let (memfd, len) = self.prepare_keymap(&a);
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set keymap: {}", e);
+                });
+                tc.send(jay_input::SetDeviceKeymap {
+                    self_id: input,
+                    id: args.device,
+                    keymap: memfd,
+                    keymap_len: len as _,
+                });
+            }
+            DeviceCommand::Keymap => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not retrieve the keymap: {}", e);
+                });
+                tc.send(jay_input::GetDeviceKeymap {
+                    self_id: input,
+                    id: args.device,
+                });
+                let map = self.handle_keymap(input).await;
+                stdout().write_all(&map).unwrap();
             }
         }
         tc.round_trip().await;

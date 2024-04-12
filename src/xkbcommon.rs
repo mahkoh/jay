@@ -101,11 +101,14 @@ extern "C" {
 
 pub struct XkbContext {
     context: *mut xkb_context,
+    ids: KeymapIds,
 }
 
 extern "C" {
     fn jay_xkbcommon_log_handler_bridge();
 }
+
+linear_ids!(KeymapIds, KeymapId, u64);
 
 impl XkbContext {
     pub fn new() -> Result<Self, XkbCommonError> {
@@ -117,10 +120,13 @@ impl XkbContext {
             xkb_context_set_log_verbosity(res, 10);
             xkb_context_set_log_fn(res, jay_xkbcommon_log_handler_bridge);
         }
-        Ok(Self { context: res })
+        Ok(Self {
+            context: res,
+            ids: Default::default(),
+        })
     }
 
-    fn raw_to_map(raw: *mut xkb_keymap) -> Result<Rc<XkbKeymap>, XkbCommonError> {
+    fn raw_to_map(&self, raw: *mut xkb_keymap) -> Result<Rc<XkbKeymap>, XkbCommonError> {
         let res = unsafe { xkb_keymap_get_as_string(raw, XKB_KEYMAP_FORMAT_TEXT_V1.raw() as _) };
         if res.is_null() {
             unsafe {
@@ -142,6 +148,7 @@ impl XkbContext {
         )
         .unwrap();
         Ok(Rc::new(XkbKeymap {
+            id: self.ids.next(),
             keymap: raw,
             map: Rc::new(memfd),
             map_len: str.len() + 1,
@@ -164,7 +171,7 @@ impl XkbContext {
             if keymap.is_null() {
                 return Err(XkbCommonError::KeymapFromBuffer);
             }
-            Self::raw_to_map(keymap)
+            self.raw_to_map(keymap)
         }
     }
 }
@@ -178,6 +185,7 @@ impl Drop for XkbContext {
 }
 
 pub struct XkbKeymap {
+    pub id: KeymapId,
     keymap: *mut xkb_keymap,
     pub map: Rc<OwnedFd>,
     pub map_len: usize,

@@ -4,7 +4,10 @@ use {
             context::Context,
             extractor::{bol, fltorint, opt, recover, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::input_match::{InputMatchParser, InputMatchParserError},
+            parsers::{
+                input_match::{InputMatchParser, InputMatchParserError},
+                keymap::KeymapParser,
+            },
             Input,
         },
         toml::{
@@ -62,7 +65,7 @@ impl<'a> Parser for InputParser<'a> {
                 natural_scrolling,
                 px_per_wheel_scroll,
             ),
-            (transform_matrix,),
+            (transform_matrix, keymap),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -76,7 +79,7 @@ impl<'a> Parser for InputParser<'a> {
                 recover(opt(bol("natural-scrolling"))),
                 recover(opt(fltorint("px-per-wheel-scroll"))),
             ),
-            (recover(opt(val("transform-matrix"))),),
+            (recover(opt(val("transform-matrix"))), opt(val("keymap"))),
         ))?;
         let accel_profile = match accel_profile {
             None => None,
@@ -109,6 +112,19 @@ impl<'a> Parser for InputParser<'a> {
                 );
             }
         }
+        let keymap = match keymap {
+            None => None,
+            Some(map) => match map.parse(&mut KeymapParser {
+                cx: self.cx,
+                definition: false,
+            }) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse keymap: {}", self.cx.error(e));
+                    None
+                }
+            },
+        };
         Ok(Input {
             tag: tag.despan_into(),
             match_: match_val.parse_map(&mut InputMatchParser(self.cx))?,
@@ -121,6 +137,7 @@ impl<'a> Parser for InputParser<'a> {
             natural_scrolling: natural_scrolling.despan(),
             px_per_wheel_scroll: px_per_wheel_scroll.despan(),
             transform_matrix,
+            keymap,
         })
     }
 }

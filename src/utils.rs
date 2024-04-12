@@ -50,6 +50,7 @@ pub mod trim;
 pub mod unlink_on_drop;
 pub mod vec_ext;
 pub mod vecdeque_ext;
+pub mod vecset;
 pub mod vecstorage;
 pub mod windows;
 pub mod xrd;

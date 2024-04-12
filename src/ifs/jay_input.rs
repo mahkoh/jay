@@ -13,10 +13,11 @@ use {
         state::{DeviceHandlerData, InputDeviceData},
         utils::errorfmt::ErrorFmt,
         wire::{jay_input::*, JayInputId},
-        xkbcommon::XkbCommonError,
+        xkbcommon::{XkbCommonError, XkbKeymap},
     },
     std::rc::Rc,
     thiserror::Error,
+    uapi::OwnedFd,
 };
 
 pub struct JayInput {
@@ -67,8 +68,7 @@ impl JayInput {
         });
     }
 
-    fn send_keymap(&self, data: &WlSeatGlobal) {
-        let map = data.keymap();
+    fn send_keymap(&self, map: &XkbKeymap) {
         self.client.event(Keymap {
             self_id: self.id,
             keymap: map.map.clone(),
@@ -138,6 +138,20 @@ impl JayInput {
             Some(d) => Ok(d.data.clone()),
         }
     }
+
+    fn set_keymap_impl<F>(&self, keymap: &OwnedFd, len: u32, f: F) -> Result<(), JayInputError>
+    where
+        F: FnOnce(&Rc<XkbKeymap>) -> Result<(), JayInputError>,
+    {
+        let cm = Rc::new(ClientMem::new(keymap.raw(), len as _, true)?).offset(0);
+        let mut map = vec![];
+        cm.read(&mut map)?;
+        self.or_error(|| {
+            let map = self.client.state.xkb_ctx.keymap_from_str(&map)?;
+            f(&map)?;
+            Ok(())
+        })
+    }
 }
 
 impl JayInputRequestHandler for JayInput {
@@ -174,13 +188,9 @@ impl JayInputRequestHandler for JayInput {
     }
 
     fn set_keymap(&self, req: SetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let cm = Rc::new(ClientMem::new(req.keymap.raw(), req.keymap_len as _, true)?).offset(0);
-        let mut map = vec![];
-        cm.read(&mut map)?;
-        self.or_error(|| {
-            let map = self.client.state.xkb_ctx.keymap_from_str(&map)?;
+        self.set_keymap_impl(&req.keymap, req.keymap_len, |map| {
             let seat = self.seat(req.seat)?;
-            seat.set_keymap(&map);
+            seat.set_seat_keymap(&map);
             Ok(())
         })
     }
@@ -200,7 +210,7 @@ impl JayInputRequestHandler for JayInput {
     fn get_keymap(&self, req: GetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
-            self.send_keymap(&seat);
+            self.send_keymap(&seat.keymap());
             Ok(())
         })
     }
@@ -358,6 +368,24 @@ impl JayInputRequestHandler for JayInput {
                     Ok(())
                 }
             }
+        })
+    }
+
+    fn set_device_keymap(&self, req: SetDeviceKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.set_keymap_impl(&req.keymap, req.keymap_len, |map| {
+            let dev = self.device(req.id)?;
+            dev.set_keymap(&map);
+            Ok(())
+        })
+    }
+
+    fn get_device_keymap(&self, req: GetDeviceKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            if let Some(map) = dev.keymap.get() {
+                self.send_keymap(&map);
+            }
+            Ok(())
         })
     }
 }

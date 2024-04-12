@@ -4,12 +4,11 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::{Object, Version},
-        utils::oserror::OsError,
+        utils::{errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError},
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
     },
     std::rc::Rc,
     thiserror::Error,
-    uapi::OwnedFd,
 };
 
 pub const REPEAT_INFO_SINCE: Version = Version(4);
@@ -24,6 +23,7 @@ pub(super) const PRESSED: u32 = 1;
 pub struct WlKeyboard {
     id: WlKeyboardId,
     seat: Rc<WlSeat>,
+    pub(super) keymap_version: NumCell<u32>,
     pub tracker: Tracker<Self>,
 }
 
@@ -32,20 +32,38 @@ impl WlKeyboard {
         Self {
             id,
             seat: seat.clone(),
+            keymap_version: NumCell::new(0),
             tracker: Default::default(),
         }
     }
 
-    pub fn send_keymap(self: &Rc<Self>, format: u32, fd: Rc<OwnedFd>, size: u32) {
+    pub fn send_keymap(&self) {
+        let map = self.seat.global.effective_kb_map.get();
+        let fd = match self.seat.keymap_fd(&map) {
+            Ok(fd) => fd,
+            Err(e) => {
+                log::error!(
+                    "Could not creat a file descriptor to transfer the keymap to client {}: {}",
+                    self.seat.client.id,
+                    ErrorFmt(e)
+                );
+                return;
+            }
+        };
         self.seat.client.event(Keymap {
             self_id: self.id,
-            format,
+            format: XKB_V1,
             fd,
-            size,
-        })
+            size: map.map_len as _,
+        });
+        self.keymap_version
+            .set(self.seat.global.keymap_version.get());
     }
 
     pub fn send_enter(self: &Rc<Self>, serial: u32, surface: WlSurfaceId, keys: &[u32]) {
+        if self.keymap_version.get() != self.seat.global.keymap_version.get() {
+            self.send_keymap();
+        }
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,

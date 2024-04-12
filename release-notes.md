@@ -1,6 +1,7 @@
 # Unreleased
 
 - Add support for wp-alpha-modifier.
+- Add support for per-device keymaps.
 
 # 1.0.3 (2024-04-11)
 
