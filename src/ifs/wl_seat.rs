@@ -7,6 +7,8 @@ pub mod wl_touch;
 pub mod zwp_pointer_constraints_v1;
 pub mod zwp_relative_pointer_manager_v1;
 pub mod zwp_relative_pointer_v1;
+pub mod zwp_virtual_keyboard_manager_v1;
+pub mod zwp_virtual_keyboard_v1;
 
 pub use event_handling::NodeSeatState;
 use {

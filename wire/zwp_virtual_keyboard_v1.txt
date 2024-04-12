@@ -1,0 +1,21 @@
+request keymap {
+    format: u32,
+    fd: fd,
+    size: u32,
+}
+
+request key {
+    time: u32,
+    key: u32,
+    state: u32,
+}
+
+request modifiers {
+    mods_depressed: u32,
+    mods_latched: u32,
+    mods_locked: u32,
+    group: u32,
+}
+
+request destroy {
+}

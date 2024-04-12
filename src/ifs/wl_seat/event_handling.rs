@@ -356,7 +356,7 @@ impl WlSeatGlobal {
         self.pointer_owner.button(self, time_usec, button, state);
     }
 
-    fn key_event(&self, time_usec: u64, key: u32, key_state: KeyState) {
+    pub(super) fn key_event(&self, time_usec: u64, key: u32, key_state: KeyState) {
         let (state, xkb_dir) = {
             let mut pk = self.pressed_keys.borrow_mut();
             match key_state {
@@ -409,6 +409,25 @@ impl WlSeatGlobal {
                 t.send_modifiers(self.id, &mods);
             });
             node.node_on_mods(self, mods);
+        }
+    }
+
+    pub(super) fn set_modifiers(
+        &self,
+        mods_depressed: u32,
+        mods_latched: u32,
+        mods_locked: u32,
+        group: u32,
+    ) {
+        let new_mods =
+            self.kb_state
+                .borrow_mut()
+                .set(mods_depressed, mods_latched, mods_locked, group);
+        if let Some(mods) = new_mods {
+            self.state.for_each_seat_tester(|t| {
+                t.send_modifiers(self.id, &mods);
+            });
+            self.keyboard_node.get().node_on_mods(self, mods);
         }
     }
 }

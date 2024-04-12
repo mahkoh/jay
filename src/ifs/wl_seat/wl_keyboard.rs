@@ -15,10 +15,10 @@ pub const REPEAT_INFO_SINCE: Version = Version(4);
 
 #[allow(dead_code)]
 const NO_KEYMAP: u32 = 0;
-pub(super) const XKB_V1: u32 = 1;
+pub const XKB_V1: u32 = 1;
 
-pub(super) const RELEASED: u32 = 0;
-pub(super) const PRESSED: u32 = 1;
+pub const RELEASED: u32 = 0;
+pub const PRESSED: u32 = 1;
 
 pub struct WlKeyboard {
     id: WlKeyboardId,
