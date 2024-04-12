@@ -37,6 +37,7 @@ type xkb_keycode_t = u32;
 type xkb_layout_index_t = u32;
 type xkb_level_index_t = u32;
 type xkb_keysym_t = u32;
+type xkb_mod_mask_t = u32;
 
 #[repr(C)]
 struct xkb_rule_names {
@@ -97,6 +98,15 @@ extern "C" {
     fn xkb_state_serialize_mods(state: *mut xkb_state, components: xkb_state_component) -> u32;
     #[allow(dead_code)]
     fn xkb_state_serialize_layout(state: *mut xkb_state, components: xkb_state_component) -> u32;
+    fn xkb_state_update_mask(
+        state: *mut xkb_state,
+        depressed_mods: xkb_mod_mask_t,
+        latched_mods: xkb_mod_mask_t,
+        locked_mods: xkb_mod_mask_t,
+        depressed_layout: xkb_layout_index_t,
+        latched_layout: xkb_layout_index_t,
+        locked_layout: xkb_layout_index_t,
+    ) -> xkb_state_component;
 }
 
 pub struct XkbContext {
@@ -257,10 +267,8 @@ impl XkbState {
         self.mods
     }
 
-    #[allow(dead_code)]
-    pub fn update(&mut self, key: u32, direction: XkbKeyDirection) -> Option<ModifierState> {
+    fn fetch(&mut self, changes: xkb_state_component) -> Option<ModifierState> {
         unsafe {
-            let changes = xkb_state_update_key(self.state, key + 8, direction.raw() as _);
             if changes != 0 {
                 self.mods.mods_depressed =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_DEPRESSED.raw() as _);
@@ -276,6 +284,34 @@ impl XkbState {
             } else {
                 None
             }
+        }
+    }
+
+    pub fn update(&mut self, key: u32, direction: XkbKeyDirection) -> Option<ModifierState> {
+        unsafe {
+            let changes = xkb_state_update_key(self.state, key + 8, direction.raw() as _);
+            self.fetch(changes)
+        }
+    }
+
+    pub fn set(
+        &mut self,
+        mods_depressed: u32,
+        mods_latched: u32,
+        mods_locked: u32,
+        group: u32,
+    ) -> Option<ModifierState> {
+        unsafe {
+            let changes = xkb_state_update_mask(
+                self.state,
+                mods_depressed,
+                mods_latched,
+                mods_locked,
+                0,
+                0,
+                group,
+            );
+            self.fetch(changes)
         }
     }
 

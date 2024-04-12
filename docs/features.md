@@ -145,6 +145,7 @@ Jay supports the following wayland protocols:
 | zwp_pointer_constraints_v1              | 1                |            |
 | zwp_primary_selection_device_manager_v1 | 1                |            |
 | zwp_relative_pointer_manager_v1         | 1                |            |
+| zwp_virtual_keyboard_manager_v1         | 1                | Yes        |
 | zxdg_decoration_manager_v1              | 1                |            |
 | zxdg_output_manager_v1                  | 3                |            |
 

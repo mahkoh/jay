@@ -5,7 +5,7 @@ use {
             test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
             test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
-        utils::{buffd::MsgParser, clonecell::CloneCell, once::Once},
+        utils::{buffd::MsgParser, clonecell::CloneCell, numcell::NumCell, once::Once},
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
     },
     std::rc::Rc,
@@ -22,8 +22,12 @@ pub struct TestKeyboard {
     pub tran: Rc<TestTransport>,
     pub server: CloneCell<Option<Rc<WlKeyboard>>>,
     pub destroyed: Once,
+    pub keymap: TEEH<(usize, Keymap)>,
+    pub key: TEEH<(usize, Key)>,
+    pub modifiers: TEEH<(usize, Modifiers)>,
     pub enter: TEEH<TestEnterEvent>,
     pub leave: TEEH<Leave>,
+    pub event_id: NumCell<usize>,
 }
 
 impl TestKeyboard {
@@ -35,7 +39,8 @@ impl TestKeyboard {
     }
 
     fn handle_keymap(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Keymap::parse_full(parser)?;
+        let ev = Keymap::parse_full(parser)?;
+        self.keymap.push((self.event_id.fetch_add(1), ev));
         Ok(())
     }
 
@@ -56,12 +61,14 @@ impl TestKeyboard {
     }
 
     fn handle_key(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Key::parse_full(parser)?;
+        let ev = Key::parse_full(parser)?;
+        self.key.push((self.event_id.fetch_add(1), ev));
         Ok(())
     }
 
     fn handle_modifiers(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Modifiers::parse_full(parser)?;
+        let ev = Modifiers::parse_full(parser)?;
+        self.modifiers.push((self.event_id.fetch_add(1), ev));
         Ok(())
     }
 

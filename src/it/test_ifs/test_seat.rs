@@ -42,8 +42,12 @@ impl TestSeat {
             tran: self.tran.clone(),
             server: Default::default(),
             destroyed: Default::default(),
+            keymap: Default::default(),
+            key: Default::default(),
+            modifiers: Default::default(),
             enter: Default::default(),
             leave: Default::default(),
+            event_id: Default::default(),
         });
         self.tran.add_obj(kb.clone())?;
         self.tran.sync().await;
