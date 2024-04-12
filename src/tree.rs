@@ -190,7 +190,7 @@ pub trait Node: 'static {
         let _ = event;
     }
 
-    fn node_on_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+    fn node_on_focus(self: Rc<Self>, seat: &WlSeatGlobal) {
         let _ = seat;
     }
 

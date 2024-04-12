@@ -1399,7 +1399,7 @@ impl Node for WlSurface {
         seat.scroll_surface(&self, event);
     }
 
-    fn node_on_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>) {
+    fn node_on_focus(self: Rc<Self>, seat: &WlSeatGlobal) {
         if let Some(tl) = self.toplevel.get() {
             tl.tl_data().focus_node.insert(seat.id(), self.clone());
             tl.tl_on_activate();

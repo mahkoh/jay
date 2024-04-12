@@ -163,6 +163,7 @@ pub struct WlSeatGlobal {
     constraint: CloneCell<Option<Rc<SeatConstraint>>>,
     idle_notifications: CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
     last_input_usec: Cell<u64>,
+    keymap_version: NumCell<u32>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -219,6 +220,7 @@ impl WlSeatGlobal {
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
             wlr_data_devices: Default::default(),
+            keymap_version: NumCell::new(1),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -513,24 +515,12 @@ impl WlSeatGlobal {
                 return;
             }
         };
+        self.keyboard_node.get().node_on_unfocus(self);
         self.kb_map.set(keymap.clone());
         *self.kb_state.borrow_mut() = state;
-        let bindings = self.bindings.borrow_mut();
-        for (id, client) in bindings.iter() {
-            for seat in client.values() {
-                let kbs = seat.keyboards.lock();
-                for kb in kbs.values() {
-                    let fd = match seat.keymap_fd(keymap) {
-                        Ok(fd) => fd,
-                        Err(e) => {
-                            log::error!("Could not creat a file descriptor to transfer the keymap to client {}: {}", id, ErrorFmt(e));
-                            continue;
-                        }
-                    };
-                    kb.send_keymap(wl_keyboard::XKB_V1, fd, keymap.map_len as _);
-                }
-            }
-        }
+        self.keymap_version.fetch_add(1);
+        self.pressed_keys.borrow_mut().clear();
+        self.keyboard_node.get().node_on_focus(self);
     }
 
     pub fn prepare_for_lock(self: &Rc<Self>) {
@@ -1180,12 +1170,13 @@ impl WlSeatRequestHandler for WlSeat {
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
-        let keymap = self.global.kb_map.get();
-        p.send_keymap(
-            wl_keyboard::XKB_V1,
-            self.keymap_fd(&keymap)?,
-            keymap.map_len as _,
-        );
+        p.send_keymap();
+        if let Some(surface) = self.global.keyboard_node.get().node_into_surface() {
+            if surface.client.id == self.client.id {
+                let serial = self.client.next_serial();
+                p.send_enter(serial, surface.id, &self.global.pressed_keys.borrow())
+            }
+        }
         if self.version >= REPEAT_INFO_SINCE {
             let (rate, delay) = self.global.repeat_rate.get();
             p.send_repeat_info(rate, delay);

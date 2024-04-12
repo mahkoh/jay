@@ -18,6 +18,12 @@ impl<T> Deref for VecSet<T> {
     }
 }
 
+impl<T> VecSet<T> {
+    pub fn clear(&mut self) {
+        self.vec.clear();
+    }
+}
+
 impl<T: PartialEq> VecSet<T> {
     pub fn insert(&mut self, val: T) -> bool {
         if self.vec.contains(&val) {
