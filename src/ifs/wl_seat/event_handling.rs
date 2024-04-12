@@ -196,7 +196,20 @@ impl WlSeatGlobal {
                 time_usec,
                 key,
                 state,
-            } => self.key_event(time_usec, key, state),
+            } => {
+                let desired_kb_map_id = match dev.keymap_id.get() {
+                    Some(id) => id,
+                    None => self.seat_kb_map_id.get(),
+                };
+                if desired_kb_map_id != self.effective_kb_map_id.get() {
+                    let map = match dev.keymap.get() {
+                        Some(map) => map,
+                        None => self.seat_kb_map.get(),
+                    };
+                    self.set_effective_keymap(&map);
+                }
+                self.key_event(time_usec, key, state)
+            }
             InputEvent::ConnectorPosition {
                 time_usec,
                 connector,

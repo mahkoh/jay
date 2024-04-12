@@ -38,7 +38,7 @@ impl WlKeyboard {
     }
 
     pub fn send_keymap(&self) {
-        let map = self.seat.global.kb_map.get();
+        let map = self.seat.global.effective_kb_map.get();
         let fd = match self.seat.keymap_fd(&map) {
             Ok(fd) => fd,
             Err(e) => {

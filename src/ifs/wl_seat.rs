@@ -63,7 +63,7 @@ use {
             WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
             ZwpRelativePointerV1Id,
         },
-        xkbcommon::{XkbKeymap, XkbState},
+        xkbcommon::{KeymapId, XkbKeymap, XkbState},
     },
     ahash::AHashMap,
     jay_config::keyboard::mods::Modifiers,
@@ -141,7 +141,10 @@ pub struct WlSeatGlobal {
     wlr_data_devices:
         CopyHashMap<(ClientId, ZwlrDataControlDeviceV1Id), Rc<ZwlrDataControlDeviceV1>>,
     repeat_rate: Cell<(i32, i32)>,
-    kb_map: CloneCell<Rc<XkbKeymap>>,
+    seat_kb_map: CloneCell<Rc<XkbKeymap>>,
+    seat_kb_map_id: Cell<KeymapId>,
+    effective_kb_map: CloneCell<Rc<XkbKeymap>>,
+    effective_kb_map_id: Cell<KeymapId>,
     kb_state: RefCell<XkbState>,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     tree_changed: Rc<AsyncEvent>,
@@ -197,7 +200,10 @@ impl WlSeatGlobal {
             data_devices: RefCell::new(Default::default()),
             primary_selection_devices: RefCell::new(Default::default()),
             repeat_rate: Cell::new((25, 250)),
-            kb_map: CloneCell::new(state.default_keymap.clone()),
+            seat_kb_map: CloneCell::new(state.default_keymap.clone()),
+            seat_kb_map_id: Cell::new(state.default_keymap.id),
+            effective_kb_map: CloneCell::new(state.default_keymap.clone()),
+            effective_kb_map_id: Cell::new(state.default_keymap.id),
             kb_state: RefCell::new(state.default_keymap.state().unwrap()),
             cursor: Default::default(),
             tree_changed: Default::default(),
@@ -238,7 +244,7 @@ impl WlSeatGlobal {
     }
 
     pub fn keymap(&self) -> Rc<XkbKeymap> {
-        self.kb_map.get()
+        self.seat_kb_map.get()
     }
 
     pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
@@ -507,7 +513,12 @@ impl WlSeatGlobal {
         false
     }
 
-    pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
+    pub fn set_seat_keymap(&self, keymap: &Rc<XkbKeymap>) {
+        self.seat_kb_map.set(keymap.clone());
+        self.seat_kb_map_id.set(keymap.id);
+    }
+
+    fn set_effective_keymap(&self, keymap: &Rc<XkbKeymap>) {
         let state = match keymap.state() {
             Ok(s) => s,
             Err(e) => {
@@ -516,7 +527,8 @@ impl WlSeatGlobal {
             }
         };
         self.keyboard_node.get().node_on_unfocus(self);
-        self.kb_map.set(keymap.clone());
+        self.effective_kb_map.set(keymap.clone());
+        self.effective_kb_map_id.set(keymap.id);
         *self.kb_state.borrow_mut() = state;
         self.keymap_version.fetch_add(1);
         self.pressed_keys.borrow_mut().clear();

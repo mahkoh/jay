@@ -92,7 +92,7 @@ impl Action {
                 Box::new(move || {
                     for c in input_devices() {
                         if input.match_.matches(c, &state) {
-                            input.apply(c);
+                            input.apply(c, &state);
                         }
                     }
                 })
@@ -361,7 +361,7 @@ impl InputMatch {
 }
 
 impl Input {
-    fn apply(&self, c: InputDevice) {
+    fn apply(&self, c: InputDevice, state: &State) {
         if let Some(v) = self.accel_profile {
             c.set_accel_profile(v);
         }
@@ -388,6 +388,11 @@ impl Input {
         }
         if let Some(v) = self.transform_matrix {
             c.set_transform_matrix(v);
+        }
+        if let Some(v) = &self.keymap {
+            if let Some(km) = state.get_keymap(v) {
+                c.set_keymap(km);
+            }
         }
     }
 }
@@ -554,19 +559,25 @@ impl State {
         }
     }
 
-    fn set_keymap(&self, map: &ConfigKeymap) {
+    fn get_keymap(&self, map: &ConfigKeymap) -> Option<Keymap> {
         let map = match map {
             ConfigKeymap::Named(n) => match self.keymaps.get(n) {
                 None => {
                     log::warn!("Unknown keymap {n}");
-                    return;
+                    return None;
                 }
                 Some(m) => *m,
             },
             ConfigKeymap::Defined { map, .. } => *map,
             ConfigKeymap::Literal(map) => *map,
         };
-        self.persistent.seat.set_keymap(map);
+        Some(map)
+    }
+
+    fn set_keymap(&self, map: &ConfigKeymap) {
+        if let Some(map) = self.get_keymap(map) {
+            self.persistent.seat.set_keymap(map);
+        }
     }
 
     fn set_status(&self, status: &Option<Status>) {
@@ -816,7 +827,7 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         move |c| {
             for input in &config.inputs {
                 if input.match_.matches(c, &state) {
-                    input.apply(c);
+                    input.apply(c, &state);
                 }
             }
         }

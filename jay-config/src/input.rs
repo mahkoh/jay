@@ -25,6 +25,16 @@ impl InputDevice {
         get!().set_seat(self, seat)
     }
 
+    /// Sets the keymap of the device.
+    ///
+    /// This overrides the keymap set for the seat. The keymap becomes active when a key
+    /// on the device is pressed.
+    ///
+    /// Setting the invalid keymap reverts to the seat keymap.
+    pub fn set_keymap(self, keymap: Keymap) {
+        get!().set_device_keymap(self, keymap)
+    }
+
     /// Returns whether the device has the specified capability.
     pub fn has_capability(self, cap: Capability) -> bool {
         get!(false).has_capability(self, cap)

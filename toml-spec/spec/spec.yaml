@@ -1206,6 +1206,21 @@ Input:
           match.is-pointer = true
           transform-matrix = [[0.35, 0], [0, 0.35]]
           ```
+    keymap:
+      ref: Keymap
+      required: false
+      description: |
+        The keymap to use for this device.
+        
+        This overrides the global keymap. The keymap becomes active when a key is pressed.
+        
+        - Example:
+        
+          ```toml
+          [[inputs]]
+          match.name = "ZSA Technology Labs Inc ErgoDox EZ"
+          keymap.name = "external"
+          ```
 
 
 AccelProfile:

@@ -74,7 +74,7 @@ use {
             ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
             ZwpLinuxDmabufFeedbackV1Id,
         },
-        xkbcommon::{XkbContext, XkbKeymap},
+        xkbcommon::{KeymapId, XkbContext, XkbKeymap},
         xwayland::{self, XWaylandEvent},
     },
     ahash::AHashMap,
@@ -244,6 +244,15 @@ pub struct DeviceHandlerData {
     pub device: Rc<dyn InputDevice>,
     pub syspath: Option<String>,
     pub devnode: Option<String>,
+    pub keymap_id: Cell<Option<KeymapId>>,
+    pub keymap: CloneCell<Option<Rc<XkbKeymap>>>,
+}
+
+impl DeviceHandlerData {
+    pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
+        self.keymap_id.set(Some(keymap.id));
+        self.keymap.set(Some(keymap.clone()));
+    }
 }
 
 pub struct ConnectorData {

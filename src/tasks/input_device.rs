@@ -21,6 +21,8 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         device: dev.clone(),
         syspath: props.syspath,
         devnode: props.devnode,
+        keymap_id: Default::default(),
+        keymap: Default::default(),
     });
     let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {

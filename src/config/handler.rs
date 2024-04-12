@@ -299,7 +299,23 @@ impl ConfigProxyHandler {
         } else {
             self.get_keymap(keymap)?
         };
-        seat.set_keymap(&keymap);
+        seat.set_seat_keymap(&keymap);
+        Ok(())
+    }
+
+    fn handle_set_device_keymap(
+        &self,
+        device: InputDevice,
+        keymap: Keymap,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        if keymap.is_invalid() {
+            dev.keymap_id.set(None);
+            dev.keymap.set(None);
+        } else {
+            let map = self.get_keymap(keymap)?;
+            dev.set_keymap(&map);
+        };
         Ok(())
     }
 
@@ -1746,6 +1762,9 @@ impl ConfigProxyHandler {
                 self.handle_set_explicit_sync_enabled(enabled)
             }
             ClientMessage::GetSocketPath => self.handle_get_socket_path(),
+            ClientMessage::DeviceSetKeymap { device, keymap } => self
+                .handle_set_device_keymap(device, keymap)
+                .wrn("set_device_keymap")?,
         }
         Ok(())
     }

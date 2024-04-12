@@ -99,6 +99,16 @@ request get_device {
     id: u32,
 }
 
+request set_device_keymap {
+    id: u32,
+    keymap: fd,
+    keymap_len: u32,
+}
+
+request get_device_keymap {
+    id: u32,
+}
+
 # events
 
 event seat {

@@ -818,6 +818,10 @@ impl Client {
         self.send(&ClientMessage::SetSeat { device, seat })
     }
 
+    pub fn set_device_keymap(&self, device: InputDevice, keymap: Keymap) {
+        self.send(&ClientMessage::DeviceSetKeymap { device, keymap })
+    }
+
     pub fn set_left_handed(&self, device: InputDevice, left_handed: bool) {
         self.send(&ClientMessage::SetLeftHanded {
             device,
