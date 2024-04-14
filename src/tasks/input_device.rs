@@ -21,8 +21,8 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         device: dev.clone(),
         syspath: props.syspath,
         devnode: props.devnode,
-        keymap_id: Default::default(),
         keymap: Default::default(),
+        xkb_state: Default::default(),
     });
     let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {
@@ -58,7 +58,7 @@ impl DeviceHandler {
         }
         for seat in self.state.globals.seats.lock().values() {
             if seat.seat_name() == DEFAULT_SEAT_NAME {
-                self.data.seat.set(Some(seat.clone()));
+                self.data.set_seat(Some(seat.clone()));
                 break;
             }
         }

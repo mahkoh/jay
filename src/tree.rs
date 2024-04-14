@@ -10,7 +10,7 @@ use {
         rect::Rect,
         renderer::Renderer,
         utils::numcell::NumCell,
-        xkbcommon::ModifierState,
+        xkbcommon::KeyboardState,
     },
     jay_config::Direction as JayDirection,
     std::{
@@ -158,16 +158,24 @@ pub trait Node: 'static {
 
     // EVENT HANDLERS
 
-    fn node_on_key(&self, seat: &WlSeatGlobal, time_usec: u64, key: u32, state: u32) {
+    fn node_on_key(
+        &self,
+        seat: &WlSeatGlobal,
+        time_usec: u64,
+        key: u32,
+        state: u32,
+        kb_state: &KeyboardState,
+    ) {
         let _ = seat;
         let _ = time_usec;
         let _ = key;
         let _ = state;
+        let _ = kb_state;
     }
 
-    fn node_on_mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
+    fn node_on_mods(&self, seat: &WlSeatGlobal, kb_state: &KeyboardState) {
         let _ = seat;
-        let _ = mods;
+        let _ = kb_state;
     }
 
     fn node_on_button(

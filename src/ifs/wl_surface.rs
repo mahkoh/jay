@@ -65,7 +65,7 @@ use {
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
             ZwpLinuxDmabufFeedbackV1Id,
         },
-        xkbcommon::ModifierState,
+        xkbcommon::KeyboardState,
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
@@ -1376,12 +1376,19 @@ impl Node for WlSurface {
         self.toplevel.get()
     }
 
-    fn node_on_key(&self, seat: &WlSeatGlobal, time_usec: u64, key: u32, state: u32) {
-        seat.key_surface(self, time_usec, key, state);
+    fn node_on_key(
+        &self,
+        seat: &WlSeatGlobal,
+        time_usec: u64,
+        key: u32,
+        state: u32,
+        kb_state: &KeyboardState,
+    ) {
+        seat.key_surface(self, time_usec, key, state, kb_state);
     }
 
-    fn node_on_mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
-        seat.mods_surface(self, mods);
+    fn node_on_mods(&self, seat: &WlSeatGlobal, kb_state: &KeyboardState) {
+        seat.mods_surface(self, kb_state);
     }
 
     fn node_on_button(

@@ -8,11 +8,18 @@ pub use consts::*;
 use {
     bstr::{BStr, ByteSlice},
     isnt::std_1::primitive::IsntConstPtrExt,
-    std::{ffi::CStr, io::Write, ops::Deref, ptr, rc::Rc},
+    std::{
+        cell::{Ref, RefCell},
+        ffi::CStr,
+        io::Write,
+        ops::Deref,
+        ptr,
+        rc::Rc,
+    },
 };
 
 use {
-    crate::utils::{ptr_ext::PtrExt, trim::AsciiTrim},
+    crate::utils::{errorfmt::ErrorFmt, ptr_ext::PtrExt, trim::AsciiTrim, vecset::VecSet},
     thiserror::Error,
     uapi::{c, OwnedFd},
 };
@@ -202,7 +209,7 @@ pub struct XkbKeymap {
 }
 
 impl XkbKeymap {
-    pub fn state(self: &Rc<Self>) -> Result<XkbState, XkbCommonError> {
+    pub fn state(self: &Rc<Self>, id: KeyboardStateId) -> Result<XkbState, XkbCommonError> {
         let res = unsafe { xkb_state_new(self.keymap) };
         if res.is_null() {
             return Err(XkbCommonError::CreateState);
@@ -210,12 +217,12 @@ impl XkbKeymap {
         Ok(XkbState {
             map: self.clone(),
             state: res,
-            mods: ModifierState {
-                mods_depressed: 0,
-                mods_latched: 0,
-                mods_locked: 0,
-                mods_effective: 0,
-                group: 0,
+            kb_state: KeyboardState {
+                id,
+                map: self.map.clone(),
+                map_len: self.map_len,
+                pressed_keys: Default::default(),
+                mods: Default::default(),
             },
         })
     }
@@ -247,7 +254,7 @@ impl Drop for XkbKeymapStr {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct ModifierState {
     pub mods_depressed: u32,
     pub mods_latched: u32,
@@ -256,51 +263,90 @@ pub struct ModifierState {
     pub group: u32,
 }
 
+linear_ids!(KeyboardStateIds, KeyboardStateId, u64);
+
+pub struct KeyboardState {
+    pub id: KeyboardStateId,
+    pub map: Rc<OwnedFd>,
+    pub map_len: usize,
+    pub pressed_keys: VecSet<u32>,
+    pub mods: ModifierState,
+}
+
+pub trait DynKeyboardState {
+    fn borrow(&self) -> Ref<'_, KeyboardState>;
+}
+
+impl DynKeyboardState for RefCell<KeyboardState> {
+    fn borrow(&self) -> Ref<'_, KeyboardState> {
+        self.borrow()
+    }
+}
+
 pub struct XkbState {
     map: Rc<XkbKeymap>,
     state: *mut xkb_state,
-    mods: ModifierState,
+    pub kb_state: KeyboardState,
+}
+
+impl DynKeyboardState for RefCell<XkbState> {
+    fn borrow(&self) -> Ref<'_, KeyboardState> {
+        Ref::map(self.borrow(), |v| &v.kb_state)
+    }
 }
 
 impl XkbState {
     pub fn mods(&self) -> ModifierState {
-        self.mods
+        self.kb_state.mods
     }
 
-    fn fetch(&mut self, changes: xkb_state_component) -> Option<ModifierState> {
+    fn fetch(&mut self, changes: xkb_state_component) -> bool {
         unsafe {
             if changes != 0 {
-                self.mods.mods_depressed =
+                self.kb_state.mods.mods_depressed =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_DEPRESSED.raw() as _);
-                self.mods.mods_latched =
+                self.kb_state.mods.mods_latched =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LATCHED.raw() as _);
-                self.mods.mods_locked =
+                self.kb_state.mods.mods_locked =
                     xkb_state_serialize_mods(self.state, XKB_STATE_MODS_LOCKED.raw() as _);
-                self.mods.mods_effective =
-                    self.mods.mods_depressed | self.mods.mods_latched | self.mods.mods_locked;
-                self.mods.group =
+                self.kb_state.mods.mods_effective = self.kb_state.mods.mods_depressed
+                    | self.kb_state.mods.mods_latched
+                    | self.kb_state.mods.mods_locked;
+                self.kb_state.mods.group =
                     xkb_state_serialize_layout(self.state, XKB_STATE_LAYOUT_EFFECTIVE.raw() as _);
-                Some(self.mods)
+                true
             } else {
-                None
+                false
             }
         }
     }
 
-    pub fn update(&mut self, key: u32, direction: XkbKeyDirection) -> Option<ModifierState> {
+    pub fn update(&mut self, key: u32, direction: XkbKeyDirection) -> bool {
         unsafe {
             let changes = xkb_state_update_key(self.state, key + 8, direction.raw() as _);
             self.fetch(changes)
         }
     }
 
+    pub fn reset(&mut self) {
+        let new_state = match self.map.state(self.kb_state.id) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("Could not reset XKB state: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        *self = new_state;
+    }
+
+    #[allow(dead_code)]
     pub fn set(
         &mut self,
         mods_depressed: u32,
         mods_latched: u32,
         mods_locked: u32,
         group: u32,
-    ) -> Option<ModifierState> {
+    ) -> bool {
         unsafe {
             let changes = xkb_state_update_mask(
                 self.state,
@@ -321,7 +367,7 @@ impl XkbState {
             let num = xkb_keymap_key_get_syms_by_level(
                 self.map.keymap,
                 key + 8,
-                self.mods.group,
+                self.kb_state.mods.group,
                 0,
                 &mut res,
             );

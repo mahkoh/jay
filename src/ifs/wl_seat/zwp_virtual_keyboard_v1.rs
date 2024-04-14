@@ -1,16 +1,20 @@
 use {
     crate::{
-        backend::KeyState,
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
-        ifs::wl_seat::{wl_keyboard, WlSeatGlobal},
+        ifs::{
+            wl_seat::{
+                wl_keyboard::{self, WlKeyboard},
+                WlSeatGlobal,
+            },
+            wl_surface::WlSurface,
+        },
         leaks::Tracker,
         object::{Object, Version},
-        utils::clonecell::CloneCell,
         wire::{zwp_virtual_keyboard_v1::*, ZwpVirtualKeyboardV1Id},
-        xkbcommon::{KeymapId, XkbCommonError, XkbKeymap},
+        xkbcommon::{KeyboardState, XkbCommonError},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::RefCell, rc::Rc},
     thiserror::Error,
 };
 
@@ -20,21 +24,21 @@ pub struct ZwpVirtualKeyboardV1 {
     pub seat: Rc<WlSeatGlobal>,
     pub tracker: Tracker<Self>,
     pub version: Version,
-    pub keymap_id: Cell<Option<KeymapId>>,
-    pub keymap: CloneCell<Option<Rc<XkbKeymap>>>,
+    pub kb_state: Rc<RefCell<KeyboardState>>,
 }
 
 impl ZwpVirtualKeyboardV1 {
-    fn ensure_keymap(&self) {
-        if let Some(id) = self.keymap_id.get() {
-            if id == self.seat.effective_kb_map_id.get() {
-                return;
-            }
-        }
-        let Some(keymap) = self.keymap.get() else {
+    fn for_each_kb<F>(&self, mut f: F)
+    where
+        F: FnMut(u32, &WlSurface, &WlKeyboard),
+    {
+        let Some(surface) = self.seat.keyboard_node.get().node_into_surface() else {
             return;
         };
-        self.seat.set_effective_keymap(&keymap);
+        let serial = surface.client.next_serial();
+        self.seat.surface_kb_event(Version::ALL, &surface, |kb| {
+            f(serial, &surface, kb);
+        });
     }
 }
 
@@ -66,31 +70,48 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
             .xkb_ctx
             .keymap_from_str(&map)
             .map_err(ZwpVirtualKeyboardV1Error::ParseKeymap)?;
-        self.keymap_id.set(Some(map.id));
-        self.keymap.set(Some(map));
+        *self.kb_state.borrow_mut() = KeyboardState {
+            id: self.client.state.keyboard_state_ids.next(),
+            map: map.map.clone(),
+            map_len: map.map_len,
+            pressed_keys: Default::default(),
+            mods: Default::default(),
+        };
         Ok(())
     }
 
     fn key(&self, req: Key, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.ensure_keymap();
-        let time_usec = (req.time as u64) * 1000;
-        let state = match req.state {
-            wl_keyboard::RELEASED => KeyState::Released,
-            wl_keyboard::PRESSED => KeyState::Pressed,
+        let kb_state = &mut *self.kb_state.borrow_mut();
+        let contains = kb_state.pressed_keys.contains(&req.key);
+        let valid = match req.state {
+            wl_keyboard::RELEASED => contains,
+            wl_keyboard::PRESSED => !contains,
             _ => return Err(ZwpVirtualKeyboardV1Error::UnknownState(req.state)),
         };
-        self.seat.key_event(time_usec, req.key, state);
+        if valid {
+            self.for_each_kb(|serial, surface, kb| {
+                kb.on_key(serial, req.time, req.key, req.state, surface.id, kb_state);
+            });
+            match req.state {
+                wl_keyboard::RELEASED => kb_state.pressed_keys.remove(&req.key),
+                _ => kb_state.pressed_keys.insert(req.key),
+            };
+            self.seat.latest_kb_state.set(self.kb_state.clone());
+        }
         Ok(())
     }
 
     fn modifiers(&self, req: Modifiers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.ensure_keymap();
-        self.seat.set_modifiers(
-            req.mods_depressed,
-            req.mods_latched,
-            req.mods_locked,
-            req.group,
-        );
+        let kb_state = &mut *self.kb_state.borrow_mut();
+        kb_state.mods.mods_depressed = req.mods_depressed;
+        kb_state.mods.mods_latched = req.mods_latched;
+        kb_state.mods.mods_locked = req.mods_locked;
+        kb_state.mods.mods_effective = req.mods_depressed | req.mods_latched | req.mods_locked;
+        kb_state.mods.group = req.group;
+        self.for_each_kb(|serial, surface, kb| {
+            kb.on_mods_changed(serial, surface.id, &kb_state);
+        });
+        self.seat.latest_kb_state.set(self.kb_state.clone());
         Ok(())
     }
 

@@ -49,7 +49,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
-        state::State,
+        state::{DeviceHandlerData, State},
         time::now_usec,
         tree::{
             generic_node_visitor, ContainerNode, ContainerSplit, Direction, FloatNode, FoundNode,
@@ -58,14 +58,14 @@ use {
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, linkedlist::LinkedNode, numcell::NumCell, rc_eq::rc_eq,
-            smallmap::SmallMap, transform_ext::TransformExt, vecset::VecSet,
+            smallmap::SmallMap, transform_ext::TransformExt,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
             WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
             ZwpRelativePointerV1Id,
         },
-        xkbcommon::{KeymapId, XkbKeymap, XkbState},
+        xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
     },
     ahash::AHashMap,
     jay_config::keyboard::mods::Modifiers,
@@ -75,7 +75,7 @@ use {
         collections::hash_map::Entry,
         mem,
         ops::{Deref, DerefMut},
-        rc::Rc,
+        rc::{Rc, Weak},
     },
     thiserror::Error,
     uapi::{c, Errno, OwnedFd},
@@ -130,7 +130,6 @@ pub struct WlSeatGlobal {
     pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
-    pressed_keys: RefCell<VecSet<u32>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
     x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
     data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,
@@ -144,10 +143,9 @@ pub struct WlSeatGlobal {
         CopyHashMap<(ClientId, ZwlrDataControlDeviceV1Id), Rc<ZwlrDataControlDeviceV1>>,
     repeat_rate: Cell<(i32, i32)>,
     seat_kb_map: CloneCell<Rc<XkbKeymap>>,
-    seat_kb_map_id: Cell<KeymapId>,
-    effective_kb_map: CloneCell<Rc<XkbKeymap>>,
-    effective_kb_map_id: Cell<KeymapId>,
-    kb_state: RefCell<XkbState>,
+    seat_xkb_state: CloneCell<Rc<RefCell<XkbState>>>,
+    latest_kb_state: CloneCell<Rc<dyn DynKeyboardState>>,
+    xkb_states: CopyHashMap<KeymapId, Weak<RefCell<XkbState>>>,
     cursor: CloneCell<Option<Rc<dyn Cursor>>>,
     tree_changed: Rc<AsyncEvent>,
     selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
@@ -168,7 +166,6 @@ pub struct WlSeatGlobal {
     constraint: CloneCell<Option<Rc<SeatConstraint>>>,
     idle_notifications: CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
     last_input_usec: Cell<u64>,
-    keymap_version: NumCell<u32>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -182,6 +179,13 @@ impl Drop for WlSeatGlobal {
 
 impl WlSeatGlobal {
     pub fn new(name: GlobalName, seat_name: &str, state: &Rc<State>) -> Rc<Self> {
+        let seat_xkb_state = state
+            .default_keymap
+            .state(state.keyboard_state_ids.next())
+            .map(|s| Rc::new(RefCell::new(s)))
+            .unwrap();
+        let xkb_states = CopyHashMap::new();
+        xkb_states.set(state.default_keymap.id, Rc::downgrade(&seat_xkb_state));
         let slf = Rc::new(Self {
             id: state.seat_ids.next(),
             name,
@@ -196,17 +200,15 @@ impl WlSeatGlobal {
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
             keyboard_node: CloneCell::new(state.root.clone()),
-            pressed_keys: RefCell::new(Default::default()),
             bindings: Default::default(),
             x_data_devices: Default::default(),
             data_devices: RefCell::new(Default::default()),
             primary_selection_devices: RefCell::new(Default::default()),
             repeat_rate: Cell::new((25, 250)),
             seat_kb_map: CloneCell::new(state.default_keymap.clone()),
-            seat_kb_map_id: Cell::new(state.default_keymap.id),
-            effective_kb_map: CloneCell::new(state.default_keymap.clone()),
-            effective_kb_map_id: Cell::new(state.default_keymap.id),
-            kb_state: RefCell::new(state.default_keymap.state().unwrap()),
+            seat_xkb_state: CloneCell::new(seat_xkb_state.clone()),
+            latest_kb_state: CloneCell::new(seat_xkb_state.clone()),
+            xkb_states,
             cursor: Default::default(),
             tree_changed: Default::default(),
             selection: Default::default(),
@@ -228,7 +230,6 @@ impl WlSeatGlobal {
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
             wlr_data_devices: Default::default(),
-            keymap_version: NumCell::new(1),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -516,25 +517,49 @@ impl WlSeatGlobal {
     }
 
     pub fn set_seat_keymap(&self, keymap: &Rc<XkbKeymap>) {
+        let Some(xkb_state) = self.get_xkb_state(keymap) else {
+            return;
+        };
         self.seat_kb_map.set(keymap.clone());
-        self.seat_kb_map_id.set(keymap.id);
+        let old = self.seat_xkb_state.set(xkb_state.clone());
+        if !rc_eq(&old, &xkb_state) {
+            self.handle_xkb_state_change(&old.borrow(), &xkb_state.borrow());
+        }
     }
 
-    fn set_effective_keymap(&self, keymap: &Rc<XkbKeymap>) {
-        let state = match keymap.state() {
-            Ok(s) => s,
-            Err(e) => {
-                log::error!("Could not create keymap state: {}", ErrorFmt(e));
-                return;
-            }
+    fn handle_xkb_state_change(&self, old: &XkbState, new: &XkbState) {
+        let Some(surface) = self.keyboard_node.get().node_into_surface() else {
+            return;
         };
-        self.keyboard_node.get().node_on_unfocus(self);
-        self.effective_kb_map.set(keymap.clone());
-        self.effective_kb_map_id.set(keymap.id);
-        *self.kb_state.borrow_mut() = state;
-        self.keymap_version.fetch_add(1);
-        self.pressed_keys.borrow_mut().clear();
-        self.keyboard_node.get().node_on_focus(self);
+        let serial = surface.client.next_serial();
+        self.surface_kb_event(Version::ALL, &surface, |kb| {
+            if kb.kb_state_id() == old.kb_state.id {
+                kb.send_leave(serial, surface.id);
+                kb.enter(serial, surface.id, &new.kb_state);
+            }
+        });
+    }
+
+    pub fn get_xkb_state(&self, keymap: &Rc<XkbKeymap>) -> Option<Rc<RefCell<XkbState>>> {
+        if let Some(weak) = self.xkb_states.get(&keymap.id) {
+            if let Some(state) = weak.upgrade() {
+                return Some(state);
+            }
+        }
+        self.xkb_states
+            .lock()
+            .retain(|_, state| state.strong_count() > 0);
+        match keymap.state(self.state.keyboard_state_ids.next()) {
+            Ok(s) => {
+                let s = Rc::new(RefCell::new(s));
+                self.xkb_states.set(keymap.id, Rc::downgrade(&s));
+                Some(s)
+            }
+            Err(e) => {
+                log::error!("Could not create xkb state: {}", ErrorFmt(e));
+                None
+            }
+        }
     }
 
     pub fn prepare_for_lock(self: &Rc<Self>) {
@@ -1146,19 +1171,19 @@ impl WlSeat {
         self.global.move_(node);
     }
 
-    pub fn keymap_fd(&self, keymap: &XkbKeymap) -> Result<Rc<OwnedFd>, WlKeyboardError> {
+    pub fn keymap_fd(&self, state: &KeyboardState) -> Result<Rc<OwnedFd>, WlKeyboardError> {
         if self.version >= READ_ONLY_KEYMAP_SINCE {
-            return Ok(keymap.map.clone());
+            return Ok(state.map.clone());
         }
         let fd = match uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC) {
             Ok(fd) => fd,
             Err(e) => return Err(WlKeyboardError::KeymapMemfd(e.into())),
         };
-        let target = keymap.map_len as c::off_t;
+        let target = state.map_len as c::off_t;
         let mut pos = 0;
         while pos < target {
             let rem = target - pos;
-            let res = uapi::sendfile(fd.raw(), keymap.map.raw(), Some(&mut pos), rem as usize);
+            let res = uapi::sendfile(fd.raw(), state.map.raw(), Some(&mut pos), rem as usize);
             match res {
                 Ok(_) | Err(Errno(c::EINTR)) => {}
                 Err(e) => return Err(WlKeyboardError::KeymapCopy(e.into())),
@@ -1184,11 +1209,13 @@ impl WlSeatRequestHandler for WlSeat {
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
-        p.send_keymap();
         if let Some(surface) = self.global.keyboard_node.get().node_into_surface() {
             if surface.client.id == self.client.id {
-                let serial = self.client.next_serial();
-                p.send_enter(serial, surface.id, &self.global.pressed_keys.borrow())
+                p.enter(
+                    self.client.next_serial(),
+                    surface.id,
+                    &self.global.seat_xkb_state.get().borrow().kb_state,
+                );
             }
         }
         if self.version >= REPEAT_INFO_SINCE {
@@ -1268,4 +1295,52 @@ pub fn collect_kb_foci(node: Rc<dyn Node>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
     let mut res = SmallVec::new();
     collect_kb_foci2(node, &mut res);
     res
+}
+
+impl DeviceHandlerData {
+    pub fn set_seat(&self, seat: Option<Rc<WlSeatGlobal>>) {
+        let old = self.seat.set(seat.clone());
+        if let Some(old) = old {
+            if let Some(new) = seat {
+                if old.id() == new.id() {
+                    return;
+                }
+            }
+            let xkb_state = self.get_effective_xkb_state(&old);
+            let xkb_state = &mut *xkb_state.borrow_mut();
+            xkb_state.reset();
+            old.handle_xkb_state_change(xkb_state, xkb_state);
+        }
+        self.update_xkb_state();
+    }
+
+    pub fn set_keymap(&self, keymap: Option<Rc<XkbKeymap>>) {
+        self.keymap.set(keymap);
+        self.update_xkb_state();
+    }
+
+    fn get_effective_xkb_state(&self, seat: &WlSeatGlobal) -> Rc<RefCell<XkbState>> {
+        match self.xkb_state.get() {
+            Some(s) => s,
+            _ => seat.seat_xkb_state.get(),
+        }
+    }
+
+    fn update_xkb_state(&self) {
+        let Some(seat) = self.seat.get() else {
+            self.xkb_state.take();
+            return;
+        };
+        let old = self.get_effective_xkb_state(&seat);
+        self.xkb_state.take();
+        if let Some(keymap) = self.keymap.get() {
+            if let Some(state) = seat.get_xkb_state(&keymap) {
+                self.xkb_state.set(Some(state));
+            }
+        }
+        let new = self.get_effective_xkb_state(&seat);
+        if !rc_eq(&old, &new) {
+            seat.handle_xkb_state_change(&old.borrow(), &new.borrow());
+        }
+    }
 }

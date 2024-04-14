@@ -74,7 +74,7 @@ use {
             ExtForeignToplevelListV1Id, JayRenderCtxId, JaySeatEventsId, JayWorkspaceWatcherId,
             ZwpLinuxDmabufFeedbackV1Id,
         },
-        xkbcommon::{KeymapId, XkbContext, XkbKeymap},
+        xkbcommon::{KeyboardStateIds, XkbContext, XkbKeymap, XkbState},
         xwayland::{self, XWaylandEvent},
     },
     ahash::AHashMap,
@@ -175,6 +175,7 @@ pub struct State {
     pub subsurface_ids: SubsurfaceIds,
     pub wait_for_sync_obj: Rc<WaitForSyncObj>,
     pub explicit_sync_enabled: Cell<bool>,
+    pub keyboard_state_ids: KeyboardStateIds,
 }
 
 // impl Drop for State {
@@ -244,15 +245,8 @@ pub struct DeviceHandlerData {
     pub device: Rc<dyn InputDevice>,
     pub syspath: Option<String>,
     pub devnode: Option<String>,
-    pub keymap_id: Cell<Option<KeymapId>>,
     pub keymap: CloneCell<Option<Rc<XkbKeymap>>>,
-}
-
-impl DeviceHandlerData {
-    pub fn set_keymap(&self, keymap: &Rc<XkbKeymap>) {
-        self.keymap_id.set(Some(keymap.id));
-        self.keymap.set(Some(keymap.clone()));
-    }
+    pub xkb_state: CloneCell<Option<Rc<RefCell<XkbState>>>>,
 }
 
 pub struct ConnectorData {

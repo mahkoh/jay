@@ -110,7 +110,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
                 mods.mods_locked,
                 mods.group
             ),
-            (0, 0, 0, 0)
+            (0, 0, 0, 1)
         );
     }
 

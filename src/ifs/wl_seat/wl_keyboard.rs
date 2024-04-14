@@ -4,10 +4,11 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::{Object, Version},
-        utils::{errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError},
+        utils::{errorfmt::ErrorFmt, oserror::OsError},
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
+        xkbcommon::{KeyboardState, KeyboardStateId, ModifierState},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -23,7 +24,7 @@ pub const PRESSED: u32 = 1;
 pub struct WlKeyboard {
     id: WlKeyboardId,
     seat: Rc<WlSeat>,
-    pub(super) keymap_version: NumCell<u32>,
+    kb_state_id: Cell<KeyboardStateId>,
     pub tracker: Tracker<Self>,
 }
 
@@ -32,14 +33,33 @@ impl WlKeyboard {
         Self {
             id,
             seat: seat.clone(),
-            keymap_version: NumCell::new(0),
+            kb_state_id: Cell::new(KeyboardStateId::from_raw(0)),
             tracker: Default::default(),
         }
     }
 
-    pub fn send_keymap(&self) {
-        let map = self.seat.global.effective_kb_map.get();
-        let fd = match self.seat.keymap_fd(&map) {
+    pub fn kb_state_id(&self) -> KeyboardStateId {
+        self.kb_state_id.get()
+    }
+
+    fn send_kb_state(
+        &self,
+        serial: u32,
+        kb_state: &KeyboardState,
+        surface_id: WlSurfaceId,
+        send_leave: bool,
+    ) {
+        self.kb_state_id.set(kb_state.id);
+        if send_leave {
+            self.send_leave(serial, surface_id);
+        }
+        self.send_keymap(kb_state);
+        self.send_enter(serial, surface_id, &kb_state.pressed_keys);
+        self.send_modifiers(serial, &kb_state.mods);
+    }
+
+    fn send_keymap(&self, state: &KeyboardState) {
+        let fd = match self.seat.keymap_fd(state) {
             Ok(fd) => fd,
             Err(e) => {
                 log::error!(
@@ -54,16 +74,20 @@ impl WlKeyboard {
             self_id: self.id,
             format: XKB_V1,
             fd,
-            size: map.map_len as _,
+            size: state.map_len as _,
         });
-        self.keymap_version
-            .set(self.seat.global.keymap_version.get());
     }
 
-    pub fn send_enter(self: &Rc<Self>, serial: u32, surface: WlSurfaceId, keys: &[u32]) {
-        if self.keymap_version.get() != self.seat.global.keymap_version.get() {
-            self.send_keymap();
+    pub fn enter(&self, serial: u32, surface: WlSurfaceId, kb_state: &KeyboardState) {
+        if kb_state.id != self.kb_state_id.get() {
+            self.send_kb_state(serial, kb_state, surface, false);
+        } else {
+            self.send_enter(serial, surface, &kb_state.pressed_keys);
+            self.send_modifiers(serial, &kb_state.mods);
         }
+    }
+
+    fn send_enter(&self, serial: u32, surface: WlSurfaceId, keys: &[u32]) {
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,
@@ -72,7 +96,7 @@ impl WlKeyboard {
         })
     }
 
-    pub fn send_leave(self: &Rc<Self>, serial: u32, surface: WlSurfaceId) {
+    pub fn send_leave(&self, serial: u32, surface: WlSurfaceId) {
         self.seat.client.event(Leave {
             self_id: self.id,
             serial,
@@ -80,7 +104,22 @@ impl WlKeyboard {
         })
     }
 
-    pub fn send_key(self: &Rc<Self>, serial: u32, time: u32, key: u32, state: u32) {
+    pub fn on_key(
+        &self,
+        serial: u32,
+        time: u32,
+        key: u32,
+        state: u32,
+        surface: WlSurfaceId,
+        kb_state: &KeyboardState,
+    ) {
+        if self.kb_state_id.get() != kb_state.id {
+            self.send_kb_state(serial, kb_state, surface, true);
+        }
+        self.send_key(serial, time, key, state);
+    }
+
+    fn send_key(&self, serial: u32, time: u32, key: u32, state: u32) {
         self.seat.client.event(Key {
             self_id: self.id,
             serial,
@@ -90,21 +129,22 @@ impl WlKeyboard {
         })
     }
 
-    pub fn send_modifiers(
-        self: &Rc<Self>,
-        serial: u32,
-        mods_depressed: u32,
-        mods_latched: u32,
-        mods_locked: u32,
-        group: u32,
-    ) {
+    pub fn on_mods_changed(&self, serial: u32, surface: WlSurfaceId, kb_state: &KeyboardState) {
+        if self.kb_state_id.get() != kb_state.id {
+            self.send_kb_state(serial, kb_state, surface, true);
+        } else {
+            self.send_modifiers(serial, &kb_state.mods);
+        }
+    }
+
+    fn send_modifiers(&self, serial: u32, mods: &ModifierState) {
         self.seat.client.event(Modifiers {
             self_id: self.id,
             serial,
-            mods_depressed,
-            mods_latched,
-            mods_locked,
-            group,
+            mods_depressed: mods.mods_depressed,
+            mods_latched: mods.mods_latched,
+            mods_locked: mods.mods_locked,
+            group: mods.group,
         })
     }
 
