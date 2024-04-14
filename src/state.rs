@@ -36,6 +36,7 @@ use {
             wl_surface::{
                 wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
+                zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
                 NoneSurfaceExt, WlSurface,
             },
             wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
@@ -134,6 +135,7 @@ pub struct State {
     pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
+    pub pending_input_popup_positioning: AsyncQueue<Rc<ZwpInputPopupSurfaceV2>>,
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
     pub logger: Option<Arc<Logger>>,

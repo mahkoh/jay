@@ -1,6 +1,7 @@
 mod event_handling;
 mod kb_owner;
 mod pointer_owner;
+pub mod text_input;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
@@ -37,6 +38,10 @@ use {
             wl_seat::{
                 kb_owner::KbOwnerHolder,
                 pointer_owner::PointerOwnerHolder,
+                text_input::{
+                    zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
+                    zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
+                },
                 wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
@@ -63,7 +68,7 @@ use {
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
             WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
-            ZwpRelativePointerV1Id,
+            ZwpRelativePointerV1Id, ZwpTextInputV3Id,
         },
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
     },
@@ -78,7 +83,7 @@ use {
         rc::{Rc, Weak},
     },
     thiserror::Error,
-    uapi::{c, Errno, OwnedFd},
+    uapi::OwnedFd,
 };
 
 pub const POINTER: u32 = 1;
@@ -166,6 +171,10 @@ pub struct WlSeatGlobal {
     constraint: CloneCell<Option<Rc<SeatConstraint>>>,
     idle_notifications: CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
     last_input_usec: Cell<u64>,
+    text_inputs: RefCell<AHashMap<ClientId, CopyHashMap<ZwpTextInputV3Id, Rc<ZwpTextInputV3>>>>,
+    text_input: CloneCell<Option<Rc<ZwpTextInputV3>>>,
+    input_method: CloneCell<Option<Rc<ZwpInputMethodV2>>>,
+    input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -230,6 +239,10 @@ impl WlSeatGlobal {
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
             wlr_data_devices: Default::default(),
+            text_inputs: Default::default(),
+            text_input: Default::default(),
+            input_method: Default::default(),
+            input_method_grab: Default::default(),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -248,6 +261,10 @@ impl WlSeatGlobal {
 
     pub fn keymap(&self) -> Rc<XkbKeymap> {
         self.seat_kb_map.get()
+    }
+
+    pub fn input_method(&self) -> Option<Rc<ZwpInputMethodV2>> {
+        self.input_method.get()
     }
 
     pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
@@ -731,6 +748,9 @@ impl WlSeatGlobal {
                 }
             }
         }
+        if let Some(grab) = self.input_method_grab.get() {
+            grab.send_repeat_info();
+        }
     }
 
     pub fn close(self: &Rc<Self>) {
@@ -1048,6 +1068,10 @@ impl WlSeatGlobal {
         self.tree_changed_handler.set(None);
         self.output.set(self.state.dummy_output.get().unwrap());
         self.constraint.take();
+        self.text_inputs.borrow_mut().clear();
+        self.text_input.take();
+        self.input_method.take();
+        self.input_method_grab.take();
     }
 
     pub fn id(&self) -> SeatId {
@@ -1116,6 +1140,11 @@ impl WlSeatGlobal {
                 tl.tl_set_visible(visible);
             }
         }
+        if let Some(im) = self.input_method.get() {
+            for (_, popup) in &im.popups {
+                popup.update_visible();
+            }
+        }
     }
 }
 
@@ -1175,21 +1204,7 @@ impl WlSeat {
         if self.version >= READ_ONLY_KEYMAP_SINCE {
             return Ok(state.map.clone());
         }
-        let fd = match uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC) {
-            Ok(fd) => fd,
-            Err(e) => return Err(WlKeyboardError::KeymapMemfd(e.into())),
-        };
-        let target = state.map_len as c::off_t;
-        let mut pos = 0;
-        while pos < target {
-            let rem = target - pos;
-            let res = uapi::sendfile(fd.raw(), state.map.raw(), Some(&mut pos), rem as usize);
-            match res {
-                Ok(_) | Err(Errno(c::EINTR)) => {}
-                Err(e) => return Err(WlKeyboardError::KeymapCopy(e.into())),
-            }
-        }
-        Ok(Rc::new(fd))
+        Ok(state.create_new_keymap_fd()?)
     }
 }
 

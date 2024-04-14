@@ -70,6 +70,8 @@ impl TestTransport {
             drag_manager: Default::default(),
             alpha_modifier: Default::default(),
             virtual_keyboard_manager: Default::default(),
+            input_method_manager: Default::default(),
+            text_input_manager: Default::default(),
             seats: Default::default(),
         });
         self.send(wl_display::GetRegistry {

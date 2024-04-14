@@ -327,6 +327,7 @@ impl dyn GfxFramebuffer {
         cursor_rect: Option<Rect>,
         result: Option<&mut RenderResult>,
         scale: Scale,
+        render_cursor: bool,
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
@@ -347,6 +348,18 @@ impl dyn GfxFramebuffer {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
                 let (mut x, mut y) = seat.get_position();
+                if let Some(im) = seat.input_method() {
+                    for (_, popup) in &im.popups {
+                        if popup.surface.node_visible() {
+                            let pos = popup.surface.buffer_abs_pos.get();
+                            let extents = popup.surface.extents.get().move_(pos.x1(), pos.y1());
+                            if extents.intersects(&rect) {
+                                let (x, y) = rect.translate(pos.x1(), pos.y1());
+                                renderer.render_surface(&popup.surface, x, y, None);
+                            }
+                        }
+                    }
+                }
                 if let Some(drag) = seat.toplevel_drag() {
                     if let Some(tl) = drag.toplevel.get() {
                         if tl.xdg.surface.buffer.get().is_some() {
@@ -368,12 +381,14 @@ impl dyn GfxFramebuffer {
                         renderer.render_surface(&dnd_icon, x, y, None);
                     }
                 }
-                if let Some(cursor) = seat.get_cursor() {
-                    if render_hardware_cursor || !seat.hardware_cursor() {
-                        cursor.tick();
-                        x -= Fixed::from_int(rect.x1());
-                        y -= Fixed::from_int(rect.y1());
-                        cursor.render(&mut renderer, x, y);
+                if render_cursor {
+                    if let Some(cursor) = seat.get_cursor() {
+                        if render_hardware_cursor || !seat.hardware_cursor() {
+                            cursor.tick();
+                            x -= Fixed::from_int(rect.x1());
+                            y -= Fixed::from_int(rect.y1());
+                            cursor.render(&mut renderer, x, y);
+                        }
                     }
                 }
             }
@@ -407,6 +422,7 @@ impl dyn GfxFramebuffer {
             cursor_rect,
             result,
             scale,
+            true,
             render_hardware_cursor,
             node.has_fullscreen(),
             node.global.persistent.transform.get(),
@@ -420,6 +436,7 @@ impl dyn GfxFramebuffer {
         cursor_rect: Option<Rect>,
         result: Option<&mut RenderResult>,
         scale: Scale,
+        render_cursor: bool,
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
@@ -430,6 +447,7 @@ impl dyn GfxFramebuffer {
             cursor_rect,
             result,
             scale,
+            render_cursor,
             render_hardware_cursor,
             black_background,
             transform,

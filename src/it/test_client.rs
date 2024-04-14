@@ -15,7 +15,7 @@ use {
                 test_xdg_activation::TestXdgActivation, test_xdg_base::TestXdgWmBase,
             },
             test_transport::TestTransport,
-            test_utils::test_window::TestWindow,
+            test_utils::{test_surface_ext::TestSurfaceExt, test_window::TestWindow},
             testrun::TestRun,
         },
         theme::Color,
@@ -124,21 +124,24 @@ impl TestClient {
         Ok(())
     }
 
-    pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
+    pub async fn create_surface_ext(&self) -> Result<TestSurfaceExt, TestError> {
         let surface = self.comp.create_surface().await?;
         let viewport = self.viewporter.get_viewport(&surface)?;
-        let xdg = self.xdg.create_xdg_surface(surface.id).await?;
-        let tl = xdg.create_toplevel().await?;
-        surface.commit()?;
-        self.sync().await;
-        Ok(Rc::new(TestWindow {
+        Ok(TestSurfaceExt {
             surface,
             spbm: self.spbm.clone(),
             viewport,
-            xdg,
-            tl,
             color: Cell::new(Color::SOLID_BLACK),
-        }))
+        })
+    }
+
+    pub async fn create_window(&self) -> Result<Rc<TestWindow>, TestError> {
+        let surface = self.create_surface_ext().await?;
+        let xdg = self.xdg.create_xdg_surface(surface.surface.id).await?;
+        let tl = xdg.create_toplevel().await?;
+        surface.surface.commit()?;
+        self.sync().await;
+        Ok(Rc::new(TestWindow { surface, xdg, tl }))
     }
 }
 

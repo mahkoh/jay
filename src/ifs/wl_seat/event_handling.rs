@@ -14,6 +14,7 @@ use {
                 DynDataSource,
             },
             wl_seat::{
+                text_input::TextDisconnectReason,
                 wl_keyboard::{self, WlKeyboard},
                 wl_pointer::{
                     self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
@@ -393,8 +394,12 @@ impl WlSeatGlobal {
             t.send_key(self.id, time_usec, key, key_state);
         });
         let node = self.keyboard_node.get();
+        let input_method_grab = self.input_method_grab.get();
         if shortcuts.is_empty() {
-            node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state);
+            match &input_method_grab {
+                Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
+                _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
+            }
         } else if let Some(config) = self.state.config.get() {
             let id = xkb_state.kb_state.id;
             drop(xkb_state);
@@ -411,7 +416,10 @@ impl WlSeatGlobal {
             self.state.for_each_seat_tester(|t| {
                 t.send_modifiers(self.id, &xkb_state.kb_state.mods);
             });
-            node.node_on_mods(self, &xkb_state.kb_state);
+            match &input_method_grab {
+                Some(g) => g.on_modifiers(&xkb_state.kb_state),
+                _ => node.node_on_mods(self, &xkb_state.kb_state),
+            }
         }
         match key_state {
             KeyState::Released => {
@@ -760,6 +768,18 @@ impl WlSeatGlobal {
 // Unfocus callbacks
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
+        if let Some(ti) = self.text_input.take() {
+            if let Some(con) = ti.connection.get() {
+                con.disconnect(TextDisconnectReason::FocusLost);
+            }
+        }
+        if let Some(tis) = self.text_inputs.borrow().get(&surface.client.id) {
+            for ti in tis.lock().values() {
+                ti.send_leave(surface);
+                ti.send_done();
+            }
+        }
+
         let serial = surface.client.next_serial();
         self.surface_kb_event(Version::ALL, surface, |k| k.send_leave(serial, surface.id))
     }
@@ -784,6 +804,13 @@ impl WlSeatGlobal {
                 self.primary_selection.get(),
                 &surface.client,
             );
+        }
+
+        if let Some(tis) = self.text_inputs.borrow_mut().get(&surface.client.id) {
+            for ti in tis.lock().values() {
+                ti.send_enter(surface);
+                ti.send_done();
+            }
         }
     }
 }

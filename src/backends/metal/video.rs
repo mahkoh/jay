@@ -593,6 +593,7 @@ impl MetalConnector {
             Some(output.global.pos.get()),
             Some(rr),
             output.global.persistent.scale.get(),
+            true,
             render_hw_cursor,
             output.has_fullscreen(),
             output.global.persistent.transform.get(),

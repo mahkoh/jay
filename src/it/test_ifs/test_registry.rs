@@ -11,9 +11,11 @@ use {
                 test_data_control_manager::TestDataControlManager,
                 test_data_device_manager::TestDataDeviceManager, test_dmabuf::TestDmabuf,
                 test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
+                test_input_method_manager::TestInputMethodManager,
                 test_jay_compositor::TestJayCompositor, test_shm::TestShm,
                 test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
                 test_subcompositor::TestSubcompositor, test_syncobj_manager::TestSyncobjManager,
+                test_text_input_manager::TestTextInputManager,
                 test_toplevel_drag_manager::TestToplevelDragManager,
                 test_viewporter::TestViewporter,
                 test_virtual_keyboard_manager::TestVirtualKeyboardManager,
@@ -54,6 +56,8 @@ pub struct TestRegistrySingletons {
     pub xdg_toplevel_drag_manager_v1: u32,
     pub wp_alpha_modifier_v1: u32,
     pub zwp_virtual_keyboard_manager_v1: u32,
+    pub zwp_input_method_manager_v2: u32,
+    pub zwp_text_input_manager_v3: u32,
 }
 
 pub struct TestRegistry {
@@ -79,6 +83,8 @@ pub struct TestRegistry {
     pub drag_manager: CloneCell<Option<Rc<TestToplevelDragManager>>>,
     pub alpha_modifier: CloneCell<Option<Rc<TestAlphaModifier>>>,
     pub virtual_keyboard_manager: CloneCell<Option<Rc<TestVirtualKeyboardManager>>>,
+    pub input_method_manager: CloneCell<Option<Rc<TestInputMethodManager>>>,
+    pub text_input_manager: CloneCell<Option<Rc<TestTextInputManager>>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
 
@@ -148,6 +154,8 @@ impl TestRegistry {
             xdg_toplevel_drag_manager_v1,
             wp_alpha_modifier_v1,
             zwp_virtual_keyboard_manager_v1,
+            zwp_input_method_manager_v2,
+            zwp_text_input_manager_v3,
         };
         self.singletons.set(Some(singletons.clone()));
         Ok(singletons)
@@ -248,6 +256,20 @@ impl TestRegistry {
         zwp_virtual_keyboard_manager_v1,
         1,
         TestVirtualKeyboardManager
+    );
+    create_singleton!(
+        get_input_method_manager,
+        input_method_manager,
+        zwp_input_method_manager_v2,
+        1,
+        TestInputMethodManager
+    );
+    create_singleton!(
+        get_text_input_manager,
+        text_input_manager,
+        zwp_text_input_manager_v3,
+        1,
+        TestTextInputManager
     );
 
     pub fn bind<O: TestObject>(

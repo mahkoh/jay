@@ -1,0 +1,7 @@
+request destroy {
+}
+
+request get_text_input {
+    id: id(zwp_text_input_v3),
+    seat: id(wl_seat),
+}

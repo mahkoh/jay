@@ -75,9 +75,10 @@ pub fn take_screenshot(
     fb.render_node(
         state.root.deref(),
         state,
-        include_cursor.then_some(state.root.extents.get()),
+        Some(state.root.extents.get()),
         None,
         Scale::from_int(1),
+        include_cursor,
         true,
         false,
         Transform::None,

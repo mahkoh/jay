@@ -72,6 +72,7 @@ mod t0037_toplevel_drag;
 mod t0038_subsurface_parent_state;
 mod t0039_alpha_modifier;
 mod t0040_virtual_keyboard;
+mod t0041_input_method;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -131,5 +132,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0038_subsurface_parent_state,
         t0039_alpha_modifier,
         t0040_virtual_keyboard,
+        t0041_input_method,
     }
 }

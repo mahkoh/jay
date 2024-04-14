@@ -4,9 +4,9 @@ use {
         ifs::wl_seat::WlSeat,
         leaks::Tracker,
         object::{Object, Version},
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
+        utils::errorfmt::ErrorFmt,
         wire::{wl_keyboard::*, WlKeyboardId, WlSurfaceId},
-        xkbcommon::{KeyboardState, KeyboardStateId, ModifierState},
+        xkbcommon::{KeyboardState, KeyboardStateId, ModifierState, XkbCommonError},
     },
     std::{cell::Cell, rc::Rc},
     thiserror::Error,
@@ -180,9 +180,7 @@ simple_add_obj!(WlKeyboard);
 pub enum WlKeyboardError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("Could not create a keymap memfd")]
-    KeymapMemfd(#[source] OsError),
-    #[error("Could not copy the keymap")]
-    KeymapCopy(#[source] OsError),
+    #[error(transparent)]
+    XkbCommonError(#[from] XkbCommonError),
 }
 efrom!(WlKeyboardError, ClientError);

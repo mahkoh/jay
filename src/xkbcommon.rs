@@ -6,6 +6,9 @@ include!(concat!(env!("OUT_DIR"), "/xkbcommon_tys.rs"));
 
 pub use consts::*;
 use {
+    crate::utils::{
+        errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt, trim::AsciiTrim, vecset::VecSet,
+    },
     bstr::{BStr, ByteSlice},
     isnt::std_1::primitive::IsntConstPtrExt,
     std::{
@@ -16,12 +19,8 @@ use {
         ptr,
         rc::Rc,
     },
-};
-
-use {
-    crate::utils::{errorfmt::ErrorFmt, ptr_ext::PtrExt, trim::AsciiTrim, vecset::VecSet},
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{c, Errno, OwnedFd},
 };
 
 #[derive(Debug, Error)]
@@ -34,6 +33,10 @@ pub enum XkbCommonError {
     KeymapFromBuffer,
     #[error("Could not convert the keymap to a string")]
     AsStr,
+    #[error("Could not create a keymap memfd")]
+    KeymapMemfd(#[source] OsError),
+    #[error("Could not copy the keymap")]
+    KeymapCopy(#[source] OsError),
 }
 
 struct xkb_context;
@@ -292,6 +295,26 @@ pub struct XkbState {
 impl DynKeyboardState for RefCell<XkbState> {
     fn borrow(&self) -> Ref<'_, KeyboardState> {
         Ref::map(self.borrow(), |v| &v.kb_state)
+    }
+}
+
+impl KeyboardState {
+    pub fn create_new_keymap_fd(&self) -> Result<Rc<OwnedFd>, XkbCommonError> {
+        let fd = match uapi::memfd_create("shared-keymap", c::MFD_CLOEXEC) {
+            Ok(fd) => fd,
+            Err(e) => return Err(XkbCommonError::KeymapMemfd(e.into())),
+        };
+        let target = self.map_len as c::off_t;
+        let mut pos = 0;
+        while pos < target {
+            let rem = target - pos;
+            let res = uapi::sendfile(fd.raw(), self.map.raw(), Some(&mut pos), rem as usize);
+            match res {
+                Ok(_) | Err(Errno(c::EINTR)) => {}
+                Err(e) => return Err(XkbCommonError::KeymapCopy(e.into())),
+            }
+        }
+        Ok(Rc::new(fd))
     }
 }
 
