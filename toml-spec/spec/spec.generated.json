@@ -1053,6 +1053,8 @@
         "quit",
         "reload-config-toml",
         "reload-config-to",
+        "consume",
+        "forward",
         "none"
       ]
     },

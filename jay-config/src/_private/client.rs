@@ -903,6 +903,10 @@ impl Client {
         (rate, delay)
     }
 
+    pub fn set_forward(&self, seat: Seat, forward: bool) {
+        self.send(&ClientMessage::SetForward { seat, forward })
+    }
+
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
         let res = self.send_with_response(&ClientMessage::ParseKeymap { keymap });
         get_response!(res, Keymap(0), ParseKeymap { keymap });

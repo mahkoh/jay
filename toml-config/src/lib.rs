@@ -61,6 +61,7 @@ impl Action {
                 }
                 SimpleCommand::ReloadConfigSo => Box::new(reload),
                 SimpleCommand::None => Box::new(|| ()),
+                SimpleCommand::Forward(bool) => Box::new(move || s.set_forward(bool)),
             },
             Action::Multi { actions } => {
                 let mut actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();

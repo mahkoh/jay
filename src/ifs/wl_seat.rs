@@ -175,6 +175,7 @@ pub struct WlSeatGlobal {
     text_input: CloneCell<Option<Rc<ZwpTextInputV3>>>,
     input_method: CloneCell<Option<Rc<ZwpInputMethodV2>>>,
     input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
+    forward: Cell<bool>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -243,6 +244,7 @@ impl WlSeatGlobal {
             text_input: Default::default(),
             input_method: Default::default(),
             input_method_grab: Default::default(),
+            forward: Cell::new(false),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -1145,6 +1147,10 @@ impl WlSeatGlobal {
                 popup.update_visible();
             }
         }
+    }
+
+    pub fn set_forward(&self, forward: bool) {
+        self.forward.set(forward);
     }
 }
 

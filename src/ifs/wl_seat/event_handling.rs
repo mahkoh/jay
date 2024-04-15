@@ -35,7 +35,7 @@ use {
         wire::WlDataOfferId,
         xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
-    isnt::std_1::primitive::IsntSlice2Ext,
+    isnt::std_1::primitive::{IsntSlice2Ext, IsntSliceExt},
     jay_config::keyboard::{
         mods::{Modifiers, CAPS, NUM, RELEASE},
         syms::KeySym,
@@ -397,21 +397,27 @@ impl WlSeatGlobal {
         });
         let node = self.keyboard_node.get();
         let input_method_grab = self.input_method_grab.get();
-        if shortcuts.is_empty() {
+        let mut forward = true;
+        if shortcuts.is_not_empty() {
+            self.forward.set(state == wl_keyboard::RELEASED);
+            if let Some(config) = self.state.config.get() {
+                let id = xkb_state.kb_state.id;
+                drop(xkb_state);
+                for shortcut in shortcuts {
+                    config.invoke_shortcut(self.id(), &shortcut);
+                }
+                xkb_state_rc = get_state();
+                xkb_state = xkb_state_rc.borrow_mut();
+                if id != xkb_state.kb_state.id {
+                    return;
+                }
+            }
+            forward = self.forward.get();
+        }
+        if forward {
             match &input_method_grab {
                 Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
                 _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
-            }
-        } else if let Some(config) = self.state.config.get() {
-            let id = xkb_state.kb_state.id;
-            drop(xkb_state);
-            for shortcut in shortcuts {
-                config.invoke_shortcut(self.id(), &shortcut);
-            }
-            xkb_state_rc = get_state();
-            xkb_state = xkb_state_rc.borrow_mut();
-            if id != xkb_state.kb_state.id {
-                return;
             }
         }
         if new_mods {

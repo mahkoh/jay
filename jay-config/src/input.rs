@@ -335,6 +335,26 @@ impl Seat {
     pub fn move_to_output(self, connector: Connector) {
         get!().move_to_output(WorkspaceSource::Seat(self), connector);
     }
+
+    /// Set whether the current key event is forwarded to the focused client.
+    ///
+    /// This only has an effect if called from a keyboard shortcut.
+    ///
+    /// By default, release events are forwarded and press events are consumed. Note that
+    /// consuming release events can cause clients to get stuck in the pressed state.
+    pub fn set_forward(self, forward: bool) {
+        get!().set_forward(self, forward);
+    }
+
+    /// This is a shorthand for `set_forward(true)`.
+    pub fn forward(self) {
+        self.set_forward(true)
+    }
+
+    /// This is a shorthand for `set_forward(false)`.
+    pub fn consume(self) {
+        self.set_forward(false)
+    }
 }
 
 /// Returns all seats.
