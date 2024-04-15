@@ -35,9 +35,9 @@ use {
         wire::WlDataOfferId,
         xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
-    isnt::std_1::primitive::IsntSlice2Ext,
+    isnt::std_1::primitive::{IsntSlice2Ext, IsntSliceExt},
     jay_config::keyboard::{
-        mods::{Modifiers, CAPS, NUM},
+        mods::{Modifiers, CAPS, NUM, RELEASE},
         syms::KeySym,
         ModifiedKeySym,
     },
@@ -375,11 +375,13 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let new_mods;
         {
-            if !self.state.lock.locked.get() && state == wl_keyboard::PRESSED {
-                let old_mods = xkb_state.mods();
+            if !self.state.lock.locked.get() {
+                let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
+                if state == wl_keyboard::RELEASED {
+                    mods |= RELEASE.0;
+                }
                 let keysyms = xkb_state.unmodified_keysyms(key);
                 for &sym in keysyms {
-                    let mods = old_mods.mods_effective & !(CAPS.0 | NUM.0);
                     if let Some(mods) = self.shortcuts.get(&(mods, sym)) {
                         shortcuts.push(ModifiedKeySym {
                             mods,
@@ -395,21 +397,27 @@ impl WlSeatGlobal {
         });
         let node = self.keyboard_node.get();
         let input_method_grab = self.input_method_grab.get();
-        if shortcuts.is_empty() {
+        let mut forward = true;
+        if shortcuts.is_not_empty() {
+            self.forward.set(state == wl_keyboard::RELEASED);
+            if let Some(config) = self.state.config.get() {
+                let id = xkb_state.kb_state.id;
+                drop(xkb_state);
+                for shortcut in shortcuts {
+                    config.invoke_shortcut(self.id(), &shortcut);
+                }
+                xkb_state_rc = get_state();
+                xkb_state = xkb_state_rc.borrow_mut();
+                if id != xkb_state.kb_state.id {
+                    return;
+                }
+            }
+            forward = self.forward.get();
+        }
+        if forward {
             match &input_method_grab {
                 Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
                 _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
-            }
-        } else if let Some(config) = self.state.config.get() {
-            let id = xkb_state.kb_state.id;
-            drop(xkb_state);
-            for shortcut in shortcuts {
-                config.invoke_shortcut(self.id(), &shortcut);
-            }
-            xkb_state_rc = get_state();
-            xkb_state = xkb_state_rc.borrow_mut();
-            if id != xkb_state.kb_state.id {
-                return;
             }
         }
         if new_mods {

@@ -49,6 +49,7 @@ pub enum SimpleCommand {
     ToggleFullscreen,
     ToggleMono,
     ToggleSplit,
+    Forward(bool),
 }
 
 #[derive(Debug, Clone)]

@@ -109,6 +109,8 @@ impl ActionParser<'_> {
             "reload-config-toml" => ReloadConfigToml,
             "reload-config-so" => ReloadConfigSo,
             "none" => None,
+            "forward" => Forward(true),
+            "consume" => Forward(false),
             _ => {
                 return Err(ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span))
             }

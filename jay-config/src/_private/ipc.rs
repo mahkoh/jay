@@ -436,6 +436,10 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         keymap: Keymap,
     },
+    SetForward {
+        seat: Seat,
+        forward: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -318,6 +318,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_forward(&self, seat: Seat, forward: bool) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_forward(forward);
+        Ok(())
+    }
+
     fn handle_set_status(&self, status: &str) {
         self.state.set_status(status);
     }
@@ -1764,6 +1770,9 @@ impl ConfigProxyHandler {
             ClientMessage::DeviceSetKeymap { device, keymap } => self
                 .handle_set_device_keymap(device, keymap)
                 .wrn("set_device_keymap")?,
+            ClientMessage::SetForward { seat, forward } => {
+                self.handle_set_forward(seat, forward).wrn("set_forward")?
+            }
         }
         Ok(())
     }

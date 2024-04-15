@@ -7,7 +7,10 @@ use {
         toml::toml_span::{Span, SpannedExt},
     },
     jay_config::keyboard::{
-        mods::{Modifiers, ALT, CAPS, CTRL, LOCK, LOGO, MOD1, MOD2, MOD3, MOD4, MOD5, NUM, SHIFT},
+        mods::{
+            Modifiers, ALT, CAPS, CTRL, LOCK, LOGO, MOD1, MOD2, MOD3, MOD4, MOD5, NUM, RELEASE,
+            SHIFT,
+        },
         ModifiedKeySym,
     },
     thiserror::Error,
@@ -49,6 +52,7 @@ impl Parser for ModifiedKeysymParser {
                 "alt" => ALT,
                 "num" => NUM,
                 "logo" => LOGO,
+                "release" => RELEASE,
                 _ => match KEYSYMS.get(part) {
                     Some(new) if sym.is_none() => {
                         sym = Some(*new);

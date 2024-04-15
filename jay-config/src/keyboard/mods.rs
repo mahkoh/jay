@@ -36,6 +36,11 @@ pub const NUM: Modifiers = MOD2;
 /// Alias for `MOD4`.
 pub const LOGO: Modifiers = MOD4;
 
+/// Synthetic modifier matching key release events.
+///
+/// This can be used to execute a callback on key release.
+pub const RELEASE: Modifiers = Modifiers(1 << 31);
+
 impl BitOr for Modifiers {
     type Output = Self;
 

@@ -694,7 +694,10 @@ The table has the following fields:
   ```
   
   `MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,
-  `mod5`, `caps`, `alt`, `num`, or `logo`.
+  `mod5`, `caps`, `alt`, `num`, `logo`, or `release`.
+  
+  Using the `release` modifier causes the shortcut to trigger when the key is
+  released.
   
   `KEYSYM` should be the name of a keysym. The authorative location for these names
   is [1] with the `XKB_KEY_` prefix removed.
@@ -2220,6 +2223,26 @@ The string should have one of the following values:
 - `reload-config-to`:
 
   Reload the `config.so`.
+
+- `consume`:
+
+  Consume the current key event. Don't forward it to the focused application.
+  
+  This action only has an effect in shortcuts.
+  
+  Key-press events events that trigger shortcuts are consumed by default.
+  Key-release events events that trigger shortcuts are forwarded by default.
+  
+  Note that consuming key-release events can cause keys to get stuck in the focused
+  application.
+  
+  See the `forward` action to achieve the opposite effect.
+
+- `forward`:
+
+  Forward the current key event to the focused application.
+  
+  See the `consume` action for more details.
 
 - `none`:
 

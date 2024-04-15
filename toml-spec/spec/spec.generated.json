@@ -440,7 +440,7 @@
           "$ref": "#/$defs/RepeatRate"
         },
         "shortcuts": {
-          "description": "The compositor shortcuts.\n\nThe keys should be in the following format:\n\n```\n(MOD-)*KEYSYM\n```\n\n`MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,\n`mod5`, `caps`, `alt`, `num`, or `logo`.\n\n`KEYSYM` should be the name of a keysym. The authorative location for these names\nis [1] with the `XKB_KEY_` prefix removed.\n\nThe keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.\n\n[1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+          "description": "The compositor shortcuts.\n\nThe keys should be in the following format:\n\n```\n(MOD-)*KEYSYM\n```\n\n`MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,\n`mod5`, `caps`, `alt`, `num`, `logo`, or `release`.\n\nUsing the `release` modifier causes the shortcut to trigger when the key is\nreleased.\n\n`KEYSYM` should be the name of a keysym. The authorative location for these names\nis [1] with the `XKB_KEY_` prefix removed.\n\nThe keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.\n\n[1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
           "type": "object",
           "additionalProperties": {
             "description": "",
@@ -1053,6 +1053,8 @@
         "quit",
         "reload-config-toml",
         "reload-config-to",
+        "consume",
+        "forward",
         "none"
       ]
     },
