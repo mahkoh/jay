@@ -37,7 +37,7 @@ use {
     },
     isnt::std_1::primitive::IsntSlice2Ext,
     jay_config::keyboard::{
-        mods::{Modifiers, CAPS, NUM},
+        mods::{Modifiers, CAPS, NUM, RELEASE},
         syms::KeySym,
         ModifiedKeySym,
     },
@@ -375,11 +375,13 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let new_mods;
         {
-            if !self.state.lock.locked.get() && state == wl_keyboard::PRESSED {
-                let old_mods = xkb_state.mods();
+            if !self.state.lock.locked.get() {
+                let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
+                if state == wl_keyboard::RELEASED {
+                    mods |= RELEASE.0;
+                }
                 let keysyms = xkb_state.unmodified_keysyms(key);
                 for &sym in keysyms {
-                    let mods = old_mods.mods_effective & !(CAPS.0 | NUM.0);
                     if let Some(mods) = self.shortcuts.get(&(mods, sym)) {
                         shortcuts.push(ModifiedKeySym {
                             mods,

@@ -1705,7 +1705,10 @@ Config:
         ```
         
         `MOD` should be one of `shift`, `lock`, `ctrl`, `mod1`, `mod2`, `mod3`, `mod4`,
-        `mod5`, `caps`, `alt`, `num`, or `logo`.
+        `mod5`, `caps`, `alt`, `num`, `logo`, or `release`.
+        
+        Using the `release` modifier causes the shortcut to trigger when the key is
+        released.
         
         `KEYSYM` should be the name of a keysym. The authorative location for these names
         is [1] with the `XKB_KEY_` prefix removed.
