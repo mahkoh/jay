@@ -1,0 +1,62 @@
+request commit_string {
+    text: str,
+}
+
+request set_preedit_string {
+    text: str,
+    cursor_begin: i32,
+    cursor_end: i32,
+}
+
+request delete_surrounding_text {
+    before_length: u32,
+    after_length: u32,
+}
+
+request commit {
+    serial: u32,
+}
+
+request get_input_popup_surface {
+    id: id(zwp_input_popup_surface_v2),
+    surface: id(wl_surface),
+}
+
+request grab_keyboard {
+    keyboard: id(zwp_input_method_keyboard_grab_v2),
+}
+
+request destroy {
+
+}
+
+event activate {
+
+}
+
+event deactivate {
+
+}
+
+event surrounding_text {
+    text: str,
+    cursor: u32,
+    anchor: u32,
+}
+
+event text_change_cause {
+    cause: u32,
+}
+
+event content_type {
+    hint: u32,
+    purpose: u32,
+}
+
+event done {
+
+}
+
+event unavailable {
+
+}

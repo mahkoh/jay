@@ -18,7 +18,7 @@ use {
         globals::Globals,
         ifs::{
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
-            wl_surface::NoneSurfaceExt,
+            wl_surface::{zwp_input_popup_surface_v2::input_popup_positioning, NoneSurfaceExt},
         },
         io_uring::{IoUring, IoUringError},
         leaks,
@@ -172,6 +172,7 @@ fn start_compositor2(
         pending_output_render_data: Default::default(),
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
+        pending_input_popup_positioning: Default::default(),
         dbus: Dbus::new(&engine, &ring, &run_toplevel),
         fdcloser: FdCloser::new(),
         logger: logger.clone(),
@@ -230,6 +231,7 @@ fn start_compositor2(
         subsurface_ids: Default::default(),
         wait_for_sync_obj: Rc::new(WaitForSyncObj::new(&ring, &engine)),
         explicit_sync_enabled: Cell::new(true),
+        keyboard_state_ids: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -326,6 +328,7 @@ fn start_global_event_handlers(
         eng.spawn2(Phase::Layout, float_layout(state.clone())),
         eng.spawn2(Phase::PostLayout, float_titles(state.clone())),
         eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())),
+        eng.spawn2(Phase::PostLayout, input_popup_positioning(state.clone())),
     ]
 }
 

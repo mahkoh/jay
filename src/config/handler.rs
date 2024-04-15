@@ -309,13 +309,12 @@ impl ConfigProxyHandler {
         keymap: Keymap,
     ) -> Result<(), CphError> {
         let dev = self.get_device_handler_data(device)?;
-        if keymap.is_invalid() {
-            dev.keymap_id.set(None);
-            dev.keymap.set(None);
+        let map = if keymap.is_invalid() {
+            None
         } else {
-            let map = self.get_keymap(keymap)?;
-            dev.set_keymap(&map);
+            Some(self.get_keymap(keymap)?)
         };
+        dev.set_keymap(map);
         Ok(())
     }
 
@@ -548,7 +547,7 @@ impl ConfigProxyHandler {
             Some(self.get_seat(seat)?)
         };
         let dev = self.get_device_handler_data(device)?;
-        dev.seat.set(seat);
+        dev.set_seat(seat);
         Ok(())
     }
 

@@ -1,0 +1,60 @@
+request destroy {
+}
+
+request enable {
+}
+
+request disable {
+}
+
+request set_surrounding_text {
+    text: str,
+    cursor: i32,
+    anchor: i32,
+}
+
+request set_text_change_cause {
+    cause: u32,
+}
+
+request set_content_type {
+    hint: u32,
+    purpose: u32,
+}
+
+request set_cursor_rectangle {
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+}
+
+request commit {
+}
+
+event enter {
+    surface: id(wl_surface),
+}
+
+event leave {
+    surface: id(wl_surface),
+}
+
+event preedit_string {
+   text: optstr,
+   cursor_begin: i32,
+   cursor_end: i32,
+}
+
+event commit_string {
+    text: optstr,
+}
+
+event delete_surrounding_text {
+    before_length: u32,
+    after_length: u32,
+}
+
+event done {
+    serial: u32,
+}

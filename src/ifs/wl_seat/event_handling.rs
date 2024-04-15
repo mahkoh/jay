@@ -14,6 +14,7 @@ use {
                 DynDataSource,
             },
             wl_seat::{
+                text_input::TextDisconnectReason,
                 wl_keyboard::{self, WlKeyboard},
                 wl_pointer::{
                     self, PendingScroll, WlPointer, AXIS_DISCRETE_SINCE_VERSION,
@@ -32,15 +33,16 @@ use {
         tree::{Direction, FloatNode, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, smallmap::SmallMap},
         wire::WlDataOfferId,
-        xkbcommon::{ModifierState, XKB_KEY_DOWN, XKB_KEY_UP},
+        xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
+    isnt::std_1::primitive::IsntSlice2Ext,
     jay_config::keyboard::{
         mods::{Modifiers, CAPS, NUM},
         syms::KeySym,
         ModifiedKeySym,
     },
     smallvec::SmallVec,
-    std::rc::Rc,
+    std::{cell::RefCell, rc::Rc},
 };
 
 #[derive(Default)]
@@ -196,20 +198,7 @@ impl WlSeatGlobal {
                 time_usec,
                 key,
                 state,
-            } => {
-                let desired_kb_map_id = match dev.keymap_id.get() {
-                    Some(id) => id,
-                    None => self.seat_kb_map_id.get(),
-                };
-                if desired_kb_map_id != self.effective_kb_map_id.get() {
-                    let map = match dev.keymap.get() {
-                        Some(map) => map,
-                        None => self.seat_kb_map.get(),
-                    };
-                    self.set_effective_keymap(&map);
-                }
-                self.key_event(time_usec, key, state)
-            }
+            } => self.key_event(time_usec, key, state, || dev.get_effective_xkb_state(self)),
             InputEvent::ConnectorPosition {
                 time_usec,
                 connector,
@@ -356,18 +345,27 @@ impl WlSeatGlobal {
         self.pointer_owner.button(self, time_usec, button, state);
     }
 
-    pub(super) fn key_event(&self, time_usec: u64, key: u32, key_state: KeyState) {
+    pub(super) fn key_event<F>(
+        &self,
+        time_usec: u64,
+        key: u32,
+        key_state: KeyState,
+        mut get_state: F,
+    ) where
+        F: FnMut() -> Rc<RefCell<XkbState>>,
+    {
+        let mut xkb_state_rc = get_state();
+        let mut xkb_state = xkb_state_rc.borrow_mut();
         let (state, xkb_dir) = {
-            let mut pk = self.pressed_keys.borrow_mut();
             match key_state {
                 KeyState::Released => {
-                    if !pk.remove(&key) {
+                    if xkb_state.kb_state.pressed_keys.not_contains(&key) {
                         return;
                     }
                     (wl_keyboard::RELEASED, XKB_KEY_UP)
                 }
                 KeyState::Pressed => {
-                    if !pk.insert(key) {
+                    if xkb_state.kb_state.pressed_keys.contains(&key) {
                         return;
                     }
                     (wl_keyboard::PRESSED, XKB_KEY_DOWN)
@@ -377,10 +375,9 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let new_mods;
         {
-            let mut kb_state = self.kb_state.borrow_mut();
             if !self.state.lock.locked.get() && state == wl_keyboard::PRESSED {
-                let old_mods = kb_state.mods();
-                let keysyms = kb_state.unmodified_keysyms(key);
+                let old_mods = xkb_state.mods();
+                let keysyms = xkb_state.unmodified_keysyms(key);
                 for &sym in keysyms {
                     let mods = old_mods.mods_effective & !(CAPS.0 | NUM.0);
                     if let Some(mods) = self.shortcuts.get(&(mods, sym)) {
@@ -391,44 +388,49 @@ impl WlSeatGlobal {
                     }
                 }
             }
-            new_mods = kb_state.update(key, xkb_dir);
+            new_mods = xkb_state.update(key, xkb_dir);
         }
         self.state.for_each_seat_tester(|t| {
             t.send_key(self.id, time_usec, key, key_state);
         });
         let node = self.keyboard_node.get();
+        let input_method_grab = self.input_method_grab.get();
         if shortcuts.is_empty() {
-            node.node_on_key(self, time_usec, key, state);
+            match &input_method_grab {
+                Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
+                _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
+            }
         } else if let Some(config) = self.state.config.get() {
+            let id = xkb_state.kb_state.id;
+            drop(xkb_state);
             for shortcut in shortcuts {
                 config.invoke_shortcut(self.id(), &shortcut);
             }
+            xkb_state_rc = get_state();
+            xkb_state = xkb_state_rc.borrow_mut();
+            if id != xkb_state.kb_state.id {
+                return;
+            }
         }
-        if let Some(mods) = new_mods {
+        if new_mods {
             self.state.for_each_seat_tester(|t| {
-                t.send_modifiers(self.id, &mods);
+                t.send_modifiers(self.id, &xkb_state.kb_state.mods);
             });
-            node.node_on_mods(self, mods);
+            match &input_method_grab {
+                Some(g) => g.on_modifiers(&xkb_state.kb_state),
+                _ => node.node_on_mods(self, &xkb_state.kb_state),
+            }
         }
-    }
-
-    pub(super) fn set_modifiers(
-        &self,
-        mods_depressed: u32,
-        mods_latched: u32,
-        mods_locked: u32,
-        group: u32,
-    ) {
-        let new_mods =
-            self.kb_state
-                .borrow_mut()
-                .set(mods_depressed, mods_latched, mods_locked, group);
-        if let Some(mods) = new_mods {
-            self.state.for_each_seat_tester(|t| {
-                t.send_modifiers(self.id, &mods);
-            });
-            self.keyboard_node.get().node_on_mods(self, mods);
+        match key_state {
+            KeyState::Released => {
+                xkb_state.kb_state.pressed_keys.remove(&key);
+            }
+            KeyState::Pressed => {
+                xkb_state.kb_state.pressed_keys.insert(key);
+            }
         }
+        drop(xkb_state);
+        self.latest_kb_state.set(xkb_state_rc);
     }
 }
 
@@ -578,7 +580,7 @@ impl WlSeatGlobal {
         });
     }
 
-    fn surface_kb_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
+    pub fn surface_kb_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlKeyboard>),
     {
@@ -766,6 +768,18 @@ impl WlSeatGlobal {
 // Unfocus callbacks
 impl WlSeatGlobal {
     pub fn unfocus_surface(&self, surface: &WlSurface) {
+        if let Some(ti) = self.text_input.take() {
+            if let Some(con) = ti.connection.get() {
+                con.disconnect(TextDisconnectReason::FocusLost);
+            }
+        }
+        if let Some(tis) = self.text_inputs.borrow().get(&surface.client.id) {
+            for ti in tis.lock().values() {
+                ti.send_leave(surface);
+                ti.send_done();
+            }
+        }
+
         let serial = surface.client.next_serial();
         self.surface_kb_event(Version::ALL, surface, |k| k.send_leave(serial, surface.id))
     }
@@ -774,21 +788,11 @@ impl WlSeatGlobal {
 // Focus callbacks
 impl WlSeatGlobal {
     pub fn focus_surface(&self, surface: &WlSurface) {
-        let pressed_keys = &*self.pressed_keys.borrow();
+        let kb_state = self.latest_kb_state.get();
+        let kb_state = &*kb_state.borrow();
         let serial = surface.client.next_serial();
         self.surface_kb_event(Version::ALL, surface, |k| {
-            k.send_enter(serial, surface.id, pressed_keys)
-        });
-        let ModifierState {
-            mods_depressed,
-            mods_latched,
-            mods_locked,
-            group,
-            ..
-        } = self.kb_state.borrow().mods();
-        let serial = surface.client.next_serial();
-        self.surface_kb_event(Version::ALL, surface, |k| {
-            k.send_modifiers(serial, mods_depressed, mods_latched, mods_locked, group)
+            k.enter(serial, surface.id, kb_state);
         });
 
         if self.keyboard_node.get().node_client_id() != Some(surface.client.id) {
@@ -801,32 +805,40 @@ impl WlSeatGlobal {
                 &surface.client,
             );
         }
+
+        if let Some(tis) = self.text_inputs.borrow_mut().get(&surface.client.id) {
+            for ti in tis.lock().values() {
+                ti.send_enter(surface);
+                ti.send_done();
+            }
+        }
     }
 }
 
 // Key callbacks
 impl WlSeatGlobal {
-    pub fn key_surface(&self, surface: &WlSurface, time_usec: u64, key: u32, state: u32) {
+    pub fn key_surface(
+        &self,
+        surface: &WlSurface,
+        time_usec: u64,
+        key: u32,
+        state: u32,
+        kb_state: &KeyboardState,
+    ) {
         let serial = surface.client.next_serial();
         let time = (time_usec / 1000) as _;
         self.surface_kb_event(Version::ALL, surface, |k| {
-            k.send_key(serial, time, key, state)
+            k.on_key(serial, time, key, state, surface.id, kb_state);
         });
     }
 }
 
 // Modifiers callbacks
 impl WlSeatGlobal {
-    pub fn mods_surface(&self, surface: &WlSurface, mods: ModifierState) {
+    pub fn mods_surface(&self, surface: &WlSurface, kb_state: &KeyboardState) {
         let serial = surface.client.next_serial();
         self.surface_kb_event(Version::ALL, surface, |k| {
-            k.send_modifiers(
-                serial,
-                mods.mods_depressed,
-                mods.mods_latched,
-                mods.mods_locked,
-                mods.group,
-            )
+            k.on_mods_changed(serial, surface.id, kb_state)
         });
     }
 }

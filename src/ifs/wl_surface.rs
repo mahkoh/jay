@@ -12,6 +12,7 @@ pub mod xdg_surface;
 pub mod xwayland_shell_v1;
 pub mod zwlr_layer_surface_v1;
 pub mod zwp_idle_inhibitor_v1;
+pub mod zwp_input_popup_surface_v2;
 
 use {
     crate::{
@@ -24,8 +25,9 @@ use {
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_seat::{
-                wl_pointer::PendingScroll, zwp_pointer_constraints_v1::SeatConstraint, Dnd,
-                NodeSeatState, SeatId, WlSeatGlobal,
+                text_input::TextInputConnection, wl_pointer::PendingScroll,
+                zwp_pointer_constraints_v1::SeatConstraint, Dnd, NodeSeatState, SeatId,
+                WlSeatGlobal,
             },
             wl_surface::{
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
@@ -65,7 +67,7 @@ use {
             wl_surface::*, WlOutputId, WlSurfaceId, ZwpIdleInhibitorV1Id,
             ZwpLinuxDmabufFeedbackV1Id,
         },
-        xkbcommon::ModifierState,
+        xkbcommon::KeyboardState,
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
@@ -104,6 +106,7 @@ pub enum SurfaceRole {
     ZwlrLayerSurface,
     XSurface,
     ExtSessionLockSurface,
+    InputPopup,
 }
 
 impl SurfaceRole {
@@ -117,6 +120,7 @@ impl SurfaceRole {
             SurfaceRole::ZwlrLayerSurface => "zwlr_layer_surface",
             SurfaceRole::XSurface => "xwayland surface",
             SurfaceRole::ExtSessionLockSurface => "ext_session_lock_surface",
+            SurfaceRole::InputPopup => "input_popup_surface",
         }
     }
 }
@@ -249,6 +253,7 @@ pub struct WlSurface {
     commit_timeline: CommitTimeline,
     alpha_modifier: CloneCell<Option<Rc<WpAlphaModifierSurfaceV1>>>,
     alpha: Cell<Option<f32>>,
+    pub text_input_connections: SmallMap<SeatId, Rc<TextInputConnection>, 1>,
 }
 
 impl Debug for WlSurface {
@@ -533,6 +538,7 @@ impl WlSurface {
             commit_timeline: client.commit_timelines.create_timeline(),
             alpha_modifier: Default::default(),
             alpha: Default::default(),
+            text_input_connections: Default::default(),
         }
     }
 
@@ -602,6 +608,11 @@ impl WlSurface {
                 let pos = ss.position.get();
                 ss.surface
                     .set_absolute_position(x1 + pos.x1(), y1 + pos.y1());
+            }
+        }
+        for (_, con) in &self.text_input_connections {
+            for (_, popup) in &con.input_method.popups {
+                popup.schedule_positioning();
             }
         }
     }
@@ -1376,12 +1387,19 @@ impl Node for WlSurface {
         self.toplevel.get()
     }
 
-    fn node_on_key(&self, seat: &WlSeatGlobal, time_usec: u64, key: u32, state: u32) {
-        seat.key_surface(self, time_usec, key, state);
+    fn node_on_key(
+        &self,
+        seat: &WlSeatGlobal,
+        time_usec: u64,
+        key: u32,
+        state: u32,
+        kb_state: &KeyboardState,
+    ) {
+        seat.key_surface(self, time_usec, key, state, kb_state);
     }
 
-    fn node_on_mods(&self, seat: &WlSeatGlobal, mods: ModifierState) {
-        seat.mods_surface(self, mods);
+    fn node_on_mods(&self, seat: &WlSeatGlobal, kb_state: &KeyboardState) {
+        seat.mods_surface(self, kb_state);
     }
 
     fn node_on_button(

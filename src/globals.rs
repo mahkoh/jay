@@ -17,9 +17,14 @@ use {
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
             wl_seat::{
+                text_input::{
+                    zwp_input_method_manager_v2::ZwpInputMethodManagerV2Global,
+                    zwp_text_input_manager_v3::ZwpTextInputManagerV3Global,
+                },
                 zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Global,
                 zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global,
-                zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global, WlSeatGlobal,
+                zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global,
+                WlSeatGlobal,
             },
             wl_shm::WlShmGlobal,
             wl_subcompositor::WlSubcompositorGlobal,
@@ -177,6 +182,8 @@ impl Globals {
         add_singleton!(ZwlrDataControlManagerV1Global);
         add_singleton!(WpAlphaModifierV1Global);
         add_singleton!(ZwpVirtualKeyboardManagerV1Global);
+        add_singleton!(ZwpInputMethodManagerV2Global);
+        add_singleton!(ZwpTextInputManagerV3Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

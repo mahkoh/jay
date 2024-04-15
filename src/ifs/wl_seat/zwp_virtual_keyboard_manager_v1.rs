@@ -6,8 +6,9 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         wire::{zwp_virtual_keyboard_manager_v1::*, ZwpVirtualKeyboardManagerV1Id},
+        xkbcommon::KeyboardState,
     },
-    std::rc::Rc,
+    std::{cell::RefCell, rc::Rc},
     thiserror::Error,
 };
 
@@ -76,14 +77,20 @@ impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
+        let seat_keymap = seat.global.seat_kb_map.get();
         let kb = Rc::new(ZwpVirtualKeyboardV1 {
             id: req.id,
             client: self.client.clone(),
             seat: seat.global.clone(),
             tracker: Default::default(),
             version: self.version,
-            keymap_id: Default::default(),
-            keymap: Default::default(),
+            kb_state: Rc::new(RefCell::new(KeyboardState {
+                id: self.client.state.keyboard_state_ids.next(),
+                map: seat_keymap.map.clone(),
+                map_len: seat_keymap.map_len,
+                pressed_keys: Default::default(),
+                mods: Default::default(),
+            })),
         });
         track!(self.client, kb);
         self.client.add_client_obj(&kb)?;

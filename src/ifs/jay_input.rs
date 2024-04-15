@@ -325,7 +325,7 @@ impl JayInputRequestHandler for JayInput {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             let dev = self.device(req.id)?;
-            dev.seat.set(Some(seat));
+            dev.set_seat(Some(seat));
             Ok(())
         })
     }
@@ -333,7 +333,7 @@ impl JayInputRequestHandler for JayInput {
     fn detach(&self, req: Detach, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.seat.set(None);
+            dev.set_seat(None);
             Ok(())
         })
     }
@@ -374,7 +374,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_device_keymap(&self, req: SetDeviceKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_keymap_impl(&req.keymap, req.keymap_len, |map| {
             let dev = self.device(req.id)?;
-            dev.set_keymap(&map);
+            dev.set_keymap(Some(map.clone()));
             Ok(())
         })
     }

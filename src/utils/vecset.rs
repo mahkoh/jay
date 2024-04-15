@@ -19,6 +19,7 @@ impl<T> Deref for VecSet<T> {
 }
 
 impl<T> VecSet<T> {
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.vec.clear();
     }
