@@ -95,6 +95,16 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
             tc.invoked_shortcuts
                 .set((SeatId::from_raw(seat.0 as _), mods | sym), ());
         }
+        ServerMessage::InvokeShortcut2 {
+            seat,
+            unmasked_mods,
+            effective_mods,
+            sym,
+        } => {
+            let _ = unmasked_mods;
+            tc.invoked_shortcuts
+                .set((SeatId::from_raw(seat.0 as _), effective_mods | sym), ());
+        }
         ServerMessage::NewInputDevice { .. } => {}
         ServerMessage::DelInputDevice { .. } => {}
         ServerMessage::ConnectorConnect { .. } => {}

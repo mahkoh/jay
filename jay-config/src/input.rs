@@ -216,6 +216,16 @@ impl Seat {
         get!().bind_masked(self, mod_mask, mod_sym.into(), f)
     }
 
+    /// Registers a callback to be executed when the currently pressed key is released.
+    ///
+    /// This should only be called in callbacks for key-press binds.
+    ///
+    /// The callback will be executed once when the key is released regardless of any
+    /// modifiers.
+    pub fn latch<F: FnOnce() + 'static>(self, f: F) {
+        get!().latch(self, f)
+    }
+
     /// Unbinds a hotkey.
     pub fn unbind<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
         get!().unbind(self, mod_sym.into())

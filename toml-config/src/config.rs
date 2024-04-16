@@ -285,6 +285,7 @@ pub struct Shortcut {
     pub mask: Modifiers,
     pub keysym: ModifiedKeySym,
     pub action: Action,
+    pub latch: Option<Action>,
 }
 
 #[derive(Debug, Clone)]

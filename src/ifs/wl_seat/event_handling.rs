@@ -2,6 +2,7 @@ use {
     crate::{
         backend::{ConnectorId, InputEvent, KeyState, AXIS_120},
         client::ClientId,
+        config::InvokedShortcut,
         fixed::Fixed,
         ifs::{
             ipc::{
@@ -39,7 +40,6 @@ use {
     jay_config::keyboard::{
         mods::{Modifiers, CAPS, NUM, RELEASE},
         syms::KeySym,
-        ModifiedKeySym,
     },
     smallvec::SmallVec,
     std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
@@ -386,8 +386,9 @@ impl WlSeatGlobal {
                     if let Some(key_mods) = scs.get(&sym) {
                         for (key_mods, mask) in key_mods {
                             if mods & mask == key_mods {
-                                shortcuts.push(ModifiedKeySym {
-                                    mods: Modifiers(key_mods),
+                                shortcuts.push(InvokedShortcut {
+                                    unmasked_mods: Modifiers(mods),
+                                    effective_mods: Modifiers(key_mods),
                                     sym: KeySym(sym),
                                 });
                             }

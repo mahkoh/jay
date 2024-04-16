@@ -34,6 +34,8 @@ pub enum ShortcutsParserError {
     ModMask(#[source] ModifiedKeysymParserError),
     #[error("Could not parse the action")]
     ActionParserError(#[source] ActionParserError),
+    #[error("Could not parse the latch action")]
+    LatchError(#[source] ActionParserError),
 }
 
 pub struct ShortcutsParser<'a, 'b> {
@@ -65,6 +67,7 @@ impl Parser for ShortcutsParser<'_, '_> {
                 mask: Modifiers(!0),
                 keysym,
                 action,
+                latch: None,
             });
         }
         Ok(())
@@ -129,7 +132,8 @@ impl Parser for ComplexShortcutParser<'_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mod_mask_val, action_val) = ext.extract((opt(str("mod-mask")), opt(val("action"))))?;
+        let (mod_mask_val, action_val, latch_val) =
+            ext.extract((opt(str("mod-mask")), opt(val("action")), opt(val("latch"))))?;
         let mod_mask = match mod_mask_val {
             None => Modifiers(!0),
             Some(v) => ModifiersParser
@@ -144,10 +148,18 @@ impl Parser for ComplexShortcutParser<'_> {
                 .parse(&mut ActionParser(self.cx))
                 .map_spanned_err(ShortcutsParserError::ActionParserError)?,
         };
+        let mut latch = None;
+        if let Some(v) = latch_val {
+            latch = Some(
+                v.parse(&mut ActionParser(self.cx))
+                    .map_spanned_err(ShortcutsParserError::LatchError)?,
+            );
+        }
         Ok(Shortcut {
             mask: mod_mask,
             keysym: self.keysym,
             action,
+            latch,
         })
     }
 }

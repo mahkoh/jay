@@ -19,6 +19,7 @@ pub struct ServerFeature(u16);
 
 impl ServerFeature {
     pub const NONE: Self = Self(0);
+    pub const MOD_MASK: Self = Self(1);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -72,6 +73,12 @@ pub enum ServerMessage {
     },
     Features {
         features: Vec<ServerFeature>,
+    },
+    InvokeShortcut2 {
+        seat: Seat,
+        unmasked_mods: Modifiers,
+        effective_mods: Modifiers,
+        sym: KeySym,
     },
 }
 

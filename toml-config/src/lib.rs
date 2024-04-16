@@ -37,51 +37,75 @@ fn default_seat() -> Seat {
     get_seat("default")
 }
 
+trait FnBuilder: Sized {
+    fn new<F: Fn() + 'static>(f: F) -> Self;
+}
+
+impl FnBuilder for Box<dyn Fn()> {
+    fn new<F: Fn() + 'static>(f: F) -> Self {
+        Box::new(f)
+    }
+}
+
+impl FnBuilder for Rc<dyn Fn()> {
+    fn new<F: Fn() + 'static>(f: F) -> Self {
+        Rc::new(f)
+    }
+}
+
 impl Action {
-    fn into_fn(self, state: &Rc<State>) -> Box<dyn FnMut()> {
+    fn into_fn(self, state: &Rc<State>) -> Box<dyn Fn()> {
+        self.into_fn_impl(state)
+    }
+
+    fn into_rc_fn(self, state: &Rc<State>) -> Rc<dyn Fn()> {
+        self.into_fn_impl(state)
+    }
+
+    fn into_fn_impl<B: FnBuilder>(self, state: &Rc<State>) -> B {
         let s = state.persistent.seat;
         match self {
             Action::SimpleCommand { cmd } => match cmd {
-                SimpleCommand::Focus(dir) => Box::new(move || s.focus(dir)),
-                SimpleCommand::Move(dir) => Box::new(move || s.move_(dir)),
-                SimpleCommand::Split(axis) => Box::new(move || s.create_split(axis)),
-                SimpleCommand::ToggleSplit => Box::new(move || s.toggle_split()),
-                SimpleCommand::ToggleMono => Box::new(move || s.toggle_mono()),
-                SimpleCommand::ToggleFullscreen => Box::new(move || s.toggle_fullscreen()),
-                SimpleCommand::FocusParent => Box::new(move || s.focus_parent()),
-                SimpleCommand::Close => Box::new(move || s.close()),
+                SimpleCommand::Focus(dir) => B::new(move || s.focus(dir)),
+                SimpleCommand::Move(dir) => B::new(move || s.move_(dir)),
+                SimpleCommand::Split(axis) => B::new(move || s.create_split(axis)),
+                SimpleCommand::ToggleSplit => B::new(move || s.toggle_split()),
+                SimpleCommand::ToggleMono => B::new(move || s.toggle_mono()),
+                SimpleCommand::ToggleFullscreen => B::new(move || s.toggle_fullscreen()),
+                SimpleCommand::FocusParent => B::new(move || s.focus_parent()),
+                SimpleCommand::Close => B::new(move || s.close()),
                 SimpleCommand::DisablePointerConstraint => {
-                    Box::new(move || s.disable_pointer_constraint())
+                    B::new(move || s.disable_pointer_constraint())
                 }
-                SimpleCommand::ToggleFloating => Box::new(move || s.toggle_floating()),
-                SimpleCommand::Quit => Box::new(quit),
+                SimpleCommand::ToggleFloating => B::new(move || s.toggle_floating()),
+                SimpleCommand::Quit => B::new(quit),
                 SimpleCommand::ReloadConfigToml => {
                     let persistent = state.persistent.clone();
-                    Box::new(move || load_config(false, &persistent))
+                    B::new(move || load_config(false, &persistent))
                 }
-                SimpleCommand::ReloadConfigSo => Box::new(reload),
-                SimpleCommand::None => Box::new(|| ()),
-                SimpleCommand::Forward(bool) => Box::new(move || s.set_forward(bool)),
+                SimpleCommand::ReloadConfigSo => B::new(reload),
+                SimpleCommand::None => B::new(|| ()),
+                SimpleCommand::Forward(bool) => B::new(move || s.set_forward(bool)),
             },
             Action::Multi { actions } => {
-                let mut actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
-                Box::new(move || {
-                    for action in &mut actions {
+                let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
+                B::new(move || {
+                    for action in &actions {
                         action();
                     }
                 })
             }
-            Action::Exec { exec } => Box::new(move || create_command(&exec).spawn()),
-            Action::SwitchToVt { num } => Box::new(move || switch_to_vt(num)),
+            Action::Exec { exec } => B::new(move || create_command(&exec).spawn()),
+            Action::SwitchToVt { num } => B::new(move || switch_to_vt(num)),
             Action::ShowWorkspace { name } => {
                 let workspace = get_workspace(&name);
-                Box::new(move || s.show_workspace(workspace))
+                B::new(move || s.show_workspace(workspace))
             }
             Action::MoveToWorkspace { name } => {
                 let workspace = get_workspace(&name);
-                Box::new(move || s.set_workspace(workspace))
+                B::new(move || s.set_workspace(workspace))
             }
-            Action::ConfigureConnector { con } => Box::new(move || {
+            Action::ConfigureConnector { con } => B::new(move || {
                 for c in connectors() {
                     if con.match_.matches(c) {
                         con.apply(c);
@@ -90,7 +114,7 @@ impl Action {
             }),
             Action::ConfigureInput { input } => {
                 let state = state.clone();
-                Box::new(move || {
+                B::new(move || {
                     for c in input_devices() {
                         if input.match_.matches(c, &state) {
                             input.apply(c, &state);
@@ -100,7 +124,7 @@ impl Action {
             }
             Action::ConfigureOutput { out } => {
                 let state = state.clone();
-                Box::new(move || {
+                B::new(move || {
                     for c in connectors() {
                         if out.match_.matches(c, &state) {
                             out.apply(c);
@@ -108,36 +132,36 @@ impl Action {
                     }
                 })
             }
-            Action::SetEnv { env } => Box::new(move || {
+            Action::SetEnv { env } => B::new(move || {
                 for (k, v) in &env {
                     set_env(k, v);
                 }
             }),
-            Action::UnsetEnv { env } => Box::new(move || {
+            Action::UnsetEnv { env } => B::new(move || {
                 for k in &env {
                     unset_env(k);
                 }
             }),
             Action::SetKeymap { map } => {
                 let state = state.clone();
-                Box::new(move || state.set_keymap(&map))
+                B::new(move || state.set_keymap(&map))
             }
             Action::SetStatus { status } => {
                 let state = state.clone();
-                Box::new(move || state.set_status(&status))
+                B::new(move || state.set_status(&status))
             }
             Action::SetTheme { theme } => {
                 let state = state.clone();
-                Box::new(move || state.apply_theme(&theme))
+                B::new(move || state.apply_theme(&theme))
             }
-            Action::SetLogLevel { level } => Box::new(move || set_log_level(level)),
-            Action::SetGfxApi { api } => Box::new(move || set_gfx_api(api)),
+            Action::SetLogLevel { level } => B::new(move || set_log_level(level)),
+            Action::SetGfxApi { api } => B::new(move || set_gfx_api(api)),
             Action::ConfigureDirectScanout { enabled } => {
-                Box::new(move || set_direct_scanout_enabled(enabled))
+                B::new(move || set_direct_scanout_enabled(enabled))
             }
             Action::ConfigureDrmDevice { dev } => {
                 let state = state.clone();
-                Box::new(move || {
+                B::new(move || {
                     for d in drm_devices() {
                         if dev.match_.matches(d, &state) {
                             dev.apply(d);
@@ -147,7 +171,7 @@ impl Action {
             }
             Action::SetRenderDevice { dev } => {
                 let state = state.clone();
-                Box::new(move || {
+                B::new(move || {
                     for d in drm_devices() {
                         if dev.matches(d, &state) {
                             d.make_render_device();
@@ -155,10 +179,10 @@ impl Action {
                     }
                 })
             }
-            Action::ConfigureIdle { idle } => Box::new(move || set_idle(Some(idle))),
+            Action::ConfigureIdle { idle } => B::new(move || set_idle(Some(idle))),
             Action::MoveToOutput { output, workspace } => {
                 let state = state.clone();
-                Box::new(move || {
+                B::new(move || {
                     let output = 'get_output: {
                         for connector in connectors() {
                             if connector.connected() && output.matches(connector, &state) {
@@ -174,7 +198,7 @@ impl Action {
                 })
             }
             Action::SetRepeatRate { rate } => {
-                Box::new(move || s.set_repeat_rate(rate.rate, rate.delay))
+                B::new(move || s.set_repeat_rate(rate.rate, rate.delay))
             }
         }
     }
@@ -548,16 +572,26 @@ impl State {
                 cmd: SimpleCommand::None,
             } = shortcut.action
             {
-                self.persistent.seat.unbind(shortcut.keysym);
-                binds.remove(&shortcut.keysym);
-            } else {
-                self.persistent.seat.bind_masked(
-                    shortcut.mask,
-                    shortcut.keysym,
-                    shortcut.action.into_fn(self),
-                );
-                binds.insert(shortcut.keysym);
+                if shortcut.latch.is_none() {
+                    self.persistent.seat.unbind(shortcut.keysym);
+                    binds.remove(&shortcut.keysym);
+                    continue;
+                }
             }
+            let mut f = shortcut.action.into_fn(self);
+            if let Some(l) = shortcut.latch {
+                let l = l.into_rc_fn(self);
+                let s = self.persistent.seat;
+                f = Box::new(move || {
+                    f();
+                    let l = l.clone();
+                    s.latch(move || l());
+                });
+            }
+            self.persistent
+                .seat
+                .bind_masked(shortcut.mask, shortcut.keysym, move || f());
+            binds.insert(shortcut.keysym);
         }
     }
 

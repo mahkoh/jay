@@ -639,6 +639,28 @@ The table has the following fields:
 
   The value of this field should be a [Action](#types-Action).
 
+- `latch` (optional):
+
+  An action to execute when the key is released.
+  
+  This registers an action to be executed when the key triggering the shortcut is
+  released. The active modifiers are ignored for this purpose.
+  
+  - Example:
+  
+    To mute audio while the key is pressed:
+  
+    ```toml
+    [complex-shortcuts.alt-x]
+    action = { type = "exec", exec = ["pactl", "set-sink-mute", "0", "1"] }
+    latch = { type = "exec", exec = ["pactl", "set-sink-mute", "0", "0"] }
+    ```
+  
+    Audio will be un-muted once `x` key is released, regardless of any other keys
+    that are pressed at the time.
+
+  The value of this field should be a [Action](#types-Action).
+
 
 <a name="types-Config"></a>
 ### `Config`

@@ -108,6 +108,10 @@ By default, applications only have access to unprivileged protocols.
 
 You can explicitly opt into giving applications access to privileged protocols via the Jay CLI or shortcuts.
 
+## Push to Talk
+
+Jay's shortcut system allows you to execute an action when a key is pressed and to execute a different action when the key is released.
+
 ## Protocol Support
 
 Jay supports the following wayland protocols:

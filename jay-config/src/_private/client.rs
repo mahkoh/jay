@@ -13,6 +13,7 @@ use {
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
         keyboard::{
             mods::{Modifiers, RELEASE},
+            syms::KeySym,
             Keymap,
         },
         logging::LogLevel,
@@ -68,8 +69,10 @@ fn ignore_panic(name: &str, f: impl FnOnce()) {
 }
 
 struct KeyHandler {
-    mask: Modifiers,
-    cb: Callback,
+    registered_mask: Modifiers,
+    cb_mask: Modifiers,
+    cb: Option<Callback>,
+    latched: Vec<Box<dyn FnOnce()>>,
 }
 
 pub(crate) struct Client {
@@ -96,6 +99,9 @@ pub(crate) struct Client {
     tasks: Tasks,
     status_task: Cell<Vec<JoinHandle<()>>>,
     i3bar_separator: RefCell<Option<Rc<String>>>,
+    pressed_keysym: Cell<Option<KeySym>>,
+
+    feat_mod_mask: Cell<bool>,
 }
 
 struct Interest {
@@ -220,6 +226,8 @@ pub unsafe extern "C" fn init(
         tasks: Default::default(),
         status_task: Default::default(),
         i3bar_separator: Default::default(),
+        pressed_keysym: Cell::new(None),
+        feat_mod_mask: Cell::new(false),
     });
     let init = slice::from_raw_parts(init, size);
     client.handle_init_msg(init);
@@ -315,17 +323,16 @@ impl Client {
 
     pub fn unbind<T: Into<ModifiedKeySym>>(&self, seat: Seat, mod_sym: T) {
         let mod_sym = mod_sym.into();
-        let deregister = self
-            .key_handlers
-            .borrow_mut()
-            .remove(&(seat, mod_sym))
-            .is_some();
-        if deregister {
-            self.send(&ClientMessage::RemoveShortcut {
-                seat,
-                mods: mod_sym.mods,
-                sym: mod_sym.sym,
-            })
+        if let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, mod_sym)) {
+            oe.get_mut().cb = None;
+            if oe.get().latched.is_empty() {
+                oe.remove();
+                self.send(&ClientMessage::RemoveShortcut {
+                    seat,
+                    mods: mod_sym.mods,
+                    sym: mod_sym.sym,
+                })
+            }
         }
     }
 
@@ -923,6 +930,46 @@ impl Client {
         keymap
     }
 
+    pub fn latch<F: FnOnce() + 'static>(&self, seat: Seat, f: F) {
+        if !self.feat_mod_mask.get() {
+            log::error!("compositor does not support latching");
+            return;
+        }
+        let Some(keysym) = self.pressed_keysym.get() else {
+            log::error!("latch called while not executing shortcut");
+            return;
+        };
+        let mods = RELEASE;
+        let f = Box::new(f);
+        let register = {
+            let mut kh = self.key_handlers.borrow_mut();
+            match kh.entry((seat, mods | keysym)) {
+                Entry::Occupied(mut o) => {
+                    let o = o.get_mut();
+                    o.latched.push(f);
+                    mem::replace(&mut o.registered_mask, mods) != mods
+                }
+                Entry::Vacant(v) => {
+                    v.insert(KeyHandler {
+                        cb_mask: mods,
+                        registered_mask: mods,
+                        cb: None,
+                        latched: vec![f],
+                    });
+                    true
+                }
+            }
+        };
+        if register {
+            self.send(&ClientMessage::AddShortcut2 {
+                seat,
+                mods,
+                mod_mask: mods,
+                sym: keysym,
+            });
+        }
+    }
+
     pub fn bind_masked<F: FnMut() + 'static>(
         &self,
         seat: Seat,
@@ -937,27 +984,37 @@ impl Client {
             match kh.entry((seat, mod_sym)) {
                 Entry::Occupied(mut o) => {
                     let o = o.get_mut();
-                    o.cb = cb;
-                    mem::replace(&mut o.mask, mod_mask) != mod_mask
+                    o.cb = Some(cb);
+                    o.cb_mask = mod_mask;
+                    let register = o.latched.is_empty() && o.registered_mask != o.cb_mask;
+                    if register {
+                        o.registered_mask = o.cb_mask;
+                    }
+                    register
                 }
                 Entry::Vacant(v) => {
-                    v.insert(KeyHandler { mask: mod_mask, cb });
+                    v.insert(KeyHandler {
+                        cb_mask: mod_mask,
+                        registered_mask: mod_mask,
+                        cb: Some(cb),
+                        latched: vec![],
+                    });
                     true
                 }
             }
         };
         if register {
-            let msg = if !mod_mask.0 == 0 {
-                ClientMessage::AddShortcut {
-                    seat,
-                    mods: mod_sym.mods,
-                    sym: mod_sym.sym,
-                }
-            } else {
+            let msg = if self.feat_mod_mask.get() {
                 ClientMessage::AddShortcut2 {
                     seat,
                     mods: mod_sym.mods,
                     mod_mask,
+                    sym: mod_sym.sym,
+                }
+            } else {
+                ClientMessage::AddShortcut {
+                    seat,
+                    mods: mod_sym.mods,
                     sym: mod_sym.sym,
                 }
             };
@@ -1103,6 +1160,61 @@ impl Client {
         self.tasks.tasks.borrow_mut().remove(&id);
     }
 
+    fn handle_invoke_shortcut(
+        &self,
+        seat: Seat,
+        unmasked_mods: Modifiers,
+        mods: Modifiers,
+        sym: KeySym,
+    ) {
+        let ms = ModifiedKeySym { mods, sym };
+        let handler = self
+            .key_handlers
+            .borrow_mut()
+            .get_mut(&(seat, ms))
+            .map(|kh| {
+                let cb = if kh.cb_mask & unmasked_mods == mods {
+                    kh.cb.clone()
+                } else {
+                    None
+                };
+                (mem::take(&mut kh.latched), cb)
+            });
+        let Some((latched, handler)) = handler else {
+            return;
+        };
+        let was_latched = !latched.is_empty();
+        if (mods & RELEASE).0 == 0 {
+            self.pressed_keysym.set(Some(sym));
+        }
+        for latched in latched {
+            ignore_panic("latch", latched);
+        }
+        if let Some(handler) = handler {
+            run_cb("shortcut", &handler, ());
+        }
+        self.pressed_keysym.set(None);
+        if was_latched {
+            if let Entry::Occupied(mut oe) = self.key_handlers.borrow_mut().entry((seat, ms)) {
+                let o = oe.get_mut();
+                if o.latched.is_empty() {
+                    if o.cb.is_none() {
+                        self.send(&ClientMessage::RemoveShortcut { seat, mods, sym });
+                        oe.remove();
+                    } else if o.cb_mask != o.registered_mask {
+                        o.registered_mask = o.cb_mask;
+                        self.send(&ClientMessage::AddShortcut2 {
+                            seat,
+                            mods: ms.mods,
+                            mod_mask: o.cb_mask,
+                            sym: ms.sym,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     fn handle_msg2(&self, msg: &[u8]) {
         let res = bincode_ops().deserialize::<ServerMessage>(msg);
         let msg = match res {
@@ -1123,15 +1235,15 @@ impl Client {
                 self.response.borrow_mut().push(response);
             }
             ServerMessage::InvokeShortcut { seat, mods, sym } => {
-                let ms = ModifiedKeySym { mods, sym };
-                let handler = self
-                    .key_handlers
-                    .borrow_mut()
-                    .get(&(seat, ms))
-                    .map(|k| k.cb.clone());
-                if let Some(handler) = handler {
-                    run_cb("shortcut", &handler, ());
-                }
+                self.handle_invoke_shortcut(seat, mods, mods, sym);
+            }
+            ServerMessage::InvokeShortcut2 {
+                seat,
+                unmasked_mods,
+                effective_mods,
+                sym,
+            } => {
+                self.handle_invoke_shortcut(seat, unmasked_mods, effective_mods, sym);
             }
             ServerMessage::NewInputDevice { device } => {
                 let handler = self.on_new_input_device.borrow_mut().clone();
@@ -1208,6 +1320,7 @@ impl Client {
                 for feat in features {
                     match feat {
                         ServerFeature::NONE => {}
+                        ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
                         _ => {}
                     }
                 }
