@@ -1741,6 +1741,23 @@ Config:
           [shortcuts]
           alt-q = "quit"
           ```
+    complex-shortcuts:
+      kind: map
+      values:
+        ref: ComplexShortcut
+      required: false
+      description: |
+        Complex compositor shortcuts.
+        
+        The keys should have the same format as in the `shortcuts` table.
+        
+        - Example:
+        
+          ```toml
+          [complex-shortcuts.XF86AudioRaiseVolume]
+          mod-mask = "alt"
+          action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
+          ```
     on-graphics-initialized:
       ref: Action
       required: false
@@ -2069,3 +2086,48 @@ RepeatRate:
       required: true
       description: |
         The number of milliseconds after a key is pressed before repeating begins.
+
+
+ComplexShortcut:
+  kind: table
+  description: |
+    Describes a complex shortcut.
+    
+    - Example:
+    
+      ```toml
+      [complex-shortcuts.XF86AudioRaiseVolume]
+      mod-mask = "alt"
+      action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
+      ```
+  fields:
+    mod-mask:
+      kind: string
+      required: false
+      description: |
+        The mod mask to apply to this shortcut.
+        
+        Should be a string containing modifiers concatenated by `-`. See the description
+        of `Config.shortcuts` for more details.
+        
+        If this field is omitted, all modifiers are included in the mask.
+        
+        - Example:
+          
+          To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless
+          of any modifiers except `alt`:
+        
+          ```toml
+          [complex-shortcuts.XF86AudioRaiseVolume]
+          mod-mask = "alt"
+          action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
+          ```
+        
+          Set `mod-mask = ""` to ignore all modifiers.
+    action:
+      ref: Action
+      required: false
+      description: |
+        The action to execute.
+        
+        Omitting this is the same as setting it to `"none"`.

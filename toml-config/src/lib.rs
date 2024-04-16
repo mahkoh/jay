@@ -6,7 +6,7 @@ mod toml;
 use {
     crate::config::{
         parse_config, Action, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
-        ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch,
+        ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch, Shortcut,
         SimpleCommand, Status, Theme,
     },
     ahash::{AHashMap, AHashSet},
@@ -541,21 +541,22 @@ impl State {
         }
     }
 
-    fn apply_shortcuts(
-        self: &Rc<Self>,
-        shortcuts: impl IntoIterator<Item = (ModifiedKeySym, Action)>,
-    ) {
+    fn apply_shortcuts(self: &Rc<Self>, shortcuts: impl IntoIterator<Item = Shortcut>) {
         let mut binds = self.persistent.binds.borrow_mut();
-        for (key, value) in shortcuts {
+        for shortcut in shortcuts {
             if let Action::SimpleCommand {
                 cmd: SimpleCommand::None,
-            } = value
+            } = shortcut.action
             {
-                self.persistent.seat.unbind(key);
-                binds.remove(&key);
+                self.persistent.seat.unbind(shortcut.keysym);
+                binds.remove(&shortcut.keysym);
             } else {
-                self.persistent.seat.bind(key, value.into_fn(self));
-                binds.insert(key);
+                self.persistent.seat.bind_masked(
+                    shortcut.mask,
+                    shortcut.keysym,
+                    shortcut.action.into_fn(self),
+                );
+                binds.insert(shortcut.keysym);
             }
         }
     }

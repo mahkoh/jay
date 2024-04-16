@@ -1127,11 +1127,12 @@ impl ConfigProxyHandler {
     fn handle_add_shortcut(
         &self,
         seat: Seat,
+        mod_mask: Modifiers,
         mods: Modifiers,
         sym: KeySym,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.add_shortcut(mods, sym);
+        seat.add_shortcut(mod_mask, mods, sym);
         Ok(())
     }
 
@@ -1499,7 +1500,7 @@ impl ConfigProxyHandler {
                 self.handle_set_split(seat, axis).wrn("set_split")?
             }
             ClientMessage::AddShortcut { seat, mods, sym } => self
-                .handle_add_shortcut(seat, mods, sym)
+                .handle_add_shortcut(seat, Modifiers(!0), mods, sym)
                 .wrn("add_shortcut")?,
             ClientMessage::RemoveShortcut { seat, mods, sym } => self
                 .handle_remove_shortcut(seat, mods, sym)
@@ -1773,6 +1774,14 @@ impl ConfigProxyHandler {
             ClientMessage::SetForward { seat, forward } => {
                 self.handle_set_forward(seat, forward).wrn("set_forward")?
             }
+            ClientMessage::AddShortcut2 {
+                seat,
+                mod_mask,
+                mods,
+                sym,
+            } => self
+                .handle_add_shortcut(seat, mod_mask, mods, sym)
+                .wrn("add_shortcut")?,
         }
         Ok(())
     }

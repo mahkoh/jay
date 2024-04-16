@@ -451,6 +451,12 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         forward: bool,
     },
+    AddShortcut2 {
+        seat: Seat,
+        mods: Modifiers,
+        mod_mask: Modifiers,
+        sym: KeySym,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

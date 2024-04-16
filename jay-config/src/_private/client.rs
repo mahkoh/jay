@@ -11,7 +11,10 @@ use {
         },
         exec::Command,
         input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
-        keyboard::Keymap,
+        keyboard::{
+            mods::{Modifiers, RELEASE},
+            Keymap,
+        },
         logging::LogLevel,
         tasks::{JoinHandle, JoinSlot},
         theme::{colors::Colorable, sized::Resizable, Color},
@@ -64,12 +67,17 @@ fn ignore_panic(name: &str, f: impl FnOnce()) {
     }
 }
 
+struct KeyHandler {
+    mask: Modifiers,
+    cb: Callback,
+}
+
 pub(crate) struct Client {
     configure: extern "C" fn(),
     srv_data: *const u8,
     srv_unref: unsafe extern "C" fn(data: *const u8),
     srv_handler: unsafe extern "C" fn(data: *const u8, msg: *const u8, size: usize),
-    key_handlers: RefCell<HashMap<(Seat, ModifiedKeySym), Callback>>,
+    key_handlers: RefCell<HashMap<(Seat, ModifiedKeySym), KeyHandler>>,
     timer_handlers: RefCell<HashMap<Timer, Callback>>,
     response: RefCell<Vec<Response>>,
     on_new_seat: RefCell<Option<Callback<Seat>>>,
@@ -915,33 +923,45 @@ impl Client {
         keymap
     }
 
-    pub fn bind<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(
+    pub fn bind_masked<F: FnMut() + 'static>(
         &self,
         seat: Seat,
-        mod_sym: T,
+        mut mod_mask: Modifiers,
+        mod_sym: ModifiedKeySym,
         mut f: F,
     ) {
-        let mod_sym = mod_sym.into();
+        mod_mask |= mod_sym.mods | RELEASE;
         let register = {
             let mut kh = self.key_handlers.borrow_mut();
-            let f = cb(move |_| f());
+            let cb = cb(move |_| f());
             match kh.entry((seat, mod_sym)) {
                 Entry::Occupied(mut o) => {
-                    *o.get_mut() = f;
-                    false
+                    let o = o.get_mut();
+                    o.cb = cb;
+                    mem::replace(&mut o.mask, mod_mask) != mod_mask
                 }
                 Entry::Vacant(v) => {
-                    v.insert(f);
+                    v.insert(KeyHandler { mask: mod_mask, cb });
                     true
                 }
             }
         };
         if register {
-            self.send(&ClientMessage::AddShortcut {
-                seat,
-                mods: mod_sym.mods,
-                sym: mod_sym.sym,
-            });
+            let msg = if !mod_mask.0 == 0 {
+                ClientMessage::AddShortcut {
+                    seat,
+                    mods: mod_sym.mods,
+                    sym: mod_sym.sym,
+                }
+            } else {
+                ClientMessage::AddShortcut2 {
+                    seat,
+                    mods: mod_sym.mods,
+                    mod_mask,
+                    sym: mod_sym.sym,
+                }
+            };
+            self.send(&msg);
         }
     }
 
@@ -1104,7 +1124,11 @@ impl Client {
             }
             ServerMessage::InvokeShortcut { seat, mods, sym } => {
                 let ms = ModifiedKeySym { mods, sym };
-                let handler = self.key_handlers.borrow_mut().get(&(seat, ms)).cloned();
+                let handler = self
+                    .key_handlers
+                    .borrow_mut()
+                    .get(&(seat, ms))
+                    .map(|k| k.cb.clone());
                 if let Some(handler) = handler {
                     run_cb("shortcut", &handler, ());
                 }

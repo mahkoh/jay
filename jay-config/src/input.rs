@@ -6,7 +6,7 @@ pub mod capability;
 use {
     crate::{
         input::{acceleration::AccelProfile, capability::Capability},
-        keyboard::Keymap,
+        keyboard::{mods::Modifiers, Keymap},
         Axis, Direction, ModifiedKeySym, Workspace,
         _private::{ipc::WorkspaceSource, DEFAULT_SEAT_NAME},
         video::Connector,
@@ -188,12 +188,37 @@ impl Seat {
     /// CapsLock and NumLock are ignored during modifier evaluation. Therefore, bindings
     /// containing these modifiers will never be invoked.
     pub fn bind<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(self, mod_sym: T, f: F) {
-        get!().bind(self, mod_sym, f)
+        self.bind_masked(Modifiers(!0), mod_sym, f)
+    }
+
+    /// Creates a compositor-wide hotkey while ignoring some modifiers.
+    ///
+    /// This is similar to `bind` except that only the masked modifiers are considered.
+    ///
+    /// For example, if this function is invoked with `mod_mask = Modifiers::NONE` and
+    /// `mod_sym = SYM_XF86AudioRaiseVolume`, then the callback will be invoked whenever
+    /// `SYM_XF86AudioRaiseVolume` is pressed. Even if the user is simultaneously holding
+    /// the shift key which would otherwise prevent the callback from taking effect.
+    ///
+    /// For example, if this function is invoked with `mod_mask = CTRL | SHIFT` and
+    /// `mod_sym = CTRL | SYM_x`, then the callback will be invoked whenever the user
+    /// presses `ctrl+x` without pressing the shift key. Even if the user is
+    /// simultaneously holding the alt key.
+    ///
+    /// If `mod_sym` contains any modifiers, then these modifiers are automatically added
+    /// to the mask. The synthetic `RELEASE` modifier is always added to the mask.
+    pub fn bind_masked<T: Into<ModifiedKeySym>, F: FnMut() + 'static>(
+        self,
+        mod_mask: Modifiers,
+        mod_sym: T,
+        f: F,
+    ) {
+        get!().bind_masked(self, mod_mask, mod_sym.into(), f)
     }
 
     /// Unbinds a hotkey.
     pub fn unbind<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
-        get!().unbind(self, mod_sym)
+        get!().unbind(self, mod_sym.into())
     }
 
     /// Moves the keyboard focus of the seat in the specified direction.

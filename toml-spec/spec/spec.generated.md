@@ -590,6 +590,56 @@ The format should be one of the following:
 Values of this type should be strings.
 
 
+<a name="types-ComplexShortcut"></a>
+### `ComplexShortcut`
+
+Describes a complex shortcut.
+
+- Example:
+
+  ```toml
+  [complex-shortcuts.XF86AudioRaiseVolume]
+  mod-mask = "alt"
+  action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `mod-mask` (optional):
+
+  The mod mask to apply to this shortcut.
+  
+  Should be a string containing modifiers concatenated by `-`. See the description
+  of `Config.shortcuts` for more details.
+  
+  If this field is omitted, all modifiers are included in the mask.
+  
+  - Example:
+    
+    To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless
+    of any modifiers except `alt`:
+  
+    ```toml
+    [complex-shortcuts.XF86AudioRaiseVolume]
+    mod-mask = "alt"
+    action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
+    ```
+  
+    Set `mod-mask = ""` to ignore all modifiers.
+
+  The value of this field should be a string.
+
+- `action` (optional):
+
+  The action to execute.
+  
+  Omitting this is the same as setting it to `"none"`.
+
+  The value of this field should be a [Action](#types-Action).
+
+
 <a name="types-Config"></a>
 ### `Config`
 
@@ -714,6 +764,22 @@ The table has the following fields:
     ```
 
   The value of this field should be a table whose values are [Actions](#types-Action).
+
+- `complex-shortcuts` (optional):
+
+  Complex compositor shortcuts.
+  
+  The keys should have the same format as in the `shortcuts` table.
+  
+  - Example:
+  
+    ```toml
+    [complex-shortcuts.XF86AudioRaiseVolume]
+    mod-mask = "alt"
+    action = { type = "exec", exec = ["pactl", "set-sink-volume", "0", "+10%"] }
+    ```
+
+  The value of this field should be a table whose values are [ComplexShortcuts](#types-ComplexShortcut).
 
 - `on-graphics-initialized` (optional):
 
