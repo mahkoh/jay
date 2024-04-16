@@ -4,7 +4,9 @@ use {
     crate::{
         _private::{
             bincode_ops,
-            ipc::{ClientMessage, InitMessage, Response, ServerMessage, WorkspaceSource},
+            ipc::{
+                ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
+            },
             logging, Config, ConfigEntry, ConfigEntryGen, PollableId, WireMode, VERSION,
         },
         exec::Command,
@@ -1175,6 +1177,14 @@ impl Client {
                     interest.result = Some(res);
                     if let Some(waker) = interest.waker.take() {
                         waker.wake();
+                    }
+                }
+            }
+            ServerMessage::Features { features } => {
+                for feat in features {
+                    match feat {
+                        ServerFeature::NONE => {}
+                        _ => {}
                     }
                 }
             }

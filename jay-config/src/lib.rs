@@ -38,7 +38,8 @@
     clippy::uninlined_format_args,
     clippy::len_zero,
     clippy::single_char_pattern,
-    clippy::single_char_add_str
+    clippy::single_char_add_str,
+    clippy::single_match
 )]
 
 use {

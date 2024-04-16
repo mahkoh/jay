@@ -203,6 +203,7 @@ impl ConfigProxy {
     }
 
     pub fn configure(&self, reload: bool) {
+        self.send(&ServerMessage::Features { features: vec![] });
         self.send(&ServerMessage::Configure { reload });
     }
 

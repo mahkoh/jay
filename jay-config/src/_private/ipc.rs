@@ -13,6 +13,14 @@ use {
     std::time::Duration,
 };
 
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[serde(transparent)]
+pub struct ServerFeature(u16);
+
+impl ServerFeature {
+    pub const NONE: Self = Self(0);
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Configure {
@@ -61,6 +69,9 @@ pub enum ServerMessage {
         id: PollableId,
         writable: bool,
         res: Result<(), String>,
+    },
+    Features {
+        features: Vec<ServerFeature>,
     },
 }
 
