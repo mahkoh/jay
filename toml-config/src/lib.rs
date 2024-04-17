@@ -590,7 +590,7 @@ impl State {
             }
             self.persistent
                 .seat
-                .bind_masked(shortcut.mask, shortcut.keysym, move || f());
+                .bind_masked(shortcut.mask, shortcut.keysym, f);
             binds.insert(shortcut.keysym);
         }
     }
