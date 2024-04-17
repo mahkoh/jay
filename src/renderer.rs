@@ -42,6 +42,13 @@ impl RenderResult {
             let _ = fr.client.remove_obj(&*fr);
         }
     }
+
+    pub fn discard_presentation_feedback(&mut self) {
+        for fb in self.presentation_feedbacks.drain(..) {
+            fb.send_discarded();
+            let _ = fb.client.remove_obj(&*fb);
+        }
+    }
 }
 
 impl Debug for RenderResult {
