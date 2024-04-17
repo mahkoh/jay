@@ -1215,7 +1215,9 @@ impl WlSurface {
         let children = self.children.borrow_mut();
         if let Some(children) = children.deref() {
             for child in children.subsurfaces.values() {
-                child.surface.set_visible(visible);
+                if child.surface.buffer.is_some() {
+                    child.surface.set_visible(visible);
+                }
             }
         }
         if !visible {

@@ -765,6 +765,9 @@ impl MetalConnector {
         if let Err(e) = changes.commit(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT, 0) {
             if let DrmError::Atomic(OsError(c::EACCES)) = e {
                 log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
+                self.render_result
+                    .borrow_mut()
+                    .discard_presentation_feedback();
                 return Ok(());
             }
             if let Some(fb) = &new_fb {
@@ -784,6 +787,9 @@ impl MetalConnector {
                     }
                 }
             }
+            self.render_result
+                .borrow_mut()
+                .discard_presentation_feedback();
             Err(MetalError::Commit(e))
         } else {
             if let Some(fb) = new_fb {
@@ -1792,10 +1798,7 @@ impl MetalBackend {
                     let _ = fb.client.remove_obj(&*fb);
                 }
             } else {
-                for fb in rr.presentation_feedbacks.drain(..) {
-                    fb.send_discarded();
-                    let _ = fb.client.remove_obj(&*fb);
-                }
+                rr.discard_presentation_feedback();
             }
         }
     }
