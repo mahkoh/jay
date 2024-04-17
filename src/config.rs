@@ -17,11 +17,11 @@ use {
     jay_config::{
         _private::{
             bincode_ops,
-            ipc::{InitMessage, ServerMessage, V1InitMessage},
+            ipc::{InitMessage, ServerFeature, ServerMessage, V1InitMessage},
             ConfigEntry, VERSION,
         },
         input::{InputDevice, Seat},
-        keyboard::ModifiedKeySym,
+        keyboard::{mods::Modifiers, syms::KeySym},
         video::{Connector, DrmDevice},
     },
     libloading::Library,
@@ -63,12 +63,22 @@ impl ConfigProxy {
         }
     }
 
-    pub fn invoke_shortcut(&self, seat: SeatId, modsym: &ModifiedKeySym) {
-        self.send(&ServerMessage::InvokeShortcut {
-            seat: Seat(seat.raw() as _),
-            mods: modsym.mods,
-            sym: modsym.sym,
-        });
+    pub fn invoke_shortcut(&self, seat: SeatId, shortcut: &InvokedShortcut) {
+        let msg = if shortcut.unmasked_mods == shortcut.effective_mods {
+            ServerMessage::InvokeShortcut {
+                seat: Seat(seat.raw() as _),
+                mods: shortcut.effective_mods,
+                sym: shortcut.sym,
+            }
+        } else {
+            ServerMessage::InvokeShortcut2 {
+                seat: Seat(seat.raw() as _),
+                unmasked_mods: shortcut.unmasked_mods,
+                effective_mods: shortcut.effective_mods,
+                sym: shortcut.sym,
+            }
+        };
+        self.send(&msg);
     }
 
     pub fn new_drm_dev(&self, dev: DrmDeviceId) {
@@ -203,6 +213,9 @@ impl ConfigProxy {
     }
 
     pub fn configure(&self, reload: bool) {
+        self.send(&ServerMessage::Features {
+            features: vec![ServerFeature::MOD_MASK],
+        });
         self.send(&ServerMessage::Configure { reload });
     }
 
@@ -286,4 +299,10 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
     let msg = std::slice::from_raw_parts(msg, size);
     rc.handle_request(msg);
     mem::forget(rc);
+}
+
+pub struct InvokedShortcut {
+    pub unmasked_mods: Modifiers,
+    pub effective_mods: Modifiers,
+    pub sym: KeySym,
 }

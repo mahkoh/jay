@@ -13,6 +13,15 @@ use {
     std::time::Duration,
 };
 
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+#[serde(transparent)]
+pub struct ServerFeature(u16);
+
+impl ServerFeature {
+    pub const NONE: Self = Self(0);
+    pub const MOD_MASK: Self = Self(1);
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
     Configure {
@@ -61,6 +70,15 @@ pub enum ServerMessage {
         id: PollableId,
         writable: bool,
         res: Result<(), String>,
+    },
+    Features {
+        features: Vec<ServerFeature>,
+    },
+    InvokeShortcut2 {
+        seat: Seat,
+        unmasked_mods: Modifiers,
+        effective_mods: Modifiers,
+        sym: KeySym,
     },
 }
 
@@ -439,6 +457,12 @@ pub enum ClientMessage<'a> {
     SetForward {
         seat: Seat,
         forward: bool,
+    },
+    AddShortcut2 {
+        seat: Seat,
+        mods: Modifiers,
+        mod_mask: Modifiers,
+        sym: KeySym,
     },
 }
 

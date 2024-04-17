@@ -2,9 +2,16 @@ use {
     crate::{
         config::{
             context::Context,
+            extractor::{opt, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{action::ActionParser, modified_keysym::ModifiedKeysymParser},
-            Action,
+            parsers::{
+                action::{ActionParser, ActionParserError},
+                modified_keysym::{
+                    ModifiedKeysymParser, ModifiedKeysymParserError, ModifiersParser,
+                },
+            },
+            spanned::SpannedErrorExt,
+            Action, Shortcut, SimpleCommand,
         },
         toml::{
             toml_span::{Span, Spanned, SpannedExt},
@@ -12,7 +19,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::keyboard::ModifiedKeySym,
+    jay_config::keyboard::{mods::Modifiers, ModifiedKeySym},
     std::collections::HashSet,
     thiserror::Error,
 };
@@ -21,12 +28,24 @@ use {
 pub enum ShortcutsParserError {
     #[error(transparent)]
     Expected(#[from] UnexpectedDataType),
+    #[error(transparent)]
+    ExtractorError(#[from] ExtractorError),
+    #[error("Could not parse the mod mask")]
+    ModMask(#[source] ModifiedKeysymParserError),
+    #[error("Could not parse the action")]
+    ActionParserError(#[source] ActionParserError),
+    #[error("Could not parse the latch action")]
+    LatchError(#[source] ActionParserError),
 }
 
-pub struct ShortcutsParser<'a>(pub &'a Context<'a>);
+pub struct ShortcutsParser<'a, 'b> {
+    pub cx: &'a Context<'a>,
+    pub used_keys: &'b mut HashSet<Spanned<ModifiedKeySym>>,
+    pub shortcuts: &'b mut Vec<Shortcut>,
+}
 
-impl Parser for ShortcutsParser<'_> {
-    type Value = Vec<(ModifiedKeySym, Action)>;
+impl Parser for ShortcutsParser<'_, '_> {
+    type Value = ();
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
 
@@ -35,38 +54,147 @@ impl Parser for ShortcutsParser<'_> {
         _span: Span,
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
-        let mut used_keys = HashSet::<Spanned<ModifiedKeySym>>::new();
-        let mut res = vec![];
         for (key, value) in table.iter() {
-            let keysym = match ModifiedKeysymParser.parse_string(key.span, &key.value) {
-                Ok(k) => k,
-                Err(e) => {
-                    log::warn!("Could not parse keysym: {}", self.0.error(e));
-                    continue;
-                }
+            let Some(keysym) = parse_modified_keysym(self.cx, key) else {
+                continue;
             };
-            let action = match value.parse(&mut ActionParser(self.0)) {
-                Ok(a) => a,
+            let Some(action) = parse_action(self.cx, &key.value, value) else {
+                continue;
+            };
+            let spanned = keysym.spanned(key.span);
+            log_used(self.cx, self.used_keys, spanned);
+            self.shortcuts.push(Shortcut {
+                mask: Modifiers(!0),
+                keysym,
+                action,
+                latch: None,
+            });
+        }
+        Ok(())
+    }
+}
+
+pub struct ComplexShortcutsParser<'a, 'b> {
+    pub cx: &'a Context<'a>,
+    pub used_keys: &'b mut HashSet<Spanned<ModifiedKeySym>>,
+    pub shortcuts: &'b mut Vec<Shortcut>,
+}
+
+impl Parser for ComplexShortcutsParser<'_, '_> {
+    type Value = ();
+    type Error = ShortcutsParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Table];
+
+    fn parse_table(
+        &mut self,
+        _span: Span,
+        table: &IndexMap<Spanned<String>, Spanned<Value>>,
+    ) -> ParseResult<Self> {
+        for (key, value) in table.iter() {
+            let Some(keysym) = parse_modified_keysym(self.cx, key) else {
+                continue;
+            };
+            let shortcut = match value.parse(&mut ComplexShortcutParser {
+                keysym,
+                cx: self.cx,
+            }) {
+                Ok(v) => v,
                 Err(e) => {
                     log::warn!(
-                        "Could not parse action for keysym {}: {}",
+                        "Could not parse shortcut for keysym {}: {}",
                         key.value,
-                        self.0.error(e)
+                        self.cx.error(e)
                     );
                     continue;
                 }
             };
             let spanned = keysym.spanned(key.span);
-            if let Some(prev) = used_keys.get(&spanned) {
-                log::warn!(
-                    "Duplicate key overrides previous definition: {}",
-                    self.0.error3(spanned.span)
-                );
-                log::info!("Previous definition here: {}", self.0.error3(prev.span));
-            }
-            used_keys.insert(spanned);
-            res.push((keysym, action));
+            log_used(self.cx, self.used_keys, spanned);
+            self.shortcuts.push(shortcut);
         }
-        Ok(res)
+        Ok(())
     }
+}
+
+struct ComplexShortcutParser<'a> {
+    pub keysym: ModifiedKeySym,
+    pub cx: &'a Context<'a>,
+}
+
+impl Parser for ComplexShortcutParser<'_> {
+    type Value = Shortcut;
+    type Error = ShortcutsParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Table];
+
+    fn parse_table(
+        &mut self,
+        span: Span,
+        table: &IndexMap<Spanned<String>, Spanned<Value>>,
+    ) -> ParseResult<Self> {
+        let mut ext = Extractor::new(self.cx, span, table);
+        let (mod_mask_val, action_val, latch_val) =
+            ext.extract((opt(str("mod-mask")), opt(val("action")), opt(val("latch"))))?;
+        let mod_mask = match mod_mask_val {
+            None => Modifiers(!0),
+            Some(v) => ModifiersParser
+                .parse_string(v.span, v.value)
+                .map_spanned_err(ShortcutsParserError::ModMask)?,
+        };
+        let action = match action_val {
+            None => Action::SimpleCommand {
+                cmd: SimpleCommand::None,
+            },
+            Some(v) => v
+                .parse(&mut ActionParser(self.cx))
+                .map_spanned_err(ShortcutsParserError::ActionParserError)?,
+        };
+        let mut latch = None;
+        if let Some(v) = latch_val {
+            latch = Some(
+                v.parse(&mut ActionParser(self.cx))
+                    .map_spanned_err(ShortcutsParserError::LatchError)?,
+            );
+        }
+        Ok(Shortcut {
+            mask: mod_mask,
+            keysym: self.keysym,
+            action,
+            latch,
+        })
+    }
+}
+
+fn parse_action(cx: &Context<'_>, key: &str, value: &Spanned<Value>) -> Option<Action> {
+    match value.parse(&mut ActionParser(cx)) {
+        Ok(a) => Some(a),
+        Err(e) => {
+            log::warn!("Could not parse action for keysym {key}: {}", cx.error(e));
+            None
+        }
+    }
+}
+
+fn parse_modified_keysym(cx: &Context<'_>, key: &Spanned<String>) -> Option<ModifiedKeySym> {
+    match ModifiedKeysymParser.parse_string(key.span, &key.value) {
+        Ok(k) => Some(k),
+        Err(e) => {
+            log::warn!("Could not parse keysym {}: {}", key.value, cx.error(e));
+            None
+        }
+    }
+}
+
+fn log_used(
+    cx: &Context<'_>,
+    used: &mut HashSet<Spanned<ModifiedKeySym>>,
+    key: Spanned<ModifiedKeySym>,
+) {
+    if let Some(prev) = used.get(&key) {
+        log::warn!(
+            "Duplicate key overrides previous definition: {}",
+            cx.error3(key.span)
+        );
+        log::info!("Previous definition here: {}", cx.error3(prev.span));
+    }
+    used.insert(key);
 }

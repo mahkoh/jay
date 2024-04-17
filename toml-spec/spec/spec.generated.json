@@ -427,6 +427,25 @@
       "type": "string",
       "description": "A color.\n\nThe format should be one of the following:\n\n- `#rgb`\n- `#rrggbb`\n- `#rgba`\n- `#rrggbba`\n"
     },
+    "ComplexShortcut": {
+      "description": "Describes a complex shortcut.\n\n- Example:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "mod-mask": {
+          "type": "string",
+          "description": "The mod mask to apply to this shortcut.\n\nShould be a string containing modifiers concatenated by `-`. See the description\nof `Config.shortcuts` for more details.\n\nIf this field is omitted, all modifiers are included in the mask.\n\n- Example:\n  \n  To raise the volume whenever the XF86AudioRaiseVolume key is pressed regardless\n  of any modifiers except `alt`:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n\n  Set `mod-mask = \"\"` to ignore all modifiers.\n"
+        },
+        "action": {
+          "description": "The action to execute.\n\nOmitting this is the same as setting it to `\"none\"`.\n",
+          "$ref": "#/$defs/Action"
+        },
+        "latch": {
+          "description": "An action to execute when the key is released.\n\nThis registers an action to be executed when the key triggering the shortcut is\nreleased. The active modifiers are ignored for this purpose.\n\n- Example:\n\n  To mute audio while the key is pressed:\n\n  ```toml\n  [complex-shortcuts.alt-x]\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-mute\", \"0\", \"1\"] }\n  latch = { type = \"exec\", exec = [\"pactl\", \"set-sink-mute\", \"0\", \"0\"] }\n  ```\n\n  Audio will be un-muted once `x` key is released, regardless of any other keys\n  that are pressed at the time.\n",
+          "$ref": "#/$defs/Action"
+        }
+      },
+      "required": []
+    },
     "Config": {
       "description": "This is the top-level table.\n\n- Example:\n\n  ```toml\n  keymap = \"\"\"\n    xkb_keymap {\n        xkb_keycodes { include \"evdev+aliases(qwerty)\" };\n        xkb_types    { include \"complete\"              };\n        xkb_compat   { include \"complete\"              };\n        xkb_symbols  { include \"pc+us+inet(evdev)\"     };\n    };\n    \"\"\"\n\n  on-graphics-initialized = { type = \"exec\", exec = \"mako\" }\n\n  [shortcuts]\n  alt-h = \"focus-left\"\n  alt-j = \"focus-down\"\n  alt-k = \"focus-up\"\n  alt-l = \"focus-right\"\n\n  alt-shift-h = \"move-left\"\n  alt-shift-j = \"move-down\"\n  alt-shift-k = \"move-up\"\n  alt-shift-l = \"move-right\"\n\n  alt-d = \"split-horizontal\"\n  alt-v = \"split-vertical\"\n\n  alt-t = \"toggle-split\"\n  alt-m = \"toggle-mono\"\n  alt-u = \"toggle-fullscreen\"\n\n  alt-f = \"focus-parent\"\n  alt-shift-c = \"close\"\n  alt-shift-f = \"toggle-floating\"\n  Super_L = { type = \"exec\", exec = \"alacritty\" }\n  alt-p = { type = \"exec\", exec = \"bemenu-run\" }\n  alt-q = \"quit\"\n  alt-shift-r = \"reload-config-toml\"\n\n  ctrl-alt-F1 = { type = \"switch-to-vt\", num = 1 }\n  ctrl-alt-F2 = { type = \"switch-to-vt\", num = 2 }\n  # ...\n\n  alt-F1 = { type = \"show-workspace\", name = \"1\" }\n  alt-F2 = { type = \"show-workspace\", name = \"2\" }\n  # ...\n\n  alt-shift-F1 = { type = \"move-to-workspace\", name = \"1\" }\n  alt-shift-F2 = { type = \"move-to-workspace\", name = \"2\" }\n  # ...\n  ```\n",
       "type": "object",
@@ -445,6 +464,14 @@
           "additionalProperties": {
             "description": "",
             "$ref": "#/$defs/Action"
+          }
+        },
+        "complex-shortcuts": {
+          "description": "Complex compositor shortcuts.\n\nThe keys should have the same format as in the `shortcuts` table.\n\n- Example:\n\n  ```toml\n  [complex-shortcuts.XF86AudioRaiseVolume]\n  mod-mask = \"alt\"\n  action = { type = \"exec\", exec = [\"pactl\", \"set-sink-volume\", \"0\", \"+10%\"] }\n  ```\n",
+          "type": "object",
+          "additionalProperties": {
+            "description": "",
+            "$ref": "#/$defs/ComplexShortcut"
           }
         },
         "on-graphics-initialized": {

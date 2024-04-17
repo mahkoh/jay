@@ -2,6 +2,7 @@ use {
     crate::{
         backend::{ConnectorId, InputEvent, KeyState, AXIS_120},
         client::ClientId,
+        config::InvokedShortcut,
         fixed::Fixed,
         ifs::{
             ipc::{
@@ -39,10 +40,9 @@ use {
     jay_config::keyboard::{
         mods::{Modifiers, CAPS, NUM, RELEASE},
         syms::KeySym,
-        ModifiedKeySym,
     },
     smallvec::SmallVec,
-    std::{cell::RefCell, rc::Rc},
+    std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
 };
 
 #[derive(Default)]
@@ -380,13 +380,19 @@ impl WlSeatGlobal {
                 if state == wl_keyboard::RELEASED {
                     mods |= RELEASE.0;
                 }
+                let scs = &*self.shortcuts.borrow();
                 let keysyms = xkb_state.unmodified_keysyms(key);
                 for &sym in keysyms {
-                    if let Some(mods) = self.shortcuts.get(&(mods, sym)) {
-                        shortcuts.push(ModifiedKeySym {
-                            mods,
-                            sym: KeySym(sym),
-                        });
+                    if let Some(key_mods) = scs.get(&sym) {
+                        for (key_mods, mask) in key_mods {
+                            if mods & mask == key_mods {
+                                shortcuts.push(InvokedShortcut {
+                                    unmasked_mods: Modifiers(mods),
+                                    effective_mods: Modifiers(key_mods),
+                                    sym: KeySym(sym),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -608,15 +614,24 @@ impl WlSeatGlobal {
     }
 
     pub fn clear_shortcuts(&self) {
-        self.shortcuts.clear();
+        self.shortcuts.borrow_mut().clear();
     }
 
-    pub fn add_shortcut(&self, mods: Modifiers, keysym: KeySym) {
-        self.shortcuts.set((mods.0, keysym.0), mods);
+    pub fn add_shortcut(&self, mod_mask: Modifiers, mods: Modifiers, keysym: KeySym) {
+        self.shortcuts
+            .borrow_mut()
+            .entry(keysym.0)
+            .or_default()
+            .insert(mods.0, mod_mask.0);
     }
 
     pub fn remove_shortcut(&self, mods: Modifiers, keysym: KeySym) {
-        self.shortcuts.remove(&(mods.0, keysym.0));
+        if let Entry::Occupied(mut oe) = self.shortcuts.borrow_mut().entry(keysym.0) {
+            oe.get_mut().remove(&mods.0);
+            if oe.get().is_empty() {
+                oe.remove();
+            }
+        }
     }
 
     pub fn trigger_tree_changed(&self) {

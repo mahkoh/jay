@@ -208,6 +208,23 @@ The right-hand side should be an action.
 
 See [spec.generated.md](../toml-spec/spec/spec.generated.md) for a full list of actions.
 
+### Complex Shortcuts
+
+If you need more control over shortcut execution, you can use the `complex-shortcuts` table.
+
+```toml
+[complex-shortcuts.alt-x]
+action = { type = "exec", exec = ["pactl", "set-sink-mute", "0", "1"] }
+latch  = { type = "exec", exec = ["pactl", "set-sink-mute", "0", "0"] }
+```
+
+This mutes the audio output while the key is pressed and un-mutes once the `x` key is released.
+The order in which `alt` and `x` are released does not matter for this.
+
+This can also be used to implement push to talk.
+
+See the specification for more details.
+
 ### Running Multiple Actions
 
 In every place that accepts an action, you can also run multiple actions by wrapping them

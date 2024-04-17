@@ -17,7 +17,7 @@ use {
     },
     jay_config::{
         input::acceleration::AccelProfile,
-        keyboard::{Keymap, ModifiedKeySym},
+        keyboard::{mods::Modifiers, Keymap, ModifiedKeySym},
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
@@ -281,10 +281,18 @@ pub struct RepeatRate {
 }
 
 #[derive(Debug, Clone)]
+pub struct Shortcut {
+    pub mask: Modifiers,
+    pub keysym: ModifiedKeySym,
+    pub action: Action,
+    pub latch: Option<Action>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub keymap: Option<ConfigKeymap>,
     pub repeat_rate: Option<RepeatRate>,
-    pub shortcuts: Vec<(ModifiedKeySym, Action)>,
+    pub shortcuts: Vec<Shortcut>,
     pub on_graphics_initialized: Option<Action>,
     pub on_idle: Option<Action>,
     pub status: Option<Status>,

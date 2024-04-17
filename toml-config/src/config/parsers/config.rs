@@ -17,7 +17,7 @@ use {
                 log_level::LogLevelParser,
                 output::OutputsParser,
                 repeat_rate::RepeatRateParser,
-                shortcuts::{ShortcutsParser, ShortcutsParserError},
+                shortcuts::{ComplexShortcutsParser, ShortcutsParser, ShortcutsParserError},
                 status::StatusParser,
                 theme::ThemeParser,
             },
@@ -30,6 +30,7 @@ use {
         },
     },
     indexmap::IndexMap,
+    std::collections::HashSet,
     thiserror::Error,
 };
 
@@ -96,7 +97,7 @@ impl Parser for ConfigParser<'_> {
                 _,
                 idle_val,
             ),
-            (explicit_sync, repeat_rate_val),
+            (explicit_sync, repeat_rate_val, complex_shortcuts_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -122,7 +123,11 @@ impl Parser for ConfigParser<'_> {
                 opt(val("$schema")),
                 opt(val("idle")),
             ),
-            (recover(opt(bol("explicit-sync"))), opt(val("repeat-rate"))),
+            (
+                recover(opt(bol("explicit-sync"))),
+                opt(val("repeat-rate")),
+                opt(val("complex-shortcuts")),
+            ),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -136,10 +141,24 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut used_keys = HashSet::new();
         let mut shortcuts = vec![];
         if let Some(value) = shortcuts_val {
-            shortcuts = value
-                .parse(&mut ShortcutsParser(self.0))
+            value
+                .parse(&mut ShortcutsParser {
+                    cx: self.0,
+                    used_keys: &mut used_keys,
+                    shortcuts: &mut shortcuts,
+                })
+                .map_spanned_err(ConfigParserError::ParseShortcuts)?;
+        }
+        if let Some(value) = complex_shortcuts_val {
+            value
+                .parse(&mut ComplexShortcutsParser {
+                    cx: self.0,
+                    used_keys: &mut used_keys,
+                    shortcuts: &mut shortcuts,
+                })
                 .map_spanned_err(ConfigParserError::ParseShortcuts)?;
         }
         if shortcuts.is_empty() {

@@ -10,6 +10,11 @@ use {
 #[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Default, Hash, Debug)]
 pub struct Modifiers(pub u32);
 
+impl Modifiers {
+    /// No modifiers.
+    pub const NONE: Self = Modifiers(0);
+}
+
 /// The Shift modifier
 pub const SHIFT: Modifiers = Modifiers(1 << 0);
 /// The CapsLock modifier.

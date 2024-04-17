@@ -73,7 +73,6 @@ use {
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
     },
     ahash::AHashMap,
-    jay_config::keyboard::mods::Modifiers,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -160,7 +159,7 @@ pub struct WlSeatGlobal {
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
-    shortcuts: CopyHashMap<(u32, u32), Modifiers>,
+    shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
     queue_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     output: CloneCell<Rc<OutputNode>>,
