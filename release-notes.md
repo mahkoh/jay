@@ -5,6 +5,8 @@
 - Add support for virtual-keyboard-unstable-v1.
 - Add support for zwp_input_method_manager_v2.
 - Add support for zwp_text_input_manager_v3.
+- Add support for push-to-talk.
+- Various bugfixes.
 
 # 1.0.3 (2024-04-11)
 
