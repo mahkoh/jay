@@ -5,7 +5,7 @@ use {
         ifs::xdg_activation_token_v1::XdgActivationTokenV1,
         leaks::Tracker,
         object::{Object, Version},
-        utils::{activation_token::ActivationToken, opaque::OpaqueError},
+        utils::{activation_token::ActivationToken, errorfmt::ErrorFmt, opaque::OpaqueError},
         wire::{xdg_activation_v1::*, XdgActivationV1Id},
     },
     std::rc::Rc,
@@ -84,7 +84,13 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
     }
 
     fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let token: ActivationToken = req.token.parse()?;
+        let token: ActivationToken = match req.token.parse() {
+            Ok(t) => t,
+            Err(e) => {
+                log::warn!("Could not parse client activation token: {}", ErrorFmt(e));
+                return Ok(());
+            }
+        };
         let surface = self.client.lookup(req.surface)?;
         if self.client.state.activation_tokens.remove(&token).is_none() {
             log::warn!(
