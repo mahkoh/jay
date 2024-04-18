@@ -5,7 +5,10 @@ mod pw_debug;
 use {
     crate::pipewire::pw_parser::{PwParser, PwParserError},
     bstr::BStr,
-    std::fmt::{Debug, Formatter},
+    std::{
+        fmt::{Debug, Formatter},
+        sync::atomic::AtomicU32,
+    },
     uapi::{c, Pod},
 };
 
@@ -1425,10 +1428,10 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct spa_io_buffers {
-    pub status: SpaStatus,
-    pub buffer_id: u32,
+    pub status: AtomicU32,
+    pub buffer_id: AtomicU32,
 }
 
 unsafe impl Pod for spa_io_buffers {}

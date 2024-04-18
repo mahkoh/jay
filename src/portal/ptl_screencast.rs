@@ -41,6 +41,7 @@ use {
         cell::{Cell, RefCell},
         ops::Deref,
         rc::Rc,
+        sync::atomic::Ordering::{Acquire, Relaxed, Release},
     },
 };
 
@@ -319,15 +320,17 @@ impl UsrJayScreencastOwner for StartedScreencast {
             let mut used = false;
             if let Some(io) = self.port.io_buffers.lock().values().next() {
                 let io = io.write();
-                if io.status != SPA_STATUS_HAVE_DATA {
+                let status = io.status.load(Acquire);
+                if status != SPA_STATUS_HAVE_DATA.0 {
                     used = true;
-                    if io.buffer_id != ev.idx {
-                        if (io.buffer_id as usize) < self.buffers.borrow_mut().len() {
-                            self.jay_screencast.release_buffer(io.buffer_id as usize);
+                    let buffer_id = io.buffer_id.load(Relaxed);
+                    if buffer_id != ev.idx {
+                        if (buffer_id as usize) < self.buffers.borrow_mut().len() {
+                            self.jay_screencast.release_buffer(buffer_id as usize);
                         }
                     }
-                    io.buffer_id = ev.idx;
-                    io.status = SPA_STATUS_HAVE_DATA;
+                    io.buffer_id.store(ev.idx, Relaxed);
+                    io.status.store(SPA_STATUS_HAVE_DATA.0, Release);
                 }
             }
             if !used {
