@@ -39,7 +39,7 @@ use {
     isnt::std_1::primitive::{IsntSlice2Ext, IsntSliceExt},
     jay_config::keyboard::{
         mods::{Modifiers, CAPS, NUM, RELEASE},
-        syms::KeySym,
+        syms::{KeySym, SYM_Escape},
     },
     smallvec::SmallVec,
     std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
@@ -346,7 +346,7 @@ impl WlSeatGlobal {
     }
 
     pub(super) fn key_event<F>(
-        &self,
+        self: &Rc<Self>,
         time_usec: u64,
         key: u32,
         key_state: KeyState,
@@ -375,14 +375,17 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let new_mods;
         {
-            if !self.state.lock.locked.get() {
-                let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
-                if state == wl_keyboard::RELEASED {
-                    mods |= RELEASE.0;
+            let mut mods = xkb_state.mods().mods_effective & !(CAPS.0 | NUM.0);
+            if state == wl_keyboard::RELEASED {
+                mods |= RELEASE.0;
+            }
+            let scs = &*self.shortcuts.borrow();
+            let keysyms = xkb_state.unmodified_keysyms(key);
+            for &sym in keysyms {
+                if sym == SYM_Escape.0 && mods == 0 {
+                    self.pointer_owner.revert_to_default(self);
                 }
-                let scs = &*self.shortcuts.borrow();
-                let keysyms = xkb_state.unmodified_keysyms(key);
-                for &sym in keysyms {
+                if !self.state.lock.locked.get() {
                     if let Some(key_mods) = scs.get(&sym) {
                         for (key_mods, mask) in key_mods {
                             if mods & mask == key_mods {
