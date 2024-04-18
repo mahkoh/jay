@@ -1430,6 +1430,7 @@ impl ConfigProxyHandler {
             FOCUSED_INACTIVE_TITLE_TEXT_COLOR => &colors.focused_inactive_title_text,
             BAR_STATUS_TEXT_COLOR => &colors.bar_text,
             ATTENTION_REQUESTED_BACKGROUND_COLOR => &colors.attention_requested_background,
+            HIGHLIGHT_COLOR => &colors.highlight,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)

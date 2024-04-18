@@ -2472,6 +2472,12 @@ The table has the following fields:
 
   The value of this field should be a [Color](#types-Color).
 
+- `highlight-color` (optional):
+
+  Color used to highlight parts of the UI.
+
+  The value of this field should be a [Color](#types-Color).
+
 - `border-width` (optional):
 
   The width of borders between windows.

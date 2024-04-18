@@ -1166,6 +1166,10 @@
           "description": "The text color of unfocused titles.",
           "$ref": "#/$defs/Color"
         },
+        "highlight-color": {
+          "description": "Color used to highlight parts of the UI.",
+          "$ref": "#/$defs/Color"
+        },
         "border-width": {
           "type": "integer",
           "description": "The width of borders between windows.",

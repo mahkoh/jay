@@ -26,7 +26,8 @@ use {
         state::State,
         text::{self, TextTexture},
         tree::{
-            walker::NodeVisitor, Direction, FindTreeResult, FoundNode, Node, NodeId, WorkspaceNode,
+            walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
+            NodeId, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
@@ -470,14 +471,20 @@ impl OutputNode {
         y: i32,
         layers: &[u32],
         tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
     ) -> FindTreeResult {
+        if usecase == FindTreeUsecase::SelectToplevel {
+            return FindTreeResult::Other;
+        }
         let len = tree.len();
         for layer in layers.iter().copied() {
             for surface in self.layers[layer as usize].rev_iter() {
                 let pos = surface.output_position();
                 if pos.contains(x, y) {
                     let (x, y) = pos.translate(x, y);
-                    if surface.node_find_tree_at(x, y, tree) == FindTreeResult::AcceptsInput {
+                    if surface.node_find_tree_at(x, y, tree, usecase)
+                        == FindTreeResult::AcceptsInput
+                    {
                         return FindTreeResult::AcceptsInput;
                     }
                     tree.truncate(len);
@@ -627,20 +634,28 @@ impl Node for OutputNode {
         }
     }
 
-    fn node_find_tree_at(&self, x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        mut y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         if self.state.lock.locked.get() {
-            if let Some(ls) = self.lock_surface.get() {
-                tree.push(FoundNode {
-                    node: ls.clone(),
-                    x,
-                    y,
-                });
-                return ls.node_find_tree_at(x, y, tree);
+            if usecase != FindTreeUsecase::SelectToplevel {
+                if let Some(ls) = self.lock_surface.get() {
+                    tree.push(FoundNode {
+                        node: ls.clone(),
+                        x,
+                        y,
+                    });
+                    return ls.node_find_tree_at(x, y, tree, usecase);
+                }
             }
             return FindTreeResult::AcceptsInput;
         }
         {
-            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree);
+            let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
             if res.accepts_input() {
                 return res;
             }
@@ -665,7 +680,7 @@ impl Node for OutputNode {
                     x,
                     y,
                 });
-                match stacked.node_find_tree_at(x, y, tree) {
+                match stacked.node_find_tree_at(x, y, tree, usecase) {
                     FindTreeResult::AcceptsInput => {
                         return FindTreeResult::AcceptsInput;
                     }
@@ -685,7 +700,7 @@ impl Node for OutputNode {
                 x,
                 y,
             });
-            fs.tl_as_node().node_find_tree_at(x, y, tree)
+            fs.tl_as_node().node_find_tree_at(x, y, tree, usecase)
         } else {
             let bar_height = self.state.theme.sizes.title_height.get() + 1;
             if y >= bar_height {
@@ -697,10 +712,10 @@ impl Node for OutputNode {
                         x,
                         y,
                     });
-                    ws.node_find_tree_at(x, y, tree);
+                    ws.node_find_tree_at(x, y, tree, usecase);
                 }
                 if tree.len() == len {
-                    self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree);
+                    self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
                 }
             }
             FindTreeResult::AcceptsInput

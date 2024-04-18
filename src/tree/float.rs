@@ -10,8 +10,8 @@ use {
         state::State,
         text::{self, TextTexture},
         tree::{
-            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
-            NodeId, StackedNode, ToplevelNode, WorkspaceNode,
+            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
+            FoundNode, Node, NodeId, StackedNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, double_click_state::DoubleClickState,
@@ -437,7 +437,13 @@ impl Node for FloatNode {
         self.update_child_title(title);
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         let theme = &self.state.theme;
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
@@ -459,7 +465,7 @@ impl Node for FloatNode {
             x,
             y,
         });
-        child.node_find_tree_at(x, y, tree)
+        child.node_find_tree_at(x, y, tree, usecase)
     }
 
     fn node_child_active_changed(self: Rc<Self>, _child: &dyn Node, active: bool, _depth: u32) {

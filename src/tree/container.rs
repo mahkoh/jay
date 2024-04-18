@@ -13,8 +13,8 @@ use {
         state::State,
         text::{self, TextTexture},
         tree::{
-            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FoundNode, Node,
-            NodeId, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
+            walker::NodeVisitor, ContainingNode, Direction, FindTreeResult, FindTreeUsecase,
+            FoundNode, Node, NodeId, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -1131,7 +1131,13 @@ impl Node for ContainerNode {
         self.toplevel_data.update_self_active(self, active);
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         let mut recurse = |content: Rect, child: NodeRef<ContainerChild>| {
             if content.contains(x, y) {
                 let (x, y) = content.translate(x, y);
@@ -1140,7 +1146,7 @@ impl Node for ContainerNode {
                     x,
                     y,
                 });
-                child.node.node_find_tree_at(x, y, tree);
+                child.node.node_find_tree_at(x, y, tree, usecase);
             }
         };
         if let Some(child) = self.mono_child.get() {
@@ -1328,6 +1334,10 @@ impl Node for ContainerNode {
 
     fn node_is_container(&self) -> bool {
         true
+    }
+
+    fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        Some(self)
     }
 }
 
@@ -1548,6 +1558,10 @@ impl ToplevelNodeBase for ContainerNode {
                 child.node.tl_restack_popups();
             }
         }
+    }
+
+    fn tl_admits_children(&self) -> bool {
+        true
     }
 }
 

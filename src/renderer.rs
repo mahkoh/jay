@@ -4,8 +4,10 @@ use {
         ifs::{
             wl_callback::WlCallback,
             wl_surface::{
-                xdg_surface::XdgSurface, zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, SurfaceBuffer,
-                WlSurface,
+                x_surface::xwindow::Xwindow,
+                xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
+                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+                SurfaceBuffer, WlSurface,
             },
             wp_presentation_feedback::WpPresentationFeedback,
         },
@@ -15,8 +17,8 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelNodeBase,
-            WorkspaceNode,
+            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelData,
+            ToplevelNodeBase, WorkspaceNode,
         },
     },
     std::{
@@ -212,7 +214,13 @@ impl Renderer<'_> {
         }
     }
 
-    pub fn render_placeholder(&mut self, placeholder: &PlaceholderNode, x: i32, y: i32) {
+    pub fn render_placeholder(
+        &mut self,
+        placeholder: &PlaceholderNode,
+        x: i32,
+        y: i32,
+        bounds: Option<&Rect>,
+    ) {
         let pos = placeholder.tl_data().pos.get();
         self.base.fill_boxes(
             std::slice::from_ref(&pos.at_point(x, y)),
@@ -236,6 +244,7 @@ impl Renderer<'_> {
                 ReleaseSync::None,
             );
         }
+        self.render_tl_aux(placeholder.tl_data(), bounds);
     }
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
@@ -302,6 +311,16 @@ impl Renderer<'_> {
         }
     }
 
+    pub fn render_xwindow(&mut self, tl: &Xwindow, x: i32, y: i32, bounds: Option<&Rect>) {
+        self.render_surface(&tl.x.surface, x, y, bounds);
+        self.render_tl_aux(tl.tl_data(), bounds);
+    }
+
+    pub fn render_xdg_toplevel(&mut self, tl: &XdgToplevel, x: i32, y: i32, bounds: Option<&Rect>) {
+        self.render_xdg_surface(&tl.xdg, x, y, bounds);
+        self.render_tl_aux(tl.tl_data(), bounds);
+    }
+
     pub fn render_xdg_surface(
         &mut self,
         xdg: &XdgSurface,
@@ -314,6 +333,21 @@ impl Renderer<'_> {
             (x, y) = geo.translate(x, y);
         }
         self.render_surface(surface, x, y, bounds);
+    }
+
+    fn render_tl_aux(&mut self, tl_data: &ToplevelData, bounds: Option<&Rect>) {
+        self.render_highlight(tl_data, bounds);
+    }
+
+    fn render_highlight(&mut self, tl_data: &ToplevelData, bounds: Option<&Rect>) {
+        if tl_data.render_highlight.get() == 0 {
+            return;
+        }
+        let Some(bounds) = bounds else {
+            return;
+        };
+        let color = self.state.theme.colors.highlight.get();
+        self.base.fill_boxes(slice::from_ref(bounds), &color);
     }
 
     pub fn render_surface(&mut self, surface: &WlSurface, x: i32, y: i32, bounds: Option<&Rect>) {

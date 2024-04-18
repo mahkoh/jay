@@ -20,8 +20,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, WorkspaceNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
+            OutputNode, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId,
+            WorkspaceNode,
         },
         utils::clonecell::CloneCell,
         wire::{xdg_toplevel::*, XdgToplevelId},
@@ -492,12 +493,21 @@ impl Node for XdgToplevel {
         self.toplevel_data.update_self_active(self, active);
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
+        if usecase == FindTreeUsecase::SelectToplevel {
+            return FindTreeResult::AcceptsInput;
+        }
         self.xdg.find_tree_at(x, y, tree)
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
-        renderer.render_xdg_surface(&self.xdg, x, y, bounds)
+        renderer.render_xdg_toplevel(self, x, y, bounds)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -515,6 +525,10 @@ impl Node for XdgToplevel {
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("xdg-toplevel focus");
         seat.set_known_cursor(KnownCursor::Default);
+    }
+
+    fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        Some(self)
     }
 }
 
@@ -618,6 +632,10 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_restack_popups(&self) {
         self.xdg.restack_popups();
+    }
+
+    fn tl_admits_children(&self) -> bool {
+        false
     }
 }
 

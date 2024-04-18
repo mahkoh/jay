@@ -257,6 +257,10 @@ pub mod colors {
         ///
         /// Default: `#23092c`.
         const 14 => ATTENTION_REQUESTED_BACKGROUND_COLOR,
+        /// Color used to highlight parts of the UI.
+        ///
+        /// Default: `#9d28c67f`.
+        const 15 => HIGHLIGHT_COLOR,
     }
 
     /// Sets the color of GUI element.

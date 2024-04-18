@@ -7,7 +7,8 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            walker::NodeVisitor, FindTreeResult, FoundNode, Node, NodeId, OutputNode, StackedNode,
+            walker::NodeVisitor, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
+            OutputNode, StackedNode,
         },
         utils::{copyhashmap::CopyHashMap, linkedlist::LinkedList},
     },
@@ -109,7 +110,13 @@ impl Node for DisplayNode {
         self.extents.get()
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         let outputs = self.outputs.lock();
         for output in outputs.values() {
             let pos = output.global.pos.get();
@@ -120,7 +127,7 @@ impl Node for DisplayNode {
                     x,
                     y,
                 });
-                output.node_find_tree_at(x, y, tree);
+                output.node_find_tree_at(x, y, tree, usecase);
                 break;
             }
         }

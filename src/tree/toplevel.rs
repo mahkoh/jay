@@ -13,6 +13,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            numcell::NumCell,
             smallmap::SmallMap,
             threshold_counter::ThresholdCounter,
             toplevel_identifier::{toplevel_identifier, ToplevelIdentifier},
@@ -173,6 +174,8 @@ pub trait ToplevelNodeBase: Node {
     fn tl_restack_popups(&self) {
         // nothing
     }
+
+    fn tl_admits_children(&self) -> bool;
 }
 
 pub struct FullscreenedData {
@@ -203,6 +206,7 @@ pub struct ToplevelData {
     pub identifier: Cell<ToplevelIdentifier>,
     pub handles:
         CopyHashMap<(ClientId, ExtForeignToplevelHandleV1Id), Rc<ExtForeignToplevelHandleV1>>,
+    pub render_highlight: NumCell<u32>,
 }
 
 impl ToplevelData {
@@ -229,6 +233,7 @@ impl ToplevelData {
             app_id: Default::default(),
             identifier: Cell::new(toplevel_identifier()),
             handles: Default::default(),
+            render_highlight: Default::default(),
         }
     }
 
