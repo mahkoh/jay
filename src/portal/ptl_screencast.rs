@@ -87,6 +87,7 @@ pub struct StartedScreencast {
     node: Rc<PwClientNode>,
     port: Rc<PwClientNodePort>,
     buffers: RefCell<PlaneVec<DmaBuf>>,
+    buffers_valid: Cell<bool>,
     dpy: Rc<PortalDisplay>,
     jay_screencast: Rc<UsrJayScreencast>,
 }
@@ -142,6 +143,7 @@ impl PwClientNodeOwner for StartingScreencast {
             node: self.node.clone(),
             port,
             buffers: Default::default(),
+            buffers_valid: Cell::new(false),
             dpy: self.dpy.clone(),
             jay_screencast: jsc,
         });
@@ -161,6 +163,7 @@ impl PwClientNodeOwner for StartedScreencast {
     fn use_buffers(&self, port: &Rc<PwClientNodePort>) {
         self.node
             .send_port_output_buffers(port, &self.buffers.borrow_mut());
+        self.buffers_valid.set(true);
     }
 
     fn start(self: Rc<Self>) {
@@ -303,10 +306,15 @@ impl UsrJayScreencastOwner for StartedScreencast {
         self.node.send_port_update(&self.port, true);
         self.node.send_active(true);
         *self.buffers.borrow_mut() = buffers;
+        self.buffers_valid.set(false);
     }
 
     fn ready(&self, ev: &Ready) {
         let idx = ev.idx as usize;
+        if !self.buffers_valid.get() {
+            self.jay_screencast.release_buffer(idx);
+            return;
+        }
         unsafe {
             let mut used = false;
             if let Some(io) = self.port.io_buffers.lock().values().next() {
