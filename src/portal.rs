@@ -38,11 +38,13 @@ use {
     },
     log::Level,
     std::{
+        os::unix::process::CommandExt,
+        process::Command,
         rc::{Rc, Weak},
         sync::Arc,
     },
     thiserror::Error,
-    uapi::{c, OwnedFd},
+    uapi::{c, getpid, OwnedFd},
 };
 
 const PORTAL_SUCCESS: u32 = 0;
@@ -53,7 +55,7 @@ const PORTAL_ENDED: u32 = 2;
 
 pub fn run_freestanding(global: GlobalArgs) {
     let logger = Logger::install_stderr(global.log_level.into());
-    run(logger);
+    run(logger, true);
 }
 
 #[derive(Debug, Error)]
@@ -137,13 +139,13 @@ pub fn run_from_compositor(level: Level) -> Result<PortalStartup, PortalError> {
         Forked::Child { .. } => {
             drop(read);
             let logger = Logger::install_pipe(write, level);
-            run(logger);
+            run(logger, false);
             std::process::exit(0);
         }
     }
 }
 
-fn run(logger: Arc<Logger>) {
+fn run(logger: Arc<Logger>, freestanding: bool) {
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
         Ok(r) => r,
@@ -151,16 +153,21 @@ fn run(logger: Arc<Logger>) {
             fatal!("Could not create an IO-uring: {}", ErrorFmt(e));
         }
     };
-    let _f = eng.spawn(run_async(eng.clone(), ring.clone(), logger));
+    let _f = eng.spawn(run_async(eng.clone(), ring.clone(), logger, freestanding));
     if let Err(e) = ring.run() {
         fatal!("The IO-uring returned an error: {}", ErrorFmt(e));
     }
 }
 
-async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>, logger: Arc<Logger>) {
+async fn run_async(
+    eng: Rc<AsyncEngine>,
+    ring: Rc<IoUring>,
+    logger: Arc<Logger>,
+    freestanding: bool,
+) {
     let (_rtl_future, rtl) = RunToplevel::install(&eng);
     let dbus = Dbus::new(&eng, &ring, &rtl);
-    let dbus = init_dbus_session(&dbus, logger).await;
+    let dbus = init_dbus_session(&dbus, logger, freestanding).await;
     let xrd = match xrd() {
         Some(xrd) => xrd,
         _ => {
@@ -206,7 +213,7 @@ async fn run_async(eng: Rc<AsyncEngine>, ring: Rc<IoUring>, logger: Arc<Logger>)
 
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
 
-async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>) -> Rc<DbusSocket> {
+async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, freestanding: bool) -> Rc<DbusSocket> {
     let session = match dbus.session().await {
         Ok(s) => s,
         Err(e) => {
@@ -226,18 +233,31 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>) -> Rc<DbusSocket> {
     match rv {
         Ok(r) if r.get().rv == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER => {
             log::info!("Acquired unique name {}", UNIQUE_NAME);
-            logger.redirect("portal");
+            let log_file = logger.redirect("portal");
             log::info!("version = {VERSION}");
             let fork = match fork_with_pidfd(false) {
                 Ok(f) => f,
                 Err(e) => fatal!("Could not fork: {}", ErrorFmt(e)),
             };
             match fork {
-                Forked::Parent { .. } => std::process::exit(0),
+                Forked::Parent { .. } => {
+                    if freestanding {
+                        let e = Command::new("tail")
+                            .arg("-f")
+                            .arg("-n")
+                            .arg("+1")
+                            .arg(&log_file)
+                            .exec();
+                        eprintln!("Could not exec `tail`: {}", ErrorFmt(e));
+                        std::process::exit(1);
+                    }
+                    std::process::exit(0)
+                }
                 Forked::Child { .. } => {
                     if let Err(e) = uapi::setsid() {
                         log::error!("setsid failed: {}", ErrorFmt(OsError::from(e)));
                     }
+                    log::info!("pid = {}", getpid());
                 }
             }
             set_process_name("jay portal");
