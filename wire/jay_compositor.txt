@@ -88,3 +88,7 @@ event seat {
     id: u32,
     name: str,
 }
+
+event capabilities {
+    cap: array(pod(u16)),
+}

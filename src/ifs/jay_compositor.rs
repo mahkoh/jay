@@ -44,6 +44,7 @@ impl JayCompositorGlobal {
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
+        obj.send_capabilities();
         Ok(())
     }
 }
@@ -72,7 +73,20 @@ pub struct JayCompositor {
     tracker: Tracker<Self>,
 }
 
+pub struct Cap;
+
+impl Cap {
+    pub const NONE: u16 = 0;
+}
+
 impl JayCompositor {
+    fn send_capabilities(&self) {
+        self.client.event(Capabilities {
+            self_id: self.id,
+            cap: &[Cap::NONE],
+        });
+    }
+
     fn take_screenshot_impl(
         &self,
         id: JayScreenshotId,

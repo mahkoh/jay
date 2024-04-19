@@ -1,5 +1,6 @@
 use {
     crate::{
+        ifs::jay_compositor::Cap,
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -126,6 +127,17 @@ impl UsrJayCompositor {
         }
         Ok(())
     }
+
+    fn capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let ev: Capabilities = self.con.parse(self, parser)?;
+        for &cap in ev.cap {
+            match cap {
+                Cap::NONE => {}
+                _ => {}
+            }
+        }
+        Ok(())
+    }
 }
 
 usr_object_base! {
@@ -133,6 +145,7 @@ usr_object_base! {
 
     CLIENT_ID => client_id,
     SEAT => seat,
+    CAPABILITIES => capabilities,
 }
 
 impl UsrObject for UsrJayCompositor {
