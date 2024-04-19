@@ -409,20 +409,8 @@ impl OutputNode {
         self.change_extents_(&self.calculate_extents());
 
         if (old_width, old_height) != (new_width, new_height) {
-            let mut to_destroy = vec![];
-            if let Some(ctx) = self.state.render_ctx.get() {
-                for sc in self.screencasts.lock().values() {
-                    if let Err(e) = sc.realloc(&ctx) {
-                        log::error!(
-                            "Could not re-allocate buffers for screencast after mode change: {}",
-                            ErrorFmt(e)
-                        );
-                        to_destroy.push(sc.clone());
-                    }
-                }
-            }
-            for sc in to_destroy {
-                sc.do_destroy();
+            for sc in self.screencasts.lock().values() {
+                sc.schedule_realloc();
             }
         }
 

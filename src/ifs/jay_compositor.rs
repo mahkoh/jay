@@ -4,10 +4,17 @@ use {
         client::{Client, ClientError},
         globals::{Global, GlobalName},
         ifs::{
-            jay_idle::JayIdle, jay_input::JayInput, jay_log_file::JayLogFile,
-            jay_output::JayOutput, jay_pointer::JayPointer, jay_randr::JayRandr,
-            jay_render_ctx::JayRenderCtx, jay_screencast::JayScreencast,
-            jay_screenshot::JayScreenshot, jay_seat_events::JaySeatEvents,
+            jay_idle::JayIdle,
+            jay_input::JayInput,
+            jay_log_file::JayLogFile,
+            jay_output::JayOutput,
+            jay_pointer::JayPointer,
+            jay_randr::JayRandr,
+            jay_render_ctx::JayRenderCtx,
+            jay_screencast::JayScreencast,
+            jay_screenshot::JayScreenshot,
+            jay_seat_events::JaySeatEvents,
+            jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
             jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
@@ -18,7 +25,7 @@ use {
     },
     bstr::ByteSlice,
     log::Level,
-    std::{ops::Deref, rc::Rc},
+    std::{cell::Cell, ops::Deref, rc::Rc},
     thiserror::Error,
 };
 
@@ -77,13 +84,14 @@ pub struct Cap;
 
 impl Cap {
     pub const NONE: u16 = 0;
+    pub const WINDOW_CAPTURE: u16 = 1;
 }
 
 impl JayCompositor {
     fn send_capabilities(&self) {
         self.client.event(Capabilities {
             self_id: self.id,
-            cap: &[Cap::NONE],
+            cap: &[Cap::NONE, Cap::WINDOW_CAPTURE],
         });
     }
 
@@ -334,6 +342,24 @@ impl JayCompositorRequestHandler for JayCompositor {
         let sc = Rc::new(JayInput::new(req.id, &self.client));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
+        Ok(())
+    }
+
+    fn select_toplevel(&self, req: SelectToplevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let seat = self.client.lookup(req.seat)?;
+        let obj = Rc::new(JaySelectToplevel {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            destroyed: Cell::new(false),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        let selector = JayToplevelSelector {
+            tl: Default::default(),
+            jst: obj.clone(),
+        };
+        seat.global.select_toplevel(selector);
         Ok(())
     }
 }

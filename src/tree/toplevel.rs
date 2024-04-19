@@ -4,6 +4,8 @@ use {
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
+            jay_screencast::JayScreencast,
+            jay_toplevel::JayToplevel,
             wl_seat::{collect_kb_foci, collect_kb_foci2, NodeSeatState, SeatId},
             wl_surface::WlSurface,
         },
@@ -18,7 +20,7 @@ use {
             threshold_counter::ThresholdCounter,
             toplevel_identifier::{toplevel_identifier, ToplevelIdentifier},
         },
-        wire::ExtForeignToplevelHandleV1Id,
+        wire::{ExtForeignToplevelHandleV1Id, JayScreencastId, JayToplevelId},
     },
     std::{
         cell::{Cell, RefCell},
@@ -111,6 +113,12 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_change_extents(self: Rc<Self>, rect: &Rect) {
         let data = self.tl_data();
+        let prev = data.desired_extents.replace(*rect);
+        if prev.size() != rect.size() {
+            for sc in data.jay_screencasts.lock().values() {
+                sc.schedule_realloc();
+            }
+        }
         if data.is_floating.get() {
             data.float_width.set(rect.width());
             data.float_height.set(rect.height());
@@ -199,6 +207,7 @@ pub struct ToplevelData {
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
     pub pos: Cell<Rect>,
+    pub desired_extents: Cell<Rect>,
     pub seat_state: NodeSeatState,
     pub wants_attention: Cell<bool>,
     pub requested_attention: Cell<bool>,
@@ -207,6 +216,8 @@ pub struct ToplevelData {
     pub handles:
         CopyHashMap<(ClientId, ExtForeignToplevelHandleV1Id), Rc<ExtForeignToplevelHandleV1>>,
     pub render_highlight: NumCell<u32>,
+    pub jay_toplevels: CopyHashMap<(ClientId, JayToplevelId), Rc<JayToplevel>>,
+    pub jay_screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
 }
 
 impl ToplevelData {
@@ -227,6 +238,7 @@ impl ToplevelData {
             title: RefCell::new(title),
             parent: Default::default(),
             pos: Default::default(),
+            desired_extents: Default::default(),
             seat_state: Default::default(),
             wants_attention: Cell::new(false),
             requested_attention: Cell::new(false),
@@ -234,6 +246,8 @@ impl ToplevelData {
             identifier: Cell::new(toplevel_identifier()),
             handles: Default::default(),
             render_highlight: Default::default(),
+            jay_toplevels: Default::default(),
+            jay_screencasts: Default::default(),
         }
     }
 
@@ -271,6 +285,12 @@ impl ToplevelData {
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
+        for (_, jay_tl) in self.jay_toplevels.lock().drain() {
+            jay_tl.destroy();
+        }
+        for (_, screencast) in self.jay_screencasts.lock().drain() {
+            screencast.do_destroy();
+        }
         self.identifier.set(toplevel_identifier());
         {
             let mut handles = self.handles.lock();

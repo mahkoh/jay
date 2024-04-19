@@ -244,7 +244,7 @@ impl Renderer<'_> {
                 ReleaseSync::None,
             );
         }
-        self.render_tl_aux(placeholder.tl_data(), bounds);
+        self.render_tl_aux(placeholder.tl_data(), bounds, true);
     }
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
@@ -309,16 +309,17 @@ impl Renderer<'_> {
                     .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
             }
         }
+        self.render_tl_aux(container.tl_data(), None, false);
     }
 
     pub fn render_xwindow(&mut self, tl: &Xwindow, x: i32, y: i32, bounds: Option<&Rect>) {
         self.render_surface(&tl.x.surface, x, y, bounds);
-        self.render_tl_aux(tl.tl_data(), bounds);
+        self.render_tl_aux(tl.tl_data(), bounds, true);
     }
 
     pub fn render_xdg_toplevel(&mut self, tl: &XdgToplevel, x: i32, y: i32, bounds: Option<&Rect>) {
         self.render_xdg_surface(&tl.xdg, x, y, bounds);
-        self.render_tl_aux(tl.tl_data(), bounds);
+        self.render_tl_aux(tl.tl_data(), bounds, true);
     }
 
     pub fn render_xdg_surface(
@@ -335,8 +336,20 @@ impl Renderer<'_> {
         self.render_surface(surface, x, y, bounds);
     }
 
-    fn render_tl_aux(&mut self, tl_data: &ToplevelData, bounds: Option<&Rect>) {
-        self.render_highlight(tl_data, bounds);
+    fn render_tl_aux(
+        &mut self,
+        tl_data: &ToplevelData,
+        bounds: Option<&Rect>,
+        render_highlight: bool,
+    ) {
+        if self.result.is_some() {
+            for screencast in tl_data.jay_screencasts.lock().values() {
+                screencast.schedule_toplevel_screencast();
+            }
+        }
+        if render_highlight {
+            self.render_highlight(tl_data, bounds);
+        }
     }
 
     fn render_highlight(&mut self, tl_data: &ToplevelData, bounds: Option<&Rect>) {

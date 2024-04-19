@@ -8,6 +8,7 @@ use {
             },
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
+            jay_toplevel::JayToplevel,
             jay_workspace::JayWorkspace,
             wl_buffer::WlBuffer,
             wl_display::WlDisplay,
@@ -29,10 +30,10 @@ use {
             copyhashmap::{CopyHashMap, Locked},
         },
         wire::{
-            JayOutputId, JayScreencastId, JayWorkspaceId, WlBufferId, WlDataSourceId, WlOutputId,
-            WlPointerId, WlRegionId, WlRegistryId, WlSeatId, WlSurfaceId,
-            WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId, XdgSurfaceId, XdgToplevelId,
-            XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
+            JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
+            WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
+            WlSurfaceId, WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId, XdgSurfaceId,
+            XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -60,6 +61,7 @@ pub struct Objects {
     pub screencasts: CopyHashMap<JayScreencastId, Rc<JayScreencast>>,
     pub timelines: CopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
     pub zwlr_data_sources: CopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
+    pub jay_toplevels: CopyHashMap<JayToplevelId, Rc<JayToplevel>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -89,6 +91,7 @@ impl Objects {
             screencasts: Default::default(),
             timelines: Default::default(),
             zwlr_data_sources: Default::default(),
+            jay_toplevels: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -122,6 +125,7 @@ impl Objects {
         self.screencasts.clear();
         self.timelines.clear();
         self.zwlr_data_sources.clear();
+        self.jay_toplevels.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

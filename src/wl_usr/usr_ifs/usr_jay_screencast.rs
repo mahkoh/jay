@@ -8,7 +8,11 @@ use {
         },
         video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         wire::{jay_screencast::*, JayScreencastId},
-        wl_usr::{usr_ifs::usr_jay_output::UsrJayOutput, usr_object::UsrObject, UsrCon},
+        wl_usr::{
+            usr_ifs::{usr_jay_output::UsrJayOutput, usr_jay_toplevel::UsrJayToplevel},
+            usr_object::UsrObject,
+            UsrCon,
+        },
     },
     std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},
     thiserror::Error,
@@ -57,6 +61,13 @@ impl UsrJayScreencast {
         self.con.request(SetOutput {
             self_id: self.id,
             output: output.id,
+        });
+    }
+
+    pub fn set_toplevel(&self, tl: &UsrJayToplevel) {
+        self.con.request(SetToplevel {
+            self_id: self.id,
+            id: tl.id,
         });
     }
 
