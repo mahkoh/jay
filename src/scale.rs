@@ -37,6 +37,17 @@ impl Scale {
     pub fn to_wl(self) -> u32 {
         self.0
     }
+
+    pub fn pixel_size(self, width: i32, height: i32) -> (i32, i32) {
+        if self == Scale::default() {
+            return (width, height);
+        }
+        let scale = self.to_f64();
+        (
+            (width as f64 * scale).round() as i32,
+            (height as f64 * scale).round() as i32,
+        )
+    }
 }
 
 impl PartialEq<u32> for Scale {

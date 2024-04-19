@@ -74,12 +74,24 @@ impl TestJayCompositor {
         self.tran.client_id.set(ClientId::from_raw(ev.client_id));
         Ok(())
     }
+
+    fn handle_seat(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
+        let _ev = Seat::parse_full(parser)?;
+        Ok(())
+    }
+
+    fn handle_capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
+        let _ev = Capabilities::parse_full(parser)?;
+        Ok(())
+    }
 }
 
 test_object! {
     TestJayCompositor, JayCompositor;
 
     CLIENT_ID => handle_client_id,
+    SEAT => handle_seat,
+    CAPABILITIES => handle_capabilities,
 }
 
 impl TestObject for TestJayCompositor {}

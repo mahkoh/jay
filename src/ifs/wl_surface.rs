@@ -38,8 +38,8 @@ use {
                 wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
                 wp_tearing_control_v1::WpTearingControlV1,
                 wp_viewport::WpViewport,
-                x_surface::XSurface,
-                xdg_surface::{PendingXdgSurfaceData, XdgSurfaceError},
+                x_surface::{xwindow::Xwindow, XSurface},
+                xdg_surface::{xdg_toplevel::XdgToplevel, PendingXdgSurfaceData, XdgSurfaceError},
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
@@ -51,8 +51,8 @@ use {
         rect::{Rect, Region},
         renderer::Renderer,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase, OutputNode,
-            ToplevelNode,
+            ContainerNode, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase,
+            OutputNode, PlaceholderNode, ToplevelNode,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
@@ -126,9 +126,38 @@ impl SurfaceRole {
 }
 
 pub struct SurfaceSendPreferredScaleVisitor;
+
+impl SurfaceSendPreferredScaleVisitor {
+    fn schedule_realloc(&self, tl: &impl ToplevelNode) {
+        for sc in tl.tl_data().jay_screencasts.lock().values() {
+            sc.schedule_realloc();
+        }
+    }
+}
+
 impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
         node.on_scale_change();
+        node.node_visit_children(self);
+    }
+
+    fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
+        self.schedule_realloc(&**node);
+        node.node_visit_children(self);
+    }
+
+    fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
+        self.schedule_realloc(&**node);
+        node.node_visit_children(self);
+    }
+
+    fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+        self.schedule_realloc(&**node);
+        node.node_visit_children(self);
+    }
+
+    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        self.schedule_realloc(&**node);
         node.node_visit_children(self);
     }
 }

@@ -1,35 +1,46 @@
 use {
     crate::{
         backend::{AxisSource, KeyState, ScrollAxis, AXIS_120},
+        cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
             ipc,
             ipc::wl_data_source::WlDataSource,
             wl_seat::{
-                wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal,
-                CHANGE_CURSOR_MOVED,
+                wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal, BTN_LEFT,
+                BTN_RIGHT, CHANGE_CURSOR_MOVED,
             },
             wl_surface::WlSurface,
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         state::DeviceHandlerData,
-        tree::{FoundNode, Node},
+        tree::{FindTreeUsecase, FoundNode, Node, ToplevelNode},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{
+        cell::Cell,
+        rc::{Rc, Weak},
+    },
 };
 
 pub struct PointerOwnerHolder {
-    default: Rc<DefaultPointerOwner>,
+    default: Rc<SimplePointerOwner<DefaultPointerUsecase>>,
     owner: CloneCell<Rc<dyn PointerOwner>>,
     pending_scroll: PendingScroll,
 }
 
+pub trait ToplevelSelector: 'static {
+    fn set(&self, toplevel: Rc<dyn ToplevelNode>);
+}
+
 impl Default for PointerOwnerHolder {
     fn default() -> Self {
+        let default = Rc::new(SimplePointerOwner {
+            usecase: DefaultPointerUsecase,
+        });
         Self {
-            default: Rc::new(DefaultPointerOwner),
-            owner: CloneCell::new(Rc::new(DefaultPointerOwner)),
+            default: default.clone(),
+            owner: CloneCell::new(default.clone()),
             pending_scroll: Default::default(),
         }
     }
@@ -145,6 +156,20 @@ impl PointerOwnerHolder {
         seat.pointer_owner.owner.set(self.default.clone());
         seat.changes.or_assign(CHANGE_CURSOR_MOVED);
     }
+
+    pub fn select_toplevel(&self, seat: &Rc<WlSeatGlobal>, selector: impl ToplevelSelector) {
+        self.revert_to_default(seat);
+        let usecase = Rc::new(SelectToplevelUsecase {
+            seat: Rc::downgrade(seat),
+            selector,
+            latest: Default::default(),
+        });
+        if let Some(node) = seat.pointer_stack.borrow().last() {
+            usecase.node_focus(seat, node);
+        }
+        self.owner.set(Rc::new(SimplePointerOwner { usecase }));
+        seat.trigger_tree_changed();
+    }
 }
 
 trait PointerOwner {
@@ -167,9 +192,12 @@ trait PointerOwner {
     fn remove_dnd_icon(&self);
 }
 
-struct DefaultPointerOwner;
+struct SimplePointerOwner<T> {
+    usecase: T,
+}
 
-struct GrabPointerOwner {
+struct SimpleGrabPointerOwner<T> {
+    usecase: T,
     buttons: SmallMap<u32, (), 1>,
     node: Rc<dyn Node>,
     serial: u32,
@@ -184,7 +212,16 @@ struct DndPointerOwner {
     pos_y: Cell<Fixed>,
 }
 
-impl PointerOwner for DefaultPointerOwner {
+#[derive(Copy, Clone)]
+struct DefaultPointerUsecase;
+
+struct SelectToplevelUsecase<S: ?Sized> {
+    seat: Weak<WlSeatGlobal>,
+    latest: CloneCell<Option<Rc<dyn ToplevelNode>>>,
+    selector: S,
+}
+
+impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
         if state != KeyState::Pressed {
             return;
@@ -193,12 +230,18 @@ impl PointerOwner for DefaultPointerOwner {
             Some(n) => n,
             _ => return,
         };
+        if self.usecase.default_button(self, seat, button, &pn) {
+            return;
+        }
         let serial = seat.state.next_serial(pn.node_client().as_deref());
-        seat.pointer_owner.owner.set(Rc::new(GrabPointerOwner {
-            buttons: SmallMap::new_with(button, ()),
-            node: pn.clone(),
-            serial,
-        }));
+        seat.pointer_owner
+            .owner
+            .set(Rc::new(SimpleGrabPointerOwner {
+                usecase: self.usecase.clone(),
+                buttons: SmallMap::new_with(button, ()),
+                node: pn.clone(),
+                serial,
+            }));
         pn.node_seat_state().add_pointer_grab(seat);
         pn.node_on_button(seat, time_usec, button, state, serial);
     }
@@ -220,7 +263,7 @@ impl PointerOwner for DefaultPointerOwner {
         });
         seat.state
             .root
-            .node_find_tree_at(x_int, y_int, &mut found_tree);
+            .node_find_tree_at(x_int, y_int, &mut found_tree, T::FIND_TREE_USECASE);
         let mut divergence = found_tree.len().min(stack.len());
         for (i, (found, stack)) in found_tree.iter().zip(stack.iter()).enumerate() {
             if found.node.node_id() != stack.node_id() {
@@ -266,6 +309,7 @@ impl PointerOwner for DefaultPointerOwner {
             }
             if let Some(node) = stack.last() {
                 node.node_on_pointer_focus(seat);
+                self.usecase.node_focus(seat, node);
             }
         }
         found_tree.clear();
@@ -289,8 +333,12 @@ impl PointerOwner for DefaultPointerOwner {
         seat.dropped_dnd.borrow_mut().take();
     }
 
-    fn revert_to_default(&self, _seat: &Rc<WlSeatGlobal>) {
-        // nothing
+    fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
+        if !T::IS_DEFAULT {
+            seat.pointer_owner.set_default_pointer_owner(seat);
+            seat.trigger_tree_changed();
+            seat.state.damage();
+        }
     }
 
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
@@ -310,7 +358,7 @@ impl PointerOwner for DefaultPointerOwner {
     }
 }
 
-impl PointerOwner for GrabPointerOwner {
+impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
         match state {
             KeyState::Released => {
@@ -318,7 +366,7 @@ impl PointerOwner for GrabPointerOwner {
                 if self.buttons.is_empty() {
                     self.node.node_seat_state().remove_pointer_grab(seat);
                     // log::info!("button");
-                    seat.pointer_owner.set_default_pointer_owner(seat);
+                    self.usecase.release_grab(seat);
                     seat.tree_changed.trigger();
                 }
             }
@@ -354,57 +402,8 @@ impl PointerOwner for GrabPointerOwner {
         icon: Option<Rc<WlSurface>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
-        let button = match self.buttons.iter().next() {
-            Some((b, _)) => b,
-            None => return Ok(()),
-        };
-        if self.buttons.len() != 1 {
-            return Ok(());
-        }
-        if serial != self.serial {
-            return Ok(());
-        }
-        if self.node.node_id() != origin.node_id {
-            return Ok(());
-        }
-        if let Some(icon) = &icon {
-            icon.set_dnd_icon_seat(seat.id, Some(seat));
-        }
-        if let Some(new) = &src {
-            ipc::attach_seat(&**new, seat, ipc::Role::Dnd)?;
-            if let Some(drag) = new.toplevel_drag.get() {
-                drag.start_drag();
-            }
-        }
-        *seat.dropped_dnd.borrow_mut() = None;
-        let pointer_owner = Rc::new(DndPointerOwner {
-            button,
-            dnd: Dnd {
-                seat: seat.clone(),
-                client: origin.client.clone(),
-                src,
-            },
-            target: CloneCell::new(seat.state.root.clone()),
-            icon: CloneCell::new(icon),
-            pos_x: Cell::new(Fixed::from_int(0)),
-            pos_y: Cell::new(Fixed::from_int(0)),
-        });
-        {
-            let mut stack = seat.pointer_stack.borrow_mut();
-            for node in stack.drain(1..).rev() {
-                node.node_on_leave(seat);
-                node.node_seat_state().leave(seat);
-            }
-        }
-        self.node.node_seat_state().remove_pointer_grab(seat);
-        // {
-        //     let old = seat.keyboard_node.set(seat.state.root.clone());
-        //     old.seat_state().unfocus(seat);
-        //     old.unfocus(seat);
-        // }
-        seat.pointer_owner.owner.set(pointer_owner.clone());
-        pointer_owner.apply_changes(seat);
-        Ok(())
+        self.usecase
+            .start_drag(self, seat, origin, src, icon, serial)
     }
 
     fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
@@ -482,7 +481,7 @@ impl PointerOwner for DndPointerOwner {
             });
             seat.state
                 .root
-                .node_find_tree_at(x_int, y_int, &mut found_tree);
+                .node_find_tree_at(x_int, y_int, &mut found_tree, FindTreeUsecase::None);
             let FoundNode { node, x, y } = found_tree.pop().unwrap();
             found_tree.clear();
             (node, x, y)
@@ -560,5 +559,194 @@ impl PointerOwner for DndPointerOwner {
 
     fn remove_dnd_icon(&self) {
         self.icon.set(None);
+    }
+}
+
+trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
+    const FIND_TREE_USECASE: FindTreeUsecase;
+    const IS_DEFAULT: bool;
+
+    fn default_button(
+        &self,
+        spo: &SimplePointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        pn: &Rc<dyn Node>,
+    ) -> bool;
+
+    fn start_drag(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        origin: &Rc<WlSurface>,
+        src: Option<Rc<WlDataSource>>,
+        icon: Option<Rc<WlSurface>>,
+        serial: u32,
+    ) -> Result<(), WlSeatError>;
+
+    fn release_grab(&self, seat: &Rc<WlSeatGlobal>);
+
+    fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>);
+}
+
+impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::None;
+    const IS_DEFAULT: bool = true;
+
+    fn default_button(
+        &self,
+        _spo: &SimplePointerOwner<Self>,
+        _seat: &Rc<WlSeatGlobal>,
+        _button: u32,
+        _pn: &Rc<dyn Node>,
+    ) -> bool {
+        false
+    }
+
+    fn start_drag(
+        &self,
+        grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        origin: &Rc<WlSurface>,
+        src: Option<Rc<WlDataSource>>,
+        icon: Option<Rc<WlSurface>>,
+        serial: u32,
+    ) -> Result<(), WlSeatError> {
+        let button = match grab.buttons.iter().next() {
+            Some((b, _)) => b,
+            None => return Ok(()),
+        };
+        if grab.buttons.len() != 1 {
+            return Ok(());
+        }
+        if serial != grab.serial {
+            return Ok(());
+        }
+        if grab.node.node_id() != origin.node_id {
+            return Ok(());
+        }
+        if let Some(icon) = &icon {
+            icon.set_dnd_icon_seat(seat.id, Some(seat));
+        }
+        if let Some(new) = &src {
+            ipc::attach_seat(&**new, seat, ipc::Role::Dnd)?;
+            if let Some(drag) = new.toplevel_drag.get() {
+                drag.start_drag();
+            }
+        }
+        *seat.dropped_dnd.borrow_mut() = None;
+        let pointer_owner = Rc::new(DndPointerOwner {
+            button,
+            dnd: Dnd {
+                seat: seat.clone(),
+                client: origin.client.clone(),
+                src,
+            },
+            target: CloneCell::new(seat.state.root.clone()),
+            icon: CloneCell::new(icon),
+            pos_x: Cell::new(Fixed::from_int(0)),
+            pos_y: Cell::new(Fixed::from_int(0)),
+        });
+        {
+            let mut stack = seat.pointer_stack.borrow_mut();
+            for node in stack.drain(1..).rev() {
+                node.node_on_leave(seat);
+                node.node_seat_state().leave(seat);
+            }
+        }
+        grab.node.node_seat_state().remove_pointer_grab(seat);
+        // {
+        //     let old = seat.keyboard_node.set(seat.state.root.clone());
+        //     old.seat_state().unfocus(seat);
+        //     old.unfocus(seat);
+        // }
+        seat.pointer_owner.owner.set(pointer_owner.clone());
+        pointer_owner.apply_changes(seat);
+        Ok(())
+    }
+
+    fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner.set_default_pointer_owner(seat);
+    }
+
+    fn node_focus(&self, _seat: &Rc<WlSeatGlobal>, _node: &Rc<dyn Node>) {
+        // nothing
+    }
+}
+
+impl<S: ToplevelSelector + ?Sized> SimplePointerOwnerUsecase for Rc<SelectToplevelUsecase<S>> {
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectToplevel;
+    const IS_DEFAULT: bool = false;
+
+    fn default_button(
+        &self,
+        spo: &SimplePointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        pn: &Rc<dyn Node>,
+    ) -> bool {
+        let Some(tl) = pn.clone().node_into_toplevel() else {
+            return false;
+        };
+        let selected_toplevel =
+            button == BTN_RIGHT || (button == BTN_LEFT && !tl.tl_admits_children());
+        if !selected_toplevel {
+            return false;
+        }
+        self.selector.set(tl);
+        spo.revert_to_default(seat);
+        true
+    }
+
+    fn start_drag(
+        &self,
+        _grab: &SimpleGrabPointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        _origin: &Rc<WlSurface>,
+        src: Option<Rc<WlDataSource>>,
+        _icon: Option<Rc<WlSurface>>,
+        _serial: u32,
+    ) -> Result<(), WlSeatError> {
+        if let Some(src) = src {
+            src.send_cancelled(seat);
+        }
+        Ok(())
+    }
+
+    fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner.owner.set(Rc::new(SimplePointerOwner {
+            usecase: self.clone(),
+        }));
+        seat.changes.or_assign(CHANGE_CURSOR_MOVED);
+    }
+
+    fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
+        let mut damage = false;
+        let tl = node.clone().node_into_toplevel();
+        if let Some(tl) = &tl {
+            tl.tl_data().render_highlight.fetch_add(1);
+            if !tl.tl_admits_children() {
+                seat.set_known_cursor(KnownCursor::Pointer);
+            }
+            damage = true;
+        }
+        if let Some(prev) = self.latest.set(tl) {
+            prev.tl_data().render_highlight.fetch_sub(1);
+            damage = true;
+        }
+        if damage {
+            seat.state.damage();
+        }
+    }
+}
+
+impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
+    fn drop(&mut self) {
+        if let Some(prev) = self.latest.take() {
+            prev.tl_data().render_highlight.fetch_sub(1);
+            if let Some(seat) = self.seat.upgrade() {
+                seat.state.damage();
+            }
+        }
     }
 }

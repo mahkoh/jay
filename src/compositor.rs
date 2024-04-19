@@ -17,6 +17,7 @@ use {
         forker,
         globals::Globals,
         ifs::{
+            jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
             wl_surface::{zwp_input_popup_surface_v2::input_popup_positioning, NoneSurfaceExt},
         },
@@ -173,6 +174,8 @@ fn start_compositor2(
         pending_float_layout: Default::default(),
         pending_float_titles: Default::default(),
         pending_input_popup_positioning: Default::default(),
+        pending_toplevel_screencasts: Default::default(),
+        pending_toplevel_screencast_reallocs: Default::default(),
         dbus: Dbus::new(&engine, &ring, &run_toplevel),
         fdcloser: FdCloser::new(),
         logger: logger.clone(),
@@ -329,6 +332,8 @@ fn start_global_event_handlers(
         eng.spawn2(Phase::PostLayout, float_titles(state.clone())),
         eng.spawn2(Phase::PostLayout, idle(state.clone(), backend.clone())),
         eng.spawn2(Phase::PostLayout, input_popup_positioning(state.clone())),
+        eng.spawn2(Phase::Present, perform_toplevel_screencasts(state.clone())),
+        eng.spawn2(Phase::PostLayout, perform_screencast_realloc(state.clone())),
     ]
 }
 

@@ -2,8 +2,10 @@ use {
     crate::{
         ifs::wl_seat::{wl_pointer::PRESSED, BTN_LEFT},
         portal::{
-            ptl_display::{PortalDisplay, PortalOutput},
-            ptl_screencast::{ScreencastPhase, ScreencastSession, StartingScreencast},
+            ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
+            ptl_screencast::{
+                ScreencastPhase, ScreencastSession, ScreencastTarget, SelectingWindowScreencast,
+            },
             ptr_gui::{
                 Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
                 OverlayWindowOwner,
@@ -11,6 +13,9 @@ use {
         },
         theme::Color,
         utils::copyhashmap::CopyHashMap,
+        wl_usr::usr_ifs::{
+            usr_jay_select_toplevel::UsrJaySelectToplevelOwner, usr_jay_toplevel::UsrJayToplevel,
+        },
     },
     std::rc::Rc,
 };
@@ -38,6 +43,7 @@ struct StaticButton {
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ButtonRole {
     Accept,
+    Window,
     Reject,
 }
 
@@ -65,17 +71,17 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;
     let accept_button = static_button(surface, ButtonRole::Accept, "Share This Output");
+    let window_button = static_button(surface, ButtonRole::Window, "Share A Window");
     let reject_button = static_button(surface, ButtonRole::Reject, "Reject");
-    let buttons = [&accept_button, &reject_button];
-    for button in buttons {
+    for button in [&accept_button, &window_button, &reject_button] {
         button.border_color.set(Color::from_gray(100));
         button.border.set(2.0);
         button.padding.set(5.0);
     }
-    accept_button.bg_color.set(Color::from_rgb(170, 200, 170));
-    accept_button
-        .bg_hover_color
-        .set(Color::from_rgb(170, 255, 170));
+    for button in [&accept_button, &window_button] {
+        button.bg_color.set(Color::from_rgb(170, 200, 170));
+        button.bg_hover_color.set(Color::from_rgb(170, 255, 170));
+    }
     reject_button.bg_color.set(Color::from_rgb(200, 170, 170));
     reject_button
         .bg_hover_color
@@ -85,7 +91,12 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     flow.cross_align.set(Align::Center);
     flow.in_margin.set(V_MARGIN);
     flow.cross_margin.set(H_MARGIN);
-    *flow.elements.borrow_mut() = vec![label, accept_button, reject_button];
+    let mut elements: Vec<Rc<dyn GuiElement>> = vec![label, accept_button];
+    if surface.gui.dpy.jc.window_capture.get() {
+        elements.push(window_button);
+    }
+    elements.push(reject_button);
+    *flow.elements.borrow_mut() = elements;
     flow
 }
 
@@ -124,12 +135,12 @@ impl SelectionGui {
 }
 
 impl ButtonOwner for StaticButton {
-    fn button(&self, button: u32, state: u32) {
+    fn button(&self, seat: &PortalSeat, button: u32, state: u32) {
         if button != BTN_LEFT || state != PRESSED {
             return;
         }
         match self.role {
-            ButtonRole::Accept => {
+            ButtonRole::Accept | ButtonRole::Window => {
                 log::info!("User has accepted the request");
                 let selecting = match self.surface.gui.screencast_session.phase.get() {
                     ScreencastPhase::Selecting(selecting) => selecting,
@@ -138,40 +149,53 @@ impl ButtonOwner for StaticButton {
                 for (_, gui) in selecting.guis.lock().drain() {
                     gui.kill(false);
                 }
-                let node = self.surface.gui.dpy.state.pw_con.create_client_node(&[
-                    ("media.class".to_string(), "Video/Source".to_string()),
-                    ("node.name".to_string(), "jay-desktop-portal".to_string()),
-                    ("node.driver".to_string(), "true".to_string()),
-                ]);
-                let starting = Rc::new(StartingScreencast {
-                    session: self.surface.gui.screencast_session.clone(),
-                    request_obj: selecting.request_obj.clone(),
-                    reply: selecting.reply.clone(),
-                    node,
-                    dpy: self.surface.gui.dpy.clone(),
-                    output: self.surface.output.clone(),
-                });
-                self.surface
-                    .gui
-                    .screencast_session
-                    .phase
-                    .set(ScreencastPhase::Starting(starting.clone()));
-                starting.node.owner.set(Some(starting.clone()));
-                self.surface.gui.dpy.screencasts.set(
+                let dpy = &self.surface.output.dpy;
+                if self.role == ButtonRole::Accept {
+                    selecting
+                        .core
+                        .starting(dpy, ScreencastTarget::Output(self.surface.output.clone()));
+                } else {
+                    let selector = dpy.jc.select_toplevel(&seat.wl);
+                    let selecting = Rc::new(SelectingWindowScreencast {
+                        core: selecting.core.clone(),
+                        dpy: dpy.clone(),
+                        selector: selector.clone(),
+                    });
+                    selector.owner.set(Some(selecting.clone()));
                     self.surface
                         .gui
                         .screencast_session
-                        .session_obj
-                        .path()
-                        .to_owned(),
-                    self.surface.gui.screencast_session.clone(),
-                );
+                        .phase
+                        .set(ScreencastPhase::SelectingWindow(selecting));
+                }
             }
             ButtonRole::Reject => {
                 log::info!("User has rejected the screencast request");
                 self.surface.gui.screencast_session.kill();
             }
         }
+    }
+}
+
+impl UsrJaySelectToplevelOwner for SelectingWindowScreencast {
+    fn done(&self, tl: Option<Rc<UsrJayToplevel>>) {
+        let Some(tl) = tl else {
+            log::info!("User has aborted the selection");
+            self.core.session.kill();
+            return;
+        };
+        match self.core.session.phase.get() {
+            ScreencastPhase::SelectingWindow(s) => {
+                self.dpy.con.remove_obj(&*s.selector);
+            }
+            _ => {
+                self.dpy.con.remove_obj(&*tl);
+                return;
+            }
+        }
+        log::info!("User has selected a window");
+        self.core
+            .starting(&self.dpy, ScreencastTarget::Toplevel(tl));
     }
 }
 

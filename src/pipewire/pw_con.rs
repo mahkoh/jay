@@ -189,7 +189,7 @@ impl PwCon {
         );
         if log::log_enabled!(log::Level::Trace) {
             log::trace!("CALL {}@{}: `{:?}`:", interface, id, opcode);
-            let mut parser = PwParser::new(&buf[16..], &fds);
+            let mut parser = PwParser::new(&buf[16..buf.len()], &fds);
             while parser.len() > 0 {
                 log::trace!("{:#?}", parser.read_pod().unwrap());
             }

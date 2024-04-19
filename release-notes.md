@@ -1,5 +1,6 @@
 # Unreleased
 
+- Screencasts now support window capture.
 - Add support for wp-alpha-modifier.
 - Add support for per-device keymaps.
 - Add support for virtual-keyboard-unstable-v1.

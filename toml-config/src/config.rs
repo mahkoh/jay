@@ -139,6 +139,7 @@ pub struct Theme {
     pub separator_color: Option<Color>,
     pub unfocused_title_bg_color: Option<Color>,
     pub unfocused_title_text_color: Option<Color>,
+    pub highlight_color: Option<Color>,
     pub border_width: Option<i32>,
     pub title_height: Option<i32>,
     pub font: Option<String>,

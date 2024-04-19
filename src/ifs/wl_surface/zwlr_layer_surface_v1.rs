@@ -10,7 +10,7 @@ use {
         object::Object,
         rect::Rect,
         renderer::Renderer,
-        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
+        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
         utils::{
             bitflags::BitflagsExt, cell_ext::CellExt, linkedlist::LinkedNode, numcell::NumCell,
             option_ext::OptionExt,
@@ -424,7 +424,13 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.pos.get()
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        _usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         self.surface.find_tree_at_(x, y, tree)
     }
 

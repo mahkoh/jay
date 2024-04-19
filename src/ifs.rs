@@ -16,6 +16,8 @@ pub mod jay_render_ctx;
 pub mod jay_screencast;
 pub mod jay_screenshot;
 pub mod jay_seat_events;
+pub mod jay_select_toplevel;
+pub mod jay_toplevel;
 pub mod jay_workspace;
 pub mod jay_workspace_watcher;
 pub mod org_kde_kwin_server_decoration;

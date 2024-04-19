@@ -13,8 +13,8 @@ use {
         text::TextTexture,
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
-            FindTreeResult, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode, StackedNode,
-            ToplevelNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitorBase, OutputNode,
+            StackedNode, ToplevelNode,
         },
         utils::{
             clonecell::CloneCell,
@@ -224,14 +224,20 @@ impl Node for WorkspaceNode {
         }
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         if let Some(n) = self.container.get() {
             tree.push(FoundNode {
                 node: n.clone(),
                 x,
                 y,
             });
-            n.node_find_tree_at(x, y, tree);
+            n.node_find_tree_at(x, y, tree, usecase);
         }
         FindTreeResult::AcceptsInput
     }

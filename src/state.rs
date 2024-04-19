@@ -28,6 +28,7 @@ use {
             ext_session_lock_v1::ExtSessionLockV1,
             ipc::{x_data_device::XIpcDeviceIds, DataOfferIds, DataSourceIds},
             jay_render_ctx::JayRenderCtx,
+            jay_screencast::JayScreencast,
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
@@ -136,6 +137,8 @@ pub struct State {
     pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub pending_input_popup_positioning: AsyncQueue<Rc<ZwpInputPopupSurfaceV2>>,
+    pub pending_toplevel_screencasts: AsyncQueue<Rc<JayScreencast>>,
+    pub pending_toplevel_screencast_reallocs: AsyncQueue<Rc<JayScreencast>>,
     pub dbus: Dbus,
     pub fdcloser: Arc<FdCloser>,
     pub logger: Option<Arc<Logger>>,
@@ -735,6 +738,9 @@ impl State {
         self.pending_output_render_data.clear();
         self.pending_float_layout.clear();
         self.pending_float_titles.clear();
+        self.pending_input_popup_positioning.clear();
+        self.pending_toplevel_screencasts.clear();
+        self.pending_toplevel_screencast_reallocs.clear();
         self.render_ctx_watchers.clear();
         self.workspace_watchers.clear();
         self.toplevel_lists.clear();

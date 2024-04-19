@@ -11,7 +11,6 @@ pub mod zwp_relative_pointer_v1;
 pub mod zwp_virtual_keyboard_manager_v1;
 pub mod zwp_virtual_keyboard_v1;
 
-pub use event_handling::NodeSeatState;
 use {
     crate::{
         async_engine::SpawnedFuture,
@@ -84,6 +83,7 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
+pub use {event_handling::NodeSeatState, pointer_owner::ToplevelSelector};
 
 pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -94,6 +94,7 @@ const TOUCH: u32 = 4;
 const MISSING_CAPABILITY: u32 = 0;
 
 pub const BTN_LEFT: u32 = 0x110;
+pub const BTN_RIGHT: u32 = 0x111;
 
 pub const SEAT_NAME_SINCE: Version = Version(2);
 
@@ -1150,6 +1151,11 @@ impl WlSeatGlobal {
 
     pub fn set_forward(&self, forward: bool) {
         self.forward.set(forward);
+    }
+
+    #[allow(dead_code)]
+    pub fn select_toplevel(self: &Rc<Self>, selector: impl ToplevelSelector) {
+        self.pointer_owner.select_toplevel(self, selector);
     }
 }
 

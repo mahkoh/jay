@@ -3,12 +3,17 @@ use {
         client::{Client, ClientError},
         format::XRGB8888,
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        ifs::jay_output::JayOutput,
+        ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel},
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNodeId},
+        scale::Scale,
+        state::State,
+        tree::{OutputNode, ToplevelNode, WorkspaceNodeId},
         utils::{
-            clonecell::CloneCell, errorfmt::ErrorFmt, numcell::NumCell, option_ext::OptionExt,
+            clonecell::{CloneCell, UnsafeCellCloneSafe},
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            option_ext::OptionExt,
         },
         video::{
             dmabuf::DmaBuf,
@@ -19,6 +24,7 @@ use {
     },
     ahash::AHashSet,
     indexmap::{indexset, IndexSet},
+    jay_config::video::Transform,
     once_cell::sync::Lazy,
     std::{
         cell::{Cell, RefCell},
@@ -27,6 +33,28 @@ use {
     },
     thiserror::Error,
 };
+
+pub async fn perform_toplevel_screencasts(state: Rc<State>) {
+    loop {
+        let screencast = state.pending_toplevel_screencasts.pop().await;
+        screencast.perform_toplevel_screencast();
+    }
+}
+
+pub async fn perform_screencast_realloc(state: Rc<State>) {
+    loop {
+        let screencast = state.pending_toplevel_screencast_reallocs.pop().await;
+        screencast.realloc_scheduled.set(false);
+        match state.render_ctx.get() {
+            None => screencast.do_destroy(),
+            Some(ctx) => {
+                if let Err(e) = screencast.realloc(&ctx) {
+                    screencast.client.error(e);
+                }
+            }
+        }
+    }
+}
 
 pub struct JayScreencast {
     pub id: JayScreencastId,
@@ -38,20 +66,35 @@ pub struct JayScreencast {
     buffers_acked: Cell<bool>,
     buffers: RefCell<Vec<ScreencastBuffer>>,
     missed_frame: Cell<bool>,
-    output: CloneCell<Option<Rc<OutputNode>>>,
+    target: CloneCell<Option<Target>>,
     destroyed: Cell<bool>,
     running: Cell<bool>,
     show_all: Cell<bool>,
     show_workspaces: RefCell<AHashSet<WorkspaceNodeId>>,
     linear: Cell<bool>,
     pending: Pending,
+    need_realloc: Cell<bool>,
+    realloc_scheduled: Cell<bool>,
+}
+
+#[derive(Clone)]
+enum Target {
+    Output(Rc<OutputNode>),
+    Toplevel(Rc<dyn ToplevelNode>),
+}
+
+unsafe impl UnsafeCellCloneSafe for Target {}
+
+enum PendingTarget {
+    Output(Rc<JayOutput>),
+    Toplevel(Rc<JayToplevel>),
 }
 
 #[derive(Default)]
 struct Pending {
     linear: Cell<Option<bool>>,
     running: Cell<Option<bool>>,
-    output: Cell<Option<Option<Rc<JayOutput>>>>,
+    target: Cell<Option<Option<PendingTarget>>>,
     show_all: Cell<Option<bool>>,
     show_workspaces: RefCell<Option<AHashSet<WorkspaceNodeId>>>,
 }
@@ -71,17 +114,78 @@ impl JayScreencast {
             config_serial: Default::default(),
             config_acked: Cell::new(true),
             buffers_serial: Default::default(),
-            buffers_acked: Cell::new(false),
+            buffers_acked: Cell::new(true),
             buffers: Default::default(),
             missed_frame: Cell::new(false),
-            output: Default::default(),
+            target: Default::default(),
             destroyed: Cell::new(false),
             running: Cell::new(false),
             show_all: Cell::new(false),
             show_workspaces: Default::default(),
             linear: Cell::new(false),
             pending: Default::default(),
+            need_realloc: Cell::new(false),
+            realloc_scheduled: Cell::new(false),
         }
+    }
+
+    pub fn schedule_toplevel_screencast(self: &Rc<Self>) {
+        if !self.running.get() {
+            return;
+        }
+        self.client
+            .state
+            .pending_toplevel_screencasts
+            .push(self.clone());
+    }
+
+    fn perform_toplevel_screencast(&self) {
+        if self.destroyed.get() || !self.running.get() {
+            return;
+        }
+        let Some(target) = self.target.get() else {
+            return;
+        };
+        let Target::Toplevel(tl) = target else {
+            log::warn!("Tried to perform window screencast for output screencast");
+            return;
+        };
+        let scale = match tl.tl_data().workspace.get() {
+            None => Scale::default(),
+            Some(w) => w.output.get().global.persistent.scale.get(),
+        };
+        let mut buffer = self.buffers.borrow_mut();
+        for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
+            if buffer.free {
+                let res = buffer.fb.render_node(
+                    tl.tl_as_node(),
+                    &self.client.state,
+                    Some(tl.node_absolute_position()),
+                    None,
+                    scale,
+                    true,
+                    true,
+                    false,
+                    Transform::None,
+                );
+                match res {
+                    Ok(_) => {
+                        self.client.event(Ready {
+                            self_id: self.id,
+                            idx: idx as _,
+                        });
+                        buffer.free = false;
+                        return;
+                    }
+                    Err(e) => {
+                        log::error!("Could not perform window copy: {}", ErrorFmt(e));
+                        break;
+                    }
+                }
+            }
+        }
+        self.missed_frame.set(true);
+        self.client.event(MissedFrame { self_id: self.id })
     }
 
     fn send_buffers(&self) {
@@ -115,11 +219,13 @@ impl JayScreencast {
     fn send_config(&self) {
         self.config_acked.set(false);
         let serial = self.config_serial.fetch_add(1) + 1;
-        if let Some(output) = self.output.get() {
-            self.client.event(ConfigOutput {
-                self_id: self.id,
-                linear_id: output.id.raw(),
-            });
+        if let Some(target) = self.target.get() {
+            if let Target::Output(output) = target {
+                self.client.event(ConfigOutput {
+                    self_id: self.id,
+                    linear_id: output.id.raw(),
+                });
+            }
         }
         self.client.event(ConfigAllowAllWorkspaces {
             self_id: self.id,
@@ -200,10 +306,21 @@ impl JayScreencast {
     }
 
     fn detach(&self) {
-        if let Some(output) = self.output.take() {
-            output.screencasts.remove(&(self.client.id, self.id));
-            if output.screencasts.is_empty() {
-                output.state.damage();
+        if let Some(target) = self.target.take() {
+            match target {
+                Target::Output(output) => {
+                    output.screencasts.remove(&(self.client.id, self.id));
+                    if output.screencasts.is_empty() {
+                        output.state.damage();
+                    }
+                }
+                Target::Toplevel(tl) => {
+                    let data = tl.tl_data();
+                    data.jay_screencasts.remove(&(self.client.id, self.id));
+                    if data.jay_screencasts.is_empty() {
+                        self.client.state.damage();
+                    }
+                }
             }
         }
     }
@@ -214,17 +331,39 @@ impl JayScreencast {
         self.client.event(Destroyed { self_id: self.id });
     }
 
-    pub fn realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
+    pub fn schedule_realloc(self: &Rc<Self>) {
+        self.need_realloc.set(true);
+        if !self.realloc_scheduled.replace(true) {
+            self.client
+                .state
+                .pending_toplevel_screencast_reallocs
+                .push(self.clone());
+        }
+    }
+
+    fn realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
+        if !self.destroyed.get() && self.buffers_acked.get() {
+            self.do_realloc(ctx)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn do_realloc(&self, ctx: &Rc<dyn GfxContext>) -> Result<(), JayScreencastError> {
+        self.need_realloc.set(false);
         let mut buffers = vec![];
         let formats = ctx.formats();
         let format = match formats.get(&XRGB8888.drm) {
             Some(f) => f,
             _ => return Err(JayScreencastError::XRGB8888),
         };
-        if let Some(output) = self.output.get() {
-            let (width, height) = output.global.pixel_size();
+        if let Some(target) = self.target.get() {
+            let (width, height) = target_size(Some(&target));
             let num = 3;
             for _ in 0..num {
+                if width == 0 || height == 0 {
+                    continue;
+                }
                 let mut usage = GBM_BO_USE_RENDERING;
                 let modifiers = match self.linear.get() {
                     true if format.write_modifiers.contains(&LINEAR_MODIFIER) => {
@@ -267,8 +406,11 @@ impl JayScreencast {
     }
 
     fn damage(&self) {
-        if let Some(output) = self.output.get() {
-            output.global.connector.connector.damage();
+        if let Some(target) = self.target.get() {
+            match target {
+                Target::Output(o) => o.global.connector.connector.damage(),
+                Target::Toplevel(_) => self.client.state.damage(),
+            }
         }
     }
 }
@@ -284,14 +426,14 @@ impl JayScreencastRequestHandler for JayScreencast {
 
     fn set_output(&self, req: SetOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let output = if req.output.is_some() {
-            Some(self.client.lookup(req.output)?)
+            Some(PendingTarget::Output(self.client.lookup(req.output)?))
         } else {
             None
         };
         if self.destroyed.get() || !self.config_acked.get() {
             return Ok(());
         }
-        self.pending.output.set(Some(output));
+        self.pending.target.set(Some(output));
         Ok(())
     }
 
@@ -362,19 +504,42 @@ impl JayScreencastRequestHandler for JayScreencast {
 
         let mut need_realloc = false;
 
-        if let Some(output) = self.pending.output.take() {
-            let output = output.and_then(|o| o.output.get());
-            if output_size(&output) != output_size(&self.output.get()) {
+        if let Some(target) = self.pending.target.take() {
+            self.detach();
+            let mut new_target = None;
+            if let Some(new) = target {
+                match new {
+                    PendingTarget::Output(o) => {
+                        let Some(o) = o.output.get() else {
+                            self.do_destroy();
+                            return Ok(());
+                        };
+                        if o.screencasts.is_empty() {
+                            o.state.damage();
+                        }
+                        o.screencasts.set((self.client.id, self.id), slf.clone());
+                        new_target = Some(Target::Output(o));
+                    }
+                    PendingTarget::Toplevel(t) => {
+                        if t.destroyed.get() {
+                            self.do_destroy();
+                            return Ok(());
+                        }
+                        let t = t.toplevel.clone();
+                        let data = t.tl_data();
+                        if data.jay_screencasts.is_empty() {
+                            data.state.damage();
+                        }
+                        data.jay_screencasts
+                            .set((self.client.id, self.id), slf.clone());
+                        new_target = Some(Target::Toplevel(t));
+                    }
+                }
+            }
+            if target_size(new_target.as_ref()) != target_size(self.target.get().as_ref()) {
                 need_realloc = true;
             }
-            self.detach();
-            if let Some(new) = &output {
-                if new.screencasts.is_empty() {
-                    new.state.damage();
-                }
-                new.screencasts.set((self.client.id, self.id), slf.clone());
-            }
-            self.output.set(output);
+            self.target.set(new_target);
         }
         if let Some(linear) = self.pending.linear.take() {
             if self.linear.replace(linear) != linear {
@@ -392,29 +557,21 @@ impl JayScreencastRequestHandler for JayScreencast {
         }
 
         if need_realloc {
-            let ctx = match self.client.state.render_ctx.get() {
-                Some(ctx) => ctx,
-                _ => {
-                    self.do_destroy();
-                    return Ok(());
-                }
-            };
-            if let Err(e) = self.realloc(&ctx) {
-                log::error!("Could not allocate buffers: {}", ErrorFmt(e));
-                self.do_destroy();
-                return Ok(());
-            }
+            slf.schedule_realloc();
         }
 
         Ok(())
     }
 
-    fn ack_buffers(&self, req: AckBuffers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn ack_buffers(&self, req: AckBuffers, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.destroyed.get() {
             return Ok(());
         }
         if req.serial == self.buffers_serial.get() {
             self.buffers_acked.set(true);
+            if self.need_realloc.get() {
+                slf.schedule_realloc();
+            }
         }
         Ok(())
     }
@@ -441,6 +598,19 @@ impl JayScreencastRequestHandler for JayScreencast {
         if self.missed_frame.replace(false) {
             self.damage();
         }
+        Ok(())
+    }
+
+    fn set_toplevel(&self, req: SetToplevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let toplevel = if req.id.is_some() {
+            Some(PendingTarget::Toplevel(self.client.lookup(req.id)?))
+        } else {
+            None
+        };
+        if self.destroyed.get() || !self.config_acked.get() {
+            return Ok(());
+        }
+        self.pending.target.set(Some(toplevel));
         Ok(())
     }
 }
@@ -477,9 +647,19 @@ pub enum JayScreencastError {
 }
 efrom!(JayScreencastError, ClientError);
 
-fn output_size(output: &Option<Rc<OutputNode>>) -> (i32, i32) {
-    match output {
-        Some(o) => o.global.pixel_size(),
-        _ => (0, 0),
+fn target_size(target: Option<&Target>) -> (i32, i32) {
+    if let Some(target) = target {
+        match target {
+            Target::Output(o) => return o.global.pixel_size(),
+            Target::Toplevel(t) => {
+                let data = t.tl_data();
+                let (dw, dh) = data.desired_extents.get().size();
+                if let Some(ws) = data.workspace.get() {
+                    let scale = ws.output.get().global.persistent.scale.get();
+                    return scale.pixel_size(dw, dh);
+                };
+            }
+        }
     }
+    (0, 0)
 }

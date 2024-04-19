@@ -100,6 +100,12 @@ impl FindTreeResult {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum FindTreeUsecase {
+    None,
+    SelectToplevel,
+}
+
 pub trait Node: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
@@ -122,10 +128,17 @@ pub trait Node: 'static {
         let _ = active;
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         let _ = x;
         let _ = y;
         let _ = tree;
+        let _ = usecase;
         FindTreeResult::Other
     }
 
@@ -293,6 +306,10 @@ pub trait Node: 'static {
     }
 
     fn node_into_containing_node(self: Rc<Self>) -> Option<Rc<dyn ContainingNode>> {
+        None
+    }
+
+    fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         None
     }
 

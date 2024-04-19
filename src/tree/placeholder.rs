@@ -10,8 +10,8 @@ use {
         state::State,
         text::{self, TextTexture},
         tree::{
-            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, ToplevelData,
-            ToplevelNode, ToplevelNodeBase,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
+            ToplevelData, ToplevelNode, ToplevelNodeBase,
         },
         utils::{errorfmt::ErrorFmt, smallmap::SmallMap},
     },
@@ -116,12 +116,18 @@ impl Node for PlaceholderNode {
         self.toplevel.update_self_active(self, active);
     }
 
-    fn node_find_tree_at(&self, _x: i32, _y: i32, _tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        _x: i32,
+        _y: i32,
+        _tree: &mut Vec<FoundNode>,
+        _usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
-        renderer.render_placeholder(self, x, y);
+    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+        renderer.render_placeholder(self, x, y, bounds);
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -139,6 +145,10 @@ impl Node for PlaceholderNode {
 
     fn node_is_placeholder(&self) -> bool {
         true
+    }
+
+    fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        Some(self)
     }
 }
 
@@ -172,5 +182,9 @@ impl ToplevelNodeBase for PlaceholderNode {
 
     fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode> {
         self
+    }
+
+    fn tl_admits_children(&self) -> bool {
+        false
     }
 }

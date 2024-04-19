@@ -11,8 +11,8 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            Direction, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor,
+            StackedNode, ToplevelData, ToplevelNode, ToplevelNodeBase, WorkspaceNode,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -326,7 +326,16 @@ impl Node for Xwindow {
         self.toplevel_data.update_self_active(self, active);
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
+        if usecase == FindTreeUsecase::SelectToplevel {
+            return FindTreeResult::AcceptsInput;
+        }
         let rect = self.x.surface.buffer_abs_pos.get();
         if x < rect.width() && y < rect.height() {
             tree.push(FoundNode {
@@ -340,7 +349,7 @@ impl Node for Xwindow {
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
-        renderer.render_surface(&self.x.surface, x, y, bounds)
+        renderer.render_xwindow(self, x, y, bounds)
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -358,6 +367,10 @@ impl Node for Xwindow {
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("wl-surface focus");
         seat.set_known_cursor(KnownCursor::Default);
+    }
+
+    fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
+        Some(self)
     }
 }
 
@@ -427,6 +440,10 @@ impl ToplevelNodeBase for Xwindow {
 
     fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
         Some(self.x.surface.clone())
+    }
+
+    fn tl_admits_children(&self) -> bool {
+        false
     }
 }
 

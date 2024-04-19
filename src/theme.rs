@@ -137,7 +137,7 @@ impl From<jay_config::theme::Color> for Color {
 }
 
 macro_rules! colors {
-    ($($name:ident = ($r:expr, $g:expr, $b:expr),)*) => {
+    ($($name:ident = $colors:tt,)*) => {
         pub struct ThemeColors {
             $(
                 pub $name: Cell<Color>,
@@ -157,12 +157,18 @@ macro_rules! colors {
             fn default() -> Self {
                 Self {
                     $(
-                        $name: Cell::new(Color::from_rgb($r, $g, $b)),
+                        $name: Cell::new(colors!(@colors $colors)),
                     )*
                 }
             }
         }
-    }
+    };
+    (@colors ($r:expr, $g:expr, $b:expr)) => {
+        Color::from_rgb($r, $g, $b)
+    };
+    (@colors ($r:expr, $g:expr, $b:expr, $a:expr)) => {
+        Color::from_rgba_straight($r, $g, $b, $a)
+    };
 }
 
 colors! {
@@ -180,6 +186,7 @@ colors! {
     bar_background = (0x00, 0x00, 0x00),
     bar_text = (0xff, 0xff, 0xff),
     attention_requested_background = (0x23, 0x09, 0x2c),
+    highlight = (0x9d, 0x28, 0xc6, 0x7f),
 }
 
 macro_rules! sizes {

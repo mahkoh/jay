@@ -43,6 +43,10 @@ request release_buffer {
     idx: u32,
 }
 
+request set_toplevel {
+    id: id(jay_toplevel),
+}
+
 # events
 
 event plane {

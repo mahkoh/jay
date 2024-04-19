@@ -15,7 +15,10 @@ use {
         object::Object,
         rect::Rect,
         renderer::Renderer,
-        tree::{FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, StackedNode, WorkspaceNode},
+        tree::{
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
+            WorkspaceNode,
+        },
         utils::{clonecell::CloneCell, linkedlist::LinkedNode},
         wire::{xdg_popup::*, XdgPopupId},
     },
@@ -314,7 +317,16 @@ impl Node for XdgPopup {
         self.xdg.absolute_desired_extents.get()
     }
 
-    fn node_find_tree_at(&self, x: i32, y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
+    fn node_find_tree_at(
+        &self,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
+        if usecase == FindTreeUsecase::SelectToplevel {
+            return FindTreeResult::Other;
+        }
         self.xdg.find_tree_at(x, y, tree)
     }
 

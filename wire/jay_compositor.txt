@@ -78,6 +78,11 @@ request take_screenshot2 {
     include_cursor: u32,
 }
 
+request select_toplevel {
+    id: id(jay_select_toplevel),
+    seat: id(wl_seat),
+}
+
 # events
 
 event client_id {
@@ -87,4 +92,8 @@ event client_id {
 event seat {
     id: u32,
     name: str,
+}
+
+event capabilities {
+    cap: array(pod(u16)),
 }

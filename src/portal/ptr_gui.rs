@@ -123,7 +123,7 @@ pub struct Button {
 }
 
 pub trait ButtonOwner {
-    fn button(&self, button: u32, state: u32);
+    fn button(&self, seat: &PortalSeat, button: u32, state: u32);
 }
 
 impl Default for Button {
@@ -251,9 +251,9 @@ impl GuiElement for Button {
         self.owner.take();
     }
 
-    fn button(&self, _seat: &PortalSeat, button: u32, state: u32) {
+    fn button(&self, seat: &PortalSeat, button: u32, state: u32) {
         if let Some(owner) = self.owner.get() {
-            owner.button(button, state);
+            owner.button(seat, button, state);
         }
     }
 }

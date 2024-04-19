@@ -665,6 +665,7 @@ impl State {
         color!(SEPARATOR_COLOR, separator_color);
         color!(UNFOCUSED_TITLE_BACKGROUND_COLOR, unfocused_title_bg_color);
         color!(UNFOCUSED_TITLE_TEXT_COLOR, unfocused_title_text_color);
+        color!(HIGHLIGHT_COLOR, highlight_color);
         macro_rules! size {
             ($sized:ident, $field:ident) => {
                 if let Some(size) = theme.$field {

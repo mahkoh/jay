@@ -76,12 +76,13 @@ impl Logger {
         self.path.lock().clone()
     }
 
-    pub fn redirect(&self, ty: &str) {
+    pub fn redirect(&self, ty: &str) -> Ustring {
         let (file, fd) = open_log_file(ty);
         log::info!("Redirecting logs to {}", file.display());
         *self.path.lock() = Arc::new(file.as_bytes().into());
         self.file_fd.store(fd.raw(), Relaxed);
         *self._file.lock() = fd;
+        file
     }
 
     pub fn write_raw(&self, buf: &[u8]) {
