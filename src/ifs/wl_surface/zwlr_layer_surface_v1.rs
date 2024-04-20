@@ -322,10 +322,11 @@ impl ZwlrLayerSurfaceV1 {
         } else if anchor.contains(BOTTOM) {
             y1 += opos.height() - height;
         }
-        let rect = Rect::new_sized(x1, y1, width, height).unwrap();
-        self.output_pos.set(rect);
-        self.pos.set(rect.move_(opos.x1(), opos.y1()));
-        self.surface.set_absolute_position(x1, y1);
+        let o_rect = Rect::new_sized(x1, y1, width, height).unwrap();
+        let a_rect = o_rect.move_(opos.x1(), opos.y1());
+        self.output_pos.set(o_rect);
+        self.pos.set(a_rect);
+        self.surface.set_absolute_position(a_rect.x1(), a_rect.y1());
         self.client.state.tree_changed();
     }
 
