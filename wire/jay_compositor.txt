@@ -83,6 +83,11 @@ request select_toplevel {
     seat: id(wl_seat),
 }
 
+request select_workspace {
+    id: id(jay_select_workspace),
+    seat: id(wl_seat),
+}
+
 # events
 
 event client_id {

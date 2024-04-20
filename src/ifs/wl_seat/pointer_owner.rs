@@ -14,7 +14,7 @@ use {
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         state::DeviceHandlerData,
-        tree::{FindTreeUsecase, FoundNode, Node, ToplevelNode},
+        tree::{FindTreeUsecase, FoundNode, Node, ToplevelNode, WorkspaceNode},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::{
@@ -31,6 +31,10 @@ pub struct PointerOwnerHolder {
 
 pub trait ToplevelSelector: 'static {
     fn set(&self, toplevel: Rc<dyn ToplevelNode>);
+}
+
+pub trait WorkspaceSelector: 'static {
+    fn set(&self, ws: Rc<WorkspaceNode>);
 }
 
 impl Default for PointerOwnerHolder {
@@ -157,18 +161,31 @@ impl PointerOwnerHolder {
         seat.changes.or_assign(CHANGE_CURSOR_MOVED);
     }
 
-    pub fn select_toplevel(&self, seat: &Rc<WlSeatGlobal>, selector: impl ToplevelSelector) {
+    fn select_element(&self, seat: &Rc<WlSeatGlobal>, usecase: impl SimplePointerOwnerUsecase) {
         self.revert_to_default(seat);
-        let usecase = Rc::new(SelectToplevelUsecase {
-            seat: Rc::downgrade(seat),
-            selector,
-            latest: Default::default(),
-        });
         if let Some(node) = seat.pointer_stack.borrow().last() {
             usecase.node_focus(seat, node);
         }
         self.owner.set(Rc::new(SimplePointerOwner { usecase }));
         seat.trigger_tree_changed();
+    }
+
+    pub fn select_toplevel(&self, seat: &Rc<WlSeatGlobal>, selector: impl ToplevelSelector) {
+        let usecase = Rc::new(SelectToplevelUsecase {
+            seat: Rc::downgrade(seat),
+            selector,
+            latest: Default::default(),
+        });
+        self.select_element(seat, usecase)
+    }
+
+    pub fn select_workspace(&self, seat: &Rc<WlSeatGlobal>, selector: impl WorkspaceSelector) {
+        let usecase = Rc::new(SelectWorkspaceUsecase {
+            seat: Rc::downgrade(seat),
+            selector,
+            latest: Default::default(),
+        });
+        self.select_element(seat, usecase)
     }
 }
 
@@ -218,6 +235,12 @@ struct DefaultPointerUsecase;
 struct SelectToplevelUsecase<S: ?Sized> {
     seat: Weak<WlSeatGlobal>,
     latest: CloneCell<Option<Rc<dyn ToplevelNode>>>,
+    selector: S,
+}
+
+struct SelectWorkspaceUsecase<S: ?Sized> {
+    seat: Weak<WlSeatGlobal>,
+    latest: CloneCell<Option<Rc<WorkspaceNode>>>,
     selector: S,
 }
 
@@ -674,8 +697,22 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
     }
 }
 
-impl<S: ToplevelSelector + ?Sized> SimplePointerOwnerUsecase for Rc<SelectToplevelUsecase<S>> {
-    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectToplevel;
+trait NodeSelectorUsecase: Sized + 'static {
+    const FIND_TREE_USECASE: FindTreeUsecase;
+
+    fn default_button(
+        self: &Rc<Self>,
+        spo: &SimplePointerOwner<Rc<Self>>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        pn: &Rc<dyn Node>,
+    ) -> bool;
+
+    fn node_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>);
+}
+
+impl<U: NodeSelectorUsecase + ?Sized> SimplePointerOwnerUsecase for Rc<U> {
+    const FIND_TREE_USECASE: FindTreeUsecase = <U as NodeSelectorUsecase>::FIND_TREE_USECASE;
     const IS_DEFAULT: bool = false;
 
     fn default_button(
@@ -685,17 +722,7 @@ impl<S: ToplevelSelector + ?Sized> SimplePointerOwnerUsecase for Rc<SelectToplev
         button: u32,
         pn: &Rc<dyn Node>,
     ) -> bool {
-        let Some(tl) = pn.clone().node_into_toplevel() else {
-            return false;
-        };
-        let selected_toplevel =
-            button == BTN_RIGHT || (button == BTN_LEFT && !tl.tl_admits_children());
-        if !selected_toplevel {
-            return false;
-        }
-        self.selector.set(tl);
-        spo.revert_to_default(seat);
-        true
+        <U as NodeSelectorUsecase>::default_button(self, spo, seat, button, pn)
     }
 
     fn start_drag(
@@ -721,6 +748,34 @@ impl<S: ToplevelSelector + ?Sized> SimplePointerOwnerUsecase for Rc<SelectToplev
     }
 
     fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
+        <U as NodeSelectorUsecase>::node_focus(self, seat, node)
+    }
+}
+
+impl<S: ToplevelSelector> NodeSelectorUsecase for SelectToplevelUsecase<S> {
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectToplevel;
+
+    fn default_button(
+        self: &Rc<Self>,
+        spo: &SimplePointerOwner<Rc<Self>>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        pn: &Rc<dyn Node>,
+    ) -> bool {
+        let Some(tl) = pn.clone().node_into_toplevel() else {
+            return false;
+        };
+        let selected_toplevel =
+            button == BTN_RIGHT || (button == BTN_LEFT && !tl.tl_admits_children());
+        if !selected_toplevel {
+            return false;
+        }
+        self.selector.set(tl);
+        spo.revert_to_default(seat);
+        true
+    }
+
+    fn node_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
         let mut damage = false;
         let tl = node.clone().node_into_toplevel();
         if let Some(tl) = &tl {
@@ -744,6 +799,53 @@ impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
     fn drop(&mut self) {
         if let Some(prev) = self.latest.take() {
             prev.tl_data().render_highlight.fetch_sub(1);
+            if let Some(seat) = self.seat.upgrade() {
+                seat.state.damage();
+            }
+        }
+    }
+}
+
+impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectWorkspace;
+
+    fn default_button(
+        self: &Rc<Self>,
+        spo: &SimplePointerOwner<Rc<Self>>,
+        seat: &Rc<WlSeatGlobal>,
+        _button: u32,
+        pn: &Rc<dyn Node>,
+    ) -> bool {
+        let Some(ws) = pn.clone().node_into_workspace() else {
+            return false;
+        };
+        self.selector.set(ws);
+        spo.revert_to_default(seat);
+        true
+    }
+
+    fn node_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
+        let mut damage = false;
+        let ws = node.clone().node_into_workspace();
+        if let Some(ws) = &ws {
+            ws.render_highlight.fetch_add(1);
+            seat.set_known_cursor(KnownCursor::Pointer);
+            damage = true;
+        }
+        if let Some(prev) = self.latest.set(ws) {
+            prev.render_highlight.fetch_sub(1);
+            damage = true;
+        }
+        if damage {
+            seat.state.damage();
+        }
+    }
+}
+
+impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
+    fn drop(&mut self) {
+        if let Some(prev) = self.latest.take() {
+            prev.render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
                 seat.state.damage();
             }

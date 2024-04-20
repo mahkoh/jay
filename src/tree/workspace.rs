@@ -20,6 +20,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
+            numcell::NumCell,
             threshold_counter::ThresholdCounter,
         },
         wire::JayWorkspaceId,
@@ -49,9 +50,11 @@ pub struct WorkspaceNode {
     pub visible_on_desired_output: Cell<bool>,
     pub desired_output: CloneCell<Rc<OutputId>>,
     pub jay_workspaces: CopyHashMap<(ClientId, JayWorkspaceId), Rc<JayWorkspace>>,
-    pub capture: Cell<bool>,
+    pub may_capture: Cell<bool>,
+    pub has_capture: Cell<bool>,
     pub title_texture: Cell<Option<TextTexture>>,
     pub attention_requests: ThresholdCounter,
+    pub render_highlight: NumCell<u32>,
 }
 
 impl WorkspaceNode {
@@ -62,11 +65,34 @@ impl WorkspaceNode {
         self.jay_workspaces.clear();
     }
 
+    pub fn update_has_captures(&self) {
+        let mut has_capture = false;
+        let output = self.output.get();
+        'update: {
+            if !self.may_capture.get() {
+                break 'update;
+            }
+            for sc in output.screencasts.lock().values() {
+                if sc.shows_ws(self) {
+                    has_capture = true;
+                    break 'update;
+                }
+            }
+            if output.screencopies.is_not_empty() {
+                has_capture = true;
+            }
+        }
+        if self.has_capture.replace(has_capture) != has_capture {
+            output.schedule_update_render_data();
+        }
+    }
+
     pub fn set_output(&self, output: &Rc<OutputNode>) {
         self.output.set(output.clone());
         for jw in self.jay_workspaces.lock().values() {
             jw.send_output(output);
         }
+        self.update_has_captures();
         struct OutputSetter<'a>(&'a Rc<OutputNode>);
         impl NodeVisitorBase for OutputSetter<'_> {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {

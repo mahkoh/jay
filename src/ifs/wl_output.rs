@@ -2,22 +2,14 @@ use {
     crate::{
         backend,
         client::{Client, ClientError, ClientId},
-        gfx_api::GfxTexture,
         globals::{Global, GlobalName},
-        ifs::{
-            wl_buffer::WlBufferStorage, wl_surface::WlSurface,
-            zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1, zxdg_output_v1::ZxdgOutputV1,
-        },
+        ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
-        time::Time,
         tree::{calculate_logical_size, OutputNode},
-        utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            linkedlist::LinkedList, transform_ext::TransformExt,
-        },
+        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, transform_ext::TransformExt},
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
     ahash::AHashMap,
@@ -25,7 +17,6 @@ use {
     std::{
         cell::{Cell, RefCell},
         collections::hash_map::Entry,
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
@@ -68,8 +59,6 @@ pub struct WlOutputGlobal {
     pub width_mm: i32,
     pub height_mm: i32,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
-    pub unused_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
-    pub pending_captures: LinkedList<Rc<ZwlrScreencopyFrameV1>>,
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
     pub persistent: Rc<PersistentOutputState>,
@@ -125,8 +114,6 @@ impl WlOutputGlobal {
             width_mm,
             height_mm,
             bindings: Default::default(),
-            unused_captures: Default::default(),
-            pending_captures: Default::default(),
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(scale.round_up()),
             persistent: persistent_state.clone(),
@@ -208,88 +195,6 @@ impl WlOutputGlobal {
             obj.send_done();
         }
         Ok(())
-    }
-
-    pub fn perform_screencopies(
-        &self,
-        tex: &Rc<dyn GfxTexture>,
-        render_hardware_cursors: bool,
-        x_off: i32,
-        y_off: i32,
-        size: Option<(i32, i32)>,
-    ) {
-        if self.pending_captures.is_empty() {
-            return;
-        }
-        let now = Time::now().unwrap();
-        let mut captures = vec![];
-        for capture in self.pending_captures.iter() {
-            captures.push(capture.deref().clone());
-            let wl_buffer = match capture.buffer.take() {
-                Some(b) => b,
-                _ => {
-                    log::warn!("Capture frame is pending but has no buffer attached");
-                    capture.send_failed();
-                    continue;
-                }
-            };
-            if wl_buffer.destroyed() {
-                capture.send_failed();
-                continue;
-            }
-            if let Some(WlBufferStorage::Shm { mem, stride }) =
-                wl_buffer.storage.borrow_mut().deref()
-            {
-                let res = self.state.perform_shm_screencopy(
-                    tex,
-                    self.pos.get(),
-                    x_off,
-                    y_off,
-                    size,
-                    &capture,
-                    mem,
-                    *stride,
-                    wl_buffer.format,
-                    Transform::None,
-                );
-                if let Err(e) = res {
-                    log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
-                    capture.send_failed();
-                    continue;
-                }
-            } else {
-                let fb = match wl_buffer.famebuffer.get() {
-                    Some(fb) => fb,
-                    _ => {
-                        log::warn!("Capture buffer has no framebuffer");
-                        capture.send_failed();
-                        continue;
-                    }
-                };
-                let res = self.state.perform_screencopy(
-                    tex,
-                    &fb,
-                    self.pos.get(),
-                    render_hardware_cursors,
-                    x_off - capture.rect.x1(),
-                    y_off - capture.rect.y1(),
-                    size,
-                    Transform::None,
-                );
-                if let Err(e) = res {
-                    log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
-                    capture.send_failed();
-                    continue;
-                }
-            }
-            if capture.with_damage.get() {
-                capture.send_damage();
-            }
-            capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
-        }
-        for capture in captures {
-            capture.output_link.take();
-        }
     }
 
     pub fn pixel_size(&self) -> (i32, i32) {

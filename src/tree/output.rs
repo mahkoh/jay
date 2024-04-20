@@ -8,6 +8,7 @@ use {
         ifs::{
             jay_output::JayOutput,
             jay_screencast::JayScreencast,
+            wl_buffer::WlBufferStorage,
             wl_output::WlOutputGlobal,
             wl_seat::{
                 collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
@@ -19,12 +20,14 @@ use {
                 SurfaceSendPreferredTransformVisitor,
             },
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
+            zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         },
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
         state::State,
         text::{self, TextTexture},
+        time::Time,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
             NodeId, WorkspaceNode,
@@ -33,7 +36,7 @@ use {
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             linkedlist::LinkedList, scroller::Scroller, transform_ext::TransformExt,
         },
-        wire::{JayOutputId, JayScreencastId},
+        wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
     ahash::AHashMap,
     jay_config::video::Transform,
@@ -66,6 +69,7 @@ pub struct OutputNode {
     pub hardware_cursor_needs_render: Cell<bool>,
     pub update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
+    pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
 }
 
 pub async fn output_render_data(state: Rc<State>) {
@@ -81,6 +85,22 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub fn add_screencast(&self, sc: &Rc<JayScreencast>) {
+        self.screencasts.set((sc.client.id, sc.id), sc.clone());
+        self.screencast_changed();
+    }
+
+    pub fn remove_screencast(&self, sc: &JayScreencast) {
+        self.screencasts.remove(&(sc.client.id, sc.id));
+        self.screencast_changed();
+    }
+
+    pub fn screencast_changed(&self) {
+        for ws in self.workspaces.iter() {
+            ws.update_has_captures();
+        }
+    }
+
     pub fn perform_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
@@ -90,15 +110,92 @@ impl OutputNode {
         size: Option<(i32, i32)>,
     ) {
         if let Some(workspace) = self.workspace.get() {
-            if !workspace.capture.get() {
+            if !workspace.may_capture.get() {
                 return;
             }
         }
-        self.global
-            .perform_screencopies(tex, render_hardware_cursor, x_off, y_off, size);
+        self.perform_wlr_screencopies(tex, render_hardware_cursor, x_off, y_off, size);
         for sc in self.screencasts.lock().values() {
             sc.copy_texture(self, tex, render_hardware_cursor, x_off, y_off, size);
         }
+    }
+
+    pub fn perform_wlr_screencopies(
+        &self,
+        tex: &Rc<dyn GfxTexture>,
+        render_hardware_cursors: bool,
+        x_off: i32,
+        y_off: i32,
+        size: Option<(i32, i32)>,
+    ) {
+        if self.screencopies.is_empty() {
+            return;
+        }
+        let now = Time::now().unwrap();
+        for (_, capture) in self.screencopies.lock().drain() {
+            let wl_buffer = match capture.buffer.take() {
+                Some(b) => b,
+                _ => {
+                    log::warn!("Capture frame is pending but has no buffer attached");
+                    capture.send_failed();
+                    continue;
+                }
+            };
+            if wl_buffer.destroyed() {
+                capture.send_failed();
+                continue;
+            }
+            if let Some(WlBufferStorage::Shm { mem, stride }) =
+                wl_buffer.storage.borrow_mut().deref()
+            {
+                let res = self.state.perform_shm_screencopy(
+                    tex,
+                    self.global.pos.get(),
+                    x_off,
+                    y_off,
+                    size,
+                    &capture,
+                    mem,
+                    *stride,
+                    wl_buffer.format,
+                    Transform::None,
+                );
+                if let Err(e) = res {
+                    log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
+                    capture.send_failed();
+                    continue;
+                }
+            } else {
+                let fb = match wl_buffer.famebuffer.get() {
+                    Some(fb) => fb,
+                    _ => {
+                        log::warn!("Capture buffer has no framebuffer");
+                        capture.send_failed();
+                        continue;
+                    }
+                };
+                let res = self.state.perform_screencopy(
+                    tex,
+                    &fb,
+                    self.global.pos.get(),
+                    render_hardware_cursors,
+                    x_off - capture.rect.x1(),
+                    y_off - capture.rect.y1(),
+                    size,
+                    Transform::None,
+                );
+                if let Err(e) = res {
+                    log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
+                    capture.send_failed();
+                    continue;
+                }
+            }
+            if capture.with_damage.get() {
+                capture.send_damage();
+            }
+            capture.send_ready(now.0.tv_sec as _, now.0.tv_nsec as _);
+        }
+        self.screencast_changed();
     }
 
     pub fn clear(&self) {
@@ -111,6 +208,8 @@ impl OutputNode {
         self.render_data.borrow_mut().titles.clear();
         self.lock_surface.take();
         self.jay_outputs.clear();
+        self.screencasts.clear();
+        self.screencopies.clear();
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
@@ -228,13 +327,13 @@ impl OutputNode {
             if Some(ws.id) == active_id {
                 rd.active_workspace = Some(OutputWorkspaceRenderData {
                     rect,
-                    captured: ws.capture.get(),
+                    captured: ws.has_capture.get(),
                 });
             } else {
                 if ws.attention_requests.active() {
                     rd.attention_requested_workspaces.push(rect);
                 }
-                if ws.capture.get() {
+                if ws.has_capture.get() {
                     rd.captured_inactive_workspaces.push(rect);
                 } else {
                     rd.inactive_workspaces.push(rect);
@@ -345,10 +444,13 @@ impl OutputNode {
             visible_on_desired_output: Cell::new(false),
             desired_output: CloneCell::new(self.global.output_id.clone()),
             jay_workspaces: Default::default(),
-            capture: self.state.default_workspace_capture.clone(),
+            may_capture: self.state.default_workspace_capture.clone(),
+            has_capture: Cell::new(false),
             title_texture: Default::default(),
             attention_requests: Default::default(),
+            render_highlight: Default::default(),
         });
+        ws.update_has_captures();
         *ws.output_link.borrow_mut() = Some(self.workspaces.add_last(ws.clone()));
         self.state.workspaces.set(name.to_string(), ws.clone());
         if self.workspace.is_none() {
@@ -642,6 +744,20 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
+        let bar_height = self.state.theme.sizes.title_height.get() + 1;
+        if usecase == FindTreeUsecase::SelectWorkspace {
+            if y >= bar_height {
+                y -= bar_height;
+                if let Some(ws) = self.workspace.get() {
+                    tree.push(FoundNode {
+                        node: ws.clone(),
+                        x,
+                        y,
+                    });
+                    return FindTreeResult::AcceptsInput;
+                }
+            }
+        }
         {
             let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
             if res.accepts_input() {
@@ -690,7 +806,6 @@ impl Node for OutputNode {
             });
             fs.tl_as_node().node_find_tree_at(x, y, tree, usecase)
         } else {
-            let bar_height = self.state.theme.sizes.title_height.get() + 1;
             if y >= bar_height {
                 y -= bar_height;
                 let len = tree.len();

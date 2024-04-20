@@ -297,7 +297,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
                     owner: Default::default(),
-                    window_capture: Cell::new(false),
+                    caps: Default::default(),
                 });
                 dpy.con.add_object(jc.clone());
                 dpy.registry.request_bind(name, version, jc.deref());

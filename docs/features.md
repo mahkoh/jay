@@ -72,6 +72,12 @@ You can change this GPU at runtime.
 ## Screen Sharing
 
 Jay supports screen sharing via xdg-desktop-portal.
+There are three supported modes:
+
+- Window capture
+- Output capture
+- Workspace capture which is like output capture except that only one workspace will be
+  shown.
 
 ## Screen Locking
 

@@ -8,7 +8,7 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::State,
-        tree::{OutputNode, ToplevelNode, WorkspaceNodeId},
+        tree::{OutputNode, ToplevelNode, WorkspaceNode, WorkspaceNodeId},
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             errorfmt::ErrorFmt,
@@ -106,6 +106,18 @@ struct ScreencastBuffer {
 }
 
 impl JayScreencast {
+    pub fn shows_ws(&self, ws: &WorkspaceNode) -> bool {
+        if self.show_all.get() {
+            return true;
+        }
+        for &id in &*self.show_workspaces.borrow() {
+            if id == ws.id {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn new(id: JayScreencastId, client: &Rc<Client>) -> Self {
         Self {
             id,
@@ -309,10 +321,7 @@ impl JayScreencast {
         if let Some(target) = self.target.take() {
             match target {
                 Target::Output(output) => {
-                    output.screencasts.remove(&(self.client.id, self.id));
-                    if output.screencasts.is_empty() {
-                        output.state.damage();
-                    }
+                    output.remove_screencast(self);
                 }
                 Target::Toplevel(tl) => {
                     let data = tl.tl_data();
@@ -514,10 +523,7 @@ impl JayScreencastRequestHandler for JayScreencast {
                             self.do_destroy();
                             return Ok(());
                         };
-                        if o.screencasts.is_empty() {
-                            o.state.damage();
-                        }
-                        o.screencasts.set((self.client.id, self.id), slf.clone());
+                        o.add_screencast(slf);
                         new_target = Some(Target::Output(o));
                     }
                     PendingTarget::Toplevel(t) => {
@@ -546,11 +552,14 @@ impl JayScreencastRequestHandler for JayScreencast {
                 need_realloc = true;
             }
         }
+        let mut capture_rules_changed = false;
         if let Some(show_all) = self.pending.show_all.take() {
             self.show_all.set(show_all);
+            capture_rules_changed = true;
         }
         if let Some(new_workspaces) = self.pending.show_workspaces.borrow_mut().take() {
             *self.show_workspaces.borrow_mut() = new_workspaces;
+            capture_rules_changed = true;
         }
         if let Some(running) = self.pending.running.take() {
             self.running.set(running);
@@ -558,6 +567,12 @@ impl JayScreencastRequestHandler for JayScreencast {
 
         if need_realloc {
             slf.schedule_realloc();
+        }
+
+        if capture_rules_changed {
+            if let Some(Target::Output(o)) = self.target.get() {
+                o.screencast_changed();
+            }
         }
 
         Ok(())

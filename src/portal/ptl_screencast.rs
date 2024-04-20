@@ -37,7 +37,9 @@ use {
         wl_usr::usr_ifs::{
             usr_jay_screencast::{UsrJayScreencast, UsrJayScreencastOwner},
             usr_jay_select_toplevel::UsrJaySelectToplevel,
+            usr_jay_select_workspace::UsrJaySelectWorkspace,
             usr_jay_toplevel::UsrJayToplevel,
+            usr_jay_workspace::UsrJayWorkspace,
         },
     },
     std::{
@@ -64,6 +66,7 @@ pub enum ScreencastPhase {
     SourcesSelected,
     Selecting(Rc<SelectingScreencast>),
     SelectingWindow(Rc<SelectingWindowScreencast>),
+    SelectingWorkspace(Rc<SelectingWorkspaceScreencast>),
     Starting(Rc<StartingScreencast>),
     Started(Rc<StartedScreencast>),
     Terminated,
@@ -89,6 +92,12 @@ pub struct SelectingWindowScreencast {
     pub selector: Rc<UsrJaySelectToplevel>,
 }
 
+pub struct SelectingWorkspaceScreencast {
+    pub core: SelectingScreencastCore,
+    pub dpy: Rc<PortalDisplay>,
+    pub selector: Rc<UsrJaySelectWorkspace>,
+}
+
 pub struct StartingScreencast {
     pub session: Rc<ScreencastSession>,
     pub request_obj: Rc<DbusObject>,
@@ -100,6 +109,7 @@ pub struct StartingScreencast {
 
 pub enum ScreencastTarget {
     Output(Rc<PortalOutput>),
+    Workspace(Rc<PortalOutput>, Rc<UsrJayWorkspace>),
     Toplevel(Rc<UsrJayToplevel>),
 }
 
@@ -156,14 +166,26 @@ impl PwClientNodeOwner for StartingScreencast {
         port.supported_metas.set(SUPPORTED_META_VIDEO_CROP);
         let jsc = self.dpy.jc.create_screencast();
         match &self.target {
-            ScreencastTarget::Output(o) => jsc.set_output(&o.jay),
+            ScreencastTarget::Output(o) => {
+                jsc.set_output(&o.jay);
+                jsc.set_allow_all_workspaces(true);
+            }
+            ScreencastTarget::Workspace(o, ws) => {
+                jsc.set_output(&o.jay);
+                jsc.allow_workspace(ws);
+            }
             ScreencastTarget::Toplevel(t) => jsc.set_toplevel(t),
         }
         jsc.set_use_linear_buffers(true);
-        jsc.set_allow_all_workspaces(true);
         jsc.configure();
-        if let ScreencastTarget::Toplevel(t) = &self.target {
-            self.dpy.con.remove_obj(&**t);
+        match &self.target {
+            ScreencastTarget::Output(_) => {}
+            ScreencastTarget::Workspace(_, w) => {
+                self.dpy.con.remove_obj(&**w);
+            }
+            ScreencastTarget::Toplevel(t) => {
+                self.dpy.con.remove_obj(&**t);
+            }
         }
         let started = Rc::new(StartedScreencast {
             session: self.session.clone(),
@@ -253,12 +275,22 @@ impl ScreencastSession {
                 s.dpy.con.remove_obj(&*s.selector);
                 s.core.reply.err("Session has been terminated");
             }
+            ScreencastPhase::SelectingWorkspace(s) => {
+                s.dpy.con.remove_obj(&*s.selector);
+                s.core.reply.err("Session has been terminated");
+            }
             ScreencastPhase::Starting(s) => {
                 s.reply.err("Session has been terminated");
                 s.node.con.destroy_obj(s.node.deref());
                 s.dpy.screencasts.remove(self.session_obj.path());
-                if let ScreencastTarget::Toplevel(t) = &s.target {
-                    s.dpy.con.remove_obj(&**t);
+                match &s.target {
+                    ScreencastTarget::Output(_) => {}
+                    ScreencastTarget::Workspace(_, w) => {
+                        s.dpy.con.remove_obj(&**w);
+                    }
+                    ScreencastTarget::Toplevel(t) => {
+                        s.dpy.con.remove_obj(&**t);
+                    }
                 }
             }
             ScreencastPhase::Started(s) => {

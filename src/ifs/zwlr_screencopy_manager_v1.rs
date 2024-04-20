@@ -125,7 +125,6 @@ impl ZwlrScreencopyManagerV1 {
             overlay_cursor,
             used: Cell::new(false),
             with_damage: Cell::new(false),
-            output_link: Cell::new(None),
             buffer: Cell::new(None),
             version: self.version,
         });
@@ -136,9 +135,6 @@ impl ZwlrScreencopyManagerV1 {
             frame.send_linux_dmabuf();
             frame.send_buffer_done();
         }
-        frame
-            .output_link
-            .set(Some(output.global.unused_captures.add_last(frame.clone())));
         Ok(())
     }
 }

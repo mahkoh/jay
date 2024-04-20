@@ -83,7 +83,10 @@ use {
     thiserror::Error,
     uapi::OwnedFd,
 };
-pub use {event_handling::NodeSeatState, pointer_owner::ToplevelSelector};
+pub use {
+    event_handling::NodeSeatState,
+    pointer_owner::{ToplevelSelector, WorkspaceSelector},
+};
 
 pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
@@ -1153,9 +1156,12 @@ impl WlSeatGlobal {
         self.forward.set(forward);
     }
 
-    #[allow(dead_code)]
     pub fn select_toplevel(self: &Rc<Self>, selector: impl ToplevelSelector) {
         self.pointer_owner.select_toplevel(self, selector);
+    }
+
+    pub fn select_workspace(self: &Rc<Self>, selector: impl WorkspaceSelector) {
+        self.pointer_owner.select_workspace(self, selector);
     }
 }
 

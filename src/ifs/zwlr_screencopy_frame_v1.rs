@@ -9,7 +9,6 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
-        utils::linkedlist::LinkedNode,
         wire::{zwlr_screencopy_frame_v1::*, WlBufferId, ZwlrScreencopyFrameV1Id},
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
@@ -28,7 +27,6 @@ pub struct ZwlrScreencopyFrameV1 {
     pub overlay_cursor: bool,
     pub used: Cell<bool>,
     pub with_damage: Cell<bool>,
-    pub output_link: Cell<Option<LinkedNode<Rc<Self>>>>,
     pub buffer: Cell<Option<Rc<WlBuffer>>>,
     pub version: Version,
 }
@@ -90,19 +88,16 @@ impl ZwlrScreencopyFrameV1 {
     }
 
     fn do_copy(
-        &self,
+        self: &Rc<Self>,
         buffer_id: WlBufferId,
         with_damage: bool,
     ) -> Result<(), ZwlrScreencopyFrameV1Error> {
         if self.used.replace(true) {
             return Err(ZwlrScreencopyFrameV1Error::AlreadyUsed);
         }
-        let link = match self.output_link.take() {
-            Some(l) => l,
-            _ => {
-                self.send_failed();
-                return Ok(());
-            }
+        let Some(node) = self.output.node.get() else {
+            self.send_failed();
+            return Ok(());
         };
         let buffer = self.client.lookup(buffer_id)?;
         if (buffer.rect.width(), buffer.rect.height()) != (self.rect.width(), self.rect.height()) {
@@ -122,27 +117,35 @@ impl ZwlrScreencopyFrameV1 {
             self.output.connector.connector.damage();
         }
         self.with_damage.set(with_damage);
-        self.output.pending_captures.add_last_existing(&link);
-        self.output_link.set(Some(link));
+        node.screencopies
+            .set((self.client.id, self.id), self.clone());
+        node.screencast_changed();
         Ok(())
+    }
+
+    fn detach(&self) {
+        if let Some(node) = self.output.node.get() {
+            node.screencopies.remove(&(self.client.id, self.id));
+            node.screencast_changed();
+        }
     }
 }
 
 impl ZwlrScreencopyFrameV1RequestHandler for ZwlrScreencopyFrameV1 {
     type Error = ZwlrScreencopyFrameV1Error;
 
-    fn copy(&self, req: Copy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.do_copy(req.buffer, false)
+    fn copy(&self, req: Copy, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        slf.do_copy(req.buffer, false)
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.detach();
         self.client.remove_obj(self)?;
-        self.output_link.take();
         Ok(())
     }
 
-    fn copy_with_damage(&self, req: CopyWithDamage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.do_copy(req.buffer, true)
+    fn copy_with_damage(&self, req: CopyWithDamage, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        slf.do_copy(req.buffer, true)
     }
 }
 
@@ -155,7 +158,7 @@ simple_add_obj!(ZwlrScreencopyFrameV1);
 
 impl Object for ZwlrScreencopyFrameV1 {
     fn break_loops(&self) {
-        self.output_link.take();
+        self.detach();
     }
 }
 

@@ -117,13 +117,13 @@ impl Renderer<'_> {
         if let Some(ws) = output.workspace.get() {
             fullscreen = ws.fullscreen.get();
         }
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
         if let Some(fs) = fullscreen {
             fs.tl_as_node().node_render(self, x, y, None);
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
-            let theme = &self.state.theme;
-            let th = theme.sizes.title_height.get();
             {
                 let c = theme.colors.bar_background.get();
                 self.base.fill_boxes2(
@@ -132,11 +132,9 @@ impl Renderer<'_> {
                     x,
                     y,
                 );
-                let has_captures =
-                    !output.screencasts.is_empty() || !output.global.pending_captures.is_empty();
                 let rd = output.render_data.borrow_mut();
                 if let Some(aw) = &rd.active_workspace {
-                    let c = match has_captures && aw.captured {
+                    let c = match aw.captured {
                         true => theme.colors.captured_focused_title_background.get(),
                         false => theme.colors.focused_title_background.get(),
                     };
@@ -147,10 +145,7 @@ impl Renderer<'_> {
                     .fill_boxes2(slice::from_ref(&rd.underline), &c, x, y);
                 let c = theme.colors.unfocused_title_background.get();
                 self.base.fill_boxes2(&rd.inactive_workspaces, &c, x, y);
-                let c = match has_captures {
-                    true => theme.colors.captured_unfocused_title_background.get(),
-                    false => theme.colors.unfocused_title_background.get(),
-                };
+                let c = theme.colors.captured_unfocused_title_background.get();
                 self.base
                     .fill_boxes2(&rd.captured_inactive_workspaces, &c, x, y);
                 let c = theme.colors.attention_requested_background.get();
@@ -206,6 +201,13 @@ impl Renderer<'_> {
         }
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
+        if let Some(ws) = output.workspace.get() {
+            if ws.render_highlight.get() > 0 {
+                let color = self.state.theme.colors.highlight.get();
+                let bounds = ws.position.get().at_point(x, y + th + 1);
+                self.base.fill_boxes(&[bounds], &color);
+            }
+        }
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
