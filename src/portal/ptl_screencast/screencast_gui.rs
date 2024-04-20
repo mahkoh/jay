@@ -5,6 +5,7 @@ use {
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
             ptl_screencast::{
                 ScreencastPhase, ScreencastSession, ScreencastTarget, SelectingWindowScreencast,
+                SelectingWorkspaceScreencast,
             },
             ptr_gui::{
                 Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
@@ -14,7 +15,9 @@ use {
         theme::Color,
         utils::copyhashmap::CopyHashMap,
         wl_usr::usr_ifs::{
-            usr_jay_select_toplevel::UsrJaySelectToplevelOwner, usr_jay_toplevel::UsrJayToplevel,
+            usr_jay_select_toplevel::UsrJaySelectToplevelOwner,
+            usr_jay_select_workspace::UsrJaySelectWorkspaceOwner, usr_jay_toplevel::UsrJayToplevel,
+            usr_jay_workspace::UsrJayWorkspace,
         },
     },
     std::rc::Rc,
@@ -43,7 +46,8 @@ struct StaticButton {
 #[derive(Copy, Clone, Eq, PartialEq)]
 enum ButtonRole {
     Accept,
-    Window,
+    SelectWorkspace,
+    SelectWindow,
     Reject,
 }
 
@@ -71,14 +75,20 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;
     let accept_button = static_button(surface, ButtonRole::Accept, "Share This Output");
-    let window_button = static_button(surface, ButtonRole::Window, "Share A Window");
+    let workspace_button = static_button(surface, ButtonRole::SelectWorkspace, "Share A Workspcae");
+    let window_button = static_button(surface, ButtonRole::SelectWindow, "Share A Window");
     let reject_button = static_button(surface, ButtonRole::Reject, "Reject");
-    for button in [&accept_button, &window_button, &reject_button] {
+    for button in [
+        &accept_button,
+        &workspace_button,
+        &window_button,
+        &reject_button,
+    ] {
         button.border_color.set(Color::from_gray(100));
         button.border.set(2.0);
         button.padding.set(5.0);
     }
-    for button in [&accept_button, &window_button] {
+    for button in [&accept_button, &workspace_button, &window_button] {
         button.bg_color.set(Color::from_rgb(170, 200, 170));
         button.bg_hover_color.set(Color::from_rgb(170, 255, 170));
     }
@@ -92,7 +102,10 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     flow.in_margin.set(V_MARGIN);
     flow.cross_margin.set(H_MARGIN);
     let mut elements: Vec<Rc<dyn GuiElement>> = vec![label, accept_button];
-    if surface.gui.dpy.jc.window_capture.get() {
+    if surface.gui.dpy.jc.caps.select_workspace.get() {
+        elements.push(workspace_button);
+    }
+    if surface.gui.dpy.jc.caps.window_capture.get() {
         elements.push(window_button);
     }
     elements.push(reject_button);
@@ -140,7 +153,7 @@ impl ButtonOwner for StaticButton {
             return;
         }
         match self.role {
-            ButtonRole::Accept | ButtonRole::Window => {
+            ButtonRole::Accept | ButtonRole::SelectWorkspace | ButtonRole::SelectWindow => {
                 log::info!("User has accepted the request");
                 let selecting = match self.surface.gui.screencast_session.phase.get() {
                     ScreencastPhase::Selecting(selecting) => selecting,
@@ -154,6 +167,19 @@ impl ButtonOwner for StaticButton {
                     selecting
                         .core
                         .starting(dpy, ScreencastTarget::Output(self.surface.output.clone()));
+                } else if self.role == ButtonRole::SelectWorkspace {
+                    let selector = dpy.jc.select_workspace(&seat.wl);
+                    let selecting = Rc::new(SelectingWorkspaceScreencast {
+                        core: selecting.core.clone(),
+                        dpy: dpy.clone(),
+                        selector: selector.clone(),
+                    });
+                    selector.owner.set(Some(selecting.clone()));
+                    self.surface
+                        .gui
+                        .screencast_session
+                        .phase
+                        .set(ScreencastPhase::SelectingWorkspace(selecting));
                 } else {
                     let selector = dpy.jc.select_toplevel(&seat.wl);
                     let selecting = Rc::new(SelectingWindowScreencast {
@@ -196,6 +222,37 @@ impl UsrJaySelectToplevelOwner for SelectingWindowScreencast {
         log::info!("User has selected a window");
         self.core
             .starting(&self.dpy, ScreencastTarget::Toplevel(tl));
+    }
+}
+
+impl UsrJaySelectWorkspaceOwner for SelectingWorkspaceScreencast {
+    fn done(&self, output: u32, ws: Option<Rc<UsrJayWorkspace>>) {
+        let Some(ws) = ws else {
+            log::info!("User has aborted the selection");
+            self.core.session.kill();
+            return;
+        };
+        match self.core.session.phase.get() {
+            ScreencastPhase::SelectingWorkspace(s) => {
+                self.dpy.con.remove_obj(&*s.selector);
+            }
+            _ => {
+                self.dpy.con.remove_obj(&*ws);
+                return;
+            }
+        }
+        log::info!("User has selected a workspace");
+        let output = match self.dpy.outputs.get(&output) {
+            Some(o) => o,
+            _ => {
+                log::warn!("Workspace does not belong to any known output");
+                self.dpy.con.remove_obj(&*ws);
+                self.core.session.kill();
+                return;
+            }
+        };
+        self.core
+            .starting(&self.dpy, ScreencastTarget::Workspace(output, ws));
     }
 }
 

@@ -472,6 +472,7 @@ fn create_dummy_output(state: &Rc<State>) {
         has_capture: Cell::new(false),
         title_texture: Cell::new(None),
         attention_requests: Default::default(),
+        render_highlight: Default::default(),
     });
     *dummy_workspace.output_link.borrow_mut() =
         Some(dummy_output.workspaces.add_last(dummy_workspace.clone()));

@@ -1,0 +1,7 @@
+event cancelled {
+}
+
+event selected {
+    output: u32,
+    id: id(jay_workspace),
+}

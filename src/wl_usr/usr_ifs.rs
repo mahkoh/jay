@@ -4,6 +4,7 @@ pub mod usr_jay_pointer;
 pub mod usr_jay_render_ctx;
 pub mod usr_jay_screencast;
 pub mod usr_jay_select_toplevel;
+pub mod usr_jay_select_workspace;
 pub mod usr_jay_toplevel;
 pub mod usr_jay_workspace;
 pub mod usr_jay_workspace_watcher;

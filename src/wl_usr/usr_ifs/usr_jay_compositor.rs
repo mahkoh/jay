@@ -11,6 +11,7 @@ use {
                 usr_jay_output::UsrJayOutput, usr_jay_pointer::UsrJayPointer,
                 usr_jay_render_ctx::UsrJayRenderCtx, usr_jay_screencast::UsrJayScreencast,
                 usr_jay_select_toplevel::UsrJaySelectToplevel,
+                usr_jay_select_workspace::UsrJaySelectWorkspace,
                 usr_jay_workspace_watcher::UsrJayWorkspaceWatcher, usr_wl_output::UsrWlOutput,
                 usr_wl_seat::UsrWlSeat,
             },
@@ -25,7 +26,13 @@ pub struct UsrJayCompositor {
     pub id: JayCompositorId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayCompositorOwner>>>,
+    pub caps: UsrJayCompositorCaps,
+}
+
+#[derive(Default)]
+pub struct UsrJayCompositorCaps {
     pub window_capture: Cell<bool>,
+    pub select_workspace: Cell<bool>,
 }
 
 pub trait UsrJayCompositorOwner {
@@ -129,6 +136,21 @@ impl UsrJayCompositor {
         sc
     }
 
+    pub fn select_workspace(&self, seat: &UsrWlSeat) -> Rc<UsrJaySelectWorkspace> {
+        let sc = Rc::new(UsrJaySelectWorkspace {
+            id: self.con.id(),
+            con: self.con.clone(),
+            owner: Default::default(),
+        });
+        self.con.request(SelectWorkspace {
+            self_id: self.id,
+            id: sc.id,
+            seat: seat.id,
+        });
+        self.con.add_object(sc.clone());
+        sc
+    }
+
     fn client_id(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
         let ev: ClientId = self.con.parse(self, parser)?;
         if let Some(owner) = self.owner.get() {
@@ -150,7 +172,8 @@ impl UsrJayCompositor {
         for &cap in ev.cap {
             match cap {
                 Cap::NONE => {}
-                Cap::WINDOW_CAPTURE => self.window_capture.set(true),
+                Cap::WINDOW_CAPTURE => self.caps.window_capture.set(true),
+                Cap::SELECT_WORKSPACE => self.caps.select_workspace.set(true),
                 _ => {}
             }
         }

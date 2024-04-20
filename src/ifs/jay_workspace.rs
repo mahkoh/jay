@@ -19,6 +19,14 @@ pub struct JayWorkspace {
 }
 
 impl JayWorkspace {
+    pub fn send_initial_properties(&self, workspace: &WorkspaceNode) {
+        self.send_linear_id(workspace);
+        self.send_name(workspace);
+        self.send_output(&workspace.output.get());
+        self.send_visible(workspace.visible.get());
+        self.send_done();
+    }
+
     pub fn send_linear_id(&self, ws: &WorkspaceNode) {
         self.client.event(LinearId {
             self_id: self.id,

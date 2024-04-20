@@ -448,6 +448,7 @@ impl OutputNode {
             has_capture: Cell::new(false),
             title_texture: Default::default(),
             attention_requests: Default::default(),
+            render_highlight: Default::default(),
         });
         ws.update_has_captures();
         *ws.output_link.borrow_mut() = Some(self.workspaces.add_last(ws.clone()));
@@ -743,6 +744,20 @@ impl Node for OutputNode {
             }
             return FindTreeResult::AcceptsInput;
         }
+        let bar_height = self.state.theme.sizes.title_height.get() + 1;
+        if usecase == FindTreeUsecase::SelectWorkspace {
+            if y >= bar_height {
+                y -= bar_height;
+                if let Some(ws) = self.workspace.get() {
+                    tree.push(FoundNode {
+                        node: ws.clone(),
+                        x,
+                        y,
+                    });
+                    return FindTreeResult::AcceptsInput;
+                }
+            }
+        }
         {
             let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
             if res.accepts_input() {
@@ -791,7 +806,6 @@ impl Node for OutputNode {
             });
             fs.tl_as_node().node_find_tree_at(x, y, tree, usecase)
         } else {
-            let bar_height = self.state.theme.sizes.title_height.get() + 1;
             if y >= bar_height {
                 y -= bar_height;
                 let len = tree.len();

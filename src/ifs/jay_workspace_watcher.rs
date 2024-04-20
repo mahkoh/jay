@@ -36,11 +36,7 @@ impl JayWorkspaceWatcher {
             id: jw.id,
             linear_id: workspace.id.raw(),
         });
-        jw.send_linear_id(workspace);
-        jw.send_name(workspace);
-        jw.send_output(&workspace.output.get());
-        jw.send_visible(workspace.visible.get());
-        jw.send_done();
+        jw.send_initial_properties(workspace);
         Ok(())
     }
 

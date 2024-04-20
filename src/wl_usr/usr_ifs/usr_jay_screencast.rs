@@ -1,7 +1,6 @@
 use {
     crate::{
         format::formats,
-        ifs::jay_workspace::JayWorkspace,
         utils::{
             buffd::{MsgParser, MsgParserError},
             clonecell::CloneCell,
@@ -9,7 +8,10 @@ use {
         video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         wire::{jay_screencast::*, JayScreencastId},
         wl_usr::{
-            usr_ifs::{usr_jay_output::UsrJayOutput, usr_jay_toplevel::UsrJayToplevel},
+            usr_ifs::{
+                usr_jay_output::UsrJayOutput, usr_jay_toplevel::UsrJayToplevel,
+                usr_jay_workspace::UsrJayWorkspace,
+            },
             usr_object::UsrObject,
             UsrCon,
         },
@@ -78,8 +80,7 @@ impl UsrJayScreencast {
         });
     }
 
-    #[allow(dead_code)]
-    pub fn allow_workspace(&self, ws: &JayWorkspace) {
+    pub fn allow_workspace(&self, ws: &UsrJayWorkspace) {
         self.con.request(AllowWorkspace {
             self_id: self.id,
             workspace: ws.id,

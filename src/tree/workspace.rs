@@ -20,6 +20,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
+            numcell::NumCell,
             threshold_counter::ThresholdCounter,
         },
         wire::JayWorkspaceId,
@@ -53,6 +54,7 @@ pub struct WorkspaceNode {
     pub has_capture: Cell<bool>,
     pub title_texture: Cell<Option<TextTexture>>,
     pub attention_requests: ThresholdCounter,
+    pub render_highlight: NumCell<u32>,
 }
 
 impl WorkspaceNode {

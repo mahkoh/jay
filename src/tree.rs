@@ -104,6 +104,7 @@ impl FindTreeResult {
 pub enum FindTreeUsecase {
     None,
     SelectToplevel,
+    SelectWorkspace,
 }
 
 pub trait Node: 'static {

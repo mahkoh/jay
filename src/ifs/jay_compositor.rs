@@ -15,6 +15,7 @@ use {
             jay_screenshot::JayScreenshot,
             jay_seat_events::JaySeatEvents,
             jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
+            jay_select_workspace::{JaySelectWorkspace, JayWorkspaceSelector},
             jay_workspace_watcher::JayWorkspaceWatcher,
         },
         leaks::Tracker,
@@ -85,13 +86,14 @@ pub struct Cap;
 impl Cap {
     pub const NONE: u16 = 0;
     pub const WINDOW_CAPTURE: u16 = 1;
+    pub const SELECT_WORKSPACE: u16 = 2;
 }
 
 impl JayCompositor {
     fn send_capabilities(&self) {
         self.client.event(Capabilities {
             self_id: self.id,
-            cap: &[Cap::NONE, Cap::WINDOW_CAPTURE],
+            cap: &[Cap::NONE, Cap::WINDOW_CAPTURE, Cap::SELECT_WORKSPACE],
         });
     }
 
@@ -360,6 +362,24 @@ impl JayCompositorRequestHandler for JayCompositor {
             jst: obj.clone(),
         };
         seat.global.select_toplevel(selector);
+        Ok(())
+    }
+
+    fn select_workspace(&self, req: SelectWorkspace, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let seat = self.client.lookup(req.seat)?;
+        let obj = Rc::new(JaySelectWorkspace {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            destroyed: Cell::new(false),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        let selector = JayWorkspaceSelector {
+            ws: Default::default(),
+            jsw: obj.clone(),
+        };
+        seat.global.select_workspace(selector);
         Ok(())
     }
 }

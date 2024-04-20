@@ -117,13 +117,13 @@ impl Renderer<'_> {
         if let Some(ws) = output.workspace.get() {
             fullscreen = ws.fullscreen.get();
         }
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
         if let Some(fs) = fullscreen {
             fs.tl_as_node().node_render(self, x, y, None);
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
-            let theme = &self.state.theme;
-            let th = theme.sizes.title_height.get();
             {
                 let c = theme.colors.bar_background.get();
                 self.base.fill_boxes2(
@@ -201,6 +201,13 @@ impl Renderer<'_> {
         }
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
+        if let Some(ws) = output.workspace.get() {
+            if ws.render_highlight.get() > 0 {
+                let color = self.state.theme.colors.highlight.get();
+                let bounds = ws.position.get().at_point(x, y + th + 1);
+                self.base.fill_boxes(&[bounds], &color);
+            }
+        }
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
