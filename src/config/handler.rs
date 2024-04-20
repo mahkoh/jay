@@ -655,7 +655,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_capture(&self, workspace: Workspace) -> Result<(), CphError> {
         let name = self.get_workspace(workspace)?;
         let capture = match self.state.workspaces.get(name.as_str()) {
-            Some(ws) => ws.capture.get(),
+            Some(ws) => ws.may_capture.get(),
             None => self.state.default_workspace_capture.get(),
         };
         self.respond(Response::GetWorkspaceCapture { capture });
@@ -669,7 +669,8 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let name = self.get_workspace(workspace)?;
         if let Some(ws) = self.state.workspaces.get(name.as_str()) {
-            ws.capture.set(capture);
+            ws.may_capture.set(capture);
+            ws.update_has_captures();
             ws.output.get().schedule_update_render_data();
             self.state.damage();
         }

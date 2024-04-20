@@ -451,6 +451,7 @@ fn create_dummy_output(state: &Rc<State>) {
         update_render_data_scheduled: Cell::new(false),
         screencasts: Default::default(),
         hardware_cursor_needs_render: Cell::new(false),
+        screencopies: Default::default(),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
@@ -467,7 +468,8 @@ fn create_dummy_output(state: &Rc<State>) {
         visible_on_desired_output: Default::default(),
         desired_output: CloneCell::new(dummy_output.global.output_id.clone()),
         jay_workspaces: Default::default(),
-        capture: Cell::new(false),
+        may_capture: Cell::new(false),
+        has_capture: Cell::new(false),
         title_texture: Cell::new(None),
         attention_requests: Default::default(),
     });

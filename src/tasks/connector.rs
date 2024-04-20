@@ -148,6 +148,7 @@ impl ConnectorHandler {
             screencasts: Default::default(),
             update_render_data_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
+            screencopies: Default::default(),
         });
         self.state
             .add_output_scale(on.global.persistent.scale.get());
@@ -234,6 +235,9 @@ impl ConnectorHandler {
         let screencasts: Vec<_> = on.screencasts.lock().values().cloned().collect();
         for sc in screencasts {
             sc.do_destroy();
+        }
+        for (_, sc) in on.screencopies.lock().drain() {
+            sc.send_failed();
         }
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
