@@ -437,6 +437,9 @@ impl Input {
                 c.remove_mapping();
             }
         }
+        if let Some(v) = self.calibration_matrix {
+            c.set_calibration_matrix(v);
+        }
     }
 }
 

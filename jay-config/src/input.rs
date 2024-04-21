@@ -80,6 +80,13 @@ impl InputDevice {
         get!().set_transform_matrix(self, matrix);
     }
 
+    /// Sets the calibration matrix of the device.
+    ///
+    /// This corresponds to the libinput setting of the same name.
+    pub fn set_calibration_matrix(self, matrix: [[f32; 3]; 2]) {
+        get!().set_calibration_matrix(self, matrix);
+    }
+
     /// Returns the name of the device.
     pub fn name(self) -> String {
         get!(String::new()).device_name(self)

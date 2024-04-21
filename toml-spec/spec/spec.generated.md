@@ -1768,6 +1768,21 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `calibration-matrix` (optional):
+
+  The calibration matrix of the device. This matrix should be 2x3.
+  
+  See the libinput documentation for more details.
+  
+  - Example: To flip the device 90 degrees:
+  
+    ```toml
+    [[inputs]]
+    calibration-matrix = [[0, 1, 0], [-1, 0, 1]]
+    ```
+
+  The value of this field should be an array of arrays of numbers.
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`

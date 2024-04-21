@@ -24,14 +24,18 @@ pub struct JayInput {
     pub id: JayInputId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
+const CALIBRATION_MATRIX_SINCE: Version = Version(4);
+
 impl JayInput {
-    pub fn new(id: JayInputId, client: &Rc<Client>) -> Self {
+    pub fn new(id: JayInputId, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         }
     }
 
@@ -135,6 +139,19 @@ impl JayInput {
                     self_id: self.id,
                     id: data.id.raw(),
                     output: &output.connector.name,
+                });
+            }
+        }
+        if self.version >= CALIBRATION_MATRIX_SINCE {
+            if let Some(m) = dev.calibration_matrix() {
+                self.client.event(CalibrationMatrix {
+                    self_id: self.id,
+                    m00: m[0][0],
+                    m01: m[0][1],
+                    m02: m[0][2],
+                    m10: m[1][0],
+                    m11: m[1][1],
+                    m12: m[1][2],
                 });
             }
         }
@@ -424,11 +441,24 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn set_calibration_matrix(
+        &self,
+        req: SetCalibrationMatrix,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            dev.device
+                .set_calibration_matrix([[req.m00, req.m01, req.m02], [req.m10, req.m11, req.m12]]);
+            Ok(())
+        })
+    }
 }
 
 object_base! {
     self = JayInput;
-    version = Version(1);
+    version = self.version;
 }
 
 impl Object for JayInput {}

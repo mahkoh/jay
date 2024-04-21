@@ -24,6 +24,7 @@ use {
                     AXIS_STOP_SINCE_VERSION, AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED,
                     POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
                 },
+                wl_touch::WlTouch,
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
                 Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, CHANGE_TREE,
@@ -31,6 +32,7 @@ use {
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
         object::Version,
+        rect::Rect,
         state::DeviceHandlerData,
         tree::{Direction, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, hash_map_ext::HashMapExt, smallmap::SmallMap},
@@ -54,6 +56,7 @@ pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     gesture_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    touch_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
@@ -109,6 +112,14 @@ impl NodeSeatState {
 
     pub(super) fn remove_tablet_tool_focus(&self, tool: &TabletTool) {
         self.tablet_tool_foci.remove(&tool.id);
+    }
+
+    pub(super) fn touch_begin(&self, seat: &Rc<WlSeatGlobal>) {
+        self.touch_foci.insert(seat.id, seat.clone());
+    }
+
+    pub(super) fn touch_end(&self, seat: &WlSeatGlobal) {
+        self.touch_foci.remove(&seat.id);
     }
 
     pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
@@ -184,6 +195,9 @@ impl NodeSeatState {
         while let Some((_, pad)) = self.tablet_pad_foci.pop() {
             pad.pad_owner.focus_root(&pad);
         }
+        while let Some((_, seat)) = self.touch_foci.pop() {
+            seat.touch_owner.cancel(&seat);
+        }
         self.release_kb_focus2(focus_last);
     }
 
@@ -230,7 +244,11 @@ impl WlSeatGlobal {
             | InputEvent::TabletPadButton { time_usec, .. }
             | InputEvent::TabletPadModeSwitch { time_usec, .. }
             | InputEvent::TabletPadRing { time_usec, .. }
-            | InputEvent::TabletPadStrip { time_usec, .. } => {
+            | InputEvent::TabletPadStrip { time_usec, .. }
+            | InputEvent::TouchDown { time_usec, .. }
+            | InputEvent::TouchUp { time_usec, .. }
+            | InputEvent::TouchMotion { time_usec, .. }
+            | InputEvent::TouchCancel { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for notification in self.idle_notifications.lock().drain_values() {
@@ -243,7 +261,8 @@ impl WlSeatGlobal {
             | InputEvent::AxisStop { .. }
             | InputEvent::Axis120 { .. }
             | InputEvent::TabletToolAdded { .. }
-            | InputEvent::TabletToolRemoved { .. } => {}
+            | InputEvent::TabletToolRemoved { .. }
+            | InputEvent::TouchFrame => {}
         }
         match event {
             InputEvent::ConnectorPosition { .. }
@@ -274,6 +293,11 @@ impl WlSeatGlobal {
             InputEvent::TabletPadModeSwitch { .. } => {}
             InputEvent::TabletPadRing { .. } => {}
             InputEvent::TabletPadStrip { .. } => {}
+            InputEvent::TouchDown { .. } => {}
+            InputEvent::TouchUp { .. } => {}
+            InputEvent::TouchMotion { .. } => {}
+            InputEvent::TouchCancel { .. } => {}
+            InputEvent::TouchFrame => {}
         }
         match event {
             InputEvent::Key {
@@ -407,6 +431,21 @@ impl WlSeatGlobal {
                 source,
                 position,
             } => self.tablet_event_pad_strip(pad, strip, source, position, time_usec),
+            InputEvent::TouchDown {
+                time_usec,
+                id,
+                x_normed,
+                y_normed,
+            } => self.touch_down(time_usec, id, dev.get_rect(&self.state), x_normed, y_normed),
+            InputEvent::TouchUp { time_usec, id } => self.touch_up(time_usec, id),
+            InputEvent::TouchMotion {
+                time_usec,
+                id,
+                x_normed,
+                y_normed,
+            } => self.touch_motion(time_usec, id, dev.get_rect(&self.state), x_normed, y_normed),
+            InputEvent::TouchCancel { time_usec, id } => self.touch_cancel(time_usec, id),
+            InputEvent::TouchFrame => self.touch_frame(),
         }
     }
 
@@ -613,6 +652,58 @@ impl WlSeatGlobal {
         }
     }
 
+    fn touch_down(
+        self: &Rc<Self>,
+        time_usec: u64,
+        id: i32,
+        rect: Rect,
+        x_normed: Fixed,
+        y_normed: Fixed,
+    ) {
+        self.cursor_group().deactivate();
+        let x = Fixed::from_f64(rect.x1() as f64 + rect.width() as f64 * x_normed.to_f64());
+        let y = Fixed::from_f64(rect.y1() as f64 + rect.height() as f64 * y_normed.to_f64());
+        self.state.for_each_seat_tester(|t| {
+            t.send_touch_down(self.id, time_usec, id, x, y);
+        });
+        self.touch_owner.down(self, time_usec, id, x, y);
+    }
+
+    fn touch_up(self: &Rc<Self>, time_usec: u64, id: i32) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_touch_up(self.id, time_usec, id);
+        });
+        self.touch_owner.up(self, time_usec, id);
+    }
+
+    fn touch_motion(
+        self: &Rc<Self>,
+        time_usec: u64,
+        id: i32,
+        rect: Rect,
+        x_normed: Fixed,
+        y_normed: Fixed,
+    ) {
+        self.cursor_group().deactivate();
+        let x = Fixed::from_f64(rect.x1() as f64 + rect.width() as f64 * x_normed.to_f64());
+        let y = Fixed::from_f64(rect.y1() as f64 + rect.height() as f64 * y_normed.to_f64());
+        self.state.for_each_seat_tester(|t| {
+            t.send_touch_motion(self.id, time_usec, id, x, y);
+        });
+        self.touch_owner.motion(self, time_usec, id, x, y);
+    }
+
+    fn touch_cancel(self: &Rc<Self>, time_usec: u64, id: i32) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_touch_cancel(self.id, time_usec, id);
+        });
+        self.touch_owner.cancel(self);
+    }
+
+    fn touch_frame(self: &Rc<Self>) {
+        self.touch_owner.frame(self);
+    }
+
     pub(super) fn key_event<F>(
         self: &Rc<Self>,
         time_usec: u64,
@@ -744,7 +835,7 @@ impl WlSeatGlobal {
         self.kb_owner.set_kb_node(self, node);
     }
 
-    fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
+    pub(super) fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlSeat>),
     {
@@ -790,6 +881,18 @@ impl WlSeatGlobal {
             let keyboards = seat.keyboards.lock();
             for keyboard in keyboards.values() {
                 f(keyboard);
+            }
+        })
+    }
+
+    fn for_each_touch<C>(&self, ver: Version, client: ClientId, mut f: C)
+    where
+        C: FnMut(&Rc<WlTouch>),
+    {
+        self.for_each_seat(ver, client, |seat| {
+            let touches = seat.touches.lock();
+            for touch in touches.values() {
+                f(touch);
             }
         })
     }
@@ -867,6 +970,16 @@ impl WlSeatGlobal {
             f(p);
         });
         // client.flush();
+    }
+
+    pub fn surface_touch_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
+    where
+        F: FnMut(&Rc<WlTouch>),
+    {
+        let client = &surface.client;
+        self.for_each_touch(ver, client.id, |p| {
+            f(p);
+        });
     }
 
     fn cursor_moved(self: &Rc<Self>, time_usec: u64) {
@@ -1130,6 +1243,53 @@ impl WlSeatGlobal {
         self.surface_kb_event(Version::ALL, surface, |k| {
             k.on_mods_changed(serial, surface.id, kb_state)
         });
+    }
+}
+
+// Touch callbacks
+impl WlSeatGlobal {
+    pub fn touch_down_surface(
+        self: &Rc<Self>,
+        surface: &WlSurface,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let serial = surface.client.next_serial();
+        let time = (time_usec / 1000) as _;
+        self.surface_touch_event(Version::ALL, surface, |t| {
+            t.send_down(serial, time, surface.id, id, x, y)
+        });
+        if let Some(node) = surface.get_focus_node(self.id) {
+            self.focus_node(node);
+        }
+    }
+
+    pub fn touch_up_surface(&self, surface: &WlSurface, time_usec: u64, id: i32) {
+        let serial = surface.client.next_serial();
+        let time = (time_usec / 1000) as _;
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_up(serial, time, id))
+    }
+
+    pub fn touch_motion_surface(
+        &self,
+        surface: &WlSurface,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let time = (time_usec / 1000) as _;
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_motion(time, id, x, y));
+    }
+
+    pub fn touch_frame_surface(&self, surface: &WlSurface) {
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_frame())
+    }
+
+    pub fn touch_cancel_surface(&self, surface: &WlSurface) {
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_cancel())
     }
 }
 

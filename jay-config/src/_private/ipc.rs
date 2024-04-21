@@ -502,6 +502,10 @@ pub enum ClientMessage<'a> {
         connector: Option<Connector>,
         mode: TearingMode,
     },
+    SetCalibrationMatrix {
+        device: InputDevice,
+        matrix: [[f32; 3]; 2],
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

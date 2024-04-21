@@ -16,17 +16,17 @@ use {
             libinput_event_get_gesture_event, libinput_event_get_keyboard_event,
             libinput_event_get_pointer_event, libinput_event_get_switch_event,
             libinput_event_get_tablet_pad_event, libinput_event_get_tablet_tool_event,
-            libinput_event_get_type, libinput_event_keyboard, libinput_event_keyboard_get_key,
-            libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec,
-            libinput_event_pointer, libinput_event_pointer_get_button,
-            libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
-            libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy,
-            libinput_event_pointer_get_dy_unaccelerated, libinput_event_pointer_get_scroll_value,
-            libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
-            libinput_event_pointer_has_axis, libinput_event_switch,
-            libinput_event_switch_get_switch, libinput_event_switch_get_switch_state,
-            libinput_event_switch_get_time_usec, libinput_event_tablet_pad,
-            libinput_event_tablet_pad_get_button_number,
+            libinput_event_get_touch_event, libinput_event_get_type, libinput_event_keyboard,
+            libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
+            libinput_event_keyboard_get_time_usec, libinput_event_pointer,
+            libinput_event_pointer_get_button, libinput_event_pointer_get_button_state,
+            libinput_event_pointer_get_dx, libinput_event_pointer_get_dx_unaccelerated,
+            libinput_event_pointer_get_dy, libinput_event_pointer_get_dy_unaccelerated,
+            libinput_event_pointer_get_scroll_value, libinput_event_pointer_get_scroll_value_v120,
+            libinput_event_pointer_get_time_usec, libinput_event_pointer_has_axis,
+            libinput_event_switch, libinput_event_switch_get_switch,
+            libinput_event_switch_get_switch_state, libinput_event_switch_get_time_usec,
+            libinput_event_tablet_pad, libinput_event_tablet_pad_get_button_number,
             libinput_event_tablet_pad_get_button_state, libinput_event_tablet_pad_get_mode,
             libinput_event_tablet_pad_get_mode_group, libinput_event_tablet_pad_get_ring_number,
             libinput_event_tablet_pad_get_ring_position, libinput_event_tablet_pad_get_ring_source,
@@ -40,10 +40,12 @@ use {
             libinput_event_tablet_tool_get_tool,
             libinput_event_tablet_tool_get_wheel_delta_discrete,
             libinput_event_tablet_tool_get_x_transformed,
-            libinput_event_tablet_tool_get_y_transformed, libinput_tablet_tool,
-            libinput_tablet_tool_get_serial, libinput_tablet_tool_get_tool_id,
-            libinput_tablet_tool_get_type, libinput_tablet_tool_get_user_data,
-            libinput_tablet_tool_set_user_data,
+            libinput_event_tablet_tool_get_y_transformed, libinput_event_touch,
+            libinput_event_touch_get_seat_slot, libinput_event_touch_get_time_usec,
+            libinput_event_touch_get_x_transformed, libinput_event_touch_get_y_transformed,
+            libinput_tablet_tool, libinput_tablet_tool_get_serial,
+            libinput_tablet_tool_get_tool_id, libinput_tablet_tool_get_type,
+            libinput_tablet_tool_get_user_data, libinput_tablet_tool_set_user_data,
         },
     },
     std::marker::PhantomData,
@@ -86,6 +88,11 @@ pub struct LibInputEventTabletPad<'a> {
 
 pub struct LibInputTabletTool<'a> {
     pub(super) tool: *mut libinput_tablet_tool,
+    pub(super) _phantom: PhantomData<&'a ()>,
+}
+
+pub struct LibInputEventTouch<'a> {
+    pub(super) event: *mut libinput_event_touch,
     pub(super) _phantom: PhantomData<&'a ()>,
 }
 
@@ -154,6 +161,11 @@ impl<'a> LibInputEvent<'a> {
         tablet_pad_event,
         LibInputEventTabletPad,
         libinput_event_get_tablet_pad_event
+    );
+    converter!(
+        touch_event,
+        LibInputEventTouch,
+        libinput_event_get_touch_event
     );
 }
 
@@ -465,5 +477,31 @@ impl<'a> LibInputEventTabletPad<'a> {
             group: unsafe { libinput_event_tablet_pad_get_mode_group(self.event) },
             _phantom: Default::default(),
         }
+    }
+}
+
+impl<'a> LibInputEventTouch<'a> {
+    pub fn seat_slot(&self) -> i32 {
+        unsafe { libinput_event_touch_get_seat_slot(self.event) }
+    }
+
+    // pub fn x(&self) -> f64 {
+    //     unsafe { libinput_event_touch_get_x(self.event) }
+    // }
+    //
+    // pub fn y(&self) -> f64 {
+    //     unsafe { libinput_event_touch_get_y(self.event) }
+    // }
+
+    pub fn x_transformed(&self, width: u32) -> f64 {
+        unsafe { libinput_event_touch_get_x_transformed(self.event, width) }
+    }
+
+    pub fn y_transformed(&self, height: u32) -> f64 {
+        unsafe { libinput_event_touch_get_y_transformed(self.event, height) }
+    }
+
+    pub fn time_usec(&self) -> u64 {
+        unsafe { libinput_event_touch_get_time_usec(self.event) }
     }
 }

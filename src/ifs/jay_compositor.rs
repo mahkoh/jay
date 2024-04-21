@@ -66,7 +66,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        3
+        4
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -336,7 +336,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn get_input(&self, req: GetInput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let sc = Rc::new(JayInput::new(req.id, &self.client));
+        let sc = Rc::new(JayInput::new(req.id, &self.client, self.version));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
         Ok(())

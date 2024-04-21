@@ -468,6 +468,46 @@ impl JaySeatEvents {
             ring,
         });
     }
+
+    pub fn send_touch_down(&self, seat: SeatId, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
+        self.client.event(TouchDown {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            id,
+            x,
+            y,
+        });
+    }
+
+    pub fn send_touch_up(&self, seat: SeatId, time_usec: u64, id: i32) {
+        self.client.event(TouchUp {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            id,
+        });
+    }
+
+    pub fn send_touch_motion(&self, seat: SeatId, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
+        self.client.event(TouchMotion {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            id,
+            x,
+            y,
+        });
+    }
+
+    pub fn send_touch_cancel(&self, seat: SeatId, time_usec: u64, id: i32) {
+        self.client.event(TouchCancel {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            id,
+        });
+    }
 }
 
 impl JaySeatEventsRequestHandler for JaySeatEvents {

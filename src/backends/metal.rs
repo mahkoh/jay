@@ -376,6 +376,7 @@ struct InputDeviceProperties {
     drag_enabled: Cell<Option<bool>>,
     drag_lock_enabled: Cell<Option<bool>>,
     natural_scrolling_enabled: Cell<Option<bool>>,
+    calibration_matrix: Cell<Option<[[f32; 3]; 2]>>,
 }
 
 #[derive(Clone)]
@@ -436,6 +437,9 @@ impl MetalInputDevice {
         if let Some(enabled) = self.desired.natural_scrolling_enabled.get() {
             self.set_natural_scrolling_enabled(enabled);
         }
+        if let Some(lh) = self.desired.calibration_matrix.get() {
+            self.set_calibration_matrix(lh);
+        }
         self.fetch_effective();
     }
 
@@ -464,6 +468,11 @@ impl MetalInputDevice {
             self.effective
                 .natural_scrolling_enabled
                 .set(Some(device.natural_scrolling_enabled()));
+        }
+        if device.has_calibration_matrix() {
+            self.effective
+                .calibration_matrix
+                .set(Some(device.get_calibration_matrix()));
         }
     }
 
@@ -720,6 +729,22 @@ impl InputDevice for MetalInputDevice {
             rings,
             groups,
         }))
+    }
+
+    fn calibration_matrix(&self) -> Option<[[f32; 3]; 2]> {
+        self.effective.calibration_matrix.get()
+    }
+
+    fn set_calibration_matrix(&self, m: [[f32; 3]; 2]) {
+        self.desired.calibration_matrix.set(Some(m));
+        if let Some(dev) = self.inputdev.get() {
+            if dev.device().has_calibration_matrix() {
+                dev.device().set_calibration_matrix(m);
+                self.effective
+                    .calibration_matrix
+                    .set(Some(dev.device().get_calibration_matrix()));
+            }
+        }
     }
 }
 

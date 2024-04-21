@@ -3,6 +3,7 @@
 - Add fine-grained damage tracking.
 - Add support for adaptive sync.
 - Add support for tearing.
+- Add support for touch input.
 
 # 1.4.0 (2024-07-07)
 

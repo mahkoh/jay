@@ -40,6 +40,12 @@ pub enum InputParserError {
     TwoColumns,
     #[error("Transform matrix entries must be floats")]
     Float,
+    #[error("Calibration matrix must have exactly two rows")]
+    CaliTwoRows,
+    #[error("Calibration matrix must have exactly three columns")]
+    CaliThreeColumns,
+    #[error("Calibration matrix entries must be floats")]
+    CaliFloat,
 }
 
 pub struct InputParser<'a> {
@@ -80,6 +86,7 @@ impl<'a> Parser for InputParser<'a> {
                 on_converted_to_tablet_val,
                 output_val,
                 remove_mapping,
+                calibration_matrix,
             ),
         ) = ext.extract((
             (
@@ -103,6 +110,7 @@ impl<'a> Parser for InputParser<'a> {
                 opt(val("on-converted-to-tablet")),
                 opt(val("output")),
                 recover(opt(bol("remove-mapping"))),
+                recover(opt(val("calibration-matrix"))),
             ),
         ))?;
         let accel_profile = match accel_profile {
@@ -214,6 +222,16 @@ impl<'a> Parser for InputParser<'a> {
                 output = Some(None);
             }
         }
+        let calibration_matrix = match calibration_matrix {
+            None => None,
+            Some(matrix) => match matrix.parse(&mut CalibrationMatrixParser) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse calibration matrix: {}", self.cx.error(e));
+                    None
+                }
+            },
+        };
         Ok(Input {
             tag: tag.despan_into(),
             match_: match_val.parse_map(&mut InputMatchParser(self.cx))?,
@@ -229,6 +247,7 @@ impl<'a> Parser for InputParser<'a> {
             keymap,
             switch_actions,
             output,
+            calibration_matrix,
         })
     }
 }
@@ -309,5 +328,47 @@ impl Parser for TransformMatrixRowParser {
             _ => Err(InputParserError::Float.spanned(v.span)),
         };
         Ok([extract(&array[0])?, extract(&array[1])?])
+    }
+}
+
+struct CalibrationMatrixParser;
+
+impl Parser for CalibrationMatrixParser {
+    type Value = [[f32; 3]; 2];
+    type Error = InputParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Array];
+
+    fn parse_array(&mut self, span: Span, array: &[Spanned<Value>]) -> ParseResult<Self> {
+        if array.len() != 2 {
+            return Err(InputParserError::CaliTwoRows.spanned(span));
+        }
+        Ok([
+            array[0].parse(&mut CalibrationMatrixRowParser)?,
+            array[1].parse(&mut CalibrationMatrixRowParser)?,
+        ])
+    }
+}
+
+struct CalibrationMatrixRowParser;
+
+impl Parser for CalibrationMatrixRowParser {
+    type Value = [f32; 3];
+    type Error = InputParserError;
+    const EXPECTED: &'static [DataType] = &[DataType::Array];
+
+    fn parse_array(&mut self, span: Span, array: &[Spanned<Value>]) -> ParseResult<Self> {
+        if array.len() != 3 {
+            return Err(InputParserError::CaliThreeColumns.spanned(span));
+        }
+        let extract = |v: &Spanned<Value>| match v.value {
+            Value::Float(f) => Ok(f as f32),
+            Value::Integer(f) => Ok(f as _),
+            _ => Err(InputParserError::CaliFloat.spanned(v.span)),
+        };
+        Ok([
+            extract(&array[0])?,
+            extract(&array[1])?,
+            extract(&array[2])?,
+        ])
     }
 }

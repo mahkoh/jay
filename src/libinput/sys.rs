@@ -30,6 +30,8 @@ pub struct libinput_tablet_pad_mode_group(u8);
 pub struct libinput_tablet_tool(u8);
 // #[repr(transparent)]
 // pub struct libinput_tablet_pad(u8);
+#[repr(transparent)]
+pub struct libinput_event_touch(u8);
 
 #[link(name = "input")]
 extern "C" {
@@ -357,6 +359,29 @@ extern "C" {
     //     group: *mut libinput_tablet_pad_mode_group,
     //     button: c::c_uint,
     // ) -> c::c_int;
+
+    pub fn libinput_event_get_touch_event(event: *mut libinput_event) -> *mut libinput_event_touch;
+    pub fn libinput_event_touch_get_seat_slot(event: *mut libinput_event_touch) -> i32;
+    pub fn libinput_event_touch_get_time_usec(event: *mut libinput_event_touch) -> u64;
+    // pub fn libinput_event_touch_get_x(event: *mut libinput_event_touch) -> f64;
+    pub fn libinput_event_touch_get_x_transformed(
+        event: *mut libinput_event_touch,
+        width: u32,
+    ) -> f64;
+    // pub fn libinput_event_touch_get_y(event: *mut libinput_event_touch) -> f64;
+    pub fn libinput_event_touch_get_y_transformed(
+        event: *mut libinput_event_touch,
+        height: u32,
+    ) -> f64;
+    pub fn libinput_device_config_calibration_has_matrix(device: *mut libinput_device) -> c::c_int;
+    pub fn libinput_device_config_calibration_set_matrix(
+        device: *mut libinput_device,
+        matrix: *const [f32; 6],
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_calibration_get_matrix(
+        device: *mut libinput_device,
+        matrix: *mut [f32; 6],
+    ) -> c::c_int;
 }
 
 #[repr(C)]
