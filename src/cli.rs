@@ -120,11 +120,23 @@ pub struct IdleSetArgs {
     pub interval: Vec<String>,
 }
 
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, PartialEq)]
+pub enum ScreenshotFormat {
+    /// The PNG image format.
+    #[default]
+    Png,
+    /// The QOI image format.
+    Qoi,
+}
+
 #[derive(Args, Debug)]
 pub struct ScreenshotArgs {
+    /// The format to use for the image.
+    #[clap(value_enum, long, default_value_t)]
+    pub format: ScreenshotFormat,
     /// The filename of the saved screenshot
     ///
-    /// If no filename is given, the screenshot will be saved under %Y-%m-%d-%H%M%S_jay.qoi
+    /// If no filename is given, the screenshot will be saved under %Y-%m-%d-%H%M%S_jay.<ext>
     /// in the current directory.
     ///
     /// The filename can contain the usual strftime parameters.
