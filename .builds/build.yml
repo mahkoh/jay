@@ -4,7 +4,7 @@ sources:
 tasks:
   - install: |
       sudo pacman -Syu --noconfirm
-      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon cmake
+      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon cmake shaderc
       rustup toolchain install stable
   - build: |
       cd jay
