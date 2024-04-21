@@ -1642,7 +1642,7 @@ Config:
         };
         """
     
-      on-graphics-initialized = { type = "exec", exec = "mako" }
+      on-graphics-initialized = { type = "exec", exec = { prog = "mako", privileged = true } }
     
       [shortcuts]
       alt-h = "focus-left"
@@ -1666,7 +1666,7 @@ Config:
       alt-shift-c = "close"
       alt-shift-f = "toggle-floating"
       Super_L = { type = "exec", exec = "alacritty" }
-      alt-p = { type = "exec", exec = "bemenu-run" }
+      alt-p = { type = "exec", exec = { prog = "bemenu-run", privileged = true } }
       alt-q = "quit"
       alt-shift-r = "reload-config-toml"
     
