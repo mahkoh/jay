@@ -679,7 +679,7 @@ This is the top-level table.
     };
     """
 
-  on-graphics-initialized = { type = "exec", exec = "mako" }
+  on-graphics-initialized = { type = "exec", exec = { prog = "mako", privileged = true } }
 
   [shortcuts]
   alt-h = "focus-left"
@@ -703,7 +703,7 @@ This is the top-level table.
   alt-shift-c = "close"
   alt-shift-f = "toggle-floating"
   Super_L = { type = "exec", exec = "alacritty" }
-  alt-p = { type = "exec", exec = [ "jay", "run-privileged", "bemenu-run" ] }
+  alt-p = { type = "exec", exec = { prog = "bemenu-run", privileged = true } }
   alt-q = "quit"
   alt-shift-r = "reload-config-toml"
 

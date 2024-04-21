@@ -79,7 +79,7 @@ alt-shift-f = "toggle-floating"
 # For example, the exec action spawns an application and has the exec field
 # that describes how to spawn the application.
 Super_L = { type = "exec", exec = "alacritty" }
-alt-p = { type = "exec", exec = [ "jay", "run-privileged", "bemenu-run" ] }
+alt-p = { type = "exec", exec = { prog: "bemenu-run", privileged = true } }
 
 # The quit action terminates the compositor.
 alt-q = "quit"

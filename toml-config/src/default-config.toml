@@ -31,7 +31,7 @@ alt-f = "focus-parent"
 alt-shift-c = "close"
 alt-shift-f = "toggle-floating"
 Super_L = { type = "exec", exec = "alacritty" }
-alt-p = { type = "exec", exec = [ "jau", "run-privileged", "bemenu-run" ] }
+alt-p = { type = "exec", exec = { prog = "bemenu-run", privileged = true } }
 alt-q = "quit"
 alt-shift-r = "reload-config-toml"
 
