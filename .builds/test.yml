@@ -4,7 +4,7 @@ sources:
 tasks:
   - install: |
       sudo pacman -Syu --noconfirm
-      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon xorg-xwayland adwaita-icon-theme libxcursor cmake
+      sudo pacman -S --noconfirm rustup libinput pango mesa libxkbcommon xorg-xwayland adwaita-icon-theme libxcursor cmake shaderc
       rustup toolchain install stable
   - configure: |
       sudo rmmod bochs
