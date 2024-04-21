@@ -130,6 +130,7 @@ pub struct State {
     pub node_ids: NodeIds,
     pub root: Rc<DisplayNode>,
     pub workspaces: CopyHashMap<String, Rc<WorkspaceNode>>,
+    pub builtin_output: Cell<Option<ConnectorId>>,
     pub dummy_output: CloneCell<Option<Rc<OutputNode>>>,
     pub backend_events: AsyncQueue<BackendEvent>,
     pub input_device_handlers: RefCell<AHashMap<InputDeviceId, InputDeviceData>>,

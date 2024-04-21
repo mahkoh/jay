@@ -133,7 +133,7 @@ Jay supports the following wayland protocols:
 | ext_session_lock_manager_v1             | 1                | Yes           |
 | ext_transient_seat_manager_v1           | 1[^ts_rejected]  | Yes           |
 | org_kde_kwin_server_decoration_manager  | 1                |               |
-| wl_compositor                           | 6[^no_touch]     |               |
+| wl_compositor                           | 6                |               |
 | wl_data_device_manager                  | 3                |               |
 | wl_drm                                  | 2                |               |
 | wl_output                               | 4                |               |
@@ -171,7 +171,6 @@ Jay supports the following wayland protocols:
 | zxdg_decoration_manager_v1              | 1                |               |
 | zxdg_output_manager_v1                  | 3                |               |
 
-[^no_touch]: Touch input is not supported.
 [^no_tearing]: Tearing screen updates are not supported.
 [^no_exclusive]: Exclusive zones are not supported.
 [^lsaccess]: Sandboxes can restrict access to this protocol.
@@ -182,5 +181,4 @@ Jay supports the following wayland protocols:
 The following features are currently not supported but might get implemented in the future:
 
 - Fine-grained damage tracking.
-- Touch support.
 - Tearing updates of fullscreen games.

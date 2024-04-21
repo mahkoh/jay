@@ -232,6 +232,23 @@ pub enum KeyState {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct TouchPosition {
+    pub x: Fixed,
+    pub y: Fixed,
+    pub x_transformed: Fixed,
+    pub y_transformed: Fixed,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum TouchEvent {
+    Down { pos: TouchPosition },
+    Up,
+    Motion { pos: TouchPosition },
+    Cancel,
+    Frame,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ScrollAxis {
     Horizontal = HORIZONTAL_SCROLL as _,
     Vertical = VERTICAL_SCROLL as _,
@@ -270,6 +287,12 @@ pub enum InputEvent {
         time_usec: u64,
         button: u32,
         state: KeyState,
+    },
+
+    Touch {
+        seat_slot: i32,
+        time_usec: u64,
+        event: TouchEvent,
     },
 
     AxisPx {

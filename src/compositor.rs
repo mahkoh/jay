@@ -156,6 +156,7 @@ fn start_compositor2(
         connector_ids: Default::default(),
         root: Rc::new(DisplayNode::new(node_ids.next())),
         workspaces: Default::default(),
+        builtin_output: Default::default(),
         dummy_output: Default::default(),
         node_ids,
         backend_events: AsyncQueue::new(),

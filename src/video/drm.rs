@@ -910,7 +910,7 @@ impl Drop for Change {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ConnectorType {
     Unknown(u32),
     VGA,

@@ -6,6 +6,7 @@ mod kb_owner;
 mod pointer_owner;
 pub mod tablet;
 pub mod text_input;
+mod touch_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
@@ -22,6 +23,7 @@ pub mod zwp_virtual_keyboard_v1;
 use {
     crate::{
         async_engine::SpawnedFuture,
+        backend::InputDeviceCapability,
         client::{Client, ClientError, ClientId},
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         fixed::Fixed,
@@ -52,6 +54,7 @@ use {
                     zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
                     zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
                 },
+                touch_owner::TouchOwnerHolder,
                 wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
@@ -80,7 +83,7 @@ use {
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
+            WlSeatId, WlTouchId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
             ZwpRelativePointerV1Id, ZwpTextInputV3Id,
         },
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
@@ -104,7 +107,6 @@ pub use {
 
 pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
-#[allow(dead_code)]
 const TOUCH: u32 = 4;
 
 #[allow(dead_code)]
@@ -148,6 +150,7 @@ pub struct WlSeatGlobal {
     pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
     keyboard_node: CloneCell<Rc<dyn Node>>,
+    touch_found_tree: RefCell<Vec<FoundNode>>,
     bindings: RefCell<AHashMap<ClientId, AHashMap<WlSeatId, Rc<WlSeat>>>>,
     x_data_devices: SmallMap<XIpcDeviceId, Rc<XIpcDevice>, 1>,
     data_devices: RefCell<AHashMap<ClientId, AHashMap<WlDataDeviceId, Rc<WlDataDevice>>>>,
@@ -174,6 +177,7 @@ pub struct WlSeatGlobal {
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
     gesture_owner: GestureOwnerHolder,
+    touch_owner: TouchOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
     shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
@@ -219,6 +223,7 @@ impl WlSeatGlobal {
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
             keyboard_node: CloneCell::new(state.root.clone()),
+            touch_found_tree: RefCell::new(vec![]),
             bindings: Default::default(),
             x_data_devices: Default::default(),
             data_devices: RefCell::new(Default::default()),
@@ -238,6 +243,7 @@ impl WlSeatGlobal {
             pointer_owner: Default::default(),
             kb_owner: Default::default(),
             gesture_owner: Default::default(),
+            touch_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
             shortcuts: Default::default(),
             queue_link: Default::default(),
@@ -839,6 +845,7 @@ impl WlSeatGlobal {
         mem::take(self.pointer_stack.borrow_mut().deref_mut());
         mem::take(self.found_tree.borrow_mut().deref_mut());
         self.keyboard_node.set(self.state.root.clone());
+        mem::take(self.touch_found_tree.borrow_mut().deref_mut());
         self.state
             .root
             .clone()
@@ -854,6 +861,7 @@ impl WlSeatGlobal {
         self.primary_selection.set(None);
         self.pointer_owner.clear();
         self.kb_owner.clear();
+        self.touch_owner.clear();
         *self.dropped_dnd.borrow_mut() = None;
         self.queue_link.take();
         self.tree_changed_handler.set(None);
@@ -883,13 +891,24 @@ impl WlSeatGlobal {
         client: &Rc<Client>,
         version: Version,
     ) -> Result<(), WlSeatError> {
+        let mut capabilities = POINTER | KEYBOARD;
+        let handlers = &self.state.input_device_handlers;
+        for (_, d) in handlers.borrow().iter() {
+            let dev = &d.data.device;
+            if dev.has_capability(InputDeviceCapability::Touch) {
+                capabilities |= TOUCH;
+                break;
+            }
+        }
         let obj = Rc::new(WlSeat {
             global: self.clone(),
             id,
             client: client.clone(),
+            capabilities,
             pointers: Default::default(),
             relative_pointers: Default::default(),
             keyboards: Default::default(),
+            touches: Default::default(),
             version,
             tracker: Default::default(),
         });
@@ -988,9 +1007,11 @@ pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,
     pub id: WlSeatId,
     pub client: Rc<Client>,
+    capabilities: u32,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
+    touches: CopyHashMap<WlTouchId, Rc<WlTouch>>,
     version: Version,
     tracker: Tracker<Self>,
 }
@@ -1001,7 +1022,7 @@ impl WlSeat {
     fn send_capabilities(self: &Rc<Self>) {
         self.client.event(Capabilities {
             self_id: self.id,
-            capabilities: POINTER | KEYBOARD,
+            capabilities: self.capabilities,
         })
     }
 
@@ -1053,10 +1074,23 @@ impl WlSeatRequestHandler for WlSeat {
     }
 
     fn get_touch(&self, req: GetTouch, slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let p = Rc::new(WlTouch::new(req.id, slf));
-        track!(self.client, p);
-        self.client.add_client_obj(&p)?;
-        Ok(())
+        if self.capabilities & TOUCH == 0 {
+            self.client.protocol_error(
+                self,
+                MISSING_CAPABILITY,
+                &format!(
+                    "wl_seat {} .get_touch called when no touch capability has existed",
+                    self.id
+                ),
+            );
+            Err(WlSeatError::MissingCapability("touch"))
+        } else {
+            let p = Rc::new(WlTouch::new(req.id, slf));
+            track!(self.client, p);
+            self.client.add_client_obj(&p)?;
+            self.touches.set(req.id, p);
+            Ok(())
+        }
     }
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -1093,6 +1127,7 @@ impl Object for WlSeat {
         self.pointers.clear();
         self.relative_pointers.clear();
         self.keyboards.clear();
+        self.touches.clear();
     }
 }
 
@@ -1106,6 +1141,8 @@ pub enum WlSeatError {
     IpcError(#[from] IpcError),
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
+    #[error("Seat is missing `{0}` capability")]
+    MissingCapability(&'static str),
     #[error("Data source has a toplevel attached")]
     OfferHasDrag,
 }

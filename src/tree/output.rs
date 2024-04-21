@@ -78,6 +78,7 @@ pub struct OutputNode {
 pub enum PointerType {
     Seat(SeatId),
     TabletTool(TabletToolId),
+    Touch(i32),
 }
 
 pub async fn output_render_data(state: Rc<State>) {
@@ -863,6 +864,30 @@ impl Node for OutputNode {
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_output(self, x, y);
+    }
+
+    fn node_on_touch_down(
+        self: Rc<Self>,
+        _seat: &Rc<WlSeatGlobal>,
+        _time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let id = PointerType::Touch(id);
+        self.pointer_move(id, x, y);
+        self.button(id);
+    }
+
+    fn node_on_touch_motion(
+        self: Rc<Self>,
+        _seat: &WlSeatGlobal,
+        _time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        self.pointer_move(PointerType::Touch(id), x, y);
     }
 
     fn node_on_button(

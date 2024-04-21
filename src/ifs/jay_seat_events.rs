@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{InputDeviceId, KeyState},
+        backend::{InputDeviceId, KeyState, TouchEvent},
         client::Client,
         fixed::Fixed,
         ifs::wl_seat::{
@@ -467,6 +467,55 @@ impl JaySeatEvents {
             input_device: pad.raw(),
             ring,
         });
+    }
+
+    pub fn send_touch(&self, seat: SeatId, time_usec: u64, id: i32, event: TouchEvent) {
+        match event {
+            TouchEvent::Down { pos } => {
+                self.client.event(TouchDown {
+                    self_id: self.id,
+                    seat: seat.raw(),
+                    time_usec,
+                    id,
+                    x: pos.x_transformed,
+                    y: pos.y_transformed,
+                });
+            }
+            TouchEvent::Up => {
+                self.client.event(TouchUp {
+                    self_id: self.id,
+                    seat: seat.raw(),
+                    time_usec,
+                    id,
+                });
+            }
+            TouchEvent::Motion { pos } => {
+                self.client.event(TouchMotion {
+                    self_id: self.id,
+                    seat: seat.raw(),
+                    time_usec,
+                    id,
+                    x: pos.x_transformed,
+                    y: pos.y_transformed,
+                });
+            }
+            TouchEvent::Frame => {
+                self.client.event(TouchFrame {
+                    self_id: self.id,
+                    seat: seat.raw(),
+                    time_usec,
+                    id,
+                });
+            }
+            TouchEvent::Cancel => {
+                self.client.event(TouchCancel {
+                    self_id: self.id,
+                    seat: seat.raw(),
+                    time_usec,
+                    id,
+                });
+            }
+        }
     }
 }
 
