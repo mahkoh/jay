@@ -1,6 +1,6 @@
 use {
     crate::{
-        cli::{GlobalArgs, ScreenshotArgs},
+        cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
         format::XRGB8888,
         tools::tool_client::{with_tool_client, Handle, ToolClient},
         utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
@@ -16,6 +16,7 @@ use {
     },
     chrono::Local,
     jay_algorithms::qoi::xrgb8888_encode_qoi,
+    png::{BitDepth, ColorType, Encoder, SrgbRenderingIntent},
     std::rc::Rc,
 };
 
@@ -55,19 +56,25 @@ async fn run(screenshot: Rc<Screenshot>) {
             fatal!("Could not take a screenshot: {}", e);
         }
     };
-    let data = buf_to_qoi(&DmaBufIds::default(), &buf);
-    let filename = screenshot
-        .args
-        .filename
-        .as_deref()
-        .unwrap_or("%Y-%m-%d-%H%M%S_jay.qoi");
-    let filename = Local::now().format(filename).to_string();
+    let format = screenshot.args.format;
+    let data = buf_to_bytes(&DmaBufIds::default(), &buf, format);
+    let filename = match &screenshot.args.filename {
+        Some(f) => f.clone(),
+        _ => {
+            let ext = match format {
+                ScreenshotFormat::Png => "png",
+                ScreenshotFormat::Qoi => "qoi",
+            };
+            format!("%Y-%m-%d-%H%M%S_jay.{ext}")
+        }
+    };
+    let filename = Local::now().format(&filename).to_string();
     if let Err(e) = std::fs::write(&filename, data) {
         fatal!("Could not write `{}`: {}", filename, ErrorFmt(e));
     }
 }
 
-pub fn buf_to_qoi(dma_buf_ids: &DmaBufIds, buf: &Dmabuf) -> Vec<u8> {
+pub fn buf_to_bytes(dma_buf_ids: &DmaBufIds, buf: &Dmabuf, format: ScreenshotFormat) -> Vec<u8> {
     let drm = match Drm::reopen(buf.drm_dev.raw(), false) {
         Ok(drm) => drm,
         Err(e) => {
@@ -107,5 +114,22 @@ pub fn buf_to_qoi(dma_buf_ids: &DmaBufIds, buf: &Dmabuf) -> Vec<u8> {
         }
     };
     let data = unsafe { bo_map.data() };
-    xrgb8888_encode_qoi(data, buf.width, buf.height, buf.stride)
+    if format == ScreenshotFormat::Qoi {
+        return xrgb8888_encode_qoi(data, buf.width, buf.height, buf.stride);
+    }
+
+    let mut out = vec![];
+    {
+        let mut image_data = Vec::with_capacity(data.len());
+        for i in 0..data.len() / 4 {
+            image_data.extend_from_slice(&[data[4 * i + 2], data[4 * i + 1], data[4 * i + 0], 255])
+        }
+        let mut encoder = Encoder::new(&mut out, buf.width, buf.height);
+        encoder.set_color(ColorType::Rgba);
+        encoder.set_depth(BitDepth::Eight);
+        encoder.set_srgb(SrgbRenderingIntent::Perceptual);
+        let mut writer = encoder.write_header().unwrap();
+        writer.write_image_data(&image_data).unwrap();
+    }
+    out
 }

@@ -1,6 +1,6 @@
 use {
     crate::{
-        cli::screenshot::buf_to_qoi,
+        cli::{screenshot::buf_to_bytes, ScreenshotFormat},
         client::Client,
         globals::GlobalBase,
         it::{
@@ -93,7 +93,11 @@ impl TestClient {
 
     pub async fn take_screenshot(&self, include_cursor: bool) -> Result<Vec<u8>, TestError> {
         let dmabuf = self.jc.take_screenshot(include_cursor).await?;
-        let qoi = buf_to_qoi(&self.server.state.dma_buf_ids, &dmabuf);
+        let qoi = buf_to_bytes(
+            &self.server.state.dma_buf_ids,
+            &dmabuf,
+            ScreenshotFormat::Qoi,
+        );
         Ok(qoi)
     }
 
