@@ -703,7 +703,7 @@ This is the top-level table.
   alt-shift-c = "close"
   alt-shift-f = "toggle-floating"
   Super_L = { type = "exec", exec = "alacritty" }
-  alt-p = { type = "exec", exec = "bemenu-run" }
+  alt-p = { type = "exec", exec = [ "jay", "run-privileged", "bemenu-run" ] }
   alt-q = "quit"
   alt-shift-r = "reload-config-toml"
 
