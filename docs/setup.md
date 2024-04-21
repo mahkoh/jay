@@ -13,6 +13,9 @@ The following libraries must be installed before compiling Jay:
 You must also have a C compiler (GCC or Clang) and the latest version of rust installed.
 You can install rust with [rustup](https://rustup.rs/).
 
+It is recommended that you install shaderc.
+Otherwise it will be built from source which can take several minutes.
+
 ## Runtime Dependencies
 
 Most of these dependencies are optional and will enable additional features.
