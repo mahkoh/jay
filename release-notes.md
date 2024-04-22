@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.1.0 (2024-04-22)
+
 - Screencasts now support window capture.
 - Screencasts now support workspace capture.
 - Add support for wp-alpha-modifier.

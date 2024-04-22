@@ -1,6 +1,6 @@
 [package]
 name = "jay-compositor"
-version = "1.0.3"
+version = "1.1.0"
 edition = "2021"
 build = "build/build.rs"
 license = "GPL-3.0-only"
@@ -22,8 +22,8 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
-jay-config = { version = "1.0.0", path = "jay-config" }
-jay-toml-config = { version = "0.1.0", path = "toml-config" }
+jay-config = { version = "1.1.0", path = "jay-config" }
+jay-toml-config = { version = "0.2.0", path = "toml-config" }
 jay-algorithms = { version = "0.1.0", path = "algorithms" }
 
 uapi = "0.2.13"
