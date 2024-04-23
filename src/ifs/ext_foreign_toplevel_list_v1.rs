@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_FOREIGN_TOPLEVEL_LIST},
         globals::{Global, GlobalName},
         ifs::{
             ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
@@ -145,8 +145,8 @@ impl Global for ExtForeignToplevelListV1Global {
         1
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_FOREIGN_TOPLEVEL_LIST
     }
 }
 

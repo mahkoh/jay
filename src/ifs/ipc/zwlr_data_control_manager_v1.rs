@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_DATA_CONTROL_MANAGER},
         globals::{Global, GlobalName},
         ifs::ipc::{
             zwlr_data_control_device_v1::{ZwlrDataControlDeviceV1, PRIMARY_SELECTION_SINCE},
@@ -111,8 +111,8 @@ impl Global for ZwlrDataControlManagerV1Global {
         2
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_DATA_CONTROL_MANAGER
     }
 }
 

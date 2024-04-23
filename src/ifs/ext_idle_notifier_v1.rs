@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_IDLE_NOTIFIER},
         globals::{Global, GlobalName},
         ifs::ext_idle_notification_v1::ExtIdleNotificationV1,
         leaks::Tracker,
@@ -117,8 +117,8 @@ impl Global for ExtIdleNotifierV1Global {
         1
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_IDLE_NOTIFIER
     }
 }
 

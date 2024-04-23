@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_SESSION_LOCK_MANAGER},
         globals::{Global, GlobalName},
         ifs::ext_session_lock_v1::ExtSessionLockV1,
         leaks::Tracker,
@@ -98,8 +98,8 @@ impl Global for ExtSessionLockManagerV1Global {
         1
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_SESSION_LOCK_MANAGER
     }
 }
 

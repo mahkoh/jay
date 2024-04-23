@@ -3,7 +3,7 @@ mod xwm;
 
 use {
     crate::{
-        client::ClientError,
+        client::{ClientCaps, ClientError},
         compositor::DISPLAY,
         forker::{ForkerError, ForkerProxy},
         ifs::{
@@ -171,7 +171,7 @@ async fn run(
         Rc::new(client1),
         uapi::getuid(),
         pid,
-        true,
+        ClientCaps::all(),
         true,
     );
     let client = match client {

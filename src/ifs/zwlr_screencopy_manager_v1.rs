@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_SCREENCOPY_MANAGER},
         globals::{Global, GlobalName},
         ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         leaks::Tracker,
@@ -59,8 +59,8 @@ impl Global for ZwlrScreencopyManagerV1Global {
         3
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_SCREENCOPY_MANAGER
     }
 }
 

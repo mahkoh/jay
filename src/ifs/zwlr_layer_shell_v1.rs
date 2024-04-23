@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_LAYER_SHELL},
         globals::{Global, GlobalName},
         ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
         leaks::Tracker,
@@ -110,8 +110,8 @@ impl Global for ZwlrLayerShellV1Global {
         4
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_LAYER_SHELL
     }
 }
 

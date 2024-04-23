@@ -43,6 +43,18 @@ mod error;
 mod objects;
 mod tasks;
 
+bitflags! {
+    ClientCaps: u32;
+        CAP_DATA_CONTROL_MANAGER     = 1 << 0,
+        CAP_VIRTUAL_KEYBOARD_MANAGER = 1 << 1,
+        CAP_FOREIGN_TOPLEVEL_LIST    = 1 << 2,
+        CAP_IDLE_NOTIFIER            = 1 << 3,
+        CAP_SESSION_LOCK_MANAGER     = 1 << 4,
+        CAP_JAY_COMPOSITOR           = 1 << 5,
+        CAP_LAYER_SHELL              = 1 << 6,
+        CAP_SCREENCOPY_MANAGER       = 1 << 7,
+}
+
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ClientId(u64);
 
@@ -101,7 +113,7 @@ impl Clients {
         id: ClientId,
         global: &Rc<State>,
         socket: Rc<OwnedFd>,
-        secure: bool,
+        caps: ClientCaps,
     ) -> Result<(), ClientError> {
         let (uid, pid) = {
             let mut cred = c::ucred {
@@ -120,7 +132,7 @@ impl Clients {
                 }
             }
         };
-        self.spawn2(id, global, socket, uid, pid, secure, false)?;
+        self.spawn2(id, global, socket, uid, pid, caps, false)?;
         Ok(())
     }
 
@@ -131,7 +143,7 @@ impl Clients {
         socket: Rc<OwnedFd>,
         uid: c::uid_t,
         pid: c::pid_t,
-        secure: bool,
+        caps: ClientCaps,
         is_xwayland: bool,
     ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new(Client {
@@ -145,7 +157,7 @@ impl Clients {
             shutdown: Default::default(),
             tracker: Default::default(),
             is_xwayland,
-            secure,
+            caps,
             last_enter_serial: Cell::new(0),
             pid_info: get_pid_info(uid, pid),
             serials: Default::default(),
@@ -165,13 +177,13 @@ impl Clients {
             data: data.clone(),
         };
         log::info!(
-            "Client {} connected, pid: {}, uid: {}, fd: {}, secure: {}, comm: {:?}",
+            "Client {} connected, pid: {}, uid: {}, fd: {}, comm: {:?}, caps: {:?}",
             id,
             pid,
             uid,
             client.data.socket.raw(),
-            secure,
             data.pid_info.comm,
+            caps,
         );
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
@@ -193,13 +205,15 @@ impl Clients {
         }
     }
 
-    pub fn broadcast<B>(&self, secure: bool, xwayland_only: bool, mut f: B)
+    pub fn broadcast<B>(&self, required_caps: ClientCaps, xwayland_only: bool, mut f: B)
     where
         B: FnMut(&Rc<Client>),
     {
         let clients = self.clients.borrow();
         for client in clients.values() {
-            if (!secure || client.data.secure) && (!xwayland_only || client.data.is_xwayland) {
+            if client.data.caps.contains(required_caps)
+                && (!xwayland_only || client.data.is_xwayland)
+            {
                 f(&client.data);
             }
         }
@@ -258,7 +272,7 @@ pub struct Client {
     shutdown: AsyncEvent,
     pub tracker: Tracker<Client>,
     pub is_xwayland: bool,
-    pub secure: bool,
+    pub caps: ClientCaps,
     pub last_enter_serial: Cell<u32>,
     pub pid_info: PidInfo,
     pub serials: RefCell<VecDeque<SerialRange>>,

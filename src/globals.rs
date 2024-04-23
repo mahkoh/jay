@@ -1,7 +1,7 @@
 use {
     crate::{
         backend::Backend,
-        client::Client,
+        client::{Client, ClientCaps},
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global,
             ext_idle_notifier_v1::ExtIdleNotifierV1Global,
@@ -113,8 +113,8 @@ pub trait Global: GlobalBase {
     fn singleton(&self) -> bool;
     fn version(&self) -> u32;
     fn break_loops(&self) {}
-    fn secure(&self) -> bool {
-        false
+    fn required_caps(&self) -> ClientCaps {
+        ClientCaps::none()
     }
     fn xwayland_only(&self) -> bool {
         false
@@ -215,7 +215,7 @@ impl Globals {
 
     fn insert(&self, state: &State, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
-        self.broadcast(state, global.secure(), global.xwayland_only(), |r| {
+        self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
             r.send_global(&global)
         });
     }
@@ -223,11 +223,13 @@ impl Globals {
     pub fn get(
         &self,
         name: GlobalName,
-        allow_secure: bool,
+        client_caps: ClientCaps,
         allow_xwayland_only: bool,
     ) -> Result<Rc<dyn Global>, GlobalsError> {
         let global = self.take(name, false)?;
-        if (global.secure() && !allow_secure) || (global.xwayland_only() && !allow_xwayland_only) {
+        if client_caps.not_contains(global.required_caps())
+            || (global.xwayland_only() && !allow_xwayland_only)
+        {
             return Err(GlobalsError::GlobalDoesNotExist(name));
         }
         Ok(global)
@@ -236,7 +238,7 @@ impl Globals {
     pub fn remove<T: WaylandGlobal>(&self, state: &State, global: &T) -> Result<(), GlobalsError> {
         let _global = self.take(global.name(), true)?;
         global.remove(self);
-        self.broadcast(state, global.secure(), global.xwayland_only(), |r| {
+        self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
             r.send_global_remove(global.name())
         });
         Ok(())
@@ -247,14 +249,16 @@ impl Globals {
     }
 
     pub fn notify_all(&self, registry: &Rc<WlRegistry>) {
-        let secure = registry.client.secure;
+        let caps = registry.client.caps;
         let xwayland = registry.client.is_xwayland;
         let globals = self.registry.lock();
         macro_rules! emit {
             ($singleton:expr) => {
                 for global in globals.values() {
                     if global.singleton() == $singleton {
-                        if (secure || !global.secure()) && (xwayland || !global.xwayland_only()) {
+                        if caps.contains(global.required_caps())
+                            && (xwayland || !global.xwayland_only())
+                        {
                             registry.send_global(global);
                         }
                     }
@@ -268,11 +272,11 @@ impl Globals {
     fn broadcast<F: Fn(&Rc<WlRegistry>)>(
         &self,
         state: &State,
-        secure: bool,
+        required_caps: ClientCaps,
         xwayland_only: bool,
         f: F,
     ) {
-        state.clients.broadcast(secure, xwayland_only, |c| {
+        state.clients.broadcast(required_caps, xwayland_only, |c| {
             let registries = c.lock_registries();
             for registry in registries.values() {
                 f(registry);
