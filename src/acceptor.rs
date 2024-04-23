@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::SpawnedFuture,
-        client::ClientCaps,
+        client::{ClientCaps, CAP_LAYER_SHELL},
         state::State,
         utils::{errorfmt::ErrorFmt, oserror::OsError, xrd::xrd},
     },
@@ -154,7 +154,7 @@ impl Acceptor {
             state.eng.spawn(accept(
                 acc.socket.insecure.clone(),
                 state.clone(),
-                ClientCaps::none(),
+                CAP_LAYER_SHELL,
             )),
         ];
         state.acceptor.set(Some(acc.clone()));

@@ -122,48 +122,49 @@ Jay's shortcut system allows you to execute an action when a key is pressed and 
 
 Jay supports the following wayland protocols:
 
-| Global                                  | Version          | Privileged |
-|-----------------------------------------|:-----------------|------------|
-| ext_foreign_toplevel_list_v1            | 1                | Yes        |
-| ext_idle_notifier_v1                    | 1                | Yes        |
-| ext_session_lock_manager_v1             | 1                | Yes        |
-| org_kde_kwin_server_decoration_manager  | 1                |            |
-| wl_compositor                           | 6[^no_touch]     |            |
-| wl_data_device_manager                  | 3                |            |
-| wl_drm                                  | 2                |            |
-| wl_output                               | 4                |            |
-| wl_seat                                 | 9                |            |
-| wl_shm                                  | 2                |            |
-| wl_subcompositor                        | 1                |            |
-| wp_alpha_modifier_v1                    | 1                |            |
-| wp_content_type_manager_v1              | 1                |            |
-| wp_cursor_shape_manager_v1              | 1                |            |
-| wp_fractional_scale_manager_v1          | 1                |            |
-| wp_linux_drm_syncobj_manager_v1         | 1                |            |
-| wp_presentation                         | 1                |            |
-| wp_single_pixel_buffer_manager_v1       | 1                |            |
-| wp_tearing_control_manager_v1           | 1[^no_tearing]   |            |
-| wp_viewporter                           | 1                |            |
-| xdg_activation_v1                       | 1                |            |
-| xdg_toplevel_drag_manager_v1            | 1                |            |
-| xdg_wm_base                             | 6                |            |
-| zwlr_data_control_manager_v1            | 2                | Yes        |
-| zwlr_layer_shell_v1                     | 4[^no_exclusive] | Yes        |
-| zwlr_screencopy_manager_v1              | 3                | Yes        |
-| zwp_idle_inhibit_manager_v1             | 1                |            |
-| zwp_input_method_manager_v2             | 1                | Yes        |
-| zwp_linux_dmabuf_v1                     | 5                |            |
-| zwp_pointer_constraints_v1              | 1                |            |
-| zwp_primary_selection_device_manager_v1 | 1                |            |
-| zwp_relative_pointer_manager_v1         | 1                |            |
-| zwp_text_input_manager_v3               | 1                |            |
-| zwp_virtual_keyboard_manager_v1         | 1                | Yes        |
-| zxdg_decoration_manager_v1              | 1                |            |
-| zxdg_output_manager_v1                  | 3                |            |
+| Global                                  | Version          | Privileged    |
+|-----------------------------------------|:-----------------|---------------|
+| ext_foreign_toplevel_list_v1            | 1                | Yes           |
+| ext_idle_notifier_v1                    | 1                | Yes           |
+| ext_session_lock_manager_v1             | 1                | Yes           |
+| org_kde_kwin_server_decoration_manager  | 1                |               |
+| wl_compositor                           | 6[^no_touch]     |               |
+| wl_data_device_manager                  | 3                |               |
+| wl_drm                                  | 2                |               |
+| wl_output                               | 4                |               |
+| wl_seat                                 | 9                |               |
+| wl_shm                                  | 2                |               |
+| wl_subcompositor                        | 1                |               |
+| wp_alpha_modifier_v1                    | 1                |               |
+| wp_content_type_manager_v1              | 1                |               |
+| wp_cursor_shape_manager_v1              | 1                |               |
+| wp_fractional_scale_manager_v1          | 1                |               |
+| wp_linux_drm_syncobj_manager_v1         | 1                |               |
+| wp_presentation                         | 1                |               |
+| wp_single_pixel_buffer_manager_v1       | 1                |               |
+| wp_tearing_control_manager_v1           | 1[^no_tearing]   |               |
+| wp_viewporter                           | 1                |               |
+| xdg_activation_v1                       | 1                |               |
+| xdg_toplevel_drag_manager_v1            | 1                |               |
+| xdg_wm_base                             | 6                |               |
+| zwlr_data_control_manager_v1            | 2                | Yes           |
+| zwlr_layer_shell_v1                     | 4[^no_exclusive] | No[^lsaccess] |
+| zwlr_screencopy_manager_v1              | 3                | Yes           |
+| zwp_idle_inhibit_manager_v1             | 1                |               |
+| zwp_input_method_manager_v2             | 1                | Yes           |
+| zwp_linux_dmabuf_v1                     | 5                |               |
+| zwp_pointer_constraints_v1              | 1                |               |
+| zwp_primary_selection_device_manager_v1 | 1                |               |
+| zwp_relative_pointer_manager_v1         | 1                |               |
+| zwp_text_input_manager_v3               | 1                |               |
+| zwp_virtual_keyboard_manager_v1         | 1                | Yes           |
+| zxdg_decoration_manager_v1              | 1                |               |
+| zxdg_output_manager_v1                  | 3                |               |
 
 [^no_touch]: Touch input is not supported.
 [^no_tearing]: Tearing screen updates are not supported.
 [^no_exclusive]: Exclusive zones are not supported.
+[^lsaccess]: Sandboxes can restrict access to this protocol.
 
 ## Missing Features
 
