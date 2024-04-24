@@ -2,6 +2,7 @@
 
 - Add support for wp-security-manager-v1.
 - Add support for xdg-dialog-v1.
+- Add support for ext-transient-seat-v1.
 
 # 1.1.0 (2024-04-22)
 

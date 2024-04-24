@@ -17,6 +17,7 @@ use {
             wl_output::WlOutputGlobal,
             wl_registry::WlRegistry,
             wl_seat::{
+                ext_transient_seat_manager_v1::ExtTransientSeatManagerV1Global,
                 text_input::{
                     zwp_input_method_manager_v2::ZwpInputMethodManagerV2Global,
                     zwp_text_input_manager_v3::ZwpTextInputManagerV3Global,
@@ -188,6 +189,7 @@ impl Globals {
         add_singleton!(ZwpTextInputManagerV3Global);
         add_singleton!(WpSecurityContextManagerV1Global);
         add_singleton!(XdgWmDialogV1Global);
+        add_singleton!(ExtTransientSeatManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

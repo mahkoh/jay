@@ -1,0 +1,6 @@
+request create {
+    seat: id(ext_transient_seat_v1),
+}
+
+request destroy {
+}

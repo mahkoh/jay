@@ -1,0 +1,10 @@
+request destroy {
+}
+
+event ready {
+    global_name: u32,
+}
+
+event denied {
+
+}
