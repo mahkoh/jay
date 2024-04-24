@@ -1,4 +1,6 @@
 mod event_handling;
+pub mod ext_transient_seat_manager_v1;
+pub mod ext_transient_seat_v1;
 mod kb_owner;
 mod pointer_owner;
 pub mod text_input;

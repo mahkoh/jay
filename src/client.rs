@@ -53,6 +53,7 @@ bitflags! {
         CAP_JAY_COMPOSITOR           = 1 << 5,
         CAP_LAYER_SHELL              = 1 << 6,
         CAP_SCREENCOPY_MANAGER       = 1 << 7,
+        CAP_SEAT_MANAGER             = 1 << 8,
 }
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
