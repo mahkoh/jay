@@ -171,7 +171,7 @@ impl Acceptor {
     }
 }
 
-async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, caps: ClientCaps) {
+async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, effective_caps: ClientCaps) {
     loop {
         let fd = match state.ring.accept(&fd, c::SOCK_CLOEXEC).await {
             Ok(fd) => fd,
@@ -181,7 +181,10 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, caps: ClientCaps) {
             }
         };
         let id = state.clients.id();
-        if let Err(e) = state.clients.spawn(id, &state, fd, caps) {
+        if let Err(e) = state
+            .clients
+            .spawn(id, &state, fd, effective_caps, ClientCaps::all())
+        {
             log::error!("Could not spawn a client: {}", ErrorFmt(e));
             break;
         }

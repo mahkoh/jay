@@ -48,7 +48,7 @@ impl WlRegistryRequestHandler for WlRegistry {
     fn bind(&self, bind: Bind, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let name = GlobalName::from_raw(bind.name);
         let globals = &self.client.state.globals;
-        let global = globals.get(name, self.client.caps, self.client.is_xwayland)?;
+        let global = globals.get(name, self.client.effective_caps, self.client.is_xwayland)?;
         if global.interface().name() != bind.interface {
             return Err(WlRegistryError::InvalidInterface(InterfaceError {
                 name: global.name(),

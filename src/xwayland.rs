@@ -172,6 +172,7 @@ async fn run(
         uapi::getuid(),
         pid,
         ClientCaps::all(),
+        ClientCaps::all(),
         true,
     );
     let client = match client {

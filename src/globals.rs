@@ -34,6 +34,7 @@ use {
             wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global,
             wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global,
             wp_presentation::WpPresentationGlobal,
+            wp_security_context_manager_v1::WpSecurityContextManagerV1Global,
             wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1Global,
             wp_tearing_control_manager_v1::WpTearingControlManagerV1Global,
             wp_viewporter::WpViewporterGlobal,
@@ -184,6 +185,7 @@ impl Globals {
         add_singleton!(ZwpVirtualKeyboardManagerV1Global);
         add_singleton!(ZwpInputMethodManagerV2Global);
         add_singleton!(ZwpTextInputManagerV3Global);
+        add_singleton!(WpSecurityContextManagerV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {
@@ -249,7 +251,7 @@ impl Globals {
     }
 
     pub fn notify_all(&self, registry: &Rc<WlRegistry>) {
-        let caps = registry.client.caps;
+        let caps = registry.client.effective_caps;
         let xwayland = registry.client.is_xwayland;
         let globals = self.registry.lock();
         macro_rules! emit {

@@ -76,6 +76,7 @@ mod rect;
 mod renderer;
 mod scale;
 mod screenshoter;
+mod security_context_acceptor;
 mod sighand;
 mod state;
 mod tasks;

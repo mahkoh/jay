@@ -113,7 +113,8 @@ impl Clients {
         id: ClientId,
         global: &Rc<State>,
         socket: Rc<OwnedFd>,
-        caps: ClientCaps,
+        effective_caps: ClientCaps,
+        bounding_caps: ClientCaps,
     ) -> Result<(), ClientError> {
         let (uid, pid) = {
             let mut cred = c::ucred {
@@ -132,7 +133,16 @@ impl Clients {
                 }
             }
         };
-        self.spawn2(id, global, socket, uid, pid, caps, false)?;
+        self.spawn2(
+            id,
+            global,
+            socket,
+            uid,
+            pid,
+            effective_caps,
+            bounding_caps,
+            false,
+        )?;
         Ok(())
     }
 
@@ -143,7 +153,8 @@ impl Clients {
         socket: Rc<OwnedFd>,
         uid: c::uid_t,
         pid: c::pid_t,
-        caps: ClientCaps,
+        effective_caps: ClientCaps,
+        bounding_caps: ClientCaps,
         is_xwayland: bool,
     ) -> Result<Rc<Client>, ClientError> {
         let data = Rc::new(Client {
@@ -157,7 +168,8 @@ impl Clients {
             shutdown: Default::default(),
             tracker: Default::default(),
             is_xwayland,
-            caps,
+            effective_caps,
+            bounding_caps,
             last_enter_serial: Cell::new(0),
             pid_info: get_pid_info(uid, pid),
             serials: Default::default(),
@@ -183,7 +195,7 @@ impl Clients {
             uid,
             client.data.socket.raw(),
             data.pid_info.comm,
-            caps,
+            effective_caps,
         );
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
@@ -211,7 +223,7 @@ impl Clients {
     {
         let clients = self.clients.borrow();
         for client in clients.values() {
-            if client.data.caps.contains(required_caps)
+            if client.data.effective_caps.contains(required_caps)
                 && (!xwayland_only || client.data.is_xwayland)
             {
                 f(&client.data);
@@ -272,7 +284,8 @@ pub struct Client {
     shutdown: AsyncEvent,
     pub tracker: Tracker<Client>,
     pub is_xwayland: bool,
-    pub caps: ClientCaps,
+    pub effective_caps: ClientCaps,
+    pub bounding_caps: ClientCaps,
     pub last_enter_serial: Cell<u32>,
     pub pid_info: PidInfo,
     pub serials: RefCell<VecDeque<SerialRange>>,
