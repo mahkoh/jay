@@ -1,0 +1,19 @@
+request destroy {
+
+}
+
+request set_sandbox_engine {
+    name: str,
+}
+
+request set_app_id {
+    app_id: str,
+}
+
+request set_instance_id {
+    instance_id: str,
+}
+
+request commit {
+
+}

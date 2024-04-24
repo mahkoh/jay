@@ -51,6 +51,7 @@ use {
         rect::Rect,
         renderer::{RenderResult, Renderer},
         scale::Scale,
+        security_context_acceptor::SecurityContextAcceptors,
         theme::{Color, Theme},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
@@ -181,6 +182,7 @@ pub struct State {
     pub wait_for_sync_obj: Rc<WaitForSyncObj>,
     pub explicit_sync_enabled: Cell<bool>,
     pub keyboard_state_ids: KeyboardStateIds,
+    pub security_context_acceptors: SecurityContextAcceptors,
 }
 
 // impl Drop for State {
@@ -744,6 +746,7 @@ impl State {
         self.render_ctx_watchers.clear();
         self.workspace_watchers.clear();
         self.toplevel_lists.clear();
+        self.security_context_acceptors.clear();
         self.slow_clients.clear();
         for (_, h) in self.input_device_handlers.borrow_mut().drain() {
             h.async_event.clear();

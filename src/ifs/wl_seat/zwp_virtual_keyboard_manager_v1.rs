@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_VIRTUAL_KEYBOARD_MANAGER},
         globals::{Global, GlobalName},
         ifs::wl_seat::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1,
         leaks::Tracker,
@@ -61,8 +61,8 @@ impl Global for ZwpVirtualKeyboardManagerV1Global {
         1
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_VIRTUAL_KEYBOARD_MANAGER
     }
 }
 

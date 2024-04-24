@@ -7,7 +7,7 @@ keymap = """
     };
     """
 
-on-graphics-initialized = { type = "exec", exec = { prog = "mako", privileged = true } }
+on-graphics-initialized = { type = "exec", exec = "mako" }
 
 [shortcuts]
 alt-h = "focus-left"
@@ -31,7 +31,7 @@ alt-f = "focus-parent"
 alt-shift-c = "close"
 alt-shift-f = "toggle-floating"
 Super_L = { type = "exec", exec = "alacritty" }
-alt-p = { type = "exec", exec = { prog = "bemenu-run", privileged = true } }
+alt-p = { type = "exec", exec = "bemenu-run" }
 alt-q = "quit"
 alt-shift-r = "reload-config-toml"
 

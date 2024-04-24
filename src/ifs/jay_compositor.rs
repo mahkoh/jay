@@ -1,7 +1,7 @@
 use {
     crate::{
         cli::CliLogLevel,
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_JAY_COMPOSITOR},
         globals::{Global, GlobalName},
         ifs::{
             jay_idle::JayIdle,
@@ -68,8 +68,8 @@ impl Global for JayCompositorGlobal {
         1
     }
 
-    fn secure(&self) -> bool {
-        true
+    fn required_caps(&self) -> ClientCaps {
+        CAP_JAY_COMPOSITOR
     }
 }
 

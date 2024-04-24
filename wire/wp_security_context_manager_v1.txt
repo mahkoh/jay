@@ -1,0 +1,9 @@
+request destroy {
+
+}
+
+request create_listener {
+    id: id(wp_security_context_v1),
+    listen_fd: fd,
+    close_fd: fd,
+}

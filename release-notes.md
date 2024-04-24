@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add support for wp-security-manager-v1.
+
 # 1.1.0 (2024-04-22)
 
 - Screencasts now support window capture.
