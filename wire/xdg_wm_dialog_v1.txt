@@ -1,0 +1,8 @@
+request destroy {
+
+}
+
+request get_xdg_dialog {
+    id: id(xdg_dialog_v1),
+    toplevel: id(xdg_toplevel),
+}
