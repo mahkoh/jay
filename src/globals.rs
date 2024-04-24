@@ -41,6 +41,7 @@ use {
             xdg_activation_v1::XdgActivationV1Global,
             xdg_toplevel_drag_manager_v1::XdgToplevelDragManagerV1Global,
             xdg_wm_base::XdgWmBaseGlobal,
+            xdg_wm_dialog_v1::XdgWmDialogV1Global,
             zwlr_layer_shell_v1::ZwlrLayerShellV1Global,
             zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global,
             zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global,
@@ -186,6 +187,7 @@ impl Globals {
         add_singleton!(ZwpInputMethodManagerV2Global);
         add_singleton!(ZwpTextInputManagerV3Global);
         add_singleton!(WpSecurityContextManagerV1Global);
+        add_singleton!(XdgWmDialogV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

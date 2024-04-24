@@ -1,3 +1,5 @@
+pub mod xdg_dialog_v1;
+
 use {
     crate::{
         bugs,
@@ -9,7 +11,10 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{
-                xdg_surface::{XdgSurface, XdgSurfaceError, XdgSurfaceExt},
+                xdg_surface::{
+                    xdg_toplevel::xdg_dialog_v1::XdgDialogV1, XdgSurface, XdgSurfaceError,
+                    XdgSurfaceExt,
+                },
                 WlSurface,
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
@@ -99,6 +104,7 @@ pub struct XdgToplevel {
     toplevel_data: ToplevelData,
     pub drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
     is_mapped: Cell<bool>,
+    dialog: CloneCell<Option<Rc<XdgDialogV1>>>,
 }
 
 impl Debug for XdgToplevel {
@@ -137,6 +143,7 @@ impl XdgToplevel {
             ),
             drag: Default::default(),
             is_mapped: Cell::new(false),
+            dialog: Default::default(),
         }
     }
 
@@ -454,6 +461,7 @@ impl Object for XdgToplevel {
     fn break_loops(&self) {
         self.tl_destroy();
         self.parent.set(None);
+        self.dialog.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
     }
 }
