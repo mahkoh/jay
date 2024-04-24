@@ -46,7 +46,6 @@ struct AllocatedSocket {
     lock_path: Ustring,
     _lock_fd: OwnedFd,
     // /run/user/1000/wayland-x.jay
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     secure_path: Ustring,
     secure: Rc<OwnedFd>,
 }
@@ -55,6 +54,7 @@ impl Drop for AllocatedSocket {
     fn drop(&mut self) {
         let _ = uapi::unlink(&self.path);
         let _ = uapi::unlink(&self.lock_path);
+        let _ = uapi::unlink(&self.secure_path);
     }
 }
 
