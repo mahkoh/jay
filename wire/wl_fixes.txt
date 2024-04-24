@@ -1,0 +1,7 @@
+request destroy {
+
+}
+
+request destroy_registry {
+    registry: id(wl_registry),
+}
