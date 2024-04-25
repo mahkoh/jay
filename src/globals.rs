@@ -127,6 +127,7 @@ pub trait Global: GlobalBase {
 pub struct Globals {
     next_name: NumCell<u32>,
     registry: CopyHashMap<GlobalName, Rc<dyn Global>>,
+    removed: CopyHashMap<GlobalName, Rc<dyn Global>>,
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
 }
@@ -136,6 +137,7 @@ impl Globals {
         let slf = Self {
             next_name: NumCell::new(1),
             registry: CopyHashMap::new(),
+            removed: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
         };
@@ -241,9 +243,17 @@ impl Globals {
         Ok(global)
     }
 
-    pub fn remove<T: WaylandGlobal>(&self, state: &State, global: &T) -> Result<(), GlobalsError> {
+    pub fn remove<T: RemovableWaylandGlobal>(
+        &self,
+        state: &State,
+        global: &T,
+    ) -> Result<(), GlobalsError> {
         let _global = self.take(global.name(), true)?;
         global.remove(self);
+        let replacement = global.create_replacement();
+        assert_eq!(global.name(), replacement.name());
+        assert_eq!(global.interface().0, replacement.interface().0);
+        self.removed.set(global.name(), replacement);
         self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
             r.send_global_remove(global.name())
         });
@@ -295,7 +305,10 @@ impl Globals {
         let res = if remove {
             self.registry.remove(&name)
         } else {
-            self.registry.get(&name)
+            match self.registry.get(&name) {
+                Some(res) => Some(res),
+                _ => self.removed.get(&name),
+            }
         };
         match res {
             Some(g) => Ok(g),
@@ -329,4 +342,8 @@ pub trait WaylandGlobal: Global + 'static {
     fn remove(&self, globals: &Globals) {
         let _ = globals;
     }
+}
+
+pub trait RemovableWaylandGlobal: WaylandGlobal {
+    fn create_replacement(&self) -> Rc<dyn Global>;
 }

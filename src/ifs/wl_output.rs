@@ -1,3 +1,5 @@
+mod removed_output;
+
 use {
     crate::{
         backend,
@@ -229,13 +231,15 @@ impl WlOutputGlobal {
 
 global_base!(WlOutputGlobal, WlOutput, WlOutputError);
 
+const OUTPUT_VERSION: u32 = 4;
+
 impl Global for WlOutputGlobal {
     fn singleton(&self) -> bool {
         false
     }
 
     fn version(&self) -> u32 {
-        4
+        OUTPUT_VERSION
     }
 
     fn break_loops(&self) {

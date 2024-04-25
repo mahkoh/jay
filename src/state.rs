@@ -22,7 +22,7 @@ use {
             SyncFile,
         },
         gfx_apis::create_gfx_context,
-        globals::{Globals, GlobalsError, WaylandGlobal},
+        globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             ext_session_lock_v1::ExtSessionLockV1,
@@ -511,7 +511,7 @@ impl State {
         self.globals.add_global(self, global)
     }
 
-    pub fn remove_global<T: WaylandGlobal>(&self, global: &T) -> Result<(), GlobalsError> {
+    pub fn remove_global<T: RemovableWaylandGlobal>(&self, global: &T) -> Result<(), GlobalsError> {
         self.globals.remove(self, global)
     }
 
