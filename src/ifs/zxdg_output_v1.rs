@@ -60,11 +60,14 @@ impl ZxdgOutputV1 {
     }
 
     pub fn send_updates(&self) {
-        let pos = self.output.global.position();
+        let Some(global) = self.output.global.get() else {
+            return;
+        };
+        let pos = global.position();
         self.send_logical_position(pos.x1(), pos.y1());
         self.send_logical_size(pos.width(), pos.height());
         if self.version >= NAME_SINCE {
-            self.send_name(&self.output.global.connector.name);
+            self.send_name(&global.connector.name);
         }
         if self.version >= NO_DONE_SINCE {
             if self.output.version >= SEND_DONE_SINCE {

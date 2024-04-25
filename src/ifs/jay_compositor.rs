@@ -21,7 +21,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         screenshoter::take_screenshot,
-        utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
+        utils::errorfmt::ErrorFmt,
         wire::{jay_compositor::*, JayCompositorId, JayScreenshotId},
     },
     bstr::ByteSlice,
@@ -264,12 +264,12 @@ impl JayCompositorRequestHandler for JayCompositor {
         let jo = Rc::new(JayOutput {
             id: req.id,
             client: self.client.clone(),
-            output: CloneCell::new(output.global.node.get()),
+            output: output.global.clone(),
             tracker: Default::default(),
         });
         track!(self.client, jo);
         self.client.add_client_obj(&jo)?;
-        if let Some(node) = jo.output.get() {
+        if let Some(node) = jo.output.node() {
             node.jay_outputs.set((self.client.id, req.id), jo.clone());
             jo.send_linear_id();
         } else {

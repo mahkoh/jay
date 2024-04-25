@@ -1,3 +1,5 @@
+mod removed_output;
+
 use {
     crate::{
         backend,
@@ -55,13 +57,34 @@ pub struct WlOutputGlobal {
     pub output_id: Rc<OutputId>,
     pub mode: Cell<backend::Mode>,
     pub modes: Vec<backend::Mode>,
-    pub node: CloneCell<Option<Rc<OutputNode>>>,
     pub width_mm: i32,
     pub height_mm: i32,
     pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
     pub destroyed: Cell<bool>,
     pub legacy_scale: Cell<u32>,
     pub persistent: Rc<PersistentOutputState>,
+    pub opt: Rc<OutputGlobalOpt>,
+}
+
+#[derive(Default)]
+pub struct OutputGlobalOpt {
+    pub global: CloneCell<Option<Rc<WlOutputGlobal>>>,
+    pub node: CloneCell<Option<Rc<OutputNode>>>,
+}
+
+impl OutputGlobalOpt {
+    pub fn get(&self) -> Option<Rc<WlOutputGlobal>> {
+        self.global.get()
+    }
+
+    pub fn node(&self) -> Option<Rc<OutputNode>> {
+        self.node.get()
+    }
+
+    pub fn clear(&self) {
+        self.node.take();
+        self.global.take();
+    }
 }
 
 pub struct PersistentOutputState {
@@ -80,7 +103,7 @@ pub struct OutputId {
 
 impl WlOutputGlobal {
     pub fn clear(&self) {
-        self.node.take();
+        self.opt.clear();
         self.bindings.borrow_mut().clear();
     }
 
@@ -110,13 +133,13 @@ impl WlOutputGlobal {
             output_id: output_id.clone(),
             mode: Cell::new(*mode),
             modes,
-            node: Default::default(),
             width_mm,
             height_mm,
             bindings: Default::default(),
             destroyed: Cell::new(false),
             legacy_scale: Cell::new(scale.round_up()),
             persistent: persistent_state.clone(),
+            opt: Default::default(),
         }
     }
 
@@ -169,7 +192,7 @@ impl WlOutputGlobal {
         version: Version,
     ) -> Result<(), WlOutputError> {
         let obj = Rc::new(WlOutput {
-            global: self.clone(),
+            global: self.opt.clone(),
             id,
             xdg_outputs: Default::default(),
             client: client.clone(),
@@ -208,13 +231,15 @@ impl WlOutputGlobal {
 
 global_base!(WlOutputGlobal, WlOutput, WlOutputError);
 
+const OUTPUT_VERSION: u32 = 4;
+
 impl Global for WlOutputGlobal {
     fn singleton(&self) -> bool {
         false
     }
 
     fn version(&self) -> u32 {
-        4
+        OUTPUT_VERSION
     }
 
     fn break_loops(&self) {
@@ -225,7 +250,7 @@ impl Global for WlOutputGlobal {
 dedicated_add_global!(WlOutputGlobal, outputs);
 
 pub struct WlOutput {
-    pub global: Rc<WlOutputGlobal>,
+    pub global: Rc<OutputGlobalOpt>,
     pub id: WlOutputId,
     pub xdg_outputs: CopyHashMap<ZxdgOutputV1Id, Rc<ZxdgOutputV1>>,
     client: Rc<Client>,
@@ -239,23 +264,29 @@ pub const SEND_NAME_SINCE: Version = Version(4);
 
 impl WlOutput {
     fn send_geometry(&self) {
-        let pos = self.global.pos.get();
+        let Some(global) = self.global.get() else {
+            return;
+        };
+        let pos = global.pos.get();
         let event = Geometry {
             self_id: self.id,
             x: pos.x1(),
             y: pos.y1(),
-            physical_width: self.global.width_mm,
-            physical_height: self.global.height_mm,
+            physical_width: global.width_mm,
+            physical_height: global.height_mm,
             subpixel: SP_UNKNOWN,
-            make: &self.global.output_id.manufacturer,
-            model: &self.global.output_id.model,
-            transform: self.global.persistent.transform.get().to_wl(),
+            make: &global.output_id.manufacturer,
+            model: &global.output_id.model,
+            transform: global.persistent.transform.get().to_wl(),
         };
         self.client.event(event);
     }
 
     fn send_mode(&self) {
-        let mode = self.global.mode.get();
+        let Some(global) = self.global.get() else {
+            return;
+        };
+        let mode = global.mode.get();
         let event = Mode {
             self_id: self.id,
             flags: MODE_CURRENT,
@@ -267,17 +298,23 @@ impl WlOutput {
     }
 
     fn send_scale(self: &Rc<Self>) {
+        let Some(global) = self.global.get() else {
+            return;
+        };
         let event = Scale {
             self_id: self.id,
-            factor: self.global.legacy_scale.get() as _,
+            factor: global.legacy_scale.get() as _,
         };
         self.client.event(event);
     }
 
     fn send_name(&self) {
+        let Some(global) = self.global.get() else {
+            return;
+        };
         self.client.event(Name {
             self_id: self.id,
-            name: &self.global.connector.name,
+            name: &global.connector.name,
         });
     }
 
@@ -287,12 +324,15 @@ impl WlOutput {
     }
 
     fn remove_binding(&self) {
-        if let Entry::Occupied(mut e) = self.global.bindings.borrow_mut().entry(self.client.id) {
+        let Some(global) = self.global.get() else {
+            return;
+        };
+        if let Entry::Occupied(mut e) = global.bindings.borrow_mut().entry(self.client.id) {
             e.get_mut().remove(&self.id);
             if e.get().is_empty() {
                 e.remove();
             }
-        }
+        };
     }
 }
 

@@ -519,7 +519,7 @@ impl JayScreencastRequestHandler for JayScreencast {
             if let Some(new) = target {
                 match new {
                     PendingTarget::Output(o) => {
-                        let Some(o) = o.output.get() else {
+                        let Some(o) = o.output.node() else {
                             self.do_destroy();
                             return Ok(());
                         };

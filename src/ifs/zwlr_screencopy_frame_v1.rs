@@ -4,7 +4,7 @@ use {
         format::XRGB8888,
         ifs::{
             wl_buffer::{WlBuffer, WlBufferError, WlBufferStorage},
-            wl_output::WlOutputGlobal,
+            wl_output::OutputGlobalOpt,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -22,7 +22,7 @@ pub struct ZwlrScreencopyFrameV1 {
     pub id: ZwlrScreencopyFrameV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub output: Rc<WlOutputGlobal>,
+    pub output: Rc<OutputGlobalOpt>,
     pub rect: Rect,
     pub overlay_cursor: bool,
     pub used: Cell<bool>,
@@ -46,14 +46,16 @@ impl ZwlrScreencopyFrameV1 {
     }
 
     pub fn send_damage(&self) {
-        let pos = self.output.pos.get();
-        self.client.event(Damage {
-            self_id: self.id,
-            x: 0,
-            y: 0,
-            width: pos.width() as _,
-            height: pos.height() as _,
-        });
+        if let Some(output) = self.output.get() {
+            let pos = output.pos.get();
+            self.client.event(Damage {
+                self_id: self.id,
+                x: 0,
+                y: 0,
+                width: pos.width() as _,
+                height: pos.height() as _,
+            });
+        }
     }
 
     pub fn send_buffer(&self) {
@@ -95,7 +97,7 @@ impl ZwlrScreencopyFrameV1 {
         if self.used.replace(true) {
             return Err(ZwlrScreencopyFrameV1Error::AlreadyUsed);
         }
-        let Some(node) = self.output.node.get() else {
+        let Some(node) = self.output.node() else {
             self.send_failed();
             return Ok(());
         };
@@ -114,7 +116,9 @@ impl ZwlrScreencopyFrameV1 {
         }
         self.buffer.set(Some(buffer));
         if !with_damage {
-            self.output.connector.connector.damage();
+            if let Some(global) = self.output.get() {
+                global.connector.connector.damage();
+            }
         }
         self.with_damage.set(with_damage);
         node.screencopies
@@ -124,7 +128,7 @@ impl ZwlrScreencopyFrameV1 {
     }
 
     fn detach(&self) {
-        if let Some(node) = self.output.node.get() {
+        if let Some(node) = self.output.node() {
             node.screencopies.remove(&(self.client.id, self.id));
             node.screencast_changed();
         }

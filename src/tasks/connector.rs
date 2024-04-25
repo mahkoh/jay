@@ -158,7 +158,8 @@ impl ConnectorHandler {
             node: on.clone(),
         });
         self.state.outputs.set(self.id, output_data);
-        global.node.set(Some(on.clone()));
+        global.opt.node.set(Some(on.clone()));
+        global.opt.global.set(Some(global.clone()));
         let mut ws_to_move = VecDeque::new();
         if self.state.outputs.len() == 1 {
             let seats = self.state.globals.seats.lock();
@@ -227,10 +228,9 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);
         }
-        global.node.set(None);
+        global.clear();
         for (_, jo) in on.jay_outputs.lock().drain() {
             jo.send_destroyed();
-            jo.output.take();
         }
         let screencasts: Vec<_> = on.screencasts.lock().values().cloned().collect();
         for sc in screencasts {
