@@ -2,6 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         ifs::{
+            wl_output::OutputGlobalOpt,
             wl_seat::NodeSeatState,
             wl_surface::{PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
             zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY},
@@ -10,7 +11,7 @@ use {
         object::Object,
         rect::Rect,
         renderer::Renderer,
-        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
+        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
         utils::{
             bitflags::BitflagsExt, cell_ext::CellExt, linkedlist::LinkedNode, numcell::NumCell,
             option_ext::OptionExt,
@@ -43,7 +44,7 @@ pub struct ZwlrLayerSurfaceV1 {
     pub shell: Rc<ZwlrLayerShellV1>,
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
-    pub output: Rc<OutputNode>,
+    pub output: Rc<OutputGlobalOpt>,
     pub namespace: String,
     pub tracker: Tracker<Self>,
     output_pos: Cell<Rect>,
@@ -96,7 +97,7 @@ impl ZwlrLayerSurfaceV1 {
         id: ZwlrLayerSurfaceV1Id,
         shell: &Rc<ZwlrLayerShellV1>,
         surface: &Rc<WlSurface>,
-        output: &Rc<OutputNode>,
+        output: &Rc<OutputGlobalOpt>,
         layer: u32,
         namespace: &str,
     ) -> Self {
@@ -131,7 +132,9 @@ impl ZwlrLayerSurfaceV1 {
             return Err(ZwlrLayerSurfaceV1Error::AlreadyAttached(self.surface.id));
         }
         self.surface.ext.set(self.clone());
-        self.surface.set_output(&self.output);
+        if let Some(output) = self.output.node() {
+            self.surface.set_output(&output);
+        }
         Ok(())
     }
 
@@ -241,6 +244,9 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
 
 impl ZwlrLayerSurfaceV1 {
     fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
+        let Some(global) = self.output.get() else {
+            return Ok(());
+        };
         let pending = pending.layer_surface.get_or_insert_default_ext();
         let mut send_configure = mem::replace(&mut pending.any, false);
         if let Some(size) = pending.size.take() {
@@ -269,14 +275,14 @@ impl ZwlrLayerSurfaceV1 {
                     return Err(ZwlrLayerSurfaceV1Error::WidthZero);
                 }
                 send_configure = true;
-                width = self.output.global.position().width();
+                width = global.position().width();
             }
             if height == 0 {
                 if !anchor.contains(TOP | BOTTOM) {
                     return Err(ZwlrLayerSurfaceV1Error::HeightZero);
                 }
                 send_configure = true;
-                height = self.output.global.position().height();
+                height = global.position().height();
             }
             self.size.set((width, height));
         }
@@ -300,12 +306,15 @@ impl ZwlrLayerSurfaceV1 {
     }
 
     pub fn compute_position(&self) {
+        let Some(global) = self.output.get() else {
+            return;
+        };
         let (width, height) = self.size.get();
         let mut anchor = self.anchor.get();
         if anchor == 0 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
-        let opos = self.output.global.pos.get();
+        let opos = global.pos.get();
         let mut x1 = 0;
         let mut y1 = 0;
         if anchor.contains(LEFT) {
@@ -349,6 +358,9 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     }
 
     fn after_apply_commit(self: Rc<Self>) {
+        let Some(output) = self.output.node() else {
+            return;
+        };
         let buffer_is_some = self.surface.buffer.is_some();
         let was_mapped = self.mapped.get();
         if self.mapped.get() {
@@ -362,13 +374,13 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                 }
             }
         } else if buffer_is_some {
-            let layer = &self.output.layers[self.layer.get() as usize];
+            let layer = &output.layers[self.layer.get() as usize];
             self.link.set(Some(layer.add_last(self.clone())));
             self.mapped.set(true);
             self.compute_position();
         }
         if self.mapped.get() != was_mapped {
-            self.output.update_visible();
+            output.update_visible();
         }
         if self.mapped.get() {
             match self.keyboard_interactivity.get() {

@@ -57,20 +57,20 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             surface,
             tracker: Default::default(),
             serial: Default::default(),
-            output: output.global.node.get(),
+            output: output.global.clone(),
             seat_state: Default::default(),
             version: self.version,
         });
         track!(new.client, new);
         new.install()?;
         self.client.add_client_obj(&new)?;
-        if !output.global.destroyed.get() && !self.finished.get() {
-            if let Some(node) = output.global.node.get() {
+        if !self.finished.get() {
+            if let Some(node) = output.global.node() {
                 if node.lock_surface.is_some() {
                     return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
                 }
                 node.set_lock_surface(Some(new.clone()));
-                let pos = output.global.pos.get();
+                let pos = node.global.pos.get();
                 new.change_extents(pos);
                 self.client.state.tree_changed();
             }

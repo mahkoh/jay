@@ -321,7 +321,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         self.states.borrow_mut().insert(STATE_FULLSCREEN);
         'set_fullscreen: {
             let output = if req.output.is_some() {
-                match client.lookup(req.output)?.global.node.get() {
+                match client.lookup(req.output)?.global.node() {
                     Some(node) => node,
                     _ => {
                         log::error!("Output global has no node attached");

@@ -3,13 +3,14 @@ use {
         client::{Client, ClientError},
         fixed::Fixed,
         ifs::{
+            wl_output::OutputGlobalOpt,
             wl_seat::{NodeSeatState, WlSeatGlobal},
             wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
         },
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
-        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode},
+        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
         utils::numcell::NumCell,
         wire::{ext_session_lock_surface_v1::*, ExtSessionLockSurfaceV1Id, WlSurfaceId},
     },
@@ -24,7 +25,7 @@ pub struct ExtSessionLockSurfaceV1 {
     pub surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
     pub serial: NumCell<u32>,
-    pub output: Option<Rc<OutputNode>>,
+    pub output: Rc<OutputGlobalOpt>,
     pub seat_state: NodeSeatState,
     pub version: Version,
 }
@@ -73,7 +74,7 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
 
 impl ExtSessionLockSurfaceV1 {
     pub fn destroy_node(&self) {
-        if let Some(output) = &self.output {
+        if let Some(output) = &self.output.node() {
             if let Some(ls) = output.lock_surface.get() {
                 if ls.node_id == self.node_id {
                     output.set_lock_surface(None);

@@ -57,17 +57,17 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
         let surface = self.client.lookup(req.surface)?;
         let output = 'get_output: {
             if req.output.is_some() {
-                self.client.lookup(req.output)?.global.node.get().unwrap()
+                self.client.lookup(req.output)?.global.clone()
             } else {
                 for seat in self.client.state.seat_queue.rev_iter() {
                     let output = seat.get_output();
                     if !output.is_dummy {
-                        break 'get_output output;
+                        break 'get_output output.global.opt.clone();
                     }
                 }
                 let outputs = self.client.state.outputs.lock();
                 if let Some(output) = outputs.values().next() {
-                    break 'get_output output.node.clone();
+                    break 'get_output output.node.global.opt.clone();
                 }
                 return Err(ZwlrLayerShellV1Error::NoOutputs);
             }

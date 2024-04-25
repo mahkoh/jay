@@ -1,10 +1,9 @@
 use {
     crate::{
         client::{Client, ClientError},
+        ifs::wl_output::OutputGlobalOpt,
         leaks::Tracker,
         object::{Object, Version},
-        tree::OutputNode,
-        utils::clonecell::CloneCell,
         wire::{jay_output::*, JayOutputId},
     },
     std::rc::Rc,
@@ -14,7 +13,7 @@ use {
 pub struct JayOutput {
     pub id: JayOutputId,
     pub client: Rc<Client>,
-    pub output: CloneCell<Option<Rc<OutputNode>>>,
+    pub output: Rc<OutputGlobalOpt>,
     pub tracker: Tracker<Self>,
 }
 
@@ -24,7 +23,7 @@ impl JayOutput {
     }
 
     pub fn send_linear_id(&self) {
-        if let Some(output) = self.output.get() {
+        if let Some(output) = self.output.node() {
             self.client.event(LinearId {
                 self_id: self.id,
                 linear_id: output.id.raw(),
@@ -33,7 +32,7 @@ impl JayOutput {
     }
 
     fn remove_from_node(&self) {
-        if let Some(output) = self.output.get() {
+        if let Some(output) = self.output.node() {
             output.jay_outputs.remove(&(self.client.id, self.id));
         }
     }
