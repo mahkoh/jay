@@ -70,6 +70,21 @@ pub fn create_lease(fd: c::c_int, objects: &[u32], flags: u32) -> Result<(OwnedF
     Ok((OwnedFd::new(create.fd as _), create.lessee_id))
 }
 
+const DRM_IOCTL_MODE_REVOKE_LEASE: u64 = drm_iowr::<drm_mode_revoke_lease>(0xc9);
+
+#[repr(C)]
+struct drm_mode_revoke_lease {
+    lessee_id: u32,
+}
+
+pub fn revoke_lease(fd: c::c_int, lessee_id: u32) -> Result<(), OsError> {
+    let mut revoke = drm_mode_revoke_lease { lessee_id };
+    unsafe {
+        ioctl(fd, DRM_IOCTL_MODE_REVOKE_LEASE, &mut revoke)?;
+    }
+    Ok(())
+}
+
 pub fn get_node_type_from_fd(fd: c::c_int) -> Result<NodeType, OsError> {
     let (_, _, min) = drm_stat(fd)?;
     get_minor_type(min)

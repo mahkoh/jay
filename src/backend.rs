@@ -15,7 +15,7 @@ use {
         fmt::{Debug, Display, Formatter},
         rc::Rc,
     },
-    uapi::c,
+    uapi::{c, OwnedFd},
 };
 
 linear_ids!(ConnectorIds, ConnectorId);
@@ -103,6 +103,8 @@ pub enum ConnectorEvent {
     Disconnected,
     Removed,
     ModeChanged(Mode),
+    Unavailable,
+    Available,
 }
 
 pub trait HardwareCursor: Debug {
@@ -286,4 +288,20 @@ pub trait BackendDrmDevice {
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
     fn is_render_device(&self) -> bool;
+    fn create_lease(
+        self: Rc<Self>,
+        lessee: Rc<dyn BackendDrmLessee>,
+        connector_ids: &[ConnectorId],
+    ) {
+        let _ = lessee;
+        let _ = connector_ids;
+    }
+}
+
+pub trait BackendDrmLease {
+    fn fd(&self) -> &Rc<OwnedFd>;
+}
+
+pub trait BackendDrmLessee {
+    fn created(&self, lease: Rc<dyn BackendDrmLease>);
 }

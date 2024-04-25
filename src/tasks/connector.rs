@@ -317,7 +317,8 @@ impl ConnectorHandler {
             while let Some(event) = self.data.connector.event() {
                 match event {
                     ConnectorEvent::Disconnected => break 'outer,
-                    ConnectorEvent::HardwareCursor(None) => {}
+                    ConnectorEvent::Available => {}
+                    ConnectorEvent::Unavailable => {}
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }
             }

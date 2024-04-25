@@ -2,8 +2,9 @@ use {
     crate::{
         async_engine::{Phase, SpawnedFuture},
         backend::{
-            BackendDrmDevice, BackendEvent, Connector, ConnectorEvent, ConnectorId,
-            ConnectorKernelId, DrmDeviceId, HardwareCursor, Mode, MonitorInfo,
+            BackendDrmDevice, BackendDrmLease, BackendDrmLessee, BackendEvent, Connector,
+            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, HardwareCursor, Mode,
+            MonitorInfo,
         },
         backends::metal::{MetalBackend, MetalError},
         drm_feedback::DrmFeedback,
@@ -20,7 +21,7 @@ use {
         tree::OutputNode,
         udev::UdevDevice,
         utils::{
-            asyncevent::AsyncEvent, bitflags::BitflagsExt, clonecell::CloneCell,
+            asyncevent::AsyncEvent, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, debug_fn::debug_fn, errorfmt::ErrorFmt, numcell::NumCell,
             on_change::OnChange, opaque_cell::OpaqueCell, oserror::OsError,
             transform_ext::TransformExt,
@@ -29,10 +30,10 @@ use {
             dmabuf::DmaBufId,
             drm::{
                 drm_mode_modeinfo, Change, ConnectorStatus, ConnectorType, DrmBlob, DrmConnector,
-                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmMaster, DrmModeInfo,
-                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
-                DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
-                DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
+                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmLease, DrmMaster,
+                DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
+                DrmPropertyType, DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC,
+                DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
             },
             gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             Modifier, INVALID_MODIFIER,
@@ -42,17 +43,22 @@ use {
     arrayvec::ArrayVec,
     bstr::{BString, ByteSlice},
     indexmap::{indexset, IndexSet},
+    isnt::std_1::collections::IsntHashMap2Ext,
     jay_config::video::GfxApi,
     std::{
         any::Any,
         cell::{Cell, RefCell},
+        collections::hash_map::Entry,
         ffi::CString,
         fmt::{Debug, Formatter},
         mem,
         ops::DerefMut,
         rc::{Rc, Weak},
     },
-    uapi::c::{self, dev_t},
+    uapi::{
+        c::{self, dev_t},
+        OwnedFd,
+    },
 };
 
 pub struct PendingDrmDevice {
@@ -88,6 +94,10 @@ pub struct MetalDrmDevice {
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
     pub is_nvidia: bool,
+    pub lease_ids: MetalLeaseIds,
+    pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
+    pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
+    pub paused: Cell<bool>,
 }
 
 impl Debug for MetalDrmDevice {
@@ -145,6 +155,120 @@ impl BackendDrmDevice for MetalDrmDevice {
     fn is_render_device(&self) -> bool {
         Some(self.id) == self.backend.ctx.get().map(|c| c.dev_id)
     }
+
+    fn create_lease(
+        self: Rc<Self>,
+        lessee: Rc<dyn BackendDrmLessee>,
+        connector_ids: &[ConnectorId],
+    ) {
+        let Some(data) = self.backend.device_holder.drm_devices.get(&self.devnum) else {
+            log::error!("Tried to create a lease for a DRM device that no longer exists");
+            return;
+        };
+        let mut connectors = vec![];
+        let mut crtcs = AHashMap::new();
+        let mut planes = AHashMap::new();
+        let mut ids = vec![];
+        for id in connector_ids {
+            let Some(connector) = data
+                .connectors
+                .lock()
+                .values()
+                .find(|c| c.connector_id == *id)
+                .cloned()
+            else {
+                log::error!("Tried to lease connector {id} but no such connector exists");
+                return;
+            };
+            let fe_state = connector.frontend_state.get();
+            match fe_state {
+                FrontState::Connected { non_desktop: true } => {}
+                FrontState::Connected { non_desktop: false }
+                | FrontState::Removed
+                | FrontState::Disconnected
+                | FrontState::Unavailable => {
+                    log::error!(
+                        "Tried to lease connector {id} but it is in an invalid state: {fe_state:?}"
+                    );
+                    return;
+                }
+            }
+            if let Some(lease_id) = connector.lease.get() {
+                match data.dev.leases_to_break.lock().entry(lease_id) {
+                    Entry::Occupied(oe) => {
+                        if oe.get().try_revoke() {
+                            oe.remove();
+                        }
+                    }
+                    _ => {
+                        log::error!("Connector is logically available for leasing, has a lease ID, and has no entry in leases_to_break");
+                    }
+                }
+            }
+            if connector.lease.is_some() {
+                log::error!("Tried to lease connector {id} but it is already leased");
+                return;
+            }
+            let dd = &*connector.display.borrow();
+            let crtc = dd.crtcs.values().find(|c| {
+                c.connector.is_none() && c.lease.is_none() && crtcs.not_contains_key(&c.id)
+            });
+            let Some(crtc) = crtc else {
+                log::error!("Tried to lease connector {id} but it has no matching unused CRTC");
+                return;
+            };
+            let plane = crtc.possible_planes.values().find(|p| {
+                !p.assigned.get()
+                    && p.lease.is_none()
+                    && planes.not_contains_key(&p.id)
+                    && p.ty == PlaneType::Primary
+            });
+            let Some(plane) = plane else {
+                log::error!("Tried to lease connector {id} but it has no matching unused plane");
+                return;
+            };
+            connectors.push(connector.clone());
+            crtcs.insert(crtc.id, crtc.clone());
+            planes.insert(plane.id, plane.clone());
+            ids.push(connector.id.0);
+            ids.push(crtc.id.0);
+            ids.push(plane.id.0);
+        }
+        let drm_lease = match self.master.lease(&ids) {
+            Ok(l) => l,
+            Err(e) => {
+                log::error!("Could not create lease: {}", ErrorFmt(e));
+                return;
+            }
+        };
+        let lease_id = self.lease_ids.next();
+        for c in &connectors {
+            c.lease.set(Some(lease_id));
+            c.send_event(ConnectorEvent::Unavailable);
+        }
+        for c in crtcs.values() {
+            c.lease.set(Some(lease_id));
+        }
+        for p in planes.values() {
+            p.lease.set(Some(lease_id));
+        }
+        let fd = drm_lease.lessee_fd().clone();
+        let lease_data = MetalLeaseData {
+            lease: drm_lease,
+            _lessee: lessee.clone(),
+            connectors,
+            crtcs: crtcs.values().cloned().collect(),
+            planes: planes.values().cloned().collect(),
+            revoked: Cell::new(false),
+        };
+        self.leases.set(lease_id, lease_data);
+        let lease = Rc::new(MetalLease {
+            dev: self.clone(),
+            id: lease_id,
+            fd,
+        });
+        lessee.created(lease);
+    }
 }
 
 pub struct HandleEvents {
@@ -196,6 +320,81 @@ impl ConnectorDisplayData {
     }
 }
 
+linear_ids!(MetalLeaseIds, MetalLeaseId, u64);
+
+pub struct MetalLeaseData {
+    lease: DrmLease,
+    _lessee: Rc<dyn BackendDrmLessee>,
+    connectors: Vec<Rc<MetalConnector>>,
+    crtcs: Vec<Rc<MetalCrtc>>,
+    planes: Vec<Rc<MetalPlane>>,
+    revoked: Cell<bool>,
+}
+
+impl MetalLeaseData {
+    fn try_revoke(&self) -> bool {
+        if self.revoked.get() {
+            return true;
+        }
+        let res = self.lease.try_revoke();
+        if res {
+            self.revoked.set(res);
+            for c in &self.connectors {
+                c.lease.take();
+            }
+            for c in &self.crtcs {
+                c.lease.take();
+            }
+            for p in &self.planes {
+                p.lease.take();
+            }
+        }
+        res
+    }
+}
+
+pub struct MetalLease {
+    dev: Rc<MetalDrmDevice>,
+    id: MetalLeaseId,
+    fd: Rc<OwnedFd>,
+}
+
+impl Drop for MetalLease {
+    fn drop(&mut self) {
+        if let Some(lease) = self.dev.leases.remove(&self.id) {
+            if !self.dev.paused.get() {
+                for c in &lease.connectors {
+                    match c.frontend_state.get() {
+                        FrontState::Removed
+                        | FrontState::Disconnected
+                        | FrontState::Connected { .. } => {}
+                        FrontState::Unavailable => {
+                            c.send_event(ConnectorEvent::Available);
+                        }
+                    }
+                }
+            }
+            if !lease.try_revoke() {
+                self.dev.leases_to_break.set(self.id, lease);
+            }
+        }
+    }
+}
+
+impl BackendDrmLease for MetalLease {
+    fn fd(&self) -> &Rc<OwnedFd> {
+        &self.fd
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum FrontState {
+    Removed,
+    Disconnected,
+    Connected { non_desktop: bool },
+    Unavailable,
+}
+
 pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
@@ -212,13 +411,15 @@ pub struct MetalConnector {
     pub enabled: Cell<bool>,
     pub non_desktop_override: Cell<Option<bool>>,
 
+    pub lease: Cell<Option<MetalLeaseId>>,
+
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
     pub cursor_changed: Cell<bool>,
 
     pub display: RefCell<ConnectorDisplayData>,
 
-    pub connect_sent: Cell<bool>,
+    pub frontend_state: Cell<FrontState>,
 
     pub primary_plane: CloneCell<Option<Rc<MetalPlane>>>,
     pub cursor_plane: CloneCell<Option<Rc<MetalPlane>>>,
@@ -387,8 +588,12 @@ impl MetalConnector {
     }
 
     fn send_hardware_cursor(self: &Rc<Self>) {
-        if !self.connect_sent.get() {
-            return;
+        match self.frontend_state.get() {
+            FrontState::Removed
+            | FrontState::Disconnected
+            | FrontState::Unavailable
+            | FrontState::Connected { non_desktop: true } => return,
+            FrontState::Connected { non_desktop: false } => {}
         }
         let generation = self.cursor_generation.fetch_add(1) + 1;
         let hc = match self.cursor_buffers.get() {
@@ -852,6 +1057,78 @@ impl MetalConnector {
             }
         }
     }
+
+    pub fn send_event(&self, event: ConnectorEvent) {
+        let state = self.frontend_state.get();
+        match &event {
+            ConnectorEvent::Connected(ty) => match state {
+                FrontState::Disconnected => {
+                    let non_desktop = ty.non_desktop;
+                    self.on_change.send_event(event);
+                    self.frontend_state
+                        .set(FrontState::Connected { non_desktop });
+                }
+                FrontState::Removed | FrontState::Connected { .. } | FrontState::Unavailable => {
+                    log::error!("Tried to send connected event in invalid state: {state:?}");
+                }
+            },
+            ConnectorEvent::HardwareCursor(_) | ConnectorEvent::ModeChanged(_) => match state {
+                FrontState::Connected { non_desktop: false } => {
+                    self.on_change.send_event(event);
+                }
+                FrontState::Connected { non_desktop: true }
+                | FrontState::Removed
+                | FrontState::Disconnected
+                | FrontState::Unavailable => {
+                    let name = match &event {
+                        ConnectorEvent::HardwareCursor(_) => "hardware cursor",
+                        _ => "mode change",
+                    };
+                    log::error!("Tried to send {name} event in invalid state: {state:?}");
+                }
+            },
+            ConnectorEvent::Disconnected => match state {
+                FrontState::Connected { .. } | FrontState::Unavailable => {
+                    self.on_change.send_event(event);
+                    self.frontend_state.set(FrontState::Disconnected);
+                }
+                FrontState::Removed | FrontState::Disconnected => {
+                    log::error!("Tried to send disconnected event in invalid state: {state:?}");
+                }
+            },
+            ConnectorEvent::Removed => match state {
+                FrontState::Disconnected => {
+                    self.on_change.send_event(event);
+                    self.frontend_state.set(FrontState::Removed);
+                }
+                FrontState::Removed | FrontState::Connected { .. } | FrontState::Unavailable => {
+                    log::error!("Tried to send removed event in invalid state: {state:?}");
+                }
+            },
+            ConnectorEvent::Unavailable => match state {
+                FrontState::Connected { non_desktop: true } => {
+                    self.on_change.send_event(event);
+                    self.frontend_state.set(FrontState::Unavailable);
+                }
+                FrontState::Connected { non_desktop: false }
+                | FrontState::Removed
+                | FrontState::Disconnected
+                | FrontState::Unavailable => {
+                    log::error!("Tried to send unavailable event in invalid state: {state:?}");
+                }
+            },
+            ConnectorEvent::Available => match state {
+                FrontState::Unavailable => {
+                    self.on_change.send_event(event);
+                    self.frontend_state
+                        .set(FrontState::Connected { non_desktop: true });
+                }
+                FrontState::Connected { .. } | FrontState::Removed | FrontState::Disconnected => {
+                    log::error!("Tried to send available event in invalid state: {state:?}");
+                }
+            },
+        }
+    }
 }
 
 impl Connector for MetalConnector {
@@ -908,10 +1185,14 @@ impl Connector for MetalConnector {
     }
 
     fn set_mode(&self, be_mode: Mode) {
-        let mut dd = self.display.borrow_mut();
-        if dd.non_desktop_effective {
-            return;
+        match self.frontend_state.get() {
+            FrontState::Connected { non_desktop: false } => {}
+            FrontState::Connected { non_desktop: true }
+            | FrontState::Removed
+            | FrontState::Disconnected
+            | FrontState::Unavailable => return,
         }
+        let mut dd = self.display.borrow_mut();
         let Some(mode) = dd.modes.iter().find(|m| m.to_backend() == be_mode) else {
             log::warn!("Connector does not support mode {:?}", be_mode);
             return;
@@ -932,8 +1213,7 @@ impl Connector for MetalConnector {
         dd.mode = Some(mode.clone());
         drop(dd);
         let Err(e) = self.backend.handle_drm_change_(&dev, true) else {
-            self.on_change
-                .send_event(ConnectorEvent::ModeChanged(be_mode));
+            self.send_event(ConnectorEvent::ModeChanged(be_mode));
             return;
         };
         log::warn!("Could not change mode: {}", ErrorFmt(&e));
@@ -972,6 +1252,8 @@ pub struct MetalCrtc {
     pub id: DrmCrtc,
     pub idx: usize,
     pub master: Rc<DrmMaster>,
+
+    pub lease: Cell<Option<MetalLeaseId>>,
 
     pub possible_planes: AHashMap<DrmPlane, Rc<MetalPlane>>,
 
@@ -1018,6 +1300,7 @@ pub struct MetalPlane {
     pub possible_crtcs: u32,
     pub formats: AHashMap<u32, PlaneFormat>,
 
+    pub lease: Cell<Option<MetalLeaseId>>,
     pub assigned: Cell<bool>,
 
     pub mode_w: Cell<i32>,
@@ -1085,6 +1368,7 @@ fn create_connector(
         next_buffer: Default::default(),
         enabled: Cell::new(true),
         non_desktop_override: Default::default(),
+        lease: Cell::new(None),
         can_present: Cell::new(true),
         has_damage: Cell::new(true),
         primary_plane: Default::default(),
@@ -1099,7 +1383,7 @@ fn create_connector(
         cursor_enabled: Cell::new(false),
         cursor_buffers: Default::default(),
         display: RefCell::new(display),
-        connect_sent: Cell::new(false),
+        frontend_state: Cell::new(FrontState::Disconnected),
         cursor_changed: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
@@ -1266,6 +1550,7 @@ fn create_crtc(
         id: crtc,
         idx,
         master: master.clone(),
+        lease: Cell::new(None),
         possible_planes,
         connector: Default::default(),
         active: props.get("ACTIVE")?.map(|v| v == 1),
@@ -1350,6 +1635,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         assigned: Cell::new(false),
         mode_w: Cell::new(0),
         mode_h: Cell::new(0),
+        lease: Cell::new(None),
     })
 }
 
@@ -1503,10 +1789,20 @@ impl MetalBackend {
         for c in removed_connectors {
             dev.futures.remove(&c);
             if let Some(c) = dev.connectors.remove(&c) {
-                if c.connect_sent.get() {
-                    c.on_change.send_event(ConnectorEvent::Disconnected);
+                if let Some(lease_id) = c.lease.get() {
+                    if let Some(lease) = dev.dev.leases.remove(&lease_id) {
+                        if !lease.try_revoke() {
+                            dev.dev.leases_to_break.set(lease_id, lease);
+                        }
+                    }
                 }
-                c.on_change.send_event(ConnectorEvent::Removed);
+                match c.frontend_state.get() {
+                    FrontState::Removed | FrontState::Disconnected => {}
+                    FrontState::Connected { .. } | FrontState::Unavailable => {
+                        c.send_event(ConnectorEvent::Disconnected);
+                    }
+                }
+                c.send_event(ConnectorEvent::Removed);
             }
         }
         let mut preserve = Preserve::default();
@@ -1531,16 +1827,38 @@ impl MetalBackend {
                 }
             }
             mem::swap(old.deref_mut(), &mut dd);
-            if c.connect_sent.get() {
-                if !c.enabled.get()
-                    || old.connection != ConnectorStatus::Connected
-                    || !old.is_same_monitor(&dd)
-                    || c.primary_plane.is_none() != old.non_desktop_effective
-                {
-                    c.on_change.send_event(ConnectorEvent::Disconnected);
-                    c.connect_sent.set(false);
-                } else if preserve_any {
-                    preserve.connectors.insert(c.id);
+            match c.frontend_state.get() {
+                FrontState::Removed | FrontState::Disconnected => {}
+                FrontState::Connected { .. } | FrontState::Unavailable => {
+                    let mut disconnect = false;
+                    // Disconnect if the connector has been disabled.
+                    disconnect |= !c.enabled.get();
+                    // If the connector is connected and switched between being a non-desktop
+                    // and desktop device, break leases and disconnect.
+                    disconnect |= old.connection == ConnectorStatus::Connected
+                        && (c.primary_plane.is_none() != old.non_desktop_effective);
+                    if c.lease.is_none() {
+                        // If the connector is leased, we have to be careful because DRM is
+                        // fickle with sending intermittent disconnected states while the
+                        // client performs his setup. Otherwise apply the following rules.
+
+                        // Disconnect if the connector is no longer connected.
+                        disconnect |= old.connection != ConnectorStatus::Connected;
+                        // Disconnect if the connected monitor changed.
+                        disconnect |= !old.is_same_monitor(&dd);
+                    }
+                    if disconnect {
+                        if let Some(lease_id) = c.lease.get() {
+                            if let Some(lease) = dev.dev.leases.remove(&lease_id) {
+                                if !lease.try_revoke() {
+                                    dev.dev.leases_to_break.set(lease_id, lease);
+                                }
+                            }
+                        }
+                        c.send_event(ConnectorEvent::Disconnected);
+                    } else if preserve_any {
+                        preserve.connectors.insert(c.id);
+                    }
                 }
             }
         }
@@ -1572,6 +1890,12 @@ impl MetalBackend {
     }
 
     fn send_connected(&self, connector: &Rc<MetalConnector>, dd: &ConnectorDisplayData) {
+        match connector.frontend_state.get() {
+            FrontState::Removed | FrontState::Connected { .. } | FrontState::Unavailable => {
+                return;
+            }
+            FrontState::Disconnected => {}
+        }
         let mut prev_mode = None;
         let mut modes = vec![];
         for mode in dd.modes.iter().map(|m| m.to_backend()) {
@@ -1579,19 +1903,16 @@ impl MetalBackend {
                 modes.push(mode);
             }
         }
-        connector
-            .on_change
-            .send_event(ConnectorEvent::Connected(MonitorInfo {
-                modes,
-                manufacturer: dd.monitor_manufacturer.clone(),
-                product: dd.monitor_name.clone(),
-                serial_number: dd.monitor_serial_number.clone(),
-                initial_mode: dd.mode.clone().unwrap().to_backend(),
-                width_mm: dd.mm_width as _,
-                height_mm: dd.mm_height as _,
-                non_desktop: dd.non_desktop_effective,
-            }));
-        connector.connect_sent.set(true);
+        connector.send_event(ConnectorEvent::Connected(MonitorInfo {
+            modes,
+            manufacturer: dd.monitor_manufacturer.clone(),
+            product: dd.monitor_name.clone(),
+            serial_number: dd.monitor_serial_number.clone(),
+            initial_mode: dd.mode.clone().unwrap().to_backend(),
+            width_mm: dd.mm_width as _,
+            height_mm: dd.mm_height as _,
+            non_desktop: dd.non_desktop_effective,
+        }));
         connector.send_hardware_cursor();
     }
 
@@ -1696,6 +2017,10 @@ impl MetalBackend {
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
             is_nvidia,
+            lease_ids: Default::default(),
+            leases: Default::default(),
+            leases_to_break: Default::default(),
+            paused: Cell::new(false),
         });
 
         let (connectors, futures) = get_connectors(self, &dev, &resources.connectors)?;
@@ -2053,11 +2378,19 @@ impl MetalBackend {
         }
     }
 
+    pub fn break_leases(&self, dev: &Rc<MetalDrmDeviceData>) {
+        dev.dev
+            .leases_to_break
+            .lock()
+            .retain(|_, lease| !lease.try_revoke());
+    }
+
     fn init_drm_device(
         &self,
         dev: &Rc<MetalDrmDeviceData>,
         preserve: &mut Preserve,
     ) -> Result<(), MetalError> {
+        self.break_leases(dev);
         let ctx = match self.ctx.get() {
             Some(ctx) => ctx,
             _ => return Ok(()),
@@ -2342,7 +2675,7 @@ impl MetalBackend {
         }
         let crtc = 'crtc: {
             for crtc in dd.crtcs.values() {
-                if crtc.connector.is_none() {
+                if crtc.connector.is_none() && crtc.lease.is_none() {
                     break 'crtc crtc.clone();
                 }
             }
@@ -2390,7 +2723,8 @@ impl MetalBackend {
         };
         let (primary_plane, primary_modifiers) = 'primary_plane: {
             for plane in crtc.possible_planes.values() {
-                if plane.ty == PlaneType::Primary && !plane.assigned.get() {
+                if plane.ty == PlaneType::Primary && !plane.assigned.get() && plane.lease.is_none()
+                {
                     if let Some(format) = plane.formats.get(&XRGB8888.drm) {
                         break 'primary_plane (plane.clone(), &format.modifiers);
                     }
@@ -2412,6 +2746,7 @@ impl MetalBackend {
         for plane in crtc.possible_planes.values() {
             if plane.ty == PlaneType::Cursor
                 && !plane.assigned.get()
+                && plane.lease.is_none()
                 && plane.formats.contains_key(&ARGB8888.drm)
             {
                 if let Some(format) = plane.formats.get(&ARGB8888.drm) {
@@ -2485,11 +2820,13 @@ impl MetalBackend {
 
     fn start_connector(&self, connector: &Rc<MetalConnector>, log_mode: bool) {
         let dd = connector.display.borrow_mut();
-        if !connector.connect_sent.get() {
-            self.send_connected(connector, &dd);
-        }
-        if connector.primary_plane.is_none() {
-            return;
+        self.send_connected(connector, &dd);
+        match connector.frontend_state.get() {
+            FrontState::Connected { non_desktop: false } => {}
+            FrontState::Connected { non_desktop: true }
+            | FrontState::Removed
+            | FrontState::Disconnected
+            | FrontState::Unavailable => return,
         }
         if log_mode {
             log::info!(

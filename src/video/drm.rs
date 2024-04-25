@@ -21,7 +21,7 @@ use {
     bstr::{BString, ByteSlice},
     indexmap::IndexSet,
     std::{
-        cell::RefCell,
+        cell::{Cell, RefCell},
         ffi::CString,
         fmt::{Debug, Display, Formatter},
         mem::{self, MaybeUninit},
@@ -40,8 +40,8 @@ use crate::{
     video::{
         dmabuf::DmaBuf,
         drm::sys::{
-            drm_format_modifier, drm_format_modifier_blob, get_version, DRM_CAP_CURSOR_HEIGHT,
-            DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+            drm_format_modifier, drm_format_modifier_blob, get_version, revoke_lease,
+            DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
         },
         Modifier, INVALID_MODIFIER,
     },
@@ -137,6 +137,8 @@ pub enum DrmError {
     Merge(#[source] OsError),
     #[error("Could not import a sync file into a sync obj")]
     ImportSyncFile(#[source] OsError),
+    #[error("Could not create a lease")]
+    CreateLease(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -239,6 +241,36 @@ impl Deref for DrmMaster {
 
     fn deref(&self) -> &Self::Target {
         &self.drm
+    }
+}
+
+pub struct DrmLease {
+    drm_fd: Rc<OwnedFd>,
+    lessee_id: u32,
+    lessee_fd: Rc<OwnedFd>,
+    revoked: Cell<bool>,
+}
+
+impl DrmLease {
+    pub fn lessee_fd(&self) -> &Rc<OwnedFd> {
+        &self.lessee_fd
+    }
+
+    pub fn try_revoke(&self) -> bool {
+        if self.revoked.get() {
+            return true;
+        }
+        match revoke_lease(self.drm_fd.raw(), self.lessee_id) {
+            Ok(_) => {
+                log::info!("Revoked lease {}/{}", self.drm_fd.raw(), self.lessee_id);
+                self.revoked.set(true);
+                true
+            }
+            Err(e) => {
+                log::error!("Could not revoke lease: {}", ErrorFmt(e));
+                false
+            }
+        }
     }
 }
 
@@ -515,6 +547,18 @@ impl DrmMaster {
             }
         }
         Ok(self.events.pop())
+    }
+
+    pub fn lease(&self, objs: &[u32]) -> Result<DrmLease, DrmError> {
+        let (fd, lessee_id) =
+            create_lease(self.raw(), objs, c::O_CLOEXEC as _).map_err(DrmError::CreateLease)?;
+        log::info!("Created lease {}/{}", self.fd.raw(), lessee_id);
+        Ok(DrmLease {
+            drm_fd: self.fd.clone(),
+            lessee_id,
+            lessee_fd: Rc::new(fd),
+            revoked: Cell::new(false),
+        })
     }
 }
 
