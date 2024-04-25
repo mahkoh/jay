@@ -59,6 +59,7 @@ pub struct MonitorInfo {
     pub initial_mode: Mode,
     pub width_mm: i32,
     pub height_mm: i32,
+    pub non_desktop: bool,
 }
 
 #[derive(Copy, Clone, Debug)]

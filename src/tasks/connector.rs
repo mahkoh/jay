@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
+        globals::GlobalName,
         ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
@@ -70,6 +71,9 @@ impl ConnectorHandler {
             }
             self.data.async_event.triggered().await;
         }
+        if let Some(dev) = &self.data.drm_dev {
+            dev.connectors.remove(&self.id);
+        }
         if let Some(config) = self.state.config.get() {
             config.del_connector(self.id);
         }
@@ -87,6 +91,21 @@ impl ConnectorHandler {
             model: info.product.clone(),
             serial_number: info.serial_number.clone(),
         });
+        if info.non_desktop {
+            self.handle_non_desktop_connected(info).await;
+        } else {
+            self.handle_desktop_connected(info, name, output_id).await;
+        }
+        self.data.connected.set(false);
+        log::info!("Connector {} disconnected", self.data.connector.kernel_id());
+    }
+
+    async fn handle_desktop_connected(
+        &self,
+        info: MonitorInfo,
+        name: GlobalName,
+        output_id: Rc<OutputId>,
+    ) {
         let desired_state = match self.state.persistent_output_states.get(&output_id) {
             Some(ds) => ds,
             _ => {
@@ -155,7 +174,7 @@ impl ConnectorHandler {
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: info,
-            node: on.clone(),
+            node: Some(on.clone()),
         });
         self.state.outputs.set(self.id, output_data);
         on.schedule_update_render_data();
@@ -224,7 +243,6 @@ impl ConnectorHandler {
             }
             self.data.async_event.triggered().await;
         }
-        log::info!("Connector {} disconnected", self.data.connector.kernel_id());
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);
         }
@@ -242,7 +260,6 @@ impl ConnectorHandler {
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
         self.state.root.update_extents();
-        self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
         on.lock_surface.take();
         {
@@ -284,5 +301,31 @@ impl ConnectorHandler {
         let _ = self.state.remove_global(&*global);
         self.state.tree_changed();
         self.state.damage();
+    }
+
+    async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {
+        let output_data = Rc::new(OutputData {
+            connector: self.data.clone(),
+            monitor_info,
+            node: None,
+        });
+        self.state.outputs.set(self.id, output_data);
+        if let Some(config) = self.state.config.get() {
+            config.connector_connected(self.id);
+        }
+        'outer: loop {
+            while let Some(event) = self.data.connector.event() {
+                match event {
+                    ConnectorEvent::Disconnected => break 'outer,
+                    ConnectorEvent::HardwareCursor(None) => {}
+                    ev => unreachable!("received unexpected event {:?}", ev),
+                }
+            }
+            self.data.async_event.triggered().await;
+        }
+        self.state.outputs.remove(&self.id);
+        if let Some(config) = self.state.config.get() {
+            config.connector_disconnected(self.id);
+        }
     }
 }

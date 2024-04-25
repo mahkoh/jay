@@ -409,9 +409,7 @@ impl MetalConnector {
 
     fn connected(&self) -> bool {
         let dd = self.display.borrow_mut();
-        self.enabled.get()
-            && dd.connection == ConnectorStatus::Connected
-            && self.primary_plane.is_some()
+        self.enabled.get() && dd.connection == ConnectorStatus::Connected
     }
 
     pub fn schedule_present(&self) {
@@ -909,6 +907,9 @@ impl Connector for MetalConnector {
 
     fn set_mode(&self, be_mode: Mode) {
         let mut dd = self.display.borrow_mut();
+        if dd.non_desktop {
+            return;
+        }
         let Some(mode) = dd.modes.iter().find(|m| m.to_backend() == be_mode) else {
             log::warn!("Connector does not support mode {:?}", be_mode);
             return;
@@ -1561,6 +1562,7 @@ impl MetalBackend {
                 initial_mode: dd.mode.clone().unwrap().to_backend(),
                 width_mm: dd.mm_width as _,
                 height_mm: dd.mm_height as _,
+                non_desktop: dd.non_desktop,
             }));
         connector.connect_sent.set(true);
         connector.send_hardware_cursor();
@@ -2456,6 +2458,9 @@ impl MetalBackend {
         let dd = connector.display.borrow_mut();
         if !connector.connect_sent.get() {
             self.send_connected(connector, &dd);
+        }
+        if connector.primary_plane.is_none() {
+            return;
         }
         if log_mode {
             log::info!(

@@ -99,3 +99,11 @@ event mode {
 event error {
     msg: str,
 }
+
+event non_desktop_output {
+    manufacturer: str,
+    product: str,
+    serial_number: str,
+    width_mm: i32,
+    height_mm: i32,
+}

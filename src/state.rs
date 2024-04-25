@@ -268,7 +268,7 @@ pub struct ConnectorData {
 pub struct OutputData {
     pub connector: Rc<ConnectorData>,
     pub monitor_info: MonitorInfo,
-    pub node: Rc<OutputNode>,
+    pub node: Option<Rc<OutputNode>>,
 }
 
 pub struct DrmDevData {
