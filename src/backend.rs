@@ -91,6 +91,9 @@ pub trait Connector {
         None
     }
     fn set_mode(&self, mode: Mode);
+    fn set_non_desktop_override(&self, non_desktop: Option<bool>) {
+        let _ = non_desktop;
+    }
 }
 
 #[derive(Debug)]

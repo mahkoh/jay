@@ -173,6 +173,7 @@ pub struct ConnectorDisplayData {
     pub mode: Option<DrmModeInfo>,
     pub refresh: u32,
     pub non_desktop: bool,
+    pub non_desktop_effective: bool,
 
     pub monitor_manufacturer: String,
     pub monitor_name: String,
@@ -209,6 +210,7 @@ pub struct MetalConnector {
     pub next_buffer: NumCell<usize>,
 
     pub enabled: Cell<bool>,
+    pub non_desktop_override: Cell<Option<bool>>,
 
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
@@ -907,7 +909,7 @@ impl Connector for MetalConnector {
 
     fn set_mode(&self, be_mode: Mode) {
         let mut dd = self.display.borrow_mut();
-        if dd.non_desktop {
+        if dd.non_desktop_effective {
             return;
         }
         let Some(mode) = dd.modes.iter().find(|m| m.to_backend() == be_mode) else {
@@ -944,6 +946,25 @@ impl Connector for MetalConnector {
         if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
             log::warn!("Could not restore the previous mode: {}", ErrorFmt(e));
         };
+    }
+
+    fn set_non_desktop_override(&self, non_desktop: Option<bool>) {
+        if self.non_desktop_override.replace(non_desktop) == non_desktop {
+            return;
+        }
+        let mut dd = self.display.borrow_mut();
+        let non_desktop_effective = non_desktop.unwrap_or(dd.non_desktop);
+        if dd.non_desktop_effective == non_desktop_effective {
+            return;
+        }
+        dd.non_desktop_effective = non_desktop_effective;
+        drop(dd);
+        if let Some(dev) = self.backend.device_holder.drm_devices.get(&self.dev.devnum) {
+            if let Err(e) = self.backend.handle_drm_change_(&dev, true) {
+                dev.unprocessed_change.set(true);
+                log::error!("Could not override non-desktop setting: {}", ErrorFmt(e));
+            }
+        }
     }
 }
 
@@ -1052,7 +1073,7 @@ fn create_connector(
     connector: DrmConnector,
     dev: &Rc<MetalDrmDevice>,
 ) -> Result<(Rc<MetalConnector>, ConnectorFutures), DrmError> {
-    let display = create_connector_display_data(connector, dev)?;
+    let display = create_connector_display_data(connector, dev, None)?;
     let slf = Rc::new(MetalConnector {
         id: connector,
         master: dev.master.clone(),
@@ -1063,6 +1084,7 @@ fn create_connector(
         buffers: Default::default(),
         next_buffer: Default::default(),
         enabled: Cell::new(true),
+        non_desktop_override: Default::default(),
         can_present: Cell::new(true),
         has_damage: Cell::new(true),
         primary_plane: Default::default(),
@@ -1100,6 +1122,7 @@ fn create_connector(
 fn create_connector_display_data(
     connector: DrmConnector,
     dev: &Rc<MetalDrmDevice>,
+    non_desktop_override: Option<bool>,
 ) -> Result<ConnectorDisplayData, DrmError> {
     let info = dev.master.get_connector_info(connector, true)?;
     let mut crtcs = AHashMap::new();
@@ -1186,13 +1209,15 @@ fn create_connector_display_data(
     }
     let props = collect_properties(&dev.master, connector)?;
     let connector_type = ConnectorType::from_drm(info.connector_type);
+    let non_desktop = props.get("non-desktop")?.value.get() != 0;
     Ok(ConnectorDisplayData {
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtcs,
         modes: info.modes,
         mode,
         refresh,
-        non_desktop: props.get("non-desktop")?.value.get() != 0,
+        non_desktop,
+        non_desktop_effective: non_desktop_override.unwrap_or(non_desktop),
         monitor_manufacturer: manufacturer,
         monitor_name: name,
         monitor_serial_number: serial_number,
@@ -1486,7 +1511,8 @@ impl MetalBackend {
         }
         let mut preserve = Preserve::default();
         for c in dev.connectors.lock().values() {
-            let mut dd = match create_connector_display_data(c.id, &dev.dev) {
+            let dd = create_connector_display_data(c.id, &dev.dev, c.non_desktop_override.get());
+            let mut dd = match dd {
                 Ok(d) => d,
                 Err(e) => {
                     log::error!(
@@ -1509,6 +1535,7 @@ impl MetalBackend {
                 if !c.enabled.get()
                     || old.connection != ConnectorStatus::Connected
                     || !old.is_same_monitor(&dd)
+                    || c.primary_plane.is_none() != old.non_desktop_effective
                 {
                     c.on_change.send_event(ConnectorEvent::Disconnected);
                     c.connect_sent.set(false);
@@ -1562,7 +1589,7 @@ impl MetalBackend {
                 initial_mode: dd.mode.clone().unwrap().to_backend(),
                 width_mm: dd.mm_width as _,
                 height_mm: dd.mm_height as _,
-                non_desktop: dd.non_desktop,
+                non_desktop: dd.non_desktop_effective,
             }));
         connector.connect_sent.set(true);
         connector.send_hardware_cursor();
@@ -1857,6 +1884,8 @@ impl MetalBackend {
             if preserve.connectors.contains(&connector.id) {
                 continue;
             }
+            connector.buffers.set(None);
+            connector.cursor_buffers.set(None);
             connector.primary_plane.set(None);
             connector.cursor_plane.set(None);
             connector.cursor_enabled.set(false);
@@ -2528,5 +2557,7 @@ fn modes_equal(a: &DrmModeInfo, b: &DrmModeInfo) -> bool {
 }
 
 fn should_ignore(connector: &MetalConnector, dd: &ConnectorDisplayData) -> bool {
-    !connector.enabled.get() || dd.connection != ConnectorStatus::Connected || dd.non_desktop
+    !connector.enabled.get()
+        || dd.connection != ConnectorStatus::Connected
+        || dd.non_desktop_effective
 }

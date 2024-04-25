@@ -6,7 +6,7 @@ use {
         utils::transform_ext::TransformExt,
         wire::{jay_compositor, jay_randr, JayRandrId},
     },
-    clap::{Args, Subcommand},
+    clap::{Args, Subcommand, ValueEnum},
     isnt::std_1::vec::IsntVecExt,
     jay_config::video::Transform,
     std::{
@@ -115,6 +115,21 @@ pub enum OutputCommand {
     Enable,
     /// Disable the output.
     Disable,
+    /// Override the display's non-desktop setting.
+    NonDesktop(NonDesktopArgs),
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum NonDesktopType {
+    Default,
+    False,
+    True,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct NonDesktopArgs {
+    /// Whether this output is a non-desktop output.
+    pub setting: NonDesktopType,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -372,6 +387,16 @@ impl Randr {
                     self_id: randr,
                     output: &args.output,
                     enabled: enable as _,
+                });
+            }
+            OutputCommand::NonDesktop(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the non-desktop setting: {}", msg);
+                });
+                tc.send(jay_randr::SetNonDesktop {
+                    self_id: randr,
+                    output: &args.output,
+                    non_desktop: a.setting as _,
                 });
             }
         }

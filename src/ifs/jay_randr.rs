@@ -284,6 +284,19 @@ impl JayRandrRequestHandler for JayRandr {
         c.connector.set_enabled(req.enabled != 0);
         Ok(())
     }
+
+    fn set_non_desktop(&self, req: SetNonDesktop<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(c) = self.get_connector(req.output) else {
+            return Ok(());
+        };
+        let non_desktop = match req.non_desktop {
+            0 => None,
+            1 => Some(false),
+            _ => Some(true),
+        };
+        c.connector.set_non_desktop_override(non_desktop);
+        Ok(())
+    }
 }
 
 object_base! {
