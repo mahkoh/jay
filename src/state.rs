@@ -731,8 +731,9 @@ impl State {
             connector.handler.take();
             connector.async_event.clear();
         }
-        for (_, output) in self.outputs.lock().drain() {
-            output.node.clear();
+        self.outputs.clear();
+        for output in self.root.outputs.lock().values() {
+            output.clear();
         }
         self.dbus.clear();
         self.pending_container_layout.clear();

@@ -158,10 +158,13 @@ impl ConnectorHandler {
             node: on.clone(),
         });
         self.state.outputs.set(self.id, output_data);
+        on.schedule_update_render_data();
+        self.state.root.outputs.set(self.id, on.clone());
+        self.state.root.update_extents();
         global.opt.node.set(Some(on.clone()));
         global.opt.global.set(Some(global.clone()));
         let mut ws_to_move = VecDeque::new();
-        if self.state.outputs.len() == 1 {
+        if self.state.root.outputs.len() == 1 {
             let seats = self.state.globals.seats.lock();
             let pos = global.pos.get();
             let x = (pos.x1() + pos.x2()) / 2;
@@ -177,11 +180,11 @@ impl ConnectorHandler {
                 ws_to_move.push_back(ws);
             }
         }
-        for source in self.state.outputs.lock().values() {
-            if source.node.id == on.id {
+        for source in self.state.root.outputs.lock().values() {
+            if source.id == on.id {
                 continue;
             }
-            for ws in source.node.workspaces.iter() {
+            for ws in source.workspaces.iter() {
                 if ws.is_dummy {
                     continue;
                 }
@@ -203,9 +206,6 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
-        on.schedule_update_render_data();
-        self.state.root.outputs.set(self.id, on.clone());
-        self.state.root.update_extents();
         self.state.add_global(&global);
         self.state.tree_changed();
         'outer: loop {
@@ -255,8 +255,8 @@ impl ConnectorHandler {
                 surface.send_closed();
             }
         }
-        let target = match self.state.outputs.lock().values().next() {
-            Some(o) => o.node.clone(),
+        let target = match self.state.root.outputs.lock().values().next() {
+            Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
         for ws in on.workspaces.iter() {

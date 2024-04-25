@@ -1804,11 +1804,11 @@ impl MetalBackend {
         }
         let dd = connector.display.borrow_mut();
         {
-            let global = self.state.outputs.get(&connector.connector_id);
+            let global = self.state.root.outputs.get(&connector.connector_id);
             let mut rr = connector.render_result.borrow_mut();
             if let Some(g) = &global {
                 let refresh = dd.refresh;
-                let bindings = g.node.global.bindings.borrow_mut();
+                let bindings = g.global.bindings.borrow_mut();
                 for fb in rr.presentation_feedbacks.drain(..) {
                     if let Some(bindings) = bindings.get(&fb.client.id) {
                         for binding in bindings.values() {
