@@ -172,6 +172,7 @@ pub struct ConnectorDisplayData {
     pub modes: Vec<DrmModeInfo>,
     pub mode: Option<DrmModeInfo>,
     pub refresh: u32,
+    pub non_desktop: bool,
 
     pub monitor_manufacturer: String,
     pub monitor_name: String,
@@ -1190,6 +1191,7 @@ fn create_connector_display_data(
         modes: info.modes,
         mode,
         refresh,
+        non_desktop: props.get("non-desktop")?.value.get() != 0,
         monitor_manufacturer: manufacturer,
         monitor_name: name,
         monitor_serial_number: serial_number,
@@ -1744,8 +1746,7 @@ impl MetalBackend {
         if let Err(e) = self.update_device_properties(dev) {
             return Err(MetalError::UpdateProperties(e));
         }
-        let mut preserve = Preserve::default();
-        self.init_drm_device(dev, &mut preserve)?;
+        self.init_drm_device(dev, &mut Preserve::default())?;
         for connector in dev.connectors.lock().values() {
             if connector.primary_plane.is_some() {
                 connector.schedule_present();
@@ -2011,8 +2012,7 @@ impl MetalBackend {
     }
 
     fn re_init_drm_device(&self, dev: &Rc<MetalDrmDeviceData>) {
-        let mut preserve = Preserve::default();
-        if let Err(e) = self.init_drm_device(dev, &mut preserve) {
+        if let Err(e) = self.init_drm_device(dev, &mut Preserve::default()) {
             log::error!("Could not initialize device: {}", ErrorFmt(e));
         }
         for connector in dev.connectors.lock().values() {
@@ -2076,9 +2076,9 @@ impl MetalBackend {
 
         for connector in dev.connectors.lock().values() {
             let dd = connector.display.borrow_mut();
-            if !connector.enabled.get() || dd.connection != ConnectorStatus::Connected {
+            if should_ignore(connector, &dd) {
                 if dd.crtc_id.value.get().is_some() {
-                    log::debug!("Connector is not connected but has an assigned crtc");
+                    log::debug!("Connector should be ignored but has an assigned crtc");
                     return false;
                 }
                 continue;
@@ -2306,7 +2306,7 @@ impl MetalBackend {
         changes: &mut Change,
     ) -> Result<(), MetalError> {
         let dd = connector.display.borrow_mut();
-        if !connector.enabled.get() || dd.connection != ConnectorStatus::Connected {
+        if should_ignore(connector, &dd) {
             return Ok(());
         }
         let crtc = 'crtc: {
@@ -2520,4 +2520,8 @@ fn modes_equal(a: &DrmModeInfo, b: &DrmModeInfo) -> bool {
         && a.vscan == b.vscan
         && a.vrefresh == b.vrefresh
         && a.flags == b.flags
+}
+
+fn should_ignore(connector: &MetalConnector, dd: &ConnectorDisplayData) -> bool {
+    !connector.enabled.get() || dd.connection != ConnectorStatus::Connected || dd.non_desktop
 }
