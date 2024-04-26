@@ -67,7 +67,6 @@ pub struct MetalRenderContext {
     pub gfx: Rc<dyn GfxContext>,
 }
 
-#[derive(Debug)]
 pub struct MetalDrmDevice {
     pub backend: Rc<MetalBackend>,
     pub id: DrmDeviceId,
@@ -89,6 +88,12 @@ pub struct MetalDrmDevice {
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
     pub is_nvidia: bool,
+}
+
+impl Debug for MetalDrmDevice {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetalDrmDevice").finish_non_exhaustive()
+    }
 }
 
 impl MetalDrmDevice {
@@ -189,7 +194,6 @@ impl ConnectorDisplayData {
     }
 }
 
-#[derive(Debug)]
 pub struct MetalConnector {
     pub id: DrmConnector,
     pub master: Rc<DrmMaster>,
@@ -240,7 +244,12 @@ pub struct MetalConnector {
     pub direct_scanout_active: Cell<bool>,
 }
 
-#[derive(Debug)]
+impl Debug for MetalConnector {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetalConnnector").finish_non_exhaustive()
+    }
+}
+
 pub struct MetalHardwareCursor {
     pub generation: u64,
     pub connector: Rc<MetalConnector>,
@@ -251,6 +260,13 @@ pub struct MetalHardwareCursor {
     pub cursor_buffers: Rc<[RenderBuffer; 3]>,
     pub sync_file: CloneCell<Option<SyncFile>>,
     pub have_changes: Cell<bool>,
+}
+
+impl Debug for MetalHardwareCursor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetalHardwareCursor")
+            .finish_non_exhaustive()
+    }
 }
 
 impl HardwareCursor for MetalHardwareCursor {
@@ -929,7 +945,6 @@ impl Connector for MetalConnector {
     }
 }
 
-#[derive(Debug)]
 pub struct MetalCrtc {
     pub id: DrmCrtc,
     pub idx: usize,
@@ -944,6 +959,12 @@ pub struct MetalCrtc {
     pub out_fence_ptr: DrmProperty,
 
     pub mode_blob: CloneCell<Option<Rc<PropBlob>>>,
+}
+
+impl Debug for MetalCrtc {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetalCrtc").finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug)]
@@ -965,7 +986,6 @@ pub struct PlaneFormat {
     modifiers: IndexSet<Modifier>,
 }
 
-#[derive(Debug)]
 pub struct MetalPlane {
     pub id: DrmPlane,
     pub master: Rc<DrmMaster>,
@@ -991,6 +1011,12 @@ pub struct MetalPlane {
     pub src_h: MutableProperty<u32>,
     pub in_fence_fd: DrmProperty,
     pub fb_id: DrmProperty,
+}
+
+impl Debug for MetalPlane {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetalPlane").finish_non_exhaustive()
+    }
 }
 
 fn get_connectors(
