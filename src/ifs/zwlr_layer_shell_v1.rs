@@ -65,9 +65,9 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
                         break 'get_output output.global.opt.clone();
                     }
                 }
-                let outputs = self.client.state.outputs.lock();
+                let outputs = self.client.state.root.outputs.lock();
                 if let Some(output) = outputs.values().next() {
-                    break 'get_output output.node.global.opt.clone();
+                    break 'get_output output.global.opt.clone();
                 }
                 return Err(ZwlrLayerShellV1Error::NoOutputs);
             }

@@ -596,10 +596,10 @@ impl WlSeatGlobal {
         self.update_hardware_cursor_position();
         self.trigger_tree_changed();
         let output = 'set_output: {
-            let outputs = self.state.outputs.lock();
+            let outputs = self.state.root.outputs.lock();
             for output in outputs.values() {
-                if output.node.global.pos.get().contains(x, y) {
-                    break 'set_output output.node.clone();
+                if output.global.pos.get().contains(x, y) {
+                    break 'set_output output.clone();
                 }
             }
             self.state.dummy_output.get().unwrap()

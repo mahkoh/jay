@@ -241,12 +241,12 @@ impl WlSeatGlobal {
         mut x: Fixed,
         mut y: Fixed,
     ) {
-        let output = match self.state.outputs.get(&connector) {
+        let output = match self.state.root.outputs.get(&connector) {
             Some(o) => o,
             _ => return,
         };
-        self.set_output(&output.node);
-        let pos = output.node.global.pos.get();
+        self.set_output(&output);
+        let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
         if let Some(c) = self.constraint.get() {
@@ -314,10 +314,10 @@ impl WlSeatGlobal {
         let mut y_int = y.round_down();
         if !pos.contains(x_int, y_int) {
             'warp: {
-                let outputs = self.state.outputs.lock();
+                let outputs = self.state.root.outputs.lock();
                 for output in outputs.values() {
-                    if output.node.global.pos.get().contains(x_int, y_int) {
-                        self.set_output(&output.node);
+                    if output.global.pos.get().contains(x_int, y_int) {
+                        self.set_output(output);
                         break 'warp;
                     }
                 }

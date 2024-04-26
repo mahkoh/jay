@@ -90,8 +90,8 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             let state = &self.client.state;
             state.lock.locked.set(false);
             state.lock.lock.take();
-            for output in state.outputs.lock().values() {
-                if let Some(surface) = output.node.set_lock_surface(None) {
+            for output in state.root.outputs.lock().values() {
+                if let Some(surface) = output.set_lock_surface(None) {
                     surface.destroy_node();
                 }
             }

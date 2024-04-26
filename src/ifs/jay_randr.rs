@@ -7,6 +7,7 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::{ConnectorData, DrmDevData, OutputData},
+        tree::OutputNode,
         utils::{gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
         wire::{jay_randr::*, JayRandrId},
     },
@@ -64,33 +65,47 @@ impl JayRandr {
             enabled: data.connector.enabled() as _,
             name: &data.name,
         });
-        if let Some(output) = self.client.state.outputs.get(&data.connector.id()) {
-            let global = &output.node.global;
-            let pos = global.pos.get();
-            self.client.event(Output {
-                self_id: self.id,
-                scale: global.persistent.scale.get().to_wl(),
-                width: pos.width(),
-                height: pos.height(),
-                x: pos.x1(),
-                y: pos.y1(),
-                transform: global.persistent.transform.get().to_wl(),
-                manufacturer: &output.monitor_info.manufacturer,
-                product: &output.monitor_info.product,
-                serial_number: &output.monitor_info.serial_number,
-                width_mm: global.width_mm,
-                height_mm: global.height_mm,
-            });
-            let current_mode = global.mode.get();
-            for mode in &global.modes {
-                self.client.event(Mode {
+        let Some(output) = self.client.state.outputs.get(&data.connector.id()) else {
+            return;
+        };
+        let global = match output.node.as_ref().map(|n| &n.global) {
+            Some(g) => g,
+            _ => {
+                self.client.event(NonDesktopOutput {
                     self_id: self.id,
-                    width: mode.width,
-                    height: mode.height,
-                    refresh_rate_millihz: mode.refresh_rate_millihz,
-                    current: (mode == &current_mode) as _,
+                    manufacturer: &output.monitor_info.manufacturer,
+                    product: &output.monitor_info.product,
+                    serial_number: &output.monitor_info.serial_number,
+                    width_mm: output.monitor_info.width_mm,
+                    height_mm: output.monitor_info.height_mm,
                 });
+                return;
             }
+        };
+        let pos = global.pos.get();
+        self.client.event(Output {
+            self_id: self.id,
+            scale: global.persistent.scale.get().to_wl(),
+            width: pos.width(),
+            height: pos.height(),
+            x: pos.x1(),
+            y: pos.y1(),
+            transform: global.persistent.transform.get().to_wl(),
+            manufacturer: &output.monitor_info.manufacturer,
+            product: &output.monitor_info.product,
+            serial_number: &output.monitor_info.serial_number,
+            width_mm: global.width_mm,
+            height_mm: global.height_mm,
+        });
+        let current_mode = global.mode.get();
+        for mode in &global.modes {
+            self.client.event(Mode {
+                self_id: self.id,
+                width: mode.width,
+                height: mode.height,
+                refresh_rate_millihz: mode.refresh_rate_millihz,
+                current: (mode == &current_mode) as _,
+            });
         }
     }
 
@@ -141,6 +156,18 @@ impl JayRandr {
         }
         if let Some(c) = self.get_connector(name) {
             self.send_error(&format!("Connector {} is not connected", c.name));
+        }
+        None
+    }
+
+    fn get_output_node(&self, name: &str) -> Option<Rc<OutputNode>> {
+        let output = self.get_output(name)?;
+        match output.node.clone() {
+            Some(n) => return Some(n),
+            _ => self.send_error(&format!(
+                "Display connected to {} is not a desktop display",
+                output.connector.name
+            )),
         }
         None
     }
@@ -203,22 +230,22 @@ impl JayRandrRequestHandler for JayRandr {
     }
 
     fn set_transform(&self, req: SetTransform, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let Some(c) = self.get_output(req.output) else {
+        let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
         let Some(transform) = Transform::from_wl(req.transform) else {
             self.send_error(&format!("Unknown transform {}", req.transform));
             return Ok(());
         };
-        c.node.update_transform(transform);
+        c.update_transform(transform);
         Ok(())
     }
 
     fn set_scale(&self, req: SetScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let Some(c) = self.get_output(req.output) else {
+        let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.node.set_preferred_scale(Scale::from_wl(req.scale));
+        c.set_preferred_scale(Scale::from_wl(req.scale));
         Ok(())
     }
 
@@ -235,7 +262,7 @@ impl JayRandrRequestHandler for JayRandr {
     }
 
     fn set_position(&self, req: SetPosition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let Some(c) = self.get_output(req.output) else {
+        let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
         if req.x < 0 || req.y < 0 {
@@ -246,7 +273,7 @@ impl JayRandrRequestHandler for JayRandr {
             self.send_error(&format!("x and y cannot be greater than {MAX_EXTENTS}"));
             return Ok(());
         }
-        c.node.set_position(req.x, req.y);
+        c.set_position(req.x, req.y);
         Ok(())
     }
 
@@ -255,6 +282,19 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.connector.set_enabled(req.enabled != 0);
+        Ok(())
+    }
+
+    fn set_non_desktop(&self, req: SetNonDesktop<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(c) = self.get_connector(req.output) else {
+            return Ok(());
+        };
+        let non_desktop = match req.non_desktop {
+            0 => None,
+            1 => Some(false),
+            _ => Some(true),
+        };
+        c.connector.set_non_desktop_override(non_desktop);
         Ok(())
     }
 }

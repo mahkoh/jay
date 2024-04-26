@@ -1,13 +1,15 @@
 use {
     crate::{
-        backend::BackendEvent,
+        backend::{BackendEvent, ConnectorEvent},
         backends::metal::{
-            video::{MetalDrmDeviceData, PendingDrmDevice},
+            video::{FrontState, MetalDrmDeviceData, PendingDrmDevice},
             MetalBackend, MetalDevice, MetalError, MetalInputDevice,
         },
         dbus::{DbusError, TRUE},
         udev::UdevDevice,
-        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, nonblock::set_nonblock},
+        utils::{
+            bitflags::BitflagsExt, cell_ext::CellExt, errorfmt::ErrorFmt, nonblock::set_nonblock,
+        },
         video::drm::DrmMaster,
         wire_dbus::org::freedesktop::login1::session::{
             PauseDevice, ResumeDevice, TakeDeviceReply,
@@ -89,6 +91,18 @@ impl MetalBackend {
 
     fn handle_drm_device_resume(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>, _fd: Rc<OwnedFd>) {
         log::info!("Device resumed: {}", dev.dev.devnode.to_bytes().as_bstr());
+        dev.dev.paused.set(false);
+        self.break_leases(dev);
+        for c in dev.connectors.lock().values() {
+            match c.frontend_state.get() {
+                FrontState::Removed | FrontState::Disconnected | FrontState::Connected { .. } => {}
+                FrontState::Unavailable => {
+                    if c.lease.is_none() {
+                        c.send_event(ConnectorEvent::Available);
+                    }
+                }
+            }
+        }
         if let Err(e) = self.resume_drm_device(dev) {
             log::error!("Could not resume drm device: {}", ErrorFmt(e));
         }
@@ -149,6 +163,21 @@ impl MetalBackend {
     }
 
     fn handle_drm_device_paused(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>) {
+        dev.dev.paused.set(true);
+        for c in dev.connectors.lock().values() {
+            match c.frontend_state.get() {
+                FrontState::Removed
+                | FrontState::Disconnected
+                | FrontState::Unavailable
+                | FrontState::Connected { non_desktop: false } => {}
+                FrontState::Connected { non_desktop: true } => {
+                    c.send_event(ConnectorEvent::Unavailable);
+                }
+            }
+        }
+        for (lease_id, lease) in dev.dev.leases.lock().drain() {
+            dev.dev.leases_to_break.set(lease_id, lease);
+        }
         log::info!("Device paused: {}", dev.dev.devnode.to_bytes().as_bstr());
     }
 

@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::{BackendDrmDevice, DrmDeviceId, DrmEvent},
+        ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
         state::{DrmDevData, State},
         tasks::udev_utils::udev_props,
         utils::asyncevent::AsyncEvent,
@@ -11,6 +12,12 @@ use {
 pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     let id = dev.id();
     let props = udev_props(dev.dev_t(), 1);
+    let lease_global = Rc::new(WpDrmLeaseDeviceV1Global {
+        name: state.globals.name(),
+        device: id,
+        bindings: Default::default(),
+    });
+    state.add_global(&lease_global);
     let data = Rc::new(DrmDevData {
         dev: dev.clone(),
         handler: Cell::new(None),
@@ -20,6 +27,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         vendor: props.vendor,
         model: props.model,
         pci_id: props.pci_id,
+        lease_global,
     });
     let oh = DrvDevHandler {
         id,
@@ -66,6 +74,8 @@ impl DrvDevHandler {
         if let Some(config) = self.state.config.get() {
             config.del_drm_dev(self.id);
         }
+        self.data.lease_global.bindings.clear();
+        let _ = self.state.remove_global(&*self.data.lease_global);
         self.data.handler.set(None);
         self.state.drm_devs.remove(&self.id);
     }

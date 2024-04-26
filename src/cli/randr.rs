@@ -6,7 +6,7 @@ use {
         utils::transform_ext::TransformExt,
         wire::{jay_compositor, jay_randr, JayRandrId},
     },
-    clap::{Args, Subcommand},
+    clap::{Args, Subcommand, ValueEnum},
     isnt::std_1::vec::IsntVecExt,
     jay_config::video::Transform,
     std::{
@@ -115,6 +115,21 @@ pub enum OutputCommand {
     Enable,
     /// Disable the output.
     Disable,
+    /// Override the display's non-desktop setting.
+    NonDesktop(NonDesktopArgs),
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum NonDesktopType {
+    Default,
+    False,
+    True,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct NonDesktopArgs {
+    /// Whether this output is a non-desktop output.
+    pub setting: NonDesktopType,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -217,6 +232,7 @@ struct Output {
     pub height_mm: i32,
     pub current_mode: Option<Mode>,
     pub modes: Vec<Mode>,
+    pub non_desktop: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -373,6 +389,16 @@ impl Randr {
                     enabled: enable as _,
                 });
             }
+            OutputCommand::NonDesktop(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the non-desktop setting: {}", msg);
+                });
+                tc.send(jay_randr::SetNonDesktop {
+                    self_id: randr,
+                    output: &args.output,
+                    non_desktop: a.setting as _,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -479,12 +505,16 @@ impl Randr {
         println!("        product: {}", o.product);
         println!("        manufacturer: {}", o.manufacturer);
         println!("        serial number: {}", o.serial_number);
-        println!("        position: {} x {}", o.x, o.y);
-        println!("        logical size: {} x {}", o.width, o.height);
         println!(
             "        physical size: {}mm x {}mm",
             o.width_mm, o.height_mm
         );
+        if o.non_desktop {
+            println!("        non-desktop");
+            return;
+        }
+        println!("        position: {} x {}", o.x, o.y);
+        println!("        logical size: {} x {}", o.width, o.height);
         if let Some(mode) = &o.current_mode {
             print!("        mode: ");
             self.print_mode(mode, false);
@@ -570,6 +600,27 @@ impl Randr {
                 height_mm: msg.height_mm,
                 modes: Default::default(),
                 current_mode: None,
+                non_desktop: false,
+            });
+        });
+        jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            c.output = Some(Output {
+                scale: 1.0,
+                width: 0,
+                height: 0,
+                x: 0,
+                y: 0,
+                transform: Transform::None,
+                manufacturer: msg.manufacturer.to_string(),
+                product: msg.product.to_string(),
+                serial_number: msg.serial_number.to_string(),
+                width_mm: msg.width_mm,
+                height_mm: msg.height_mm,
+                modes: Default::default(),
+                current_mode: None,
+                non_desktop: true,
             });
         });
         jay_randr::Mode::handle(tc, randr, data.clone(), |data, msg| {

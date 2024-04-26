@@ -514,6 +514,14 @@ impl ConfigProxyHandler {
         }
     }
 
+    fn get_output_node(&self, connector: Connector) -> Result<Rc<OutputNode>, CphError> {
+        let data = self.get_output(connector)?;
+        match data.node.clone() {
+            Some(d) => Ok(d),
+            _ => Err(CphError::OutputIsNotDesktop(connector)),
+        }
+    }
+
     fn get_drm_device(&self, dev: DrmDevice) -> Result<Rc<DrmDevData>, CphError> {
         match self.state.drm_devs.get(&DrmDeviceId::from_raw(dev.0 as _)) {
             Some(dev) => Ok(dev),
@@ -783,7 +791,7 @@ impl ConfigProxyHandler {
         workspace: WorkspaceSource,
         connector: Connector,
     ) -> Result<(), CphError> {
-        let output = self.get_output(connector)?;
+        let output = self.get_output_node(connector)?;
         let ws = match workspace {
             WorkspaceSource::Explicit(ws) => {
                 let name = self.get_workspace(ws)?;
@@ -797,10 +805,10 @@ impl ConfigProxyHandler {
                 _ => return Ok(()),
             },
         };
-        if ws.is_dummy || output.node.is_dummy {
+        if ws.is_dummy || output.is_dummy {
             return Ok(());
         }
-        if ws.output.get().id == output.node.id {
+        if ws.output.get().id == output.id {
             return Ok(());
         }
         let link = match &*ws.output_link.borrow() {
@@ -811,8 +819,8 @@ impl ConfigProxyHandler {
             make_visible_if_empty: true,
             source_is_destroyed: false,
         };
-        move_ws_to_output(&link, &output.node, config);
-        ws.desired_output.set(output.node.global.output_id.clone());
+        move_ws_to_output(&link, &output, config);
+        ws.desired_output.set(output.global.output_id.clone());
         self.state.tree_changed();
         self.state.damage();
         Ok(())
@@ -856,8 +864,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_mode(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
-        let mode = connector.node.global.mode.get();
+        let connector = self.get_output_node(connector)?;
+        let mode = connector.global.mode.get();
         self.respond(Response::ConnectorMode {
             width: mode.width,
             height: mode.height,
@@ -881,10 +889,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_modes(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
+        let connector = self.get_output_node(connector)?;
         self.respond(Response::ConnectorModes {
             modes: connector
-                .node
                 .global
                 .modes
                 .iter()
@@ -964,8 +971,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
-        let pos = connector.node.global.pos.get();
+        let connector = self.get_output_node(connector)?;
+        let pos = connector.global.pos.get();
         self.respond(Response::ConnectorSize {
             width: pos.width(),
             height: pos.height(),
@@ -974,9 +981,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_get_scale(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
+        let connector = self.get_output_node(connector)?;
         self.respond(Response::ConnectorGetScale {
-            scale: connector.node.global.persistent.scale.get().to_f64(),
+            scale: connector.global.persistent.scale.get().to_f64(),
         });
         Ok(())
     }
@@ -989,8 +996,8 @@ impl ConfigProxyHandler {
             return Err(CphError::ScaleTooLarge(scale));
         }
         let scale = Scale::from_f64(scale);
-        let connector = self.get_output(connector)?;
-        connector.node.set_preferred_scale(scale);
+        let connector = self.get_output_node(connector)?;
+        connector.set_preferred_scale(scale);
         self.state.damage();
         Ok(())
     }
@@ -1000,8 +1007,8 @@ impl ConfigProxyHandler {
         connector: Connector,
         transform: Transform,
     ) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
-        connector.node.update_transform(transform);
+        let connector = self.get_output_node(connector)?;
+        connector.update_transform(transform);
         self.state.damage();
         Ok(())
     }
@@ -1012,15 +1019,15 @@ impl ConfigProxyHandler {
         x: i32,
         y: i32,
     ) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
+        let connector = self.get_output_node(connector)?;
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
-        let old_pos = connector.node.global.pos.get();
-        connector.node.set_position(x, y);
+        let old_pos = connector.global.pos.get();
+        connector.set_position(x, y);
         let seats = self.state.globals.seats.lock();
         for seat in seats.values() {
-            if seat.get_output().id == connector.node.id {
+            if seat.get_output().id == connector.id {
                 let seat_pos = seat.position();
                 seat.set_position(
                     seat_pos.0.round_down() + x - old_pos.x1(),
@@ -1032,8 +1039,8 @@ impl ConfigProxyHandler {
     }
 
     fn handle_connector_get_position(&self, connector: Connector) -> Result<(), CphError> {
-        let connector = self.get_output(connector)?;
-        let (x, y) = connector.node.global.pos.get().position();
+        let connector = self.get_output_node(connector)?;
+        let (x, y) = connector.global.pos.get().position();
         self.respond(Response::ConnectorGetPosition { x, y });
         Ok(())
     }
@@ -1813,6 +1820,8 @@ enum CphError {
     TimerDoesNotExist(JayTimer),
     #[error("Connector {0:?} does not exist or is not connected")]
     OutputDoesNotExist(Connector),
+    #[error("Output {0:?} is not a desktop output")]
+    OutputIsNotDesktop(Connector),
     #[error("{0}x{1} is not a valid connector position")]
     InvalidConnectorPosition(i32, i32),
     #[error("Keymap {0:?} does not exist")]

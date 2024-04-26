@@ -220,8 +220,8 @@ impl JayCompositorRequestHandler for JayCompositor {
             if let Some(lock) = state.lock.lock.take() {
                 lock.finish();
             }
-            for output in state.outputs.lock().values() {
-                if let Some(surface) = output.node.set_lock_surface(None) {
+            for output in state.root.outputs.lock().values() {
+                if let Some(surface) = output.set_lock_surface(None) {
                     surface.destroy_node();
                 }
             }

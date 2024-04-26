@@ -54,7 +54,11 @@ bitflags! {
         CAP_LAYER_SHELL              = 1 << 6,
         CAP_SCREENCOPY_MANAGER       = 1 << 7,
         CAP_SEAT_MANAGER             = 1 << 8,
+        CAP_DRM_LEASE                = 1 << 9,
 }
+
+pub const CAPS_DEFAULT: ClientCaps = ClientCaps(CAP_LAYER_SHELL.0 | CAP_DRM_LEASE.0);
+pub const CAPS_DEFAULT_SANDBOXED: ClientCaps = ClientCaps(CAP_DRM_LEASE.0);
 
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ClientId(u64);

@@ -118,6 +118,10 @@ You can explicitly opt into giving applications access to privileged protocols v
 
 Jay's shortcut system allows you to execute an action when a key is pressed and to execute a different action when the key is released.
 
+## VR
+
+Jay's supports leasing VR headsets to applications.
+
 ## Protocol Support
 
 Jay supports the following wayland protocols:
@@ -139,6 +143,7 @@ Jay supports the following wayland protocols:
 | wp_alpha_modifier_v1                    | 1                |               |
 | wp_content_type_manager_v1              | 1                |               |
 | wp_cursor_shape_manager_v1              | 1                |               |
+| wp_drm_lease_device_v1                  | 1                |               |
 | wp_fractional_scale_manager_v1          | 1                |               |
 | wp_linux_drm_syncobj_manager_v1         | 1                |               |
 | wp_presentation                         | 1                |               |

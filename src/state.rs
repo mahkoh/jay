@@ -40,6 +40,8 @@ use {
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
                 NoneSurfaceExt, WlSurface,
             },
+            wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
+            wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
             wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
             zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
@@ -59,8 +61,8 @@ use {
             WorkspaceNode,
         },
         utils::{
-            activation_token::ActivationToken, asyncevent::AsyncEvent, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
+            activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
             linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
@@ -268,7 +270,8 @@ pub struct ConnectorData {
 pub struct OutputData {
     pub connector: Rc<ConnectorData>,
     pub monitor_info: MonitorInfo,
-    pub node: Rc<OutputNode>,
+    pub node: Option<Rc<OutputNode>>,
+    pub lease_connectors: Rc<Bindings<WpDrmLeaseConnectorV1>>,
 }
 
 pub struct DrmDevData {
@@ -280,6 +283,7 @@ pub struct DrmDevData {
     pub vendor: Option<String>,
     pub model: Option<String>,
     pub pci_id: Option<PciId>,
+    pub lease_global: Rc<WpDrmLeaseDeviceV1Global>,
 }
 
 impl DrmDevData {
@@ -731,8 +735,9 @@ impl State {
             connector.handler.take();
             connector.async_event.clear();
         }
-        for (_, output) in self.outputs.lock().drain() {
-            output.node.clear();
+        self.outputs.clear();
+        for output in self.root.outputs.lock().values() {
+            output.clear();
         }
         self.dbus.clear();
         self.pending_container_layout.clear();

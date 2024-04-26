@@ -6,7 +6,7 @@ use {
         gfx_api::{GfxFramebuffer, SyncFile},
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         libinput::consts::DeviceCapability,
-        video::drm::{ConnectorType, DrmError, DrmVersion},
+        video::drm::{ConnectorType, DrmConnector, DrmError, DrmVersion},
     },
     jay_config::video::GfxApi,
     std::{
@@ -15,7 +15,7 @@ use {
         fmt::{Debug, Display, Formatter},
         rc::Rc,
     },
-    uapi::c,
+    uapi::{c, OwnedFd},
 };
 
 linear_ids!(ConnectorIds, ConnectorId);
@@ -59,6 +59,7 @@ pub struct MonitorInfo {
     pub initial_mode: Mode,
     pub width_mm: i32,
     pub height_mm: i32,
+    pub non_desktop: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -90,6 +91,12 @@ pub trait Connector {
         None
     }
     fn set_mode(&self, mode: Mode);
+    fn set_non_desktop_override(&self, non_desktop: Option<bool>) {
+        let _ = non_desktop;
+    }
+    fn drm_object_id(&self) -> Option<DrmConnector> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -99,6 +106,8 @@ pub enum ConnectorEvent {
     Disconnected,
     Removed,
     ModeChanged(Mode),
+    Unavailable,
+    Available,
 }
 
 pub trait HardwareCursor: Debug {
@@ -282,4 +291,20 @@ pub trait BackendDrmDevice {
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
     fn is_render_device(&self) -> bool;
+    fn create_lease(
+        self: Rc<Self>,
+        lessee: Rc<dyn BackendDrmLessee>,
+        connector_ids: &[ConnectorId],
+    ) {
+        let _ = lessee;
+        let _ = connector_ids;
+    }
+}
+
+pub trait BackendDrmLease {
+    fn fd(&self) -> &Rc<OwnedFd>;
+}
+
+pub trait BackendDrmLessee {
+    fn created(&self, lease: Rc<dyn BackendDrmLease>);
 }

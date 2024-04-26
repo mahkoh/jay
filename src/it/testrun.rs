@@ -109,9 +109,9 @@ impl TestRun {
         self.backend.install_default()?;
         let seat = self.get_seat("default")?;
         self.state.eng.yield_now().await;
-        let output = match self.state.outputs.lock().values().next() {
+        let output = match self.state.root.outputs.lock().values().next() {
             None => bail!("No output"),
-            Some(d) => d.node.clone(),
+            Some(d) => d.clone(),
         };
         self.cfg
             .set_input_device_seat(self.backend.default_kb.common.id, seat.id())?;

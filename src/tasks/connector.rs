@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
+        globals::GlobalName,
         ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
@@ -70,6 +71,9 @@ impl ConnectorHandler {
             }
             self.data.async_event.triggered().await;
         }
+        if let Some(dev) = &self.data.drm_dev {
+            dev.connectors.remove(&self.id);
+        }
         if let Some(config) = self.state.config.get() {
             config.del_connector(self.id);
         }
@@ -87,6 +91,21 @@ impl ConnectorHandler {
             model: info.product.clone(),
             serial_number: info.serial_number.clone(),
         });
+        if info.non_desktop {
+            self.handle_non_desktop_connected(info).await;
+        } else {
+            self.handle_desktop_connected(info, name, output_id).await;
+        }
+        self.data.connected.set(false);
+        log::info!("Connector {} disconnected", self.data.connector.kernel_id());
+    }
+
+    async fn handle_desktop_connected(
+        &self,
+        info: MonitorInfo,
+        name: GlobalName,
+        output_id: Rc<OutputId>,
+    ) {
         let desired_state = match self.state.persistent_output_states.get(&output_id) {
             Some(ds) => ds,
             _ => {
@@ -155,13 +174,17 @@ impl ConnectorHandler {
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: info,
-            node: on.clone(),
+            node: Some(on.clone()),
+            lease_connectors: Default::default(),
         });
         self.state.outputs.set(self.id, output_data);
+        on.schedule_update_render_data();
+        self.state.root.outputs.set(self.id, on.clone());
+        self.state.root.update_extents();
         global.opt.node.set(Some(on.clone()));
         global.opt.global.set(Some(global.clone()));
         let mut ws_to_move = VecDeque::new();
-        if self.state.outputs.len() == 1 {
+        if self.state.root.outputs.len() == 1 {
             let seats = self.state.globals.seats.lock();
             let pos = global.pos.get();
             let x = (pos.x1() + pos.x2()) / 2;
@@ -177,11 +200,11 @@ impl ConnectorHandler {
                 ws_to_move.push_back(ws);
             }
         }
-        for source in self.state.outputs.lock().values() {
-            if source.node.id == on.id {
+        for source in self.state.root.outputs.lock().values() {
+            if source.id == on.id {
                 continue;
             }
-            for ws in source.node.workspaces.iter() {
+            for ws in source.workspaces.iter() {
                 if ws.is_dummy {
                     continue;
                 }
@@ -203,9 +226,6 @@ impl ConnectorHandler {
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
-        on.schedule_update_render_data();
-        self.state.root.outputs.set(self.id, on.clone());
-        self.state.root.update_extents();
         self.state.add_global(&global);
         self.state.tree_changed();
         'outer: loop {
@@ -224,7 +244,6 @@ impl ConnectorHandler {
             }
             self.data.async_event.triggered().await;
         }
-        log::info!("Connector {} disconnected", self.data.connector.kernel_id());
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);
         }
@@ -242,7 +261,6 @@ impl ConnectorHandler {
         global.destroyed.set(true);
         self.state.root.outputs.remove(&self.id);
         self.state.root.update_extents();
-        self.data.connected.set(false);
         self.state.outputs.remove(&self.id);
         on.lock_surface.take();
         {
@@ -255,8 +273,8 @@ impl ConnectorHandler {
                 surface.send_closed();
             }
         }
-        let target = match self.state.outputs.lock().values().next() {
-            Some(o) => o.node.clone(),
+        let target = match self.state.root.outputs.lock().values().next() {
+            Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
         for ws in on.workspaces.iter() {
@@ -276,13 +294,56 @@ impl ConnectorHandler {
                 seat.set_position((tpos.x1() + tpos.x2()) / 2, (tpos.y1() + tpos.y2()) / 2);
             }
         }
-        if let Some(dev) = &self.data.drm_dev {
-            dev.connectors.remove(&self.id);
-        }
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
         let _ = self.state.remove_global(&*global);
         self.state.tree_changed();
         self.state.damage();
+    }
+
+    async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {
+        let output_data = Rc::new(OutputData {
+            connector: self.data.clone(),
+            monitor_info,
+            node: None,
+            lease_connectors: Default::default(),
+        });
+        self.state.outputs.set(self.id, output_data.clone());
+        let advertise = || {
+            if let Some(dev) = &self.data.drm_dev {
+                for binding in dev.lease_global.bindings.lock().values() {
+                    binding.create_connector(&output_data);
+                    binding.send_done();
+                }
+            }
+        };
+        let withdraw = || {
+            for (_, con) in output_data.lease_connectors.lock().drain() {
+                con.send_withdrawn();
+                if !con.device.destroyed.get() {
+                    con.device.send_done();
+                }
+            }
+        };
+        advertise();
+        if let Some(config) = self.state.config.get() {
+            config.connector_connected(self.id);
+        }
+        'outer: loop {
+            while let Some(event) = self.data.connector.event() {
+                match event {
+                    ConnectorEvent::Disconnected => break 'outer,
+                    ConnectorEvent::Available => advertise(),
+                    ConnectorEvent::Unavailable => withdraw(),
+                    ev => unreachable!("received unexpected event {:?}", ev),
+                }
+            }
+            self.data.async_event.triggered().await;
+        }
+        withdraw();
+        self.state.outputs.remove(&self.id);
+        if let Some(config) = self.state.config.get() {
+            config.connector_disconnected(self.id);
+        }
     }
 }

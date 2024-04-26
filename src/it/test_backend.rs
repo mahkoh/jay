@@ -106,6 +106,7 @@ impl TestBackend {
             initial_mode: mode,
             width_mm: 80,
             height_mm: 60,
+            non_desktop: false,
         };
         Self {
             state: state.clone(),
