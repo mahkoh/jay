@@ -1,5 +1,7 @@
 # Unreleased
 
+- Needs jay-compositor release.
+
 # 1.1.0
 
 - Needs jay-config release.

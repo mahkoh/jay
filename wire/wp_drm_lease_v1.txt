@@ -1,0 +1,11 @@
+request destroy {
+
+}
+
+event lease_fd {
+    leased_fd: fd,
+}
+
+event finished {
+
+}

@@ -37,6 +37,10 @@ pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c
 
 pub const DRM_IOCTL_BASE: u64 = b'd' as u64;
 
+pub const fn drm_io(nr: u64) -> u64 {
+    uapi::_IO(DRM_IOCTL_BASE, nr)
+}
+
 pub const fn drm_iow<T>(nr: u64) -> u64 {
     uapi::_IOW::<T>(DRM_IOCTL_BASE, nr)
 }
@@ -1368,4 +1372,29 @@ pub fn sync_ioc_merge(left: c::c_int, right: c::c_int) -> Result<OwnedFd, OsErro
         ioctl(left, SYNC_IOC_MERGE, &mut res)?;
     }
     Ok(OwnedFd::new(res.fence))
+}
+
+const DRM_IOCTL_DROP_MASTER: u64 = drm_io(0x1f);
+
+pub fn drop_master(fd: c::c_int) -> Result<(), OsError> {
+    let mut res = 0u8;
+    unsafe {
+        ioctl(fd, DRM_IOCTL_DROP_MASTER, &mut res)?;
+    }
+    Ok(())
+}
+
+const DRM_IOCTL_AUTH_MAGIC: u64 = drm_iow::<drm_auth>(0x11);
+
+#[repr(C)]
+struct drm_auth {
+    magic: c::c_uint,
+}
+
+pub fn auth_magic(fd: c::c_int, magic: c::c_uint) -> Result<(), OsError> {
+    let mut res = drm_auth { magic };
+    unsafe {
+        ioctl(fd, DRM_IOCTL_AUTH_MAGIC, &mut res)?;
+    }
+    Ok(())
 }

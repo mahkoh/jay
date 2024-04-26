@@ -1246,6 +1246,10 @@ impl Connector for MetalConnector {
             }
         }
     }
+
+    fn drm_object_id(&self) -> Option<DrmConnector> {
+        Some(self.id)
+    }
 }
 
 pub struct MetalCrtc {

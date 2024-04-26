@@ -40,8 +40,8 @@ use crate::{
     video::{
         dmabuf::DmaBuf,
         drm::sys::{
-            drm_format_modifier, drm_format_modifier_blob, get_version, revoke_lease,
-            DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+            auth_magic, drm_format_modifier, drm_format_modifier_blob, drop_master, get_version,
+            revoke_lease, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
         },
         Modifier, INVALID_MODIFIER,
     },
@@ -139,6 +139,8 @@ pub enum DrmError {
     ImportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]
     CreateLease(#[source] OsError),
+    #[error("Could not drop DRM master")]
+    DropMaster(#[source] OsError),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -175,7 +177,6 @@ pub struct Drm {
 }
 
 impl Drm {
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn open_existing(fd: Rc<OwnedFd>) -> Self {
         Self { fd }
     }
@@ -212,6 +213,14 @@ impl Drm {
 
     pub fn version(&self) -> Result<DrmVersion, DrmError> {
         get_version(self.fd.raw()).map_err(DrmError::Version)
+    }
+
+    pub fn drop_master(&self) -> Result<(), DrmError> {
+        drop_master(self.fd.raw()).map_err(DrmError::DropMaster)
+    }
+
+    pub fn is_master(&self) -> bool {
+        auth_magic(self.fd.raw(), 0) != Err(OsError(c::EACCES))
     }
 }
 

@@ -163,7 +163,7 @@ static ERRORS: Lazy<&'static [Option<&'static str>]> = Lazy::new(|| {
     res.leak()
 });
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct OsError(pub c::c_int);
 
 impl From<Errno> for OsError {

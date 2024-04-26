@@ -6,7 +6,7 @@ use {
         gfx_api::{GfxFramebuffer, SyncFile},
         ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
         libinput::consts::DeviceCapability,
-        video::drm::{ConnectorType, DrmError, DrmVersion},
+        video::drm::{ConnectorType, DrmConnector, DrmError, DrmVersion},
     },
     jay_config::video::GfxApi,
     std::{
@@ -93,6 +93,9 @@ pub trait Connector {
     fn set_mode(&self, mode: Mode);
     fn set_non_desktop_override(&self, non_desktop: Option<bool>) {
         let _ = non_desktop;
+    }
+    fn drm_object_id(&self) -> Option<DrmConnector> {
+        None
     }
 }
 

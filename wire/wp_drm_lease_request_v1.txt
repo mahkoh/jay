@@ -1,0 +1,7 @@
+request request_connector {
+    connector: id(wp_drm_lease_connector_v1),
+}
+
+request submit {
+    id: id(wp_drm_lease_v1),
+}

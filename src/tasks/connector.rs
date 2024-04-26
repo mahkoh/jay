@@ -175,6 +175,7 @@ impl ConnectorHandler {
             connector: self.data.clone(),
             monitor_info: info,
             node: Some(on.clone()),
+            lease_connectors: Default::default(),
         });
         self.state.outputs.set(self.id, output_data);
         on.schedule_update_render_data();
@@ -293,9 +294,6 @@ impl ConnectorHandler {
                 seat.set_position((tpos.x1() + tpos.x2()) / 2, (tpos.y1() + tpos.y2()) / 2);
             }
         }
-        if let Some(dev) = &self.data.drm_dev {
-            dev.connectors.remove(&self.id);
-        }
         self.state
             .remove_output_scale(on.global.persistent.scale.get());
         let _ = self.state.remove_global(&*global);
@@ -308,8 +306,26 @@ impl ConnectorHandler {
             connector: self.data.clone(),
             monitor_info,
             node: None,
+            lease_connectors: Default::default(),
         });
-        self.state.outputs.set(self.id, output_data);
+        self.state.outputs.set(self.id, output_data.clone());
+        let advertise = || {
+            if let Some(dev) = &self.data.drm_dev {
+                for binding in dev.lease_global.bindings.lock().values() {
+                    binding.create_connector(&output_data);
+                    binding.send_done();
+                }
+            }
+        };
+        let withdraw = || {
+            for (_, con) in output_data.lease_connectors.lock().drain() {
+                con.send_withdrawn();
+                if !con.device.destroyed.get() {
+                    con.device.send_done();
+                }
+            }
+        };
+        advertise();
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
@@ -317,13 +333,14 @@ impl ConnectorHandler {
             while let Some(event) = self.data.connector.event() {
                 match event {
                     ConnectorEvent::Disconnected => break 'outer,
-                    ConnectorEvent::Available => {}
-                    ConnectorEvent::Unavailable => {}
+                    ConnectorEvent::Available => advertise(),
+                    ConnectorEvent::Unavailable => withdraw(),
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }
             }
             self.data.async_event.triggered().await;
         }
+        withdraw();
         self.state.outputs.remove(&self.id);
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);

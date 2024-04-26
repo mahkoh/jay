@@ -20,6 +20,7 @@ use {
                 xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
             },
+            wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
             xdg_positioner::XdgPositioner,
             xdg_wm_base::XdgWmBase,
@@ -32,8 +33,9 @@ use {
         wire::{
             JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
             WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId, XdgSurfaceId,
-            XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwpPrimarySelectionSourceV1Id,
+            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId,
+            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
+            ZwpPrimarySelectionSourceV1Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -62,6 +64,7 @@ pub struct Objects {
     pub timelines: CopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
     pub zwlr_data_sources: CopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
     pub jay_toplevels: CopyHashMap<JayToplevelId, Rc<JayToplevel>>,
+    pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -92,6 +95,7 @@ impl Objects {
             timelines: Default::default(),
             zwlr_data_sources: Default::default(),
             jay_toplevels: Default::default(),
+            drm_lease_outputs: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -126,6 +130,7 @@ impl Objects {
         self.timelines.clear();
         self.zwlr_data_sources.clear();
         self.jay_toplevels.clear();
+        self.drm_lease_outputs.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

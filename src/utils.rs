@@ -1,6 +1,7 @@
 pub mod activation_token;
 pub mod array;
 pub mod asyncevent;
+pub mod bindings;
 pub mod bitfield;
 pub mod bitflags;
 pub mod buf;
