@@ -14,6 +14,8 @@ pub struct libinput_event(u8);
 pub struct libinput_event_keyboard(u8);
 #[repr(transparent)]
 pub struct libinput_event_pointer(u8);
+#[repr(transparent)]
+pub struct libinput_event_gesture(u8);
 
 #[link(name = "input")]
 extern "C" {
@@ -140,6 +142,19 @@ extern "C" {
     //     event: *mut libinput_event_pointer,
     //     axis: libinput_pointer_axis,
     // ) -> f64;
+
+    pub fn libinput_event_get_gesture_event(
+        event: *mut libinput_event,
+    ) -> *mut libinput_event_gesture;
+    pub fn libinput_event_gesture_get_time_usec(event: *mut libinput_event_gesture) -> u64;
+    pub fn libinput_event_gesture_get_finger_count(event: *mut libinput_event_gesture) -> c::c_int;
+    pub fn libinput_event_gesture_get_cancelled(event: *mut libinput_event_gesture) -> c::c_int;
+    pub fn libinput_event_gesture_get_dx(event: *mut libinput_event_gesture) -> f64;
+    pub fn libinput_event_gesture_get_dy(event: *mut libinput_event_gesture) -> f64;
+    pub fn libinput_event_gesture_get_dx_unaccelerated(event: *mut libinput_event_gesture) -> f64;
+    pub fn libinput_event_gesture_get_dy_unaccelerated(event: *mut libinput_event_gesture) -> f64;
+    pub fn libinput_event_gesture_get_scale(event: *mut libinput_event_gesture) -> f64;
+    pub fn libinput_event_gesture_get_angle_delta(event: *mut libinput_event_gesture) -> f64;
 }
 
 #[repr(C)]

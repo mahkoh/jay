@@ -162,6 +162,7 @@ Jay supports the following wayland protocols:
 | zwp_input_method_manager_v2             | 1                | Yes           |
 | zwp_linux_dmabuf_v1                     | 5                |               |
 | zwp_pointer_constraints_v1              | 1                |               |
+| zwp_pointer_gestures_v1                 | 3                |               |
 | zwp_primary_selection_device_manager_v1 | 1                |               |
 | zwp_relative_pointer_manager_v1         | 1                |               |
 | zwp_text_input_manager_v3               | 1                |               |

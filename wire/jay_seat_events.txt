@@ -69,3 +69,59 @@ event axis_inverted {
     inverted: u32,
     axis: u32,
 }
+
+event swipe_begin {
+    seat: u32,
+    time_usec: pod(u64),
+    fingers: u32,
+}
+
+event swipe_update {
+    seat: u32,
+    time_usec: pod(u64),
+    dx: fixed,
+    dy: fixed,
+    dx_unaccelerated: fixed,
+    dy_unaccelerated: fixed,
+}
+
+event swipe_end {
+    seat: u32,
+    time_usec: pod(u64),
+    cancelled: i32,
+}
+
+event pinch_begin {
+    seat: u32,
+    time_usec: pod(u64),
+    fingers: u32,
+}
+
+event pinch_update {
+    seat: u32,
+    time_usec: pod(u64),
+    dx: fixed,
+    dy: fixed,
+    dx_unaccelerated: fixed,
+    dy_unaccelerated: fixed,
+    scale: fixed,
+    rotation: fixed,
+}
+
+event pinch_end {
+    seat: u32,
+    time_usec: pod(u64),
+    cancelled: i32,
+}
+
+event hold_begin {
+    seat: u32,
+    time_usec: pod(u64),
+    fingers: u32,
+}
+
+event hold_end {
+    seat: u32,
+    time_usec: pod(u64),
+    cancelled: i32,
+}

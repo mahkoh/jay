@@ -1,6 +1,7 @@
 mod event_handling;
 pub mod ext_transient_seat_manager_v1;
 pub mod ext_transient_seat_v1;
+mod gesture_owner;
 mod kb_owner;
 mod pointer_owner;
 pub mod text_input;
@@ -8,6 +9,10 @@ pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
 pub mod zwp_pointer_constraints_v1;
+pub mod zwp_pointer_gesture_hold_v1;
+pub mod zwp_pointer_gesture_pinch_v1;
+pub mod zwp_pointer_gesture_swipe_v1;
+pub mod zwp_pointer_gestures_v1;
 pub mod zwp_relative_pointer_manager_v1;
 pub mod zwp_relative_pointer_v1;
 pub mod zwp_virtual_keyboard_manager_v1;
@@ -37,6 +42,7 @@ use {
                 DynDataSource, IpcError,
             },
             wl_seat::{
+                gesture_owner::GestureOwnerHolder,
                 kb_owner::KbOwnerHolder,
                 pointer_owner::PointerOwnerHolder,
                 text_input::{
@@ -47,6 +53,9 @@ use {
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
                 zwp_pointer_constraints_v1::{SeatConstraint, SeatConstraintStatus},
+                zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1,
+                zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1,
+                zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
             wl_surface::WlSurface,
@@ -62,9 +71,9 @@ use {
             Node, OutputNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, linkedlist::LinkedNode, numcell::NumCell, rc_eq::rc_eq,
-            smallmap::SmallMap, transform_ext::TransformExt,
+            asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, linkedlist::LinkedNode, numcell::NumCell,
+            rc_eq::rc_eq, smallmap::SmallMap, transform_ext::TransformExt,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
@@ -164,6 +173,7 @@ pub struct WlSeatGlobal {
     primary_selection_serial: Cell<u32>,
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
+    gesture_owner: GestureOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
     shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
     queue_link: Cell<Option<LinkedNode<Rc<Self>>>>,
@@ -182,6 +192,9 @@ pub struct WlSeatGlobal {
     input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
     forward: Cell<bool>,
     focus_follows_mouse: Cell<bool>,
+    swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
+    pinch_bindings: PerClientBindings<ZwpPointerGesturePinchV1>,
+    hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -233,6 +246,7 @@ impl WlSeatGlobal {
             primary_selection_serial: Cell::new(0),
             pointer_owner: Default::default(),
             kb_owner: Default::default(),
+            gesture_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
             shortcuts: Default::default(),
             queue_link: Cell::new(None),
@@ -252,6 +266,9 @@ impl WlSeatGlobal {
             input_method_grab: Default::default(),
             forward: Cell::new(false),
             focus_follows_mouse: Cell::new(true),
+            swipe_bindings: Default::default(),
+            pinch_bindings: Default::default(),
+            hold_bindings: Default::default(),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -1081,6 +1098,9 @@ impl WlSeatGlobal {
         self.text_input.take();
         self.input_method.take();
         self.input_method_grab.take();
+        self.swipe_bindings.clear();
+        self.pinch_bindings.clear();
+        self.hold_bindings.clear();
     }
 
     pub fn id(&self) -> SeatId {

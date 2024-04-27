@@ -49,6 +49,7 @@ use {
 pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    gesture_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
 }
@@ -70,6 +71,14 @@ impl NodeSeatState {
     pub(super) fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
         self.kb_foci.remove(&seat.id);
         self.kb_foci.len() == 0
+    }
+
+    pub(super) fn gesture_begin(&self, seat: &Rc<WlSeatGlobal>) {
+        self.gesture_foci.insert(seat.id, seat.clone());
+    }
+
+    pub(super) fn gesture_end(&self, seat: &WlSeatGlobal) {
+        self.gesture_foci.remove(&seat.id);
     }
 
     pub(super) fn add_pointer_grab(&self, seat: &Rc<WlSeatGlobal>) {
@@ -130,6 +139,9 @@ impl NodeSeatState {
     fn destroy_node2(&self, node: &dyn Node, focus_last: bool) {
         // NOTE: Also called by set_visible(false)
 
+        while let Some((_, seat)) = self.gesture_foci.pop() {
+            seat.gesture_owner.revert_to_default(&seat);
+        }
         while let Some((_, seat)) = self.pointer_grabs.pop() {
             seat.pointer_owner.revert_to_default(&seat);
         }
@@ -180,7 +192,15 @@ impl WlSeatGlobal {
             | InputEvent::ConnectorPosition { time_usec, .. }
             | InputEvent::Motion { time_usec, .. }
             | InputEvent::Button { time_usec, .. }
-            | InputEvent::AxisFrame { time_usec, .. } => {
+            | InputEvent::AxisFrame { time_usec, .. }
+            | InputEvent::SwipeBegin { time_usec, .. }
+            | InputEvent::SwipeUpdate { time_usec, .. }
+            | InputEvent::SwipeEnd { time_usec, .. }
+            | InputEvent::PinchBegin { time_usec, .. }
+            | InputEvent::PinchUpdate { time_usec, .. }
+            | InputEvent::PinchEnd { time_usec, .. }
+            | InputEvent::HoldBegin { time_usec, .. }
+            | InputEvent::HoldEnd { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for (_, notification) in self.idle_notifications.lock().drain() {
@@ -231,6 +251,54 @@ impl WlSeatGlobal {
             } => self.pointer_owner.axis_px(dist, axis, inverted),
             InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
             InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(dev, self, time_usec),
+            InputEvent::SwipeBegin {
+                time_usec,
+                finger_count,
+            } => self.swipe_begin(time_usec, finger_count),
+            InputEvent::SwipeUpdate {
+                time_usec,
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+            } => self.swipe_update(time_usec, dx, dy, dx_unaccelerated, dy_unaccelerated),
+            InputEvent::SwipeEnd {
+                time_usec,
+                cancelled,
+            } => self.swipe_end(time_usec, cancelled),
+            InputEvent::PinchBegin {
+                time_usec,
+                finger_count,
+            } => self.pinch_begin(time_usec, finger_count),
+            InputEvent::PinchUpdate {
+                time_usec,
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+                scale,
+                rotation,
+            } => self.pinch_update(
+                time_usec,
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+                scale,
+                rotation,
+            ),
+            InputEvent::PinchEnd {
+                time_usec,
+                cancelled,
+            } => self.pinch_end(time_usec, cancelled),
+            InputEvent::HoldBegin {
+                time_usec,
+                finger_count,
+            } => self.hold_begin(time_usec, finger_count),
+            InputEvent::HoldEnd {
+                time_usec,
+                cancelled,
+            } => self.hold_end(time_usec, cancelled),
         }
     }
 
@@ -343,6 +411,97 @@ impl WlSeatGlobal {
             t.send_button(self.id, time_usec, button, state);
         });
         self.pointer_owner.button(self, time_usec, button, state);
+    }
+
+    fn swipe_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_swipe_begin(self.id, time_usec, finger_count);
+        });
+        self.gesture_owner
+            .swipe_begin(self, time_usec, finger_count)
+    }
+
+    fn swipe_update(
+        self: &Rc<Self>,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    ) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_swipe_update(
+                self.id,
+                time_usec,
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+            );
+        });
+        self.gesture_owner.swipe_update(self, time_usec, dx, dy)
+    }
+
+    fn swipe_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_swipe_end(self.id, time_usec, cancelled);
+        });
+        self.gesture_owner.swipe_end(self, time_usec, cancelled)
+    }
+
+    fn pinch_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_pinch_begin(self.id, time_usec, finger_count);
+        });
+        self.gesture_owner
+            .pinch_begin(self, time_usec, finger_count)
+    }
+
+    fn pinch_update(
+        self: &Rc<Self>,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+        scale: Fixed,
+        rotation: Fixed,
+    ) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_pinch_update(
+                self.id,
+                time_usec,
+                dx,
+                dy,
+                dx_unaccelerated,
+                dy_unaccelerated,
+                scale,
+                rotation,
+            );
+        });
+        self.gesture_owner
+            .pinch_update(self, time_usec, dx, dy, scale, rotation)
+    }
+
+    fn pinch_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_pinch_end(self.id, time_usec, cancelled);
+        });
+        self.gesture_owner.pinch_end(self, time_usec, cancelled)
+    }
+
+    fn hold_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_hold_begin(self.id, time_usec, finger_count);
+        });
+        self.gesture_owner.hold_begin(self, time_usec, finger_count)
+    }
+
+    fn hold_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_hold_end(self.id, time_usec, cancelled);
+        });
+        self.gesture_owner.hold_end(self, time_usec, cancelled)
     }
 
     pub(super) fn key_event<F>(
@@ -933,5 +1092,78 @@ impl WlSeatGlobal {
             })
         }
         // surface.client.flush();
+    }
+}
+
+// Gesture callbacks
+impl WlSeatGlobal {
+    pub fn swipe_begin_surface(&self, n: &WlSurface, time_usec: u64, finger_count: u32) {
+        let serial = n.client.next_serial();
+        self.swipe_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_swipe_begin(n, serial, time_usec, finger_count)
+            })
+    }
+
+    pub fn swipe_update_surface(&self, n: &WlSurface, time_usec: u64, dx: Fixed, dy: Fixed) {
+        self.swipe_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_swipe_update(time_usec, dx, dy)
+            })
+    }
+
+    pub fn swipe_end_surface(&self, n: &WlSurface, time_usec: u64, cancelled: bool) {
+        let serial = n.client.next_serial();
+        self.swipe_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_swipe_end(serial, time_usec, cancelled)
+            })
+    }
+
+    pub fn pinch_begin_surface(&self, n: &WlSurface, time_usec: u64, finger_count: u32) {
+        let serial = n.client.next_serial();
+        self.pinch_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_pinch_begin(n, serial, time_usec, finger_count)
+            })
+    }
+
+    pub fn pinch_update_surface(
+        &self,
+        n: &WlSurface,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        scale: Fixed,
+        rotation: Fixed,
+    ) {
+        self.pinch_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_pinch_update(time_usec, dx, dy, scale, rotation)
+            })
+    }
+
+    pub fn pinch_end_surface(&self, n: &WlSurface, time_usec: u64, cancelled: bool) {
+        let serial = n.client.next_serial();
+        self.pinch_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_pinch_end(serial, time_usec, cancelled)
+            })
+    }
+
+    pub fn hold_begin_surface(&self, n: &WlSurface, time_usec: u64, finger_count: u32) {
+        let serial = n.client.next_serial();
+        self.hold_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_hold_begin(n, serial, time_usec, finger_count)
+            })
+    }
+
+    pub fn hold_end_surface(&self, n: &WlSurface, time_usec: u64, cancelled: bool) {
+        let serial = n.client.next_serial();
+        self.hold_bindings
+            .for_each(n.client.id, Version::ALL, |obj| {
+                obj.send_hold_end(serial, time_usec, cancelled)
+            })
     }
 }

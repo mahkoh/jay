@@ -6,8 +6,9 @@ use {
         wire::{
             jay_compositor::{GetSeats, Seat, SeatEvents},
             jay_seat_events::{
-                Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, Key,
-                Modifiers, PointerAbs, PointerRel,
+                Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, HoldBegin,
+                HoldEnd, Key, Modifiers, PinchBegin, PinchEnd, PinchUpdate, PointerAbs, PointerRel,
+                SwipeBegin, SwipeEnd, SwipeUpdate,
             },
         },
     },
@@ -207,6 +208,118 @@ async fn run(seat_test: Rc<SeatTest>) {
                     print!("natural scrolling");
                     need_comma = true;
                 }
+            }
+            println!();
+        }
+    });
+    let st = seat_test.clone();
+    SwipeBegin::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Swipe Begin: {} fingers",
+                time(ev.time_usec),
+                ev.fingers,
+            );
+        }
+    });
+    let st = seat_test.clone();
+    SwipeUpdate::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Swipe Update: {}x{}, Unaccelerated: {}x{}",
+                time(ev.time_usec),
+                ev.dx,
+                ev.dy,
+                ev.dx_unaccelerated,
+                ev.dy_unaccelerated,
+            );
+        }
+    });
+    let st = seat_test.clone();
+    SwipeEnd::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            print!("Time: {:.4}, Swipe End", time(ev.time_usec),);
+            if ev.cancelled != 0 {
+                print!(", cancelled");
+            }
+            println!();
+        }
+    });
+    let st = seat_test.clone();
+    PinchBegin::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Pinch Begin: {} fingers",
+                time(ev.time_usec),
+                ev.fingers,
+            );
+        }
+    });
+    let st = seat_test.clone();
+    PinchUpdate::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Pinch Update: {}x{}, Unaccelerated: {}x{}, Scale: {}, Rotation: {}",
+                time(ev.time_usec),
+                ev.dx,
+                ev.dy,
+                ev.dx_unaccelerated,
+                ev.dy_unaccelerated,
+                ev.scale,
+                ev.rotation,
+            );
+        }
+    });
+    let st = seat_test.clone();
+    PinchEnd::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            print!("Time: {:.4}, Pinch End", time(ev.time_usec));
+            if ev.cancelled != 0 {
+                print!(", cancelled");
+            }
+            println!();
+        }
+    });
+    let st = seat_test.clone();
+    HoldBegin::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Hold Begin: {} fingers",
+                time(ev.time_usec),
+                ev.fingers,
+            );
+        }
+    });
+    let st = seat_test.clone();
+    HoldEnd::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            print!("Time: {:.4}, Hold End", time(ev.time_usec));
+            if ev.cancelled != 0 {
+                print!(", cancelled");
             }
             println!();
         }

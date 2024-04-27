@@ -272,6 +272,46 @@ pub enum InputEvent {
     AxisFrame {
         time_usec: u64,
     },
+    SwipeBegin {
+        time_usec: u64,
+        finger_count: u32,
+    },
+    SwipeUpdate {
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    },
+    SwipeEnd {
+        time_usec: u64,
+        cancelled: bool,
+    },
+    PinchBegin {
+        time_usec: u64,
+        finger_count: u32,
+    },
+    PinchUpdate {
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+        scale: Fixed,
+        rotation: Fixed,
+    },
+    PinchEnd {
+        time_usec: u64,
+        cancelled: bool,
+    },
+    HoldBegin {
+        time_usec: u64,
+        finger_count: u32,
+    },
+    HoldEnd {
+        time_usec: u64,
+        cancelled: bool,
+    },
 }
 
 pub enum DrmEvent {

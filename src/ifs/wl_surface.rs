@@ -1507,6 +1507,46 @@ impl Node for WlSurface {
     fn node_is_xwayland_surface(&self) -> bool {
         self.client.is_xwayland
     }
+
+    fn node_on_swipe_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
+        seat.swipe_begin_surface(self, time_usec, finger_count)
+    }
+
+    fn node_on_swipe_update(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed) {
+        seat.swipe_update_surface(self, time_usec, dx, dy)
+    }
+
+    fn node_on_swipe_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
+        seat.swipe_end_surface(self, time_usec, cancelled)
+    }
+
+    fn node_on_pinch_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
+        seat.pinch_begin_surface(self, time_usec, finger_count)
+    }
+
+    fn node_on_pinch_update(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        scale: Fixed,
+        rotation: Fixed,
+    ) {
+        seat.pinch_update_surface(self, time_usec, dx, dy, scale, rotation)
+    }
+
+    fn node_on_pinch_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
+        seat.pinch_end_surface(self, time_usec, cancelled)
+    }
+
+    fn node_on_hold_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
+        seat.hold_begin_surface(self, time_usec, finger_count)
+    }
+
+    fn node_on_hold_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
+        seat.hold_end_surface(self, time_usec, cancelled)
+    }
 }
 
 #[derive(Debug, Error)]

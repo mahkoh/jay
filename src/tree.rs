@@ -284,6 +284,66 @@ pub trait Node: 'static {
         let _ = y;
     }
 
+    fn node_on_swipe_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = finger_count;
+    }
+
+    fn node_on_swipe_update(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = dx;
+        let _ = dy;
+    }
+
+    fn node_on_swipe_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = cancelled;
+    }
+
+    fn node_on_pinch_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = finger_count;
+    }
+
+    fn node_on_pinch_update(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        scale: Fixed,
+        rotation: Fixed,
+    ) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = dx;
+        let _ = dy;
+        let _ = scale;
+        let _ = rotation;
+    }
+
+    fn node_on_pinch_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = cancelled;
+    }
+
+    fn node_on_hold_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = finger_count;
+    }
+
+    fn node_on_hold_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = cancelled;
+    }
+
     // TYPE CONVERTERS
 
     fn node_into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {
