@@ -1,6 +1,9 @@
 use {
     crate::{
-        input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
+        input::{
+            acceleration::AccelProfile, capability::Capability, FocusFollowsMouseMode, InputDevice,
+            Seat,
+        },
         keyboard::{mods::Modifiers, syms::KeySym, Keymap},
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
@@ -463,6 +466,10 @@ pub enum ClientMessage<'a> {
         mods: Modifiers,
         mod_mask: Modifiers,
         sym: KeySym,
+    },
+    SetFocusFollowsMouseMode {
+        seat: Seat,
+        mode: FocusFollowsMouseMode,
     },
 }
 

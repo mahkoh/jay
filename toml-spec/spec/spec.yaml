@@ -2039,6 +2039,14 @@ Config:
           ```toml
           idle.minutes = 10
           ```
+    focus-follows-mouse:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether moving the mouse over a window automatically moves the keyboard
+        focus to that window.
+
+        The default is `true`.
 
 
 Idle:

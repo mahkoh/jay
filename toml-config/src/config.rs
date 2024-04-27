@@ -312,6 +312,7 @@ pub struct Config {
     pub inputs: Vec<Input>,
     pub idle: Option<Duration>,
     pub explicit_sync_enabled: Option<bool>,
+    pub focus_follows_mouse: bool,
 }
 
 #[derive(Debug, Error)]

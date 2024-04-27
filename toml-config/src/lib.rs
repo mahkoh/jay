@@ -15,7 +15,9 @@ use {
         config, config_dir,
         exec::{set_env, unset_env, Command},
         get_workspace,
-        input::{get_seat, input_devices, on_new_input_device, InputDevice, Seat},
+        input::{
+            get_seat, input_devices, on_new_input_device, FocusFollowsMouseMode, InputDevice, Seat,
+        },
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
         logging::set_log_level,
@@ -869,6 +871,12 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             }
         }
     });
+    persistent
+        .seat
+        .set_focus_follows_mouse_mode(match config.focus_follows_mouse {
+            true => FocusFollowsMouseMode::True,
+            false => FocusFollowsMouseMode::False,
+        });
 }
 
 fn create_command(exec: &Exec) -> Command {
