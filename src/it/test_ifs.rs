@@ -49,6 +49,7 @@ pub mod test_viewport;
 pub mod test_viewporter;
 pub mod test_virtual_keyboard;
 pub mod test_virtual_keyboard_manager;
+pub mod test_wl_fixes;
 pub mod test_xdg_activation;
 pub mod test_xdg_activation_token;
 pub mod test_xdg_base;
