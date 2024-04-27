@@ -390,6 +390,21 @@ impl Seat {
     pub fn consume(self) {
         self.set_forward(false)
     }
+
+    /// Sets the focus-follows-mouse mode.
+    pub fn set_focus_follows_mouse_mode(self, mode: FocusFollowsMouseMode) {
+        get!().set_focus_follows_mouse_mode(self, mode);
+    }
+}
+
+/// A focus-follows-mouse mode.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum FocusFollowsMouseMode {
+    /// When the mouse moves and enters a toplevel, that toplevel gets the keyboard focus.
+    True,
+    /// The keyboard focus changes only when clicking on a window or the previously
+    /// focused window becomes invisible.
+    False,
 }
 
 /// Returns all seats.

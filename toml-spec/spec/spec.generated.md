@@ -1086,6 +1086,15 @@ The table has the following fields:
 
   The value of this field should be a [Idle](#types-Idle).
 
+- `focus-follows-mouse` (optional):
+
+  Configures whether moving the mouse over a window automatically moves the keyboard
+  focus to that window.
+  
+  The default is `true`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Connector"></a>
 ### `Connector`

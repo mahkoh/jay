@@ -756,7 +756,10 @@ impl WlSeatGlobal {
 // Enter callbacks
 impl WlSeatGlobal {
     pub fn enter_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
-        if n.tl_accepts_keyboard_focus() && self.changes.get().contains(CHANGE_CURSOR_MOVED) {
+        if n.tl_accepts_keyboard_focus()
+            && self.changes.get().contains(CHANGE_CURSOR_MOVED)
+            && self.focus_follows_mouse.get()
+        {
             self.focus_toplevel(n);
         }
     }

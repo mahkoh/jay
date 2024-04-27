@@ -4,6 +4,7 @@
 - Add support for xdg-dialog-v1.
 - Add support for ext-transient-seat-v1.
 - Add support for wp-drm-lease-v1.
+- Focus-follows-mouse can now be disabled.
 
 # 1.1.0 (2024-04-22)
 

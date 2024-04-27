@@ -97,7 +97,7 @@ impl Parser for ConfigParser<'_> {
                 _,
                 idle_val,
             ),
-            (explicit_sync, repeat_rate_val, complex_shortcuts_val),
+            (explicit_sync, repeat_rate_val, complex_shortcuts_val, focus_follows_mouse),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -127,6 +127,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("explicit-sync"))),
                 opt(val("repeat-rate")),
                 opt(val("complex-shortcuts")),
+                recover(opt(bol("focus-follows-mouse"))),
             ),
         ))?;
         let mut keymap = None;
@@ -307,6 +308,7 @@ impl Parser for ConfigParser<'_> {
             render_device,
             inputs,
             idle,
+            focus_follows_mouse: focus_follows_mouse.despan().unwrap_or(true),
         })
     }
 }

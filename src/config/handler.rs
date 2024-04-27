@@ -41,7 +41,7 @@ use {
                 Capability, CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
                 CAP_TABLET_TOOL, CAP_TOUCH,
             },
-            InputDevice, Seat,
+            FocusFollowsMouseMode, InputDevice, Seat,
         },
         keyboard::{mods::Modifiers, syms::KeySym, Keymap},
         logging::LogLevel,
@@ -321,6 +321,20 @@ impl ConfigProxyHandler {
     fn handle_set_forward(&self, seat: Seat, forward: bool) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_forward(forward);
+        Ok(())
+    }
+
+    fn handle_set_focus_follows_mouse_mode(
+        &self,
+        seat: Seat,
+        mode: FocusFollowsMouseMode,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let focus_follows_mouse = match mode {
+            FocusFollowsMouseMode::True => true,
+            FocusFollowsMouseMode::False => false,
+        };
+        seat.set_focus_follows_mouse(focus_follows_mouse);
         Ok(())
     }
 
@@ -1791,6 +1805,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_add_shortcut(seat, mod_mask, mods, sym)
                 .wrn("add_shortcut")?,
+            ClientMessage::SetFocusFollowsMouseMode { seat, mode } => self
+                .handle_set_focus_follows_mouse_mode(seat, mode)
+                .wrn("set_focus_follows_mouse_mode")?,
         }
         Ok(())
     }

@@ -10,7 +10,10 @@ use {
             logging, Config, ConfigEntry, ConfigEntryGen, PollableId, WireMode, VERSION,
         },
         exec::Command,
-        input::{acceleration::AccelProfile, capability::Capability, InputDevice, Seat},
+        input::{
+            acceleration::AccelProfile, capability::Capability, FocusFollowsMouseMode, InputDevice,
+            Seat,
+        },
         keyboard::{
             mods::{Modifiers, RELEASE},
             syms::KeySym,
@@ -922,6 +925,10 @@ impl Client {
 
     pub fn set_forward(&self, seat: Seat, forward: bool) {
         self.send(&ClientMessage::SetForward { seat, forward })
+    }
+
+    pub fn set_focus_follows_mouse_mode(&self, seat: Seat, mode: FocusFollowsMouseMode) {
+        self.send(&ClientMessage::SetFocusFollowsMouseMode { seat, mode })
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {

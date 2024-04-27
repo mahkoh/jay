@@ -181,6 +181,7 @@ pub struct WlSeatGlobal {
     input_method: CloneCell<Option<Rc<ZwpInputMethodV2>>>,
     input_method_grab: CloneCell<Option<Rc<ZwpInputMethodKeyboardGrabV2>>>,
     forward: Cell<bool>,
+    focus_follows_mouse: Cell<bool>,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -250,6 +251,7 @@ impl WlSeatGlobal {
             input_method: Default::default(),
             input_method_grab: Default::default(),
             forward: Cell::new(false),
+            focus_follows_mouse: Cell::new(true),
         });
         state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
         let seat = slf.clone();
@@ -1164,6 +1166,10 @@ impl WlSeatGlobal {
 
     pub fn select_workspace(self: &Rc<Self>, selector: impl WorkspaceSelector) {
         self.pointer_owner.select_workspace(self, selector);
+    }
+
+    pub fn set_focus_follows_mouse(&self, focus_follows_mouse: bool) {
+        self.focus_follows_mouse.set(focus_follows_mouse);
     }
 }
 
