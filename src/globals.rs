@@ -23,6 +23,7 @@ use {
                     zwp_text_input_manager_v3::ZwpTextInputManagerV3Global,
                 },
                 zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Global,
+                zwp_pointer_gestures_v1::ZwpPointerGesturesV1Global,
                 zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global,
                 zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global,
                 WlSeatGlobal,
@@ -192,6 +193,7 @@ impl Globals {
         add_singleton!(WpSecurityContextManagerV1Global);
         add_singleton!(XdgWmDialogV1Global);
         add_singleton!(ExtTransientSeatManagerV1Global);
+        add_singleton!(ZwpPointerGesturesV1Global);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

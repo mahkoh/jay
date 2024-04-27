@@ -1,0 +1,18 @@
+request get_swipe_gesture {
+    id: id(zwp_pointer_gesture_swipe_v1),
+    pointer: id(wl_pointer),
+}
+
+request get_pinch_gesture {
+    id: id(zwp_pointer_gesture_pinch_v1),
+    pointer: id(wl_pointer),
+}
+
+request release (since = 2) {
+
+}
+
+request get_hold_gesture (since = 3) {
+    id: id(zwp_pointer_gesture_hold_v1),
+    pointer: id(wl_pointer),
+}

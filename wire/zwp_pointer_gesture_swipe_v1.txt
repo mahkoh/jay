@@ -1,0 +1,22 @@
+request destroy {
+
+}
+
+event begin {
+    serial: u32,
+    time: u32,
+    surface: id(wl_surface),
+    fingers: u32,
+}
+
+event update {
+    time: u32,
+    dx: fixed,
+    dy: fixed,
+}
+
+event end {
+    serial: u32,
+    time: u32,
+    cancelled: i32,
+}

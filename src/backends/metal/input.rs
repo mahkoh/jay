@@ -91,6 +91,14 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_POINTER_SCROLL_CONTINUOUS => {
                 self.handle_pointer_axis(event, AxisSource::Continuous)
             }
+            c::LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN => self.handle_gesture_swipe_begin(event),
+            c::LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE => self.handle_gesture_swipe_update(event),
+            c::LIBINPUT_EVENT_GESTURE_SWIPE_END => self.handle_gesture_swipe_end(event),
+            c::LIBINPUT_EVENT_GESTURE_PINCH_BEGIN => self.handle_gesture_pinch_begin(event),
+            c::LIBINPUT_EVENT_GESTURE_PINCH_UPDATE => self.handle_gesture_pinch_update(event),
+            c::LIBINPUT_EVENT_GESTURE_PINCH_END => self.handle_gesture_pinch_end(event),
+            c::LIBINPUT_EVENT_GESTURE_HOLD_BEGIN => self.handle_gesture_hold_begin(event),
+            c::LIBINPUT_EVENT_GESTURE_HOLD_END => self.handle_gesture_hold_end(event),
             _ => {}
         }
     }
@@ -215,6 +223,78 @@ impl MetalBackend {
             dy: Fixed::from_f64(dy),
             dx_unaccelerated: Fixed::from_f64(dx_unaccelerated),
             dy_unaccelerated: Fixed::from_f64(dy_unaccelerated),
+        });
+    }
+
+    fn handle_gesture_swipe_begin(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::SwipeBegin {
+            time_usec: event.time_usec(),
+            finger_count: event.finger_count(),
+        });
+    }
+
+    fn handle_gesture_swipe_update(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::SwipeUpdate {
+            time_usec: event.time_usec(),
+            dx: Fixed::from_f64(event.dx()),
+            dy: Fixed::from_f64(event.dy()),
+            dx_unaccelerated: Fixed::from_f64(event.dx_unaccelerated()),
+            dy_unaccelerated: Fixed::from_f64(event.dy_unaccelerated()),
+        });
+    }
+
+    fn handle_gesture_swipe_end(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::SwipeEnd {
+            time_usec: event.time_usec(),
+            cancelled: event.cancelled(),
+        });
+    }
+
+    fn handle_gesture_pinch_begin(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::PinchBegin {
+            time_usec: event.time_usec(),
+            finger_count: event.finger_count(),
+        });
+    }
+
+    fn handle_gesture_pinch_update(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::PinchUpdate {
+            time_usec: event.time_usec(),
+            dx: Fixed::from_f64(event.dx()),
+            dy: Fixed::from_f64(event.dy()),
+            dx_unaccelerated: Fixed::from_f64(event.dx_unaccelerated()),
+            dy_unaccelerated: Fixed::from_f64(event.dy_unaccelerated()),
+            scale: Fixed::from_f64(event.scale()),
+            rotation: Fixed::from_f64(event.angle_delta()),
+        });
+    }
+
+    fn handle_gesture_pinch_end(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::PinchEnd {
+            time_usec: event.time_usec(),
+            cancelled: event.cancelled(),
+        });
+    }
+
+    fn handle_gesture_hold_begin(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::HoldBegin {
+            time_usec: event.time_usec(),
+            finger_count: event.finger_count(),
+        });
+    }
+
+    fn handle_gesture_hold_end(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, gesture_event);
+        dev.event(InputEvent::HoldEnd {
+            time_usec: event.time_usec(),
+            cancelled: event.cancelled(),
         });
     }
 }

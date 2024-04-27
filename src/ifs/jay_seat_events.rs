@@ -122,6 +122,104 @@ impl JaySeatEvents {
             time_usec,
         });
     }
+
+    pub fn send_swipe_begin(&self, seat: SeatId, time_usec: u64, finger_count: u32) {
+        self.client.event(SwipeBegin {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            fingers: finger_count,
+        });
+    }
+
+    pub fn send_swipe_update(
+        &self,
+        seat: SeatId,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+    ) {
+        self.client.event(SwipeUpdate {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            dx,
+            dy,
+            dx_unaccelerated,
+            dy_unaccelerated,
+        });
+    }
+
+    pub fn send_swipe_end(&self, seat: SeatId, time_usec: u64, cancelled: bool) {
+        self.client.event(SwipeEnd {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            cancelled: cancelled as _,
+        });
+    }
+
+    pub fn send_pinch_begin(&self, seat: SeatId, time_usec: u64, finger_count: u32) {
+        self.client.event(PinchBegin {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            fingers: finger_count,
+        });
+    }
+
+    pub fn send_pinch_update(
+        &self,
+        seat: SeatId,
+        time_usec: u64,
+        dx: Fixed,
+        dy: Fixed,
+        dx_unaccelerated: Fixed,
+        dy_unaccelerated: Fixed,
+        scale: Fixed,
+        rotation: Fixed,
+    ) {
+        self.client.event(PinchUpdate {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            dx,
+            dy,
+            dx_unaccelerated,
+            dy_unaccelerated,
+            scale,
+            rotation,
+        });
+    }
+
+    pub fn send_pinch_end(&self, seat: SeatId, time_usec: u64, cancelled: bool) {
+        self.client.event(PinchEnd {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            cancelled: cancelled as _,
+        });
+    }
+
+    pub fn send_hold_begin(&self, seat: SeatId, time_usec: u64, finger_count: u32) {
+        self.client.event(HoldBegin {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            fingers: finger_count,
+        });
+    }
+
+    pub fn send_hold_end(&self, seat: SeatId, time_usec: u64, cancelled: bool) {
+        self.client.event(HoldEnd {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            cancelled: cancelled as _,
+        });
+    }
 }
 
 impl JaySeatEventsRequestHandler for JaySeatEvents {

@@ -3,16 +3,21 @@ use {
         consts::{ButtonState, EventType, KeyState, PointerAxis},
         device::LibInputDevice,
         sys::{
-            libinput_event, libinput_event_destroy, libinput_event_get_device,
-            libinput_event_get_keyboard_event, libinput_event_get_pointer_event,
-            libinput_event_get_type, libinput_event_keyboard, libinput_event_keyboard_get_key,
-            libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec,
-            libinput_event_pointer, libinput_event_pointer_get_button,
-            libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
-            libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy,
-            libinput_event_pointer_get_dy_unaccelerated, libinput_event_pointer_get_scroll_value,
-            libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
-            libinput_event_pointer_has_axis,
+            libinput_event, libinput_event_destroy, libinput_event_gesture,
+            libinput_event_gesture_get_angle_delta, libinput_event_gesture_get_cancelled,
+            libinput_event_gesture_get_dx, libinput_event_gesture_get_dx_unaccelerated,
+            libinput_event_gesture_get_dy, libinput_event_gesture_get_dy_unaccelerated,
+            libinput_event_gesture_get_finger_count, libinput_event_gesture_get_scale,
+            libinput_event_gesture_get_time_usec, libinput_event_get_device,
+            libinput_event_get_gesture_event, libinput_event_get_keyboard_event,
+            libinput_event_get_pointer_event, libinput_event_get_type, libinput_event_keyboard,
+            libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
+            libinput_event_keyboard_get_time_usec, libinput_event_pointer,
+            libinput_event_pointer_get_button, libinput_event_pointer_get_button_state,
+            libinput_event_pointer_get_dx, libinput_event_pointer_get_dx_unaccelerated,
+            libinput_event_pointer_get_dy, libinput_event_pointer_get_dy_unaccelerated,
+            libinput_event_pointer_get_scroll_value, libinput_event_pointer_get_scroll_value_v120,
+            libinput_event_pointer_get_time_usec, libinput_event_pointer_has_axis,
         },
     },
     std::marker::PhantomData,
@@ -30,6 +35,11 @@ pub struct LibInputEventKeyboard<'a> {
 
 pub struct LibInputEventPointer<'a> {
     pub(super) event: *mut libinput_event_pointer,
+    pub(super) _phantom: PhantomData<&'a ()>,
+}
+
+pub struct LibInputEventGesture<'a> {
+    pub(super) event: *mut libinput_event_gesture,
     pub(super) _phantom: PhantomData<&'a ()>,
 }
 
@@ -71,6 +81,18 @@ impl<'a> LibInputEvent<'a> {
             None
         } else {
             Some(LibInputEventPointer {
+                event: res,
+                _phantom: Default::default(),
+            })
+        }
+    }
+
+    pub fn gesture_event(&self) -> Option<LibInputEventGesture> {
+        let res = unsafe { libinput_event_get_gesture_event(self.event) };
+        if res.is_null() {
+            None
+        } else {
+            Some(LibInputEventGesture {
                 event: res,
                 _phantom: Default::default(),
             })
@@ -132,5 +154,43 @@ impl<'a> LibInputEventPointer<'a> {
 
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_pointer_get_time_usec(self.event) }
+    }
+}
+
+impl<'a> LibInputEventGesture<'a> {
+    pub fn time_usec(&self) -> u64 {
+        unsafe { libinput_event_gesture_get_time_usec(self.event) }
+    }
+
+    pub fn finger_count(&self) -> u32 {
+        unsafe { libinput_event_gesture_get_finger_count(self.event) as u32 }
+    }
+
+    pub fn cancelled(&self) -> bool {
+        unsafe { libinput_event_gesture_get_cancelled(self.event) != 0 }
+    }
+
+    pub fn dx(&self) -> f64 {
+        unsafe { libinput_event_gesture_get_dx(self.event) }
+    }
+
+    pub fn dy(&self) -> f64 {
+        unsafe { libinput_event_gesture_get_dy(self.event) }
+    }
+
+    pub fn dx_unaccelerated(&self) -> f64 {
+        unsafe { libinput_event_gesture_get_dx_unaccelerated(self.event) }
+    }
+
+    pub fn dy_unaccelerated(&self) -> f64 {
+        unsafe { libinput_event_gesture_get_dy_unaccelerated(self.event) }
+    }
+
+    pub fn scale(&self) -> f64 {
+        unsafe { libinput_event_gesture_get_scale(self.event) }
+    }
+
+    pub fn angle_delta(&self) -> f64 {
+        unsafe { libinput_event_gesture_get_angle_delta(self.event) }
     }
 }
