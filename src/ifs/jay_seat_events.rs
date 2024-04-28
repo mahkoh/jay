@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::KeyState,
+        backend::{InputDeviceId, KeyState},
         client::Client,
         fixed::Fixed,
         ifs::wl_seat::{wl_pointer::PendingScroll, SeatId},
@@ -218,6 +218,22 @@ impl JaySeatEvents {
             seat: seat.raw(),
             time_usec,
             cancelled: cancelled as _,
+        });
+    }
+
+    pub fn send_switch_event(
+        &self,
+        seat: SeatId,
+        input_device: InputDeviceId,
+        time_usec: u64,
+        event: jay_config::input::SwitchEvent,
+    ) {
+        self.client.event(SwitchEvent {
+            self_id: self.id,
+            seat: seat.raw(),
+            time_usec,
+            input_device: input_device.raw(),
+            event: event as _,
         });
     }
 }

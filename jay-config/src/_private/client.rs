@@ -12,7 +12,7 @@ use {
         exec::Command,
         input::{
             acceleration::AccelProfile, capability::Capability, FocusFollowsMouseMode, InputDevice,
-            Seat,
+            Seat, SwitchEvent,
         },
         keyboard::{
             mods::{Modifiers, RELEASE},
@@ -95,6 +95,7 @@ pub(crate) struct Client {
     on_new_drm_device: RefCell<Option<Callback<DrmDevice>>>,
     on_del_drm_device: RefCell<Option<Callback<DrmDevice>>>,
     on_idle: RefCell<Option<Callback>>,
+    on_switch_event: RefCell<HashMap<InputDevice, Callback<SwitchEvent>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
     read_interests: RefCell<HashMap<PollableId, Interest>>,
@@ -222,6 +223,7 @@ pub unsafe extern "C" fn init(
         on_new_drm_device: Default::default(),
         on_del_drm_device: Default::default(),
         on_idle: Default::default(),
+        on_switch_event: Default::default(),
         bufs: Default::default(),
         reload: Cell::new(false),
         read_interests: Default::default(),
@@ -601,6 +603,16 @@ impl Client {
 
     pub fn on_new_input_device<F: FnMut(InputDevice) + 'static>(&self, f: F) {
         *self.on_new_input_device.borrow_mut() = Some(cb(f));
+    }
+
+    pub fn on_switch_event<F: FnMut(SwitchEvent) + 'static>(
+        &self,
+        input_device: InputDevice,
+        f: F,
+    ) {
+        self.on_switch_event
+            .borrow_mut()
+            .insert(input_device, cb(f));
     }
 
     pub fn set_double_click_interval(&self, usec: u64) {
@@ -1258,7 +1270,9 @@ impl Client {
                     run_cb("new input device", &handler, device);
                 }
             }
-            ServerMessage::DelInputDevice { .. } => {}
+            ServerMessage::DelInputDevice { device } => {
+                self.on_switch_event.borrow_mut().remove(&device);
+            }
             ServerMessage::ConnectorConnect { device } => {
                 let handler = self.on_connector_connected.borrow_mut().clone();
                 if let Some(handler) = handler {
@@ -1330,6 +1344,17 @@ impl Client {
                         ServerFeature::MOD_MASK => self.feat_mod_mask.set(true),
                         _ => {}
                     }
+                }
+            }
+            ServerMessage::SwitchEvent {
+                seat,
+                input_device,
+                event,
+            } => {
+                let _ = seat;
+                let cb = self.on_switch_event.borrow().get(&input_device).cloned();
+                if let Some(cb) = cb {
+                    run_cb("switch event", &cb, event);
                 }
             }
         }

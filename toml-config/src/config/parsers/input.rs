@@ -5,6 +5,7 @@ use {
             extractor::{bol, fltorint, opt, recover, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
+                action::ActionParser,
                 input_match::{InputMatchParser, InputMatchParserError},
                 keymap::KeymapParser,
             },
@@ -15,8 +16,12 @@ use {
             toml_value::Value,
         },
     },
+    ahash::AHashMap,
     indexmap::IndexMap,
-    jay_config::input::acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
+    jay_config::input::{
+        acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
+        SwitchEvent,
+    },
     thiserror::Error,
 };
 
@@ -65,7 +70,14 @@ impl<'a> Parser for InputParser<'a> {
                 natural_scrolling,
                 px_per_wheel_scroll,
             ),
-            (transform_matrix, keymap),
+            (
+                transform_matrix,
+                keymap,
+                on_lid_opened_val,
+                on_lid_closed_val,
+                on_converted_to_laptop_val,
+                on_converted_to_tablet_val,
+            ),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -79,7 +91,14 @@ impl<'a> Parser for InputParser<'a> {
                 recover(opt(bol("natural-scrolling"))),
                 recover(opt(fltorint("px-per-wheel-scroll"))),
             ),
-            (recover(opt(val("transform-matrix"))), opt(val("keymap"))),
+            (
+                recover(opt(val("transform-matrix"))),
+                opt(val("keymap")),
+                opt(val("on-lid-opened")),
+                opt(val("on-lid-closed")),
+                opt(val("on-converted-to-laptop")),
+                opt(val("on-converted-to-tablet")),
+            ),
         ))?;
         let accel_profile = match accel_profile {
             None => None,
@@ -125,6 +144,38 @@ impl<'a> Parser for InputParser<'a> {
                 }
             },
         };
+        let mut switch_actions = AHashMap::new();
+        let mut parse_action = |val: Option<Spanned<&Value>>, name, event| {
+            if let Some(val) = val {
+                if !self.tag_ok {
+                    log::warn!(
+                        "{name} has no effect in this position: {}",
+                        self.cx.error3(val.span)
+                    );
+                    return;
+                }
+                match val.parse(&mut ActionParser(self.cx)) {
+                    Ok(a) => {
+                        switch_actions.insert(event, a);
+                    }
+                    Err(e) => {
+                        log::warn!("Could not parse {name} action: {}", self.cx.error(e));
+                    }
+                }
+            }
+        };
+        parse_action(on_lid_opened_val, "on-lid-opened", SwitchEvent::LidOpened);
+        parse_action(on_lid_closed_val, "on-lid-closed", SwitchEvent::LidClosed);
+        parse_action(
+            on_converted_to_laptop_val,
+            "on-converted-to-laptop",
+            SwitchEvent::ConvertedToLaptop,
+        );
+        parse_action(
+            on_converted_to_tablet_val,
+            "on-converted-to-tablet",
+            SwitchEvent::ConvertedToTablet,
+        );
         Ok(Input {
             tag: tag.despan_into(),
             match_: match_val.parse_map(&mut InputMatchParser(self.cx))?,
@@ -138,6 +189,7 @@ impl<'a> Parser for InputParser<'a> {
             px_per_wheel_scroll: px_per_wheel_scroll.despan(),
             transform_matrix,
             keymap,
+            switch_actions,
         })
     }
 }

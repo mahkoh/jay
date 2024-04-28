@@ -1239,6 +1239,52 @@ Input:
           match.name = "ZSA Technology Labs Inc ErgoDox EZ"
           keymap.name = "external"
           ```
+    on-lid-closed:
+      ref: Action
+      required: false
+      description: |
+        An action to execute when the laptop lid is closed.
+        
+        This should only be used in the top-level inputs array.
+        
+        - Example:
+        
+          ```toml
+          [[inputs]]
+          match.name = "<switch name>"
+          on-lid-closed = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = false } }
+          on-lid-opened = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = true } }
+          ```
+    on-lid-opened:
+      ref: Action
+      required: false
+      description: |
+        An action to execute when the laptop lid is opened.
+        
+        This should only be used in the top-level inputs array.
+        
+        - Example:
+        
+          ```toml
+          [[inputs]]
+          match.name = "<switch name>"
+          on-lid-closed = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = false } }
+          on-lid-opened = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = true } }
+          ```
+    on-converted-to-laptop:
+      ref: Action
+      required: false
+      description: |
+        An action to execute when the convertible device is converted to a laptop.
+        
+        This should only be used in the top-level inputs array.
+    on-converted-to-tablet:
+      ref: Action
+      required: false
+      description: |
+        An action to execute when the convertible device is converted to a tablet.
+        
+        This should only be used in the top-level inputs array.
 
 
 AccelProfile:

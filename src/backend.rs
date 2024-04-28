@@ -8,7 +8,7 @@ use {
         libinput::consts::DeviceCapability,
         video::drm::{ConnectorType, DrmConnector, DrmError, DrmVersion},
     },
-    jay_config::video::GfxApi,
+    jay_config::{input::SwitchEvent, video::GfxApi},
     std::{
         any::Any,
         error::Error,
@@ -311,6 +311,11 @@ pub enum InputEvent {
     HoldEnd {
         time_usec: u64,
         cancelled: bool,
+    },
+
+    SwitchEvent {
+        time_usec: u64,
+        event: SwitchEvent,
     },
 }
 

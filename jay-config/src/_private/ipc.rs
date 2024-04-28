@@ -2,7 +2,7 @@ use {
     crate::{
         input::{
             acceleration::AccelProfile, capability::Capability, FocusFollowsMouseMode, InputDevice,
-            Seat,
+            Seat, SwitchEvent,
         },
         keyboard::{mods::Modifiers, syms::KeySym, Keymap},
         logging::LogLevel,
@@ -82,6 +82,11 @@ pub enum ServerMessage {
         unmasked_mods: Modifiers,
         effective_mods: Modifiers,
         sym: KeySym,
+    },
+    SwitchEvent {
+        seat: Seat,
+        input_device: InputDevice,
+        event: SwitchEvent,
     },
 }
 

@@ -825,6 +825,22 @@
         "keymap": {
           "description": "The keymap to use for this device.\n\nThis overrides the global keymap. The keymap becomes active when a key is pressed.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.name = \"ZSA Technology Labs Inc ErgoDox EZ\"\n  keymap.name = \"external\"\n  ```\n",
           "$ref": "#/$defs/Keymap"
+        },
+        "on-lid-closed": {
+          "description": "An action to execute when the laptop lid is closed.\n\nThis should only be used in the top-level inputs array.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.name = \"<switch name>\"\n  on-lid-closed = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = false } }\n  on-lid-opened = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = true } }\n  ```\n",
+          "$ref": "#/$defs/Action"
+        },
+        "on-lid-opened": {
+          "description": "An action to execute when the laptop lid is opened.\n\nThis should only be used in the top-level inputs array.\n\n- Example:\n\n  ```toml\n  [[inputs]]\n  match.name = \"<switch name>\"\n  on-lid-closed = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = false } }\n  on-lid-opened = { type = \"configure-connector\", connector = { match.name = \"eDP-1\", enabled = true } }\n  ```\n",
+          "$ref": "#/$defs/Action"
+        },
+        "on-converted-to-laptop": {
+          "description": "An action to execute when the convertible device is converted to a laptop.\n\nThis should only be used in the top-level inputs array.\n",
+          "$ref": "#/$defs/Action"
+        },
+        "on-converted-to-tablet": {
+          "description": "An action to execute when the convertible device is converted to a tablet.\n\nThis should only be used in the top-level inputs array.\n",
+          "$ref": "#/$defs/Action"
         }
       },
       "required": [
