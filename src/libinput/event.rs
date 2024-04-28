@@ -1,6 +1,6 @@
 use {
     crate::libinput::{
-        consts::{ButtonState, EventType, KeyState, PointerAxis},
+        consts::{ButtonState, EventType, KeyState, PointerAxis, Switch, SwitchState},
         device::LibInputDevice,
         sys::{
             libinput_event, libinput_event_destroy, libinput_event_gesture,
@@ -10,14 +10,17 @@ use {
             libinput_event_gesture_get_finger_count, libinput_event_gesture_get_scale,
             libinput_event_gesture_get_time_usec, libinput_event_get_device,
             libinput_event_get_gesture_event, libinput_event_get_keyboard_event,
-            libinput_event_get_pointer_event, libinput_event_get_type, libinput_event_keyboard,
-            libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
-            libinput_event_keyboard_get_time_usec, libinput_event_pointer,
-            libinput_event_pointer_get_button, libinput_event_pointer_get_button_state,
-            libinput_event_pointer_get_dx, libinput_event_pointer_get_dx_unaccelerated,
-            libinput_event_pointer_get_dy, libinput_event_pointer_get_dy_unaccelerated,
-            libinput_event_pointer_get_scroll_value, libinput_event_pointer_get_scroll_value_v120,
-            libinput_event_pointer_get_time_usec, libinput_event_pointer_has_axis,
+            libinput_event_get_pointer_event, libinput_event_get_switch_event,
+            libinput_event_get_type, libinput_event_keyboard, libinput_event_keyboard_get_key,
+            libinput_event_keyboard_get_key_state, libinput_event_keyboard_get_time_usec,
+            libinput_event_pointer, libinput_event_pointer_get_button,
+            libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
+            libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy,
+            libinput_event_pointer_get_dy_unaccelerated, libinput_event_pointer_get_scroll_value,
+            libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
+            libinput_event_pointer_has_axis, libinput_event_switch,
+            libinput_event_switch_get_switch, libinput_event_switch_get_switch_state,
+            libinput_event_switch_get_time_usec,
         },
     },
     std::marker::PhantomData,
@@ -40,6 +43,11 @@ pub struct LibInputEventPointer<'a> {
 
 pub struct LibInputEventGesture<'a> {
     pub(super) event: *mut libinput_event_gesture,
+    pub(super) _phantom: PhantomData<&'a ()>,
+}
+
+pub struct LibInputEventSwitch<'a> {
+    pub(super) event: *mut libinput_event_switch,
     pub(super) _phantom: PhantomData<&'a ()>,
 }
 
@@ -93,6 +101,18 @@ impl<'a> LibInputEvent<'a> {
             None
         } else {
             Some(LibInputEventGesture {
+                event: res,
+                _phantom: Default::default(),
+            })
+        }
+    }
+
+    pub fn switch_event(&self) -> Option<LibInputEventSwitch> {
+        let res = unsafe { libinput_event_get_switch_event(self.event) };
+        if res.is_null() {
+            None
+        } else {
+            Some(LibInputEventSwitch {
                 event: res,
                 _phantom: Default::default(),
             })
@@ -192,5 +212,19 @@ impl<'a> LibInputEventGesture<'a> {
 
     pub fn angle_delta(&self) -> f64 {
         unsafe { libinput_event_gesture_get_angle_delta(self.event) }
+    }
+}
+
+impl<'a> LibInputEventSwitch<'a> {
+    pub fn time_usec(&self) -> u64 {
+        unsafe { libinput_event_switch_get_time_usec(self.event) }
+    }
+
+    pub fn switch(&self) -> Switch {
+        unsafe { Switch(libinput_event_switch_get_switch(self.event)) }
+    }
+
+    pub fn switch_state(&self) -> SwitchState {
+        unsafe { SwitchState(libinput_event_switch_get_switch_state(self.event)) }
     }
 }

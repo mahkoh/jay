@@ -8,7 +8,7 @@ use {
             jay_seat_events::{
                 Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, HoldBegin,
                 HoldEnd, Key, Modifiers, PinchBegin, PinchEnd, PinchUpdate, PointerAbs, PointerRel,
-                SwipeBegin, SwipeEnd, SwipeUpdate,
+                SwipeBegin, SwipeEnd, SwipeUpdate, SwitchEvent,
             },
         },
     },
@@ -322,6 +322,26 @@ async fn run(seat_test: Rc<SeatTest>) {
                 print!(", cancelled");
             }
             println!();
+        }
+    });
+    let st = seat_test.clone();
+    SwitchEvent::handle(tc, se, (), move |_, ev| {
+        let event = match ev.event {
+            0 => "lid opened",
+            1 => "lid closed",
+            2 => "converted to laptop",
+            3 => "converted to tablet",
+            _ => "unknown event",
+        };
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Device: {}, {event}",
+                time(ev.time_usec),
+                ev.input_device
+            );
         }
     });
     pending::<()>().await;

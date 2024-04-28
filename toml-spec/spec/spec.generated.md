@@ -1635,6 +1635,56 @@ The table has the following fields:
 
   The value of this field should be a [Keymap](#types-Keymap).
 
+- `on-lid-closed` (optional):
+
+  An action to execute when the laptop lid is closed.
+  
+  This should only be used in the top-level inputs array.
+  
+  - Example:
+  
+    ```toml
+    [[inputs]]
+    match.name = "<switch name>"
+    on-lid-closed = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = false } }
+    on-lid-opened = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = true } }
+    ```
+
+  The value of this field should be a [Action](#types-Action).
+
+- `on-lid-opened` (optional):
+
+  An action to execute when the laptop lid is opened.
+  
+  This should only be used in the top-level inputs array.
+  
+  - Example:
+  
+    ```toml
+    [[inputs]]
+    match.name = "<switch name>"
+    on-lid-closed = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = false } }
+    on-lid-opened = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = true } }
+    ```
+
+  The value of this field should be a [Action](#types-Action).
+
+- `on-converted-to-laptop` (optional):
+
+  An action to execute when the convertible device is converted to a laptop.
+  
+  This should only be used in the top-level inputs array.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `on-converted-to-tablet` (optional):
+
+  An action to execute when the convertible device is converted to a tablet.
+  
+  This should only be used in the top-level inputs array.
+
+  The value of this field should be a [Action](#types-Action).
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`

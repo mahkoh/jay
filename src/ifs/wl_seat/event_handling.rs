@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{ConnectorId, InputEvent, KeyState, AXIS_120},
+        backend::{ConnectorId, InputDeviceId, InputEvent, KeyState, AXIS_120},
         client::ClientId,
         config::InvokedShortcut,
         fixed::Fixed,
@@ -37,9 +37,12 @@ use {
         xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
     isnt::std_1::primitive::{IsntSlice2Ext, IsntSliceExt},
-    jay_config::keyboard::{
-        mods::{Modifiers, CAPS, NUM, RELEASE},
-        syms::{KeySym, SYM_Escape},
+    jay_config::{
+        input::SwitchEvent,
+        keyboard::{
+            mods::{Modifiers, CAPS, NUM, RELEASE},
+            syms::{KeySym, SYM_Escape},
+        },
     },
     smallvec::SmallVec,
     std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
@@ -200,7 +203,8 @@ impl WlSeatGlobal {
             | InputEvent::PinchUpdate { time_usec, .. }
             | InputEvent::PinchEnd { time_usec, .. }
             | InputEvent::HoldBegin { time_usec, .. }
-            | InputEvent::HoldEnd { time_usec, .. } => {
+            | InputEvent::HoldEnd { time_usec, .. }
+            | InputEvent::SwitchEvent { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for (_, notification) in self.idle_notifications.lock().drain() {
@@ -299,6 +303,9 @@ impl WlSeatGlobal {
                 time_usec,
                 cancelled,
             } => self.hold_end(time_usec, cancelled),
+            InputEvent::SwitchEvent { time_usec, event } => {
+                self.switch_event(dev.device.id(), time_usec, event)
+            }
         }
     }
 
@@ -502,6 +509,15 @@ impl WlSeatGlobal {
             t.send_hold_end(self.id, time_usec, cancelled);
         });
         self.gesture_owner.hold_end(self, time_usec, cancelled)
+    }
+
+    fn switch_event(self: &Rc<Self>, dev: InputDeviceId, time_usec: u64, event: SwitchEvent) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_switch_event(self.id, dev, time_usec, event);
+        });
+        if let Some(config) = self.state.config.get() {
+            config.switch_event(self.id, dev, event);
+        }
     }
 
     pub(super) fn key_event<F>(

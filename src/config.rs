@@ -20,7 +20,7 @@ use {
             ipc::{InitMessage, ServerFeature, ServerMessage, V1InitMessage},
             ConfigEntry, VERSION,
         },
-        input::{InputDevice, Seat},
+        input::{InputDevice, Seat, SwitchEvent},
         keyboard::{mods::Modifiers, syms::KeySym},
         video::{Connector, DrmDevice},
     },
@@ -143,6 +143,14 @@ impl ConfigProxy {
 
     pub fn idle(&self) {
         self.send(&ServerMessage::Idle);
+    }
+
+    pub fn switch_event(&self, seat: SeatId, input_device: InputDeviceId, event: SwitchEvent) {
+        self.send(&ServerMessage::SwitchEvent {
+            seat: Seat(seat.raw() as _),
+            input_device: InputDevice(input_device.raw() as _),
+            event,
+        });
     }
 }
 

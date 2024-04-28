@@ -125,3 +125,10 @@ event hold_end {
     time_usec: pod(u64),
     cancelled: i32,
 }
+
+event switch_event {
+    seat: u32,
+    time_usec: pod(u64),
+    input_device: u32,
+    event: u32,
+}

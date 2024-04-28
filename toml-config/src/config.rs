@@ -15,8 +15,9 @@ use {
         },
         toml::{self},
     },
+    ahash::AHashMap,
     jay_config::{
-        input::acceleration::AccelProfile,
+        input::{acceleration::AccelProfile, SwitchEvent},
         keyboard::{mods::Modifiers, Keymap, ModifiedKeySym},
         logging::LogLevel,
         status::MessageFormat,
@@ -244,6 +245,7 @@ pub struct Input {
     pub px_per_wheel_scroll: Option<f64>,
     pub transform_matrix: Option<[[f64; 2]; 2]>,
     pub keymap: Option<ConfigKeymap>,
+    pub switch_actions: AHashMap<SwitchEvent, Action>,
 }
 
 #[derive(Debug, Clone)]

@@ -7,11 +7,14 @@ use {
             consts::{
                 LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
                 LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
+                LIBINPUT_SWITCH_LID, LIBINPUT_SWITCH_STATE_OFF, LIBINPUT_SWITCH_STATE_ON,
+                LIBINPUT_SWITCH_TABLET_MODE,
             },
             event::LibInputEvent,
         },
         utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt},
     },
+    jay_config::input::SwitchEvent,
     std::rc::Rc,
     uapi::c,
 };
@@ -99,6 +102,7 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_GESTURE_PINCH_END => self.handle_gesture_pinch_end(event),
             c::LIBINPUT_EVENT_GESTURE_HOLD_BEGIN => self.handle_gesture_hold_begin(event),
             c::LIBINPUT_EVENT_GESTURE_HOLD_END => self.handle_gesture_hold_end(event),
+            c::LIBINPUT_EVENT_SWITCH_TOGGLE => self.handle_switch_toggle(event),
             _ => {}
         }
     }
@@ -295,6 +299,25 @@ impl MetalBackend {
         dev.event(InputEvent::HoldEnd {
             time_usec: event.time_usec(),
             cancelled: event.cancelled(),
+        });
+    }
+
+    fn handle_switch_toggle(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, switch_event);
+        let switch_event = match (event.switch(), event.switch_state()) {
+            (LIBINPUT_SWITCH_LID, LIBINPUT_SWITCH_STATE_OFF) => SwitchEvent::LidOpened,
+            (LIBINPUT_SWITCH_LID, LIBINPUT_SWITCH_STATE_ON) => SwitchEvent::LidClosed,
+            (LIBINPUT_SWITCH_TABLET_MODE, LIBINPUT_SWITCH_STATE_OFF) => {
+                SwitchEvent::ConvertedToLaptop
+            }
+            (LIBINPUT_SWITCH_TABLET_MODE, LIBINPUT_SWITCH_STATE_ON) => {
+                SwitchEvent::ConvertedToTablet
+            }
+            _ => return,
+        };
+        dev.event(InputEvent::SwitchEvent {
+            time_usec: event.time_usec(),
+            event: switch_event,
         });
     }
 }

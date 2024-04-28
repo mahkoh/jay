@@ -16,7 +16,8 @@ use {
         exec::{set_env, unset_env, Command},
         get_workspace,
         input::{
-            get_seat, input_devices, on_new_input_device, FocusFollowsMouseMode, InputDevice, Seat,
+            capability::CAP_SWITCH, get_seat, input_devices, on_new_input_device,
+            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent,
         },
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
@@ -559,6 +560,8 @@ impl Drop for State {
     }
 }
 
+type SwitchActions = Vec<(InputMatch, AHashMap<SwitchEvent, Box<dyn Fn()>>)>;
+
 impl State {
     fn unbind_all(&self) {
         let mut binds = self.persistent.binds.borrow_mut();
@@ -681,6 +684,23 @@ impl State {
             set_font(font);
         }
     }
+
+    fn handle_switch_device(self: &Rc<Self>, dev: InputDevice, actions: &Rc<SwitchActions>) {
+        if !dev.has_capability(CAP_SWITCH) {
+            return;
+        }
+        let state = self.clone();
+        let actions = actions.clone();
+        dev.on_switch_event(move |ev| {
+            for (match_, actions) in &*actions {
+                if match_.matches(dev, &state) {
+                    if let Some(action) = actions.get(&ev) {
+                        action();
+                    }
+                }
+            }
+        });
+    }
 }
 
 #[derive(Eq, PartialEq, Hash)]
@@ -700,7 +720,7 @@ struct PersistentState {
 fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     let mut path = PathBuf::from(config_dir());
     path.push("config.toml");
-    let config = match std::fs::read(&path) {
+    let mut config = match std::fs::read(&path) {
         Ok(input) => match parse_config(&input, |e| {
             log::warn!("Error while parsing {}: {}", path.display(), Report::new(e))
         }) {
@@ -768,6 +788,17 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         keymaps,
     });
     state.set_status(&config.status);
+    let mut switch_actions = vec![];
+    for input in &mut config.inputs {
+        let mut actions = AHashMap::new();
+        for (event, action) in input.switch_actions.drain() {
+            actions.insert(event, action.into_fn(&state));
+        }
+        if actions.len() > 0 {
+            switch_actions.push((input.match_.clone(), actions));
+        }
+    }
+    let switch_actions = Rc::new(switch_actions);
     match config.on_graphics_initialized {
         None => on_graphics_initialized(|| ()),
         Some(a) => on_graphics_initialized(a.into_fn(&state)),
@@ -863,14 +894,19 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     });
     on_new_input_device({
         let state = state.clone();
+        let switch_actions = switch_actions.clone();
         move |c| {
             for input in &config.inputs {
                 if input.match_.matches(c, &state) {
                     input.apply(c, &state);
                 }
             }
+            state.handle_switch_device(c, &switch_actions);
         }
     });
+    for c in jay_config::input::input_devices() {
+        state.handle_switch_device(c, &switch_actions);
+    }
     persistent
         .seat
         .set_focus_follows_mouse_mode(match config.focus_follows_mouse {

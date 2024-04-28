@@ -425,6 +425,20 @@ You can use the `configure-connector` action to change this configuration at run
 
 See the specification for more details.
 
+### Disabling Connectors of Closed Laptops
+
+If a laptop has a switch that is signaled when the laptop is closed, you can configure
+the built-in connector to be disabled automatically:
+
+```toml
+[[inputs]]
+match.name = "<switch name>"
+on-lid-closed = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = false } }
+on-lid-opened = { type = "configure-connector", connector = { match.name = "eDP-1", enabled = true } }
+```
+
+See the specification for more details.
+
 ### Configuring Input Devices
 
 You can configure input devices with the top-level `inputs` array.

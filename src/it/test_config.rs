@@ -120,6 +120,7 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
         ServerMessage::DevicesEnumerated => {}
         ServerMessage::InterestReady { .. } => {}
         ServerMessage::Features { .. } => {}
+        ServerMessage::SwitchEvent { .. } => {}
     }
 }
 
