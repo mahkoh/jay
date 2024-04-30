@@ -2,8 +2,12 @@ use {
     crate::{
         backend::KeyState,
         cursor::KnownCursor,
+        cursor_user::CursorUser,
         fixed::Fixed,
-        ifs::wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT},
+        ifs::wl_seat::{
+            tablet::{TabletTool, TabletToolChanges, TabletToolId},
+            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT,
+        },
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
@@ -44,11 +48,17 @@ pub struct FloatNode {
     pub render_titles_scheduled: Cell<bool>,
     pub title: RefCell<String>,
     pub title_textures: CopyHashMap<Scale, TextTexture>,
-    seats: RefCell<AHashMap<SeatId, SeatState>>,
+    cursors: RefCell<AHashMap<CursorType, CursorState>>,
     pub attention_requested: Cell<bool>,
 }
 
-struct SeatState {
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+enum CursorType {
+    Seat(SeatId),
+    TabletTool(TabletToolId),
+}
+
+struct CursorState {
     cursor: KnownCursor,
     target: bool,
     x: i32,
@@ -113,7 +123,7 @@ impl FloatNode {
             render_titles_scheduled: Cell::new(false),
             title: Default::default(),
             title_textures: Default::default(),
-            seats: Default::default(),
+            cursors: Default::default(),
             attention_requested: Cell::new(false),
         });
         floater.pull_child_properties();
@@ -214,14 +224,23 @@ impl FloatNode {
         }
     }
 
-    fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
+    fn pointer_move(
+        self: &Rc<Self>,
+        id: CursorType,
+        cursor: &CursorUser,
+        x: Fixed,
+        y: Fixed,
+        target: bool,
+    ) {
+        let x = x.round_down();
+        let y = y.round_down();
         let theme = &self.state.theme;
         let bw = theme.sizes.border_width.get();
         let th = theme.sizes.title_height.get();
-        let mut seats = self.seats.borrow_mut();
-        let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
+        let mut seats = self.cursors.borrow_mut();
+        let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
-            target: false,
+            target,
             x,
             y,
             op_type: OpType::Move,
@@ -289,6 +308,7 @@ impl FloatNode {
                 }
             }
             self.position.set(Rect::new(x1, y1, x2, y2).unwrap());
+            self.state.damage();
             self.schedule_layout();
             return;
         }
@@ -334,7 +354,7 @@ impl FloatNode {
         seat_state.op_type = op_type;
         if new_cursor != mem::replace(&mut seat_state.cursor, new_cursor) {
             if seat_state.target {
-                seat.pointer_cursor().set_known(new_cursor);
+                cursor.set_known(new_cursor);
             }
         }
     }
@@ -396,6 +416,77 @@ impl FloatNode {
                 tl.tl_restack_popups();
             }
             self.state.tree_changed();
+        }
+    }
+
+    fn button(
+        self: Rc<Self>,
+        id: CursorType,
+        cursor: &CursorUser,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        pressed: bool,
+    ) {
+        let mut cursors = self.cursors.borrow_mut();
+        let cursor_data = match cursors.get_mut(&id) {
+            Some(s) => s,
+            _ => return,
+        };
+        if !cursor_data.op_active {
+            if !pressed {
+                return;
+            }
+            if cursor_data.op_type == OpType::Move {
+                if let Some(tl) = self.child.get() {
+                    tl.node_do_focus(seat, Direction::Unspecified);
+                }
+            }
+            if cursor_data.double_click_state.click(
+                &self.state,
+                time_usec,
+                cursor_data.x,
+                cursor_data.y,
+            ) && cursor_data.op_type == OpType::Move
+            {
+                if let Some(tl) = self.child.get() {
+                    drop(cursors);
+                    seat.set_tl_floating(tl, false);
+                    return;
+                }
+            }
+            cursor_data.op_active = true;
+            let pos = self.position.get();
+            match cursor_data.op_type {
+                OpType::Move => {
+                    self.restack();
+                    cursor_data.dist_hor = cursor_data.x;
+                    cursor_data.dist_ver = cursor_data.y;
+                }
+                OpType::ResizeLeft => cursor_data.dist_hor = cursor_data.x,
+                OpType::ResizeTop => cursor_data.dist_ver = cursor_data.y,
+                OpType::ResizeRight => cursor_data.dist_hor = pos.width() - cursor_data.x,
+                OpType::ResizeBottom => cursor_data.dist_ver = pos.height() - cursor_data.y,
+                OpType::ResizeTopLeft => {
+                    cursor_data.dist_hor = cursor_data.x;
+                    cursor_data.dist_ver = cursor_data.y;
+                }
+                OpType::ResizeTopRight => {
+                    cursor_data.dist_hor = pos.width() - cursor_data.x;
+                    cursor_data.dist_ver = cursor_data.y;
+                }
+                OpType::ResizeBottomLeft => {
+                    cursor_data.dist_hor = cursor_data.x;
+                    cursor_data.dist_ver = pos.height() - cursor_data.y;
+                }
+                OpType::ResizeBottomRight => {
+                    cursor_data.dist_hor = pos.width() - cursor_data.x;
+                    cursor_data.dist_ver = pos.height() - cursor_data.y;
+                }
+            }
+        } else if !pressed {
+            cursor_data.op_active = false;
+            let ws = cursor.output().ensure_workspace();
+            self.set_workspace(&ws);
         }
     }
 }
@@ -487,89 +578,89 @@ impl Node for FloatNode {
         if button != BTN_LEFT {
             return;
         }
-        let mut seat_datas = self.seats.borrow_mut();
-        let seat_data = match seat_datas.get_mut(&seat.id()) {
-            Some(s) => s,
-            _ => return,
-        };
-        if !seat_data.op_active {
-            if state != KeyState::Pressed {
-                return;
-            }
-            if seat_data.op_type == OpType::Move {
-                if let Some(tl) = self.child.get() {
-                    tl.node_do_focus(seat, Direction::Unspecified);
-                }
-            }
-            if seat_data
-                .double_click_state
-                .click(&self.state, time_usec, seat_data.x, seat_data.y)
-                && seat_data.op_type == OpType::Move
-            {
-                if let Some(tl) = self.child.get() {
-                    drop(seat_datas);
-                    seat.set_tl_floating(tl, false);
-                    return;
-                }
-            }
-            seat_data.op_active = true;
-            let pos = self.position.get();
-            match seat_data.op_type {
-                OpType::Move => {
-                    self.restack();
-                    seat_data.dist_hor = seat_data.x;
-                    seat_data.dist_ver = seat_data.y;
-                }
-                OpType::ResizeLeft => seat_data.dist_hor = seat_data.x,
-                OpType::ResizeTop => seat_data.dist_ver = seat_data.y,
-                OpType::ResizeRight => seat_data.dist_hor = pos.width() - seat_data.x,
-                OpType::ResizeBottom => seat_data.dist_ver = pos.height() - seat_data.y,
-                OpType::ResizeTopLeft => {
-                    seat_data.dist_hor = seat_data.x;
-                    seat_data.dist_ver = seat_data.y;
-                }
-                OpType::ResizeTopRight => {
-                    seat_data.dist_hor = pos.width() - seat_data.x;
-                    seat_data.dist_ver = seat_data.y;
-                }
-                OpType::ResizeBottomLeft => {
-                    seat_data.dist_hor = seat_data.x;
-                    seat_data.dist_ver = pos.height() - seat_data.y;
-                }
-                OpType::ResizeBottomRight => {
-                    seat_data.dist_hor = pos.width() - seat_data.x;
-                    seat_data.dist_ver = pos.height() - seat_data.y;
-                }
-            }
-        } else if state == KeyState::Released {
-            seat_data.op_active = false;
-            let ws = seat.get_output().ensure_workspace();
-            self.set_workspace(&ws);
-        }
+        self.button(
+            CursorType::Seat(seat.id()),
+            seat.pointer_cursor(),
+            seat,
+            time_usec,
+            state == KeyState::Pressed,
+        );
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
+        self.pointer_move(
+            CursorType::Seat(seat.id()),
+            seat.pointer_cursor(),
+            x,
+            y,
+            false,
+        );
     }
 
     fn node_on_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
-        let mut seats = self.seats.borrow_mut();
-        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+        let mut cursors = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        if let Some(seat_state) = cursors.get_mut(&id) {
             seat_state.target = false;
         }
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("float focus");
-        let mut seats = self.seats.borrow_mut();
-        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+        let mut cursors = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        if let Some(seat_state) = cursors.get_mut(&id) {
             seat_state.target = true;
             seat.pointer_cursor().set_known(seat_state.cursor);
         }
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
+        self.pointer_move(
+            CursorType::Seat(seat.id()),
+            seat.pointer_cursor(),
+            x,
+            y,
+            false,
+        );
+    }
+
+    fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, _time_usec: u64) {
+        let id = CursorType::TabletTool(tool.id);
+        self.cursors.borrow_mut().remove(&id);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default);
+        self.pointer_move(CursorType::TabletTool(tool.id), tool.cursor(), x, y, true);
+    }
+
+    fn node_on_tablet_tool_apply_changes(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        changes: Option<&TabletToolChanges>,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        self.pointer_move(CursorType::TabletTool(tool.id), tool.cursor(), x, y, false);
+        if let Some(changes) = changes {
+            if let Some(pressed) = changes.down {
+                self.button(
+                    CursorType::TabletTool(tool.id),
+                    tool.cursor(),
+                    tool.seat(),
+                    time_usec,
+                    pressed,
+                );
+            }
+        }
     }
 
     fn node_into_float(self: Rc<Self>) -> Option<Rc<FloatNode>> {

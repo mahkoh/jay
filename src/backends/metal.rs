@@ -6,8 +6,8 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
-            InputEvent, KeyState, TransformMatrix,
+            Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceGroupId, InputDeviceId, InputEvent, KeyState, TransformMatrix,
         },
         backends::metal::video::{
             MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
@@ -15,12 +15,16 @@ use {
         dbus::{DbusError, SignalHandler},
         drm_feedback::DrmFeedback,
         gfx_api::GfxError,
+        ifs::wl_seat::tablet::{
+            TabletId, TabletInit, TabletPadGroupInit, TabletPadId, TabletPadInit,
+        },
         libinput::{
             consts::{
                 AccelProfile, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_DEVICE_CAP_TABLET_PAD,
+                LIBINPUT_DEVICE_CAP_TABLET_TOOL,
             },
-            device::RegisteredDevice,
+            device::{LibInputDevice, RegisteredDevice},
             LibInput, LibInputAdapter, LibInputError,
         },
         logind::{LogindError, Session},
@@ -41,6 +45,7 @@ use {
             gbm::GbmError,
         },
     },
+    bstr::ByteSlice,
     std::{
         any::Any,
         cell::{Cell, RefCell},
@@ -335,6 +340,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
 }
 
 struct MetalInputDevice {
+    state: Rc<State>,
     slot: usize,
     id: InputDeviceId,
     devnum: c::dev_t,
@@ -342,11 +348,14 @@ struct MetalInputDevice {
     inputdev: CloneCell<Option<Rc<RegisteredDevice>>>,
     devnode: CString,
     _sysname: CString,
+    syspath: CString,
     removed: Cell<bool>,
     events: SyncQueue<InputEvent>,
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     name: CloneCell<Rc<String>>,
     transform_matrix: Cell<Option<TransformMatrix>>,
+    tablet_id: Cell<Option<TabletId>>,
+    tablet_pad_id: Cell<Option<TabletPadId>>,
 
     // state
     pressed_keys: SmallMap<u32, (), 5>,
@@ -646,6 +655,71 @@ impl InputDevice for MetalInputDevice {
     fn natural_scrolling_enabled(&self) -> Option<bool> {
         self.effective.natural_scrolling_enabled.get()
     }
+
+    fn tablet_info(&self) -> Option<Box<TabletInit>> {
+        let dev = self.inputdev.get()?;
+        let dev = dev.device();
+        if !dev.has_cap(LIBINPUT_DEVICE_CAP_TABLET_TOOL) {
+            return None;
+        }
+        let id = match self.tablet_id.get() {
+            Some(id) => id,
+            None => {
+                let id = self.state.tablet_ids.next();
+                self.tablet_id.set(Some(id));
+                id
+            }
+        };
+        Some(Box::new(TabletInit {
+            id,
+            group: self.get_device_group(&dev),
+            name: dev.name(),
+            pid: dev.product(),
+            vid: dev.vendor(),
+            path: self.syspath.as_bytes().as_bstr().to_string(),
+        }))
+    }
+
+    fn tablet_pad_info(&self) -> Option<Box<TabletPadInit>> {
+        let dev = self.inputdev.get()?;
+        let dev = dev.device();
+        if !dev.has_cap(LIBINPUT_DEVICE_CAP_TABLET_PAD) {
+            return None;
+        }
+        let id = match self.tablet_pad_id.get() {
+            Some(id) => id,
+            None => {
+                let id = self.state.tablet_pad_ids.next();
+                self.tablet_pad_id.set(Some(id));
+                id
+            }
+        };
+        let buttons = dev.pad_num_buttons();
+        let strips = dev.pad_num_strips();
+        let rings = dev.pad_num_rings();
+        let mut groups = vec![];
+        for n in 0..dev.pad_num_mode_groups() {
+            let Some(group) = dev.pad_mode_group(n) else {
+                break;
+            };
+            groups.push(TabletPadGroupInit {
+                buttons: (0..buttons).filter(|b| group.has_button(*b)).collect(),
+                rings: (0..rings).filter(|b| group.has_ring(*b)).collect(),
+                strips: (0..strips).filter(|b| group.has_strip(*b)).collect(),
+                modes: group.num_modes(),
+                mode: group.mode(),
+            });
+        }
+        Some(Box::new(TabletPadInit {
+            id,
+            group: self.get_device_group(&dev),
+            path: self.syspath.as_bytes().as_bstr().to_string(),
+            buttons,
+            strips,
+            rings,
+            groups,
+        }))
+    }
 }
 
 impl MetalInputDevice {
@@ -654,5 +728,15 @@ impl MetalInputDevice {
         if let Some(cb) = self.cb.get() {
             cb();
         }
+    }
+
+    fn get_device_group(&self, dev: &LibInputDevice) -> InputDeviceGroupId {
+        let group = dev.device_group();
+        let mut id = group.user_data();
+        if id == 0 {
+            id = self.state.input_device_group_ids.next().raw();
+            group.set_user_data(id);
+        }
+        InputDeviceGroupId::from_raw(id)
     }
 }

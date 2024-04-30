@@ -17,6 +17,7 @@ use {
             copyhashmap::{CopyHashMap, Locked},
             errorfmt::ErrorFmt,
             numcell::NumCell,
+            pending_serial::PendingSerial,
             trim::AsciiTrim,
         },
         wire::WlRegistryId,
@@ -348,6 +349,10 @@ impl Client {
 
     pub fn next_serial(&self) -> u32 {
         self.state.next_serial(Some(self))
+    }
+
+    pub fn pending_serial(&self) -> PendingSerial<'_> {
+        PendingSerial::new(self)
     }
 
     pub fn new_id<T: From<ObjectId>>(&self) -> Result<T, ClientError> {

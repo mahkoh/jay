@@ -2,10 +2,11 @@ use {
     crate::{
         client::ClientId,
         cursor::KnownCursor,
+        fixed::Fixed,
         ifs::{
             jay_workspace::JayWorkspace,
             wl_output::OutputId,
-            wl_seat::{NodeSeatState, WlSeatGlobal},
+            wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
             wl_surface::WlSurface,
         },
         rect::Rect,
@@ -275,6 +276,16 @@ impl Node for WorkspaceNode {
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("workspace focus");
         seat.pointer_cursor().set_known(KnownCursor::Default);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        _x: Fixed,
+        _y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default)
     }
 
     fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {

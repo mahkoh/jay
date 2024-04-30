@@ -26,9 +26,15 @@ use {
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
             wl_seat::{
-                text_input::TextInputConnection, wl_pointer::PendingScroll,
-                zwp_pointer_constraints_v1::SeatConstraint, Dnd, NodeSeatState, SeatId,
-                WlSeatGlobal,
+                tablet::{
+                    PadButtonState, TabletPad, TabletPadGroup, TabletPadRing, TabletPadStrip,
+                    TabletRingEventSource, TabletStripEventSource, TabletTool, TabletToolChanges,
+                    ToolButtonState,
+                },
+                text_input::TextInputConnection,
+                wl_pointer::PendingScroll,
+                zwp_pointer_constraints_v1::SeatConstraint,
+                Dnd, NodeSeatState, SeatId, WlSeatGlobal,
             },
             wl_surface::{
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
@@ -1497,14 +1503,6 @@ impl Node for WlSurface {
         dnd.seat.dnd_surface_motion(self, dnd, time_usec, x, y);
     }
 
-    fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
-        Some(self.clone())
-    }
-
-    fn node_is_xwayland_surface(&self) -> bool {
-        self.client.is_xwayland
-    }
-
     fn node_on_swipe_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
         seat.swipe_begin_surface(self, time_usec, finger_count)
     }
@@ -1543,6 +1541,99 @@ impl Node for WlSurface {
 
     fn node_on_hold_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
         seat.hold_end_surface(self, time_usec, cancelled)
+    }
+
+    fn node_on_tablet_pad_enter(&self, pad: &Rc<TabletPad>) {
+        pad.surface_enter(self);
+    }
+
+    fn node_on_tablet_pad_leave(&self, pad: &Rc<TabletPad>) {
+        pad.surface_leave(self);
+    }
+
+    fn node_on_tablet_pad_button(
+        &self,
+        pad: &Rc<TabletPad>,
+        time_usec: u64,
+        button: u32,
+        state: PadButtonState,
+    ) {
+        pad.surface_button(self, time_usec, button, state);
+    }
+
+    fn node_on_tablet_pad_mode_switch(
+        &self,
+        pad: &Rc<TabletPad>,
+        group: &Rc<TabletPadGroup>,
+        time_usec: u64,
+        mode: u32,
+    ) {
+        pad.surface_mode_switch(self, group, time_usec, mode);
+    }
+
+    fn node_on_tablet_pad_ring(
+        &self,
+        pad: &Rc<TabletPad>,
+        ring: &Rc<TabletPadRing>,
+        source: Option<TabletRingEventSource>,
+        angle: Option<f64>,
+        time_usec: u64,
+    ) {
+        pad.surface_ring(self, ring, source, angle, time_usec);
+    }
+
+    fn node_on_tablet_pad_strip(
+        &self,
+        pad: &Rc<TabletPad>,
+        strip: &Rc<TabletPadStrip>,
+        source: Option<TabletStripEventSource>,
+        position: Option<f64>,
+        time_usec: u64,
+    ) {
+        pad.surface_strip(self, strip, source, position, time_usec);
+    }
+
+    fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, time_usec: u64) {
+        tool.surface_leave(self, time_usec);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        tool.surface_enter(&self, time_usec, x, y);
+    }
+
+    fn node_on_tablet_tool_button(
+        &self,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        button: u32,
+        state: ToolButtonState,
+    ) {
+        tool.surface_button(self, time_usec, button, state);
+    }
+
+    fn node_on_tablet_tool_apply_changes(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        changes: Option<&TabletToolChanges>,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        tool.surface_apply_changes(&self, time_usec, changes, x, y);
+    }
+
+    fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
+        Some(self.clone())
+    }
+
+    fn node_is_xwayland_surface(&self) -> bool {
+        self.client.is_xwayland
     }
 }
 

@@ -4,6 +4,7 @@ pub mod ext_transient_seat_v1;
 mod gesture_owner;
 mod kb_owner;
 mod pointer_owner;
+pub mod tablet;
 pub mod text_input;
 pub mod wl_keyboard;
 pub mod wl_pointer;
@@ -46,6 +47,7 @@ use {
                 gesture_owner::GestureOwnerHolder,
                 kb_owner::KbOwnerHolder,
                 pointer_owner::PointerOwnerHolder,
+                tablet::TabletSeatData,
                 text_input::{
                     zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
                     zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
@@ -64,6 +66,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        rect::Rect,
         state::{DeviceHandlerData, State},
         time::now_usec,
         tree::{
@@ -188,6 +191,7 @@ pub struct WlSeatGlobal {
     swipe_bindings: PerClientBindings<ZwpPointerGestureSwipeV1>,
     pinch_bindings: PerClientBindings<ZwpPointerGesturePinchV1>,
     hold_bindings: PerClientBindings<ZwpPointerGestureHoldV1>,
+    tablet: TabletSeatData,
 }
 
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
@@ -252,6 +256,7 @@ impl WlSeatGlobal {
             swipe_bindings: Default::default(),
             pinch_bindings: Default::default(),
             hold_bindings: Default::default(),
+            tablet: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
@@ -861,6 +866,7 @@ impl WlSeatGlobal {
         self.pinch_bindings.clear();
         self.hold_bindings.clear();
         self.cursor_user_group.detach();
+        self.tablet_clear();
     }
 
     pub fn id(&self) -> SeatId {
@@ -1122,7 +1128,7 @@ impl DeviceHandlerData {
     pub fn set_seat(&self, seat: Option<Rc<WlSeatGlobal>>) {
         let old = self.seat.set(seat.clone());
         if let Some(old) = old {
-            if let Some(new) = seat {
+            if let Some(new) = &seat {
                 if old.id() == new.id() {
                     return;
                 }
@@ -1131,8 +1137,22 @@ impl DeviceHandlerData {
             let xkb_state = &mut *xkb_state.borrow_mut();
             xkb_state.reset();
             old.handle_xkb_state_change(xkb_state, xkb_state);
+            if let Some(info) = &self.tablet_init {
+                old.tablet_remove_tablet(info.id);
+            }
+            if let Some(info) = &self.tablet_pad_init {
+                old.tablet_remove_tablet_pad(info.id);
+            }
         }
         self.update_xkb_state();
+        if let Some(seat) = &seat {
+            if let Some(info) = &self.tablet_init {
+                seat.tablet_add_tablet(self.device.id(), info);
+            }
+            if let Some(info) = &self.tablet_pad_init {
+                seat.tablet_add_tablet_pad(self.device.id(), info);
+            }
+        }
     }
 
     pub fn set_keymap(&self, keymap: Option<Rc<XkbKeymap>>) {
@@ -1176,5 +1196,14 @@ impl DeviceHandlerData {
                 self.output.set(Some(o.opt.clone()));
             }
         }
+    }
+
+    pub fn get_rect(&self, state: &State) -> Rect {
+        if let Some(output) = self.output.get() {
+            if let Some(output) = output.get() {
+                return output.pos.get();
+            }
+        }
+        state.root.extents.get()
     }
 }

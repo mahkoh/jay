@@ -1,0 +1,27 @@
+request destroy {
+}
+
+event buttons {
+    buttons: array(u32),
+}
+
+event ring {
+    ring: id(zwp_tablet_pad_ring_v2),
+}
+
+event strip {
+    strip: id(zwp_tablet_pad_strip_v2),
+}
+
+event modes {
+    modes: u32,
+}
+
+event done {
+}
+
+event mode_switch {
+    time: u32,
+    serial: u32,
+    mode: u32,
+}

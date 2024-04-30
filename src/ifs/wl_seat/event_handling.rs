@@ -15,6 +15,7 @@ use {
                 DynDataSource,
             },
             wl_seat::{
+                tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::{self, WlKeyboard},
                 wl_pointer::{
@@ -25,7 +26,7 @@ use {
                 },
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
-                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
+                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
@@ -55,6 +56,8 @@ pub struct NodeSeatState {
     gesture_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
+    tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
 }
 
 impl NodeSeatState {
@@ -90,6 +93,22 @@ impl NodeSeatState {
 
     pub(super) fn remove_pointer_grab(&self, seat: &WlSeatGlobal) {
         self.pointer_grabs.remove(&seat.id);
+    }
+
+    pub(super) fn add_tablet_pad_focus(&self, pad: &Rc<TabletPad>) {
+        self.tablet_pad_foci.insert(pad.id, pad.clone());
+    }
+
+    pub(super) fn remove_tablet_pad_focus(&self, pad: &TabletPad) {
+        self.tablet_pad_foci.remove(&pad.id);
+    }
+
+    pub(super) fn add_tablet_tool_focus(&self, tool: &Rc<TabletTool>) {
+        self.tablet_tool_foci.insert(tool.id, tool.clone());
+    }
+
+    pub(super) fn remove_tablet_tool_focus(&self, tool: &TabletTool) {
+        self.tablet_tool_foci.remove(&tool.id);
     }
 
     pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
@@ -163,6 +182,12 @@ impl NodeSeatState {
             seat.pointer_stack_modified.set(true);
             seat.state.tree_changed();
         }
+        while let Some((_, tool)) = self.tablet_tool_foci.pop() {
+            tool.tool_owner.focus_root(&tool);
+        }
+        while let Some((_, pad)) = self.tablet_pad_foci.pop() {
+            pad.pad_owner.focus_root(&pad);
+        }
         self.release_kb_focus2(focus_last);
     }
 
@@ -203,7 +228,13 @@ impl WlSeatGlobal {
             | InputEvent::PinchEnd { time_usec, .. }
             | InputEvent::HoldBegin { time_usec, .. }
             | InputEvent::HoldEnd { time_usec, .. }
-            | InputEvent::SwitchEvent { time_usec, .. } => {
+            | InputEvent::SwitchEvent { time_usec, .. }
+            | InputEvent::TabletToolChanged { time_usec, .. }
+            | InputEvent::TabletToolButton { time_usec, .. }
+            | InputEvent::TabletPadButton { time_usec, .. }
+            | InputEvent::TabletPadModeSwitch { time_usec, .. }
+            | InputEvent::TabletPadRing { time_usec, .. }
+            | InputEvent::TabletPadStrip { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for (_, notification) in self.idle_notifications.lock().drain() {
@@ -214,7 +245,39 @@ impl WlSeatGlobal {
             InputEvent::AxisPx { .. }
             | InputEvent::AxisSource { .. }
             | InputEvent::AxisStop { .. }
-            | InputEvent::Axis120 { .. } => {}
+            | InputEvent::Axis120 { .. }
+            | InputEvent::TabletToolAdded { .. }
+            | InputEvent::TabletToolRemoved { .. } => {}
+        }
+        match event {
+            InputEvent::ConnectorPosition { .. }
+            | InputEvent::Motion { .. }
+            | InputEvent::Button { .. }
+            | InputEvent::AxisFrame { .. }
+            | InputEvent::SwipeBegin { .. }
+            | InputEvent::SwipeUpdate { .. }
+            | InputEvent::SwipeEnd { .. }
+            | InputEvent::PinchBegin { .. }
+            | InputEvent::PinchUpdate { .. }
+            | InputEvent::PinchEnd { .. }
+            | InputEvent::HoldBegin { .. }
+            | InputEvent::HoldEnd { .. } => {
+                self.pointer_cursor.activate();
+            }
+            InputEvent::Key { .. } => {}
+            InputEvent::AxisPx { .. } => {}
+            InputEvent::AxisSource { .. } => {}
+            InputEvent::AxisStop { .. } => {}
+            InputEvent::Axis120 { .. } => {}
+            InputEvent::SwitchEvent { .. } => {}
+            InputEvent::TabletToolAdded { .. } => {}
+            InputEvent::TabletToolChanged { .. } => {}
+            InputEvent::TabletToolButton { .. } => {}
+            InputEvent::TabletToolRemoved { .. } => {}
+            InputEvent::TabletPadButton { .. } => {}
+            InputEvent::TabletPadModeSwitch { .. } => {}
+            InputEvent::TabletPadRing { .. } => {}
+            InputEvent::TabletPadStrip { .. } => {}
         }
         match event {
             InputEvent::Key {
@@ -305,6 +368,49 @@ impl WlSeatGlobal {
             InputEvent::SwitchEvent { time_usec, event } => {
                 self.switch_event(dev.device.id(), time_usec, event)
             }
+            InputEvent::TabletToolAdded { time_usec, init } => {
+                self.tablet_handle_new_tool(time_usec, &init)
+            }
+            InputEvent::TabletToolChanged {
+                time_usec,
+                id,
+                changes: change,
+            } => self.tablet_event_tool_changes(id, time_usec, dev.get_rect(&self.state), &change),
+            InputEvent::TabletToolButton {
+                time_usec,
+                id,
+                button,
+                state,
+            } => self.tablet_event_tool_button(id, time_usec, button, state),
+            InputEvent::TabletToolRemoved { time_usec, id } => {
+                self.tablet_handle_remove_tool(time_usec, id)
+            }
+            InputEvent::TabletPadButton {
+                time_usec,
+                id,
+                button,
+                state,
+            } => self.tablet_event_pad_button(id, time_usec, button, state),
+            InputEvent::TabletPadModeSwitch {
+                time_usec,
+                pad,
+                group,
+                mode,
+            } => self.tablet_event_pad_mode_switch(pad, time_usec, group, mode),
+            InputEvent::TabletPadRing {
+                time_usec,
+                pad,
+                ring,
+                source,
+                angle,
+            } => self.tablet_event_pad_ring(pad, ring, source, angle, time_usec),
+            InputEvent::TabletPadStrip {
+                time_usec,
+                pad,
+                strip,
+                source,
+                position,
+            } => self.tablet_event_pad_strip(pad, strip, source, position, time_usec),
         }
     }
 
@@ -784,6 +890,9 @@ impl WlSeatGlobal {
     pub(super) fn apply_changes(self: &Rc<Self>) {
         self.state.damage();
         self.pointer_owner.apply_changes(self);
+        if self.changes.get().contains(CHANGE_TREE) {
+            self.tablet_apply_changes();
+        }
         self.changes.set(0);
     }
 }

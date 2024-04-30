@@ -4,7 +4,15 @@ use {
         client::{Client, ClientId},
         fixed::Fixed,
         ifs::{
-            wl_seat::{wl_pointer::PendingScroll, Dnd, NodeSeatState, WlSeatGlobal},
+            wl_seat::{
+                tablet::{
+                    PadButtonState, TabletPad, TabletPadGroup, TabletPadRing, TabletPadStrip,
+                    TabletRingEventSource, TabletStripEventSource, TabletTool, TabletToolChanges,
+                    ToolButtonState,
+                },
+                wl_pointer::PendingScroll,
+                Dnd, NodeSeatState, WlSeatGlobal,
+            },
             wl_surface::WlSurface,
         },
         rect::Rect,
@@ -342,6 +350,116 @@ pub trait Node: 'static {
         let _ = seat;
         let _ = time_usec;
         let _ = cancelled;
+    }
+
+    fn node_on_tablet_pad_enter(&self, pad: &Rc<TabletPad>) {
+        let _ = pad;
+    }
+
+    fn node_on_tablet_pad_leave(&self, pad: &Rc<TabletPad>) {
+        let _ = pad;
+    }
+
+    fn node_on_tablet_pad_button(
+        &self,
+        pad: &Rc<TabletPad>,
+        time_usec: u64,
+        button: u32,
+        state: PadButtonState,
+    ) {
+        let _ = pad;
+        let _ = time_usec;
+        let _ = button;
+        let _ = state;
+    }
+
+    fn node_on_tablet_pad_mode_switch(
+        &self,
+        pad: &Rc<TabletPad>,
+        group: &Rc<TabletPadGroup>,
+        time_usec: u64,
+        mode: u32,
+    ) {
+        let _ = pad;
+        let _ = group;
+        let _ = time_usec;
+        let _ = mode;
+    }
+
+    fn node_on_tablet_pad_ring(
+        &self,
+        pad: &Rc<TabletPad>,
+        ring: &Rc<TabletPadRing>,
+        source: Option<TabletRingEventSource>,
+        angle: Option<f64>,
+        time_usec: u64,
+    ) {
+        let _ = pad;
+        let _ = time_usec;
+        let _ = ring;
+        let _ = source;
+        let _ = angle;
+    }
+
+    fn node_on_tablet_pad_strip(
+        &self,
+        pad: &Rc<TabletPad>,
+        strip: &Rc<TabletPadStrip>,
+        source: Option<TabletStripEventSource>,
+        position: Option<f64>,
+        time_usec: u64,
+    ) {
+        let _ = pad;
+        let _ = time_usec;
+        let _ = strip;
+        let _ = source;
+        let _ = position;
+    }
+
+    fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, time_usec: u64) {
+        let _ = tool;
+        let _ = time_usec;
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let _ = tool;
+        let _ = time_usec;
+        let _ = x;
+        let _ = y;
+    }
+
+    fn node_on_tablet_tool_button(
+        &self,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        button: u32,
+        state: ToolButtonState,
+    ) {
+        let _ = tool;
+        let _ = time_usec;
+        let _ = button;
+        let _ = state;
+    }
+
+    fn node_on_tablet_tool_apply_changes(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        changes: Option<&TabletToolChanges>,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let _ = tool;
+        let _ = time_usec;
+        let _ = changes;
+        let _ = x;
+        let _ = y;
     }
 
     // TYPE CONVERTERS

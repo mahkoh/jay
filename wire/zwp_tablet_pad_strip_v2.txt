@@ -1,0 +1,22 @@
+request set_feedback {
+    description: str,
+    serial: u32,
+}
+
+request destroy {
+}
+
+event source {
+    source: u32,
+}
+
+event position {
+    position: u32,
+}
+
+event stop {
+}
+
+event frame {
+    time: u32,
+}

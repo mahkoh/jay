@@ -4,7 +4,8 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::{
             Backend, BackendDrmDevice, BackendEvent, Connector, ConnectorId, ConnectorIds,
-            DrmDeviceId, DrmDeviceIds, InputDevice, InputDeviceId, InputDeviceIds, MonitorInfo,
+            DrmDeviceId, DrmDeviceIds, InputDevice, InputDeviceGroupIds, InputDeviceId,
+            InputDeviceIds, MonitorInfo,
         },
         backends::dummy::DummyBackend,
         cli::RunArgs,
@@ -34,7 +35,10 @@ use {
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
             wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
-            wl_seat::{SeatIds, WlSeatGlobal},
+            wl_seat::{
+                tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
+                SeatIds, WlSeatGlobal,
+            },
             wl_surface::{
                 wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
@@ -188,9 +192,12 @@ pub struct State {
     pub security_context_acceptors: SecurityContextAcceptors,
     pub cursor_user_group_ids: CursorUserGroupIds,
     pub cursor_user_ids: CursorUserIds,
-    pub cursor_users: CopyHashMap<CursorUserGroupId, Rc<CursorUserGroup>>,
     pub cursor_user_groups: CopyHashMap<CursorUserGroupId, Rc<CursorUserGroup>>,
     pub cursor_user_group_hardware_cursor: CloneCell<Option<Rc<CursorUserGroup>>>,
+    pub input_device_group_ids: InputDeviceGroupIds,
+    pub tablet_ids: TabletIds,
+    pub tablet_tool_ids: TabletToolIds,
+    pub tablet_pad_ids: TabletPadIds,
 }
 
 // impl Drop for State {
@@ -263,6 +270,8 @@ pub struct DeviceHandlerData {
     pub keymap: CloneCell<Option<Rc<XkbKeymap>>>,
     pub xkb_state: CloneCell<Option<Rc<RefCell<XkbState>>>>,
     pub output: CloneCell<Option<Rc<OutputGlobalOpt>>>,
+    pub tablet_init: Option<Box<TabletInit>>,
+    pub tablet_pad_init: Option<Box<TabletPadInit>>,
 }
 
 pub struct ConnectorData {

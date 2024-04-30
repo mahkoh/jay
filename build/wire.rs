@@ -723,10 +723,6 @@ fn write_request_handler<W: Write>(
     messages: &ParseResult,
 ) -> Result<()> {
     writeln!(f)?;
-    // TODO: remove this after https://github.com/mahkoh/jay/pull/190
-    if camel_obj_name == "ZwpTabletToolV2" {
-        writeln!(f, "    #[allow(dead_code)]")?;
-    }
     writeln!(
         f,
         "    pub trait {camel_obj_name}RequestHandler: crate::object::Object + Sized {{"

@@ -5,7 +5,11 @@ use {
         utils::copyhashmap::{CopyHashMap, Locked},
     },
     ahash::AHashMap,
-    std::{cell::RefCell, collections::hash_map::Entry, rc::Rc},
+    std::{
+        cell::{Ref, RefCell},
+        collections::hash_map::Entry,
+        rc::Rc,
+    },
 };
 
 pub struct Bindings<P> {
@@ -83,5 +87,9 @@ impl<P: Object> PerClientBindings<P> {
                 }
             }
         }
+    }
+
+    pub fn borrow(&self) -> Ref<AHashMap<ClientId, AHashMap<ObjectId, Rc<P>>>> {
+        self.bindings.borrow()
     }
 }

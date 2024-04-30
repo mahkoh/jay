@@ -9,7 +9,7 @@ use {
         fixed::Fixed,
         ifs::{
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
-            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
+            wl_seat::{tablet::TabletTool, NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{
                 xdg_surface::{
                     xdg_toplevel::xdg_dialog_v1::XdgDialogV1, XdgSurface, XdgSurfaceError,
@@ -527,6 +527,16 @@ impl Node for XdgToplevel {
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("xdg-toplevel focus");
         seat.pointer_cursor().set_known(KnownCursor::Default);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        _x: Fixed,
+        _y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default)
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {

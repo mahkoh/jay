@@ -31,6 +31,7 @@ pub mod opaque_cell;
 pub mod option_ext;
 pub mod oserror;
 pub mod page_size;
+pub mod pending_serial;
 pub mod process_name;
 pub mod ptr_ext;
 pub mod queue;

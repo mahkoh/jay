@@ -1,6 +1,7 @@
 use {
     crate::{
         cli::{GlobalArgs, SeatTestArgs},
+        fixed::Fixed,
         ifs::wl_seat::wl_pointer::{PendingScroll, CONTINUOUS, FINGER, WHEEL},
         tools::tool_client::{with_tool_client, Handle, ToolClient},
         wire::{
@@ -8,7 +9,13 @@ use {
             jay_seat_events::{
                 Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, HoldBegin,
                 HoldEnd, Key, Modifiers, PinchBegin, PinchEnd, PinchUpdate, PointerAbs, PointerRel,
-                SwipeBegin, SwipeEnd, SwipeUpdate, SwitchEvent,
+                SwipeBegin, SwipeEnd, SwipeUpdate, SwitchEvent, TabletPadButton,
+                TabletPadModeSwitch, TabletPadRingAngle, TabletPadRingFrame, TabletPadRingSource,
+                TabletPadRingStop, TabletPadStripFrame, TabletPadStripPosition,
+                TabletPadStripSource, TabletPadStripStop, TabletToolButton, TabletToolDistance,
+                TabletToolDown, TabletToolFrame, TabletToolMotion, TabletToolPressure,
+                TabletToolProximityIn, TabletToolProximityOut, TabletToolRotation,
+                TabletToolSlider, TabletToolTilt, TabletToolUp, TabletToolWheel,
             },
         },
     },
@@ -40,6 +47,36 @@ impl SeatTest {
             _ => Rc::new("unknown".to_string()),
         }
     }
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PendingTabletTool {
+    proximity_in: bool,
+    proximity_out: bool,
+    down: bool,
+    up: bool,
+    pos: Option<(Fixed, Fixed)>,
+    pressure: Option<f64>,
+    distance: Option<f64>,
+    tilt: Option<(f64, f64)>,
+    rotation: Option<f64>,
+    slider: Option<f64>,
+    wheel: Option<(f64, i32)>,
+    button: Option<(u32, u32)>,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PendingTabletPadStrip {
+    source: u32,
+    pos: Option<f64>,
+    stop: bool,
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct PendingTabletPadRing {
+    source: u32,
+    degrees: Option<f64>,
+    stop: bool,
 }
 
 async fn run(seat_test: Rc<SeatTest>) {
@@ -343,6 +380,208 @@ async fn run(seat_test: Rc<SeatTest>) {
                 ev.input_device
             );
         }
+    });
+    let tt = Rc::new(RefCell::new(PendingTabletTool::default()));
+    TabletToolProximityIn::handle(tc, se, tt.clone(), move |tt, _| {
+        tt.borrow_mut().proximity_in = true;
+    });
+    TabletToolProximityOut::handle(tc, se, tt.clone(), move |tt, _| {
+        tt.borrow_mut().proximity_out = true;
+    });
+    TabletToolDown::handle(tc, se, tt.clone(), move |tt, _| {
+        tt.borrow_mut().down = true;
+    });
+    TabletToolUp::handle(tc, se, tt.clone(), move |tt, _| {
+        tt.borrow_mut().up = true;
+    });
+    TabletToolMotion::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().pos = Some((ev.x, ev.y));
+    });
+    TabletToolPressure::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().pressure = Some(ev.pressure);
+    });
+    TabletToolDistance::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().distance = Some(ev.distance);
+    });
+    TabletToolTilt::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().tilt = Some((ev.tilt_x, ev.tilt_y));
+    });
+    TabletToolRotation::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().rotation = Some(ev.degrees);
+    });
+    TabletToolSlider::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().slider = Some(ev.position);
+    });
+    TabletToolWheel::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().wheel = Some((ev.degrees, ev.clicks));
+    });
+    TabletToolButton::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().button = Some((ev.button, ev.state));
+    });
+    let st = seat_test.clone();
+    TabletToolFrame::handle(tc, se, tt.clone(), move |tt, ev| {
+        let tt = tt.take();
+        if !all && ev.seat != seat {
+            return;
+        }
+        if all {
+            print!("Seat: {}, ", st.name(ev.seat));
+        }
+        print!(
+            "Time: {:.4}, Device: {}, Tool: {}",
+            time(ev.time_usec),
+            ev.input_device,
+            ev.tool,
+        );
+        if tt.proximity_in {
+            print!(", proximity in");
+        }
+        if tt.proximity_out {
+            print!(", proximity out");
+        }
+        if tt.down {
+            print!(", down");
+        }
+        if tt.up {
+            print!(", up");
+        }
+        if let Some((x, y)) = tt.pos {
+            print!(", pos: {x}x{y}");
+        }
+        if let Some(val) = tt.pressure {
+            print!(", pressure: {val}");
+        }
+        if let Some(val) = tt.distance {
+            print!(", distance: {val}");
+        }
+        if let Some((x, y)) = tt.tilt {
+            print!(", tilt: {x}x{y}");
+        }
+        if let Some(val) = tt.rotation {
+            print!(", rotation: {val}");
+        }
+        if let Some(val) = tt.slider {
+            print!(", slider: {val}");
+        }
+        if let Some((degrees, clicks)) = tt.wheel {
+            print!(", wheel degrees: {degrees}, wheel clicks: {clicks}");
+        }
+        if let Some((button, state)) = tt.button {
+            let dir = match state {
+                0 => "up",
+                _ => "down",
+            };
+            print!(", button {button} {dir}");
+        }
+        println!();
+    });
+    let st = seat_test.clone();
+    TabletPadModeSwitch::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Device: {}, mode switch: {}",
+                time(ev.time_usec),
+                ev.input_device,
+                ev.mode,
+            );
+        }
+    });
+    let st = seat_test.clone();
+    TabletPadButton::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            let dir = match ev.state {
+                0 => "up",
+                _ => "down",
+            };
+            println!(
+                "Time: {:.4}, Device: {}, Button {} {dir}",
+                time(ev.time_usec),
+                ev.input_device,
+                ev.button,
+            );
+        }
+    });
+    let tt = Rc::new(RefCell::new(PendingTabletPadStrip::default()));
+    TabletPadStripSource::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().source = ev.source;
+    });
+    TabletPadStripPosition::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().pos = Some(ev.position);
+    });
+    TabletPadStripStop::handle(tc, se, tt.clone(), move |tt, _| {
+        tt.borrow_mut().stop = true;
+    });
+    let st = seat_test.clone();
+    TabletPadStripFrame::handle(tc, se, tt.clone(), move |tt, ev| {
+        let tt = tt.take();
+        if !all && ev.seat != seat {
+            return;
+        }
+        if all {
+            print!("Seat: {}, ", st.name(ev.seat));
+        }
+        print!(
+            "Time: {:.4}, Device: {}, Strip: {}",
+            time(ev.time_usec),
+            ev.input_device,
+            ev.strip,
+        );
+        let source = match tt.source {
+            1 => "finger",
+            _ => "unknown",
+        };
+        print!(", source: {source}");
+        if let Some(pos) = tt.pos {
+            print!(", pos: {pos}");
+        }
+        if tt.stop {
+            print!(", stop");
+        }
+        println!();
+    });
+    let tt = Rc::new(RefCell::new(PendingTabletPadRing::default()));
+    TabletPadRingSource::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().source = ev.source;
+    });
+    TabletPadRingAngle::handle(tc, se, tt.clone(), move |tt, ev| {
+        tt.borrow_mut().degrees = Some(ev.degrees);
+    });
+    TabletPadRingStop::handle(tc, se, tt.clone(), move |tt, _| {
+        tt.borrow_mut().stop = true;
+    });
+    let st = seat_test.clone();
+    TabletPadRingFrame::handle(tc, se, tt.clone(), move |tt, ev| {
+        let tt = tt.take();
+        if !all && ev.seat != seat {
+            return;
+        }
+        if all {
+            print!("Seat: {}, ", st.name(ev.seat));
+        }
+        print!(
+            "Time: {:.4}, Device: {}, Ring: {}",
+            time(ev.time_usec),
+            ev.input_device,
+            ev.ring,
+        );
+        let source = match tt.source {
+            1 => "finger",
+            _ => "unknown",
+        };
+        print!(", source: {source}");
+        if let Some(val) = tt.degrees {
+            print!(", degrees: {val}");
+        }
+        if tt.stop {
+            print!(", stop");
+        }
+        println!();
     });
     pending::<()>().await;
 }

@@ -7,6 +7,7 @@
 - Focus-follows-mouse can now be disabled.
 - Add support for pointer-gestures-unstable-v1.
 - Configs can now handle switch events (laptop lid closed/opened).
+- Add support for tablet-v2.
 
 # 1.1.0 (2024-04-22)
 

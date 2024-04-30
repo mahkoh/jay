@@ -4,7 +4,7 @@ use {
         cursor::KnownCursor,
         fixed::Fixed,
         ifs::{
-            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal},
+            wl_seat::{tablet::TabletTool, NodeSeatState, SeatId, WlSeatGlobal},
             wl_surface::{x_surface::XSurface, WlSurface, WlSurfaceError},
         },
         rect::Rect,
@@ -367,6 +367,16 @@ impl Node for Xwindow {
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("wl-surface focus");
         seat.pointer_cursor().set_known(KnownCursor::Default);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        _x: Fixed,
+        _y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default)
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {

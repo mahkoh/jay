@@ -2,10 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         globals::{Global, GlobalName},
-        ifs::wp_cursor_shape_device_v1::WpCursorShapeDeviceV1,
+        ifs::wp_cursor_shape_device_v1::{CursorShapeCursorUser, WpCursorShapeDeviceV1},
         leaks::Tracker,
         object::{Object, Version},
-        wire::{wp_cursor_shape_manager_v1::*, WpCursorShapeManagerV1Id},
+        wire::{wp_cursor_shape_manager_v1::*, WpCursorShapeDeviceV1Id, WpCursorShapeManagerV1Id},
     },
     std::rc::Rc,
     thiserror::Error,
@@ -63,6 +63,25 @@ pub struct WpCursorShapeManagerV1 {
     pub version: Version,
 }
 
+impl WpCursorShapeManagerV1 {
+    fn get(
+        &self,
+        id: WpCursorShapeDeviceV1Id,
+        cursor_user: CursorShapeCursorUser,
+    ) -> Result<(), WpCursorShapeManagerV1Error> {
+        let device = Rc::new(WpCursorShapeDeviceV1 {
+            id,
+            client: self.client.clone(),
+            cursor_user,
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, device);
+        self.client.add_client_obj(&device)?;
+        Ok(())
+    }
+}
+
 impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
     type Error = WpCursorShapeManagerV1Error;
 
@@ -73,24 +92,18 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
 
     fn get_pointer(&self, req: GetPointer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pointer = self.client.lookup(req.pointer)?;
-        let device = Rc::new(WpCursorShapeDeviceV1 {
-            id: req.cursor_shape_device,
-            client: self.client.clone(),
-            seat: pointer.seat.global.clone(),
-            tracker: Default::default(),
-            version: self.version,
-        });
-        track!(self.client, device);
-        self.client.add_client_obj(&device)?;
-        Ok(())
+        self.get(
+            req.cursor_shape_device,
+            CursorShapeCursorUser::Seat(pointer.seat.global.clone()),
+        )
     }
 
-    fn get_tablet_tool_v2(
-        &self,
-        _req: GetTabletToolV2,
-        _slf: &Rc<Self>,
-    ) -> Result<(), Self::Error> {
-        Err(WpCursorShapeManagerV1Error::TabletToolNotSupported)
+    fn get_tablet_tool_v2(&self, req: GetTabletToolV2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let tool = self.client.lookup(req.tablet_tool)?;
+        self.get(
+            req.cursor_shape_device,
+            CursorShapeCursorUser::TabletTool(tool.tool.clone()),
+        )
     }
 }
 
@@ -107,7 +120,5 @@ simple_add_obj!(WpCursorShapeManagerV1);
 pub enum WpCursorShapeManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("This compositor does not support tablet tools")]
-    TabletToolNotSupported,
 }
 efrom!(WpCursorShapeManagerV1Error, ClientError);

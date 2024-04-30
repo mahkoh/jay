@@ -79,6 +79,7 @@ impl KbOwner for DefaultKbOwner {
         // log::info!("focus {}", node.node_id());
         node.clone().node_on_focus(seat);
         seat.keyboard_node.set(node.clone());
+        seat.tablet_on_keyboard_node_change();
     }
 }
 

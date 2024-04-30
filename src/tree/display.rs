@@ -2,7 +2,8 @@ use {
     crate::{
         backend::ConnectorId,
         cursor::KnownCursor,
-        ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
+        fixed::Fixed,
+        ifs::wl_seat::{tablet::TabletTool, NodeSeatState, WlSeatGlobal},
         rect::Rect,
         renderer::Renderer,
         state::State,
@@ -141,5 +142,15 @@ impl Node for DisplayNode {
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("display focus");
         seat.pointer_cursor().set_known(KnownCursor::Default);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        _x: Fixed,
+        _y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default)
     }
 }

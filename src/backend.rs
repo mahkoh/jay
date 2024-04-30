@@ -4,7 +4,14 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{GfxFramebuffer, SyncFile},
-        ifs::wl_seat::wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
+        ifs::wl_seat::{
+            tablet::{
+                PadButtonState, TabletInit, TabletPadId, TabletPadInit, TabletRingEventSource,
+                TabletStripEventSource, TabletToolChanges, TabletToolId, TabletToolInit,
+                ToolButtonState,
+            },
+            wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
+        },
         libinput::consts::DeviceCapability,
         video::drm::{ConnectorType, DrmConnector, DrmError, DrmVersion},
     },
@@ -126,6 +133,8 @@ pub trait HardwareCursor: Debug {
 
 pub type TransformMatrix = [[f64; 2]; 2];
 
+linear_ids!(InputDeviceGroupIds, InputDeviceGroupId, usize);
+
 pub trait InputDevice {
     fn id(&self) -> InputDeviceId;
     fn removed(&self) -> bool;
@@ -169,6 +178,12 @@ pub trait InputDevice {
         None
     }
     fn set_natural_scrolling_enabled(&self, enabled: bool);
+    fn tablet_info(&self) -> Option<Box<TabletInit>> {
+        None
+    }
+    fn tablet_pad_info(&self) -> Option<Box<TabletPadInit>> {
+        None
+    }
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
@@ -320,6 +335,53 @@ pub enum InputEvent {
     SwitchEvent {
         time_usec: u64,
         event: SwitchEvent,
+    },
+
+    TabletToolAdded {
+        time_usec: u64,
+        init: Box<TabletToolInit>,
+    },
+    TabletToolChanged {
+        time_usec: u64,
+        id: TabletToolId,
+        changes: Box<TabletToolChanges>,
+    },
+    TabletToolButton {
+        time_usec: u64,
+        id: TabletToolId,
+        button: u32,
+        state: ToolButtonState,
+    },
+    TabletToolRemoved {
+        time_usec: u64,
+        id: TabletToolId,
+    },
+
+    TabletPadButton {
+        time_usec: u64,
+        id: TabletPadId,
+        button: u32,
+        state: PadButtonState,
+    },
+    TabletPadModeSwitch {
+        time_usec: u64,
+        pad: TabletPadId,
+        group: u32,
+        mode: u32,
+    },
+    TabletPadRing {
+        time_usec: u64,
+        pad: TabletPadId,
+        ring: u32,
+        source: Option<TabletRingEventSource>,
+        angle: Option<f64>,
+    },
+    TabletPadStrip {
+        time_usec: u64,
+        pad: TabletPadId,
+        strip: u32,
+        source: Option<TabletStripEventSource>,
+        position: Option<f64>,
     },
 }
 
