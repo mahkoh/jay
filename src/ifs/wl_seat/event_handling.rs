@@ -120,8 +120,7 @@ impl NodeSeatState {
             seat.kb_owner.set_kb_node(&seat, seat.state.root.clone());
             // log::info!("keyboard_node = root");
             if focus_last {
-                seat.output
-                    .get()
+                seat.get_output()
                     .node_do_focus(&seat, Direction::Unspecified);
             }
         }
@@ -320,10 +319,10 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
-        self.set_output(&output);
         let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
+        (x, y) = self.pointer_cursor.set_position(x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
@@ -332,7 +331,7 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
-        self.set_new_position(time_usec, x, y);
+        self.cursor_moved(time_usec);
     }
 
     fn motion_event(
@@ -356,7 +355,7 @@ impl WlSeatGlobal {
             Some(c) if c.ty == ConstraintType::Lock => true,
             _ => false,
         };
-        let (mut x, mut y) = self.pos.get();
+        let (mut x, mut y) = self.pointer_cursor.position();
         if !locked {
             x += dx;
             y += dy;
@@ -383,34 +382,8 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
             );
         });
-        let output = self.output.get();
-        let pos = output.global.pos.get();
-        let mut x_int = x.round_down();
-        let mut y_int = y.round_down();
-        if !pos.contains(x_int, y_int) {
-            'warp: {
-                let outputs = self.state.root.outputs.lock();
-                for output in outputs.values() {
-                    if output.global.pos.get().contains(x_int, y_int) {
-                        self.set_output(output);
-                        break 'warp;
-                    }
-                }
-                if x_int < pos.x1() {
-                    x_int = pos.x1();
-                } else if x_int >= pos.x2() {
-                    x_int = pos.x2() - 1;
-                }
-                if y_int < pos.y1() {
-                    y_int = pos.y1();
-                } else if y_int >= pos.y2() {
-                    y_int = pos.y2() - 1;
-                }
-                x = Fixed::from_int(x_int);
-                y = Fixed::from_int(y_int);
-            }
-        }
-        self.set_new_position(time_usec, x, y);
+        self.pointer_cursor.set_position(x, y);
+        self.cursor_moved(time_usec);
     }
 
     fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
@@ -776,10 +749,8 @@ impl WlSeatGlobal {
         // client.flush();
     }
 
-    fn set_new_position(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
+    fn cursor_moved(self: &Rc<Self>, time_usec: u64) {
         self.pos_time_usec.set(time_usec);
-        self.pos.set((x, y));
-        self.update_hardware_cursor_position();
         self.changes.or_assign(CHANGE_CURSOR_MOVED);
         self.apply_changes();
     }

@@ -553,6 +553,10 @@ impl OutputNode {
             }
         }
         self.global.send_mode();
+        for seat in self.state.globals.seats.lock().values() {
+            seat.cursor_group().output_pos_changed(self)
+        }
+        self.state.tree_changed();
     }
 
     pub fn find_layer_surface_at(
@@ -906,7 +910,7 @@ impl Node for OutputNode {
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("output focus");
-        seat.set_known_cursor(KnownCursor::Default);
+        seat.pointer_cursor().set_known(KnownCursor::Default);
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {

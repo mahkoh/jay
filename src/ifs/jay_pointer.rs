@@ -42,7 +42,7 @@ impl JayPointerRequestHandler for JayPointer {
         if pointer_node.node_client_id() != Some(self.client.id) {
             return Ok(());
         }
-        self.seat.set_known_cursor(cursor);
+        self.seat.pointer_cursor().set_known(cursor);
         Ok(())
     }
 }

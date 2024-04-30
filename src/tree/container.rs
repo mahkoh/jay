@@ -601,7 +601,7 @@ impl ContainerNode {
         };
         if new_cursor != mem::replace(&mut seat_state.cursor, new_cursor) {
             if seat_state.target {
-                seat.set_known_cursor(new_cursor);
+                seat.pointer_cursor().set_known(new_cursor);
             }
         }
     }
@@ -1315,7 +1315,7 @@ impl Node for ContainerNode {
         let mut seats = self.seats.borrow_mut();
         if let Some(seat_state) = seats.get_mut(&seat.id()) {
             seat_state.target = true;
-            seat.set_known_cursor(seat_state.cursor);
+            seat.pointer_cursor().set_known(seat_state.cursor);
         }
     }
 

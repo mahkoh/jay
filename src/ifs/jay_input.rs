@@ -57,7 +57,7 @@ impl JayInput {
             name: data.seat_name(),
             repeat_rate: data.get_rate().0,
             repeat_delay: data.get_rate().1,
-            hardware_cursor: data.hardware_cursor() as _,
+            hardware_cursor: data.cursor_group().hardware_cursor() as _,
         });
     }
 
@@ -202,7 +202,8 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
-            seat.set_hardware_cursor(req.use_hardware_cursor != 0);
+            seat.cursor_group()
+                .set_hardware_cursor(req.use_hardware_cursor != 0);
             Ok(())
         })
     }
@@ -316,7 +317,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_cursor_size(&self, req: SetCursorSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
-            seat.set_cursor_size(req.size);
+            seat.cursor_group().set_cursor_size(req.size);
             Ok(())
         })
     }

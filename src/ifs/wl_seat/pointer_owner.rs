@@ -274,7 +274,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
     }
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
-        let (x, y) = seat.pos.get();
+        let (x, y) = seat.pointer_cursor.position();
         let mut found_tree = seat.found_tree.borrow_mut();
         let mut stack = seat.pointer_stack.borrow_mut();
         let x_int = x.round_down();
@@ -408,7 +408,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     }
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
-        let (x, y) = seat.pos.get();
+        let (x, y) = seat.pointer_cursor.position();
         let pos = self.node.node_absolute_position();
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
         // log::info!("apply_changes");
@@ -493,7 +493,7 @@ impl PointerOwner for DndPointerOwner {
     }
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
-        let (x, y) = seat.pos.get();
+        let (x, y) = seat.pointer_cursor.position();
         let (x_int, y_int) = (x.round_down(), y.round_down());
         let (node, x_int, y_int) = {
             let mut found_tree = seat.found_tree.borrow_mut();
@@ -781,7 +781,7 @@ impl<S: ToplevelSelector> NodeSelectorUsecase for SelectToplevelUsecase<S> {
         if let Some(tl) = &tl {
             tl.tl_data().render_highlight.fetch_add(1);
             if !tl.tl_admits_children() {
-                seat.set_known_cursor(KnownCursor::Pointer);
+                seat.pointer_cursor().set_known(KnownCursor::Pointer);
             }
             damage = true;
         }
@@ -829,7 +829,7 @@ impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
         let ws = node.clone().node_into_workspace();
         if let Some(ws) = &ws {
             ws.render_highlight.fetch_add(1);
-            seat.set_known_cursor(KnownCursor::Pointer);
+            seat.pointer_cursor().set_known(KnownCursor::Pointer);
             damage = true;
         }
         if let Some(prev) = self.latest.set(ws) {

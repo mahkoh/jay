@@ -139,7 +139,7 @@ impl Node for PlaceholderNode {
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
-        seat.set_known_cursor(KnownCursor::Default);
+        seat.pointer_cursor().set_known(KnownCursor::Default);
         seat.enter_toplevel(self.clone());
     }
 

@@ -53,6 +53,7 @@ mod clientmem;
 mod compositor;
 mod config;
 mod cursor;
+mod cursor_user;
 mod dbus;
 mod drm_feedback;
 mod edid;

@@ -102,7 +102,7 @@ impl XdgToplevelDragV1 {
         if self.source.data.was_used() {
             if let Some(tl) = self.toplevel.get() {
                 let output = seat.get_output();
-                let (x, y) = seat.position();
+                let (x, y) = seat.pointer_cursor().position();
                 tl.drag.take();
                 tl.after_toplevel_drag(
                     &output,

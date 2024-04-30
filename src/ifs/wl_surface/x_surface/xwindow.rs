@@ -366,7 +366,7 @@ impl Node for Xwindow {
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("wl-surface focus");
-        seat.set_known_cursor(KnownCursor::Default);
+        seat.pointer_cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {

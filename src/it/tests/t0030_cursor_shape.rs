@@ -24,7 +24,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     tassert_eq!(
-        ds.seat.get_desired_known_cursor(),
+        ds.seat.pointer_cursor().desired_known_cursor(),
         Some(KnownCursor::ContextMenu)
     );
 

@@ -185,12 +185,8 @@ impl ConnectorHandler {
         global.opt.global.set(Some(global.clone()));
         let mut ws_to_move = VecDeque::new();
         if self.state.root.outputs.len() == 1 {
-            let seats = self.state.globals.seats.lock();
-            let pos = global.pos.get();
-            let x = (pos.x1() + pos.x2()) / 2;
-            let y = (pos.y1() + pos.y2()) / 2;
-            for seat in seats.values() {
-                seat.set_position(x, y);
+            for seat in self.state.globals.seats.lock().values() {
+                seat.cursor_group().first_output_connected(&on);
             }
             let dummy = self.state.dummy_output.get().unwrap();
             for ws in dummy.workspaces.iter() {
@@ -287,12 +283,8 @@ impl ConnectorHandler {
             };
             move_ws_to_output(&ws, &target, config);
         }
-        let seats = self.state.globals.seats.lock();
-        for seat in seats.values() {
-            if seat.get_output().id == on.id {
-                let tpos = target.global.pos.get();
-                seat.set_position((tpos.x1() + tpos.x2()) / 2, (tpos.y1() + tpos.y2()) / 2);
-            }
+        for seat in self.state.globals.seats.lock().values() {
+            seat.cursor_group().output_disconnected(&on, &target);
         }
         self.state
             .remove_output_scale(on.global.persistent.scale.get());

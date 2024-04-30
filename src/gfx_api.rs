@@ -345,7 +345,7 @@ impl dyn GfxFramebuffer {
         if let Some(rect) = cursor_rect {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
-                let (mut x, mut y) = seat.get_position();
+                let (x, y) = seat.pointer_cursor().position();
                 if let Some(im) = seat.input_method() {
                     for (_, popup) in &im.popups {
                         if popup.surface.node_visible() {
@@ -380,12 +380,16 @@ impl dyn GfxFramebuffer {
                     }
                 }
                 if render_cursor {
-                    if let Some(cursor) = seat.get_cursor() {
-                        if render_hardware_cursor || !seat.hardware_cursor() {
-                            cursor.tick();
-                            x -= Fixed::from_int(rect.x1());
-                            y -= Fixed::from_int(rect.y1());
-                            cursor.render(&mut renderer, x, y);
+                    let cursor_user_group = seat.cursor_group();
+                    if render_hardware_cursor || !cursor_user_group.hardware_cursor() {
+                        if let Some(cursor_user) = cursor_user_group.active() {
+                            if let Some(cursor) = cursor_user.get() {
+                                cursor.tick();
+                                let (mut x, mut y) = cursor_user.position();
+                                x -= Fixed::from_int(rect.x1());
+                                y -= Fixed::from_int(rect.y1());
+                                cursor.render(&mut renderer, x, y);
+                            }
                         }
                     }
                 }

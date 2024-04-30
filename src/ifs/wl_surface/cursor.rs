@@ -1,8 +1,9 @@
 use {
     crate::{
         cursor::Cursor,
+        cursor_user::CursorUser,
         fixed::Fixed,
-        ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
+        ifs::wl_surface::WlSurface,
         leaks::Tracker,
         rect::Rect,
         renderer::Renderer,
@@ -13,7 +14,7 @@ use {
 };
 
 pub struct CursorSurface {
-    seat: Rc<WlSeatGlobal>,
+    user: Rc<CursorUser>,
     surface: Rc<WlSurface>,
     hotspot: Cell<(i32, i32)>,
     extents: Cell<Rect>,
@@ -21,9 +22,9 @@ pub struct CursorSurface {
 }
 
 impl CursorSurface {
-    pub fn new(seat: &Rc<WlSeatGlobal>, surface: &Rc<WlSurface>) -> Self {
+    pub fn new(user: &Rc<CursorUser>, surface: &Rc<WlSurface>) -> Self {
         Self {
-            seat: seat.clone(),
+            user: user.clone(),
             surface: surface.clone(),
             hotspot: Cell::new((0, 0)),
             extents: Cell::new(Default::default()),
@@ -38,7 +39,7 @@ impl CursorSurface {
     }
 
     pub fn handle_surface_destroy(&self) {
-        self.seat.set_app_cursor(None);
+        self.user.set(None);
     }
 
     pub fn handle_buffer_change(&self) {
@@ -57,9 +58,7 @@ impl CursorSurface {
     }
 
     pub fn update_hardware_cursor(&self) {
-        if self.seat.hardware_cursor() {
-            self.seat.update_hardware_cursor();
-        }
+        self.user.update_hardware_cursor();
     }
 }
 
@@ -124,7 +123,7 @@ impl Cursor for CursorSurface {
     }
 
     fn handle_set(self: Rc<Self>) {
-        self.surface.cursors.insert(self.seat.id(), self.clone());
+        self.surface.cursors.insert(self.user.id, self.clone());
         if self.surface.cursors.is_not_empty() {
             self.surface
                 .set_visible(self.surface.client.state.root_visible());
@@ -132,7 +131,7 @@ impl Cursor for CursorSurface {
     }
 
     fn handle_unset(&self) {
-        self.surface.cursors.remove(&self.seat.id());
+        self.surface.cursors.remove(&self.user.id);
         if self.surface.cursors.is_empty() {
             self.surface.set_visible(false);
         }

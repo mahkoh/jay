@@ -156,7 +156,7 @@ pub struct DefaultSetup {
 
 impl DefaultSetup {
     pub fn move_to(&self, x: i32, y: i32) {
-        let (ox, oy) = self.seat.position();
+        let (ox, oy) = self.seat.pointer_cursor().position();
         let (nx, ny) = (Fixed::from_int(x), Fixed::from_int(y));
         let (dx, dy) = (nx - ox, ny - oy);
         self.mouse.rel(dx.to_f64(), dy.to_f64())

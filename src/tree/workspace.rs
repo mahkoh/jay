@@ -274,7 +274,7 @@ impl Node for WorkspaceNode {
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("workspace focus");
-        seat.set_known_cursor(KnownCursor::Default);
+        seat.pointer_cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {

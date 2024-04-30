@@ -12,6 +12,7 @@ use {
         clientmem::ClientMemOffset,
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
+        cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
         fixed::Fixed,
@@ -185,6 +186,11 @@ pub struct State {
     pub explicit_sync_enabled: Cell<bool>,
     pub keyboard_state_ids: KeyboardStateIds,
     pub security_context_acceptors: SecurityContextAcceptors,
+    pub cursor_user_group_ids: CursorUserGroupIds,
+    pub cursor_user_ids: CursorUserIds,
+    pub cursor_users: CopyHashMap<CursorUserGroupId, Rc<CursorUserGroup>>,
+    pub cursor_user_groups: CopyHashMap<CursorUserGroupId, Rc<CursorUserGroup>>,
+    pub cursor_user_group_hardware_cursor: CloneCell<Option<Rc<CursorUserGroup>>>,
 }
 
 // impl Drop for State {
@@ -460,9 +466,8 @@ impl State {
             UpdateTextTexturesVisitor.visit_display(&self.root);
         }
 
-        let seats = self.globals.seats.lock();
-        for seat in seats.values() {
-            seat.render_ctx_changed();
+        for cursor_user_groups in self.cursor_user_groups.lock().values() {
+            cursor_user_groups.render_ctx_changed();
         }
 
         if let Some(ctx) = &ctx {
@@ -505,8 +510,8 @@ impl State {
                 }
             };
             self.cursors.set(cursors);
-            for seat in self.globals.seats.lock().values() {
-                seat.reload_known_cursor();
+            for cursor_user_group in self.cursor_user_groups.lock().values() {
+                cursor_user_group.reload_known_cursor();
             }
         }
     }
@@ -785,21 +790,13 @@ impl State {
     }
 
     pub fn refresh_hardware_cursors(&self) {
-        let seat = self
-            .globals
-            .seats
-            .lock()
-            .values()
-            .find(|s| s.hardware_cursor())
-            .cloned();
-        let seat = match seat {
-            Some(s) => s,
-            _ => {
-                self.disable_hardware_cursors();
+        if let Some(g) = self.cursor_user_group_hardware_cursor.get() {
+            if let Some(u) = g.active() {
+                u.update_hardware_cursor();
                 return;
             }
-        };
-        seat.update_hardware_cursor();
+        }
+        self.disable_hardware_cursors()
     }
 
     pub fn for_each_seat_tester<F: Fn(&JaySeatEvents)>(&self, f: F) {
@@ -868,10 +865,10 @@ impl State {
             ReleaseSync::Implicit,
         );
         if render_hardware_cursors {
-            for seat in self.globals.lock_seats().values() {
-                if let Some(cursor) = seat.get_cursor() {
-                    let (mut x, mut y) = seat.get_position();
-                    if seat.hardware_cursor() {
+            if let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get() {
+                if let Some(cursor_user) = cursor_user_group.active() {
+                    if let Some(cursor) = cursor_user.get() {
+                        let (mut x, mut y) = cursor_user.position();
                         x = x + x_off - Fixed::from_int(position.x1());
                         y = y + y_off - Fixed::from_int(position.y1());
                         cursor.render(&mut renderer, x, y);
@@ -883,9 +880,9 @@ impl State {
     }
 
     fn have_hardware_cursor(&self) -> bool {
-        for seat in self.globals.lock_seats().values() {
-            if seat.get_cursor().is_some() {
-                if seat.hardware_cursor() {
+        if let Some(group) = self.cursor_user_group_hardware_cursor.get() {
+            if let Some(user) = group.active() {
+                if user.get().is_some() {
                     return true;
                 }
             }
@@ -994,6 +991,43 @@ impl State {
 
     pub fn root_visible(&self) -> bool {
         !self.idle.backend_idle.get()
+    }
+
+    pub fn find_closest_output(&self, mut x: i32, mut y: i32) -> (Rc<OutputNode>, i32, i32) {
+        let mut optimal_dist = i32::MAX;
+        let mut optimal_output = None;
+        let outputs = self.root.outputs.lock();
+        for output in outputs.values() {
+            let pos = output.global.pos.get();
+            let dist = pos.dist_squared(x, y);
+            if dist == 0 {
+                if pos.contains(x, y) {
+                    return (output.clone(), x, y);
+                }
+            }
+            if dist < optimal_dist {
+                optimal_dist = dist;
+                optimal_output = Some(output.clone());
+            }
+        }
+        if let Some(output) = optimal_output {
+            let pos = output.global.pos.get();
+            if pos.is_empty() {
+                return (output, pos.x1(), pos.y1());
+            }
+            if x < pos.x1() {
+                x = pos.x1();
+            } else if x >= pos.x2() {
+                x = pos.x2() - 1;
+            }
+            if y < pos.y1() {
+                y = pos.y1();
+            } else if y >= pos.y2() {
+                y = pos.y2() - 1;
+            }
+            return (output, x, y);
+        }
+        (self.dummy_output.get().unwrap(), 0, 0)
     }
 }
 

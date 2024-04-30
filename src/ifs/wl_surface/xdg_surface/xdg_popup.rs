@@ -344,7 +344,7 @@ impl Node for XdgPopup {
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("xdg-popup focus");
-        seat.set_known_cursor(KnownCursor::Default);
+        seat.pointer_cursor().set_known(KnownCursor::Default);
     }
 }
 

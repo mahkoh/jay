@@ -18,6 +18,7 @@ use {
     crate::{
         backend::KeyState,
         client::{Client, ClientError},
+        cursor_user::{CursorUser, CursorUserId},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::{AcquireSync, BufferResv, BufferResvUser, ReleaseSync, SampleRect, SyncFile},
@@ -262,7 +263,7 @@ pub struct WlSurface {
     pub presentation_feedback: RefCell<Vec<Rc<WpPresentationFeedback>>>,
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
-    cursors: SmallMap<SeatId, Rc<CursorSurface>, 1>,
+    cursors: SmallMap<CursorUserId, Rc<CursorSurface>, 1>,
     dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pub tracker: Tracker<Self>,
     idle_inhibitors: SmallMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>, 1>,
@@ -655,13 +656,13 @@ impl WlSurface {
 
     pub fn get_cursor(
         self: &Rc<Self>,
-        seat: &Rc<WlSeatGlobal>,
+        user: &Rc<CursorUser>,
     ) -> Result<Rc<CursorSurface>, WlSurfaceError> {
-        if let Some(cursor) = self.cursors.get(&seat.id()) {
+        if let Some(cursor) = self.cursors.get(&user.id) {
             return Ok(cursor);
         }
         self.set_role(SurfaceRole::Cursor)?;
-        let cursor = Rc::new(CursorSurface::new(seat, self));
+        let cursor = Rc::new(CursorSurface::new(user, self));
         track!(self.client, cursor);
         cursor.handle_buffer_change();
         Ok(cursor)

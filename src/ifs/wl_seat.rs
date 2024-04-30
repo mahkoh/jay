@@ -22,7 +22,7 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         client::{Client, ClientError, ClientId},
-        cursor::{Cursor, KnownCursor, DEFAULT_CURSOR_SIZE},
+        cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         fixed::Fixed,
         globals::{Global, GlobalName},
         ifs::{
@@ -63,7 +63,6 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        rect::Rect,
         state::{DeviceHandlerData, State},
         time::now_usec,
         tree::{
@@ -73,7 +72,7 @@ use {
         utils::{
             asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, linkedlist::LinkedNode, numcell::NumCell,
-            rc_eq::rc_eq, smallmap::SmallMap, transform_ext::TransformExt,
+            rc_eq::rc_eq, smallmap::SmallMap,
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
@@ -141,7 +140,6 @@ pub struct WlSeatGlobal {
     state: Rc<State>,
     seat_name: String,
     pos_time_usec: Cell<u64>,
-    pos: Cell<(Fixed, Fixed)>,
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
     pointer_stack_modified: Cell<bool>,
     found_tree: RefCell<Vec<FoundNode>>,
@@ -162,7 +160,8 @@ pub struct WlSeatGlobal {
     seat_xkb_state: CloneCell<Rc<RefCell<XkbState>>>,
     latest_kb_state: CloneCell<Rc<dyn DynKeyboardState>>,
     xkb_states: CopyHashMap<KeymapId, Weak<RefCell<XkbState>>>,
-    cursor: CloneCell<Option<Rc<dyn Cursor>>>,
+    cursor_user_group: Rc<CursorUserGroup>,
+    pointer_cursor: Rc<CursorUser>,
     tree_changed: Rc<AsyncEvent>,
     selection: CloneCell<Option<Rc<dyn DynDataSource>>>,
     selection_serial: Cell<u32>,
@@ -175,11 +174,7 @@ pub struct WlSeatGlobal {
     shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
-    output: CloneCell<Rc<OutputNode>>,
-    desired_known_cursor: Cell<Option<KnownCursor>>,
     changes: NumCell<u32>,
-    cursor_size: Cell<u32>,
-    hardware_cursor: Cell<bool>,
     constraint: CloneCell<Option<Rc<SeatConstraint>>>,
     idle_notifications: CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
     last_input_usec: Cell<u64>,
@@ -197,12 +192,6 @@ pub struct WlSeatGlobal {
 const CHANGE_CURSOR_MOVED: u32 = 1 << 0;
 const CHANGE_TREE: u32 = 1 << 1;
 
-impl Drop for WlSeatGlobal {
-    fn drop(&mut self) {
-        self.state.remove_cursor_size(self.cursor_size.get());
-    }
-}
-
 impl WlSeatGlobal {
     pub fn new(name: GlobalName, seat_name: &str, state: &Rc<State>) -> Rc<Self> {
         let seat_xkb_state = state
@@ -212,13 +201,15 @@ impl WlSeatGlobal {
             .unwrap();
         let xkb_states = CopyHashMap::new();
         xkb_states.set(state.default_keymap.id, Rc::downgrade(&seat_xkb_state));
+        let cursor_user_group = CursorUserGroup::create(state);
+        let cursor_user = cursor_user_group.create_user();
+        cursor_user.activate();
         let slf = Rc::new(Self {
             id: state.seat_ids.next(),
             name,
             state: state.clone(),
             seat_name: seat_name.to_string(),
             pos_time_usec: Cell::new(0),
-            pos: Cell::new((Fixed(0), Fixed(0))),
             pointer_stack: RefCell::new(vec![]),
             pointer_stack_modified: Cell::new(false),
             found_tree: RefCell::new(vec![]),
@@ -232,7 +223,8 @@ impl WlSeatGlobal {
             seat_xkb_state: CloneCell::new(seat_xkb_state.clone()),
             latest_kb_state: CloneCell::new(seat_xkb_state.clone()),
             xkb_states,
-            cursor: Default::default(),
+            cursor_user_group,
+            pointer_cursor: cursor_user,
             tree_changed: Default::default(),
             selection: Default::default(),
             selection_serial: Cell::new(0),
@@ -245,11 +237,7 @@ impl WlSeatGlobal {
             shortcuts: Default::default(),
             queue_link: Default::default(),
             tree_changed_handler: Cell::new(None),
-            output: CloneCell::new(state.dummy_output.get().unwrap()),
-            desired_known_cursor: Cell::new(None),
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
-            cursor_size: Cell::new(*DEFAULT_CURSOR_SIZE),
-            hardware_cursor: Cell::new(state.globals.seats.len() == 0),
             constraint: Default::default(),
             idle_notifications: Default::default(),
             last_input_usec: Cell::new(now_usec()),
@@ -264,7 +252,7 @@ impl WlSeatGlobal {
             pinch_bindings: Default::default(),
             hold_bindings: Default::default(),
         });
-        state.add_cursor_size(*DEFAULT_CURSOR_SIZE);
+        slf.pointer_cursor.set_owner(slf.clone());
         let seat = slf.clone();
         let future = state.eng.spawn(async move {
             loop {
@@ -289,109 +277,6 @@ impl WlSeatGlobal {
 
     pub fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
         self.pointer_owner.toplevel_drag()
-    }
-
-    pub fn set_hardware_cursor(&self, hardware_cursor: bool) {
-        self.hardware_cursor.set(hardware_cursor);
-    }
-
-    pub fn hardware_cursor(&self) -> bool {
-        self.hardware_cursor.get()
-    }
-
-    fn update_hardware_cursor_position(&self) {
-        self.update_hardware_cursor_(false);
-    }
-
-    pub fn update_hardware_cursor(&self) {
-        self.update_hardware_cursor_(true);
-    }
-
-    fn update_hardware_cursor_(&self, render: bool) {
-        if !self.hardware_cursor.get() {
-            return;
-        }
-        let cursor = match self.get_cursor() {
-            Some(c) => c,
-            _ => {
-                self.state.disable_hardware_cursors();
-                return;
-            }
-        };
-        if render {
-            cursor.tick();
-        }
-        let (x, y) = self.get_position();
-        for output in self.state.root.outputs.lock().values() {
-            if let Some(hc) = output.hardware_cursor.get() {
-                let transform = output.global.persistent.transform.get();
-                let render = render | output.hardware_cursor_needs_render.take();
-                let scale = output.global.persistent.scale.get();
-                let extents = cursor.extents_at_scale(scale);
-                let (hc_width, hc_height) = hc.size();
-                if render {
-                    let (max_width, max_height) = transform.maybe_swap((hc_width, hc_height));
-                    if extents.width() > max_width || extents.height() > max_height {
-                        hc.set_enabled(false);
-                        hc.commit();
-                        continue;
-                    }
-                }
-                let opos = output.global.pos.get();
-                let (x_rel, y_rel);
-                if scale == 1 {
-                    x_rel = x.round_down() - opos.x1();
-                    y_rel = y.round_down() - opos.y1();
-                } else {
-                    let scalef = scale.to_f64();
-                    x_rel = ((x - Fixed::from_int(opos.x1())).to_f64() * scalef).round() as i32;
-                    y_rel = ((y - Fixed::from_int(opos.y1())).to_f64() * scalef).round() as i32;
-                }
-                let (width, height) = output.global.pixel_size();
-                if extents.intersects(&Rect::new_sized(-x_rel, -y_rel, width, height).unwrap()) {
-                    if render {
-                        let buffer = hc.get_buffer();
-                        let res = buffer.render_hardware_cursor(
-                            cursor.deref(),
-                            &self.state,
-                            scale,
-                            transform,
-                        );
-                        match res {
-                            Ok(sync_file) => {
-                                hc.set_sync_file(sync_file);
-                                hc.swap_buffer();
-                            }
-                            Err(e) => {
-                                log::error!("Could not render hardware cursor: {}", ErrorFmt(e));
-                            }
-                        }
-                    }
-                    hc.set_enabled(true);
-                    let mode = output.global.mode.get();
-                    let (x_rel, y_rel) =
-                        transform.apply_point(mode.width, mode.height, (x_rel, y_rel));
-                    let (hot_x, hot_y) =
-                        transform.apply_point(hc_width, hc_height, (-extents.x1(), -extents.y1()));
-                    hc.set_position(x_rel - hot_x, y_rel - hot_y);
-                } else {
-                    if render {
-                        output.hardware_cursor_needs_render.set(true);
-                    }
-                    hc.set_enabled(false);
-                }
-                hc.commit();
-            }
-        }
-    }
-
-    pub fn set_cursor_size(&self, size: u32) {
-        let old = self.cursor_size.replace(size);
-        if size != old {
-            self.state.remove_cursor_size(old);
-            self.state.add_cursor_size(size);
-            self.reload_known_cursor();
-        }
     }
 
     pub fn add_data_device(&self, device: &Rc<WlDataDevice>) {
@@ -452,7 +337,7 @@ impl WlSeatGlobal {
     }
 
     pub fn get_output(&self) -> Rc<OutputNode> {
-        self.output.get()
+        self.cursor_user_group.latest_output()
     }
 
     pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
@@ -517,7 +402,7 @@ impl WlSeatGlobal {
     fn maybe_constrain_pointer_node(&self) {
         if let Some(pn) = self.pointer_node() {
             if let Some(surface) = pn.node_into_surface() {
-                let (mut x, mut y) = self.pos.get();
+                let (mut x, mut y) = self.pointer_cursor.position();
                 let (sx, sy) = surface.buffer_abs_pos.get().position();
                 x -= Fixed::from_int(sx);
                 y -= Fixed::from_int(sy);
@@ -606,47 +491,6 @@ impl WlSeatGlobal {
     pub fn prepare_for_lock(self: &Rc<Self>) {
         self.pointer_owner.revert_to_default(self);
         self.kb_owner.ungrab(self);
-    }
-
-    pub fn set_position(&self, x: i32, y: i32) {
-        self.pos.set((Fixed::from_int(x), Fixed::from_int(y)));
-        self.update_hardware_cursor_position();
-        self.trigger_tree_changed();
-        let output = 'set_output: {
-            let outputs = self.state.root.outputs.lock();
-            for output in outputs.values() {
-                if output.global.pos.get().contains(x, y) {
-                    break 'set_output output.clone();
-                }
-            }
-            self.state.dummy_output.get().unwrap()
-        };
-        self.set_output(&output);
-    }
-
-    fn set_output(&self, output: &Rc<OutputNode>) {
-        self.output.set(output.clone());
-        if let Some(cursor) = self.cursor.get() {
-            cursor.set_output(output);
-        }
-        if let Some(dnd) = self.pointer_owner.dnd_icon() {
-            dnd.set_output(output);
-        }
-        if let Some(drag) = self.pointer_owner.toplevel_drag() {
-            if let Some(tl) = drag.toplevel.get() {
-                tl.xdg.set_output(output);
-            }
-        }
-    }
-
-    pub fn position(&self) -> (Fixed, Fixed) {
-        self.pos.get()
-    }
-
-    pub fn render_ctx_changed(&self) {
-        if let Some(cursor) = self.desired_known_cursor.get() {
-            self.set_known_cursor(cursor);
-        }
     }
 
     pub fn kb_parent_container(&self) -> Option<Rc<ContainerNode>> {
@@ -877,7 +721,7 @@ impl WlSeatGlobal {
         serial: u32,
     ) -> Result<(), WlSeatError> {
         if let Some(icon) = &icon {
-            icon.set_output(&self.output.get());
+            icon.set_output(&self.pointer_cursor.output());
         }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
@@ -969,89 +813,6 @@ impl WlSeatGlobal {
         self.primary_selection.get()
     }
 
-    pub fn reload_known_cursor(&self) {
-        if let Some(kc) = self.desired_known_cursor.get() {
-            self.set_known_cursor(kc);
-        }
-    }
-
-    #[cfg_attr(not(feature = "it"), allow(dead_code))]
-    pub fn get_desired_known_cursor(&self) -> Option<KnownCursor> {
-        self.desired_known_cursor.get()
-    }
-
-    pub fn set_known_cursor(&self, cursor: KnownCursor) {
-        self.desired_known_cursor.set(Some(cursor));
-        let cursors = match self.state.cursors.get() {
-            Some(c) => c,
-            None => {
-                self.set_cursor2(None);
-                return;
-            }
-        };
-        let tpl = match cursor {
-            KnownCursor::Default => &cursors.default,
-            KnownCursor::ContextMenu => &cursors.context_menu,
-            KnownCursor::Help => &cursors.help,
-            KnownCursor::Pointer => &cursors.pointer,
-            KnownCursor::Progress => &cursors.progress,
-            KnownCursor::Wait => &cursors.wait,
-            KnownCursor::Cell => &cursors.cell,
-            KnownCursor::Crosshair => &cursors.crosshair,
-            KnownCursor::Text => &cursors.text,
-            KnownCursor::VerticalText => &cursors.vertical_text,
-            KnownCursor::Alias => &cursors.alias,
-            KnownCursor::Copy => &cursors.copy,
-            KnownCursor::Move => &cursors.r#move,
-            KnownCursor::NoDrop => &cursors.no_drop,
-            KnownCursor::NotAllowed => &cursors.not_allowed,
-            KnownCursor::Grab => &cursors.grab,
-            KnownCursor::Grabbing => &cursors.grabbing,
-            KnownCursor::EResize => &cursors.e_resize,
-            KnownCursor::NResize => &cursors.n_resize,
-            KnownCursor::NeResize => &cursors.ne_resize,
-            KnownCursor::NwResize => &cursors.nw_resize,
-            KnownCursor::SResize => &cursors.s_resize,
-            KnownCursor::SeResize => &cursors.se_resize,
-            KnownCursor::SwResize => &cursors.sw_resize,
-            KnownCursor::WResize => &cursors.w_resize,
-            KnownCursor::EwResize => &cursors.ew_resize,
-            KnownCursor::NsResize => &cursors.ns_resize,
-            KnownCursor::NeswResize => &cursors.nesw_resize,
-            KnownCursor::NwseResize => &cursors.nwse_resize,
-            KnownCursor::ColResize => &cursors.col_resize,
-            KnownCursor::RowResize => &cursors.row_resize,
-            KnownCursor::AllScroll => &cursors.all_scroll,
-            KnownCursor::ZoomIn => &cursors.zoom_in,
-            KnownCursor::ZoomOut => &cursors.zoom_out,
-        };
-        self.set_cursor2(Some(tpl.instantiate(self.cursor_size.get())));
-    }
-
-    pub fn set_app_cursor(&self, cursor: Option<Rc<dyn Cursor>>) {
-        self.set_cursor2(cursor);
-        self.desired_known_cursor.set(None);
-    }
-
-    fn set_cursor2(&self, cursor: Option<Rc<dyn Cursor>>) {
-        if let Some(old) = self.cursor.get() {
-            if let Some(new) = cursor.as_ref() {
-                if rc_eq(&old, new) {
-                    self.update_hardware_cursor();
-                    return;
-                }
-            }
-            old.handle_unset();
-        }
-        if let Some(cursor) = cursor.as_ref() {
-            cursor.clone().handle_set();
-            cursor.set_output(&self.output.get());
-        }
-        self.cursor.set(cursor.clone());
-        self.state.hardware_tick_cursor.push(cursor);
-        self.update_hardware_cursor();
-    }
-
     pub fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
         self.pointer_owner.dnd_icon()
     }
@@ -1060,12 +821,12 @@ impl WlSeatGlobal {
         self.pointer_owner.remove_dnd_icon();
     }
 
-    pub fn get_position(&self) -> (Fixed, Fixed) {
-        self.pos.get()
+    pub fn pointer_cursor(&self) -> &Rc<CursorUser> {
+        &self.pointer_cursor
     }
 
-    pub fn get_cursor(&self) -> Option<Rc<dyn Cursor>> {
-        self.cursor.get()
+    pub fn cursor_group(&self) -> &Rc<CursorUserGroup> {
+        &self.cursor_user_group
     }
 
     pub fn clear(self: &Rc<Self>) {
@@ -1082,7 +843,7 @@ impl WlSeatGlobal {
         self.data_devices.borrow_mut().clear();
         self.primary_selection_devices.borrow_mut().clear();
         self.wlr_data_devices.clear();
-        self.cursor.set(None);
+        self.cursor_user_group.detach();
         self.selection.set(None);
         self.primary_selection.set(None);
         self.pointer_owner.clear();
@@ -1090,7 +851,6 @@ impl WlSeatGlobal {
         *self.dropped_dnd.borrow_mut() = None;
         self.queue_link.take();
         self.tree_changed_handler.set(None);
-        self.output.set(self.state.dummy_output.get().unwrap());
         self.constraint.take();
         self.text_inputs.borrow_mut().clear();
         self.text_input.take();
@@ -1099,6 +859,7 @@ impl WlSeatGlobal {
         self.swipe_bindings.clear();
         self.pinch_bindings.clear();
         self.hold_bindings.clear();
+        self.cursor_user_group.detach();
     }
 
     pub fn id(&self) -> SeatId {
@@ -1156,9 +917,7 @@ impl WlSeatGlobal {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        if let Some(cursor) = self.cursor.get() {
-            cursor.set_visible(visible);
-        }
+        self.cursor_user_group.set_visible(visible);
         if let Some(icon) = self.dnd_icon() {
             icon.set_visible(visible);
         }
@@ -1188,6 +947,19 @@ impl WlSeatGlobal {
 
     pub fn set_focus_follows_mouse(&self, focus_follows_mouse: bool) {
         self.focus_follows_mouse.set(focus_follows_mouse);
+    }
+}
+
+impl CursorUserOwner for WlSeatGlobal {
+    fn output_changed(&self, output: &Rc<OutputNode>) {
+        if let Some(dnd) = self.pointer_owner.dnd_icon() {
+            dnd.set_output(output);
+        }
+        if let Some(drag) = self.pointer_owner.toplevel_drag() {
+            if let Some(tl) = drag.toplevel.get() {
+                tl.xdg.set_output(output);
+            }
+        }
     }
 }
 
