@@ -23,6 +23,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         devnode: props.devnode,
         keymap: Default::default(),
         xkb_state: Default::default(),
+        output: Default::default(),
     });
     let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {

@@ -41,6 +41,7 @@ use {
                 zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
                 DynDataSource, IpcError,
             },
+            wl_output::WlOutputGlobal,
             wl_seat::{
                 gesture_owner::GestureOwnerHolder,
                 kb_owner::KbOwnerHolder,
@@ -1161,6 +1162,19 @@ impl DeviceHandlerData {
         let new = self.get_effective_xkb_state(&seat);
         if !rc_eq(&old, &new) {
             seat.handle_xkb_state_change(&old.borrow(), &new.borrow());
+        }
+    }
+
+    pub fn set_output(&self, output: Option<&WlOutputGlobal>) {
+        match output {
+            None => {
+                log::info!("Removing output mapping of {}", self.device.name());
+                self.output.take();
+            }
+            Some(o) => {
+                log::info!("Mapping {} to {}", self.device.name(), o.connector.name);
+                self.output.set(Some(o.opt.clone()));
+            }
         }
     }
 }

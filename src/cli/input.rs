@@ -127,6 +127,10 @@ pub enum DeviceCommand {
     Attach(AttachArgs),
     /// Detach the device from its seat.
     Detach,
+    /// Maps this device to an output.
+    MapToOutput(MapToOutputArgs),
+    /// Removes the mapping from this device to an output.
+    RemoveMapping,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -197,6 +201,12 @@ pub struct SetTransformMatrixArgs {
 }
 
 #[derive(Args, Debug, Clone)]
+pub struct MapToOutputArgs {
+    /// The output to map to.
+    pub output: String,
+}
+
+#[derive(Args, Debug, Clone)]
 pub struct AttachArgs {
     /// The seat to attach to.
     pub seat: String,
@@ -261,6 +271,7 @@ struct InputDevice {
     pub natural_scrolling_enabled: Option<bool>,
     pub px_per_wheel_scroll: Option<f64>,
     pub transform_matrix: Option<[[f64; 2]; 2]>,
+    pub output: Option<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -564,6 +575,26 @@ impl Input {
                 let map = self.handle_keymap(input).await;
                 stdout().write_all(&map).unwrap();
             }
+            DeviceCommand::MapToOutput(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not map the device to an output: {}", e);
+                });
+                tc.send(jay_input::MapToOutput {
+                    self_id: input,
+                    id: args.device,
+                    output: Some(&a.output),
+                });
+            }
+            DeviceCommand::RemoveMapping => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not remove the output mapping: {}", e);
+                });
+                tc.send(jay_input::MapToOutput {
+                    self_id: input,
+                    id: args.device,
+                    output: None,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -694,6 +725,9 @@ impl Input {
         if let Some(v) = &device.transform_matrix {
             println!("{prefix}  transform matrix: {:?}", v);
         }
+        if let Some(v) = &device.output {
+            println!("{prefix}  mapped to output: {}", v);
+        }
     }
 
     async fn get(self: &Rc<Self>, input: JayInputId) -> Data {
@@ -757,7 +791,14 @@ impl Input {
                     .then_some(msg.natural_scrolling_enabled != 0),
                 px_per_wheel_scroll: is_pointer.then_some(msg.px_per_wheel_scroll),
                 transform_matrix: uapi::pod_read(msg.transform_matrix).ok(),
+                output: None,
             });
+        });
+        jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.output = Some(msg.output.to_string());
+            }
         });
         tc.round_trip().await;
         let x = data.borrow_mut().clone();

@@ -16,8 +16,8 @@ use {
         exec::{set_env, unset_env, Command},
         get_workspace,
         input::{
-            capability::CAP_SWITCH, get_seat, input_devices, on_new_input_device,
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent,
+            capability::CAP_SWITCH, get_seat, input_devices, on_input_device_removed,
+            on_new_input_device, FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent,
         },
         is_reload,
         keyboard::{Keymap, ModifiedKeySym},
@@ -28,9 +28,9 @@ use {
         switch_to_vt,
         theme::{reset_colors, reset_font, reset_sizes, set_font},
         video::{
-            connectors, drm_devices, on_connector_connected, on_graphics_initialized,
-            on_new_connector, on_new_drm_device, set_direct_scanout_enabled, set_gfx_api,
-            Connector, DrmDevice,
+            connectors, drm_devices, on_connector_connected, on_connector_disconnected,
+            on_graphics_initialized, on_new_connector, on_new_drm_device,
+            set_direct_scanout_enabled, set_gfx_api, Connector, DrmDevice,
         },
     },
     std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc},
@@ -422,6 +422,17 @@ impl Input {
                 c.set_keymap(km);
             }
         }
+        if let Some(output) = &self.output {
+            if let Some(output) = output {
+                for connector in connectors() {
+                    if output.matches(connector, state) {
+                        c.set_connector(connector);
+                    }
+                }
+            } else {
+                c.remove_mapping();
+            }
+        }
     }
 }
 
@@ -550,6 +561,10 @@ struct State {
     input_devices: AHashMap<String, InputMatch>,
     persistent: Rc<PersistentState>,
     keymaps: AHashMap<String, Keymap>,
+
+    io_maps: Vec<(InputMatch, OutputMatch)>,
+    io_inputs: RefCell<AHashMap<InputDevice, Vec<bool>>>,
+    io_outputs: RefCell<AHashMap<Connector, Vec<bool>>>,
 }
 
 impl Drop for State {
@@ -701,6 +716,60 @@ impl State {
             }
         });
     }
+
+    fn add_io_output(&self, c: Connector) {
+        let mappings: Vec<_> = self
+            .io_maps
+            .iter()
+            .map(|(_, output)| output.matches(c, self))
+            .collect();
+        if mappings.len() > 0 {
+            self.io_outputs.borrow_mut().insert(c, mappings);
+        }
+    }
+
+    fn add_io_input(&self, d: InputDevice) {
+        let mappings: Vec<_> = self
+            .io_maps
+            .iter()
+            .map(|(input, _)| input.matches(d, self))
+            .collect();
+        if mappings.len() > 0 {
+            self.io_inputs.borrow_mut().insert(d, mappings);
+        }
+    }
+
+    fn map_input_to_output(&self, d: InputDevice) {
+        let input_mappings = &*self.io_inputs.borrow();
+        let Some(input_matches) = input_mappings.get(&d) else {
+            return;
+        };
+        for (idx, &input_is_match) in input_matches.iter().enumerate() {
+            if input_is_match {
+                for (&c, output_maps) in &*self.io_outputs.borrow() {
+                    if output_maps.get(idx) == Some(&true) {
+                        d.set_connector(c);
+                    }
+                }
+            }
+        }
+    }
+
+    fn map_output_to_input(&self, c: Connector) {
+        let output_mappings = &*self.io_outputs.borrow();
+        let Some(output_matches) = output_mappings.get(&c) else {
+            return;
+        };
+        for (idx, &output_is_match) in output_matches.iter().enumerate() {
+            if output_is_match {
+                for (&d, input_matches) in &*self.io_inputs.borrow() {
+                    if input_matches.get(idx) == Some(&true) {
+                        d.set_connector(c);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Eq, PartialEq, Hash)]
@@ -763,12 +832,16 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         }
     }
     let mut input_devices = AHashMap::new();
+    let mut io_maps = vec![];
     for input in &config.inputs {
         if let Some(tag) = &input.tag {
             let prev = input_devices.insert(tag.clone(), input.match_.clone());
             if prev.is_some() {
                 log::warn!("Duplicate input tag {tag}");
             }
+        }
+        if let Some(Some(output)) = &input.output {
+            io_maps.push((input.match_.clone(), output.clone()));
         }
     }
     let mut named_drm_device = AHashMap::new();
@@ -786,6 +859,9 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         input_devices,
         persistent: persistent.clone(),
         keymaps,
+        io_maps,
+        io_inputs: Default::default(),
+        io_outputs: Default::default(),
     });
     state.set_status(&config.status);
     let mut switch_actions = vec![];
@@ -827,6 +903,8 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
     on_connector_connected({
         let state = state.clone();
         move |c| {
+            state.add_io_output(c);
+            state.map_output_to_input(c);
             let id = OutputId {
                 manufacturer: c.manufacturer(),
                 model: c.model(),
@@ -839,6 +917,12 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
                     }
                 }
             }
+        }
+    });
+    on_connector_disconnected({
+        let state = state.clone();
+        move |c| {
+            state.io_outputs.borrow_mut().remove(&c);
         }
     });
     set_default_workspace_capture(config.workspace_capture);
@@ -896,6 +980,7 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         let state = state.clone();
         let switch_actions = switch_actions.clone();
         move |c| {
+            state.add_io_input(c);
             for input in &config.inputs {
                 if input.match_.matches(c, &state) {
                     input.apply(c, &state);
@@ -904,7 +989,18 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             state.handle_switch_device(c, &switch_actions);
         }
     });
+    on_input_device_removed({
+        let state = state.clone();
+        move |c| {
+            state.io_inputs.borrow_mut().remove(&c);
+        }
+    });
+    for c in connectors() {
+        state.add_io_output(c);
+    }
     for c in jay_config::input::input_devices() {
+        state.add_io_input(c);
+        state.map_input_to_output(c);
         state.handle_switch_device(c, &switch_actions);
     }
     persistent

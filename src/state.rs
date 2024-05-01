@@ -33,7 +33,7 @@ use {
             jay_seat_events::JaySeatEvents,
             jay_workspace_watcher::JayWorkspaceWatcher,
             wl_drm::WlDrmGlobal,
-            wl_output::{OutputId, PersistentOutputState},
+            wl_output::{OutputGlobalOpt, OutputId, PersistentOutputState},
             wl_seat::{SeatIds, WlSeatGlobal},
             wl_surface::{
                 wl_subsurface::SubsurfaceIds,
@@ -262,6 +262,7 @@ pub struct DeviceHandlerData {
     pub devnode: Option<String>,
     pub keymap: CloneCell<Option<Rc<XkbKeymap>>>,
     pub xkb_state: CloneCell<Option<Rc<RefCell<XkbState>>>>,
+    pub output: CloneCell<Option<Rc<OutputGlobalOpt>>>,
 }
 
 pub struct ConnectorData {

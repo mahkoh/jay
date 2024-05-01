@@ -129,6 +129,15 @@ impl JayInput {
                 .map(uapi::as_bytes)
                 .unwrap_or_default(),
         });
+        if let Some(output) = data.data.output.get() {
+            if let Some(output) = output.get() {
+                self.client.event(InputDeviceOutput {
+                    self_id: self.id,
+                    id: data.id.raw(),
+                    output: &output.connector.name,
+                });
+            }
+        }
     }
 
     fn device(&self, id: u32) -> Result<Rc<DeviceHandlerData>, JayInputError> {
@@ -389,6 +398,32 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn map_to_output(&self, req: MapToOutput<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            match req.output {
+                Some(output) => {
+                    let namelc = output.to_ascii_lowercase();
+                    let c = self
+                        .client
+                        .state
+                        .root
+                        .outputs
+                        .lock()
+                        .values()
+                        .find(|c| c.global.connector.name.to_ascii_lowercase() == namelc)
+                        .cloned();
+                    match c {
+                        Some(c) => dev.set_output(Some(&c.global)),
+                        _ => return Err(JayInputError::OutputNotConnected),
+                    }
+                }
+                _ => dev.set_output(None),
+            }
+            Ok(())
+        })
+    }
 }
 
 object_base! {
@@ -418,5 +453,7 @@ pub enum JayInputError {
     ClientMemError(#[from] ClientMemError),
     #[error("Could not parse keymap")]
     XkbCommonError(#[from] XkbCommonError),
+    #[error("Output is not connected")]
+    OutputNotConnected,
 }
 efrom!(JayInputError, ClientError);

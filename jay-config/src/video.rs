@@ -275,6 +275,11 @@ pub fn on_connector_connected<F: FnMut(Connector) + 'static>(f: F) {
     get!().on_connector_connected(f)
 }
 
+/// Sets the callback to be called when a connector is disconnected from an output device.
+pub fn on_connector_disconnected<F: FnMut(Connector) + 'static>(f: F) {
+    get!().on_connector_disconnected(f)
+}
+
 /// Sets the callback to be called when the graphics of the compositor have been initialized.
 ///
 /// This callback is only invoked once during the lifetime of the compositor. This is a good place

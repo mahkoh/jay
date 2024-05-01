@@ -109,6 +109,11 @@ request get_device_keymap {
     id: u32,
 }
 
+request map_to_output {
+    id: u32,
+    output: optstr,
+}
+
 # events
 
 event seat {
@@ -147,4 +152,9 @@ event error {
 event keymap {
     keymap: fd,
     keymap_len: u32,
+}
+
+event input_device_output {
+    id: u32,
+    output: str,
 }

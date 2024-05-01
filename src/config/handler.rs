@@ -338,6 +338,23 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_input_device_connector(
+        &self,
+        input_device: InputDevice,
+        connector: Connector,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(input_device)?;
+        let output = self.get_output_node(connector)?;
+        dev.set_output(Some(&output.global));
+        Ok(())
+    }
+
+    fn handle_remove_input_mapping(&self, input_device: InputDevice) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(input_device)?;
+        dev.set_output(None);
+        Ok(())
+    }
+
     fn handle_set_status(&self, status: &str) {
         self.state.set_status(status);
     }
@@ -1790,6 +1807,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetFocusFollowsMouseMode { seat, mode } => self
                 .handle_set_focus_follows_mouse_mode(seat, mode)
                 .wrn("set_focus_follows_mouse_mode")?,
+            ClientMessage::SetInputDeviceConnector {
+                input_device,
+                connector,
+            } => self
+                .handle_set_input_device_connector(input_device, connector)
+                .wrn("set_input_device_connector")?,
+            ClientMessage::RemoveInputMapping { input_device } => self
+                .handle_remove_input_mapping(input_device)
+                .wrn("remove_input_mapping")?,
         }
         Ok(())
     }
