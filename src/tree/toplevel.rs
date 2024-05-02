@@ -84,7 +84,11 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             parent.node_child_title_changed(self, &title);
         }
         if let Some(data) = data.fullscrceen_data.borrow_mut().deref() {
-            *data.placeholder.tl_data().title.borrow_mut() = title.clone();
+            data.placeholder
+                .tl_data()
+                .title
+                .borrow_mut()
+                .clone_from(&title);
             data.placeholder.tl_title_changed();
         }
     }
