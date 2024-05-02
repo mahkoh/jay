@@ -173,7 +173,7 @@ pub struct WlSeatGlobal {
     gesture_owner: GestureOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
     shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
-    queue_link: Cell<Option<LinkedNode<Rc<Self>>>>,
+    queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     output: CloneCell<Rc<OutputNode>>,
     desired_known_cursor: Cell<Option<KnownCursor>>,
@@ -243,7 +243,7 @@ impl WlSeatGlobal {
             gesture_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
             shortcuts: Default::default(),
-            queue_link: Cell::new(None),
+            queue_link: Default::default(),
             tree_changed_handler: Cell::new(None),
             output: CloneCell::new(state.dummy_output.get().unwrap()),
             desired_known_cursor: Cell::new(None),
@@ -495,8 +495,12 @@ impl WlSeatGlobal {
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {
-        self.queue_link
-            .set(Some(self.state.seat_queue.add_last(self.clone())));
+        let link = &mut *self.queue_link.borrow_mut();
+        if let Some(link) = link {
+            self.state.seat_queue.add_last_existing(link)
+        } else {
+            *link = Some(self.state.seat_queue.add_last(self.clone()))
+        }
     }
 
     pub fn disable_pointer_constraint(&self) {
@@ -1084,7 +1088,7 @@ impl WlSeatGlobal {
         self.pointer_owner.clear();
         self.kb_owner.clear();
         *self.dropped_dnd.borrow_mut() = None;
-        self.queue_link.set(None);
+        self.queue_link.take();
         self.tree_changed_handler.set(None);
         self.output.set(self.state.dummy_output.get().unwrap());
         self.constraint.take();
