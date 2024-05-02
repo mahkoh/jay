@@ -339,10 +339,6 @@ trait SurfaceExt {
         }
     }
 
-    fn update_subsurface_parent_extents(&self) {
-        // nothing
-    }
-
     fn subsurface_parent(&self) -> Option<Rc<WlSurface>> {
         None
     }

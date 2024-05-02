@@ -1203,12 +1203,6 @@ impl Global for WlSeatGlobal {
     fn version(&self) -> u32 {
         9
     }
-
-    fn break_loops(&self) {
-        self.bindings.borrow_mut().clear();
-        self.queue_link.take();
-        self.tree_changed_handler.take();
-    }
 }
 
 dedicated_add_global!(WlSeatGlobal, seats);

@@ -1342,8 +1342,6 @@ impl Node for ContainerNode {
 }
 
 impl ContainingNode for ContainerNode {
-    containing_node_impl!();
-
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
         let node = match self.child_nodes.borrow_mut().remove(&old.node_id()) {
             Some(c) => c,

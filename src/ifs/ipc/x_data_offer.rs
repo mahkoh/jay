@@ -3,7 +3,7 @@ use {
         client::ClientId,
         ifs::{
             ipc::{
-                cancel_offer, destroy_data_offer,
+                cancel_offer,
                 x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
                 DataOffer, DataOfferId, DynDataOffer, IpcLocation, OfferData,
             },
@@ -48,13 +48,6 @@ impl DynDataOffer for XDataOffer {
             offer: self.offer_id,
             mime_type: mime_type.to_string(),
         })
-    }
-
-    fn destroy(&self) {
-        match self.location {
-            IpcLocation::Clipboard => destroy_data_offer::<XClipboardIpc>(self),
-            IpcLocation::PrimarySelection => destroy_data_offer::<XPrimarySelectionIpc>(self),
-        }
     }
 
     fn cancel(&self) {

@@ -85,10 +85,6 @@ impl Global for WpDrmLeaseDeviceV1Global {
         1
     }
 
-    fn break_loops(&self) {
-        self.bindings.clear();
-    }
-
     fn required_caps(&self) -> ClientCaps {
         CAP_DRM_LEASE
     }

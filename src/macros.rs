@@ -467,31 +467,7 @@ macro_rules! fatal {
 
 macro_rules! stacked_node_impl {
     () => {
-        fn stacked_as_node(&self) -> &dyn Node {
-            self
-        }
-
         fn stacked_into_node(self: Rc<Self>) -> Rc<dyn Node> {
-            self
-        }
-
-        fn stacked_into_dyn(self: Rc<Self>) -> Rc<dyn StackedNode> {
-            self
-        }
-    };
-}
-
-macro_rules! containing_node_impl {
-    () => {
-        fn cnode_as_node(&self) -> &dyn Node {
-            self
-        }
-
-        fn cnode_into_node(self: Rc<Self>) -> Rc<dyn Node> {
-            self
-        }
-
-        fn cnode_into_dyn(self: Rc<Self>) -> Rc<dyn ContainingNode> {
             self
         }
     };

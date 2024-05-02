@@ -20,7 +20,7 @@ use {
     ash::{
         extensions::khr::{ExternalFenceFd, ExternalMemoryFd, ExternalSemaphoreFd, PushDescriptor},
         vk::{
-            DeviceCreateInfo, DeviceMemory, DeviceQueueCreateInfo, ExtExternalMemoryDmaBufFn,
+            DeviceCreateInfo, DeviceQueueCreateInfo, ExtExternalMemoryDmaBufFn,
             ExtImageDrmFormatModifierFn, ExtPhysicalDeviceDrmFn, ExtQueueFamilyForeignFn,
             ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
             ExternalSemaphoreProperties, KhrDriverPropertiesFn, KhrExternalFenceFdFn,
@@ -81,16 +81,6 @@ impl VulkanDevice {
             }
         }
         None
-    }
-}
-
-struct FreeMem<'a>(&'a Device, DeviceMemory);
-
-impl<'a> Drop for FreeMem<'a> {
-    fn drop(&mut self) {
-        unsafe {
-            self.0.free_memory(self.1, None);
-        }
     }
 }
 

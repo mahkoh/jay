@@ -64,10 +64,6 @@ impl DynDataOffer for WlDataOffer {
         WlDataOffer::send_offer(self, mime_type);
     }
 
-    fn destroy(&self) {
-        destroy_data_offer::<ClipboardIpc>(self);
-    }
-
     fn cancel(&self) {
         cancel_offer::<ClipboardIpc>(self);
     }

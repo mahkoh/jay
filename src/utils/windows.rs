@@ -1,11 +1,13 @@
 use crate::utils::ptr_ext::PtrExt;
 
+#[cfg_attr(not(feature = "it"), allow(dead_code))]
 pub trait WindowsExt<T> {
     type Windows<'a, const N: usize>: Iterator<Item = &'a [T; N]>
     where
         Self: 'a,
         T: 'a;
 
+    #[cfg_attr(not(feature = "rc_tracking"), allow(dead_code))]
     fn array_windows_ext<'a, const N: usize>(&'a self) -> Self::Windows<'a, N>;
     fn array_chunks_ext<'a, const N: usize>(&'a self) -> &'a [[T; N]];
 }

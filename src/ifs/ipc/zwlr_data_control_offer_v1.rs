@@ -50,13 +50,6 @@ impl DynDataOffer for ZwlrDataControlOfferV1 {
         ZwlrDataControlOfferV1::send_offer(self, mime_type)
     }
 
-    fn destroy(&self) {
-        match self.location {
-            IpcLocation::Clipboard => destroy_data_offer::<WlrClipboardIpc>(self),
-            IpcLocation::PrimarySelection => destroy_data_offer::<WlrPrimarySelectionIpc>(self),
-        }
-    }
-
     fn cancel(&self) {
         match self.location {
             IpcLocation::Clipboard => cancel_offer::<WlrClipboardIpc>(self),

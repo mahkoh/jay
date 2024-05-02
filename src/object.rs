@@ -39,6 +39,7 @@ impl Display for ObjectId {
 pub trait ObjectBase {
     fn id(&self) -> ObjectId;
     fn version(&self) -> Version;
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
     fn handle_request(
         self: Rc<Self>,

@@ -24,6 +24,7 @@ linear_ids!(DrmDeviceIds, DrmDeviceId);
 
 pub trait Backend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>>;
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
 
     fn switch_to(&self, vtnr: u32) {

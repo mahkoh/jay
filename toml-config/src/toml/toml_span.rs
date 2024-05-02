@@ -106,19 +106,3 @@ impl<T> DespanExt for Option<Spanned<T>> {
         self.map(|v| v.value.into())
     }
 }
-
-pub trait SpannedResultExt1: Sized {
-    type T;
-    type E;
-
-    fn map_spanned<U, F: FnOnce(Self::T) -> U>(self, f: F) -> Result<Spanned<U>, Self::E>;
-}
-
-impl<T, E> SpannedResultExt1 for Result<Spanned<T>, E> {
-    type T = T;
-    type E = E;
-
-    fn map_spanned<U, F: FnOnce(Self::T) -> U>(self, f: F) -> Result<Spanned<U>, Self::E> {
-        self.map(|v| v.map(f))
-    }
-}

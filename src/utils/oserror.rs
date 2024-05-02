@@ -205,6 +205,7 @@ impl Display for OsError {
     }
 }
 
+#[cfg_attr(not(feature = "it"), allow(dead_code))]
 pub trait OsErrorExt {
     type Container;
 

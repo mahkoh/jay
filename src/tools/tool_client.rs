@@ -345,6 +345,7 @@ pub trait Handle: RequestParser<'static> {
         R: 'static,
         H: for<'a> Fn(&R, Self::Generic<'a>) + 'static;
 
+    #[allow(dead_code)]
     fn handle2<R, F, H>(tl: &Rc<ToolClient>, id: impl Into<ObjectId>, r: R, h: H)
     where
         R: 'static,

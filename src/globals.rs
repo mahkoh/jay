@@ -116,7 +116,6 @@ pub trait GlobalBase {
 pub trait Global: GlobalBase {
     fn singleton(&self) -> bool;
     fn version(&self) -> u32;
-    fn break_loops(&self) {}
     fn required_caps(&self) -> ClientCaps {
         ClientCaps::none()
     }

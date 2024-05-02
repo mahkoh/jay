@@ -50,10 +50,6 @@ impl DynDataOffer for ZwpPrimarySelectionOfferV1 {
         ZwpPrimarySelectionOfferV1::send_offer(self, mime_type);
     }
 
-    fn destroy(&self) {
-        destroy_data_offer::<PrimarySelectionIpc>(self);
-    }
-
     fn cancel(&self) {
         cancel_offer::<PrimarySelectionIpc>(self);
     }

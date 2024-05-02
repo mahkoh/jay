@@ -586,8 +586,6 @@ impl Node for FloatNode {
 }
 
 impl ContainingNode for FloatNode {
-    containing_node_impl!();
-
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
         self.discard_child_properties();
         self.child.set(Some(new.clone()));
