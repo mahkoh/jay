@@ -67,8 +67,8 @@ use {
         state::{DeviceHandlerData, State},
         time::now_usec,
         tree::{
-            generic_node_visitor, ContainerNode, ContainerSplit, Direction, FloatNode, FoundNode,
-            Node, OutputNode, ToplevelNode, WorkspaceNode,
+            generic_node_visitor, ContainerNode, ContainerSplit, Direction, FoundNode, Node,
+            OutputNode, ToplevelNode, WorkspaceNode,
         },
         utils::{
             asyncevent::AsyncEvent, bindings::PerClientBindings, clonecell::CloneCell,
@@ -140,9 +140,6 @@ pub struct WlSeatGlobal {
     name: GlobalName,
     state: Rc<State>,
     seat_name: String,
-    move_: Cell<bool>,
-    move_start_pos: Cell<(Fixed, Fixed)>,
-    extents_start_pos: Cell<(i32, i32)>,
     pos_time_usec: Cell<u64>,
     pos: Cell<(Fixed, Fixed)>,
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
@@ -220,9 +217,6 @@ impl WlSeatGlobal {
             name,
             state: state.clone(),
             seat_name: seat_name.to_string(),
-            move_: Cell::new(false),
-            move_start_pos: Cell::new((Fixed(0), Fixed(0))),
-            extents_start_pos: Cell::new((0, 0)),
             pos_time_usec: Cell::new(0),
             pos: Cell::new((Fixed(0), Fixed(0))),
             pointer_stack: RefCell::new(vec![]),
@@ -1233,10 +1227,6 @@ impl WlSeat {
             self_id: self.id,
             name,
         })
-    }
-
-    pub fn move_(&self, node: &Rc<FloatNode>) {
-        self.global.move_(node);
     }
 
     pub fn keymap_fd(&self, state: &KeyboardState) -> Result<Rc<OwnedFd>, WlKeyboardError> {

@@ -260,13 +260,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         Ok(())
     }
 
-    fn move_(&self, req: Move, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let seat = self.xdg.surface.client.lookup(req.seat)?;
-        if let Some(parent) = self.toplevel_data.parent.get() {
-            if let Some(float) = parent.node_into_float() {
-                seat.move_(&float);
-            }
-        }
+    fn move_(&self, _req: Move, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 

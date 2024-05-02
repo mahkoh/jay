@@ -31,7 +31,7 @@ use {
         },
         object::Version,
         state::DeviceHandlerData,
-        tree::{Direction, FloatNode, Node, ToplevelNode},
+        tree::{Direction, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
@@ -629,13 +629,6 @@ impl WlSeatGlobal {
 impl WlSeatGlobal {
     pub fn pointer_node(&self) -> Option<Rc<dyn Node>> {
         self.pointer_stack.borrow().last().cloned()
-    }
-
-    pub fn move_(&self, node: &Rc<FloatNode>) {
-        self.move_.set(true);
-        self.move_start_pos.set(self.pos.get());
-        let ex = node.position.get();
-        self.extents_start_pos.set((ex.x1(), ex.y1()));
     }
 
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
