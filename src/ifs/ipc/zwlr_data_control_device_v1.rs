@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         ifs::{
             ipc::{
-                destroy_data_device,
+                break_device_loops, destroy_data_device,
                 zwlr_data_control_device_v1::private::{
                     WlrClipboardIpcCore, WlrIpcImpl, WlrPrimarySelectionIpcCore,
                 },
@@ -282,6 +282,8 @@ object_base! {
 
 impl Object for ZwlrDataControlDeviceV1 {
     fn break_loops(&self) {
+        break_device_loops::<WlrClipboardIpc>(self);
+        break_device_loops::<WlrPrimarySelectionIpc>(self);
         self.seat.remove_wlr_device(self);
     }
 }
