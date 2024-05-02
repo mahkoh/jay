@@ -12,6 +12,11 @@ pub struct OnChange<T> {
 }
 
 impl<T> OnChange<T> {
+    pub fn clear(&self) {
+        self.on_change.take();
+        self.events.take();
+    }
+
     pub fn send_event(&self, event: T) {
         self.events.push(event);
         if let Some(cb) = self.on_change.get() {

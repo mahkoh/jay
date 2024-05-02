@@ -34,7 +34,8 @@
     clippy::uninlined_format_args,
     clippy::manual_is_ascii_check,
     clippy::needless_borrow,
-    clippy::unnecessary_cast
+    clippy::unnecessary_cast,
+    clippy::manual_flatten
 )]
 
 #[macro_use]
