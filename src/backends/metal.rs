@@ -9,7 +9,9 @@ use {
             Backend, InputDevice, InputDeviceAccelProfile, InputDeviceCapability, InputDeviceId,
             InputEvent, KeyState, TransformMatrix,
         },
-        backends::metal::video::{MetalDrmDeviceData, MetalRenderContext, PendingDrmDevice},
+        backends::metal::video::{
+            MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
+        },
         dbus::{DbusError, SignalHandler},
         drm_feedback::DrmFeedback,
         gfx_api::GfxError,
@@ -163,6 +165,53 @@ impl Backend for MetalBackend {
             slf.run().await?;
             Ok(())
         })
+    }
+
+    fn clear(&self) {
+        self.pause_handler.take();
+        self.resume_handler.take();
+        self.ctx.take();
+        self.device_holder.devices.clear();
+        for dev in self.device_holder.input_devices.take() {
+            if let Some(dev) = dev {
+                dev.inputdev.take();
+                dev.events.take();
+                dev.cb.take();
+            }
+        }
+        for (_, dev) in self.device_holder.drm_devices.lock().drain() {
+            dev.futures.clear();
+            for crtc in dev.dev.crtcs.values() {
+                crtc.connector.take();
+            }
+            dev.dev.handle_events.handle_events.take();
+            dev.dev.on_change.clear();
+            let clear_lease = |lease: &mut MetalLeaseData| {
+                lease.connectors.clear();
+                lease.crtcs.clear();
+                lease.planes.clear();
+            };
+            for (_, mut lease) in dev.dev.leases.lock().drain() {
+                clear_lease(&mut lease);
+            }
+            for (_, mut lease) in dev.dev.leases_to_break.lock().drain() {
+                clear_lease(&mut lease);
+            }
+            for (_, connector) in dev.connectors.lock().drain() {
+                {
+                    let d = &mut *connector.display.borrow_mut();
+                    d.crtcs.clear();
+                }
+                connector.primary_plane.take();
+                connector.cursor_plane.take();
+                connector.crtc.take();
+                connector.on_change.clear();
+                connector.present_trigger.clear();
+                connector.render_result.take();
+                connector.active_framebuffer.take();
+                connector.next_framebuffer.take();
+            }
+        }
     }
 
     fn into_any(self: Rc<Self>) -> Rc<dyn Any> {

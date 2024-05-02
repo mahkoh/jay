@@ -722,7 +722,7 @@ impl State {
             forker.clear();
         }
         self.acceptor.set(None);
-        self.backend.set(Rc::new(DummyBackend));
+        self.backend.set(Rc::new(DummyBackend)).clear();
         self.run_toplevel.clear();
         self.xwayland.handler.borrow_mut().take();
         self.xwayland.queue.clear();
@@ -730,6 +730,7 @@ impl State {
         self.idle.change.clear();
         for (_, drm_dev) in self.drm_devs.lock().drain() {
             drm_dev.handler.take();
+            drm_dev.connectors.clear();
         }
         for (_, connector) in self.connectors.lock().drain() {
             connector.handler.take();

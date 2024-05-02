@@ -323,12 +323,12 @@ impl ConnectorDisplayData {
 linear_ids!(MetalLeaseIds, MetalLeaseId, u64);
 
 pub struct MetalLeaseData {
-    lease: DrmLease,
-    _lessee: Rc<dyn BackendDrmLessee>,
-    connectors: Vec<Rc<MetalConnector>>,
-    crtcs: Vec<Rc<MetalCrtc>>,
-    planes: Vec<Rc<MetalPlane>>,
-    revoked: Cell<bool>,
+    pub lease: DrmLease,
+    pub _lessee: Rc<dyn BackendDrmLessee>,
+    pub connectors: Vec<Rc<MetalConnector>>,
+    pub crtcs: Vec<Rc<MetalCrtc>>,
+    pub planes: Vec<Rc<MetalPlane>>,
+    pub revoked: Cell<bool>,
 }
 
 impl MetalLeaseData {

@@ -264,7 +264,15 @@ impl Drop for Wm {
             if let Some(window) = window.window.take() {
                 window.break_loops();
             }
+            window.children.clear();
+            window.parent.take();
+            window.stack_link.take();
+            window.map_link.take();
         }
+        self.windows_by_surface_id.clear();
+        self.windows_by_surface_serial.clear();
+        self.focus_window.take();
+        self.known_seats.clear();
     }
 }
 
