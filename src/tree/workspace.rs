@@ -291,8 +291,6 @@ impl Node for WorkspaceNode {
 }
 
 impl ContainingNode for WorkspaceNode {
-    containing_node_impl!();
-
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
         if let Some(container) = self.container.get() {
             if container.node_id() == old.node_id() {

@@ -222,8 +222,6 @@ pub enum ResetStatus {
 }
 
 pub trait GfxFramebuffer: Debug {
-    fn as_any(&self) -> &dyn Any;
-
     fn take_render_ops(&self) -> Vec<GfxApiOpt>;
 
     fn physical_size(&self) -> (i32, i32);

@@ -28,11 +28,6 @@ pub struct VulkanFormat {
 }
 
 #[derive(Debug)]
-pub struct VulkanFormatFeatures {
-    pub linear_sampling: bool,
-}
-
-#[derive(Debug)]
 pub struct VulkanModifier {
     pub modifier: Modifier,
     pub planes: usize,

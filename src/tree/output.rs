@@ -912,14 +912,6 @@ impl Node for OutputNode {
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         self.pointer_move(seat, x.round_down(), y.round_down());
     }
-
-    fn node_into_output(self: Rc<Self>) -> Option<Rc<OutputNode>> {
-        Some(self.clone())
-    }
-
-    fn node_is_output(&self) -> bool {
-        true
-    }
 }
 
 pub fn calculate_logical_size(

@@ -15,7 +15,6 @@ use {
         theme::Color,
     },
     std::{
-        any::Any,
         cell::Cell,
         fmt::{Debug, Formatter},
         mem,
@@ -100,10 +99,6 @@ impl Framebuffer {
 }
 
 impl GfxFramebuffer for Framebuffer {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn take_render_ops(&self) -> Vec<GfxApiOpt> {
         mem::take(&mut *self.ctx.gfx_ops.borrow_mut())
     }

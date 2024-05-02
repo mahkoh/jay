@@ -358,10 +358,6 @@ pub trait Node: 'static {
         None
     }
 
-    fn node_into_output(self: Rc<Self>) -> Option<Rc<OutputNode>> {
-        None
-    }
-
     fn node_into_surface(self: Rc<Self>) -> Option<Rc<WlSurface>> {
         None
     }
@@ -377,10 +373,6 @@ pub trait Node: 'static {
     // TYPE CHECKERS
 
     fn node_is_container(&self) -> bool {
-        false
-    }
-
-    fn node_is_output(&self) -> bool {
         false
     }
 

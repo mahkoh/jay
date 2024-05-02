@@ -241,10 +241,6 @@ impl Global for WlOutputGlobal {
     fn version(&self) -> u32 {
         OUTPUT_VERSION
     }
-
-    fn break_loops(&self) {
-        self.bindings.borrow_mut().clear();
-    }
 }
 
 dedicated_add_global!(WlOutputGlobal, outputs);

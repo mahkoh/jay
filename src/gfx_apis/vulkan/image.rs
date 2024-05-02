@@ -516,10 +516,6 @@ impl Debug for VulkanImage {
 }
 
 impl GfxFramebuffer for VulkanImage {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn take_render_ops(&self) -> Vec<GfxApiOpt> {
         self.render_ops.take()
     }

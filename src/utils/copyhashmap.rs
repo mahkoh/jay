@@ -41,26 +41,26 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         unsafe { self.map.get().deref_mut().insert(k, v) }
     }
 
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<V>
+    pub fn get<Q>(&self, k: &Q) -> Option<V>
     where
         V: UnsafeCellCloneSafe,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref().get(k).cloned() }
     }
 
-    pub fn remove<Q: ?Sized>(&self, k: &Q) -> Option<V>
+    pub fn remove<Q>(&self, k: &Q) -> Option<V>
     where
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref_mut().remove(k) }
     }
 
-    pub fn contains<Q: ?Sized>(&self, k: &Q) -> bool
+    pub fn contains<Q>(&self, k: &Q) -> bool
     where
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref().contains_key(k) }

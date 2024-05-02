@@ -1473,10 +1473,10 @@ fn create_connector_display_data(
         for descriptor in edid.base_block.descriptors.iter().flatten() {
             match descriptor {
                 Descriptor::DisplayProductSerialNumber(s) => {
-                    serial_number = s.clone();
+                    serial_number.clone_from(s);
                 }
                 Descriptor::DisplayProductName(s) => {
-                    name = s.clone();
+                    name.clone_from(s);
                 }
                 _ => {}
             }

@@ -801,10 +801,6 @@ unsafe impl Pod for spa_meta_cursor {}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct spa_meta_control {}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
 pub struct spa_meta_busy {
     pub flags: u32,
     pub count: u32,

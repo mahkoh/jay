@@ -101,7 +101,6 @@ pub trait DynDataOffer: 'static {
     fn offer_id(&self) -> DataOfferId;
     fn client_id(&self) -> ClientId;
     fn send_offer(&self, mime_type: &str);
-    fn destroy(&self);
     fn cancel(&self);
     fn get_seat(&self) -> Rc<WlSeatGlobal>;
 

@@ -1023,9 +1023,6 @@ impl Debug for VulkanRenderer {
     }
 }
 
-#[derive(Debug)]
-pub struct TmpShmTexture(pub i32, pub i32);
-
 impl VulkanImage {
     fn assert_device(&self, device: &Device) {
         assert_eq!(
