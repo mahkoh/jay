@@ -343,6 +343,7 @@ struct MetalInputDevice {
     state: Rc<State>,
     slot: usize,
     id: InputDeviceId,
+    fully_initialized: Cell<bool>,
     devnum: c::dev_t,
     fd: CloneCell<Option<Rc<OwnedFd>>>,
     inputdev: CloneCell<Option<Rc<RegisteredDevice>>>,
