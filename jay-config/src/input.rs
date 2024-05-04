@@ -143,6 +143,20 @@ impl InputDevice {
     pub fn on_switch_event<F: FnMut(SwitchEvent) + 'static>(self, f: F) {
         get!().on_switch_event(self, f)
     }
+
+    /// Maps this input device to a connector.
+    ///
+    /// The connector should be connected.
+    ///
+    /// This should be used for touch screens and graphics tablets.
+    pub fn set_connector(self, connector: Connector) {
+        get!().set_input_device_connector(self, connector);
+    }
+
+    /// Removes the mapping of this device to a connector.
+    pub fn remove_mapping(self) {
+        get!().remove_input_mapping(self);
+    }
 }
 
 /// A seat.
@@ -447,6 +461,11 @@ pub fn on_new_seat<F: FnMut(Seat) + 'static>(f: F) {
 /// Sets a closure to run when a new input device has been added.
 pub fn on_new_input_device<F: FnMut(InputDevice) + 'static>(f: F) {
     get!().on_new_input_device(f)
+}
+
+/// Sets a closure to run when an input device has been removed.
+pub fn on_input_device_removed<F: FnMut(InputDevice) + 'static>(f: F) {
+    get!().on_input_device_removed(f)
 }
 
 /// Sets the maximum time between two clicks to be registered as a double click by the

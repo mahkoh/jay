@@ -8,6 +8,7 @@ use {
                 action::ActionParser,
                 input_match::{InputMatchParser, InputMatchParserError},
                 keymap::KeymapParser,
+                output_match::OutputMatchParser,
             },
             Input,
         },
@@ -43,7 +44,7 @@ pub enum InputParserError {
 
 pub struct InputParser<'a> {
     pub cx: &'a Context<'a>,
-    pub tag_ok: bool,
+    pub is_inputs_array: bool,
 }
 
 impl<'a> Parser for InputParser<'a> {
@@ -77,6 +78,8 @@ impl<'a> Parser for InputParser<'a> {
                 on_lid_closed_val,
                 on_converted_to_laptop_val,
                 on_converted_to_tablet_val,
+                output_val,
+                remove_mapping,
             ),
         ) = ext.extract((
             (
@@ -98,6 +101,8 @@ impl<'a> Parser for InputParser<'a> {
                 opt(val("on-lid-closed")),
                 opt(val("on-converted-to-laptop")),
                 opt(val("on-converted-to-tablet")),
+                opt(val("output")),
+                recover(opt(bol("remove-mapping"))),
             ),
         ))?;
         let accel_profile = match accel_profile {
@@ -122,7 +127,7 @@ impl<'a> Parser for InputParser<'a> {
             },
         };
         if let Some(tag) = tag {
-            if self.tag_ok {
+            if self.is_inputs_array {
                 self.cx.used.borrow_mut().defined_inputs.insert(tag.into());
             } else {
                 log::warn!(
@@ -147,7 +152,7 @@ impl<'a> Parser for InputParser<'a> {
         let mut switch_actions = AHashMap::new();
         let mut parse_action = |val: Option<Spanned<&Value>>, name, event| {
             if let Some(val) = val {
-                if !self.tag_ok {
+                if !self.is_inputs_array {
                     log::warn!(
                         "{name} has no effect in this position: {}",
                         self.cx.error3(val.span)
@@ -176,6 +181,39 @@ impl<'a> Parser for InputParser<'a> {
             "on-converted-to-tablet",
             SwitchEvent::ConvertedToTablet,
         );
+        let mut output = None;
+        if let Some(val) = output_val {
+            match val.parse(&mut OutputMatchParser(self.cx)) {
+                Ok(v) => output = Some(Some(v)),
+                Err(e) => {
+                    log::warn!("Could not parse output: {}", self.cx.error(e));
+                }
+            }
+        }
+        if let Some(val) = remove_mapping {
+            if self.is_inputs_array {
+                log::warn!(
+                    "`remove-mapping` has no effect in this position: {}",
+                    self.cx.error3(val.span)
+                );
+            } else if !val.value {
+                log::warn!(
+                    "`remove-mapping = false` has no effect: {}",
+                    self.cx.error3(val.span)
+                );
+            } else if let Some(output) = output_val {
+                log::warn!(
+                    "Ignoring `remove-mapping = true` due to conflicting `output` field: {}",
+                    self.cx.error3(val.span)
+                );
+                log::info!(
+                    "`output` field defined here: {}",
+                    self.cx.error3(output.span)
+                );
+            } else {
+                output = Some(None);
+            }
+        }
         Ok(Input {
             tag: tag.despan_into(),
             match_: match_val.parse_map(&mut InputMatchParser(self.cx))?,
@@ -190,6 +228,7 @@ impl<'a> Parser for InputParser<'a> {
             transform_matrix,
             keymap,
             switch_actions,
+            output,
         })
     }
 }
@@ -206,7 +245,7 @@ impl<'a> Parser for InputsParser<'a> {
         for el in array {
             match el.parse(&mut InputParser {
                 cx: self.0,
-                tag_ok: true,
+                is_inputs_array: true,
             }) {
                 Ok(o) => res.push(o),
                 Err(e) => {
@@ -228,7 +267,7 @@ impl<'a> Parser for InputsParser<'a> {
         );
         InputParser {
             cx: self.0,
-            tag_ok: true,
+            is_inputs_array: true,
         }
         .parse_table(span, table)
         .map(|v| vec![v])

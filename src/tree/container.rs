@@ -2,10 +2,13 @@ use {
     crate::{
         backend::KeyState,
         cursor::KnownCursor,
+        cursor_user::CursorUser,
         fixed::Fixed,
         ifs::wl_seat::{
-            collect_kb_foci, collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId,
-            WlSeatGlobal, BTN_LEFT,
+            collect_kb_foci, collect_kb_foci2,
+            tablet::{TabletTool, TabletToolChanges, TabletToolId},
+            wl_pointer::PendingScroll,
+            NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT,
         },
         rect::Rect,
         renderer::Renderer,
@@ -112,7 +115,7 @@ pub struct ContainerNode {
     focus_history: LinkedList<NodeRef<ContainerChild>>,
     child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
     workspace: CloneCell<Rc<WorkspaceNode>>,
-    seats: RefCell<AHashMap<SeatId, SeatState>>,
+    cursors: RefCell<AHashMap<CursorType, CursorState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
     scroller: Scroller,
@@ -141,7 +144,13 @@ pub struct ContainerChild {
     factor: Cell<f64>,
 }
 
-struct SeatState {
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+enum CursorType {
+    Seat(SeatId),
+    TabletTool(TabletToolId),
+}
+
+struct CursorState {
     cursor: KnownCursor,
     target: bool,
     x: i32,
@@ -210,7 +219,7 @@ impl ContainerNode {
             focus_history: Default::default(),
             child_nodes: RefCell::new(child_nodes),
             workspace: CloneCell::new(workspace.clone()),
-            seats: RefCell::new(Default::default()),
+            cursors: RefCell::new(Default::default()),
             state: state.clone(),
             render_data: Default::default(),
             scroller: Default::default(),
@@ -328,7 +337,7 @@ impl ContainerNode {
     }
 
     fn cancel_seat_ops(&self) {
-        let mut seats = self.seats.borrow_mut();
+        let mut seats = self.cursors.borrow_mut();
         for seat in seats.values_mut() {
             seat.op = None;
         }
@@ -514,12 +523,21 @@ impl ContainerNode {
         );
     }
 
-    fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, mut x: i32, mut y: i32) {
+    fn pointer_move(
+        self: &Rc<Self>,
+        id: CursorType,
+        cursor: &CursorUser,
+        x: Fixed,
+        y: Fixed,
+        target: bool,
+    ) {
+        let mut x = x.round_down();
+        let mut y = y.round_down();
         let title_height = self.state.theme.sizes.title_height.get();
-        let mut seats = self.seats.borrow_mut();
-        let seat_state = seats.entry(seat.id()).or_insert_with(|| SeatState {
+        let mut seats = self.cursors.borrow_mut();
+        let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
-            target: false,
+            target,
             x,
             y,
             op: None,
@@ -601,7 +619,7 @@ impl ContainerNode {
         };
         if new_cursor != mem::replace(&mut seat_state.cursor, new_cursor) {
             if seat_state.target {
-                seat.set_known_cursor(new_cursor);
+                cursor.set_known(new_cursor);
             }
         }
     }
@@ -1036,6 +1054,80 @@ impl ContainerNode {
             }
         }
     }
+
+    fn button(
+        self: Rc<Self>,
+        id: CursorType,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        pressed: bool,
+    ) {
+        let mut seat_datas = self.cursors.borrow_mut();
+        let seat_data = match seat_datas.get_mut(&id) {
+            Some(s) => s,
+            _ => return,
+        };
+        if seat_data.op.is_none() {
+            if !pressed {
+                return;
+            }
+            let (kind, child) = 'res: {
+                let mono = self.mono_child.is_some();
+                for child in self.children.iter() {
+                    let rect = child.title_rect.get();
+                    if rect.contains(seat_data.x, seat_data.y) {
+                        self.activate_child(&child);
+                        child
+                            .node
+                            .clone()
+                            .node_do_focus(seat, Direction::Unspecified);
+                        break 'res (SeatOpKind::Move, child);
+                    } else if !mono {
+                        if self.split.get() == ContainerSplit::Horizontal {
+                            if seat_data.x < rect.x1() {
+                                break 'res (
+                                    SeatOpKind::Resize {
+                                        dist_left: seat_data.x
+                                            - child.prev().unwrap().body.get().x2(),
+                                        dist_right: child.body.get().x1() - seat_data.x,
+                                    },
+                                    child,
+                                );
+                            }
+                        } else {
+                            if seat_data.y < rect.y1() {
+                                break 'res (
+                                    SeatOpKind::Resize {
+                                        dist_left: seat_data.y
+                                            - child.prev().unwrap().body.get().y2(),
+                                        dist_right: child.body.get().y1() - seat_data.y,
+                                    },
+                                    child,
+                                );
+                            }
+                        }
+                    }
+                }
+                return;
+            };
+            if seat_data
+                .double_click_state
+                .click(&self.state, time_usec, seat_data.x, seat_data.y)
+                && kind == SeatOpKind::Move
+            {
+                drop(seat_datas);
+                seat.set_tl_floating(child.node.clone(), true);
+                return;
+            }
+            seat_data.op = Some(SeatOp { child, kind })
+        } else if !pressed {
+            let op = seat_data.op.take().unwrap();
+            drop(seat_datas);
+            if op.kind == SeatOpKind::Move {
+                // todo
+            }
+        }
+    }
 }
 
 struct SeatOp {
@@ -1194,76 +1286,14 @@ impl Node for ContainerNode {
         if button != BTN_LEFT {
             return;
         }
-        let mut seat_datas = self.seats.borrow_mut();
-        let seat_data = match seat_datas.get_mut(&seat.id()) {
-            Some(s) => s,
-            _ => return,
-        };
-        if seat_data.op.is_none() {
-            if state != KeyState::Pressed {
-                return;
-            }
-            let (kind, child) = 'res: {
-                let mono = self.mono_child.is_some();
-                for child in self.children.iter() {
-                    let rect = child.title_rect.get();
-                    if rect.contains(seat_data.x, seat_data.y) {
-                        self.activate_child(&child);
-                        child
-                            .node
-                            .clone()
-                            .node_do_focus(seat, Direction::Unspecified);
-                        break 'res (SeatOpKind::Move, child);
-                    } else if !mono {
-                        if self.split.get() == ContainerSplit::Horizontal {
-                            if seat_data.x < rect.x1() {
-                                break 'res (
-                                    SeatOpKind::Resize {
-                                        dist_left: seat_data.x
-                                            - child.prev().unwrap().body.get().x2(),
-                                        dist_right: child.body.get().x1() - seat_data.x,
-                                    },
-                                    child,
-                                );
-                            }
-                        } else {
-                            if seat_data.y < rect.y1() {
-                                break 'res (
-                                    SeatOpKind::Resize {
-                                        dist_left: seat_data.y
-                                            - child.prev().unwrap().body.get().y2(),
-                                        dist_right: child.body.get().y1() - seat_data.y,
-                                    },
-                                    child,
-                                );
-                            }
-                        }
-                    }
-                }
-                return;
-            };
-            if seat_data
-                .double_click_state
-                .click(&self.state, time_usec, seat_data.x, seat_data.y)
-                && kind == SeatOpKind::Move
-            {
-                drop(seat_datas);
-                seat.set_tl_floating(child.node.clone(), true);
-                return;
-            }
-            seat_data.op = Some(SeatOp { child, kind })
-        } else if state == KeyState::Released {
-            let op = seat_data.op.take().unwrap();
-            drop(seat_datas);
-            if op.kind == SeatOpKind::Move {
-                // todo
-            }
-        }
+        let id = CursorType::Seat(seat.id());
+        self.button(id, seat, time_usec, state == KeyState::Pressed);
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
-        let mut seat_datas = self.seats.borrow_mut();
-        let seat_data = match seat_datas.get_mut(&seat.id()) {
+        let mut seat_datas = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        let seat_data = match seat_datas.get_mut(&id) {
             Some(s) => s,
             _ => return,
         };
@@ -1299,29 +1329,76 @@ impl Node for ContainerNode {
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         // log::info!("node_on_pointer_enter");
-        self.pointer_move(seat, x.round_down(), y.round_down());
+        self.pointer_move(
+            CursorType::Seat(seat.id()),
+            seat.pointer_cursor(),
+            x,
+            y,
+            false,
+        );
     }
 
     fn node_on_pointer_unfocus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("unfocus");
-        let mut seats = self.seats.borrow_mut();
-        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+        let mut seats = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        if let Some(seat_state) = seats.get_mut(&id) {
             seat_state.target = false;
         }
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("container focus");
-        let mut seats = self.seats.borrow_mut();
-        if let Some(seat_state) = seats.get_mut(&seat.id()) {
+        let mut seats = self.cursors.borrow_mut();
+        let id = CursorType::Seat(seat.id());
+        if let Some(seat_state) = seats.get_mut(&id) {
             seat_state.target = true;
-            seat.set_known_cursor(seat_state.cursor);
+            seat.pointer_cursor().set_known(seat_state.cursor);
         }
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
         // log::info!("node_on_pointer_motion");
-        self.pointer_move(seat, x.round_down(), y.round_down());
+        self.pointer_move(
+            CursorType::Seat(seat.id()),
+            seat.pointer_cursor(),
+            x,
+            y,
+            false,
+        );
+    }
+
+    fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, _time_usec: u64) {
+        let id = CursorType::TabletTool(tool.id);
+        self.cursors.borrow_mut().remove(&id);
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default);
+        self.pointer_move(CursorType::TabletTool(tool.id), tool.cursor(), x, y, true);
+    }
+
+    fn node_on_tablet_tool_apply_changes(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        time_usec: u64,
+        changes: Option<&TabletToolChanges>,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let id = CursorType::TabletTool(tool.id);
+        self.pointer_move(id, tool.cursor(), x, y, false);
+        if let Some(changes) = changes {
+            if let Some(pressed) = changes.down {
+                self.button(id, tool.seat(), time_usec, pressed);
+            }
+        }
     }
 
     fn node_into_container(self: Rc<Self>) -> Option<Rc<ContainerNode>> {
@@ -1332,12 +1409,12 @@ impl Node for ContainerNode {
         Some(self)
     }
 
-    fn node_is_container(&self) -> bool {
-        true
-    }
-
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
+    }
+
+    fn node_is_container(&self) -> bool {
+        true
     }
 }
 
@@ -1534,7 +1611,7 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_destroy_impl(&self) {
-        mem::take(self.seats.borrow_mut().deref_mut());
+        mem::take(self.cursors.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
         for (_, n) in cn.drain() {
             n.node.tl_destroy();

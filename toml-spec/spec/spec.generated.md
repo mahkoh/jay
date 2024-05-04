@@ -1685,6 +1685,42 @@ The table has the following fields:
 
   The value of this field should be a [Action](#types-Action).
 
+- `output` (optional):
+
+  Maps this input device to an output.
+  
+  This is used to map touch screen and graphics tablets to outputs.
+  
+  - Example:
+  
+    ```toml
+    [[inputs]]
+    match.name = "Wacom Bamboo Comic 2FG Pen"
+    output.connector = "DP-1"
+    ```
+
+  The value of this field should be a [OutputMatch](#types-OutputMatch).
+
+- `remove-mapping` (optional):
+
+  Removes the mapping of from this device to an output.
+  
+  This should only be used within `configure-input` actions.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "configure-input", input = { match.tag = "wacom", remove-mapping = true } }
+  
+    [[inputs]]
+    tag = "wacom"
+    match.name = "Wacom Bamboo Comic 2FG Pen"
+    output.connector = "DP-1"
+    ```
+
+  The value of this field should be a boolean.
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`

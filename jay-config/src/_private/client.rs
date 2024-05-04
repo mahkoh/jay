@@ -88,7 +88,9 @@ pub(crate) struct Client {
     response: RefCell<Vec<Response>>,
     on_new_seat: RefCell<Option<Callback<Seat>>>,
     on_new_input_device: RefCell<Option<Callback<InputDevice>>>,
+    on_input_device_removed: RefCell<Option<Callback<InputDevice>>>,
     on_connector_connected: RefCell<Option<Callback<Connector>>>,
+    on_connector_disconnected: RefCell<Option<Callback<Connector>>>,
     on_graphics_initialized: Cell<Option<Box<dyn FnOnce()>>>,
     on_devices_enumerated: Cell<Option<Box<dyn FnOnce()>>>,
     on_new_connector: RefCell<Option<Callback<Connector>>>,
@@ -216,7 +218,9 @@ pub unsafe extern "C" fn init(
         response: Default::default(),
         on_new_seat: Default::default(),
         on_new_input_device: Default::default(),
+        on_input_device_removed: Default::default(),
         on_connector_connected: Default::default(),
+        on_connector_disconnected: Default::default(),
         on_graphics_initialized: Default::default(),
         on_devices_enumerated: Default::default(),
         on_new_connector: Default::default(),
@@ -605,6 +609,10 @@ impl Client {
         *self.on_new_input_device.borrow_mut() = Some(cb(f));
     }
 
+    pub fn on_input_device_removed<F: FnMut(InputDevice) + 'static>(&self, f: F) {
+        *self.on_input_device_removed.borrow_mut() = Some(cb(f));
+    }
+
     pub fn on_switch_event<F: FnMut(SwitchEvent) + 'static>(
         &self,
         input_device: InputDevice,
@@ -818,6 +826,10 @@ impl Client {
         *self.on_connector_connected.borrow_mut() = Some(cb(f));
     }
 
+    pub fn on_connector_disconnected<F: FnMut(Connector) + 'static>(&self, f: F) {
+        *self.on_connector_disconnected.borrow_mut() = Some(cb(f));
+    }
+
     pub fn on_graphics_initialized<F: FnOnce() + 'static>(&self, f: F) {
         self.on_graphics_initialized.set(Some(Box::new(f)));
     }
@@ -941,6 +953,17 @@ impl Client {
 
     pub fn set_focus_follows_mouse_mode(&self, seat: Seat, mode: FocusFollowsMouseMode) {
         self.send(&ClientMessage::SetFocusFollowsMouseMode { seat, mode })
+    }
+
+    pub fn set_input_device_connector(&self, input_device: InputDevice, connector: Connector) {
+        self.send(&ClientMessage::SetInputDeviceConnector {
+            input_device,
+            connector,
+        })
+    }
+
+    pub fn remove_input_mapping(&self, input_device: InputDevice) {
+        self.send(&ClientMessage::RemoveInputMapping { input_device })
     }
 
     pub fn parse_keymap(&self, keymap: &str) -> Keymap {
@@ -1272,6 +1295,10 @@ impl Client {
             }
             ServerMessage::DelInputDevice { device } => {
                 self.on_switch_event.borrow_mut().remove(&device);
+                let handler = self.on_input_device_removed.borrow_mut().clone();
+                if let Some(handler) = handler {
+                    run_cb("input device removed", &handler, device);
+                }
             }
             ServerMessage::ConnectorConnect { device } => {
                 let handler = self.on_connector_connected.borrow_mut().clone();
@@ -1279,7 +1306,12 @@ impl Client {
                     run_cb("connector connected", &handler, device);
                 }
             }
-            ServerMessage::ConnectorDisconnect { .. } => {}
+            ServerMessage::ConnectorDisconnect { device } => {
+                let handler = self.on_connector_disconnected.borrow_mut().clone();
+                if let Some(handler) = handler {
+                    run_cb("connector disconnected", &handler, device);
+                }
+            }
             ServerMessage::NewConnector { device } => {
                 let handler = self.on_new_connector.borrow_mut().clone();
                 if let Some(handler) = handler {

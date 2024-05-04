@@ -246,6 +246,7 @@ pub struct Input {
     pub transform_matrix: Option<[[f64; 2]; 2]>,
     pub keymap: Option<ConfigKeymap>,
     pub switch_actions: AHashMap<SwitchEvent, Action>,
+    pub output: Option<Option<OutputMatch>>,
 }
 
 #[derive(Debug, Clone)]

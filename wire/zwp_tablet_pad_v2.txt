@@ -1,0 +1,43 @@
+request set_feedback {
+    button: u32,
+    description: str,
+    serial: u32,
+}
+
+request destroy {
+}
+
+event group {
+    pad_group: id(zwp_tablet_pad_group_v2),
+}
+
+event path {
+    path: str,
+}
+
+event buttons {
+    buttons: u32,
+}
+
+event done {
+}
+
+event button {
+    time: u32,
+    button: u32,
+    state: u32,
+}
+
+event enter {
+    serial: u32,
+    tablet: id(zwp_tablet_v2),
+    surface: id(wl_surface),
+}
+
+event leave {
+    serial: u32,
+    surface: id(wl_surface),
+}
+
+event removed {
+}

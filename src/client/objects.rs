@@ -15,7 +15,7 @@ use {
             wl_output::WlOutput,
             wl_region::WlRegion,
             wl_registry::WlRegistry,
-            wl_seat::{wl_pointer::WlPointer, WlSeat},
+            wl_seat::{tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer, WlSeat},
             wl_surface::{
                 xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
@@ -35,7 +35,7 @@ use {
             WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
             WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId,
             XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
-            ZwpPrimarySelectionSourceV1Id,
+            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, mem, rc::Rc},
@@ -65,6 +65,7 @@ pub struct Objects {
     pub zwlr_data_sources: CopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
     pub jay_toplevels: CopyHashMap<JayToplevelId, Rc<JayToplevel>>,
     pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
+    pub tablet_tools: CopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -96,6 +97,7 @@ impl Objects {
             zwlr_data_sources: Default::default(),
             jay_toplevels: Default::default(),
             drm_lease_outputs: Default::default(),
+            tablet_tools: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -131,6 +133,7 @@ impl Objects {
         self.zwlr_data_sources.clear();
         self.jay_toplevels.clear();
         self.drm_lease_outputs.clear();
+        self.tablet_tools.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

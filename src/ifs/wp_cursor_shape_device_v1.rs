@@ -2,7 +2,7 @@ use {
     crate::{
         client::{Client, ClientError},
         cursor::KnownCursor,
-        ifs::wl_seat::WlSeatGlobal,
+        ifs::wl_seat::{tablet::TabletToolOpt, WlSeatGlobal},
         leaks::Tracker,
         object::{Object, Version},
         wire::{wp_cursor_shape_device_v1::*, WpCursorShapeDeviceV1Id},
@@ -46,10 +46,15 @@ const ALL_SCROLL: u32 = 32;
 const ZOOM_IN: u32 = 33;
 const ZOOM_OUT: u32 = 34;
 
+pub enum CursorShapeCursorUser {
+    Seat(Rc<WlSeatGlobal>),
+    TabletTool(Rc<TabletToolOpt>),
+}
+
 pub struct WpCursorShapeDeviceV1 {
     pub id: WpCursorShapeDeviceV1Id,
     pub client: Rc<Client>,
-    pub seat: Rc<WlSeatGlobal>,
+    pub cursor_user: CursorShapeCursorUser,
     pub tracker: Tracker<Self>,
     pub version: Version,
 }
@@ -100,14 +105,24 @@ impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
             ZOOM_OUT => KnownCursor::ZoomOut,
             _ => return Err(WpCursorShapeDeviceV1Error::UnknownShape(req.shape)),
         };
-        let pointer_node = match self.seat.pointer_node() {
-            Some(n) => n,
-            _ => return Ok(()),
+        let tablet_tool;
+        let (node_client_id, user) = match &self.cursor_user {
+            CursorShapeCursorUser::Seat(s) => match s.pointer_node() {
+                Some(n) => (n.node_client_id(), s.pointer_cursor()),
+                _ => return Ok(()),
+            },
+            CursorShapeCursorUser::TabletTool(t) => match t.get() {
+                Some(t) => {
+                    tablet_tool = t;
+                    (tablet_tool.node().node_client_id(), tablet_tool.cursor())
+                }
+                _ => return Ok(()),
+            },
         };
-        if pointer_node.node_client_id() != Some(self.client.id) {
+        if node_client_id != Some(self.client.id) {
             return Ok(());
         }
-        self.seat.set_known_cursor(cursor);
+        user.set_known(cursor);
         Ok(())
     }
 }

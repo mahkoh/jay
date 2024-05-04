@@ -3,14 +3,25 @@ use {
         backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
         backends::metal::MetalBackend,
         fixed::Fixed,
+        ifs::wl_seat::tablet::{
+            PadButtonState, TabletRingEventSource, TabletStripEventSource, TabletTool2dChange,
+            TabletToolCapability, TabletToolChanges, TabletToolId, TabletToolInit,
+            TabletToolPositionChange, TabletToolType, TabletToolWheelChange, ToolButtonState,
+        },
         libinput::{
             consts::{
-                LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_KEY_STATE_PRESSED,
-                LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL, LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL,
-                LIBINPUT_SWITCH_LID, LIBINPUT_SWITCH_STATE_OFF, LIBINPUT_SWITCH_STATE_ON,
-                LIBINPUT_SWITCH_TABLET_MODE,
+                LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_BUTTON_STATE_RELEASED,
+                LIBINPUT_KEY_STATE_PRESSED, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL,
+                LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL, LIBINPUT_SWITCH_LID,
+                LIBINPUT_SWITCH_STATE_OFF, LIBINPUT_SWITCH_STATE_ON, LIBINPUT_SWITCH_TABLET_MODE,
+                LIBINPUT_TABLET_PAD_RING_SOURCE_FINGER, LIBINPUT_TABLET_PAD_STRIP_SOURCE_FINGER,
+                LIBINPUT_TABLET_TOOL_PROXIMITY_STATE_IN, LIBINPUT_TABLET_TOOL_TIP_DOWN,
+                LIBINPUT_TABLET_TOOL_TIP_UP, LIBINPUT_TABLET_TOOL_TYPE_AIRBRUSH,
+                LIBINPUT_TABLET_TOOL_TYPE_BRUSH, LIBINPUT_TABLET_TOOL_TYPE_ERASER,
+                LIBINPUT_TABLET_TOOL_TYPE_LENS, LIBINPUT_TABLET_TOOL_TYPE_MOUSE,
+                LIBINPUT_TABLET_TOOL_TYPE_PEN, LIBINPUT_TABLET_TOOL_TYPE_PENCIL,
             },
-            event::LibInputEvent,
+            event::{LibInputEvent, LibInputEventTabletTool},
         },
         utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt},
     },
@@ -103,6 +114,13 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_GESTURE_HOLD_BEGIN => self.handle_gesture_hold_begin(event),
             c::LIBINPUT_EVENT_GESTURE_HOLD_END => self.handle_gesture_hold_end(event),
             c::LIBINPUT_EVENT_SWITCH_TOGGLE => self.handle_switch_toggle(event),
+            c::LIBINPUT_EVENT_TABLET_TOOL_PROXIMITY => self.handle_tablet_tool_proximity(event),
+            c::LIBINPUT_EVENT_TABLET_TOOL_AXIS => self.handle_tablet_tool_axis(event),
+            c::LIBINPUT_EVENT_TABLET_TOOL_BUTTON => self.handle_tablet_tool_button(event),
+            c::LIBINPUT_EVENT_TABLET_TOOL_TIP => self.handle_tablet_tool_tip(event),
+            c::LIBINPUT_EVENT_TABLET_PAD_BUTTON => self.handle_tablet_pad_button(event),
+            c::LIBINPUT_EVENT_TABLET_PAD_RING => self.handle_tablet_pad_ring(event),
+            c::LIBINPUT_EVENT_TABLET_PAD_STRIP => self.handle_tablet_pad_strip(event),
             _ => {}
         }
     }
@@ -318,6 +336,213 @@ impl MetalBackend {
         dev.event(InputEvent::SwitchEvent {
             time_usec: event.time_usec(),
             event: switch_event,
+        });
+    }
+
+    fn get_tool_id(&self, event: &LibInputEventTabletTool) -> TabletToolId {
+        let tool = event.tool();
+        let mut user_data = tool.user_data();
+        if user_data == 0 {
+            user_data = self.state.tablet_tool_ids.next().raw();
+            tool.set_user_data(user_data);
+        }
+        TabletToolId::from_raw(user_data)
+    }
+
+    fn build_tablet_tool_changed(
+        &self,
+        event: &LibInputEventTabletTool,
+        down: Option<bool>,
+    ) -> InputEvent {
+        let mut changes = Box::<TabletToolChanges>::default();
+        changes.down = down;
+        if event.x_has_changed() || event.y_has_changed() {
+            changes.pos = Some(TabletTool2dChange {
+                x: TabletToolPositionChange {
+                    x: event.x_transformed(1),
+                    dx: event.dx(),
+                },
+                y: TabletToolPositionChange {
+                    x: event.y_transformed(1),
+                    dx: event.dy(),
+                },
+            })
+        }
+        if event.pressure_has_changed() {
+            changes.pressure = Some(event.pressure());
+        }
+        if event.distance_has_changed() {
+            changes.distance = Some(event.distance());
+        }
+        if event.tilt_x_has_changed() || event.tilt_y_has_changed() {
+            changes.tilt = Some(TabletTool2dChange {
+                x: event.tilt_x(),
+                y: event.tilt_y(),
+            });
+        }
+        if event.rotation_has_changed() {
+            changes.rotation = Some(event.rotation());
+        }
+        if event.slider_has_changed() {
+            changes.slider = Some(event.slider_position());
+        }
+        if event.wheel_has_changed() {
+            changes.wheel = Some(TabletToolWheelChange {
+                degrees: event.wheel_delta(),
+                clicks: event.wheel_delta_discrete(),
+            });
+        }
+        InputEvent::TabletToolChanged {
+            time_usec: event.time_usec(),
+            id: self.get_tool_id(event),
+            changes,
+        }
+    }
+
+    fn handle_tablet_tool_proximity(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_tool_event);
+        let id = self.get_tool_id(&event);
+        if event.proximity_state() == LIBINPUT_TABLET_TOOL_PROXIMITY_STATE_IN {
+            let Some(tablet_id) = dev.tablet_id.get() else {
+                return;
+            };
+            let tool = event.tool();
+            dev.event(InputEvent::TabletToolAdded {
+                time_usec: event.time_usec(),
+                init: Box::new(TabletToolInit {
+                    tablet_id,
+                    id,
+                    type_: match tool.type_() {
+                        LIBINPUT_TABLET_TOOL_TYPE_PEN => TabletToolType::Pen,
+                        LIBINPUT_TABLET_TOOL_TYPE_ERASER => TabletToolType::Eraser,
+                        LIBINPUT_TABLET_TOOL_TYPE_BRUSH => TabletToolType::Brush,
+                        LIBINPUT_TABLET_TOOL_TYPE_PENCIL => TabletToolType::Pencil,
+                        LIBINPUT_TABLET_TOOL_TYPE_AIRBRUSH => TabletToolType::Airbrush,
+                        LIBINPUT_TABLET_TOOL_TYPE_MOUSE => TabletToolType::Mouse,
+                        LIBINPUT_TABLET_TOOL_TYPE_LENS => TabletToolType::Lens,
+                        _ => return,
+                    },
+                    hardware_serial: tool.serial(),
+                    hardware_id_wacom: tool.tool_id(),
+                    capabilities: {
+                        let mut caps = vec![];
+                        macro_rules! add_cap {
+                            ($f:ident, $cap:ident) => {
+                                if tool.$f() {
+                                    caps.push(TabletToolCapability::$cap);
+                                }
+                            };
+                        }
+                        add_cap!(has_tilt, Tilt);
+                        add_cap!(has_pressure, Pressure);
+                        add_cap!(has_distance, Distance);
+                        add_cap!(has_rotation, Rotation);
+                        add_cap!(has_slider, Slider);
+                        add_cap!(has_wheel, Wheel);
+                        caps
+                    },
+                }),
+            });
+            dev.event(self.build_tablet_tool_changed(&event, None));
+        } else {
+            dev.event(InputEvent::TabletToolRemoved {
+                time_usec: event.time_usec(),
+                id,
+            });
+        }
+    }
+
+    fn handle_tablet_tool_tip(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_tool_event);
+        let down = match event.tip_state() {
+            LIBINPUT_TABLET_TOOL_TIP_UP => false,
+            LIBINPUT_TABLET_TOOL_TIP_DOWN => true,
+            _ => return,
+        };
+        dev.event(self.build_tablet_tool_changed(&event, Some(down)));
+    }
+
+    fn handle_tablet_tool_axis(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_tool_event);
+        dev.event(self.build_tablet_tool_changed(&event, None));
+    }
+
+    fn handle_tablet_tool_button(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_tool_event);
+        dev.event(InputEvent::TabletToolButton {
+            time_usec: event.time_usec(),
+            id: self.get_tool_id(&event),
+            button: event.button(),
+            state: match event.button_state() {
+                LIBINPUT_BUTTON_STATE_RELEASED => ToolButtonState::Released,
+                LIBINPUT_BUTTON_STATE_PRESSED => ToolButtonState::Pressed,
+                _ => return,
+            },
+        });
+    }
+
+    fn handle_tablet_pad_button(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_pad_event);
+        let id = match dev.tablet_pad_id.get() {
+            None => return,
+            Some(id) => id,
+        };
+        let state = match event.button_state() {
+            LIBINPUT_BUTTON_STATE_RELEASED => PadButtonState::Released,
+            LIBINPUT_BUTTON_STATE_PRESSED => PadButtonState::Pressed,
+            _ => return,
+        };
+        dev.event(InputEvent::TabletPadModeSwitch {
+            time_usec: event.time_usec(),
+            pad: id,
+            group: event.mode_group().index(),
+            mode: event.mode(),
+        });
+        dev.event(InputEvent::TabletPadButton {
+            time_usec: event.time_usec(),
+            id,
+            button: event.button_number(),
+            state,
+        });
+    }
+
+    fn handle_tablet_pad_ring(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_pad_event);
+        dev.event(InputEvent::TabletPadRing {
+            time_usec: event.time_usec(),
+            pad: match dev.tablet_pad_id.get() {
+                None => return,
+                Some(id) => id,
+            },
+            ring: event.ring_number(),
+            source: match event.ring_source() {
+                LIBINPUT_TABLET_PAD_RING_SOURCE_FINGER => Some(TabletRingEventSource::Finger),
+                _ => None,
+            },
+            angle: match event.ring_position() {
+                n if n == -1.0 => None,
+                n => Some(n),
+            },
+        });
+    }
+
+    fn handle_tablet_pad_strip(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, tablet_pad_event);
+        dev.event(InputEvent::TabletPadStrip {
+            time_usec: event.time_usec(),
+            pad: match dev.tablet_pad_id.get() {
+                None => return,
+                Some(id) => id,
+            },
+            strip: event.strip_number(),
+            source: match event.strip_source() {
+                LIBINPUT_TABLET_PAD_STRIP_SOURCE_FINGER => Some(TabletStripEventSource::Finger),
+                _ => None,
+            },
+            position: match event.strip_position() {
+                n if n == -1.0 => None,
+                n => Some(n),
+            },
         });
     }
 }

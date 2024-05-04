@@ -162,7 +162,7 @@ impl ActionParser<'_> {
             .extract(val("input"))?
             .parse_map(&mut InputParser {
                 cx: self.0,
-                tag_ok: false,
+                is_inputs_array: false,
             })
             .map_spanned_err(ActionParserError::ConfigureInput)?;
         Ok(Action::ConfigureInput { input })

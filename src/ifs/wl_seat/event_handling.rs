@@ -15,6 +15,7 @@ use {
                 DynDataSource,
             },
             wl_seat::{
+                tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::{self, WlKeyboard},
                 wl_pointer::{
@@ -25,13 +26,13 @@ use {
                 },
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
-                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED,
+                Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
             wl_surface::{xdg_surface::xdg_popup::XdgPopup, WlSurface},
         },
         object::Version,
         state::DeviceHandlerData,
-        tree::{Direction, FloatNode, Node, ToplevelNode},
+        tree::{Direction, Node, ToplevelNode},
         utils::{bitflags::BitflagsExt, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
@@ -55,6 +56,8 @@ pub struct NodeSeatState {
     gesture_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
+    tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
 }
 
 impl NodeSeatState {
@@ -92,6 +95,22 @@ impl NodeSeatState {
         self.pointer_grabs.remove(&seat.id);
     }
 
+    pub(super) fn add_tablet_pad_focus(&self, pad: &Rc<TabletPad>) {
+        self.tablet_pad_foci.insert(pad.id, pad.clone());
+    }
+
+    pub(super) fn remove_tablet_pad_focus(&self, pad: &TabletPad) {
+        self.tablet_pad_foci.remove(&pad.id);
+    }
+
+    pub(super) fn add_tablet_tool_focus(&self, tool: &Rc<TabletTool>) {
+        self.tablet_tool_foci.insert(tool.id, tool.clone());
+    }
+
+    pub(super) fn remove_tablet_tool_focus(&self, tool: &TabletTool) {
+        self.tablet_tool_foci.remove(&tool.id);
+    }
+
     pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
         self.dnd_targets.insert(seat.id, seat.clone());
     }
@@ -120,8 +139,7 @@ impl NodeSeatState {
             seat.kb_owner.set_kb_node(&seat, seat.state.root.clone());
             // log::info!("keyboard_node = root");
             if focus_last {
-                seat.output
-                    .get()
+                seat.get_output()
                     .node_do_focus(&seat, Direction::Unspecified);
             }
         }
@@ -164,6 +182,12 @@ impl NodeSeatState {
             seat.pointer_stack_modified.set(true);
             seat.state.tree_changed();
         }
+        while let Some((_, tool)) = self.tablet_tool_foci.pop() {
+            tool.tool_owner.focus_root(&tool);
+        }
+        while let Some((_, pad)) = self.tablet_pad_foci.pop() {
+            pad.pad_owner.focus_root(&pad);
+        }
         self.release_kb_focus2(focus_last);
     }
 
@@ -204,7 +228,13 @@ impl WlSeatGlobal {
             | InputEvent::PinchEnd { time_usec, .. }
             | InputEvent::HoldBegin { time_usec, .. }
             | InputEvent::HoldEnd { time_usec, .. }
-            | InputEvent::SwitchEvent { time_usec, .. } => {
+            | InputEvent::SwitchEvent { time_usec, .. }
+            | InputEvent::TabletToolChanged { time_usec, .. }
+            | InputEvent::TabletToolButton { time_usec, .. }
+            | InputEvent::TabletPadButton { time_usec, .. }
+            | InputEvent::TabletPadModeSwitch { time_usec, .. }
+            | InputEvent::TabletPadRing { time_usec, .. }
+            | InputEvent::TabletPadStrip { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for (_, notification) in self.idle_notifications.lock().drain() {
@@ -215,7 +245,39 @@ impl WlSeatGlobal {
             InputEvent::AxisPx { .. }
             | InputEvent::AxisSource { .. }
             | InputEvent::AxisStop { .. }
-            | InputEvent::Axis120 { .. } => {}
+            | InputEvent::Axis120 { .. }
+            | InputEvent::TabletToolAdded { .. }
+            | InputEvent::TabletToolRemoved { .. } => {}
+        }
+        match event {
+            InputEvent::ConnectorPosition { .. }
+            | InputEvent::Motion { .. }
+            | InputEvent::Button { .. }
+            | InputEvent::AxisFrame { .. }
+            | InputEvent::SwipeBegin { .. }
+            | InputEvent::SwipeUpdate { .. }
+            | InputEvent::SwipeEnd { .. }
+            | InputEvent::PinchBegin { .. }
+            | InputEvent::PinchUpdate { .. }
+            | InputEvent::PinchEnd { .. }
+            | InputEvent::HoldBegin { .. }
+            | InputEvent::HoldEnd { .. } => {
+                self.pointer_cursor.activate();
+            }
+            InputEvent::Key { .. } => {}
+            InputEvent::AxisPx { .. } => {}
+            InputEvent::AxisSource { .. } => {}
+            InputEvent::AxisStop { .. } => {}
+            InputEvent::Axis120 { .. } => {}
+            InputEvent::SwitchEvent { .. } => {}
+            InputEvent::TabletToolAdded { .. } => {}
+            InputEvent::TabletToolChanged { .. } => {}
+            InputEvent::TabletToolButton { .. } => {}
+            InputEvent::TabletToolRemoved { .. } => {}
+            InputEvent::TabletPadButton { .. } => {}
+            InputEvent::TabletPadModeSwitch { .. } => {}
+            InputEvent::TabletPadRing { .. } => {}
+            InputEvent::TabletPadStrip { .. } => {}
         }
         match event {
             InputEvent::Key {
@@ -306,6 +368,49 @@ impl WlSeatGlobal {
             InputEvent::SwitchEvent { time_usec, event } => {
                 self.switch_event(dev.device.id(), time_usec, event)
             }
+            InputEvent::TabletToolAdded { time_usec, init } => {
+                self.tablet_handle_new_tool(time_usec, &init)
+            }
+            InputEvent::TabletToolChanged {
+                time_usec,
+                id,
+                changes: change,
+            } => self.tablet_event_tool_changes(id, time_usec, dev.get_rect(&self.state), &change),
+            InputEvent::TabletToolButton {
+                time_usec,
+                id,
+                button,
+                state,
+            } => self.tablet_event_tool_button(id, time_usec, button, state),
+            InputEvent::TabletToolRemoved { time_usec, id } => {
+                self.tablet_handle_remove_tool(time_usec, id)
+            }
+            InputEvent::TabletPadButton {
+                time_usec,
+                id,
+                button,
+                state,
+            } => self.tablet_event_pad_button(id, time_usec, button, state),
+            InputEvent::TabletPadModeSwitch {
+                time_usec,
+                pad,
+                group,
+                mode,
+            } => self.tablet_event_pad_mode_switch(pad, time_usec, group, mode),
+            InputEvent::TabletPadRing {
+                time_usec,
+                pad,
+                ring,
+                source,
+                angle,
+            } => self.tablet_event_pad_ring(pad, ring, source, angle, time_usec),
+            InputEvent::TabletPadStrip {
+                time_usec,
+                pad,
+                strip,
+                source,
+                position,
+            } => self.tablet_event_pad_strip(pad, strip, source, position, time_usec),
         }
     }
 
@@ -320,10 +425,10 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
-        self.set_output(&output);
         let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
+        (x, y) = self.pointer_cursor.set_position(x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
@@ -332,7 +437,7 @@ impl WlSeatGlobal {
         self.state.for_each_seat_tester(|t| {
             t.send_pointer_abs(self.id, time_usec, x, y);
         });
-        self.set_new_position(time_usec, x, y);
+        self.cursor_moved(time_usec);
     }
 
     fn motion_event(
@@ -356,7 +461,7 @@ impl WlSeatGlobal {
             Some(c) if c.ty == ConstraintType::Lock => true,
             _ => false,
         };
-        let (mut x, mut y) = self.pos.get();
+        let (mut x, mut y) = self.pointer_cursor.position();
         if !locked {
             x += dx;
             y += dy;
@@ -383,34 +488,8 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
             );
         });
-        let output = self.output.get();
-        let pos = output.global.pos.get();
-        let mut x_int = x.round_down();
-        let mut y_int = y.round_down();
-        if !pos.contains(x_int, y_int) {
-            'warp: {
-                let outputs = self.state.root.outputs.lock();
-                for output in outputs.values() {
-                    if output.global.pos.get().contains(x_int, y_int) {
-                        self.set_output(output);
-                        break 'warp;
-                    }
-                }
-                if x_int < pos.x1() {
-                    x_int = pos.x1();
-                } else if x_int >= pos.x2() {
-                    x_int = pos.x2() - 1;
-                }
-                if y_int < pos.y1() {
-                    y_int = pos.y1();
-                } else if y_int >= pos.y2() {
-                    y_int = pos.y2() - 1;
-                }
-                x = Fixed::from_int(x_int);
-                y = Fixed::from_int(y_int);
-            }
-        }
-        self.set_new_position(time_usec, x, y);
+        self.pointer_cursor.set_position(x, y);
+        self.cursor_moved(time_usec);
     }
 
     fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
@@ -631,13 +710,6 @@ impl WlSeatGlobal {
         self.pointer_stack.borrow().last().cloned()
     }
 
-    pub fn move_(&self, node: &Rc<FloatNode>) {
-        self.move_.set(true);
-        self.move_start_pos.set(self.pos.get());
-        let ex = node.position.get();
-        self.extents_start_pos.set((ex.x1(), ex.y1()));
-    }
-
     pub fn focus_toplevel(self: &Rc<Self>, n: Rc<dyn ToplevelNode>) {
         let node = match n.tl_focus_child(self.id) {
             Some(n) => n,
@@ -783,10 +855,8 @@ impl WlSeatGlobal {
         // client.flush();
     }
 
-    fn set_new_position(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
+    fn cursor_moved(self: &Rc<Self>, time_usec: u64) {
         self.pos_time_usec.set(time_usec);
-        self.pos.set((x, y));
-        self.update_hardware_cursor_position();
         self.changes.or_assign(CHANGE_CURSOR_MOVED);
         self.apply_changes();
     }
@@ -820,6 +890,9 @@ impl WlSeatGlobal {
     pub(super) fn apply_changes(self: &Rc<Self>) {
         self.state.damage();
         self.pointer_owner.apply_changes(self);
+        if self.changes.get().contains(CHANGE_TREE) {
+            self.tablet_apply_changes();
+        }
         self.changes.set(0);
     }
 }

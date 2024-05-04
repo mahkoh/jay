@@ -236,6 +236,14 @@ fn start_compositor2(
         explicit_sync_enabled: Cell::new(true),
         keyboard_state_ids: Default::default(),
         security_context_acceptors: Default::default(),
+        cursor_user_group_ids: Default::default(),
+        cursor_user_ids: Default::default(),
+        cursor_user_groups: Default::default(),
+        cursor_user_group_hardware_cursor: Default::default(),
+        input_device_group_ids: Default::default(),
+        tablet_ids: Default::default(),
+        tablet_tool_ids: Default::default(),
+        tablet_pad_ids: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

@@ -1,0 +1,14 @@
+request destroy {
+}
+
+event tablet_added {
+    id: id(zwp_tablet_v2),
+}
+
+event tool_added {
+    id: id(zwp_tablet_tool_v2),
+}
+
+event pad_added {
+    id: id(zwp_tablet_pad_v2),
+}

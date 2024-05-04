@@ -293,6 +293,7 @@ impl MetalBackend {
         let devnum = dev.devnum();
         let devnode = dev.devnode()?;
         let sysname = dev.sysname()?;
+        let syspath = dev.syspath()?;
         log::info!("Device added: {}", devnode.to_bytes().as_bstr());
         let mut slots = self.device_holder.input_devices.borrow_mut();
         let slot = 'slot: {
@@ -305,6 +306,7 @@ impl MetalBackend {
             slots.len() - 1
         };
         let dev = Rc::new(MetalInputDevice {
+            state: self.state.clone(),
             slot,
             id: device_id,
             devnum,
@@ -312,6 +314,7 @@ impl MetalBackend {
             inputdev: Default::default(),
             devnode: devnode.to_owned(),
             _sysname: sysname.to_owned(),
+            syspath: syspath.to_owned(),
             removed: Cell::new(false),
             events: Default::default(),
             cb: Default::default(),
@@ -321,6 +324,8 @@ impl MetalBackend {
             desired: Default::default(),
             transform_matrix: Default::default(),
             effective: Default::default(),
+            tablet_id: Default::default(),
+            tablet_pad_id: Default::default(),
         });
         slots[slot] = Some(dev.clone());
         self.device_holder

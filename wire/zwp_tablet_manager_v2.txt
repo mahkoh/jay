@@ -1,0 +1,7 @@
+request get_tablet_seat {
+    tablet_seat: id(zwp_tablet_seat_v2),
+    seat: id(wl_seat),
+}
+
+request destroy {
+}

@@ -338,6 +338,23 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_input_device_connector(
+        &self,
+        input_device: InputDevice,
+        connector: Connector,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(input_device)?;
+        let output = self.get_output_node(connector)?;
+        dev.set_output(Some(&output.global));
+        Ok(())
+    }
+
+    fn handle_remove_input_mapping(&self, input_device: InputDevice) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(input_device)?;
+        dev.set_output(None);
+        Ok(())
+    }
+
     fn handle_set_status(&self, status: &str) {
         self.state.set_status(status);
     }
@@ -956,7 +973,7 @@ impl ConfigProxyHandler {
         if size < 0 {
             return Err(CphError::NegativeCursorSize);
         }
-        seat.set_cursor_size(size as _);
+        seat.cursor_group().set_cursor_size(size as _);
         Ok(())
     }
 
@@ -972,14 +989,7 @@ impl ConfigProxyHandler {
         use_hardware_cursor: bool,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        if use_hardware_cursor {
-            for other in self.state.globals.seats.lock().values() {
-                if other.id() != seat.id() {
-                    other.set_hardware_cursor(false);
-                }
-            }
-        }
-        seat.set_hardware_cursor(use_hardware_cursor);
+        seat.cursor_group().set_hardware_cursor(use_hardware_cursor);
         self.state.refresh_hardware_cursors();
         Ok(())
     }
@@ -1037,18 +1047,7 @@ impl ConfigProxyHandler {
         if x < 0 || y < 0 || x > MAX_EXTENTS || y > MAX_EXTENTS {
             return Err(CphError::InvalidConnectorPosition(x, y));
         }
-        let old_pos = connector.global.pos.get();
         connector.set_position(x, y);
-        let seats = self.state.globals.seats.lock();
-        for seat in seats.values() {
-            if seat.get_output().id == connector.id {
-                let seat_pos = seat.position();
-                seat.set_position(
-                    seat_pos.0.round_down() + x - old_pos.x1(),
-                    seat_pos.1.round_down() + y - old_pos.y1(),
-                );
-            }
-        }
         Ok(())
     }
 
@@ -1808,6 +1807,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetFocusFollowsMouseMode { seat, mode } => self
                 .handle_set_focus_follows_mouse_mode(seat, mode)
                 .wrn("set_focus_follows_mouse_mode")?,
+            ClientMessage::SetInputDeviceConnector {
+                input_device,
+                connector,
+            } => self
+                .handle_set_input_device_connector(input_device, connector)
+                .wrn("set_input_device_connector")?,
+            ClientMessage::RemoveInputMapping { input_device } => self
+                .handle_remove_input_mapping(input_device)
+                .wrn("remove_input_mapping")?,
         }
         Ok(())
     }

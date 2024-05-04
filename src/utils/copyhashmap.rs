@@ -66,7 +66,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         unsafe { self.map.get().deref().contains_key(k) }
     }
 
-    pub fn lock(&self) -> Locked<K, V> {
+    pub fn lock(&self) -> Locked<'_, K, V> {
         Locked {
             source: self,
             map: self.clear(),

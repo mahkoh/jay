@@ -11,8 +11,10 @@ use {
             wl_buffer::WlBufferStorage,
             wl_output::WlOutputGlobal,
             wl_seat::{
-                collect_kb_foci2, wl_pointer::PendingScroll, NodeSeatState, SeatId, WlSeatGlobal,
-                BTN_LEFT,
+                collect_kb_foci2,
+                tablet::{TabletTool, TabletToolChanges, TabletToolId},
+                wl_pointer::PendingScroll,
+                NodeSeatState, SeatId, WlSeatGlobal, BTN_LEFT,
             },
             wl_surface::{
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
@@ -63,13 +65,19 @@ pub struct OutputNode {
     pub is_dummy: bool,
     pub status: CloneCell<Rc<String>>,
     pub scroll: Scroller,
-    pub pointer_positions: CopyHashMap<SeatId, (i32, i32)>,
+    pub pointer_positions: CopyHashMap<PointerType, (i32, i32)>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
     pub hardware_cursor_needs_render: Cell<bool>,
     pub update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum PointerType {
+    Seat(SeatId),
+    TabletTool(TabletToolId),
 }
 
 pub async fn output_render_data(state: Rc<State>) {
@@ -553,6 +561,10 @@ impl OutputNode {
             }
         }
         self.global.send_mode();
+        for seat in self.state.globals.seats.lock().values() {
+            seat.cursor_group().output_pos_changed(self)
+        }
+        self.state.tree_changed();
     }
 
     pub fn find_layer_surface_at(
@@ -589,8 +601,9 @@ impl OutputNode {
         self.schedule_update_render_data();
     }
 
-    fn pointer_move(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32) {
-        self.pointer_positions.set(seat.id(), (x, y));
+    fn pointer_move(self: &Rc<Self>, id: PointerType, x: Fixed, y: Fixed) {
+        self.pointer_positions
+            .set(id, (x.round_down(), y.round_down()));
     }
 
     pub fn has_fullscreen(&self) -> bool {
@@ -636,6 +649,29 @@ impl OutputNode {
         }
         set_layer_visible!(self.layers[2], visible);
         set_layer_visible!(self.layers[3], visible);
+    }
+
+    fn button(self: Rc<Self>, id: PointerType) {
+        let (x, y) = match self.pointer_positions.get(&id) {
+            Some(p) => p,
+            _ => return,
+        };
+        if y >= self.state.theme.sizes.title_height.get() {
+            return;
+        }
+        let ws = 'ws: {
+            let rd = self.render_data.borrow_mut();
+            for title in &rd.titles {
+                if x >= title.x1 && x < title.x2 {
+                    break 'ws title.ws.clone();
+                }
+            }
+            return;
+        };
+        self.show_workspace(&ws);
+        ws.flush_jay_workspaces();
+        self.schedule_update_render_data();
+        self.state.tree_changed();
     }
 }
 
@@ -840,26 +876,7 @@ impl Node for OutputNode {
         if state != KeyState::Pressed || button != BTN_LEFT {
             return;
         }
-        let (x, y) = match self.pointer_positions.get(&seat.id()) {
-            Some(p) => p,
-            _ => return,
-        };
-        if y >= self.state.theme.sizes.title_height.get() {
-            return;
-        }
-        let ws = 'ws: {
-            let rd = self.render_data.borrow_mut();
-            for title in &rd.titles {
-                if x >= title.x1 && x < title.x2 {
-                    break 'ws title.ws.clone();
-                }
-            }
-            return;
-        };
-        self.show_workspace(&ws);
-        ws.flush_jay_workspaces();
-        self.schedule_update_render_data();
-        self.state.tree_changed();
+        self.button(PointerType::Seat(seat.id()));
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
@@ -901,16 +918,49 @@ impl Node for OutputNode {
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
+        self.pointer_move(PointerType::Seat(seat.id()), x, y);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
         // log::info!("output focus");
-        seat.set_known_cursor(KnownCursor::Default);
+        seat.pointer_cursor().set_known(KnownCursor::Default);
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        self.pointer_move(seat, x.round_down(), y.round_down());
+        self.pointer_move(PointerType::Seat(seat.id()), x, y);
+    }
+
+    fn node_on_tablet_tool_leave(&self, tool: &Rc<TabletTool>, _time_usec: u64) {
+        self.pointer_positions
+            .remove(&PointerType::TabletTool(tool.id));
+    }
+
+    fn node_on_tablet_tool_enter(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        tool.cursor().set_known(KnownCursor::Default);
+        self.pointer_move(PointerType::TabletTool(tool.id), x, y);
+    }
+
+    fn node_on_tablet_tool_apply_changes(
+        self: Rc<Self>,
+        tool: &Rc<TabletTool>,
+        _time_usec: u64,
+        changes: Option<&TabletToolChanges>,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let id = PointerType::TabletTool(tool.id);
+        self.pointer_move(id, x, y);
+        if let Some(changes) = changes {
+            if changes.down == Some(true) {
+                self.button(id);
+            }
+        }
     }
 }
 

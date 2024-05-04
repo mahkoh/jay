@@ -9,6 +9,8 @@ pub struct libinput(u8);
 #[repr(transparent)]
 pub struct libinput_device(u8);
 #[repr(transparent)]
+pub struct libinput_device_group(u8);
+#[repr(transparent)]
 pub struct libinput_event(u8);
 #[repr(transparent)]
 pub struct libinput_event_keyboard(u8);
@@ -18,6 +20,16 @@ pub struct libinput_event_pointer(u8);
 pub struct libinput_event_gesture(u8);
 #[repr(transparent)]
 pub struct libinput_event_switch(u8);
+#[repr(transparent)]
+pub struct libinput_event_tablet_tool(u8);
+#[repr(transparent)]
+pub struct libinput_event_tablet_pad(u8);
+#[repr(transparent)]
+pub struct libinput_tablet_pad_mode_group(u8);
+#[repr(transparent)]
+pub struct libinput_tablet_tool(u8);
+// #[repr(transparent)]
+// pub struct libinput_tablet_pad(u8);
 
 #[link(name = "input")]
 extern "C" {
@@ -166,6 +178,185 @@ extern "C" {
         event: *mut libinput_event_switch,
     ) -> libinput_switch_state;
     pub fn libinput_event_switch_get_time_usec(event: *mut libinput_event_switch) -> u64;
+
+    pub fn libinput_device_get_device_group(
+        device: *mut libinput_device,
+    ) -> *mut libinput_device_group;
+    pub fn libinput_device_group_set_user_data(group: *mut libinput_device_group, user_data: usize);
+    pub fn libinput_device_group_get_user_data(group: *mut libinput_device_group) -> usize;
+
+    pub fn libinput_device_get_id_product(device: *mut libinput_device) -> c::c_uint;
+    pub fn libinput_device_get_id_vendor(device: *mut libinput_device) -> c::c_uint;
+
+    pub fn libinput_event_get_tablet_tool_event(
+        event: *mut libinput_event,
+    ) -> *mut libinput_event_tablet_tool;
+    pub fn libinput_event_get_tablet_pad_event(
+        event: *mut libinput_event,
+    ) -> *mut libinput_event_tablet_pad;
+    pub fn libinput_event_tablet_tool_get_tool(
+        event: *mut libinput_event_tablet_tool,
+    ) -> *mut libinput_tablet_tool;
+    pub fn libinput_event_tablet_pad_get_mode_group(
+        event: *mut libinput_event_tablet_pad,
+    ) -> *mut libinput_tablet_pad_mode_group;
+    pub fn libinput_event_tablet_tool_x_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_y_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_pressure_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_distance_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_tilt_x_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_tilt_y_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_rotation_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_slider_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    // pub fn libinput_event_tablet_tool_size_major_has_changed(
+    //     event: *mut libinput_event_tablet_tool,
+    // ) -> c::c_int;
+    // pub fn libinput_event_tablet_tool_size_minor_has_changed(
+    //     event: *mut libinput_event_tablet_tool,
+    // ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_wheel_has_changed(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    // pub fn libinput_event_tablet_tool_get_x(event: *mut libinput_event_tablet_tool) -> f64;
+    // pub fn libinput_event_tablet_tool_get_y(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_dx(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_dy(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_pressure(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_distance(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_tilt_x(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_tilt_y(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_rotation(event: *mut libinput_event_tablet_tool) -> f64;
+    pub fn libinput_event_tablet_tool_get_slider_position(
+        event: *mut libinput_event_tablet_tool,
+    ) -> f64;
+    // pub fn libinput_event_tablet_tool_get_size_major(event: *mut libinput_event_tablet_tool)
+    //     -> f64;
+    // pub fn libinput_event_tablet_tool_get_size_minor(event: *mut libinput_event_tablet_tool)
+    //     -> f64;
+    pub fn libinput_event_tablet_tool_get_wheel_delta(
+        event: *mut libinput_event_tablet_tool,
+    ) -> f64;
+    pub fn libinput_event_tablet_tool_get_wheel_delta_discrete(
+        event: *mut libinput_event_tablet_tool,
+    ) -> c::c_int;
+    pub fn libinput_event_tablet_tool_get_x_transformed(
+        event: *mut libinput_event_tablet_tool,
+        width: u32,
+    ) -> f64;
+    pub fn libinput_event_tablet_tool_get_y_transformed(
+        event: *mut libinput_event_tablet_tool,
+        width: u32,
+    ) -> f64;
+    pub fn libinput_event_tablet_tool_get_proximity_state(
+        event: *mut libinput_event_tablet_tool,
+    ) -> libinput_tablet_tool_proximity_state;
+    pub fn libinput_event_tablet_tool_get_tip_state(
+        event: *mut libinput_event_tablet_tool,
+    ) -> libinput_tablet_tool_tip_state;
+    pub fn libinput_event_tablet_tool_get_button(event: *mut libinput_event_tablet_tool) -> u32;
+    pub fn libinput_event_tablet_tool_get_button_state(
+        event: *mut libinput_event_tablet_tool,
+    ) -> libinput_button_state;
+    // pub fn libinput_event_tablet_tool_get_seat_button_count(
+    //     event: *mut libinput_event_tablet_tool,
+    // ) -> u32;
+    pub fn libinput_event_tablet_tool_get_time_usec(event: *mut libinput_event_tablet_tool) -> u64;
+    pub fn libinput_tablet_tool_get_type(
+        tool: *mut libinput_tablet_tool,
+    ) -> libinput_tablet_tool_type;
+    pub fn libinput_tablet_tool_get_tool_id(tool: *mut libinput_tablet_tool) -> u64;
+    pub fn libinput_tablet_tool_has_pressure(tool: *mut libinput_tablet_tool) -> c::c_int;
+    pub fn libinput_tablet_tool_has_distance(tool: *mut libinput_tablet_tool) -> c::c_int;
+    pub fn libinput_tablet_tool_has_tilt(tool: *mut libinput_tablet_tool) -> c::c_int;
+    pub fn libinput_tablet_tool_has_rotation(tool: *mut libinput_tablet_tool) -> c::c_int;
+    pub fn libinput_tablet_tool_has_slider(tool: *mut libinput_tablet_tool) -> c::c_int;
+    // pub fn libinput_tablet_tool_has_size(tool: *mut libinput_tablet_tool) -> c::c_int;
+    pub fn libinput_tablet_tool_has_wheel(tool: *mut libinput_tablet_tool) -> c::c_int;
+    // pub fn libinput_tablet_tool_has_button(tool: *mut libinput_tablet_tool, code: u32) -> c::c_int;
+    // pub fn libinput_tablet_tool_is_unique(tool: *mut libinput_tablet_tool) -> c::c_int;
+    pub fn libinput_tablet_tool_get_serial(tool: *mut libinput_tablet_tool) -> u64;
+    pub fn libinput_tablet_tool_get_user_data(tool: *mut libinput_tablet_tool) -> usize;
+    pub fn libinput_tablet_tool_set_user_data(tool: *mut libinput_tablet_tool, user_data: usize);
+    pub fn libinput_event_tablet_pad_get_ring_position(
+        event: *mut libinput_event_tablet_pad,
+    ) -> f64;
+    pub fn libinput_event_tablet_pad_get_ring_number(
+        event: *mut libinput_event_tablet_pad,
+    ) -> c::c_uint;
+    pub fn libinput_event_tablet_pad_get_ring_source(
+        event: *mut libinput_event_tablet_pad,
+    ) -> libinput_tablet_pad_ring_axis_source;
+    pub fn libinput_event_tablet_pad_get_strip_position(
+        event: *mut libinput_event_tablet_pad,
+    ) -> f64;
+    pub fn libinput_event_tablet_pad_get_strip_number(
+        event: *mut libinput_event_tablet_pad,
+    ) -> c::c_uint;
+    pub fn libinput_event_tablet_pad_get_strip_source(
+        event: *mut libinput_event_tablet_pad,
+    ) -> libinput_tablet_pad_strip_axis_source;
+    pub fn libinput_event_tablet_pad_get_button_number(
+        event: *mut libinput_event_tablet_pad,
+    ) -> u32;
+    pub fn libinput_event_tablet_pad_get_button_state(
+        event: *mut libinput_event_tablet_pad,
+    ) -> libinput_button_state;
+    // pub fn libinput_event_tablet_pad_get_key(event: *mut libinput_event_tablet_pad) -> u32;
+    // pub fn libinput_event_tablet_pad_get_key_state(
+    //     event: *mut libinput_event_tablet_pad,
+    // ) -> libinput_key_state;
+    pub fn libinput_event_tablet_pad_get_mode(event: *mut libinput_event_tablet_pad) -> c::c_uint;
+    pub fn libinput_event_tablet_pad_get_time_usec(event: *mut libinput_event_tablet_pad) -> u64;
+    pub fn libinput_device_tablet_pad_get_mode_group(
+        device: *mut libinput_device,
+        index: c::c_uint,
+    ) -> *mut libinput_tablet_pad_mode_group;
+    pub fn libinput_device_tablet_pad_get_num_mode_groups(device: *mut libinput_device)
+        -> c::c_int;
+    pub fn libinput_device_tablet_pad_get_num_buttons(device: *mut libinput_device) -> c::c_int;
+    pub fn libinput_device_tablet_pad_get_num_rings(device: *mut libinput_device) -> c::c_int;
+    pub fn libinput_device_tablet_pad_get_num_strips(device: *mut libinput_device) -> c::c_int;
+    pub fn libinput_tablet_pad_mode_group_get_index(
+        group: *mut libinput_tablet_pad_mode_group,
+    ) -> c::c_uint;
+    pub fn libinput_tablet_pad_mode_group_get_num_modes(
+        group: *mut libinput_tablet_pad_mode_group,
+    ) -> c::c_uint;
+    pub fn libinput_tablet_pad_mode_group_get_mode(
+        group: *mut libinput_tablet_pad_mode_group,
+    ) -> c::c_uint;
+    pub fn libinput_tablet_pad_mode_group_has_button(
+        group: *mut libinput_tablet_pad_mode_group,
+        button: c::c_uint,
+    ) -> c::c_int;
+    pub fn libinput_tablet_pad_mode_group_has_ring(
+        group: *mut libinput_tablet_pad_mode_group,
+        ring: c::c_uint,
+    ) -> c::c_int;
+    pub fn libinput_tablet_pad_mode_group_has_strip(
+        group: *mut libinput_tablet_pad_mode_group,
+        strip: c::c_uint,
+    ) -> c::c_int;
+    // pub fn libinput_tablet_pad_mode_group_button_is_toggle(
+    //     group: *mut libinput_tablet_pad_mode_group,
+    //     button: c::c_uint,
+    // ) -> c::c_int;
 }
 
 #[repr(C)]

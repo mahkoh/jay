@@ -1,5 +1,3 @@
-# requests
-
 request set_cursor {
     serial: u32,
     surface: id(wl_surface),
@@ -8,4 +6,85 @@ request set_cursor {
 }
 
 request destroy {
+}
+
+event type {
+    tool_type: u32,
+}
+
+event hardware_serial {
+    hardware_serial_hi: u32,
+    hardware_serial_lo: u32,
+}
+
+event hardware_id_wacom {
+    hardware_id_hi: u32,
+    hardware_id_lo: u32,
+}
+
+event capability {
+    capability: u32,
+}
+
+event done {
+}
+
+event removed {
+}
+
+event proximity_in {
+    serial: u32,
+    tablet: id(zwp_tablet_v2),
+    surface: id(wl_surface),
+}
+
+event proximity_out {
+}
+
+event down {
+    serial: u32,
+}
+
+event up {
+}
+
+event motion {
+    x: fixed,
+    y: fixed,
+}
+
+event pressure {
+    pressure: u32,
+}
+
+event distance {
+    distance: u32,
+}
+
+event tilt {
+    tilt_x: fixed,
+    tilt_y: fixed,
+}
+
+event rotation {
+    degrees: fixed,
+}
+
+event slider {
+    position: i32,
+}
+
+event wheel {
+    degrees: fixed,
+    clicks: i32,
+}
+
+event button {
+    serial: u32,
+    button: u32,
+    state: u32,
+}
+
+event frame {
+    time: u32,
 }

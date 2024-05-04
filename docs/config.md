@@ -474,6 +474,22 @@ You can use the `configure-input` action to change these settings at runtime.
 
 See the specification for more details.
 
+### Mapping Tablets to Outputs
+
+You can map tablets to outputs using the `output` property:
+
+```toml
+[[outputs]]
+name = "left"
+match.serial-number = "33K03894SL0"
+
+[[inputs]]
+match.name = "Wacom Bamboo Comic 2FG Pen"
+output.name = "left"
+```
+
+See the specification for more details.
+
 # Theming
 
 You can configure the colors, sizes, and fonts used by the compositor with the top-level `theme` table.

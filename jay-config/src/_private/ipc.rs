@@ -476,6 +476,13 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         mode: FocusFollowsMouseMode,
     },
+    SetInputDeviceConnector {
+        input_device: InputDevice,
+        connector: Connector,
+    },
+    RemoveInputMapping {
+        input_device: InputDevice,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -1,0 +1,21 @@
+request destroy {
+}
+
+event name {
+    name: str,
+}
+
+event id {
+    vid: u32,
+    pid: u32,
+}
+
+event path {
+    path: str,
+}
+
+event done {
+}
+
+event removed {
+}

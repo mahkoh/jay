@@ -57,7 +57,7 @@ impl JayInput {
             name: data.seat_name(),
             repeat_rate: data.get_rate().0,
             repeat_delay: data.get_rate().1,
-            hardware_cursor: data.hardware_cursor() as _,
+            hardware_cursor: data.cursor_group().hardware_cursor() as _,
         });
     }
 
@@ -129,6 +129,15 @@ impl JayInput {
                 .map(uapi::as_bytes)
                 .unwrap_or_default(),
         });
+        if let Some(output) = data.data.output.get() {
+            if let Some(output) = output.get() {
+                self.client.event(InputDeviceOutput {
+                    self_id: self.id,
+                    id: data.id.raw(),
+                    output: &output.connector.name,
+                });
+            }
+        }
     }
 
     fn device(&self, id: u32) -> Result<Rc<DeviceHandlerData>, JayInputError> {
@@ -202,7 +211,8 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
-            seat.set_hardware_cursor(req.use_hardware_cursor != 0);
+            seat.cursor_group()
+                .set_hardware_cursor(req.use_hardware_cursor != 0);
             Ok(())
         })
     }
@@ -316,7 +326,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_cursor_size(&self, req: SetCursorSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
-            seat.set_cursor_size(req.size);
+            seat.cursor_group().set_cursor_size(req.size);
             Ok(())
         })
     }
@@ -388,6 +398,32 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn map_to_output(&self, req: MapToOutput<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            match req.output {
+                Some(output) => {
+                    let namelc = output.to_ascii_lowercase();
+                    let c = self
+                        .client
+                        .state
+                        .root
+                        .outputs
+                        .lock()
+                        .values()
+                        .find(|c| c.global.connector.name.to_ascii_lowercase() == namelc)
+                        .cloned();
+                    match c {
+                        Some(c) => dev.set_output(Some(&c.global)),
+                        _ => return Err(JayInputError::OutputNotConnected),
+                    }
+                }
+                _ => dev.set_output(None),
+            }
+            Ok(())
+        })
+    }
 }
 
 object_base! {
@@ -417,5 +453,7 @@ pub enum JayInputError {
     ClientMemError(#[from] ClientMemError),
     #[error("Could not parse keymap")]
     XkbCommonError(#[from] XkbCommonError),
+    #[error("Output is not connected")]
+    OutputNotConnected,
 }
 efrom!(JayInputError, ClientError);

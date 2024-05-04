@@ -132,3 +132,110 @@ event switch_event {
     input_device: u32,
     event: u32,
 }
+
+event tablet_tool_proximity_in {
+}
+
+event tablet_tool_proximity_out {
+}
+
+event tablet_tool_down {
+}
+
+event tablet_tool_up {
+}
+
+event tablet_tool_motion {
+    x: fixed,
+    y: fixed,
+}
+
+event tablet_tool_pressure {
+    pressure: pod(f64),
+}
+
+event tablet_tool_distance {
+    distance: pod(f64),
+}
+
+event tablet_tool_tilt {
+    tilt_x: pod(f64),
+    tilt_y: pod(f64),
+}
+
+event tablet_tool_rotation {
+    degrees: pod(f64),
+}
+
+event tablet_tool_slider {
+    position: pod(f64),
+}
+
+event tablet_tool_wheel {
+    degrees: pod(f64),
+    clicks: i32,
+}
+
+event tablet_tool_button {
+    button: u32,
+    state: u32,
+}
+
+event tablet_tool_frame {
+    seat: u32,
+    time_usec: pod(u64),
+    input_device: u32,
+    tool: u32,
+}
+
+event tablet_pad_mode_switch {
+    seat: u32,
+    time_usec: pod(u64),
+    input_device: u32,
+    group: u32,
+    mode: u32,
+}
+
+event tablet_pad_button {
+    seat: u32,
+    time_usec: pod(u64),
+    input_device: u32,
+    button: u32,
+    state: u32,
+}
+
+event tablet_pad_strip_source {
+    source: u32,
+}
+
+event tablet_pad_strip_position {
+    position: pod(f64),
+}
+
+event tablet_pad_strip_stop {
+}
+
+event tablet_pad_strip_frame {
+    seat: u32,
+    time_usec: pod(u64),
+    input_device: u32,
+    strip: u32,
+}
+
+event tablet_pad_ring_source {
+    source: u32,
+}
+
+event tablet_pad_ring_angle {
+    degrees: pod(f64),
+}
+
+event tablet_pad_ring_stop {
+}
+
+event tablet_pad_ring_frame {
+    seat: u32,
+    time_usec: pod(u64),
+    input_device: u32,
+    ring: u32,
+}

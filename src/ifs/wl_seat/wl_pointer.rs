@@ -186,7 +186,7 @@ impl WlPointerRequestHandler for WlPointer {
         let mut cursor_opt = None;
         if req.surface.is_some() {
             let surface = self.seat.client.lookup(req.surface)?;
-            let cursor = surface.get_cursor(&self.seat.global)?;
+            let cursor = surface.get_cursor(&self.seat.global.pointer_cursor)?;
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
             cursor_opt = Some(cursor as Rc<dyn Cursor>);
         }
@@ -211,7 +211,7 @@ impl WlPointerRequestHandler for WlPointer {
         //     );
         //     return Ok(());
         // }
-        self.seat.global.set_app_cursor(cursor_opt);
+        self.seat.global.pointer_cursor().set(cursor_opt);
         Ok(())
     }
 

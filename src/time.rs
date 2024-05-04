@@ -122,3 +122,7 @@ impl Add<Duration> for Time {
 pub fn now_usec() -> u64 {
     Time::now_unchecked().usec()
 }
+
+pub fn usec_to_msec(usec: u64) -> u32 {
+    (usec / 1000) as u32
+}
