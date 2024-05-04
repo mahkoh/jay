@@ -110,16 +110,10 @@ impl MetalBackend {
 
     fn handle_input_device_resume(self: &Rc<Self>, dev: &Rc<MetalInputDevice>, fd: Rc<OwnedFd>) {
         log::info!("Device resumed: {}", dev.devnode.to_bytes().as_bstr());
-        if let Some(old) = dev.fd.set(Some(fd)) {
+        if let Some(old) = dev.fd.take() {
             self.state.fdcloser.close(old);
         }
-        let inputdev = match self.libinput.open(dev.devnode.as_c_str()) {
-            Ok(d) => Rc::new(d),
-            Err(_) => return,
-        };
-        inputdev.device().set_slot(dev.slot);
-        dev.inputdev.set(Some(inputdev));
-        dev.apply_config();
+        self.reinit_input_device(dev, &fd);
     }
 
     fn handle_device_removed(self: &Rc<Self>, dev: c::dev_t) {
@@ -309,6 +303,7 @@ impl MetalBackend {
             state: self.state.clone(),
             slot,
             id: device_id,
+            fully_initialized: Cell::new(false),
             devnum,
             fd: Default::default(),
             inputdev: Default::default(),
@@ -354,24 +349,31 @@ impl MetalBackend {
             if res.inactive == TRUE {
                 return;
             }
-            if let Err(e) = set_nonblock(res.fd.raw()) {
-                log::error!("Could set input fd to non-blocking: {}", ErrorFmt(e));
-                return;
-            }
-            dev.fd.set(Some(res.fd.clone()));
-            let inputdev = match slf.libinput.open(dev.devnode.as_c_str()) {
-                Ok(d) => Rc::new(d),
-                Err(_) => return,
-            };
-            inputdev.device().set_slot(slot);
-            dev.name.set(Rc::new(inputdev.device().name()));
-            dev.inputdev.set(Some(inputdev));
-            dev.apply_config();
-            slf.state
-                .backend_events
-                .push(BackendEvent::NewInputDevice(dev.clone()));
+            slf.reinit_input_device(&dev, &res.fd);
         });
         None
+    }
+
+    fn reinit_input_device(&self, dev: &Rc<MetalInputDevice>, fd: &Rc<OwnedFd>) {
+        if let Err(e) = set_nonblock(fd.raw()) {
+            log::error!("Could set input fd to non-blocking: {}", ErrorFmt(e));
+            return;
+        }
+        dev.fd.set(Some(fd.clone()));
+        let inputdev = match self.libinput.open(dev.devnode.as_c_str()) {
+            Ok(d) => Rc::new(d),
+            Err(_) => return,
+        };
+        inputdev.device().set_slot(dev.slot);
+        if !dev.fully_initialized.get() {
+            dev.name.set(Rc::new(inputdev.device().name()));
+            self.state
+                .backend_events
+                .push(BackendEvent::NewInputDevice(dev.clone()));
+            dev.fully_initialized.set(true);
+        }
+        dev.inputdev.set(Some(inputdev));
+        dev.apply_config();
     }
 
     fn get_device<F>(self: &Rc<Self>, dev: c::dev_t, f: F)
