@@ -96,5 +96,6 @@ impl DeviceHandler {
             .input_device_handlers
             .borrow_mut()
             .remove(&self.dev.id());
+        self.data.set_seat(None);
     }
 }
