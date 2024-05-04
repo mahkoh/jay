@@ -2,7 +2,7 @@ use {
     crate::{
         format::{Format, FORMATS},
         gfx_apis::vulkan::{instance::VulkanInstance, VulkanError},
-        video::Modifier,
+        video::{Modifier, LINEAR_MODIFIER},
     },
     ahash::AHashMap,
     ash::{
@@ -17,14 +17,14 @@ use {
         },
     },
     isnt::std_1::collections::IsntHashMapExt,
+    std::cmp::min,
 };
 
 #[derive(Debug)]
 pub struct VulkanFormat {
     pub format: &'static Format,
     pub modifiers: AHashMap<Modifier, VulkanModifier>,
-    pub shm: Option<VulkanShmFormat>,
-    pub features: FormatFeatureFlags,
+    pub shm: Option<VulkanInternalFormat>,
 }
 
 #[derive(Debug)]
@@ -34,6 +34,7 @@ pub struct VulkanModifier {
     pub features: FormatFeatureFlags,
     pub render_max_extents: Option<VulkanMaxExtents>,
     pub texture_max_extents: Option<VulkanMaxExtents>,
+    pub render_needs_bridge: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -43,7 +44,7 @@ pub struct VulkanMaxExtents {
 }
 
 #[derive(Debug)]
-pub struct VulkanShmFormat {
+pub struct VulkanInternalFormat {
     pub max_extents: VulkanMaxExtents,
 }
 
@@ -51,6 +52,7 @@ const FRAMEBUFFER_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
     0 | FormatFeatureFlags::COLOR_ATTACHMENT.as_raw()
         | FormatFeatureFlags::COLOR_ATTACHMENT_BLEND.as_raw(),
 );
+const FRAMEBUFFER_BRIDGED_FEATURES: FormatFeatureFlags = FormatFeatureFlags::TRANSFER_DST;
 const TEX_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
     0 | FormatFeatureFlags::SAMPLED_IMAGE.as_raw()
         | FormatFeatureFlags::TRANSFER_SRC.as_raw()
@@ -65,6 +67,7 @@ const SHM_FEATURES: FormatFeatureFlags = FormatFeatureFlags::from_raw(
 const FRAMEBUFFER_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
     0 | ImageUsageFlags::COLOR_ATTACHMENT.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
 );
+const FRAMEBUFFER_BRIDGED_USAGE: ImageUsageFlags = ImageUsageFlags::TRANSFER_DST;
 const TEX_USAGE: ImageUsageFlags = ImageUsageFlags::from_raw(
     0 | ImageUsageFlags::SAMPLED.as_raw() | ImageUsageFlags::TRANSFER_SRC.as_raw(),
 );
@@ -104,7 +107,8 @@ impl VulkanInstance {
             );
         }
         let shm = self.load_shm_format(phy_dev, format, &format_properties)?;
-        let modifiers = self.load_drm_format(phy_dev, format, &modifier_props)?;
+        let modifiers =
+            self.load_drm_format(phy_dev, format, &format_properties, &modifier_props)?;
         if shm.is_some() || modifiers.is_not_empty() {
             dst.insert(
                 format.drm,
@@ -112,7 +116,6 @@ impl VulkanInstance {
                     format,
                     modifiers,
                     shm,
-                    features: format_properties.format_properties.optimal_tiling_features,
                 },
             );
         }
@@ -124,14 +127,25 @@ impl VulkanInstance {
         phy_dev: PhysicalDevice,
         format: &Format,
         props: &FormatProperties2,
-    ) -> Result<Option<VulkanShmFormat>, VulkanError> {
+    ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
         if format.shm_info.is_none() {
             return Ok(None);
         }
+        self.load_internal_format(phy_dev, format, props, SHM_FEATURES, SHM_USAGE)
+    }
+
+    fn load_internal_format(
+        &self,
+        phy_dev: PhysicalDevice,
+        format: &Format,
+        props: &FormatProperties2,
+        features: FormatFeatureFlags,
+        usage: ImageUsageFlags,
+    ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
         if !props
             .format_properties
             .optimal_tiling_features
-            .contains(SHM_FEATURES)
+            .contains(features)
         {
             return Ok(None);
         }
@@ -139,7 +153,7 @@ impl VulkanInstance {
             .ty(ImageType::TYPE_2D)
             .format(format.vk_format)
             .tiling(ImageTiling::OPTIMAL)
-            .usage(SHM_USAGE);
+            .usage(usage);
         let mut format_properties = ImageFormatProperties2::builder();
         let res = unsafe {
             self.instance.get_physical_device_image_format_properties2(
@@ -154,7 +168,7 @@ impl VulkanInstance {
                 _ => Err(VulkanError::LoadImageProperties(e)),
             };
         }
-        Ok(Some(VulkanShmFormat {
+        Ok(Some(VulkanInternalFormat {
             max_extents: VulkanMaxExtents {
                 width: format_properties.image_format_properties.max_extent.width,
                 height: format_properties.image_format_properties.max_extent.height,
@@ -166,6 +180,7 @@ impl VulkanInstance {
         &self,
         phy_dev: PhysicalDevice,
         format: &Format,
+        internal_format_properties: &FormatProperties2,
         props: &DrmFormatModifierPropertiesListEXT,
     ) -> Result<AHashMap<Modifier, VulkanModifier>, VulkanError> {
         if props.drm_format_modifier_count == 0 {
@@ -190,7 +205,7 @@ impl VulkanInstance {
         };
         let mut mods = AHashMap::new();
         for modifier in drm_mods {
-            let render_max_extents = self.get_max_extents(
+            let mut render_max_extents = self.get_max_extents(
                 phy_dev,
                 format,
                 FRAMEBUFFER_FEATURES,
@@ -199,6 +214,18 @@ impl VulkanInstance {
             )?;
             let texture_max_extents =
                 self.get_max_extents(phy_dev, format, TEX_FEATURES, TEX_USAGE, &modifier)?;
+            let mut render_needs_bridge = false;
+            if render_max_extents.is_none() && modifier.drm_format_modifier == LINEAR_MODIFIER {
+                render_max_extents = self.get_fb_bridged_max_extents(
+                    phy_dev,
+                    format,
+                    internal_format_properties,
+                    &modifier,
+                )?;
+                if render_max_extents.is_some() {
+                    render_needs_bridge = true;
+                }
+            }
             mods.insert(
                 modifier.drm_format_modifier,
                 VulkanModifier {
@@ -207,10 +234,50 @@ impl VulkanInstance {
                     features: modifier.drm_format_modifier_tiling_features,
                     render_max_extents,
                     texture_max_extents,
+                    render_needs_bridge,
                 },
             );
         }
         Ok(mods)
+    }
+
+    fn get_fb_bridged_max_extents(
+        &self,
+        phy_dev: PhysicalDevice,
+        format: &Format,
+        internal_format_properties: &FormatProperties2,
+        modifier: &DrmFormatModifierPropertiesEXT,
+    ) -> Result<Option<VulkanMaxExtents>, VulkanError> {
+        let transfer_dst_max_extents = self.get_max_extents(
+            phy_dev,
+            format,
+            FRAMEBUFFER_BRIDGED_FEATURES,
+            FRAMEBUFFER_BRIDGED_USAGE,
+            &modifier,
+        )?;
+        let Some(transfer_dst_max_extents) = transfer_dst_max_extents else {
+            return Ok(None);
+        };
+        let bridge_format = self.load_internal_format(
+            phy_dev,
+            format,
+            internal_format_properties,
+            FRAMEBUFFER_FEATURES,
+            FRAMEBUFFER_USAGE,
+        )?;
+        let Some(bridge_format) = bridge_format else {
+            return Ok(None);
+        };
+        Ok(Some(VulkanMaxExtents {
+            width: min(
+                transfer_dst_max_extents.width,
+                bridge_format.max_extents.width,
+            ),
+            height: min(
+                transfer_dst_max_extents.height,
+                bridge_format.max_extents.height,
+            ),
+        }))
     }
 
     fn get_max_extents(

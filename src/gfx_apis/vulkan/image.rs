@@ -39,6 +39,7 @@ pub struct VulkanDmaBufImageTemplate {
     pub(super) dmabuf: DmaBuf,
     pub(super) render_max_extents: Option<VulkanMaxExtents>,
     pub(super) texture_max_extents: Option<VulkanMaxExtents>,
+    pub(super) render_needs_bridge: bool,
 }
 
 pub struct VulkanImage {
@@ -53,6 +54,7 @@ pub struct VulkanImage {
     pub(super) is_undefined: Cell<bool>,
     pub(super) ty: VulkanImageMemory,
     pub(super) render_ops: CloneCell<Vec<GfxApiOpt>>,
+    pub(super) bridge: Option<VulkanFramebufferBridge>,
 }
 
 pub enum VulkanImageMemory {
@@ -69,6 +71,11 @@ pub struct VulkanShmImage {
     pub(super) to_flush: RefCell<Option<Vec<u8>>>,
     pub(super) size: DeviceSize,
     pub(super) stride: u32,
+    pub(super) _allocation: VulkanAllocation,
+}
+
+pub struct VulkanFramebufferBridge {
+    pub(super) dmabuf_image: Image,
     pub(super) _allocation: VulkanAllocation,
 }
 
@@ -96,6 +103,12 @@ impl Drop for VulkanImage {
                     .destroy_image_view(render_view, None);
             }
             self.renderer.device.device.destroy_image(self.image, None);
+            if let Some(bridge) = &self.bridge {
+                self.renderer
+                    .device
+                    .device
+                    .destroy_image(bridge.dmabuf_image, None);
+            }
         }
     }
 }
@@ -214,6 +227,7 @@ impl VulkanRenderer {
             is_undefined: Cell::new(true),
             ty: VulkanImageMemory::Internal(shm),
             render_ops: Default::default(),
+            bridge: None,
         }))
     }
 
@@ -264,6 +278,7 @@ impl VulkanRenderer {
             dmabuf: dmabuf.clone(),
             render_max_extents: modifier.render_max_extents,
             texture_max_extents: modifier.texture_max_extents,
+            render_needs_bridge: modifier.render_needs_bridge,
         }))
     }
 }
@@ -343,11 +358,13 @@ impl VulkanDmaBufImageTemplate {
                 true => ImageCreateFlags::DISJOINT,
                 false => ImageCreateFlags::empty(),
             };
-            let usage = ImageUsageFlags::TRANSFER_SRC
-                | match for_rendering {
-                    true => ImageUsageFlags::COLOR_ATTACHMENT,
-                    false => ImageUsageFlags::SAMPLED,
-                };
+            let usage = match for_rendering {
+                true => match self.render_needs_bridge {
+                    true => ImageUsageFlags::TRANSFER_DST,
+                    false => ImageUsageFlags::TRANSFER_SRC | ImageUsageFlags::COLOR_ATTACHMENT,
+                },
+                false => ImageUsageFlags::TRANSFER_SRC | ImageUsageFlags::SAMPLED,
+            };
             let create_info = ImageCreateInfo::builder()
                 .image_type(ImageType::TYPE_2D)
                 .format(self.dmabuf.format.vk_format)
@@ -456,15 +473,30 @@ impl VulkanDmaBufImageTemplate {
         }
         let res = unsafe { device.device.bind_image_memory2(&bind_image_memory_infos) };
         res.map_err(VulkanError::BindImageMemory)?;
-        let texture_view = device.create_image_view(image, self.dmabuf.format, false)?;
-        let render_view = device.create_image_view(image, self.dmabuf.format, true)?;
+        let mut primary_image = image;
+        let mut destroy_bridge_image = None;
+        let mut bridge = None;
+        if for_rendering && self.render_needs_bridge {
+            let (bridge_image, allocation) = self.create_bridge()?;
+            primary_image = bridge_image;
+            destroy_bridge_image = Some(OnDrop(|| unsafe {
+                device.device.destroy_image(primary_image, None)
+            }));
+            bridge = Some(VulkanFramebufferBridge {
+                dmabuf_image: image,
+                _allocation: allocation,
+            });
+        }
+        let texture_view = device.create_image_view(primary_image, self.dmabuf.format, false)?;
+        let render_view = device.create_image_view(primary_image, self.dmabuf.format, true)?;
         free_device_memories.drain(..).for_each(mem::forget);
         mem::forget(destroy_image);
+        mem::forget(destroy_bridge_image);
         Ok(Rc::new(VulkanImage {
             renderer: self.renderer.clone(),
             texture_view,
             render_view: Some(render_view),
-            image,
+            image: primary_image,
             width: self.width,
             height: self.height,
             stride: 0,
@@ -475,7 +507,52 @@ impl VulkanDmaBufImageTemplate {
             }),
             format: self.dmabuf.format,
             is_undefined: Cell::new(true),
+            bridge,
         }))
+    }
+
+    fn create_bridge(&self) -> Result<(Image, VulkanAllocation), VulkanError> {
+        let create_info = ImageCreateInfo::builder()
+            .image_type(ImageType::TYPE_2D)
+            .format(self.dmabuf.format.vk_format)
+            .mip_levels(1)
+            .array_layers(1)
+            .tiling(ImageTiling::OPTIMAL)
+            .samples(SampleCountFlags::TYPE_1)
+            .sharing_mode(SharingMode::EXCLUSIVE)
+            .initial_layout(ImageLayout::UNDEFINED)
+            .extent(Extent3D {
+                width: self.width,
+                height: self.height,
+                depth: 1,
+            })
+            .usage(ImageUsageFlags::COLOR_ATTACHMENT | ImageUsageFlags::TRANSFER_SRC)
+            .build();
+        let image = unsafe { self.renderer.device.device.create_image(&create_info, None) };
+        let image = image.map_err(VulkanError::CreateImage)?;
+        let destroy_image =
+            OnDrop(|| unsafe { self.renderer.device.device.destroy_image(image, None) });
+        let memory_requirements = unsafe {
+            self.renderer
+                .device
+                .device
+                .get_image_memory_requirements(image)
+        };
+        let allocation = self.renderer.allocator.alloc(
+            &memory_requirements,
+            UsageFlags::FAST_DEVICE_ACCESS,
+            false,
+        )?;
+        let res = unsafe {
+            self.renderer.device.device.bind_image_memory(
+                image,
+                allocation.memory,
+                allocation.offset,
+            )
+        };
+        res.map_err(VulkanError::BindImageMemory)?;
+        destroy_image.forget();
+        Ok((image, allocation))
     }
 }
 
