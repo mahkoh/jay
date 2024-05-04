@@ -302,21 +302,14 @@ impl VulkanDevice {
 
 impl VulkanDmaBufImageTemplate {
     pub fn create_framebuffer(self: &Rc<Self>) -> Result<Rc<VulkanImage>, VulkanError> {
-        self.create_image(true, None)
+        self.create_image(true)
     }
 
-    pub fn create_texture(
-        self: &Rc<Self>,
-        shm: Option<VulkanShmImage>,
-    ) -> Result<Rc<VulkanImage>, VulkanError> {
-        self.create_image(false, shm)
+    pub fn create_texture(self: &Rc<Self>) -> Result<Rc<VulkanImage>, VulkanError> {
+        self.create_image(false)
     }
 
-    fn create_image(
-        self: &Rc<Self>,
-        for_rendering: bool,
-        shm: Option<VulkanShmImage>,
-    ) -> Result<Rc<VulkanImage>, VulkanError> {
+    fn create_image(self: &Rc<Self>, for_rendering: bool) -> Result<Rc<VulkanImage>, VulkanError> {
         let device = &self.renderer.device;
         let max_extents = match for_rendering {
             true => self.render_max_extents,
@@ -351,10 +344,9 @@ impl VulkanDmaBufImageTemplate {
                 false => ImageCreateFlags::empty(),
             };
             let usage = ImageUsageFlags::TRANSFER_SRC
-                | match (for_rendering, shm.is_some()) {
-                    (true, _) => ImageUsageFlags::COLOR_ATTACHMENT,
-                    (false, false) => ImageUsageFlags::SAMPLED,
-                    (false, true) => ImageUsageFlags::SAMPLED | ImageUsageFlags::TRANSFER_DST,
+                | match for_rendering {
+                    true => ImageUsageFlags::COLOR_ATTACHMENT,
+                    false => ImageUsageFlags::SAMPLED,
                 };
             let create_info = ImageCreateInfo::builder()
                 .image_type(ImageType::TYPE_2D)
@@ -495,9 +487,7 @@ impl GfxImage for VulkanDmaBufImageTemplate {
     }
 
     fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError> {
-        self.create_texture(None)
-            .map(|v| v as _)
-            .map_err(|e| e.into())
+        self.create_texture().map(|v| v as _).map_err(|e| e.into())
     }
 
     fn width(&self) -> i32 {
