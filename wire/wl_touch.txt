@@ -23,7 +23,7 @@ event up {
 
 event motion {
     time: u32,
-    id: u32,
+    id: i32,
     x: fixed,
     y: fixed,
 }

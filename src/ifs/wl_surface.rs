@@ -1436,6 +1436,40 @@ impl Node for WlSurface {
         seat.mods_surface(self, kb_state);
     }
 
+    fn node_on_touch_down(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        seat.touch_down_surface(&self, time_usec, id, x, y)
+    }
+
+    fn node_on_touch_up(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32) {
+        seat.touch_up_surface(&self, time_usec, id)
+    }
+
+    fn node_on_touch_motion(
+        self: Rc<Self>,
+        seat: &WlSeatGlobal,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        seat.touch_motion_surface(&self, time_usec, id, x, y)
+    }
+
+    fn node_on_touch_frame(&self, seat: &WlSeatGlobal) {
+        seat.touch_frame(&self)
+    }
+
+    fn node_on_touch_cancel(&self, seat: &WlSeatGlobal) {
+        seat.touch_cancel(&self)
+    }
+
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,

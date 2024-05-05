@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{AxisSource, InputEvent, KeyState, ScrollAxis},
+        backend::{AxisSource, InputEvent, KeyState, ScrollAxis, TouchEvent, TouchPosition},
         backends::metal::MetalBackend,
         fixed::Fixed,
         ifs::wl_seat::tablet::{
@@ -121,6 +121,11 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_TABLET_PAD_BUTTON => self.handle_tablet_pad_button(event),
             c::LIBINPUT_EVENT_TABLET_PAD_RING => self.handle_tablet_pad_ring(event),
             c::LIBINPUT_EVENT_TABLET_PAD_STRIP => self.handle_tablet_pad_strip(event),
+            c::LIBINPUT_EVENT_TOUCH_DOWN => self.handle_touch_down(event),
+            c::LIBINPUT_EVENT_TOUCH_UP => self.handle_touch_up(event),
+            c::LIBINPUT_EVENT_TOUCH_MOTION => self.handle_touch_motion(event),
+            c::LIBINPUT_EVENT_TOUCH_CANCEL => self.handle_touch_cancel(event),
+            c::LIBINPUT_EVENT_TOUCH_FRAME => self.handle_touch_frame(event),
             _ => {}
         }
     }
@@ -544,5 +549,62 @@ impl MetalBackend {
                 n => Some(n),
             },
         });
+    }
+
+    fn handle_touch_down(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        let pos = TouchPosition {
+            x: Fixed::from_f64(event.x()),
+            y: Fixed::from_f64(event.y()),
+            x_transformed: Fixed::from_f64(event.x_transformed(1)),
+            y_transformed: Fixed::from_f64(event.y_transformed(1)),
+        };
+        dev.event(InputEvent::Touch {
+            seat_slot: event.seat_slot(),
+            time_usec: event.time_usec(),
+            event: TouchEvent::Down { pos },
+        })
+    }
+
+    fn handle_touch_up(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::Touch {
+            seat_slot: event.seat_slot(),
+            time_usec: event.time_usec(),
+            event: TouchEvent::Up,
+        })
+    }
+
+    fn handle_touch_motion(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        let pos = TouchPosition {
+            x: Fixed::from_f64(event.x()),
+            y: Fixed::from_f64(event.y()),
+            x_transformed: Fixed::from_f64(event.x_transformed(1)),
+            y_transformed: Fixed::from_f64(event.y_transformed(1)),
+        };
+        dev.event(InputEvent::Touch {
+            seat_slot: event.seat_slot(),
+            time_usec: event.time_usec(),
+            event: TouchEvent::Motion { pos },
+        })
+    }
+
+    fn handle_touch_cancel(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::Touch {
+            seat_slot: event.seat_slot(),
+            time_usec: event.time_usec(),
+            event: TouchEvent::Cancel,
+        })
+    }
+
+    fn handle_touch_frame(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::Touch {
+            seat_slot: 0,
+            time_usec: event.time_usec(),
+            event: TouchEvent::Frame,
+        })
     }
 }

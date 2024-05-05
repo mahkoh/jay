@@ -148,6 +148,7 @@ pub struct ContainerChild {
 enum CursorType {
     Seat(SeatId),
     TabletTool(TabletToolId),
+    Touch(i32),
 }
 
 struct CursorState {
@@ -1273,6 +1274,34 @@ impl Node for ContainerNode {
 
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
         Some(self)
+    }
+
+    fn node_on_touch_down(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let id = CursorType::Touch(id);
+        self.pointer_move(id, seat.pointer_cursor(), x, y, false);
+        self.button(id, seat, time_usec, true);
+    }
+
+    fn node_on_touch_up(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32) {
+        self.button(CursorType::Touch(id), seat, time_usec, false);
+    }
+
+    fn node_on_touch_motion(
+        self: Rc<Self>,
+        seat: &WlSeatGlobal,
+        _time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        self.pointer_move(CursorType::Touch(id), seat.pointer_cursor(), x, y, false);
     }
 
     fn node_on_button(

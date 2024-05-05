@@ -6,6 +6,7 @@ use {
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
+        video::drm::ConnectorType,
     },
     std::{
         cell::{Cell, RefCell},
@@ -219,6 +220,20 @@ impl ConnectorHandler {
             };
             move_ws_to_output(&ws, &on, config);
         }
+        let c_ty = self.data.connector.kernel_id().ty;
+        let mut builtin = false;
+        if c_ty == ConnectorType::eDP || c_ty == ConnectorType::LVDS || c_ty == ConnectorType::DSI {
+            match self.state.builtin_output.get() {
+                Some(_) => {
+                    log::warn!("A built-in connector is already connected");
+                }
+                None => {
+                    builtin = true;
+                    log::info!("Connector {} is built-in", self.data.connector.kernel_id());
+                    self.state.builtin_output.set(Some(self.id))
+                }
+            }
+        };
         if let Some(config) = self.state.config.get() {
             config.connector_connected(self.id);
         }
@@ -239,6 +254,9 @@ impl ConnectorHandler {
                 }
             }
             self.data.async_event.triggered().await;
+        }
+        if builtin {
+            self.state.builtin_output.set(None);
         }
         if let Some(config) = self.state.config.get() {
             config.connector_disconnected(self.id);

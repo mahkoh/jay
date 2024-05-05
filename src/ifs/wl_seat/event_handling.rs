@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::{ConnectorId, InputDeviceId, InputEvent, KeyState, AXIS_120},
+        backend::{ConnectorId, InputDeviceId, InputEvent, KeyState, TouchEvent, AXIS_120},
         client::ClientId,
         config::InvokedShortcut,
         fixed::Fixed,
@@ -24,6 +24,7 @@ use {
                     AXIS_STOP_SINCE_VERSION, AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED,
                     POINTER_FRAME_SINCE_VERSION, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION,
                 },
+                wl_touch::WlTouch,
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
                 Dnd, SeatId, WlSeat, WlSeatGlobal, CHANGE_CURSOR_MOVED, CHANGE_TREE,
@@ -54,6 +55,7 @@ pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     kb_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     gesture_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    touch_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     pointer_grabs: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     dnd_targets: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     tablet_pad_foci: SmallMap<TabletPadId, Rc<TabletPad>, 1>,
@@ -109,6 +111,14 @@ impl NodeSeatState {
 
     pub(super) fn remove_tablet_tool_focus(&self, tool: &TabletTool) {
         self.tablet_tool_foci.remove(&tool.id);
+    }
+
+    pub(super) fn touch_begin(&self, seat: &Rc<WlSeatGlobal>) {
+        self.touch_foci.insert(seat.id, seat.clone());
+    }
+
+    pub(super) fn touch_end(&self, seat: &WlSeatGlobal) {
+        self.touch_foci.remove(&seat.id);
     }
 
     pub(super) fn add_dnd_target(&self, seat: &Rc<WlSeatGlobal>) {
@@ -188,6 +198,9 @@ impl NodeSeatState {
         while let Some((_, pad)) = self.tablet_pad_foci.pop() {
             pad.pad_owner.focus_root(&pad);
         }
+        while let Some((_, seat)) = self.touch_foci.pop() {
+            seat.touch_owner.clear();
+        }
         self.release_kb_focus2(focus_last);
     }
 
@@ -234,7 +247,8 @@ impl WlSeatGlobal {
             | InputEvent::TabletPadButton { time_usec, .. }
             | InputEvent::TabletPadModeSwitch { time_usec, .. }
             | InputEvent::TabletPadRing { time_usec, .. }
-            | InputEvent::TabletPadStrip { time_usec, .. } => {
+            | InputEvent::TabletPadStrip { time_usec, .. }
+            | InputEvent::Touch { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for (_, notification) in self.idle_notifications.lock().drain() {
@@ -278,6 +292,7 @@ impl WlSeatGlobal {
             InputEvent::TabletPadModeSwitch { .. } => {}
             InputEvent::TabletPadRing { .. } => {}
             InputEvent::TabletPadStrip { .. } => {}
+            InputEvent::Touch { .. } => {}
         }
         match event {
             InputEvent::Key {
@@ -411,6 +426,11 @@ impl WlSeatGlobal {
                 source,
                 position,
             } => self.tablet_event_pad_strip(pad, strip, source, position, time_usec),
+            InputEvent::Touch {
+                seat_slot,
+                time_usec,
+                event,
+            } => self.touch_event(dev, seat_slot, time_usec, event),
         }
     }
 
@@ -599,6 +619,52 @@ impl WlSeatGlobal {
         }
     }
 
+    fn touch_event(
+        self: &Rc<Self>,
+        dev: &DeviceHandlerData,
+        id: i32,
+        time_usec: u64,
+        event: TouchEvent,
+    ) {
+        self.state.for_each_seat_tester(|t| {
+            t.send_touch(self.id, time_usec, id, event);
+        });
+        match event {
+            TouchEvent::Down { pos } => {
+                let mapped_node = dev
+                    .output
+                    .get()
+                    .and_then(|out| out.node.get())
+                    .or_else(|| {
+                        self.state
+                            .builtin_output
+                            .get()
+                            .and_then(|con| self.state.root.outputs.get(&con))
+                    })
+                    .map(|o| o as Rc<dyn Node>)
+                    .unwrap_or_else(|| self.state.root.clone());
+                let x = pos.x_transformed;
+                let y = pos.y_transformed;
+                self.touch_owner
+                    .down(self, mapped_node, time_usec, id, x, y);
+            }
+            TouchEvent::Up => {
+                self.touch_owner.up(self, time_usec, id);
+            }
+            TouchEvent::Motion { pos } => {
+                let x = pos.x_transformed;
+                let y = pos.y_transformed;
+                self.touch_owner.motion(self, time_usec, id, x, y);
+            }
+            TouchEvent::Frame => {
+                self.touch_owner.frame(self);
+            }
+            TouchEvent::Cancel => {
+                self.touch_owner.cancel(self);
+            }
+        }
+    }
+
     pub(super) fn key_event<F>(
         self: &Rc<Self>,
         time_usec: u64,
@@ -780,6 +846,18 @@ impl WlSeatGlobal {
         })
     }
 
+    fn for_each_touch<C>(&self, ver: Version, client: ClientId, mut f: C)
+    where
+        C: FnMut(&Rc<WlTouch>),
+    {
+        self.for_each_seat(ver, client, |seat| {
+            let touches = seat.touches.lock();
+            for touch in touches.values() {
+                f(touch);
+            }
+        })
+    }
+
     pub fn for_each_data_device<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlDataDevice>),
@@ -853,6 +931,16 @@ impl WlSeatGlobal {
             f(p);
         });
         // client.flush();
+    }
+
+    pub fn surface_touch_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
+    where
+        F: FnMut(&Rc<WlTouch>),
+    {
+        let client = &surface.client;
+        self.for_each_touch(ver, client.id, |p| {
+            f(p);
+        });
     }
 
     fn cursor_moved(self: &Rc<Self>, time_usec: u64) {
@@ -1117,6 +1205,53 @@ impl WlSeatGlobal {
         self.surface_kb_event(Version::ALL, surface, |k| {
             k.on_mods_changed(serial, surface.id, kb_state)
         });
+    }
+}
+
+// Touch callbacks
+impl WlSeatGlobal {
+    pub fn touch_down_surface(
+        self: &Rc<Self>,
+        surface: &WlSurface,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let serial = surface.client.next_serial();
+        let time = (time_usec / 1000) as _;
+        self.surface_touch_event(Version::ALL, surface, |t| {
+            t.send_down(serial, time, surface.id, id, x, y)
+        });
+        if let Some(node) = surface.get_focus_node(self.id) {
+            self.focus_node(node);
+        }
+    }
+
+    pub fn touch_up_surface(&self, surface: &WlSurface, time_usec: u64, id: i32) {
+        let serial = surface.client.next_serial();
+        let time = (time_usec / 1000) as _;
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_up(serial, time, id))
+    }
+
+    pub fn touch_motion_surface(
+        &self,
+        surface: &WlSurface,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let time = (time_usec / 1000) as _;
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_motion(time, id, x, y));
+    }
+
+    pub fn touch_frame(&self, surface: &WlSurface) {
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_frame())
+    }
+
+    pub fn touch_cancel(&self, surface: &WlSurface) {
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_cancel())
     }
 }
 

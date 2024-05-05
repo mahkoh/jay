@@ -239,3 +239,37 @@ event tablet_pad_ring_frame {
     input_device: u32,
     ring: u32,
 }
+
+event touch_down {
+    seat: u32,
+    time_usec: pod(u64),
+    id: i32,
+    x: fixed,
+    y: fixed,
+}
+
+event touch_up {
+    seat: u32,
+    time_usec: pod(u64),
+    id: i32,
+}
+
+event touch_motion {
+    seat: u32,
+    time_usec: pod(u64),
+    id: i32,
+    x: fixed,
+    y: fixed,
+}
+
+event touch_frame {
+    seat: u32,
+    time_usec: pod(u64),
+    id: i32,
+}
+
+event touch_cancel {
+    seat: u32,
+    time_usec: pod(u64),
+    id: i32,
+}

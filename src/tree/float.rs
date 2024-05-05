@@ -56,6 +56,7 @@ pub struct FloatNode {
 enum CursorType {
     Seat(SeatId),
     TabletTool(TabletToolId),
+    Touch(i32),
 }
 
 struct CursorState {
@@ -565,6 +566,41 @@ impl Node for FloatNode {
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_floating(self, x, y)
+    }
+
+    fn node_on_touch_down(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let id = CursorType::Touch(id);
+        let cursor = seat.pointer_cursor();
+        self.pointer_move(id, cursor, x, y, false);
+        self.button(id, cursor, seat, time_usec, true);
+    }
+
+    fn node_on_touch_up(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32) {
+        self.button(
+            CursorType::Touch(id),
+            seat.pointer_cursor(),
+            seat,
+            time_usec,
+            false,
+        );
+    }
+
+    fn node_on_touch_motion(
+        self: Rc<Self>,
+        seat: &WlSeatGlobal,
+        _time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        self.pointer_move(CursorType::Touch(id), seat.pointer_cursor(), x, y, false);
     }
 
     fn node_on_button(
