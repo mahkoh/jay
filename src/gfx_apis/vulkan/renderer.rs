@@ -33,12 +33,13 @@ use {
             AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferImageCopy, BufferImageCopy2,
             BufferMemoryBarrier2, ClearColorValue, ClearValue, CommandBuffer,
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
-            CopyBufferToImageInfo2, DependencyInfo, DependencyInfoKHR, DescriptorImageInfo,
-            DescriptorType, Extent2D, Extent3D, Fence, ImageAspectFlags, ImageLayout,
-            ImageMemoryBarrier2, ImageMemoryBarrier2Builder, ImageSubresourceLayers,
-            ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2, Rect2D,
-            RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR,
-            ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet, QUEUE_FAMILY_FOREIGN_EXT,
+            CopyBufferToImageInfo2, CopyImageInfo2, DependencyInfo, DependencyInfoKHR,
+            DescriptorImageInfo, DescriptorType, Extent2D, Extent3D, Fence, ImageAspectFlags,
+            ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageMemoryBarrier2Builder,
+            ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2,
+            Rect2D, RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo,
+            SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet,
+            QUEUE_FAMILY_FOREIGN_EXT,
         },
         Device,
     },
@@ -266,19 +267,33 @@ impl VulkanRenderer {
         let memory = &mut *memory;
         memory.image_barriers.clear();
         memory.shm_barriers.clear();
-        let fb_image_memory_barrier = image_barrier()
-            .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-            .dst_queue_family_index(self.device.graphics_queue_idx)
+        let mut fb_image_memory_barrier = image_barrier()
             .image(fb.image)
-            .old_layout(if fb.is_undefined.get() {
-                ImageLayout::UNDEFINED
-            } else {
-                ImageLayout::GENERAL
-            })
             .new_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .dst_access_mask(AccessFlags2::COLOR_ATTACHMENT_WRITE)
-            .dst_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
-            .build();
+            .dst_access_mask(
+                AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
+            )
+            .dst_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
+        if fb.bridge.is_some() {
+            fb_image_memory_barrier = fb_image_memory_barrier
+                .src_access_mask(AccessFlags2::TRANSFER_READ)
+                .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                .old_layout(if fb.is_undefined.get() {
+                    ImageLayout::UNDEFINED
+                } else {
+                    ImageLayout::TRANSFER_SRC_OPTIMAL
+                });
+        } else {
+            fb_image_memory_barrier = fb_image_memory_barrier
+                .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                .dst_queue_family_index(self.device.graphics_queue_idx)
+                .old_layout(if fb.is_undefined.get() {
+                    ImageLayout::UNDEFINED
+                } else {
+                    ImageLayout::GENERAL
+                });
+        }
+        let fb_image_memory_barrier = fb_image_memory_barrier.build();
         memory.image_barriers.push(fb_image_memory_barrier);
         for img in &memory.sample {
             let image_memory_barrier = image_barrier()
@@ -542,22 +557,95 @@ impl VulkanRenderer {
         }
     }
 
+    fn copy_bridge_to_dmabuf(&self, buf: CommandBuffer, fb: &VulkanImage) {
+        let Some(bridge) = &fb.bridge else {
+            return;
+        };
+        let mut memory = self.memory.borrow_mut();
+        let memory = &mut *memory;
+        memory.image_barriers.clear();
+        let bridge_image_memory_barrier = image_barrier()
+            .image(fb.image)
+            .old_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .new_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
+            .src_access_mask(
+                AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
+            )
+            .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
+            .dst_access_mask(AccessFlags2::TRANSFER_READ)
+            .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+            .build();
+        memory.image_barriers.push(bridge_image_memory_barrier);
+        let dmabuf_image_memory_barrier = image_barrier()
+            .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+            .dst_queue_family_index(self.device.graphics_queue_idx)
+            .image(bridge.dmabuf_image)
+            .old_layout(if fb.is_undefined.get() {
+                ImageLayout::UNDEFINED
+            } else {
+                ImageLayout::GENERAL
+            })
+            .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+            .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
+            .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+            .build();
+        memory.image_barriers.push(dmabuf_image_memory_barrier);
+        let dep_info = DependencyInfoKHR::builder().image_memory_barriers(&memory.image_barriers);
+        unsafe {
+            self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
+        }
+        let image_subresource_layers = ImageSubresourceLayers::builder()
+            .aspect_mask(ImageAspectFlags::COLOR)
+            .layer_count(1)
+            .base_array_layer(0)
+            .mip_level(0)
+            .build();
+        let image_copy = ImageCopy2::builder()
+            .src_subresource(image_subresource_layers)
+            .dst_subresource(image_subresource_layers)
+            .extent(Extent3D {
+                width: fb.width,
+                height: fb.height,
+                depth: 1,
+            })
+            .build();
+        let copy_image_info = CopyImageInfo2::builder()
+            .src_image(fb.image)
+            .src_image_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
+            .dst_image(bridge.dmabuf_image)
+            .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+            .regions(slice::from_ref(&image_copy))
+            .build();
+        unsafe {
+            self.device.device.cmd_copy_image2(buf, &copy_image_info);
+        }
+    }
+
     fn final_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) {
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
         memory.shm_barriers.clear();
-        let fb_image_memory_barrier = image_barrier()
+        let mut fb_image_memory_barrier = image_barrier()
             .src_queue_family_index(self.device.graphics_queue_idx)
             .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-            .image(fb.image)
-            .old_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-            .new_layout(ImageLayout::GENERAL)
-            .src_access_mask(
-                AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
-            )
-            .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
-            .build();
+            .new_layout(ImageLayout::GENERAL);
+        if let Some(bridge) = &fb.bridge {
+            fb_image_memory_barrier = fb_image_memory_barrier
+                .image(bridge.dmabuf_image)
+                .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                .src_access_mask(AccessFlags2::TRANSFER_WRITE)
+                .src_stage_mask(PipelineStageFlags2::TRANSFER);
+        } else {
+            fb_image_memory_barrier = fb_image_memory_barrier
+                .image(fb.image)
+                .old_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                .src_access_mask(
+                    AccessFlags2::COLOR_ATTACHMENT_WRITE | AccessFlags2::COLOR_ATTACHMENT_READ,
+                )
+                .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
+        }
+        let fb_image_memory_barrier = fb_image_memory_barrier.build();
         memory.image_barriers.push(fb_image_memory_barrier);
         for img in &memory.sample {
             let image_memory_barrier = image_barrier()
@@ -828,31 +916,28 @@ impl VulkanRenderer {
             })
             .build();
         let staging = self.create_staging_buffer(size, false, true, true)?;
-        let initial_tex_barrier = image_barrier()
-            .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-            .dst_queue_family_index(self.device.graphics_queue_idx)
-            .image(tex.image)
-            .old_layout(ImageLayout::GENERAL)
-            .new_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
-            .dst_access_mask(AccessFlags2::TRANSFER_READ)
-            .dst_stage_mask(PipelineStageFlags2::TRANSFER);
+        let initial_tex_barrier;
         let initial_buffer_barrier = BufferMemoryBarrier2::builder()
             .buffer(staging.buffer)
             .offset(0)
             .size(staging.size)
             .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
             .dst_stage_mask(PipelineStageFlags2::TRANSFER);
-        let initial_barriers = DependencyInfo::builder()
-            .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier))
-            .image_memory_barriers(slice::from_ref(&initial_tex_barrier));
-        let final_tex_barrier = image_barrier()
-            .src_queue_family_index(self.device.graphics_queue_idx)
-            .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-            .image(tex.image)
-            .old_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
-            .new_layout(ImageLayout::GENERAL)
-            .src_access_mask(AccessFlags2::TRANSFER_READ)
-            .src_stage_mask(PipelineStageFlags2::TRANSFER);
+        let mut initial_barriers = DependencyInfo::builder()
+            .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier));
+        if tex.bridge.is_none() {
+            initial_tex_barrier = image_barrier()
+                .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                .dst_queue_family_index(self.device.graphics_queue_idx)
+                .image(tex.image)
+                .old_layout(ImageLayout::GENERAL)
+                .new_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
+                .dst_access_mask(AccessFlags2::TRANSFER_READ)
+                .dst_stage_mask(PipelineStageFlags2::TRANSFER);
+            initial_barriers =
+                initial_barriers.image_memory_barriers(slice::from_ref(&initial_tex_barrier));
+        }
+        let final_tex_barrier;
         let final_buffer_barrier = BufferMemoryBarrier2::builder()
             .buffer(staging.buffer)
             .offset(0)
@@ -861,9 +946,20 @@ impl VulkanRenderer {
             .src_stage_mask(PipelineStageFlags2::TRANSFER)
             .dst_access_mask(AccessFlags2::HOST_READ)
             .dst_stage_mask(PipelineStageFlags2::HOST);
-        let final_barriers = DependencyInfo::builder()
-            .buffer_memory_barriers(slice::from_ref(&final_buffer_barrier))
-            .image_memory_barriers(slice::from_ref(&final_tex_barrier));
+        let mut final_barriers = DependencyInfo::builder()
+            .buffer_memory_barriers(slice::from_ref(&final_buffer_barrier));
+        if tex.bridge.is_none() {
+            final_tex_barrier = image_barrier()
+                .src_queue_family_index(self.device.graphics_queue_idx)
+                .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                .image(tex.image)
+                .old_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
+                .new_layout(ImageLayout::GENERAL)
+                .src_access_mask(AccessFlags2::TRANSFER_READ)
+                .src_stage_mask(PipelineStageFlags2::TRANSFER);
+            final_barriers =
+                final_barriers.image_memory_barriers(slice::from_ref(&final_tex_barrier));
+        }
         let buf = self.allocate_command_buffer()?;
         let mut semaphores = vec![];
         let mut semaphore_infos = vec![];
@@ -985,6 +1081,7 @@ impl VulkanRenderer {
         self.set_viewport(buf.buffer, fb);
         self.record_draws(buf.buffer, opts)?;
         self.end_rendering(buf.buffer);
+        self.copy_bridge_to_dmabuf(buf.buffer, fb);
         self.final_barriers(buf.buffer, fb);
         self.end_command_buffer(buf.buffer)?;
         self.create_wait_semaphores(fb)?;

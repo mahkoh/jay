@@ -8,6 +8,7 @@
 - Add support for pointer-gestures-unstable-v1.
 - Configs can now handle switch events (laptop lid closed/opened).
 - Add support for tablet-v2.
+- Add support for linear framebuffers (hardware cursors/screensharing) on NVIDIA if the Vulkan renderer is used. (The OpenGL renderer does not support this.)
 
 # 1.1.0 (2024-04-22)
 
