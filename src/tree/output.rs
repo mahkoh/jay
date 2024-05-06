@@ -843,20 +843,28 @@ impl Node for OutputNode {
             });
             fs.tl_as_node().node_find_tree_at(x, y, tree, usecase)
         } else {
-            if y >= bar_height {
-                y -= bar_height;
-                let len = tree.len();
+            let mut search_layers = true;
+            if y < bar_height {
+                search_layers = false;
+            } else {
                 if let Some(ws) = self.workspace.get() {
+                    let y = y - bar_height;
+                    let len = tree.len();
                     tree.push(FoundNode {
                         node: ws.clone(),
                         x,
                         y,
                     });
-                    ws.node_find_tree_at(x, y, tree, usecase);
+                    match ws.node_find_tree_at(x, y, tree, usecase) {
+                        FindTreeResult::AcceptsInput => search_layers = false,
+                        FindTreeResult::Other => {
+                            tree.truncate(len);
+                        }
+                    }
                 }
-                if tree.len() == len {
-                    self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
-                }
+            }
+            if search_layers {
+                self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
             }
             FindTreeResult::AcceptsInput
         }
