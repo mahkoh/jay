@@ -142,17 +142,21 @@ impl XdgPopup {
                 }
                 let (mut dx, mut dy) = (0, 0);
                 if positioner.ca.contains(CA_SLIDE_X) && overflow.x_overflow() {
-                    dx = if overflow.left > 0 || overflow.left + overflow.right > 0 {
+                    dx = if overflow.left + overflow.right > 0 {
                         parent_abs.x1() - abs_pos.x1()
+                    } else if overflow.left > 0 {
+                        overflow.left
                     } else {
-                        parent_abs.x2() - abs_pos.x2()
+                        -overflow.right
                     };
                 }
                 if positioner.ca.contains(CA_SLIDE_Y) && overflow.y_overflow() {
-                    dy = if overflow.top > 0 || overflow.top + overflow.bottom > 0 {
+                    dy = if overflow.top + overflow.bottom > 0 {
                         parent_abs.y1() - abs_pos.y1()
+                    } else if overflow.top > 0 {
+                        overflow.top
                     } else {
-                        parent_abs.y2() - abs_pos.y2()
+                        -overflow.bottom
                     };
                 }
                 if dx != 0 || dy != 0 {
