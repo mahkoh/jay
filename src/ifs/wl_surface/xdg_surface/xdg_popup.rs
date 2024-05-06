@@ -16,10 +16,10 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, StackedNode,
-            WorkspaceNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
+            StackedNode,
         },
-        utils::{clonecell::CloneCell, linkedlist::LinkedNode},
+        utils::clonecell::CloneCell,
         wire::{xdg_popup::*, XdgPopupId},
     },
     std::{
@@ -35,14 +35,20 @@ const INVALID_GRAB: u32 = 1;
 
 tree_id!(PopupId);
 
+pub trait XdgPopupParent {
+    fn position(&self) -> Rect;
+    fn remove_popup(&self);
+    fn output(&self) -> Rc<OutputNode>;
+    fn has_workspace_link(&self) -> bool;
+    fn post_commit(&self);
+}
+
 pub struct XdgPopup {
-    id: XdgPopupId,
+    pub id: XdgPopupId,
     node_id: PopupId,
     pub xdg: Rc<XdgSurface>,
-    pub(super) parent: CloneCell<Option<Rc<XdgSurface>>>,
+    pub(super) parent: CloneCell<Option<Rc<dyn XdgPopupParent>>>,
     relative_position: Cell<Rect>,
-    display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
-    workspace_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pos: RefCell<XdgPositioned>,
     pub tracker: Tracker<Self>,
     seat_state: NodeSeatState,
@@ -59,7 +65,6 @@ impl XdgPopup {
     pub fn new(
         id: XdgPopupId,
         xdg: &Rc<XdgSurface>,
-        parent: Option<&Rc<XdgSurface>>,
         pos: &Rc<XdgPositioner>,
     ) -> Result<Self, XdgPopupError> {
         let pos = pos.value();
@@ -70,10 +75,8 @@ impl XdgPopup {
             id,
             node_id: xdg.surface.client.state.node_ids.next(),
             xdg: xdg.clone(),
-            parent: CloneCell::new(parent.cloned()),
+            parent: Default::default(),
             relative_position: Cell::new(Default::default()),
-            display_link: RefCell::new(None),
-            workspace_link: RefCell::new(None),
             pos: RefCell::new(pos),
             tracker: Default::default(),
             seat_state: Default::default(),
@@ -105,13 +108,13 @@ impl XdgPopup {
             .event(PopupDone { self_id: self.id })
     }
 
-    fn update_position(&self, parent: &XdgSurface) {
+    fn update_position(&self, parent: &dyn XdgPopupParent) {
         let positioner = self.pos.borrow_mut();
-        let parent_abs = parent.absolute_desired_extents.get();
+        let parent_abs = parent.position();
         let mut rel_pos = positioner.get_position(false, false);
         let mut abs_pos = rel_pos.move_(parent_abs.x1(), parent_abs.y1());
-        if let Some(ws) = parent.workspace.get() {
-            let output_pos = ws.output.get().global.pos.get();
+        {
+            let output_pos = parent.output().global.pos.get();
             let mut overflow = output_pos.get_overflow(&abs_pos);
             if !overflow.is_contained() {
                 let mut flip_x = positioner.ca.contains(CA_FLIP_X) && overflow.x_overflow();
@@ -202,7 +205,7 @@ impl XdgPopup {
     pub fn update_absolute_position(&self) {
         if let Some(parent) = self.parent.get() {
             let rel = self.relative_position.get();
-            let parent = parent.absolute_desired_extents.get();
+            let parent = parent.position();
             self.xdg
                 .set_absolute_desired_extents(&rel.move_(parent.x1(), parent.y1()));
         }
@@ -214,15 +217,8 @@ impl XdgPopupRequestHandler for XdgPopup {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroy_node();
-        {
-            if let Some(parent) = self.parent.take() {
-                parent.popups.remove(&self.id);
-            }
-        }
         self.xdg.ext.set(None);
         self.xdg.surface.client.remove_obj(self)?;
-        *self.display_link.borrow_mut() = None;
-        *self.workspace_link.borrow_mut() = None;
         Ok(())
     }
 
@@ -233,7 +229,7 @@ impl XdgPopupRequestHandler for XdgPopup {
     fn reposition(&self, req: Reposition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
-            self.update_position(&parent);
+            self.update_position(&*parent);
             let rel = self.relative_position.get();
             self.send_repositioned(req.token);
             self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
@@ -244,10 +240,6 @@ impl XdgPopupRequestHandler for XdgPopup {
 }
 
 impl XdgPopup {
-    fn get_parent_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.parent.get()?.workspace.get()
-    }
-
     pub fn set_visible(&self, visible: bool) {
         // log::info!("set visible = {}", visible);
         self.set_visible_prepared.set(false);
@@ -256,26 +248,17 @@ impl XdgPopup {
     }
 
     pub fn destroy_node(&self) {
-        let _v = self.display_link.borrow_mut().take();
-        let _v = self.workspace_link.borrow_mut().take();
         self.xdg.destroy_node();
         self.seat_state.destroy_node(self);
+        if let Some(parent) = self.parent.take() {
+            parent.remove_popup();
+        }
+        self.send_popup_done();
     }
 
     pub fn detach_node(&self) {
-        let _v = self.workspace_link.borrow_mut().take();
         self.xdg.detach_node();
         self.seat_state.destroy_node(self);
-    }
-
-    pub fn restack(&self) {
-        let state = &self.xdg.surface.client.state;
-        let dl = self.display_link.borrow();
-        if let Some(dl) = &*dl {
-            state.root.stacked.add_last_existing(dl);
-        }
-        self.xdg.restack_popups();
-        state.tree_changed();
     }
 }
 
@@ -287,9 +270,6 @@ object_base! {
 impl Object for XdgPopup {
     fn break_loops(&self) {
         self.destroy_node();
-        self.parent.set(None);
-        *self.display_link.borrow_mut() = None;
-        *self.workspace_link.borrow_mut() = None;
     }
 }
 
@@ -377,7 +357,10 @@ impl StackedNode for XdgPopup {
     }
 
     fn stacked_has_workspace_link(&self) -> bool {
-        self.workspace_link.borrow().is_some()
+        match self.parent.get() {
+            Some(p) => p.has_workspace_link(),
+            _ => false,
+        }
     }
 
     fn stacked_absolute_position_constrains_input(&self) -> bool {
@@ -388,7 +371,7 @@ impl StackedNode for XdgPopup {
 impl XdgSurfaceExt for XdgPopup {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         if let Some(parent) = self.parent.get() {
-            self.update_position(&parent);
+            self.update_position(&*parent);
             let rel = self.relative_position.get();
             self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
@@ -396,38 +379,8 @@ impl XdgSurfaceExt for XdgPopup {
     }
 
     fn post_commit(self: Rc<Self>) {
-        let mut wl = self.workspace_link.borrow_mut();
-        let mut dl = self.display_link.borrow_mut();
-        let ws = match self.get_parent_workspace() {
-            Some(ws) => ws,
-            _ => {
-                log::info!("no ws");
-                return;
-            }
-        };
-        let surface = &self.xdg.surface;
-        let state = &surface.client.state;
-        if surface.buffer.is_some() {
-            if wl.is_none() {
-                self.xdg.set_workspace(&ws);
-                *wl = Some(ws.stacked.add_last(self.clone()));
-                *dl = Some(state.root.stacked.add_last(self.clone()));
-                state.tree_changed();
-                self.set_visible(
-                    self.parent
-                        .get()
-                        .map(|p| p.surface.visible.get())
-                        .unwrap_or(false),
-                );
-            }
-        } else {
-            if wl.take().is_some() {
-                drop(wl);
-                drop(dl);
-                self.set_visible(false);
-                self.destroy_node();
-                self.send_popup_done();
-            }
+        if let Some(parent) = self.parent.get() {
+            parent.post_commit();
         }
     }
 

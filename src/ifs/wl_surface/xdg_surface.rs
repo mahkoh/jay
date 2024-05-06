@@ -7,7 +7,7 @@ use {
         ifs::{
             wl_surface::{
                 xdg_surface::{
-                    xdg_popup::{XdgPopup, XdgPopupError},
+                    xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
                     xdg_toplevel::{XdgToplevel, WM_CAPABILITIES_SINCE},
                 },
                 PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
@@ -17,14 +17,15 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
-        tree::{FindTreeResult, FoundNode, OutputNode, WorkspaceNode},
+        tree::{FindTreeResult, FoundNode, OutputNode, StackedNode, WorkspaceNode},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, numcell::NumCell, option_ext::OptionExt,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
+            linkedlist::LinkedNode, numcell::NumCell, option_ext::OptionExt,
         },
         wire::{xdg_surface::*, WlSurfaceId, XdgPopupId, XdgSurfaceId},
     },
     std::{
-        cell::{Cell, RefMut},
+        cell::{Cell, RefCell, RefMut},
         fmt::Debug,
         rc::Rc,
     },
@@ -65,9 +66,64 @@ pub struct XdgSurface {
     extents: Cell<Rect>,
     pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
-    popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
+    popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
+}
+
+struct Popup {
+    parent: Rc<XdgSurface>,
+    popup: Rc<XdgPopup>,
+    display_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    workspace_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+}
+
+impl XdgPopupParent for Popup {
+    fn position(&self) -> Rect {
+        self.parent.absolute_desired_extents.get()
+    }
+
+    fn remove_popup(&self) {
+        self.parent.popups.remove(&self.popup.id);
+    }
+
+    fn output(&self) -> Rc<OutputNode> {
+        self.parent.surface.output.get()
+    }
+
+    fn has_workspace_link(&self) -> bool {
+        self.workspace_link.borrow().is_some()
+    }
+
+    fn post_commit(&self) {
+        let mut wl = self.workspace_link.borrow_mut();
+        let mut dl = self.display_link.borrow_mut();
+        let ws = match self.parent.workspace.get() {
+            Some(ws) => ws,
+            _ => {
+                log::info!("no ws");
+                return;
+            }
+        };
+        let surface = &self.popup.xdg.surface;
+        let state = &surface.client.state;
+        if surface.buffer.is_some() {
+            if wl.is_none() {
+                self.popup.xdg.set_workspace(&ws);
+                *wl = Some(ws.stacked.add_last(self.popup.clone()));
+                *dl = Some(state.root.stacked.add_last(self.popup.clone()));
+                state.tree_changed();
+                self.popup.set_visible(self.parent.surface.visible.get());
+            }
+        } else {
+            if wl.take().is_some() {
+                drop(wl);
+                drop(dl);
+                self.popup.set_visible(false);
+                self.popup.destroy_node();
+            }
+        }
+    }
 }
 
 #[derive(Default, Debug)]
@@ -139,7 +195,7 @@ impl XdgSurface {
         self.surface.set_output(&ws.output.get());
         let pu = self.popups.lock();
         for pu in pu.values() {
-            pu.xdg.set_workspace(ws);
+            pu.popup.xdg.set_workspace(ws);
         }
     }
 
@@ -147,7 +203,7 @@ impl XdgSurface {
         self.surface.set_output(output);
         let pu = self.popups.lock();
         for pu in pu.values() {
-            pu.xdg.set_output(output);
+            pu.popup.xdg.set_output(output);
         }
     }
 
@@ -171,9 +227,8 @@ impl XdgSurface {
     fn destroy_node(&self) {
         self.workspace.set(None);
         self.surface.destroy_node();
-        let popups = self.popups.lock();
-        for popup in popups.values() {
-            popup.destroy_node();
+        for popup in self.popups.lock().drain_values() {
+            popup.popup.destroy_node();
         }
     }
 
@@ -182,7 +237,8 @@ impl XdgSurface {
         self.surface.detach_node(false);
         let popups = self.popups.lock();
         for popup in popups.values() {
-            popup.detach_node();
+            let _v = popup.workspace_link.borrow_mut().take();
+            popup.popup.detach_node();
         }
     }
 
@@ -279,11 +335,18 @@ impl XdgSurfaceRequestHandler for XdgSurface {
             );
             return Err(XdgSurfaceError::AlreadyConstructed);
         }
-        let popup = Rc::new(XdgPopup::new(req.id, slf, parent.as_ref(), &positioner)?);
+        let popup = Rc::new(XdgPopup::new(req.id, slf, &positioner)?);
         track!(self.surface.client, popup);
         self.surface.client.add_client_obj(&popup)?;
         if let Some(parent) = &parent {
-            parent.popups.set(req.id, popup.clone());
+            let user = Rc::new(Popup {
+                parent: parent.clone(),
+                popup: popup.clone(),
+                display_link: Default::default(),
+                workspace_link: Default::default(),
+            });
+            popup.parent.set(Some(user.clone()));
+            parent.popups.set(req.id, user);
         }
         self.ext.set(Some(popup));
         Ok(())
@@ -341,21 +404,26 @@ impl XdgSurface {
     fn update_popup_positions(&self) {
         let popups = self.popups.lock();
         for popup in popups.values() {
-            popup.update_absolute_position();
+            popup.popup.update_absolute_position();
         }
     }
 
     fn set_visible(&self, visible: bool) {
         self.surface.set_visible(visible);
         for popup in self.popups.lock().values() {
-            popup.set_visible(visible);
+            popup.popup.set_visible(visible);
         }
     }
 
     fn restack_popups(&self) {
+        let state = &self.surface.client.state;
         for popup in self.popups.lock().values() {
-            popup.restack();
+            if let Some(dl) = &*popup.display_link.borrow() {
+                state.root.stacked.add_last_existing(dl);
+            }
+            popup.popup.xdg.restack_popups();
         }
+        state.tree_changed();
     }
 }
 
