@@ -105,12 +105,8 @@ impl XdgPopup {
             .event(PopupDone { self_id: self.id })
     }
 
-    fn update_position(&self, parent: &XdgSurface) -> Result<(), XdgPopupError> {
-        // let parent = parent.extents.get();
+    fn update_position(&self, parent: &XdgSurface) {
         let positioner = self.pos.borrow_mut();
-        // if !parent.contains_rect(&positioner.ar) {
-        //     return Err(XdgPopupError::AnchorRectOutside);
-        // }
         let parent_abs = parent.absolute_desired_extents.get();
         let mut rel_pos = positioner.get_position(false, false);
         let mut abs_pos = rel_pos.move_(parent_abs.x1(), parent_abs.y1());
@@ -174,26 +170,29 @@ impl XdgPopup {
                     dy2 = -overflow.bottom.max(0);
                 }
                 if dx1 > 0 || dx2 < 0 || dy1 > 0 || dy2 < 0 {
-                    abs_pos = Rect::new(
+                    let maybe_abs_pos = Rect::new(
                         abs_pos.x1() + dx1,
                         abs_pos.y1() + dy1,
                         abs_pos.x2() + dx2,
                         abs_pos.y2() + dy2,
-                    )
-                    .unwrap();
-                    rel_pos = Rect::new_sized(
-                        abs_pos.x1() - parent_abs.x1(),
-                        abs_pos.y1() - parent_abs.y1(),
-                        abs_pos.width(),
-                        abs_pos.height(),
-                    )
-                    .unwrap();
+                    );
+                    // If the popup is completely outside the output, this will fail. Just
+                    // use its position as is.
+                    if let Some(maybe_abs_pos) = maybe_abs_pos {
+                        abs_pos = maybe_abs_pos;
+                        rel_pos = Rect::new_sized(
+                            abs_pos.x1() - parent_abs.x1(),
+                            abs_pos.y1() - parent_abs.y1(),
+                            abs_pos.width(),
+                            abs_pos.height(),
+                        )
+                        .unwrap();
+                    }
                 }
             }
         }
         self.relative_position.set(rel_pos);
         self.xdg.set_absolute_desired_extents(&abs_pos);
-        Ok(())
     }
 
     pub fn update_absolute_position(&self) {
@@ -230,7 +229,7 @@ impl XdgPopupRequestHandler for XdgPopup {
     fn reposition(&self, req: Reposition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         *self.pos.borrow_mut() = self.xdg.surface.client.lookup(req.positioner)?.value();
         if let Some(parent) = self.parent.get() {
-            self.update_position(&parent)?;
+            self.update_position(&parent);
             let rel = self.relative_position.get();
             self.send_repositioned(req.token);
             self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
@@ -385,7 +384,7 @@ impl StackedNode for XdgPopup {
 impl XdgSurfaceExt for XdgPopup {
     fn initial_configure(self: Rc<Self>) -> Result<(), XdgSurfaceError> {
         if let Some(parent) = self.parent.get() {
-            self.update_position(&parent)?;
+            self.update_position(&parent);
             let rel = self.relative_position.get();
             self.send_configure(rel.x1(), rel.y1(), rel.width(), rel.height());
         }
