@@ -642,7 +642,7 @@ impl OutputNode {
         if let Some(ws) = self.workspace.get() {
             have_fullscreen = ws.fullscreen.is_some();
         }
-        let lower_visible = visible && have_fullscreen;
+        let lower_visible = visible && !have_fullscreen;
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
         if let Some(ws) = self.workspace.get() {
