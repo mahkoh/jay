@@ -4,21 +4,32 @@ use {
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::NodeSeatState,
-            wl_surface::{PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
+            wl_surface::{
+                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
+                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+            },
             zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY},
         },
         leaks::Tracker,
         object::Object,
         rect::Rect,
         renderer::Renderer,
-        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
-        utils::{
-            bitflags::BitflagsExt, linkedlist::LinkedNode, numcell::NumCell, option_ext::OptionExt,
+        tree::{
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
+            StackedNode,
         },
-        wire::{zwlr_layer_surface_v1::*, WlSurfaceId, ZwlrLayerSurfaceV1Id},
+        utils::{
+            bitflags::BitflagsExt,
+            copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
+            linkedlist::{LinkedList, LinkedNode},
+            numcell::NumCell,
+            option_ext::OptionExt,
+        },
+        wire::{zwlr_layer_surface_v1::*, WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id},
     },
     std::{
-        cell::{Cell, RefMut},
+        cell::{Cell, RefCell, RefMut},
         ops::Deref,
         rc::Rc,
     },
@@ -60,6 +71,7 @@ pub struct ZwlrLayerSurfaceV1 {
     last_configure: Cell<(i32, i32)>,
     exclusive_edge: Cell<Option<u32>>,
     exclusive_size: Cell<ExclusiveSize>,
+    popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -94,6 +106,13 @@ pub enum ExclusiveZone {
     MoveSelf,
     FixedSelf,
     Acquire(i32),
+}
+
+struct Popup {
+    parent: Rc<ZwlrLayerSurfaceV1>,
+    popup: Rc<XdgPopup>,
+    stack: Rc<LinkedList<Rc<dyn StackedNode>>>,
+    stack_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
 }
 
 #[derive(Default)]
@@ -158,6 +177,7 @@ impl ZwlrLayerSurfaceV1 {
             last_configure: Default::default(),
             exclusive_edge: Default::default(),
             exclusive_size: Default::default(),
+            popups: Default::default(),
         }
     }
 
@@ -259,7 +279,21 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn get_popup(&self, _req: GetPopup, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_popup(&self, req: GetPopup, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let popup = self.client.lookup(req.popup)?;
+        if popup.parent.is_some() {
+            return Err(ZwlrLayerSurfaceV1Error::PopupHasParent);
+        }
+        let stack = self.client.state.root.stacked_above_layers.clone();
+        popup.xdg.set_popup_stack(&stack);
+        let user = Rc::new(Popup {
+            parent: slf.clone(),
+            popup: popup.clone(),
+            stack,
+            stack_link: Default::default(),
+        });
+        popup.parent.set(Some(user.clone()));
+        self.popups.set(popup.id, user);
         Ok(())
     }
 
@@ -268,6 +302,9 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self.popups.is_not_empty() {
+            return Err(ZwlrLayerSurfaceV1Error::HasPopups);
+        }
         self.destroy_node();
         self.client.remove_obj(self)?;
         self.surface.unset_ext();
@@ -466,10 +503,15 @@ impl ZwlrLayerSurfaceV1 {
         let a_rect = Rect::new_sized(x1 + rect.x1(), y1 + rect.y1(), width, height).unwrap();
         let o_rect = a_rect.move_(-opos.x1(), -opos.y1());
         self.output_extents.set(o_rect);
-        self.pos.set(a_rect);
+        let a_rect_old = self.pos.replace(a_rect);
         let abs_x = a_rect.x1() - extents.x1();
         let abs_y = a_rect.y1() - extents.y1();
         self.surface.set_absolute_position(abs_x, abs_y);
+        if a_rect_old != a_rect {
+            for popup in self.popups.lock().values() {
+                popup.popup.update_absolute_position();
+            }
+        }
         self.client.state.tree_changed();
     }
 
@@ -495,6 +537,19 @@ impl ZwlrLayerSurfaceV1 {
         if self.exclusive_size.take().is_not_empty() {
             if let Some(node) = self.output.node() {
                 node.update_exclusive_zones();
+            }
+        }
+        for popup in self.popups.lock().drain_values() {
+            popup.popup.destroy_node();
+        }
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.surface.set_visible(visible);
+        if !visible {
+            for popup in self.popups.lock().drain_values() {
+                popup.popup.set_visible(false);
+                popup.popup.destroy_node();
             }
         }
     }
@@ -605,6 +660,49 @@ impl Node for ZwlrLayerSurfaceV1 {
     }
 }
 
+impl XdgPopupParent for Popup {
+    fn position(&self) -> Rect {
+        self.parent.pos.get()
+    }
+
+    fn remove_popup(&self) {
+        self.parent.popups.remove(&self.popup.id);
+    }
+
+    fn output(&self) -> Rc<OutputNode> {
+        self.parent.surface.output.get()
+    }
+
+    fn has_workspace_link(&self) -> bool {
+        false
+    }
+
+    fn post_commit(&self) {
+        let mut dl = self.stack_link.borrow_mut();
+        let output = self.output();
+        let surface = &self.popup.xdg.surface;
+        let state = &surface.client.state;
+        if surface.buffer.is_some() {
+            if dl.is_none() {
+                if self.parent.surface.visible.get() {
+                    self.popup.xdg.set_output(&output);
+                    *dl = Some(self.stack.add_last(self.popup.clone()));
+                    state.tree_changed();
+                    self.popup.set_visible(self.parent.surface.visible.get());
+                } else {
+                    self.popup.destroy_node();
+                }
+            }
+        } else {
+            if dl.take().is_some() {
+                drop(dl);
+                self.popup.set_visible(false);
+                self.popup.destroy_node();
+            }
+        }
+    }
+}
+
 object_base! {
     self = ZwlrLayerSurfaceV1;
     version = self.shell.version;
@@ -647,6 +745,10 @@ pub enum ZwlrLayerSurfaceV1Error {
     TooManyExclusiveEdges,
     #[error("Exclusive zone not be larger than 65535")]
     ExcessiveExclusive,
+    #[error("Popup already has a parent")]
+    PopupHasParent,
+    #[error("Surface still has popups")]
+    HasPopups,
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);

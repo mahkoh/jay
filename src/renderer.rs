@@ -189,18 +189,24 @@ impl Renderer<'_> {
                 self.render_workspace(&ws, x, y + th + 1);
             }
         }
-        for stacked in self.state.root.stacked.iter() {
-            if stacked.node_visible() {
-                self.base.ops.push(GfxApiOpt::Sync);
-                let pos = stacked.node_absolute_position();
-                if pos.intersects(&opos) {
-                    let (x, y) = opos.translate(pos.x1(), pos.y1());
-                    stacked.node_render(self, x, y, None);
+        macro_rules! render_stacked {
+            ($stack:expr) => {
+                for stacked in $stack.iter() {
+                    if stacked.node_visible() {
+                        self.base.ops.push(GfxApiOpt::Sync);
+                        let pos = stacked.node_absolute_position();
+                        if pos.intersects(&opos) {
+                            let (x, y) = opos.translate(pos.x1(), pos.y1());
+                            stacked.node_render(self, x, y, None);
+                        }
+                    }
                 }
-            }
+            };
         }
+        render_stacked!(self.state.root.stacked);
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
+        render_stacked!(self.state.root.stacked_above_layers);
         if let Some(ws) = output.workspace.get() {
             if ws.render_highlight.get() > 0 {
                 let color = self.state.theme.colors.highlight.get();

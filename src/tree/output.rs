@@ -32,7 +32,7 @@ use {
         time::Time,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
-            NodeId, WorkspaceNode,
+            NodeId, StackedNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
@@ -605,6 +605,46 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
+    fn find_stacked_at(
+        &self,
+        stack: &LinkedList<Rc<dyn StackedNode>>,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
+        if stack.is_empty() {
+            return FindTreeResult::Other;
+        }
+        let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
+        for stacked in stack.rev_iter() {
+            let ext = stacked.node_absolute_position();
+            if !stacked.node_visible() {
+                continue;
+            }
+            if stacked.stacked_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
+                // TODO: make constrain always true
+                continue;
+            }
+            let (x, y) = ext.translate(x_abs, y_abs);
+            let idx = tree.len();
+            tree.push(FoundNode {
+                node: stacked.deref().clone().stacked_into_node(),
+                x,
+                y,
+            });
+            match stacked.node_find_tree_at(x, y, tree, usecase) {
+                FindTreeResult::AcceptsInput => {
+                    return FindTreeResult::AcceptsInput;
+                }
+                FindTreeResult::Other => {
+                    tree.truncate(idx);
+                }
+            }
+        }
+        FindTreeResult::Other
+    }
+
     pub fn find_layer_surface_at(
         &self,
         x: i32,
@@ -671,7 +711,7 @@ impl OutputNode {
         macro_rules! set_layer_visible {
             ($layer:expr, $visible:expr) => {
                 for ls in $layer.iter() {
-                    ls.surface.set_visible($visible);
+                    ls.set_visible($visible);
                 }
             };
         }
@@ -834,39 +874,22 @@ impl Node for OutputNode {
             }
         }
         {
+            let res =
+                self.find_stacked_at(&self.state.root.stacked_above_layers, x, y, tree, usecase);
+            if res.accepts_input() {
+                return res;
+            }
+        }
+        {
             let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
             if res.accepts_input() {
                 return res;
             }
         }
         {
-            let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
-            for stacked in self.state.root.stacked.rev_iter() {
-                let ext = stacked.node_absolute_position();
-                if !stacked.node_visible() {
-                    continue;
-                }
-                if stacked.stacked_absolute_position_constrains_input()
-                    && !ext.contains(x_abs, y_abs)
-                {
-                    // TODO: make constrain always true
-                    continue;
-                }
-                let (x, y) = ext.translate(x_abs, y_abs);
-                let idx = tree.len();
-                tree.push(FoundNode {
-                    node: stacked.deref().clone().stacked_into_node(),
-                    x,
-                    y,
-                });
-                match stacked.node_find_tree_at(x, y, tree, usecase) {
-                    FindTreeResult::AcceptsInput => {
-                        return FindTreeResult::AcceptsInput;
-                    }
-                    FindTreeResult::Other => {
-                        tree.truncate(idx);
-                    }
-                }
+            let res = self.find_stacked_at(&self.state.root.stacked, x, y, tree, usecase);
+            if res.accepts_input() {
+                return res;
             }
         }
         let mut fullscreen = None;

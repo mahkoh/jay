@@ -47,7 +47,7 @@ pub struct XdgPopup {
     pub id: XdgPopupId,
     node_id: PopupId,
     pub xdg: Rc<XdgSurface>,
-    pub(super) parent: CloneCell<Option<Rc<dyn XdgPopupParent>>>,
+    pub(in super::super) parent: CloneCell<Option<Rc<dyn XdgPopupParent>>>,
     relative_position: Cell<Rect>,
     pos: RefCell<XdgPositioned>,
     pub tracker: Tracker<Self>,
@@ -273,7 +273,7 @@ impl Object for XdgPopup {
     }
 }
 
-simple_add_obj!(XdgPopup);
+dedicated_add_obj!(XdgPopup, XdgPopupId, xdg_popups);
 
 impl Node for XdgPopup {
     fn node_id(&self) -> NodeId {
