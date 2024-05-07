@@ -120,10 +120,14 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
+            let non_exclusive_rect = output.non_exclusive_rect_rel.get();
+            let (x, y) = non_exclusive_rect.translate_inv(x, y);
             {
                 let c = theme.colors.bar_background.get();
                 self.base.fill_boxes2(
-                    slice::from_ref(&Rect::new_sized(0, 0, opos.width(), th).unwrap()),
+                    slice::from_ref(
+                        &Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap(),
+                    ),
                     &c,
                     x,
                     y,

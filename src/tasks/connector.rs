@@ -147,6 +147,10 @@ impl ConnectorHandler {
             seat_state: Default::default(),
             global: global.clone(),
             layers: Default::default(),
+            exclusive_zones: Default::default(),
+            workspace_rect: Default::default(),
+            non_exclusive_rect: Default::default(),
+            non_exclusive_rect_rel: Default::default(),
             render_data: RefCell::new(OutputRenderData {
                 active_workspace: None,
                 underline: Default::default(),
@@ -169,6 +173,7 @@ impl ConnectorHandler {
             hardware_cursor_needs_render: Cell::new(false),
             screencopies: Default::default(),
         });
+        on.update_rects();
         self.state
             .add_output_scale(on.global.persistent.scale.get());
         let output_data = Rc::new(OutputData {

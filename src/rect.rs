@@ -86,6 +86,11 @@ impl Rect {
         Self::new(x1, y1, x1 + width, y1 + height)
     }
 
+    #[track_caller]
+    pub fn new_sized_unchecked(x1: i32, y1: i32, width: i32, height: i32) -> Self {
+        Self::new_sized(x1, y1, width, height).unwrap()
+    }
+
     pub fn union(&self, other: Self) -> Self {
         Self {
             raw: RectRaw {

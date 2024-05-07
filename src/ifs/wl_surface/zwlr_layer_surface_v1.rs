@@ -52,22 +52,59 @@ pub struct ZwlrLayerSurfaceV1 {
     requested_serial: NumCell<u32>,
     size: Cell<(i32, i32)>,
     anchor: Cell<u32>,
-    exclusive_zone: Cell<i32>,
+    exclusive_zone: Cell<ExclusiveZone>,
     margin: Cell<(i32, i32, i32, i32)>,
     keyboard_interactivity: Cell<u32>,
     link: Cell<Option<LinkedNode<Rc<Self>>>>,
     seat_state: NodeSeatState,
     last_configure: Cell<(i32, i32)>,
+    exclusive_edge: Cell<Option<u32>>,
+    exclusive_size: Cell<ExclusiveSize>,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExclusiveSize {
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+    pub left: i32,
+}
+
+impl ExclusiveSize {
+    pub fn is_empty(&self) -> bool {
+        *self == ExclusiveSize::default()
+    }
+
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    pub fn max(&self, other: &Self) -> Self {
+        Self {
+            top: self.top.max(other.top),
+            right: self.right.max(other.right),
+            bottom: self.bottom.max(other.bottom),
+            left: self.left.max(other.left),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ExclusiveZone {
+    MoveSelf,
+    FixedSelf,
+    Acquire(i32),
 }
 
 #[derive(Default)]
 pub struct PendingLayerSurfaceData {
     size: Option<(i32, i32)>,
     anchor: Option<u32>,
-    exclusive_zone: Option<i32>,
+    exclusive_zone: Option<ExclusiveZone>,
     margin: Option<(i32, i32, i32, i32)>,
     keyboard_interactivity: Option<u32>,
     layer: Option<u32>,
+    exclusive_edge: Option<u32>,
 }
 
 impl PendingLayerSurfaceData {
@@ -113,12 +150,14 @@ impl ZwlrLayerSurfaceV1 {
             requested_serial: Default::default(),
             size: Cell::new((0, 0)),
             anchor: Cell::new(0),
-            exclusive_zone: Cell::new(0),
+            exclusive_zone: Cell::new(ExclusiveZone::MoveSelf),
             margin: Cell::new((0, 0, 0, 0)),
             keyboard_interactivity: Cell::new(0),
             link: Cell::new(None),
             seat_state: Default::default(),
             last_configure: Default::default(),
+            exclusive_edge: Default::default(),
+            exclusive_size: Default::default(),
         }
     }
 
@@ -181,7 +220,16 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let mut pending = self.pending();
-        pending.exclusive_zone = Some(req.zone);
+        let zone = if req.zone < 0 {
+            ExclusiveZone::FixedSelf
+        } else if req.zone == 0 {
+            ExclusiveZone::MoveSelf
+        } else if req.zone > u16::MAX as i32 {
+            return Err(ZwlrLayerSurfaceV1Error::ExcessiveExclusive);
+        } else {
+            ExclusiveZone::Acquire(req.zone)
+        };
+        pending.exclusive_zone = Some(zone);
         Ok(())
     }
 
@@ -234,9 +282,73 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         pending.layer = Some(req.layer);
         Ok(())
     }
+
+    fn set_exclusive_edge(
+        &self,
+        req: SetExclusiveEdge,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        if req.edge & !(LEFT | RIGHT | TOP | BOTTOM) != 0 {
+            return Err(ZwlrLayerSurfaceV1Error::UnknownAnchor(req.edge));
+        }
+        if req.edge.count_ones() > 1 {
+            return Err(ZwlrLayerSurfaceV1Error::TooManyExclusiveEdges);
+        }
+        let mut pending = self.pending();
+        if req.edge == 0 {
+            pending.exclusive_edge = None;
+        } else {
+            pending.exclusive_edge = Some(req.edge);
+        }
+        Ok(())
+    }
 }
 
 impl ZwlrLayerSurfaceV1 {
+    pub fn exclusive_size(&self) -> ExclusiveSize {
+        self.exclusive_size.get()
+    }
+
+    fn update_exclusive_size(&self) {
+        let exclusive_edge = {
+            if let Some(ee) = self.exclusive_edge.get() {
+                Some(ee)
+            } else {
+                let anchor = self.anchor.get();
+                let edges = anchor.count_ones();
+                if edges == 1 {
+                    Some(anchor)
+                } else if edges == 3 {
+                    match (!anchor) & (TOP | BOTTOM | LEFT | RIGHT) {
+                        TOP => Some(BOTTOM),
+                        BOTTOM => Some(TOP),
+                        LEFT => Some(RIGHT),
+                        RIGHT => Some(LEFT),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+        };
+        let mut exclusive_size = ExclusiveSize::default();
+        if let (ExclusiveZone::Acquire(s), Some(edge)) = (self.exclusive_zone.get(), exclusive_edge)
+        {
+            match edge {
+                TOP => exclusive_size.top = s,
+                RIGHT => exclusive_size.right = s,
+                BOTTOM => exclusive_size.bottom = s,
+                LEFT => exclusive_size.left = s,
+                _ => {}
+            }
+        }
+        if self.exclusive_size.replace(exclusive_size) != exclusive_size {
+            if let Some(output) = self.output.node.get() {
+                output.update_exclusive_zones();
+            }
+        }
+    }
+
     fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let pending = pending.layer_surface.get_or_insert_default_ext();
         if let Some(size) = pending.size.take() {
@@ -257,6 +369,9 @@ impl ZwlrLayerSurfaceV1 {
         if let Some(layer) = pending.layer.take() {
             self.layer.set(layer);
         }
+        if let Some(edge) = pending.exclusive_edge.take() {
+            self.exclusive_edge.set(Some(edge));
+        }
         let anchor = self.anchor.get();
         let (width, height) = self.size.get();
         if width == 0 && !anchor.contains(LEFT | RIGHT) {
@@ -265,17 +380,25 @@ impl ZwlrLayerSurfaceV1 {
         if height == 0 && !anchor.contains(TOP | BOTTOM) {
             return Err(ZwlrLayerSurfaceV1Error::HeightZero);
         }
+        if let Some(ee) = self.exclusive_edge.get() {
+            if !self.anchor.get().contains(ee) {
+                return Err(ZwlrLayerSurfaceV1Error::ExclusiveEdgeNotAnchored);
+            }
+        }
         self.configure();
         Ok(())
     }
 
     fn configure(&self) {
-        let Some(global) = self.output.get() else {
+        let Some(node) = self.output.node() else {
             return;
         };
         let (mut width, mut height) = self.size.get();
         let (mt, mr, mb, ml) = self.margin.get();
-        let (mut available_width, mut available_height) = global.position().size();
+        let (mut available_width, mut available_height) = match self.exclusive_zone.get() {
+            ExclusiveZone::MoveSelf => node.non_exclusive_rect.get().size(),
+            _ => node.global.pos.get().size(),
+        };
         let anchor = self.anchor.get();
         if anchor.contains(LEFT) {
             available_width -= ml;
@@ -308,7 +431,7 @@ impl ZwlrLayerSurfaceV1 {
     }
 
     fn compute_position(&self) {
-        let Some(global) = self.output.get() else {
+        let Some(output) = self.output.node() else {
             return;
         };
         let extents = self.surface.extents.get();
@@ -318,8 +441,12 @@ impl ZwlrLayerSurfaceV1 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
         let (mt, mr, mb, ml) = self.margin.get();
-        let opos = global.pos.get();
-        let (owidth, oheight) = opos.size();
+        let opos = output.global.pos.get();
+        let rect = match self.exclusive_zone.get() {
+            ExclusiveZone::MoveSelf => output.non_exclusive_rect.get(),
+            _ => opos,
+        };
+        let (owidth, oheight) = rect.size();
         let mut x1 = 0;
         let mut y1 = 0;
         if anchor.contains(LEFT | RIGHT) {
@@ -336,8 +463,8 @@ impl ZwlrLayerSurfaceV1 {
         } else if anchor.contains(BOTTOM) {
             y1 = oheight - height - mb;
         }
-        let o_rect = Rect::new_sized(x1, y1, width, height).unwrap();
-        let a_rect = o_rect.move_(opos.x1(), opos.y1());
+        let a_rect = Rect::new_sized(x1 + rect.x1(), y1 + rect.y1(), width, height).unwrap();
+        let o_rect = a_rect.move_(-opos.x1(), -opos.y1());
         self.output_extents.set(o_rect);
         self.pos.set(a_rect);
         let abs_x = a_rect.x1() - extents.x1();
@@ -351,6 +478,13 @@ impl ZwlrLayerSurfaceV1 {
         self.compute_position();
     }
 
+    pub fn exclusive_zones_changed(&self) {
+        if self.exclusive_zone.get() != ExclusiveZone::MoveSelf {
+            return;
+        }
+        self.output_resized();
+    }
+
     pub fn destroy_node(&self) {
         self.link.set(None);
         self.mapped.set(false);
@@ -358,6 +492,11 @@ impl ZwlrLayerSurfaceV1 {
         self.seat_state.destroy_node(self);
         self.client.state.tree_changed();
         self.last_configure.take();
+        if self.exclusive_size.take().is_not_empty() {
+            if let Some(node) = self.output.node() {
+                node.update_exclusive_zones();
+            }
+        }
     }
 }
 
@@ -383,12 +522,14 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
                 if self.surface.extents.get().size() != self.pos.get().size() {
                     self.compute_position();
                 }
+                self.update_exclusive_size();
             }
         } else if buffer_is_some {
             let layer = &output.layers[self.layer.get() as usize];
             self.link.set(Some(layer.add_last(self.clone())));
             self.mapped.set(true);
             self.compute_position();
+            self.update_exclusive_size();
         }
         if self.mapped.get() != was_mapped {
             output.update_visible();
@@ -500,6 +641,12 @@ pub enum ZwlrLayerSurfaceV1Error {
     UnknownAnchor(u32),
     #[error("Unknown keyboard interactivity {0}")]
     UnknownKi(u32),
+    #[error("Surface is not anchored at exclusive edge")]
+    ExclusiveEdgeNotAnchored,
+    #[error("Request must contain exactly one edge")]
+    TooManyExclusiveEdges,
+    #[error("Exclusive zone not be larger than 65535")]
+    ExcessiveExclusive,
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);
