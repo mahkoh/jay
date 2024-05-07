@@ -187,6 +187,11 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
 
     fn set_margin(&self, req: SetMargin, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut pending = self.pending();
+        for s in [req.top, req.right, req.bottom, req.left] {
+            if (s as i64).abs() > u16::MAX as i64 {
+                return Err(ZwlrLayerSurfaceV1Error::ExcessiveMargin);
+            }
+        }
         pending.margin = Some((req.top, req.right, req.bottom, req.left));
         Ok(())
     }
@@ -269,7 +274,21 @@ impl ZwlrLayerSurfaceV1 {
             return;
         };
         let (mut width, mut height) = self.size.get();
-        let (available_width, available_height) = global.position().size();
+        let (mt, mr, mb, ml) = self.margin.get();
+        let (mut available_width, mut available_height) = global.position().size();
+        let anchor = self.anchor.get();
+        if anchor.contains(LEFT) {
+            available_width -= ml;
+        }
+        if anchor.contains(RIGHT) {
+            available_width -= mr;
+        }
+        if anchor.contains(TOP) {
+            available_height -= mt;
+        }
+        if anchor.contains(BOTTOM) {
+            available_height -= mb;
+        }
         if width == 0 {
             width = available_width;
         }
@@ -298,22 +317,24 @@ impl ZwlrLayerSurfaceV1 {
         if anchor == 0 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
+        let (mt, mr, mb, ml) = self.margin.get();
         let opos = global.pos.get();
+        let (owidth, oheight) = opos.size();
         let mut x1 = 0;
         let mut y1 = 0;
-        if anchor.contains(LEFT) {
-            if anchor.contains(RIGHT) {
-                x1 += (opos.width() - width) / 2;
-            }
+        if anchor.contains(LEFT | RIGHT) {
+            x1 = (owidth - width - ml - mr) / 2;
+        } else if anchor.contains(LEFT) {
+            x1 = ml;
         } else if anchor.contains(RIGHT) {
-            x1 += opos.width() - width;
+            x1 = owidth - width - mr;
         }
-        if anchor.contains(TOP) {
-            if anchor.contains(BOTTOM) {
-                y1 += (opos.height() - height) / 2;
-            }
+        if anchor.contains(TOP | BOTTOM) {
+            y1 = (oheight - height - mt - mb) / 2;
+        } else if anchor.contains(TOP) {
+            y1 = mt;
         } else if anchor.contains(BOTTOM) {
-            y1 += opos.height() - height;
+            y1 = oheight - height - mb;
         }
         let o_rect = Rect::new_sized(x1, y1, width, height).unwrap();
         let a_rect = o_rect.move_(opos.x1(), opos.y1());
@@ -473,6 +494,8 @@ pub enum ZwlrLayerSurfaceV1Error {
     UnknownLayer(u32),
     #[error("Surface size must not be larger than 65535x65535")]
     ExcessiveSize,
+    #[error("Margin must not be larger than 65535")]
+    ExcessiveMargin,
     #[error("Unknown anchor {0}")]
     UnknownAnchor(u32),
     #[error("Unknown keyboard interactivity {0}")]
