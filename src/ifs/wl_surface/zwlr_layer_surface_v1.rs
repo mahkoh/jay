@@ -13,8 +13,7 @@ use {
         renderer::Renderer,
         tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
         utils::{
-            bitflags::BitflagsExt, cell_ext::CellExt, linkedlist::LinkedNode, numcell::NumCell,
-            option_ext::OptionExt,
+            bitflags::BitflagsExt, linkedlist::LinkedNode, numcell::NumCell, option_ext::OptionExt,
         },
         wire::{zwlr_layer_surface_v1::*, WlSurfaceId, ZwlrLayerSurfaceV1Id},
     },
@@ -60,6 +59,7 @@ pub struct ZwlrLayerSurfaceV1 {
     keyboard_interactivity: Cell<u32>,
     link: Cell<Option<LinkedNode<Rc<Self>>>>,
     seat_state: NodeSeatState,
+    last_configure: Cell<(i32, i32)>,
 }
 
 #[derive(Default)]
@@ -123,6 +123,7 @@ impl ZwlrLayerSurfaceV1 {
             keyboard_interactivity: Cell::new(0),
             link: Cell::new(None),
             seat_state: Default::default(),
+            last_configure: Default::default(),
         }
     }
 
@@ -244,11 +245,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
 
 impl ZwlrLayerSurfaceV1 {
     fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let Some(global) = self.output.get() else {
-            return Ok(());
-        };
         let pending = pending.layer_surface.get_or_insert_default_ext();
-        let mut send_configure = mem::replace(&mut pending.any, false);
         if let Some(size) = pending.size.take() {
             self.size.set(size);
         }
@@ -267,34 +264,36 @@ impl ZwlrLayerSurfaceV1 {
         if let Some(layer) = pending.layer.take() {
             self.layer.set(layer);
         }
-        {
-            let (mut width, mut height) = self.size.get();
-            let anchor = self.anchor.get();
-            if width == 0 {
-                if !anchor.contains(LEFT | RIGHT) {
-                    return Err(ZwlrLayerSurfaceV1Error::WidthZero);
-                }
-                send_configure = true;
-                width = global.position().width();
-            }
-            if height == 0 {
-                if !anchor.contains(TOP | BOTTOM) {
-                    return Err(ZwlrLayerSurfaceV1Error::HeightZero);
-                }
-                send_configure = true;
-                height = global.position().height();
-            }
-            self.size.set((width, height));
+        let anchor = self.anchor.get();
+        let (width, height) = self.size.get();
+        if width == 0 && !anchor.contains(LEFT | RIGHT) {
+            return Err(ZwlrLayerSurfaceV1Error::WidthZero);
         }
-        if self.acked_serial.is_none() {
-            send_configure = true;
+        if height == 0 && !anchor.contains(TOP | BOTTOM) {
+            return Err(ZwlrLayerSurfaceV1Error::HeightZero);
         }
-        if send_configure {
-            let (width, height) = self.size.get();
-            let serial = self.requested_serial.fetch_add(1) + 1;
+        self.configure();
+        Ok(())
+    }
+
+    fn configure(&self) {
+        let Some(global) = self.output.get() else {
+            return;
+        };
+        let (mut width, mut height) = self.size.get();
+        let (available_width, available_height) = global.position().size();
+        if width == 0 {
+            width = available_width;
+        }
+        width = width.min(available_width).max(1);
+        if height == 0 {
+            height = available_height;
+        }
+        height = height.min(available_height).max(1);
+        let serial = self.requested_serial.fetch_add(1) + 1;
+        if self.last_configure.replace((width, height)) != (width, height) {
             self.send_configure(serial, width as _, height as _);
         }
-        Ok(())
     }
 
     pub fn output_position(&self) -> Rect {
@@ -345,6 +344,7 @@ impl ZwlrLayerSurfaceV1 {
         self.surface.destroy_node();
         self.seat_state.destroy_node(self);
         self.client.state.tree_changed();
+        self.last_configure.take();
     }
 }
 
