@@ -4,6 +4,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
         },
@@ -102,7 +103,7 @@ impl CommitTimelines {
     }
 
     pub fn clear(&self) {
-        for (_, list) in self.gc.lock().drain() {
+        for list in self.gc.lock().drain_values() {
             break_loops(&list);
         }
     }

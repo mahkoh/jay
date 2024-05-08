@@ -5,7 +5,7 @@ use {
         ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
-        utils::{asyncevent::AsyncEvent, clonecell::CloneCell},
+        utils::{asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt},
     },
     std::{
         cell::{Cell, RefCell},
@@ -244,14 +244,14 @@ impl ConnectorHandler {
             config.connector_disconnected(self.id);
         }
         global.clear();
-        for (_, jo) in on.jay_outputs.lock().drain() {
+        for jo in on.jay_outputs.lock().drain_values() {
             jo.send_destroyed();
         }
         let screencasts: Vec<_> = on.screencasts.lock().values().cloned().collect();
         for sc in screencasts {
             sc.do_destroy();
         }
-        for (_, sc) in on.screencopies.lock().drain() {
+        for sc in on.screencopies.lock().drain_values() {
             sc.send_failed();
         }
         global.destroyed.set(true);
@@ -310,7 +310,7 @@ impl ConnectorHandler {
             }
         };
         let withdraw = || {
-            for (_, con) in output_data.lease_connectors.lock().drain() {
+            for con in output_data.lease_connectors.lock().drain_values() {
                 con.send_withdrawn();
                 if !con.device.destroyed.get() {
                     con.device.send_done();

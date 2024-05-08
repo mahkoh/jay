@@ -5,6 +5,7 @@ use {
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
             oserror::OsError,
         },
@@ -230,7 +231,7 @@ impl Drop for SyncObjCtx {
     fn drop(&mut self) {
         self.inner.links.clear();
         let mut map = self.inner.handles.lock();
-        for (_, handle) in map.drain() {
+        for handle in map.drain_values() {
             destroy(&self.inner.drm, handle);
         }
     }

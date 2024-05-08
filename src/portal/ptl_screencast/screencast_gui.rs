@@ -13,7 +13,7 @@ use {
             },
         },
         theme::Color,
-        utils::copyhashmap::CopyHashMap,
+        utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt},
         wl_usr::usr_ifs::{
             usr_jay_select_toplevel::UsrJaySelectToplevelOwner,
             usr_jay_select_workspace::UsrJaySelectWorkspaceOwner, usr_jay_toplevel::UsrJayToplevel,
@@ -53,7 +53,7 @@ enum ButtonRole {
 
 impl SelectionGui {
     pub fn kill(&self, upwards: bool) {
-        for (_, surface) in self.surfaces.lock().drain() {
+        for surface in self.surfaces.lock().drain_values() {
             surface.overlay.data.kill(false);
         }
         if let ScreencastPhase::Selecting(s) = self.screencast_session.phase.get() {
@@ -159,7 +159,7 @@ impl ButtonOwner for StaticButton {
                     ScreencastPhase::Selecting(selecting) => selecting,
                     _ => return,
                 };
-                for (_, gui) in selecting.guis.lock().drain() {
+                for gui in selecting.guis.lock().drain_values() {
                     gui.kill(false);
                 }
                 let dpy = &self.surface.output.dpy;

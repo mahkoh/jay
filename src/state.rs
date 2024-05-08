@@ -68,8 +68,8 @@ use {
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, fdcloser::FdCloser,
-            linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue, refcounted::RefCounted,
-            run_toplevel::RunToplevel,
+            hash_map_ext::HashMapExt, linkedlist::LinkedList, numcell::NumCell, queue::AsyncQueue,
+            refcounted::RefCounted, run_toplevel::RunToplevel,
         },
         video::{
             dmabuf::DmaBufIds,
@@ -743,11 +743,11 @@ impl State {
         self.xwayland.queue.clear();
         self.idle.inhibitors.clear();
         self.idle.change.clear();
-        for (_, drm_dev) in self.drm_devs.lock().drain() {
+        for drm_dev in self.drm_devs.lock().drain_values() {
             drm_dev.handler.take();
             drm_dev.connectors.clear();
         }
-        for (_, connector) in self.connectors.lock().drain() {
+        for connector in self.connectors.lock().drain_values() {
             connector.handler.take();
             connector.async_event.clear();
         }
@@ -769,7 +769,7 @@ impl State {
         self.toplevel_lists.clear();
         self.security_context_acceptors.clear();
         self.slow_clients.clear();
-        for (_, h) in self.input_device_handlers.borrow_mut().drain() {
+        for h in self.input_device_handlers.borrow_mut().drain_values() {
             h.async_event.clear();
         }
         self.backend_events.clear();

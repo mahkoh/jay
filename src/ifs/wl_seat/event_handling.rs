@@ -33,7 +33,7 @@ use {
         object::Version,
         state::DeviceHandlerData,
         tree::{Direction, Node, ToplevelNode},
-        utils::{bitflags::BitflagsExt, smallmap::SmallMap},
+        utils::{bitflags::BitflagsExt, hash_map_ext::HashMapExt, smallmap::SmallMap},
         wire::WlDataOfferId,
         xkbcommon::{KeyboardState, XkbState, XKB_KEY_DOWN, XKB_KEY_UP},
     },
@@ -237,7 +237,7 @@ impl WlSeatGlobal {
             | InputEvent::TabletPadStrip { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
-                    for (_, notification) in self.idle_notifications.lock().drain() {
+                    for notification in self.idle_notifications.lock().drain_values() {
                         notification.resume.trigger();
                     }
                 }

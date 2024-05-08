@@ -6,8 +6,8 @@ use {
         state::State,
         tree::OutputNode,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, rc_eq::rc_eq,
-            transform_ext::TransformExt,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt, rc_eq::rc_eq, transform_ext::TransformExt,
         },
     },
     std::{cell::Cell, ops::Deref, rc::Rc},
@@ -99,7 +99,7 @@ impl CursorUserGroup {
             .set(self.state.dummy_output.get().unwrap());
         self.state.remove_cursor_size(self.size.get());
         self.state.cursor_user_groups.remove(&self.id);
-        for (_, user) in self.users.lock().drain() {
+        for user in self.users.lock().drain_values() {
             user.detach();
         }
     }

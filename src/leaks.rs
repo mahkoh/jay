@@ -43,6 +43,7 @@ mod leaks {
         crate::{
             client::ClientId,
             utils::{
+                hash_map_ext::HashMapExt,
                 ptr_ext::{MutPtrExt, PtrExt},
                 windows::WindowsExt,
             },
@@ -157,7 +158,7 @@ mod leaks {
             if map.is_empty() {
                 log::info!("No leaks");
             }
-            for (_, mut objs) in map.drain() {
+            for mut objs in map.drain_values() {
                 if objs.len() == 0 {
                     continue;
                 }

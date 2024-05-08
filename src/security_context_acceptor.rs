@@ -3,7 +3,7 @@ use {
         async_engine::SpawnedFuture,
         client::ClientCaps,
         state::State,
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt},
+        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
     },
     std::{
         cell::Cell,
@@ -36,7 +36,7 @@ struct Acceptor {
 
 impl SecurityContextAcceptors {
     pub fn clear(&self) {
-        for (_, acceptor) in self.acceptors.lock().drain() {
+        for acceptor in self.acceptors.lock().drain_values() {
             acceptor.kill();
         }
     }

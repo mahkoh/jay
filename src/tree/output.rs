@@ -36,7 +36,8 @@ use {
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            linkedlist::LinkedList, scroller::Scroller, transform_ext::TransformExt,
+            hash_map_ext::HashMapExt, linkedlist::LinkedList, scroller::Scroller,
+            transform_ext::TransformExt,
         },
         wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
@@ -140,7 +141,7 @@ impl OutputNode {
             return;
         }
         let now = Time::now().unwrap();
-        for (_, capture) in self.screencopies.lock().drain() {
+        for capture in self.screencopies.lock().drain_values() {
             let wl_buffer = match capture.buffer.take() {
                 Some(b) => b,
                 _ => {

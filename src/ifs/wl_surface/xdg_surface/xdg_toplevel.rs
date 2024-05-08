@@ -29,7 +29,7 @@ use {
             OutputNode, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId,
             WorkspaceNode,
         },
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
         wire::{xdg_toplevel::*, XdgToplevelId},
     },
     ahash::{AHashMap, AHashSet},
@@ -218,7 +218,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
                 Some(p) => Some(p.children.borrow_mut()),
                 _ => None,
             };
-            for (_, child) in children.drain() {
+            for child in children.drain_values() {
                 child.parent.set(parent.clone());
                 if let Some(parent_children) = &mut parent_children {
                     parent_children.insert(child.id, child);
@@ -418,7 +418,7 @@ impl XdgToplevel {
             {
                 let new_parent = self.parent.get();
                 let mut children = self.children.borrow_mut();
-                for (_, child) in children.drain() {
+                for child in children.drain_values() {
                     child.parent.set(new_parent.clone());
                 }
             }

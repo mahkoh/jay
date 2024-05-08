@@ -23,6 +23,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             numcell::NumCell,
             oserror::OsError,
             xrd::xrd,
@@ -122,7 +123,7 @@ impl PwCon {
     }
 
     pub fn kill(&self) {
-        for (_, obj) in self.objects.lock().drain() {
+        for obj in self.objects.lock().drain_values() {
             obj.break_loops();
         }
         self.io.shutdown();

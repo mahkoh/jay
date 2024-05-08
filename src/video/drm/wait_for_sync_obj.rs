@@ -4,7 +4,7 @@ use {
         io_uring::IoUring,
         utils::{
             asyncevent::AsyncEvent, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            numcell::NumCell, oserror::OsError, stack::Stack,
+            hash_map_ext::HashMapExt, numcell::NumCell, oserror::OsError, stack::Stack,
         },
         video::drm::{
             sync_obj::{SyncObj, SyncObjCtx, SyncObjPoint},
@@ -89,7 +89,7 @@ impl WaitForSyncObj {
 
     pub fn set_ctx(&self, ctx: Option<Rc<SyncObjCtx>>) {
         self.inner.ctx.set(ctx);
-        let busy_waiters: Vec<_> = self.inner.busy.lock().drain().map(|(_, w)| w).collect();
+        let busy_waiters: Vec<_> = self.inner.busy.lock().drain_values().collect();
         for waiter in busy_waiters {
             let res = self.submit_job(
                 waiter.job.id,

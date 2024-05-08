@@ -8,7 +8,7 @@ use {
         },
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, oserror::OsError,
+            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, oserror::OsError,
         },
         video::drm::Drm,
         wire::{
@@ -191,7 +191,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
 impl UsrConOwner for PortalDisplay {
     fn killed(&self) {
         log::info!("Removing display {}", self.id);
-        for (_, sc) in self.screencasts.lock().drain() {
+        for sc in self.screencasts.lock().drain_values() {
             sc.kill();
         }
         self.windows.clear();

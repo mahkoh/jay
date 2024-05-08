@@ -21,6 +21,7 @@ use {
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
         },
         video::dmabuf::{DmaBuf, PlaneVec},
         wire::jay_screencast::Ready,
@@ -267,7 +268,7 @@ impl ScreencastSession {
             ScreencastPhase::Terminated => {}
             ScreencastPhase::Selecting(s) => {
                 s.core.reply.err("Session has been terminated");
-                for (_, gui) in s.guis.lock().drain() {
+                for gui in s.guis.lock().drain_values() {
                     gui.kill(false);
                 }
             }

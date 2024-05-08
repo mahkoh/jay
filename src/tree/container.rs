@@ -23,6 +23,7 @@ use {
             clonecell::CloneCell,
             double_click_state::DoubleClickState,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             rc_eq::rc_eq,
@@ -1613,7 +1614,7 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_destroy_impl(&self) {
         mem::take(self.cursors.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
-        for (_, n) in cn.drain() {
+        for n in cn.drain_values() {
             n.node.tl_destroy();
         }
     }

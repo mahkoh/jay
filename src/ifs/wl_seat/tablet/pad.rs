@@ -14,7 +14,7 @@ use {
             wl_surface::WlSurface,
         },
         time::{now_usec, usec_to_msec},
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -76,7 +76,7 @@ impl WlSeatGlobal {
         if let Some(tablet) = pad.tablet.take() {
             tablet.pads.remove(&pad.id);
         }
-        for (_, binding) in pad.bindings.lock().drain() {
+        for binding in pad.bindings.lock().drain_values() {
             binding.send_removed();
         }
     }

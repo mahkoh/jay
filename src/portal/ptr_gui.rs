@@ -13,7 +13,7 @@ use {
         theme::Color,
         utils::{
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, rc_eq::rc_eq,
+            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq,
         },
         video::gbm::GBM_BO_USE_RENDERING,
         wire::{
@@ -671,7 +671,7 @@ impl WindowData {
             owner.kill(upwards);
         }
         self.render_task.take();
-        for (_, pb) in self.pending_bufs.lock().drain() {
+        for pb in self.pending_bufs.lock().drain_values() {
             pb.params.con.remove_obj(pb.params.deref());
         }
         for buf in self.bufs.borrow_mut().drain(..) {
@@ -689,7 +689,7 @@ impl WindowData {
 
     pub fn allocate_buffers(self: &Rc<Self>) {
         {
-            for (_, buf) in self.pending_bufs.lock().drain() {
+            for buf in self.pending_bufs.lock().drain_values() {
                 buf.params.con.remove_obj(buf.params.deref());
             }
         }

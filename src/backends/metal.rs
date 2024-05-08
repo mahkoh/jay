@@ -35,6 +35,7 @@ use {
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             numcell::NumCell,
             oserror::OsError,
             smallmap::SmallMap,
@@ -184,7 +185,7 @@ impl Backend for MetalBackend {
                 dev.cb.take();
             }
         }
-        for (_, dev) in self.device_holder.drm_devices.lock().drain() {
+        for dev in self.device_holder.drm_devices.lock().drain_values() {
             dev.futures.clear();
             for crtc in dev.dev.crtcs.values() {
                 crtc.connector.take();
@@ -196,13 +197,13 @@ impl Backend for MetalBackend {
                 lease.crtcs.clear();
                 lease.planes.clear();
             };
-            for (_, mut lease) in dev.dev.leases.lock().drain() {
+            for mut lease in dev.dev.leases.lock().drain_values() {
                 clear_lease(&mut lease);
             }
-            for (_, mut lease) in dev.dev.leases_to_break.lock().drain() {
+            for mut lease in dev.dev.leases_to_break.lock().drain_values() {
                 clear_lease(&mut lease);
             }
-            for (_, connector) in dev.connectors.lock().drain() {
+            for connector in dev.connectors.lock().drain_values() {
                 {
                     let d = &mut *connector.display.borrow_mut();
                     d.crtcs.clear();

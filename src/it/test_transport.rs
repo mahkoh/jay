@@ -15,6 +15,7 @@ use {
             bitfield::Bitfield,
             buffd::{BufFdIn, BufFdOut, MsgFormatter, MsgParser, OutBuffer, OutBufferSwapchain},
             copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
             stack::Stack,
             vec_ext::VecExt,
         },
@@ -105,7 +106,7 @@ impl TestTransport {
     pub fn kill(&self) {
         self.outgoing.take();
         self.incoming.take();
-        for (_, object) in self.objects.lock().drain() {
+        for object in self.objects.lock().drain_values() {
             object.on_remove(self);
         }
     }

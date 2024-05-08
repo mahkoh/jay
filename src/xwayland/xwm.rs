@@ -27,8 +27,8 @@ use {
         tree::{Node, ToplevelNode},
         utils::{
             bitflags::BitflagsExt, buf::Buf, cell_ext::CellExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, linkedlist::LinkedList, numcell::NumCell,
-            oserror::OsError, rc_eq::rc_eq,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt,
+            linkedlist::LinkedList, numcell::NumCell, oserror::OsError, rc_eq::rc_eq,
         },
         wire::WlSurfaceId,
         wire_xcon::{
@@ -171,7 +171,7 @@ struct SelectionData<T: XIpc> {
 
 impl<T: XIpc> SelectionData<T> {
     fn destroy(&self) {
-        for (_, offer) in self.offers.lock().drain() {
+        for offer in self.offers.lock().drain_values() {
             destroy_data_offer::<T>(&offer.offer);
         }
         self.active_offer.take();
@@ -179,7 +179,7 @@ impl<T: XIpc> SelectionData<T> {
     }
 
     fn destroy_sources(&self) {
-        for (_, source) in self.sources.lock().drain() {
+        for source in self.sources.lock().drain_values() {
             destroy_data_source::<T>(&source);
         }
     }
@@ -207,7 +207,7 @@ impl Drop for XwmShared {
     fn drop(&mut self) {
         self.data.destroy();
         self.primary_selection.destroy();
-        for (_, device) in self.devices.lock().drain() {
+        for device in self.devices.lock().drain_values() {
             destroy_data_device::<XClipboardIpc>(&device);
             destroy_data_device::<XPrimarySelectionIpc>(&device);
             device.seat.unset_x_data_device(device.id);
@@ -260,7 +260,7 @@ enum Initiator {
 
 impl Drop for Wm {
     fn drop(&mut self) {
-        for (_, window) in self.windows.drain() {
+        for window in self.windows.drain_values() {
             if let Some(window) = window.window.take() {
                 window.break_loops();
             }
@@ -1985,7 +1985,7 @@ impl Wm {
         }
         {
             let mut children = data.children.lock();
-            for (_, child) in children.drain() {
+            for child in children.drain_values() {
                 child.parent.set(None);
             }
         }
