@@ -582,7 +582,7 @@ impl OutputNode {
         let len = tree.len();
         for layer in layers.iter().copied() {
             for surface in self.layers[layer as usize].rev_iter() {
-                let pos = surface.output_position();
+                let pos = surface.output_extents();
                 if pos.contains(x, y) {
                     let (x, y) = pos.translate(x, y);
                     if surface.node_find_tree_at(x, y, tree, usecase)

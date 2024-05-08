@@ -45,7 +45,7 @@ pub struct ZwlrLayerSurfaceV1 {
     pub output: Rc<OutputGlobalOpt>,
     pub namespace: String,
     pub tracker: Tracker<Self>,
-    output_pos: Cell<Rect>,
+    output_extents: Cell<Rect>,
     pos: Cell<Rect>,
     mapped: Cell<bool>,
     layer: Cell<u32>,
@@ -106,7 +106,7 @@ impl ZwlrLayerSurfaceV1 {
             output: output.clone(),
             namespace: namespace.to_string(),
             tracker: Default::default(),
-            output_pos: Default::default(),
+            output_extents: Default::default(),
             pos: Default::default(),
             mapped: Cell::new(false),
             layer: Cell::new(layer),
@@ -284,19 +284,16 @@ impl ZwlrLayerSurfaceV1 {
         }
     }
 
-    pub fn output_position(&self) -> Rect {
-        self.output_pos.get()
-    }
-
-    pub fn position(&self) -> Rect {
-        self.pos.get()
+    pub fn output_extents(&self) -> Rect {
+        self.output_extents.get()
     }
 
     fn compute_position(&self) {
         let Some(global) = self.output.get() else {
             return;
         };
-        let (width, height) = self.size.get();
+        let extents = self.surface.extents.get();
+        let (width, height) = extents.size();
         let mut anchor = self.anchor.get();
         if anchor == 0 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
@@ -320,9 +317,11 @@ impl ZwlrLayerSurfaceV1 {
         }
         let o_rect = Rect::new_sized(x1, y1, width, height).unwrap();
         let a_rect = o_rect.move_(opos.x1(), opos.y1());
-        self.output_pos.set(o_rect);
+        self.output_extents.set(o_rect);
         self.pos.set(a_rect);
-        self.surface.set_absolute_position(a_rect.x1(), a_rect.y1());
+        let abs_x = a_rect.x1() - extents.x1();
+        let abs_y = a_rect.y1() - extents.y1();
+        self.surface.set_absolute_position(abs_x, abs_y);
         self.client.state.tree_changed();
     }
 
@@ -360,9 +359,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             if !buffer_is_some {
                 self.destroy_node();
             } else {
-                let pos = self.pos.get();
-                let (width, height) = self.size.get();
-                if width != pos.width() || height != pos.height() {
+                if self.surface.extents.get().size() != self.pos.get().size() {
                     self.compute_position();
                 }
             }
@@ -437,7 +434,8 @@ impl Node for ZwlrLayerSurfaceV1 {
         tree: &mut Vec<FoundNode>,
         _usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        self.surface.find_tree_at_(x, y, tree)
+        let (dx, dy) = self.surface.extents.get().position();
+        self.surface.find_tree_at_(x + dx, y + dy, tree)
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
