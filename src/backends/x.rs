@@ -19,7 +19,7 @@ use {
         },
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GbmDevice, GbmError, GBM_BO_USE_RENDERING},
+            gbm::{GbmBo, GbmDevice, GbmError, GBM_BO_USE_RENDERING},
         },
         wire_xcon::{
             ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
@@ -437,6 +437,7 @@ impl XBackend {
             };
             *image = Some(XImage {
                 pixmap: Cell::new(pixmap),
+                _bo: bo,
                 fb: CloneCell::new(fb),
                 tex: CloneCell::new(tex),
                 idle: Cell::new(true),
@@ -1023,6 +1024,7 @@ struct XOutput {
 
 struct XImage {
     pixmap: Cell<u32>,
+    _bo: GbmBo,
     fb: CloneCell<Rc<dyn GfxFramebuffer>>,
     tex: CloneCell<Rc<dyn GfxTexture>>,
     idle: Cell<bool>,

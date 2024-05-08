@@ -17,7 +17,7 @@ use {
         },
         video::{
             dmabuf::DmaBuf,
-            gbm::{GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
+            gbm::{GbmBo, GbmError, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING},
             Modifier, INVALID_MODIFIER, LINEAR_MODIFIER,
         },
         wire::{jay_screencast::*, JayScreencastId},
@@ -100,6 +100,7 @@ struct Pending {
 }
 
 struct ScreencastBuffer {
+    _bo: GbmBo,
     dmabuf: DmaBuf,
     fb: Rc<dyn GfxFramebuffer>,
     free: bool,
@@ -403,6 +404,7 @@ impl JayScreencast {
                 let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
                 buffers.push(ScreencastBuffer {
                     dmabuf: buffer.dmabuf().clone(),
+                    _bo: buffer,
                     fb,
                     free: true,
                 });

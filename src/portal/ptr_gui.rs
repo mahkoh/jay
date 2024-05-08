@@ -15,7 +15,7 @@ use {
             asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
-        video::gbm::GBM_BO_USE_RENDERING,
+        video::gbm::{GbmBo, GBM_BO_USE_RENDERING},
         wire::{
             wp_fractional_scale_v1::PreferredScale, zwlr_layer_surface_v1::Configure,
             ZwpLinuxBufferParamsV1Id,
@@ -757,6 +757,7 @@ impl WindowData {
             let params = dmabuf.create_params();
             params.create(bo.dmabuf());
             let pending = Rc::new(GuiBufferPending {
+                bo: Cell::new(Some(bo)),
                 window: self.clone(),
                 fb,
                 params,
@@ -843,11 +844,13 @@ pub struct GuiBuffer {
     pub wl: Rc<UsrWlBuffer>,
     pub window: Rc<WindowData>,
     pub fb: Rc<dyn GfxFramebuffer>,
+    pub _bo: Option<GbmBo>,
     pub free: Cell<bool>,
     pub size: (i32, i32),
 }
 
 struct GuiBufferPending {
+    pub bo: Cell<Option<GbmBo>>,
     pub window: Rc<WindowData>,
     pub fb: Rc<dyn GfxFramebuffer>,
     pub params: Rc<UsrLinuxBufferParams>,
@@ -892,6 +895,7 @@ impl UsrLinuxBufferParamsOwner for GuiBufferPending {
             wl: buffer,
             window: self.window.clone(),
             fb: self.fb.clone(),
+            _bo: self.bo.take(),
             free: Cell::new(true),
             size: self.size,
         });
