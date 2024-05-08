@@ -138,6 +138,12 @@ pub struct GbmBo {
     dmabuf: DmaBuf,
 }
 
+impl Debug for GbmBo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GbmBo").finish_non_exhaustive()
+    }
+}
+
 pub struct GbmBoMap {
     bo: Rc<GbmBo>,
     data: *mut [u8],

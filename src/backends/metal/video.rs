@@ -35,7 +35,7 @@ use {
                 DrmPropertyType, DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC,
                 DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
             },
-            gbm::{GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
+            gbm::{GbmBo, GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             Modifier, INVALID_MODIFIER,
         },
     },
@@ -2593,12 +2593,12 @@ impl MetalBackend {
             Err(e) => return Err(MetalError::ImportFb(e)),
         };
         dev_fb.clear().map_err(MetalError::Clear)?;
-        let (dev_tex, render_tex, render_fb) = if dev.id == render_ctx.dev_id {
+        let (dev_tex, render_tex, render_fb, render_bo) = if dev.id == render_ctx.dev_id {
             let render_tex = match dev_img.to_texture() {
                 Ok(fb) => fb,
                 Err(e) => return Err(MetalError::ImportTexture(e)),
             };
-            (None, render_tex, None)
+            (None, render_tex, None, None)
         } else {
             // Create a _bridge_ BO in the render device
             let render_gfx_formats = render_ctx.gfx.formats();
@@ -2657,10 +2657,12 @@ impl MetalBackend {
                 Err(e) => return Err(MetalError::ImportTexture(e)),
             };
 
-            (Some(dev_tex), render_tex, Some(render_fb))
+            (Some(dev_tex), render_tex, Some(render_fb), Some(render_bo))
         };
         Ok(RenderBuffer {
             drm: drm_fb,
+            _dev_bo: dev_bo,
+            _render_bo: render_bo,
             dev_fb,
             dev_tex,
             render_tex,
@@ -2849,6 +2851,8 @@ impl MetalBackend {
 #[derive(Debug)]
 pub struct RenderBuffer {
     drm: Rc<DrmFramebuffer>,
+    _dev_bo: GbmBo,
+    _render_bo: Option<GbmBo>,
     // ctx = dev
     // buffer location = dev
     dev_fb: Rc<dyn GfxFramebuffer>,
