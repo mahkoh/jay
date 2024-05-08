@@ -19,7 +19,6 @@ use {
     },
     std::{
         cell::{Cell, RefMut},
-        mem,
         ops::Deref,
         rc::Rc,
     },
@@ -51,7 +50,6 @@ pub struct ZwlrLayerSurfaceV1 {
     mapped: Cell<bool>,
     layer: Cell<u32>,
     requested_serial: NumCell<u32>,
-    acked_serial: Cell<Option<u32>>,
     size: Cell<(i32, i32)>,
     anchor: Cell<u32>,
     exclusive_zone: Cell<i32>,
@@ -70,7 +68,6 @@ pub struct PendingLayerSurfaceData {
     margin: Option<(i32, i32, i32, i32)>,
     keyboard_interactivity: Option<u32>,
     layer: Option<u32>,
-    any: bool,
 }
 
 impl PendingLayerSurfaceData {
@@ -88,7 +85,6 @@ impl PendingLayerSurfaceData {
         opt!(margin);
         opt!(keyboard_interactivity);
         opt!(layer);
-        self.any |= mem::take(&mut next.any);
     }
 }
 
@@ -115,7 +111,6 @@ impl ZwlrLayerSurfaceV1 {
             mapped: Cell::new(false),
             layer: Cell::new(layer),
             requested_serial: Default::default(),
-            acked_serial: Cell::new(None),
             size: Cell::new((0, 0)),
             anchor: Cell::new(0),
             exclusive_zone: Cell::new(0),
@@ -168,7 +163,6 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.size = Some((req.width as _, req.height as _));
-        pending.any = true;
         Ok(())
     }
 
@@ -178,7 +172,6 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.anchor = Some(req.anchor);
-        pending.any = true;
         Ok(())
     }
 
@@ -189,14 +182,12 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
     ) -> Result<(), Self::Error> {
         let mut pending = self.pending();
         pending.exclusive_zone = Some(req.zone);
-        pending.any = true;
         Ok(())
     }
 
     fn set_margin(&self, req: SetMargin, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut pending = self.pending();
         pending.margin = Some((req.top, req.right, req.bottom, req.left));
-        pending.any = true;
         Ok(())
     }
 
@@ -212,7 +203,6 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.keyboard_interactivity = Some(req.keyboard_interactivity);
-        pending.any = true;
         Ok(())
     }
 
@@ -220,8 +210,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.acked_serial.set(Some(req.serial));
+    fn ack_configure(&self, _req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -238,7 +227,6 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.layer = Some(req.layer);
-        pending.any = true;
         Ok(())
     }
 }
