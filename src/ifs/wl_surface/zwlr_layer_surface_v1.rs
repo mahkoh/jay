@@ -292,7 +292,7 @@ impl ZwlrLayerSurfaceV1 {
         self.pos.get()
     }
 
-    pub fn compute_position(&self) {
+    fn compute_position(&self) {
         let Some(global) = self.output.get() else {
             return;
         };
@@ -324,6 +324,11 @@ impl ZwlrLayerSurfaceV1 {
         self.pos.set(a_rect);
         self.surface.set_absolute_position(a_rect.x1(), a_rect.y1());
         self.client.state.tree_changed();
+    }
+
+    pub fn output_resized(&self) {
+        self.configure();
+        self.compute_position();
     }
 
     pub fn destroy_node(&self) {

@@ -558,7 +558,7 @@ impl OutputNode {
         }
         for layer in &self.layers {
             for surface in layer.iter() {
-                surface.compute_position();
+                surface.output_resized();
             }
         }
         self.global.send_mode();
