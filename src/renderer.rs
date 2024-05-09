@@ -103,12 +103,8 @@ impl Renderer<'_> {
         macro_rules! render_layer {
             ($layer:expr) => {
                 for ls in $layer.iter() {
-                    let pos = ls.position();
-                    self.render_layer_surface(
-                        ls.deref(),
-                        x + pos.x1() - opos.x1(),
-                        y + pos.y1() - opos.y1(),
-                    );
+                    let pos = ls.output_extents();
+                    self.render_layer_surface(ls.deref(), x + pos.x1(), y + pos.y1());
                     self.base.ops.push(GfxApiOpt::Sync);
                 }
             };
@@ -124,10 +120,14 @@ impl Renderer<'_> {
         } else {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
+            let non_exclusive_rect = output.non_exclusive_rect_rel.get();
+            let (x, y) = non_exclusive_rect.translate_inv(x, y);
             {
                 let c = theme.colors.bar_background.get();
                 self.base.fill_boxes2(
-                    slice::from_ref(&Rect::new_sized(0, 0, opos.width(), th).unwrap()),
+                    slice::from_ref(
+                        &Rect::new_sized(0, 0, non_exclusive_rect.width(), th).unwrap(),
+                    ),
                     &c,
                     x,
                     y,
@@ -189,18 +189,24 @@ impl Renderer<'_> {
                 self.render_workspace(&ws, x, y + th + 1);
             }
         }
-        for stacked in self.state.root.stacked.iter() {
-            if stacked.node_visible() {
-                self.base.ops.push(GfxApiOpt::Sync);
-                let pos = stacked.node_absolute_position();
-                if pos.intersects(&opos) {
-                    let (x, y) = opos.translate(pos.x1(), pos.y1());
-                    stacked.node_render(self, x, y, None);
+        macro_rules! render_stacked {
+            ($stack:expr) => {
+                for stacked in $stack.iter() {
+                    if stacked.node_visible() {
+                        self.base.ops.push(GfxApiOpt::Sync);
+                        let pos = stacked.node_absolute_position();
+                        if pos.intersects(&opos) {
+                            let (x, y) = opos.translate(pos.x1(), pos.y1());
+                            stacked.node_render(self, x, y, None);
+                        }
+                    }
                 }
-            }
+            };
         }
+        render_stacked!(self.state.root.stacked);
         render_layer!(output.layers[2]);
         render_layer!(output.layers[3]);
+        render_stacked!(self.state.root.stacked_above_layers);
         if let Some(ws) = output.workspace.get() {
             if ws.render_highlight.get() > 0 {
                 let color = self.state.theme.colors.highlight.get();
@@ -539,8 +545,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_layer_surface(&mut self, surface: &ZwlrLayerSurfaceV1, x: i32, y: i32) {
-        let body = surface.position().at_point(x, y);
-        let body = self.base.scale_rect(body);
-        self.render_surface(&surface.surface, x, y, Some(&body));
+        let (dx, dy) = surface.surface.extents.get().position();
+        self.render_surface(&surface.surface, x - dx, y - dy, None);
     }
 }

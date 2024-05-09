@@ -4,23 +4,32 @@ use {
         ifs::{
             wl_output::OutputGlobalOpt,
             wl_seat::NodeSeatState,
-            wl_surface::{PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
+            wl_surface::{
+                xdg_surface::xdg_popup::{XdgPopup, XdgPopupParent},
+                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
+            },
             zwlr_layer_shell_v1::{ZwlrLayerShellV1, OVERLAY},
         },
         leaks::Tracker,
         object::Object,
         rect::Rect,
         renderer::Renderer,
-        tree::{FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor},
+        tree::{
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeVisitor, OutputNode,
+            StackedNode,
+        },
         utils::{
-            bitflags::BitflagsExt, cell_ext::CellExt, linkedlist::LinkedNode, numcell::NumCell,
+            bitflags::BitflagsExt,
+            copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
+            linkedlist::{LinkedList, LinkedNode},
+            numcell::NumCell,
             option_ext::OptionExt,
         },
-        wire::{zwlr_layer_surface_v1::*, WlSurfaceId, ZwlrLayerSurfaceV1Id},
+        wire::{zwlr_layer_surface_v1::*, WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id},
     },
     std::{
-        cell::{Cell, RefMut},
-        mem,
+        cell::{Cell, RefCell, RefMut},
         ops::Deref,
         rc::Rc,
     },
@@ -47,30 +56,74 @@ pub struct ZwlrLayerSurfaceV1 {
     pub output: Rc<OutputGlobalOpt>,
     pub namespace: String,
     pub tracker: Tracker<Self>,
-    output_pos: Cell<Rect>,
+    output_extents: Cell<Rect>,
     pos: Cell<Rect>,
     mapped: Cell<bool>,
     layer: Cell<u32>,
     requested_serial: NumCell<u32>,
-    acked_serial: Cell<Option<u32>>,
     size: Cell<(i32, i32)>,
     anchor: Cell<u32>,
-    exclusive_zone: Cell<i32>,
+    exclusive_zone: Cell<ExclusiveZone>,
     margin: Cell<(i32, i32, i32, i32)>,
     keyboard_interactivity: Cell<u32>,
     link: Cell<Option<LinkedNode<Rc<Self>>>>,
     seat_state: NodeSeatState,
+    last_configure: Cell<(i32, i32)>,
+    exclusive_edge: Cell<Option<u32>>,
+    exclusive_size: Cell<ExclusiveSize>,
+    popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExclusiveSize {
+    pub top: i32,
+    pub right: i32,
+    pub bottom: i32,
+    pub left: i32,
+}
+
+impl ExclusiveSize {
+    pub fn is_empty(&self) -> bool {
+        *self == ExclusiveSize::default()
+    }
+
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
+    pub fn max(&self, other: &Self) -> Self {
+        Self {
+            top: self.top.max(other.top),
+            right: self.right.max(other.right),
+            bottom: self.bottom.max(other.bottom),
+            left: self.left.max(other.left),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ExclusiveZone {
+    MoveSelf,
+    FixedSelf,
+    Acquire(i32),
+}
+
+struct Popup {
+    parent: Rc<ZwlrLayerSurfaceV1>,
+    popup: Rc<XdgPopup>,
+    stack: Rc<LinkedList<Rc<dyn StackedNode>>>,
+    stack_link: RefCell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
 }
 
 #[derive(Default)]
 pub struct PendingLayerSurfaceData {
     size: Option<(i32, i32)>,
     anchor: Option<u32>,
-    exclusive_zone: Option<i32>,
+    exclusive_zone: Option<ExclusiveZone>,
     margin: Option<(i32, i32, i32, i32)>,
     keyboard_interactivity: Option<u32>,
     layer: Option<u32>,
-    any: bool,
+    exclusive_edge: Option<u32>,
 }
 
 impl PendingLayerSurfaceData {
@@ -88,7 +141,6 @@ impl PendingLayerSurfaceData {
         opt!(margin);
         opt!(keyboard_interactivity);
         opt!(layer);
-        self.any |= mem::take(&mut next.any);
     }
 }
 
@@ -110,19 +162,22 @@ impl ZwlrLayerSurfaceV1 {
             output: output.clone(),
             namespace: namespace.to_string(),
             tracker: Default::default(),
-            output_pos: Default::default(),
+            output_extents: Default::default(),
             pos: Default::default(),
             mapped: Cell::new(false),
             layer: Cell::new(layer),
             requested_serial: Default::default(),
-            acked_serial: Cell::new(None),
             size: Cell::new((0, 0)),
             anchor: Cell::new(0),
-            exclusive_zone: Cell::new(0),
+            exclusive_zone: Cell::new(ExclusiveZone::MoveSelf),
             margin: Cell::new((0, 0, 0, 0)),
             keyboard_interactivity: Cell::new(0),
             link: Cell::new(None),
             seat_state: Default::default(),
+            last_configure: Default::default(),
+            exclusive_edge: Default::default(),
+            exclusive_size: Default::default(),
+            popups: Default::default(),
         }
     }
 
@@ -167,7 +222,6 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.size = Some((req.width as _, req.height as _));
-        pending.any = true;
         Ok(())
     }
 
@@ -177,7 +231,6 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.anchor = Some(req.anchor);
-        pending.any = true;
         Ok(())
     }
 
@@ -187,15 +240,27 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let mut pending = self.pending();
-        pending.exclusive_zone = Some(req.zone);
-        pending.any = true;
+        let zone = if req.zone < 0 {
+            ExclusiveZone::FixedSelf
+        } else if req.zone == 0 {
+            ExclusiveZone::MoveSelf
+        } else if req.zone > u16::MAX as i32 {
+            return Err(ZwlrLayerSurfaceV1Error::ExcessiveExclusive);
+        } else {
+            ExclusiveZone::Acquire(req.zone)
+        };
+        pending.exclusive_zone = Some(zone);
         Ok(())
     }
 
     fn set_margin(&self, req: SetMargin, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut pending = self.pending();
+        for s in [req.top, req.right, req.bottom, req.left] {
+            if (s as i64).abs() > u16::MAX as i64 {
+                return Err(ZwlrLayerSurfaceV1Error::ExcessiveMargin);
+            }
+        }
         pending.margin = Some((req.top, req.right, req.bottom, req.left));
-        pending.any = true;
         Ok(())
     }
 
@@ -211,20 +276,35 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.keyboard_interactivity = Some(req.keyboard_interactivity);
-        pending.any = true;
         Ok(())
     }
 
-    fn get_popup(&self, _req: GetPopup, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_popup(&self, req: GetPopup, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let popup = self.client.lookup(req.popup)?;
+        if popup.parent.is_some() {
+            return Err(ZwlrLayerSurfaceV1Error::PopupHasParent);
+        }
+        let stack = self.client.state.root.stacked_above_layers.clone();
+        popup.xdg.set_popup_stack(&stack);
+        let user = Rc::new(Popup {
+            parent: slf.clone(),
+            popup: popup.clone(),
+            stack,
+            stack_link: Default::default(),
+        });
+        popup.parent.set(Some(user.clone()));
+        self.popups.set(popup.id, user);
         Ok(())
     }
 
-    fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.acked_serial.set(Some(req.serial));
+    fn ack_configure(&self, _req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if self.popups.is_not_empty() {
+            return Err(ZwlrLayerSurfaceV1Error::HasPopups);
+        }
         self.destroy_node();
         self.client.remove_obj(self)?;
         self.surface.unset_ext();
@@ -237,18 +317,77 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         }
         let mut pending = self.pending();
         pending.layer = Some(req.layer);
-        pending.any = true;
+        Ok(())
+    }
+
+    fn set_exclusive_edge(
+        &self,
+        req: SetExclusiveEdge,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        if req.edge & !(LEFT | RIGHT | TOP | BOTTOM) != 0 {
+            return Err(ZwlrLayerSurfaceV1Error::UnknownAnchor(req.edge));
+        }
+        if req.edge.count_ones() > 1 {
+            return Err(ZwlrLayerSurfaceV1Error::TooManyExclusiveEdges);
+        }
+        let mut pending = self.pending();
+        if req.edge == 0 {
+            pending.exclusive_edge = None;
+        } else {
+            pending.exclusive_edge = Some(req.edge);
+        }
         Ok(())
     }
 }
 
 impl ZwlrLayerSurfaceV1 {
-    fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let Some(global) = self.output.get() else {
-            return Ok(());
+    pub fn exclusive_size(&self) -> ExclusiveSize {
+        self.exclusive_size.get()
+    }
+
+    fn update_exclusive_size(&self) {
+        let exclusive_edge = {
+            if let Some(ee) = self.exclusive_edge.get() {
+                Some(ee)
+            } else {
+                let anchor = self.anchor.get();
+                let edges = anchor.count_ones();
+                if edges == 1 {
+                    Some(anchor)
+                } else if edges == 3 {
+                    match (!anchor) & (TOP | BOTTOM | LEFT | RIGHT) {
+                        TOP => Some(BOTTOM),
+                        BOTTOM => Some(TOP),
+                        LEFT => Some(RIGHT),
+                        RIGHT => Some(LEFT),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
         };
+        let mut exclusive_size = ExclusiveSize::default();
+        if let (ExclusiveZone::Acquire(s), Some(edge)) = (self.exclusive_zone.get(), exclusive_edge)
+        {
+            match edge {
+                TOP => exclusive_size.top = s,
+                RIGHT => exclusive_size.right = s,
+                BOTTOM => exclusive_size.bottom = s,
+                LEFT => exclusive_size.left = s,
+                _ => {}
+            }
+        }
+        if self.exclusive_size.replace(exclusive_size) != exclusive_size {
+            if let Some(output) = self.output.node.get() {
+                output.update_exclusive_zones();
+            }
+        }
+    }
+
+    fn pre_commit(&self, pending: &mut PendingState) -> Result<(), ZwlrLayerSurfaceV1Error> {
         let pending = pending.layer_surface.get_or_insert_default_ext();
-        let mut send_configure = mem::replace(&mut pending.any, false);
         if let Some(size) = pending.size.take() {
             self.size.set(size);
         }
@@ -267,76 +406,125 @@ impl ZwlrLayerSurfaceV1 {
         if let Some(layer) = pending.layer.take() {
             self.layer.set(layer);
         }
-        {
-            let (mut width, mut height) = self.size.get();
-            let anchor = self.anchor.get();
-            if width == 0 {
-                if !anchor.contains(LEFT | RIGHT) {
-                    return Err(ZwlrLayerSurfaceV1Error::WidthZero);
-                }
-                send_configure = true;
-                width = global.position().width();
+        if let Some(edge) = pending.exclusive_edge.take() {
+            self.exclusive_edge.set(Some(edge));
+        }
+        let anchor = self.anchor.get();
+        let (width, height) = self.size.get();
+        if width == 0 && !anchor.contains(LEFT | RIGHT) {
+            return Err(ZwlrLayerSurfaceV1Error::WidthZero);
+        }
+        if height == 0 && !anchor.contains(TOP | BOTTOM) {
+            return Err(ZwlrLayerSurfaceV1Error::HeightZero);
+        }
+        if let Some(ee) = self.exclusive_edge.get() {
+            if !self.anchor.get().contains(ee) {
+                return Err(ZwlrLayerSurfaceV1Error::ExclusiveEdgeNotAnchored);
             }
-            if height == 0 {
-                if !anchor.contains(TOP | BOTTOM) {
-                    return Err(ZwlrLayerSurfaceV1Error::HeightZero);
-                }
-                send_configure = true;
-                height = global.position().height();
-            }
-            self.size.set((width, height));
         }
-        if self.acked_serial.is_none() {
-            send_configure = true;
-        }
-        if send_configure {
-            let (width, height) = self.size.get();
-            let serial = self.requested_serial.fetch_add(1) + 1;
-            self.send_configure(serial, width as _, height as _);
-        }
+        self.configure();
         Ok(())
     }
 
-    pub fn output_position(&self) -> Rect {
-        self.output_pos.get()
-    }
-
-    pub fn position(&self) -> Rect {
-        self.pos.get()
-    }
-
-    pub fn compute_position(&self) {
-        let Some(global) = self.output.get() else {
+    fn configure(&self) {
+        let Some(node) = self.output.node() else {
             return;
         };
-        let (width, height) = self.size.get();
+        let (mut width, mut height) = self.size.get();
+        let (mt, mr, mb, ml) = self.margin.get();
+        let (mut available_width, mut available_height) = match self.exclusive_zone.get() {
+            ExclusiveZone::MoveSelf => node.non_exclusive_rect.get().size(),
+            _ => node.global.pos.get().size(),
+        };
+        let anchor = self.anchor.get();
+        if anchor.contains(LEFT) {
+            available_width -= ml;
+        }
+        if anchor.contains(RIGHT) {
+            available_width -= mr;
+        }
+        if anchor.contains(TOP) {
+            available_height -= mt;
+        }
+        if anchor.contains(BOTTOM) {
+            available_height -= mb;
+        }
+        if width == 0 {
+            width = available_width;
+        }
+        width = width.min(available_width).max(1);
+        if height == 0 {
+            height = available_height;
+        }
+        height = height.min(available_height).max(1);
+        let serial = self.requested_serial.fetch_add(1) + 1;
+        if self.last_configure.replace((width, height)) != (width, height) {
+            self.send_configure(serial, width as _, height as _);
+        }
+    }
+
+    pub fn output_extents(&self) -> Rect {
+        self.output_extents.get()
+    }
+
+    fn compute_position(&self) {
+        let Some(output) = self.output.node() else {
+            return;
+        };
+        let extents = self.surface.extents.get();
+        let (width, height) = extents.size();
         let mut anchor = self.anchor.get();
         if anchor == 0 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
-        let opos = global.pos.get();
+        let (mt, mr, mb, ml) = self.margin.get();
+        let opos = output.global.pos.get();
+        let rect = match self.exclusive_zone.get() {
+            ExclusiveZone::MoveSelf => output.non_exclusive_rect.get(),
+            _ => opos,
+        };
+        let (owidth, oheight) = rect.size();
         let mut x1 = 0;
         let mut y1 = 0;
-        if anchor.contains(LEFT) {
-            if anchor.contains(RIGHT) {
-                x1 += (opos.width() - width) / 2;
-            }
+        if anchor.contains(LEFT | RIGHT) {
+            x1 = (owidth - width - ml - mr) / 2;
+        } else if anchor.contains(LEFT) {
+            x1 = ml;
         } else if anchor.contains(RIGHT) {
-            x1 += opos.width() - width;
+            x1 = owidth - width - mr;
         }
-        if anchor.contains(TOP) {
-            if anchor.contains(BOTTOM) {
-                y1 += (opos.height() - height) / 2;
-            }
+        if anchor.contains(TOP | BOTTOM) {
+            y1 = (oheight - height - mt - mb) / 2;
+        } else if anchor.contains(TOP) {
+            y1 = mt;
         } else if anchor.contains(BOTTOM) {
-            y1 += opos.height() - height;
+            y1 = oheight - height - mb;
         }
-        let o_rect = Rect::new_sized(x1, y1, width, height).unwrap();
-        let a_rect = o_rect.move_(opos.x1(), opos.y1());
-        self.output_pos.set(o_rect);
-        self.pos.set(a_rect);
-        self.surface.set_absolute_position(a_rect.x1(), a_rect.y1());
+        let a_rect = Rect::new_sized(x1 + rect.x1(), y1 + rect.y1(), width, height).unwrap();
+        let o_rect = a_rect.move_(-opos.x1(), -opos.y1());
+        self.output_extents.set(o_rect);
+        let a_rect_old = self.pos.replace(a_rect);
+        let abs_x = a_rect.x1() - extents.x1();
+        let abs_y = a_rect.y1() - extents.y1();
+        self.surface.set_absolute_position(abs_x, abs_y);
+        if a_rect_old != a_rect {
+            for popup in self.popups.lock().values() {
+                popup.popup.update_absolute_position();
+            }
+        }
         self.client.state.tree_changed();
+    }
+
+    pub fn output_resized(&self) {
+        self.configure();
+        self.compute_position();
+    }
+
+    pub fn exclusive_zones_changed(&self) {
+        if self.exclusive_zone.get() != ExclusiveZone::MoveSelf {
+            return;
+        }
+        self.output_resized();
     }
 
     pub fn destroy_node(&self) {
@@ -345,6 +533,25 @@ impl ZwlrLayerSurfaceV1 {
         self.surface.destroy_node();
         self.seat_state.destroy_node(self);
         self.client.state.tree_changed();
+        self.last_configure.take();
+        if self.exclusive_size.take().is_not_empty() {
+            if let Some(node) = self.output.node() {
+                node.update_exclusive_zones();
+            }
+        }
+        for popup in self.popups.lock().drain_values() {
+            popup.popup.destroy_node();
+        }
+    }
+
+    pub fn set_visible(&self, visible: bool) {
+        self.surface.set_visible(visible);
+        if !visible {
+            for popup in self.popups.lock().drain_values() {
+                popup.popup.set_visible(false);
+                popup.popup.destroy_node();
+            }
+        }
     }
 }
 
@@ -367,17 +574,17 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             if !buffer_is_some {
                 self.destroy_node();
             } else {
-                let pos = self.pos.get();
-                let (width, height) = self.size.get();
-                if width != pos.width() || height != pos.height() {
+                if self.surface.extents.get().size() != self.pos.get().size() {
                     self.compute_position();
                 }
+                self.update_exclusive_size();
             }
         } else if buffer_is_some {
             let layer = &output.layers[self.layer.get() as usize];
             self.link.set(Some(layer.add_last(self.clone())));
             self.mapped.set(true);
             self.compute_position();
+            self.update_exclusive_size();
         }
         if self.mapped.get() != was_mapped {
             output.update_visible();
@@ -444,11 +651,55 @@ impl Node for ZwlrLayerSurfaceV1 {
         tree: &mut Vec<FoundNode>,
         _usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        self.surface.find_tree_at_(x, y, tree)
+        let (dx, dy) = self.surface.extents.get().position();
+        self.surface.find_tree_at_(x + dx, y + dy, tree)
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_layer_surface(self, x, y);
+    }
+}
+
+impl XdgPopupParent for Popup {
+    fn position(&self) -> Rect {
+        self.parent.pos.get()
+    }
+
+    fn remove_popup(&self) {
+        self.parent.popups.remove(&self.popup.id);
+    }
+
+    fn output(&self) -> Rc<OutputNode> {
+        self.parent.surface.output.get()
+    }
+
+    fn has_workspace_link(&self) -> bool {
+        false
+    }
+
+    fn post_commit(&self) {
+        let mut dl = self.stack_link.borrow_mut();
+        let output = self.output();
+        let surface = &self.popup.xdg.surface;
+        let state = &surface.client.state;
+        if surface.buffer.is_some() {
+            if dl.is_none() {
+                if self.parent.surface.visible.get() {
+                    self.popup.xdg.set_output(&output);
+                    *dl = Some(self.stack.add_last(self.popup.clone()));
+                    state.tree_changed();
+                    self.popup.set_visible(self.parent.surface.visible.get());
+                } else {
+                    self.popup.destroy_node();
+                }
+            }
+        } else {
+            if dl.take().is_some() {
+                drop(dl);
+                self.popup.set_visible(false);
+                self.popup.destroy_node();
+            }
+        }
     }
 }
 
@@ -482,10 +733,22 @@ pub enum ZwlrLayerSurfaceV1Error {
     UnknownLayer(u32),
     #[error("Surface size must not be larger than 65535x65535")]
     ExcessiveSize,
+    #[error("Margin must not be larger than 65535")]
+    ExcessiveMargin,
     #[error("Unknown anchor {0}")]
     UnknownAnchor(u32),
     #[error("Unknown keyboard interactivity {0}")]
     UnknownKi(u32),
+    #[error("Surface is not anchored at exclusive edge")]
+    ExclusiveEdgeNotAnchored,
+    #[error("Request must contain exactly one edge")]
+    TooManyExclusiveEdges,
+    #[error("Exclusive zone not be larger than 65535")]
+    ExcessiveExclusive,
+    #[error("Popup already has a parent")]
+    PopupHasParent,
+    #[error("Surface still has popups")]
+    HasPopups,
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);

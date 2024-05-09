@@ -4,8 +4,8 @@ use {
         io_uring::{IoUring, IoUringError},
         time::{Time, TimeError},
         utils::{
-            buf::TypedBuf, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            oserror::OsError, stack::Stack,
+            buf::TypedBuf, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt,
+            numcell::NumCell, oserror::OsError, stack::Stack,
         },
     },
     std::{
@@ -204,7 +204,7 @@ impl WheelData {
         self.destroyed.set(true);
         self.dispatcher.set(None);
         self.cached_futures.take();
-        for (_, dispatcher) in self.dispatchers.lock().drain() {
+        for dispatcher in self.dispatchers.lock().drain_values() {
             dispatcher.complete(Err(WheelError::Destroyed));
         }
     }

@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add remaining layer-shell features.
+
 # 1.2.0 (2024-05-05)
 
 - Add support for wp-security-manager-v1.

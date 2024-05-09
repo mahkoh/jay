@@ -20,7 +20,8 @@ pub struct DisplayNode {
     pub id: NodeId,
     pub extents: Cell<Rect>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
-    pub stacked: LinkedList<Rc<dyn StackedNode>>,
+    pub stacked: Rc<LinkedList<Rc<dyn StackedNode>>>,
+    pub stacked_above_layers: Rc<LinkedList<Rc<dyn StackedNode>>>,
     pub seat_state: NodeSeatState,
 }
 
@@ -31,6 +32,7 @@ impl DisplayNode {
             extents: Default::default(),
             outputs: Default::default(),
             stacked: Default::default(),
+            stacked_above_layers: Default::default(),
             seat_state: Default::default(),
         }
     }

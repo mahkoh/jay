@@ -5,7 +5,7 @@ use {
         ifs::{wl_buffer::WlBuffer, zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1},
         leaks::Tracker,
         object::Object,
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
         video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec, MAX_PLANES},
         wire::{zwp_linux_buffer_params_v1::*, WlBufferId, ZwpLinuxBufferParamsV1Id},
     },
@@ -90,7 +90,7 @@ impl ZwpLinuxBufferParamsV1 {
             modifier,
             planes: PlaneVec::new(),
         };
-        let mut planes: Vec<_> = self.planes.borrow_mut().drain().map(|v| v.1).collect();
+        let mut planes: Vec<_> = self.planes.borrow_mut().drain_values().collect();
         planes.sort_by_key(|a| a.plane_idx);
         for (i, p) in planes.into_iter().enumerate() {
             if p.plane_idx as usize != i {

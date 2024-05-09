@@ -107,7 +107,7 @@ impl Global for ZwlrLayerShellV1Global {
     }
 
     fn version(&self) -> u32 {
-        4
+        5
     }
 
     fn required_caps(&self) -> ClientCaps {

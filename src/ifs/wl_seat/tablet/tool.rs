@@ -15,7 +15,7 @@ use {
         },
         rect::Rect,
         time::usec_to_msec,
-        utils::clonecell::CloneCell,
+        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -31,7 +31,7 @@ impl WlSeatGlobal {
         tool.opt.tool.take();
         tool.cursor.detach();
         tool.tool_owner.destroy(&tool);
-        for (_, binding) in tool.bindings.lock().drain() {
+        for binding in tool.bindings.lock().drain_values() {
             binding.send_removed();
         }
         tool.tablet.tools.remove(&id);

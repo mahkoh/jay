@@ -264,9 +264,9 @@ impl Node for WorkspaceNode {
                 x,
                 y,
             });
-            n.node_find_tree_at(x, y, tree, usecase);
+            return n.node_find_tree_at(x, y, tree, usecase);
         }
-        FindTreeResult::AcceptsInput
+        FindTreeResult::Other
     }
 
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {

@@ -38,6 +38,10 @@ request set_layer (since = 2) {
     layer: u32,
 }
 
+request set_exclusive_edge (since = 5) {
+    edge: u32,
+}
+
 # events
 
 event configure {

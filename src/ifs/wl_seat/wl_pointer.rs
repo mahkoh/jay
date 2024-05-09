@@ -74,6 +74,7 @@ pub struct WlPointer {
     id: WlPointerId,
     pub seat: Rc<WlSeat>,
     pub tracker: Tracker<Self>,
+    last_motion: Cell<(Fixed, Fixed)>,
 }
 
 impl WlPointer {
@@ -82,10 +83,12 @@ impl WlPointer {
             id,
             seat: seat.clone(),
             tracker: Default::default(),
+            last_motion: Default::default(),
         }
     }
 
     pub fn send_enter(&self, serial: u32, surface: WlSurfaceId, x: Fixed, y: Fixed) {
+        self.last_motion.set((x, y));
         self.seat.client.event(Enter {
             self_id: self.id,
             serial,
@@ -104,6 +107,9 @@ impl WlPointer {
     }
 
     pub fn send_motion(&self, time: u32, x: Fixed, y: Fixed) {
+        if self.last_motion.replace((x, y)) == (x, y) {
+            return;
+        }
         self.seat.client.event(Motion {
             self_id: self.id,
             time,

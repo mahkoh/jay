@@ -18,8 +18,8 @@ use {
             },
             wl_surface::{
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1, SurfaceSendPreferredScaleVisitor,
-                SurfaceSendPreferredTransformVisitor,
+                zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
+                SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
             },
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
@@ -32,11 +32,12 @@ use {
         time::Time,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
-            NodeId, WorkspaceNode,
+            NodeId, StackedNode, WorkspaceNode,
         },
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            linkedlist::LinkedList, scroller::Scroller, transform_ext::TransformExt,
+            hash_map_ext::HashMapExt, linkedlist::LinkedList, scroller::Scroller,
+            transform_ext::TransformExt,
         },
         wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
@@ -46,7 +47,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
-        ops::{Deref, Sub},
+        ops::Deref,
         rc::Rc,
     },
 };
@@ -60,6 +61,10 @@ pub struct OutputNode {
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
+    pub exclusive_zones: Cell<ExclusiveSize>,
+    pub workspace_rect: Cell<Rect>,
+    pub non_exclusive_rect: Cell<Rect>,
+    pub non_exclusive_rect_rel: Cell<Rect>,
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
     pub is_dummy: bool,
@@ -93,6 +98,26 @@ pub async fn output_render_data(state: Rc<State>) {
 }
 
 impl OutputNode {
+    pub fn update_exclusive_zones(self: &Rc<Self>) {
+        let mut exclusive = ExclusiveSize::default();
+        for layer in &self.layers {
+            for surface in layer.iter() {
+                exclusive = exclusive.max(&surface.exclusive_size());
+            }
+        }
+        if self.exclusive_zones.replace(exclusive) != exclusive {
+            self.update_rects();
+            for layer in &self.layers {
+                for surface in layer.iter() {
+                    surface.exclusive_zones_changed();
+                }
+            }
+            if let Some(c) = self.workspace.get() {
+                c.change_extents(&self.workspace_rect.get());
+            }
+        }
+    }
+
     pub fn add_screencast(&self, sc: &Rc<JayScreencast>) {
         self.screencasts.set((sc.client.id, sc.id), sc.clone());
         self.screencast_changed();
@@ -140,7 +165,7 @@ impl OutputNode {
             return;
         }
         let now = Time::now().unwrap();
-        for (_, capture) in self.screencopies.lock().drain() {
+        for capture in self.screencopies.lock().drain_values() {
             let wl_buffer = match capture.buffer.take() {
                 Some(b) => b,
                 _ => {
@@ -221,9 +246,9 @@ impl OutputNode {
     }
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
-        self.schedule_update_render_data();
+        self.update_rects();
         if let Some(c) = self.workspace.get() {
-            c.change_extents(&self.workspace_rect());
+            c.change_extents(&self.workspace_rect.get());
         }
     }
 
@@ -280,7 +305,7 @@ impl OutputNode {
             texture_height = (th as f64 * scale).round() as _;
         }
         let active_id = self.workspace.get().map(|w| w.id);
-        let output_width = self.global.pos.get().width();
+        let output_width = self.non_exclusive_rect.get().width();
         rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
             let old_tex = ws.title_texture.take();
@@ -429,7 +454,7 @@ impl OutputNode {
         if let Some(fs) = ws.fullscreen.get() {
             fs.tl_change_extents(&self.global.pos.get());
         }
-        ws.change_extents(&self.workspace_rect());
+        ws.change_extents(&self.workspace_rect.get());
         for seat in seats {
             ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -477,16 +502,29 @@ impl OutputNode {
         ws
     }
 
-    fn workspace_rect(&self) -> Rect {
+    pub fn update_rects(self: &Rc<Self>) {
         let rect = self.global.pos.get();
         let th = self.state.theme.sizes.title_height.get();
-        Rect::new_sized(
-            rect.x1(),
-            rect.y1() + th + 1,
-            rect.width(),
-            rect.height().sub(th + 1).max(0),
-        )
-        .unwrap()
+        let exclusive = self.exclusive_zones.get();
+        let y1 = rect.y1() + exclusive.top;
+        let x2 = rect.x2() - exclusive.right;
+        let y2 = rect.y2() - exclusive.bottom;
+        let x1 = rect.x1() + exclusive.left;
+        let width = (x2 - x1).max(0);
+        let height = (y2 - y1).max(0);
+        self.non_exclusive_rect
+            .set(Rect::new_sized_unchecked(x1, y1, width, height));
+        self.non_exclusive_rect_rel.set(Rect::new_sized_unchecked(
+            exclusive.left,
+            exclusive.top,
+            width,
+            height,
+        ));
+        let y1 = y1 + th + 1;
+        let height = (y2 - y1).max(0);
+        self.workspace_rect
+            .set(Rect::new_sized_unchecked(x1, y1, width, height));
+        self.schedule_update_render_data();
     }
 
     pub fn set_position(self: &Rc<Self>, x: i32, y: i32) {
@@ -545,7 +583,7 @@ impl OutputNode {
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
         self.global.pos.set(*rect);
         self.state.root.update_extents();
-        self.schedule_update_render_data();
+        self.update_rects();
         if let Some(ls) = self.lock_surface.get() {
             ls.change_extents(*rect);
         }
@@ -553,11 +591,11 @@ impl OutputNode {
             if let Some(fs) = c.fullscreen.get() {
                 fs.tl_change_extents(rect);
             }
-            c.change_extents(&self.workspace_rect());
+            c.change_extents(&self.workspace_rect.get());
         }
         for layer in &self.layers {
             for surface in layer.iter() {
-                surface.compute_position();
+                surface.output_resized();
             }
         }
         self.global.send_mode();
@@ -565,6 +603,46 @@ impl OutputNode {
             seat.cursor_group().output_pos_changed(self)
         }
         self.state.tree_changed();
+    }
+
+    fn find_stacked_at(
+        &self,
+        stack: &LinkedList<Rc<dyn StackedNode>>,
+        x: i32,
+        y: i32,
+        tree: &mut Vec<FoundNode>,
+        usecase: FindTreeUsecase,
+    ) -> FindTreeResult {
+        if stack.is_empty() {
+            return FindTreeResult::Other;
+        }
+        let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
+        for stacked in stack.rev_iter() {
+            let ext = stacked.node_absolute_position();
+            if !stacked.node_visible() {
+                continue;
+            }
+            if stacked.stacked_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
+                // TODO: make constrain always true
+                continue;
+            }
+            let (x, y) = ext.translate(x_abs, y_abs);
+            let idx = tree.len();
+            tree.push(FoundNode {
+                node: stacked.deref().clone().stacked_into_node(),
+                x,
+                y,
+            });
+            match stacked.node_find_tree_at(x, y, tree, usecase) {
+                FindTreeResult::AcceptsInput => {
+                    return FindTreeResult::AcceptsInput;
+                }
+                FindTreeResult::Other => {
+                    tree.truncate(idx);
+                }
+            }
+        }
+        FindTreeResult::Other
     }
 
     pub fn find_layer_surface_at(
@@ -581,7 +659,7 @@ impl OutputNode {
         let len = tree.len();
         for layer in layers.iter().copied() {
             for surface in self.layers[layer as usize].rev_iter() {
-                let pos = surface.output_position();
+                let pos = surface.output_extents();
                 if pos.contains(x, y) {
                     let (x, y) = pos.translate(x, y);
                     if surface.node_find_tree_at(x, y, tree, usecase)
@@ -633,7 +711,7 @@ impl OutputNode {
         macro_rules! set_layer_visible {
             ($layer:expr, $visible:expr) => {
                 for ls in $layer.iter() {
-                    ls.surface.set_visible($visible);
+                    ls.set_visible($visible);
                 }
             };
         }
@@ -641,7 +719,7 @@ impl OutputNode {
         if let Some(ws) = self.workspace.get() {
             have_fullscreen = ws.fullscreen.is_some();
         }
-        let lower_visible = visible && have_fullscreen;
+        let lower_visible = visible && !have_fullscreen;
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
         if let Some(ws) = self.workspace.get() {
@@ -656,6 +734,7 @@ impl OutputNode {
             Some(p) => p,
             _ => return,
         };
+        let (x, y) = self.non_exclusive_rect_rel.get().translate(x, y);
         if y >= self.state.theme.sizes.title_height.get() {
             return;
         }
@@ -795,39 +874,22 @@ impl Node for OutputNode {
             }
         }
         {
+            let res =
+                self.find_stacked_at(&self.state.root.stacked_above_layers, x, y, tree, usecase);
+            if res.accepts_input() {
+                return res;
+            }
+        }
+        {
             let res = self.find_layer_surface_at(x, y, &[OVERLAY, TOP], tree, usecase);
             if res.accepts_input() {
                 return res;
             }
         }
         {
-            let (x_abs, y_abs) = self.global.pos.get().translate_inv(x, y);
-            for stacked in self.state.root.stacked.rev_iter() {
-                let ext = stacked.node_absolute_position();
-                if !stacked.node_visible() {
-                    continue;
-                }
-                if stacked.stacked_absolute_position_constrains_input()
-                    && !ext.contains(x_abs, y_abs)
-                {
-                    // TODO: make constrain always true
-                    continue;
-                }
-                let (x, y) = ext.translate(x_abs, y_abs);
-                let idx = tree.len();
-                tree.push(FoundNode {
-                    node: stacked.deref().clone().stacked_into_node(),
-                    x,
-                    y,
-                });
-                match stacked.node_find_tree_at(x, y, tree, usecase) {
-                    FindTreeResult::AcceptsInput => {
-                        return FindTreeResult::AcceptsInput;
-                    }
-                    FindTreeResult::Other => {
-                        tree.truncate(idx);
-                    }
-                }
+            let res = self.find_stacked_at(&self.state.root.stacked, x, y, tree, usecase);
+            if res.accepts_input() {
+                return res;
             }
         }
         let mut fullscreen = None;
@@ -842,20 +904,32 @@ impl Node for OutputNode {
             });
             fs.tl_as_node().node_find_tree_at(x, y, tree, usecase)
         } else {
-            if y >= bar_height {
-                y -= bar_height;
-                let len = tree.len();
-                if let Some(ws) = self.workspace.get() {
-                    tree.push(FoundNode {
-                        node: ws.clone(),
-                        x,
-                        y,
-                    });
-                    ws.node_find_tree_at(x, y, tree, usecase);
+            let mut search_layers = true;
+            let non_exclusive_rect = self.non_exclusive_rect_rel.get();
+            if non_exclusive_rect.contains(x, y) {
+                let (x, y) = non_exclusive_rect.translate(x, y);
+                if y < bar_height {
+                    search_layers = false;
+                } else {
+                    if let Some(ws) = self.workspace.get() {
+                        let y = y - bar_height;
+                        let len = tree.len();
+                        tree.push(FoundNode {
+                            node: ws.clone(),
+                            x,
+                            y,
+                        });
+                        match ws.node_find_tree_at(x, y, tree, usecase) {
+                            FindTreeResult::AcceptsInput => search_layers = false,
+                            FindTreeResult::Other => {
+                                tree.truncate(len);
+                            }
+                        }
+                    }
                 }
-                if tree.len() == len {
-                    self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
-                }
+            }
+            if search_layers {
+                self.find_layer_surface_at(x, y, &[BOTTOM, BACKGROUND], tree, usecase);
             }
             FindTreeResult::AcceptsInput
         }

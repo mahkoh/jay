@@ -17,7 +17,7 @@ use {
             wl_registry::WlRegistry,
             wl_seat::{tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer, WlSeat},
             wl_surface::{
-                xdg_surface::{xdg_toplevel::XdgToplevel, XdgSurface},
+                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel, XdgSurface},
                 WlSurface,
             },
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
@@ -33,8 +33,8 @@ use {
         wire::{
             JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
             WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPositionerId,
-            XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
+            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId,
+            XdgPositionerId, XdgSurfaceId, XdgToplevelId, XdgWmBaseId, ZwlrDataControlSourceV1Id,
             ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
         },
     },
@@ -66,6 +66,7 @@ pub struct Objects {
     pub jay_toplevels: CopyHashMap<JayToplevelId, Rc<JayToplevel>>,
     pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
     pub tablet_tools: CopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
+    pub xdg_popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -98,6 +99,7 @@ impl Objects {
             jay_toplevels: Default::default(),
             drm_lease_outputs: Default::default(),
             tablet_tools: Default::default(),
+            xdg_popups: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -134,6 +136,7 @@ impl Objects {
         self.jay_toplevels.clear();
         self.drm_lease_outputs.clear();
         self.tablet_tools.clear();
+        self.xdg_popups.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

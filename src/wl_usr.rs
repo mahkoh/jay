@@ -17,6 +17,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             oserror::OsError,
             vec_ext::VecExt,
         },
@@ -159,7 +160,7 @@ impl UsrCon {
 
     pub fn kill(&self) {
         self.dead.set(true);
-        for (_, obj) in self.objects.lock().drain() {
+        for obj in self.objects.lock().drain_values() {
             if let Some(obj) = obj {
                 obj.break_loops();
             }

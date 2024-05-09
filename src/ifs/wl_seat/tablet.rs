@@ -19,7 +19,10 @@ use {
         object::Version,
         time::now_usec,
         tree::{FoundNode, Node},
-        utils::{bindings::PerClientBindings, clonecell::CloneCell, copyhashmap::CopyHashMap},
+        utils::{
+            bindings::PerClientBindings, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
+        },
     },
     std::{
         cell::{Cell, RefCell},
@@ -293,18 +296,18 @@ impl WlSeatGlobal {
 
     pub fn tablet_clear(&self) {
         self.tablet.seats.clear();
-        for (_, tablet) in self.tablet.tablets.lock().drain() {
+        for tablet in self.tablet.tablets.lock().drain_values() {
             tablet.pads.clear();
             tablet.bindings.clear();
             tablet.tools.clear();
         }
-        for (_, tool) in self.tablet.tools.lock().drain() {
+        for tool in self.tablet.tools.lock().drain_values() {
             tool.cursor.detach();
             tool.opt.tool.take();
             tool.tool_owner.destroy(&tool);
             tool.bindings.clear();
         }
-        for (_, pad) in self.tablet.pads.lock().drain() {
+        for pad in self.tablet.pads.lock().drain_values() {
             pad.pad_owner.destroy(&pad);
             pad.tablet.take();
             pad.bindings.clear();
@@ -324,14 +327,14 @@ impl WlSeatGlobal {
         let Some(tablet) = self.tablet.tablets.remove(&id) else {
             return;
         };
-        for (_, tool) in tablet.tools.lock().drain() {
+        for tool in tablet.tools.lock().drain_values() {
             self.tablet_handle_remove_tool(now_usec(), tool.id);
         }
-        for (_, pad) in tablet.pads.lock().drain() {
+        for pad in tablet.pads.lock().drain_values() {
             pad.pad_owner.destroy(&pad);
             pad.tablet.take();
         }
-        for (_, binding) in tablet.bindings.lock().drain() {
+        for binding in tablet.bindings.lock().drain_values() {
             binding.send_removed();
         }
     }

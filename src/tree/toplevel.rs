@@ -15,6 +15,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
             numcell::NumCell,
             smallmap::SmallMap,
             threshold_counter::ThresholdCounter,
@@ -289,16 +290,16 @@ impl ToplevelData {
     }
 
     pub fn destroy_node(&self, node: &dyn Node) {
-        for (_, jay_tl) in self.jay_toplevels.lock().drain() {
+        for jay_tl in self.jay_toplevels.lock().drain_values() {
             jay_tl.destroy();
         }
-        for (_, screencast) in self.jay_screencasts.lock().drain() {
+        for screencast in self.jay_screencasts.lock().drain_values() {
             screencast.do_destroy();
         }
         self.identifier.set(toplevel_identifier());
         {
             let mut handles = self.handles.lock();
-            for (_, handle) in handles.drain() {
+            for handle in handles.drain_values() {
                 handle.send_closed();
             }
         }
