@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-only"
 description = "Internal dependency of the Jay compositor"
+repository = "https://github.com/mahkoh/jay"
 
 [dependencies]
 smallvec = { version = "1.8.0", features = ["const_generics", "const_new", "union"] }
