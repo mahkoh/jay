@@ -405,54 +405,53 @@ impl UsrJayScreencastOwner for StartedScreencast {
 
     fn ready(&self, ev: &Ready) {
         let idx = ev.idx as usize;
-        if !self.buffers_valid.get() {
+        let buffers = &*self.buffers.borrow();
+        let pbuffers = self.port.buffers.borrow();
+        let buffer = &buffers[idx];
+        let discard_buffer = || {
             self.jay_screencast.release_buffer(idx);
+        };
+        if !self.buffers_valid.get() {
+            discard_buffer();
             return;
         }
-        unsafe {
-            let mut used = false;
-            if let Some(io) = self.port.io_buffers.lock().values().next() {
-                let io = io.write();
-                let status = io.status.load(Acquire);
-                if status != SPA_STATUS_HAVE_DATA.0 {
-                    used = true;
-                    let buffer_id = io.buffer_id.load(Relaxed);
-                    if buffer_id != ev.idx {
-                        if (buffer_id as usize) < self.buffers.borrow_mut().len() {
-                            self.jay_screencast.release_buffer(buffer_id as usize);
-                        }
-                    }
-                    io.buffer_id.store(ev.idx, Relaxed);
-                    io.status.store(SPA_STATUS_HAVE_DATA.0, Release);
-                }
-            }
-            if !used {
-                self.jay_screencast.release_buffer(idx);
-            }
-            {
-                let pbuffers = self.port.buffers.borrow_mut();
-                let buffers = self.buffers.borrow_mut();
-                if let Some(pbuffer) = pbuffers.get(idx) {
-                    let buffer = &buffers[idx];
-                    for (chunk, plane) in pbuffer.chunks.iter().zip(buffer.planes.iter()) {
-                        let chunk = chunk.write();
-                        chunk.flags = SpaChunkFlags::none();
-                        chunk.offset = plane.offset;
-                        chunk.stride = plane.stride;
-                        chunk.size = plane.stride * buffer.height as u32;
-                    }
-                    if let Some(crop) = &pbuffer.meta_video_crop {
-                        crop.write().region = spa_region {
-                            position: spa_point { x: 0, y: 0 },
-                            size: spa_rectangle {
-                                width: buffer.width as _,
-                                height: buffer.height as _,
-                            },
-                        };
-                    }
-                }
+        let Some(io) = self.port.io_buffers.get() else {
+            discard_buffer();
+            return;
+        };
+        let Some(pbuffer) = pbuffers.get(idx) else {
+            discard_buffer();
+            return;
+        };
+        let io = unsafe { io.read() };
+        if io.status.load(Acquire) == SPA_STATUS_HAVE_DATA.0 {
+            discard_buffer();
+            return;
+        }
+        for (chunk, plane) in pbuffer.chunks.iter().zip(buffer.planes.iter()) {
+            let chunk = unsafe { chunk.write() };
+            chunk.flags = SpaChunkFlags::none();
+            chunk.offset = plane.offset;
+            chunk.stride = plane.stride;
+            chunk.size = plane.stride * buffer.height as u32;
+        }
+        if let Some(crop) = &pbuffer.meta_video_crop {
+            unsafe { crop.write() }.region = spa_region {
+                position: spa_point { x: 0, y: 0 },
+                size: spa_rectangle {
+                    width: buffer.width as _,
+                    height: buffer.height as _,
+                },
+            };
+        }
+        let buffer_id = io.buffer_id.load(Relaxed) as usize;
+        if buffer_id != idx {
+            if buffer_id < buffers.len() {
+                self.jay_screencast.release_buffer(buffer_id);
             }
         }
+        io.buffer_id.store(ev.idx, Relaxed);
+        io.status.store(SPA_STATUS_HAVE_DATA.0, Release);
         if let Some(wfd) = self.port.node.transport_out.get() {
             let _ = uapi::eventfd_write(wfd.raw(), 1);
         }
