@@ -18,6 +18,7 @@ use {
         renderer::RenderResult,
         state::State,
         theme::Color,
+        time::now_nsec,
         tree::OutputNode,
         udev::UdevDevice,
         utils::{
@@ -45,6 +46,7 @@ use {
     indexmap::{indexset, IndexSet},
     isnt::std_1::collections::IsntHashMap2Ext,
     jay_config::video::GfxApi,
+    once_cell::sync::Lazy,
     std::{
         any::Any,
         cell::{Cell, RefCell},
@@ -416,6 +418,7 @@ pub struct MetalConnector {
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
     pub cursor_changed: Cell<bool>,
+    pub next_flip_nsec: Cell<u64>,
 
     pub display: RefCell<ConnectorDisplayData>,
 
@@ -578,6 +581,20 @@ impl MetalConnector {
     async fn present_loop(self: Rc<Self>) {
         loop {
             self.present_trigger.triggered().await;
+            static DELTA: Lazy<Option<u64>> = Lazy::new(|| {
+                if let Ok(max_render_time) = std::env::var("JAY_MAX_RENDER_TIME_NSEC") {
+                    if let Ok(max_render_time) = max_render_time.parse() {
+                        return Some(max_render_time);
+                    }
+                }
+                None
+            });
+            if let Some(delta) = *DELTA {
+                let next_present = self.next_flip_nsec.get().saturating_sub(delta);
+                if now_nsec() < next_present {
+                    self.state.ring.timeout(next_present).await.unwrap();
+                }
+            }
             match self.present(true) {
                 Ok(_) => self.state.set_backend_idle(false),
                 Err(e) => {
@@ -1397,6 +1414,7 @@ fn create_connector(
         active_framebuffer: Default::default(),
         next_framebuffer: Default::default(),
         direct_scanout_active: Cell::new(false),
+        next_flip_nsec: Cell::new(0),
     });
     let futures = ConnectorFutures {
         present: backend
@@ -2161,6 +2179,9 @@ impl MetalBackend {
             connector.schedule_present();
         }
         let dd = connector.display.borrow_mut();
+        connector
+            .next_flip_nsec
+            .set(tv_sec as u64 * 1_000_000_000 + tv_usec as u64 * 1000 + dd.refresh as u64);
         {
             let global = self.state.root.outputs.get(&connector.connector_id);
             let mut rr = connector.render_result.borrow_mut();

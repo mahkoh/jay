@@ -78,7 +78,7 @@ impl IoUring {
             st.has_timeout = timeout.is_some();
             self.ring.schedule(st);
             if let Some(timeout) = timeout {
-                self.schedule_timeout(timeout);
+                self.schedule_timeout_link(timeout);
             }
         }
         Ok(pr.await? as _)
