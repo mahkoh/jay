@@ -6,7 +6,7 @@ use {
             ops::{
                 accept::AcceptTask, async_cancel::AsyncCancelTask, connect::ConnectTask,
                 poll::PollTask, read_write::ReadWriteTask, recvmsg::RecvmsgTask,
-                sendmsg::SendmsgTask, timeout::TimeoutTask,
+                sendmsg::SendmsgTask, timeout::TimeoutTask, timeout_link::TimeoutLinkTask,
             },
             pending_result::PendingResults,
             sys::{
@@ -211,6 +211,7 @@ impl IoUring {
             cached_sendmsg: Default::default(),
             cached_recvmsg: Default::default(),
             cached_timeouts: Default::default(),
+            cached_timeout_links: Default::default(),
             cached_cmsg_bufs: Default::default(),
             cached_connects: Default::default(),
             cached_accepts: Default::default(),
@@ -266,6 +267,7 @@ struct IoUringData {
     cached_sendmsg: Stack<Box<SendmsgTask>>,
     cached_recvmsg: Stack<Box<RecvmsgTask>>,
     cached_timeouts: Stack<Box<TimeoutTask>>,
+    cached_timeout_links: Stack<Box<TimeoutLinkTask>>,
     cached_cmsg_bufs: Stack<Buf>,
     cached_connects: Stack<Box<ConnectTask>>,
     cached_accepts: Stack<Box<AcceptTask>>,

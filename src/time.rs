@@ -62,7 +62,12 @@ impl Time {
         }
     }
 
-    #[allow(dead_code)]
+    pub fn nsec(self) -> u64 {
+        let sec = self.0.tv_sec as u64 * 1_000_000_000;
+        let nsec = self.0.tv_nsec as u64;
+        sec + nsec
+    }
+
     pub fn usec(self) -> u64 {
         let sec = self.0.tv_sec as u64 * 1_000_000;
         let nsec = self.0.tv_nsec as u64 / 1_000;
@@ -117,6 +122,10 @@ impl Add<Duration> for Time {
         }
         self
     }
+}
+
+pub fn now_nsec() -> u64 {
+    Time::now_unchecked().nsec()
 }
 
 pub fn now_usec() -> u64 {

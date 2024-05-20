@@ -51,7 +51,7 @@ impl IoUring {
             });
             self.ring.schedule(pw);
             if let Some(time) = timeout {
-                self.schedule_timeout(time);
+                self.schedule_timeout_link(time);
             }
         }
         Ok(pr.await.map(|v| v as usize)).merge()
