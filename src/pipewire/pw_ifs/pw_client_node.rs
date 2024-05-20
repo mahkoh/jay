@@ -120,7 +120,7 @@ pub struct PwClientNodePort {
 
     pub buffer_config: Cell<Option<PwClientNodeBufferConfig>>,
 
-    pub io_buffers: CopyHashMap<u32, Rc<PwMemTyped<spa_io_buffers>>>,
+    pub io_buffers: CloneCell<Option<Rc<PwMemTyped<spa_io_buffers>>>>,
 
     pub serial: Cell<bool>,
 }
@@ -705,12 +705,12 @@ impl PwClientNode {
         let size = p2.read_uint()?;
         let port = self.get_port(direction, port_id)?;
         match id {
-            SPA_IO_Buffers => {
+            SPA_IO_Buffers if mix_id == 0 => {
                 if mem_id == !0 {
-                    port.io_buffers.remove(&mix_id);
+                    port.io_buffers.take();
                 } else {
                     port.io_buffers
-                        .set(mix_id, self.con.mem.map(mem_id, offset, size)?.typed());
+                        .set(Some(self.con.mem.map(mem_id, offset, size)?.typed()));
                 }
             }
             _ => {}
