@@ -621,7 +621,12 @@ impl State {
             }
             Rect::new_sized(x1, y1, width, height).unwrap()
         };
-        FloatNode::new(self, workspace, position, node);
+        FloatNode::new(self, workspace, position, node.clone());
+        if node.node_visible() {
+            if let Some(seat) = self.seat_queue.last() {
+                node.node_do_focus(&seat, Direction::Unspecified);
+            }
+        }
     }
 
     pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
