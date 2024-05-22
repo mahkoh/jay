@@ -66,17 +66,28 @@ impl RendererBase<'_> {
         rect
     }
 
+    pub fn fill_scaled_boxes(&mut self, boxes: &[Rect], color: &Color) {
+        self.fill_boxes3(boxes, color, 0, 0, true);
+    }
+
     pub fn fill_boxes(&mut self, boxes: &[Rect], color: &Color) {
-        self.fill_boxes2(boxes, color, 0, 0);
+        self.fill_boxes3(boxes, color, 0, 0, false);
     }
 
     pub fn fill_boxes2(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32) {
+        self.fill_boxes3(boxes, color, dx, dy, false);
+    }
+
+    fn fill_boxes3(&mut self, boxes: &[Rect], color: &Color, dx: i32, dy: i32, scaled: bool) {
         if boxes.is_empty() || *color == Color::TRANSPARENT {
             return;
         }
         let (dx, dy) = self.scale_point(dx, dy);
         for bx in boxes {
-            let bx = self.scale_rect(*bx);
+            let bx = match scaled {
+                false => self.scale_rect(*bx),
+                true => *bx,
+            };
             self.ops.push(GfxApiOpt::FillRect(FillRect {
                 rect: FramebufferRect::new(
                     (bx.x1() + dx) as f32,

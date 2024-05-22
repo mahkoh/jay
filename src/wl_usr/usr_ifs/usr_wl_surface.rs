@@ -51,6 +51,16 @@ impl UsrWlSurface {
         let _ev: Leave = self.con.parse(self, parser)?;
         Ok(())
     }
+
+    fn preferred_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let _ev: PreferredBufferScale = self.con.parse(self, parser)?;
+        Ok(())
+    }
+
+    fn preferred_buffer_transform(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
+        let _ev: PreferredBufferTransform = self.con.parse(self, parser)?;
+        Ok(())
+    }
 }
 
 usr_object_base! {
@@ -58,6 +68,8 @@ usr_object_base! {
 
     ENTER => enter,
     LEAVE => leave,
+    PREFERRED_BUFFER_SCALE => preferred_buffer_scale,
+    PREFERRED_BUFFER_TRANSFORM => preferred_buffer_transform,
 }
 
 impl UsrObject for UsrWlSurface {

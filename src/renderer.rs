@@ -368,7 +368,8 @@ impl Renderer<'_> {
             return;
         };
         let color = self.state.theme.colors.highlight.get();
-        self.base.fill_boxes(slice::from_ref(bounds), &color);
+        self.base.ops.push(GfxApiOpt::Sync);
+        self.base.fill_scaled_boxes(slice::from_ref(bounds), &color);
     }
 
     pub fn render_surface(&mut self, surface: &WlSurface, x: i32, y: i32, bounds: Option<&Rect>) {
