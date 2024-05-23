@@ -43,7 +43,7 @@ use {
                 wl_subsurface::SubsurfaceIds,
                 zwp_idle_inhibitor_v1::{IdleInhibitorId, IdleInhibitorIds, ZwpIdleInhibitorV1},
                 zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
-                NoneSurfaceExt, WlSurface,
+                NoneSurfaceExt,
             },
             wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
             wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
@@ -87,7 +87,7 @@ use {
         xkbcommon::{KeyboardStateIds, XkbContext, XkbKeymap, XkbState},
         xwayland::{self, XWaylandEvent},
     },
-    ahash::AHashMap,
+    ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
     jay_config::{
         video::{GfxApi, Transform},
@@ -456,17 +456,22 @@ impl State {
                     node.textures.clear();
                     node.node_visit_children(self);
                 }
-                fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-                    if let Some(buffer) = node.buffer.get() {
-                        buffer.buffer.handle_gfx_context_change();
-                    }
-                    node.node_visit_children(self);
-                }
             }
             Walker.visit_display(&self.root);
             for client in self.clients.clients.borrow_mut().values() {
+                let mut updated_buffers = AHashSet::new();
+                for surface in client.data.objects.surfaces.lock().values() {
+                    if let Some(buffer) = surface.buffer.get() {
+                        updated_buffers.insert(buffer.buffer.id);
+                        buffer.buffer.handle_gfx_context_change(Some(surface));
+                    } else {
+                        surface.shm_texture.take();
+                    }
+                }
                 for buffer in client.data.objects.buffers.lock().values() {
-                    buffer.handle_gfx_context_change();
+                    if !updated_buffers.contains(&buffer.id) {
+                        buffer.handle_gfx_context_change(None);
+                    }
                 }
             }
         }

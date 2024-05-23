@@ -427,10 +427,10 @@ impl Renderer<'_> {
                 };
             }
             render!(&children.below);
-            self.render_buffer(&buffer, alpha, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
             render!(&children.above);
         } else {
-            self.render_buffer(&buffer, alpha, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, &buffer, alpha, x, y, *tpoints, size, bounds);
         }
         if let Some(result) = self.result.as_deref_mut() {
             {
@@ -446,6 +446,7 @@ impl Renderer<'_> {
 
     pub fn render_buffer(
         &mut self,
+        surface: &WlSurface,
         buffer: &Rc<SurfaceBuffer>,
         alpha: Option<f32>,
         x: i32,
@@ -454,7 +455,7 @@ impl Renderer<'_> {
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {
-        if let Some(tex) = buffer.buffer.texture.get() {
+        if let Some(tex) = buffer.buffer.get_texture(surface) {
             self.base.render_texture(
                 &tex,
                 alpha,

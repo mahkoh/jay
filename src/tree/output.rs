@@ -178,49 +178,52 @@ impl OutputNode {
                 capture.send_failed();
                 continue;
             }
-            if let Some(WlBufferStorage::Shm { mem, stride }) =
-                wl_buffer.storage.borrow_mut().deref()
-            {
-                let res = self.state.perform_shm_screencopy(
-                    tex,
-                    self.global.pos.get(),
-                    x_off,
-                    y_off,
-                    size,
-                    &capture,
-                    mem,
-                    *stride,
-                    wl_buffer.format,
-                    Transform::None,
-                );
-                if let Err(e) = res {
-                    log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
-                    capture.send_failed();
-                    continue;
-                }
-            } else {
-                let fb = match wl_buffer.famebuffer.get() {
-                    Some(fb) => fb,
-                    _ => {
-                        log::warn!("Capture buffer has no framebuffer");
-                        capture.send_failed();
-                        continue;
+            if let Some(storage) = wl_buffer.storage.borrow_mut().deref() {
+                match storage {
+                    WlBufferStorage::Shm { mem, stride } => {
+                        let res = self.state.perform_shm_screencopy(
+                            tex,
+                            self.global.pos.get(),
+                            x_off,
+                            y_off,
+                            size,
+                            &capture,
+                            mem,
+                            *stride,
+                            wl_buffer.format,
+                            Transform::None,
+                        );
+                        if let Err(e) = res {
+                            log::warn!("Could not perform shm screencopy: {}", ErrorFmt(e));
+                            capture.send_failed();
+                            continue;
+                        }
                     }
-                };
-                let res = self.state.perform_screencopy(
-                    tex,
-                    &fb,
-                    self.global.pos.get(),
-                    render_hardware_cursors,
-                    x_off - capture.rect.x1(),
-                    y_off - capture.rect.y1(),
-                    size,
-                    Transform::None,
-                );
-                if let Err(e) = res {
-                    log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
-                    capture.send_failed();
-                    continue;
+                    WlBufferStorage::Dmabuf { fb, .. } => {
+                        let fb = match fb {
+                            Some(fb) => fb,
+                            _ => {
+                                log::warn!("Capture buffer has no framebuffer");
+                                capture.send_failed();
+                                continue;
+                            }
+                        };
+                        let res = self.state.perform_screencopy(
+                            tex,
+                            &fb,
+                            self.global.pos.get(),
+                            render_hardware_cursors,
+                            x_off - capture.rect.x1(),
+                            y_off - capture.rect.y1(),
+                            size,
+                            Transform::None,
+                        );
+                        if let Err(e) = res {
+                            log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
+                            capture.send_failed();
+                            continue;
+                        }
+                    }
                 }
             }
             if capture.with_damage.get() {

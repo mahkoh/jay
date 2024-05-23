@@ -4,25 +4,32 @@ use {
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
         format::{Format, ARGB8888},
         gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
+        ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
         theme::Color,
-        utils::{clonecell::CloneCell, errorfmt::ErrorFmt},
+        utils::errorfmt::ErrorFmt,
         video::dmabuf::DmaBuf,
         wire::{wl_buffer::*, WlBufferId},
     },
     std::{
         cell::{Cell, RefCell},
-        ops::Deref,
         rc::Rc,
     },
     thiserror::Error,
 };
 
 pub enum WlBufferStorage {
-    Shm { mem: ClientMemOffset, stride: i32 },
-    Dmabuf(Rc<dyn GfxImage>),
+    Shm {
+        mem: ClientMemOffset,
+        stride: i32,
+    },
+    Dmabuf {
+        img: Rc<dyn GfxImage>,
+        tex: Option<Rc<dyn GfxTexture>>,
+        fb: Option<Rc<dyn GfxFramebuffer>>,
+    },
 }
 
 pub struct WlBuffer {
@@ -35,8 +42,6 @@ pub struct WlBuffer {
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     pub color: Option<Color>,
-    pub texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
-    pub famebuffer: CloneCell<Option<Rc<dyn GfxFramebuffer>>>,
     width: i32,
     height: i32,
     pub tracker: Tracker<Self>,
@@ -65,11 +70,13 @@ impl WlBuffer {
             format,
             width,
             height,
-            texture: CloneCell::new(None),
-            famebuffer: Default::default(),
             dmabuf: Some(dmabuf),
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
-            storage: RefCell::new(Some(WlBufferStorage::Dmabuf(img.clone()))),
+            storage: RefCell::new(Some(WlBufferStorage::Dmabuf {
+                img: img.clone(),
+                tex: None,
+                fb: None,
+            })),
             tracker: Default::default(),
             color: None,
         }
@@ -110,9 +117,7 @@ impl WlBuffer {
             storage: RefCell::new(Some(WlBufferStorage::Shm { mem, stride })),
             width,
             height,
-            texture: CloneCell::new(None),
             tracker: Default::default(),
-            famebuffer: Default::default(),
             color: None,
         })
     }
@@ -136,78 +141,110 @@ impl WlBuffer {
             storage: RefCell::new(None),
             width: 1,
             height: 1,
-            texture: CloneCell::new(None),
             tracker: Default::default(),
-            famebuffer: Default::default(),
             color: Some(Color::from_u32_rgba_premultiplied(r, g, b, a)),
         }
     }
 
-    pub fn handle_gfx_context_change(&self) {
+    pub fn handle_gfx_context_change(&self, surface: Option<&WlSurface>) {
         let ctx_version = self.client.state.render_ctx_version.get();
         if self.render_ctx_version.replace(ctx_version) == ctx_version {
             return;
         }
-        let had_texture = self.texture.set(None).is_some();
-        self.famebuffer.set(None);
-        self.reset_storage_after_gfx_context_change();
+        let had_texture = self.reset_gfx_objects(surface);
         if had_texture {
-            self.update_texture_or_log();
-        }
-    }
-
-    fn reset_storage_after_gfx_context_change(&self) {
-        let mut storage = self.storage.borrow_mut();
-        if let Some(storage) = &mut *storage {
-            if let WlBufferStorage::Shm { .. } = storage {
-                return;
+            if let Some(surface) = surface {
+                self.update_texture_or_log(surface, None);
             }
         }
-        *storage = None;
-        let ctx = match self.client.state.render_ctx.get() {
-            Some(ctx) => ctx,
-            _ => return,
+    }
+
+    fn reset_gfx_objects(&self, surface: Option<&WlSurface>) -> bool {
+        let mut storage = self.storage.borrow_mut();
+        let Some(s) = &mut *storage else {
+            return false;
         };
-        if let Some(dmabuf) = &self.dmabuf {
-            let image = match ctx.dmabuf_img(dmabuf) {
-                Ok(image) => image,
-                Err(e) => {
-                    log::error!(
-                        "Cannot re-import wl_buffer after graphics context change: {}",
-                        ErrorFmt(e)
-                    );
-                    return;
-                }
-            };
-            *storage = Some(WlBufferStorage::Dmabuf(image));
+        let had_texture = match s {
+            WlBufferStorage::Shm { .. } => {
+                return match surface {
+                    Some(s) => s.shm_texture.take().is_some(),
+                    None => false,
+                };
+            }
+            WlBufferStorage::Dmabuf { tex, .. } => tex.is_some(),
+        };
+        *storage = None;
+        let Some(ctx) = self.client.state.render_ctx.get() else {
+            return false;
+        };
+        let Some(dmabuf) = &self.dmabuf else {
+            return false;
+        };
+        let img = match ctx.dmabuf_img(dmabuf) {
+            Ok(image) => image,
+            Err(e) => {
+                log::error!(
+                    "Cannot re-import wl_buffer after graphics context change: {}",
+                    ErrorFmt(e)
+                );
+                return false;
+            }
+        };
+        *storage = Some(WlBufferStorage::Dmabuf {
+            img,
+            tex: None,
+            fb: None,
+        });
+        had_texture
+    }
+
+    pub fn get_texture(&self, surface: &WlSurface) -> Option<Rc<dyn GfxTexture>> {
+        match &*self.storage.borrow() {
+            None => None,
+            Some(s) => match s {
+                WlBufferStorage::Shm { .. } => surface.shm_texture.get(),
+                WlBufferStorage::Dmabuf { tex, .. } => tex.clone(),
+            },
         }
     }
 
-    pub fn update_texture_or_log(&self) {
-        if let Err(e) = self.update_texture() {
+    pub fn update_texture_or_log(&self, surface: &WlSurface, damage: Option<&[Rect]>) {
+        if let Err(e) = self.update_texture(surface, damage) {
             log::warn!("Could not update texture: {}", ErrorFmt(e));
         }
     }
 
-    fn update_texture(&self) -> Result<(), WlBufferError> {
-        let storage = self.storage.borrow_mut();
-        let storage = match storage.deref() {
+    fn update_texture(
+        &self,
+        surface: &WlSurface,
+        damage: Option<&[Rect]>,
+    ) -> Result<(), WlBufferError> {
+        let old_shm_texture = surface.shm_texture.take();
+        let storage = &mut *self.storage.borrow_mut();
+        let storage = match storage {
             Some(s) => s,
             _ => return Ok(()),
         };
         match storage {
             WlBufferStorage::Shm { mem, stride } => {
-                let old = self.texture.take();
                 if let Some(ctx) = self.client.state.render_ctx.get() {
                     let tex = mem.access(|mem| {
-                        ctx.shmem_texture(old, mem, self.format, self.width, self.height, *stride)
+                        ctx.shmem_texture(
+                            old_shm_texture,
+                            mem,
+                            self.format,
+                            self.width,
+                            self.height,
+                            *stride,
+                            damage,
+                        )
                     })??;
-                    self.texture.set(Some(tex));
+                    surface.shm_texture.set(Some(tex));
                 }
             }
-            WlBufferStorage::Dmabuf(img) => {
-                if self.texture.is_none() {
-                    self.texture.set(Some(img.clone().to_texture()?));
+            WlBufferStorage::Dmabuf { img, tex, .. } => {
+                if tex.is_none() {
+                    *tex = Some(img.clone().to_texture()?);
                 }
             }
         }
@@ -215,8 +252,8 @@ impl WlBuffer {
     }
 
     pub fn update_framebuffer(&self) -> Result<(), WlBufferError> {
-        let storage = self.storage.borrow_mut();
-        let storage = match storage.deref() {
+        let storage = &mut *self.storage.borrow_mut();
+        let storage = match storage {
             Some(s) => s,
             _ => return Ok(()),
         };
@@ -224,9 +261,9 @@ impl WlBuffer {
             WlBufferStorage::Shm { .. } => {
                 // nothing
             }
-            WlBufferStorage::Dmabuf(img) => {
-                if self.famebuffer.is_none() {
-                    self.famebuffer.set(Some(img.clone().to_framebuffer()?));
+            WlBufferStorage::Dmabuf { img, fb, .. } => {
+                if fb.is_none() {
+                    *fb = Some(img.clone().to_framebuffer()?);
                 }
             }
         }

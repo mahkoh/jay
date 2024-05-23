@@ -21,7 +21,9 @@ use {
         cursor_user::{CursorUser, CursorUserId},
         drm_feedback::DrmFeedback,
         fixed::Fixed,
-        gfx_api::{AcquireSync, BufferResv, BufferResvUser, ReleaseSync, SampleRect, SyncFile},
+        gfx_api::{
+            AcquireSync, BufferResv, BufferResvUser, GfxTexture, ReleaseSync, SampleRect, SyncFile,
+        },
         ifs::{
             wl_buffer::WlBuffer,
             wl_callback::WlCallback,
@@ -261,6 +263,7 @@ pub struct WlSurface {
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
+    pub shm_texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
@@ -393,7 +396,8 @@ struct PendingState {
     opaque_region: Option<Option<Rc<Region>>>,
     input_region: Option<Option<Rc<Region>>>,
     frame_request: Vec<Rc<WlCallback>>,
-    damage: bool,
+    damage_full: bool,
+    damage: Vec<Rect>,
     presentation_feedback: Vec<Rc<WpPresentationFeedback>>,
     src_rect: Option<Option<[Fixed; 4]>>,
     dst_size: Option<Option<(i32, i32)>>,
@@ -465,7 +469,14 @@ impl PendingState {
             self.offset = (dx1 + dx2, dy1 + dy2);
         }
         self.frame_request.append(&mut next.frame_request);
-        self.damage |= mem::take(&mut next.damage);
+        if !self.damage_full {
+            if self.damage.len() + next.damage.len() > MAX_DAMAGE {
+                self.damage_full = true;
+                self.damage.clear();
+            } else {
+                self.damage.append(&mut next.damage);
+            }
+        }
         mem::swap(
             &mut self.presentation_feedback,
             &mut next.presentation_feedback,
@@ -542,6 +553,7 @@ impl WlSurface {
             buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Default::default(),
             buffer: Default::default(),
+            shm_texture: Default::default(),
             buf_x: Default::default(),
             buf_y: Default::default(),
             children: Default::default(),
@@ -800,6 +812,8 @@ impl WlSurface {
     }
 }
 
+const MAX_DAMAGE: usize = 32;
+
 impl WlSurfaceRequestHandler for WlSurface {
     type Error = WlSurfaceError;
 
@@ -819,6 +833,7 @@ impl WlSurfaceRequestHandler for WlSurface {
             *children = None;
         }
         self.buffer.set(None);
+        self.shm_texture.take();
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -852,7 +867,9 @@ impl WlSurfaceRequestHandler for WlSurface {
     }
 
     fn damage(&self, _req: Damage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.pending.borrow_mut().damage = true;
+        let pending = &mut *self.pending.borrow_mut();
+        pending.damage.clear();
+        pending.damage_full = true;
         Ok(())
     }
 
@@ -918,8 +935,19 @@ impl WlSurfaceRequestHandler for WlSurface {
         Ok(())
     }
 
-    fn damage_buffer(&self, _req: DamageBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.pending.borrow_mut().damage = true;
+    fn damage_buffer(&self, req: DamageBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let pending = &mut *self.pending.borrow_mut();
+        if !pending.damage_full {
+            if pending.damage.len() >= MAX_DAMAGE || self.shm_texture.is_none() {
+                pending.damage.clear();
+                pending.damage_full = true;
+            } else {
+                let Some(rect) = Rect::new_sized(req.x, req.y, req.width, req.height) else {
+                    return Err(WlSurfaceError::InvalidRect);
+                };
+                pending.damage.push(rect);
+            }
+        }
         Ok(())
     }
 
@@ -980,7 +1008,13 @@ impl WlSurface {
                 old_raw_size = Some(buffer.buffer.rect);
             }
             if let Some(buffer) = buffer_change {
-                buffer.update_texture_or_log();
+                let damage = match pending.damage_full {
+                    true => None,
+                    false => Some(&pending.damage[..]),
+                };
+                buffer.update_texture_or_log(self, damage);
+                pending.damage.clear();
+                pending.damage_full = false;
                 let (sync, release_sync) = match pending.explicit_sync {
                     false => (AcquireSync::Implicit, ReleaseSync::Implicit),
                     true => (AcquireSync::Unnecessary, ReleaseSync::Explicit),
@@ -998,6 +1032,7 @@ impl WlSurface {
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
+                self.shm_texture.take();
                 self.buf_x.set(0);
                 self.buf_y.set(0);
                 for (_, cursor) in &self.cursors {
@@ -1669,6 +1704,8 @@ pub enum WlSurfaceError {
     MissingSyncPoints,
     #[error("No buffer is attached but acquire or release point is set")]
     UnexpectedSyncPoints,
+    #[error("The supplied region is invalid")]
+    InvalidRect,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

@@ -4,7 +4,7 @@ use {
         gfx_api::{GfxApiOpt, GfxError, GfxFramebuffer, GfxImage, GfxTexture, SyncFile},
         gfx_apis::vulkan::{
             allocator::VulkanAllocation, device::VulkanDevice, format::VulkanMaxExtents,
-            renderer::VulkanRenderer, util::OnDrop, VulkanError,
+            renderer::VulkanRenderer, shm_image::VulkanShmImage, util::OnDrop, VulkanError,
         },
         theme::Color,
         utils::clonecell::CloneCell,
@@ -12,19 +12,18 @@ use {
     },
     ash::vk::{
         BindImageMemoryInfo, BindImagePlaneMemoryInfo, ComponentMapping, ComponentSwizzle,
-        DeviceMemory, DeviceSize, Extent3D, ExternalMemoryHandleTypeFlags,
-        ExternalMemoryImageCreateInfo, FormatFeatureFlags, Image, ImageAspectFlags,
-        ImageCreateFlags, ImageCreateInfo, ImageDrmFormatModifierExplicitCreateInfoEXT,
-        ImageLayout, ImageMemoryRequirementsInfo2, ImagePlaneMemoryRequirementsInfo,
-        ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags, ImageView,
-        ImageViewCreateInfo, ImageViewType, ImportMemoryFdInfoKHR, MemoryAllocateInfo,
-        MemoryDedicatedAllocateInfo, MemoryPropertyFlags, MemoryRequirements2, SampleCountFlags,
-        SharingMode, SubresourceLayout,
+        DeviceMemory, Extent3D, ExternalMemoryHandleTypeFlags, ExternalMemoryImageCreateInfo,
+        FormatFeatureFlags, Image, ImageAspectFlags, ImageCreateFlags, ImageCreateInfo,
+        ImageDrmFormatModifierExplicitCreateInfoEXT, ImageLayout, ImageMemoryRequirementsInfo2,
+        ImagePlaneMemoryRequirementsInfo, ImageSubresourceRange, ImageTiling, ImageType,
+        ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, ImportMemoryFdInfoKHR,
+        MemoryAllocateInfo, MemoryDedicatedAllocateInfo, MemoryPropertyFlags, MemoryRequirements2,
+        SampleCountFlags, SharingMode, SubresourceLayout,
     },
     gpu_alloc::UsageFlags,
     std::{
         any::Any,
-        cell::{Cell, RefCell},
+        cell::Cell,
         fmt::{Debug, Formatter},
         mem,
         rc::Rc,
@@ -67,13 +66,6 @@ pub struct VulkanDmaBufImage {
     pub(super) mems: PlaneVec<DeviceMemory>,
 }
 
-pub struct VulkanShmImage {
-    pub(super) to_flush: RefCell<Option<Vec<u8>>>,
-    pub(super) size: DeviceSize,
-    pub(super) stride: u32,
-    pub(super) _allocation: VulkanAllocation,
-}
-
 pub struct VulkanFramebufferBridge {
     pub(super) dmabuf_image: Image,
     pub(super) _allocation: VulkanAllocation,
@@ -113,124 +105,7 @@ impl Drop for VulkanImage {
     }
 }
 
-impl VulkanShmImage {
-    pub fn upload(&self, buffer: &[Cell<u8>]) -> Result<(), VulkanError> {
-        let buffer = unsafe {
-            std::slice::from_raw_parts(buffer.as_ptr() as *const u8, buffer.len()).to_vec()
-        };
-        *self.to_flush.borrow_mut() = Some(buffer);
-        Ok(())
-    }
-}
-
 impl VulkanRenderer {
-    pub fn create_shm_texture(
-        self: &Rc<Self>,
-        format: &'static Format,
-        width: i32,
-        height: i32,
-        stride: i32,
-        data: &[Cell<u8>],
-        for_download: bool,
-    ) -> Result<Rc<VulkanImage>, VulkanError> {
-        let Some(shm_info) = &format.shm_info else {
-            return Err(VulkanError::UnsupportedShmFormat(format.name));
-        };
-        if width <= 0 || height <= 0 || stride <= 0 {
-            return Err(VulkanError::NonPositiveImageSize);
-        }
-        let width = width as u32;
-        let height = height as u32;
-        let stride = stride as u32;
-        if stride % shm_info.bpp != 0 || stride / shm_info.bpp < width {
-            return Err(VulkanError::InvalidStride);
-        }
-        let vk_format = self
-            .device
-            .formats
-            .get(&format.drm)
-            .ok_or(VulkanError::FormatNotSupported)?;
-        let shm = vk_format.shm.as_ref().ok_or(VulkanError::ShmNotSupported)?;
-        if width > shm.max_extents.width || height > shm.max_extents.height {
-            return Err(VulkanError::ImageTooLarge);
-        }
-        let size = stride.checked_mul(height).ok_or(VulkanError::ShmOverflow)?;
-        let usage = ImageUsageFlags::TRANSFER_SRC
-            | match for_download {
-                true => ImageUsageFlags::COLOR_ATTACHMENT,
-                false => ImageUsageFlags::SAMPLED | ImageUsageFlags::TRANSFER_DST,
-            };
-        let create_info = ImageCreateInfo::builder()
-            .image_type(ImageType::TYPE_2D)
-            .format(format.vk_format)
-            .mip_levels(1)
-            .array_layers(1)
-            .tiling(ImageTiling::OPTIMAL)
-            .samples(SampleCountFlags::TYPE_1)
-            .sharing_mode(SharingMode::EXCLUSIVE)
-            .initial_layout(ImageLayout::UNDEFINED)
-            .extent(Extent3D {
-                width,
-                height,
-                depth: 1,
-            })
-            .usage(usage)
-            .build();
-        let image = unsafe { self.device.device.create_image(&create_info, None) };
-        let image = image.map_err(VulkanError::CreateImage)?;
-        let destroy_image = OnDrop(|| unsafe { self.device.device.destroy_image(image, None) });
-        let memory_requirements =
-            unsafe { self.device.device.get_image_memory_requirements(image) };
-        let allocation =
-            self.allocator
-                .alloc(&memory_requirements, UsageFlags::FAST_DEVICE_ACCESS, false)?;
-        let res = unsafe {
-            self.device
-                .device
-                .bind_image_memory(image, allocation.memory, allocation.offset)
-        };
-        res.map_err(VulkanError::BindImageMemory)?;
-        let image_view_create_info = ImageViewCreateInfo::builder()
-            .image(image)
-            .format(format.vk_format)
-            .view_type(ImageViewType::TYPE_2D)
-            .subresource_range(ImageSubresourceRange {
-                aspect_mask: ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            });
-        let view = unsafe {
-            self.device
-                .device
-                .create_image_view(&image_view_create_info, None)
-        };
-        let view = view.map_err(VulkanError::CreateImageView)?;
-        let shm = VulkanShmImage {
-            to_flush: Default::default(),
-            size: size as u64,
-            stride,
-            _allocation: allocation,
-        };
-        shm.upload(data)?;
-        destroy_image.forget();
-        Ok(Rc::new(VulkanImage {
-            renderer: self.clone(),
-            format,
-            width,
-            height,
-            stride,
-            texture_view: view,
-            render_view: None,
-            image,
-            is_undefined: Cell::new(true),
-            ty: VulkanImageMemory::Internal(shm),
-            render_ops: Default::default(),
-            bridge: None,
-        }))
-    }
-
     pub fn import_dmabuf(
         self: &Rc<Self>,
         dmabuf: &DmaBuf,

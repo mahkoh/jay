@@ -528,6 +528,7 @@ pub trait GfxContext: Debug {
         width: i32,
         height: i32,
         stride: i32,
+        damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn GfxTexture>, GfxError>;
 
     fn gbm(&self) -> &GbmDevice;
