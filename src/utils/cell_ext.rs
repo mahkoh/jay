@@ -1,16 +1,16 @@
-use std::cell::Cell;
+use {crate::utils::ptr_ext::PtrExt, std::cell::Cell};
 
 pub trait CellExt {
     fn is_some(&self) -> bool;
     fn is_none(&self) -> bool;
 }
 
-impl<T: Copy> CellExt for Cell<Option<T>> {
+impl<T> CellExt for Cell<Option<T>> {
     fn is_some(&self) -> bool {
-        self.get().is_some()
+        unsafe { self.as_ptr().deref().is_some() }
     }
 
     fn is_none(&self) -> bool {
-        self.get().is_none()
+        !self.is_some()
     }
 }

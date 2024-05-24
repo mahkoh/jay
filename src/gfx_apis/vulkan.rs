@@ -11,6 +11,7 @@ mod renderer;
 mod sampler;
 mod semaphore;
 mod shaders;
+mod shm_image;
 mod staging;
 mod util;
 
@@ -25,6 +26,7 @@ use {
             image::VulkanImageMemory, instance::VulkanInstance, renderer::VulkanRenderer,
         },
         io_uring::IoUring,
+        rect::Rect,
         utils::oserror::OsError,
         video::{
             dmabuf::DmaBuf,
@@ -230,6 +232,7 @@ impl GfxContext for Context {
         width: i32,
         height: i32,
         stride: i32,
+        damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn GfxTexture>, GfxError> {
         if let Some(old) = old {
             let old = old.into_vk(&self.0.device.device);
@@ -242,7 +245,7 @@ impl GfxContext for Context {
                 && shm.stride as i32 == stride
                 && old.format.vk_format == format.vk_format
             {
-                shm.upload(data)?;
+                shm.upload(&old, data, damage)?;
                 return Ok(old);
             }
         }

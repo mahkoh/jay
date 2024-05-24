@@ -14,6 +14,7 @@ use {
             renderer::{framebuffer::Framebuffer, image::Image},
             GfxGlState, RenderError, Texture,
         },
+        rect::Rect,
         video::{
             dmabuf::DmaBuf,
             drm::{sync_obj::SyncObjCtx, Drm},
@@ -270,6 +271,7 @@ impl GfxContext for GlRenderContext {
         width: i32,
         height: i32,
         stride: i32,
+        _damage: Option<&[Rect]>,
     ) -> Result<Rc<dyn GfxTexture>, GfxError> {
         (&self)
             .shmem_texture(data, format, width, height, stride)

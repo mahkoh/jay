@@ -19,7 +19,6 @@ use {
                 TexVertPushConstants, VulkanShader, FILL_FRAG, FILL_VERT, TEX_FRAG,
                 TEX_FRAG_MULT_ALPHA, TEX_FRAG_MULT_OPAQUE, TEX_VERT,
             },
-            staging::VulkanStagingBuffer,
             VulkanError,
         },
         io_uring::IoUring,
@@ -30,16 +29,15 @@ use {
     ahash::AHashMap,
     ash::{
         vk::{
-            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferImageCopy, BufferImageCopy2,
+            AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BufferImageCopy,
             BufferMemoryBarrier2, ClearColorValue, ClearValue, CommandBuffer,
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
-            CopyBufferToImageInfo2, CopyImageInfo2, DependencyInfo, DependencyInfoKHR,
-            DescriptorImageInfo, DescriptorType, Extent2D, Extent3D, Fence, ImageAspectFlags,
-            ImageCopy2, ImageLayout, ImageMemoryBarrier2, ImageMemoryBarrier2Builder,
-            ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2,
-            Rect2D, RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo,
-            SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet,
-            QUEUE_FAMILY_FOREIGN_EXT,
+            CopyImageInfo2, DependencyInfo, DependencyInfoKHR, DescriptorImageInfo, DescriptorType,
+            Extent2D, Extent3D, Fence, ImageAspectFlags, ImageCopy2, ImageLayout,
+            ImageMemoryBarrier2, ImageMemoryBarrier2Builder, ImageSubresourceLayers,
+            ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2, Rect2D,
+            RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR,
+            ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet, QUEUE_FAMILY_FOREIGN_EXT,
         },
         Device,
     },
@@ -66,6 +64,7 @@ pub struct VulkanRenderer {
     pub(super) total_buffers: NumCell<usize>,
     pub(super) memory: RefCell<Memory>,
     pub(super) pending_frames: CopyHashMap<u64, Rc<PendingFrame>>,
+    pub(super) pending_uploads: CopyHashMap<u64, SpawnedFuture<()>>,
     pub(super) allocator: Rc<VulkanAllocator>,
     pub(super) last_point: NumCell<u64>,
     pub(super) buffer_resv_user: BufferResvUser,
@@ -93,11 +92,8 @@ pub(super) enum TexSourceType {
 #[derive(Default)]
 pub(super) struct Memory {
     sample: Vec<Rc<VulkanImage>>,
-    flush: Vec<Rc<VulkanImage>>,
-    flush_staging: Vec<(Rc<VulkanImage>, VulkanStagingBuffer)>,
     textures: Vec<UsedTexture>,
     image_barriers: Vec<ImageMemoryBarrier2>,
-    shm_barriers: Vec<BufferMemoryBarrier2>,
     wait_semaphores: Vec<Rc<VulkanSemaphore>>,
     wait_semaphore_infos: Vec<SemaphoreSubmitInfo>,
     release_fence: Option<Rc<VulkanFence>>,
@@ -109,7 +105,6 @@ pub(super) struct PendingFrame {
     renderer: Rc<VulkanRenderer>,
     cmd: Cell<Option<Rc<VulkanCommandBuffer>>>,
     _textures: Vec<UsedTexture>,
-    _staging: Vec<(Rc<VulkanImage>, VulkanStagingBuffer)>,
     wait_semaphores: Cell<Vec<Rc<VulkanSemaphore>>>,
     waiter: Cell<Option<SpawnedFuture<()>>>,
     _release_fence: Option<Rc<VulkanFence>>,
@@ -197,6 +192,7 @@ impl VulkanDevice {
             total_buffers: Default::default(),
             memory: Default::default(),
             pending_frames: Default::default(),
+            pending_uploads: Default::default(),
             allocator,
             last_point: Default::default(),
             buffer_resv_user: Default::default(),
@@ -205,20 +201,18 @@ impl VulkanDevice {
 }
 
 impl VulkanRenderer {
+    pub(super) fn allocate_point(&self) -> u64 {
+        self.last_point.fetch_add(1) + 1
+    }
+
     fn collect_memory(&self, opts: &[GfxApiOpt]) {
         let mut memory = self.memory.borrow_mut();
         memory.sample.clear();
-        memory.flush.clear();
         for cmd in opts {
             if let GfxApiOpt::CopyTexture(c) = cmd {
                 let tex = c.tex.clone().into_vk(&self.device.device);
-                match &tex.ty {
-                    VulkanImageMemory::DmaBuf(_) => memory.sample.push(tex.clone()),
-                    VulkanImageMemory::Internal(shm) => {
-                        if shm.to_flush.borrow_mut().is_some() {
-                            memory.flush.push(tex.clone());
-                        }
-                    }
+                if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
+                    memory.sample.push(tex.clone())
                 }
                 memory.textures.push(UsedTexture {
                     tex,
@@ -241,32 +235,10 @@ impl VulkanRenderer {
         }
     }
 
-    fn write_shm_staging_buffers(self: &Rc<Self>) -> Result<(), VulkanError> {
-        let mut memory = self.memory.borrow_mut();
-        let memory = &mut *memory;
-        memory.flush_staging.clear();
-        for img in &memory.flush {
-            let shm = match &img.ty {
-                VulkanImageMemory::DmaBuf(_) => unreachable!(),
-                VulkanImageMemory::Internal(s) => s,
-            };
-            let staging = self.create_staging_buffer(shm.size, true, false, true)?;
-            let to_flush = shm.to_flush.borrow_mut();
-            let to_flush = to_flush.as_ref().unwrap();
-            staging.upload(|mem, size| unsafe {
-                let size = size.min(to_flush.len());
-                ptr::copy_nonoverlapping(to_flush.as_ptr(), mem, size);
-            })?;
-            memory.flush_staging.push((img.clone(), staging));
-        }
-        Ok(())
-    }
-
     fn initial_barriers(&self, buf: CommandBuffer, fb: &VulkanImage) {
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
-        memory.shm_barriers.clear();
         let mut fb_image_memory_barrier = image_barrier()
             .image(fb.image)
             .new_layout(ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
@@ -302,89 +274,6 @@ impl VulkanRenderer {
                 .image(img.image)
                 .old_layout(ImageLayout::GENERAL)
                 .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
-                .build();
-            memory.image_barriers.push(image_memory_barrier);
-        }
-        for (img, staging) in &memory.flush_staging {
-            let image_memory_barrier = image_barrier()
-                .image(img.image)
-                .old_layout(if img.is_undefined.get() {
-                    ImageLayout::UNDEFINED
-                } else {
-                    ImageLayout::SHADER_READ_ONLY_OPTIMAL
-                })
-                .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-                .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
-                .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                .build();
-            memory.image_barriers.push(image_memory_barrier);
-            let buffer_memory_barrier = BufferMemoryBarrier2::builder()
-                .buffer(staging.buffer)
-                .offset(0)
-                .size(staging.size)
-                .src_access_mask(AccessFlags2::HOST_WRITE)
-                .src_stage_mask(PipelineStageFlags2::HOST)
-                .dst_access_mask(AccessFlags2::TRANSFER_READ)
-                .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                .build();
-            memory.shm_barriers.push(buffer_memory_barrier);
-        }
-        let dep_info = DependencyInfoKHR::builder()
-            .buffer_memory_barriers(&memory.shm_barriers)
-            .image_memory_barriers(&memory.image_barriers);
-        unsafe {
-            self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
-        }
-    }
-
-    fn copy_shm_to_image(&self, cmd: CommandBuffer) {
-        let memory = self.memory.borrow_mut();
-        for (img, staging) in &memory.flush_staging {
-            let Some(shm_info) = &img.format.shm_info else {
-                continue;
-            };
-            let cpy = BufferImageCopy2::builder()
-                .buffer_image_height(img.height)
-                .buffer_row_length(img.stride / shm_info.bpp)
-                .image_extent(Extent3D {
-                    width: img.width,
-                    height: img.height,
-                    depth: 1,
-                })
-                .image_subresource(ImageSubresourceLayers {
-                    aspect_mask: ImageAspectFlags::COLOR,
-                    mip_level: 0,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                })
-                .build();
-            let info = CopyBufferToImageInfo2::builder()
-                .src_buffer(staging.buffer)
-                .dst_image(img.image)
-                .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-                .regions(slice::from_ref(&cpy));
-            unsafe {
-                self.device.device.cmd_copy_buffer_to_image2(cmd, &info);
-            }
-        }
-    }
-
-    fn secondary_barriers(&self, buf: CommandBuffer) {
-        let mut memory = self.memory.borrow_mut();
-        let memory = &mut *memory;
-        if memory.flush.is_empty() {
-            return;
-        }
-        memory.image_barriers.clear();
-        for img in &memory.flush {
-            let image_memory_barrier = image_barrier()
-                .image(img.image)
-                .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-                .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                .src_access_mask(AccessFlags2::TRANSFER_WRITE)
-                .src_stage_mask(PipelineStageFlags2::TRANSFER)
                 .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
                 .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
                 .build();
@@ -625,7 +514,6 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.image_barriers.clear();
-        memory.shm_barriers.clear();
         let mut fb_image_memory_barrier = image_barrier()
             .src_queue_family_index(self.device.graphics_queue_idx)
             .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
@@ -659,9 +547,7 @@ impl VulkanRenderer {
                 .build();
             memory.image_barriers.push(image_memory_barrier);
         }
-        let dep_info = DependencyInfoKHR::builder()
-            .image_memory_barriers(&memory.image_barriers)
-            .buffer_memory_barriers(&memory.shm_barriers);
+        let dep_info = DependencyInfoKHR::builder().image_memory_barriers(&memory.image_barriers);
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
@@ -804,26 +690,16 @@ impl VulkanRenderer {
 
     fn store_layouts(&self, fb: &VulkanImage) {
         fb.is_undefined.set(false);
-        let memory = self.memory.borrow_mut();
-        for img in &memory.flush {
-            img.is_undefined.set(false);
-            let shm = match &img.ty {
-                VulkanImageMemory::DmaBuf(_) => unreachable!(),
-                VulkanImageMemory::Internal(s) => s,
-            };
-            shm.to_flush.take();
-        }
     }
 
     fn create_pending_frame(self: &Rc<Self>, buf: Rc<VulkanCommandBuffer>) {
-        let point = self.last_point.fetch_add(1) + 1;
+        let point = self.allocate_point();
         let mut memory = self.memory.borrow_mut();
         let frame = Rc::new(PendingFrame {
             point,
             renderer: self.clone(),
             cmd: Cell::new(Some(buf)),
             _textures: mem::take(&mut memory.textures),
-            _staging: mem::take(&mut memory.flush_staging),
             wait_semaphores: Cell::new(mem::take(&mut memory.wait_semaphores)),
             waiter: Cell::new(None),
             _release_fence: memory.release_fence.take(),
@@ -1034,9 +910,7 @@ impl VulkanRenderer {
         let res = self.try_execute(fb, opts, clear);
         let sync_file = {
             let mut memory = self.memory.borrow_mut();
-            memory.flush.clear();
             memory.textures.clear();
-            memory.flush_staging.clear();
             memory.sample.clear();
             memory.wait_semaphores.clear();
             memory.release_fence.take();
@@ -1045,7 +919,7 @@ impl VulkanRenderer {
         res.map(|_| sync_file)
     }
 
-    fn allocate_command_buffer(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
+    pub(super) fn allocate_command_buffer(&self) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
         let buf = match self.command_buffers.pop() {
             Some(b) => b,
             _ => {
@@ -1073,10 +947,7 @@ impl VulkanRenderer {
         let buf = self.allocate_command_buffer()?;
         self.collect_memory(opts);
         self.begin_command_buffer(buf.buffer)?;
-        self.write_shm_staging_buffers()?;
         self.initial_barriers(buf.buffer, fb);
-        self.copy_shm_to_image(buf.buffer);
-        self.secondary_barriers(buf.buffer);
         self.begin_rendering(buf.buffer, fb, clear);
         self.set_viewport(buf.buffer, fb);
         self.record_draws(buf.buffer, opts)?;
@@ -1092,7 +963,7 @@ impl VulkanRenderer {
         Ok(())
     }
 
-    fn block(&self) {
+    pub(super) fn block(&self) {
         log::warn!("Blocking.");
         unsafe {
             if let Err(e) = self.device.device.device_wait_idle() {
@@ -1103,7 +974,8 @@ impl VulkanRenderer {
 
     pub fn on_drop(&self) {
         let mut pending_frames = self.pending_frames.lock();
-        if pending_frames.is_not_empty() {
+        let mut pending_uploads = self.pending_uploads.lock();
+        if pending_frames.is_not_empty() || pending_uploads.is_not_empty() {
             log::warn!("Context dropped with pending frames.");
             self.block();
         }
@@ -1111,6 +983,7 @@ impl VulkanRenderer {
             f.waiter.take();
         });
         pending_frames.clear();
+        pending_uploads.clear();
     }
 }
 
@@ -1150,7 +1023,7 @@ impl dyn GfxTexture {
     }
 }
 
-fn image_barrier() -> ImageMemoryBarrier2Builder<'static> {
+pub(super) fn image_barrier() -> ImageMemoryBarrier2Builder<'static> {
     ImageMemoryBarrier2::builder().subresource_range(
         ImageSubresourceRange::builder()
             .aspect_mask(ImageAspectFlags::COLOR)
