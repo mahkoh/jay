@@ -1,10 +1,14 @@
 # Unreleased
 
+# 1.3.0 (2024-05-25)
+
 - Add remaining layer-shell features.
 - Add JAY_MAX_RENDER_TIME_NSEC environment variable.
   This can be used to delay rendering until shortly before a page flip, reducing input
   delay.
   This is an unstable feature that might change in the future.
+- Various bugfixes.
+- Improve performance of Vulkan renderer.
 
 # 1.2.0 (2024-05-05)
 
