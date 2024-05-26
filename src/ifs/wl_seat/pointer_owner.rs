@@ -200,13 +200,31 @@ trait PointerOwner {
         source: Option<Rc<WlDataSource>>,
         icon: Option<Rc<WlSurface>>,
         serial: u32,
-    ) -> Result<(), WlSeatError>;
-    fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>);
+    ) -> Result<(), WlSeatError> {
+        let _ = origin;
+        let _ = icon;
+        let _ = serial;
+        if let Some(src) = source {
+            src.send_cancelled(seat);
+        }
+        Ok(())
+    }
+    fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.dropped_dnd.borrow_mut().take();
+    }
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>);
-    fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>);
-    fn dnd_icon(&self) -> Option<Rc<WlSurface>>;
-    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>>;
-    fn remove_dnd_icon(&self);
+    fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
+        self.cancel_dnd(seat);
+    }
+    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+        None
+    }
+    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
+        None
+    }
+    fn remove_dnd_icon(&self) {
+        // nothing
+    }
 }
 
 struct SimplePointerOwner<T> {
@@ -338,46 +356,12 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         found_tree.clear();
     }
 
-    fn start_drag(
-        &self,
-        seat: &Rc<WlSeatGlobal>,
-        _origin: &Rc<WlSurface>,
-        source: Option<Rc<WlDataSource>>,
-        _icon: Option<Rc<WlSurface>>,
-        _serial: u32,
-    ) -> Result<(), WlSeatError> {
-        if let Some(src) = source {
-            src.send_cancelled(seat);
-        }
-        Ok(())
-    }
-
-    fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.dropped_dnd.borrow_mut().take();
-    }
-
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
         if !T::IS_DEFAULT {
             seat.pointer_owner.set_default_pointer_owner(seat);
             seat.trigger_tree_changed();
             seat.state.damage();
         }
-    }
-
-    fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
-        self.cancel_dnd(seat);
-    }
-
-    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
-        None
-    }
-
-    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
-        None
-    }
-
-    fn remove_dnd_icon(&self) {
-        // nothing
     }
 }
 
@@ -429,29 +413,9 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
             .start_drag(self, seat, origin, src, icon, serial)
     }
 
-    fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
-        seat.dropped_dnd.borrow_mut().take();
-    }
-
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
         self.node.node_seat_state().remove_pointer_grab(seat);
         seat.pointer_owner.set_default_pointer_owner(seat);
-    }
-
-    fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
-        self.cancel_dnd(seat)
-    }
-
-    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
-        None
-    }
-
-    fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
-        None
-    }
-
-    fn remove_dnd_icon(&self) {
-        // nothing
     }
 }
 
@@ -530,20 +494,6 @@ impl PointerOwner for DndPointerOwner {
         self.pos_y.set(y);
     }
 
-    fn start_drag(
-        &self,
-        seat: &Rc<WlSeatGlobal>,
-        _origin: &Rc<WlSurface>,
-        source: Option<Rc<WlDataSource>>,
-        _icon: Option<Rc<WlSurface>>,
-        _serial: u32,
-    ) -> Result<(), WlSeatError> {
-        if let Some(src) = source {
-            src.send_cancelled(seat);
-        }
-        Ok(())
-    }
-
     fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
         let target = self.target.get();
         target.node_on_dnd_leave(&self.dnd);
@@ -605,11 +555,23 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
         src: Option<Rc<WlDataSource>>,
         icon: Option<Rc<WlSurface>>,
         serial: u32,
-    ) -> Result<(), WlSeatError>;
+    ) -> Result<(), WlSeatError> {
+        let _ = grab;
+        let _ = origin;
+        let _ = icon;
+        let _ = serial;
+        if let Some(src) = src {
+            src.send_cancelled(seat);
+        }
+        Ok(())
+    }
 
     fn release_grab(&self, seat: &Rc<WlSeatGlobal>);
 
-    fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>);
+    fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
+        let _ = seat;
+        let _ = node;
+    }
 }
 
 impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
@@ -691,10 +653,6 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
     fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
         seat.pointer_owner.set_default_pointer_owner(seat);
     }
-
-    fn node_focus(&self, _seat: &Rc<WlSeatGlobal>, _node: &Rc<dyn Node>) {
-        // nothing
-    }
 }
 
 trait NodeSelectorUsecase: Sized + 'static {
@@ -723,21 +681,6 @@ impl<U: NodeSelectorUsecase + ?Sized> SimplePointerOwnerUsecase for Rc<U> {
         pn: &Rc<dyn Node>,
     ) -> bool {
         <U as NodeSelectorUsecase>::default_button(self, spo, seat, button, pn)
-    }
-
-    fn start_drag(
-        &self,
-        _grab: &SimpleGrabPointerOwner<Self>,
-        seat: &Rc<WlSeatGlobal>,
-        _origin: &Rc<WlSurface>,
-        src: Option<Rc<WlDataSource>>,
-        _icon: Option<Rc<WlSurface>>,
-        _serial: u32,
-    ) -> Result<(), WlSeatError> {
-        if let Some(src) = src {
-            src.send_cancelled(seat);
-        }
-        Ok(())
     }
 
     fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
