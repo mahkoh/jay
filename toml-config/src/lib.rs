@@ -89,6 +89,9 @@ impl Action {
                 SimpleCommand::ReloadConfigSo => B::new(reload),
                 SimpleCommand::None => B::new(|| ()),
                 SimpleCommand::Forward(bool) => B::new(move || s.set_forward(bool)),
+                SimpleCommand::EnableWindowManagement(bool) => {
+                    B::new(move || s.set_window_management_enabled(bool))
+                }
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -1009,6 +1012,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
             true => FocusFollowsMouseMode::True,
             false => FocusFollowsMouseMode::False,
         });
+    if let Some(window_management_key) = config.window_management_key {
+        persistent
+            .seat
+            .set_window_management_key(window_management_key);
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {

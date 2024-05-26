@@ -483,6 +483,10 @@ pub enum ClientMessage<'a> {
     RemoveInputMapping {
         input_device: InputDevice,
     },
+    SetWindowManagementEnabled {
+        seat: Seat,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

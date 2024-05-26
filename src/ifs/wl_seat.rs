@@ -955,6 +955,11 @@ impl WlSeatGlobal {
     pub fn set_focus_follows_mouse(&self, focus_follows_mouse: bool) {
         self.focus_follows_mouse.set(focus_follows_mouse);
     }
+
+    pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
+        self.pointer_owner
+            .set_window_management_enabled(self, enabled);
+    }
 }
 
 impl CursorUserOwner for WlSeatGlobal {

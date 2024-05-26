@@ -414,6 +414,37 @@ impl Seat {
     pub fn set_focus_follows_mouse_mode(self, mode: FocusFollowsMouseMode) {
         get!().set_focus_follows_mouse_mode(self, mode);
     }
+
+    /// Enables or disable window management mode.
+    ///
+    /// In window management mode, floating windows can be moved by pressing the left
+    /// mouse button and all windows can be resize by pressing the right mouse button.
+    pub fn set_window_management_enabled(self, enabled: bool) {
+        get!().set_window_management_enabled(self, enabled);
+    }
+
+    /// Sets a key that enables window management mode while pressed.
+    ///
+    /// This is a shorthand for
+    ///
+    /// ```rust,ignore
+    /// self.bind(mod_sym, move || {
+    ///     self.set_window_management_enabled(true);
+    ///     self.forward();
+    ///     self.latch(move || {
+    ///         self.set_window_management_enabled(false);
+    ///     });
+    /// });
+    /// ```
+    pub fn set_window_management_key<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
+        self.bind(mod_sym, move || {
+            self.set_window_management_enabled(true);
+            self.forward();
+            self.latch(move || {
+                self.set_window_management_enabled(false);
+            });
+        });
+    }
 }
 
 /// A focus-follows-mouse mode.

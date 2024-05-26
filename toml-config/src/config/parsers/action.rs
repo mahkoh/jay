@@ -111,6 +111,8 @@ impl ActionParser<'_> {
             "none" => None,
             "forward" => Forward(true),
             "consume" => Forward(false),
+            "enable-window-management" => EnableWindowManagement(true),
+            "disable-window-management" => EnableWindowManagement(false),
             _ => {
                 return Err(ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span))
             }

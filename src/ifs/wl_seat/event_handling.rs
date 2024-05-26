@@ -164,7 +164,7 @@ impl NodeSeatState {
             seat.gesture_owner.revert_to_default(&seat);
         }
         while let Some((_, seat)) = self.pointer_grabs.pop() {
-            seat.pointer_owner.revert_to_default(&seat);
+            seat.pointer_owner.grab_node_removed(&seat);
         }
         let node_id = node.node_id();
         while let Some((_, seat)) = self.dnd_targets.pop() {

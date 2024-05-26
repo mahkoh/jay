@@ -8,13 +8,13 @@ use {
             ipc::wl_data_source::WlDataSource,
             wl_seat::{
                 wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal, BTN_LEFT,
-                BTN_RIGHT, CHANGE_CURSOR_MOVED,
+                BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
             wl_surface::WlSurface,
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         state::DeviceHandlerData,
-        tree::{FindTreeUsecase, FoundNode, Node, ToplevelNode, WorkspaceNode},
+        tree::{ContainingNode, FindTreeUsecase, FoundNode, Node, ToplevelNode, WorkspaceNode},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::{
@@ -136,6 +136,10 @@ impl PointerOwnerHolder {
         self.owner.get().revert_to_default(seat)
     }
 
+    pub fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
+        self.owner.get().grab_node_removed(seat);
+    }
+
     pub fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
         self.owner.get().dnd_target_removed(seat);
     }
@@ -187,6 +191,15 @@ impl PointerOwnerHolder {
         });
         self.select_element(seat, usecase)
     }
+
+    pub fn set_window_management_enabled(&self, seat: &Rc<WlSeatGlobal>, enabled: bool) {
+        let owner = self.owner.get();
+        if enabled {
+            owner.enable_window_management(seat);
+        } else {
+            owner.disable_window_management(seat);
+        }
+    }
 }
 
 trait PointerOwner {
@@ -213,6 +226,9 @@ trait PointerOwner {
         seat.dropped_dnd.borrow_mut().take();
     }
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>);
+    fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
+        self.revert_to_default(seat);
+    }
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
         self.cancel_dnd(seat);
     }
@@ -224,6 +240,12 @@ trait PointerOwner {
     }
     fn remove_dnd_icon(&self) {
         // nothing
+    }
+    fn enable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
+    }
+    fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
     }
 }
 
@@ -261,6 +283,9 @@ struct SelectWorkspaceUsecase<S: ?Sized> {
     latest: CloneCell<Option<Rc<WorkspaceNode>>>,
     selector: S,
 }
+
+#[derive(Copy, Clone)]
+struct WindowManagementUsecase;
 
 impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: KeyState) {
@@ -362,6 +387,21 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
             seat.trigger_tree_changed();
             seat.state.damage();
         }
+    }
+
+    fn enable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        if !T::IS_DEFAULT {
+            return;
+        }
+        seat.pointer_owner.owner.set(Rc::new(SimplePointerOwner {
+            usecase: WindowManagementUsecase,
+        }));
+        seat.changes.or_assign(CHANGE_TREE);
+        seat.apply_changes();
+    }
+
+    fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        self.usecase.disable_window_management(seat);
     }
 }
 
@@ -571,6 +611,10 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
     fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
         let _ = seat;
         let _ = node;
+    }
+
+    fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        let _ = seat;
     }
 }
 
@@ -792,6 +836,221 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
             if let Some(seat) = self.seat.upgrade() {
                 seat.state.damage();
             }
+        }
+    }
+}
+
+impl SimplePointerOwnerUsecase for WindowManagementUsecase {
+    const FIND_TREE_USECASE: FindTreeUsecase = FindTreeUsecase::SelectToplevel;
+    const IS_DEFAULT: bool = false;
+
+    fn default_button(
+        &self,
+        _spo: &SimplePointerOwner<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        button: u32,
+        pn: &Rc<dyn Node>,
+    ) -> bool {
+        let Some(tl) = pn.clone().node_into_toplevel() else {
+            return false;
+        };
+        let pos = tl.node_absolute_position();
+        let (x, y) = seat.pointer_cursor.position();
+        let (x, y) = (x.round_down(), y.round_down());
+        let (mut dx, mut dy) = pos.translate(x, y);
+        let owner: Rc<dyn PointerOwner> = if button == BTN_LEFT {
+            seat.pointer_cursor.set_known(KnownCursor::Move);
+            Rc::new(ToplevelGrabPointerOwner {
+                tl,
+                usecase: MoveToplevelGrabPointerOwner { dx, dy },
+            })
+        } else if button == BTN_RIGHT {
+            let mut top = false;
+            let mut right = false;
+            let mut bottom = false;
+            let mut left = false;
+            if dx <= pos.width() / 2 {
+                left = true;
+            } else {
+                right = true;
+                dx = pos.width() - dx;
+            }
+            if dy <= pos.height() / 2 {
+                top = true;
+            } else {
+                bottom = true;
+                dy = pos.height() - dy;
+            }
+            let cursor = match (top, right, bottom, left) {
+                (true, true, false, false) => KnownCursor::NeResize,
+                (false, true, true, false) => KnownCursor::SeResize,
+                (false, false, true, true) => KnownCursor::SwResize,
+                (true, false, false, true) => KnownCursor::NwResize,
+                _ => KnownCursor::Move,
+            };
+            seat.pointer_cursor.set_known(cursor);
+            Rc::new(ToplevelGrabPointerOwner {
+                tl,
+                usecase: ResizeToplevelGrabPointerOwner {
+                    top,
+                    right,
+                    bottom,
+                    left,
+                    dx,
+                    dy,
+                },
+            })
+        } else {
+            return false;
+        };
+        seat.pointer_owner.owner.set(owner);
+        pn.node_seat_state().add_pointer_grab(seat);
+        true
+    }
+
+    fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner
+            .owner
+            .set(Rc::new(SimplePointerOwner { usecase: *self }));
+        seat.changes.or_assign(CHANGE_CURSOR_MOVED);
+    }
+
+    fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner.set_default_pointer_owner(seat);
+        seat.apply_changes();
+    }
+}
+
+trait WindowManagementGrabUsecase {
+    const BUTTON: u32;
+
+    fn apply_changes(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        parent: Rc<dyn ContainingNode>,
+        tl: &Rc<dyn ToplevelNode>,
+    );
+}
+
+struct ToplevelGrabPointerOwner<T> {
+    tl: Rc<dyn ToplevelNode>,
+    usecase: T,
+}
+
+impl<T> PointerOwner for ToplevelGrabPointerOwner<T>
+where
+    T: WindowManagementGrabUsecase,
+{
+    fn button(&self, seat: &Rc<WlSeatGlobal>, _time_usec: u64, button: u32, state: KeyState) {
+        if button != T::BUTTON || state != KeyState::Released {
+            return;
+        }
+        self.tl.node_seat_state().remove_pointer_grab(seat);
+        self.grab_node_removed(seat);
+    }
+
+    fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {
+        None
+    }
+
+    fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
+        let Some(parent) = self.tl.tl_data().parent.get() else {
+            return;
+        };
+        self.usecase.apply_changes(seat, parent, &self.tl);
+    }
+
+    fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner.set_default_pointer_owner(seat);
+    }
+
+    fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_cursor.set_known(KnownCursor::Default);
+        seat.pointer_owner.owner.set(Rc::new(SimplePointerOwner {
+            usecase: WindowManagementUsecase,
+        }));
+        seat.changes.or_assign(CHANGE_CURSOR_MOVED);
+        seat.apply_changes();
+    }
+
+    fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
+        seat.pointer_owner.set_default_pointer_owner(seat);
+        seat.apply_changes();
+    }
+}
+
+struct MoveToplevelGrabPointerOwner {
+    dx: i32,
+    dy: i32,
+}
+
+impl WindowManagementGrabUsecase for MoveToplevelGrabPointerOwner {
+    const BUTTON: u32 = BTN_LEFT;
+
+    fn apply_changes(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        parent: Rc<dyn ContainingNode>,
+        tl: &Rc<dyn ToplevelNode>,
+    ) {
+        let (x, y) = seat.pointer_cursor.position();
+        let (x, y) = (x.round_down() - self.dx, y.round_down() - self.dy);
+        parent.cnode_set_child_position(tl.tl_as_node(), x, y);
+    }
+}
+
+#[derive(Debug)]
+struct ResizeToplevelGrabPointerOwner {
+    top: bool,
+    right: bool,
+    bottom: bool,
+    left: bool,
+    dx: i32,
+    dy: i32,
+}
+
+impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
+    const BUTTON: u32 = BTN_RIGHT;
+
+    fn apply_changes(
+        &self,
+        seat: &Rc<WlSeatGlobal>,
+        parent: Rc<dyn ContainingNode>,
+        tl: &Rc<dyn ToplevelNode>,
+    ) {
+        let (x, y) = seat.pointer_cursor.position();
+        let (x, y) = (x.round_down(), y.round_down());
+        let pos = tl.node_absolute_position();
+        let mut x1 = None;
+        let mut x2 = None;
+        let mut y1 = None;
+        let mut y2 = None;
+        if self.top {
+            let new_v = y - self.dy;
+            if new_v != pos.y1() {
+                y1 = Some(new_v);
+            }
+        }
+        if self.right {
+            let new_v = x + self.dx;
+            if new_v != pos.x2() {
+                x2 = Some(new_v);
+            }
+        }
+        if self.bottom {
+            let new_v = y + self.dy;
+            if new_v != pos.y2() {
+                y2 = Some(new_v);
+            }
+        }
+        if self.left {
+            let new_v = x - self.dx;
+            if new_v != pos.x1() {
+                x1 = Some(new_v);
+            }
+        }
+        if x1.is_some() || x2.is_some() || y1.is_some() || y2.is_some() {
+            parent.cnode_resize_child(tl.tl_as_node(), x1, y1, x2, y2);
         }
     }
 }

@@ -1,5 +1,9 @@
 # Unreleased
 
+- Needs jay-config release.
+- Needs jay-toml-config release.
+- Needs jay-compositor release.
+
 # 1.3.0
 
 - Needs jay-algorithms release.

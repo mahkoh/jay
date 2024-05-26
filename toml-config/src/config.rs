@@ -51,6 +51,7 @@ pub enum SimpleCommand {
     ToggleMono,
     ToggleSplit,
     Forward(bool),
+    EnableWindowManagement(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -316,6 +317,7 @@ pub struct Config {
     pub idle: Option<Duration>,
     pub explicit_sync_enabled: Option<bool>,
     pub focus_follows_mouse: bool,
+    pub window_management_key: Option<ModifiedKeySym>,
 }
 
 #[derive(Debug, Error)]

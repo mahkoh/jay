@@ -338,6 +338,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_window_management_enabled(
+        &self,
+        seat: Seat,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_window_management_enabled(enabled);
+        Ok(())
+    }
+
     fn handle_set_input_device_connector(
         &self,
         input_device: InputDevice,
@@ -1816,6 +1826,9 @@ impl ConfigProxyHandler {
             ClientMessage::RemoveInputMapping { input_device } => self
                 .handle_remove_input_mapping(input_device)
                 .wrn("remove_input_mapping")?,
+            ClientMessage::SetWindowManagementEnabled { seat, enabled } => self
+                .handle_set_window_management_enabled(seat, enabled)
+                .wrn("set_window_management_enabled")?,
         }
         Ok(())
     }

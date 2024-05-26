@@ -175,10 +175,18 @@ fn parse_action(cx: &Context<'_>, key: &str, value: &Spanned<Value>) -> Option<A
 }
 
 fn parse_modified_keysym(cx: &Context<'_>, key: &Spanned<String>) -> Option<ModifiedKeySym> {
-    match ModifiedKeysymParser.parse_string(key.span, &key.value) {
+    parse_modified_keysym_str(cx, key.span, &key.value)
+}
+
+pub fn parse_modified_keysym_str(
+    cx: &Context<'_>,
+    span: Span,
+    value: &str,
+) -> Option<ModifiedKeySym> {
+    match ModifiedKeysymParser.parse_string(span, value) {
         Ok(k) => Some(k),
         Err(e) => {
-            log::warn!("Could not parse keysym {}: {}", key.value, cx.error(e));
+            log::warn!("Could not parse keysym {}: {}", value, cx.error(e));
             None
         }
     }

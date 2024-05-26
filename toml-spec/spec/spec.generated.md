@@ -1095,6 +1095,21 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `window-management-key` (optional):
+
+  Configures a key that will enable window management mode while pressed.
+  
+  In window management mode, floating windows can be moved by pressing the left
+  mouse button and all windows can be resize by pressing the right mouse button.
+  
+  - Example:
+  
+    ```toml
+    window-management-key = "Alt_L"
+    ```
+
+  The value of this field should be a string.
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2433,6 +2448,17 @@ The string should have one of the following values:
   
   As a special case, if this is the action of a shortcut, the shortcut will be
   unbound. This can be used in modes to unbind a key.
+
+- `enable-window-management`:
+
+  Enables window management mode.
+  
+  In window management mode, floating windows can be moved by pressing the left
+  mouse button and all windows can be resize by pressing the right mouse button.
+
+- `disable-window-management`:
+
+  Disables window management mode.
 
 
 

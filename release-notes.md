@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add window management mode.
+
 # 1.3.0 (2024-05-25)
 
 - Add remaining layer-shell features.
