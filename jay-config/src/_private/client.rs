@@ -955,6 +955,10 @@ impl Client {
         self.send(&ClientMessage::SetFocusFollowsMouseMode { seat, mode })
     }
 
+    pub fn set_window_management_enabled(&self, seat: Seat, enabled: bool) {
+        self.send(&ClientMessage::SetWindowManagementEnabled { seat, enabled })
+    }
+
     pub fn set_input_device_connector(&self, input_device: InputDevice, connector: Connector) {
         self.send(&ClientMessage::SetInputDeviceConnector {
             input_device,

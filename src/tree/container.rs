@@ -1543,6 +1543,159 @@ impl ContainingNode for ContainerNode {
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self.workspace.get()
     }
+
+    fn cnode_set_child_position(self: Rc<Self>, child: &dyn Node, x: i32, y: i32) {
+        let Some(parent) = self.toplevel_data.parent.get() else {
+            return;
+        };
+        let th = self.state.theme.sizes.title_height.get();
+        if self.mono_child.is_some() {
+            parent.cnode_set_child_position(&*self, x, y - th - 1);
+        } else {
+            let children = self.child_nodes.borrow();
+            let Some(child) = children.get(&child.node_id()) else {
+                return;
+            };
+            let pos = child.body.get();
+            let (x, y) = pos.translate(x, y);
+            parent.cnode_set_child_position(&*self, x, y);
+        }
+    }
+
+    fn cnode_resize_child(
+        self: Rc<Self>,
+        child: &dyn Node,
+        new_x1: Option<i32>,
+        new_y1: Option<i32>,
+        new_x2: Option<i32>,
+        new_y2: Option<i32>,
+    ) {
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let mut left_outside = false;
+        let mut right_outside = false;
+        let mut top_outside = false;
+        let mut bottom_outside = false;
+        if self.mono_child.is_some() {
+            top_outside = true;
+            right_outside = true;
+            bottom_outside = true;
+            left_outside = true;
+        } else {
+            let children = self.child_nodes.borrow();
+            let Some(child) = children.get(&child.node_id()) else {
+                return;
+            };
+            let pos = child.body.get();
+            let split = self.split.get();
+            let mut changed_any = false;
+            let (mut i1, mut i2, new_i1, new_i2, mut ci) = match split {
+                ContainerSplit::Horizontal => {
+                    top_outside = true;
+                    bottom_outside = true;
+                    (pos.x1(), pos.x2(), new_x1, new_x2, self.content_width.get())
+                }
+                ContainerSplit::Vertical => {
+                    right_outside = true;
+                    left_outside = true;
+                    (
+                        pos.y1(),
+                        pos.y2(),
+                        new_y1,
+                        new_y2,
+                        self.content_height.get(),
+                    )
+                }
+            };
+            if ci == 0 {
+                ci = 1;
+            }
+            let (new_delta, between) = match split {
+                ContainerSplit::Horizontal => (self.abs_x1.get(), bw),
+                ContainerSplit::Vertical => (self.abs_y1.get(), bw + th + 1),
+            };
+            let new_i1 = new_i1.map(|v| v - new_delta);
+            let new_i2 = new_i2.map(|v| v - new_delta);
+            let (orig_i1, orig_i2) = (i1, i2);
+            let mut sum_factors = self.sum_factors.get();
+            if let Some(new_i1) = new_i1 {
+                if let Some(peer) = child.prev() {
+                    let peer_pos = peer.body.get();
+                    let peer_i1 = match self.split.get() {
+                        ContainerSplit::Horizontal => peer_pos.x1(),
+                        ContainerSplit::Vertical => peer_pos.y1(),
+                    };
+                    i1 = new_i1.max(peer_i1 + between).min(i2);
+                    if i1 != orig_i1 {
+                        let peer_factor = (i1 - between - peer_i1) as f64 / ci as f64;
+                        sum_factors = sum_factors - peer.factor.get() + peer_factor;
+                        peer.factor.set(peer_factor);
+                        changed_any = true;
+                    }
+                } else {
+                    match split {
+                        ContainerSplit::Horizontal => left_outside = true,
+                        ContainerSplit::Vertical => top_outside = true,
+                    }
+                }
+            }
+            if let Some(new_i2) = new_i2 {
+                if let Some(peer) = child.next() {
+                    let peer_pos = peer.body.get();
+                    let peer_i2 = match self.split.get() {
+                        ContainerSplit::Horizontal => peer_pos.x2(),
+                        ContainerSplit::Vertical => peer_pos.y2(),
+                    };
+                    i2 = new_i2.min(peer_i2 - between).max(i1);
+                    if i2 != orig_i2 {
+                        let peer_factor = (peer_i2 - between - i2) as f64 / ci as f64;
+                        sum_factors = sum_factors - peer.factor.get() + peer_factor;
+                        peer.factor.set(peer_factor);
+                        changed_any = true;
+                    }
+                } else {
+                    match split {
+                        ContainerSplit::Horizontal => right_outside = true,
+                        ContainerSplit::Vertical => bottom_outside = true,
+                    }
+                }
+            }
+            if changed_any {
+                let factor = (i2 - i1) as f64 / ci as f64;
+                sum_factors = sum_factors - child.factor.get() + factor;
+                child.factor.set(factor);
+                self.sum_factors.set(sum_factors);
+                self.schedule_layout();
+            }
+        }
+        let pos = self.node_absolute_position();
+        let mut x1 = None;
+        let mut x2 = None;
+        let mut y1 = None;
+        let mut y2 = None;
+        if left_outside {
+            x1 = new_x1.map(|v| v.min(pos.x2()));
+        }
+        if right_outside {
+            x2 = new_x2.map(|v| v.max(x1.unwrap_or(pos.x1())));
+        }
+        if top_outside {
+            y1 = new_y1.map(|v| (v - th - 1).min(pos.y2() - th - 1));
+        }
+        if bottom_outside {
+            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + th + 1));
+        }
+        if (x1.is_some() && x1 != Some(pos.x1()))
+            || (x2.is_some() && x2 != Some(pos.x2()))
+            || (y1.is_some() && y1 != Some(pos.y1()))
+            || (y2.is_some() && y2 != Some(pos.y2()))
+        {
+            if let Some(parent) = self.toplevel_data.parent.get() {
+                parent.cnode_resize_child(&*self, x1, y1, x2, y2);
+            }
+        }
+    }
 }
 
 impl ToplevelNodeBase for ContainerNode {

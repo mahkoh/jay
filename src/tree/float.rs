@@ -708,6 +708,55 @@ impl ContainingNode for FloatNode {
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
         self.workspace.get()
     }
+
+    fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let (x, y) = (x - bw, y - th - bw - 1);
+        let pos = self.position.get();
+        if pos.position() != (x, y) {
+            self.position.set(pos.at_point(x, y));
+            self.state.damage();
+            self.schedule_layout();
+        }
+    }
+
+    fn cnode_resize_child(
+        self: Rc<Self>,
+        _child: &dyn Node,
+        new_x1: Option<i32>,
+        new_y1: Option<i32>,
+        new_x2: Option<i32>,
+        new_y2: Option<i32>,
+    ) {
+        let theme = &self.state.theme;
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
+        let pos = self.position.get();
+        let mut x1 = pos.x1();
+        let mut x2 = pos.x2();
+        let mut y1 = pos.y1();
+        let mut y2 = pos.y2();
+        if let Some(v) = new_x1 {
+            x1 = (v - bw).min(x2 - bw - bw);
+        }
+        if let Some(v) = new_x2 {
+            x2 = (v + bw).max(x1 + bw + bw);
+        }
+        if let Some(v) = new_y1 {
+            y1 = (v - th - bw - 1).min(y2 - bw - th - bw - 1);
+        }
+        if let Some(v) = new_y2 {
+            y2 = (v + bw).max(y1 + bw + th + bw + 1);
+        }
+        let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
+        if new_pos != pos {
+            self.position.set(new_pos);
+            self.state.damage();
+            self.schedule_layout();
+        }
+    }
 }
 
 impl StackedNode for FloatNode {

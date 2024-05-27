@@ -2,7 +2,7 @@ use {
     crate::{
         config::{
             context::Context,
-            extractor::{arr, bol, opt, recover, val, Extractor, ExtractorError},
+            extractor::{arr, bol, opt, recover, str, val, Extractor, ExtractorError},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
@@ -17,7 +17,10 @@ use {
                 log_level::LogLevelParser,
                 output::OutputsParser,
                 repeat_rate::RepeatRateParser,
-                shortcuts::{ComplexShortcutsParser, ShortcutsParser, ShortcutsParserError},
+                shortcuts::{
+                    parse_modified_keysym_str, ComplexShortcutsParser, ShortcutsParser,
+                    ShortcutsParserError,
+                },
                 status::StatusParser,
                 theme::ThemeParser,
             },
@@ -97,7 +100,13 @@ impl Parser for ConfigParser<'_> {
                 _,
                 idle_val,
             ),
-            (explicit_sync, repeat_rate_val, complex_shortcuts_val, focus_follows_mouse),
+            (
+                explicit_sync,
+                repeat_rate_val,
+                complex_shortcuts_val,
+                focus_follows_mouse,
+                window_management_key_val,
+            ),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -128,6 +137,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("repeat-rate")),
                 opt(val("complex-shortcuts")),
                 recover(opt(bol("focus-follows-mouse"))),
+                recover(opt(str("window-management-key"))),
             ),
         ))?;
         let mut keymap = None;
@@ -286,6 +296,12 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut window_management_key = None;
+        if let Some(value) = window_management_key_val {
+            if let Some(key) = parse_modified_keysym_str(self.0, value.span, value.value) {
+                window_management_key = Some(key);
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -309,6 +325,7 @@ impl Parser for ConfigParser<'_> {
             inputs,
             idle,
             focus_follows_mouse: focus_follows_mouse.despan().unwrap_or(true),
+            window_management_key,
         })
     }
 }

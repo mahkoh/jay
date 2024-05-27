@@ -692,6 +692,15 @@ SimpleActionName:
 
         As a special case, if this is the action of a shortcut, the shortcut will be
         unbound. This can be used in modes to unbind a key.
+    - value: enable-window-management
+      description: |
+        Enables window management mode.
+
+        In window management mode, floating windows can be moved by pressing the left
+        mouse button and all windows can be resize by pressing the right mouse button.
+    - value: disable-window-management
+      description: |
+        Disables window management mode.
 
 
 Color:
@@ -2127,6 +2136,20 @@ Config:
         focus to that window.
 
         The default is `true`.
+    window-management-key:
+      kind: string
+      required: false
+      description: |
+        Configures a key that will enable window management mode while pressed.
+
+        In window management mode, floating windows can be moved by pressing the left
+        mouse button and all windows can be resize by pressing the right mouse button.
+        
+        - Example:
+        
+          ```toml
+          window-management-key = "Alt_L"
+          ```
 
 
 Idle:

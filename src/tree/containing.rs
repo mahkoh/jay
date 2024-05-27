@@ -12,4 +12,23 @@ pub trait ContainingNode: Node {
     fn cnode_accepts_child(&self, node: &dyn Node) -> bool;
     fn cnode_child_attention_request_changed(self: Rc<Self>, child: &dyn Node, set: bool);
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode>;
+    fn cnode_set_child_position(self: Rc<Self>, child: &dyn Node, x: i32, y: i32) {
+        let _ = child;
+        let _ = x;
+        let _ = y;
+    }
+    fn cnode_resize_child(
+        self: Rc<Self>,
+        child: &dyn Node,
+        new_x1: Option<i32>,
+        new_y1: Option<i32>,
+        new_x2: Option<i32>,
+        new_y2: Option<i32>,
+    ) {
+        let _ = child;
+        let _ = new_x1;
+        let _ = new_x2;
+        let _ = new_y1;
+        let _ = new_y2;
+    }
 }
