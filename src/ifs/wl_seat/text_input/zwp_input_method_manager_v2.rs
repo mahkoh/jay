@@ -1,6 +1,6 @@
 use {
     crate::{
-        client::{Client, ClientError},
+        client::{Client, ClientCaps, ClientError, CAP_INPUT_METHOD},
         globals::{Global, GlobalName},
         ifs::wl_seat::text_input::{zwp_input_method_v2::ZwpInputMethodV2, TextConnectReason},
         leaks::Tracker,
@@ -58,6 +58,10 @@ impl Global for ZwpInputMethodManagerV2Global {
 
     fn version(&self) -> u32 {
         1
+    }
+
+    fn required_caps(&self) -> ClientCaps {
+        CAP_INPUT_METHOD
     }
 }
 
