@@ -237,7 +237,10 @@ impl GbmDevice {
                 return Err(GbmError::CreateBo(OsError::default()));
             }
             let bo = BoHolder { bo };
-            let dma = export_bo(dma_buf_ids, bo.bo)?;
+            let mut dma = export_bo(dma_buf_ids, bo.bo)?;
+            if modifiers.is_null() {
+                dma.modifier = INVALID_MODIFIER;
+            }
             Ok(GbmBo { bo, dmabuf: dma })
         }
     }
