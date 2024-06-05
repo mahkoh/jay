@@ -3,7 +3,7 @@ use {
         cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
         format::XRGB8888,
         tools::tool_client::{with_tool_client, Handle, ToolClient},
-        utils::{errorfmt::ErrorFmt, queue::AsyncQueue},
+        utils::{errorfmt::ErrorFmt, queue::AsyncQueue, windows::WindowsExt},
         video::{
             dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::Drm,
@@ -107,7 +107,7 @@ pub fn buf_to_bytes(dma_buf_ids: &DmaBufIds, buf: &Dmabuf, format: ScreenshotFor
             fatal!("Could not import screenshot dmabuf: {}", ErrorFmt(e));
         }
     };
-    let bo_map = match bo.map() {
+    let bo_map = match bo.map_read() {
         Ok(map) => map,
         Err(e) => {
             fatal!("Could not map dmabuf: {}", ErrorFmt(e));
@@ -115,14 +115,18 @@ pub fn buf_to_bytes(dma_buf_ids: &DmaBufIds, buf: &Dmabuf, format: ScreenshotFor
     };
     let data = unsafe { bo_map.data() };
     if format == ScreenshotFormat::Qoi {
-        return xrgb8888_encode_qoi(data, buf.width, buf.height, buf.stride);
+        return xrgb8888_encode_qoi(data, buf.width, buf.height, bo_map.stride() as u32);
     }
 
     let mut out = vec![];
     {
-        let mut image_data = Vec::with_capacity(data.len());
-        for i in 0..data.len() / 4 {
-            image_data.extend_from_slice(&[data[4 * i + 2], data[4 * i + 1], data[4 * i + 0], 255])
+        let mut image_data = Vec::with_capacity((buf.width * buf.height * 4) as usize);
+        let lines = data[..(buf.height as usize * bo_map.stride() as usize)]
+            .chunks_exact(bo_map.stride() as usize);
+        for line in lines {
+            for pixel in line[..(buf.width as usize * 4)].array_chunks_ext::<4>() {
+                image_data.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 255])
+            }
         }
         let mut encoder = Encoder::new(&mut out, buf.width, buf.height);
         encoder.set_color(ColorType::Rgba);

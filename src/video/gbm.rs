@@ -148,11 +148,21 @@ pub struct GbmBoMap {
     bo: Rc<GbmBo>,
     data: *mut [u8],
     opaque: *mut u8,
+    stride: i32,
 }
 
 impl GbmBoMap {
     pub unsafe fn data(&self) -> &[u8] {
         &*self.data
+    }
+
+    #[allow(dead_code)]
+    pub fn data_ptr(&self) -> *mut u8 {
+        self.data as _
+    }
+
+    pub fn stride(&self) -> i32 {
+        self.stride
     }
 }
 
@@ -293,7 +303,16 @@ impl GbmBo {
         &self.dmabuf
     }
 
-    pub fn map(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
+    pub fn map_read(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
+        self.map2(GBM_BO_TRANSFER_READ)
+    }
+
+    #[allow(dead_code)]
+    pub fn map_write(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
+        self.map2(GBM_BO_TRANSFER_READ_WRITE)
+    }
+
+    fn map2(self: &Rc<Self>, flags: u32) -> Result<GbmBoMap, GbmError> {
         let mut stride = 0;
         let mut map_data = ptr::null_mut();
         unsafe {
@@ -303,7 +322,7 @@ impl GbmBo {
                 0,
                 self.dmabuf.width as _,
                 self.dmabuf.height as _,
-                GBM_BO_TRANSFER_READ,
+                flags,
                 &mut stride,
                 &mut map_data,
             );
@@ -315,6 +334,7 @@ impl GbmBo {
                 bo: self.clone(),
                 data: map,
                 opaque: map_data,
+                stride: stride as i32,
             })
         }
     }
