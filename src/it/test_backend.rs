@@ -11,7 +11,9 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         gfx_api::GfxError,
-        it::{test_error::TestResult, test_utils::test_expected_event::TEEH},
+        it::{
+            test_error::TestResult, test_gfx_api::TestGfxCtx, test_utils::test_expected_event::TEEH,
+        },
         state::State,
         time::now_usec,
         utils::{
@@ -186,7 +188,7 @@ impl TestBackend {
             }
         };
         let drm = Drm::open_existing(file);
-        let ctx = match self.state.create_gfx_context(&drm, None) {
+        let ctx = match TestGfxCtx::new(&drm) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };
