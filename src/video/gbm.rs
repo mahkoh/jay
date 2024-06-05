@@ -156,7 +156,6 @@ impl GbmBoMap {
         &*self.data
     }
 
-    #[allow(dead_code)]
     pub fn data_ptr(&self) -> *mut u8 {
         self.data as _
     }
@@ -307,7 +306,6 @@ impl GbmBo {
         self.map2(GBM_BO_TRANSFER_READ)
     }
 
-    #[allow(dead_code)]
     pub fn map_write(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
         self.map2(GBM_BO_TRANSFER_READ_WRITE)
     }

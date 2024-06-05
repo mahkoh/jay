@@ -49,7 +49,7 @@ fn to_f32(c: u8) -> f32 {
 
 #[allow(dead_code)]
 fn to_u8(c: f32) -> u8 {
-    (c * 255f32) as u8
+    (c * 255f32).round() as u8
 }
 
 impl Color {
@@ -77,6 +77,15 @@ impl Color {
             g: to_f32(g),
             b: to_f32(b),
             a: 1.0,
+        }
+    }
+
+    pub fn from_rgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self {
+            r: to_f32(r),
+            g: to_f32(g),
+            b: to_f32(b),
+            a: to_f32(a),
         }
     }
 
@@ -126,6 +135,15 @@ impl Color {
             to_linear(self.b),
             self.a,
         ]
+    }
+
+    pub fn and_then(self, other: &Color) -> Color {
+        Color {
+            r: self.r * (1.0 - other.a) + other.r,
+            g: self.g * (1.0 - other.a) + other.g,
+            b: self.b * (1.0 - other.a) + other.b,
+            a: self.a * (1.0 - other.a) + other.a,
+        }
     }
 }
 

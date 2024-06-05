@@ -31,6 +31,7 @@ mod test_macros;
 pub mod test_backend;
 mod test_client;
 pub mod test_config;
+mod test_gfx_api;
 mod test_ifs;
 mod test_logger;
 mod test_mem;
