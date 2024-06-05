@@ -80,6 +80,7 @@ impl Color {
         }
     }
 
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn from_rgba_premultiplied(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self {
             r: to_f32(r),
@@ -137,6 +138,7 @@ impl Color {
         ]
     }
 
+    #[cfg_attr(not(feature = "it"), allow(dead_code))]
     pub fn and_then(self, other: &Color) -> Color {
         Color {
             r: self.r * (1.0 - other.a) + other.r,
