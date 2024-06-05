@@ -931,6 +931,11 @@ impl ContainerNode {
             if let Some(neighbor) = neighbor {
                 if let Some(cn) = neighbor.node.clone().node_into_container() {
                     if cn.cnode_accepts_child(child.tl_as_node()) {
+                        if let Some(mc) = self.mono_child.get() {
+                            if mc.node.node_id() == child.node_id() {
+                                self.activate_child2(&neighbor, true);
+                            }
+                        }
                         self.cnode_remove_child2(child.tl_as_node(), true);
                         cn.insert_child(child, direction);
                         return;
