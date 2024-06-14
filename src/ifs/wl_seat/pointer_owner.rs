@@ -464,6 +464,8 @@ impl PointerOwner for DndPointerOwner {
         if button != self.button || state != KeyState::Released {
             return;
         }
+        let target = self.target.get();
+        target.node_on_dnd_drop(&self.dnd);
         if let Some(src) = &self.dnd.src {
             src.on_drop(seat);
         }
@@ -471,9 +473,7 @@ impl PointerOwner for DndPointerOwner {
             None => true,
             Some(s) => s.can_drop(),
         };
-        let target = self.target.get();
         if should_drop {
-            self.target.get().node_on_dnd_drop(&self.dnd);
             *seat.dropped_dnd.borrow_mut() = Some(DroppedDnd {
                 dnd: self.dnd.clone(),
             });
