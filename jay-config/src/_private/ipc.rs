@@ -341,6 +341,9 @@ pub enum ClientMessage<'a> {
     DisablePointerConstraint {
         seat: Seat,
     },
+    CenterPointerOnFocused {
+        seat: Seat,
+    },
     ConnectorSetEnabled {
         connector: Connector,
         enabled: bool,

@@ -405,6 +405,12 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn center_pointer_on_focused(&self) {
+        let kb_node = self.keyboard_node.get();
+        let (x, y) = kb_node.node_absolute_position().center();
+        self.pointer_cursor.set_position(Fixed(x), Fixed(y));
+    }
+
     fn maybe_constrain_pointer_node(&self) {
         if let Some(pn) = self.pointer_node() {
             if let Some(surface) = pn.node_into_surface() {

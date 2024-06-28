@@ -80,6 +80,9 @@ impl Action {
                 SimpleCommand::DisablePointerConstraint => {
                     B::new(move || s.disable_pointer_constraint())
                 }
+                SimpleCommand::CenterPointerOnFocused => {
+                    B::new(move || s.center_pointer_on_focused())
+                }
                 SimpleCommand::ToggleFloating => B::new(move || s.toggle_floating()),
                 SimpleCommand::Quit => B::new(quit),
                 SimpleCommand::ReloadConfigToml => {

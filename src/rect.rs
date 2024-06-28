@@ -237,4 +237,11 @@ impl Rect {
     pub fn size(&self) -> (i32, i32) {
         (self.width(), self.height())
     }
+
+    pub fn center(&self) -> (i32, i32) {
+        (
+            self.raw.x1 + self.width() / 2,
+            self.raw.y1 + self.height() / 2,
+        )
+    }
 }

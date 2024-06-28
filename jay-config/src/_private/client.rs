@@ -447,6 +447,10 @@ impl Client {
         self.send(&ClientMessage::DisablePointerConstraint { seat });
     }
 
+    pub fn center_pointer_on_focused(&self, seat: Seat) {
+        self.send(&ClientMessage::CenterPointerOnFocused { seat });
+    }
+
     pub fn move_to_output(&self, workspace: WorkspaceSource, connector: Connector) {
         self.send(&ClientMessage::MoveToOutput {
             workspace,

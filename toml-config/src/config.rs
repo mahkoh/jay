@@ -38,6 +38,7 @@ use {
 pub enum SimpleCommand {
     Close,
     DisablePointerConstraint,
+    CenterPointerOnFocused,
     Focus(Direction),
     FocusParent,
     Move(Direction),

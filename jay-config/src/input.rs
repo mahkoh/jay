@@ -385,6 +385,11 @@ impl Seat {
         get!().disable_pointer_constraint(self)
     }
 
+    /// Centers the mouse pointer on the focused window.
+    pub fn center_pointer_on_focused(self) {
+        get!().center_pointer_on_focused(self)
+    }
+
     /// Moves the currently focused workspace to another output.
     pub fn move_to_output(self, connector: Connector) {
         get!().move_to_output(WorkspaceSource::Seat(self), connector);

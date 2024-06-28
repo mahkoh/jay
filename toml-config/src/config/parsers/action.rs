@@ -104,6 +104,7 @@ impl ActionParser<'_> {
             "focus-parent" => FocusParent,
             "close" => Close,
             "disable-pointer-constraint" => DisablePointerConstraint,
+            "center-pointer-on-focused" => CenterPointerOnFocused,
             "toggle-floating" => ToggleFloating,
             "quit" => Quit,
             "reload-config-toml" => ReloadConfigToml,

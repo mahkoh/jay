@@ -993,6 +993,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_center_pointer_on_focused(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.center_pointer_on_focused();
+        Ok(())
+    }
+
     fn handle_set_use_hardware_cursor(
         &self,
         seat: Seat,
@@ -1695,6 +1701,9 @@ impl ConfigProxyHandler {
             ClientMessage::DisablePointerConstraint { seat } => self
                 .handle_disable_pointer_constraint(seat)
                 .wrn("disable_pointer_constraint")?,
+            ClientMessage::CenterPointerOnFocused { seat } => self
+                .handle_center_pointer_on_focused(seat)
+                .wrn("center_pointer_on_focused")?,
             ClientMessage::MakeRenderDevice { device } => self
                 .handle_make_render_device(device)
                 .wrn("make_render_device")?,
