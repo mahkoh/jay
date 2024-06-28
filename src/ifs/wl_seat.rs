@@ -409,8 +409,6 @@ impl WlSeatGlobal {
         let kb_node = self.keyboard_node.get();
         if let Some(tl) = kb_node.node_toplevel() {
             let (x, y) = tl.node_absolute_position().center();
-            println!("xy {x} {y}");
-            println!("fi {} {}", Fixed::from_int(x), Fixed::from_int(y));
             self.pointer_cursor
                 .set_position(Fixed::from_int(x), Fixed::from_int(y));
         }
