@@ -144,7 +144,11 @@ impl ActionParser<'_> {
 
     fn parse_show_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
         let name = ext.extract(str("name"))?.value.to_string();
-        Ok(Action::ShowWorkspace { name })
+        let move_pointer = match ext.extract(opt(bol("move-pointer")))? {
+            None => false,
+            Some(v) => v.value,
+        };
+        Ok(Action::ShowWorkspace { name, move_pointer })
     }
 
     fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {

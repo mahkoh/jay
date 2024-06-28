@@ -204,6 +204,13 @@ Action:
               description: The name of the workspace.
               required: true
               kind: string
+            move-pointer:
+              description: |
+               Whether to move the pointer to the workspace.
+               
+               If this is omitted, the pointer is not moved.
+              required: false
+              kind: bool
         move-to-workspace:
           description: |
             Moves the currently focused window to a workspace.

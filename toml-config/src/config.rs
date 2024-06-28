@@ -107,6 +107,7 @@ pub enum Action {
     },
     ShowWorkspace {
         name: String,
+        move_pointer: bool,
     },
     SimpleCommand {
         cmd: SimpleCommand,

@@ -106,9 +106,9 @@ impl Action {
             }
             Action::Exec { exec } => B::new(move || create_command(&exec).spawn()),
             Action::SwitchToVt { num } => B::new(move || switch_to_vt(num)),
-            Action::ShowWorkspace { name } => {
+            Action::ShowWorkspace { name, move_pointer } => {
                 let workspace = get_workspace(&name);
-                B::new(move || s.show_workspace(workspace))
+                B::new(move || s.show_workspace(workspace, move_pointer))
             }
             Action::MoveToWorkspace { name } => {
                 let workspace = get_workspace(&name);

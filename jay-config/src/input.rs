@@ -356,8 +356,8 @@ impl Seat {
     ///
     /// If the workspace doesn't currently exist, it is created on the output that contains the
     /// seat's cursor.
-    pub fn show_workspace(self, workspace: Workspace) {
-        get!().show_workspace(self, workspace)
+    pub fn show_workspace(self, workspace: Workspace, move_pointer: bool) {
+        get!().show_workspace(self, workspace, move_pointer)
     }
 
     /// Moves the currently focused window to the workspace.

@@ -256,6 +256,7 @@ pub enum ClientMessage<'a> {
     ShowWorkspace {
         seat: Seat,
         workspace: Workspace,
+        move_pointer: bool,
     },
     SetWorkspace {
         seat: Seat,
