@@ -429,8 +429,12 @@ impl Client {
         capture
     }
 
-    pub fn show_workspace(&self, seat: Seat, workspace: Workspace) {
-        self.send(&ClientMessage::ShowWorkspace { seat, workspace });
+    pub fn show_workspace(&self, seat: Seat, workspace: Workspace, move_pointer: bool) {
+        self.send(&ClientMessage::ShowWorkspace {
+            seat,
+            workspace,
+            move_pointer,
+        });
     }
 
     pub fn set_workspace(&self, seat: Seat, workspace: Workspace) {
@@ -445,6 +449,10 @@ impl Client {
 
     pub fn disable_pointer_constraint(&self, seat: Seat) {
         self.send(&ClientMessage::DisablePointerConstraint { seat });
+    }
+
+    pub fn center_pointer_on_focused(&self, seat: Seat) {
+        self.send(&ClientMessage::CenterPointerOnFocused { seat });
     }
 
     pub fn move_to_output(&self, workspace: WorkspaceSource, connector: Connector) {

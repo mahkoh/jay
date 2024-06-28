@@ -784,10 +784,15 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_show_workspace(&self, seat: Seat, ws: Workspace) -> Result<(), CphError> {
+    fn handle_show_workspace(
+        &self,
+        seat: Seat,
+        ws: Workspace,
+        move_pointer: bool,
+    ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let name = self.get_workspace(ws)?;
-        self.state.show_workspace(&seat, &name);
+        self.state.show_workspace(&seat, &name, move_pointer);
         Ok(())
     }
 
@@ -990,6 +995,12 @@ impl ConfigProxyHandler {
     fn handle_disable_pointer_constraint(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.disable_pointer_constraint();
+        Ok(())
+    }
+
+    fn handle_center_pointer_on_focused(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.center_pointer_on_focused();
         Ok(())
     }
 
@@ -1592,8 +1603,12 @@ impl ConfigProxyHandler {
                 self.handle_get_device_name(device).wrn("get_device_name")?
             }
             ClientMessage::GetWorkspace { name } => self.handle_get_workspace(name),
-            ClientMessage::ShowWorkspace { seat, workspace } => self
-                .handle_show_workspace(seat, workspace)
+            ClientMessage::ShowWorkspace {
+                seat,
+                workspace,
+                move_pointer,
+            } => self
+                .handle_show_workspace(seat, workspace, move_pointer)
                 .wrn("show_workspace")?,
             ClientMessage::SetWorkspace { seat, workspace } => self
                 .handle_set_workspace(seat, workspace)
@@ -1695,6 +1710,9 @@ impl ConfigProxyHandler {
             ClientMessage::DisablePointerConstraint { seat } => self
                 .handle_disable_pointer_constraint(seat)
                 .wrn("disable_pointer_constraint")?,
+            ClientMessage::CenterPointerOnFocused { seat } => self
+                .handle_center_pointer_on_focused(seat)
+                .wrn("center_pointer_on_focused")?,
             ClientMessage::MakeRenderDevice { device } => self
                 .handle_make_render_device(device)
                 .wrn("make_render_device")?,

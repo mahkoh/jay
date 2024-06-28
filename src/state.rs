@@ -634,12 +634,18 @@ impl State {
         }
     }
 
-    pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str) {
+    pub fn show_workspace(&self, seat: &Rc<WlSeatGlobal>, name: &str, move_pointer: bool) {
         let (output, ws) = match self.workspaces.get(name) {
             Some(ws) => {
                 let output = ws.output.get();
                 let did_change = output.show_workspace(&ws);
                 ws.clone().node_do_focus(seat, Direction::Unspecified);
+                if move_pointer {
+                    let pc = seat.pointer_cursor();
+                    pc.activate();
+                    let (x, y) = ws.node_absolute_position().center();
+                    pc.set_position(Fixed::from_int(x), Fixed::from_int(y));
+                }
                 if !did_change {
                     return;
                 }

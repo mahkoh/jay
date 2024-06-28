@@ -38,6 +38,7 @@ use {
 pub enum SimpleCommand {
     Close,
     DisablePointerConstraint,
+    CenterPointerOnFocused,
     Focus(Direction),
     FocusParent,
     Move(Direction),
@@ -106,6 +107,7 @@ pub enum Action {
     },
     ShowWorkspace {
         name: String,
+        move_pointer: bool,
     },
     SimpleCommand {
         cmd: SimpleCommand,

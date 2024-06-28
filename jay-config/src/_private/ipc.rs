@@ -256,6 +256,7 @@ pub enum ClientMessage<'a> {
     ShowWorkspace {
         seat: Seat,
         workspace: Workspace,
+        move_pointer: bool,
     },
     SetWorkspace {
         seat: Seat,
@@ -339,6 +340,9 @@ pub enum ClientMessage<'a> {
         use_hardware_cursor: bool,
     },
     DisablePointerConstraint {
+        seat: Seat,
+    },
+    CenterPointerOnFocused {
         seat: Seat,
     },
     ConnectorSetEnabled {
