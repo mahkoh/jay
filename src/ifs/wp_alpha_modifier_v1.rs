@@ -61,7 +61,7 @@ impl WpAlphaModifierV1RequestHandler for WpAlphaModifierV1 {
             &surface,
             self.version,
         ));
-        track!(self.client, surface);
+        track!(self.client, modifier);
         self.client.add_client_obj(&modifier)?;
         modifier.install()?;
         Ok(())

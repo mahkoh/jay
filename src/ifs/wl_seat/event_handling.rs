@@ -149,10 +149,6 @@ impl NodeSeatState {
         self.kb_foci.iter().for_each(|(_, s)| f(s));
     }
 
-    pub fn for_each_pointer_focus<F: FnMut(Rc<WlSeatGlobal>)>(&self, mut f: F) {
-        self.pointer_foci.iter().for_each(|(_, s)| f(s));
-    }
-
     pub fn destroy_node(&self, node: &dyn Node) {
         self.destroy_node2(node, true);
     }
@@ -173,11 +169,11 @@ impl NodeSeatState {
         while let Some((_, seat)) = self.pointer_foci.pop() {
             let mut ps = seat.pointer_stack.borrow_mut();
             while let Some(last) = ps.pop() {
+                last.node_on_leave(&seat);
                 if last.node_id() == node_id {
                     break;
                 }
                 last.node_seat_state().leave(&seat);
-                last.node_on_leave(&seat);
             }
             seat.pointer_stack_modified.set(true);
             seat.state.tree_changed();

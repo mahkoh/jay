@@ -114,7 +114,7 @@ impl TestTransport {
     pub fn sync(self: &Rc<Self>) -> impl Future<Output = ()> {
         let cb = Rc::new(TestCallback {
             id: self.id(),
-            tran: self.clone(),
+            _tran: self.clone(),
             handler: Cell::new(None),
             done: Cell::new(self.killed.get()),
         });

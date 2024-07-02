@@ -79,6 +79,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             tracker: Default::default(),
             version: self.version,
         });
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         seat.swipe_bindings.add(&self.client, &obj);
         Ok(())
@@ -93,6 +94,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             tracker: Default::default(),
             version: self.version,
         });
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         seat.pinch_bindings.add(&self.client, &obj);
         Ok(())
@@ -112,6 +114,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             tracker: Default::default(),
             version: self.version,
         });
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         seat.hold_bindings.add(&self.client, &obj);
         Ok(())

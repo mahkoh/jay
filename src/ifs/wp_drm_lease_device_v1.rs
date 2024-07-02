@@ -123,6 +123,7 @@ impl WpDrmLeaseDeviceV1 {
             connector_id: output.connector.connector.id(),
             bindings: output.lease_connectors.clone(),
         });
+        track!(self.client, obj);
         self.client.add_server_obj(&obj);
         self.send_connector(&obj);
         obj.send_name(&output.connector.name);
@@ -172,6 +173,7 @@ impl WpDrmLeaseDeviceV1RequestHandler for WpDrmLeaseDeviceV1 {
             device: self.device,
             connectors: Default::default(),
         });
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         Ok(())
     }

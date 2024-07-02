@@ -37,7 +37,7 @@ impl Region {
         if rects.len() == 1 {
             return Self::new(rects[0]);
         }
-        let rects = rects_to_bands(unsafe { mem::transmute(rects) });
+        let rects = rects_to_bands(unsafe { mem::transmute::<&[Rect], &[RectRaw]>(rects) });
         Rc::new(Self {
             extents: Rect {
                 raw: extents(&rects),

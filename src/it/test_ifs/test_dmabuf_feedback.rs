@@ -34,9 +34,9 @@ pub struct PendingFeedback {
 }
 
 pub struct Feedback {
-    pub format_table: Rc<OwnedFd>,
-    pub format_table_size: usize,
-    pub main_device: c::dev_t,
+    pub _format_table: Rc<OwnedFd>,
+    pub _format_table_size: usize,
+    pub _main_device: c::dev_t,
     pub tranches: Vec<Tranche>,
 }
 
@@ -69,12 +69,12 @@ impl TestDmabufFeedback {
         let _ev = Done::parse_full(parser)?;
         let mut pending = mem::take(self.pending_feedback.borrow_mut().deref_mut());
         self.feedback.push(Feedback {
-            format_table: match pending.format_table.take() {
+            _format_table: match pending.format_table.take() {
                 None => bail!("compositor did not send format table"),
                 Some(ft) => ft,
             },
-            format_table_size: pending.format_table_size,
-            main_device: pending.main_device,
+            _format_table_size: pending.format_table_size,
+            _main_device: pending.main_device,
             tranches: pending.tranches,
         });
         Ok(())

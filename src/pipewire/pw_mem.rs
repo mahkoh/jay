@@ -23,14 +23,14 @@ pub enum PwMemType {
 }
 
 pub struct PwMem {
-    pub ty: PwMemType,
+    pub _ty: PwMemType,
     pub read: bool,
     pub write: bool,
     pub fd: Rc<OwnedFd>,
 }
 
 pub struct PwMemMap {
-    pub mem: Rc<PwMem>,
+    pub _mem: Rc<PwMem>,
     pub range: Range<usize>,
     pub map: Mmapped,
 }
@@ -77,7 +77,7 @@ impl PwMem {
             Err(e) => return Err(PwMemError::MmapFailed(e)),
         };
         Ok(Rc::new(PwMemMap {
-            mem: self.clone(),
+            _mem: self.clone(),
             range,
             map,
         }))

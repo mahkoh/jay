@@ -48,7 +48,7 @@ impl TestXdgWmBase {
         let xdg = Rc::new(TestXdgSurface {
             id,
             tran: self.tran.clone(),
-            server,
+            _server: server,
             destroyed: Cell::new(false),
             last_serial: Cell::new(0),
         });

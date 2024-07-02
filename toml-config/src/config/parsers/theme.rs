@@ -88,7 +88,7 @@ impl Parser for ThemeParser<'_> {
             ($e:expr) => {
                 match $e {
                     None => None,
-                    Some(v) => match v.parse(&mut ColorParser(self.0)) {
+                    Some(v) => match v.parse(&mut ColorParser) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             log::warn!("Could not parse a color: {}", self.0.error(e));

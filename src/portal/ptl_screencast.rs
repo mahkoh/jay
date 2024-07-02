@@ -101,7 +101,7 @@ pub struct SelectingWorkspaceScreencast {
 
 pub struct StartingScreencast {
     pub session: Rc<ScreencastSession>,
-    pub request_obj: Rc<DbusObject>,
+    pub _request_obj: Rc<DbusObject>,
     pub reply: Rc<PendingReply<StartReply<'static>>>,
     pub node: Rc<PwClientNode>,
     pub dpy: Rc<PortalDisplay>,
@@ -241,7 +241,7 @@ impl SelectingScreencastCore {
         ]);
         let starting = Rc::new(StartingScreencast {
             session: self.session.clone(),
-            request_obj: self.request_obj.clone(),
+            _request_obj: self.request_obj.clone(),
             reply: self.reply.clone(),
             node,
             dpy: dpy.clone(),
@@ -391,9 +391,9 @@ impl UsrJayScreencastOwner for StartedScreencast {
         let bc = PwClientNodeBufferConfig {
             num_buffers: buffers.len(),
             planes: buffer.planes.len(),
-            stride: Some(buffer.planes[0].stride),
-            size: Some(buffer.planes[0].stride * buffer.height as u32),
-            align: 16,
+            _stride: Some(buffer.planes[0].stride),
+            _size: Some(buffer.planes[0].stride * buffer.height as u32),
+            _align: 16,
             data_type: SPA_DATA_DmaBuf,
         };
         self.port.buffer_config.set(Some(bc));

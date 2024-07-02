@@ -34,7 +34,7 @@ use {
 pub struct TestGlobal {
     pub name: u32,
     pub interface: String,
-    pub version: u32,
+    pub _version: u32,
 }
 
 pub struct TestRegistrySingletons {
@@ -294,7 +294,7 @@ impl TestRegistry {
         let global = Rc::new(TestGlobal {
             name: ev.name,
             interface: ev.interface.to_string(),
-            version: ev.version,
+            _version: ev.version,
         });
         let prev = self.globals.set(ev.name, global.clone());
         let name = GlobalName::from_raw(ev.name);

@@ -14,7 +14,7 @@ use {
 pub struct TestEnterEvent {
     pub serial: u32,
     pub surface: WlSurfaceId,
-    pub keys: Vec<u32>,
+    pub _keys: Vec<u32>,
 }
 
 pub struct TestKeyboard {
@@ -49,7 +49,7 @@ impl TestKeyboard {
         self.enter.push(TestEnterEvent {
             serial: ev.serial,
             surface: ev.surface,
-            keys: ev.keys.to_vec(),
+            _keys: ev.keys.to_vec(),
         });
         Ok(())
     }

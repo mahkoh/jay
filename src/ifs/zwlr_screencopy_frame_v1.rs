@@ -24,7 +24,7 @@ pub struct ZwlrScreencopyFrameV1 {
     pub tracker: Tracker<Self>,
     pub output: Rc<OutputGlobalOpt>,
     pub rect: Rect,
-    pub overlay_cursor: bool,
+    pub _overlay_cursor: bool,
     pub used: Cell<bool>,
     pub with_damage: Cell<bool>,
     pub buffer: Cell<Option<Rc<WlBuffer>>>,

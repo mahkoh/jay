@@ -17,7 +17,7 @@ use {
 pub struct TestXdgSurface {
     pub id: XdgSurfaceId,
     pub tran: Rc<TestTransport>,
-    pub server: Rc<XdgSurface>,
+    pub _server: Rc<XdgSurface>,
     pub destroyed: Cell<bool>,
     pub last_serial: Cell<u32>,
 }

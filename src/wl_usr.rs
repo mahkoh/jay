@@ -68,7 +68,7 @@ pub enum UsrConError {
 
 pub struct UsrCon {
     pub ring: Rc<IoUring>,
-    pub wheel: Rc<Wheel>,
+    pub _wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
     pub server_id: u32,
     obj_ids: RefCell<Bitfield>,
@@ -115,7 +115,7 @@ impl UsrCon {
         obj_ids.take(1);
         let slf = Rc::new(Self {
             ring: ring.clone(),
-            wheel: wheel.clone(),
+            _wheel: wheel.clone(),
             eng: eng.clone(),
             server_id,
             obj_ids: RefCell::new(obj_ids),

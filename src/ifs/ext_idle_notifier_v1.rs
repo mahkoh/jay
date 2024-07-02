@@ -71,6 +71,7 @@ impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
             duration_usec: (req.timeout as u64).max(1000).saturating_mul(1000),
             version: self.version,
         });
+        track!(self.client, notification);
         self.client.add_client_obj(&notification)?;
         let future = self.client.state.eng.spawn(run(notification.clone()));
         notification.task.set(Some(future));

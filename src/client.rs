@@ -275,7 +275,7 @@ pub trait RequestParser<'a>: Debug + Sized {
 }
 
 pub struct PidInfo {
-    pub uid: c::uid_t,
+    pub _uid: c::uid_t,
     pub pid: c::pid_t,
     pub comm: String,
 }
@@ -525,5 +525,9 @@ fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
             "Unknown".to_string()
         }
     };
-    PidInfo { uid, pid, comm }
+    PidInfo {
+        _uid: uid,
+        pid,
+        comm,
+    }
 }

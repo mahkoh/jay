@@ -11,7 +11,7 @@ pub struct TestSubsurface {
     pub id: WlSubsurfaceId,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
-    pub server: Rc<WlSubsurface>,
+    pub _server: Rc<WlSubsurface>,
 }
 
 impl TestSubsurface {

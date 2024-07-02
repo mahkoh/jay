@@ -1,7 +1,6 @@
 use {
     crate::{
         config::{
-            context::Context,
             extractor::ExtractorError,
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
@@ -12,7 +11,7 @@ use {
     thiserror::Error,
 };
 
-pub struct ColorParser<'a>(pub &'a Context<'a>);
+pub struct ColorParser;
 
 #[derive(Debug, Error)]
 pub enum ColorParserError {
@@ -28,7 +27,7 @@ pub enum ColorParserError {
     ParseIntError(#[from] ParseIntError),
 }
 
-impl Parser for ColorParser<'_> {
+impl Parser for ColorParser {
     type Value = Color;
     type Error = ColorParserError;
     const EXPECTED: &'static [DataType] = &[DataType::String];

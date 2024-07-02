@@ -22,7 +22,7 @@ struct clone_args {
 
 pub enum Forked {
     Parent { pid: c::pid_t, pidfd: OwnedFd },
-    Child { pidfd: Option<OwnedFd> },
+    Child { _pidfd: Option<OwnedFd> },
 }
 
 pub fn fork_with_pidfd(pidfd_for_child: bool) -> Result<Forked, ForkerError> {
@@ -47,7 +47,9 @@ pub fn fork_with_pidfd(pidfd_for_child: bool) -> Result<Forked, ForkerError> {
             return Err(ForkerError::Fork(e.into()));
         }
         let res = if pid == 0 {
-            Forked::Child { pidfd: child_pidfd }
+            Forked::Child {
+                _pidfd: child_pidfd,
+            }
         } else {
             Forked::Parent {
                 pid: pid as _,

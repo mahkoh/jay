@@ -14,7 +14,7 @@ use {
 pub struct TestVirtualKeyboardManager {
     pub id: ZwpVirtualKeyboardManagerV1Id,
     pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub _destroyed: Cell<bool>,
 }
 
 impl TestVirtualKeyboardManager {
@@ -22,7 +22,7 @@ impl TestVirtualKeyboardManager {
         Self {
             id: tran.id(),
             tran: tran.clone(),
-            destroyed: Cell::new(false),
+            _destroyed: Cell::new(false),
         }
     }
 
