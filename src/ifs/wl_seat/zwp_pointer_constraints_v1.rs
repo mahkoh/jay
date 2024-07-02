@@ -226,6 +226,7 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
             constraint,
             version: self.version,
         });
+        track!(self.client, lp);
         self.client.add_client_obj(&lp)?;
         lp.constraint.owner.set(Some(lp.clone()));
         lp.constraint
@@ -250,6 +251,7 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
             constraint,
             version: self.version,
         });
+        track!(self.client, lp);
         self.client.add_client_obj(&lp)?;
         lp.constraint.owner.set(Some(lp.clone()));
         lp.constraint
