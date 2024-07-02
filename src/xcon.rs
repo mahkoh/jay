@@ -157,7 +157,7 @@ pub struct Xcon {
     data: Rc<XconData>,
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
-    setup: Reply<Setup<'static>>,
+    root_window: u32,
     extensions: Rc<ExtensionData>,
 
     xid_next: Cell<u32>,
@@ -371,8 +371,8 @@ impl<T: Message<'static>> Future for AsyncReply<T> {
 }
 
 impl Xcon {
-    pub fn setup(&self) -> &Setup {
-        self.setup.get()
+    pub fn root_window(&self) -> u32 {
+        self.root_window
     }
 
     pub async fn event(&self) -> Event {
@@ -510,11 +510,7 @@ impl Xcon {
             xid_next: Cell::new(setup.resource_id_base),
             xid_inc: 1 << setup.resource_id_mask.trailing_zeros(),
             xid_max: setup.resource_id_mask | setup.resource_id_base,
-            setup: Reply {
-                socket: data.clone(),
-                t: unsafe { mem::transmute(setup) },
-                buf,
-            },
+            root_window: setup.screens[0].root,
             data,
         });
         slf.data.xorg.set(Rc::downgrade(&slf));
@@ -665,7 +661,7 @@ impl Xcon {
         let create_pixmap = self.call(&CreatePixmap {
             depth: 32,
             pid: pixmap,
-            drawable: self.setup.get().screens[0].root,
+            drawable: self.root_window,
             width: width as _,
             height: height as _,
         });

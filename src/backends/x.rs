@@ -161,7 +161,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
     {
         return Err(XBackendError::EnableXkb(e));
     }
-    let root = c.setup().screens[0].root;
+    let root = c.root_window();
     let drm = {
         let res = c
             .call(&Dri3Open {
@@ -215,7 +215,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
     };
     {
         let se = XiSelectEvents {
-            window: c.setup().screens[0].root,
+            window: c.root_window(),
             masks: Cow::Borrowed(&[XiEventMask {
                 deviceid: INPUT_DEVICE_ALL,
                 mask: &[XI_EVENT_MASK_HIERARCHY],
