@@ -26,7 +26,7 @@ pw_opcodes! {
 
 pub struct PwClient {
     pub data: PwObjectData,
-    pub con: Rc<PwCon>,
+    pub _con: Rc<PwCon>,
 }
 
 impl PwClient {

@@ -144,7 +144,7 @@ impl PwCore {
         self.con.mem.mems.set(
             id,
             Rc::new(PwMem {
-                ty,
+                _ty: ty,
                 read,
                 write,
                 fd,

@@ -13,7 +13,7 @@ use {
 pub struct WpPresentationFeedback {
     pub id: WpPresentationFeedbackId,
     pub client: Rc<Client>,
-    pub surface: Rc<WlSurface>,
+    pub _surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
     pub version: Version,
 }

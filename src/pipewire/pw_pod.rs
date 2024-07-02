@@ -1124,15 +1124,15 @@ pub struct PwPodSequence<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct PwPodControl<'a> {
-    pub offset: u32,
-    pub ty: PwControlType,
-    pub value: PwPod<'a>,
+    pub _offset: u32,
+    pub _ty: PwControlType,
+    pub _value: PwPod<'a>,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct PwPodPointer {
-    pub ty: PwPointerType,
-    pub value: usize,
+    pub _ty: PwPointerType,
+    pub _value: usize,
 }
 
 #[derive(Copy, Clone, Debug)]

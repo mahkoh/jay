@@ -255,7 +255,7 @@ impl IdleState {
 }
 
 pub struct InputDeviceData {
-    pub handler: SpawnedFuture<()>,
+    pub _handler: SpawnedFuture<()>,
     pub id: InputDeviceId,
     pub data: Rc<DeviceHandlerData>,
     pub async_event: Rc<AsyncEvent>,

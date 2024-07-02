@@ -680,7 +680,7 @@ impl Xcon {
             dst_y: 0,
             left_pad: 0,
             depth: 32,
-            data: unsafe { mem::transmute(pixels) },
+            data: unsafe { mem::transmute::<&[Cell<u8>], &[u8]>(pixels) },
         });
         self.call(&FreeGC { gc });
         let create_picture = self.call(&RenderCreatePicture {

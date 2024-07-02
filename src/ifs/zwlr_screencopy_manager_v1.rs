@@ -125,7 +125,7 @@ impl ZwlrScreencopyManagerV1 {
             tracker: Default::default(),
             output: output.global.clone(),
             rect,
-            overlay_cursor,
+            _overlay_cursor: overlay_cursor,
             used: Cell::new(false),
             with_damage: Cell::new(false),
             buffer: Cell::new(None),

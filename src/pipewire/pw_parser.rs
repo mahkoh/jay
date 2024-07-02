@@ -261,8 +261,8 @@ impl<'a> PwParser<'a> {
                 controls: PwParser::new(&self.data[self.pos + 8..self.pos + len], self.fds),
             }),
             PW_TYPE_Pointer => PwPod::Pointer(PwPodPointer {
-                ty: PwPointerType(self.read_raw(0)?),
-                value: self.read_raw(8)?,
+                _ty: PwPointerType(self.read_raw(0)?),
+                _value: self.read_raw(8)?,
             }),
             PW_TYPE_Fd => PwPod::Fd(self.read_raw(0)?),
             PW_TYPE_Choice => PwPod::Choice(PwPodChoice {
@@ -298,9 +298,9 @@ impl<'a> PwParser<'a> {
         let ty = PwControlType(self.read_raw(4)?);
         self.pos += 8;
         Ok(PwPodControl {
-            offset,
-            ty,
-            value: self.read_pod()?,
+            _offset: offset,
+            _ty: ty,
+            _value: self.read_pod()?,
         })
     }
 

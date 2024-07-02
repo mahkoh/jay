@@ -109,7 +109,7 @@ pub struct PwClientNodePort {
     pub direction: SpaDirection,
     pub id: u32,
 
-    pub destroyed: Cell<bool>,
+    pub _destroyed: Cell<bool>,
 
     pub effective_format: Cell<PwClientNodePortFormat>,
     pub supported_formats: RefCell<Option<PwClientNodePortSupportedFormats>>,
@@ -129,18 +129,18 @@ pub struct PwClientNodePort {
 pub struct PwClientNodeBufferConfig {
     pub num_buffers: usize,
     pub planes: usize,
-    pub size: Option<u32>,
-    pub stride: Option<u32>,
-    pub align: usize,
+    pub _size: Option<u32>,
+    pub _stride: Option<u32>,
+    pub _align: usize,
     pub data_type: SpaDataType,
 }
 
 pub struct PwClientNodeBuffer {
-    pub meta_header: Option<Rc<PwMemTyped<spa_meta_header>>>,
-    pub meta_busy: Option<Rc<PwMemTyped<spa_meta_busy>>>,
+    pub _meta_header: Option<Rc<PwMemTyped<spa_meta_header>>>,
+    pub _meta_busy: Option<Rc<PwMemTyped<spa_meta_busy>>>,
     pub meta_video_crop: Option<Rc<PwMemTyped<spa_meta_region>>>,
     pub chunks: Vec<Rc<PwMemTyped<spa_chunk>>>,
-    pub slices: Vec<Rc<PwMemSlice>>,
+    pub _slices: Vec<Rc<PwMemSlice>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -181,8 +181,8 @@ pub struct PwClientNode {
 }
 
 pub struct PwNodeActivation {
-    pub activation: Rc<PwMemTyped<pw_node_activation>>,
-    pub fd: Rc<OwnedFd>,
+    pub _activation: Rc<PwMemTyped<pw_node_activation>>,
+    pub _fd: Rc<OwnedFd>,
 }
 
 // pub struct PwNodeBuffer {
@@ -250,7 +250,7 @@ impl PwClientNode {
             node: self.clone(),
             direction,
             id: ids.borrow_mut().acquire(),
-            destroyed: Cell::new(false),
+            _destroyed: Cell::new(false),
             effective_format: Cell::new(Default::default()),
             supported_formats: RefCell::new(None),
             supported_metas: Cell::new(PwClientNodePortSupportedMetas::none()),
@@ -676,11 +676,11 @@ impl PwClientNode {
             }
 
             res.push(Rc::new(PwClientNodeBuffer {
-                meta_header,
-                meta_busy,
+                _meta_header: meta_header,
+                _meta_busy: meta_busy,
                 meta_video_crop,
                 chunks,
-                slices,
+                _slices: slices,
             }));
         }
 
@@ -765,8 +765,8 @@ impl PwClientNode {
             self.activations.set(
                 node,
                 Rc::new(PwNodeActivation {
-                    activation: typed,
-                    fd: signalfd,
+                    _activation: typed,
+                    _fd: signalfd,
                 }),
             );
         } else {

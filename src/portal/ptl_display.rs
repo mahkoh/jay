@@ -181,7 +181,10 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
                         return;
                     }
                 };
-            let ctx = Rc::new(PortalRenderCtx { dev_id, ctx });
+            let ctx = Rc::new(PortalRenderCtx {
+                _dev_id: dev_id,
+                ctx,
+            });
             self.render_ctx.set(Some(ctx.clone()));
             self.state.render_ctxs.set(dev_id, Rc::downgrade(&ctx));
         }
