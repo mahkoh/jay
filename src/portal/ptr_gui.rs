@@ -846,7 +846,7 @@ pub struct GuiBuffer {
     pub fb: Rc<dyn GfxFramebuffer>,
     pub _bo: Option<GbmBo>,
     pub free: Cell<bool>,
-    pub size: (i32, i32),
+    pub _size: (i32, i32),
 }
 
 struct GuiBufferPending {
@@ -897,7 +897,7 @@ impl UsrLinuxBufferParamsOwner for GuiBufferPending {
             fb: self.fb.clone(),
             _bo: self.bo.take(),
             free: Cell::new(true),
-            size: self.size,
+            _size: self.size,
         });
         buf.wl.owner.set(Some(buf.clone()));
         self.window.bufs.borrow_mut().push(buf);

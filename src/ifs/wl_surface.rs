@@ -1261,13 +1261,6 @@ impl WlSurface {
         }
     }
 
-    fn send_seat_release_events(&self) {
-        self.seat_state
-            .for_each_pointer_focus(|s| s.leave_surface(self));
-        self.seat_state
-            .for_each_kb_focus(|s| s.unfocus_surface(self));
-    }
-
     pub fn set_visible(&self, visible: bool) {
         if self.visible.replace(visible) == visible {
             return;
@@ -1286,9 +1279,6 @@ impl WlSurface {
                     child.surface.set_visible(visible);
                 }
             }
-        }
-        if !visible {
-            self.send_seat_release_events();
         }
         self.seat_state.set_visible(self, visible);
     }
@@ -1318,7 +1308,6 @@ impl WlSurface {
                 data.focus_node.remove(&seat);
             }
         }
-        self.send_seat_release_events();
         self.seat_state.destroy_node(self);
         if self.visible.get() {
             self.client.state.damage();

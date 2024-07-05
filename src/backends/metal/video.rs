@@ -84,10 +84,10 @@ pub struct MetalDrmDevice {
     pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
     pub encoders: AHashMap<DrmEncoder, Rc<MetalEncoder>>,
     pub planes: AHashMap<DrmPlane, Rc<MetalPlane>>,
-    pub min_width: u32,
-    pub max_width: u32,
-    pub min_height: u32,
-    pub max_height: u32,
+    pub _min_width: u32,
+    pub _max_width: u32,
+    pub _min_height: u32,
+    pub _max_height: u32,
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub gbm: GbmDevice,
@@ -308,7 +308,7 @@ pub struct ConnectorDisplayData {
     pub connection: ConnectorStatus,
     pub mm_width: u32,
     pub mm_height: u32,
-    pub subpixel: u32,
+    pub _subpixel: u32,
 
     pub connector_type: ConnectorType,
     pub connector_type_id: u32,
@@ -535,7 +535,7 @@ impl HardwareCursor for MetalHardwareCursor {
 }
 
 pub struct ConnectorFutures {
-    pub present: SpawnedFuture<()>,
+    pub _present: SpawnedFuture<()>,
 }
 
 impl Debug for ConnectorFutures {
@@ -1272,7 +1272,7 @@ impl Connector for MetalConnector {
 pub struct MetalCrtc {
     pub id: DrmCrtc,
     pub idx: usize,
-    pub master: Rc<DrmMaster>,
+    pub _master: Rc<DrmMaster>,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -1314,7 +1314,7 @@ pub struct PlaneFormat {
 
 pub struct MetalPlane {
     pub id: DrmPlane,
-    pub master: Rc<DrmMaster>,
+    pub _master: Rc<DrmMaster>,
 
     pub ty: PlaneType,
 
@@ -1417,7 +1417,7 @@ fn create_connector(
         next_flip_nsec: Cell::new(0),
     });
     let futures = ConnectorFutures {
-        present: backend
+        _present: backend
             .state
             .eng
             .spawn2(Phase::Present, slf.clone().present_loop()),
@@ -1530,7 +1530,7 @@ fn create_connector_display_data(
         connection,
         mm_width: info.mm_width,
         mm_height: info.mm_height,
-        subpixel: info.subpixel,
+        _subpixel: info.subpixel,
         connector_type,
         connector_type_id: info.connector_type_id,
     })
@@ -1571,7 +1571,7 @@ fn create_crtc(
     Ok(MetalCrtc {
         id: crtc,
         idx,
-        master: master.clone(),
+        _master: master.clone(),
         lease: Cell::new(None),
         possible_planes,
         connector: Default::default(),
@@ -1639,7 +1639,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
     };
     Ok(MetalPlane {
         id: plane,
-        master: master.clone(),
+        _master: master.clone(),
         ty,
         possible_crtcs: info.possible_crtcs,
         formats,
@@ -2025,10 +2025,10 @@ impl MetalBackend {
             crtcs,
             encoders,
             planes,
-            min_width: resources.min_width,
-            max_width: resources.max_width,
-            min_height: resources.min_height,
-            max_height: resources.max_height,
+            _min_width: resources.min_width,
+            _max_width: resources.max_width,
+            _min_height: resources.min_height,
+            _max_height: resources.max_height,
             cursor_width,
             cursor_height,
             gbm,

@@ -30,6 +30,7 @@ pub enum DigitalVideoInterfaceStandard {
     HdmiB,
     MDDI,
     DisplayPort,
+    #[allow(dead_code)]
     Unknown(u8),
 }
 
@@ -49,6 +50,7 @@ impl Debug for SignalLevelStandard {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub enum VideoInputDefinition {
     Analog {
         signal_level_standard: SignalLevelStandard,
@@ -73,6 +75,7 @@ pub struct ScreenDimensions {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ChromaticityCoordinates {
     pub red_x: u16,
     pub red_y: u16,
@@ -85,6 +88,7 @@ pub struct ChromaticityCoordinates {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct EstablishedTimings {
     pub s_720x400_70: bool,
     pub s_720x400_88: bool,
@@ -115,6 +119,7 @@ pub enum AspectRatio {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct StandardTiming {
     pub x_resolution: u16,
     pub aspect_ratio: AspectRatio,
@@ -128,6 +133,7 @@ pub enum AnalogSyncType {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub enum SyncSignal {
     Analog {
         ty: AnalogSyncType,
@@ -179,6 +185,7 @@ impl Debug for StereoViewingSupport {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct DisplayRangeLimitsAndAdditionalTiming {
     pub vertical_field_rate_min: u16,
     pub vertical_field_rate_max: u16,
@@ -195,10 +202,12 @@ pub enum AspectRatioPreference {
     A16_10,
     A5_4,
     A15_9,
+    #[allow(dead_code)]
     Unknown(u8),
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub enum ExtendedTimingInformation {
     DefaultGtf,
     NoTimingInformation,
@@ -232,6 +241,7 @@ pub enum ExtendedTimingInformation {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub struct ColorPoint {
     pub white_point_index: u8,
     pub white_point_x: u16,
@@ -240,6 +250,7 @@ pub struct ColorPoint {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct EstablishedTimings3 {
     pub s640x350_85: bool,
     pub s640x400_85: bool,
@@ -288,6 +299,7 @@ pub struct EstablishedTimings3 {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct ColorManagementData {
     pub red_a3: u16,
     pub red_a2: u16,
@@ -314,6 +326,7 @@ pub enum CvtPreferredVerticalRate {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct Cvt3ByteCode {
     pub addressable_lines_per_field: u16,
     pub aspect_ration: CvtAspectRatio,
@@ -326,6 +339,7 @@ pub struct Cvt3ByteCode {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub struct DetailedTimingDescriptor {
     pub pixel_clock_khz: u32,
     pub horizontal_addressable_pixels: u16,
@@ -346,6 +360,7 @@ pub struct DetailedTimingDescriptor {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum Descriptor {
     Unknown(u8),
     DetailedTimingDescriptor(DetailedTimingDescriptor),
@@ -379,6 +394,7 @@ macro_rules! bail {
 
 #[derive(Clone, Debug)]
 pub enum EdidParseContext {
+    #[allow(dead_code)]
     ReadingBytes(usize),
     BaseBlock,
     Descriptors,
@@ -1015,6 +1031,7 @@ pub enum DisplayColorType {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum FeatureSupport2 {
     Analog {
         display_color_type: DisplayColorType,
@@ -1027,6 +1044,7 @@ pub enum FeatureSupport2 {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct FeatureSupport {
     pub standby_supported: bool,
     pub suspend_supported: bool,
@@ -1038,6 +1056,7 @@ pub struct FeatureSupport {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EdidBaseBlock {
     pub id_manufacturer_name: BString,
     pub id_product_code: u16,
@@ -1064,6 +1083,7 @@ pub enum EdidExtension {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct EdidFile {
     pub base_block: EdidBaseBlock,
     pub extension_blocks: Vec<EdidExtension>,

@@ -304,7 +304,7 @@ impl Wm {
             nf.insert(atoms._NET_WM_WINDOW_TYPE_UTILITY);
             nf
         };
-        let root = c.setup().screens[0].root;
+        let root = c.root_window();
         {
             let events = 0
                 | EVENT_MASK_SUBSTRUCTURE_NOTIFY

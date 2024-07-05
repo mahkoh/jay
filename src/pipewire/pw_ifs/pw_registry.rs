@@ -19,7 +19,7 @@ pw_opcodes! {
 
 pub struct PwRegistry {
     pub data: PwObjectData,
-    pub con: Rc<PwCon>,
+    pub _con: Rc<PwCon>,
 }
 
 impl PwRegistry {

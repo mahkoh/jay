@@ -62,13 +62,6 @@ dynload! {
             renderbuffertarget: GLenum,
             renderbuffer: GLuint,
         ),
-        glFramebufferTexture2D: unsafe fn(
-            target: GLenum,
-            attachment: GLenum,
-            textarget: GLenum,
-            texture: GLenum,
-            level: GLint,
-        ),
         glCheckFramebufferStatus: unsafe fn(target: GLenum) -> GLenum,
         glClear: unsafe fn(mask: GLbitfield),
         glBlendFunc: unsafe fn(sfactor: GLenum, dfactor: GLenum),

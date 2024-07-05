@@ -12,7 +12,7 @@ use {
 
 pub struct TestCallback {
     pub id: WlCallbackId,
-    pub tran: Rc<TestTransport>,
+    pub _tran: Rc<TestTransport>,
     pub handler: Cell<Option<Box<dyn FnOnce()>>>,
     pub done: Cell<bool>,
 }

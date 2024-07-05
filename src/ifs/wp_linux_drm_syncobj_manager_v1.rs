@@ -99,6 +99,7 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
             &sync_obj,
             self.version,
         ));
+        track!(self.client, sync);
         self.client.add_client_obj(&sync)?;
         Ok(())
     }

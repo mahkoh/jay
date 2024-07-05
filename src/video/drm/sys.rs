@@ -277,13 +277,13 @@ pub fn mode_getproperty(
             get(&mut prop)?;
             if ty == DRM_MODE_PROP_RANGE {
                 DrmPropertyType::Range {
-                    min: vals[0],
-                    max: vals[1],
+                    _min: vals[0],
+                    _max: vals[1],
                 }
             } else {
                 DrmPropertyType::SignedRange {
-                    min: vals[0] as _,
-                    max: vals[1] as _,
+                    _min: vals[0] as _,
+                    _max: vals[1] as _,
                 }
             }
         }
@@ -305,7 +305,7 @@ pub fn mode_getproperty(
             }
             DrmPropertyType::Enum {
                 values,
-                bitmask: ty == DRM_MODE_PROP_BITMASK,
+                _bitmask: ty == DRM_MODE_PROP_BITMASK,
             }
         }
         DRM_MODE_PROP_BLOB => DrmPropertyType::Blob,
@@ -316,7 +316,7 @@ pub fn mode_getproperty(
             let mut ty = 0u64;
             prop.values_ptr = &mut ty as *mut _ as u64;
             get(&mut prop)?;
-            DrmPropertyType::Object { ty: ty as _ }
+            DrmPropertyType::Object { _ty: ty as _ }
         }
         _ => return Err(DrmError::UnknownPropertyType(ty)),
     };
@@ -324,8 +324,8 @@ pub fn mode_getproperty(
     Ok(DrmPropertyDefinition {
         id: property_id,
         name: prop.name.split(|n| *n == 0).next().unwrap().to_vec().into(),
-        immutable: prop.flags.contains(DRM_MODE_PROP_IMMUTABLE),
-        atomic: prop.flags.contains(DRM_MODE_PROP_ATOMIC),
+        _immutable: prop.flags.contains(DRM_MODE_PROP_IMMUTABLE),
+        _atomic: prop.flags.contains(DRM_MODE_PROP_ATOMIC),
         ty,
     })
 }
@@ -549,7 +549,7 @@ pub fn mode_get_resources(fd: c::c_int) -> Result<DrmCardResources, DrmError> {
         max_width: res.max_width,
         min_height: res.min_height,
         max_height: res.max_height,
-        fbs,
+        _fbs: fbs,
         crtcs,
         connectors,
         encoders,
@@ -647,11 +647,11 @@ pub fn mode_getplane(fd: c::c_int, plane_id: u32) -> Result<DrmPlaneInfo, DrmErr
     }
 
     Ok(DrmPlaneInfo {
-        plane_id: DrmPlane(plane_id),
-        crtc_id: DrmCrtc(res.crtc_id),
-        fb_id: DrmFb(res.fb_id),
+        _plane_id: DrmPlane(plane_id),
+        _crtc_id: DrmCrtc(res.crtc_id),
+        _fb_id: DrmFb(res.fb_id),
         possible_crtcs: res.possible_crtcs,
-        gamma_size: res.gamma_size,
+        _gamma_size: res.gamma_size,
         format_types: formats,
     })
 }
@@ -683,11 +683,11 @@ pub fn mode_getencoder(fd: c::c_int, encoder_id: u32) -> Result<DrmEncoderInfo, 
     }
 
     Ok(DrmEncoderInfo {
-        encoder_id: DrmEncoder(encoder_id),
-        encoder_type: res.encoder_type,
-        crtc_id: DrmCrtc(res.crtc_id),
+        _encoder_id: DrmEncoder(encoder_id),
+        _encoder_type: res.encoder_type,
+        _crtc_id: DrmCrtc(res.crtc_id),
         possible_crtcs: res.possible_crtcs,
-        possible_clones: res.possible_clones,
+        _possible_clones: res.possible_clones,
     })
 }
 
@@ -831,7 +831,7 @@ pub fn mode_getconnector(
     Ok(DrmConnectorInfo {
         encoders,
         modes: modes.into_iter().map(|m| m.into()).collect(),
-        props: props
+        _props: props
             .into_iter()
             .zip(prop_values)
             .map(|(id, value)| DrmPropertyValue {
@@ -839,8 +839,8 @@ pub fn mode_getconnector(
                 value,
             })
             .collect(),
-        encoder_id: DrmEncoder(res.encoder_id),
-        connector_id: DrmConnector(res.connector_id),
+        _encoder_id: DrmEncoder(res.encoder_id),
+        _connector_id: DrmConnector(res.connector_id),
         connector_type: res.connector_type,
         connector_type_id: res.connector_type_id,
         connection: res.connection,

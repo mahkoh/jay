@@ -72,9 +72,9 @@ pub enum ToolClientError {
 }
 
 pub struct ToolClient {
-    pub logger: Arc<Logger>,
+    pub _logger: Arc<Logger>,
     pub ring: Rc<IoUring>,
-    pub wheel: Rc<Wheel>,
+    pub _wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
     obj_ids: RefCell<Bitfield>,
     handlers: RefCell<
@@ -173,9 +173,9 @@ impl ToolClient {
         obj_ids.take(0);
         obj_ids.take(1);
         let slf = Rc::new(Self {
-            logger,
+            _logger: logger,
             ring,
-            wheel,
+            _wheel: wheel,
             eng,
             obj_ids: RefCell::new(obj_ids),
             handlers: Default::default(),

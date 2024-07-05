@@ -83,7 +83,7 @@ impl WpPresentationRequestHandler for WpPresentation {
         let fb = Rc::new(WpPresentationFeedback {
             id: req.callback,
             client: self.client.clone(),
-            surface: surface.clone(),
+            _surface: surface.clone(),
             tracker: Default::default(),
             version: self.version,
         });

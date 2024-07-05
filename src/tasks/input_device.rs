@@ -38,7 +38,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
     state.input_device_handlers.borrow_mut().insert(
         dev.id(),
         InputDeviceData {
-            handler,
+            _handler: handler,
             id: dev.id(),
             data,
             async_event: ae,

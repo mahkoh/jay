@@ -46,6 +46,7 @@ impl WpDrmLeaseRequestV1RequestHandler for WpDrmLeaseRequestV1 {
             finished: Cell::new(false),
             lease: Default::default(),
         });
+        track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         if self.connectors.is_empty() {
             return Err(WpDrmLeaseRequestV1Error::EmptyLease);

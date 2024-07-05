@@ -628,28 +628,28 @@ impl NodeType {
 pub struct DrmPropertyDefinition {
     pub id: DrmProperty,
     pub name: BString,
-    pub immutable: bool,
-    pub atomic: bool,
+    pub _immutable: bool,
+    pub _atomic: bool,
     pub ty: DrmPropertyType,
 }
 
 #[derive(Debug)]
 pub enum DrmPropertyType {
     Range {
-        min: u64,
-        max: u64,
+        _min: u64,
+        _max: u64,
     },
     SignedRange {
-        min: i64,
-        max: i64,
+        _min: i64,
+        _max: i64,
     },
     Object {
-        ty: u32,
+        _ty: u32,
     },
     Blob,
     Enum {
         values: Vec<DrmPropertyEnumValue>,
-        bitmask: bool,
+        _bitmask: bool,
     },
 }
 
@@ -712,7 +712,7 @@ pub struct DrmCardResources {
     pub max_width: u32,
     pub min_height: u32,
     pub max_height: u32,
-    pub fbs: Vec<DrmFb>,
+    pub _fbs: Vec<DrmFb>,
     pub crtcs: Vec<DrmCrtc>,
     pub connectors: Vec<DrmConnector>,
     pub encoders: Vec<DrmEncoder>,
@@ -720,21 +720,21 @@ pub struct DrmCardResources {
 
 #[derive(Debug)]
 pub struct DrmPlaneInfo {
-    pub plane_id: DrmPlane,
-    pub crtc_id: DrmCrtc,
-    pub fb_id: DrmFb,
+    pub _plane_id: DrmPlane,
+    pub _crtc_id: DrmCrtc,
+    pub _fb_id: DrmFb,
     pub possible_crtcs: u32,
-    pub gamma_size: u32,
+    pub _gamma_size: u32,
     pub format_types: Vec<u32>,
 }
 
 #[derive(Debug)]
 pub struct DrmEncoderInfo {
-    pub encoder_id: DrmEncoder,
-    pub encoder_type: u32,
-    pub crtc_id: DrmCrtc,
+    pub _encoder_id: DrmEncoder,
+    pub _encoder_type: u32,
+    pub _crtc_id: DrmCrtc,
     pub possible_crtcs: u32,
-    pub possible_clones: u32,
+    pub _possible_clones: u32,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -820,10 +820,10 @@ impl DrmModeInfo {
 pub struct DrmConnectorInfo {
     pub encoders: Vec<DrmEncoder>,
     pub modes: Vec<DrmModeInfo>,
-    pub props: Vec<DrmPropertyValue>,
+    pub _props: Vec<DrmPropertyValue>,
 
-    pub encoder_id: DrmEncoder,
-    pub connector_id: DrmConnector,
+    pub _encoder_id: DrmEncoder,
+    pub _connector_id: DrmConnector,
     pub connector_type: u32,
     pub connector_type_id: u32,
 

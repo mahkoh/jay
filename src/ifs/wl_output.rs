@@ -51,7 +51,7 @@ const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {
     pub name: GlobalName,
-    pub state: Rc<State>,
+    pub _state: Rc<State>,
     pub connector: Rc<ConnectorData>,
     pub pos: Cell<Rect>,
     pub output_id: Rc<OutputId>,
@@ -127,7 +127,7 @@ impl WlOutputGlobal {
         );
         Self {
             name,
-            state: state.clone(),
+            _state: state.clone(),
             connector: connector.clone(),
             pos: Cell::new(Rect::new_sized(x, y, width, height).unwrap()),
             output_id: output_id.clone(),

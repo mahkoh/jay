@@ -222,7 +222,7 @@ impl PwCon {
     pub fn get_registry(self: &Rc<Self>) -> Rc<PwRegistry> {
         let registry = Rc::new(PwRegistry {
             data: self.proxy_data(),
-            con: self.clone(),
+            _con: self.clone(),
         });
         if !self.dead.get() {
             self.objects.set(registry.data.id, registry.clone());
@@ -340,7 +340,7 @@ impl PwConHolder {
         });
         let client = Rc::new(PwClient {
             data: data.proxy_data(),
-            con: data.clone(),
+            _con: data.clone(),
         });
         data.objects.set(0, core.clone());
         data.objects.set(1, client.clone());
