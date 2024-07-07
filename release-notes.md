@@ -1,6 +1,9 @@
 # Unreleased
 
+# 1.4.0 (2024-07-07)
+
 - Add window management mode.
+- Various bugfixes.
 
 # 1.3.0 (2024-05-25)
 
