@@ -37,7 +37,7 @@ impl VulkanRenderer {
             usage |= UsageFlags::TRANSIENT;
         }
         let buffer = {
-            let create_info = BufferCreateInfo::builder().size(size).usage(vk_usage);
+            let create_info = BufferCreateInfo::default().size(size).usage(vk_usage);
             let buffer = unsafe { self.device.device.create_buffer(&create_info, None) };
             buffer.map_err(VulkanError::CreateBuffer)?
         };
@@ -86,11 +86,10 @@ impl VulkanStagingBuffer {
 
     fn range(&self) -> MappedMemoryRange {
         let atom_mask = self.allocation.allocator.non_coherent_atom_mask;
-        MappedMemoryRange::builder()
+        MappedMemoryRange::default()
             .memory(self.allocation.memory)
             .offset(self.allocation.offset & !atom_mask)
             .size((self.allocation.size + atom_mask) & !atom_mask)
-            .build()
     }
 }
 

@@ -6,14 +6,13 @@ use {
     },
     ahash::{AHashMap, AHashSet},
     ash::{
-        extensions::ext::DebugUtils,
+        ext::{debug_utils, validation_features},
         vk::{
             api_version_major, api_version_minor, api_version_patch, api_version_variant,
             ApplicationInfo, Bool32, DebugUtilsMessageSeverityFlagsEXT,
             DebugUtilsMessageTypeFlagsEXT, DebugUtilsMessengerCallbackDataEXT,
-            DebugUtilsMessengerCreateInfoEXT, DebugUtilsMessengerEXT, ExtDebugUtilsFn,
-            ExtValidationFeaturesFn, ExtensionProperties, InstanceCreateInfo, LayerProperties,
-            ValidationFeaturesEXT, API_VERSION_1_3, FALSE,
+            DebugUtilsMessengerCreateInfoEXT, DebugUtilsMessengerEXT, ExtensionProperties,
+            InstanceCreateInfo, LayerProperties, ValidationFeaturesEXT, API_VERSION_1_3, FALSE,
         },
         Entry, Instance, LoadingError,
     },
@@ -34,7 +33,7 @@ use {
 pub struct VulkanInstance {
     pub(super) _entry: &'static Entry,
     pub(super) instance: Instance,
-    pub(super) debug_utils: DebugUtils,
+    pub(super) debug_utils: debug_utils::Instance,
     pub(super) messenger: DebugUtilsMessengerEXT,
     pub(super) eng: Rc<AsyncEngine>,
     pub(super) ring: Rc<IoUring>,
@@ -62,7 +61,7 @@ impl VulkanInstance {
             .iter()
             .map(|c| c.as_ptr())
             .collect();
-        let app_info = ApplicationInfo::builder()
+        let app_info = ApplicationInfo::default()
             .api_version(API_VERSION)
             .application_name(ustr!("jay").as_c_str().unwrap())
             .application_version(1);
@@ -77,7 +76,7 @@ impl VulkanInstance {
             | DebugUtilsMessageTypeFlagsEXT::VALIDATION
             | DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
             | DebugUtilsMessageTypeFlagsEXT::GENERAL;
-        let mut debug_info = DebugUtilsMessengerCreateInfoEXT::builder()
+        let mut debug_info = DebugUtilsMessengerCreateInfoEXT::default()
             .message_severity(severity)
             .message_type(types)
             .pfn_user_callback(Some(debug_callback));
@@ -88,8 +87,8 @@ impl VulkanInstance {
             // ash::vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
         ];
         let mut validation_info =
-            ValidationFeaturesEXT::builder().enabled_validation_features(&validation_features);
-        let mut create_info = InstanceCreateInfo::builder()
+            ValidationFeaturesEXT::default().enabled_validation_features(&validation_features);
+        let mut create_info = InstanceCreateInfo::default()
             .application_info(&app_info)
             .push_next(&mut debug_info);
         let validation_layer_name = VALIDATION_LAYER.as_ptr();
@@ -98,11 +97,11 @@ impl VulkanInstance {
                 create_info =
                     create_info.enabled_layer_names(slice::from_ref(&validation_layer_name));
                 let extensions = get_instance_extensions(entry, Some(VALIDATION_LAYER))?;
-                if extensions.contains_key(ExtValidationFeaturesFn::name()) {
-                    enabled_extensions.push(ExtValidationFeaturesFn::name().as_ptr());
+                if extensions.contains_key(validation_features::NAME) {
+                    enabled_extensions.push(validation_features::NAME.as_ptr());
                     create_info = create_info.push_next(&mut validation_info);
                 } else {
-                    log::warn!("{:?} is not available", ExtValidationFeaturesFn::name(),);
+                    log::warn!("{:?} is not available", validation_features::NAME);
                 }
             } else {
                 log::warn!(
@@ -116,7 +115,7 @@ impl VulkanInstance {
             Err(e) => return Err(VulkanError::CreateInstance(e)),
         };
         let destroy_instance = OnDrop(|| unsafe { instance.destroy_instance(None) });
-        let debug_utils = DebugUtils::new(entry, &instance);
+        let debug_utils = debug_utils::Instance::new(entry, &instance);
         let messenger = unsafe { debug_utils.create_debug_utils_messenger(&debug_info, None) };
         let messenger = match messenger {
             Ok(m) => m,
@@ -144,24 +143,28 @@ impl Drop for VulkanInstance {
     }
 }
 
-const REQUIRED_INSTANCE_EXTENSIONS: &[&CStr] = &[ExtDebugUtilsFn::name()];
+const REQUIRED_INSTANCE_EXTENSIONS: &[&CStr] = &[debug_utils::NAME];
 
 const VALIDATION_LAYER: &CStr = c"VK_LAYER_KHRONOS_validation";
 
 pub type Extensions = AHashMap<CString, u32>;
 
 fn get_instance_extensions(entry: &Entry, layer: Option<&CStr>) -> Result<Extensions, VulkanError> {
-    entry
-        .enumerate_instance_extension_properties(layer)
-        .map_err(VulkanError::InstanceExtensions)
-        .map(map_extension_properties)
+    unsafe {
+        entry
+            .enumerate_instance_extension_properties(layer)
+            .map_err(VulkanError::InstanceExtensions)
+            .map(map_extension_properties)
+    }
 }
 
 fn get_available_layers(entry: &Entry) -> Result<AHashSet<CString>, VulkanError> {
-    entry
-        .enumerate_instance_layer_properties()
-        .map_err(VulkanError::InstanceLayers)
-        .map(map_layer_properties)
+    unsafe {
+        entry
+            .enumerate_instance_layer_properties()
+            .map_err(VulkanError::InstanceLayers)
+            .map(map_layer_properties)
+    }
 }
 
 fn map_layer_properties(props: Vec<LayerProperties>) -> AHashSet<CString> {

@@ -24,7 +24,7 @@ impl Drop for VulkanSemaphore {
 impl VulkanDevice {
     pub fn create_semaphore(self: &Rc<Self>) -> Result<Rc<VulkanSemaphore>, VulkanError> {
         let sem = {
-            let create_info = SemaphoreCreateInfo::builder();
+            let create_info = SemaphoreCreateInfo::default();
             let sem = unsafe { self.device.create_semaphore(&create_info, None) };
             sem.map_err(VulkanError::CreateSemaphore)?
         };
@@ -37,7 +37,7 @@ impl VulkanDevice {
 
 impl VulkanSemaphore {
     pub fn import_sync_file(&self, sync_file: OwnedFd) -> Result<(), VulkanError> {
-        let fd_info = ImportSemaphoreFdInfoKHR::builder()
+        let fd_info = ImportSemaphoreFdInfoKHR::default()
             .fd(sync_file.raw())
             .flags(SemaphoreImportFlags::TEMPORARY)
             .handle_type(ExternalSemaphoreHandleTypeFlags::SYNC_FD)

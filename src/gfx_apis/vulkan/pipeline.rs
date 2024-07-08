@@ -56,21 +56,19 @@ impl VulkanDevice {
             let mut push_constant_offset = 0;
             if vert_push_size > 0 {
                 push_constant_ranges.push(
-                    PushConstantRange::builder()
+                    PushConstantRange::default()
                         .stage_flags(ShaderStageFlags::VERTEX)
                         .offset(0)
-                        .size(vert_push_size)
-                        .build(),
+                        .size(vert_push_size),
                 );
                 push_constant_offset += vert_push_size;
             }
             if frag_push_size > 0 {
                 push_constant_ranges.push(
-                    PushConstantRange::builder()
+                    PushConstantRange::default()
                         .stage_flags(ShaderStageFlags::FRAGMENT)
                         .offset(push_constant_offset)
-                        .size(frag_push_size)
-                        .build(),
+                        .size(frag_push_size),
                 );
                 #[allow(unused_assignments)]
                 {
@@ -80,7 +78,7 @@ impl VulkanDevice {
             let mut descriptor_set_layouts = ArrayVec::<_, 1>::new();
             descriptor_set_layouts
                 .extend(info.frag_descriptor_set_layout.as_ref().map(|l| l.layout));
-            let create_info = PipelineLayoutCreateInfo::builder()
+            let create_info = PipelineLayoutCreateInfo::default()
                 .push_constant_ranges(&push_constant_ranges)
                 .set_layouts(&descriptor_set_layouts);
             let layout = unsafe { self.device.create_pipeline_layout(&create_info, None) };
@@ -91,29 +89,27 @@ impl VulkanDevice {
         let pipeline = {
             let main = ustr!("main").as_c_str().unwrap();
             let stages = [
-                PipelineShaderStageCreateInfo::builder()
+                PipelineShaderStageCreateInfo::default()
                     .stage(ShaderStageFlags::VERTEX)
                     .module(info.vert.module)
-                    .name(main)
-                    .build(),
-                PipelineShaderStageCreateInfo::builder()
+                    .name(main),
+                PipelineShaderStageCreateInfo::default()
                     .stage(ShaderStageFlags::FRAGMENT)
                     .module(info.frag.module)
-                    .name(main)
-                    .build(),
+                    .name(main),
             ];
-            let input_assembly_state = PipelineInputAssemblyStateCreateInfo::builder()
+            let input_assembly_state = PipelineInputAssemblyStateCreateInfo::default()
                 .topology(PrimitiveTopology::TRIANGLE_STRIP);
-            let vertex_input_state = PipelineVertexInputStateCreateInfo::builder();
-            let rasterization_state = PipelineRasterizationStateCreateInfo::builder()
+            let vertex_input_state = PipelineVertexInputStateCreateInfo::default();
+            let rasterization_state = PipelineRasterizationStateCreateInfo::default()
                 .polygon_mode(PolygonMode::FILL)
                 .cull_mode(CullModeFlags::NONE)
                 .line_width(1.0)
                 .front_face(FrontFace::COUNTER_CLOCKWISE);
-            let multisampling_state = PipelineMultisampleStateCreateInfo::builder()
+            let multisampling_state = PipelineMultisampleStateCreateInfo::default()
                 .sample_shading_enable(false)
                 .rasterization_samples(SampleCountFlags::TYPE_1);
-            let mut blending = PipelineColorBlendAttachmentState::builder()
+            let mut blending = PipelineColorBlendAttachmentState::default()
                 .color_write_mask(ColorComponentFlags::RGBA);
             if info.alpha {
                 blending = blending
@@ -125,17 +121,17 @@ impl VulkanDevice {
                     .dst_alpha_blend_factor(BlendFactor::ONE_MINUS_SRC_ALPHA)
                     .alpha_blend_op(BlendOp::ADD);
             }
-            let color_blend_state = PipelineColorBlendStateCreateInfo::builder()
+            let color_blend_state = PipelineColorBlendStateCreateInfo::default()
                 .attachments(slice::from_ref(&blending));
             let dynamic_states = [DynamicState::VIEWPORT, DynamicState::SCISSOR];
             let dynamic_state =
-                PipelineDynamicStateCreateInfo::builder().dynamic_states(&dynamic_states);
-            let viewport_state = PipelineViewportStateCreateInfo::builder()
+                PipelineDynamicStateCreateInfo::default().dynamic_states(&dynamic_states);
+            let viewport_state = PipelineViewportStateCreateInfo::default()
                 .viewport_count(1)
                 .scissor_count(1);
-            let mut pipeline_rendering_create_info = PipelineRenderingCreateInfo::builder()
+            let mut pipeline_rendering_create_info = PipelineRenderingCreateInfo::default()
                 .color_attachment_formats(slice::from_ref(&ARGB8888.vk_format));
-            let create_info = GraphicsPipelineCreateInfo::builder()
+            let create_info = GraphicsPipelineCreateInfo::default()
                 .push_next(&mut pipeline_rendering_create_info)
                 .stages(&stages)
                 .input_assembly_state(&input_assembly_state)

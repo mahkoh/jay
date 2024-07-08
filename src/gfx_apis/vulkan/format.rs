@@ -10,7 +10,7 @@ use {
         vk::{
             DrmFormatModifierPropertiesEXT, DrmFormatModifierPropertiesListEXT,
             ExternalImageFormatProperties, ExternalMemoryFeatureFlags,
-            ExternalMemoryHandleTypeFlags, FormatFeatureFlags, FormatProperties2,
+            ExternalMemoryHandleTypeFlags, FormatFeatureFlags, FormatProperties, FormatProperties2,
             ImageFormatProperties2, ImageTiling, ImageType, ImageUsageFlags, PhysicalDevice,
             PhysicalDeviceExternalImageFormatInfo, PhysicalDeviceImageDrmFormatModifierInfoEXT,
             PhysicalDeviceImageFormatInfo2, SharingMode,
@@ -95,10 +95,8 @@ impl VulkanInstance {
         format: &'static Format,
         dst: &mut AHashMap<u32, VulkanFormat>,
     ) -> Result<(), VulkanError> {
-        let mut modifier_props = DrmFormatModifierPropertiesListEXT::builder().build();
-        let mut format_properties = FormatProperties2::builder()
-            .push_next(&mut modifier_props)
-            .build();
+        let mut modifier_props = DrmFormatModifierPropertiesListEXT::default();
+        let mut format_properties = FormatProperties2::default().push_next(&mut modifier_props);
         unsafe {
             self.instance.get_physical_device_format_properties2(
                 phy_dev,
@@ -106,9 +104,13 @@ impl VulkanInstance {
                 &mut format_properties,
             );
         }
-        let shm = self.load_shm_format(phy_dev, format, &format_properties)?;
-        let modifiers =
-            self.load_drm_format(phy_dev, format, &format_properties, &modifier_props)?;
+        let shm = self.load_shm_format(phy_dev, format, &format_properties.format_properties)?;
+        let modifiers = self.load_drm_format(
+            phy_dev,
+            format,
+            &format_properties.format_properties,
+            &modifier_props,
+        )?;
         if shm.is_some() || modifiers.is_not_empty() {
             dst.insert(
                 format.drm,
@@ -126,7 +128,7 @@ impl VulkanInstance {
         &self,
         phy_dev: PhysicalDevice,
         format: &Format,
-        props: &FormatProperties2,
+        props: &FormatProperties,
     ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
         if format.shm_info.is_none() {
             return Ok(None);
@@ -138,23 +140,19 @@ impl VulkanInstance {
         &self,
         phy_dev: PhysicalDevice,
         format: &Format,
-        props: &FormatProperties2,
+        props: &FormatProperties,
         features: FormatFeatureFlags,
         usage: ImageUsageFlags,
     ) -> Result<Option<VulkanInternalFormat>, VulkanError> {
-        if !props
-            .format_properties
-            .optimal_tiling_features
-            .contains(features)
-        {
+        if !props.optimal_tiling_features.contains(features) {
             return Ok(None);
         }
-        let format_info = PhysicalDeviceImageFormatInfo2::builder()
+        let format_info = PhysicalDeviceImageFormatInfo2::default()
             .ty(ImageType::TYPE_2D)
             .format(format.vk_format)
             .tiling(ImageTiling::OPTIMAL)
             .usage(usage);
-        let mut format_properties = ImageFormatProperties2::builder();
+        let mut format_properties = ImageFormatProperties2::default();
         let res = unsafe {
             self.instance.get_physical_device_image_format_properties2(
                 phy_dev,
@@ -180,7 +178,7 @@ impl VulkanInstance {
         &self,
         phy_dev: PhysicalDevice,
         format: &Format,
-        internal_format_properties: &FormatProperties2,
+        internal_format_properties: &FormatProperties,
         props: &DrmFormatModifierPropertiesListEXT,
     ) -> Result<AHashMap<Modifier, VulkanModifier>, VulkanError> {
         if props.drm_format_modifier_count == 0 {
@@ -190,12 +188,9 @@ impl VulkanInstance {
             DrmFormatModifierPropertiesEXT::default();
             props.drm_format_modifier_count as usize
         ];
-        let mut modifier_props = DrmFormatModifierPropertiesListEXT::builder()
-            .drm_format_modifier_properties(&mut drm_mods)
-            .build();
-        let mut format_properties = FormatProperties2::builder()
-            .push_next(&mut modifier_props)
-            .build();
+        let mut modifier_props = DrmFormatModifierPropertiesListEXT::default()
+            .drm_format_modifier_properties(&mut drm_mods);
+        let mut format_properties = FormatProperties2::default().push_next(&mut modifier_props);
         unsafe {
             self.instance.get_physical_device_format_properties2(
                 phy_dev,
@@ -245,7 +240,7 @@ impl VulkanInstance {
         &self,
         phy_dev: PhysicalDevice,
         format: &Format,
-        internal_format_properties: &FormatProperties2,
+        internal_format_properties: &FormatProperties,
         modifier: &DrmFormatModifierPropertiesEXT,
     ) -> Result<Option<VulkanMaxExtents>, VulkanError> {
         let transfer_dst_max_extents = self.get_max_extents(
@@ -291,26 +286,22 @@ impl VulkanInstance {
         if !props.drm_format_modifier_tiling_features.contains(features) {
             return Ok(None);
         }
-        let mut modifier_info = PhysicalDeviceImageDrmFormatModifierInfoEXT::builder()
+        let mut modifier_info = PhysicalDeviceImageDrmFormatModifierInfoEXT::default()
             .drm_format_modifier(props.drm_format_modifier)
-            .sharing_mode(SharingMode::EXCLUSIVE)
-            .build();
-        let mut external_image_format_info = PhysicalDeviceExternalImageFormatInfo::builder()
-            .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
-            .build();
-        let image_format_info = PhysicalDeviceImageFormatInfo2::builder()
+            .sharing_mode(SharingMode::EXCLUSIVE);
+        let mut external_image_format_info = PhysicalDeviceExternalImageFormatInfo::default()
+            .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+        let image_format_info = PhysicalDeviceImageFormatInfo2::default()
             .ty(ImageType::TYPE_2D)
             .format(format.vk_format)
             .usage(usage)
             .tiling(ImageTiling::DRM_FORMAT_MODIFIER_EXT)
             .push_next(&mut external_image_format_info)
-            .push_next(&mut modifier_info)
-            .build();
+            .push_next(&mut modifier_info);
 
-        let mut external_image_format_props = ExternalImageFormatProperties::builder().build();
-        let mut image_format_props = ImageFormatProperties2::builder()
-            .push_next(&mut external_image_format_props)
-            .build();
+        let mut external_image_format_props = ExternalImageFormatProperties::default();
+        let mut image_format_props =
+            ImageFormatProperties2::default().push_next(&mut external_image_format_props);
 
         let res = unsafe {
             self.instance.get_physical_device_image_format_properties2(
@@ -326,6 +317,7 @@ impl VulkanInstance {
                 _ => Err(VulkanError::LoadImageProperties(e)),
             };
         }
+        let image_format_props = &image_format_props.image_format_properties;
         let importable = external_image_format_props
             .external_memory_properties
             .external_memory_features
@@ -335,8 +327,8 @@ impl VulkanInstance {
         }
 
         Ok(Some(VulkanMaxExtents {
-            width: image_format_props.image_format_properties.max_extent.width,
-            height: image_format_props.image_format_properties.max_extent.height,
+            width: image_format_props.max_extent.width,
+            height: image_format_props.max_extent.height,
         }))
     }
 }
