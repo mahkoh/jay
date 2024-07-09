@@ -30,7 +30,6 @@ use {
         fmt::{Debug, Formatter},
         rc::Rc,
     },
-    uapi::ustr,
 };
 
 pub(crate) struct TexProg {
@@ -44,13 +43,13 @@ pub(crate) struct TexProg {
 impl TexProg {
     unsafe fn from(prog: GlProgram, alpha_multiplier: bool) -> Self {
         let alpha = match alpha_multiplier {
-            true => prog.get_uniform_location(ustr!("alpha")),
+            true => prog.get_uniform_location(c"alpha"),
             false => 0,
         };
         Self {
-            pos: prog.get_attrib_location(ustr!("pos")),
-            texcoord: prog.get_attrib_location(ustr!("texcoord")),
-            tex: prog.get_uniform_location(ustr!("tex")),
+            pos: prog.get_attrib_location(c"pos"),
+            texcoord: prog.get_attrib_location(c"texcoord"),
+            tex: prog.get_uniform_location(c"tex"),
             alpha,
             prog,
         }
@@ -164,8 +163,8 @@ impl GlRenderContext {
             tex_internal,
             tex_external,
 
-            fill_prog_pos: fill_prog.get_attrib_location(ustr!("pos")),
-            fill_prog_color: fill_prog.get_uniform_location(ustr!("color")),
+            fill_prog_pos: fill_prog.get_attrib_location(c"pos"),
+            fill_prog_color: fill_prog.get_uniform_location(c"color"),
             fill_prog,
 
             gfx_ops: Default::default(),

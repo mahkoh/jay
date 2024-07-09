@@ -7,8 +7,7 @@ use {
         },
         RenderError,
     },
-    std::rc::Rc,
-    uapi::Ustr,
+    std::{ffi::CStr, rc::Rc},
 };
 
 pub struct GlProgram {
@@ -51,11 +50,11 @@ impl GlProgram {
         Ok(res)
     }
 
-    pub unsafe fn get_uniform_location(&self, name: &Ustr) -> GLint {
+    pub unsafe fn get_uniform_location(&self, name: &CStr) -> GLint {
         (self.ctx.dpy.gles.glGetUniformLocation)(self.prog, name.as_ptr() as _)
     }
 
-    pub unsafe fn get_attrib_location(&self, name: &Ustr) -> GLint {
+    pub unsafe fn get_attrib_location(&self, name: &CStr) -> GLint {
         (self.ctx.dpy.gles.glGetAttribLocation)(self.prog, name.as_ptr() as _)
     }
 }

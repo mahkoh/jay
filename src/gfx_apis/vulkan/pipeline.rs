@@ -18,7 +18,6 @@ use {
         PrimitiveTopology, PushConstantRange, SampleCountFlags, ShaderStageFlags,
     },
     std::{mem, rc::Rc, slice},
-    uapi::ustr,
 };
 
 pub(super) struct VulkanPipeline {
@@ -87,16 +86,15 @@ impl VulkanDevice {
         let destroy_layout =
             OnDrop(|| unsafe { self.device.destroy_pipeline_layout(pipeline_layout, None) });
         let pipeline = {
-            let main = ustr!("main").as_c_str().unwrap();
             let stages = [
                 PipelineShaderStageCreateInfo::default()
                     .stage(ShaderStageFlags::VERTEX)
                     .module(info.vert.module)
-                    .name(main),
+                    .name(c"main"),
                 PipelineShaderStageCreateInfo::default()
                     .stage(ShaderStageFlags::FRAGMENT)
                     .module(info.frag.module)
-                    .name(main),
+                    .name(c"main"),
             ];
             let input_assembly_state = PipelineInputAssemblyStateCreateInfo::default()
                 .topology(PrimitiveTopology::TRIANGLE_STRIP);
