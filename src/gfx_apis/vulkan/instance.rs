@@ -63,7 +63,7 @@ impl VulkanInstance {
             .collect();
         let app_info = ApplicationInfo::default()
             .api_version(API_VERSION)
-            .application_name(ustr!("jay").as_c_str().unwrap())
+            .application_name(c"jay")
             .application_version(1);
         let mut severity = DebugUtilsMessageSeverityFlagsEXT::empty()
             | DebugUtilsMessageSeverityFlagsEXT::ERROR

@@ -4,7 +4,7 @@ use {
     crate::utils::oserror::OsError,
     std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
     thiserror::Error,
-    uapi::{c, ustr, Errno, IntoUstr, Ustr},
+    uapi::{c, Errno, IntoUstr},
 };
 
 #[repr(transparent)]
@@ -375,7 +375,7 @@ impl UdevDevice {
         unsafe { udev_device_get_is_initialized(self.device) != 0 }
     }
 
-    fn get_property(&self, prop: &Ustr) -> Option<&CStr> {
+    fn get_property(&self, prop: &CStr) -> Option<&CStr> {
         let prop = unsafe { udev_device_get_property_value(self.device, prop.as_ptr()) };
         if prop.is_null() {
             None
@@ -385,15 +385,15 @@ impl UdevDevice {
     }
 
     pub fn vendor(&self) -> Option<&CStr> {
-        self.get_property(ustr!("ID_VENDOR_FROM_DATABASE"))
+        self.get_property(c"ID_VENDOR_FROM_DATABASE")
     }
 
     pub fn model(&self) -> Option<&CStr> {
-        self.get_property(ustr!("ID_MODEL_FROM_DATABASE"))
+        self.get_property(c"ID_MODEL_FROM_DATABASE")
     }
 
     pub fn pci_id(&self) -> Option<&CStr> {
-        self.get_property(ustr!("PCI_ID"))
+        self.get_property(c"PCI_ID")
     }
 }
 
