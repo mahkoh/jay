@@ -18,14 +18,18 @@ use {
     ahash::AHashMap,
     arrayvec::ArrayVec,
     ash::{
-        extensions::khr::{ExternalFenceFd, ExternalMemoryFd, ExternalSemaphoreFd, PushDescriptor},
+        ext::{
+            external_memory_dma_buf, image_drm_format_modifier, physical_device_drm,
+            queue_family_foreign,
+        },
+        khr::{
+            driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
+            push_descriptor,
+        },
         vk::{
-            DeviceCreateInfo, DeviceQueueCreateInfo, ExtExternalMemoryDmaBufFn,
-            ExtImageDrmFormatModifierFn, ExtPhysicalDeviceDrmFn, ExtQueueFamilyForeignFn,
-            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
-            ExternalSemaphoreProperties, KhrDriverPropertiesFn, KhrExternalFenceFdFn,
-            KhrExternalMemoryFdFn, KhrExternalSemaphoreFdFn, KhrPushDescriptorFn,
-            MemoryPropertyFlags, MemoryType, PhysicalDevice, PhysicalDeviceDriverProperties,
+            DeviceCreateInfo, DeviceQueueCreateInfo, ExternalSemaphoreFeatureFlags,
+            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, MemoryPropertyFlags,
+            MemoryType, PhysicalDevice, PhysicalDeviceDriverProperties,
             PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
             PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
             PhysicalDeviceProperties, PhysicalDeviceProperties2,
@@ -49,10 +53,10 @@ pub struct VulkanDevice {
     pub(super) sync_ctx: Rc<SyncObjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
     pub(super) device: Device,
-    pub(super) external_memory_fd: ExternalMemoryFd,
-    pub(super) external_semaphore_fd: ExternalSemaphoreFd,
-    pub(super) external_fence_fd: ExternalFenceFd,
-    pub(super) push_descriptor: PushDescriptor,
+    pub(super) external_memory_fd: external_memory_fd::Device,
+    pub(super) external_semaphore_fd: external_semaphore_fd::Device,
+    pub(super) external_fence_fd: external_fence_fd::Device,
+    pub(super) push_descriptor: push_descriptor::Device,
     pub(super) formats: AHashMap<u32, VulkanFormat>,
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
     pub(super) graphics_queue: Queue,
@@ -129,14 +133,14 @@ impl VulkanInstance {
                     continue;
                 }
             };
-            if !extensions.contains_key(ExtPhysicalDeviceDrmFn::name()) {
+            if !extensions.contains_key(physical_device_drm::NAME) {
                 devices.push((props, Some(extensions), None));
                 continue;
             }
-            let has_driver_props = extensions.contains_key(KhrDriverPropertiesFn::name());
-            let mut drm_props = PhysicalDeviceDrmPropertiesEXT::builder().build();
-            let mut driver_props = PhysicalDeviceDriverPropertiesKHR::builder().build();
-            let mut props2 = PhysicalDeviceProperties2::builder().push_next(&mut drm_props);
+            let has_driver_props = extensions.contains_key(driver_properties::NAME);
+            let mut drm_props = PhysicalDeviceDrmPropertiesEXT::default();
+            let mut driver_props = PhysicalDeviceDriverPropertiesKHR::default();
+            let mut props2 = PhysicalDeviceProperties2::default().push_next(&mut drm_props);
             if has_driver_props {
                 props2 = props2.push_next(&mut driver_props);
             }
@@ -181,10 +185,9 @@ impl VulkanInstance {
     }
 
     fn supports_semaphore_import(&self, phy_dev: PhysicalDevice) -> bool {
-        let mut props = ExternalSemaphoreProperties::builder().build();
-        let info = PhysicalDeviceExternalSemaphoreInfo::builder()
-            .handle_type(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD)
-            .build();
+        let mut props = ExternalSemaphoreProperties::default();
+        let info = PhysicalDeviceExternalSemaphoreInfo::default()
+            .handle_type(ExternalSemaphoreHandleTypeFlags::OPAQUE_FD);
         unsafe {
             self.instance
                 .get_physical_device_external_semaphore_properties(phy_dev, &info, &mut props);
@@ -217,16 +220,15 @@ impl VulkanInstance {
             .map(|n| n.as_ptr())
             .collect();
         let mut semaphore_features =
-            PhysicalDeviceTimelineSemaphoreFeatures::builder().timeline_semaphore(true);
+            PhysicalDeviceTimelineSemaphoreFeatures::default().timeline_semaphore(true);
         let mut synchronization2_features =
-            PhysicalDeviceSynchronization2Features::builder().synchronization2(true);
+            PhysicalDeviceSynchronization2Features::default().synchronization2(true);
         let mut dynamic_rendering_features =
-            PhysicalDeviceDynamicRenderingFeatures::builder().dynamic_rendering(true);
-        let queue_create_info = DeviceQueueCreateInfo::builder()
+            PhysicalDeviceDynamicRenderingFeatures::default().dynamic_rendering(true);
+        let queue_create_info = DeviceQueueCreateInfo::default()
             .queue_family_index(graphics_queue_idx)
-            .queue_priorities(&[1.0])
-            .build();
-        let device_create_info = DeviceCreateInfo::builder()
+            .queue_priorities(&[1.0]);
+        let device_create_info = DeviceCreateInfo::default()
             .push_next(&mut semaphore_features)
             .push_next(&mut synchronization2_features)
             .push_next(&mut dynamic_rendering_features)
@@ -258,10 +260,10 @@ impl VulkanInstance {
             return Err(VulkanError::XRGB8888);
         }
         destroy_device.forget();
-        let external_memory_fd = ExternalMemoryFd::new(&self.instance, &device);
-        let external_semaphore_fd = ExternalSemaphoreFd::new(&self.instance, &device);
-        let external_fence_fd = ExternalFenceFd::new(&self.instance, &device);
-        let push_descriptor = PushDescriptor::new(&self.instance, &device);
+        let external_memory_fd = external_memory_fd::Device::new(&self.instance, &device);
+        let external_semaphore_fd = external_semaphore_fd::Device::new(&self.instance, &device);
+        let external_fence_fd = external_fence_fd::Device::new(&self.instance, &device);
+        let push_descriptor = push_descriptor::Device::new(&self.instance, &device);
         let memory_properties =
             unsafe { self.instance.get_physical_device_memory_properties(phy_dev) };
         let memory_types = memory_properties.memory_types
@@ -290,13 +292,13 @@ impl VulkanInstance {
 }
 
 const REQUIRED_DEVICE_EXTENSIONS: &[&CStr] = &[
-    KhrExternalMemoryFdFn::name(),
-    KhrExternalSemaphoreFdFn::name(),
-    KhrExternalFenceFdFn::name(),
-    ExtExternalMemoryDmaBufFn::name(),
-    ExtQueueFamilyForeignFn::name(),
-    ExtImageDrmFormatModifierFn::name(),
-    KhrPushDescriptorFn::name(),
+    external_memory_fd::NAME,
+    external_semaphore_fd::NAME,
+    external_fence_fd::NAME,
+    external_memory_dma_buf::NAME,
+    queue_family_foreign::NAME,
+    image_drm_format_modifier::NAME,
+    push_descriptor::NAME,
 ];
 
 fn log_device(
@@ -322,7 +324,7 @@ fn log_device(
         log::warn!("  device does not support vulkan 1.3");
     }
     if let Some(extensions) = extensions {
-        if !extensions.contains_key(ExtPhysicalDeviceDrmFn::name()) {
+        if !extensions.contains_key(physical_device_drm::NAME) {
             log::warn!("  device does support not the VK_EXT_physical_device_drm extension");
         }
     }

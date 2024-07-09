@@ -48,7 +48,7 @@ impl VulkanShmImage {
             }
         }
         let copy = |full: bool, off, x, y, width, height| {
-            let mut builder = BufferImageCopy2::builder()
+            let mut builder = BufferImageCopy2::default()
                 .buffer_offset(off)
                 .image_offset(Offset3D { x, y, z: 0 })
                 .image_extent(Extent3D {
@@ -67,7 +67,7 @@ impl VulkanShmImage {
                     .buffer_image_height(img.height)
                     .buffer_row_length(img.stride / self.shm_info.bpp);
             }
-            builder.build()
+            builder
         };
         let mut total_size;
         let cpy_one;
@@ -130,7 +130,7 @@ impl VulkanShmImage {
             }
         })?;
         let memory_barrier = |sam, ssm, dam, dsm| {
-            BufferMemoryBarrier2::builder()
+            BufferMemoryBarrier2::default()
                 .buffer(staging.buffer)
                 .offset(0)
                 .size(staging.size)
@@ -138,7 +138,6 @@ impl VulkanShmImage {
                 .src_stage_mask(ssm)
                 .dst_access_mask(dam)
                 .dst_stage_mask(dsm)
-                .build()
         };
         let initial_image_barrier = image_barrier()
             .image(img.image)
@@ -151,15 +150,14 @@ impl VulkanShmImage {
             })
             .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
             .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
-            .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-            .build();
+            .dst_stage_mask(PipelineStageFlags2::TRANSFER);
         let initial_buffer_barrier = memory_barrier(
             AccessFlags2::HOST_WRITE,
             PipelineStageFlags2::HOST,
             AccessFlags2::TRANSFER_READ,
             PipelineStageFlags2::TRANSFER,
         );
-        let initial_dep_info = DependencyInfoKHR::builder()
+        let initial_dep_info = DependencyInfoKHR::default()
             .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier))
             .image_memory_barriers(slice::from_ref(&initial_image_barrier));
         let final_image_barrier = image_barrier()
@@ -169,29 +167,28 @@ impl VulkanShmImage {
             .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
             .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
             .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-            .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
-            .build();
+            .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
         let final_buffer_barrier = memory_barrier(
             AccessFlags2::TRANSFER_READ,
             PipelineStageFlags2::TRANSFER,
             AccessFlags2::HOST_WRITE,
             PipelineStageFlags2::HOST,
         );
-        let final_dep_info = DependencyInfoKHR::builder()
+        let final_dep_info = DependencyInfoKHR::default()
             .buffer_memory_barriers(slice::from_ref(&final_buffer_barrier))
             .image_memory_barriers(slice::from_ref(&final_image_barrier));
-        let cpy_info = CopyBufferToImageInfo2::builder()
+        let cpy_info = CopyBufferToImageInfo2::default()
             .src_buffer(staging.buffer)
             .dst_image(img.image)
             .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
             .regions(cpy);
         let cmd = img.renderer.allocate_command_buffer()?;
         let dev = &img.renderer.device.device;
-        let command_buffer_info = CommandBufferSubmitInfo::builder().command_buffer(cmd.buffer);
+        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buffer);
         let submit_info =
-            SubmitInfo2::builder().command_buffer_infos(slice::from_ref(&command_buffer_info));
+            SubmitInfo2::default().command_buffer_infos(slice::from_ref(&command_buffer_info));
         let begin_info =
-            CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         let release_fence = img.renderer.device.create_fence()?;
         unsafe {
             dev.begin_command_buffer(cmd.buffer, &begin_info)
@@ -294,7 +291,7 @@ impl VulkanRenderer {
                 true => ImageUsageFlags::COLOR_ATTACHMENT,
                 false => ImageUsageFlags::SAMPLED | ImageUsageFlags::TRANSFER_DST,
             };
-        let create_info = ImageCreateInfo::builder()
+        let create_info = ImageCreateInfo::default()
             .image_type(ImageType::TYPE_2D)
             .format(format.vk_format)
             .mip_levels(1)
@@ -308,8 +305,7 @@ impl VulkanRenderer {
                 height,
                 depth: 1,
             })
-            .usage(usage)
-            .build();
+            .usage(usage);
         let image = unsafe { self.device.device.create_image(&create_info, None) };
         let image = image.map_err(VulkanError::CreateImage)?;
         let destroy_image = OnDrop(|| unsafe { self.device.device.destroy_image(image, None) });
@@ -324,7 +320,7 @@ impl VulkanRenderer {
                 .bind_image_memory(image, allocation.memory, allocation.offset)
         };
         res.map_err(VulkanError::BindImageMemory)?;
-        let image_view_create_info = ImageViewCreateInfo::builder()
+        let image_view_create_info = ImageViewCreateInfo::default()
             .image(image)
             .format(format.vk_format)
             .view_type(ImageViewType::TYPE_2D)

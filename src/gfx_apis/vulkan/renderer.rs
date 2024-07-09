@@ -34,10 +34,10 @@ use {
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
             CopyImageInfo2, DependencyInfo, DependencyInfoKHR, DescriptorImageInfo, DescriptorType,
             Extent2D, Extent3D, Fence, ImageAspectFlags, ImageCopy2, ImageLayout,
-            ImageMemoryBarrier2, ImageMemoryBarrier2Builder, ImageSubresourceLayers,
-            ImageSubresourceRange, PipelineBindPoint, PipelineStageFlags2, Rect2D,
-            RenderingAttachmentInfo, RenderingInfo, SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR,
-            ShaderStageFlags, SubmitInfo2, Viewport, WriteDescriptorSet, QUEUE_FAMILY_FOREIGN_EXT,
+            ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange, PipelineBindPoint,
+            PipelineStageFlags2, Rect2D, RenderingAttachmentInfo, RenderingInfo,
+            SemaphoreSubmitInfo, SemaphoreSubmitInfoKHR, ShaderStageFlags, SubmitInfo2, Viewport,
+            WriteDescriptorSet, QUEUE_FAMILY_FOREIGN_EXT,
         },
         Device,
     },
@@ -93,9 +93,9 @@ pub(super) enum TexSourceType {
 pub(super) struct Memory {
     sample: Vec<Rc<VulkanImage>>,
     textures: Vec<UsedTexture>,
-    image_barriers: Vec<ImageMemoryBarrier2>,
+    image_barriers: Vec<ImageMemoryBarrier2<'static>>,
     wait_semaphores: Vec<Rc<VulkanSemaphore>>,
-    wait_semaphore_infos: Vec<SemaphoreSubmitInfo>,
+    wait_semaphore_infos: Vec<SemaphoreSubmitInfo<'static>>,
     release_fence: Option<Rc<VulkanFence>>,
     release_sync_file: Option<SyncFile>,
 }
@@ -226,7 +226,7 @@ impl VulkanRenderer {
 
     fn begin_command_buffer(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
         let begin_info =
-            CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         unsafe {
             self.device
                 .device
@@ -265,7 +265,6 @@ impl VulkanRenderer {
                     ImageLayout::GENERAL
                 });
         }
-        let fb_image_memory_barrier = fb_image_memory_barrier.build();
         memory.image_barriers.push(fb_image_memory_barrier);
         for img in &memory.sample {
             let image_memory_barrier = image_barrier()
@@ -275,11 +274,10 @@ impl VulkanRenderer {
                 .old_layout(ImageLayout::GENERAL)
                 .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
                 .dst_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
-                .build();
+                .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
             memory.image_barriers.push(image_memory_barrier);
         }
-        let dep_info = DependencyInfoKHR::builder().image_memory_barriers(&memory.image_barriers);
+        let dep_info = DependencyInfoKHR::default().image_memory_barriers(&memory.image_barriers);
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
@@ -287,7 +285,7 @@ impl VulkanRenderer {
 
     fn begin_rendering(&self, buf: CommandBuffer, fb: &VulkanImage, clear: Option<&Color>) {
         let rendering_attachment_info = {
-            let mut rai = RenderingAttachmentInfo::builder()
+            let mut rai = RenderingAttachmentInfo::default()
                 .image_view(fb.render_view.unwrap_or(fb.texture_view))
                 .image_layout(ImageLayout::GENERAL)
                 .load_op(AttachmentLoadOp::LOAD)
@@ -303,7 +301,7 @@ impl VulkanRenderer {
             }
             rai
         };
-        let rendering_info = RenderingInfo::builder()
+        let rendering_info = RenderingInfo::default()
             .render_area(Rect2D {
                 offset: Default::default(),
                 extent: Extent2D {
@@ -400,13 +398,12 @@ impl VulkanRenderer {
                         pos: c.target.to_points(),
                         tex_pos: c.source.to_points(),
                     };
-                    let image_info = DescriptorImageInfo::builder()
+                    let image_info = DescriptorImageInfo::default()
                         .image_view(tex.texture_view)
                         .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-                    let write_descriptor_set = WriteDescriptorSet::builder()
+                    let write_descriptor_set = WriteDescriptorSet::default()
                         .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
-                        .image_info(slice::from_ref(&image_info))
-                        .build();
+                        .image_info(slice::from_ref(&image_info));
                     unsafe {
                         self.device.push_descriptor.cmd_push_descriptor_set(
                             buf,
@@ -462,8 +459,7 @@ impl VulkanRenderer {
             )
             .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT)
             .dst_access_mask(AccessFlags2::TRANSFER_READ)
-            .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-            .build();
+            .dst_stage_mask(PipelineStageFlags2::TRANSFER);
         memory.image_barriers.push(bridge_image_memory_barrier);
         let dmabuf_image_memory_barrier = image_barrier()
             .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
@@ -476,35 +472,31 @@ impl VulkanRenderer {
             })
             .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
             .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
-            .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-            .build();
+            .dst_stage_mask(PipelineStageFlags2::TRANSFER);
         memory.image_barriers.push(dmabuf_image_memory_barrier);
-        let dep_info = DependencyInfoKHR::builder().image_memory_barriers(&memory.image_barriers);
+        let dep_info = DependencyInfoKHR::default().image_memory_barriers(&memory.image_barriers);
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
-        let image_subresource_layers = ImageSubresourceLayers::builder()
+        let image_subresource_layers = ImageSubresourceLayers::default()
             .aspect_mask(ImageAspectFlags::COLOR)
             .layer_count(1)
             .base_array_layer(0)
-            .mip_level(0)
-            .build();
-        let image_copy = ImageCopy2::builder()
+            .mip_level(0);
+        let image_copy = ImageCopy2::default()
             .src_subresource(image_subresource_layers)
             .dst_subresource(image_subresource_layers)
             .extent(Extent3D {
                 width: fb.width,
                 height: fb.height,
                 depth: 1,
-            })
-            .build();
-        let copy_image_info = CopyImageInfo2::builder()
+            });
+        let copy_image_info = CopyImageInfo2::default()
             .src_image(fb.image)
             .src_image_layout(ImageLayout::TRANSFER_SRC_OPTIMAL)
             .dst_image(bridge.dmabuf_image)
             .dst_image_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-            .regions(slice::from_ref(&image_copy))
-            .build();
+            .regions(slice::from_ref(&image_copy));
         unsafe {
             self.device.device.cmd_copy_image2(buf, &copy_image_info);
         }
@@ -533,7 +525,6 @@ impl VulkanRenderer {
                 )
                 .src_stage_mask(PipelineStageFlags2::COLOR_ATTACHMENT_OUTPUT);
         }
-        let fb_image_memory_barrier = fb_image_memory_barrier.build();
         memory.image_barriers.push(fb_image_memory_barrier);
         for img in &memory.sample {
             let image_memory_barrier = image_barrier()
@@ -543,11 +534,10 @@ impl VulkanRenderer {
                 .new_layout(ImageLayout::GENERAL)
                 .image(img.image)
                 .src_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-                .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
-                .build();
+                .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
             memory.image_barriers.push(image_memory_barrier);
         }
-        let dep_info = DependencyInfoKHR::builder().image_memory_barriers(&memory.image_barriers);
+        let dep_info = DependencyInfoKHR::default().image_memory_barriers(&memory.image_barriers);
         unsafe {
             self.device.device.cmd_pipeline_barrier2(buf, &dep_info);
         }
@@ -577,10 +567,9 @@ impl VulkanRenderer {
                     let semaphore = self.allocate_semaphore()?;
                     semaphore.import_sync_file(fd)?;
                     infos.push(
-                        SemaphoreSubmitInfo::builder()
+                        SemaphoreSubmitInfo::default()
                             .semaphore(semaphore.semaphore)
-                            .stage_mask(PipelineStageFlags2::TOP_OF_PIPE)
-                            .build(),
+                            .stage_mask(PipelineStageFlags2::TOP_OF_PIPE),
                     );
                     semaphores.push(semaphore);
                     Ok(())
@@ -659,13 +648,10 @@ impl VulkanRenderer {
     fn submit(&self, buf: CommandBuffer) -> Result<(), VulkanError> {
         let mut memory = self.memory.borrow_mut();
         let release_fence = self.device.create_fence()?;
-        let command_buffer_info = CommandBufferSubmitInfo::builder()
-            .command_buffer(buf)
-            .build();
-        let submit_info = SubmitInfo2::builder()
+        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(buf);
+        let submit_info = SubmitInfo2::default()
             .wait_semaphore_infos(&memory.wait_semaphore_infos)
-            .command_buffer_infos(slice::from_ref(&command_buffer_info))
-            .build();
+            .command_buffer_infos(slice::from_ref(&command_buffer_info));
         unsafe {
             self.device
                 .device
@@ -776,7 +762,7 @@ impl VulkanRenderer {
         if size != dst.len() as u64 {
             return Err(VulkanError::InvalidBufferSize);
         }
-        let region = BufferImageCopy::builder()
+        let region = BufferImageCopy::default()
             .buffer_row_length(stride / shm_info.bpp)
             .buffer_image_height(tex.height)
             .image_subresource(ImageSubresourceLayers {
@@ -789,17 +775,16 @@ impl VulkanRenderer {
                 width: tex.width,
                 height: tex.height,
                 depth: 1,
-            })
-            .build();
+            });
         let staging = self.create_staging_buffer(size, false, true, true)?;
         let initial_tex_barrier;
-        let initial_buffer_barrier = BufferMemoryBarrier2::builder()
+        let initial_buffer_barrier = BufferMemoryBarrier2::default()
             .buffer(staging.buffer)
             .offset(0)
             .size(staging.size)
             .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
             .dst_stage_mask(PipelineStageFlags2::TRANSFER);
-        let mut initial_barriers = DependencyInfo::builder()
+        let mut initial_barriers = DependencyInfo::default()
             .buffer_memory_barriers(slice::from_ref(&initial_buffer_barrier));
         if tex.bridge.is_none() {
             initial_tex_barrier = image_barrier()
@@ -814,7 +799,7 @@ impl VulkanRenderer {
                 initial_barriers.image_memory_barriers(slice::from_ref(&initial_tex_barrier));
         }
         let final_tex_barrier;
-        let final_buffer_barrier = BufferMemoryBarrier2::builder()
+        let final_buffer_barrier = BufferMemoryBarrier2::default()
             .buffer(staging.buffer)
             .offset(0)
             .size(staging.size)
@@ -822,7 +807,7 @@ impl VulkanRenderer {
             .src_stage_mask(PipelineStageFlags2::TRANSFER)
             .dst_access_mask(AccessFlags2::HOST_READ)
             .dst_stage_mask(PipelineStageFlags2::HOST);
-        let mut final_barriers = DependencyInfo::builder()
+        let mut final_barriers = DependencyInfo::default()
             .buffer_memory_barriers(slice::from_ref(&final_buffer_barrier));
         if tex.bridge.is_none() {
             final_tex_barrier = image_barrier()
@@ -845,20 +830,19 @@ impl VulkanRenderer {
                     .map_err(VulkanError::IoctlExportSyncFile)?;
                 let semaphore = self.allocate_semaphore()?;
                 semaphore.import_sync_file(fd)?;
-                let semaphore_info = SemaphoreSubmitInfo::builder()
+                let semaphore_info = SemaphoreSubmitInfo::default()
                     .semaphore(semaphore.semaphore)
-                    .stage_mask(PipelineStageFlags2::TOP_OF_PIPE)
-                    .build();
+                    .stage_mask(PipelineStageFlags2::TOP_OF_PIPE);
                 semaphores.push(semaphore);
                 semaphore_infos.push(semaphore_info);
             }
         }
-        let command_buffer_info = CommandBufferSubmitInfo::builder().command_buffer(buf.buffer);
-        let submit_info = SubmitInfo2::builder()
+        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(buf.buffer);
+        let submit_info = SubmitInfo2::default()
             .wait_semaphore_infos(&semaphore_infos)
             .command_buffer_infos(slice::from_ref(&command_buffer_info));
         let begin_info =
-            CommandBufferBeginInfo::builder().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
         unsafe {
             self.device
                 .device
@@ -1023,13 +1007,12 @@ impl dyn GfxTexture {
     }
 }
 
-pub(super) fn image_barrier() -> ImageMemoryBarrier2Builder<'static> {
-    ImageMemoryBarrier2::builder().subresource_range(
-        ImageSubresourceRange::builder()
+pub(super) fn image_barrier() -> ImageMemoryBarrier2<'static> {
+    ImageMemoryBarrier2::default().subresource_range(
+        ImageSubresourceRange::default()
             .aspect_mask(ImageAspectFlags::COLOR)
             .layer_count(1)
-            .level_count(1)
-            .build(),
+            .level_count(1),
     )
 }
 

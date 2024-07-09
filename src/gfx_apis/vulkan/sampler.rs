@@ -13,7 +13,7 @@ pub struct VulkanSampler {
 
 impl VulkanDevice {
     pub(super) fn create_sampler(self: &Rc<Self>) -> Result<Rc<VulkanSampler>, VulkanError> {
-        let create_info = SamplerCreateInfo::builder()
+        let create_info = SamplerCreateInfo::default()
             .mag_filter(Filter::LINEAR)
             .min_filter(Filter::LINEAR)
             .mipmap_mode(SamplerMipmapMode::NEAREST)

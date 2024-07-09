@@ -29,13 +29,12 @@ impl VulkanDevice {
         sampler: &Rc<VulkanSampler>,
     ) -> Result<Rc<VulkanDescriptorSetLayout>, VulkanError> {
         let immutable_sampler = [sampler.sampler];
-        let binding = DescriptorSetLayoutBinding::builder()
+        let binding = DescriptorSetLayoutBinding::default()
             .stage_flags(ShaderStageFlags::FRAGMENT)
             .immutable_samplers(&immutable_sampler)
             .descriptor_count(1)
-            .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER)
-            .build();
-        let create_info = DescriptorSetLayoutCreateInfo::builder()
+            .descriptor_type(DescriptorType::COMBINED_IMAGE_SAMPLER);
+        let create_info = DescriptorSetLayoutCreateInfo::default()
             .bindings(slice::from_ref(&binding))
             .flags(DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR);
         let layout = unsafe { self.device.create_descriptor_set_layout(&create_info, None) };

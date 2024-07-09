@@ -17,8 +17,8 @@ use {
         ImageDrmFormatModifierExplicitCreateInfoEXT, ImageLayout, ImageMemoryRequirementsInfo2,
         ImagePlaneMemoryRequirementsInfo, ImageSubresourceRange, ImageTiling, ImageType,
         ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType, ImportMemoryFdInfoKHR,
-        MemoryAllocateInfo, MemoryDedicatedAllocateInfo, MemoryPropertyFlags, MemoryRequirements2,
-        SampleCountFlags, SharingMode, SubresourceLayout,
+        MemoryAllocateInfo, MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR,
+        MemoryPropertyFlags, MemoryRequirements2, SampleCountFlags, SharingMode, SubresourceLayout,
     },
     gpu_alloc::UsageFlags,
     std::{
@@ -165,7 +165,7 @@ impl VulkanDevice {
         format: &'static Format,
         for_rendering: bool,
     ) -> Result<ImageView, VulkanError> {
-        let create_info = ImageViewCreateInfo::builder()
+        let create_info = ImageViewCreateInfo::default()
             .image(image)
             .view_type(ImageViewType::TYPE_2D)
             .format(format.vk_format)
@@ -222,13 +222,11 @@ impl VulkanDmaBufImageTemplate {
                     depth_pitch: 0,
                 })
                 .collect();
-            let mut mod_info = ImageDrmFormatModifierExplicitCreateInfoEXT::builder()
+            let mut mod_info = ImageDrmFormatModifierExplicitCreateInfoEXT::default()
                 .drm_format_modifier(self.dmabuf.modifier)
-                .plane_layouts(&plane_layouts)
-                .build();
-            let mut memory_image_create_info = ExternalMemoryImageCreateInfo::builder()
-                .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
-                .build();
+                .plane_layouts(&plane_layouts);
+            let mut memory_image_create_info = ExternalMemoryImageCreateInfo::default()
+                .handle_types(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
             let flags = match self.disjoint {
                 true => ImageCreateFlags::DISJOINT,
                 false => ImageCreateFlags::empty(),
@@ -240,7 +238,7 @@ impl VulkanDmaBufImageTemplate {
                 },
                 false => ImageUsageFlags::TRANSFER_SRC | ImageUsageFlags::SAMPLED,
             };
-            let create_info = ImageCreateInfo::builder()
+            let create_info = ImageCreateInfo::default()
                 .image_type(ImageType::TYPE_2D)
                 .format(self.dmabuf.format.vk_format)
                 .mip_levels(1)
@@ -257,8 +255,7 @@ impl VulkanDmaBufImageTemplate {
                 .usage(usage)
                 .flags(flags)
                 .push_next(&mut memory_image_create_info)
-                .push_next(&mut mod_info)
-                .build();
+                .push_next(&mut mod_info);
             let image = unsafe { device.device.create_image(&create_info, None) };
             image.map_err(VulkanError::CreateImage)?
         };
@@ -272,16 +269,19 @@ impl VulkanDmaBufImageTemplate {
         let mut bind_image_plane_memory_infos = PlaneVec::new();
         for plane_idx in 0..num_device_memories {
             let dma_buf_plane = &self.dmabuf.planes[plane_idx];
-            let memory_fd_properties = unsafe {
-                device.external_memory_fd.get_memory_fd_properties(
-                    ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                    dma_buf_plane.fd.raw(),
-                )
-            };
-            let memory_fd_properties =
-                memory_fd_properties.map_err(VulkanError::MemoryFdProperties)?;
+            let mut memory_fd_properties = MemoryFdPropertiesKHR::default();
+            unsafe {
+                device
+                    .external_memory_fd
+                    .get_memory_fd_properties(
+                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                        dma_buf_plane.fd.raw(),
+                        &mut memory_fd_properties,
+                    )
+                    .map_err(VulkanError::MemoryFdProperties)?;
+            }
             let mut image_memory_requirements_info =
-                ImageMemoryRequirementsInfo2::builder().image(image);
+                ImageMemoryRequirementsInfo2::default().image(image);
             let mut image_plane_memory_requirements_info;
             if self.disjoint {
                 let plane_aspect = match plane_idx {
@@ -292,14 +292,11 @@ impl VulkanDmaBufImageTemplate {
                     _ => unreachable!(),
                 };
                 image_plane_memory_requirements_info =
-                    ImagePlaneMemoryRequirementsInfo::builder().plane_aspect(plane_aspect);
+                    ImagePlaneMemoryRequirementsInfo::default().plane_aspect(plane_aspect);
                 image_memory_requirements_info = image_memory_requirements_info
                     .push_next(&mut image_plane_memory_requirements_info);
-                bind_image_plane_memory_infos.push(
-                    BindImagePlaneMemoryInfo::builder()
-                        .plane_aspect(plane_aspect)
-                        .build(),
-                );
+                bind_image_plane_memory_infos
+                    .push(BindImagePlaneMemoryInfo::default().plane_aspect(plane_aspect));
             }
             let mut memory_requirements = MemoryRequirements2::default();
             unsafe {
@@ -318,17 +315,15 @@ impl VulkanDmaBufImageTemplate {
             let fd = uapi::fcntl_dupfd_cloexec(dma_buf_plane.fd.raw(), 0)
                 .map_err(|e| VulkanError::Dupfd(e.into()))?;
             let mut memory_dedicated_allocate_info =
-                MemoryDedicatedAllocateInfo::builder().image(image).build();
-            let mut import_memory_fd_info = ImportMemoryFdInfoKHR::builder()
+                MemoryDedicatedAllocateInfo::default().image(image);
+            let mut import_memory_fd_info = ImportMemoryFdInfoKHR::default()
                 .fd(fd.raw())
-                .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT)
-                .build();
-            let memory_allocate_info = MemoryAllocateInfo::builder()
+                .handle_type(ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
+            let memory_allocate_info = MemoryAllocateInfo::default()
                 .allocation_size(memory_requirements.memory_requirements.size)
                 .memory_type_index(memory_type_index)
                 .push_next(&mut import_memory_fd_info)
-                .push_next(&mut memory_dedicated_allocate_info)
-                .build();
+                .push_next(&mut memory_dedicated_allocate_info);
             let device_memory =
                 unsafe { device.device.allocate_memory(&memory_allocate_info, None) };
             let device_memory = device_memory.map_err(VulkanError::AllocateMemory)?;
@@ -339,12 +334,13 @@ impl VulkanDmaBufImageTemplate {
             }));
         }
         let mut bind_image_memory_infos = Vec::with_capacity(num_device_memories);
-        for (i, mem) in device_memories.iter().copied().enumerate() {
-            let mut info = BindImageMemoryInfo::builder().image(image).memory(mem);
+        let mut bind_image_plane_memory_infos = bind_image_plane_memory_infos.iter_mut();
+        for mem in device_memories.iter().copied() {
+            let mut info = BindImageMemoryInfo::default().image(image).memory(mem);
             if self.disjoint {
-                info = info.push_next(&mut bind_image_plane_memory_infos[i]);
+                info = info.push_next(bind_image_plane_memory_infos.next().unwrap());
             }
-            bind_image_memory_infos.push(info.build());
+            bind_image_memory_infos.push(info);
         }
         let res = unsafe { device.device.bind_image_memory2(&bind_image_memory_infos) };
         res.map_err(VulkanError::BindImageMemory)?;
@@ -387,7 +383,7 @@ impl VulkanDmaBufImageTemplate {
     }
 
     fn create_bridge(&self) -> Result<(Image, VulkanAllocation), VulkanError> {
-        let create_info = ImageCreateInfo::builder()
+        let create_info = ImageCreateInfo::default()
             .image_type(ImageType::TYPE_2D)
             .format(self.dmabuf.format.vk_format)
             .mip_levels(1)
@@ -401,8 +397,7 @@ impl VulkanDmaBufImageTemplate {
                 height: self.height,
                 depth: 1,
             })
-            .usage(ImageUsageFlags::COLOR_ATTACHMENT | ImageUsageFlags::TRANSFER_SRC)
-            .build();
+            .usage(ImageUsageFlags::COLOR_ATTACHMENT | ImageUsageFlags::TRANSFER_SRC);
         let image = unsafe { self.renderer.device.device.create_image(&create_info, None) };
         let image = image.map_err(VulkanError::CreateImage)?;
         let destroy_image =

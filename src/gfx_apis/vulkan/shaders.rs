@@ -57,7 +57,7 @@ impl VulkanDevice {
         src: &[u8],
     ) -> Result<Rc<VulkanShader>, VulkanError> {
         let src: Vec<u32> = uapi::pod_iter(src).unwrap().collect();
-        let create_info = ShaderModuleCreateInfo::builder().code(&src);
+        let create_info = ShaderModuleCreateInfo::default().code(&src);
         let module = unsafe { self.device.create_shader_module(&create_info, None) };
         module
             .map_err(VulkanError::CreateShaderModule)

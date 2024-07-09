@@ -38,7 +38,7 @@ impl Drop for VulkanCommandBuffer {
 
 impl VulkanCommandPool {
     pub fn allocate_buffer(self: &Rc<Self>) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
-        let create_info = CommandBufferAllocateInfo::builder()
+        let create_info = CommandBufferAllocateInfo::default()
             .command_pool(self.pool)
             .command_buffer_count(1)
             .level(CommandBufferLevel::PRIMARY);
@@ -54,7 +54,7 @@ impl VulkanCommandPool {
 
 impl VulkanDevice {
     pub fn create_command_pool(self: &Rc<Self>) -> Result<Rc<VulkanCommandPool>, VulkanError> {
-        let info = CommandPoolCreateInfo::builder()
+        let info = CommandPoolCreateInfo::default()
             .queue_family_index(self.graphics_queue_idx)
             .flags(
                 CommandPoolCreateFlags::TRANSIENT | CommandPoolCreateFlags::RESET_COMMAND_BUFFER,

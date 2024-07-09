@@ -27,9 +27,9 @@ impl Drop for VulkanFence {
 impl VulkanDevice {
     pub fn create_fence(self: &Rc<Self>) -> Result<Rc<VulkanFence>, VulkanError> {
         let fence = {
-            let mut export_info = ExportFenceCreateInfo::builder()
+            let mut export_info = ExportFenceCreateInfo::default()
                 .handle_types(ExternalFenceHandleTypeFlags::SYNC_FD);
-            let create_info = FenceCreateInfo::builder().push_next(&mut export_info);
+            let create_info = FenceCreateInfo::default().push_next(&mut export_info);
             let fence = unsafe { self.device.create_fence(&create_info, None) };
             fence.map_err(VulkanError::CreateFence)?
         };
@@ -42,7 +42,7 @@ impl VulkanDevice {
 
 impl VulkanFence {
     pub fn export_sync_file(&self) -> Result<SyncFile, VulkanError> {
-        let info = FenceGetFdInfoKHR::builder()
+        let info = FenceGetFdInfoKHR::default()
             .fence(self.fence)
             .handle_type(ExternalFenceHandleTypeFlags::SYNC_FD);
         let res = unsafe { self.device.external_fence_fd.get_fence_fd(&info) };
