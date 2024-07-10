@@ -1,5 +1,6 @@
 pub mod commit_timeline;
 pub mod cursor;
+pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
@@ -41,6 +42,7 @@ use {
             wl_surface::{
                 commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
                 cursor::CursorSurface,
+                dnd_icon::DndIcon,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
                 wp_fractional_scale_v1::WpFractionalScaleV1,
@@ -273,7 +275,7 @@ pub struct WlSurface {
     seat_state: NodeSeatState,
     toplevel: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     cursors: SmallMap<CursorUserId, Rc<CursorSurface>, 1>,
-    dnd_icons: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
+    dnd_icons: SmallMap<SeatId, Rc<DndIcon>, 1>,
     pub tracker: Tracker<Self>,
     idle_inhibitors: SmallMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>, 1>,
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
@@ -758,6 +760,17 @@ impl WlSurface {
         Ok(())
     }
 
+    pub fn into_dnd_icon(
+        self: &Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+    ) -> Result<Rc<DndIcon>, WlSurfaceError> {
+        self.set_role(SurfaceRole::DndIcon)?;
+        Ok(Rc::new(DndIcon {
+            surface: self.clone(),
+            seat: seat.clone(),
+        }))
+    }
+
     fn unset_ext(&self) {
         self.ext.set(self.client.state.none_surface_ext.clone());
     }
@@ -806,8 +819,8 @@ impl WlSurface {
     }
 
     fn unset_dnd_icons(&self) {
-        while let Some((_, seat)) = self.dnd_icons.pop() {
-            seat.remove_dnd_icon()
+        while let Some((_, dnd_icon)) = self.dnd_icons.pop() {
+            dnd_icon.seat.remove_dnd_icon();
         }
     }
 }
@@ -1347,18 +1360,6 @@ impl WlSurface {
         self.ext
             .get()
             .consume_pending_child(self, child, &mut consume)
-    }
-
-    pub fn set_dnd_icon_seat(&self, id: SeatId, seat: Option<&Rc<WlSeatGlobal>>) {
-        match seat {
-            None => {
-                self.dnd_icons.remove(&id);
-            }
-            Some(seat) => {
-                self.dnd_icons.insert(id, seat.clone());
-            }
-        }
-        self.set_visible(self.dnd_icons.is_not_empty() && self.client.state.root_visible());
     }
 
     pub fn alpha(&self) -> Option<f32> {

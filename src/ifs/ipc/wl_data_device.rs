@@ -9,7 +9,7 @@ use {
                 IterableIpcVtable, OfferData, Role,
             },
             wl_seat::{WlSeatError, WlSeatGlobal},
-            wl_surface::{SurfaceRole, WlSurfaceError},
+            wl_surface::WlSurfaceError,
         },
         leaks::Tracker,
         object::{Object, Version},
@@ -115,8 +115,7 @@ impl WlDataDeviceRequestHandler for WlDataDevice {
         };
         let icon = if req.icon.is_some() {
             let icon = self.client.lookup(req.icon)?;
-            icon.set_role(SurfaceRole::DndIcon)?;
-            Some(icon)
+            Some(icon.into_dnd_icon(&self.seat)?)
         } else {
             None
         };

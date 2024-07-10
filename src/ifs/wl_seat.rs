@@ -61,7 +61,7 @@ use {
                 zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
                 zwp_relative_pointer_v1::ZwpRelativePointerV1,
             },
-            wl_surface::WlSurface,
+            wl_surface::{dnd_icon::DndIcon, WlSurface},
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         leaks::Tracker,
@@ -723,11 +723,11 @@ impl WlSeatGlobal {
         self: &Rc<Self>,
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
-        icon: Option<Rc<WlSurface>>,
+        icon: Option<Rc<DndIcon>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
         if let Some(icon) = &icon {
-            icon.set_output(&self.pointer_cursor.output());
+            icon.surface().set_output(&self.pointer_cursor.output());
         }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
@@ -819,7 +819,7 @@ impl WlSeatGlobal {
         self.primary_selection.get()
     }
 
-    pub fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+    pub fn dnd_icon(&self) -> Option<Rc<DndIcon>> {
         self.pointer_owner.dnd_icon()
     }
 
@@ -926,7 +926,7 @@ impl WlSeatGlobal {
     pub fn set_visible(&self, visible: bool) {
         self.cursor_user_group.set_visible(visible);
         if let Some(icon) = self.dnd_icon() {
-            icon.set_visible(visible);
+            icon.surface().set_visible(visible);
         }
         if let Some(tl_drag) = self.toplevel_drag() {
             if let Some(tl) = tl_drag.toplevel.get() {
@@ -965,7 +965,7 @@ impl WlSeatGlobal {
 impl CursorUserOwner for WlSeatGlobal {
     fn output_changed(&self, output: &Rc<OutputNode>) {
         if let Some(dnd) = self.pointer_owner.dnd_icon() {
-            dnd.set_output(output);
+            dnd.surface().set_output(output);
         }
         if let Some(drag) = self.pointer_owner.toplevel_drag() {
             if let Some(tl) = drag.toplevel.get() {

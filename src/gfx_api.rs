@@ -370,14 +370,7 @@ impl dyn GfxFramebuffer {
                     }
                 }
                 if let Some(dnd_icon) = seat.dnd_icon() {
-                    let extents = dnd_icon.extents.get().move_(
-                        x.round_down() + dnd_icon.buf_x.get(),
-                        y.round_down() + dnd_icon.buf_y.get(),
-                    );
-                    if extents.intersects(&rect) {
-                        let (x, y) = rect.translate(extents.x1(), extents.y1());
-                        renderer.render_surface(&dnd_icon, x, y, None);
-                    }
+                    dnd_icon.render(&mut renderer, &rect, x.round_down(), y.round_down());
                 }
                 if render_cursor {
                     let cursor_user_group = seat.cursor_group();

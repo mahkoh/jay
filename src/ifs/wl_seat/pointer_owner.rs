@@ -10,7 +10,7 @@ use {
                 wl_pointer::PendingScroll, Dnd, DroppedDnd, WlSeatError, WlSeatGlobal, BTN_LEFT,
                 BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE,
             },
-            wl_surface::WlSurface,
+            wl_surface::{dnd_icon::DndIcon, WlSurface},
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
         state::DeviceHandlerData,
@@ -120,7 +120,7 @@ impl PointerOwnerHolder {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
-        icon: Option<Rc<WlSurface>>,
+        icon: Option<Rc<DndIcon>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
         self.owner
@@ -144,7 +144,7 @@ impl PointerOwnerHolder {
         self.owner.get().dnd_target_removed(seat);
     }
 
-    pub fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+    pub fn dnd_icon(&self) -> Option<Rc<DndIcon>> {
         self.owner.get().dnd_icon()
     }
 
@@ -211,7 +211,7 @@ trait PointerOwner {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         source: Option<Rc<WlDataSource>>,
-        icon: Option<Rc<WlSurface>>,
+        icon: Option<Rc<DndIcon>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
         let _ = origin;
@@ -232,7 +232,7 @@ trait PointerOwner {
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
         self.cancel_dnd(seat);
     }
-    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+    fn dnd_icon(&self) -> Option<Rc<DndIcon>> {
         None
     }
     fn toplevel_drag(&self) -> Option<Rc<XdgToplevelDragV1>> {
@@ -264,7 +264,7 @@ struct DndPointerOwner {
     button: u32,
     dnd: Dnd,
     target: CloneCell<Rc<dyn Node>>,
-    icon: CloneCell<Option<Rc<WlSurface>>>,
+    icon: CloneCell<Option<Rc<DndIcon>>>,
     pos_x: Cell<Fixed>,
     pos_y: Cell<Fixed>,
 }
@@ -446,7 +446,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
-        icon: Option<Rc<WlSurface>>,
+        icon: Option<Rc<DndIcon>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
         self.usecase
@@ -486,7 +486,7 @@ impl PointerOwner for DndPointerOwner {
             }
         }
         if let Some(icon) = self.icon.get() {
-            icon.set_dnd_icon_seat(seat.id(), None);
+            icon.disable();
         }
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();
@@ -542,7 +542,7 @@ impl PointerOwner for DndPointerOwner {
             ipc::detach_seat(&**src, seat);
         }
         if let Some(icon) = self.icon.get() {
-            icon.set_dnd_icon_seat(seat.id(), None);
+            icon.disable();
         }
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.tree_changed.trigger();
@@ -558,7 +558,7 @@ impl PointerOwner for DndPointerOwner {
         seat.state.tree_changed();
     }
 
-    fn dnd_icon(&self) -> Option<Rc<WlSurface>> {
+    fn dnd_icon(&self) -> Option<Rc<DndIcon>> {
         self.icon.get()
     }
 
@@ -593,7 +593,7 @@ trait SimplePointerOwnerUsecase: Sized + Clone + 'static {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
-        icon: Option<Rc<WlSurface>>,
+        icon: Option<Rc<DndIcon>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
         let _ = grab;
@@ -638,7 +638,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
         seat: &Rc<WlSeatGlobal>,
         origin: &Rc<WlSurface>,
         src: Option<Rc<WlDataSource>>,
-        icon: Option<Rc<WlSurface>>,
+        icon: Option<Rc<DndIcon>>,
         serial: u32,
     ) -> Result<(), WlSeatError> {
         let button = match grab.buttons.iter().next() {
@@ -655,7 +655,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
             return Ok(());
         }
         if let Some(icon) = &icon {
-            icon.set_dnd_icon_seat(seat.id, Some(seat));
+            icon.enable();
         }
         if let Some(new) = &src {
             ipc::attach_seat(&**new, seat, ipc::Role::Dnd)?;
