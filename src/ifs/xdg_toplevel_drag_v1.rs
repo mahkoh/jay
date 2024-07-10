@@ -9,6 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         renderer::Renderer,
+        tree::ToplevelNode,
         utils::clonecell::CloneCell,
         wire::{xdg_toplevel_drag_v1::*, XdgToplevelDragV1Id},
     },
@@ -50,6 +51,18 @@ impl XdgToplevelDragV1 {
         if let Some(tl) = self.toplevel.take() {
             tl.drag.take();
         }
+    }
+
+    fn move2(&self, x: i32, y: i32) {
+        if let Some(tl) = self.toplevel.get() {
+            let extents = tl.xdg.absolute_desired_extents.get();
+            let extents = extents.at_point(x - self.x_off.get(), y - self.y_off.get());
+            tl.clone().tl_change_extents(&extents);
+        }
+    }
+
+    pub fn move_(&self, x: i32, y: i32) {
+        self.move2(x, y);
     }
 
     pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect, x: i32, y: i32) {
@@ -107,6 +120,10 @@ impl XdgToplevelDragV1 {
         };
         tl.prepare_toplevel_drag();
         self.client.state.tree_changed();
+        if let Some(seat) = self.source.data.seat.get() {
+            let (x, y) = seat.pointer_cursor().position_int();
+            self.move2(x, y)
+        }
     }
 
     pub fn finish_drag(&self, seat: &Rc<WlSeatGlobal>) {
