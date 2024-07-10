@@ -294,6 +294,11 @@ macro_rules! tree_id {
             pub fn raw(&self) -> u32 {
                 self.0
             }
+
+            #[allow(dead_code)]
+            pub fn none() -> Self {
+                Self(0)
+            }
         }
 
         impl std::fmt::Display for $id {

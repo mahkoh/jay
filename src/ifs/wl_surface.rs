@@ -63,7 +63,7 @@ use {
         renderer::Renderer,
         tree::{
             ContainerNode, FindTreeResult, FoundNode, Node, NodeId, NodeVisitor, NodeVisitorBase,
-            OutputNode, PlaceholderNode, ToplevelNode,
+            OutputNode, OutputNodeId, PlaceholderNode, ToplevelNode,
         },
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
@@ -82,7 +82,7 @@ use {
         xwayland::XWaylandEvent,
     },
     ahash::AHashMap,
-    isnt::std_1::primitive::IsntSliceExt,
+    isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     jay_config::video::Transform,
     std::{
         cell::{Cell, RefCell},
@@ -265,6 +265,7 @@ pub struct WlSurface {
     pub buffer_abs_pos: Cell<Rect>,
     pub need_extents_update: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
+    buffer_presented: Cell<bool>,
     pub shm_texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
@@ -536,6 +537,10 @@ impl PendingState {
         self.buffer_damage.clear();
         self.surface_damage.clear();
     }
+
+    fn has_damage(&self) -> bool {
+        self.damage_full || self.buffer_damage.is_not_empty() || self.surface_damage.is_not_empty()
+    }
 }
 
 #[derive(Default)]
@@ -571,6 +576,7 @@ impl WlSurface {
             buffer_abs_pos: Cell::new(Default::default()),
             need_extents_update: Default::default(),
             buffer: Default::default(),
+            buffer_presented: Default::default(),
             shm_texture: Default::default(),
             buf_x: Default::default(),
             buf_y: Default::default(),
@@ -1073,6 +1079,9 @@ impl WlSurface {
                     release,
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
+                if pending.has_damage() {
+                    self.buffer_presented.set(false);
+                }
             } else {
                 self.shm_texture.take();
                 self.buf_x.set(0);
@@ -1216,6 +1225,14 @@ impl WlSurface {
             }
         }
         self.ext.get().after_apply_commit();
+        if self.visible.get() {
+            if self.buffer_presented.get() {
+                for fr in self.frame_requests.borrow_mut().drain(..) {
+                    fr.send_done();
+                    let _ = fr.client.remove_obj(&*fr);
+                }
+            }
+        }
         self.client.state.damage();
         pending.buffer_damage.clear();
         pending.surface_damage.clear();
@@ -1326,6 +1343,12 @@ impl WlSurface {
             }
         }
         self.seat_state.set_visible(self, visible);
+    }
+
+    pub fn presented(&self, on: OutputNodeId) {
+        if on == self.output.get().id {
+            self.buffer_presented.set(true);
+        }
     }
 
     pub fn detach_node(&self, set_invisible: bool) {

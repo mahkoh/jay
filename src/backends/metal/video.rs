@@ -923,6 +923,7 @@ impl MetalConnector {
             if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
                 let buffer = &buffers[self.next_buffer.get() % buffers.len()];
                 let mut rr = self.render_result.borrow_mut();
+                rr.output_id = node.id;
                 let fb =
                     self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
                 rr.dispatch_frame_requests();
