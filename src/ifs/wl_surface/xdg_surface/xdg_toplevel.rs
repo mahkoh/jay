@@ -152,8 +152,10 @@ impl XdgToplevel {
     }
 
     pub fn send_current_configure(&self) {
-        let rect = self.xdg.absolute_desired_extents.get();
-        self.send_configure_checked(rect.width(), rect.height());
+        if self.drag.is_none() {
+            let rect = self.xdg.absolute_desired_extents.get();
+            self.send_configure_checked(rect.width(), rect.height());
+        }
         self.xdg.do_send_configure();
     }
 
@@ -404,8 +406,13 @@ impl XdgToplevel {
                             self.xdg.set_output(&seat.get_output());
                         }
                         self.toplevel_data.broadcast(self.clone());
+                        self.tl_set_visible(self.state.root_visible());
                     }
                     self.extents_changed();
+                } else {
+                    if self.is_mapped.replace(false) {
+                        self.tl_set_visible(false);
+                    }
                 }
                 return;
             }
