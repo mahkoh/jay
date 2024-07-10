@@ -411,10 +411,18 @@ impl WlSeatGlobal {
     }
 
     fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+        let dnd_icon = self.pointer_owner.dnd_icon();
+        if let Some(dnd_icon) = &dnd_icon {
+            let (x_old, y_old) = self.pointer_cursor.position_int();
+            dnd_icon.damage_at(x_old, y_old);
+        }
         let (x, y) = self.pointer_cursor.set_position(x, y);
+        let x_int = x.round_down();
+        let y_int = y.round_down();
+        if let Some(dnd_icon) = &dnd_icon {
+            dnd_icon.damage_at(x_int, y_int);
+        }
         if let Some(td) = self.pointer_owner.toplevel_drag() {
-            let x_int = x.round_down();
-            let y_int = y.round_down();
             td.move_(x_int, y_int);
         }
         (x, y)
@@ -894,7 +902,6 @@ impl WlSeatGlobal {
     }
 
     pub(super) fn apply_changes(self: &Rc<Self>) {
-        self.state.damage();
         self.pointer_owner.apply_changes(self);
         if self.changes.get().contains(CHANGE_TREE) {
             self.tablet_apply_changes();

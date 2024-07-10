@@ -662,7 +662,6 @@ impl State {
         ws.flush_jay_workspaces();
         output.schedule_update_render_data();
         self.tree_changed();
-        self.damage();
         // let seats = self.globals.seats.lock();
         // for seat in seats.values() {
         //     seat.workspace_changed(&output);
@@ -689,7 +688,6 @@ impl State {
         for output in outputs.values() {
             output.set_status(&status);
         }
-        self.damage();
     }
 
     pub fn input_occurred(&self) {
@@ -731,10 +729,14 @@ impl State {
         serial as _
     }
 
-    pub fn damage(&self) {
-        for connector in self.connectors.lock().values() {
-            if connector.connected.get() {
-                connector.connector.damage();
+    pub fn damage(&self, rect: Rect) {
+        if rect.is_empty() {
+            return;
+        }
+        self.damage_visualizer.add(rect);
+        for output in self.root.outputs.lock().values() {
+            if output.global.pos.get().intersects(&rect) {
+                output.global.connector.connector.damage();
             }
         }
     }
@@ -748,7 +750,7 @@ impl State {
             }
         }
         self.tree_changed();
-        self.damage();
+        self.damage(self.root.extents.get());
     }
 
     pub fn clear(&self) {

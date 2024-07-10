@@ -407,11 +407,13 @@ impl XdgToplevel {
                         }
                         self.toplevel_data.broadcast(self.clone());
                         self.tl_set_visible(self.state.root_visible());
+                        self.xdg.damage();
                     }
                     self.extents_changed();
                 } else {
                     if self.is_mapped.replace(false) {
                         self.tl_set_visible(false);
+                        self.xdg.damage();
                     }
                 }
                 return;
@@ -676,6 +678,14 @@ impl XdgSurfaceExt for XdgToplevel {
     fn extents_changed(&self) {
         self.toplevel_data.pos.set(self.xdg.extents.get());
         self.tl_extents_changed();
+    }
+
+    fn geometry_changed(&self) {
+        self.xdg
+            .surface
+            .client
+            .state
+            .damage(self.node_absolute_position());
     }
 }
 

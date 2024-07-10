@@ -468,9 +468,11 @@ fn create_dummy_output(state: &Rc<State>) {
         screencasts: Default::default(),
         hardware_cursor_needs_render: Cell::new(false),
         screencopies: Default::default(),
+        title_visible: Cell::new(false),
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),
+        state: state.clone(),
         is_dummy: true,
         output: CloneCell::new(dummy_output.clone()),
         position: Default::default(),

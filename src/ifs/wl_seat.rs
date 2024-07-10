@@ -561,7 +561,6 @@ impl WlSeatGlobal {
             if let Some(parent) = tl.tl_data().parent.get() {
                 if let Some(tl) = parent.node_toplevel() {
                     self.focus_node(tl.tl_into_node());
-                    self.state.damage();
                 }
             }
         }

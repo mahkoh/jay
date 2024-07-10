@@ -257,6 +257,7 @@ pub struct WlSurface {
     opaque_region: Cell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
     pub buffer_points_norm: RefCell<SampleRect>,
+    damage_matrix: Cell<DamageMatrix>,
     buffer_transform: Cell<Transform>,
     buffer_scale: Cell<i32>,
     src_rect: Cell<Option<[Fixed; 4]>>,
@@ -568,6 +569,7 @@ impl WlSurface {
             opaque_region: Default::default(),
             buffer_points: Default::default(),
             buffer_points_norm: Default::default(),
+            damage_matrix: Default::default(),
             buffer_transform: Cell::new(Transform::None),
             buffer_scale: Cell::new(1),
             src_rect: Cell::new(None),
@@ -669,8 +671,13 @@ impl WlSurface {
     }
 
     fn set_absolute_position(&self, x1: i32, y1: i32) {
-        self.buffer_abs_pos
-            .set(self.buffer_abs_pos.get().at_point(x1, y1));
+        let old_pos = self.buffer_abs_pos.get();
+        let new_pos = old_pos.at_point(x1, y1);
+        if self.visible.get() && self.toplevel.is_none() {
+            self.client.state.damage(old_pos);
+            self.client.state.damage(new_pos);
+        }
+        self.buffer_abs_pos.set(new_pos);
         if let Some(children) = self.children.borrow_mut().deref_mut() {
             for ss in children.subsurfaces.values() {
                 let pos = ss.position.get();
@@ -843,6 +850,9 @@ impl WlSurface {
     fn unset_dnd_icons(&self) {
         while let Some((_, dnd_icon)) = self.dnd_icons.pop() {
             dnd_icon.seat.remove_dnd_icon();
+            if self.visible.get() {
+                dnd_icon.damage();
+            }
         }
     }
 
@@ -1169,6 +1179,18 @@ impl WlSurface {
                         y2,
                         buffer_transform: self.buffer_transform.get(),
                     };
+                    let (buffer_width, buffer_height) = buffer.buffer.rect.size();
+                    let (dst_width, dst_height) = new_size.unwrap_or_default();
+                    let damage_matrix = DamageMatrix::new(
+                        self.buffer_transform.get(),
+                        self.buffer_scale.get(),
+                        buffer_width,
+                        buffer_height,
+                        self.src_rect.get(),
+                        dst_width,
+                        dst_height,
+                    );
+                    self.damage_matrix.set(damage_matrix);
                 }
             }
             let (width, height) = new_size.unwrap_or_default();
@@ -1232,13 +1254,63 @@ impl WlSurface {
                     fr.send_done(now);
                     let _ = fr.client.remove_obj(&*fr);
                 }
+            } else {
+                self.apply_damage(pending);
             }
         }
-        self.client.state.damage();
         pending.buffer_damage.clear();
         pending.surface_damage.clear();
         pending.damage_full = false;
         Ok(())
+    }
+
+    fn apply_damage(&self, pending: &PendingState) {
+        let bounds = self.toplevel.get().map(|tl| tl.node_absolute_position());
+        let pos = self.buffer_abs_pos.get();
+        let apply_damage = |pos: Rect| {
+            if pending.damage_full {
+                let mut damage = pos;
+                if let Some(bounds) = bounds {
+                    damage = damage.intersect(bounds);
+                }
+                self.client.state.damage(damage);
+            } else {
+                let matrix = self.damage_matrix.get();
+                if let Some(buffer) = self.buffer.get() {
+                    for damage in &pending.buffer_damage {
+                        let mut damage =
+                            matrix.apply(pos.x1(), pos.y1(), damage.intersect(buffer.buffer.rect));
+                        if let Some(bounds) = bounds {
+                            damage = damage.intersect(bounds);
+                        }
+                        self.client.state.damage(damage);
+                    }
+                }
+                for damage in &pending.surface_damage {
+                    let mut damage = damage.move_(pos.x1(), pos.y1());
+                    damage = damage.intersect(bounds.unwrap_or(pos));
+                    self.client.state.damage(damage);
+                }
+            }
+        };
+        match self.role.get() {
+            SurfaceRole::Cursor => {
+                for (_, cursor) in &self.cursors {
+                    if cursor.needs_damage_tracking() {
+                        let (x, y) = cursor.surface_position();
+                        apply_damage(pos.at_point(x, y));
+                    }
+                }
+            }
+            SurfaceRole::DndIcon => {
+                for (_, dnd_icon) in &self.dnd_icons {
+                    let (x, y) = dnd_icon.seat.pointer_cursor().position_int();
+                    let (x, y) = dnd_icon.surface_position(x, y);
+                    apply_damage(pos.at_point(x, y));
+                }
+            }
+            _ => apply_damage(pos),
+        }
     }
 
     fn verify_explicit_sync(&self, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
@@ -1378,8 +1450,8 @@ impl WlSurface {
             }
         }
         self.seat_state.destroy_node(self);
-        if self.visible.get() {
-            self.client.state.damage();
+        if self.visible.get() && self.toplevel.is_none() {
+            self.client.state.damage(self.buffer_abs_pos.get());
         }
         if set_invisible {
             self.visible.set(false);
@@ -1757,3 +1829,114 @@ efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
 efrom!(WlSurfaceError, CommitTimelineError);
+
+#[derive(Copy, Clone, Debug)]
+struct DamageMatrix {
+    transform: Transform,
+    mx: f64,
+    my: f64,
+    dx: f64,
+    dy: f64,
+    smear: i32,
+}
+
+impl Default for DamageMatrix {
+    fn default() -> Self {
+        Self {
+            transform: Default::default(),
+            mx: 1.0,
+            my: 1.0,
+            dx: 0.0,
+            dy: 0.0,
+            smear: 0,
+        }
+    }
+}
+
+impl DamageMatrix {
+    fn apply(&self, dx: i32, dy: i32, rect: Rect) -> Rect {
+        let x1 = rect.x1() - self.smear;
+        let x2 = rect.x2() + self.smear;
+        let y1 = rect.y1() - self.smear;
+        let y2 = rect.y2() + self.smear;
+        let [x1, y1, x2, y2] = match self.transform {
+            Transform::None => [x1, y1, x2, y2],
+            Transform::Rotate90 => [-y2, x1, -y1, x2],
+            Transform::Rotate180 => [-x2, -y2, -x1, -y1],
+            Transform::Rotate270 => [y1, -x2, y2, -x1],
+            Transform::Flip => [-x2, y1, -x1, y2],
+            Transform::FlipRotate90 => [y1, x1, y2, x2],
+            Transform::FlipRotate180 => [x1, -y2, x2, -y1],
+            Transform::FlipRotate270 => [-y2, -x2, -y1, -x1],
+        };
+        let x1 = (x1 as f64 * self.mx + self.dx).floor() as i32 + dx;
+        let y1 = (y1 as f64 * self.my + self.dy).floor() as i32 + dy;
+        let x2 = (x2 as f64 * self.mx + self.dx).ceil() as i32 + dx;
+        let y2 = (y2 as f64 * self.my + self.dy).ceil() as i32 + dy;
+        Rect::new(x1, y1, x2, y2).unwrap()
+    }
+
+    fn new(
+        transform: Transform,
+        legacy_scale: i32,
+        buffer_width: i32,
+        buffer_height: i32,
+        viewport: Option<[Fixed; 4]>,
+        dst_width: i32,
+        dst_height: i32,
+    ) -> DamageMatrix {
+        let mut buffer_width = buffer_width as f64;
+        let mut buffer_height = buffer_height as f64;
+        let dst_width = dst_width as f64;
+        let dst_height = dst_height as f64;
+
+        let mut mx = 1.0;
+        let mut my = 1.0;
+        if legacy_scale != 1 {
+            let scale_inv = 1.0 / (legacy_scale as f64);
+            mx = scale_inv;
+            my = scale_inv;
+            buffer_width *= scale_inv;
+            buffer_height *= scale_inv;
+        }
+        let (mut buffer_width, mut buffer_height) =
+            transform.maybe_swap((buffer_width, buffer_height));
+        let (mut dx, mut dy) = match transform {
+            Transform::None => (0.0, 0.0),
+            Transform::Rotate90 => (buffer_width, 0.0),
+            Transform::Rotate180 => (buffer_width, buffer_height),
+            Transform::Rotate270 => (0.0, buffer_height),
+            Transform::Flip => (buffer_width, 0.0),
+            Transform::FlipRotate90 => (0.0, 0.0),
+            Transform::FlipRotate180 => (0.0, buffer_height),
+            Transform::FlipRotate270 => (buffer_width, buffer_height),
+        };
+        if let Some([x, y, w, h]) = viewport {
+            dx -= x.to_f64();
+            dy -= y.to_f64();
+            buffer_width = w.to_f64();
+            buffer_height = h.to_f64();
+        }
+        let mut smear = false;
+        if dst_width != buffer_width {
+            let scale = dst_width / buffer_width;
+            mx *= scale;
+            dx *= scale;
+            smear |= dst_width > buffer_width;
+        }
+        if dst_height != buffer_height {
+            let scale = dst_height / buffer_height;
+            my *= scale;
+            dy *= scale;
+            smear |= dst_height > buffer_height;
+        }
+        DamageMatrix {
+            transform,
+            mx,
+            my,
+            dx,
+            dy,
+            smear: smear as _,
+        }
+    }
+}

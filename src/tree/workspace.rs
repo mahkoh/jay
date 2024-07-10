@@ -11,6 +11,7 @@ use {
         },
         rect::Rect,
         renderer::Renderer,
+        state::State,
         text::TextTexture,
         tree::{
             container::ContainerNode, walker::NodeVisitor, ContainingNode, Direction,
@@ -38,6 +39,7 @@ tree_id!(WorkspaceNodeId);
 
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
+    pub state: Rc<State>,
     pub is_dummy: bool,
     pub output: CloneCell<Rc<OutputNode>>,
     pub position: Cell<Rect>,
@@ -85,6 +87,7 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data();
+            output.state.damage(output.global.pos.get());
         }
     }
 
@@ -117,6 +120,7 @@ impl WorkspaceNode {
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
         self.container.set(Some(container.clone()));
+        self.state.damage(self.position.get());
     }
 
     pub fn is_empty(&self) -> bool {
@@ -168,7 +172,7 @@ impl WorkspaceNode {
         }
         self.pull_child_properties(&**node);
         if self.visible.get() {
-            self.output.get().update_visible();
+            self.output.get().fullscreen_changed();
         } else {
             node.tl_set_visible(false);
         }
@@ -183,7 +187,7 @@ impl WorkspaceNode {
         if let Some(node) = self.fullscreen.take() {
             self.discard_child_properties(&*node);
             if self.visible.get() {
-                self.output.get().update_visible();
+                self.output.get().fullscreen_changed();
             }
             if let Some(surface) = node.tl_scanout_surface() {
                 if let Some(fb) = surface.client.state.drm_feedback.get() {
@@ -324,6 +328,7 @@ impl ContainingNode for WorkspaceNode {
             if container.node_id() == child.node_id() {
                 self.discard_child_properties(&*container);
                 self.container.set(None);
+                self.state.damage(self.position.get());
                 return;
             }
         }
@@ -386,5 +391,11 @@ pub fn move_ws_to_output(
     }
     if !source.is_dummy {
         source.schedule_update_render_data();
+    }
+    if source.node_visible() {
+        target.state.damage(source.global.pos.get());
+    }
+    if target.node_visible() {
+        target.state.damage(target.global.pos.get());
     }
 }

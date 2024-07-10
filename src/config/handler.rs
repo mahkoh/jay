@@ -720,8 +720,6 @@ impl ConfigProxyHandler {
         if let Some(ws) = self.state.workspaces.get(name.as_str()) {
             ws.may_capture.set(capture);
             ws.update_has_captures();
-            ws.output.get().schedule_update_render_data();
-            self.state.damage();
         }
         Ok(())
     }
@@ -863,7 +861,6 @@ impl ConfigProxyHandler {
         move_ws_to_output(&link, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.state.tree_changed();
-        self.state.damage();
         Ok(())
     }
 
@@ -1032,7 +1029,6 @@ impl ConfigProxyHandler {
         let scale = Scale::from_f64(scale);
         let connector = self.get_output_node(connector)?;
         connector.set_preferred_scale(scale);
-        self.state.damage();
         Ok(())
     }
 
@@ -1043,7 +1039,6 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
         connector.update_transform(transform);
-        self.state.damage();
         Ok(())
     }
 
@@ -1371,6 +1366,7 @@ impl ConfigProxyHandler {
             }
         }
         self.state.root.clone().node_visit(&mut V);
+        self.state.damage(self.state.root.extents.get());
     }
 
     fn colors_changed(&self) {
@@ -1386,6 +1382,7 @@ impl ConfigProxyHandler {
             }
         }
         self.state.root.clone().node_visit(&mut V);
+        self.state.damage(self.state.root.extents.get());
     }
 
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {

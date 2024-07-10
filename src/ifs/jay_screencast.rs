@@ -327,9 +327,6 @@ impl JayScreencast {
                 Target::Toplevel(tl) => {
                     let data = tl.tl_data();
                     data.jay_screencasts.remove(&(self.client.id, self.id));
-                    if data.jay_screencasts.is_empty() {
-                        self.client.state.damage();
-                    }
                 }
             }
         }
@@ -418,10 +415,16 @@ impl JayScreencast {
 
     fn damage(&self) {
         if let Some(target) = self.target.get() {
-            match target {
-                Target::Output(o) => o.global.connector.connector.damage(),
-                Target::Toplevel(_) => self.client.state.damage(),
-            }
+            let rect = match target {
+                Target::Output(o) => o.global.pos.get(),
+                Target::Toplevel(t) => {
+                    if !t.node_visible() {
+                        return;
+                    }
+                    t.node_absolute_position()
+                }
+            };
+            self.client.state.damage(rect);
         }
     }
 }
@@ -535,9 +538,6 @@ impl JayScreencastRequestHandler for JayScreencast {
                         }
                         let t = t.toplevel.clone();
                         let data = t.tl_data();
-                        if data.jay_screencasts.is_empty() {
-                            data.state.damage();
-                        }
                         data.jay_screencasts
                             .set((self.client.id, self.id), slf.clone());
                         new_target = Some(Target::Toplevel(t));
@@ -575,6 +575,10 @@ impl JayScreencastRequestHandler for JayScreencast {
             if let Some(Target::Output(o)) = self.target.get() {
                 o.screencast_changed();
             }
+        }
+
+        if self.running.get() {
+            self.damage();
         }
 
         Ok(())

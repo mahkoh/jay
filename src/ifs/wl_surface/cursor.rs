@@ -60,6 +60,16 @@ impl CursorSurface {
     pub fn update_hardware_cursor(&self) {
         self.user.update_hardware_cursor();
     }
+
+    pub fn needs_damage_tracking(&self) -> bool {
+        self.user.software_cursor()
+    }
+
+    pub fn surface_position(&self) -> (i32, i32) {
+        let (x, y) = self.user.position();
+        let (dx, dy) = self.hotspot.get();
+        (x.to_int() - dx, y.to_int() - dy)
+    }
 }
 
 impl Cursor for CursorSurface {

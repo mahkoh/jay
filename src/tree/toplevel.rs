@@ -435,7 +435,6 @@ impl ToplevelData {
                 .tl_into_node()
                 .node_do_focus(&seat, Direction::Unspecified);
         }
-        state.damage();
     }
 
     pub fn unset_fullscreen(&self, state: &Rc<State>, node: Rc<dyn ToplevelNode>) {
@@ -480,7 +479,6 @@ impl ToplevelData {
         fd.placeholder
             .node_seat_state()
             .destroy_node(fd.placeholder.deref());
-        state.damage();
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
@@ -496,7 +494,6 @@ impl ToplevelData {
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, false);
         }
-        self.state.damage();
     }
 
     pub fn request_attention(&self, node: &dyn Node) {
@@ -510,6 +507,5 @@ impl ToplevelData {
         if let Some(parent) = self.parent.get() {
             parent.cnode_child_attention_request_changed(node, true);
         }
-        self.state.damage();
     }
 }

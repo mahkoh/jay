@@ -180,6 +180,5 @@ Jay supports the following wayland protocols:
 
 The following features are currently not supported but might get implemented in the future:
 
-- Fine-grained damage tracking.
 - Touch support.
 - Tearing updates of fullscreen games.

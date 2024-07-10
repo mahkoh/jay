@@ -44,17 +44,24 @@ pub async fn input_popup_positioning(state: Rc<State>) {
 }
 
 impl ZwpInputPopupSurfaceV2 {
+    fn damage(&self) {
+        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let extents = self.surface.extents.get();
+        self.client.state.damage(extents.move_(x, y));
+    }
+
     pub fn update_visible(self: &Rc<Self>) {
         let was_visible = self.surface.visible.get();
         let is_visible = self.surface.buffer.is_some()
             && self.input_method.connection.is_some()
             && self.client.state.root_visible();
         self.surface.set_visible(is_visible);
-        if was_visible || is_visible {
-            self.client.state.damage();
-        }
-        if !was_visible && is_visible {
-            self.schedule_positioning();
+        if was_visible != is_visible {
+            if is_visible {
+                self.schedule_positioning();
+            } else {
+                self.damage();
+            }
         }
     }
 
@@ -132,6 +139,9 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     fn detach(&self) {
+        if self.surface.visible.get() {
+            self.damage();
+        }
         self.surface.destroy_node();
         self.surface.unset_ext();
         self.input_method.popups.remove(&self.id);

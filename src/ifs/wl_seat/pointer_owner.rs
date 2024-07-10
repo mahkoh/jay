@@ -385,7 +385,6 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         if !T::IS_DEFAULT {
             seat.pointer_owner.set_default_pointer_owner(seat);
             seat.trigger_tree_changed();
-            seat.state.damage();
         }
     }
 
@@ -763,21 +762,17 @@ impl<S: ToplevelSelector> NodeSelectorUsecase for SelectToplevelUsecase<S> {
     }
 
     fn node_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
-        let mut damage = false;
         let tl = node.clone().node_into_toplevel();
         if let Some(tl) = &tl {
             tl.tl_data().render_highlight.fetch_add(1);
             if !tl.tl_admits_children() {
                 seat.pointer_cursor().set_known(KnownCursor::Pointer);
             }
-            damage = true;
+            seat.state.damage(tl.node_absolute_position());
         }
         if let Some(prev) = self.latest.set(tl) {
             prev.tl_data().render_highlight.fetch_sub(1);
-            damage = true;
-        }
-        if damage {
-            seat.state.damage();
+            seat.state.damage(prev.node_absolute_position());
         }
     }
 }
@@ -787,7 +782,7 @@ impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.tl_data().render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage();
+                seat.state.damage(prev.node_absolute_position());
             }
         }
     }
@@ -812,19 +807,15 @@ impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
     }
 
     fn node_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
-        let mut damage = false;
         let ws = node.clone().node_into_workspace();
         if let Some(ws) = &ws {
             ws.render_highlight.fetch_add(1);
             seat.pointer_cursor().set_known(KnownCursor::Pointer);
-            damage = true;
+            seat.state.damage(ws.position.get());
         }
         if let Some(prev) = self.latest.set(ws) {
             prev.render_highlight.fetch_sub(1);
-            damage = true;
-        }
-        if damage {
-            seat.state.damage();
+            seat.state.damage(prev.position.get());
         }
     }
 }
@@ -834,7 +825,7 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage();
+                seat.state.damage(prev.position.get());
             }
         }
     }

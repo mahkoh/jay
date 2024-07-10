@@ -167,6 +167,10 @@ pub trait XdgSurfaceExt: Debug {
     fn extents_changed(&self) {
         // nothing
     }
+
+    fn geometry_changed(&self) {
+        // nothing
+    }
 }
 
 impl XdgSurface {
@@ -256,6 +260,12 @@ impl XdgSurface {
             let _v = popup.workspace_link.borrow_mut().take();
             popup.popup.detach_node();
         }
+    }
+
+    pub fn damage(&self) {
+        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let extents = self.surface.extents.get();
+        self.surface.client.state.damage(extents.move_(x, y));
     }
 
     pub fn geometry(&self) -> Option<Rect> {
@@ -497,6 +507,9 @@ impl SurfaceExt for XdgSurface {
                 if prev != Some(geometry) {
                     self.update_extents();
                     self.update_surface_position();
+                    if let Some(ext) = self.ext.get() {
+                        ext.geometry_changed();
+                    }
                 }
             }
         }

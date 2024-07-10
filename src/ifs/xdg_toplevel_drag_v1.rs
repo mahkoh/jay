@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         renderer::Renderer,
-        tree::ToplevelNode,
+        tree::{Node, ToplevelNode},
         utils::clonecell::CloneCell,
         wire::{xdg_toplevel_drag_v1::*, XdgToplevelDragV1Id},
     },
@@ -53,16 +53,22 @@ impl XdgToplevelDragV1 {
         }
     }
 
-    fn move2(&self, x: i32, y: i32) {
+    fn move2(&self, x: i32, y: i32, damage_initial: bool) {
         if let Some(tl) = self.toplevel.get() {
+            if damage_initial && tl.node_visible() {
+                tl.xdg.damage();
+            }
             let extents = tl.xdg.absolute_desired_extents.get();
             let extents = extents.at_point(x - self.x_off.get(), y - self.y_off.get());
             tl.clone().tl_change_extents(&extents);
+            if tl.node_visible() {
+                tl.xdg.damage();
+            }
         }
     }
 
     pub fn move_(&self, x: i32, y: i32) {
-        self.move2(x, y);
+        self.move2(x, y, true);
     }
 
     pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect, x: i32, y: i32) {
@@ -122,7 +128,7 @@ impl XdgToplevelDragV1 {
         self.client.state.tree_changed();
         if let Some(seat) = self.source.data.seat.get() {
             let (x, y) = seat.pointer_cursor().position_int();
-            self.move2(x, y)
+            self.move2(x, y, false)
         }
     }
 

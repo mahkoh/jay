@@ -79,6 +79,9 @@ impl DisplayNode {
         for seat in state.globals.seats.lock().values() {
             seat.set_visible(visible);
         }
+        if visible {
+            state.damage(self.extents.get());
+        }
     }
 }
 

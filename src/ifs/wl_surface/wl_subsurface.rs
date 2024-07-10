@@ -352,6 +352,9 @@ impl SurfaceExt for WlSubsurface {
         if self.had_buffer.replace(has_buffer) != has_buffer {
             if has_buffer {
                 if self.parent.visible.get() {
+                    let (x, y) = self.surface.buffer_abs_pos.get().position();
+                    let extents = self.surface.extents.get();
+                    self.surface.client.state.damage(extents.move_(x, y));
                     self.surface.set_visible(true);
                 }
             } else {

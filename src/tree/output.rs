@@ -76,6 +76,7 @@ pub struct OutputNode {
     pub update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
+    pub title_visible: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -113,6 +114,9 @@ impl OutputNode {
             }
             if let Some(c) = self.workspace.get() {
                 c.change_extents(&self.workspace_rect.get());
+            }
+            if self.node_visible() {
+                self.state.damage(self.global.pos.get());
             }
         }
     }
@@ -307,7 +311,8 @@ impl OutputNode {
             texture_height = (th as f64 * scale).round() as _;
         }
         let active_id = self.workspace.get().map(|w| w.id);
-        let output_width = self.non_exclusive_rect.get().width();
+        let non_exclusive_rect = self.non_exclusive_rect.get();
+        let output_width = non_exclusive_rect.width();
         rd.underline = Rect::new_sized(0, th, output_width, 1).unwrap();
         for ws in self.workspaces.iter() {
             let old_tex = ws.title_texture.take();
@@ -414,7 +419,16 @@ impl OutputNode {
                 tex: title,
             });
         }
-        self.state.damage();
+        if self.title_visible.get() {
+            let title_rect = Rect::new_sized(
+                non_exclusive_rect.x1(),
+                non_exclusive_rect.y1(),
+                non_exclusive_rect.width(),
+                th,
+            )
+            .unwrap();
+            self.state.damage(title_rect);
+        }
     }
 
     pub fn ensure_workspace(self: &Rc<Self>) -> Rc<WorkspaceNode> {
@@ -460,12 +474,16 @@ impl OutputNode {
         for seat in seats {
             ws.clone().node_do_focus(&seat, Direction::Unspecified);
         }
+        if self.node_visible() {
+            self.state.damage(self.global.pos.get());
+        }
         true
     }
 
     pub fn create_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
         let ws = Rc::new(WorkspaceNode {
             id: self.state.node_ids.next(),
+            state: self.state.clone(),
             is_dummy: false,
             output: CloneCell::new(self.clone()),
             position: Cell::new(Default::default()),
@@ -582,6 +600,11 @@ impl OutputNode {
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
+        if self.node_visible() {
+            let old_pos = self.global.pos.get();
+            self.state.damage(old_pos);
+            self.state.damage(*rect);
+        }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
         self.global.pos.set(*rect);
         self.state.root.update_extents();
@@ -702,6 +725,13 @@ impl OutputNode {
         prev
     }
 
+    pub fn fullscreen_changed(&self) {
+        self.update_visible();
+        if self.node_visible() {
+            self.state.damage(self.global.pos.get());
+        }
+    }
+
     pub fn update_visible(&self) {
         let mut visible = self.state.root_visible();
         if self.state.lock.locked.get() {
@@ -722,6 +752,7 @@ impl OutputNode {
             have_fullscreen = ws.fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
+        self.title_visible.set(lower_visible);
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
         if let Some(ws) = self.workspace.get() {
@@ -822,7 +853,7 @@ impl Node for OutputNode {
     }
 
     fn node_visible(&self) -> bool {
-        true
+        self.state.root_visible()
     }
 
     fn node_absolute_position(&self) -> Rect {
