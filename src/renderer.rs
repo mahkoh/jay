@@ -481,7 +481,7 @@ impl Renderer<'_> {
                     if let Some(alpha) = alpha {
                         color = color * alpha;
                     }
-                    self.base.fill_boxes(&[rect], &color);
+                    self.base.fill_scaled_boxes(&[rect], &color);
                 }
             }
         } else {
