@@ -736,6 +736,18 @@ impl State {
         }
     }
 
+    pub fn do_unlock(&self) {
+        self.lock.locked.set(false);
+        self.lock.lock.take();
+        for output in self.root.outputs.lock().values() {
+            if let Some(surface) = output.set_lock_surface(None) {
+                surface.destroy_node();
+            }
+        }
+        self.tree_changed();
+        self.damage();
+    }
+
     pub fn clear(&self) {
         self.lock.lock.take();
         self.xwayland.handler.borrow_mut().take();
