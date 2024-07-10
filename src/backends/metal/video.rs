@@ -835,6 +835,7 @@ impl MetalConnector {
             render_hw_cursor,
             output.has_fullscreen(),
             output.global.persistent.transform.get(),
+            Some(&self.state.damage_visualizer),
         );
         let try_direct_scanout = try_direct_scanout
             && self.direct_scanout_enabled()

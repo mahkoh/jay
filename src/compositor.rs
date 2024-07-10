@@ -13,6 +13,7 @@ use {
         client::{ClientId, Clients},
         clientmem::{self, ClientMemError},
         config::ConfigProxy,
+        damage::{visualize_damage, DamageVisualizer},
         dbus::Dbus,
         forker,
         globals::Globals,
@@ -244,6 +245,7 @@ fn start_compositor2(
         tablet_ids: Default::default(),
         tablet_tool_ids: Default::default(),
         tablet_pad_ids: Default::default(),
+        damage_visualizer: DamageVisualizer::new(&engine),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -343,6 +345,7 @@ fn start_global_event_handlers(
         eng.spawn2(Phase::PostLayout, input_popup_positioning(state.clone())),
         eng.spawn2(Phase::Present, perform_toplevel_screencasts(state.clone())),
         eng.spawn2(Phase::PostLayout, perform_screencast_realloc(state.clone())),
+        eng.spawn2(Phase::PostLayout, visualize_damage(state.clone())),
     ]
 }
 

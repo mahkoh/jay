@@ -1,3 +1,6 @@
+mod color;
+mod damage_tracking;
+mod duration;
 mod generate;
 mod idle;
 mod input;
@@ -12,7 +15,7 @@ mod unlock;
 
 use {
     crate::{
-        cli::{input::InputArgs, randr::RandrArgs},
+        cli::{damage_tracking::DamageTrackingArgs, input::InputArgs, randr::RandrArgs},
         compositor::start_compositor,
         portal,
     },
@@ -65,6 +68,9 @@ pub enum Cmd {
     Randr(RandrArgs),
     /// Inspect/modify input settings.
     Input(InputArgs),
+    /// Modify damage tracking settings. (Only for debugging.)
+    #[clap(hide = true)]
+    DamageTracking(DamageTrackingArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -241,6 +247,7 @@ pub fn main() {
         Cmd::Portal => portal::run_freestanding(cli.global),
         Cmd::Randr(a) => randr::main(cli.global, a),
         Cmd::Input(a) => input::main(cli.global, a),
+        Cmd::DamageTracking(a) => damage_tracking::main(cli.global, a),
         #[cfg(feature = "it")]
         Cmd::RunTests => crate::it::run_tests(),
     }

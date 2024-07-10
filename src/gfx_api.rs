@@ -1,6 +1,7 @@
 use {
     crate::{
         cursor::Cursor,
+        damage::DamageVisualizer,
         fixed::Fixed,
         format::Format,
         rect::Rect,
@@ -359,6 +360,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
+        visualizer: Option<&DamageVisualizer>,
     ) -> GfxRenderPass {
         let mut ops = self.take_render_ops();
         let mut renderer = Renderer {
@@ -408,6 +410,11 @@ impl dyn GfxFramebuffer {
                         }
                     }
                 }
+            }
+        }
+        if let Some(visualizer) = visualizer {
+            if let Some(cursor_rect) = cursor_rect {
+                visualizer.render(&cursor_rect, &mut renderer.base);
             }
         }
         let c = match black_background {
@@ -468,6 +475,7 @@ impl dyn GfxFramebuffer {
             render_hardware_cursor,
             black_background,
             transform,
+            None,
         );
         self.perform_render_pass(pass)
     }

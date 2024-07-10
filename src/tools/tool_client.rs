@@ -23,8 +23,8 @@ use {
         },
         wheel::{Wheel, WheelError},
         wire::{
-            wl_callback, wl_display, wl_registry, JayCompositor, JayCompositorId, WlCallbackId,
-            WlRegistryId,
+            wl_callback, wl_display, wl_registry, JayCompositor, JayCompositorId,
+            JayDamageTracking, JayDamageTrackingId, WlCallbackId, WlRegistryId,
         },
     },
     ahash::AHashMap,
@@ -92,6 +92,7 @@ pub struct ToolClient {
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     singletons: CloneCell<Option<Rc<Singletons>>>,
     jay_compositor: Cell<Option<JayCompositorId>>,
+    jay_damage_tracking: Cell<Option<Option<JayDamageTrackingId>>>,
 }
 
 pub fn with_tool_client<T, F>(level: Level, f: F)
@@ -188,6 +189,7 @@ impl ToolClient {
             outgoing: Default::default(),
             singletons: Default::default(),
             jay_compositor: Default::default(),
+            jay_damage_tracking: Default::default(),
         });
         wl_display::Error::handle(&slf, WL_DISPLAY_ID, (), |_, val| {
             fatal!("The compositor returned a fatal error: {}", val.message);
@@ -285,6 +287,7 @@ impl ToolClient {
         #[derive(Default)]
         struct S {
             jay_compositor: Cell<Option<u32>>,
+            jay_damage_tracking: Cell<Option<u32>>,
         }
         let s = Rc::new(S::default());
         let registry: WlRegistryId = self.id();
@@ -295,6 +298,8 @@ impl ToolClient {
         wl_registry::Global::handle(self, registry, s.clone(), |s, g| {
             if g.interface == JayCompositor.name() {
                 s.jay_compositor.set(Some(g.name));
+            } else if g.interface == JayDamageTracking.name() {
+                s.jay_damage_tracking.set(Some(g.name));
             }
         });
         self.round_trip().await;
@@ -309,6 +314,7 @@ impl ToolClient {
         let res = Rc::new(Singletons {
             registry,
             jay_compositor: get!(jay_compositor, JayCompositor),
+            jay_damage_tracking: s.jay_damage_tracking.get(),
         });
         self.singletons.set(Some(res.clone()));
         res
@@ -330,11 +336,33 @@ impl ToolClient {
         self.jay_compositor.set(Some(id));
         id
     }
+
+    pub async fn jay_damage_tracking(self: &Rc<Self>) -> Option<JayDamageTrackingId> {
+        if let Some(id) = self.jay_damage_tracking.get() {
+            return id;
+        }
+        let s = self.singletons().await;
+        let Some(name) = s.jay_damage_tracking else {
+            self.jay_damage_tracking.set(Some(None));
+            return None;
+        };
+        let id: JayDamageTrackingId = self.id();
+        self.send(wl_registry::Bind {
+            self_id: s.registry,
+            name,
+            interface: JayDamageTracking.name(),
+            version: 1,
+            id: id.into(),
+        });
+        self.jay_damage_tracking.set(Some(Some(id)));
+        Some(id)
+    }
 }
 
 pub struct Singletons {
     registry: WlRegistryId,
     pub jay_compositor: u32,
+    pub jay_damage_tracking: Option<u32>,
 }
 
 pub const NONE_FUTURE: Option<Pending<()>> = None;

@@ -14,6 +14,7 @@ use {
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
+        damage::DamageVisualizer,
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
         fixed::Fixed,
@@ -199,6 +200,7 @@ pub struct State {
     pub tablet_ids: TabletIds,
     pub tablet_tool_ids: TabletToolIds,
     pub tablet_pad_ids: TabletPadIds,
+    pub damage_visualizer: DamageVisualizer,
 }
 
 // impl Drop for State {
