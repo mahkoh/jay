@@ -352,6 +352,11 @@ impl CursorUser {
         self.pos.get()
     }
 
+    pub fn position_int(&self) -> (i32, i32) {
+        let (x, y) = self.pos.get();
+        (x.round_down(), y.round_down())
+    }
+
     pub fn set_position(&self, mut x: Fixed, mut y: Fixed) -> (Fixed, Fixed) {
         let x_int = x.round_down();
         let y_int = y.round_down();

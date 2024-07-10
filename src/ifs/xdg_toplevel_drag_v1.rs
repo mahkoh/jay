@@ -7,6 +7,8 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        rect::Rect,
+        renderer::Renderer,
         utils::clonecell::CloneCell,
         wire::{xdg_toplevel_drag_v1::*, XdgToplevelDragV1Id},
     },
@@ -47,6 +49,15 @@ impl XdgToplevelDragV1 {
         self.source.toplevel_drag.take();
         if let Some(tl) = self.toplevel.take() {
             tl.drag.take();
+        }
+    }
+
+    pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect, x: i32, y: i32) {
+        if let Some(tl) = self.toplevel.get() {
+            if tl.xdg.surface.buffer.get().is_some() {
+                let (x, y) = cursor_rect.translate(x - self.x_off.get(), y - self.y_off.get());
+                renderer.render_xdg_surface(&tl.xdg, x, y, None)
+            }
         }
     }
 }

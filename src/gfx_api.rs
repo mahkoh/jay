@@ -345,7 +345,7 @@ impl dyn GfxFramebuffer {
         if let Some(rect) = cursor_rect {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
-                let (x, y) = seat.pointer_cursor().position();
+                let (x, y) = seat.pointer_cursor().position_int();
                 if let Some(im) = seat.input_method() {
                     for (_, popup) in &im.popups {
                         if popup.surface.node_visible() {
@@ -359,18 +359,10 @@ impl dyn GfxFramebuffer {
                     }
                 }
                 if let Some(drag) = seat.toplevel_drag() {
-                    if let Some(tl) = drag.toplevel.get() {
-                        if tl.xdg.surface.buffer.get().is_some() {
-                            let (x, y) = rect.translate(
-                                x.round_down() - drag.x_off.get(),
-                                y.round_down() - drag.y_off.get(),
-                            );
-                            renderer.render_xdg_surface(&tl.xdg, x, y, None)
-                        }
-                    }
+                    drag.render(&mut renderer, &rect, x, y);
                 }
                 if let Some(dnd_icon) = seat.dnd_icon() {
-                    dnd_icon.render(&mut renderer, &rect, x.round_down(), y.round_down());
+                    dnd_icon.render(&mut renderer, &rect, x, y);
                 }
                 if render_cursor {
                     let cursor_user_group = seat.cursor_group();
