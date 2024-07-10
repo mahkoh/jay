@@ -399,7 +399,8 @@ struct PendingState {
     input_region: Option<Option<Rc<Region>>>,
     frame_request: Vec<Rc<WlCallback>>,
     damage_full: bool,
-    damage: Vec<Rect>,
+    buffer_damage: Vec<Rect>,
+    surface_damage: Vec<Rect>,
     presentation_feedback: Vec<Rc<WpPresentationFeedback>>,
     src_rect: Option<Option<[Fixed; 4]>>,
     dst_size: Option<Option<(i32, i32)>>,
@@ -471,14 +472,23 @@ impl PendingState {
             self.offset = (dx1 + dx2, dy1 + dy2);
         }
         self.frame_request.append(&mut next.frame_request);
+        self.damage_full |= mem::take(&mut next.damage_full);
         if !self.damage_full {
-            if self.damage.len() + next.damage.len() > MAX_DAMAGE {
-                self.damage_full = true;
-                self.damage.clear();
+            if self.buffer_damage.len() + next.buffer_damage.len() > MAX_DAMAGE {
+                self.damage_full();
             } else {
-                self.damage.append(&mut next.damage);
+                self.buffer_damage.append(&mut next.buffer_damage);
             }
         }
+        if !self.damage_full {
+            if self.surface_damage.len() + next.surface_damage.len() > MAX_DAMAGE {
+                self.damage_full();
+            } else {
+                self.surface_damage.append(&mut next.surface_damage);
+            }
+        }
+        next.surface_damage.clear();
+        next.buffer_damage.clear();
         mem::swap(
             &mut self.presentation_feedback,
             &mut next.presentation_feedback,
@@ -519,6 +529,12 @@ impl PendingState {
             Entry::Occupied(oe) => consume(oe),
             _ => Ok(()),
         }
+    }
+
+    fn damage_full(&mut self) {
+        self.damage_full = true;
+        self.buffer_damage.clear();
+        self.surface_damage.clear();
     }
 }
 
@@ -823,6 +839,32 @@ impl WlSurface {
             dnd_icon.seat.remove_dnd_icon();
         }
     }
+
+    fn do_damage<F>(
+        &self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        f: F,
+    ) -> Result<(), WlSurfaceError>
+    where
+        F: Fn(&mut PendingState) -> &mut Vec<Rect>,
+    {
+        let pending = &mut *self.pending.borrow_mut();
+        if !pending.damage_full {
+            let damage = f(pending);
+            if damage.len() >= MAX_DAMAGE {
+                pending.damage_full();
+            } else {
+                let Some(rect) = Rect::new_sized(x, y, width, height) else {
+                    return Err(WlSurfaceError::InvalidRect);
+                };
+                damage.push(rect);
+            }
+        }
+        Ok(())
+    }
 }
 
 const MAX_DAMAGE: usize = 32;
@@ -879,11 +921,10 @@ impl WlSurfaceRequestHandler for WlSurface {
         Ok(())
     }
 
-    fn damage(&self, _req: Damage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let pending = &mut *self.pending.borrow_mut();
-        pending.damage.clear();
-        pending.damage_full = true;
-        Ok(())
+    fn damage(&self, req: Damage, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.do_damage(req.x, req.y, req.width, req.height, |p| {
+            &mut p.surface_damage
+        })
     }
 
     fn frame(&self, req: Frame, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -949,19 +990,9 @@ impl WlSurfaceRequestHandler for WlSurface {
     }
 
     fn damage_buffer(&self, req: DamageBuffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let pending = &mut *self.pending.borrow_mut();
-        if !pending.damage_full {
-            if pending.damage.len() >= MAX_DAMAGE || self.shm_texture.is_none() {
-                pending.damage.clear();
-                pending.damage_full = true;
-            } else {
-                let Some(rect) = Rect::new_sized(req.x, req.y, req.width, req.height) else {
-                    return Err(WlSurfaceError::InvalidRect);
-                };
-                pending.damage.push(rect);
-            }
-        }
-        Ok(())
+        self.do_damage(req.x, req.y, req.width, req.height, |p| {
+            &mut p.buffer_damage
+        })
     }
 
     fn offset(&self, req: Offset, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -1021,13 +1052,11 @@ impl WlSurface {
                 old_raw_size = Some(buffer.buffer.rect);
             }
             if let Some(buffer) = buffer_change {
-                let damage = match pending.damage_full {
+                let damage = match pending.damage_full || pending.surface_damage.is_not_empty() {
                     true => None,
-                    false => Some(&pending.damage[..]),
+                    false => Some(&pending.buffer_damage[..]),
                 };
                 buffer.update_texture_or_log(self, damage);
-                pending.damage.clear();
-                pending.damage_full = false;
                 let (sync, release_sync) = match pending.explicit_sync {
                     false => (AcquireSync::Implicit, ReleaseSync::Implicit),
                     true => (AcquireSync::Unnecessary, ReleaseSync::Explicit),
@@ -1188,6 +1217,9 @@ impl WlSurface {
         }
         self.ext.get().after_apply_commit();
         self.client.state.damage();
+        pending.buffer_damage.clear();
+        pending.surface_damage.clear();
+        pending.damage_full = false;
         Ok(())
     }
 
