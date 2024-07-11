@@ -2172,9 +2172,9 @@ impl MetalBackend {
             _ => return,
         };
         connector.can_present.set(true);
-        connector
-            .active_framebuffer
-            .set(connector.next_framebuffer.take());
+        if let Some(fb) = connector.next_framebuffer.take() {
+            connector.active_framebuffer.set(Some(fb));
+        }
         if connector.has_damage.get() || connector.cursor_changed.get() {
             connector.schedule_present();
         }
