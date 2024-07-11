@@ -12,7 +12,6 @@ use {
         gfx_api::{GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         renderer::RenderResult,
         state::State,
-        time::now_usec,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
             queue::AsyncQueue, syncqueue::SyncQueue,
@@ -818,7 +817,7 @@ impl XBackend {
                         inverted: false,
                     });
                     seat.mouse_event(InputEvent::AxisFrame {
-                        time_usec: now_usec(),
+                        time_usec: self.state.now_usec(),
                     });
                 }
             } else {
@@ -834,7 +833,7 @@ impl XBackend {
                     n => BTN_SIDE + n - 8,
                 };
                 seat.mouse_event(InputEvent::Button {
-                    time_usec: now_usec(),
+                    time_usec: self.state.now_usec(),
                     button,
                     state,
                 });
@@ -851,7 +850,7 @@ impl XBackend {
         let event: XiKeyPress = event.parse()?;
         if let Some(seat) = self.seats.get(&event.deviceid) {
             seat.kb_event(InputEvent::Key {
-                time_usec: now_usec(),
+                time_usec: self.state.now_usec(),
                 key: event.detail - 8,
                 state,
             });
@@ -885,7 +884,7 @@ impl XBackend {
             self.mouse_seats.get(&event.deviceid),
         ) {
             seat.mouse_event(InputEvent::ConnectorPosition {
-                time_usec: now_usec(),
+                time_usec: self.state.now_usec(),
                 connector: win.id,
                 x: Fixed::from_1616(event.event_x),
                 y: Fixed::from_1616(event.event_y),
@@ -904,7 +903,7 @@ impl XBackend {
             _ => return Ok(()),
         };
         seat.mouse_event(InputEvent::ConnectorPosition {
-            time_usec: now_usec(),
+            time_usec: self.state.now_nsec(),
             connector: win.id,
             x: Fixed::from_1616(event.event_x),
             y: Fixed::from_1616(event.event_y),

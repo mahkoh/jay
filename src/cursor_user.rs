@@ -296,7 +296,9 @@ impl CursorUser {
             KnownCursor::ZoomIn => &cursors.zoom_in,
             KnownCursor::ZoomOut => &cursors.zoom_out,
         };
-        self.set_cursor2(Some(tpl.instantiate(self.group.size.get())));
+        self.set_cursor2(Some(
+            tpl.instantiate(&self.group.state, self.group.size.get()),
+        ));
     }
 
     fn set_output(&self, output: &Rc<OutputNode>) {

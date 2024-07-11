@@ -18,7 +18,6 @@ use {
         renderer::RenderResult,
         state::State,
         theme::Color,
-        time::now_nsec,
         tree::OutputNode,
         udev::UdevDevice,
         utils::{
@@ -591,7 +590,7 @@ impl MetalConnector {
             });
             if let Some(delta) = *DELTA {
                 let next_present = self.next_flip_nsec.get().saturating_sub(delta);
-                if now_nsec() < next_present {
+                if self.state.now_nsec() < next_present {
                     self.state.ring.timeout(next_present).await.unwrap();
                 }
             }

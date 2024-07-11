@@ -2,7 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         io_uring::{IoUring, IoUringError},
-        time::{Time, TimeError},
+        time::Time,
         utils::{
             buf::TypedBuf, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt,
             numcell::NumCell, oserror::OsError, stack::Stack,
@@ -28,8 +28,6 @@ pub enum WheelError {
     CreateFailed(#[source] OsError),
     #[error("Could not set the timerfd")]
     SetFailed(#[source] OsError),
-    #[error("Cannot determine the time")]
-    TimeError(#[from] TimeError),
     #[error("The timer wheel is already destroyed")]
     Destroyed,
     #[error("Could not read from the timerfd")]
@@ -99,6 +97,7 @@ impl Future for WheelTimeoutFuture {
 pub struct WheelData {
     destroyed: Cell<bool>,
     ring: Rc<IoUring>,
+    eng: Rc<AsyncEngine>,
     fd: Rc<OwnedFd>,
     next_id: NumCell<u64>,
     start: Time,
@@ -118,9 +117,10 @@ impl Wheel {
         let data = Rc::new(WheelData {
             destroyed: Cell::new(false),
             ring: ring.clone(),
+            eng: eng.clone(),
             fd,
             next_id: NumCell::new(1),
-            start: Time::now()?,
+            start: eng.now(),
             current_expiration: Default::default(),
             dispatchers: Default::default(),
             expirations: Default::default(),
@@ -161,13 +161,7 @@ impl Wheel {
             };
         }
         let future = self.future();
-        let now = match Time::now() {
-            Ok(n) => n,
-            Err(e) => {
-                future.data.expired.set(Some(Err(WheelError::TimeError(e))));
-                return future;
-            }
-        };
+        let now = self.data.eng.now();
         let expiration = (now + Duration::from_millis(ms)).round_to_ms();
         let current = self.data.current_expiration.get();
         if current.is_none() || expiration - self.data.start < current.unwrap() - self.data.start {
@@ -224,7 +218,7 @@ impl WheelData {
         if let Err(e) = self.ring.read(&self.fd, n.buf()).await {
             return Err(WheelError::Read(e));
         }
-        let now = Time::now()?;
+        let now = self.eng.now();
         let dist = now - self.start;
         {
             let mut expirations = self.expirations.borrow_mut();

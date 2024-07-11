@@ -68,7 +68,6 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::{DeviceHandlerData, State},
-        time::now_usec,
         tree::{
             generic_node_visitor, ContainerNode, ContainerSplit, Direction, FoundNode, Node,
             OutputNode, ToplevelNode, WorkspaceNode,
@@ -245,7 +244,7 @@ impl WlSeatGlobal {
             changes: NumCell::new(CHANGE_CURSOR_MOVED | CHANGE_TREE),
             constraint: Default::default(),
             idle_notifications: Default::default(),
-            last_input_usec: Cell::new(now_usec()),
+            last_input_usec: Cell::new(state.now_usec()),
             wlr_data_devices: Default::default(),
             text_inputs: Default::default(),
             text_input: Default::default(),

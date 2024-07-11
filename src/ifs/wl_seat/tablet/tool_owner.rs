@@ -2,7 +2,6 @@ use {
     crate::{
         fixed::Fixed,
         ifs::wl_seat::tablet::{TabletTool, TabletToolChanges, ToolButtonState},
-        time::now_usec,
         tree::{FindTreeUsecase, FoundNode, Node},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -35,14 +34,15 @@ impl ToolOwnerHolder {
     pub fn destroy(&self, tool: &Rc<TabletTool>) {
         let root = tool.tablet.seat.state.root.clone();
         let prev = tool.node.set(root);
-        prev.node_on_tablet_tool_leave(tool, now_usec());
+        prev.node_on_tablet_tool_leave(tool, tool.tablet.seat.state.now_usec());
         prev.node_seat_state().remove_tablet_tool_focus(tool);
     }
 
     pub fn focus_root(&self, tool: &Rc<TabletTool>) {
         self.owner.set(self.default.clone());
-        let root = tool.tablet.seat.state.root.clone();
-        tool.set_node(root, now_usec());
+        let state = &tool.tablet.seat.state;
+        let root = state.root.clone();
+        tool.set_node(root, state.now_usec());
     }
 
     pub fn button(

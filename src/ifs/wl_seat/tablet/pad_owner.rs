@@ -1,7 +1,6 @@
 use {
     crate::{
         ifs::wl_seat::tablet::{PadButtonState, TabletPad},
-        time::now_usec,
         tree::Node,
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -42,7 +41,9 @@ impl PadOwnerHolder {
     }
 
     pub fn destroy(&self, pad: &Rc<TabletPad>) {
-        self.owner.get().revert_to_default(pad, now_usec());
+        self.owner
+            .get()
+            .revert_to_default(pad, pad.seat.state.now_usec());
         let prev = pad.node.set(pad.seat.state.root.clone());
         prev.node_on_tablet_pad_leave(pad);
         prev.node_seat_state().remove_tablet_pad_focus(pad);
@@ -53,7 +54,9 @@ impl PadOwnerHolder {
     }
 
     pub fn focus_root(&self, pad: &Rc<TabletPad>) {
-        self.owner.get().revert_to_default(pad, now_usec());
+        self.owner
+            .get()
+            .revert_to_default(pad, pad.seat.state.now_usec());
         let node = pad.seat.state.root.clone();
         pad.focus_node(node);
     }

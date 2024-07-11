@@ -60,6 +60,7 @@ use {
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         theme::{Color, Theme},
+        time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
             NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase,
@@ -1060,6 +1061,23 @@ impl State {
             return (output, x, y);
         }
         (self.dummy_output.get().unwrap(), 0, 0)
+    }
+
+    pub fn now(&self) -> Time {
+        self.eng.now()
+    }
+
+    pub fn now_nsec(&self) -> u64 {
+        self.eng.now().nsec()
+    }
+
+    pub fn now_usec(&self) -> u64 {
+        self.eng.now().usec()
+    }
+
+    #[allow(dead_code)]
+    pub fn now_msec(&self) -> u64 {
+        self.eng.now().msec()
     }
 }
 

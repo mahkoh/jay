@@ -1,5 +1,6 @@
 use {
     crate::{
+        async_engine::AsyncEngine,
         fixed::Fixed,
         format::ARGB8888,
         gfx_api::{AcquireSync, GfxContext, GfxError, GfxTexture, ReleaseSync},
@@ -283,13 +284,14 @@ impl ServerCursorTemplate {
         }
     }
 
-    pub fn instantiate(&self, size: u32) -> Rc<dyn Cursor> {
+    pub fn instantiate(&self, state: &State, size: u32) -> Rc<dyn Cursor> {
         match &self.var {
             ServerCursorTemplateVariant::Static(s) => Rc::new(StaticCursor {
                 image: s.for_size(size),
             }),
             ServerCursorTemplateVariant::Animated(a) => Rc::new(AnimatedCursor {
-                start: Time::now_unchecked(),
+                start: state.now(),
+                eng: state.eng.clone(),
                 next: NumCell::new(a[0].delay_ns),
                 idx: Cell::new(0),
                 images: a.iter().map(|c| c.for_size(size)).collect(),
@@ -424,6 +426,7 @@ impl Cursor for StaticCursor {
 
 struct AnimatedCursor {
     start: Time,
+    eng: Rc<AsyncEngine>,
     next: NumCell<u64>,
     idx: Cell<usize>,
     images: Vec<InstantiatedCursorImage>,
@@ -463,7 +466,7 @@ impl Cursor for AnimatedCursor {
     }
 
     fn tick(&self) {
-        let dist = Time::now_unchecked() - self.start;
+        let dist = self.eng.now() - self.start;
         if (dist.as_nanos() as u64) < self.next.get() {
             return;
         }
@@ -478,7 +481,7 @@ impl Cursor for AnimatedCursor {
     }
 
     fn time_until_tick(&self) -> Duration {
-        let dist = Time::now_unchecked() - self.start;
+        let dist = self.eng.now() - self.start;
         let dist = dist.as_nanos() as u64;
         let nanos = self.next.get().saturating_sub(dist);
         Duration::from_nanos(nanos)

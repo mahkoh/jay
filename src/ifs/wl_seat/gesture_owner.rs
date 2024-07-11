@@ -1,8 +1,5 @@
 use {
-    crate::{
-        fixed::Fixed, ifs::wl_seat::WlSeatGlobal, time::now_usec, tree::Node,
-        utils::clonecell::CloneCell,
-    },
+    crate::{fixed::Fixed, ifs::wl_seat::WlSeatGlobal, tree::Node, utils::clonecell::CloneCell},
     std::rc::Rc,
 };
 
@@ -179,7 +176,7 @@ struct SwipeGesture {
 
 impl GestureOwner for SwipeGesture {
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
-        self.swipe_end(seat, now_usec(), true);
+        self.swipe_end(seat, seat.state.now_usec(), true);
     }
 
     fn swipe_update(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed) {
@@ -199,7 +196,7 @@ struct PinchGesture {
 
 impl GestureOwner for PinchGesture {
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
-        self.pinch_end(seat, now_usec(), true);
+        self.pinch_end(seat, seat.state.now_usec(), true);
     }
 
     fn pinch_update(
@@ -228,7 +225,7 @@ struct HoldGesture {
 
 impl GestureOwner for HoldGesture {
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
-        self.hold_end(seat, now_usec(), true);
+        self.hold_end(seat, seat.state.now_usec(), true);
     }
 
     fn hold_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {

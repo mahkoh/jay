@@ -23,7 +23,6 @@ use {
         io_uring::{IoUring, IoUringError},
         rect::Rect,
         state::State,
-        time::Time,
         tree::{Node, ToplevelNode},
         utils::{
             bitflags::BitflagsExt, buf::Buf, cell_ext::CellExt, clonecell::CloneCell,
@@ -71,6 +70,7 @@ use {
         mem::{self},
         ops::{Deref, DerefMut},
         rc::Rc,
+        time::Duration,
     },
     uapi::{c, OwnedFd},
 };
@@ -2514,7 +2514,7 @@ struct XToWaylandTransfer {
 
 impl XToWaylandTransfer {
     async fn run(mut self) {
-        let timeout = Time::in_ms(5000).unwrap();
+        let timeout = self.state.now() + Duration::from_millis(5000);
         let mut pos = 0;
         while pos < self.data.len() {
             let res = self

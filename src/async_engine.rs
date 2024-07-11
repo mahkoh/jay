@@ -5,6 +5,7 @@ pub use {crate::async_engine::ae_yield::Yield, ae_task::SpawnedFuture};
 use {
     crate::{
         async_engine::ae_task::Runnable,
+        time::Time,
         utils::{array, numcell::NumCell, syncqueue::SyncQueue},
     },
     std::{
@@ -33,6 +34,7 @@ pub struct AsyncEngine {
     stash: RefCell<VecDeque<Runnable>>,
     yield_stash: RefCell<VecDeque<Waker>>,
     stopped: Cell<bool>,
+    now: Cell<Option<Time>>,
 }
 
 impl AsyncEngine {
@@ -45,6 +47,7 @@ impl AsyncEngine {
             stash: Default::default(),
             yield_stash: Default::default(),
             stopped: Cell::new(false),
+            now: Default::default(),
         })
     }
 
@@ -84,6 +87,7 @@ impl AsyncEngine {
         let mut stash = self.stash.borrow_mut();
         let mut yield_stash = self.yield_stash.borrow_mut();
         while self.num_queued.get() > 0 {
+            self.now.take();
             self.iteration.fetch_add(1);
             let mut phase = 0;
             while phase < NUM_PHASES {
@@ -118,5 +122,16 @@ impl AsyncEngine {
 
     fn iteration(&self) -> u64 {
         self.iteration.get()
+    }
+
+    pub fn now(&self) -> Time {
+        match self.now.get() {
+            Some(t) => t,
+            None => {
+                let now = Time::now_unchecked();
+                self.now.set(Some(now));
+                now
+            }
+        }
     }
 }

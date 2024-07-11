@@ -29,7 +29,6 @@ use {
         scale::Scale,
         state::State,
         text::{self, TextTexture},
-        time::Time,
         tree::{
             walker::NodeVisitor, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node,
             NodeId, StackedNode, WorkspaceNode,
@@ -164,7 +163,7 @@ impl OutputNode {
         if self.screencopies.is_empty() {
             return;
         }
-        let now = Time::now().unwrap();
+        let now = self.state.now();
         for capture in self.screencopies.lock().drain_values() {
             let wl_buffer = match capture.buffer.take() {
                 Some(b) => b,
