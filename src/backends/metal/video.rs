@@ -925,7 +925,7 @@ impl MetalConnector {
                 rr.output_id = node.id;
                 let fb =
                     self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
-                rr.dispatch_frame_requests();
+                rr.dispatch_frame_requests(self.state.now_msec());
                 let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
                     match &fb.direct_scanout_data {
                         None => {

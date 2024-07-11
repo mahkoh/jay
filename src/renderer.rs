@@ -48,9 +48,9 @@ impl Default for RenderResult {
 }
 
 impl RenderResult {
-    pub fn dispatch_frame_requests(&mut self) {
+    pub fn dispatch_frame_requests(&mut self, now: u64) {
         for fr in self.frame_requests.drain(..) {
-            fr.send_done();
+            fr.send_done(now as _);
             let _ = fr.client.remove_obj(&*fr);
         }
     }

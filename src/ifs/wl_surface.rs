@@ -1227,8 +1227,9 @@ impl WlSurface {
         self.ext.get().after_apply_commit();
         if self.visible.get() {
             if self.buffer_presented.get() {
+                let now = self.client.state.now_msec() as _;
                 for fr in self.frame_requests.borrow_mut().drain(..) {
-                    fr.send_done();
+                    fr.send_done(now);
                     let _ = fr.client.remove_obj(&*fr);
                 }
             }

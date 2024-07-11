@@ -39,7 +39,7 @@ impl WlDisplayRequestHandler for WlDisplay {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
-        cb.send_done();
+        cb.send_done(0);
         self.client.remove_obj(&*cb)?;
         Ok(())
     }
