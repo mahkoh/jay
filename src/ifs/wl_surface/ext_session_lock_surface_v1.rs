@@ -44,7 +44,7 @@ impl ExtSessionLockSurfaceV1 {
 
     pub fn change_extents(&self, rect: Rect) {
         self.send_configure(rect.width(), rect.height());
-        self.surface.set_absolute_position(rect.x1(), rect.x2());
+        self.surface.set_absolute_position(rect.x1(), rect.y1());
     }
 
     fn send_configure(&self, width: i32, height: i32) {

@@ -72,6 +72,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
                 node.set_lock_surface(Some(new.clone()));
                 let pos = node.global.pos.get();
                 new.change_extents(pos);
+                new.surface.set_output(&node);
                 self.client.state.tree_changed();
             }
         }
