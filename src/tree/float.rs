@@ -135,6 +135,9 @@ impl FloatNode {
         child.tl_set_visible(floater.visible.get());
         child.tl_restack_popups();
         floater.schedule_layout();
+        if floater.visible.get() {
+            state.damage(position);
+        }
         floater
     }
 
@@ -199,11 +202,12 @@ impl FloatNode {
             _ => return,
         };
         let scales = self.state.scales.lock();
+        let tr = Rect::new_sized(pos.x1() + bw, pos.y1() + bw, pos.width() - 2 * bw, th).unwrap();
         for (scale, _) in scales.iter() {
             let old_tex = self.title_textures.remove(scale);
-            let mut th = th;
+            let mut th = tr.height();
             let mut scalef = None;
-            let mut width = pos.width() - 2 * bw;
+            let mut width = tr.width();
             if *scale != 1 {
                 let scale = scale.to_f64();
                 th = (th as f64 * scale).round() as _;
@@ -221,6 +225,9 @@ impl FloatNode {
                 }
             };
             self.title_textures.set(*scale, texture);
+        }
+        if self.visible.get() {
+            self.state.damage(tr);
         }
     }
 
@@ -307,8 +314,12 @@ impl FloatNode {
                     y2 = y2.max(y1 + 2 * bw + th + 1);
                 }
             }
-            self.position.set(Rect::new(x1, y1, x2, y2).unwrap());
-            self.state.damage();
+            let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
+            self.position.set(new_pos);
+            if self.visible.get() {
+                self.state.damage(pos);
+                self.state.damage(new_pos);
+            }
             self.schedule_layout();
             return;
         }
@@ -684,6 +695,9 @@ impl ContainingNode for FloatNode {
         self.pull_child_properties();
         new.tl_set_visible(self.visible.get());
         self.schedule_layout();
+        if self.visible.get() {
+            self.state.damage(self.position.get());
+        }
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
@@ -691,6 +705,9 @@ impl ContainingNode for FloatNode {
         self.child.set(None);
         self.display_link.borrow_mut().take();
         self.workspace_link.set(None);
+        if self.visible.get() {
+            self.state.damage(self.position.get());
+        }
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
@@ -716,8 +733,10 @@ impl ContainingNode for FloatNode {
         let (x, y) = (x - bw, y - th - bw - 1);
         let pos = self.position.get();
         if pos.position() != (x, y) {
-            self.position.set(pos.at_point(x, y));
-            self.state.damage();
+            let new_pos = pos.at_point(x, y);
+            self.position.set(new_pos);
+            self.state.damage(pos);
+            self.state.damage(new_pos);
             self.schedule_layout();
         }
     }
@@ -753,7 +772,10 @@ impl ContainingNode for FloatNode {
         let new_pos = Rect::new(x1, y1, x2, y2).unwrap();
         if new_pos != pos {
             self.position.set(new_pos);
-            self.state.damage();
+            if self.visible.get() {
+                self.state.damage(pos);
+                self.state.damage(new_pos);
+            }
             self.schedule_layout();
         }
     }

@@ -13,7 +13,7 @@ use {
             },
             wl_surface::WlSurface,
         },
-        time::{now_usec, usec_to_msec},
+        time::usec_to_msec,
         utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
     },
     std::{cell::Cell, rc::Rc},
@@ -192,7 +192,7 @@ impl TabletPad {
 
     pub fn surface_enter(self: &Rc<Self>, n: &WlSurface) {
         let mut serial = n.client.pending_serial();
-        let time = usec_to_msec(now_usec());
+        let time = n.client.state.now_msec() as u32;
         self.for_each_pair(n, |tablet, pad| {
             pad.send_enter(serial.get(), &tablet, n);
             for group in &self.groups {

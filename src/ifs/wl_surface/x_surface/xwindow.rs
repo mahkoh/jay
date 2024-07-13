@@ -252,6 +252,7 @@ impl Xwindow {
 
     pub fn map_status_changed(self: &Rc<Self>) {
         let map_change = self.map_change();
+        let override_redirect = self.data.info.override_redirect.get();
         match map_change {
             Change::None => return,
             Change::Unmap => {
@@ -261,7 +262,7 @@ impl Xwindow {
                     .set(self.data.info.extents.take());
                 self.tl_destroy();
             }
-            Change::Map if self.data.info.override_redirect.get() => {
+            Change::Map if override_redirect => {
                 self.clone()
                     .tl_change_extents(&self.data.info.pending_extents.get());
                 *self.display_link.borrow_mut() =
@@ -284,12 +285,17 @@ impl Xwindow {
         match map_change {
             Change::Unmap => self.tl_set_visible(false),
             Change::Map => {
-                self.tl_set_visible(true);
+                if override_redirect {
+                    self.tl_set_visible(true);
+                }
                 self.toplevel_data.broadcast(self.clone());
             }
             Change::None => {}
         }
         self.data.state.tree_changed();
+        if override_redirect {
+            self.data.state.damage(self.data.info.pending_extents.get());
+        }
     }
 }
 
@@ -414,7 +420,10 @@ impl ToplevelNodeBase for Xwindow {
         // log::info!("xwin {} change_extents {:?}", self.data.window_id, rect);
         let old = self.data.info.extents.replace(*rect);
         if old != *rect {
-            if !self.data.info.override_redirect.get() {
+            if self.data.info.override_redirect.get() {
+                self.data.state.damage(old);
+                self.data.state.damage(*rect);
+            } else {
                 self.data
                     .state
                     .xwayland

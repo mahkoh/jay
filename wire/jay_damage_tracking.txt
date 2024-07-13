@@ -1,0 +1,18 @@
+request destroy {
+
+}
+
+request set_visualizer_enabled {
+    enabled: u32,
+}
+
+request set_visualizer_color {
+    r: pod(f32),
+    g: pod(f32),
+    b: pod(f32),
+    a: pod(f32),
+}
+
+request set_visualizer_decay {
+    millis: pod(u64),
+}

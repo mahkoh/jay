@@ -3,7 +3,6 @@ use {
         async_engine::Phase,
         client::{Client, ClientError},
         object::ObjectId,
-        time::Time,
         utils::{
             buffd::{BufFdIn, BufFdOut, MsgParser},
             errorfmt::ErrorFmt,
@@ -11,7 +10,7 @@ use {
         },
     },
     futures_util::{select, FutureExt},
-    std::{collections::VecDeque, mem, rc::Rc},
+    std::{collections::VecDeque, mem, rc::Rc, time::Duration},
 };
 
 pub async fn client(data: Rc<Client>) {
@@ -112,7 +111,7 @@ async fn send(data: Rc<Client>) {
                 swapchain.commit();
                 mem::swap(&mut swapchain.pending, &mut buffers);
             }
-            let timeout = Time::in_ms(5000).unwrap();
+            let timeout = data.state.now() + Duration::from_millis(5000);
             while let Some(mut cur) = buffers.pop_front() {
                 out.flush(&mut cur, timeout).await?;
                 data.swapchain.borrow_mut().free.push(cur);

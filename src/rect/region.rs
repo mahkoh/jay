@@ -78,6 +78,10 @@ impl Region {
         self.extents
     }
 
+    pub fn rects(&self) -> &[Rect] {
+        unsafe { mem::transmute::<&[RectRaw], &[Rect]>(&self.rects[..]) }
+    }
+
     pub fn contains(&self, x: i32, y: i32) -> bool {
         if !self.extents.contains(x, y) {
             return false;

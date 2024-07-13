@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add fine-grained damage tracking.
+
 # 1.4.0 (2024-07-07)
 
 - Add window management mode.

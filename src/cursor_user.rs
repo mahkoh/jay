@@ -3,6 +3,7 @@ use {
         cursor::{Cursor, KnownCursor, DEFAULT_CURSOR_SIZE},
         fixed::Fixed,
         rect::Rect,
+        scale::Scale,
         state::State,
         tree::OutputNode,
         utils::{
@@ -74,13 +75,26 @@ impl CursorUserGroup {
         group
     }
 
+    fn damage_active(&self) {
+        if let Some(active) = self.active.get() {
+            if let Some(cursor) = active.cursor.get() {
+                let (x, y) = active.pos.get();
+                let x_int = x.round_down();
+                let y_int = y.round_down();
+                let extents = cursor.extents_at_scale(Scale::default());
+                self.state.damage(extents.move_(x_int, y_int));
+            }
+        }
+    }
+
     pub fn deactivate(&self) {
         if self.hardware_cursor.get() {
             self.remove_hardware_cursor();
+        } else {
+            self.damage_active();
         }
         self.active_id.take();
         self.active.take();
-        self.state.damage();
     }
 
     pub fn latest_output(&self) -> Rc<OutputNode> {
@@ -150,6 +164,7 @@ impl CursorUserGroup {
         if self.hardware_cursor.replace(hardware_cursor) == hardware_cursor {
             return;
         }
+        self.damage_active();
         if hardware_cursor {
             let prev = self
                 .state
@@ -157,6 +172,7 @@ impl CursorUserGroup {
                 .set(Some(self.clone()));
             if let Some(prev) = prev {
                 prev.hardware_cursor.set(false);
+                prev.damage_active();
             }
             match self.active.get() {
                 None => self.remove_hardware_cursor(),
@@ -230,9 +246,7 @@ impl CursorUser {
         self.owner.take();
         self.group.users.remove(&self.id);
         if self.group.active_id.get() == Some(self.id) {
-            self.group.active_id.take();
-            self.group.active.take();
-            self.group.state.damage();
+            self.group.deactivate();
         }
     }
 
@@ -240,10 +254,15 @@ impl CursorUser {
         if self.group.active_id.replace(Some(self.id)) == Some(self.id) {
             return;
         }
+        if self.software_cursor() {
+            self.group.damage_active();
+        }
         self.group.latest_output.set(self.output.get());
         self.group.active.set(Some(self.clone()));
         self.update_hardware_cursor();
-        self.group.state.damage();
+        if self.software_cursor() {
+            self.group.damage_active();
+        }
     }
 
     #[cfg_attr(not(feature = "it"), allow(dead_code))]
@@ -296,7 +315,9 @@ impl CursorUser {
             KnownCursor::ZoomIn => &cursors.zoom_in,
             KnownCursor::ZoomOut => &cursors.zoom_out,
         };
-        self.set_cursor2(Some(tpl.instantiate(self.group.size.get())));
+        self.set_cursor2(Some(
+            tpl.instantiate(&self.group.state, self.group.size.get()),
+        ));
     }
 
     fn set_output(&self, output: &Rc<OutputNode>) {
@@ -339,6 +360,9 @@ impl CursorUser {
                 }
             }
             old.handle_unset();
+            if self.software_cursor() {
+                self.group.damage_active();
+            }
         }
         if let Some(cursor) = cursor.as_ref() {
             cursor.clone().handle_set();
@@ -346,10 +370,18 @@ impl CursorUser {
         }
         self.cursor.set(cursor.clone());
         self.update_hardware_cursor();
+        if self.software_cursor() {
+            self.group.damage_active();
+        }
     }
 
     pub fn position(&self) -> (Fixed, Fixed) {
         self.pos.get()
+    }
+
+    pub fn position_int(&self) -> (i32, i32) {
+        let (x, y) = self.pos.get();
+        (x.round_down(), y.round_down())
     }
 
     pub fn set_position(&self, mut x: Fixed, mut y: Fixed) -> (Fixed, Fixed) {
@@ -360,6 +392,16 @@ impl CursorUser {
             self.set_output(&output);
             x = x.apply_fract(x_tmp);
             y = y.apply_fract(y_tmp);
+        }
+        if self.software_cursor() {
+            if let Some(cursor) = self.cursor.get() {
+                let (old_x, old_y) = self.pos.get();
+                let old_x_int = old_x.round_down();
+                let old_y_int = old_y.round_down();
+                let extents = cursor.extents_at_scale(Scale::default());
+                self.group.state.damage(extents.move_(old_x_int, old_y_int));
+                self.group.state.damage(extents.move_(x_int, y_int));
+            }
         }
         self.pos.set((x, y));
         self.update_hardware_cursor_(false);
@@ -372,6 +414,10 @@ impl CursorUser {
 
     fn hardware_cursor(&self) -> bool {
         self.is_active() && self.group.hardware_cursor.get()
+    }
+
+    pub fn software_cursor(&self) -> bool {
+        self.is_active() && !self.group.hardware_cursor.get()
     }
 
     fn update_hardware_cursor_(&self, render: bool) {

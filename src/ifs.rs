@@ -6,6 +6,7 @@ pub mod ext_session_lock_manager_v1;
 pub mod ext_session_lock_v1;
 pub mod ipc;
 pub mod jay_compositor;
+pub mod jay_damage_tracking;
 pub mod jay_idle;
 pub mod jay_input;
 pub mod jay_log_file;

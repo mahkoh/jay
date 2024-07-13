@@ -5,7 +5,6 @@ use {
         ifs::ext_idle_notification_v1::ExtIdleNotificationV1,
         leaks::Tracker,
         object::{Object, Version},
-        time::now_usec,
         utils::errorfmt::ErrorFmt,
         wire::{ext_idle_notifier_v1::*, ExtIdleNotifierV1Id},
     },
@@ -81,7 +80,7 @@ impl ExtIdleNotifierV1RequestHandler for ExtIdleNotifierV1 {
 
 async fn run(n: Rc<ExtIdleNotificationV1>) {
     loop {
-        let now = now_usec();
+        let now = n.client.state.now_usec();
         let elapsed = now.saturating_sub(n.seat.last_input());
         if elapsed < n.duration_usec {
             let res = n

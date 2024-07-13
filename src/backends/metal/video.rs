@@ -18,7 +18,6 @@ use {
         renderer::RenderResult,
         state::State,
         theme::Color,
-        time::now_nsec,
         tree::OutputNode,
         udev::UdevDevice,
         utils::{
@@ -591,7 +590,7 @@ impl MetalConnector {
             });
             if let Some(delta) = *DELTA {
                 let next_present = self.next_flip_nsec.get().saturating_sub(delta);
-                if now_nsec() < next_present {
+                if self.state.now_nsec() < next_present {
                     self.state.ring.timeout(next_present).await.unwrap();
                 }
             }
@@ -836,6 +835,7 @@ impl MetalConnector {
             render_hw_cursor,
             output.has_fullscreen(),
             output.global.persistent.transform.get(),
+            Some(&self.state.damage_visualizer),
         );
         let try_direct_scanout = try_direct_scanout
             && self.direct_scanout_enabled()
@@ -923,9 +923,10 @@ impl MetalConnector {
             if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
                 let buffer = &buffers[self.next_buffer.get() % buffers.len()];
                 let mut rr = self.render_result.borrow_mut();
+                rr.output_id = node.id;
                 let fb =
                     self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
-                rr.dispatch_frame_requests();
+                rr.dispatch_frame_requests(self.state.now_msec());
                 let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
                     match &fb.direct_scanout_data {
                         None => {
@@ -2172,9 +2173,9 @@ impl MetalBackend {
             _ => return,
         };
         connector.can_present.set(true);
-        connector
-            .active_framebuffer
-            .set(connector.next_framebuffer.take());
+        if let Some(fb) = connector.next_framebuffer.take() {
+            connector.active_framebuffer.set(Some(fb));
+        }
         if connector.has_damage.get() || connector.cursor_changed.get() {
             connector.schedule_present();
         }

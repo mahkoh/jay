@@ -24,10 +24,10 @@ impl WlCallback {
         }
     }
 
-    pub fn send_done(&self) {
+    pub fn send_done(&self, data: u32) {
         self.client.event(Done {
             self_id: self.id,
-            callback_data: 0,
+            callback_data: data,
         });
     }
 }

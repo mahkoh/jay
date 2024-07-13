@@ -49,7 +49,7 @@ impl Parser for ColorParser {
             3 => (s(0..1)?, s(1..2)?, s(2..3)?, u8::MAX),
             4 => (s(0..1)?, s(1..2)?, s(2..3)?, s(3..4)?),
             6 => (d(0..2)?, d(2..4)?, d(4..6)?, u8::MAX),
-            8 => (d(0..2)?, d(2..4)?, d(4..6)?, d(4..8)?),
+            8 => (d(0..2)?, d(2..4)?, d(4..6)?, d(6..8)?),
             _ => return Err(ColorParserError::Length.spanned(span)),
         };
         Ok(Color::new_straight(r, g, b, a))

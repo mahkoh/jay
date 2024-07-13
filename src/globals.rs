@@ -12,6 +12,7 @@ use {
                 zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global,
             },
             jay_compositor::JayCompositorGlobal,
+            jay_damage_tracking::JayDamageTrackingGlobal,
             org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal,
             wl_compositor::WlCompositorGlobal,
             wl_output::WlOutputGlobal,
@@ -195,6 +196,7 @@ impl Globals {
         add_singleton!(ExtTransientSeatManagerV1Global);
         add_singleton!(ZwpPointerGesturesV1Global);
         add_singleton!(ZwpTabletManagerV2Global);
+        add_singleton!(JayDamageTrackingGlobal);
     }
 
     pub fn add_backend_singletons(&self, backend: &Rc<dyn Backend>) {

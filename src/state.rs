@@ -14,6 +14,7 @@ use {
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
+        damage::DamageVisualizer,
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
         fixed::Fixed,
@@ -60,6 +61,7 @@ use {
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         theme::{Color, Theme},
+        time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
             NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase,
@@ -198,6 +200,7 @@ pub struct State {
     pub tablet_ids: TabletIds,
     pub tablet_tool_ids: TabletToolIds,
     pub tablet_pad_ids: TabletPadIds,
+    pub damage_visualizer: DamageVisualizer,
 }
 
 // impl Drop for State {
@@ -659,7 +662,6 @@ impl State {
         ws.flush_jay_workspaces();
         output.schedule_update_render_data();
         self.tree_changed();
-        self.damage();
         // let seats = self.globals.seats.lock();
         // for seat in seats.values() {
         //     seat.workspace_changed(&output);
@@ -686,7 +688,6 @@ impl State {
         for output in outputs.values() {
             output.set_status(&status);
         }
-        self.damage();
     }
 
     pub fn input_occurred(&self) {
@@ -728,12 +729,28 @@ impl State {
         serial as _
     }
 
-    pub fn damage(&self) {
-        for connector in self.connectors.lock().values() {
-            if connector.connected.get() {
-                connector.connector.damage();
+    pub fn damage(&self, rect: Rect) {
+        if rect.is_empty() {
+            return;
+        }
+        self.damage_visualizer.add(rect);
+        for output in self.root.outputs.lock().values() {
+            if output.global.pos.get().intersects(&rect) {
+                output.global.connector.connector.damage();
             }
         }
+    }
+
+    pub fn do_unlock(&self) {
+        self.lock.locked.set(false);
+        self.lock.lock.take();
+        for output in self.root.outputs.lock().values() {
+            if let Some(surface) = output.set_lock_surface(None) {
+                surface.destroy_node();
+            }
+        }
+        self.tree_changed();
+        self.damage(self.root.extents.get());
     }
 
     pub fn clear(&self) {
@@ -843,7 +860,7 @@ impl State {
             render_hw_cursor,
         )?;
         output.perform_screencopies(tex, !render_hw_cursor, 0, 0, None);
-        rr.dispatch_frame_requests();
+        rr.dispatch_frame_requests(self.now_msec());
         Ok(sync_file)
     }
 
@@ -1048,6 +1065,23 @@ impl State {
             return (output, x, y);
         }
         (self.dummy_output.get().unwrap(), 0, 0)
+    }
+
+    pub fn now(&self) -> Time {
+        self.eng.now()
+    }
+
+    pub fn now_nsec(&self) -> u64 {
+        self.eng.now().nsec()
+    }
+
+    pub fn now_usec(&self) -> u64 {
+        self.eng.now().usec()
+    }
+
+    #[allow(dead_code)]
+    pub fn now_msec(&self) -> u64 {
+        self.eng.now().msec()
     }
 }
 

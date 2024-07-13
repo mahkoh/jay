@@ -167,6 +167,10 @@ pub trait XdgSurfaceExt: Debug {
     fn extents_changed(&self) {
         // nothing
     }
+
+    fn geometry_changed(&self) {
+        // nothing
+    }
 }
 
 impl XdgSurface {
@@ -189,16 +193,20 @@ impl XdgSurface {
         }
     }
 
+    fn update_surface_position(&self) {
+        let (mut x1, mut y1) = self.absolute_desired_extents.get().position();
+        if let Some(geo) = self.geometry.get() {
+            x1 -= geo.x1();
+            y1 -= geo.y1();
+        }
+        self.surface.set_absolute_position(x1, y1);
+        self.update_popup_positions();
+    }
+
     fn set_absolute_desired_extents(&self, ext: &Rect) {
         let prev = self.absolute_desired_extents.replace(*ext);
         if ext.position() != prev.position() {
-            let (mut x1, mut y1) = (ext.x1(), ext.y1());
-            if let Some(geo) = self.geometry.get() {
-                x1 -= geo.x1();
-                y1 -= geo.y1();
-            }
-            self.surface.set_absolute_position(x1, y1);
-            self.update_popup_positions();
+            self.update_surface_position();
         }
     }
 
@@ -252,6 +260,12 @@ impl XdgSurface {
             let _v = popup.workspace_link.borrow_mut().take();
             popup.popup.detach_node();
         }
+    }
+
+    pub fn damage(&self) {
+        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let extents = self.surface.extents.get();
+        self.surface.client.state.damage(extents.move_(x, y));
     }
 
     pub fn geometry(&self) -> Option<Rect> {
@@ -489,8 +503,14 @@ impl SurfaceExt for XdgSurface {
         }
         if let Some(pending) = &mut pending.xdg_surface {
             if let Some(geometry) = pending.geometry.take() {
-                self.geometry.set(Some(geometry));
-                self.update_extents();
+                let prev = self.geometry.replace(Some(geometry));
+                if prev != Some(geometry) {
+                    self.update_extents();
+                    self.update_surface_position();
+                    if let Some(ext) = self.ext.get() {
+                        ext.geometry_changed();
+                    }
+                }
             }
         }
         Ok(())

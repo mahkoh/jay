@@ -138,6 +138,9 @@ impl WlSubsurface {
         if let Some((x, y)) = pending.position.take() {
             self.position
                 .set(self.surface.buffer_abs_pos.get().at_point(x, y));
+            let (parent_x, parent_y) = self.parent.buffer_abs_pos.get().position();
+            self.surface
+                .set_absolute_position(parent_x + x, parent_y + y);
             self.parent.need_extents_update.set(true);
         }
         Ok(())
@@ -172,6 +175,8 @@ impl WlSubsurface {
         self.surface.set_toplevel(self.parent.toplevel.get());
         self.surface.ext.set(self.clone());
         update_children_attach(self)?;
+        let (x, y) = self.parent.buffer_abs_pos.get().position();
+        self.surface.set_absolute_position(x, y);
         Ok(())
     }
 
@@ -347,6 +352,9 @@ impl SurfaceExt for WlSubsurface {
         if self.had_buffer.replace(has_buffer) != has_buffer {
             if has_buffer {
                 if self.parent.visible.get() {
+                    let (x, y) = self.surface.buffer_abs_pos.get().position();
+                    let extents = self.surface.extents.get();
+                    self.surface.client.state.damage(extents.move_(x, y));
                     self.surface.set_visible(true);
                 }
             } else {

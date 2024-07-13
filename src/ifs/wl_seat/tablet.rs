@@ -17,7 +17,6 @@ use {
             wl_surface::WlSurface,
         },
         object::Version,
-        time::now_usec,
         tree::{FoundNode, Node},
         utils::{
             bindings::PerClientBindings, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -328,7 +327,7 @@ impl WlSeatGlobal {
             return;
         };
         for tool in tablet.tools.lock().drain_values() {
-            self.tablet_handle_remove_tool(now_usec(), tool.id);
+            self.tablet_handle_remove_tool(tablet.seat.state.now_usec(), tool.id);
         }
         for pad in tablet.pads.lock().drain_values() {
             pad.pad_owner.destroy(&pad);
@@ -366,7 +365,7 @@ impl WlSeatGlobal {
         if self.tablet.tools.is_empty() {
             return;
         }
-        let now = now_usec();
+        let now = self.state.now_usec();
         for tool in self.tablet.tools.lock().values() {
             tool.tool_owner.apply_changes(tool, now, None);
         }

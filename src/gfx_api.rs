@@ -1,6 +1,7 @@
 use {
     crate::{
         cursor::Cursor,
+        damage::DamageVisualizer,
         fixed::Fixed,
         format::Format,
         rect::Rect,
@@ -72,13 +73,43 @@ impl SampleRect {
         let y2 = self.y2;
         match self.buffer_transform {
             None => [[x2, y1], [x1, y1], [x2, y2], [x1, y2]],
-            Rotate90 => [[y1, x1], [y1, x2], [y2, x1], [y2, x2]],
-            Rotate180 => [[x1, y2], [x2, y2], [x1, y1], [x2, y1]],
-            Rotate270 => [[y2, x2], [y2, x1], [y1, x2], [y1, x1]],
-            Flip => [[x1, y1], [x2, y1], [x1, y2], [x2, y2]],
+            Rotate90 => [
+                [y1, 1.0 - x2],
+                [y1, 1.0 - x1],
+                [y2, 1.0 - x2],
+                [y2, 1.0 - x1],
+            ],
+            Rotate180 => [
+                [1.0 - x2, 1.0 - y1],
+                [1.0 - x1, 1.0 - y1],
+                [1.0 - x2, 1.0 - y2],
+                [1.0 - x1, 1.0 - y2],
+            ],
+            Rotate270 => [
+                [1.0 - y1, x2],
+                [1.0 - y1, x1],
+                [1.0 - y2, x2],
+                [1.0 - y2, x1],
+            ],
+            Flip => [
+                [1.0 - x2, y1],
+                [1.0 - x1, y1],
+                [1.0 - x2, y2],
+                [1.0 - x1, y2],
+            ],
             FlipRotate90 => [[y1, x2], [y1, x1], [y2, x2], [y2, x1]],
-            FlipRotate180 => [[x2, y2], [x1, y2], [x2, y1], [x1, y1]],
-            FlipRotate270 => [[y2, x1], [y2, x2], [y1, x1], [y1, x2]],
+            FlipRotate180 => [
+                [x2, 1.0 - y1],
+                [x1, 1.0 - y1],
+                [x2, 1.0 - y2],
+                [x1, 1.0 - y2],
+            ],
+            FlipRotate270 => [
+                [1.0 - y1, 1.0 - x2],
+                [1.0 - y1, 1.0 - x1],
+                [1.0 - y2, 1.0 - x2],
+                [1.0 - y2, 1.0 - x1],
+            ],
         }
     }
 }
@@ -329,6 +360,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         transform: Transform,
+        visualizer: Option<&DamageVisualizer>,
     ) -> GfxRenderPass {
         let mut ops = self.take_render_ops();
         let mut renderer = Renderer {
@@ -345,7 +377,7 @@ impl dyn GfxFramebuffer {
         if let Some(rect) = cursor_rect {
             let seats = state.globals.lock_seats();
             for seat in seats.values() {
-                let (x, y) = seat.pointer_cursor().position();
+                let (x, y) = seat.pointer_cursor().position_int();
                 if let Some(im) = seat.input_method() {
                     for (_, popup) in &im.popups {
                         if popup.surface.node_visible() {
@@ -359,25 +391,10 @@ impl dyn GfxFramebuffer {
                     }
                 }
                 if let Some(drag) = seat.toplevel_drag() {
-                    if let Some(tl) = drag.toplevel.get() {
-                        if tl.xdg.surface.buffer.get().is_some() {
-                            let (x, y) = rect.translate(
-                                x.round_down() - drag.x_off.get(),
-                                y.round_down() - drag.y_off.get(),
-                            );
-                            renderer.render_xdg_surface(&tl.xdg, x, y, None)
-                        }
-                    }
+                    drag.render(&mut renderer, &rect, x, y);
                 }
                 if let Some(dnd_icon) = seat.dnd_icon() {
-                    let extents = dnd_icon.extents.get().move_(
-                        x.round_down() + dnd_icon.buf_x.get(),
-                        y.round_down() + dnd_icon.buf_y.get(),
-                    );
-                    if extents.intersects(&rect) {
-                        let (x, y) = rect.translate(extents.x1(), extents.y1());
-                        renderer.render_surface(&dnd_icon, x, y, None);
-                    }
+                    dnd_icon.render(&mut renderer, &rect, x, y);
                 }
                 if render_cursor {
                     let cursor_user_group = seat.cursor_group();
@@ -393,6 +410,11 @@ impl dyn GfxFramebuffer {
                         }
                     }
                 }
+            }
+        }
+        if let Some(visualizer) = visualizer {
+            if let Some(cursor_rect) = cursor_rect {
+                visualizer.render(&cursor_rect, &mut renderer.base);
             }
         }
         let c = match black_background {
@@ -453,6 +475,7 @@ impl dyn GfxFramebuffer {
             render_hardware_cursor,
             black_background,
             transform,
+            None,
         );
         self.perform_render_pass(pass)
     }

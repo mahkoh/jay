@@ -54,6 +54,7 @@ mod compositor;
 mod config;
 mod cursor;
 mod cursor_user;
+mod damage;
 mod dbus;
 mod drm_feedback;
 mod edid;

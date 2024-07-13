@@ -17,8 +17,8 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode, ToplevelData,
-            ToplevelNodeBase, WorkspaceNode,
+            ContainerNode, DisplayNode, FloatNode, OutputNode, OutputNodeId, PlaceholderNode,
+            ToplevelData, ToplevelNodeBase, WorkspaceNode,
         },
     },
     std::{
@@ -31,16 +31,26 @@ use {
 
 pub mod renderer_base;
 
-#[derive(Default)]
 pub struct RenderResult {
     pub frame_requests: Vec<Rc<WlCallback>>,
     pub presentation_feedbacks: Vec<Rc<WpPresentationFeedback>>,
+    pub output_id: OutputNodeId,
+}
+
+impl Default for RenderResult {
+    fn default() -> Self {
+        Self {
+            frame_requests: Default::default(),
+            presentation_feedbacks: Default::default(),
+            output_id: OutputNodeId::none(),
+        }
+    }
 }
 
 impl RenderResult {
-    pub fn dispatch_frame_requests(&mut self) {
+    pub fn dispatch_frame_requests(&mut self, now: u64) {
         for fr in self.frame_requests.drain(..) {
-            fr.send_done();
+            fr.send_done(now as _);
             let _ = fr.client.remove_obj(&*fr);
         }
     }
@@ -441,6 +451,7 @@ impl Renderer<'_> {
                 let mut fbs = surface.presentation_feedback.borrow_mut();
                 result.presentation_feedbacks.extend(fbs.drain(..));
             }
+            surface.presented(result.output_id);
         }
     }
 
@@ -481,7 +492,7 @@ impl Renderer<'_> {
                     if let Some(alpha) = alpha {
                         color = color * alpha;
                     }
-                    self.base.fill_boxes(&[rect], &color);
+                    self.base.fill_scaled_boxes(&[rect], &color);
                 }
             }
         } else {

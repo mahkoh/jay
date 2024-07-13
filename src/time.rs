@@ -5,15 +5,8 @@ use {
         ops::{Add, Sub},
         time::Duration,
     },
-    thiserror::Error,
     uapi::c,
 };
-
-#[derive(Debug, Error)]
-pub enum TimeError {
-    #[error("clock_gettime failed: {0}")]
-    ClockGettime(crate::utils::oserror::OsError),
-}
 
 #[derive(Copy, Clone)]
 pub struct Time(pub c::timespec);
@@ -28,20 +21,6 @@ impl Debug for Time {
 }
 
 impl Time {
-    pub fn now() -> Result<Time, TimeError> {
-        let mut time = uapi::pod_zeroed();
-        if let Err(e) = uapi::clock_gettime(c::CLOCK_MONOTONIC, &mut time) {
-            return Err(TimeError::ClockGettime(e.into()));
-        }
-        Ok(Self(time))
-    }
-
-    pub fn in_ms(ms: u64) -> Result<Time, TimeError> {
-        let now = Self::now()?;
-        Ok(now + Duration::from_millis(ms))
-    }
-
-    #[allow(dead_code)]
     pub fn now_unchecked() -> Time {
         let mut time = uapi::pod_zeroed();
         let _ = uapi::clock_gettime(c::CLOCK_MONOTONIC, &mut time);
@@ -71,6 +50,12 @@ impl Time {
     pub fn usec(self) -> u64 {
         let sec = self.0.tv_sec as u64 * 1_000_000;
         let nsec = self.0.tv_nsec as u64 / 1_000;
+        sec + nsec
+    }
+
+    pub fn msec(self) -> u64 {
+        let sec = self.0.tv_sec as u64 * 1_000;
+        let nsec = self.0.tv_nsec as u64 / 1_000_000;
         sec + nsec
     }
 }
@@ -122,14 +107,6 @@ impl Add<Duration> for Time {
         }
         self
     }
-}
-
-pub fn now_nsec() -> u64 {
-    Time::now_unchecked().nsec()
-}
-
-pub fn now_usec() -> u64 {
-    Time::now_unchecked().usec()
 }
 
 pub fn usec_to_msec(usec: u64) -> u32 {

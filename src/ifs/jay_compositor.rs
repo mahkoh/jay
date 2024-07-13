@@ -216,19 +216,12 @@ impl JayCompositorRequestHandler for JayCompositor {
 
     fn unlock(&self, _req: Unlock, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let state = &self.client.state;
-        if state.lock.locked.replace(false) {
-            if let Some(lock) = state.lock.lock.take() {
+        if state.lock.locked.get() {
+            if let Some(lock) = state.lock.lock.get() {
                 lock.finish();
             }
-            for output in state.root.outputs.lock().values() {
-                if let Some(surface) = output.set_lock_surface(None) {
-                    surface.destroy_node();
-                }
-            }
-            state.tree_changed();
-            state.damage();
+            state.do_unlock();
         }
-        self.client.symmetric_delete.set(true);
         Ok(())
     }
 

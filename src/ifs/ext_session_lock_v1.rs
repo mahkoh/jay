@@ -72,6 +72,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
                 node.set_lock_surface(Some(new.clone()));
                 let pos = node.global.pos.get();
                 new.change_extents(pos);
+                new.surface.set_output(&node);
                 self.client.state.tree_changed();
             }
         }
@@ -87,16 +88,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             return Err(ExtSessionLockV1Error::NeverLocked);
         }
         if !self.finished.get() {
-            let state = &self.client.state;
-            state.lock.locked.set(false);
-            state.lock.lock.take();
-            for output in state.root.outputs.lock().values() {
-                if let Some(surface) = output.set_lock_surface(None) {
-                    surface.destroy_node();
-                }
-            }
-            state.tree_changed();
-            state.damage();
+            self.client.state.do_unlock();
         }
         self.client.remove_obj(self)?;
         Ok(())

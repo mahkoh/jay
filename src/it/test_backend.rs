@@ -15,7 +15,6 @@ use {
             test_error::TestResult, test_gfx_api::TestGfxCtx, test_utils::test_expected_event::TEEH,
         },
         state::State,
-        time::now_usec,
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, on_change::OnChange, oserror::OsError,
             syncqueue::SyncQueue,
@@ -75,6 +74,7 @@ impl TestBackend {
                     chm
                 },
                 name: Rc::new("default-mouse".to_string()),
+                state: state.clone(),
             },
             transform_matrix: Cell::new([[1.0, 0.0], [0.0, 1.0]]),
             accel_speed: Cell::new(1.0),
@@ -93,6 +93,7 @@ impl TestBackend {
                     chm
                 },
                 name: Rc::new("default-keyboard".to_string()),
+                state: state.clone(),
             },
         });
         let mode = Mode {
@@ -273,7 +274,7 @@ pub struct TestMouseClick {
 impl Drop for TestMouseClick {
     fn drop(&mut self) {
         self.mouse.common.event(InputEvent::Button {
-            time_usec: now_usec(),
+            time_usec: self.mouse.common.state.now_usec(),
             button: self.button,
             state: KeyState::Released,
         });
@@ -291,7 +292,7 @@ pub struct TestBackendMouse {
 impl TestBackendMouse {
     pub fn rel(&self, dx: f64, dy: f64) {
         self.common.event(InputEvent::Motion {
-            time_usec: now_usec(),
+            time_usec: self.common.state.now_usec(),
             dx: Fixed::from_f64(dx * self.accel_speed.get()),
             dy: Fixed::from_f64(dy * self.accel_speed.get()),
             dx_unaccelerated: Fixed::from_f64(dx),
@@ -301,7 +302,7 @@ impl TestBackendMouse {
 
     pub fn abs(&self, connector: &TestConnector, x: f64, y: f64) {
         self.common.event(InputEvent::ConnectorPosition {
-            time_usec: now_usec(),
+            time_usec: self.common.state.now_usec(),
             connector: connector.id,
             x: Fixed::from_f64(x),
             y: Fixed::from_f64(y),
@@ -310,7 +311,7 @@ impl TestBackendMouse {
 
     pub fn click(self: &Rc<Self>, button: u32) -> TestMouseClick {
         self.common.event(InputEvent::Button {
-            time_usec: now_usec(),
+            time_usec: self.common.state.now_usec(),
             button,
             state: KeyState::Pressed,
         });
@@ -330,7 +331,7 @@ impl TestBackendMouse {
             inverted: false,
         });
         self.common.event(InputEvent::AxisFrame {
-            time_usec: now_usec(),
+            time_usec: self.common.state.now_usec(),
         });
     }
 
@@ -348,7 +349,7 @@ impl TestBackendMouse {
             inverted,
         });
         self.common.event(InputEvent::AxisFrame {
-            time_usec: now_usec(),
+            time_usec: self.common.state.now_usec(),
         });
     }
 }
@@ -365,7 +366,7 @@ pub struct PressedKey {
 impl Drop for PressedKey {
     fn drop(&mut self) {
         self.kb.common.event(InputEvent::Key {
-            time_usec: now_usec(),
+            time_usec: self.kb.common.state.now_usec(),
             key: self.key,
             state: KeyState::Released,
         });
@@ -375,7 +376,7 @@ impl Drop for PressedKey {
 impl TestBackendKb {
     pub fn press(self: &Rc<Self>, key: u32) -> PressedKey {
         self.common.event(InputEvent::Key {
-            time_usec: now_usec(),
+            time_usec: self.common.state.now_usec(),
             key,
             state: KeyState::Pressed,
         });
@@ -421,6 +422,7 @@ pub struct TestInputDeviceCommon {
     pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
     pub capabilities: CopyHashMap<InputDeviceCapability, ()>,
     pub name: Rc<String>,
+    pub state: Rc<State>,
 }
 
 impl TestInputDeviceCommon {

@@ -3,7 +3,6 @@ use {
         backend::KeyState,
         ifs::wl_seat::wl_keyboard,
         it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        time::now_usec,
         wire::{zwp_virtual_keyboard_v1::*, ZwpVirtualKeyboardV1Id},
     },
     std::{cell::Cell, io::Write, rc::Rc},
@@ -50,7 +49,7 @@ impl TestVirtualKeyboard {
         };
         self.tran.send(Key {
             self_id: self.id,
-            time: (now_usec() / 1000) as u32,
+            time: self.tran.run.state.now_msec() as u32,
             key,
             state,
         })

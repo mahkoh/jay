@@ -29,7 +29,6 @@ use {
         },
         logind::{LogindError, Session},
         state::State,
-        time::now_usec,
         udev::{Udev, UdevError, UdevMonitor},
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -469,7 +468,7 @@ impl MetalInputDevice {
     }
 
     fn pre_pause(&self) {
-        let time_usec = now_usec();
+        let time_usec = self.state.now_usec();
         for (key, _) in self.pressed_keys.take() {
             self.event(InputEvent::Key {
                 time_usec,

@@ -172,7 +172,9 @@ impl ConnectorHandler {
             update_render_data_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
             screencopies: Default::default(),
+            title_visible: Default::default(),
         });
+        on.update_visible();
         on.update_rects();
         self.state
             .add_output_scale(on.global.persistent.scale.get());
@@ -295,7 +297,7 @@ impl ConnectorHandler {
             .remove_output_scale(on.global.persistent.scale.get());
         let _ = self.state.remove_global(&*global);
         self.state.tree_changed();
-        self.state.damage();
+        self.state.damage(self.state.root.extents.get());
     }
 
     async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {

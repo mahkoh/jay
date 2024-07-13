@@ -410,6 +410,24 @@ impl WlSeatGlobal {
         }
     }
 
+    fn set_pointer_cursor_position(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
+        let dnd_icon = self.pointer_owner.dnd_icon();
+        if let Some(dnd_icon) = &dnd_icon {
+            let (x_old, y_old) = self.pointer_cursor.position_int();
+            dnd_icon.damage_at(x_old, y_old);
+        }
+        let (x, y) = self.pointer_cursor.set_position(x, y);
+        let x_int = x.round_down();
+        let y_int = y.round_down();
+        if let Some(dnd_icon) = &dnd_icon {
+            dnd_icon.damage_at(x_int, y_int);
+        }
+        if let Some(td) = self.pointer_owner.toplevel_drag() {
+            td.move_(x_int, y_int);
+        }
+        (x, y)
+    }
+
     fn connector_position_event(
         self: &Rc<Self>,
         time_usec: u64,
@@ -424,7 +442,7 @@ impl WlSeatGlobal {
         let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
-        (x, y) = self.pointer_cursor.set_position(x, y);
+        (x, y) = self.set_pointer_cursor_position(x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
@@ -484,7 +502,7 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
             );
         });
-        self.pointer_cursor.set_position(x, y);
+        self.set_pointer_cursor_position(x, y);
         self.cursor_moved(time_usec);
     }
 
@@ -884,7 +902,6 @@ impl WlSeatGlobal {
     }
 
     pub(super) fn apply_changes(self: &Rc<Self>) {
-        self.state.damage();
         self.pointer_owner.apply_changes(self);
         if self.changes.get().contains(CHANGE_TREE) {
             self.tablet_apply_changes();

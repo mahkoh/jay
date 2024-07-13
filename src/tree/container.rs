@@ -355,9 +355,24 @@ impl ContainerNode {
         self.schedule_compute_render_data();
     }
 
+    fn damage(&self) {
+        self.state.damage(
+            Rect::new_sized(
+                self.abs_x1.get(),
+                self.abs_y1.get(),
+                self.width.get(),
+                self.height.get(),
+            )
+            .unwrap(),
+        );
+    }
+
     fn schedule_layout(self: &Rc<Self>) {
         if !self.layout_scheduled.replace(true) {
             self.state.pending_container_layout.push(self.clone());
+            if self.toplevel_data.visible.get() {
+                self.damage();
+            }
         }
     }
 
@@ -677,8 +692,13 @@ impl ContainerNode {
         let split = self.split.get();
         let have_active = self.children.iter().any(|c| c.active.get());
         let scales = self.state.scales.lock();
+        let abs_x = self.abs_x1.get();
+        let abs_y = self.abs_y1.get();
         for (i, child) in self.children.iter().enumerate() {
             let rect = child.title_rect.get();
+            if self.toplevel_data.visible.get() {
+                self.state.damage(rect.move_(abs_x, abs_y));
+            }
             if i > 0 {
                 let rect = if mono {
                     Rect::new_sized(rect.x1() - bw, 0, bw, th)
@@ -1471,6 +1491,7 @@ impl ContainingNode for ContainerNode {
         if let Some(body) = body {
             let body = body.move_(self.abs_x1.get(), self.abs_y1.get());
             new.clone().tl_change_extents(&body);
+            self.state.damage(body);
         }
     }
 
