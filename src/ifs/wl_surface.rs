@@ -267,6 +267,7 @@ pub struct WlSurface {
     pub need_extents_update: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     buffer_presented: Cell<bool>,
+    buffer_had_frame_request: Cell<bool>,
     pub shm_texture: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
@@ -579,6 +580,7 @@ impl WlSurface {
             need_extents_update: Default::default(),
             buffer: Default::default(),
             buffer_presented: Default::default(),
+            buffer_had_frame_request: Default::default(),
             shm_texture: Default::default(),
             buf_x: Default::default(),
             buf_y: Default::default(),
@@ -1095,6 +1097,7 @@ impl WlSurface {
                 self.buffer.set(Some(Rc::new(surface_buffer)));
                 if pending.has_damage() {
                     self.buffer_presented.set(false);
+                    self.buffer_had_frame_request.set(false);
                 }
             } else {
                 self.shm_texture.take();
@@ -1207,9 +1210,14 @@ impl WlSurface {
                 damage_full = true;
             }
         }
-        self.frame_requests
-            .borrow_mut()
-            .extend(pending.frame_request.drain(..));
+        let had_frame_requests = self.buffer_had_frame_request.get();
+        let has_frame_requests = {
+            let frs = &mut *self.frame_requests.borrow_mut();
+            frs.extend(pending.frame_request.drain(..));
+            frs.is_not_empty()
+        };
+        self.buffer_had_frame_request
+            .set(had_frame_requests || has_frame_requests);
         {
             let mut fbs = self.presentation_feedback.borrow_mut();
             for fb in fbs.drain(..) {
@@ -1264,10 +1272,31 @@ impl WlSurface {
                 }
                 self.client.state.damage(damage);
             } else if self.buffer_presented.get() {
-                let now = self.client.state.now_msec() as _;
-                for fr in self.frame_requests.borrow_mut().drain(..) {
-                    fr.send_done(now);
-                    let _ = fr.client.remove_obj(&*fr);
+                // If the currently attached buffer has already been fully presented ...
+                if has_frame_requests {
+                    // ... and there are new frame requests ...
+                    if had_frame_requests {
+                        // ... and we've already dispatched frame requests for that buffer,
+                        //     then schedule new presentation of the primary output and
+                        //     unset the buffer_presented flag. This is for clients that
+                        //     send frame requests at an uncapped rate and expect the
+                        //     compositor to dispatch frame requests at the monitor
+                        //     refresh rate (e.g. firefox). This is very inefficient and
+                        //     disables VRR from working correctly. But since only firefox
+                        //     is affected, I'm ok with this.
+                        let rect = self.output.get().global.pos.get();
+                        self.client.state.damage(rect);
+                        self.buffer_presented.set(false);
+                    } else {
+                        // ... and this is the first commit that attaches a frame request
+                        //     for that buffer, then dispatch the frame requests
+                        //     immediately.
+                        let now = self.client.state.now_msec() as _;
+                        for fr in self.frame_requests.borrow_mut().drain(..) {
+                            fr.send_done(now);
+                            let _ = fr.client.remove_obj(&*fr);
+                        }
+                    }
                 }
             } else {
                 self.apply_damage(pending);
