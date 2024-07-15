@@ -1059,6 +1059,10 @@ impl WlSurface {
             alpha_changed = true;
             self.alpha.set(alpha);
         }
+        let buffer_abs_pos = self.buffer_abs_pos.get();
+        let mut max_surface_size = buffer_abs_pos.size();
+        let mut damage_full =
+            scale_changed || buffer_transform_changed || viewport_changed || alpha_changed;
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (dx, dy) = mem::take(&mut pending.offset);
@@ -1194,11 +1198,14 @@ impl WlSurface {
                 }
             }
             let (width, height) = new_size.unwrap_or_default();
-            if (width, height) != self.buffer_abs_pos.get().size() {
+            let (old_width, old_height) = buffer_abs_pos.size();
+            if (width, height) != (old_width, old_height) {
                 self.need_extents_update.set(true);
+                self.buffer_abs_pos
+                    .set(buffer_abs_pos.with_size(width, height).unwrap());
+                max_surface_size = (width.max(old_width), height.max(old_height));
+                damage_full = true;
             }
-            self.buffer_abs_pos
-                .set(self.buffer_abs_pos.get().with_size(width, height).unwrap());
         }
         self.frame_requests
             .borrow_mut()
@@ -1248,7 +1255,15 @@ impl WlSurface {
         }
         self.ext.get().after_apply_commit();
         if self.visible.get() {
-            if self.buffer_presented.get() {
+            if damage_full {
+                let mut damage = buffer_abs_pos
+                    .with_size(max_surface_size.0, max_surface_size.1)
+                    .unwrap();
+                if let Some(tl) = self.toplevel.get() {
+                    damage = damage.intersect(tl.node_absolute_position());
+                }
+                self.client.state.damage(damage);
+            } else if self.buffer_presented.get() {
                 let now = self.client.state.now_msec() as _;
                 for fr in self.frame_requests.borrow_mut().drain(..) {
                     fr.send_done(now);
