@@ -785,7 +785,9 @@ impl StackedNode for FloatNode {
     stacked_node_impl!();
 
     fn stacked_set_visible(&self, visible: bool) {
-        self.visible.set(visible);
+        if self.visible.replace(visible) != visible {
+            self.state.damage(self.position.get());
+        }
         if let Some(child) = self.child.get() {
             child.tl_set_visible(visible);
         }

@@ -470,6 +470,9 @@ impl StackedNode for Xwindow {
     stacked_node_impl!();
 
     fn stacked_set_visible(&self, visible: bool) {
+        let extents = self.x.surface.extents.get();
+        let (x, y) = self.x.surface.buffer_abs_pos.get().position();
+        self.data.state.damage(extents.move_(x, y));
         self.tl_set_visible(visible);
     }
 
