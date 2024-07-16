@@ -445,7 +445,7 @@ pub struct MetalConnector {
 
     pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
-    pub active_framebuffer: OpaqueCell<Option<PresentFb>>,
+    pub active_framebuffer: RefCell<Option<PresentFb>>,
     pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
     pub direct_scanout_active: Cell<bool>,
 }
@@ -572,6 +572,7 @@ pub struct DirectScanoutPosition {
 #[derive(Debug)]
 pub struct PresentFb {
     fb: Rc<DrmFramebuffer>,
+    tex: Rc<dyn GfxTexture>,
     direct_scanout_data: Option<DirectScanoutData>,
     sync_file: Option<SyncFile>,
 }
@@ -847,16 +848,7 @@ impl MetalConnector {
             && self.dev.is_render_device();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
-            if let Some(dsd) = self.prepare_direct_scanout(&pass, plane) {
-                output.perform_screencopies(
-                    &dsd.tex,
-                    !render_hw_cursor,
-                    dsd.position.crtc_x,
-                    dsd.position.crtc_y,
-                    Some((dsd.position.crtc_width, dsd.position.crtc_height)),
-                );
-                direct_scanout_data = Some(dsd);
-            }
+            direct_scanout_data = self.prepare_direct_scanout(&pass, plane);
         }
         let direct_scanout_active = direct_scanout_data.is_some();
         if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
@@ -868,14 +860,15 @@ impl MetalConnector {
         }
         let sync_file;
         let fb;
+        let tex;
         match &direct_scanout_data {
             None => {
                 let sf = buffer_fb
                     .perform_render_pass(pass)
                     .map_err(MetalError::RenderFrame)?;
                 sync_file = buffer.copy_to_dev(sf)?;
-                output.perform_screencopies(&buffer.render_tex, !render_hw_cursor, 0, 0, None);
                 fb = buffer.drm.clone();
+                tex = buffer.render_tex.clone();
             }
             Some(dsd) => {
                 sync_file = match &dsd.acquire_sync {
@@ -885,10 +878,12 @@ impl MetalConnector {
                     AcquireSync::Unnecessary => None,
                 };
                 fb = dsd.fb.clone();
+                tex = dsd.tex.clone();
             }
         };
         Ok(PresentFb {
             fb,
+            tex,
             direct_scanout_data,
             sync_file,
         })
@@ -1032,6 +1027,7 @@ impl MetalConnector {
                 .discard_presentation_feedback();
             Err(MetalError::Commit(e))
         } else {
+            self.perform_screencopies(&new_fb);
             if let Some(fb) = new_fb {
                 if fb.direct_scanout_data.is_none() {
                     self.next_buffer.fetch_add(1);
@@ -1047,6 +1043,38 @@ impl MetalConnector {
             self.has_damage.set(false);
             self.cursor_changed.set(false);
             Ok(())
+        }
+    }
+
+    fn perform_screencopies(&self, new_fb: &Option<PresentFb>) {
+        let Some(output) = self.state.root.outputs.get(&self.connector_id) else {
+            return;
+        };
+        let active_fb;
+        let fb = match &new_fb {
+            Some(f) => f,
+            None => {
+                active_fb = self.active_framebuffer.borrow();
+                match &*active_fb {
+                    None => return,
+                    Some(f) => f,
+                }
+            }
+        };
+        let render_hardware_cursor = self.cursor_enabled.get();
+        match &fb.direct_scanout_data {
+            None => {
+                output.perform_screencopies(&fb.tex, render_hardware_cursor, 0, 0, None);
+            }
+            Some(dsd) => {
+                output.perform_screencopies(
+                    &dsd.tex,
+                    render_hardware_cursor,
+                    dsd.position.crtc_x,
+                    dsd.position.crtc_y,
+                    Some((dsd.position.crtc_width, dsd.position.crtc_height)),
+                );
+            }
         }
     }
 
@@ -2174,7 +2202,7 @@ impl MetalBackend {
         };
         connector.can_present.set(true);
         if let Some(fb) = connector.next_framebuffer.take() {
-            connector.active_framebuffer.set(Some(fb));
+            *connector.active_framebuffer.borrow_mut() = Some(fb);
         }
         if connector.has_damage.get() || connector.cursor_changed.get() {
             connector.schedule_present();
