@@ -30,7 +30,8 @@ use {
         video::{
             connectors, drm_devices, on_connector_connected, on_connector_disconnected,
             on_graphics_initialized, on_new_connector, on_new_drm_device,
-            set_direct_scanout_enabled, set_gfx_api, Connector, DrmDevice,
+            set_direct_scanout_enabled, set_gfx_api, set_vrr_cursor_hz, set_vrr_mode, Connector,
+            DrmDevice,
         },
     },
     std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc},
@@ -555,6 +556,14 @@ impl Output {
                 Some(m) => c.set_mode(m.width(), m.height(), Some(m.refresh_rate())),
             }
         }
+        if let Some(vrr) = &self.vrr {
+            if let Some(mode) = vrr.mode {
+                c.set_vrr_mode(mode);
+            }
+            if let Some(hz) = vrr.cursor_hz {
+                c.set_vrr_cursor_hz(hz);
+            }
+        }
     }
 }
 
@@ -1016,6 +1025,14 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         persistent
             .seat
             .set_window_management_key(window_management_key);
+    }
+    if let Some(vrr) = config.vrr {
+        if let Some(mode) = vrr.mode {
+            set_vrr_mode(mode);
+        }
+        if let Some(hz) = vrr.cursor_hz {
+            set_vrr_cursor_hz(hz);
+        }
     }
 }
 

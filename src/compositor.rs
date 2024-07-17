@@ -4,7 +4,7 @@ use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
         async_engine::{AsyncEngine, Phase, SpawnedFuture},
-        backend::{self, Backend},
+        backend::{self, Backend, Connector},
         backends::{
             dummy::{DummyBackend, DummyOutput},
             metal, x,
@@ -25,6 +25,7 @@ use {
         io_uring::{IoUring, IoUringError},
         leaks,
         logger::Logger,
+        output_schedule::OutputSchedule,
         portal::{self, PortalStartup},
         scale::Scale,
         sighand::{self, SighandError},
@@ -32,7 +33,7 @@ use {
         tasks::{self, idle},
         tree::{
             container_layout, container_render_data, float_layout, float_titles,
-            output_render_data, DisplayNode, NodeIds, OutputNode, WorkspaceNode,
+            output_render_data, DisplayNode, NodeIds, OutputNode, VrrMode, WorkspaceNode,
         },
         user_session::import_environment,
         utils::{
@@ -246,6 +247,8 @@ fn start_compositor2(
         tablet_tool_ids: Default::default(),
         tablet_pad_ids: Default::default(),
         damage_visualizer: DamageVisualizer::new(&engine),
+        default_vrr_mode: Cell::new(VrrMode::NEVER),
+        default_vrr_cursor_hz: Cell::new(None),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -420,16 +423,25 @@ fn create_dummy_output(state: &Rc<State>) {
         transform: Default::default(),
         scale: Default::default(),
         pos: Default::default(),
+        vrr_mode: Cell::new(VrrMode::NEVER),
+        vrr_cursor_hz: Default::default(),
     });
+    let connector = Rc::new(DummyOutput {
+        id: state.connector_ids.next(),
+    }) as Rc<dyn Connector>;
+    let schedule = Rc::new(OutputSchedule::new(
+        &state.ring,
+        &state.eng,
+        &connector,
+        &persistent_state,
+    ));
     let dummy_output = Rc::new(OutputNode {
         id: state.node_ids.next(),
         global: Rc::new(WlOutputGlobal::new(
             state.globals.name(),
             state,
             &Rc::new(ConnectorData {
-                connector: Rc::new(DummyOutput {
-                    id: state.connector_ids.next(),
-                }),
+                connector,
                 handler: Cell::new(None),
                 connected: Cell::new(true),
                 name: "Dummy".to_string(),
@@ -469,6 +481,7 @@ fn create_dummy_output(state: &Rc<State>) {
         hardware_cursor_needs_render: Cell::new(false),
         screencopies: Default::default(),
         title_visible: Cell::new(false),
+        schedule,
     });
     let dummy_workspace = Rc::new(WorkspaceNode {
         id: state.node_ids.next(),

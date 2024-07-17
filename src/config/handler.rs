@@ -9,12 +9,13 @@ use {
         config::ConfigProxy,
         ifs::wl_seat::{SeatId, WlSeatGlobal},
         io_uring::TaskResultExt,
+        output_schedule::map_cursor_hz,
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         theme::{Color, ThemeSized, DEFAULT_FONT},
         tree::{
             move_ws_to_output, ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase,
-            OutputNode, WsMoveConfig,
+            OutputNode, VrrMode, WsMoveConfig,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -47,7 +48,7 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
-        video::{Connector, DrmDevice, GfxApi, Transform},
+        video::{Connector, DrmDevice, GfxApi, Transform, VrrMode as ConfigVrrMode},
         Axis, Direction, Workspace,
     },
     libloading::Library,
@@ -1032,6 +1033,45 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_vrr_mode(
+        &self,
+        connector: Option<Connector>,
+        mode: ConfigVrrMode,
+    ) -> Result<(), CphError> {
+        let Some(mode) = VrrMode::from_config(mode) else {
+            return Err(CphError::UnknownVrrMode(mode));
+        };
+        match connector {
+            Some(c) => {
+                let connector = self.get_output_node(c)?;
+                connector.global.persistent.vrr_mode.set(mode);
+                connector.update_vrr_state();
+            }
+            _ => self.state.default_vrr_mode.set(mode),
+        }
+        Ok(())
+    }
+
+    fn handle_set_vrr_cursor_hz(
+        &self,
+        connector: Option<Connector>,
+        hz: f64,
+    ) -> Result<(), CphError> {
+        match connector {
+            Some(c) => {
+                let connector = self.get_output_node(c)?;
+                connector.schedule.set_cursor_hz(hz);
+            }
+            _ => {
+                let Some((hz, _)) = map_cursor_hz(hz) else {
+                    return Err(CphError::InvalidCursorHz(hz));
+                };
+                self.state.default_vrr_cursor_hz.set(hz)
+            }
+        }
+        Ok(())
+    }
+
     fn handle_connector_set_transform(
         &self,
         connector: Connector,
@@ -1826,6 +1866,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowManagementEnabled { seat, enabled } => self
                 .handle_set_window_management_enabled(seat, enabled)
                 .wrn("set_window_management_enabled")?,
+            ClientMessage::SetVrrMode { connector, mode } => self
+                .handle_set_vrr_mode(connector, mode)
+                .wrn("set_vrr_mode")?,
+            ClientMessage::SetVrrCursorHz { connector, hz } => self
+                .handle_set_vrr_cursor_hz(connector, hz)
+                .wrn("set_vrr_cursor_hz")?,
         }
         Ok(())
     }
@@ -1887,6 +1933,10 @@ enum CphError {
     NegativeCursorSize,
     #[error("Config referred to a pollable that does not exist")]
     PollableDoesNotExist,
+    #[error("Unknown VRR mode {0:?}")]
+    UnknownVrrMode(ConfigVrrMode),
+    #[error("Invalid cursor hz {0}")]
+    InvalidCursorHz(f64),
 }
 
 trait WithRequestName {

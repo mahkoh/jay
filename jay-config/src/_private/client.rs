@@ -25,7 +25,7 @@ use {
         timer::Timer,
         video::{
             connector_type::{ConnectorType, CON_UNKNOWN},
-            Connector, DrmDevice, GfxApi, Mode, Transform,
+            Connector, DrmDevice, GfxApi, Mode, Transform, VrrMode,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
@@ -798,6 +798,14 @@ impl Client {
         let res = self.send_with_response(&ClientMessage::ConnectorSize { connector });
         get_response!(res, (0, 0), ConnectorSize { width, height });
         (width, height)
+    }
+
+    pub fn set_vrr_mode(&self, connector: Option<Connector>, mode: VrrMode) {
+        self.send(&ClientMessage::SetVrrMode { connector, mode })
+    }
+
+    pub fn set_vrr_cursor_hz(&self, connector: Option<Connector>, hz: f64) {
+        self.send(&ClientMessage::SetVrrCursorHz { connector, hz })
     }
 
     pub fn drm_devices(&self) -> Vec<DrmDevice> {

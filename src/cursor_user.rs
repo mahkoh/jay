@@ -82,7 +82,7 @@ impl CursorUserGroup {
                 let x_int = x.round_down();
                 let y_int = y.round_down();
                 let extents = cursor.extents_at_scale(Scale::default());
-                self.state.damage(extents.move_(x_int, y_int));
+                self.state.damage2(true, extents.move_(x_int, y_int));
             }
         }
     }
@@ -399,8 +399,10 @@ impl CursorUser {
                 let old_x_int = old_x.round_down();
                 let old_y_int = old_y.round_down();
                 let extents = cursor.extents_at_scale(Scale::default());
-                self.group.state.damage(extents.move_(old_x_int, old_y_int));
-                self.group.state.damage(extents.move_(x_int, y_int));
+                self.group
+                    .state
+                    .damage2(true, extents.move_(old_x_int, old_y_int));
+                self.group.state.damage2(true, extents.move_(x_int, y_int));
             }
         }
         self.pos.set((x, y));
@@ -439,6 +441,13 @@ impl CursorUser {
         let (x, y) = self.pos.get();
         for output in self.group.state.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
+                let commit = || {
+                    let defer = output.schedule.defer_cursor_updates();
+                    hc.commit(!defer);
+                    if defer {
+                        output.schedule.hardware_cursor_changed();
+                    }
+                };
                 let transform = output.global.persistent.transform.get();
                 let render = render | output.hardware_cursor_needs_render.take();
                 let scale = output.global.persistent.scale.get();
@@ -448,7 +457,7 @@ impl CursorUser {
                     let (max_width, max_height) = transform.maybe_swap((hc_width, hc_height));
                     if extents.width() > max_width || extents.height() > max_height {
                         hc.set_enabled(false);
-                        hc.commit();
+                        commit();
                         continue;
                     }
                 }
@@ -495,7 +504,7 @@ impl CursorUser {
                     }
                     hc.set_enabled(false);
                 }
-                hc.commit();
+                commit();
             }
         }
     }

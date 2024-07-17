@@ -3,16 +3,17 @@ use {
         cli::GlobalArgs,
         scale::Scale,
         tools::tool_client::{with_tool_client, Handle, ToolClient},
-        utils::transform_ext::TransformExt,
+        utils::{errorfmt::ErrorFmt, transform_ext::TransformExt},
         wire::{jay_compositor, jay_randr, JayRandrId},
     },
     clap::{Args, Subcommand, ValueEnum},
     isnt::std_1::vec::IsntVecExt,
-    jay_config::video::Transform,
+    jay_config::video::{Transform, VrrMode},
     std::{
         cell::RefCell,
         fmt::{Display, Formatter},
         rc::Rc,
+        str::FromStr,
     },
 };
 
@@ -117,6 +118,8 @@ pub enum OutputCommand {
     Disable,
     /// Override the display's non-desktop setting.
     NonDesktop(NonDesktopArgs),
+    /// Change VRR settings.
+    Vrr(VrrArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -130,6 +133,46 @@ pub enum NonDesktopType {
 pub struct NonDesktopArgs {
     /// Whether this output is a non-desktop output.
     pub setting: NonDesktopType,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct VrrArgs {
+    #[clap(subcommand)]
+    pub command: VrrCommand,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum VrrCommand {
+    /// Sets the mode that determines when VRR is enabled.
+    SetMode(SetModeArgs),
+    /// Sets the maximum refresh rate of the cursor.
+    SetCursorHz(CursorHzArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetModeArgs {
+    #[clap(value_enum)]
+    pub mode: VrrModeArg,
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, PartialEq)]
+pub enum VrrModeArg {
+    /// VRR is never enabled.
+    Never,
+    /// VRR is always enabled.
+    Always,
+    /// VRR is enabled when one or more applications are displayed fullscreen.
+    Variant1,
+    /// VRR is enabled when a single application is displayed fullscreen.
+    Variant2,
+    /// VRR is enabled when a single game or video is displayed fullscreen.
+    Variant3,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct CursorHzArgs {
+    /// The rate at which the cursor will be updated on screen.
+    pub rate: String,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -233,6 +276,10 @@ struct Output {
     pub current_mode: Option<Mode>,
     pub modes: Vec<Mode>,
     pub non_desktop: bool,
+    pub vrr_capable: bool,
+    pub vrr_enabled: bool,
+    pub vrr_mode: VrrMode,
+    pub vrr_cursor_hz: Option<f64>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -399,6 +446,47 @@ impl Randr {
                     non_desktop: a.setting as _,
                 });
             }
+            OutputCommand::Vrr(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the VRR setting: {}", msg);
+                });
+                let parse_rate = |rate: &str| {
+                    if rate.eq_ignore_ascii_case("none") {
+                        f64::INFINITY
+                    } else {
+                        match f64::from_str(rate) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                fatal!("Could not parse rate: {}", ErrorFmt(e));
+                            }
+                        }
+                    }
+                };
+                match a.command {
+                    VrrCommand::SetMode(a) => {
+                        let mode = match a.mode {
+                            VrrModeArg::Never => VrrMode::NEVER,
+                            VrrModeArg::Always => VrrMode::ALWAYS,
+                            VrrModeArg::Variant1 => VrrMode::VARIANT_1,
+                            VrrModeArg::Variant2 => VrrMode::VARIANT_2,
+                            VrrModeArg::Variant3 => VrrMode::VARIANT_3,
+                        };
+                        tc.send(jay_randr::SetVrrMode {
+                            self_id: randr,
+                            output: &args.output,
+                            mode: mode.0,
+                        });
+                    }
+                    VrrCommand::SetCursorHz(r) => {
+                        let hz = parse_rate(&r.rate);
+                        tc.send(jay_randr::SetVrrCursorHz {
+                            self_id: randr,
+                            output: &args.output,
+                            hz,
+                        });
+                    }
+                }
+            }
         }
         tc.round_trip().await;
     }
@@ -513,6 +601,26 @@ impl Randr {
             println!("        non-desktop");
             return;
         }
+        println!("        VRR capable: {}", o.vrr_capable);
+        if o.vrr_capable {
+            println!("        VRR enabled: {}", o.vrr_enabled);
+            let mode_str;
+            let mode = match o.vrr_mode {
+                VrrMode::NEVER => "never",
+                VrrMode::ALWAYS => "always",
+                VrrMode::VARIANT_1 => "variant1",
+                VrrMode::VARIANT_2 => "variant2",
+                VrrMode::VARIANT_3 => "variant3",
+                _ => {
+                    mode_str = format!("unknown ({})", o.vrr_mode.0);
+                    &mode_str
+                }
+            };
+            println!("        VRR mode: {}", mode);
+            if let Some(hz) = o.vrr_cursor_hz {
+                println!("        VRR cursor hz: {}", hz);
+            }
+        }
         println!("        position: {} x {}", o.x, o.y);
         println!("        logical size: {} x {}", o.width, o.height);
         if let Some(mode) = &o.current_mode {
@@ -601,6 +709,10 @@ impl Randr {
                 modes: Default::default(),
                 current_mode: None,
                 non_desktop: false,
+                vrr_capable: false,
+                vrr_enabled: false,
+                vrr_mode: VrrMode::NEVER,
+                vrr_cursor_hz: None,
             });
         });
         jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
@@ -621,7 +733,25 @@ impl Randr {
                 modes: Default::default(),
                 current_mode: None,
                 non_desktop: true,
+                vrr_capable: false,
+                vrr_enabled: false,
+                vrr_mode: VrrMode::NEVER,
+                vrr_cursor_hz: None,
             });
+        });
+        jay_randr::VrrState::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.vrr_capable = msg.capable != 0;
+            output.vrr_enabled = msg.enabled != 0;
+            output.vrr_mode = VrrMode(msg.mode);
+        });
+        jay_randr::VrrCursorHz::handle(tc, randr, data.clone(), move |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.vrr_cursor_hz = Some(msg.hz);
         });
         jay_randr::Mode::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();

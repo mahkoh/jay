@@ -7,11 +7,11 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::{ConnectorData, DrmDevData, OutputData},
-        tree::OutputNode,
+        tree::{OutputNode, VrrMode},
         utils::{gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
         wire::{jay_randr::*, JayRandrId},
     },
-    jay_config::video::{GfxApi, Transform},
+    jay_config::video::{GfxApi, Transform, VrrMode as ConfigVrrMode},
     std::rc::Rc,
     thiserror::Error,
 };
@@ -20,14 +20,18 @@ pub struct JayRandr {
     pub id: JayRandrId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub version: Version,
 }
 
+const VRR_CAPABLE_SINCE: Version = Version(2);
+
 impl JayRandr {
-    pub fn new(id: JayRandrId, client: &Rc<Client>) -> Self {
+    pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         }
     }
 
@@ -68,9 +72,9 @@ impl JayRandr {
         let Some(output) = self.client.state.outputs.get(&data.connector.id()) else {
             return;
         };
-        let global = match output.node.as_ref().map(|n| &n.global) {
-            Some(g) => g,
-            _ => {
+        let node = match &output.node {
+            Some(n) => n,
+            None => {
                 self.client.event(NonDesktopOutput {
                     self_id: self.id,
                     manufacturer: &output.monitor_info.manufacturer,
@@ -82,6 +86,7 @@ impl JayRandr {
                 return;
             }
         };
+        let global = &node.global;
         let pos = global.pos.get();
         self.client.event(Output {
             self_id: self.id,
@@ -97,6 +102,20 @@ impl JayRandr {
             width_mm: global.width_mm,
             height_mm: global.height_mm,
         });
+        if self.version >= VRR_CAPABLE_SINCE {
+            self.client.event(VrrState {
+                self_id: self.id,
+                capable: output.monitor_info.vrr_capable as _,
+                enabled: node.schedule.vrr_enabled() as _,
+                mode: node.global.persistent.vrr_mode.get().to_config().0,
+            });
+            if let Some(hz) = node.global.persistent.vrr_cursor_hz.get() {
+                self.client.event(VrrCursorHz {
+                    self_id: self.id,
+                    hz,
+                });
+            }
+        }
         let current_mode = global.mode.get();
         for mode in &global.modes {
             self.client.event(Mode {
@@ -297,11 +316,35 @@ impl JayRandrRequestHandler for JayRandr {
         c.connector.set_non_desktop_override(non_desktop);
         Ok(())
     }
+
+    fn set_vrr_mode(&self, req: SetVrrMode<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(mode) = VrrMode::from_config(ConfigVrrMode(req.mode)) else {
+            return Err(JayRandrError::UnknownVrrMode(req.mode));
+        };
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.global.persistent.vrr_mode.set(mode);
+        c.update_vrr_state();
+        return Ok(());
+    }
+
+    fn set_vrr_cursor_hz(
+        &self,
+        req: SetVrrCursorHz<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.schedule.set_cursor_hz(req.hz);
+        Ok(())
+    }
 }
 
 object_base! {
     self = JayRandr;
-    version = Version(1);
+    version = self.version;
 }
 
 impl Object for JayRandr {}
@@ -312,5 +355,7 @@ simple_add_obj!(JayRandr);
 pub enum JayRandrError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Unknown VRR mode {0}")]
+    UnknownVrrMode(u32),
 }
 efrom!(JayRandrError, ClientError);

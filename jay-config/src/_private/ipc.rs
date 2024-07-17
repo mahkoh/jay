@@ -8,7 +8,7 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
-        video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi, Transform},
+        video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi, Transform, VrrMode},
         Axis, Direction, PciId, Workspace,
         _private::{PollableId, WireMode},
     },
@@ -486,6 +486,14 @@ pub enum ClientMessage<'a> {
     SetWindowManagementEnabled {
         seat: Seat,
         enabled: bool,
+    },
+    SetVrrMode {
+        connector: Option<Connector>,
+        mode: VrrMode,
+    },
+    SetVrrCursorHz {
+        connector: Option<Connector>,
+        hz: f64,
     },
 }
 

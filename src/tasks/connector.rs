@@ -3,6 +3,7 @@ use {
         backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
         globals::GlobalName,
         ifs::wl_output::{OutputId, PersistentOutputState, WlOutputGlobal},
+        output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
         tree::{move_ws_to_output, OutputNode, OutputRenderData, WsMoveConfig},
         utils::{asyncevent::AsyncEvent, clonecell::CloneCell, hash_map_ext::HashMapExt},
@@ -122,6 +123,8 @@ impl ConnectorHandler {
                     transform: Default::default(),
                     scale: Default::default(),
                     pos: Cell::new((x1, 0)),
+                    vrr_mode: Cell::new(self.state.default_vrr_mode.get()),
+                    vrr_cursor_hz: Cell::new(self.state.default_vrr_cursor_hz.get()),
                 });
                 self.state
                     .persistent_output_states
@@ -140,6 +143,13 @@ impl ConnectorHandler {
             &output_id,
             &desired_state,
         ));
+        let schedule = Rc::new(OutputSchedule::new(
+            &self.state.ring,
+            &self.state.eng,
+            &self.data.connector,
+            &desired_state,
+        ));
+        let _schedule = self.state.eng.spawn(schedule.clone().drive());
         let on = Rc::new(OutputNode {
             id: self.state.node_ids.next(),
             workspaces: Default::default(),
@@ -173,6 +183,7 @@ impl ConnectorHandler {
             hardware_cursor_needs_render: Cell::new(false),
             screencopies: Default::default(),
             title_visible: Default::default(),
+            schedule,
         });
         on.update_visible();
         on.update_rects();
@@ -231,16 +242,21 @@ impl ConnectorHandler {
         }
         self.state.add_global(&global);
         self.state.tree_changed();
+        on.update_vrr_state();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {
                     ConnectorEvent::Disconnected => break 'outer,
                     ConnectorEvent::HardwareCursor(hc) => {
+                        on.schedule.set_hardware_cursor(&hc);
                         on.hardware_cursor.set(hc);
                         self.state.refresh_hardware_cursors();
                     }
                     ConnectorEvent::ModeChanged(mode) => {
                         on.update_mode(mode);
+                    }
+                    ConnectorEvent::VrrChanged(enabled) => {
+                        on.schedule.set_vrr_enabled(enabled);
                     }
                     ev => unreachable!("received unexpected event {:?}", ev),
                 }

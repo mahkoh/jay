@@ -29,6 +29,7 @@ mod repeat_rate;
 pub mod shortcuts;
 mod status;
 mod theme;
+mod vrr;
 
 #[derive(Debug, Error)]
 pub enum StringParserError {

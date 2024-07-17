@@ -72,6 +72,7 @@ mod libinput;
 mod logger;
 mod logind;
 mod object;
+mod output_schedule;
 mod pango;
 mod pipewire;
 mod portal;
