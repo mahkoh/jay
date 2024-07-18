@@ -1213,7 +1213,7 @@ impl WlSurface {
         let had_frame_requests = self.buffer_had_frame_request.get();
         let has_frame_requests = {
             let frs = &mut *self.frame_requests.borrow_mut();
-            frs.extend(pending.frame_request.drain(..));
+            frs.append(&mut pending.frame_request);
             frs.is_not_empty()
         };
         self.buffer_had_frame_request
