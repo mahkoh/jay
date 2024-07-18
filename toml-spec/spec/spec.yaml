@@ -1573,6 +1573,21 @@ Output:
           match.serial-number = "33K03894SL0"
           vrr = { mode = "always", cursor-hz = 90 }
           ```
+    tearing:
+      ref: Tearing
+      required: false
+      description: |
+        Configures the tearing settings of this output.
+        
+        By default, the tearing mode is `variant3`.
+
+        - Example:
+        
+          ```toml
+          [[outputs]]
+          match.serial-number = "33K03894SL0"
+          tearing.mode = "never"
+          ```
 
 
 Transform:
@@ -2180,6 +2195,21 @@ Config:
           ```toml
           vrr = { mode = "always", cursor-hz = 90 }
           ```
+    tearing:
+      ref: Tearing
+      required: false
+      description: |
+        Configures the default tearing settings.
+        
+        This can be overwritten for individual outputs.
+        
+        By default, the tearing mode is `variant3`.
+
+        - Example:
+        
+          ```toml
+          tearing.mode = "never"
+          ```
 
 
 Idle:
@@ -2367,3 +2397,45 @@ VrrHz:
       description: The string `none` can be used to disable the limiter.
     - kind: number
       description: The refresh rate in HZ.
+
+
+Tearing:
+  kind: table
+  description: |
+    Describes tearing settings.
+    
+    - Example:
+    
+      ```toml
+      tearing.mode = "never"
+      ```
+  fields:
+    mode:
+      ref: TearingMode
+      required: false
+      description: The tearing mode.
+
+
+TearingMode:
+  description: |
+    The tearing mode of an output.
+
+    - Example:
+    
+      ```toml
+      tearing.mode = "never"
+      ```
+  kind: string
+  values:
+    - value: always
+      description: Tearing is never enabled.
+    - value: never
+      description: Tearing is always enabled.
+    - value: variant1
+      description: Tearing is enabled when one or more applications are displayed fullscreen.
+    - value: variant2
+      description: Tearing is enabled when a single application is displayed fullscreen.
+    - value: variant3
+      description: |
+        Tearing is enabled when a single application is displayed and the application has
+        requested tearing.

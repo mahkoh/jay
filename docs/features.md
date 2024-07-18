@@ -126,6 +126,10 @@ Jay supports leasing VR headsets to applications.
 
 Jay supports adaptive sync with configurable cursor refresh rates.
 
+## Tearing
+
+Jay supports tearing presentation for games.
+
 ## Protocol Support
 
 Jay supports the following wayland protocols:
@@ -153,7 +157,7 @@ Jay supports the following wayland protocols:
 | wp_presentation                         | 1               |               |
 | wp_security_context_manager_v1          | 1               |               |
 | wp_single_pixel_buffer_manager_v1       | 1               |               |
-| wp_tearing_control_manager_v1           | 1[^no_tearing]  |               |
+| wp_tearing_control_manager_v1           | 1               |               |
 | wp_viewporter                           | 1               |               |
 | xdg_activation_v1                       | 1               |               |
 | xdg_toplevel_drag_manager_v1            | 1               |               |
@@ -176,7 +180,6 @@ Jay supports the following wayland protocols:
 | zxdg_output_manager_v1                  | 3               |               |
 
 [^no_touch]: Touch input is not supported.
-[^no_tearing]: Tearing screen updates are not supported.
 [^lsaccess]: Sandboxes can restrict access to this protocol.
 [^ts_rejected]: Seat creation is always rejected.
 
@@ -185,4 +188,3 @@ Jay supports the following wayland protocols:
 The following features are currently not supported but might get implemented in the future:
 
 - Touch support.
-- Tearing updates of fullscreen games.

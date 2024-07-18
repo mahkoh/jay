@@ -7,6 +7,7 @@ use {
             parsers::{
                 mode::ModeParser,
                 output_match::{OutputMatchParser, OutputMatchParserError},
+                tearing::TearingParser,
                 vrr::VrrParser,
             },
             Output,
@@ -47,16 +48,18 @@ impl<'a> Parser for OutputParser<'a> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (name, match_val, x, y, scale, transform, mode, vrr_val) = ext.extract((
-            opt(str("name")),
-            val("match"),
-            recover(opt(s32("x"))),
-            recover(opt(s32("y"))),
-            recover(opt(fltorint("scale"))),
-            recover(opt(str("transform"))),
-            opt(val("mode")),
-            opt(val("vrr")),
-        ))?;
+        let (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val) =
+            ext.extract((
+                opt(str("name")),
+                val("match"),
+                recover(opt(s32("x"))),
+                recover(opt(s32("y"))),
+                recover(opt(fltorint("scale"))),
+                recover(opt(str("transform"))),
+                opt(val("mode")),
+                opt(val("vrr")),
+                opt(val("tearing")),
+            ))?;
         let transform = match transform {
             None => None,
             Some(t) => match t.value {
@@ -107,6 +110,15 @@ impl<'a> Parser for OutputParser<'a> {
                 }
             }
         }
+        let mut tearing = None;
+        if let Some(value) = tearing_val {
+            match value.parse(&mut TearingParser(self.cx)) {
+                Ok(v) => tearing = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse tearing setting: {}", self.cx.error(e));
+                }
+            }
+        }
         Ok(Output {
             name: name.despan().map(|v| v.to_string()),
             match_: match_val.parse_map(&mut OutputMatchParser(self.cx))?,
@@ -116,6 +128,7 @@ impl<'a> Parser for OutputParser<'a> {
             transform,
             mode,
             vrr,
+            tearing,
         })
     }
 }

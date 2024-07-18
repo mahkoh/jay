@@ -65,6 +65,11 @@ request set_vrr_cursor_hz (since = 2) {
     hz: pod(f64),
 }
 
+request set_tearing_mode (since = 3) {
+    output: str,
+    mode: u32,
+}
+
 # events
 
 event global {
@@ -131,4 +136,8 @@ event vrr_state (since = 2) {
 
 event vrr_cursor_hz (since = 2) {
     hz: pod(f64),
+}
+
+event tearing_state (since = 3) {
+    mode: u32,
 }

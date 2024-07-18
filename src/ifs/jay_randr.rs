@@ -7,11 +7,13 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::{ConnectorData, DrmDevData, OutputData},
-        tree::{OutputNode, VrrMode},
+        tree::{OutputNode, TearingMode, VrrMode},
         utils::{gfx_api_ext::GfxApiExt, transform_ext::TransformExt},
         wire::{jay_randr::*, JayRandrId},
     },
-    jay_config::video::{GfxApi, Transform, VrrMode as ConfigVrrMode},
+    jay_config::video::{
+        GfxApi, TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,
+    },
     std::rc::Rc,
     thiserror::Error,
 };
@@ -24,6 +26,7 @@ pub struct JayRandr {
 }
 
 const VRR_CAPABLE_SINCE: Version = Version(2);
+const TEARING_SINCE: Version = Version(3);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -115,6 +118,12 @@ impl JayRandr {
                     hz,
                 });
             }
+        }
+        if self.version >= TEARING_SINCE {
+            self.client.event(TearingState {
+                self_id: self.id,
+                mode: node.global.persistent.tearing_mode.get().to_config().0,
+            });
         }
         let current_mode = global.mode.get();
         for mode in &global.modes {
@@ -325,7 +334,7 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.global.persistent.vrr_mode.set(mode);
-        c.update_vrr_state();
+        c.update_presentation_type();
         return Ok(());
     }
 
@@ -339,6 +348,22 @@ impl JayRandrRequestHandler for JayRandr {
         };
         c.schedule.set_cursor_hz(req.hz);
         Ok(())
+    }
+
+    fn set_tearing_mode(
+        &self,
+        req: SetTearingMode<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(mode) = TearingMode::from_config(ConfigTearingMode(req.mode)) else {
+            return Err(JayRandrError::UnknownTearingMode(req.mode));
+        };
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.global.persistent.tearing_mode.set(mode);
+        c.update_presentation_type();
+        return Ok(());
     }
 }
 
@@ -357,5 +382,7 @@ pub enum JayRandrError {
     ClientError(Box<ClientError>),
     #[error("Unknown VRR mode {0}")]
     UnknownVrrMode(u32),
+    #[error("Unknown tearing mode {0}")]
+    UnknownTearingMode(u32),
 }
 efrom!(JayRandrError, ClientError);

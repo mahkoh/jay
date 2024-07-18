@@ -8,7 +8,7 @@ use {
     },
     clap::{Args, Subcommand, ValueEnum},
     isnt::std_1::vec::IsntVecExt,
-    jay_config::video::{Transform, VrrMode},
+    jay_config::video::{TearingMode, Transform, VrrMode},
     std::{
         cell::RefCell,
         fmt::{Display, Formatter},
@@ -120,6 +120,8 @@ pub enum OutputCommand {
     NonDesktop(NonDesktopArgs),
     /// Change VRR settings.
     Vrr(VrrArgs),
+    /// Change tearing settings.
+    Tearing(TearingArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -144,13 +146,13 @@ pub struct VrrArgs {
 #[derive(Subcommand, Debug, Clone)]
 pub enum VrrCommand {
     /// Sets the mode that determines when VRR is enabled.
-    SetMode(SetModeArgs),
+    SetMode(SetVrrModeArgs),
     /// Sets the maximum refresh rate of the cursor.
     SetCursorHz(CursorHzArgs),
 }
 
 #[derive(Args, Debug, Clone)]
-pub struct SetModeArgs {
+pub struct SetVrrModeArgs {
     #[clap(value_enum)]
     pub mode: VrrModeArg,
 }
@@ -173,6 +175,41 @@ pub enum VrrModeArg {
 pub struct CursorHzArgs {
     /// The rate at which the cursor will be updated on screen.
     pub rate: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct TearingArgs {
+    #[clap(subcommand)]
+    pub command: TearingCommand,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum TearingCommand {
+    /// Sets the mode that determines when tearing is enabled.
+    SetMode(SetTearingModeArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetTearingModeArgs {
+    #[clap(value_enum)]
+    pub mode: TearingModeArg,
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, PartialEq)]
+pub enum TearingModeArg {
+    /// Tearing is never enabled.
+    Never,
+    /// Tearing is always enabled.
+    Always,
+    /// Tearing is enabled when one or more applications are displayed fullscreen.
+    Variant1,
+    /// Tearing is enabled when a single application is displayed fullscreen.
+    Variant2,
+    /// Tearing is enabled when a single application is displayed fullscreen and the
+    /// application has requested tearing.
+    ///
+    /// This is the default.
+    Variant3,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -280,6 +317,7 @@ struct Output {
     pub vrr_enabled: bool,
     pub vrr_mode: VrrMode,
     pub vrr_cursor_hz: Option<f64>,
+    pub tearing_mode: TearingMode,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -487,6 +525,27 @@ impl Randr {
                     }
                 }
             }
+            OutputCommand::Tearing(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the tearing setting: {}", msg);
+                });
+                match a.command {
+                    TearingCommand::SetMode(a) => {
+                        let mode = match a.mode {
+                            TearingModeArg::Never => VrrMode::NEVER,
+                            TearingModeArg::Always => VrrMode::ALWAYS,
+                            TearingModeArg::Variant1 => VrrMode::VARIANT_1,
+                            TearingModeArg::Variant2 => VrrMode::VARIANT_2,
+                            TearingModeArg::Variant3 => VrrMode::VARIANT_3,
+                        };
+                        tc.send(jay_randr::SetTearingMode {
+                            self_id: randr,
+                            output: &args.output,
+                            mode: mode.0,
+                        });
+                    }
+                }
+            }
         }
         tc.round_trip().await;
     }
@@ -621,6 +680,21 @@ impl Randr {
                 println!("        VRR cursor hz: {}", hz);
             }
         }
+        {
+            let mode_str;
+            let mode = match o.tearing_mode {
+                TearingMode::NEVER => "never",
+                TearingMode::ALWAYS => "always",
+                TearingMode::VARIANT_1 => "variant1",
+                TearingMode::VARIANT_2 => "variant2",
+                TearingMode::VARIANT_3 => "variant3",
+                _ => {
+                    mode_str = format!("unknown ({})", o.vrr_mode.0);
+                    &mode_str
+                }
+            };
+            println!("        Tearing mode: {}", mode);
+        }
         println!("        position: {} x {}", o.x, o.y);
         println!("        logical size: {} x {}", o.width, o.height);
         if let Some(mode) = &o.current_mode {
@@ -713,6 +787,7 @@ impl Randr {
                 vrr_enabled: false,
                 vrr_mode: VrrMode::NEVER,
                 vrr_cursor_hz: None,
+                tearing_mode: TearingMode::NEVER,
             });
         });
         jay_randr::NonDesktopOutput::handle(tc, randr, data.clone(), |data, msg| {
@@ -737,6 +812,7 @@ impl Randr {
                 vrr_enabled: false,
                 vrr_mode: VrrMode::NEVER,
                 vrr_cursor_hz: None,
+                tearing_mode: TearingMode::NEVER,
             });
         });
         jay_randr::VrrState::handle(tc, randr, data.clone(), |data, msg| {
@@ -752,6 +828,12 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.vrr_cursor_hz = Some(msg.hz);
+        });
+        jay_randr::TearingState::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.tearing_mode = TearingMode(msg.mode);
         });
         jay_randr::Mode::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();

@@ -15,7 +15,7 @@ use {
         theme::{Color, ThemeSized, DEFAULT_FONT},
         tree::{
             move_ws_to_output, ContainerNode, ContainerSplit, FloatNode, Node, NodeVisitorBase,
-            OutputNode, VrrMode, WsMoveConfig,
+            OutputNode, TearingMode, VrrMode, WsMoveConfig,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -48,7 +48,10 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
-        video::{Connector, DrmDevice, GfxApi, Transform, VrrMode as ConfigVrrMode},
+        video::{
+            Connector, DrmDevice, GfxApi, TearingMode as ConfigTearingMode, Transform,
+            VrrMode as ConfigVrrMode,
+        },
         Axis, Direction, Workspace,
     },
     libloading::Library,
@@ -1045,7 +1048,7 @@ impl ConfigProxyHandler {
             Some(c) => {
                 let connector = self.get_output_node(c)?;
                 connector.global.persistent.vrr_mode.set(mode);
-                connector.update_vrr_state();
+                connector.update_presentation_type();
             }
             _ => self.state.default_vrr_mode.set(mode),
         }
@@ -1068,6 +1071,25 @@ impl ConfigProxyHandler {
                 };
                 self.state.default_vrr_cursor_hz.set(hz)
             }
+        }
+        Ok(())
+    }
+
+    fn handle_set_tearing_mode(
+        &self,
+        connector: Option<Connector>,
+        mode: ConfigTearingMode,
+    ) -> Result<(), CphError> {
+        let Some(mode) = TearingMode::from_config(mode) else {
+            return Err(CphError::UnknownTearingMode(mode));
+        };
+        match connector {
+            Some(c) => {
+                let connector = self.get_output_node(c)?;
+                connector.global.persistent.tearing_mode.set(mode);
+                connector.update_presentation_type();
+            }
+            _ => self.state.default_tearing_mode.set(mode),
         }
         Ok(())
     }
@@ -1872,6 +1894,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetVrrCursorHz { connector, hz } => self
                 .handle_set_vrr_cursor_hz(connector, hz)
                 .wrn("set_vrr_cursor_hz")?,
+            ClientMessage::SetTearingMode { connector, mode } => self
+                .handle_set_tearing_mode(connector, mode)
+                .wrn("set_tearing_mode")?,
         }
         Ok(())
     }
@@ -1937,6 +1962,8 @@ enum CphError {
     UnknownVrrMode(ConfigVrrMode),
     #[error("Invalid cursor hz {0}")]
     InvalidCursorHz(f64),
+    #[error("Unknown tearing mode {0:?}")]
+    UnknownTearingMode(ConfigTearingMode),
 }
 
 trait WithRequestName {

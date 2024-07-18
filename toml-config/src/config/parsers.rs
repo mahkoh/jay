@@ -28,6 +28,7 @@ mod output_match;
 mod repeat_rate;
 pub mod shortcuts;
 mod status;
+mod tearing;
 mod theme;
 mod vrr;
 

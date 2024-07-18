@@ -25,7 +25,7 @@ use {
         timer::Timer,
         video::{
             connector_type::{ConnectorType, CON_UNKNOWN},
-            Connector, DrmDevice, GfxApi, Mode, Transform, VrrMode,
+            Connector, DrmDevice, GfxApi, Mode, TearingMode, Transform, VrrMode,
         },
         Axis, Direction, ModifiedKeySym, PciId, Workspace,
     },
@@ -806,6 +806,10 @@ impl Client {
 
     pub fn set_vrr_cursor_hz(&self, connector: Option<Connector>, hz: f64) {
         self.send(&ClientMessage::SetVrrCursorHz { connector, hz })
+    }
+
+    pub fn set_tearing_mode(&self, connector: Option<Connector>, mode: TearingMode) {
+        self.send(&ClientMessage::SetTearingMode { connector, mode })
     }
 
     pub fn drm_devices(&self) -> Vec<DrmDevice> {

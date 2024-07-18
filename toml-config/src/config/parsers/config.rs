@@ -22,6 +22,7 @@ use {
                     ShortcutsParserError,
                 },
                 status::StatusParser,
+                tearing::TearingParser,
                 theme::ThemeParser,
                 vrr::VrrParser,
             },
@@ -108,6 +109,7 @@ impl Parser for ConfigParser<'_> {
                 focus_follows_mouse,
                 window_management_key_val,
                 vrr_val,
+                tearing_val,
             ),
         ) = ext.extract((
             (
@@ -141,6 +143,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(bol("focus-follows-mouse"))),
                 recover(opt(str("window-management-key"))),
                 opt(val("vrr")),
+                opt(val("tearing")),
             ),
         ))?;
         let mut keymap = None;
@@ -314,6 +317,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut tearing = None;
+        if let Some(value) = tearing_val {
+            match value.parse(&mut TearingParser(self.0)) {
+                Ok(v) => tearing = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse tearing setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -339,6 +351,7 @@ impl Parser for ConfigParser<'_> {
             focus_follows_mouse: focus_follows_mouse.despan().unwrap_or(true),
             window_management_key,
             vrr,
+            tearing,
         })
     }
 }

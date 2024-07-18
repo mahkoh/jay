@@ -64,8 +64,8 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
-            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase, VrrMode,
-            WorkspaceNode,
+            NodeVisitorBase, OutputNode, PlaceholderNode, TearingMode, ToplevelNode,
+            ToplevelNodeBase, VrrMode, WorkspaceNode,
         },
         utils::{
             activation_token::ActivationToken, asyncevent::AsyncEvent, bindings::Bindings,
@@ -203,6 +203,7 @@ pub struct State {
     pub damage_visualizer: DamageVisualizer,
     pub default_vrr_mode: Cell<&'static VrrMode>,
     pub default_vrr_cursor_hz: Cell<Option<f64>>,
+    pub default_tearing_mode: Cell<&'static TearingMode>,
 }
 
 // impl Drop for State {

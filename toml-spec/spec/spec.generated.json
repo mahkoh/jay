@@ -581,6 +581,10 @@
         "vrr": {
           "description": "Configures the default VRR settings.\n\nThis can be overwritten for individual outputs.\n\nBy default, the VRR mode is `never` and the cursor refresh rate is unbounded.\n\n- Example:\n  \n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
           "$ref": "#/$defs/Vrr"
+        },
+        "tearing": {
+          "description": "Configures the default tearing settings.\n\nThis can be overwritten for individual outputs.\n\nBy default, the tearing mode is `variant3`.\n\n- Example:\n\n  ```toml\n  tearing.mode = \"never\"\n  ```\n",
+          "$ref": "#/$defs/Tearing"
         }
       },
       "required": []
@@ -1031,6 +1035,10 @@
         "vrr": {
           "description": "Configures the VRR settings of this output.\n\nBy default, the VRR mode is `never` and the cursor refresh rate is unbounded.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
           "$ref": "#/$defs/Vrr"
+        },
+        "tearing": {
+          "description": "Configures the tearing settings of this output.\n\nBy default, the tearing mode is `variant3`.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  tearing.mode = \"never\"\n  ```\n",
+          "$ref": "#/$defs/Tearing"
         }
       },
       "required": [
@@ -1146,6 +1154,28 @@
       },
       "required": [
         "exec"
+      ]
+    },
+    "Tearing": {
+      "description": "Describes tearing settings.\n\n- Example:\n\n  ```toml\n  tearing.mode = \"never\"\n  ```\n",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "The tearing mode.",
+          "$ref": "#/$defs/TearingMode"
+        }
+      },
+      "required": []
+    },
+    "TearingMode": {
+      "type": "string",
+      "description": "The tearing mode of an output.\n\n- Example:\n\n  ```toml\n  tearing.mode = \"never\"\n  ```\n",
+      "enum": [
+        "always",
+        "never",
+        "variant1",
+        "variant2",
+        "variant3"
       ]
     },
     "Theme": {

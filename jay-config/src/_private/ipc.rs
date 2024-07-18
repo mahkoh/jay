@@ -8,7 +8,10 @@ use {
         logging::LogLevel,
         theme::{colors::Colorable, sized::Resizable, Color},
         timer::Timer,
-        video::{connector_type::ConnectorType, Connector, DrmDevice, GfxApi, Transform, VrrMode},
+        video::{
+            connector_type::ConnectorType, Connector, DrmDevice, GfxApi, TearingMode, Transform,
+            VrrMode,
+        },
         Axis, Direction, PciId, Workspace,
         _private::{PollableId, WireMode},
     },
@@ -494,6 +497,10 @@ pub enum ClientMessage<'a> {
     SetVrrCursorHz {
         connector: Option<Connector>,
         hz: f64,
+    },
+    SetTearingMode {
+        connector: Option<Connector>,
+        mode: TearingMode,
     },
 }
 

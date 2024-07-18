@@ -238,6 +238,7 @@ const DRM_MODE_PROP_ATOMIC: u32 = 0x80000000;
 
 pub const DRM_CAP_CURSOR_WIDTH: u64 = 0x8;
 pub const DRM_CAP_CURSOR_HEIGHT: u64 = 0x9;
+pub const DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP: u64 = 0x15;
 
 #[repr(C)]
 struct drm_mode_property_enum {
@@ -865,6 +866,7 @@ struct drm_mode_atomic {
 const DRM_IOCTL_MODE_ATOMIC: u64 = drm_iowr::<drm_mode_atomic>(0xbc);
 
 pub const DRM_MODE_PAGE_FLIP_EVENT: u32 = 0x01;
+pub const DRM_MODE_PAGE_FLIP_ASYNC: u32 = 0x02;
 pub const DRM_MODE_ATOMIC_TEST_ONLY: u32 = 0x0100;
 pub const DRM_MODE_ATOMIC_NONBLOCK: u32 = 0x0200;
 pub const DRM_MODE_ATOMIC_ALLOW_MODESET: u32 = 0x0400;

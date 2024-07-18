@@ -33,7 +33,8 @@ use {
         tasks::{self, idle},
         tree::{
             container_layout, container_render_data, float_layout, float_titles,
-            output_render_data, DisplayNode, NodeIds, OutputNode, VrrMode, WorkspaceNode,
+            output_render_data, DisplayNode, NodeIds, OutputNode, TearingMode, VrrMode,
+            WorkspaceNode,
         },
         user_session::import_environment,
         utils::{
@@ -249,6 +250,7 @@ fn start_compositor2(
         damage_visualizer: DamageVisualizer::new(&engine),
         default_vrr_mode: Cell::new(VrrMode::NEVER),
         default_vrr_cursor_hz: Cell::new(None),
+        default_tearing_mode: Cell::new(TearingMode::VARIANT_3),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -425,6 +427,7 @@ fn create_dummy_output(state: &Rc<State>) {
         pos: Default::default(),
         vrr_mode: Cell::new(VrrMode::NEVER),
         vrr_cursor_hz: Default::default(),
+        tearing_mode: Cell::new(&TearingMode::Never),
     });
     let connector = Rc::new(DummyOutput {
         id: state.connector_ids.next(),
