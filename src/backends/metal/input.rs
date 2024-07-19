@@ -227,24 +227,18 @@ impl MetalBackend {
         let (event, dev) = unpack!(self, event, pointer_event);
         let mut dx = event.dx();
         let mut dy = event.dy();
-        let mut dx_unaccelerated = event.dx_unaccelerated();
-        let mut dy_unaccelerated = event.dy_unaccelerated();
         if let Some(matrix) = dev.transform_matrix.get() {
             (dx, dy) = (
                 matrix[0][0] * dx + matrix[0][1] * dy,
                 matrix[1][0] * dx + matrix[1][1] * dy,
-            );
-            (dx_unaccelerated, dy_unaccelerated) = (
-                matrix[0][0] * dx_unaccelerated + matrix[0][1] * dy_unaccelerated,
-                matrix[1][0] * dx_unaccelerated + matrix[1][1] * dy_unaccelerated,
             );
         }
         dev.event(InputEvent::Motion {
             time_usec: event.time_usec(),
             dx: Fixed::from_f64(dx),
             dy: Fixed::from_f64(dy),
-            dx_unaccelerated: Fixed::from_f64(dx_unaccelerated),
-            dy_unaccelerated: Fixed::from_f64(dy_unaccelerated),
+            dx_unaccelerated: Fixed::from_f64(event.dx_unaccelerated()),
+            dy_unaccelerated: Fixed::from_f64(event.dy_unaccelerated()),
         });
     }
 
