@@ -1110,6 +1110,22 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `vrr` (optional):
+
+  Configures the default VRR settings.
+  
+  This can be overwritten for individual outputs.
+  
+  By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
+  
+  - Example:
+    
+    ```toml
+    vrr = { mode = "always", cursor-hz = 90 }
+    ```
+
+  The value of this field should be a [Vrr](#types-Vrr).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2166,6 +2182,22 @@ The table has the following fields:
 
   The value of this field should be a [Mode](#types-Mode).
 
+- `vrr` (optional):
+
+  Configures the VRR settings of this output.
+  
+  By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
+  
+  - Example:
+  
+    ```toml
+    [[outputs]]
+    match.serial-number = "33K03894SL0"
+    vrr = { mode = "always", cursor-hz = 90 }
+    ```
+
+  The value of this field should be a [Vrr](#types-Vrr).
+
 
 <a name="types-OutputMatch"></a>
 ### `OutputMatch`
@@ -2669,6 +2701,101 @@ The string should have one of the following values:
 
   The content of the output is flipped around the vertical axis and then rotated
   270 degrees counter clockwise.
+
+
+
+<a name="types-Vrr"></a>
+### `Vrr`
+
+Describes VRR settings.
+
+- Example:
+
+  ```toml
+  vrr = { mode = "always", cursor-hz = 90 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `mode` (optional):
+
+  The VRR mode.
+
+  The value of this field should be a [VrrMode](#types-VrrMode).
+
+- `cursor-hz` (optional):
+
+  The VRR cursor refresh rate.
+  
+  Limits the rate at which cursors are updated on screen when VRR is active.
+
+  The value of this field should be a [VrrHz](#types-VrrHz).
+
+
+<a name="types-VrrHz"></a>
+### `VrrHz`
+
+A VRR refresh rate limiter.
+
+- Example 1:
+
+  ```toml
+  vrr = { cursor-hz = 90 }
+  ```
+
+- Example 2:
+
+  ```toml
+  vrr = { cursor-hz = "none" }
+  ```
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+The string `none` can be used to disable the limiter.
+
+#### A number
+
+The refresh rate in HZ.
+
+
+<a name="types-VrrMode"></a>
+### `VrrMode`
+
+The VRR mode of an output.
+
+- Example:
+
+  ```toml
+  vrr = { mode = "always", cursor-hz = 90 }
+  ```
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `always`:
+
+  VRR is never enabled.
+
+- `never`:
+
+  VRR is always enabled.
+
+- `variant1`:
+
+  VRR is enabled when one or more applications are displayed fullscreen.
+
+- `variant2`:
+
+  VRR is enabled when a single application is displayed fullscreen.
+
+- `variant3`:
+
+  VRR is enabled when a single game or video is displayed fullscreen.
 
 
 

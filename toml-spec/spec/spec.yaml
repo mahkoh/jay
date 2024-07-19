@@ -1558,6 +1558,21 @@ Output:
         
         If the refresh rate is not specified, the first mode with the specified width and
         height is used.
+    vrr:
+      ref: Vrr
+      required: false
+      description: |
+        Configures the VRR settings of this output.
+        
+        By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
+
+        - Example:
+        
+          ```toml
+          [[outputs]]
+          match.serial-number = "33K03894SL0"
+          vrr = { mode = "always", cursor-hz = 90 }
+          ```
 
 
 Transform:
@@ -2150,6 +2165,21 @@ Config:
           ```toml
           window-management-key = "Alt_L"
           ```
+    vrr:
+      ref: Vrr
+      required: false
+      description: |
+        Configures the default VRR settings.
+        
+        This can be overwritten for individual outputs.
+        
+        By default, the VRR mode is `never` and the cursor refresh rate is unbounded.
+
+        - Example:
+          
+          ```toml
+          vrr = { mode = "always", cursor-hz = 90 }
+          ```
 
 
 Idle:
@@ -2267,3 +2297,73 @@ ComplexShortcut:
         
           Audio will be un-muted once `x` key is released, regardless of any other keys
           that are pressed at the time.
+
+
+Vrr:
+  kind: table
+  description: |
+    Describes VRR settings.
+    
+    - Example:
+    
+      ```toml
+      vrr = { mode = "always", cursor-hz = 90 }
+      ```
+  fields:
+    mode:
+      ref: VrrMode
+      required: false
+      description: The VRR mode.
+    cursor-hz:
+      ref: VrrHz
+      required: false
+      description: |
+        The VRR cursor refresh rate.
+        
+        Limits the rate at which cursors are updated on screen when VRR is active.
+
+
+VrrMode:
+  description: |
+    The VRR mode of an output.
+
+    - Example:
+    
+      ```toml
+      vrr = { mode = "always", cursor-hz = 90 }
+      ```
+  kind: string
+  values:
+    - value: always
+      description: VRR is never enabled.
+    - value: never
+      description: VRR is always enabled.
+    - value: variant1
+      description: VRR is enabled when one or more applications are displayed fullscreen.
+    - value: variant2
+      description: VRR is enabled when a single application is displayed fullscreen.
+    - value: variant3
+      description: VRR is enabled when a single game or video is displayed fullscreen.
+
+
+VrrHz:
+  description: |
+    A VRR refresh rate limiter.
+
+    - Example 1:
+    
+      ```toml
+      vrr = { cursor-hz = 90 }
+      ```
+
+    - Example 2:
+    
+      ```toml
+      vrr = { cursor-hz = "none" }
+      ```
+  kind: variable
+  variants:
+    - kind: string
+      description: The string `none` can be used to disable the limiter.
+    - kind: number
+      description: The refresh rate in HZ.

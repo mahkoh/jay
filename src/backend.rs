@@ -71,6 +71,7 @@ pub struct MonitorInfo {
     pub width_mm: i32,
     pub height_mm: i32,
     pub non_desktop: bool,
+    pub vrr_capable: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -108,6 +109,9 @@ pub trait Connector {
     fn drm_object_id(&self) -> Option<DrmConnector> {
         None
     }
+    fn set_vrr_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 #[derive(Debug)]
@@ -119,6 +123,7 @@ pub enum ConnectorEvent {
     ModeChanged(Mode),
     Unavailable,
     Available,
+    VrrChanged(bool),
 }
 
 pub trait HardwareCursor: Debug {
@@ -127,7 +132,8 @@ pub trait HardwareCursor: Debug {
     fn set_position(&self, x: i32, y: i32);
     fn swap_buffer(&self);
     fn set_sync_file(&self, sync_file: Option<SyncFile>);
-    fn commit(&self);
+    fn commit(&self, schedule_present: bool);
+    fn schedule_present(&self) -> bool;
     fn size(&self) -> (i32, i32);
 }
 

@@ -95,6 +95,7 @@ pub struct MetalDrmDevice {
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
     pub is_nvidia: bool,
+    pub is_amd: bool,
     pub lease_ids: MetalLeaseIds,
     pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
@@ -299,6 +300,8 @@ pub struct ConnectorDisplayData {
     pub refresh: u32,
     pub non_desktop: bool,
     pub non_desktop_effective: bool,
+    pub vrr_capable: bool,
+    pub vrr_requested: bool,
 
     pub monitor_manufacturer: String,
     pub monitor_name: String,
@@ -318,6 +321,10 @@ impl ConnectorDisplayData {
         self.monitor_manufacturer == other.monitor_manufacturer
             && self.monitor_name == other.monitor_name
             && self.monitor_serial_number == other.monitor_serial_number
+    }
+
+    fn should_enable_vrr(&self) -> bool {
+        self.vrr_requested && self.vrr_capable
     }
 }
 
@@ -417,6 +424,7 @@ pub struct MetalConnector {
     pub can_present: Cell<bool>,
     pub has_damage: Cell<bool>,
     pub cursor_changed: Cell<bool>,
+    pub cursor_scheduled: Cell<bool>,
     pub next_flip_nsec: Cell<u64>,
 
     pub display: RefCell<ConnectorDisplayData>,
@@ -503,7 +511,7 @@ impl HardwareCursor for MetalHardwareCursor {
         self.have_changes.set(true);
     }
 
-    fn commit(&self) {
+    fn commit(&self, schedule_present: bool) {
         if self.generation != self.connector.cursor_generation.get() {
             return;
         }
@@ -520,8 +528,20 @@ impl HardwareCursor for MetalHardwareCursor {
         }
         self.connector.cursor_sync_file.set(self.sync_file.take());
         self.connector.cursor_changed.set(true);
-        if self.connector.can_present.get() {
-            self.connector.schedule_present();
+        if schedule_present {
+            self.schedule_present();
+        }
+    }
+
+    fn schedule_present(&self) -> bool {
+        if self.connector.cursor_changed.get() {
+            self.connector.cursor_scheduled.set(true);
+            if self.connector.can_present.get() {
+                self.connector.schedule_present();
+            }
+            true
+        } else {
+            false
         }
     }
 
@@ -601,6 +621,19 @@ impl MetalConnector {
                     log::error!("Could not present: {}", ErrorFmt(e));
                 }
             }
+        }
+    }
+
+    fn send_vrr_enabled(&self) {
+        match self.frontend_state.get() {
+            FrontState::Removed
+            | FrontState::Disconnected
+            | FrontState::Unavailable
+            | FrontState::Connected { non_desktop: true } => return,
+            FrontState::Connected { non_desktop: false } => {}
+        }
+        if let Some(crtc) = self.crtc.get() {
+            self.send_event(ConnectorEvent::VrrChanged(crtc.vrr_enabled.value.get()));
         }
     }
 
@@ -894,7 +927,7 @@ impl MetalConnector {
             Some(crtc) => crtc,
             _ => return Ok(()),
         };
-        if (!self.has_damage.get() && !self.cursor_changed.get()) || !self.can_present.get() {
+        if (!self.has_damage.get() && !self.cursor_scheduled.get()) || !self.can_present.get() {
             return Ok(());
         }
         if !crtc.active.value.get() {
@@ -908,6 +941,9 @@ impl MetalConnector {
             Some(b) => b,
             _ => return Ok(()),
         };
+        let Some(node) = self.state.root.outputs.get(&self.connector_id) else {
+            return Ok(());
+        };
         let cursor = self.cursor_plane.get();
         let mut new_fb = None;
         let mut changes = self.master.change();
@@ -915,46 +951,52 @@ impl MetalConnector {
             if !self.backend.check_render_context(&self.dev) {
                 return Ok(());
             }
-            if let Some(node) = self.state.root.outputs.get(&self.connector_id) {
-                let buffer = &buffers[self.next_buffer.get() % buffers.len()];
-                let mut rr = self.render_result.borrow_mut();
-                rr.output_id = node.id;
-                let fb =
-                    self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
-                rr.dispatch_frame_requests(self.state.now_msec());
-                let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
-                    match &fb.direct_scanout_data {
-                        None => {
-                            let plane_w = plane.mode_w.get();
-                            let plane_h = plane.mode_h.get();
-                            (0, 0, plane_w, plane_h, plane_w, plane_h)
-                        }
-                        Some(dsd) => {
-                            let p = &dsd.position;
-                            (
-                                p.crtc_x,
-                                p.crtc_y,
-                                p.crtc_width,
-                                p.crtc_height,
-                                p.src_width,
-                                p.src_height,
-                            )
-                        }
-                    };
-                let in_fence = fb.sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
-                changes.change_object(plane.id, |c| {
-                    c.change(plane.fb_id, fb.fb.id().0 as _);
-                    c.change(plane.src_w.id, (src_width as u64) << 16);
-                    c.change(plane.src_h.id, (src_height as u64) << 16);
-                    c.change(plane.crtc_x.id, crtc_x as u64);
-                    c.change(plane.crtc_y.id, crtc_y as u64);
-                    c.change(plane.crtc_w.id, crtc_w as u64);
-                    c.change(plane.crtc_h.id, crtc_h as u64);
-                    if !self.dev.is_nvidia {
-                        c.change(plane.in_fence_fd, in_fence as u64);
+            let buffer = &buffers[self.next_buffer.get() % buffers.len()];
+            let mut rr = self.render_result.borrow_mut();
+            rr.output_id = node.id;
+            let fb = self.prepare_present_fb(&mut rr, buffer, &plane, &node, try_direct_scanout)?;
+            rr.dispatch_frame_requests(self.state.now_msec());
+            let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
+                match &fb.direct_scanout_data {
+                    None => {
+                        let plane_w = plane.mode_w.get();
+                        let plane_h = plane.mode_h.get();
+                        (0, 0, plane_w, plane_h, plane_w, plane_h)
                     }
-                });
-                new_fb = Some(fb);
+                    Some(dsd) => {
+                        let p = &dsd.position;
+                        (
+                            p.crtc_x,
+                            p.crtc_y,
+                            p.crtc_width,
+                            p.crtc_height,
+                            p.src_width,
+                            p.src_height,
+                        )
+                    }
+                };
+            let in_fence = fb.sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
+            changes.change_object(plane.id, |c| {
+                c.change(plane.fb_id, fb.fb.id().0 as _);
+                c.change(plane.src_w.id, (src_width as u64) << 16);
+                c.change(plane.src_h.id, (src_height as u64) << 16);
+                c.change(plane.crtc_x.id, crtc_x as u64);
+                c.change(plane.crtc_y.id, crtc_y as u64);
+                c.change(plane.crtc_w.id, crtc_w as u64);
+                c.change(plane.crtc_h.id, crtc_h as u64);
+                if !self.dev.is_nvidia {
+                    c.change(plane.in_fence_fd, in_fence as u64);
+                }
+            });
+            new_fb = Some(fb);
+        } else {
+            if self.dev.is_amd && crtc.vrr_enabled.value.get() {
+                // Work around https://gitlab.freedesktop.org/drm/amd/-/issues/2186
+                if let Some(fb) = &*self.active_framebuffer.borrow() {
+                    changes.change_object(plane.id, |c| {
+                        c.change(plane.fb_id, fb.fb.id().0 as _);
+                    });
+                }
             }
         }
         let mut cursor_swap_buffer = false;
@@ -1027,7 +1069,8 @@ impl MetalConnector {
                 .discard_presentation_feedback();
             Err(MetalError::Commit(e))
         } else {
-            self.perform_screencopies(&new_fb);
+            node.schedule.presented();
+            self.perform_screencopies(&new_fb, &node);
             if let Some(fb) = new_fb {
                 if fb.direct_scanout_data.is_none() {
                     self.next_buffer.fetch_add(1);
@@ -1042,14 +1085,12 @@ impl MetalConnector {
             self.can_present.set(false);
             self.has_damage.set(false);
             self.cursor_changed.set(false);
+            self.cursor_scheduled.set(false);
             Ok(())
         }
     }
 
-    fn perform_screencopies(&self, new_fb: &Option<PresentFb>) {
-        let Some(output) = self.state.root.outputs.get(&self.connector_id) else {
-            return;
-        };
+    fn perform_screencopies(&self, new_fb: &Option<PresentFb>, output: &OutputNode) {
         let active_fb;
         let fb = match &new_fb {
             Some(f) => f,
@@ -1171,6 +1212,17 @@ impl MetalConnector {
                 }
                 FrontState::Connected { .. } | FrontState::Removed | FrontState::Disconnected => {
                     log::error!("Tried to send available event in invalid state: {state:?}");
+                }
+            },
+            ConnectorEvent::VrrChanged(_) => match state {
+                FrontState::Connected { non_desktop: false } => {
+                    self.on_change.send_event(event);
+                }
+                FrontState::Connected { non_desktop: true }
+                | FrontState::Removed
+                | FrontState::Disconnected
+                | FrontState::Unavailable => {
+                    log::error!("Tried to send vrr-changed event in invalid state: {state:?}");
                 }
             },
         }
@@ -1296,6 +1348,32 @@ impl Connector for MetalConnector {
     fn drm_object_id(&self) -> Option<DrmConnector> {
         Some(self.id)
     }
+
+    fn set_vrr_enabled(&self, enabled: bool) {
+        if self.frontend_state.get() != (FrontState::Connected { non_desktop: false }) {
+            return;
+        }
+        let dd = &mut *self.display.borrow_mut();
+        let old_enabled = dd.should_enable_vrr();
+        dd.vrr_requested = enabled;
+        let new_enabled = dd.should_enable_vrr();
+        if old_enabled == new_enabled {
+            return;
+        }
+        let Some(crtc) = self.crtc.get() else {
+            return;
+        };
+        let mut change = self.master.change();
+        change.change_object(crtc.id, |c| {
+            c.change(crtc.vrr_enabled.id, new_enabled as _);
+        });
+        if let Err(e) = change.commit(0, 0) {
+            log::error!("Could not change vrr mode: {}", ErrorFmt(e));
+            return;
+        }
+        crtc.vrr_enabled.value.set(new_enabled);
+        self.send_vrr_enabled();
+    }
 }
 
 pub struct MetalCrtc {
@@ -1312,6 +1390,7 @@ pub struct MetalCrtc {
     pub active: MutableProperty<bool>,
     pub mode_id: MutableProperty<DrmBlob>,
     pub out_fence_ptr: DrmProperty,
+    pub vrr_enabled: MutableProperty<bool>,
 
     pub mode_blob: CloneCell<Option<Rc<PropBlob>>>,
 }
@@ -1435,6 +1514,7 @@ fn create_connector(
         display: RefCell::new(display),
         frontend_state: Cell::new(FrontState::Disconnected),
         cursor_changed: Cell::new(false),
+        cursor_scheduled: Cell::new(false),
         cursor_front_buffer: Default::default(),
         cursor_swap_buffer: Cell::new(false),
         cursor_sync_file: Default::default(),
@@ -1545,6 +1625,10 @@ fn create_connector_display_data(
     let props = collect_properties(&dev.master, connector)?;
     let connector_type = ConnectorType::from_drm(info.connector_type);
     let non_desktop = props.get("non-desktop")?.value.get() != 0;
+    let vrr_capable = match props.get("vrr_capable") {
+        Ok(c) => c.value.get() == 1,
+        Err(_) => false,
+    };
     Ok(ConnectorDisplayData {
         crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
         crtcs,
@@ -1553,6 +1637,8 @@ fn create_connector_display_data(
         refresh,
         non_desktop,
         non_desktop_effective: non_desktop_override.unwrap_or(non_desktop),
+        vrr_capable,
+        vrr_requested: false,
         monitor_manufacturer: manufacturer,
         monitor_name: name,
         monitor_serial_number: serial_number,
@@ -1607,6 +1693,7 @@ fn create_crtc(
         active: props.get("ACTIVE")?.map(|v| v == 1),
         mode_id: props.get("MODE_ID")?.map(|v| DrmBlob(v as u32)),
         out_fence_ptr: props.get("OUT_FENCE_PTR")?.id,
+        vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
         mode_blob: Default::default(),
     })
 }
@@ -1876,6 +1963,7 @@ impl MetalBackend {
                         dd.mode = Some(mode.clone());
                     }
                 }
+                dd.vrr_requested = old.vrr_requested;
             }
             mem::swap(old.deref_mut(), &mut dd);
             match c.frontend_state.get() {
@@ -1963,8 +2051,10 @@ impl MetalBackend {
             width_mm: dd.mm_width as _,
             height_mm: dd.mm_height as _,
             non_desktop: dd.non_desktop_effective,
+            vrr_capable: dd.vrr_capable,
         }));
         connector.send_hardware_cursor();
+        connector.send_vrr_enabled();
     }
 
     pub fn create_drm_device(
@@ -2030,9 +2120,11 @@ impl MetalBackend {
         };
 
         let mut is_nvidia = false;
+        let mut is_amd = false;
         match gbm.drm.version() {
             Ok(v) => {
                 is_nvidia = v.name.contains_str("nvidia");
+                is_amd = v.name.contains_str("amdgpu");
                 if is_nvidia {
                     log::warn!(
                         "Device {} use the nvidia driver. IN_FENCE_FD will not be used.",
@@ -2068,6 +2160,7 @@ impl MetalBackend {
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
             is_nvidia,
+            is_amd,
             lease_ids: Default::default(),
             leases: Default::default(),
             leases_to_break: Default::default(),
@@ -2123,6 +2216,7 @@ impl MetalBackend {
         for c in dev.dev.crtcs.values() {
             let props = collect_untyped_properties(master, c.id)?;
             c.active.value.set(get(&props, c.active.id)? != 0);
+            c.vrr_enabled.value.set(get(&props, c.vrr_enabled.id)? != 0);
             c.mode_id
                 .value
                 .set(DrmBlob(get(&props, c.mode_id.id)? as _));
@@ -2144,6 +2238,7 @@ impl MetalBackend {
             connector.can_present.set(true);
             connector.has_damage.set(true);
             connector.cursor_changed.set(true);
+            connector.cursor_scheduled.set(true);
         }
         if dev.unprocessed_change.get() {
             return self.handle_drm_change_(dev, false);
@@ -2204,7 +2299,7 @@ impl MetalBackend {
         if let Some(fb) = connector.next_framebuffer.take() {
             *connector.active_framebuffer.borrow_mut() = Some(fb);
         }
-        if connector.has_damage.get() || connector.cursor_changed.get() {
+        if connector.has_damage.get() || connector.cursor_scheduled.get() {
             connector.schedule_present();
         }
         let dd = connector.display.borrow_mut();
@@ -2282,10 +2377,12 @@ impl MetalBackend {
             crtc.connector.set(None);
             crtc.active.value.set(false);
             crtc.mode_id.value.set(DrmBlob::NONE);
+            crtc.vrr_enabled.value.set(false);
             changes.change_object(crtc.id, |c| {
                 c.change(crtc.active.id, 0);
                 c.change(crtc.mode_id.id, 0);
                 c.change(crtc.out_fence_ptr, 0);
+                c.change(crtc.vrr_enabled.id, 0);
             })
         }
     }
@@ -2483,6 +2580,7 @@ impl MetalBackend {
                 continue;
             }
             connector.send_hardware_cursor();
+            connector.send_vrr_enabled();
             connector.update_drm_feedback();
         }
         Ok(())
@@ -2490,6 +2588,7 @@ impl MetalBackend {
 
     fn can_use_current_drm_mode(&self, dev: &Rc<MetalDrmDeviceData>) -> bool {
         let mut used_crtcs = AHashSet::new();
+        let mut vrr_crtcs = AHashSet::new();
         let mut used_planes = AHashSet::new();
 
         for connector in dev.connectors.lock().values() {
@@ -2507,6 +2606,9 @@ impl MetalBackend {
                 return false;
             }
             used_crtcs.insert(crtc_id);
+            if dd.should_enable_vrr() {
+                vrr_crtcs.insert(crtc_id);
+            }
             let crtc = dev.dev.crtcs.get(&crtc_id).unwrap();
             connector.crtc.set(Some(crtc.clone()));
             crtc.connector.set(Some(connector.clone()));
@@ -2558,6 +2660,11 @@ impl MetalBackend {
                     c.change(crtc.active.id, 0);
                 }
                 c.change(crtc.out_fence_ptr, 0);
+                let vrr_requested = vrr_crtcs.contains(&crtc.id);
+                if crtc.vrr_enabled.value.get() != vrr_requested {
+                    c.change(crtc.vrr_enabled.id, vrr_requested as _);
+                    crtc.vrr_enabled.value.set(vrr_requested);
+                }
             });
         }
         if let Err(e) = changes.commit(flags, 0) {
@@ -2748,6 +2855,7 @@ impl MetalBackend {
         changes.change_object(crtc.id, |c| {
             c.change(crtc.active.id, 1);
             c.change(crtc.mode_id.id, mode_blob.id().0 as _);
+            c.change(crtc.vrr_enabled.id, dd.should_enable_vrr() as _);
         });
         connector.crtc.set(Some(crtc.clone()));
         dd.crtc_id.value.set(crtc.id);
@@ -2755,6 +2863,7 @@ impl MetalBackend {
         crtc.active.value.set(true);
         crtc.mode_id.value.set(mode_blob.id());
         crtc.mode_blob.set(Some(Rc::new(mode_blob)));
+        crtc.vrr_enabled.value.set(dd.should_enable_vrr() as _);
         Ok(())
     }
 
@@ -2894,6 +3003,7 @@ impl MetalBackend {
         }
         connector.has_damage.set(true);
         connector.cursor_changed.set(true);
+        connector.cursor_scheduled.set(true);
         connector.schedule_present();
     }
 }

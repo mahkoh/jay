@@ -577,6 +577,10 @@
         "window-management-key": {
           "type": "string",
           "description": "Configures a key that will enable window management mode while pressed.\n\nIn window management mode, floating windows can be moved by pressing the left\nmouse button and all windows can be resize by pressing the right mouse button.\n\n- Example:\n\n  ```toml\n  window-management-key = \"Alt_L\"\n  ```\n"
+        },
+        "vrr": {
+          "description": "Configures the default VRR settings.\n\nThis can be overwritten for individual outputs.\n\nBy default, the VRR mode is `never` and the cursor refresh rate is unbounded.\n\n- Example:\n  \n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
+          "$ref": "#/$defs/Vrr"
         }
       },
       "required": []
@@ -1023,6 +1027,10 @@
         "mode": {
           "description": "The mode of the output.\n\nIf the refresh rate is not specified, the first mode with the specified width and\nheight is used.\n",
           "$ref": "#/$defs/Mode"
+        },
+        "vrr": {
+          "description": "Configures the VRR settings of this output.\n\nBy default, the VRR mode is `never` and the cursor refresh rate is unbounded.\n\n- Example:\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
+          "$ref": "#/$defs/Vrr"
         }
       },
       "required": [
@@ -1233,6 +1241,45 @@
         "flip-rotate-90",
         "flip-rotate-180",
         "flip-rotate-270"
+      ]
+    },
+    "Vrr": {
+      "description": "Describes VRR settings.\n\n- Example:\n\n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "The VRR mode.",
+          "$ref": "#/$defs/VrrMode"
+        },
+        "cursor-hz": {
+          "description": "The VRR cursor refresh rate.\n\nLimits the rate at which cursors are updated on screen when VRR is active.\n",
+          "$ref": "#/$defs/VrrHz"
+        }
+      },
+      "required": []
+    },
+    "VrrHz": {
+      "description": "A VRR refresh rate limiter.\n\n- Example 1:\n\n  ```toml\n  vrr = { cursor-hz = 90 }\n  ```\n\n- Example 2:\n\n  ```toml\n  vrr = { cursor-hz = \"none\" }\n  ```\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "The string `none` can be used to disable the limiter."
+        },
+        {
+          "type": "number",
+          "description": "The refresh rate in HZ."
+        }
+      ]
+    },
+    "VrrMode": {
+      "type": "string",
+      "description": "The VRR mode of an output.\n\n- Example:\n\n  ```toml\n  vrr = { mode = \"always\", cursor-hz = 90 }\n  ```\n",
+      "enum": [
+        "always",
+        "never",
+        "variant1",
+        "variant2",
+        "variant3"
       ]
     }
   }

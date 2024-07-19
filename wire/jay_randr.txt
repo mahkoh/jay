@@ -55,6 +55,16 @@ request set_non_desktop {
     non_desktop: u32,
 }
 
+request set_vrr_mode (since = 2) {
+    output: str,
+    mode: u32,
+}
+
+request set_vrr_cursor_hz (since = 2) {
+    output: str,
+    hz: pod(f64),
+}
+
 # events
 
 event global {
@@ -111,4 +121,14 @@ event non_desktop_output {
     serial_number: str,
     width_mm: i32,
     height_mm: i32,
+}
+
+event vrr_state (since = 2) {
+    capable: u32,
+    enabled: u32,
+    mode: u32,
+}
+
+event vrr_cursor_hz (since = 2) {
+    hz: pod(f64),
 }

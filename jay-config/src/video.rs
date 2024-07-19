@@ -248,6 +248,20 @@ impl Connector {
         }
         get!(String::new()).connector_get_serial_number(self)
     }
+
+    /// Sets the VRR mode.
+    pub fn set_vrr_mode(self, mode: VrrMode) {
+        get!().set_vrr_mode(Some(self), mode)
+    }
+
+    /// Sets the VRR cursor refresh rate.
+    ///
+    /// Limits the rate at which cursors are updated on screen when VRR is active.
+    ///
+    /// Setting this to infinity disables the limiter.
+    pub fn set_vrr_cursor_hz(self, hz: f64) {
+        get!().set_vrr_cursor_hz(Some(self), hz)
+    }
 }
 
 /// Returns all available DRM devices.
@@ -530,4 +544,39 @@ pub enum Transform {
     FlipRotate180,
     /// Flip around the vertical axis, then rotate 270 degrees counter-clockwise.
     FlipRotate270,
+}
+
+/// The VRR mode of a connector.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+pub struct VrrMode(pub u32);
+
+impl VrrMode {
+    /// VRR is never enabled.
+    pub const NEVER: Self = Self(0);
+    /// VRR is always enabled.
+    pub const ALWAYS: Self = Self(1);
+    /// VRR is enabled when one or more applications are displayed fullscreen.
+    pub const VARIANT_1: Self = Self(2);
+    /// VRR is enabled when a single application is displayed fullscreen.
+    pub const VARIANT_2: Self = Self(3);
+    /// VRR is enabled when a single game or video is displayed fullscreen.
+    pub const VARIANT_3: Self = Self(4);
+}
+
+/// Sets the default VRR mode.
+///
+/// This setting can be overwritten on a per-connector basis with [Connector::set_vrr_mode].
+pub fn set_vrr_mode(mode: VrrMode) {
+    get!().set_vrr_mode(None, mode)
+}
+
+/// Sets the VRR cursor refresh rate.
+///
+/// Limits the rate at which cursors are updated on screen when VRR is active.
+///
+/// Setting this to infinity disables the limiter.
+///
+/// This setting can be overwritten on a per-connector basis with [Connector::set_vrr_cursor_hz].
+pub fn set_vrr_cursor_hz(hz: f64) {
+    get!().set_vrr_cursor_hz(None, hz)
 }

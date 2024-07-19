@@ -286,7 +286,7 @@ impl ToolClient {
         }
         #[derive(Default)]
         struct S {
-            jay_compositor: Cell<Option<u32>>,
+            jay_compositor: Cell<Option<(u32, u32)>>,
             jay_damage_tracking: Cell<Option<u32>>,
         }
         let s = Rc::new(S::default());
@@ -297,7 +297,7 @@ impl ToolClient {
         });
         wl_registry::Global::handle(self, registry, s.clone(), |s, g| {
             if g.interface == JayCompositor.name() {
-                s.jay_compositor.set(Some(g.name));
+                s.jay_compositor.set(Some((g.name, g.version)));
             } else if g.interface == JayDamageTracking.name() {
                 s.jay_damage_tracking.set(Some(g.name));
             }
@@ -328,9 +328,9 @@ impl ToolClient {
         let id: JayCompositorId = self.id();
         self.send(wl_registry::Bind {
             self_id: s.registry,
-            name: s.jay_compositor,
+            name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: 1,
+            version: s.jay_compositor.1.min(2),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
@@ -361,7 +361,7 @@ impl ToolClient {
 
 pub struct Singletons {
     registry: WlRegistryId,
-    pub jay_compositor: u32,
+    pub jay_compositor: (u32, u32),
     pub jay_damage_tracking: Option<u32>,
 }
 

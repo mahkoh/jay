@@ -181,6 +181,7 @@ impl WorkspaceNode {
                 surface.send_feedback(&fb);
             }
         }
+        self.output.get().update_vrr_state();
     }
 
     pub fn remove_fullscreen_node(&self) {
@@ -194,6 +195,7 @@ impl WorkspaceNode {
                     surface.send_feedback(&fb);
                 }
             }
+            self.output.get().update_vrr_state();
         }
     }
 

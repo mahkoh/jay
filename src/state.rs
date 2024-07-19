@@ -64,7 +64,7 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FloatNode, Node, NodeIds,
-            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase,
+            NodeVisitorBase, OutputNode, PlaceholderNode, ToplevelNode, ToplevelNodeBase, VrrMode,
             WorkspaceNode,
         },
         utils::{
@@ -201,6 +201,8 @@ pub struct State {
     pub tablet_tool_ids: TabletToolIds,
     pub tablet_pad_ids: TabletPadIds,
     pub damage_visualizer: DamageVisualizer,
+    pub default_vrr_mode: Cell<&'static VrrMode>,
+    pub default_vrr_cursor_hz: Cell<Option<f64>>,
 }
 
 // impl Drop for State {
@@ -730,13 +732,21 @@ impl State {
     }
 
     pub fn damage(&self, rect: Rect) {
+        self.damage2(false, rect);
+    }
+
+    pub fn damage2(&self, cursor: bool, rect: Rect) {
         if rect.is_empty() {
             return;
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
             if output.global.pos.get().intersects(&rect) {
-                output.global.connector.connector.damage();
+                if cursor && output.schedule.defer_cursor_updates() {
+                    output.schedule.software_cursor_changed();
+                } else {
+                    output.global.connector.connector.damage();
+                }
             }
         }
     }
@@ -821,7 +831,7 @@ impl State {
         for output in self.root.outputs.lock().values() {
             if let Some(hc) = output.hardware_cursor.get() {
                 hc.set_enabled(false);
-                hc.commit();
+                hc.commit(true);
             }
         }
     }

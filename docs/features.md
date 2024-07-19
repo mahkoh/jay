@@ -120,7 +120,11 @@ Jay's shortcut system allows you to execute an action when a key is pressed and 
 
 ## VR
 
-Jay's supports leasing VR headsets to applications.
+Jay supports leasing VR headsets to applications.
+
+## Adaptive Sync
+
+Jay supports adaptive sync with configurable cursor refresh rates.
 
 ## Protocol Support
 

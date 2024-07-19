@@ -7,6 +7,7 @@ use {
             parsers::{
                 mode::ModeParser,
                 output_match::{OutputMatchParser, OutputMatchParserError},
+                vrr::VrrParser,
             },
             Output,
         },
@@ -46,7 +47,7 @@ impl<'a> Parser for OutputParser<'a> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (name, match_val, x, y, scale, transform, mode) = ext.extract((
+        let (name, match_val, x, y, scale, transform, mode, vrr_val) = ext.extract((
             opt(str("name")),
             val("match"),
             recover(opt(s32("x"))),
@@ -54,6 +55,7 @@ impl<'a> Parser for OutputParser<'a> {
             recover(opt(fltorint("scale"))),
             recover(opt(str("transform"))),
             opt(val("mode")),
+            opt(val("vrr")),
         ))?;
         let transform = match transform {
             None => None,
@@ -96,6 +98,15 @@ impl<'a> Parser for OutputParser<'a> {
                 );
             }
         }
+        let mut vrr = None;
+        if let Some(value) = vrr_val {
+            match value.parse(&mut VrrParser(self.cx)) {
+                Ok(v) => vrr = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse VRR setting: {}", self.cx.error(e));
+                }
+            }
+        }
         Ok(Output {
             name: name.despan().map(|v| v.to_string()),
             match_: match_val.parse_map(&mut OutputMatchParser(self.cx))?,
@@ -104,6 +115,7 @@ impl<'a> Parser for OutputParser<'a> {
             scale: scale.despan(),
             transform,
             mode,
+            vrr,
         })
     }
 }

@@ -23,6 +23,7 @@ use {
                 },
                 status::StatusParser,
                 theme::ThemeParser,
+                vrr::VrrParser,
             },
             spanned::SpannedErrorExt,
             Action, Config, Theme,
@@ -106,6 +107,7 @@ impl Parser for ConfigParser<'_> {
                 complex_shortcuts_val,
                 focus_follows_mouse,
                 window_management_key_val,
+                vrr_val,
             ),
         ) = ext.extract((
             (
@@ -138,6 +140,7 @@ impl Parser for ConfigParser<'_> {
                 opt(val("complex-shortcuts")),
                 recover(opt(bol("focus-follows-mouse"))),
                 recover(opt(str("window-management-key"))),
+                opt(val("vrr")),
             ),
         ))?;
         let mut keymap = None;
@@ -302,6 +305,15 @@ impl Parser for ConfigParser<'_> {
                 window_management_key = Some(key);
             }
         }
+        let mut vrr = None;
+        if let Some(value) = vrr_val {
+            match value.parse(&mut VrrParser(self.0)) {
+                Ok(v) => vrr = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse VRR setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -326,6 +338,7 @@ impl Parser for ConfigParser<'_> {
             idle,
             focus_follows_mouse: focus_follows_mouse.despan().unwrap_or(true),
             window_management_key,
+            vrr,
         })
     }
 }

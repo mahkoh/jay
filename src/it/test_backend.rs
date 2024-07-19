@@ -110,6 +110,7 @@ impl TestBackend {
             width_mm: 80,
             height_mm: 60,
             non_desktop: false,
+            vrr_capable: false,
         };
         Self {
             state: state.clone(),

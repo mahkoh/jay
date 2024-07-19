@@ -21,9 +21,11 @@ use {
                 zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
                 SurfaceSendPreferredScaleVisitor, SurfaceSendPreferredTransformVisitor,
             },
+            wp_content_type_v1::ContentType,
             zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
         },
+        output_schedule::OutputSchedule,
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
@@ -41,7 +43,7 @@ use {
         wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
     ahash::AHashMap,
-    jay_config::video::Transform,
+    jay_config::video::{Transform, VrrMode as ConfigVrrMode},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -77,6 +79,7 @@ pub struct OutputNode {
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
     pub title_visible: Cell<bool>,
+    pub schedule: Rc<OutputSchedule>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -785,6 +788,39 @@ impl OutputNode {
         self.schedule_update_render_data();
         self.state.tree_changed();
     }
+
+    pub fn update_vrr_state(&self) {
+        let enabled = match self.global.persistent.vrr_mode.get() {
+            VrrMode::Never => false,
+            VrrMode::Always => true,
+            VrrMode::Fullscreen { surface } => 'get: {
+                let Some(ws) = self.workspace.get() else {
+                    break 'get false;
+                };
+                let Some(tl) = ws.fullscreen.get() else {
+                    break 'get false;
+                };
+                if let Some(req) = surface {
+                    let Some(surface) = tl.tl_scanout_surface() else {
+                        break 'get false;
+                    };
+                    if let Some(req) = req.content_type {
+                        let Some(content_type) = surface.content_type.get() else {
+                            break 'get false;
+                        };
+                        match content_type {
+                            ContentType::Photo if !req.photo => break 'get false,
+                            ContentType::Video if !req.video => break 'get false,
+                            ContentType::Game if !req.game => break 'get false,
+                            _ => {}
+                        }
+                    }
+                }
+                true
+            }
+        };
+        self.global.connector.connector.set_vrr_enabled(enabled);
+    }
 }
 
 pub struct OutputTitle {
@@ -1083,4 +1119,69 @@ pub fn calculate_logical_size(
         height = (height as f64 / scale).round() as _;
     }
     (width, height)
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum VrrMode {
+    Never,
+    Always,
+    Fullscreen {
+        surface: Option<VrrSurfaceRequirements>,
+    },
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct VrrSurfaceRequirements {
+    content_type: Option<VrrContentTypeRequirements>,
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct VrrContentTypeRequirements {
+    photo: bool,
+    video: bool,
+    game: bool,
+}
+
+impl VrrMode {
+    pub const NEVER: &'static Self = &Self::Never;
+    pub const ALWAYS: &'static Self = &Self::Always;
+    pub const VARIANT_1: &'static Self = &Self::Fullscreen { surface: None };
+    pub const VARIANT_2: &'static Self = &Self::Fullscreen {
+        surface: Some(VrrSurfaceRequirements { content_type: None }),
+    };
+    pub const VARIANT_3: &'static Self = &Self::Fullscreen {
+        surface: Some(VrrSurfaceRequirements {
+            content_type: Some(VrrContentTypeRequirements {
+                photo: false,
+                video: true,
+                game: true,
+            }),
+        }),
+    };
+
+    pub fn from_config(mode: ConfigVrrMode) -> Option<&'static Self> {
+        let res = match mode {
+            ConfigVrrMode::NEVER => Self::NEVER,
+            ConfigVrrMode::ALWAYS => Self::ALWAYS,
+            ConfigVrrMode::VARIANT_1 => Self::VARIANT_1,
+            ConfigVrrMode::VARIANT_2 => Self::VARIANT_2,
+            ConfigVrrMode::VARIANT_3 => Self::VARIANT_3,
+            _ => return None,
+        };
+        Some(res)
+    }
+
+    pub fn to_config(&self) -> ConfigVrrMode {
+        match self {
+            Self::NEVER => ConfigVrrMode::NEVER,
+            Self::ALWAYS => ConfigVrrMode::ALWAYS,
+            Self::VARIANT_1 => ConfigVrrMode::VARIANT_1,
+            Self::VARIANT_2 => ConfigVrrMode::VARIANT_2,
+            Self::VARIANT_3 => ConfigVrrMode::VARIANT_3,
+            _ => {
+                log::error!("VRR mode {self:?} has no config representation");
+                ConfigVrrMode::NEVER
+            }
+        }
+    }
 }

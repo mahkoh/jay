@@ -575,6 +575,7 @@ impl XBackend {
             width_mm: output.width.get(),
             height_mm: output.height.get(),
             non_desktop: false,
+            vrr_capable: false,
         }));
         output.changed();
         self.present(output).await;

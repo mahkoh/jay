@@ -22,7 +22,7 @@ use {
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
-        video::{GfxApi, Transform},
+        video::{GfxApi, Transform, VrrMode},
         Axis, Direction, Workspace,
     },
     std::{
@@ -206,6 +206,7 @@ pub struct Output {
     pub scale: Option<f64>,
     pub transform: Option<Transform>,
     pub mode: Option<Mode>,
+    pub vrr: Option<Vrr>,
 }
 
 #[derive(Debug, Clone)]
@@ -286,6 +287,12 @@ pub struct RepeatRate {
 }
 
 #[derive(Debug, Clone)]
+pub struct Vrr {
+    pub mode: Option<VrrMode>,
+    pub cursor_hz: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Shortcut {
     pub mask: Modifiers,
     pub keysym: ModifiedKeySym,
@@ -318,6 +325,7 @@ pub struct Config {
     pub explicit_sync_enabled: Option<bool>,
     pub focus_follows_mouse: bool,
     pub window_management_key: Option<ModifiedKeySym>,
+    pub vrr: Option<Vrr>,
 }
 
 #[derive(Debug, Error)]

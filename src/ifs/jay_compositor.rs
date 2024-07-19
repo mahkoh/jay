@@ -43,12 +43,13 @@ impl JayCompositorGlobal {
         self: Rc<Self>,
         id: JayCompositorId,
         client: &Rc<Client>,
-        _version: Version,
+        version: Version,
     ) -> Result<(), JayCompositorError> {
         let obj = Rc::new(JayCompositor {
             id,
             client: client.clone(),
             tracker: Default::default(),
+            version,
         });
         track!(client, obj);
         client.add_client_obj(&obj)?;
@@ -65,7 +66,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        1
+        2
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -79,6 +80,7 @@ pub struct JayCompositor {
     id: JayCompositorId,
     client: Rc<Client>,
     tracker: Tracker<Self>,
+    version: Version,
 }
 
 pub struct Cap;
@@ -327,7 +329,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn get_randr(&self, req: GetRandr, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let sc = Rc::new(JayRandr::new(req.id, &self.client));
+        let sc = Rc::new(JayRandr::new(req.id, &self.client, self.version));
         track!(self.client, sc);
         self.client.add_client_obj(&sc)?;
         Ok(())
@@ -379,7 +381,7 @@ impl JayCompositorRequestHandler for JayCompositor {
 
 object_base! {
     self = JayCompositor;
-    version = Version(1);
+    version = self.version;
 }
 
 impl Object for JayCompositor {}

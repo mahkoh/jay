@@ -1,6 +1,7 @@
 # Unreleased
 
 - Add fine-grained damage tracking.
+- Add support for adaptive sync.
 
 # 1.4.0 (2024-07-07)
 
