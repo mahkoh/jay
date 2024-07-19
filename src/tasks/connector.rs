@@ -125,6 +125,7 @@ impl ConnectorHandler {
                     pos: Cell::new((x1, 0)),
                     vrr_mode: Cell::new(self.state.default_vrr_mode.get()),
                     vrr_cursor_hz: Cell::new(self.state.default_vrr_cursor_hz.get()),
+                    tearing_mode: Cell::new(self.state.default_tearing_mode.get()),
                 });
                 self.state
                     .persistent_output_states
@@ -242,7 +243,7 @@ impl ConnectorHandler {
         }
         self.state.add_global(&global);
         self.state.tree_changed();
-        on.update_vrr_state();
+        on.update_presentation_type();
         'outer: loop {
             while let Some(event) = self.data.connector.event() {
                 match event {

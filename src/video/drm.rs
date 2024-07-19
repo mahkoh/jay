@@ -41,14 +41,15 @@ use crate::{
         dmabuf::DmaBuf,
         drm::sys::{
             auth_magic, drm_format_modifier, drm_format_modifier_blob, drop_master, get_version,
-            revoke_lease, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
+            revoke_lease, DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP, DRM_CAP_CURSOR_HEIGHT,
+            DRM_CAP_CURSOR_WIDTH, FORMAT_BLOB_CURRENT,
         },
         Modifier, INVALID_MODIFIER,
     },
 };
 pub use sys::{
     drm_mode_modeinfo, DRM_CLIENT_CAP_ATOMIC, DRM_MODE_ATOMIC_ALLOW_MODESET,
-    DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
+    DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
 };
 
 #[derive(Debug, Error)]
@@ -337,6 +338,10 @@ impl DrmMaster {
         let width = self.get_cap(DRM_CAP_CURSOR_WIDTH)?;
         let height = self.get_cap(DRM_CAP_CURSOR_HEIGHT)?;
         Ok((width, height))
+    }
+
+    pub fn supports_async_commit(&self) -> bool {
+        self.get_cap(DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP) == Ok(1)
     }
 
     pub fn get_connector_info(

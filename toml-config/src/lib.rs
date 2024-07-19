@@ -30,8 +30,8 @@ use {
         video::{
             connectors, drm_devices, on_connector_connected, on_connector_disconnected,
             on_graphics_initialized, on_new_connector, on_new_drm_device,
-            set_direct_scanout_enabled, set_gfx_api, set_vrr_cursor_hz, set_vrr_mode, Connector,
-            DrmDevice,
+            set_direct_scanout_enabled, set_gfx_api, set_tearing_mode, set_vrr_cursor_hz,
+            set_vrr_mode, Connector, DrmDevice,
         },
     },
     std::{cell::RefCell, io::ErrorKind, path::PathBuf, rc::Rc},
@@ -564,6 +564,11 @@ impl Output {
                 c.set_vrr_cursor_hz(hz);
             }
         }
+        if let Some(tearing) = &self.tearing {
+            if let Some(mode) = tearing.mode {
+                c.set_tearing_mode(mode);
+            }
+        }
     }
 }
 
@@ -1032,6 +1037,11 @@ fn load_config(initial_load: bool, persistent: &Rc<PersistentState>) {
         }
         if let Some(hz) = vrr.cursor_hz {
             set_vrr_cursor_hz(hz);
+        }
+    }
+    if let Some(tearing) = config.tearing {
+        if let Some(mode) = tearing.mode {
+            set_tearing_mode(mode);
         }
     }
 }

@@ -33,7 +33,8 @@ use {
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFramebuffer, DrmLease, DrmMaster,
                 DrmModeInfo, DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition,
                 DrmPropertyType, DrmVersion, PropBlob, DRM_CLIENT_CAP_ATOMIC,
-                DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_EVENT,
+                DRM_MODE_ATOMIC_ALLOW_MODESET, DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC,
+                DRM_MODE_PAGE_FLIP_EVENT,
             },
             gbm::{GbmBo, GbmDevice, GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT},
             Modifier, INVALID_MODIFIER,
@@ -89,6 +90,7 @@ pub struct MetalDrmDevice {
     pub _max_height: u32,
     pub cursor_width: u64,
     pub cursor_height: u64,
+    pub supports_async_commit: bool,
     pub gbm: GbmDevice,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
@@ -456,6 +458,8 @@ pub struct MetalConnector {
     pub active_framebuffer: RefCell<Option<PresentFb>>,
     pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
     pub direct_scanout_active: Cell<bool>,
+
+    pub tearing_requested: Cell<bool>,
 }
 
 impl Debug for MetalConnector {
@@ -947,6 +951,16 @@ impl MetalConnector {
         let cursor = self.cursor_plane.get();
         let mut new_fb = None;
         let mut changes = self.master.change();
+        let mut try_async_flip = self.tearing_requested.get() && self.dev.supports_async_commit;
+        macro_rules! change {
+            ($c:expr, $prop:expr, $new:expr) => {{
+                if $prop.value.get() != $new {
+                    $c.change($prop.id, $new as u64);
+                    try_async_flip = false;
+                    $prop.pending_value.set(Some($new));
+                }
+            }};
+        }
         if self.has_damage.get() {
             if !self.backend.check_render_context(&self.dev) {
                 return Ok(());
@@ -978,13 +992,13 @@ impl MetalConnector {
             let in_fence = fb.sync_file.as_ref().map(|s| s.raw()).unwrap_or(-1);
             changes.change_object(plane.id, |c| {
                 c.change(plane.fb_id, fb.fb.id().0 as _);
-                c.change(plane.src_w.id, (src_width as u64) << 16);
-                c.change(plane.src_h.id, (src_height as u64) << 16);
-                c.change(plane.crtc_x.id, crtc_x as u64);
-                c.change(plane.crtc_y.id, crtc_y as u64);
-                c.change(plane.crtc_w.id, crtc_w as u64);
-                c.change(plane.crtc_h.id, crtc_h as u64);
-                if !self.dev.is_nvidia {
+                change!(c, plane.src_w, (src_width as u32) << 16);
+                change!(c, plane.src_h, (src_height as u32) << 16);
+                change!(c, plane.crtc_x, crtc_x);
+                change!(c, plane.crtc_y, crtc_y);
+                change!(c, plane.crtc_w, crtc_w);
+                change!(c, plane.crtc_h, crtc_h);
+                if !try_async_flip && !self.dev.is_nvidia {
                     c.change(plane.in_fence_fd, in_fence as u64);
                 }
             });
@@ -1002,6 +1016,7 @@ impl MetalConnector {
         let mut cursor_swap_buffer = false;
         let mut cursor_sync_file = None;
         if self.cursor_changed.get() && cursor.is_some() {
+            try_async_flip = false;
             let plane = cursor.unwrap();
             if self.cursor_enabled.get() {
                 cursor_swap_buffer = self.cursor_swap_buffer.get();
@@ -1039,7 +1054,18 @@ impl MetalConnector {
                 });
             }
         }
-        if let Err(e) = changes.commit(DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT, 0) {
+        let mut res;
+        'commit: {
+            const FLAGS: u32 = DRM_MODE_ATOMIC_NONBLOCK | DRM_MODE_PAGE_FLIP_EVENT;
+            if try_async_flip {
+                res = changes.commit(FLAGS | DRM_MODE_PAGE_FLIP_ASYNC, 0);
+                if res.is_ok() {
+                    break 'commit;
+                }
+            }
+            res = changes.commit(FLAGS, 0);
+        }
+        if let Err(e) = res {
             if let DrmError::Atomic(OsError(c::EACCES)) = e {
                 log::debug!("Could not perform atomic commit, likely because we're no longer the DRM master");
                 self.render_result
@@ -1069,6 +1095,19 @@ impl MetalConnector {
                 .discard_presentation_feedback();
             Err(MetalError::Commit(e))
         } else {
+            macro_rules! apply_change {
+                ($prop:expr) => {
+                    if let Some(v) = $prop.pending_value.take() {
+                        $prop.value.set(v);
+                    }
+                };
+            }
+            apply_change!(plane.src_w);
+            apply_change!(plane.src_h);
+            apply_change!(plane.crtc_x);
+            apply_change!(plane.crtc_y);
+            apply_change!(plane.crtc_w);
+            apply_change!(plane.crtc_h);
             node.schedule.presented();
             self.perform_screencopies(&new_fb, &node);
             if let Some(fb) = new_fb {
@@ -1374,6 +1413,19 @@ impl Connector for MetalConnector {
         crtc.vrr_enabled.value.set(new_enabled);
         self.send_vrr_enabled();
     }
+
+    fn set_tearing_enabled(&self, enabled: bool) {
+        if !self.dev.supports_async_commit {
+            return;
+        }
+        if self.tearing_requested.replace(enabled) != enabled {
+            let msg = match enabled {
+                true => "Enabling",
+                false => "Disabling",
+            };
+            log::debug!("{msg} tearing on output {}", self.kernel_id());
+        }
+    }
 }
 
 pub struct MetalCrtc {
@@ -1524,6 +1576,7 @@ fn create_connector(
         next_framebuffer: Default::default(),
         direct_scanout_active: Cell::new(false),
         next_flip_nsec: Cell::new(0),
+        tearing_requested: Cell::new(false),
     });
     let futures = ConnectorFutures {
         _present: backend
@@ -1810,6 +1863,7 @@ impl CollectedProperties {
             Some((def, value)) => Ok(MutableProperty {
                 id: def.id,
                 value: Cell::new(*value),
+                pending_value: Cell::new(None),
             }),
             _ => Err(DrmError::MissingProperty(name.to_string().into_boxed_str())),
         }
@@ -1820,6 +1874,7 @@ impl CollectedProperties {
 pub struct MutableProperty<T: Copy> {
     pub id: DrmProperty,
     pub value: Cell<T>,
+    pub pending_value: Cell<Option<T>>,
 }
 
 impl<T: Copy> MutableProperty<T> {
@@ -1830,6 +1885,7 @@ impl<T: Copy> MutableProperty<T> {
         MutableProperty {
             id: self.id,
             value: Cell::new(f(self.value.into_inner())),
+            pending_value: Cell::new(None),
         }
     }
 }
@@ -1987,6 +2043,7 @@ impl MetalBackend {
                         disconnect |= !old.is_same_monitor(&dd);
                     }
                     if disconnect {
+                        c.tearing_requested.set(false);
                         if let Some(lease_id) = c.lease.get() {
                             if let Some(lease) = dev.dev.leases.remove(&lease_id) {
                                 if !lease.try_revoke() {
@@ -2152,6 +2209,7 @@ impl MetalBackend {
             _max_height: resources.max_height,
             cursor_width,
             cursor_height,
+            supports_async_commit: master.supports_async_commit(),
             gbm,
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),

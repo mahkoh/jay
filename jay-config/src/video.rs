@@ -262,6 +262,11 @@ impl Connector {
     pub fn set_vrr_cursor_hz(self, hz: f64) {
         get!().set_vrr_cursor_hz(Some(self), hz)
     }
+
+    /// Sets the tearing mode.
+    pub fn set_tearing_mode(self, mode: TearingMode) {
+        get!().set_tearing_mode(Some(self), mode)
+    }
 }
 
 /// Returns all available DRM devices.
@@ -579,4 +584,31 @@ pub fn set_vrr_mode(mode: VrrMode) {
 /// This setting can be overwritten on a per-connector basis with [Connector::set_vrr_cursor_hz].
 pub fn set_vrr_cursor_hz(hz: f64) {
     get!().set_vrr_cursor_hz(None, hz)
+}
+
+/// The tearing mode of a connector.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+pub struct TearingMode(pub u32);
+
+impl TearingMode {
+    /// Tearing is never enabled.
+    pub const NEVER: Self = Self(0);
+    /// Tearing is always enabled.
+    pub const ALWAYS: Self = Self(1);
+    /// Tearing is enabled when one or more applications are displayed fullscreen.
+    pub const VARIANT_1: Self = Self(2);
+    /// Tearing is enabled when a single application is displayed fullscreen.
+    pub const VARIANT_2: Self = Self(3);
+    /// Tearing is enabled when a single application is displayed fullscreen and the
+    /// application has requested tearing.
+    ///
+    /// This is the default.
+    pub const VARIANT_3: Self = Self(4);
+}
+
+/// Sets the default tearing mode.
+///
+/// This setting can be overwritten on a per-connector basis with [Connector::set_tearing_mode].
+pub fn set_tearing_mode(mode: TearingMode) {
+    get!().set_tearing_mode(None, mode)
 }

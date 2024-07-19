@@ -1126,6 +1126,22 @@ The table has the following fields:
 
   The value of this field should be a [Vrr](#types-Vrr).
 
+- `tearing` (optional):
+
+  Configures the default tearing settings.
+  
+  This can be overwritten for individual outputs.
+  
+  By default, the tearing mode is `variant3`.
+  
+  - Example:
+  
+    ```toml
+    tearing.mode = "never"
+    ```
+
+  The value of this field should be a [Tearing](#types-Tearing).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2198,6 +2214,22 @@ The table has the following fields:
 
   The value of this field should be a [Vrr](#types-Vrr).
 
+- `tearing` (optional):
+
+  Configures the tearing settings of this output.
+  
+  By default, the tearing mode is `variant3`.
+  
+  - Example:
+  
+    ```toml
+    [[outputs]]
+    match.serial-number = "33K03894SL0"
+    tearing.mode = "never"
+    ```
+
+  The value of this field should be a [Tearing](#types-Tearing).
+
 
 <a name="types-OutputMatch"></a>
 ### `OutputMatch`
@@ -2530,6 +2562,66 @@ The table has the following fields:
   The default is ` | `.
 
   The value of this field should be a string.
+
+
+<a name="types-Tearing"></a>
+### `Tearing`
+
+Describes tearing settings.
+
+- Example:
+
+  ```toml
+  tearing.mode = "never"
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `mode` (optional):
+
+  The tearing mode.
+
+  The value of this field should be a [TearingMode](#types-TearingMode).
+
+
+<a name="types-TearingMode"></a>
+### `TearingMode`
+
+The tearing mode of an output.
+
+- Example:
+
+  ```toml
+  tearing.mode = "never"
+  ```
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `always`:
+
+  Tearing is never enabled.
+
+- `never`:
+
+  Tearing is always enabled.
+
+- `variant1`:
+
+  Tearing is enabled when one or more applications are displayed fullscreen.
+
+- `variant2`:
+
+  Tearing is enabled when a single application is displayed fullscreen.
+
+- `variant3`:
+
+  Tearing is enabled when a single application is displayed and the application has
+  requested tearing.
+
 
 
 <a name="types-Theme"></a>

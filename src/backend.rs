@@ -112,6 +112,9 @@ pub trait Connector {
     fn set_vrr_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+    fn set_tearing_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 #[derive(Debug)]

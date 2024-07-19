@@ -22,7 +22,7 @@ use {
         logging::LogLevel,
         status::MessageFormat,
         theme::Color,
-        video::{GfxApi, Transform, VrrMode},
+        video::{GfxApi, TearingMode, Transform, VrrMode},
         Axis, Direction, Workspace,
     },
     std::{
@@ -207,6 +207,7 @@ pub struct Output {
     pub transform: Option<Transform>,
     pub mode: Option<Mode>,
     pub vrr: Option<Vrr>,
+    pub tearing: Option<Tearing>,
 }
 
 #[derive(Debug, Clone)]
@@ -293,6 +294,11 @@ pub struct Vrr {
 }
 
 #[derive(Debug, Clone)]
+pub struct Tearing {
+    pub mode: Option<TearingMode>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Shortcut {
     pub mask: Modifiers,
     pub keysym: ModifiedKeySym,
@@ -326,6 +332,7 @@ pub struct Config {
     pub focus_follows_mouse: bool,
     pub window_management_key: Option<ModifiedKeySym>,
     pub vrr: Option<Vrr>,
+    pub tearing: Option<Tearing>,
 }
 
 #[derive(Debug, Error)]

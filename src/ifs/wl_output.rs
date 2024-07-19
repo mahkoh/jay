@@ -10,7 +10,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::{ConnectorData, State},
-        tree::{calculate_logical_size, OutputNode, VrrMode},
+        tree::{calculate_logical_size, OutputNode, TearingMode, VrrMode},
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, transform_ext::TransformExt},
         wire::{wl_output::*, WlOutputId, ZxdgOutputV1Id},
     },
@@ -93,6 +93,7 @@ pub struct PersistentOutputState {
     pub pos: Cell<(i32, i32)>,
     pub vrr_mode: Cell<&'static VrrMode>,
     pub vrr_cursor_hz: Cell<Option<f64>>,
+    pub tearing_mode: Cell<&'static TearingMode>,
 }
 
 #[derive(Eq, PartialEq, Hash)]

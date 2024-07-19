@@ -287,7 +287,7 @@ pub struct WlSurface {
     pub constraints: SmallMap<SeatId, Rc<SeatConstraint>, 1>,
     xwayland_serial: Cell<Option<u64>>,
     tearing_control: CloneCell<Option<Rc<WpTearingControlV1>>>,
-    tearing: Cell<bool>,
+    pub tearing: Cell<bool>,
     version: Version,
     pub has_content_type_manager: Cell<bool>,
     pub content_type: Cell<Option<ContentType>>,
@@ -1213,7 +1213,7 @@ impl WlSurface {
         let had_frame_requests = self.buffer_had_frame_request.get();
         let has_frame_requests = {
             let frs = &mut *self.frame_requests.borrow_mut();
-            frs.extend(pending.frame_request.drain(..));
+            frs.append(&mut pending.frame_request);
             frs.is_not_empty()
         };
         self.buffer_had_frame_request
@@ -1235,8 +1235,11 @@ impl WlSurface {
                 self.opaque_region.set(region);
             }
         }
+        let mut tearing_changed = false;
         if let Some(tearing) = pending.tearing.take() {
-            self.tearing.set(tearing);
+            if self.tearing.replace(tearing) != tearing {
+                tearing_changed = true;
+            }
         }
         if let Some(content_type) = pending.content_type.take() {
             self.content_type.set(content_type);
@@ -1305,6 +1308,13 @@ impl WlSurface {
         pending.buffer_damage.clear();
         pending.surface_damage.clear();
         pending.damage_full = false;
+        if tearing_changed {
+            if let Some(tl) = self.toplevel.get() {
+                if tl.tl_data().is_fullscreen.get() {
+                    self.output.get().update_presentation_type();
+                }
+            }
+        }
         Ok(())
     }
 

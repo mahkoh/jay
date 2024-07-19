@@ -43,7 +43,7 @@ use {
         wire::{JayOutputId, JayScreencastId, ZwlrScreencopyFrameV1Id},
     },
     ahash::AHashMap,
-    jay_config::video::{Transform, VrrMode as ConfigVrrMode},
+    jay_config::video::{TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -789,7 +789,12 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
-    pub fn update_vrr_state(&self) {
+    pub fn update_presentation_type(&self) {
+        self.update_vrr_state();
+        self.update_tearing();
+    }
+
+    fn update_vrr_state(&self) {
         let enabled = match self.global.persistent.vrr_mode.get() {
             VrrMode::Never => false,
             VrrMode::Always => true,
@@ -820,6 +825,33 @@ impl OutputNode {
             }
         };
         self.global.connector.connector.set_vrr_enabled(enabled);
+    }
+
+    fn update_tearing(&self) {
+        let enabled = match self.global.persistent.tearing_mode.get() {
+            TearingMode::Never => false,
+            TearingMode::Always => true,
+            TearingMode::Fullscreen { surface } => 'get: {
+                let Some(ws) = self.workspace.get() else {
+                    break 'get false;
+                };
+                let Some(tl) = ws.fullscreen.get() else {
+                    break 'get false;
+                };
+                if let Some(req) = surface {
+                    let Some(surface) = tl.tl_scanout_surface() else {
+                        break 'get false;
+                    };
+                    if req.tearing_requested {
+                        if !surface.tearing.get() {
+                            break 'get false;
+                        }
+                    }
+                }
+                true
+            }
+        };
+        self.global.connector.connector.set_tearing_enabled(enabled);
     }
 }
 
@@ -1182,6 +1214,58 @@ impl VrrMode {
                 log::error!("VRR mode {self:?} has no config representation");
                 ConfigVrrMode::NEVER
             }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum TearingMode {
+    Never,
+    Always,
+    Fullscreen {
+        surface: Option<TearingSurfaceRequirements>,
+    },
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct TearingSurfaceRequirements {
+    tearing_requested: bool,
+}
+
+impl TearingMode {
+    pub const NEVER: &'static Self = &Self::Never;
+    pub const ALWAYS: &'static Self = &Self::Always;
+    pub const VARIANT_1: &'static Self = &Self::Fullscreen { surface: None };
+    pub const VARIANT_2: &'static Self = &Self::Fullscreen {
+        surface: Some(TearingSurfaceRequirements {
+            tearing_requested: false,
+        }),
+    };
+    pub const VARIANT_3: &'static Self = &Self::Fullscreen {
+        surface: Some(TearingSurfaceRequirements {
+            tearing_requested: true,
+        }),
+    };
+
+    pub fn from_config(mode: ConfigTearingMode) -> Option<&'static Self> {
+        let res = match mode {
+            ConfigTearingMode::NEVER => Self::NEVER,
+            ConfigTearingMode::ALWAYS => Self::ALWAYS,
+            ConfigTearingMode::VARIANT_1 => Self::VARIANT_1,
+            ConfigTearingMode::VARIANT_2 => Self::VARIANT_2,
+            ConfigTearingMode::VARIANT_3 => Self::VARIANT_3,
+            _ => return None,
+        };
+        Some(res)
+    }
+
+    pub fn to_config(&self) -> ConfigVrrMode {
+        match self {
+            Self::NEVER => ConfigVrrMode::NEVER,
+            Self::ALWAYS => ConfigVrrMode::ALWAYS,
+            Self::VARIANT_1 => ConfigVrrMode::VARIANT_1,
+            Self::VARIANT_2 => ConfigVrrMode::VARIANT_2,
+            Self::VARIANT_3 => ConfigVrrMode::VARIANT_3,
         }
     }
 }
