@@ -897,6 +897,10 @@ impl Client {
         self.send(&ClientMessage::SetTransformMatrix { device, matrix })
     }
 
+    pub fn set_calibration_matrix(&self, device: InputDevice, matrix: [[f32; 3]; 2]) {
+        self.send(&ClientMessage::SetCalibrationMatrix { device, matrix })
+    }
+
     pub fn set_px_per_wheel_scroll(&self, device: InputDevice, px: f64) {
         self.send(&ClientMessage::SetPxPerWheelScroll { device, px })
     }

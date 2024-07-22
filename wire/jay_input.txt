@@ -114,6 +114,16 @@ request map_to_output {
     output: optstr,
 }
 
+request set_calibration_matrix (since = 4) {
+    id: u32,
+    m00: pod(f32),
+    m01: pod(f32),
+    m02: pod(f32),
+    m10: pod(f32),
+    m11: pod(f32),
+    m12: pod(f32),
+}
+
 # events
 
 event seat {
@@ -157,4 +167,13 @@ event keymap {
 event input_device_output {
     id: u32,
     output: str,
+}
+
+event calibration_matrix (since = 4) {
+    m00: pod(f32),
+    m01: pod(f32),
+    m02: pod(f32),
+    m10: pod(f32),
+    m11: pod(f32),
+    m12: pod(f32),
 }

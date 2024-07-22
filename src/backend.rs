@@ -167,6 +167,12 @@ pub trait InputDevice {
         None
     }
     fn set_transform_matrix(&self, matrix: TransformMatrix);
+    fn calibration_matrix(&self) -> Option<[[f32; 3]; 2]> {
+        None
+    }
+    fn set_calibration_matrix(&self, m: [[f32; 3]; 2]) {
+        let _ = m;
+    }
     fn name(&self) -> Rc<String>;
     fn dev_t(&self) -> Option<c::dev_t> {
         None
@@ -392,6 +398,27 @@ pub enum InputEvent {
         source: Option<TabletStripEventSource>,
         position: Option<f64>,
     },
+    TouchDown {
+        time_usec: u64,
+        id: i32,
+        x_normed: Fixed,
+        y_normed: Fixed,
+    },
+    TouchUp {
+        time_usec: u64,
+        id: i32,
+    },
+    TouchMotion {
+        time_usec: u64,
+        id: i32,
+        x_normed: Fixed,
+        y_normed: Fixed,
+    },
+    TouchCancel {
+        time_usec: u64,
+        id: i32,
+    },
+    TouchFrame,
 }
 
 pub enum DrmEvent {

@@ -1328,6 +1328,24 @@ Input:
           match.name = "Wacom Bamboo Comic 2FG Pen"
           output.connector = "DP-1"
           ```
+    calibration-matrix:
+      kind: array
+      items:
+        kind: array
+        items:
+          kind: number
+      required: false
+      description: |
+        The calibration matrix of the device. This matrix should be 2x3.
+        
+        See the libinput documentation for more details.
+        
+        - Example: To flip the device 90 degrees:
+        
+          ```toml
+          [[inputs]]
+          calibration-matrix = [[0, 1, 0], [-1, 0, 1]]
+          ```
 
 
 AccelProfile:

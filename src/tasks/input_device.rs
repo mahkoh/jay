@@ -1,6 +1,6 @@
 use {
     crate::{
-        backend::InputDevice,
+        backend::{InputDevice, InputDeviceCapability},
         ifs::wl_seat::PX_PER_SCROLL,
         state::{DeviceHandlerData, InputDeviceData, State},
         tasks::udev_utils::{udev_props, UdevProps},
@@ -26,6 +26,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         output: Default::default(),
         tablet_init: dev.tablet_info(),
         tablet_pad_init: dev.tablet_pad_info(),
+        is_touch: dev.has_capability(InputDeviceCapability::Touch),
     });
     let ae = Rc::new(AsyncEvent::default());
     let oh = DeviceHandler {

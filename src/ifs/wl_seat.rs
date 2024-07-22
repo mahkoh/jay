@@ -6,6 +6,7 @@ mod kb_owner;
 mod pointer_owner;
 pub mod tablet;
 pub mod text_input;
+mod touch_owner;
 pub mod wl_keyboard;
 pub mod wl_pointer;
 pub mod wl_touch;
@@ -52,6 +53,7 @@ use {
                     zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
                     zwp_input_method_v2::ZwpInputMethodV2, zwp_text_input_v3::ZwpTextInputV3,
                 },
+                touch_owner::TouchOwnerHolder,
                 wl_keyboard::{WlKeyboard, WlKeyboardError, REPEAT_INFO_SINCE},
                 wl_pointer::WlPointer,
                 wl_touch::WlTouch,
@@ -79,7 +81,7 @@ use {
         },
         wire::{
             wl_seat::*, ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId,
-            WlSeatId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
+            WlSeatId, WlTouchId, ZwlrDataControlDeviceV1Id, ZwpPrimarySelectionDeviceV1Id,
             ZwpRelativePointerV1Id, ZwpTextInputV3Id,
         },
         xkbcommon::{DynKeyboardState, KeyboardState, KeymapId, XkbKeymap, XkbState},
@@ -103,7 +105,6 @@ pub use {
 
 pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
-#[allow(dead_code)]
 const TOUCH: u32 = 4;
 
 #[allow(dead_code)]
@@ -142,6 +143,8 @@ pub struct WlSeatGlobal {
     name: GlobalName,
     state: Rc<State>,
     seat_name: String,
+    capabilities: Cell<u32>,
+    num_touch_devices: NumCell<u32>,
     pos_time_usec: Cell<u64>,
     pointer_stack: RefCell<Vec<Rc<dyn Node>>>,
     pointer_stack_modified: Cell<bool>,
@@ -173,6 +176,7 @@ pub struct WlSeatGlobal {
     pointer_owner: PointerOwnerHolder,
     kb_owner: KbOwnerHolder,
     gesture_owner: GestureOwnerHolder,
+    touch_owner: TouchOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
     shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
@@ -213,6 +217,8 @@ impl WlSeatGlobal {
             name,
             state: state.clone(),
             seat_name: seat_name.to_string(),
+            capabilities: Cell::new(0),
+            num_touch_devices: Default::default(),
             pos_time_usec: Cell::new(0),
             pointer_stack: RefCell::new(vec![]),
             pointer_stack_modified: Cell::new(false),
@@ -237,6 +243,7 @@ impl WlSeatGlobal {
             pointer_owner: Default::default(),
             kb_owner: Default::default(),
             gesture_owner: Default::default(),
+            touch_owner: Default::default(),
             dropped_dnd: RefCell::new(None),
             shortcuts: Default::default(),
             queue_link: Default::default(),
@@ -269,7 +276,22 @@ impl WlSeatGlobal {
             }
         });
         slf.tree_changed_handler.set(Some(future));
+        slf.update_capabilities();
         slf
+    }
+
+    fn update_capabilities(&self) {
+        let mut caps = POINTER | KEYBOARD;
+        if self.num_touch_devices.get() > 0 {
+            caps |= TOUCH;
+        }
+        if self.capabilities.replace(caps) != caps {
+            for client in self.bindings.borrow().values() {
+                for seat in client.values() {
+                    seat.send_capabilities();
+                }
+            }
+        }
     }
 
     pub fn keymap(&self) -> Rc<XkbKeymap> {
@@ -852,6 +874,7 @@ impl WlSeatGlobal {
         self.primary_selection.set(None);
         self.pointer_owner.clear();
         self.kb_owner.clear();
+        self.touch_owner.clear();
         *self.dropped_dnd.borrow_mut() = None;
         self.queue_link.take();
         self.tree_changed_handler.set(None);
@@ -888,6 +911,7 @@ impl WlSeatGlobal {
             pointers: Default::default(),
             relative_pointers: Default::default(),
             keyboards: Default::default(),
+            touches: Default::default(),
             version,
             tracker: Default::default(),
         });
@@ -994,6 +1018,7 @@ pub struct WlSeat {
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
+    touches: CopyHashMap<WlTouchId, Rc<WlTouch>>,
     version: Version,
     tracker: Tracker<Self>,
 }
@@ -1004,7 +1029,7 @@ impl WlSeat {
     fn send_capabilities(self: &Rc<Self>) {
         self.client.event(Capabilities {
             self_id: self.id,
-            capabilities: POINTER | KEYBOARD,
+            capabilities: self.global.capabilities.get(),
         })
     }
 
@@ -1059,6 +1084,7 @@ impl WlSeatRequestHandler for WlSeat {
         let p = Rc::new(WlTouch::new(req.id, slf));
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
+        self.touches.set(req.id, p);
         Ok(())
     }
 
@@ -1096,6 +1122,7 @@ impl Object for WlSeat {
         self.pointers.clear();
         self.relative_pointers.clear();
         self.keyboards.clear();
+        self.touches.clear();
     }
 }
 
@@ -1146,6 +1173,10 @@ impl DeviceHandlerData {
             if let Some(info) = &self.tablet_pad_init {
                 old.tablet_remove_tablet_pad(info.id);
             }
+            if self.is_touch {
+                old.num_touch_devices.fetch_sub(1);
+                old.update_capabilities();
+            }
         }
         self.update_xkb_state();
         if let Some(seat) = &seat {
@@ -1154,6 +1185,10 @@ impl DeviceHandlerData {
             }
             if let Some(info) = &self.tablet_pad_init {
                 seat.tablet_add_tablet_pad(self.device.id(), info);
+            }
+            if self.is_touch {
+                seat.num_touch_devices.fetch_add(1);
+                seat.update_capabilities();
             }
         }
     }

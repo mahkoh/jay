@@ -861,6 +861,18 @@
         "remove-mapping": {
           "type": "boolean",
           "description": "Removes the mapping of from this device to an output.\n\nThis should only be used within `configure-input` actions.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"configure-input\", input = { match.tag = \"wacom\", remove-mapping = true } }\n\n  [[inputs]]\n  tag = \"wacom\"\n  match.name = \"Wacom Bamboo Comic 2FG Pen\"\n  output.connector = \"DP-1\"\n  ```\n"
+        },
+        "calibration-matrix": {
+          "type": "array",
+          "description": "The calibration matrix of the device. This matrix should be 2x3.\n\nSee the libinput documentation for more details.\n\n- Example: To flip the device 90 degrees:\n\n  ```toml\n  [[inputs]]\n  calibration-matrix = [[0, 1, 0], [-1, 0, 1]]\n  ```\n",
+          "items": {
+            "type": "array",
+            "description": "",
+            "items": {
+              "type": "number",
+              "description": ""
+            }
+          }
         }
       },
       "required": [

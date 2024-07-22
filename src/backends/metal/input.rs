@@ -121,6 +121,11 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_TABLET_PAD_BUTTON => self.handle_tablet_pad_button(event),
             c::LIBINPUT_EVENT_TABLET_PAD_RING => self.handle_tablet_pad_ring(event),
             c::LIBINPUT_EVENT_TABLET_PAD_STRIP => self.handle_tablet_pad_strip(event),
+            c::LIBINPUT_EVENT_TOUCH_DOWN => self.handle_touch_down(event),
+            c::LIBINPUT_EVENT_TOUCH_UP => self.handle_touch_up(event),
+            c::LIBINPUT_EVENT_TOUCH_MOTION => self.handle_touch_motion(event),
+            c::LIBINPUT_EVENT_TOUCH_CANCEL => self.handle_touch_cancel(event),
+            c::LIBINPUT_EVENT_TOUCH_FRAME => self.handle_touch_frame(event),
             _ => {}
         }
     }
@@ -538,5 +543,46 @@ impl MetalBackend {
                 n => Some(n),
             },
         });
+    }
+
+    fn handle_touch_down(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::TouchDown {
+            time_usec: event.time_usec(),
+            id: event.seat_slot(),
+            x_normed: Fixed::from_f64(event.x_transformed(1)),
+            y_normed: Fixed::from_f64(event.y_transformed(1)),
+        })
+    }
+
+    fn handle_touch_up(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::TouchUp {
+            time_usec: event.time_usec(),
+            id: event.seat_slot(),
+        })
+    }
+
+    fn handle_touch_motion(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::TouchMotion {
+            time_usec: event.time_usec(),
+            id: event.seat_slot(),
+            x_normed: Fixed::from_f64(event.x_transformed(1)),
+            y_normed: Fixed::from_f64(event.y_transformed(1)),
+        })
+    }
+
+    fn handle_touch_cancel(self: &Rc<Self>, event: LibInputEvent) {
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::TouchCancel {
+            time_usec: event.time_usec(),
+            id: event.seat_slot(),
+        })
+    }
+
+    fn handle_touch_frame(self: &Rc<Self>, event: LibInputEvent) {
+        let (_, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::TouchFrame)
     }
 }

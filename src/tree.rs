@@ -200,6 +200,50 @@ pub trait Node: 'static {
         let _ = kb_state;
     }
 
+    fn node_on_touch_down(
+        self: Rc<Self>,
+        seat: &Rc<WlSeatGlobal>,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = id;
+        let _ = x;
+        let _ = y;
+    }
+
+    fn node_on_touch_up(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = id;
+    }
+
+    fn node_on_touch_motion(
+        self: Rc<Self>,
+        seat: &WlSeatGlobal,
+        time_usec: u64,
+        id: i32,
+        x: Fixed,
+        y: Fixed,
+    ) {
+        let _ = seat;
+        let _ = time_usec;
+        let _ = id;
+        let _ = x;
+        let _ = y;
+    }
+
+    fn node_on_touch_frame(&self, seat: &WlSeatGlobal) {
+        let _ = seat;
+    }
+
+    fn node_on_touch_cancel(&self, seat: &WlSeatGlobal) {
+        let _ = seat;
+    }
+
     fn node_on_button(
         self: Rc<Self>,
         seat: &Rc<WlSeatGlobal>,

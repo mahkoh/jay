@@ -15,7 +15,8 @@ use {
                 TabletPadStripSource, TabletPadStripStop, TabletToolButton, TabletToolDistance,
                 TabletToolDown, TabletToolFrame, TabletToolMotion, TabletToolPressure,
                 TabletToolProximityIn, TabletToolProximityOut, TabletToolRotation,
-                TabletToolSlider, TabletToolTilt, TabletToolUp, TabletToolWheel,
+                TabletToolSlider, TabletToolTilt, TabletToolUp, TabletToolWheel, TouchCancel,
+                TouchDown, TouchMotion, TouchUp,
             },
         },
     },
@@ -582,6 +583,54 @@ async fn run(seat_test: Rc<SeatTest>) {
             print!(", stop");
         }
         println!();
+    });
+    let st = seat_test.clone();
+    TouchDown::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Touch: {}, Down: {}x{}",
+                time(ev.time_usec),
+                ev.id,
+                ev.x,
+                ev.y
+            );
+        }
+    });
+    let st = seat_test.clone();
+    TouchUp::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!("Time: {:.4}, Touch: {}, Up", time(ev.time_usec), ev.id);
+        }
+    });
+    let st = seat_test.clone();
+    TouchMotion::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!(
+                "Time: {:.4}, Touch: {} Motion: {}x{}",
+                time(ev.time_usec),
+                ev.id,
+                ev.x,
+                ev.y
+            );
+        }
+    });
+    let st = seat_test.clone();
+    TouchCancel::handle(tc, se, (), move |_, ev| {
+        if all || ev.seat == seat {
+            if all {
+                print!("Seat: {}, ", st.name(ev.seat));
+            }
+            println!("Time: {:.4}, Touch: {}, Cancel", time(ev.time_usec), ev.id);
+        }
     });
     pending::<()>().await;
 }

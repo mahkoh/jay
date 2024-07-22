@@ -278,6 +278,7 @@ pub struct DeviceHandlerData {
     pub output: CloneCell<Option<Rc<OutputGlobalOpt>>>,
     pub tablet_init: Option<Box<TabletInit>>,
     pub tablet_pad_init: Option<Box<TabletPadInit>>,
+    pub is_touch: bool,
 }
 
 pub struct ConnectorData {

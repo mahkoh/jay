@@ -250,6 +250,7 @@ pub struct Input {
     pub keymap: Option<ConfigKeymap>,
     pub switch_actions: AHashMap<SwitchEvent, Action>,
     pub output: Option<Option<OutputMatch>>,
+    pub calibration_matrix: Option<[[f32; 3]; 2]>,
 }
 
 #[derive(Debug, Clone)]

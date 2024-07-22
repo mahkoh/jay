@@ -141,7 +141,7 @@ Jay supports the following wayland protocols:
 | ext_session_lock_manager_v1             | 1               | Yes           |
 | ext_transient_seat_manager_v1           | 1[^ts_rejected] | Yes           |
 | org_kde_kwin_server_decoration_manager  | 1               |               |
-| wl_compositor                           | 6[^no_touch]    |               |
+| wl_compositor                           | 6               |               |
 | wl_data_device_manager                  | 3               |               |
 | wl_drm                                  | 2               |               |
 | wl_output                               | 4               |               |
@@ -179,12 +179,5 @@ Jay supports the following wayland protocols:
 | zxdg_decoration_manager_v1              | 1               |               |
 | zxdg_output_manager_v1                  | 3               |               |
 
-[^no_touch]: Touch input is not supported.
 [^lsaccess]: Sandboxes can restrict access to this protocol.
 [^ts_rejected]: Seat creation is always rejected.
-
-## Missing Features
-
-The following features are currently not supported but might get implemented in the future:
-
-- Touch support.

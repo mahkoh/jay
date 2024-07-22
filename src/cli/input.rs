@@ -131,6 +131,8 @@ pub enum DeviceCommand {
     MapToOutput(MapToOutputArgs),
     /// Removes the mapping from this device to an output.
     RemoveMapping,
+    /// Set the calibration matrix.
+    SetCalibrationMatrix(SetCalibrationMatrixArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -198,6 +200,16 @@ pub struct SetTransformMatrixArgs {
     pub m12: f64,
     pub m21: f64,
     pub m22: f64,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetCalibrationMatrixArgs {
+    pub m00: f32,
+    pub m01: f32,
+    pub m02: f32,
+    pub m10: f32,
+    pub m11: f32,
+    pub m12: f32,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -272,6 +284,7 @@ struct InputDevice {
     pub px_per_wheel_scroll: Option<f64>,
     pub transform_matrix: Option<[[f64; 2]; 2]>,
     pub output: Option<String>,
+    pub calibration_matrix: Option<[[f32; 3]; 2]>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -595,6 +608,21 @@ impl Input {
                     output: None,
                 });
             }
+            DeviceCommand::SetCalibrationMatrix(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not modify the calibration matrix: {}", e);
+                });
+                tc.send(jay_input::SetCalibrationMatrix {
+                    self_id: input,
+                    id: args.device,
+                    m00: a.m00,
+                    m01: a.m01,
+                    m02: a.m02,
+                    m10: a.m10,
+                    m11: a.m11,
+                    m12: a.m12,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -728,6 +756,9 @@ impl Input {
         if let Some(v) = &device.output {
             println!("{prefix}  mapped to output: {}", v);
         }
+        if let Some(v) = &device.calibration_matrix {
+            println!("{prefix}  calibration matrix: {:?}", v);
+        }
     }
 
     async fn get(self: &Rc<Self>, input: JayInputId) -> Data {
@@ -792,12 +823,20 @@ impl Input {
                 px_per_wheel_scroll: is_pointer.then_some(msg.px_per_wheel_scroll),
                 transform_matrix: uapi::pod_read(msg.transform_matrix).ok(),
                 output: None,
+                calibration_matrix: None,
             });
         });
         jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
             if let Some(last) = data.input_device.last_mut() {
                 last.output = Some(msg.output.to_string());
+            }
+        });
+        jay_input::CalibrationMatrix::handle(tc, input, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.calibration_matrix =
+                    Some([[msg.m00, msg.m01, msg.m02], [msg.m10, msg.m11, msg.m12]]);
             }
         });
         tc.round_trip().await;

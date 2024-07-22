@@ -10,7 +10,9 @@ use {
             libinput_device, libinput_device_config_accel_get_profile,
             libinput_device_config_accel_get_speed, libinput_device_config_accel_is_available,
             libinput_device_config_accel_set_profile, libinput_device_config_accel_set_speed,
-            libinput_device_config_left_handed_get,
+            libinput_device_config_calibration_get_matrix,
+            libinput_device_config_calibration_has_matrix,
+            libinput_device_config_calibration_set_matrix, libinput_device_config_left_handed_get,
             libinput_device_config_left_handed_is_available,
             libinput_device_config_left_handed_set,
             libinput_device_config_scroll_get_natural_scroll_enabled,
@@ -264,6 +266,25 @@ impl<'a> LibInputDevice<'a> {
             group,
             _phantom: Default::default(),
         })
+    }
+
+    pub fn has_calibration_matrix(&self) -> bool {
+        unsafe { libinput_device_config_calibration_has_matrix(self.dev) != 0 }
+    }
+
+    pub fn set_calibration_matrix(&self, m: [[f32; 3]; 2]) {
+        let m = [m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2]];
+        unsafe {
+            libinput_device_config_calibration_set_matrix(self.dev, &m);
+        }
+    }
+
+    pub fn get_calibration_matrix(&self) -> [[f32; 3]; 2] {
+        let mut m = [0.0; 6];
+        unsafe {
+            libinput_device_config_calibration_get_matrix(self.dev, &mut m);
+        }
+        [[m[0], m[1], m[2]], [m[3], m[4], m[5]]]
     }
 }
 

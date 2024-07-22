@@ -689,6 +689,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_calibration_matrix(
+        &self,
+        device: InputDevice,
+        matrix: [[f32; 3]; 2],
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.device.set_calibration_matrix(matrix);
+        Ok(())
+    }
+
     fn handle_get_workspace(&self, name: &str) {
         let name = Rc::new(name.to_owned());
         let ws = match self.workspaces_by_name.get(&name) {
@@ -1897,6 +1907,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetTearingMode { connector, mode } => self
                 .handle_set_tearing_mode(connector, mode)
                 .wrn("set_tearing_mode")?,
+            ClientMessage::SetCalibrationMatrix { device, matrix } => self
+                .handle_set_calibration_matrix(device, matrix)
+                .wrn("set_calibration_matrix")?,
         }
         Ok(())
     }
