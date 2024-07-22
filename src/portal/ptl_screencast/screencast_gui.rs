@@ -75,7 +75,7 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;
     let accept_button = static_button(surface, ButtonRole::Accept, "Share This Output");
-    let workspace_button = static_button(surface, ButtonRole::SelectWorkspace, "Share A Workspcae");
+    let workspace_button = static_button(surface, ButtonRole::SelectWorkspace, "Share A Workspace");
     let window_button = static_button(surface, ButtonRole::SelectWindow, "Share A Window");
     let reject_button = static_button(surface, ButtonRole::Reject, "Reject");
     for button in [
