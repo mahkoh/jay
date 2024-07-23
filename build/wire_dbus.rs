@@ -35,26 +35,26 @@ enum Type {
 
 #[derive(Debug)]
 struct Field {
-    name: BString,
+    name: String,
     ty: Type,
 }
 
 #[derive(Debug)]
 struct Function {
-    name: BString,
+    name: String,
     in_fields: Vec<Field>,
     out_fields: Vec<Field>,
 }
 
 #[derive(Debug)]
 struct Property {
-    name: BString,
+    name: String,
     ty: Type,
 }
 
 #[derive(Debug)]
 struct Signal {
-    name: BString,
+    name: String,
     fields: Vec<Field>,
 }
 
@@ -181,7 +181,7 @@ impl<'a> Parser<'a> {
         res.with_context(|| format!("While parsing field starting at line {}", line))
     }
 
-    fn expect_ident(&mut self) -> Result<(u32, &'a BStr)> {
+    fn expect_ident(&mut self) -> Result<(u32, &'a str)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];
         self.pos += 1;
@@ -468,7 +468,7 @@ fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
 fn write_message<W: Write>(
     f: &mut W,
     el: &Element,
-    msg_name: &BStr,
+    msg_name: &str,
     name: &str,
     indent: &str,
     fields: &[Field],
@@ -614,7 +614,7 @@ fn write_signal<W: Write>(f: &mut W, element: &Element, sig: &Signal, indent: &s
     write_message(
         f,
         element,
-        sig.name.as_bstr(),
+        &sig.name,
         &name,
         indent,
         &sig.fields,
@@ -640,7 +640,7 @@ fn write_function<W: Write>(
     write_message(
         f,
         element,
-        fun.name.as_bstr(),
+        &fun.name,
         &in_name,
         indent,
         &fun.in_fields,
@@ -650,7 +650,7 @@ fn write_function<W: Write>(
     write_message(
         f,
         element,
-        fun.name.as_bstr(),
+        &fun.name,
         &out_name,
         indent,
         &fun.out_fields,
