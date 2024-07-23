@@ -4,7 +4,7 @@ use {
         tokens::{tokenize, Symbol, Token, TokenKind, TreeDelim},
     },
     anyhow::{bail, Context, Result},
-    bstr::{BStr, BString, ByteSlice},
+    bstr::ByteSlice,
     std::{cell::Cell, collections::HashMap, io::Write, mem, os::unix::ffi::OsStrExt, rc::Rc},
 };
 
@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_extension(&mut self, line: u32) -> Result<BString> {
+    fn parse_extension(&mut self, line: u32) -> Result<String> {
         let res: Result<_> = (|| {
             let (_, name) = self.expect_string()?;
             Ok(name.to_owned())
@@ -208,7 +208,7 @@ impl<'a> Parser<'a> {
         res.with_context(|| format!("While parsing bitmask starting at line {}", line))
     }
 
-    fn parse_struct_body(&mut self, name: &BStr) -> Result<Struct> {
+    fn parse_struct_body(&mut self, name: &str) -> Result<Struct> {
         let mut fields = vec![];
         while !self.eof() {
             fields.push(self.parse_field()?);
@@ -272,7 +272,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_ident(&mut self) -> Result<(u32, &'a BStr)> {
+    fn expect_ident(&mut self) -> Result<(u32, &'a str)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];
         self.pos += 1;
@@ -286,7 +286,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_string(&mut self) -> Result<(u32, &'a BString)> {
+    fn expect_string(&mut self) -> Result<(u32, &'a String)> {
         self.not_eof()?;
         let token = &self.tokens[self.pos];
         self.pos += 1;
@@ -459,7 +459,7 @@ impl<'a> Parser<'a> {
         Ok(name)
     }
 
-    fn parse_field_name_expr(&mut self) -> Result<BString> {
+    fn parse_field_name_expr(&mut self) -> Result<String> {
         let (_, tree) = self.expect_tree(TreeDelim::Paren)?;
         let mut parser = Parser::new(tree);
         let (_, name) = parser.expect_ident()?;
@@ -560,7 +560,7 @@ fn needs_lifetime(ty: &Type, protocols: &Protocols) -> Result<bool> {
         Type::U64 => false,
         Type::Fd => false,
         Type::List(_, _) => true,
-        Type::Named(n) => named_needs_lt(n.as_bstr(), protocols)?,
+        Type::Named(n) => named_needs_lt(n, protocols)?,
         Type::String(_) => true,
         Type::Bitmask(_, _) => false,
         Type::Enum(n, _) => needs_lifetime(n, protocols)?,
@@ -568,7 +568,7 @@ fn needs_lifetime(ty: &Type, protocols: &Protocols) -> Result<bool> {
     Ok(res)
 }
 
-fn named_needs_lt(name: &BStr, protocols: &Protocols) -> Result<bool> {
+fn named_needs_lt(name: &str, protocols: &Protocols) -> Result<bool> {
     let s = match protocols.types_by_name.get(name) {
         Some(s) => s,
         _ => bail!("Struct {} referenced but not defined", name),
@@ -640,14 +640,14 @@ fn type_has_fds(ty: &Type, protocols: &Protocols) -> Result<bool> {
         Type::String(_) => false,
         Type::Fd => true,
         Type::List(ty, _) => return type_has_fds(ty, protocols),
-        Type::Named(n) => return named_has_fds(n.as_bstr(), protocols),
+        Type::Named(n) => return named_has_fds(n, protocols),
         Type::Bitmask(_, _) => false,
         Type::Enum(n, _) => return type_has_fds(n, protocols),
     };
     Ok(res)
 }
 
-fn named_has_fds(s: &BStr, protocols: &Protocols) -> Result<bool> {
+fn named_has_fds(s: &str, protocols: &Protocols) -> Result<bool> {
     let s = match protocols.types_by_name.get(s) {
         Some(s) => s,
         _ => bail!("Struct {} referenced but not defined", s),
@@ -698,19 +698,19 @@ enum Type {
     Fd,
     String(Expr),
     List(Box<Type>, Option<Expr>),
-    Bitmask(BString, Expr),
+    Bitmask(String, Expr),
     Enum(Box<Type>, Expr),
-    Named(BString),
+    Named(String),
 }
 
 #[derive(Debug, Clone)]
 enum Expr {
     It,
-    Field(BString),
-    Len(BString),
+    Field(String),
+    Len(String),
     Literal(u32),
-    Bitmask(BString),
-    Variant(BString),
+    Bitmask(String),
+    Variant(String),
     Sum(Box<Expr>),
     Mul(Box<Expr>, Box<Expr>),
     Map(Box<Expr>, Box<Expr>),
@@ -722,7 +722,7 @@ enum Expr {
 
 #[derive(Debug, Clone)]
 struct RealField {
-    name: BString,
+    name: String,
     ty: Type,
     value: Option<Expr>,
 }
@@ -738,7 +738,7 @@ enum Field {
 
 #[derive(Debug)]
 struct Struct {
-    name: BString,
+    name: String,
     fields: Vec<Field>,
     needs_lt: Cell<Option<bool>>,
     has_fds: Cell<Option<bool>>,
@@ -746,27 +746,27 @@ struct Struct {
 
 #[derive(Debug)]
 struct BitmaskVariant {
-    name: BString,
+    name: String,
     ty: Type,
     bit: u32,
 }
 
 #[derive(Debug)]
 struct Bitmask {
-    name: BString,
+    name: String,
     variants: Vec<BitmaskVariant>,
 }
 
 #[derive(Debug)]
 struct EnumVariant {
-    name: BString,
+    name: String,
     ty: Type,
     value: u32,
 }
 
 #[derive(Debug)]
 struct Enum {
-    name: BString,
+    name: String,
     variants: Vec<EnumVariant>,
 }
 
@@ -780,9 +780,9 @@ struct Event {
 
 #[derive(Debug)]
 struct EventCopy {
-    name: BString,
+    name: String,
     opcode: u32,
-    original: BString,
+    original: String,
 }
 
 #[derive(Debug)]
@@ -795,7 +795,7 @@ struct Request {
 
 #[derive(Debug)]
 struct Protocol {
-    extension: Option<BString>,
+    extension: Option<String>,
     structs: Vec<Struct>,
     requests: Vec<Request>,
     bitmasks: Vec<Bitmask>,
@@ -806,8 +806,8 @@ struct Protocol {
 
 #[derive(Debug)]
 struct Extension {
-    name: BString,
-    ident: BString,
+    name: String,
+    ident: String,
 }
 
 #[derive(Debug)]
@@ -824,8 +824,8 @@ struct Protocols {
     bitmasks: Vec<Rc<Bitmask>>,
     enums: Vec<Rc<Enum>>,
     requests: Vec<Request>,
-    types_by_name: HashMap<BString, NamedType>,
-    events_by_name: HashMap<BString, Rc<Event>>,
+    types_by_name: HashMap<String, NamedType>,
+    events_by_name: HashMap<String, Rc<Event>>,
     events: Vec<Rc<Event>>,
     eventcopies: Vec<EventCopy>,
 }
@@ -869,7 +869,7 @@ fn write_type<F: Write>(f: &mut F, ty: &Type, protocols: &Protocols) -> Result<(
             return Ok(());
         }
         Type::Named(n) => {
-            let lt = if named_needs_lt(n.as_bstr(), protocols)? {
+            let lt = if named_needs_lt(n, protocols)? {
                 "<'a>"
             } else {
                 ""
@@ -944,7 +944,7 @@ enum StructUsecase<'a> {
 
 fn format_xevent<F: Write>(
     f: &mut F,
-    name: &BStr,
+    name: &str,
     s: &Struct,
     opcode: u32,
     protocols: &Protocols,
@@ -965,18 +965,11 @@ fn format_xevent<F: Write>(
 
 fn format_event<F: Write>(f: &mut F, s: &Event, protocols: &Protocols) -> Result<()> {
     format_struct(f, &s.data, protocols, &StructUsecase::Event { xge: s.xge })?;
-    format_xevent(
-        f,
-        s.data.name.as_bstr(),
-        &s.data,
-        s.opcode,
-        protocols,
-        s.ext_idx,
-    )
+    format_xevent(f, &s.data.name, &s.data, s.opcode, protocols, s.ext_idx)
 }
 
 fn format_eventcopy<F: Write>(f: &mut F, s: &EventCopy, protocols: &Protocols) -> Result<()> {
-    let original = match protocols.events_by_name.get(s.original.as_bstr()) {
+    let original = match protocols.events_by_name.get(&s.original) {
         Some(o) => o,
         _ => bail!("Event {} referenced but not defined", s.original),
     };
@@ -992,7 +985,7 @@ fn format_eventcopy<F: Write>(f: &mut F, s: &EventCopy, protocols: &Protocols) -
     )?;
     format_xevent(
         f,
-        s.name.as_bstr(),
+        &s.name,
         &original.data,
         s.opcode,
         protocols,
@@ -1591,16 +1584,13 @@ pub fn main() -> Result<()> {
         }
         protocols.eventcopies.extend(protocol.eventcopies);
         if let Some(ext) = protocol.extension {
-            let mut ident = vec![];
-            for c in ext.as_bytes() {
-                if matches!(*c, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9') {
-                    ident.push(*c);
+            let mut ident = String::new();
+            for c in ext.chars() {
+                if matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9') {
+                    ident.push(c);
                 }
             }
-            protocols.extensions.push(Extension {
-                name: ext,
-                ident: ident.into(),
-            });
+            protocols.extensions.push(Extension { name: ext, ident });
         }
     }
 
