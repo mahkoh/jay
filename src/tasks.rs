@@ -10,7 +10,10 @@ mod udev_utils;
 use {
     crate::{
         state::State,
-        tasks::{backend::BackendEventHandler, slow_clients::SlowClientHandler},
+        tasks::{
+            backend::BackendEventHandler,
+            slow_clients::{SlowClientHandler, SlowEiClientHandler},
+        },
     },
     std::rc::Rc,
 };
@@ -23,5 +26,10 @@ pub async fn handle_backend_events(state: Rc<State>) {
 
 pub async fn handle_slow_clients(state: Rc<State>) {
     let mut sch = SlowClientHandler { state };
+    sch.handle_events().await;
+}
+
+pub async fn handle_slow_ei_clients(state: Rc<State>) {
+    let mut sch = SlowEiClientHandler { state };
     sch.handle_events().await;
 }

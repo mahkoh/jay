@@ -11,12 +11,17 @@ use {
         cli::RunArgs,
         client::{Client, ClientId, Clients, SerialRange, NUM_CACHED_SERIAL_RANGES},
         clientmem::ClientMemOffset,
+        compositor::LIBEI_SOCKET,
         config::ConfigProxy,
         cursor::{Cursor, ServerCursors},
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
         damage::DamageVisualizer,
         dbus::Dbus,
         drm_feedback::{DrmFeedback, DrmFeedbackIds},
+        ei::{
+            ei_acceptor::EiAcceptor,
+            ei_client::{EiClient, EiClients},
+        },
         fixed::Fixed,
         forker::ForkerProxy,
         format::Format,
@@ -204,6 +209,11 @@ pub struct State {
     pub default_vrr_mode: Cell<&'static VrrMode>,
     pub default_vrr_cursor_hz: Cell<Option<f64>>,
     pub default_tearing_mode: Cell<&'static TearingMode>,
+    pub ei_acceptor: CloneCell<Option<Rc<EiAcceptor>>>,
+    pub ei_acceptor_future: CloneCell<Option<SpawnedFuture<()>>>,
+    pub enable_ei_acceptor: Cell<bool>,
+    pub ei_clients: EiClients,
+    pub slow_ei_clients: AsyncQueue<Rc<EiClient>>,
 }
 
 // impl Drop for State {
@@ -827,6 +837,10 @@ impl State {
         }
         self.wheel.clear();
         self.eng.clear();
+        self.ei_acceptor.take();
+        self.ei_acceptor_future.take();
+        self.ei_clients.clear();
+        self.slow_ei_clients.clear();
     }
 
     pub fn disable_hardware_cursors(&self) {
@@ -1019,6 +1033,7 @@ impl State {
         let global_name = self.globals.name();
         let seat = WlSeatGlobal::new(global_name, name, self);
         self.globals.add_global(self, &seat);
+        self.ei_clients.announce_seat(&seat);
         seat
     }
 
@@ -1094,6 +1109,48 @@ impl State {
     #[allow(dead_code)]
     pub fn now_msec(&self) -> u64 {
         self.eng.now().msec()
+    }
+
+    pub fn output_extents_changed(&self) {
+        self.root.update_extents();
+        for seat in self.globals.seats.lock().values() {
+            seat.output_extents_changed();
+        }
+    }
+
+    pub fn update_ei_acceptor(self: &Rc<Self>) {
+        self.update_ei_acceptor2();
+        if let Some(forker) = self.forker.get() {
+            match self.ei_acceptor.get() {
+                None => {
+                    forker.unsetenv(LIBEI_SOCKET.as_bytes());
+                }
+                Some(s) => {
+                    forker.setenv(LIBEI_SOCKET.as_bytes(), s.socket_name().as_bytes());
+                }
+            }
+        }
+    }
+
+    fn update_ei_acceptor2(self: &Rc<Self>) {
+        if self.ei_acceptor.is_some() == self.enable_ei_acceptor.get() {
+            return;
+        }
+        if self.enable_ei_acceptor.get() {
+            let (acceptor, future) = match EiAcceptor::spawn(self) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!("Could not create libei socket: {}", ErrorFmt(e));
+                    return;
+                }
+            };
+            self.ei_acceptor.set(Some(acceptor));
+            self.ei_acceptor_future.set(Some(future));
+        } else {
+            log::info!("Disabling libei socket");
+            self.ei_acceptor.take();
+            self.ei_acceptor_future.take();
+        }
     }
 }
 

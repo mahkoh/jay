@@ -582,7 +582,9 @@ impl MetalBackend {
     }
 
     fn handle_touch_frame(self: &Rc<Self>, event: LibInputEvent) {
-        let (_, dev) = unpack!(self, event, touch_event);
-        dev.event(InputEvent::TouchFrame)
+        let (event, dev) = unpack!(self, event, touch_event);
+        dev.event(InputEvent::TouchFrame {
+            time_usec: event.time_usec(),
+        })
     }
 }

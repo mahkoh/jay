@@ -1,8 +1,11 @@
 use {
     crate::{
-        backend::{ConnectorId, InputDeviceId, InputEvent, KeyState, AXIS_120},
+        backend::{
+            AxisSource, ConnectorId, InputDeviceId, InputEvent, KeyState, ScrollAxis, AXIS_120,
+        },
         client::ClientId,
         config::InvokedShortcut,
+        ei::ei_ifs::ei_seat::EiSeat,
         fixed::Fixed,
         ifs::{
             ipc::{
@@ -245,10 +248,7 @@ impl WlSeatGlobal {
             | InputEvent::TabletPadModeSwitch { time_usec, .. }
             | InputEvent::TabletPadRing { time_usec, .. }
             | InputEvent::TabletPadStrip { time_usec, .. }
-            | InputEvent::TouchDown { time_usec, .. }
-            | InputEvent::TouchUp { time_usec, .. }
-            | InputEvent::TouchMotion { time_usec, .. }
-            | InputEvent::TouchCancel { time_usec, .. } => {
+            | InputEvent::TouchFrame { time_usec, .. } => {
                 self.last_input_usec.set(time_usec);
                 if self.idle_notifications.is_not_empty() {
                     for notification in self.idle_notifications.lock().drain_values() {
@@ -262,7 +262,10 @@ impl WlSeatGlobal {
             | InputEvent::Axis120 { .. }
             | InputEvent::TabletToolAdded { .. }
             | InputEvent::TabletToolRemoved { .. }
-            | InputEvent::TouchFrame => {}
+            | InputEvent::TouchDown { .. }
+            | InputEvent::TouchUp { .. }
+            | InputEvent::TouchMotion { .. }
+            | InputEvent::TouchCancel { .. } => {}
         }
         match event {
             InputEvent::ConnectorPosition { .. }
@@ -297,7 +300,7 @@ impl WlSeatGlobal {
             InputEvent::TouchUp { .. } => {}
             InputEvent::TouchMotion { .. } => {}
             InputEvent::TouchCancel { .. } => {}
-            InputEvent::TouchFrame => {}
+            InputEvent::TouchFrame { .. } => {}
         }
         match event {
             InputEvent::Key {
@@ -324,19 +327,21 @@ impl WlSeatGlobal {
                 state,
             } => self.button_event(time_usec, button, state),
 
-            InputEvent::AxisSource { source } => self.pointer_owner.axis_source(source),
+            InputEvent::AxisSource { source } => self.axis_source(source),
             InputEvent::Axis120 {
                 dist,
                 axis,
                 inverted,
-            } => self.pointer_owner.axis_120(dist, axis, inverted),
+            } => self.axis_120(dist, axis, inverted),
             InputEvent::AxisPx {
                 dist,
                 axis,
                 inverted,
-            } => self.pointer_owner.axis_px(dist, axis, inverted),
-            InputEvent::AxisStop { axis } => self.pointer_owner.axis_stop(axis),
-            InputEvent::AxisFrame { time_usec } => self.pointer_owner.frame(dev, self, time_usec),
+            } => self.axis_px(dist, axis, inverted),
+            InputEvent::AxisStop { axis } => self.axis_stop(axis),
+            InputEvent::AxisFrame { time_usec } => {
+                self.axis_frame(dev.px_per_scroll_wheel.get(), time_usec)
+            }
             InputEvent::SwipeBegin {
                 time_usec,
                 finger_count,
@@ -445,7 +450,7 @@ impl WlSeatGlobal {
                 y_normed,
             } => self.touch_motion(time_usec, id, dev.get_rect(&self.state), x_normed, y_normed),
             InputEvent::TouchCancel { time_usec, id } => self.touch_cancel(time_usec, id),
-            InputEvent::TouchFrame => self.touch_frame(),
+            InputEvent::TouchFrame { time_usec } => self.touch_frame(time_usec),
         }
     }
 
@@ -481,7 +486,14 @@ impl WlSeatGlobal {
         let pos = output.global.pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
-        (x, y) = self.set_pointer_cursor_position(x, y);
+        self.motion_event_abs(time_usec, x, y);
+    }
+
+    pub fn motion_event_abs(self: &Rc<Self>, time_usec: u64, x: Fixed, y: Fixed) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_motion_abs(time_usec, x, y);
+        });
+        let (x, y) = self.set_pointer_cursor_position(x, y);
         if let Some(c) = self.constraint.get() {
             if c.ty == ConstraintType::Lock || !c.contains(x.round_down(), y.round_down()) {
                 c.deactivate();
@@ -493,7 +505,7 @@ impl WlSeatGlobal {
         self.cursor_moved(time_usec);
     }
 
-    fn motion_event(
+    pub fn motion_event(
         self: &Rc<Self>,
         time_usec: u64,
         dx: Fixed,
@@ -501,6 +513,9 @@ impl WlSeatGlobal {
         dx_unaccelerated: Fixed,
         dy_unaccelerated: Fixed,
     ) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_motion(time_usec, dx, dy);
+        });
         self.pointer_owner.relative_motion(
             self,
             time_usec,
@@ -545,11 +560,35 @@ impl WlSeatGlobal {
         self.cursor_moved(time_usec);
     }
 
-    fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
+    pub fn button_event(self: &Rc<Self>, time_usec: u64, button: u32, state: KeyState) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_button(time_usec, button, state);
+        });
         self.state.for_each_seat_tester(|t| {
             t.send_button(self.id, time_usec, button, state);
         });
         self.pointer_owner.button(self, time_usec, button, state);
+    }
+
+    pub fn axis_source(&self, axis_source: AxisSource) {
+        self.pointer_owner.axis_source(axis_source);
+    }
+
+    pub fn axis_120(&self, delta: i32, axis: ScrollAxis, inverted: bool) {
+        self.pointer_owner.axis_120(delta, axis, inverted);
+    }
+
+    pub fn axis_px(&self, delta: Fixed, axis: ScrollAxis, inverted: bool) {
+        self.pointer_owner.axis_px(delta, axis, inverted);
+    }
+
+    pub fn axis_stop(&self, axis: ScrollAxis) {
+        self.pointer_owner.axis_stop(axis);
+    }
+
+    pub fn axis_frame(self: &Rc<Self>, px_per_scroll_wheel: f64, time_usec: u64) {
+        self.pointer_owner
+            .frame(px_per_scroll_wheel, self, time_usec);
     }
 
     fn swipe_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
@@ -660,16 +699,26 @@ impl WlSeatGlobal {
         x_normed: Fixed,
         y_normed: Fixed,
     ) {
-        self.cursor_group().deactivate();
         let x = Fixed::from_f64(rect.x1() as f64 + rect.width() as f64 * x_normed.to_f64());
         let y = Fixed::from_f64(rect.y1() as f64 + rect.height() as f64 * y_normed.to_f64());
+        self.touch_down_at(time_usec, id, x, y);
+    }
+
+    pub fn touch_down_at(self: &Rc<Self>, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_touch_down(id as _, x, y);
+        });
+        self.cursor_group().deactivate();
         self.state.for_each_seat_tester(|t| {
             t.send_touch_down(self.id, time_usec, id, x, y);
         });
         self.touch_owner.down(self, time_usec, id, x, y);
     }
 
-    fn touch_up(self: &Rc<Self>, time_usec: u64, id: i32) {
+    pub fn touch_up(self: &Rc<Self>, time_usec: u64, id: i32) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_touch_up(id as _);
+        });
         self.state.for_each_seat_tester(|t| {
             t.send_touch_up(self.id, time_usec, id);
         });
@@ -684,9 +733,16 @@ impl WlSeatGlobal {
         x_normed: Fixed,
         y_normed: Fixed,
     ) {
-        self.cursor_group().deactivate();
         let x = Fixed::from_f64(rect.x1() as f64 + rect.width() as f64 * x_normed.to_f64());
         let y = Fixed::from_f64(rect.y1() as f64 + rect.height() as f64 * y_normed.to_f64());
+        self.touch_motion_at(time_usec, id, x, y);
+    }
+
+    pub fn touch_motion_at(self: &Rc<Self>, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_touch_motion(id as _, x, y);
+        });
+        self.cursor_group().deactivate();
         self.state.for_each_seat_tester(|t| {
             t.send_touch_motion(self.id, time_usec, id, x, y);
         });
@@ -694,14 +750,29 @@ impl WlSeatGlobal {
     }
 
     fn touch_cancel(self: &Rc<Self>, time_usec: u64, id: i32) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_touch_up(id as _);
+        });
         self.state.for_each_seat_tester(|t| {
             t.send_touch_cancel(self.id, time_usec, id);
         });
         self.touch_owner.cancel(self);
     }
 
-    fn touch_frame(self: &Rc<Self>) {
+    pub fn touch_frame(self: &Rc<Self>, time_usec: u64) {
+        self.for_each_ei_seat(|ei_seat| {
+            ei_seat.handle_touch_frame(time_usec);
+        });
         self.touch_owner.frame(self);
+    }
+
+    pub fn key_event_with_seat_state(
+        self: &Rc<Self>,
+        time_usec: u64,
+        key: u32,
+        key_state: KeyState,
+    ) {
+        self.key_event(time_usec, key, key_state, || self.seat_xkb_state.get());
     }
 
     pub(super) fn key_event<F>(
@@ -787,8 +858,14 @@ impl WlSeatGlobal {
                 Some(g) => g.on_key(time_usec, key, state, &xkb_state.kb_state),
                 _ => node.node_on_key(self, time_usec, key, state, &xkb_state.kb_state),
             }
+            self.for_each_ei_seat(|ei_seat| {
+                ei_seat.handle_key(time_usec, key, state, &xkb_state.kb_state);
+            });
         }
         if new_mods {
+            self.for_each_ei_seat(|ei_seat| {
+                ei_seat.handle_modifiers_changed(&xkb_state.kb_state);
+            });
             self.state.for_each_seat_tester(|t| {
                 t.send_modifiers(self.id, &xkb_state.kb_state.mods);
             });
@@ -807,6 +884,14 @@ impl WlSeatGlobal {
         }
         drop(xkb_state);
         self.latest_kb_state.set(xkb_state_rc);
+    }
+
+    pub(super) fn for_each_ei_seat(&self, mut f: impl FnMut(&Rc<EiSeat>)) {
+        if self.ei_seats.is_not_empty() {
+            for ei_seat in self.ei_seats.lock().values() {
+                f(ei_seat);
+            }
+        }
     }
 }
 

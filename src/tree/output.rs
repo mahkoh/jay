@@ -610,7 +610,7 @@ impl OutputNode {
         }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
         self.global.pos.set(*rect);
-        self.state.root.update_extents();
+        self.state.output_extents_changed();
         self.update_rects();
         if let Some(ls) = self.lock_surface.get() {
             ls.change_extents(*rect);

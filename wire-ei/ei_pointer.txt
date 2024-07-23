@@ -1,0 +1,16 @@
+request release {
+}
+
+request client_motion_relative (sender) {
+    x: f32,
+    y: f32,
+}
+
+event destroyed {
+    serial: u32,
+}
+
+event server_motion_relative (receiver) {
+    x: f32,
+    y: f32,
+}

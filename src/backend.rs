@@ -418,7 +418,9 @@ pub enum InputEvent {
         time_usec: u64,
         id: i32,
     },
-    TouchFrame,
+    TouchFrame {
+        time_usec: u64,
+    },
 }
 
 pub enum DrmEvent {

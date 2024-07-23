@@ -992,6 +992,10 @@ impl Client {
         keymap
     }
 
+    pub fn set_ei_socket_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetEiSocketEnabled { enabled })
+    }
+
     pub fn latch<F: FnOnce() + 'static>(&self, seat: Seat, f: F) {
         if !self.feat_mod_mask.get() {
             log::error!("compositor does not support latching");

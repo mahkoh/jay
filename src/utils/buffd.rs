@@ -2,12 +2,16 @@ use {crate::io_uring::IoUringError, thiserror::Error};
 pub use {
     buf_in::BufFdIn,
     buf_out::{BufFdOut, OutBuffer, OutBufferSwapchain},
+    ei_formatter::EiMsgFormatter,
+    ei_parser::{EiMsgParser, EiMsgParserError},
     formatter::MsgFormatter,
     parser::{MsgParser, MsgParserError},
 };
 
 mod buf_in;
 mod buf_out;
+mod ei_formatter;
+mod ei_parser;
 mod formatter;
 mod parser;
 

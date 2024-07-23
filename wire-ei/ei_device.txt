@@ -1,0 +1,76 @@
+request release {
+}
+
+request client_start_emulating (sender) {
+    last_serial: u32,
+    sequence: u32,
+}
+
+request client_stop_emulating (sender) {
+    last_serial: u32,
+}
+
+request client_frame (sender) {
+    last_serial: u32,
+    timestamp: u64,
+}
+
+event destroyed {
+    serial: u32,
+}
+
+event name {
+    name: str,
+}
+
+event device_type {
+    device_type: u32,
+}
+
+event dimensions {
+    width: u32,
+    height: u32,
+}
+
+event region {
+    offset_x: u32,
+    offset_y: u32,
+    width: u32,
+    hight: u32,
+    scale: f32,
+}
+
+event interface {
+    object: id(ei_object),
+    interface_name: str,
+    version: u32,
+}
+
+event done {
+}
+
+event resumed {
+    serial: u32,
+}
+
+event paused {
+    serial: u32,
+}
+
+event server_start_emulating (receiver) {
+    serial: u32,
+    sequence: u32,
+}
+
+event server_stop_emulating (receiver) {
+    serial: u32,
+}
+
+event server_frame (receiver) {
+    serial: u32,
+    timestamp: u64,
+}
+
+event region_mapping_id (since = 2) {
+    mapping_id: str,
+}

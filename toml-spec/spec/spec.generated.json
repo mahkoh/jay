@@ -585,6 +585,10 @@
         "tearing": {
           "description": "Configures the default tearing settings.\n\nThis can be overwritten for individual outputs.\n\nBy default, the tearing mode is `variant3`.\n\n- Example:\n\n  ```toml\n  tearing.mode = \"never\"\n  ```\n",
           "$ref": "#/$defs/Tearing"
+        },
+        "libei": {
+          "description": "Configures the libei settings.\n\n- Example:\n\n  ```toml\n  libei.enable-socket = true\n  ```\n",
+          "$ref": "#/$defs/Libei"
         }
       },
       "required": []
@@ -966,6 +970,17 @@
           "required": []
         }
       ]
+    },
+    "Libei": {
+      "description": "Describes libei settings.\n\n- Example:\n\n  ```toml\n  libei.enable-socket = \"true\"\n  ```\n",
+      "type": "object",
+      "properties": {
+        "enable-socket": {
+          "type": "boolean",
+          "description": "Enables or disables the unauthenticated libei socket.\n\nEven if the socket is disabled, application can still request access via the portal.\n\nThe default is `false`.\n"
+        }
+      },
+      "required": []
     },
     "LogLevel": {
       "type": "string",

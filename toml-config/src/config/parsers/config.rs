@@ -14,6 +14,7 @@ use {
                 idle::IdleParser,
                 input::InputsParser,
                 keymap::KeymapParser,
+                libei::LibeiParser,
                 log_level::LogLevelParser,
                 output::OutputsParser,
                 repeat_rate::RepeatRateParser,
@@ -27,7 +28,7 @@ use {
                 vrr::VrrParser,
             },
             spanned::SpannedErrorExt,
-            Action, Config, Theme,
+            Action, Config, Libei, Theme,
         },
         toml::{
             toml_span::{DespanExt, Span, Spanned},
@@ -110,6 +111,7 @@ impl Parser for ConfigParser<'_> {
                 window_management_key_val,
                 vrr_val,
                 tearing_val,
+                libei_val,
             ),
         ) = ext.extract((
             (
@@ -144,6 +146,7 @@ impl Parser for ConfigParser<'_> {
                 recover(opt(str("window-management-key"))),
                 opt(val("vrr")),
                 opt(val("tearing")),
+                opt(val("libei")),
             ),
         ))?;
         let mut keymap = None;
@@ -326,6 +329,15 @@ impl Parser for ConfigParser<'_> {
                 }
             }
         }
+        let mut libei = Libei::default();
+        if let Some(value) = libei_val {
+            match value.parse(&mut LibeiParser(self.0)) {
+                Ok(v) => libei = v,
+                Err(e) => {
+                    log::warn!("Could not parse libei setting: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -352,6 +364,7 @@ impl Parser for ConfigParser<'_> {
             window_management_key,
             vrr,
             tearing,
+            libei,
         })
     }
 }

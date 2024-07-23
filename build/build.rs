@@ -30,6 +30,7 @@ mod tokens;
 mod vulkan;
 mod wire;
 mod wire_dbus;
+mod wire_ei;
 mod wire_xcon;
 
 fn open(s: &str) -> io::Result<BufWriter<File>> {
@@ -46,6 +47,7 @@ fn open(s: &str) -> io::Result<BufWriter<File>> {
 
 fn main() -> anyhow::Result<()> {
     wire::main()?;
+    wire_ei::main()?;
     wire_dbus::main()?;
     wire_xcon::main()?;
     enums::main()?;

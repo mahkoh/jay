@@ -15,6 +15,7 @@ use {
         config::ConfigProxy,
         damage::{visualize_damage, DamageVisualizer},
         dbus::Dbus,
+        ei::ei_client::EiClients,
         forker,
         globals::Globals,
         ifs::{
@@ -109,6 +110,7 @@ pub enum CompositorError {
 }
 
 pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
+pub const LIBEI_SOCKET: &str = "LIBEI_SOCKET";
 pub const DISPLAY: &str = "DISPLAY";
 
 const STATIC_VARS: &[(&str, &str)] = &[
@@ -251,6 +253,11 @@ fn start_compositor2(
         default_vrr_mode: Cell::new(VrrMode::NEVER),
         default_vrr_cursor_hz: Cell::new(None),
         default_tearing_mode: Cell::new(TearingMode::VARIANT_3),
+        ei_acceptor: Default::default(),
+        ei_acceptor_future: Default::default(),
+        enable_ei_acceptor: Default::default(),
+        ei_clients: EiClients::new(),
+        slow_ei_clients: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -305,6 +312,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     if state.create_default_seat.get() && state.globals.seats.is_empty() {
         state.create_seat(DEFAULT_SEAT_NAME);
     }
+    state.update_ei_acceptor();
 
     let _geh = start_global_event_handlers(&state, &backend);
     state.start_xwayland();
@@ -351,6 +359,7 @@ fn start_global_event_handlers(
         eng.spawn2(Phase::Present, perform_toplevel_screencasts(state.clone())),
         eng.spawn2(Phase::PostLayout, perform_screencast_realloc(state.clone())),
         eng.spawn2(Phase::PostLayout, visualize_damage(state.clone())),
+        eng.spawn(tasks::handle_slow_ei_clients(state.clone())),
     ]
 }
 

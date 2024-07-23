@@ -18,12 +18,11 @@ use {
             errorfmt::ErrorFmt,
             numcell::NumCell,
             pending_serial::PendingSerial,
-            trim::AsciiTrim,
+            pid_info::{get_pid_info, get_socket_creds, PidInfo},
         },
         wire::WlRegistryId,
     },
     ahash::AHashMap,
-    bstr::ByteSlice,
     std::{
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -123,22 +122,8 @@ impl Clients {
         effective_caps: ClientCaps,
         bounding_caps: ClientCaps,
     ) -> Result<(), ClientError> {
-        let (uid, pid) = {
-            let mut cred = c::ucred {
-                pid: 0,
-                uid: 0,
-                gid: 0,
-            };
-            match uapi::getsockopt(socket.raw(), c::SOL_SOCKET, c::SO_PEERCRED, &mut cred) {
-                Ok(_) => (cred.uid, cred.pid),
-                Err(e) => {
-                    log::error!(
-                        "Cannot determine peer credentials of new connection: {:?}",
-                        crate::utils::oserror::OsError::from(e)
-                    );
-                    return Ok(());
-                }
-            }
+        let Some((uid, pid)) = get_socket_creds(&socket) else {
+            return Ok(());
         };
         self.spawn2(
             id,
@@ -272,12 +257,6 @@ pub trait RequestParser<'a>: Debug + Sized {
     type Generic<'b>: RequestParser<'b>;
     const ID: u32;
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
-}
-
-pub struct PidInfo {
-    pub _uid: c::uid_t,
-    pub pid: c::pid_t,
-    pub comm: String,
 }
 
 pub struct Client {
@@ -515,19 +494,4 @@ pub trait WaylandObjectLookup: Copy + Into<ObjectId> {
     const INTERFACE: Interface;
 
     fn lookup(client: &Client, id: Self) -> Option<Rc<Self::Object>>;
-}
-
-fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
-    let comm = match std::fs::read(format!("/proc/{}/comm", pid)) {
-        Ok(name) => name.trim().as_bstr().to_string(),
-        Err(e) => {
-            log::warn!("Could not read `comm` of pid {}: {}", pid, ErrorFmt(e));
-            "Unknown".to_string()
-        }
-    };
-    PidInfo {
-        _uid: uid,
-        pid,
-        comm,
-    }
 }

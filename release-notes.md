@@ -4,6 +4,7 @@
 - Add support for adaptive sync.
 - Add support for tearing.
 - Add support for touch input.
+- Add support for libei.
 
 # 1.4.0 (2024-07-07)
 

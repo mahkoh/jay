@@ -699,6 +699,11 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_ei_socket_enabled(&self, enabled: bool) {
+        self.state.enable_ei_acceptor.set(enabled);
+        self.state.update_ei_acceptor();
+    }
+
     fn handle_get_workspace(&self, name: &str) {
         let name = Rc::new(name.to_owned());
         let ws = match self.workspaces_by_name.get(&name) {
@@ -1910,6 +1915,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetCalibrationMatrix { device, matrix } => self
                 .handle_set_calibration_matrix(device, matrix)
                 .wrn("set_calibration_matrix")?,
+            ClientMessage::SetEiSocketEnabled { enabled } => {
+                self.handle_set_ei_socket_enabled(enabled)
+            }
         }
         Ok(())
     }

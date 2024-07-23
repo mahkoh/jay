@@ -20,6 +20,7 @@ mod idle;
 mod input;
 mod input_match;
 pub mod keymap;
+mod libei;
 mod log_level;
 mod mode;
 pub mod modified_keysym;
