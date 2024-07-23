@@ -50,6 +50,14 @@ impl<T> AsyncQueue<T> {
         AsyncQueueNonEmpty { queue: self }
     }
 
+    pub fn is_empty(&self) -> bool {
+        unsafe { self.data.get().deref().is_empty() }
+    }
+
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
     pub fn clear(&self) {
         unsafe {
             mem::take(self.data.get().deref_mut());
