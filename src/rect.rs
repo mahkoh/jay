@@ -128,13 +128,13 @@ impl Rect {
         if self.raw.x1 > x {
             dx = self.raw.x1 - x;
         } else if self.raw.x2 < x {
-            dx = x - self.raw.x1;
+            dx = x - self.raw.x2;
         }
         let mut dy = 0;
         if self.raw.y1 > y {
             dy = self.raw.y1 - y;
         } else if self.raw.y2 < y {
-            dy = y - self.raw.y1;
+            dy = y - self.raw.y2;
         }
         dx * dx + dy * dy
     }
