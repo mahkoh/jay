@@ -24,6 +24,10 @@ pub async fn handle_hardware_cursor_tick(state: Rc<State>) {
                     log::error!("Could not wait for cursor tick: {}", ErrorFmt(e));
                     break;
                 }
+            } else {
+                if state.hardware_tick_cursor.is_not_empty() {
+                    break;
+                }
             }
             state.refresh_hardware_cursors();
         }
