@@ -1,10 +1,8 @@
 use {
     crate::{
         format::{formats, Format},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{
             zwp_linux_dmabuf_v1::{self, *},
             ZwpLinuxDmabufV1Id,
@@ -13,13 +11,14 @@ use {
             usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams, usr_object::UsrObject, UsrCon,
         },
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrLinuxDmabuf {
     pub id: ZwpLinuxDmabufV1Id,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrLinuxDmabufOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrLinuxDmabufOwner {
@@ -35,6 +34,7 @@ impl UsrLinuxDmabuf {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(CreateParams {
             self_id: self.id,
@@ -43,14 +43,16 @@ impl UsrLinuxDmabuf {
         self.con.add_object(params.clone());
         params
     }
+}
 
-    fn format(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: zwp_linux_dmabuf_v1::Format = self.con.parse(self, parser)?;
+impl ZwpLinuxDmabufV1EventHandler for UsrLinuxDmabuf {
+    type Error = Infallible;
+
+    fn format(&self, _ev: zwp_linux_dmabuf_v1::Format, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn modifier(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Modifier = self.con.parse(self, parser)?;
+    fn modifier(&self, ev: Modifier, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             if let Some(format) = formats().get(&ev.format) {
                 owner.modifier(
@@ -64,10 +66,8 @@ impl UsrLinuxDmabuf {
 }
 
 usr_object_base! {
-    UsrLinuxDmabuf, ZwpLinuxDmabufV1;
-
-    FORMAT => format,
-    MODIFIER => modifier,
+    self = UsrLinuxDmabuf = ZwpLinuxDmabufV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrLinuxDmabuf {

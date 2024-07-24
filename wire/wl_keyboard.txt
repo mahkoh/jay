@@ -38,7 +38,7 @@ event modifiers {
     group: u32,
 }
 
-event repeat_info {
+event repeat_info (since = 4) {
     rate: i32,
     delay: i32,
 }

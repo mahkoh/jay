@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{jay_output::*, JayOutputId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJayOutput {
     pub id: JayOutputId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayOutputOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrJayOutputOwner {
@@ -24,17 +23,21 @@ pub trait UsrJayOutputOwner {
     fn destroyed(&self) {}
 }
 
-impl UsrJayOutput {
-    fn linear_id(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: LinearId = self.con.parse(self, parser)?;
+impl JayOutputEventHandler for UsrJayOutput {
+    type Error = Infallible;
+
+    fn linear_id(&self, ev: LinearId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.linear_id(&ev);
         }
         Ok(())
     }
 
-    fn destroyed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Destroyed = self.con.parse(self, parser)?;
+    fn unused(&self, _ev: Unused, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        unimplemented!();
+    }
+
+    fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.destroyed();
         }
@@ -43,10 +46,8 @@ impl UsrJayOutput {
 }
 
 usr_object_base! {
-    UsrJayOutput, JayOutput;
-
-    LINEAR_ID => linear_id,
-    DESTROYED => destroyed,
+    self = UsrJayOutput = JayOutput;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayOutput {

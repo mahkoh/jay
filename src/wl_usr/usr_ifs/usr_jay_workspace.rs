@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{jay_workspace::*, JayWorkspaceId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJayWorkspace {
     pub id: JayWorkspaceId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayWorkspaceOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrJayWorkspaceOwner {
@@ -38,49 +37,45 @@ pub trait UsrJayWorkspaceOwner {
     }
 }
 
-impl UsrJayWorkspace {
-    fn linear_id(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: LinearId = self.con.parse(self, parser)?;
+impl JayWorkspaceEventHandler for UsrJayWorkspace {
+    type Error = Infallible;
+
+    fn linear_id(&self, ev: LinearId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.linear_id(&ev);
         }
         Ok(())
     }
 
-    fn name(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Name = self.con.parse(self, parser)?;
+    fn name(&self, ev: Name<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.name(&ev);
         }
         Ok(())
     }
 
-    fn destroyed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Destroyed = self.con.parse(self, parser)?;
+    fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.destroyed();
         }
         Ok(())
     }
 
-    fn done(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Done = self.con.parse(self, parser)?;
+    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.done();
         }
         Ok(())
     }
 
-    fn output(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Output = self.con.parse(self, parser)?;
+    fn output(&self, ev: Output, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.output(&ev);
         }
         Ok(())
     }
 
-    fn visible(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Visible = self.con.parse(self, parser)?;
+    fn visible(&self, ev: Visible, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.visible(ev.visible != 0);
         }
@@ -89,14 +84,8 @@ impl UsrJayWorkspace {
 }
 
 usr_object_base! {
-    UsrJayWorkspace, JayWorkspace;
-
-    LINEAR_ID => linear_id,
-    NAME => name,
-    DESTROYED => destroyed,
-    DONE => done,
-    OUTPUT => output,
-    VISIBLE => visible,
+    self = UsrJayWorkspace = JayWorkspace;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayWorkspace {

@@ -1,13 +1,11 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{jay_render_ctx::*, JayRenderCtxId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
     uapi::OwnedFd,
 };
 
@@ -15,6 +13,7 @@ pub struct UsrJayRenderCtx {
     pub id: JayRenderCtxId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayRenderCtxOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrJayRenderCtxOwner {
@@ -24,17 +23,17 @@ pub trait UsrJayRenderCtxOwner {
     }
 }
 
-impl UsrJayRenderCtx {
-    fn no_device(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: NoDevice = self.con.parse(self, parser)?;
+impl JayRenderCtxEventHandler for UsrJayRenderCtx {
+    type Error = Infallible;
+
+    fn no_device(&self, _ev: NoDevice, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.no_device();
         }
         Ok(())
     }
 
-    fn device(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Device = self.con.parse(self, parser)?;
+    fn device(&self, ev: Device, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.device(ev.fd);
         }
@@ -43,10 +42,8 @@ impl UsrJayRenderCtx {
 }
 
 usr_object_base! {
-    UsrJayRenderCtx, JayRenderCtx;
-
-    NO_DEVICE => no_device,
-    DEVICE => device,
+    self = UsrJayRenderCtx = JayRenderCtx;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayRenderCtx {

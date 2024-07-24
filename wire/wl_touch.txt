@@ -36,13 +36,13 @@ event cancel {
 
 }
 
-event shape {
+event shape (since = 6) {
     id: i32,
     major: fixed,
     minor: fixed,
 }
 
-event orientation {
+event orientation (since = 6) {
     id: i32,
     orientation: fixed,
 }

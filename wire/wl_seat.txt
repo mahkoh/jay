@@ -21,6 +21,6 @@ event capabilities {
     capabilities: u32,
 }
 
-event name {
+event name (since = 2) {
     name: str,
 }

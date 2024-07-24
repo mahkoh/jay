@@ -6,7 +6,7 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         client::{EventFormatter, RequestParser, MIN_SERVER_ID},
         io_uring::{IoUring, IoUringError},
-        object::{ObjectId, WL_DISPLAY_ID},
+        object::{Interface, ObjectId, Version, WL_DISPLAY_ID},
         utils::{
             asyncevent::AsyncEvent,
             bitfield::Bitfield,
@@ -29,12 +29,13 @@ use {
                 usr_wl_callback::UsrWlCallback, usr_wl_display::UsrWlDisplay,
                 usr_wl_registry::UsrWlRegistry,
             },
-            usr_object::{UsrObject, UsrObjectError},
+            usr_object::UsrObject,
         },
     },
     std::{
         cell::{Cell, RefCell},
         collections::VecDeque,
+        error::Error,
         mem,
         rc::Rc,
     },
@@ -60,10 +61,17 @@ pub enum UsrConError {
     Read(#[source] BufFdError),
     #[error("Could not write to the compositor")]
     Write(#[source] BufFdError),
-    #[error(transparent)]
-    UsrObjectError(#[from] UsrObjectError),
     #[error("Server sent an event for object {0} that does not exist")]
     MissingObject(ObjectId),
+    #[error("Could not process a `{}.{}` event", .interface.name(), .method)]
+    MethodError {
+        interface: Interface,
+        method: &'static str,
+        #[source]
+        error: Box<dyn Error + 'static>,
+    },
+    #[error("Client tried to invoke a non-existent method")]
+    InvalidMethod,
 }
 
 pub struct UsrCon {
@@ -133,6 +141,7 @@ impl UsrCon {
             Some(Rc::new(UsrWlDisplay {
                 id: WL_DISPLAY_ID,
                 con: slf.clone(),
+                version: Version(1),
             })),
         );
         slf.incoming.set(Some(
@@ -198,6 +207,7 @@ impl UsrCon {
             id: self.id(),
             con: self.clone(),
             owner: Default::default(),
+            version: Version(1),
         });
         self.request(wl_display::GetRegistry {
             self_id: WL_DISPLAY_ID,
@@ -352,7 +362,7 @@ impl Incoming {
         if let Some(obj) = self.con.objects.get(&obj_id) {
             if let Some(obj) = obj {
                 let parser = MsgParser::new(&mut self.buf, &self.data);
-                obj.handle_event(event, parser)?;
+                obj.handle_event(&self.con, event, parser)?;
             }
         } else if obj_id.raw() < MIN_SERVER_ID {
             return Err(UsrConError::MissingObject(obj_id));

@@ -1,10 +1,8 @@
 use {
     crate::{
         format::formats,
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         wire::{jay_screencast::*, JayScreencastId},
         wl_usr::{
@@ -24,6 +22,7 @@ pub struct UsrJayScreencast {
     pub id: JayScreencastId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayScreencastOwner>>>,
+    pub version: Version,
 
     pub pending_buffers: RefCell<PlaneVec<DmaBuf>>,
     pub pending_planes: RefCell<PlaneVec<DmaBufPlane>>,
@@ -117,9 +116,12 @@ impl UsrJayScreencast {
             idx: idx as _,
         });
     }
+}
 
-    fn plane(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Plane = self.con.parse(self, parser)?;
+impl JayScreencastEventHandler for UsrJayScreencast {
+    type Error = UsrJayScreencastError;
+
+    fn plane(&self, ev: Plane, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending_planes.borrow_mut().push(DmaBufPlane {
             offset: ev.offset,
             stride: ev.stride,
@@ -128,8 +130,7 @@ impl UsrJayScreencast {
         Ok(())
     }
 
-    fn buffer(&self, parser: MsgParser<'_, '_>) -> Result<(), UsrJayScreencastError> {
-        let ev: Buffer = self.con.parse(self, parser)?;
+    fn buffer(&self, ev: Buffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let format = match formats().get(&ev.format) {
             Some(f) => f,
             _ => return Err(UsrJayScreencastError::UnknownFormat(ev.format)),
@@ -145,8 +146,7 @@ impl UsrJayScreencast {
         Ok(())
     }
 
-    fn buffers_done(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: BuffersDone = self.con.parse(self, parser)?;
+    fn buffers_done(&self, ev: BuffersDone, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.buffers(mem::take(self.pending_buffers.borrow_mut().deref_mut()));
         }
@@ -157,56 +157,46 @@ impl UsrJayScreencast {
         Ok(())
     }
 
-    fn ready(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Ready = self.con.parse(self, parser)?;
+    fn ready(&self, ev: Ready, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.ready(&ev);
         }
         Ok(())
     }
 
-    fn destroyed(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Destroyed = self.con.parse(self, parser)?;
+    fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.destroyed();
         }
         Ok(())
     }
 
-    fn missed_frame(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: MissedFrame = self.con.parse(self, parser)?;
+    fn missed_frame(&self, _ev: MissedFrame, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.missed_frame();
         }
         Ok(())
     }
 
-    fn config_output(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ConfigOutput = self.con.parse(self, parser)?;
+    fn config_output(&self, ev: ConfigOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.pending_config.borrow_mut().output = Some(ev.linear_id);
         Ok(())
     }
 
-    fn config_allow_all_workspaces(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ConfigAllowAllWorkspaces = self.con.parse(self, parser)?;
+    fn config_allow_all_workspaces(
+        &self,
+        ev: ConfigAllowAllWorkspaces,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.pending_config.borrow_mut().show_all = ev.allow_all != 0;
         Ok(())
     }
 
-    fn config_use_linear_buffers(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ConfigUseLinearBuffers = self.con.parse(self, parser)?;
-        self.pending_config.borrow_mut().use_linear_buffers = ev.use_linear != 0;
-        Ok(())
-    }
-
-    fn config_running(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ConfigRunning = self.con.parse(self, parser)?;
-        self.pending_config.borrow_mut().running = ev.running != 0;
-        Ok(())
-    }
-
-    fn config_allow_workspace(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ConfigAllowWorkspace = self.con.parse(self, parser)?;
+    fn config_allow_workspace(
+        &self,
+        ev: ConfigAllowWorkspace,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.pending_config
             .borrow_mut()
             .allowed_workspaces
@@ -214,8 +204,21 @@ impl UsrJayScreencast {
         Ok(())
     }
 
-    fn config_done(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: ConfigDone = self.con.parse(self, parser)?;
+    fn config_use_linear_buffers(
+        &self,
+        ev: ConfigUseLinearBuffers,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.pending_config.borrow_mut().use_linear_buffers = ev.use_linear != 0;
+        Ok(())
+    }
+
+    fn config_running(&self, ev: ConfigRunning, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.pending_config.borrow_mut().running = ev.running != 0;
+        Ok(())
+    }
+
+    fn config_done(&self, ev: ConfigDone, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.config(mem::take(self.pending_config.borrow_mut().deref_mut()));
         }
@@ -228,20 +231,8 @@ impl UsrJayScreencast {
 }
 
 usr_object_base! {
-    UsrJayScreencast, JayScreencast;
-
-    PLANE => plane,
-    BUFFER => buffer,
-    BUFFERS_DONE => buffers_done,
-    READY => ready,
-    DESTROYED => destroyed,
-    MISSED_FRAME => missed_frame,
-    CONFIG_OUTPUT => config_output,
-    CONFIG_ALLOW_ALL_WORKSPACES => config_allow_all_workspaces,
-    CONFIG_ALLOW_WORKSPACE => config_allow_workspace,
-    CONFIG_USE_LINEAR_BUFFERS => config_use_linear_buffers,
-    CONFIG_RUNNING => config_running,
-    CONFIG_DONE => config_done,
+    self = UsrJayScreencast = JayScreencast;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayScreencast {
@@ -256,8 +247,6 @@ impl UsrObject for UsrJayScreencast {
 
 #[derive(Debug, Error)]
 pub enum UsrJayScreencastError {
-    #[error("Parsing failed")]
-    MsgParserError(#[from] MsgParserError),
     #[error("The server sent an unknown format {0}")]
     UnknownFormat(u32),
 }

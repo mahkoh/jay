@@ -1,16 +1,17 @@
 use {
     crate::{
-        utils::buffd::{MsgParser, MsgParserError},
+        object::Version,
         wire::{wl_callback::*, WlCallbackId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlCallback {
     pub id: WlCallbackId,
     pub con: Rc<UsrCon>,
     pub handler: Cell<Option<Box<dyn FnOnce()>>>,
+    pub version: Version,
 }
 
 impl UsrWlCallback {
@@ -22,11 +23,15 @@ impl UsrWlCallback {
             id: con.id(),
             con: con.clone(),
             handler: Cell::new(Some(Box::new(handler))),
+            version: Version(1),
         }
     }
+}
 
-    fn done(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let _ev: Done = self.con.parse(self, parser)?;
+impl WlCallbackEventHandler for UsrWlCallback {
+    type Error = Infallible;
+
+    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(handler) = self.handler.take() {
             handler();
         }
@@ -36,9 +41,8 @@ impl UsrWlCallback {
 }
 
 usr_object_base! {
-    UsrWlCallback, WlCallback;
-
-    DONE => done,
+    self = UsrWlCallback = WlCallback;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlCallback {

@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{wl_seat::*, WlSeatId},
         wl_usr::{usr_ifs::usr_wl_pointer::UsrWlPointer, usr_object::UsrObject, UsrCon},
     },
-    std::{cell::Cell, rc::Rc},
+    std::{cell::Cell, convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlSeat {
     pub id: WlSeatId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrWlSeatOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrWlSeatOwner {
@@ -34,6 +33,7 @@ impl UsrWlSeat {
             owner: Default::default(),
             any_scroll_events: Cell::new(false),
             pending_scroll: Default::default(),
+            version: self.version,
         });
         self.con.add_object(ptr.clone());
         self.con.request(GetPointer {
@@ -42,17 +42,19 @@ impl UsrWlSeat {
         });
         ptr
     }
+}
 
-    fn capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Capabilities = self.con.parse(self, parser)?;
+impl WlSeatEventHandler for UsrWlSeat {
+    type Error = Infallible;
+
+    fn capabilities(&self, ev: Capabilities, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.capabilities(ev.capabilities);
         }
         Ok(())
     }
 
-    fn name(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Name = self.con.parse(self, parser)?;
+    fn name(&self, ev: Name<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.name(ev.name);
         }
@@ -61,10 +63,8 @@ impl UsrWlSeat {
 }
 
 usr_object_base! {
-    UsrWlSeat, WlSeat;
-
-    CAPABILITIES => capabilities,
-    NAME => name,
+    self = UsrWlSeat = WlSeat;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlSeat {
