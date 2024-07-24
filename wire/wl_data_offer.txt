@@ -27,10 +27,10 @@ event offer {
     mime_type: str,
 }
 
-event source_actions {
+event source_actions (since = 3) {
     source_actions: u32,
 }
 
-event action {
+event action (since = 3) {
     dnd_action: u32,
 }

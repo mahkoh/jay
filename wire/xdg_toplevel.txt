@@ -68,11 +68,11 @@ event configure {
 
 event close { }
 
-event configure_bounds {
+event configure_bounds (since = 4) {
     width: i32,
     height: i32,
 }
 
-event wm_capabilities {
+event wm_capabilities (since = 5) {
     capabilities: array(u32),
 }

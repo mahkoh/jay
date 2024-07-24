@@ -1,15 +1,17 @@
 use {
     crate::{
         fixed::Fixed,
+        object::Version,
         wire::{wp_viewport::*, WpViewportId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWpViewport {
     pub id: WpViewportId,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrWpViewport {
@@ -33,8 +35,13 @@ impl UsrWpViewport {
     }
 }
 
+impl WpViewportEventHandler for UsrWpViewport {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrWpViewport, WpViewport;
+    self = UsrWpViewport = WpViewport;
+    version = self.version;
 }
 
 impl UsrObject for UsrWpViewport {

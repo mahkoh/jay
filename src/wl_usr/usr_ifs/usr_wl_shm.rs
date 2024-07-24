@@ -1,14 +1,12 @@
 use {
     crate::{
         format::{formats, map_wayland_format_id},
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            copyhashmap::CopyHashMap,
-        },
+        object::Version,
+        utils::copyhashmap::CopyHashMap,
         wire::{wl_shm::*, WlShmId},
         wl_usr::{usr_ifs::usr_wl_shm_pool::UsrWlShmPool, usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
     uapi::OwnedFd,
 };
 
@@ -16,6 +14,7 @@ pub struct UsrWlShm {
     pub id: WlShmId,
     pub con: Rc<UsrCon>,
     pub formats: CopyHashMap<u32, &'static crate::format::Format>,
+    pub version: Version,
 }
 
 impl UsrWlShm {
@@ -24,6 +23,7 @@ impl UsrWlShm {
         let pool = Rc::new(UsrWlShmPool {
             id: self.con.id(),
             con: self.con.clone(),
+            version: self.version,
         });
         self.con.request(CreatePool {
             self_id: self.id,
@@ -34,9 +34,12 @@ impl UsrWlShm {
         self.con.add_object(pool.clone());
         pool
     }
+}
 
-    fn format(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Format = self.con.parse(self, parser)?;
+impl WlShmEventHandler for UsrWlShm {
+    type Error = Infallible;
+
+    fn format(&self, ev: Format, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let format = map_wayland_format_id(ev.format);
         if let Some(format) = formats().get(&format) {
             self.formats.set(format.drm, *format);
@@ -46,9 +49,8 @@ impl UsrWlShm {
 }
 
 usr_object_base! {
-    UsrWlShm, WlShm;
-
-    FORMAT => format,
+    self = UsrWlShm = WlShm;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlShm {

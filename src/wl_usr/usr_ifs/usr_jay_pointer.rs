@@ -1,15 +1,17 @@
 use {
     crate::{
         cursor::KnownCursor,
+        object::Version,
         wire::{jay_pointer::*, JayPointerId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrJayPointer {
     pub id: JayPointerId,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrJayPointer {
@@ -21,8 +23,13 @@ impl UsrJayPointer {
     }
 }
 
+impl JayPointerEventHandler for UsrJayPointer {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrJayPointer, JayPointer;
+    self = UsrJayPointer = JayPointer;
+    version = self.version;
 }
 
 impl UsrObject for UsrJayPointer {

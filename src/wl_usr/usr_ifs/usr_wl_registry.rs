@@ -1,19 +1,18 @@
 use {
     crate::{
-        utils::{
-            buffd::{MsgParser, MsgParserError},
-            clonecell::CloneCell,
-        },
+        object::Version,
+        utils::clonecell::CloneCell,
         wire::{wl_registry::*, WlRegistryId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlRegistry {
     pub id: WlRegistryId,
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrWlRegistryOwner>>>,
+    pub version: Version,
 }
 
 pub trait UsrWlRegistryOwner {
@@ -38,17 +37,19 @@ impl UsrWlRegistry {
             id: obj.id(),
         });
     }
+}
 
-    fn global(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: Global = self.con.parse(self, parser)?;
+impl WlRegistryEventHandler for UsrWlRegistry {
+    type Error = Infallible;
+
+    fn global(&self, ev: Global<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.global(ev.name, ev.interface, ev.version);
         }
         Ok(())
     }
 
-    fn global_remove(&self, parser: MsgParser<'_, '_>) -> Result<(), MsgParserError> {
-        let ev: GlobalRemove = self.con.parse(self, parser)?;
+    fn global_remove(&self, ev: GlobalRemove, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
             owner.global_remove(ev.name);
         }
@@ -57,10 +58,8 @@ impl UsrWlRegistry {
 }
 
 usr_object_base! {
-    UsrWlRegistry, WlRegistry;
-
-    GLOBAL => global,
-    GLOBAL_REMOVE => global_remove,
+    self = UsrWlRegistry = WlRegistry;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlRegistry {

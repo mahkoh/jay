@@ -1,6 +1,6 @@
 use {
     crate::{
-        utils::buffd::{MsgParser, MsgParserError},
+        object::Version,
         wire::{wl_display::*, WlDisplayId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
@@ -10,16 +10,17 @@ use {
 pub struct UsrWlDisplay {
     pub id: WlDisplayId,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
-impl UsrWlDisplay {
-    fn error(&self, parser: MsgParser<'_, '_>) -> Result<(), UsrWlDisplayError> {
-        let ev: Error = self.con.parse(self, parser)?;
+impl WlDisplayEventHandler for UsrWlDisplay {
+    type Error = UsrWlDisplayError;
+
+    fn error(&self, ev: Error<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Err(UsrWlDisplayError::ServerError(ev.message.to_owned()))
     }
 
-    fn delete_id(&self, parser: MsgParser<'_, '_>) -> Result<(), UsrWlDisplayError> {
-        let ev: DeleteId = self.con.parse(self, parser)?;
+    fn delete_id(&self, ev: DeleteId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.con.release_id(ev.id);
         Ok(())
     }
@@ -29,15 +30,11 @@ impl UsrWlDisplay {
 pub enum UsrWlDisplayError {
     #[error("The server emitted an error: {0}")]
     ServerError(String),
-    #[error(transparent)]
-    MsgParserError(#[from] MsgParserError),
 }
 
 usr_object_base! {
-    UsrWlDisplay, WlDisplay;
-
-    ERROR => error,
-    DELETE_ID => delete_id,
+    self = UsrWlDisplay = WlDisplay;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlDisplay {

@@ -27,14 +27,14 @@ event cancelled {
 
 }
 
-event dnd_drop_performed {
+event dnd_drop_performed (since = 3) {
 
 }
 
-event dnd_finished {
+event dnd_finished (since = 3) {
 
 }
 
-event action {
+event action (since = 3) {
     dnd_action: u32,
 }

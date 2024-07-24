@@ -1,5 +1,6 @@
 use {
     crate::{
+        object::Version,
         wire::{wp_viewporter::*, WpViewporterId},
         wl_usr::{
             usr_ifs::{usr_wl_surface::UsrWlSurface, usr_wp_viewport::UsrWpViewport},
@@ -7,12 +8,13 @@ use {
             UsrCon,
         },
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWpViewporter {
     pub id: WpViewporterId,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrWpViewporter {
@@ -20,6 +22,7 @@ impl UsrWpViewporter {
         let wv = Rc::new(UsrWpViewport {
             id: self.con.id(),
             con: self.con.clone(),
+            version: self.version,
         });
         self.con.add_object(wv.clone());
         self.con.request(GetViewport {
@@ -31,8 +34,13 @@ impl UsrWpViewporter {
     }
 }
 
+impl WpViewporterEventHandler for UsrWpViewporter {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrWpViewporter, WpViewporter;
+    self = UsrWpViewporter = WpViewporter;
+    version = self.version;
 }
 
 impl UsrObject for UsrWpViewporter {

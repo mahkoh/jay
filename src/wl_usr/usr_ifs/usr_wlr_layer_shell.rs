@@ -1,5 +1,6 @@
 use {
     crate::{
+        object::Version,
         wire::{zwlr_layer_shell_v1::*, ZwlrLayerShellV1Id},
         wl_usr::{
             usr_ifs::{
@@ -10,12 +11,13 @@ use {
             UsrCon,
         },
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlrLayerShell {
     pub id: ZwlrLayerShellV1Id,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrWlrLayerShell {
@@ -29,6 +31,7 @@ impl UsrWlrLayerShell {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.add_object(sfc.clone());
         self.con.request(GetLayerSurface {
@@ -43,8 +46,13 @@ impl UsrWlrLayerShell {
     }
 }
 
+impl ZwlrLayerShellV1EventHandler for UsrWlrLayerShell {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrWlrLayerShell, ZwlrLayerShellV1;
+    self = UsrWlrLayerShell = ZwlrLayerShellV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlrLayerShell {

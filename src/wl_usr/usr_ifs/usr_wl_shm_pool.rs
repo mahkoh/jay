@@ -1,14 +1,16 @@
 use {
     crate::{
+        object::Version,
         wire::{wl_shm_pool::*, WlShmPoolId},
         wl_usr::{usr_object::UsrObject, UsrCon},
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
 
 pub struct UsrWlShmPool {
     pub id: WlShmPoolId,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrWlShmPool {
@@ -21,8 +23,13 @@ impl UsrWlShmPool {
     }
 }
 
+impl WlShmPoolEventHandler for UsrWlShmPool {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrWlShmPool, WlShmPool;
+    self = UsrWlShmPool = WlShmPool;
+    version = self.version;
 }
 
 impl UsrObject for UsrWlShmPool {

@@ -2,6 +2,7 @@ use {
     crate::{
         gfx_apis::create_gfx_context,
         ifs::wl_seat::POINTER,
+        object::Version,
         portal::{
             ptl_render_ctx::PortalRenderCtx, ptl_screencast::ScreencastSession,
             ptr_gui::WindowData, PortalState,
@@ -213,6 +214,7 @@ impl UsrWlRegistryOwner for PortalDisplay {
                 id: self.con.id(),
                 con: self.con.clone(),
                 owner: Default::default(),
+                version: Version(version.min(5)),
             });
             self.con.add_object(ls.clone());
             self.registry.request_bind(name, version, ls.deref());
@@ -301,6 +303,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     con: dpy.con.clone(),
                     owner: Default::default(),
                     caps: Default::default(),
+                    version: Version(version.min(4)),
                 });
                 dpy.con.add_object(jc.clone());
                 dpy.registry.request_bind(name, version, jc.deref());
@@ -309,6 +312,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 let ls = Rc::new(UsrWpFractionalScaleManager {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
+                    version: Version(version.min(1)),
                 });
                 dpy.con.add_object(ls.clone());
                 dpy.registry.request_bind(name, version, ls.deref());
@@ -317,6 +321,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 let ls = Rc::new(UsrWlrLayerShell {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
+                    version: Version(version.min(5)),
                 });
                 dpy.con.add_object(ls.clone());
                 dpy.registry.request_bind(name, version, ls.deref());
@@ -325,6 +330,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 let ls = Rc::new(UsrWpViewporter {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
+                    version: Version(version.min(1)),
                 });
                 dpy.con.add_object(ls.clone());
                 dpy.registry.request_bind(name, version, ls.deref());
@@ -333,6 +339,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 let ls = Rc::new(UsrWlCompositor {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
+                    version: Version(version.min(6)),
                 });
                 dpy.con.add_object(ls.clone());
                 dpy.registry.request_bind(name, version, ls.deref());
@@ -342,6 +349,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     id: dpy.con.id(),
                     con: dpy.con.clone(),
                     owner: Default::default(),
+                    version: Version(version.min(5)),
                 });
                 dpy.con.add_object(ls.clone());
                 dpy.registry.request_bind(name, version, ls.deref());
@@ -410,6 +418,7 @@ fn add_seat(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         id: dpy.con.id(),
         con: dpy.con.clone(),
         owner: Default::default(),
+        version: Version(version.min(9)),
     });
     dpy.con.add_object(wl.clone());
     dpy.registry.request_bind(name, version, wl.deref());
@@ -433,6 +442,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: u32, version: u32) {
         id: dpy.con.id(),
         con: dpy.con.clone(),
         owner: Default::default(),
+        version: Version(version.min(4)),
     });
     dpy.con.add_object(wl.clone());
     dpy.registry.request_bind(name, version, wl.deref());

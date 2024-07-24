@@ -1,5 +1,6 @@
 use {
     crate::{
+        object::Version,
         wire::{zwlr_screencopy_manager_v1::*, ZwlrScreencopyManagerV1Id},
         wl_usr::{
             usr_ifs::{
@@ -9,11 +10,13 @@ use {
             UsrCon,
         },
     },
-    std::rc::Rc,
+    std::{convert::Infallible, rc::Rc},
 };
+
 pub struct UsrZwlrScreencopyManager {
     pub id: ZwlrScreencopyManagerV1Id,
     pub con: Rc<UsrCon>,
+    pub version: Version,
 }
 
 impl UsrZwlrScreencopyManager {
@@ -23,6 +26,7 @@ impl UsrZwlrScreencopyManager {
             id: self.con.id(),
             con: self.con.clone(),
             owner: Default::default(),
+            version: self.version,
         });
         self.con.request(CaptureOutput {
             self_id: self.id,
@@ -35,8 +39,13 @@ impl UsrZwlrScreencopyManager {
     }
 }
 
+impl ZwlrScreencopyManagerV1EventHandler for UsrZwlrScreencopyManager {
+    type Error = Infallible;
+}
+
 usr_object_base! {
-    UsrZwlrScreencopyManager, ZwlrScreencopyManagerV1;
+    self = UsrZwlrScreencopyManager = ZwlrScreencopyManagerV1;
+    version = self.version;
 }
 
 impl UsrObject for UsrZwlrScreencopyManager {
