@@ -1300,6 +1300,7 @@ impl ConfigProxyHandler {
             Some(f) => f,
             _ => return Err(CphError::NoForker),
         };
+        let env = env.into_iter().map(|(k, v)| (k, Some(v))).collect();
         forker.spawn(prog.to_string(), args, env, fds);
         Ok(())
     }

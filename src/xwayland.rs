@@ -14,7 +14,7 @@ use {
         io_uring::IoUringError,
         state::State,
         user_session::import_environment,
-        utils::{errorfmt::ErrorFmt, line_logger::log_lines, oserror::OsError},
+        utils::{buf::Buf, errorfmt::ErrorFmt, line_logger::log_lines, oserror::OsError},
         wire::WlSurfaceId,
         xcon::XconError,
         xwayland::{
@@ -153,6 +153,7 @@ async fn run(
     let stderr_read = state.eng.spawn(log_xwayland(state.clone(), stderr_read));
     let pidfd = forker
         .xwayland(
+            &state,
             Rc::new(stderr_write),
             Rc::new(dfdwrite),
             socket,
@@ -195,9 +196,12 @@ async fn run(
     Ok(())
 }
 
-pub fn build_args() -> (String, Vec<String>) {
-    let prog = "Xwayland".to_string();
-    let args = vec![
+const PROG: &str = "Xwayland";
+const ENABLE_EI_PORTAL: &str = "-enable-ei-portal";
+
+pub async fn build_args(state: &State, forker: &ForkerProxy) -> (String, Vec<String>) {
+    let prog = PROG.to_string();
+    let mut args = vec![
         "-terminate".to_string(),
         "-rootless".to_string(),
         "-verbose".to_string(),
@@ -209,7 +213,43 @@ pub fn build_args() -> (String, Vec<String>) {
         "-wm".to_string(),
         "5".to_string(),
     ];
+    let features = detect_features(state, forker).await;
+    if features.ei_portal {
+        args.push(ENABLE_EI_PORTAL.to_string());
+    }
     (prog, args)
+}
+
+#[derive(Default, Debug)]
+struct XwaylandFeatures {
+    ei_portal: bool,
+}
+
+async fn detect_features(state: &State, forker: &ForkerProxy) -> XwaylandFeatures {
+    let mut features = Default::default();
+    let Ok((read, write)) = pipe2(c::O_CLOEXEC) else {
+        return features;
+    };
+    forker.spawn(
+        PROG.to_string(),
+        vec!["-help".to_string()],
+        vec![],
+        vec![(2, Rc::new(write))],
+    );
+    let read = Rc::new(read);
+    let mut help = Vec::new();
+    let mut buf = Buf::new(1024);
+    loop {
+        match state.ring.read(&read, buf.clone()).await {
+            Ok(0) => break,
+            Ok(n) => help.extend_from_slice(&buf[..n]),
+            Err(_) => return features,
+        }
+    }
+    if help.as_bstr().contains_str(ENABLE_EI_PORTAL) {
+        features.ei_portal = true;
+    }
+    features
 }
 
 async fn log_xwayland(state: Rc<State>, stderr: OwnedFd) {
