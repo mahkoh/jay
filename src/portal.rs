@@ -14,7 +14,7 @@ use {
         forker::ForkerError,
         io_uring::IoUring,
         logger::Logger,
-        pipewire::pw_con::{PwCon, PwConHolder, PwConOwner},
+        pipewire::pw_con::{PwConHolder, PwConOwner},
         portal::{
             ptl_display::{watch_displays, PortalDisplay, PortalDisplayId},
             ptl_render_ctx::PortalRenderCtx,
@@ -181,9 +181,10 @@ async fn run_async(
         }
     };
     let pw_con = match PwConHolder::new(&eng, &ring).await {
-        Ok(p) => p,
+        Ok(p) => Some(p),
         Err(e) => {
-            fatal!("Could not connect to pipewire: {}", ErrorFmt(e));
+            log::error!("Could not connect to pipewire: {}", ErrorFmt(e));
+            None
         }
     };
     let state = Rc::new(PortalState {
@@ -191,7 +192,6 @@ async fn run_async(
         ring,
         eng,
         wheel,
-        pw_con: pw_con.con.clone(),
         displays: Default::default(),
         dbus,
         screencasts: Default::default(),
@@ -199,15 +199,19 @@ async fn run_async(
         render_ctxs: Default::default(),
         dma_buf_ids: Default::default(),
     });
+    if let Some(pw_con) = &pw_con {
+        pw_con.con.owner.set(Some(state.clone()));
+    }
     let _root = {
         let obj = state
             .dbus
             .add_object("/org/freedesktop/portal/desktop")
             .unwrap();
-        add_screencast_dbus_members(&state, &obj);
+        if let Some(pw_con) = &pw_con {
+            add_screencast_dbus_members(&state, &pw_con.con, &obj);
+        }
         obj
     };
-    state.pw_con.owner.set(Some(state.clone()));
     watch_displays(state.clone()).await;
 }
 
@@ -281,7 +285,6 @@ struct PortalState {
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
     wheel: Rc<Wheel>,
-    pw_con: Rc<PwCon>,
     displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,
     dbus: Rc<DbusSocket>,
     screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
