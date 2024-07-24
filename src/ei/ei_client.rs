@@ -16,6 +16,7 @@ use {
             asyncevent::AsyncEvent,
             buffd::{EiMsgFormatter, EiMsgParser, EiMsgParserError, OutBufferSwapchain},
             clonecell::CloneCell,
+            debug_fn::debug_fn,
             errorfmt::ErrorFmt,
             numcell::NumCell,
             pid_info::{get_pid_info, get_socket_creds, PidInfo},
@@ -31,7 +32,7 @@ use {
         ops::DerefMut,
         rc::Rc,
     },
-    uapi::{c, OwnedFd},
+    uapi::OwnedFd,
 };
 
 mod ei_error;
@@ -64,26 +65,21 @@ impl EiClients {
         mem::take(self.shutdown_clients.borrow_mut().deref_mut());
     }
 
-    pub fn spawn(
-        &self,
-        id: ClientId,
-        global: &Rc<State>,
-        socket: Rc<OwnedFd>,
-    ) -> Result<(), EiClientError> {
+    pub fn spawn(&self, global: &Rc<State>, socket: Rc<OwnedFd>) -> Result<(), EiClientError> {
         let Some((uid, pid)) = get_socket_creds(&socket) else {
             return Ok(());
         };
-        self.spawn2(id, global, socket, uid, pid)?;
+        let pid_info = get_pid_info(uid, pid);
+        self.spawn2(global, socket, Some(pid_info), None)?;
         Ok(())
     }
 
     pub fn spawn2(
         &self,
-        id: ClientId,
         global: &Rc<State>,
         socket: Rc<OwnedFd>,
-        uid: c::uid_t,
-        pid: c::pid_t,
+        pid_info: Option<PidInfo>,
+        app_id: Option<String>,
     ) -> Result<Rc<EiClient>, EiClientError> {
         let versions = EiInterfaceVersions {
             ei_button: EiInterfaceVersion::new(1),
@@ -100,7 +96,7 @@ impl EiClients {
             ei_touchscreen: EiInterfaceVersion::new(1),
         };
         let data = Rc::new(EiClient {
-            id,
+            id: global.clients.id(),
             state: global.clone(),
             context: Cell::new(EiContext::Receiver),
             connection: Default::default(),
@@ -111,10 +107,11 @@ impl EiClients {
             flush_request: Default::default(),
             shutdown: Default::default(),
             tracker: Default::default(),
-            pid_info: get_pid_info(uid, pid),
+            pid_info,
             disconnect_announced: Cell::new(false),
             versions,
             name: Default::default(),
+            app_id,
             last_serial: Default::default(),
         });
         track!(data, data);
@@ -127,12 +124,17 @@ impl EiClients {
             data: data.clone(),
         };
         log::info!(
-            "Client {} connected, pid: {}, uid: {}, fd: {}, comm: {:?}",
-            id,
-            pid,
-            uid,
-            client.data.socket.raw(),
-            data.pid_info.comm,
+            "Client {} connected{:?}",
+            data.id,
+            debug_fn(|fmt| {
+                if let Some(p) = &data.pid_info {
+                    write!(fmt, ", pid: {}, uid: {}, comm: {:?}", p.pid, p.uid, p.comm)?;
+                }
+                if let Some(app_id) = &data.app_id {
+                    write!(fmt, ", app-id: {app_id:?}")?;
+                }
+                Ok(())
+            }),
         );
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
@@ -199,10 +201,11 @@ pub struct EiClient {
     flush_request: AsyncEvent,
     shutdown: AsyncEvent,
     pub tracker: Tracker<EiClient>,
-    pub pid_info: PidInfo,
+    pub pid_info: Option<PidInfo>,
     pub disconnect_announced: Cell<bool>,
     pub versions: EiInterfaceVersions,
     pub name: RefCell<Option<String>>,
+    pub app_id: Option<String>,
     pub last_serial: NumCell<u64>,
 }
 

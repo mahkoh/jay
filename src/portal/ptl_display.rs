@@ -4,8 +4,8 @@ use {
         ifs::wl_seat::POINTER,
         object::Version,
         portal::{
-            ptl_render_ctx::PortalRenderCtx, ptl_screencast::ScreencastSession,
-            ptr_gui::WindowData, PortalState,
+            ptl_remote_desktop::RemoteDesktopSession, ptl_render_ctx::PortalRenderCtx,
+            ptl_screencast::ScreencastSession, ptr_gui::WindowData, PortalState,
         },
         utils::{
             bitflags::BitflagsExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -74,6 +74,7 @@ pub struct PortalDisplay {
 
     pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
     pub screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
+    pub remote_desktop_sessions: CopyHashMap<String, Rc<RemoteDesktopSession>>,
 }
 
 pub struct PortalOutput {
@@ -303,7 +304,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                     con: dpy.con.clone(),
                     owner: Default::default(),
                     caps: Default::default(),
-                    version: Version(version.min(4)),
+                    version: Version(version.min(5)),
                 });
                 dpy.con.add_object(jc.clone());
                 dpy.registry.request_bind(name, version, jc.deref());
@@ -395,6 +396,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
         vp,
         windows: Default::default(),
         screencasts: Default::default(),
+        remote_desktop_sessions: Default::default(),
     });
 
     dpy.state.displays.set(dpy.id, dpy.clone());

@@ -1,0 +1,41 @@
+fn CreateSession(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn SelectDevices(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn Start(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    parent_window: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn ConnectToEIS(
+    session_handle: object_path,
+    app_id: string,
+    options: array(dict(string, variant)),
+) {
+    fd: fd,
+}
+
+prop AvailableDeviceTypes = u32
+prop version = u32

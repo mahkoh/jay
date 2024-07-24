@@ -5,7 +5,7 @@ use {
 };
 
 pub struct PidInfo {
-    pub _uid: c::uid_t,
+    pub uid: c::uid_t,
     pub pid: c::pid_t,
     pub comm: String,
 }
@@ -18,11 +18,7 @@ pub fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
             "Unknown".to_string()
         }
     };
-    PidInfo {
-        _uid: uid,
-        pid,
-        comm,
-    }
+    PidInfo { uid, pid, comm }
 }
 
 pub fn get_socket_creds(socket: &OwnedFd) -> Option<(c::uid_t, c::pid_t)> {

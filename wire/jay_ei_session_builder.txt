@@ -1,0 +1,7 @@
+request commit (since = 5) {
+    id: id(jay_ei_session),
+}
+
+request set_app_id (since = 5) {
+    app_id: str,
+}

@@ -4,6 +4,7 @@ use {
         client::{Client, ClientCaps, ClientError, CAP_JAY_COMPOSITOR},
         globals::{Global, GlobalName},
         ifs::{
+            jay_ei_session_builder::JayEiSessionBuilder,
             jay_idle::JayIdle,
             jay_input::JayInput,
             jay_log_file::JayLogFile,
@@ -29,6 +30,8 @@ use {
     std::{cell::Cell, ops::Deref, rc::Rc},
     thiserror::Error,
 };
+
+pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
 
 pub struct JayCompositorGlobal {
     name: GlobalName,
@@ -66,7 +69,7 @@ impl Global for JayCompositorGlobal {
     }
 
     fn version(&self) -> u32 {
-        4
+        5
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -375,6 +378,19 @@ impl JayCompositorRequestHandler for JayCompositor {
             jsw: obj.clone(),
         };
         seat.global.select_workspace(selector);
+        Ok(())
+    }
+
+    fn create_ei_session(&self, req: CreateEiSession, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayEiSessionBuilder {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            app_id: Default::default(),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
         Ok(())
     }
 }

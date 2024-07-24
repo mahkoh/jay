@@ -88,6 +88,10 @@ request select_workspace {
     seat: id(wl_seat),
 }
 
+request create_ei_session (since = 5) {
+    id: id(jay_ei_session_builder),
+}
+
 # events
 
 event client_id {

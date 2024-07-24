@@ -1,4 +1,6 @@
 pub mod usr_jay_compositor;
+pub mod usr_jay_ei_session;
+pub mod usr_jay_ei_session_builder;
 pub mod usr_jay_output;
 pub mod usr_jay_pointer;
 pub mod usr_jay_render_ctx;

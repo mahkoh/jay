@@ -1,4 +1,5 @@
 mod ptl_display;
+mod ptl_remote_desktop;
 mod ptl_render_ctx;
 mod ptl_screencast;
 mod ptr_gui;
@@ -17,6 +18,7 @@ use {
         pipewire::pw_con::{PwConHolder, PwConOwner},
         portal::{
             ptl_display::{watch_displays, PortalDisplay, PortalDisplayId},
+            ptl_remote_desktop::{add_remote_desktop_dbus_members, RemoteDesktopSession},
             ptl_render_ctx::PortalRenderCtx,
             ptl_screencast::{add_screencast_dbus_members, ScreencastSession},
         },
@@ -195,6 +197,7 @@ async fn run_async(
         displays: Default::default(),
         dbus,
         screencasts: Default::default(),
+        remote_desktop_sessions: Default::default(),
         next_id: NumCell::new(1),
         render_ctxs: Default::default(),
         dma_buf_ids: Default::default(),
@@ -210,6 +213,7 @@ async fn run_async(
         if let Some(pw_con) = &pw_con {
             add_screencast_dbus_members(&state, &pw_con.con, &obj);
         }
+        add_remote_desktop_dbus_members(&state, &obj);
         obj
     };
     watch_displays(state.clone()).await;
@@ -288,6 +292,7 @@ struct PortalState {
     displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,
     dbus: Rc<DbusSocket>,
     screencasts: CopyHashMap<String, Rc<ScreencastSession>>,
+    remote_desktop_sessions: CopyHashMap<String, Rc<RemoteDesktopSession>>,
     next_id: NumCell<u32>,
     render_ctxs: CopyHashMap<c::dev_t, Weak<PortalRenderCtx>>,
     dma_buf_ids: Rc<DmaBufIds>,

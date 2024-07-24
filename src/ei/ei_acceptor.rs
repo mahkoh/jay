@@ -146,8 +146,7 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>) {
                 break;
             }
         };
-        let id = state.clients.id();
-        if let Err(e) = state.ei_clients.spawn(id, &state, fd) {
+        if let Err(e) = state.ei_clients.spawn(&state, fd) {
             log::error!("Could not spawn a client: {}", ErrorFmt(e));
             break;
         }
